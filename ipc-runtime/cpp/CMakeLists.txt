@@ -6,8 +6,8 @@
 #   1. As a top-level standalone build:
 #        cd ipc-runtime/cpp && cmake -B build && cmake --build build
 #
-#   2. As a sub-project via `add_subdirectory()` from a larger CMake tree
-#      (e.g. barretenberg/cpp). In that case the parent's compile options
+#   2. As a sub-project via `add_subdirectory()` from a larger CMake tree.
+#      In that case the parent's compile options
 #      (-Wall, -Werror, etc.) and gtest target (if any) are inherited.
 
 cmake_minimum_required(VERSION 3.20)
@@ -34,9 +34,9 @@ option(IPC_RUNTIME_BUILD_NAPI "Build the Node native addon (ipc_runtime_napi.nod
 # ---- Library ---------------------------------------------------------------
 
 # Under WASM (emscripten / no-POSIX targets) the transport sources don't
-# compile, but downstream WASM consumers still need the headers (e.g. for the
-# codegen-emitted NamedUnion / msgpack_schema_to_string template helpers, plus
-# the IpcServer class declaration referenced from generated bb_ipc_server.hpp).
+# compile, but downstream no-POSIX consumers still need the headers (e.g. for
+# the codegen-emitted NamedUnion / msgpack_schema_to_string template helpers,
+# plus the IpcServer class declaration referenced from generated server code).
 # Expose an INTERFACE target with just the include path in that case.
 if(WASM)
     add_library(ipc_runtime INTERFACE)
@@ -69,9 +69,8 @@ endif()
 # ---- Tests -----------------------------------------------------------------
 
 if(IPC_RUNTIME_BUILD_TESTS AND NOT WASM)
-    # Reuse a parent project's GTest target if one is already in scope (e.g.
-    # when add_subdirectory'd from barretenberg/cpp). Otherwise fetch a pinned
-    # release — version matches barretenberg/cpp/cmake/gtest.cmake.
+    # Reuse a parent project's GTest target if one is already in scope.
+    # Otherwise fetch a pinned release.
     if(NOT TARGET GTest::gtest_main)
         include(FetchContent)
         FetchContent_Declare(

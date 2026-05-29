@@ -173,12 +173,10 @@ public:
         continue;
       }
 
-      // ShutdownRequested-based graceful exit is host-only: under
-      // BB_NO_EXCEPTIONS (WASM), throw becomes abort(), and the
-      // try_catch_shim rewrites catch into `if (false)` whose body is
-      // still parsed — which would leave the catch-variable referenced
-      // but undeclared. Skip the catch handler in that case; the WASM
-      // bbapi cbind never throws ShutdownRequested anyway.
+      // ShutdownRequested-based graceful exit is host-only. Under
+      // BB_NO_EXCEPTIONS, throw becomes abort(), and some no-exception
+      // toolchains rewrite catch into `if (false)` while still parsing the
+      // catch body. Skip the catch handler in that case.
 #ifdef BB_NO_EXCEPTIONS
       {
         auto response = handler(client_id, request);

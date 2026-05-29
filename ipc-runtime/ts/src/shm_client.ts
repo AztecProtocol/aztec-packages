@@ -71,7 +71,7 @@ export class NapiShmAsyncClient implements IpcClientAsync {
         cb.resolve(new Uint8Array(response));
       } else {
         // Unexpected — a response arrived but no caller is waiting.
-        // Drop it; the bb-side wrapper also just warns in this case.
+        // Drop it; there is no caller left to resolve.
       }
       if (this.pending.length === 0) {
         this.inner.release();

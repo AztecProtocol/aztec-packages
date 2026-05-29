@@ -1,15 +1,15 @@
-# Aztec IPC Schema Format Specification
+# IPC Schema Format Specification
 
 This document specifies the JSON schema format used for cross-language code generation
-in the Aztec IPC system. The schema is the contract between the C++ binary's
-`msgpack schema` command and all language code generators.
+in the IPC codegen system. The schema is the contract between a producer's
+schema export command and all language code generators.
 
 ## Overview
 
-Each IPC service binary (aztec-wsdb, aztec-cdb, aztec-avm, bb) exports its schema via:
+Each IPC service exports its schema as JSON, typically via a subcommand:
 
 ```bash
-./aztec-wsdb msgpack schema   # Outputs JSON to stdout
+./my-service msgpack schema   # Outputs JSON to stdout
 ```
 
 The output is a JSON object representing the service's API, derived at compile time

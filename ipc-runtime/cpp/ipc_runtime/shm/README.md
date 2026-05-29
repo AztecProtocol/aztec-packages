@@ -93,7 +93,7 @@ Ultra-low-latency shared-memory ring buffers for inter-process communication usi
 ### SpscShm Class
 
 ```cpp
-namespace bb::ipc {
+namespace ipc {
 
 class SpscShm {
 public:
@@ -124,13 +124,13 @@ public:
     bool wait_for_space(size_t need, uint32_t spin_ns);
 };
 
-} // namespace bb::ipc
+} // namespace ipc
 ```
 
 ### MpscConsumer / MpscProducer Classes
 
 ```cpp
-namespace bb::ipc {
+namespace ipc {
 
 class MpscConsumer {
 public:
@@ -165,7 +165,7 @@ public:
     bool wait_for_space(size_t need, uint32_t spin_ns);
 };
 
-} // namespace bb::ipc
+} // namespace ipc
 ```
 
 ## Usage Examples
@@ -174,10 +174,10 @@ public:
 
 **Producer process:**
 ```cpp
-#include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include "ipc_runtime/shm/spsc_shm.hpp"
 #include <string>
 
-using namespace bb::ipc;
+using namespace ipc;
 
 int main() {
     // Create ring buffer (1 MB capacity)
@@ -206,10 +206,10 @@ int main() {
 
 **Consumer process:**
 ```cpp
-#include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include "ipc_runtime/shm/spsc_shm.hpp"
 #include <iostream>
 
-using namespace bb::ipc;
+using namespace ipc;
 
 int main() {
     // Connect to existing ring
@@ -243,10 +243,10 @@ SpscShm::unlink("/demo_ring");
 
 **Consumer process:**
 ```cpp
-#include "barretenberg/ipc/shm/mpsc_shm.hpp"
+#include "ipc_runtime/shm/mpsc_shm.hpp"
 #include <iostream>
 
-using namespace bb::ipc;
+using namespace ipc;
 
 int main() {
     // Create MPSC with 3 producers, 1 MB rings
@@ -273,10 +273,10 @@ int main() {
 
 **Producer processes (3 separate processes):**
 ```cpp
-#include "barretenberg/ipc/shm/mpsc_shm.hpp"
+#include "ipc_runtime/shm/mpsc_shm.hpp"
 #include <string>
 
-using namespace bb::ipc;
+using namespace ipc;
 
 int main(int argc, char** argv) {
     int producer_id = std::stoi(argv[1]);  // 0, 1, or 2
@@ -430,10 +430,9 @@ The `spin_ns` parameter controls busy-wait duration before sleeping:
 
 - Parent IPC module: [`../README.md`](../README.md)
 - Tests: [`../shm.test.cpp`](../shm.test.cpp)
-- Benchmarks: `barretenberg/cpp/build-no-avm/bin/ipc_bench`
+- Benchmarks: build a harness against the `ipc_runtime` CMake target.
 - Higher-level wrappers: `ShmClient` / `ShmServer` in [`../shm_client.hpp`](../shm_client.hpp)
 
 ## License
 
-Part of Barretenberg cryptographic library.
 See repository root for license details.

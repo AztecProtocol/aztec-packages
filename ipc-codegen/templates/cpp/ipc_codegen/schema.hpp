@@ -184,8 +184,7 @@ inline void schema_pack(SchemaPacker &packer, std::variant<Args...> const &) {
 }
 template <typename T, std::size_t N>
 inline void schema_pack(SchemaPacker &packer, std::array<T, N> const &) {
-  // Special case: array<unsigned char, N> is the bin32 / fixed-byte form
-  // (matches how the AztecProtocol msgpack-c fork encodes it).
+  // Special case: array<unsigned char, N> is the bin32 / fixed-byte form.
   if constexpr (std::is_same_v<T, unsigned char> ||
                 std::is_same_v<T, std::uint8_t>) {
     packer.pack_alias("bin32", "bin32");

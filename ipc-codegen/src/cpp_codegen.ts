@@ -504,9 +504,8 @@ ${methods}
 // ---------------------------------------------------------------------------
 // Wire aliases for the schema's bin32 alias family. msgpack-c's
 // std::array<unsigned char, N> adapter already packs as \`bin\` (which is
-// what we want — byte-identical with bb::fr / Rust serde_bytes / msgpackr
-// Uint8Array), so the aliases below carry no extra machinery beyond the
-// std::array typedef.
+// what we want for fixed-size byte aliases across the supported languages), so
+// the aliases below carry no extra machinery beyond the std::array typedef.
 // ---------------------------------------------------------------------------
 
 ${aliasDecls}

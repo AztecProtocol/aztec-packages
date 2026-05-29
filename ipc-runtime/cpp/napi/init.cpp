@@ -4,8 +4,7 @@
 
 // Node addon entry point for ipc-runtime's SHM-IPC client bindings.
 // Exports only the transport-agnostic msgpack clients; service-specific
-// bindings (e.g. bb's WorldState / LMDBStore / AvmSimulate) live in their
-// own addon and consume @aztec/ipc-runtime separately.
+// bindings live in their own addons and consume @aztec/ipc-runtime separately.
 static Napi::Object Init(Napi::Env env, Napi::Object exports) {
   exports.Set(Napi::String::New(env, "MsgpackClient"),
               ipc::napi::MsgpackClientWrapper::get_class(env));

@@ -9,9 +9,9 @@
 ///   FfiBackend (ffi_backend.zig) — Direct C FFI linking
 ///
 /// Usage with the generated client:
-///   const Client = @import("wsdb_client.zig").Client;
+///   const Client = @import("my_service_client.zig").Client;
 ///   const UdsBackend = @import("uds_backend.zig").UdsBackend;
-///   var backend = try UdsBackend.connect("/tmp/wsdb.sock");
+///   var backend = try UdsBackend.connect("/tmp/my-service.sock");
 ///   var client = Client(UdsBackend){ .backend = &backend };
 
 /// Compile-time check that a type satisfies the backend interface.

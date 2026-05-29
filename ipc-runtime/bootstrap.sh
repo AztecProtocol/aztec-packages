@@ -2,12 +2,12 @@
 # ipc-runtime — UDS + MPSC-SHM transport library for IPC services.
 #
 # Standalone-buildable: cmake + a C++20 compiler + POSIX is all that's
-# required. No barretenberg deps, no msgpack dep, no Tracy/TBB/lmdb
+# required. No repo-local deps, no msgpack dep, no tracing or database
 # machinery. gtest is fetched via FetchContent the first time tests are
 # built (cached locally between runs in cpp/build/_deps/).
 #
 # Cross-compile via standard CMake toolchain knobs, e.g. with zig:
-#   CXX=$(git rev-parse --show-toplevel)/barretenberg/cpp/scripts/zig-c++.sh \
+#   CXX=zig-c++ \
 #   CXXFLAGS="-target aarch64-linux-gnu" \
 #   ./bootstrap.sh
 #
@@ -34,8 +34,8 @@ function build {
     echo "Copied NAPI addon → $target_dir/ipc_runtime_napi.node"
   fi
 
-  # Build the TS package so consumers that portal-link @aztec/ipc-runtime
-  # (e.g. bb.js) find dest/ populated before they typecheck.
+  # Build the TS package so file/portal-link consumers find dest/ populated
+  # before they typecheck.
   if [ "${SKIP_TS_BUILD:-0}" -ne 1 ]; then
     (cd ts && yarn install --immutable && yarn build)
   fi

@@ -20,9 +20,9 @@ function toAliasName(name: string): string {
 }
 
 export interface RustCodegenOptions {
-  /** Prefix for stripping from method names, e.g. 'Wsdb' makes WsdbGetTreeInfo -> get_tree_info */
+  /** Prefix for stripping from method names, e.g. 'Svc' makes SvcGetInfo -> get_info */
   prefix?: string;
-  /** API struct name, e.g. 'WsdbApi'. Defaults to 'BarretenbergApi' */
+  /** API struct name, e.g. 'SvcApi'. Defaults to 'IpcApi' */
   apiStructName?: string;
   /** Import path for Backend trait. Defaults to 'crate::backend::Backend' */
   backendImport?: string;
@@ -42,7 +42,7 @@ export class RustCodegen {
 
   constructor(options?: RustCodegenOptions) {
     const prefix = options?.prefix ?? "";
-    const name = prefix || "Barretenberg";
+    const name = prefix || "Ipc";
     this.opts = {
       prefix,
       apiStructName: options?.apiStructName ?? `${name}Api`,
@@ -50,7 +50,7 @@ export class RustCodegen {
       errorImport: options?.errorImport ?? `super::error::{IpcError, Result}`,
       typesImport:
         options?.typesImport ??
-        `super::${toSnakeCase(prefix || "bb")}_types::*`,
+        `super::${toSnakeCase(prefix || "ipc")}_types::*`,
       typesDocComment:
         options?.typesDocComment ?? `Generated types for ${name} IPC protocol`,
       apiDocComment: options?.apiDocComment ?? `${name} IPC client API`,
