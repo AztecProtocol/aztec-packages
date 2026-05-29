@@ -670,16 +670,25 @@ template <typename Flavor> class SumcheckProver {
      * Kernel shape per output k: dst[k] = src[2k] + r * (src[2k+1] - src[2k]) — a linear
      * interpolation between adjacent source slots. Stride-2 read, contiguous write.
      *
-     * Under WASM SIMD with Bn254Fr, processes 5 outputs per iteration via VectorField:
-     * one width-5 sub + one width-5 mul + one width-5 add replaces 5 scalar Mont-muls (≈5×
-     * Mont-mul saving per group). Even/odd lanes are loaded via `Vec::gather` (per-lane
-     * scalar reads — the Mont-mul savings dominate the gather cost). The result is stored
-     * via the SIMD-shuffle linear-memory `store_to`. Tail and non-WASM/non-Bn254Fr take
-     * the original scalar K=1 path.
+     * Under WASM SIMD with Bn254Fr, the dense interior of each polynomial runs the K=5 path:
+     * one width-5 sub + one width-5 mul + one width-5 add replaces 5 scalar Mont-muls.
+     * Even/odd lanes load via `Vec::gather`; result stores via `store_to`. Tail and
+     * non-WASM/non-Bn254Fr take the original scalar K=1 path.
      *
-     * Aliasing under partially_evaluate_in_place: batch b reads src[10b..10b+9] and writes
-     * dst[5b..5b+4]. For b > 0, write zone [5b..5b+4] ⊂ [0..10b-1] is strictly before the
-     * read zone — no future-read conflict. Within batch 0, both gathers complete before
+     * Virtual-zero prefix handling: barretenberg polynomials are virtual-shifted —
+     * `poly.operator[](i)` returns 0 for `i < poly.start_index()` (the slots before
+     * the backing buffer). The scalar path uses `poly[i]`, which respects this; the
+     * SIMD `Vec::gather` uses raw pointer arithmetic on `poly.data()` and would deref
+     * before the backing buffer if applied at i < start_index. Shiftable polynomials
+     * (start_index = NUM_ZERO_ROWS = 1) appear throughout MegaFlavor round 0, so this
+     * matters. Run a scalar head until `i >= start_index`, SIMD bulk over the dense
+     * region, then scalar tail. Also gate SIMD on `dest.start_index() == 0` since
+     * `store_to` writes contiguously from `dest.data()`; the
+     * PartiallyEvaluatedMultivariates constructor always satisfies this, but be
+     * explicit for safety.
+     *
+     * Aliasing under partially_evaluate_in_place: batch b's read region is strictly
+     * before batch b+1's write region; within batch 0 the gathers complete before
      * any store. Safe.
      */
     static void partially_evaluate(auto& source_polynomials,
@@ -691,37 +700,50 @@ template <typename Flavor> class SumcheckProver {
         parallel_for(source_view.size(), [&](size_t j) {
             BB_BENCH_TRACY_NAME("Sumcheck::partially_evaluate");
             const auto& poly = source_view[j];
+            auto& dest = dest_view[j];
             const size_t limit = poly.end_index();
+            const size_t start = poly.start_index();
             size_t i = 0;
+            // Scalar head: cover the virtual-zero prefix where `poly[i]` would return 0
+            // for i < start. The SIMD gather can't safely read before poly.data().
+            for (; i < start && i < limit; i += 2) {
+                dest.at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
+            }
 #if defined(__wasm_simd128__)
             if constexpr (has_simd_mont_mul_v<typename FF::Params>) {
-                using Vec = VectorField<typename FF::Params>;
-                const Vec r_vec = Vec::broadcast(round_challenge);
-                const FF* src_base = poly.data() - poly.start_index();
-                FF* dst_base = dest_view[j].data() - dest_view[j].start_index();
-                const size_t k5_groups = limit / 10; // full 10-source-element groups
-                for (size_t b = 0; b < k5_groups; ++b) {
-                    const size_t src_base_idx = b * 10;
-                    const std::array<size_t, 5> even_idx{
-                        src_base_idx + 0, src_base_idx + 2, src_base_idx + 4, src_base_idx + 6, src_base_idx + 8
-                    };
-                    const std::array<size_t, 5> odd_idx{
-                        src_base_idx + 1, src_base_idx + 3, src_base_idx + 5, src_base_idx + 7, src_base_idx + 9
-                    };
-                    const Vec even = Vec::gather(src_base, even_idx);
-                    const Vec odd = Vec::gather(src_base, odd_idx);
-                    const Vec result = even + (odd - even) * r_vec;
-                    result.store_to(dst_base + b * 5);
+                // After the head, i >= start (or i >= limit). Bulk SIMD is safe iff there
+                // are dense source elements remaining AND the dest is start_index=0
+                // (which `store_to` assumes).
+                if (i < limit && dest.start_index() == 0) {
+                    using Vec = VectorField<typename FF::Params>;
+                    const Vec r_vec = Vec::broadcast(round_challenge);
+                    // poly.data()[i - start] is the dense slot for absolute index i.
+                    const FF* src_dense = poly.data() + (i - start);
+                    FF* dst_dense = dest.data();
+                    const size_t k5_groups = (limit - i) / 10;
+                    for (size_t b = 0; b < k5_groups; ++b) {
+                        const size_t src_off = b * 10;
+                        const std::array<size_t, 5> even_idx{
+                            src_off + 0, src_off + 2, src_off + 4, src_off + 6, src_off + 8
+                        };
+                        const std::array<size_t, 5> odd_idx{
+                            src_off + 1, src_off + 3, src_off + 5, src_off + 7, src_off + 9
+                        };
+                        const Vec even = Vec::gather(src_dense, even_idx);
+                        const Vec odd = Vec::gather(src_dense, odd_idx);
+                        const Vec result = even + (odd - even) * r_vec;
+                        result.store_to(dst_dense + (i >> 1) + b * 5);
+                    }
+                    i += k5_groups * 10;
                 }
-                i = k5_groups * 10; // scalar tail starts at the first untouched source index
             }
 #endif
-            // Scalar K=1 tail (or full pass on native / non-Bn254Fr). When the SIMD path is
-            // disabled, i == 0 and this recovers the original loop exactly.
+            // Scalar tail (also handles the full pass on native / non-Bn254Fr / when the
+            // SIMD block was guarded out).
             for (; i < limit; i += 2) {
-                dest_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
+                dest.at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
             }
-            dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
+            dest.shrink_end_index((limit / 2) + (limit % 2));
         });
     };
 
