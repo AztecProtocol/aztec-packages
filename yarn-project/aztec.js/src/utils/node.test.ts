@@ -1,10 +1,10 @@
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { MinedTxStatus } from '@aztec/stdlib/tx';
 import {
   DroppedTxReceipt,
   MinedTxReceipt,
+  type MinedTxStatus,
   PendingTxReceipt,
   TxExecutionResult,
   TxHash,
