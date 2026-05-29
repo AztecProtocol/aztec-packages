@@ -531,6 +531,11 @@ interface SharedScratch {
   taskCuts: GPUBuffer;              // (S+1) cut points/thread × 2 u32
   walkerPartials: GPUBuffer;        // 2*S partial slots/thread (split-start + task-end)
   walkerPartialDest: GPUBuffer;     // bucket_id per partial slot (NO_BUCKET if unused)
+  // Task #19 — per-bucket linked-list index for the indexed walker_combine.
+  bucketHead: GPUBuffer;            // bTotal × atomic<u32>, 0=NO_NODE, otherwise 1-indexed handle
+  walkerNodesSlot: GPUBuffer;       // node_idx → partial slot index
+  walkerNodesNext: GPUBuffer;       // node_idx → next node handle
+  walkerNodeCounter: GPUBuffer;     // single atomic<u32> counter
   // Pad-trio layout in bufA/bufB (depends on the M1 the buffers were
   // sized for). Re-derived whenever bufA grows.
   planeBytes: number;
@@ -666,6 +671,7 @@ export class MsmV2Pool {
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
       total += s.taskCuts.size + s.walkerPartials.size + s.walkerPartialDest.size;
+      total += s.bucketHead.size + s.walkerNodesSlot.size + s.walkerNodesNext.size + s.walkerNodeCounter.size;
     }
     return total;
   }
@@ -857,6 +863,11 @@ export class MsmV2Pool {
     let taskCuts = s?.taskCuts;
     let walkerPartials = s?.walkerPartials;
     let walkerPartialDest = s?.walkerPartialDest;
+    // Task #19: per-bucket linked-list index.
+    let bucketHead = s?.bucketHead;
+    let walkerNodesSlot = s?.walkerNodesSlot;
+    let walkerNodesNext = s?.walkerNodesNext;
+    let walkerNodeCounter = s?.walkerNodeCounter;
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
       streamPlannerMeta?.destroy();
       size1BucketList?.destroy();
@@ -876,6 +887,10 @@ export class MsmV2Pool {
       taskCuts?.destroy();
       walkerPartials?.destroy();
       walkerPartialDest?.destroy();
+      bucketHead?.destroy();
+      walkerNodesSlot?.destroy();
+      walkerNodesNext?.destroy();
+      walkerNodeCounter?.destroy();
       grow(dims.streamNumThreads > cur.streamNumThreads, 'streamNumThreads');
       grow(dims.streamS > cur.streamS, 'streamS');
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
@@ -906,6 +921,14 @@ export class MsmV2Pool {
       taskCuts = sbuf(sT * (sS + 1) * 2 * 4);
       walkerPartials = soaBuf(2 * sT * sS);
       walkerPartialDest = sbuf(2 * sT * sS * 4);
+      // Task #19 — per-bucket linked-list index for walker_combine.
+      //   bucketHead:  bTotal × atomic<u32>, cleared to 0 (NO_NODE) per MSM.
+      //   walkerNodesSlot/Next: one node per partial slot = 2*sT*sS u32 each.
+      //   walkerNodeCounter: single atomic<u32>, cleared to 0 per MSM.
+      bucketHead = sbuf(sBTotal * 4);
+      walkerNodesSlot = sbuf(2 * sT * sS * 4);
+      walkerNodesNext = sbuf(2 * sT * sS * 4);
+      walkerNodeCounter = sbuf(4);
       grew = true;
     }
 
@@ -952,6 +975,10 @@ export class MsmV2Pool {
       taskCuts: taskCuts!,
       walkerPartials: walkerPartials!,
       walkerPartialDest: walkerPartialDest!,
+      bucketHead: bucketHead!,
+      walkerNodesSlot: walkerNodesSlot!,
+      walkerNodesNext: walkerNodesNext!,
+      walkerNodeCounter: walkerNodeCounter!,
       planeBytes,
       padBytesPerPlane,
       padXOffset,
@@ -1241,6 +1268,10 @@ export class MsmV2 {
   private walkerCombinePipe!: GPUComputePipeline;
   private walkerCombineLayout!: GPUBindGroupLayout;
   private walkerCombineBind!: GPUBindGroup;
+  // Task #19 — per-bucket linked-list index between walker and combine.
+  private walkerPartialsIndexPipe!: GPUComputePipeline;
+  private walkerPartialsIndexLayout!: GPUBindGroupLayout;
+  private walkerPartialsIndexBind!: GPUBindGroup;
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
@@ -1491,8 +1522,11 @@ export class MsmV2 {
     m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   stream_walker: sorted_bucket_list, sorted_count_list, offsets, task_cuts, l0_index, point_x, point_y, bucket_sums(rw), partials(rw), partial_dest(rw), params(uniform)
     m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
-    //   walker_combine: sorted_bucket_list, partial_dest, partials, bucket_sums(rw), planner_meta, params(uniform)
-    m.walkerCombineLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
+    //   walker_partials_index: partial_dest, bucket_head(rw), nodes_slot(rw), nodes_next(rw), node_counter(rw), params(uniform)
+    m.walkerPartialsIndexLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
+    //   walker_combine: sorted_bucket_list, bucket_head(rw — atomic-typed),
+    //   nodes_slot, nodes_next, partials, bucket_sums(rw), planner_meta, params(uniform)
+    m.walkerCombineLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1595,6 +1629,9 @@ export class MsmV2 {
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
       `walker-combine`, m.walkerCombineLayout);
+    m.walkerPartialsIndexPipe = await compile(
+      sm.gen_ba_walker_partials_index_shader(256),
+      `walker-partials-index`, m.walkerPartialsIndexLayout);
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
@@ -2104,10 +2141,20 @@ export class MsmV2 {
         sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
         bucketResult, wp, pdest, walkerParams,
       ]);
-      // Walker combine: scans partial_dest for buckets matching each thread's
-      // bucket id and folds tagged partials into bucket_sums.
+      // Walker partials indexer (Task #19): one thread per partial slot,
+      // builds the per-bucket linked-list head/nodes that walker_combine
+      // walks. params.x = num_partial_slots, params.y = max_nodes
+      // (overflow guard — same as the array size).
+      const bh = scratch.bucketHead;
+      const wns = scratch.walkerNodesSlot;
+      const wnn = scratch.walkerNodesNext;
+      const wnc = scratch.walkerNodeCounter;
+      const numPartialSlots = M_partials_walker;
+      const idxParams = ubuf(new Uint32Array([numPartialSlots, numPartialSlots, 0, 0]));
+      this.walkerPartialsIndexBind = mkBind(this.walkerPartialsIndexLayout, [pdest, bh, wns, wnn, wnc, idxParams]);
+      // Walker combine: traverses each bucket's linked list of partials.
       const combineParams = ubuf(new Uint32Array([B_TOTAL, M_partials_walker, 0, 0]));
-      this.walkerCombineBind = mkBind(this.walkerCombineLayout, [sb, pdest, wp, bucketResult, sp, combineParams]);
+      this.walkerCombineBind = mkBind(this.walkerCombineLayout, [sb, bh, wns, wnn, wp, bucketResult, sp, combineParams]);
     }
 
     this.redStaging = device.createBuffer({
@@ -2264,6 +2311,10 @@ export class MsmV2 {
     enc.clearBuffer(this.pool.scratch!.walkerPartials);
     enc.clearBuffer(this.pool.scratch!.walkerPartialDest);
     enc.clearBuffer(this.pool.scratch!.taskCuts);
+    // Task #19 — clear linked-list state so bucket_head=NO_NODE (0)
+    // and node_counter=0 at the start of each MSM.
+    enc.clearBuffer(this.pool.scratch!.bucketHead);
+    enc.clearBuffer(this.pool.scratch!.walkerNodeCounter);
 
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
@@ -2319,9 +2370,12 @@ export class MsmV2 {
       // (= byte offset 60 = 15 * 4).
       setPhase('stream_walker');
       indirectDispatch(this.streamWalkerPipe, this.streamWalkerBind, spMeta, 15 * 4);
-      // GPU split-bucket combine (Plan §10 host-fixup variant superseded by
-      // C's correctness-first walker_combine kernel — O(num_dense × M_partials)
-      // scan, fine for small-n correctness gates).
+      // Task #19: per-bucket linked-list index (atomic CAS pass over
+      // partial_dest) replaces walker_combine's O(num_dense × M_partials)
+      // scan with O(M_partials) indexing + O(num_partials_per_bucket) walks.
+      setPhase('walker_index');
+      const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
+      dispatch(this.walkerPartialsIndexPipe, this.walkerPartialsIndexBind, Math.ceil(M_partials_walker / 256), 1);
       setPhase('walker_combine');
       dispatch(this.walkerCombinePipe, this.walkerCombineBind, Math.ceil(this.bTotal / 256), 1);
     }

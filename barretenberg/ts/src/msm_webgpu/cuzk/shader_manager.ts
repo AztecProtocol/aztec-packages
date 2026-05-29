@@ -22,6 +22,7 @@ import {
   ba_planner_partition_task as ba_planner_partition_task_shader,
   ba_stream_walker as ba_stream_walker_shader,
   ba_walker_combine as ba_walker_combine_shader,
+  ba_walker_partials_index as ba_walker_partials_index_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
@@ -928,9 +929,21 @@ ${packLines.join('\n')}
     );
   }
 
-  // Stream-walker split-bucket combine (correctness-first scan for small-n
-  // gates). One thread per dense bucket scans the partial slots, affine-sums
-  // pieces tagged for its bucket, writes the result to bucket_sums.
+  // Stream-walker partials indexer (task #19): one thread per partial slot.
+  // Builds a per-bucket linked list in (bucket_head, nodes_slot, nodes_next)
+  // using atomicCompareExchange — replaces walker_combine's O(num_dense ×
+  // M_partials) scan with O(M_partials) indexing + O(num_partials_per_bucket)
+  // walks. No field arithmetic; purely u32 pointer chase.
+  public gen_ba_walker_partials_index_shader(workgroup_size: number): string {
+    return mustache.render(
+      ba_walker_partials_index_shader,
+      { workgroup_size, recompile: this.recompile },
+    );
+  }
+
+  // Stream-walker split-bucket combine (indexed). One thread per dense
+  // bucket walks the bucket's linked list of partials (built by
+  // ba_walker_partials_index) and affine-sums them into bucket_sums.
   public gen_ba_walker_combine_shader(s: number, variant: 'loop' | 'pk' = 'pk'): string {
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
