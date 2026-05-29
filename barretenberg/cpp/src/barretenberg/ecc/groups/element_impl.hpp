@@ -634,38 +634,13 @@ namespace detail {
 // (k1, k2) such that `k = k1 - k2·λ (mod r)`, where λ = endomorphism scalar.
 using EndoScalars = std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>>;
 
-// Carry-less signed-Booth window slice machinery is shared with the Pippenger MSM path; see
-// `ecc/groups/booth_recode.hpp`. element_impl only needs the slice-param computation — its
-// packed-digit reader (`booth_packed_digit`, below) is the simple branchless variant.
+// Carry-less signed-Booth window recoding is shared with the Pippenger MSM path; see
+// `ecc/groups/booth_recode.hpp`. element_impl uses the slice-param computation plus the
+// simple branchless `booth_packed_digit` reader (the MSM path has its own perf-tuned one).
+// The GLV-endo window *schedule* below is element-specific and stays here.
+using bb::ecc::booth::booth_packed_digit;
 using bb::ecc::booth::BoothSliceParams;
 using bb::ecc::booth::compute_booth_slice_params;
-
-/**
- * @brief Read a (window_bits+1)-bit window from `s[]` (uint64 limbs) and apply
- *        Constantine's signedWindowEncoding to produce a `(sign | magnitude)` packed
- *        digit: bit 31 = sign (1 = negative), bits 0..30 = magnitude in
- *        [0, 2^(window_bits-1)]. Magnitude 0 means the window contributes nothing.
- *
- *        Windows entirely inside one uint64 (common case) take the fast path:
- *        `hi_mask == 0`, so `hi_part` vanishes branch-free.
- */
-[[nodiscard]] [[gnu::always_inline]] inline uint32_t booth_packed_digit(const uint64_t* s,
-                                                                        const BoothSliceParams& sp,
-                                                                        size_t window_bits) noexcept
-{
-    const uint64_t s_lo = s[sp.lo_limb];
-    const uint64_t s_hi = s[sp.hi_limb];
-    const uint64_t lo_part = (s_lo >> sp.lo_off) & sp.lo_mask;
-    const uint64_t hi_part = (s_hi & sp.hi_mask) << sp.lo_bits;
-    // raw fits in window_bits+1 ≤ 32 bits, safe to narrow.
-    const uint32_t raw = static_cast<uint32_t>(lo_part | hi_part);
-    const uint32_t neg = (raw >> window_bits) & uint32_t{ 1 };
-    const uint32_t neg_mask = uint32_t{ 0 } - neg;
-    const uint32_t val_mask = (uint32_t{ 1 } << window_bits) - 1;
-    const uint32_t encode = (raw + 1) >> 1;
-    const uint32_t magnitude = ((encode + neg_mask) ^ neg_mask) & val_mask;
-    return (neg << 31) | magnitude;
-}
 
 // Booth window size for the GLV endomorphism path. With c=4 over 128-bit halves we
 // have 32 windows per half (matches the prior WNAF's NUM_ROUNDS).

@@ -103,4 +103,37 @@ struct BoothSliceParams {
     return sp;
 }
 
+/**
+ * @brief Read a (window_bits+1)-bit window from `s[]` (uint64 limbs) and apply Constantine's
+ *        signedWindowEncoding to produce a `(sign | magnitude)` packed digit: bit 31 = sign
+ *        (1 = negative), bits 0..30 = magnitude in [0, 2^(window_bits-1)]. Magnitude 0 means
+ *        the window contributes nothing.
+ *
+ * @details The simple branchless reader: two unconditional limb loads, no fast-path branching.
+ *          Suited to callers with a small fixed window schedule where the reader is not the
+ *          hot loop (e.g. the GLV-endo straus path in `element_impl.hpp`). The Pippenger MSM
+ *          inner loop uses its own register-passed, multi-path reader instead — see
+ *          `get_constantine_packed_digit` in `pippenger_constantine.hpp`.
+ *
+ *          Windows entirely inside one uint64 still work here: `hi_mask == 0`, so `hi_part`
+ *          vanishes without a branch.
+ */
+[[nodiscard]] [[gnu::always_inline]] inline uint32_t booth_packed_digit(const uint64_t* s,
+                                                                        const BoothSliceParams& sp,
+                                                                        size_t window_bits) noexcept
+{
+    const uint64_t s_lo = s[sp.lo_limb];
+    const uint64_t s_hi = s[sp.hi_limb];
+    const uint64_t lo_part = (s_lo >> sp.lo_off) & sp.lo_mask;
+    const uint64_t hi_part = (s_hi & sp.hi_mask) << sp.lo_bits;
+    // raw fits in window_bits+1 ≤ 32 bits, safe to narrow.
+    const uint32_t raw = static_cast<uint32_t>(lo_part | hi_part);
+    const uint32_t neg = (raw >> window_bits) & uint32_t{ 1 };
+    const uint32_t neg_mask = uint32_t{ 0 } - neg;
+    const uint32_t val_mask = (uint32_t{ 1 } << window_bits) - 1;
+    const uint32_t encode = (raw + 1) >> 1;
+    const uint32_t magnitude = ((encode + neg_mask) ^ neg_mask) & val_mask;
+    return (neg << 31) | magnitude;
+}
+
 } // namespace bb::ecc::booth
