@@ -131,8 +131,64 @@ function compile {
 }
 export -f compile
 
+# Standard contracts that get their addresses baked into `standard_addresses.nr` BEFORE other
+# contracts compile against them. Listed by their `contracts/<...>` member name in Nargo.toml.
+# Keep in sync with `yarn-project/standard-contracts/src/contract_data.ts`.
+export STANDARD_CONTRACT_PATHS=(
+  "standard/auth_registry_contract"
+  "standard/public_checks_contract"
+  "standard/multi_call_entrypoint_contract"
+)
+
+# Derive `standard_addresses.nr` for the standard contracts using their freshly-built artifacts.
+# Reads the precomputed `artifact_hash` and `private_functions_root` (the TS-only hash inputs that
+# the C++ port is still missing — see standard_address_derivation.cpp) from a sidecar JSON file
+# pinned in standard-contracts. The C++ derives bytecode commitment, class id, init hash, and the
+# final address. Output is written to BOTH the aztec-nr aztec crate AND its aztec_sublib twin so
+# both compile sites see the same baked addresses.
+function derive_standard_addresses {
+  local sidecar="../../yarn-project/standard-contracts/src/standard_contract_class_id_preimages.json"
+  if [ ! -f "$sidecar" ]; then
+    echo_stderr "Sidecar manifest missing: $sidecar"
+    echo_stderr "Run 'yarn workspace @aztec/standard-contracts run generate:data' to regenerate it"
+    echo_stderr "(or supply the artifact_hash / private_functions_root for each standard contract by hand)."
+    return 1
+  fi
+  local config=$(mktemp)
+  # Compose the bb config from the pinned preimages + the artifacts that nargo just produced.
+  # The output paths are the aztec-nr/aztec twin layout.
+  jq -n \
+    --arg ar_artifact ./target/auth_registry_contract-AuthRegistry.json \
+    --arg pc_artifact ./target/public_checks_contract-PublicChecks.json \
+    --slurpfile preimages "$sidecar" \
+    '{
+       entries: [
+         { artifact_path: $ar_artifact,
+           nr_const: "STANDARD_AUTH_REGISTRY_ADDRESS",
+           artifact_hash: $preimages[0].AuthRegistry.artifactHash,
+           private_functions_root: $preimages[0].AuthRegistry.privateFunctionsRoot
+         },
+         { artifact_path: $pc_artifact,
+           nr_const: "STANDARD_PUBLIC_CHECKS_ADDRESS",
+           artifact_hash: $preimages[0].PublicChecks.artifactHash,
+           private_functions_root: $preimages[0].PublicChecks.privateFunctionsRoot
+         }
+       ],
+       output_paths: [
+         "../aztec-nr/aztec/src/standard_addresses.nr",
+         "./contracts/protocol/aztec_sublib/src/standard_addresses.nr"
+       ]
+     }' > "$config"
+  $BB derive_standard_contract_addresses --config "$config"
+  rm -f "$config"
+}
+export -f derive_standard_addresses
+
 # If given an argument, it's the contract to compile.
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
+# When no argument is provided, build in two phases: (1) compile the standard contracts, derive
+# their addresses, stamp the addresses into `standard_addresses.nr`, then (2) compile the rest of
+# the contracts against the now-fresh addresses.
 function build {
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
   local folder_name
@@ -145,24 +201,55 @@ function build {
   if [ "$#" -eq 0 ]; then
     rm -rf target
     mkdir -p target
-    local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
+    local all_contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
 
-    # If a pinned standard-contracts archive is present, extract it into target/ and skip
-    # recompilation of those contracts. The archive is only committed on release branches; on
-    # next it is absent and this block is a no-op (everything compiles fresh).
+    # If a pinned standard-contracts archive is present, extract it into target/ and skip both
+    # phase-1 compilation and address derivation: the release branch ships standard_addresses.nr
+    # already in sync with the pinned artifacts. Absent on next; this block is a no-op there.
+    local skip_phase1=0
     if [ -f pinned-standard-contracts.tar.gz ]; then
       echo_stderr "Using pinned-standard-contracts.tar.gz for pinned standard contracts."
       tar xzf pinned-standard-contracts.tar.gz -C target
-      contracts=$(echo "$contracts" | grep -vE "^standard/")
+      skip_phase1=1
     fi
+
+    if [ $skip_phase1 -eq 0 ]; then
+      # Phase 1: standard contracts only. Compile sequentially-then-parallel so their artifacts
+      # exist before the derivation step.
+      set +e
+      parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} $folder_name \
+        ::: ${STANDARD_CONTRACT_PATHS[@]}
+      code=$?
+      cat joblog.txt
+      [ $code -ne 0 ] && return $code
+
+      # Derive addresses and update standard_addresses.nr in both aztec-nr/aztec and aztec_sublib.
+      derive_standard_addresses || return $?
+    fi
+
+    # Phase 2: all other contracts. Build the complement of standard contracts.
+    local other_contracts=()
+    for c in $all_contracts; do
+      local is_standard=0
+      for std in ${STANDARD_CONTRACT_PATHS[@]}; do
+        [ "$c" = "$std" ] && { is_standard=1; break; }
+      done
+      [ $is_standard -eq 0 ] && other_contracts+=("$c")
+    done
+    set +e
+    parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} $folder_name \
+      ::: ${other_contracts[@]}
+    code=$?
+    cat joblog.txt
+    return $code
   else
     local contracts="$@"
+    set +e
+    parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} $folder_name ::: ${contracts[@]}
+    code=$?
+    cat joblog.txt
+    return $code
   fi
-  set +e
-  parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} $folder_name ::: ${contracts[@]}
-  code=$?
-  cat joblog.txt
-  return $code
 }
 
 function test_cmds {
