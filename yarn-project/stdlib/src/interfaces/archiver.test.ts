@@ -42,7 +42,6 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { TxReceipt } from '../tx/tx_receipt.js';
 import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
 
 describe('ArchiverApiSchema', () => {
@@ -118,11 +117,6 @@ describe('ArchiverApiSchema', () => {
   it('getTxEffect', async () => {
     const result = await context.client.getTxEffect(TxHash.fromBuffer(Buffer.alloc(32, BlockNumber(1))));
     expect(result!.data).toBeInstanceOf(TxEffect);
-  });
-
-  it('getSettledTxReceipt', async () => {
-    const result = await context.client.getSettledTxReceipt(TxHash.fromBuffer(Buffer.alloc(32, BlockNumber(1))));
-    expect(result).toBeInstanceOf(TxReceipt);
   });
 
   it('getSyncedL2SlotNumber', async () => {
@@ -432,10 +426,6 @@ class MockArchiver implements ArchiverApi {
       data: await TxEffect.random(),
       txIndexInBlock: randomInt(10),
     };
-  }
-  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
-    expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve(TxReceipt.empty());
   }
   getSyncedL2SlotNumber(): Promise<SlotNumber> {
     return Promise.resolve(SlotNumber(1));

@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
@@ -6,7 +6,7 @@ import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { AppTaggingSecretKind, PrivateLog } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret, randomPrivateLogResult } from '@aztec/stdlib/testing';
-import { type IndexedTxEffect, TxEffect, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import { MinedTxReceipt, TxEffect as TxEffectClass, TxExecutionResult, TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -22,6 +22,26 @@ describe('syncSenderTaggingIndexes', () => {
 
   let aztecNode: MockProxy<AztecNode>;
   let taggingStore: SenderTaggingStore;
+
+  const mined = (
+    txHash: TxHash,
+    status: MinedTxStatus,
+    blockNumber: number,
+    executionResult = TxExecutionResult.SUCCESS,
+    txEffect?: TxEffect,
+  ): MinedTxReceipt =>
+    new MinedTxReceipt(
+      txHash,
+      status,
+      executionResult,
+      1n,
+      BlockHash.random(),
+      BlockNumber(blockNumber),
+      0,
+      EpochNumber(1),
+      undefined,
+      txEffect,
+    );
 
   function computeSiloedTagForIndex(index: number) {
     return SiloedTag.compute({ extendedSecret: secret, index });
@@ -113,17 +133,7 @@ describe('syncSenderTaggingIndexes', () => {
       });
 
       // Mock getTxReceipt to return a finalized and successful tx
-      aztecNode.getTxReceipt.mockResolvedValue(
-        new TxReceipt(
-          finalizedTxHash,
-          TxStatus.FINALIZED,
-          TxExecutionResult.SUCCESS,
-          undefined,
-          undefined,
-          undefined,
-          BlockNumber(14),
-        ),
-      );
+      aztecNode.getTxReceipt.mockResolvedValue(mined(finalizedTxHash, TxStatus.FINALIZED, 14));
 
       await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
@@ -146,17 +156,7 @@ describe('syncSenderTaggingIndexes', () => {
       });
 
       // Mock getTxReceipt to return a proposed (mined but not finalized) tx
-      aztecNode.getTxReceipt.mockResolvedValue(
-        new TxReceipt(
-          pendingTxHashStep2,
-          TxStatus.PROPOSED,
-          TxExecutionResult.SUCCESS,
-          undefined,
-          undefined,
-          undefined,
-          BlockNumber(16),
-        ),
-      );
+      aztecNode.getTxReceipt.mockResolvedValue(mined(pendingTxHashStep2, TxStatus.PROPOSED, 16));
 
       await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
@@ -200,43 +200,13 @@ describe('syncSenderTaggingIndexes', () => {
       aztecNode.getTxReceipt.mockImplementation((hash: TxHash) => {
         if (hash.equals(pendingTxHashStep2)) {
           // The previously pending tx (index pendingIndexStep2) is now finalized
-          return Promise.resolve(
-            new TxReceipt(
-              hash,
-              TxStatus.FINALIZED,
-              TxExecutionResult.SUCCESS,
-              undefined,
-              undefined,
-              undefined,
-              BlockNumber(17),
-            ),
-          );
+          return Promise.resolve(mined(hash, TxStatus.FINALIZED, 17));
         } else if (hash.equals(newHighestFinalizedTxHash)) {
           // This tx (index newHighestFinalizedIndex) is finalized
-          return Promise.resolve(
-            new TxReceipt(
-              hash,
-              TxStatus.FINALIZED,
-              TxExecutionResult.SUCCESS,
-              undefined,
-              undefined,
-              undefined,
-              BlockNumber(18),
-            ),
-          );
+          return Promise.resolve(mined(hash, TxStatus.FINALIZED, 18));
         } else if (hash.equals(newHighestUsedTxHash)) {
           // This tx (index newHighestUsedIndex) is pending (mined but not finalized)
-          return Promise.resolve(
-            new TxReceipt(
-              hash,
-              TxStatus.PROPOSED,
-              TxExecutionResult.SUCCESS,
-              undefined,
-              undefined,
-              undefined,
-              BlockNumber(22),
-            ),
-          );
+          return Promise.resolve(mined(hash, TxStatus.PROPOSED, 22));
         } else {
           throw new Error(`Unexpected tx hash: ${hash.toString()}`);
         }
@@ -277,29 +247,9 @@ describe('syncSenderTaggingIndexes', () => {
 
     aztecNode.getTxReceipt.mockImplementation((hash: TxHash) => {
       if (hash.equals(finalizedTxHash)) {
-        return Promise.resolve(
-          new TxReceipt(
-            hash,
-            TxStatus.FINALIZED,
-            TxExecutionResult.SUCCESS,
-            undefined,
-            undefined,
-            undefined,
-            BlockNumber(14),
-          ),
-        );
+        return Promise.resolve(mined(hash, TxStatus.FINALIZED, 14));
       } else if (hash.equals(pendingTxHash)) {
-        return Promise.resolve(
-          new TxReceipt(
-            hash,
-            TxStatus.PROPOSED,
-            TxExecutionResult.SUCCESS,
-            undefined,
-            undefined,
-            undefined,
-            BlockNumber(16),
-          ),
-        );
+        return Promise.resolve(mined(hash, TxStatus.PROPOSED, 16));
       } else {
         throw new Error(`Unexpected tx hash: ${hash.toString()}`);
       }
@@ -338,17 +288,7 @@ describe('syncSenderTaggingIndexes', () => {
     });
 
     // The seeded tx is now finalized onchain.
-    aztecNode.getTxReceipt.mockResolvedValue(
-      new TxReceipt(
-        pendingTxHash,
-        TxStatus.FINALIZED,
-        TxExecutionResult.SUCCESS,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(14),
-      ),
-    );
+    aztecNode.getTxReceipt.mockResolvedValue(mined(pendingTxHash, TxStatus.FINALIZED, 14));
 
     await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
@@ -410,17 +350,7 @@ describe('syncSenderTaggingIndexes', () => {
 
     aztecNode.getTxReceipt.mockImplementation((hash: TxHash) => {
       if (hash.equals(preExistingTxHash) || hash.equals(newlyDiscoveredTxHash)) {
-        return Promise.resolve(
-          new TxReceipt(
-            hash,
-            TxStatus.FINALIZED,
-            TxExecutionResult.SUCCESS,
-            undefined,
-            undefined,
-            undefined,
-            BlockNumber(14),
-          ),
-        );
+        return Promise.resolve(mined(hash, TxStatus.FINALIZED, 14));
       }
       throw new Error(`Unexpected tx hash: ${hash.toString()}`);
     });
@@ -462,17 +392,7 @@ describe('syncSenderTaggingIndexes', () => {
       );
     });
 
-    aztecNode.getTxReceipt.mockResolvedValue(
-      new TxReceipt(
-        pendingTxHash,
-        TxStatus.FINALIZED,
-        TxExecutionResult.SUCCESS,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(14),
-      ),
-    );
+    aztecNode.getTxReceipt.mockResolvedValue(mined(pendingTxHash, TxStatus.FINALIZED, 14));
 
     await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
@@ -507,21 +427,9 @@ describe('syncSenderTaggingIndexes', () => {
       );
     });
 
-    // Mock getTxReceipt to return FINALIZED with REVERTED
-    aztecNode.getTxReceipt.mockResolvedValue(
-      new TxReceipt(
-        revertedTxHash,
-        TxStatus.FINALIZED,
-        TxExecutionResult.REVERTED,
-        undefined,
-        undefined,
-        undefined,
-        BlockNumber(14),
-      ),
-    );
-
-    // Mock getTxEffect to return a TxEffect where only the tag at index 4 survived (non-revertible phase)
-    const txEffect = new TxEffect(
+    // The TxEffect where only the tag at index 4 survived (non-revertible phase). The sync reads it off the receipt
+    // via getTxReceipt(txHash, { includeTxEffect: true }).
+    const txEffect = new TxEffectClass(
       RevertCode.REVERTED,
       revertedTxHash,
       Fr.ZERO,
@@ -534,12 +442,11 @@ describe('syncSenderTaggingIndexes', () => {
       [], // contractClassLogs
     );
 
-    aztecNode.getTxEffect.mockResolvedValue({
-      data: txEffect,
-      l2BlockNumber: BlockNumber(14),
-      l2BlockHash: MOCK_ANCHOR_BLOCK_HASH,
-      txIndexInBlock: 0,
-    } as IndexedTxEffect);
+    // Mock getTxReceipt to return a FINALIZED + REVERTED mined receipt carrying the tx effect. The same receipt
+    // satisfies both the status-classification call and the includeTxEffect follow-up call.
+    aztecNode.getTxReceipt.mockResolvedValue(
+      mined(revertedTxHash, TxStatus.FINALIZED, 14, TxExecutionResult.REVERTED, txEffect),
+    );
 
     await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
