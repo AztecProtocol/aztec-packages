@@ -857,21 +857,48 @@ template <typename Flavor> class SumcheckProverRound {
     {
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t relation_idx>() {
             using Relation = std::tuple_element_t<relation_idx, Relations>;
-            // Check if the relation is skippable to speed up accumulation
-            if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
-                // If not, accumulate normally
-                Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
-                                     extended_edges,
-                                     relation_parameters,
-                                     scaling_factor);
-            } else {
-                // If so, only compute the contribution if the relation is active
-                if (!Relation::skip(extended_edges)) {
+            const auto accumulate_relation = [&]() {
+                // Check if the relation is skippable to speed up accumulation
+                if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
+                    // If not, accumulate normally
                     Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
                                          extended_edges,
                                          relation_parameters,
                                          scaling_factor);
+                } else {
+                    // If so, only compute the contribution if the relation is active
+                    if (!Relation::skip(extended_edges)) {
+                        Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                             extended_edges,
+                                             relation_parameters,
+                                             scaling_factor);
+                    }
                 }
+            };
+
+            if constexpr (!IsTranslatorFlavor<Flavor>) {
+                accumulate_relation();
+            } else if constexpr (relation_idx == 0) {
+                BB_BENCH_NAME("translator_relation/permutation");
+                accumulate_relation();
+            } else if constexpr (relation_idx == 1) {
+                BB_BENCH_NAME("translator_relation/delta_range");
+                accumulate_relation();
+            } else if constexpr (relation_idx == 2) {
+                BB_BENCH_NAME("translator_relation/opcode");
+                accumulate_relation();
+            } else if constexpr (relation_idx == 3) {
+                BB_BENCH_NAME("translator_relation/accumulator_transfer");
+                accumulate_relation();
+            } else if constexpr (relation_idx == 4) {
+                BB_BENCH_NAME("translator_relation/decomposition");
+                accumulate_relation();
+            } else if constexpr (relation_idx == 5) {
+                BB_BENCH_NAME("translator_relation/non_native_field");
+                accumulate_relation();
+            } else {
+                BB_BENCH_NAME("translator_relation/zero_constraints");
+                accumulate_relation();
             }
         });
     }
