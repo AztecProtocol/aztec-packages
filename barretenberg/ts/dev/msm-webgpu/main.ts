@@ -1588,5 +1588,60 @@ function hideProgress(): void {
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
     }
+  } else if (autorun === 'msm-noble-check') {
+    // WebGPU-vs-noble cross-check. No WASM dependency, so it runs in
+    // no-GPU/no-WASM containers (SwiftShader). noble's bigint Pippenger
+    // is the CPU oracle; keep logN small (≤ ~14) since it is slow.
+    const autorunLogN = parseInt(qp.get('logn') ?? '10', 10);
+    const client = makeResultsClient({ page: 'msm-noble-check' });
+    log('info', `[autorun] msm-noble-check logN=${autorunLogN}`);
+    try {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if ($run.disabled) throw new Error('Run button never enabled within 10 minutes (SRS not ready?)');
+      const inputs = await generateInputs(autorunLogN, true);
+      await yieldToBrowser();
+      const gpu = await runWebGpuOnce(inputs);
+      log('info', `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
+      await yieldToBrowser();
+      const noble = referenceMsm(inputs.points!, inputs.scalars!);
+      const ok = pointsEqual(noble, gpu.xy);
+      if (ok) {
+        log('ok', `[noble] matches GPU at log₂(n) = ${autorunLogN}`);
+      } else {
+        log('err', `[noble] mismatch: noble.x=0x${noble.x.toString(16)}, gpu.x=0x${gpu.xy.x.toString(16)}`);
+      }
+      const lines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) lines.push($log.children[i].textContent ?? '');
+      const errLines = lines.filter(l => /^\[err\]/.test(l));
+      const state = ok && errLines.length === 0 ? 'done' : 'error';
+      await client.postResults({
+        state,
+        params: { logN: autorunLogN, page: 'msm-noble-check' },
+        results: { noble_ok: ok, gpu_x: `0x${gpu.xy.x.toString(16)}`, noble_x: `0x${noble.x.toString(16)}` },
+        error: errLines.length > 0 ? errLines.slice(0, 5).join('\n') : null,
+        log: lines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      const lines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) lines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'msm-noble-check' },
+        results: null,
+        error: msg,
+        log: lines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
   }
 })();
