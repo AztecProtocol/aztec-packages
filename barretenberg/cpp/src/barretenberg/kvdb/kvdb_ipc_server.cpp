@@ -1,7 +1,7 @@
 #include "barretenberg/kvdb/kvdb_ipc_server.hpp"
 
 #include "barretenberg/common/try_catch_shim.hpp"
-#include "barretenberg/ipc/ipc_server.hpp"
+#include "ipc_runtime/ipc_server.hpp"
 #include "barretenberg/kvdb/kvdb_messages.hpp"
 #include "barretenberg/lmdblib/lmdb_store.hpp"
 #include "barretenberg/messaging/dispatcher.hpp"

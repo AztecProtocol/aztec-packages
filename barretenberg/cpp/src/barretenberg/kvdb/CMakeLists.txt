@@ -12,7 +12,7 @@ if(NOT(FUZZING) AND NOT(WASM))
         aztec-kvdb
         PRIVATE
         lmdblib
-        ipc
+        ipc_runtime
         env
     )
     if(ENABLE_STACKTRACES)
