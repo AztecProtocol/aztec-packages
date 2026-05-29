@@ -148,8 +148,9 @@ function build {
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
 
     # If a pinned standard-contracts archive is present, extract it into target/ and skip
-    # recompilation of those contracts. The archive is only committed on release branches; on
-    # next it is absent and this block is a no-op (everything compiles fresh).
+    # recompilation of those contracts. The archive pins the canonical standard-contract
+    # artifacts so their deterministic addresses can never silently drift; when it is absent,
+    # everything compiles fresh.
     if [ -f pinned-standard-contracts.tar.gz ]; then
       echo_stderr "Using pinned-standard-contracts.tar.gz for pinned standard contracts."
       tar xzf pinned-standard-contracts.tar.gz -C target
@@ -228,7 +229,8 @@ function format {
 }
 
 # Force-builds standard contracts and tar-balls their artifacts into pinned-standard-contracts.tar.gz.
-# Run this at release-branch cut time, then commit the resulting tarball to the release branch.
+# Run this to (re)pin the standard-contract artifacts, then commit the resulting tarball. Re-run and
+# re-commit whenever the canonical standard-contract artifacts are intended to change.
 # Mirrors the v4 `pin-build` mechanism that pins protocol contracts.
 function pin-standard-build {
   rm -f pinned-standard-contracts.tar.gz
