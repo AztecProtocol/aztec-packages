@@ -85,7 +85,7 @@ export function useTransaction() {
       });
     } catch (e) {
       if (e instanceof TimeoutError) {
-        const txReceipt = new PendingTxReceipt(txHash);
+        const txReceipt = new PendingTxReceipt(txHash, undefined);
         await playgroundDB.storeTx({
           contractAddress,
           txHash,
