@@ -64,10 +64,10 @@ void ECCVMMSMShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumu
     const auto y3 = Accumulator(ShortView(in.msm_y3));
     const auto x4 = Accumulator(ShortView(in.msm_x4));
     const auto y4 = Accumulator(ShortView(in.msm_y4));
-    const auto collision_inverse1 = Accumulator(ShortView(in.msm_collision_x1));
-    const auto collision_inverse2 = Accumulator(ShortView(in.msm_collision_x2));
-    const auto collision_inverse3 = Accumulator(ShortView(in.msm_collision_x3));
-    const auto collision_inverse4 = Accumulator(ShortView(in.msm_collision_x4));
+    const auto collision_inverse1 = ShortView(in.msm_collision_x1);
+    const auto collision_inverse2 = ShortView(in.msm_collision_x2);
+    const auto collision_inverse3 = ShortView(in.msm_collision_x3);
+    const auto collision_inverse4 = ShortView(in.msm_collision_x4);
     const auto lambda1 = Accumulator(ShortView(in.msm_lambda1));
     const auto lambda2 = Accumulator(ShortView(in.msm_lambda2));
     const auto lambda3 = Accumulator(ShortView(in.msm_lambda3));
@@ -183,14 +183,14 @@ void ECCVMMSMShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumu
     const auto x2_delta = x2_skew_collision_relation * q_skew_acc + x2_collision_relation * q_add_acc;
     const auto x3_delta = x3_skew_collision_relation * q_skew_acc + x3_collision_relation * q_add_acc;
     const auto x4_delta = x4_skew_collision_relation * q_skew_acc + x4_collision_relation * q_add_acc;
-    std::get<Base::COLLISION_CHECK_1>(accumulator) +=
-        (x1_delta * collision_inverse1 - Accumulator(add_first_point_short)) * scaling_factor;
-    std::get<Base::COLLISION_CHECK_2>(accumulator) +=
-        (x2_delta * collision_inverse2 - Accumulator(add_second_point_short)) * scaling_factor;
-    std::get<Base::COLLISION_CHECK_3>(accumulator) +=
-        (x3_delta * collision_inverse3 - Accumulator(add_third_point_short)) * scaling_factor;
-    std::get<Base::COLLISION_CHECK_4>(accumulator) +=
-        (x4_delta * collision_inverse4 - Accumulator(add_fourth_point_short)) * scaling_factor;
+    std::get<Base::COLLISION_CHECK_1>(accumulator) += x1_delta * Accumulator(collision_inverse1 * scaling_factor) -
+                                                      Accumulator(add_first_point_short * scaling_factor);
+    std::get<Base::COLLISION_CHECK_2>(accumulator) += x2_delta * Accumulator(collision_inverse2 * scaling_factor) -
+                                                      Accumulator(add_second_point_short * scaling_factor);
+    std::get<Base::COLLISION_CHECK_3>(accumulator) += x3_delta * Accumulator(collision_inverse3 * scaling_factor) -
+                                                      Accumulator(add_third_point_short * scaling_factor);
+    std::get<Base::COLLISION_CHECK_4>(accumulator) += x4_delta * Accumulator(collision_inverse4 * scaling_factor) -
+                                                      Accumulator(add_fourth_point_short * scaling_factor);
 
     // Inactive slice: (1 - add_i) * slice_i * scaling, all short.
     std::get<Base::INACTIVE_SLICE_1>(accumulator) += Acc3(((-add1_s + FF(1)) * slice1_s) * scaling_factor);
@@ -208,12 +208,10 @@ void ECCVMMSMShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumu
     const auto no_op_selector_short_a = (-q_add_s + FF(1)) * (-q_double_s + FF(1));        // length 3
     const auto no_op_selector_short_b = (-q_skew_s + FF(1)) * (-msm_transition_s + FF(1)); // length 3
     const auto no_op_selector_short_c = -lagrange_first_s + FF(1);                         // length 2
-    const auto no_op_selector_acc =
-        Accumulator(no_op_selector_short_a) * Accumulator(no_op_selector_short_b) * Accumulator(no_op_selector_short_c);
-    std::get<Base::IDLE_ROW_PRESERVES_ACC_X>(accumulator) +=
-        no_op_selector_acc * (acc_x_shift - acc_x) * scaling_factor;
-    std::get<Base::IDLE_ROW_PRESERVES_ACC_Y>(accumulator) +=
-        no_op_selector_acc * (acc_y_shift - acc_y) * scaling_factor;
+    const auto no_op_selector_scaled_acc = Accumulator(no_op_selector_short_a * scaling_factor) *
+                                           Accumulator(no_op_selector_short_b) * Accumulator(no_op_selector_short_c);
+    std::get<Base::IDLE_ROW_PRESERVES_ACC_X>(accumulator) += no_op_selector_scaled_acc * (acc_x_shift - acc_x);
+    std::get<Base::IDLE_ROW_PRESERVES_ACC_Y>(accumulator) += no_op_selector_scaled_acc * (acc_y_shift - acc_y);
 
     // ADD1 decomposition: deg 1, length 2.
     std::get<Base::ADD1_DECOMPOSITION>(accumulator) += Acc2((add1_s - q_add_s - q_skew_s) * scaling_factor);

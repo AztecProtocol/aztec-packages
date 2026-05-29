@@ -29,58 +29,87 @@ template <typename FF_> class ECCVMLookupShortRelationImpl : public ECCVMLookupR
     template <typename Accumulator, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
+        return Accumulator(compute_inverse_exists_short<Accumulator>(in));
+    }
+
+    template <typename Accumulator, typename AllEntities>
+    static auto compute_inverse_exists_short(const AllEntities& in)
+    {
         using ShortView = ECCVMShortMonomialView<Accumulator>;
         const auto row_has_write = ShortView(in.precompute_select);               // length 2
         const auto row_has_read = ShortView(in.msm_add) + ShortView(in.msm_skew); // length 2
         const auto write_times_read = row_has_write * row_has_read;               // length 3
         // length-3 term on LHS preserves the a2 coefficient under +.
-        return Accumulator((-write_times_read) + (row_has_write + row_has_read));
+        return (-write_times_read) + (row_has_write + row_has_read);
     }
 
     template <typename Accumulator, size_t index, typename AllEntities>
     static Accumulator lookup_read_counts(const AllEntities& in)
     {
+        return Accumulator(lookup_read_counts_short<Accumulator, index>(in));
+    }
+
+    template <typename Accumulator, size_t index, typename AllEntities>
+    static auto lookup_read_counts_short(const AllEntities& in)
+    {
         using ShortView = ECCVMShortMonomialView<Accumulator>;
         if constexpr (index == 0) {
-            return Accumulator(ShortView(in.lookup_read_counts_0));
+            return ShortView(in.lookup_read_counts_0);
+        } else if constexpr (index == 1) {
+            return ShortView(in.lookup_read_counts_1);
+        } else {
+            return ShortView(Accumulator(FF(1)));
         }
-        if constexpr (index == 1) {
-            return Accumulator(ShortView(in.lookup_read_counts_1));
-        }
-        return Accumulator(1);
     }
 
     template <typename Accumulator, size_t lookup_index, typename AllEntities>
     static Accumulator get_lookup_term_predicate(const AllEntities& in)
     {
+        return Accumulator(get_lookup_term_predicate_short<Accumulator, lookup_index>(in));
+    }
+
+    template <typename Accumulator, size_t lookup_index, typename AllEntities>
+    static auto get_lookup_term_predicate_short(const AllEntities& in)
+    {
         using ShortView = ECCVMShortMonomialView<Accumulator>;
         if constexpr (lookup_index == 0) {
-            return Accumulator(ShortView(in.msm_add1));
+            return ShortView(in.msm_add1);
+        } else if constexpr (lookup_index == 1) {
+            return ShortView(in.msm_add2);
+        } else if constexpr (lookup_index == 2) {
+            return ShortView(in.msm_add3);
+        } else if constexpr (lookup_index == 3) {
+            return ShortView(in.msm_add4);
+        } else {
+            return ShortView(Accumulator(FF(1)));
         }
-        if constexpr (lookup_index == 1) {
-            return Accumulator(ShortView(in.msm_add2));
-        }
-        if constexpr (lookup_index == 2) {
-            return Accumulator(ShortView(in.msm_add3));
-        }
-        if constexpr (lookup_index == 3) {
-            return Accumulator(ShortView(in.msm_add4));
-        }
-        return Accumulator(1);
     }
 
     template <typename Accumulator, size_t table_index, typename AllEntities>
     static Accumulator get_table_term_predicate(const AllEntities& in)
     {
+        return Accumulator(get_table_term_predicate_short<Accumulator, table_index>(in));
+    }
+
+    template <typename Accumulator, size_t table_index, typename AllEntities>
+    static auto get_table_term_predicate_short(const AllEntities& in)
+    {
         using ShortView = ECCVMShortMonomialView<Accumulator>;
         if constexpr (table_index == 0 || table_index == 1) {
-            return Accumulator(ShortView(in.precompute_select));
+            return ShortView(in.precompute_select);
+        } else {
+            return ShortView(Accumulator(FF(1)));
         }
-        return Accumulator(1);
     }
 
     template <typename Accumulator, size_t table_index, typename AllEntities, typename Parameters>
     static Accumulator compute_table_term(const AllEntities& in, const Parameters& params)
+    {
+        return Accumulator(compute_table_term_short<Accumulator, table_index>(in, params));
+    }
+
+    template <typename Accumulator, size_t table_index, typename AllEntities, typename Parameters>
+    static auto compute_table_term_short(const AllEntities& in, const Parameters& params)
     {
         using ShortView = ECCVMShortMonomialView<Accumulator>;
         static_assert(table_index < Base::NUM_TABLE_TERMS);
@@ -98,18 +127,24 @@ template <typename FF_> class ECCVMLookupShortRelationImpl : public ECCVMLookupR
             const auto positive_slice_value = -precompute_round + FF(15);
             const auto positive_term =
                 ((tx * beta_sqr + ty * beta_cube) + positive_slice_value * beta) + (precompute_pc * FF(1) + gamma);
-            return Accumulator(positive_term);
-        }
-        if constexpr (table_index == 1) {
+            return positive_term;
+        } else if constexpr (table_index == 1) {
             const auto negative_term =
                 ((tx * beta_sqr - ty * beta_cube) + precompute_round * beta) + (precompute_pc * FF(1) + gamma);
-            return Accumulator(negative_term);
+            return negative_term;
+        } else {
+            return ShortView(Accumulator(FF(1)));
         }
-        return Accumulator(1);
     }
 
     template <typename Accumulator, size_t lookup_index, typename AllEntities, typename Parameters>
     static Accumulator compute_lookup_term(const AllEntities& in, const Parameters& params)
+    {
+        return Accumulator(compute_lookup_term_short<Accumulator, lookup_index>(in, params));
+    }
+
+    template <typename Accumulator, size_t lookup_index, typename AllEntities, typename Parameters>
+    static auto compute_lookup_term_short(const AllEntities& in, const Parameters& params)
     {
         using ShortView = ECCVMShortMonomialView<Accumulator>;
         static_assert(lookup_index < Base::NUM_LOOKUP_TERMS);
@@ -127,30 +162,28 @@ template <typename FF_> class ECCVMLookupShortRelationImpl : public ECCVMLookupR
             const auto x = ShortView(in.msm_x1);
             const auto y = ShortView(in.msm_y1);
             const auto term = ((slice * beta + x * beta_sqr) + y * beta_cube) + (current_pc + gamma);
-            return Accumulator(term);
-        }
-        if constexpr (lookup_index == 1) {
+            return term;
+        } else if constexpr (lookup_index == 1) {
             const auto slice = ShortView(in.msm_slice2);
             const auto x = ShortView(in.msm_x2);
             const auto y = ShortView(in.msm_y2);
             const auto term = ((slice * beta + x * beta_sqr) + y * beta_cube) + ((current_pc - FF(1)) + gamma);
-            return Accumulator(term);
-        }
-        if constexpr (lookup_index == 2) {
+            return term;
+        } else if constexpr (lookup_index == 2) {
             const auto slice = ShortView(in.msm_slice3);
             const auto x = ShortView(in.msm_x3);
             const auto y = ShortView(in.msm_y3);
             const auto term = ((slice * beta + x * beta_sqr) + y * beta_cube) + ((current_pc - FF(2)) + gamma);
-            return Accumulator(term);
-        }
-        if constexpr (lookup_index == 3) {
+            return term;
+        } else if constexpr (lookup_index == 3) {
             const auto slice = ShortView(in.msm_slice4);
             const auto x = ShortView(in.msm_x4);
             const auto y = ShortView(in.msm_y4);
             const auto term = ((slice * beta + x * beta_sqr) + y * beta_cube) + ((current_pc - FF(3)) + gamma);
-            return Accumulator(term);
+            return term;
+        } else {
+            return ShortView(Accumulator(FF(1)));
         }
-        return Accumulator(1);
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>

@@ -125,8 +125,9 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
     // MSM_TRANSITION: deg 3, length 4.
     {
         const auto not_zero_at_transition = Acc4(-msm_count_zero_at_transition + FF(1));
-        const auto outer = Acc4(msm_transition) - Acc4(msm_transition_check) * not_zero_at_transition;
-        std::get<Base::MSM_TRANSITION>(accumulator) += outer * scaling_factor;
+        const auto outer = Acc4(msm_transition * scaling_factor) -
+                           Acc4(msm_transition_check * scaling_factor) * not_zero_at_transition;
+        std::get<Base::MSM_TRANSITION>(accumulator) += outer;
     }
 
     // MSM_COUNT_ZERO_WHEN_NOT_MUL: deg 2, length 3.
@@ -239,7 +240,7 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
                     result_infinity_from_op_short + (transcript_msm_infinity + is_accumulator_empty);
                 transcript_msm_lambda_relation += Accumulator(lambda) * Accumulator(invalid_short);
             }
-            transcript_lambda_relation = transcript_msm_lambda_relation * Accumulator(msm_transition);
+            transcript_lambda_relation = transcript_msm_lambda_relation * Accumulator(msm_transition * scaling_factor);
         }
         // Base-point add lambda relation
         {
@@ -265,8 +266,8 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
                     result_infinity_from_op_short + (transcript_Pinfinity + is_accumulator_empty);
                 transcript_add_lambda_relation += Accumulator(lambda) * Accumulator(invalid_short);
             }
-            transcript_lambda_relation += transcript_add_lambda_relation * Accumulator(q_add);
-            std::get<Base::LAMBDA_RELATION>(accumulator) += transcript_lambda_relation * scaling_factor;
+            transcript_lambda_relation += transcript_add_lambda_relation * Accumulator(q_add * scaling_factor);
+            std::get<Base::LAMBDA_RELATION>(accumulator) += transcript_lambda_relation;
         }
 
         // ACCUMULATOR_X/Y_UPDATE — length 8.
@@ -275,9 +276,11 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
         const auto opcode_is_zero_short_part_a = is_not_first_row * (-q_add + FF(1));
         const auto opcode_is_zero_short_part_b = (-q_mul + FF(1)) * (-q_reset_accumulator + FF(1));
         const auto opcode_is_zero_short_part_c = -q_eq + FF(1);
-        const auto opcode_is_zero = Accumulator(opcode_is_zero_short_part_a) *
-                                    Accumulator(opcode_is_zero_short_part_b) *
-                                    Accumulator(opcode_is_zero_short_part_c); // deg 5
+        const auto opcode_is_zero_scaled = Accumulator(opcode_is_zero_short_part_a * scaling_factor) *
+                                           Accumulator(opcode_is_zero_short_part_b) *
+                                           Accumulator(opcode_is_zero_short_part_c); // deg 5
+        const auto any_add_is_active_scaled_acc = Accumulator(any_add_is_active_short * scaling_factor);
+        const auto propagate_transcript_accumulator_scaled = propagate_transcript_accumulator_short * scaling_factor;
         {
             const auto lambda_sqr = Accumulator(lambda.sqr());
             const auto lhs_x_acc = Accumulator(lhs_x_short);
@@ -293,17 +296,18 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
             y3 += result_is_rhs * (lhs_y_acc + rhs_y_acc);
             y3 += result_is_infinity_short * lhs_y_acc;
 
-            const auto any_add_is_active_acc = Accumulator(any_add_is_active_short);
-            const auto propagate_acc_x = Accumulator(propagate_transcript_accumulator_short) *
+            const auto propagate_acc_x = Accumulator(propagate_transcript_accumulator_scaled) *
                                          Accumulator(is_not_last_row * (out_x - transcript_accumulator_x));
-            const auto propagate_acc_y = Accumulator(propagate_transcript_accumulator_short) *
+            const auto propagate_acc_y = Accumulator(propagate_transcript_accumulator_scaled) *
                                          Accumulator(is_not_last_row * (out_y - transcript_accumulator_y));
-            auto add_point_x_relation = (x3 - Accumulator(out_x)) * any_add_is_active_acc + propagate_acc_x +
-                                        Accumulator(out_x * q_reset_accumulator) + Accumulator(out_x) * opcode_is_zero;
-            auto add_point_y_relation = (y3 - Accumulator(out_y)) * any_add_is_active_acc + propagate_acc_y +
-                                        Accumulator(out_y * q_reset_accumulator) + Accumulator(out_y) * opcode_is_zero;
-            std::get<Base::ACCUMULATOR_X_UPDATE>(accumulator) += add_point_x_relation * scaling_factor;
-            std::get<Base::ACCUMULATOR_Y_UPDATE>(accumulator) += add_point_y_relation * scaling_factor;
+            auto add_point_x_relation = (x3 - Accumulator(out_x)) * any_add_is_active_scaled_acc + propagate_acc_x +
+                                        Accumulator(out_x * (q_reset_accumulator * scaling_factor)) +
+                                        Accumulator(out_x) * opcode_is_zero_scaled;
+            auto add_point_y_relation = (y3 - Accumulator(out_y)) * any_add_is_active_scaled_acc + propagate_acc_y +
+                                        Accumulator(out_y * (q_reset_accumulator * scaling_factor)) +
+                                        Accumulator(out_y) * opcode_is_zero_scaled;
+            std::get<Base::ACCUMULATOR_X_UPDATE>(accumulator) += add_point_x_relation;
+            std::get<Base::ACCUMULATOR_Y_UPDATE>(accumulator) += add_point_y_relation;
         }
 
         // Offset generator subtraction — length 6 / 4 / 5.
@@ -347,20 +351,19 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
         // ACCUMULATOR_EMPTY_UPDATE — length 8 (shares opcode_is_zero, result_is_infinity_short).
         {
             const auto accumulator_infinity_preserve =
-                Accumulator(propagate_transcript_accumulator_short) *
+                Accumulator(propagate_transcript_accumulator_scaled) *
                 Accumulator(is_not_first_or_last_row * (is_accumulator_empty - is_accumulator_empty_shift));
             const auto accumulator_infinity_q_reset =
-                Accumulator(q_reset_accumulator * (-is_accumulator_empty_shift + FF(1)));
+                Accumulator((q_reset_accumulator * (-is_accumulator_empty_shift + FF(1))) * scaling_factor);
             const auto accumulator_infinity_from_add =
-                Accumulator(any_add_is_active_short) *
-                (result_is_infinity_short - Accumulator(is_accumulator_empty_shift));
+                any_add_is_active_scaled_acc * (result_is_infinity_short - Accumulator(is_accumulator_empty_shift));
             const auto accumulator_infinity_from_noop =
-                opcode_is_zero * Accumulator(-is_accumulator_empty_shift + FF(1));
+                opcode_is_zero_scaled * Accumulator(-is_accumulator_empty_shift + FF(1));
             const auto accumulator_infinity_relation =
                 accumulator_infinity_preserve +
                 (accumulator_infinity_q_reset + accumulator_infinity_from_add) * Accumulator(is_not_first_row) +
                 accumulator_infinity_from_noop;
-            std::get<Base::ACCUMULATOR_EMPTY_UPDATE>(accumulator) += accumulator_infinity_relation * scaling_factor;
+            std::get<Base::ACCUMULATOR_EMPTY_UPDATE>(accumulator) += accumulator_infinity_relation;
         }
 
         // ADD_X_EQUAL / ADD_Y_EQUAL: deg 5, length 6.
@@ -369,16 +372,18 @@ void ECCVMTranscriptShortRelationImpl<FF>::accumulate(ContainerOverSubrelations&
             const auto x_product =
                 Acc6(transcript_Px_inverse * (-transcript_add_x_equal + FF(1))) + Acc6(transcript_add_x_equal); // deg 2
             const auto x_constant = transcript_add_x_equal - FF(1);
-            const auto x_relation = (x_diff * x_product + Acc6(x_constant)) * Acc6(any_add_is_active_short);
-            std::get<Base::ADD_X_EQUAL_CHECK>(accumulator) += x_relation * scaling_factor;
+            const auto x_relation =
+                (x_diff * x_product + Acc6(x_constant)) * Acc6(any_add_is_active_short * scaling_factor);
+            std::get<Base::ADD_X_EQUAL_CHECK>(accumulator) += x_relation;
         }
         {
             const auto y_diff = Acc6(lhs_y_short - rhs_y);
             const auto y_product =
                 Acc6(transcript_Py_inverse * (-transcript_add_y_equal + FF(1))) + Acc6(transcript_add_y_equal);
             const auto y_constant = transcript_add_y_equal - FF(1);
-            const auto y_relation = (y_diff * y_product + Acc6(y_constant)) * Acc6(any_add_is_active_short);
-            std::get<Base::ADD_Y_EQUAL_CHECK>(accumulator) += y_relation * scaling_factor;
+            const auto y_relation =
+                (y_diff * y_product + Acc6(y_constant)) * Acc6(any_add_is_active_short * scaling_factor);
+            std::get<Base::ADD_Y_EQUAL_CHECK>(accumulator) += y_relation;
         }
     }
 

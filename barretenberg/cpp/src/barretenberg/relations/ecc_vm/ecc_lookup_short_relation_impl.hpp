@@ -8,6 +8,7 @@
 
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_short_relation.hpp"
+#include <type_traits>
 
 namespace bb {
 
@@ -27,29 +28,44 @@ void ECCVMLookupShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& acc
 
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using ShortView = ECCVMShortMonomialView<Accumulator>;
+    using ShortTerm = std::
+        conditional_t<std::is_same_v<ShortView, Accumulator>, Accumulator, UnivariateCoefficientBasis<FF, 2, false>>;
 
-    const auto lookup_inverses = Accumulator(ShortView(Base::get_inverse_polynomial(in)));
+    const auto lookup_inverses_short = ShortView(Base::get_inverse_polynomial(in));
+    const auto lookup_inverses = Accumulator(lookup_inverses_short);
 
+    std::array<ShortTerm, NUM_TOTAL_TERMS> lookup_terms_short;
     std::array<Accumulator, NUM_TOTAL_TERMS> lookup_terms;
     std::array<Accumulator, NUM_TOTAL_TERMS> denominator_accumulator;
 
     bb::constexpr_for<0, NUM_LOOKUP_TERMS, 1>([&]<size_t i>() {
-        lookup_terms[i] = ECCVMLookupShortRelationImpl<FF>::template compute_lookup_term<Accumulator, i>(in, params);
+        lookup_terms_short[i] =
+            ECCVMLookupShortRelationImpl<FF>::template compute_lookup_term_short<Accumulator, i>(in, params);
+        lookup_terms[i] = Accumulator(lookup_terms_short[i]);
     });
     bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t i>() {
-        lookup_terms[i + NUM_LOOKUP_TERMS] =
-            ECCVMLookupShortRelationImpl<FF>::template compute_table_term<Accumulator, i>(in, params);
+        lookup_terms_short[i + NUM_LOOKUP_TERMS] =
+            ECCVMLookupShortRelationImpl<FF>::template compute_table_term_short<Accumulator, i>(in, params);
+        lookup_terms[i + NUM_LOOKUP_TERMS] = Accumulator(lookup_terms_short[i + NUM_LOOKUP_TERMS]);
     });
 
-    bb::constexpr_for<0, NUM_TOTAL_TERMS, 1>([&]<size_t i>() { denominator_accumulator[i] = lookup_terms[i]; });
-    bb::constexpr_for<0, NUM_TOTAL_TERMS - 1, 1>(
-        [&]<size_t i>() { denominator_accumulator[i + 1] *= denominator_accumulator[i]; });
+    static_assert(NUM_TOTAL_TERMS == 6);
+    denominator_accumulator[0] = lookup_terms[0];
+    denominator_accumulator[1] = Accumulator(lookup_terms_short[0] * lookup_terms_short[1]);
+    denominator_accumulator[2] = denominator_accumulator[1] * lookup_terms[2];
+    denominator_accumulator[3] =
+        denominator_accumulator[1] * Accumulator(lookup_terms_short[2] * lookup_terms_short[3]);
+    denominator_accumulator[4] = denominator_accumulator[3] * lookup_terms[4];
+    denominator_accumulator[5] =
+        denominator_accumulator[3] * Accumulator(lookup_terms_short[4] * lookup_terms_short[5]);
 
     auto inverse_accumulator = lookup_inverses;
-    const auto inverse_exists = ECCVMLookupShortRelationImpl<FF>::template compute_inverse_exists<Accumulator>(in);
+    const auto inverse_exists_short =
+        ECCVMLookupShortRelationImpl<FF>::template compute_inverse_exists_short<Accumulator>(in);
 
     std::get<0>(accumulator) +=
-        (denominator_accumulator[NUM_TOTAL_TERMS - 1] * lookup_inverses - inverse_exists) * scaling_factor;
+        denominator_accumulator[NUM_TOTAL_TERMS - 1] * Accumulator(lookup_inverses_short * scaling_factor) -
+        Accumulator(inverse_exists_short * scaling_factor);
 
     for (size_t i = NUM_TOTAL_TERMS - 1; i > 0; --i) {
         denominator_accumulator[i] = denominator_accumulator[i - 1] * inverse_accumulator;
@@ -58,15 +74,16 @@ void ECCVMLookupShortRelationImpl<FF>::accumulate(ContainerOverSubrelations& acc
     denominator_accumulator[0] = inverse_accumulator;
 
     bb::constexpr_for<0, NUM_LOOKUP_TERMS, 1>([&]<size_t i>() {
-        std::get<1>(accumulator) +=
-            ECCVMLookupShortRelationImpl<FF>::template get_lookup_term_predicate<Accumulator, i>(in) *
-            denominator_accumulator[i];
+        const auto lookup_predicate =
+            ECCVMLookupShortRelationImpl<FF>::template get_lookup_term_predicate_short<Accumulator, i>(in);
+        std::get<1>(accumulator) += Accumulator(lookup_predicate) * denominator_accumulator[i];
     });
 
     bb::constexpr_for<0, NUM_TABLE_TERMS, 1>([&]<size_t i>() {
-        auto to_subtract = ECCVMLookupShortRelationImpl<FF>::template get_table_term_predicate<Accumulator, i>(in) *
-                           denominator_accumulator[i + NUM_LOOKUP_TERMS];
-        to_subtract *= ECCVMLookupShortRelationImpl<FF>::template lookup_read_counts<Accumulator, i>(in);
+        const auto table_predicate =
+            ECCVMLookupShortRelationImpl<FF>::template get_table_term_predicate_short<Accumulator, i>(in);
+        const auto read_count = ECCVMLookupShortRelationImpl<FF>::template lookup_read_counts_short<Accumulator, i>(in);
+        auto to_subtract = Accumulator(table_predicate * read_count) * denominator_accumulator[i + NUM_LOOKUP_TERMS];
         std::get<1>(accumulator) -= to_subtract;
     });
 }
