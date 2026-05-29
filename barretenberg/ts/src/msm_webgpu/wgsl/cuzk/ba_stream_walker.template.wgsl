@@ -12,71 +12,65 @@
 
 {{> field8_funcs }}
 
-// Stream-walker bucket accumulator. See STREAM_WALKER_PLAN.md §6-§9.
+// Per-thread bucket-monotonic stream-walker (replaces ba_stream_accum's
+// queue model). Each of NUM_THREADS threads owns a contiguous slice of the
+// sorted bucket stream (from thread_cuts), splits it into S equal-work
+// tasks, and runs S pair-pointer slots through one field inversion per S
+// adds — the same batched-inversion inner loop as ba_stream_accum.
 //
-// Each thread owns S=8 affine-add slots. The thread reads its bucket range
-// from thread_cuts and partitions that range into 8 equal-work sub-ranges
-// ("tasks") at init. Each slot walks its task monotonically: per iteration,
-// the thread performs 8 batched-inversion affine adds, advances each slot,
-// and retires either to bucket_sums (whole bucket inside one task) or to
-// partials_buf (task ends mid-bucket → split).
+// DESIGN-KNOB VARIATION (thread C):
+//   KNOB 1: pref_scratch lives in var<workgroup> (16 KB at TPB=64), not a
+//           device storage buffer; accumulators live in private registers.
+//           No cross-thread sharing, so no workgroup barrier in the loop.
+//   KNOB 2: task cut points are precomputed by ba_planner_partition_task and
+//           read from `task_cuts`; the walker does no binary search at init.
 //
-// Bindings (9 storage + 1 uniform — fits M2 desktop's
-// maxStorageBuffersPerShaderStage=10; mobile fallback would combine
-// bucket_sums+partials and point_x+point_y to reach 7-storage):
-//   0 bucket_meta   : (sorted_bucket_id, count, offset, cum_adds) per dense bucket
-//   1 thread_cuts   : (cut_bucket_meta_idx, cut_offset) per thread
-//   2 l0_index      : packed (sign, pt_idx) per l0 position
-//   3 point_x       : SoA x-plane of the SRS
-//   4 point_y       : SoA y-plane of the SRS
-//   5 bucket_sums   : output, written for whole-bucket retires
-//   6 partials_buf  : output, written for split retires (16 slots / thread)
-//   7 split_records : per-thread × 16 record slots, (bucket_id, partial_slot) pairs, sentinel=0xFFFFFFFF
-//   8 planner_meta  : shared planner output
-//   9 params        : uniform vec4<u32>
+// Retirement: a bucket fully consumed within one task retires to
+// bucket_sums; a bucket spanning a task/thread boundary retires its piece to
+// partials_buf at a deterministic slot and records its bucket id in
+// partial_dest. A thread's slot k owns partial slots 2*(t*S+k)+{0,1}
+// (split-start completion, task-end). The host sums partials per bucket.
 //
-// params.x = NUM_THREADS                   (active count)
-// params.y = M_buckets                      (bucket_sums stride in 64-B point units)
-// params.z = (reserved, was point_y_offset) — currently unused
-// params.w = idle_anchor_l0_pos             (l0_index position with a known non-degenerate dx)
+// params.x = NUM_THREADS
+// params.y = IDLE_ANCHOR (index into l0_index for the non-zero-dx pad trio)
+// params.z = M_buckets  (bucket_sums plane stride = B_TOTAL)
+// params.w = M_partials (partials_buf plane stride = 2 * NUM_THREADS * S)
 
 const S: u32 = {{ s }}u;
+const CUTS: u32 = S + 1u;
 const TPB: u32 = {{ workgroup_size }}u;
 const PG: u32 = 2u;
-// Each slot can write two distinct partials in its lifetime:
-//   slot's split-start partial (when first bucket exhausts mid-task)
-//   slot's split-end   partial (when task ends mid-bucket)
-// These are at different buckets so they need distinct partials_buf slots.
-const PARTIALS_PER_THREAD: u32 = 16u;       // 2 × S
-const SPLIT_RECORDS_PER_THREAD: u32 = 16u;  // worst-case (every task boundary mid-bucket)
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
-const SPLIT_SENTINEL: u32 = 0xFFFFFFFFu;
+const NO_BUCKET: u32 = 0xffffffffu;
 
-@group(0) @binding(0) var<storage, read>        bucket_meta:       array<vec4<u32>>;
-@group(0) @binding(1) var<storage, read>        thread_cuts:       array<u32>;
-@group(0) @binding(2) var<storage, read>        l0_index:          array<u32>;
-@group(0) @binding(3) var<storage, read>        point_x:           array<vec4<u32>>;
-@group(0) @binding(4) var<storage, read>        point_y:           array<vec4<u32>>;
-@group(0) @binding(5) var<storage, read_write>  bucket_sums:       array<vec4<u32>>;
-@group(0) @binding(6) var<storage, read_write>  partials_buf:      array<vec4<u32>>;
-@group(0) @binding(7) var<storage, read_write>  split_records:     array<u32>;
-@group(0) @binding(8) var<storage, read>        planner_meta:      array<u32>;
-@group(0) @binding(9) var<uniform>              params:            vec4<u32>;
+@group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
+@group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
+@group(0) @binding(2) var<storage, read>       offsets:            array<u32>;
+@group(0) @binding(3) var<storage, read>       task_cuts:          array<u32>;
+@group(0) @binding(4) var<storage, read>       l0_index:           array<u32>;
+@group(0) @binding(5) var<storage, read>       point_x:            array<vec4<u32>>;
+@group(0) @binding(6) var<storage, read>       point_y:            array<vec4<u32>>;
+@group(0) @binding(7) var<storage, read_write> bucket_sums:        array<vec4<u32>>;
+@group(0) @binding(8) var<storage, read_write> partials_buf:       array<vec4<u32>>;
+@group(0) @binding(9) var<storage, read_write> partial_dest:       array<u32>;
+@group(0) @binding(10) var<uniform>            params:             vec4<u32>;
 
-// pref_scratch — workgroup-local. Sized TPB × S × 2 vec4 (forward prefix +
-// inverse storage per slot). At TPB=128, S=8: 128*8*2 = 2048 vec4 = 32 KB,
-// which is at the M2 workgroup-memory limit.
-var<workgroup> pref_scratch: array<vec4<u32>, {{ pref_scratch_len }}>;
+// KNOB 1: workgroup-shared prefix scratch. Each thread uses its own
+// [local_id*S .. local_id*S + S) region (2 vec4 per slot), so there is no
+// cross-thread aliasing and no barrier is needed. 16 KB at TPB=64.
+var<workgroup> pref_scratch: array<vec4<u32>, TPB * S * 2u>;
 
-fn load_pt_x(packed: u32) -> array<u32, 8> {
+fn load_pt_x(cursor: u32) -> array<u32, 8> {
+    let packed = l0_index[cursor];
     let pt = packed & L0_IDX_MASK;
     let q0 = point_x[2u * pt];
     let q1 = point_x[2u * pt + 1u];
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
-fn load_pt_y(packed: u32) -> array<u32, 8> {
+fn load_pt_y(cursor: u32) -> array<u32, 8> {
+    let packed = l0_index[cursor];
     let pt = packed & L0_IDX_MASK;
     let q0 = point_y[2u * pt];
     let q1 = point_y[2u * pt + 1u];
@@ -86,70 +80,34 @@ fn load_pt_y(packed: u32) -> array<u32, 8> {
     return fr_sub_f8(zero, y);
 }
 
-// bucket_sums layout: SoA with PG=2 planes.
-//   x plane: bucket_sums[0 .. M_buckets * PG)
-//   y plane: bucket_sums[M_buckets * PG .. 2 * M_buckets * PG)
-fn store_bucket_sum(bucket_id: u32, M_buckets: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
+fn store_pref(base: u32, val: array<u32, 8>) {
+    pref_scratch[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    pref_scratch[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
+}
+
+fn load_pref(base: u32) -> array<u32, 8> {
+    let q0 = pref_scratch[base + 0u];
+    let q1 = pref_scratch[base + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+
+fn store_bucket_sum(bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
     let bx = PG * bucket_id;
     bucket_sums[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     bucket_sums[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
-    let by = PG * M_buckets + PG * bucket_id;
+    let by = PG * M + PG * bucket_id;
     bucket_sums[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
     bucket_sums[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
 }
 
-// partials_buf layout: same SoA pattern with stride M_partials.
-fn store_partial(slot: u32, M_partials: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
-    let bx = PG * slot;
+fn store_partial(pslot: u32, bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
+    let bx = PG * pslot;
     partials_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     partials_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
-    let by = PG * M_partials + PG * slot;
+    let by = PG * M + PG * pslot;
     partials_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
     partials_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
-}
-
-fn store_pref(pref_idx: u32, val: array<u32, 8>) {
-    pref_scratch[pref_idx + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
-    pref_scratch[pref_idx + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
-}
-
-fn load_pref(pref_idx: u32) -> array<u32, 8> {
-    let q0 = pref_scratch[pref_idx + 0u];
-    let q1 = pref_scratch[pref_idx + 1u];
-    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
-}
-
-// Binary-search cumulative_adds for the bucket containing `tgt`.
-// cumulative_adds[i] = exclusive prefix sum of (count[j] - 1) over j<i.
-// bucket_meta[i].w == cumulative_adds[i]; bucket_meta[i].y == count.
-// Bucket i's add-stream is the half-open range [cum_adds[i], cum_adds[i+1])
-// where cum_adds[i+1] = cum_adds[i] + count[i] - 1.
-// So inclusive end of bucket i's adds = cum_adds[i] + count[i] - 2.
-// Off-by-one here lets split-start slots land at task_o = count - 1, a
-// phantom position that triggers OOB reads in the slot init.
-// (Size-1 buckets have count=1 and would underflow `count - 2u`; they
-// are routed to ba_size1 and don't appear in the sorted-dense list the
-// walker sees, so count >= 2 holds.)
-fn binary_search_cum_adds(tgt: u32, lo_in: u32, hi_in: u32) -> vec2<u32> {
-    var lo: u32 = lo_in;
-    var hi: u32 = hi_in;
-    while (lo < hi) {
-        let mid = (lo + hi) >> 1u;
-        let m = bucket_meta[mid];
-        let cum_end_inclusive = m.w + m.y - 2u;
-        if (cum_end_inclusive < tgt) {
-            lo = mid + 1u;
-        } else {
-            hi = mid;
-        }
-    }
-    let cut_bucket = lo;
-    var cut_offset: u32 = 0u;
-    let here = bucket_meta[lo];
-    if (tgt > here.w) {
-        cut_offset = tgt - here.w;
-    }
-    return vec2<u32>(cut_bucket, cut_offset);
+    partial_dest[pslot] = bucket_id;
 }
 
 @compute @workgroup_size({{ workgroup_size }})
@@ -158,400 +116,255 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     let t = gid.x;
     let l = lid.x;
     let NUM_THREADS = params.x;
-    let M_buckets = params.y;
-    let IDLE_ANCHOR = params.w;
-    // partials_buf stride is 2 partial slots per slot of every thread.
-    let M_partials = NUM_THREADS * PARTIALS_PER_THREAD;
-    let num_dense = planner_meta[1];
+    let IDLE_ANCHOR = params.y;
+    let M_buckets = params.z;
+    let M_partials = params.w;
 
-    // num_active_threads = planner's nwg × partition_thread's TPB (=256).
-    // The planner's partition_thread writes thread_cuts entries [0, num_active_threads);
-    // entries beyond are left zeroed (host clears thread_cuts before each MSM).
-    let num_active_threads = planner_meta[3] * 256u;
-    if (t >= NUM_THREADS || t >= num_active_threads) { return; }
-    if (num_dense == 0u) { return; }
+    if (t >= NUM_THREADS) { return; }
 
-    // Per-thread split_records base index (in u32 elements).
-    // Each record is 2 u32 (bucket_id, partial_slot_idx).
-    let split_base = t * SPLIT_RECORDS_PER_THREAD * 2u;
+    let pref_base = l * S * 2u;
+    let cut_base = t * CUTS * 2u;
 
-    // Read thread range from thread_cuts. The last active thread's "successor"
-    // is out of the partitioned range; treat it as a clean end (num_dense, 0).
-    let thread_first_bucket = thread_cuts[2u * t + 0u];
-    let thread_first_offset = thread_cuts[2u * t + 1u];
-    var thread_last_bucket: u32;
-    var thread_last_offset: u32;
-    if (t + 1u < num_active_threads) {
-        thread_last_bucket = thread_cuts[2u * (t + 1u) + 0u];
-        thread_last_offset = thread_cuts[2u * (t + 1u) + 1u];
-    } else {
-        thread_last_bucket = num_dense;
-        thread_last_offset = 0u;
-    }
+    // Per-slot state (private). acc lives in registers (plan §7.1). The task
+    // end is tracked as (sorted index, l0 cursor within that bucket) — NOT a
+    // bare l0 cursor — because l0 positions are not monotonic across sorted
+    // buckets, so a raw cursor>=task_end test would be meaningless once a
+    // multi-bucket task walks into a bucket whose l0 region precedes the end.
+    var cursor:         array<u32, {{ s }}>;   // l0_index point position
+    var bucket_end:     array<u32, {{ s }}>;   // l0 position past current bucket
+    var task_end_sort:  array<u32, {{ s }}>;   // sorted index of the task's last bucket
+    var task_end_cur:   array<u32, {{ s }}>;   // l0 position past the task within that bucket
+    var cur_sorted:     array<u32, {{ s }}>;   // index into sorted_bucket_list
+    var cur_bucket:     array<u32, {{ s }}>;   // bucket id (for bucket_sums)
+    var is_first:       array<u32, {{ s }}>;
+    var slot_done:      array<u32, {{ s }}>;
+    var split_start:    array<u32, {{ s }}>;   // current bucket shared with a prior task
+    var acc_x:          array<array<u32, 8>, {{ s }}>;
+    var acc_y:          array<array<u32, 8>, {{ s }}>;
 
-    // Initialize all split_records slots to sentinel before populating.
-    for (var i: u32 = 0u; i < SPLIT_RECORDS_PER_THREAD; i = i + 1u) {
-        split_records[split_base + 2u * i + 0u] = SPLIT_SENTINEL;
-        split_records[split_base + 2u * i + 1u] = SPLIT_SENTINEL;
-    }
-    var split_write_count: u32 = 0u;
-
-    // Compute total adds in thread's range.
-    let cum_at_start = bucket_meta[thread_first_bucket].w + thread_first_offset;
-    var cum_at_end: u32 = 0u;
-    if (thread_last_bucket < num_dense) {
-        let m = bucket_meta[thread_last_bucket];
-        cum_at_end = m.w + thread_last_offset;
-    } else {
-        let last = num_dense - 1u;
-        let m = bucket_meta[last];
-        cum_at_end = m.w + m.y - 1u;
-    }
-    let thread_total = cum_at_end - cum_at_start;
-    if (thread_total == 0u) { return; }
-
-    // Compute S+1 task boundaries (in cumulative-adds space → bucket+offset).
-    var task_b: array<u32, 9u>;  // 9 = S+1
-    var task_o: array<u32, 9u>;
-    task_b[0] = thread_first_bucket;
-    task_o[0] = thread_first_offset;
-    task_b[S] = thread_last_bucket;
-    task_o[S] = thread_last_offset;
-
-    var search_lo = thread_first_bucket;
-    var search_hi = thread_last_bucket;
-    if (search_hi >= num_dense) { search_hi = num_dense - 1u; }
-
-    for (var k: u32 = 1u; k < S; k = k + 1u) {
-        let tgt = cum_at_start + (k * thread_total) / S;
-        let bs = binary_search_cum_adds(tgt, search_lo, search_hi);
-        task_b[k] = bs.x;
-        task_o[k] = bs.y;
-        search_lo = bs.x;
-    }
-
-    // Per-slot private state (held in registers — WGSL compiler should
-    // not spill these arrays; their per-thread size is ~96 B × 8 = 768 B).
-    var cur_bucket_meta_idx: array<u32, {{ s }}>;
-    var cur_offset:          array<u32, {{ s }}>;
-    var cur_count:           array<u32, {{ s }}>;
-    var cur_l0_base:         array<u32, {{ s }}>;
-    var cur_bucket_id:       array<u32, {{ s }}>;
-    var task_end_b:          array<u32, {{ s }}>;
-    var task_end_o:          array<u32, {{ s }}>;
-    var is_first:            array<u32, {{ s }}>;
-    var is_idle:             array<u32, {{ s }}>;
-    // acc_x / acc_y per slot — packed as two vec4 each in private memory.
-    var acc_x_lo:            array<vec4<u32>, {{ s }}>;
-    var acc_x_hi:            array<vec4<u32>, {{ s }}>;
-    var acc_y_lo:            array<vec4<u32>, {{ s }}>;
-    var acc_y_hi:            array<vec4<u32>, {{ s }}>;
-
+    // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
-        let start_b = task_b[k];
-        let start_o = task_o[k];  // cum-adds-space offset within start bucket
-        let end_b   = task_b[k + 1u];
-        let end_o   = task_o[k + 1u];
+        partial_dest[2u * (t * S + k) + 0u] = NO_BUCKET;
+        partial_dest[2u * (t * S + k) + 1u] = NO_BUCKET;
 
-        // Convert cum-adds offsets to point-index space. Each "add i" in
-        // a bucket's contiguous sequence consumes point i+1 (add 0 consumes
-        // points 0 and 1). So:
-        //   start_o == 0 (bucket start): start_point = 0 (slot reads points 0,1
-        //                                 as is_first pair)
-        //   start_o  > 0 (split-start):  start_point = start_o + 1 (prior
-        //                                 thread consumed point at offset start_o
-        //                                 in its running sum)
-        let start_point = select(start_o + 1u, 0u, start_o == 0u);
+        let sb = task_cuts[cut_base + k * 2u + 0u];
+        let so = task_cuts[cut_base + k * 2u + 1u];
+        let eb = task_cuts[cut_base + (k + 1u) * 2u + 0u];
+        let eo = task_cuts[cut_base + (k + 1u) * 2u + 1u];
 
-        // For task end:
-        //   end_o  > 0: task ends mid-bucket end_b at point index end_o + 1
-        //   end_o == 0: task ends cleanly at end of bucket end_b - 1, point count
-        var task_end_bucket: u32;
-        var task_end_point: u32;
-        if (end_o > 0u) {
-            task_end_bucket = end_b;
-            task_end_point = end_o + 1u;
+        let sb_id = sorted_bucket_list[sb];
+        let sb_base = offsets[sb_id];
+        let sb_count = sorted_count_list[sb];
+
+        // Start cursor. so==0 → fresh at the bucket's first point. so in
+        // (0,count-1) → continuation beginning at point so+1. so==count-1 →
+        // bucket sb is wholly the prior piece's, so this begins fresh at the
+        // next bucket.
+        var eff_sorted = sb;
+        var eff_id = sb_id;
+        var eff_base = sb_base;
+        var eff_count = sb_count;
+        var start_cursor: u32;
+        if (so == 0u) {
+            start_cursor = sb_base;
+            split_start[k] = 0u;
+        } else if (so + 1u < sb_count) {
+            start_cursor = sb_base + so + 1u;
+            split_start[k] = 1u;
         } else {
-            task_end_bucket = end_b - 1u;
-            task_end_point = bucket_meta[end_b - 1u].y;
+            eff_sorted = sb + 1u;
+            eff_id = sorted_bucket_list[eff_sorted];
+            eff_base = offsets[eff_id];
+            eff_count = sorted_count_list[eff_sorted];
+            start_cursor = eff_base;
+            split_start[k] = 0u;
         }
 
-        cur_bucket_meta_idx[k] = start_b;
-        cur_offset[k] = start_point;
-        task_end_b[k] = task_end_bucket;
-        task_end_o[k] = task_end_point;
+        // Task end. eo>0 → last bucket is eb, ending past point eo. eo==0 →
+        // the task stops at the end of bucket eb-1 (it does not touch eb).
+        var te_sort: u32;
+        var te_cur: u32;
+        if (eo > 0u) {
+            te_sort = eb;
+            te_cur = offsets[sorted_bucket_list[eb]] + eo + 1u;
+        } else if (eb > 0u) {
+            te_sort = eb - 1u;
+            let pid = sorted_bucket_list[te_sort];
+            te_cur = offsets[pid] + sorted_count_list[te_sort];
+        } else {
+            te_sort = 0u;
+            te_cur = 0u;
+        }
+
+        cursor[k] = start_cursor;
+        bucket_end[k] = eff_base + eff_count;
+        task_end_sort[k] = te_sort;
+        task_end_cur[k] = te_cur;
+        cur_sorted[k] = eff_sorted;
+        cur_bucket[k] = eff_id;
         is_first[k] = 1u;
-        is_idle[k] = 0u;
+        slot_done[k] = 0u;
 
-        if (start_b < num_dense) {
-            let m = bucket_meta[start_b];
-            cur_bucket_id[k] = m.x;
-            cur_count[k] = m.y;  // count, in points (not adds)
-            cur_l0_base[k] = m.z;
-
-            // Single-point-in-first-bucket case: slot starts at the LAST
-            // point of its first bucket and can't do is_first (which would
-            // read OOB). Pre-load that point as the slot's acc, then either
-            //  (a) if slot's task is just this single point — write it as
-            //      a partial-start, mark idle; or
-            //  (b) advance to the next bucket and continue with is_first=false.
-            if (start_point + 1u >= m.y && start_point < m.y) {
-                let packed = l0_index[m.z + start_point];
-                let px = load_pt_x(packed);
-                let py = load_pt_y(packed);
-                acc_x_lo[k] = vec4<u32>(px[0], px[1], px[2], px[3]);
-                acc_x_hi[k] = vec4<u32>(px[4], px[5], px[6], px[7]);
-                acc_y_lo[k] = vec4<u32>(py[0], py[1], py[2], py[3]);
-                acc_y_hi[k] = vec4<u32>(py[4], py[5], py[6], py[7]);
-
-                if (start_b == task_end_bucket) {
-                    // (a) Whole task is this single point. Write split-start partial.
-                    let slot_global = t * PARTIALS_PER_THREAD + 2u * k;
-                    store_partial(slot_global, NUM_THREADS * PARTIALS_PER_THREAD, px, py);
-                    if (split_write_count < SPLIT_RECORDS_PER_THREAD) {
-                        split_records[split_base + 2u * split_write_count + 0u] = m.x;
-                        split_records[split_base + 2u * split_write_count + 1u] = slot_global;
-                        split_write_count = split_write_count + 1u;
-                    }
-                    is_idle[k] = 1u;
-                } else if (start_b + 1u < num_dense) {
-                    // (b) Carry single point into next bucket.
-                    cur_bucket_meta_idx[k] = start_b + 1u;
-                    cur_offset[k] = 0u;
-                    let mn = bucket_meta[start_b + 1u];
-                    cur_bucket_id[k] = mn.x;
-                    cur_count[k] = mn.y;
-                    cur_l0_base[k] = mn.z;
-                    is_first[k] = 0u;
-                } else {
-                    // Out of buckets — single-point partial, mark idle.
-                    let slot_global = t * PARTIALS_PER_THREAD + 2u * k;
-                    store_partial(slot_global, NUM_THREADS * PARTIALS_PER_THREAD, px, py);
-                    if (split_write_count < SPLIT_RECORDS_PER_THREAD) {
-                        split_records[split_base + 2u * split_write_count + 0u] = m.x;
-                        split_records[split_base + 2u * split_write_count + 1u] = slot_global;
-                        split_write_count = split_write_count + 1u;
-                    }
-                    is_idle[k] = 1u;
-                }
-            }
-        } else {
-            is_idle[k] = 1u;
+        // Empty task (region-aware): the start is at or past the task end.
+        if (eff_sorted > te_sort || (eff_sorted == te_sort && start_cursor >= te_cur)) {
+            slot_done[k] = 1u;
+            continue;
         }
 
-        // Empty task: start == end exactly.
-        if (start_b == task_end_bucket && start_point == task_end_point) {
-            is_idle[k] = 1u;
+        // Single-point leading segment. The is_first step consumes two points,
+        // so a piece with one point before its first boundary can't go through
+        // it. Dense buckets have count>=2, so this only arises for a split
+        // continuation landing on a bucket's last point.
+        var seg_end = bucket_end[k];
+        if (eff_sorted == te_sort) { seg_end = te_cur; }
+        if (split_start[k] == 1u && seg_end - start_cursor == 1u) {
+            let px = load_pt_x(start_cursor);
+            let py = load_pt_y(start_cursor);
+            if (eff_sorted == te_sort) {
+                store_partial(2u * (t * S + k) + 1u, eff_id, M_partials, px, py);
+                slot_done[k] = 1u;
+            } else {
+                store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
+                let nxt = eff_sorted + 1u;
+                let nxt_id = sorted_bucket_list[nxt];
+                let nxt_base = offsets[nxt_id];
+                cur_sorted[k] = nxt;
+                cur_bucket[k] = nxt_id;
+                bucket_end[k] = nxt_base + sorted_count_list[nxt];
+                cursor[k] = nxt_base;
+                split_start[k] = 0u;
+                if (nxt > te_sort) { slot_done[k] = 1u; }
+            }
         }
     }
 
-    // pref_scratch index for thread l, slot k, lo/hi: l * S * 2 + k * 2 + half
-    let pref_t_base = l * S * 2u;
-
-    // Main loop.
     loop {
         var any_active: bool = false;
         for (var k: u32 = 0u; k < S; k = k + 1u) {
-            if (is_idle[k] == 0u) { any_active = true; }
+            if (slot_done[k] == 0u) { any_active = true; }
         }
         if (!any_active) { break; }
 
-        // === Forward prefix: compute dx[k] = rhs.x - lhs.x for each slot,
-        //     accumulating their product.
+        // Forward prefix of dx across the S slots (idle slots use the pad
+        // trio so the product stays invertible), exactly as ba_stream_accum.
         var acc: array<u32, 8> = get_r_f8();
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             var p_lx: array<u32, 8>;
             var p_rx: array<u32, 8>;
-            var packed_lhs: u32;
-            var packed_rhs: u32;
-            if (is_idle[k] == 1u) {
-                packed_lhs = l0_index[IDLE_ANCHOR];
-                packed_rhs = l0_index[IDLE_ANCHOR + 1u];
-                p_lx = load_pt_x(packed_lhs);
-                p_rx = load_pt_x(packed_rhs);
+            if (slot_done[k] == 1u) {
+                p_lx = load_pt_x(IDLE_ANCHOR);
+                p_rx = load_pt_x(IDLE_ANCHOR + 1u);
             } else if (is_first[k] == 1u) {
-                packed_lhs = l0_index[cur_l0_base[k] + cur_offset[k]];
-                packed_rhs = l0_index[cur_l0_base[k] + cur_offset[k] + 1u];
-                p_lx = load_pt_x(packed_lhs);
-                p_rx = load_pt_x(packed_rhs);
+                p_lx = load_pt_x(cursor[k]);
+                p_rx = load_pt_x(cursor[k] + 1u);
             } else {
-                let q0 = acc_x_lo[k];
-                let q1 = acc_x_hi[k];
-                p_lx = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
-                packed_rhs = l0_index[cur_l0_base[k] + cur_offset[k]];
-                p_rx = load_pt_x(packed_rhs);
+                p_lx = acc_x[k];
+                p_rx = load_pt_x(cursor[k]);
             }
             let dx = fr_sub_f8(p_rx, p_lx);
-            if (k == 0u) {
-                acc = dx;
-            } else {
-                acc = montgomery_product_f8(acc, dx);
-            }
-            store_pref(pref_t_base + k * 2u, acc);
+            if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
+            store_pref(pref_base + k * 2u, acc);
         }
 
-        // === One safegcd inversion of the running product.
         var acc20 = unpack256_to_limbs(acc);
         var inv20 = {{ inv_fn }}(acc20);
         var inv = pack_limbs_to_256(&inv20);
 
-        // === Inverse pass: derive 1/dx[k] for each slot.
+        // Inverse pass: derive per-slot 1/dx.
         for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
             let k = S - 1u - jj;
             var inv_dx: array<u32, 8>;
             if (k == 0u) {
                 inv_dx = inv;
             } else {
-                let pp = load_pref(pref_t_base + (k - 1u) * 2u);
+                let pp = load_pref(pref_base + (k - 1u) * 2u);
                 inv_dx = montgomery_product_f8(inv, pp);
-                // Re-fetch dx for this slot to advance inv via Mont(inv * dx).
                 var p_lx_b: array<u32, 8>;
                 var p_rx_b: array<u32, 8>;
-                if (is_idle[k] == 1u) {
-                    let packed_l = l0_index[IDLE_ANCHOR];
-                    let packed_r = l0_index[IDLE_ANCHOR + 1u];
-                    p_lx_b = load_pt_x(packed_l);
-                    p_rx_b = load_pt_x(packed_r);
+                if (slot_done[k] == 1u) {
+                    p_lx_b = load_pt_x(IDLE_ANCHOR);
+                    p_rx_b = load_pt_x(IDLE_ANCHOR + 1u);
                 } else if (is_first[k] == 1u) {
-                    let packed_l = l0_index[cur_l0_base[k] + cur_offset[k]];
-                    let packed_r = l0_index[cur_l0_base[k] + cur_offset[k] + 1u];
-                    p_lx_b = load_pt_x(packed_l);
-                    p_rx_b = load_pt_x(packed_r);
+                    p_lx_b = load_pt_x(cursor[k]);
+                    p_rx_b = load_pt_x(cursor[k] + 1u);
                 } else {
-                    let q0 = acc_x_lo[k];
-                    let q1 = acc_x_hi[k];
-                    p_lx_b = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
-                    let packed_r = l0_index[cur_l0_base[k] + cur_offset[k]];
-                    p_rx_b = load_pt_x(packed_r);
+                    p_lx_b = acc_x[k];
+                    p_rx_b = load_pt_x(cursor[k]);
                 }
                 let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
                 inv = montgomery_product_f8(inv, dx_b);
             }
-            store_pref(pref_t_base + k * 2u, inv_dx);
+            store_pref(pref_base + k * 2u, inv_dx);
         }
 
-        // === Backward peel: affine add + slot advance.
+        // Backward peel: affine add, then retire / advance.
         for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
             let k = S - 1u - jj;
+            if (slot_done[k] == 1u) { continue; }
 
-            if (is_idle[k] == 1u) { continue; }
-
-            // Load lhs/rhs once more for the y-pass + affine-add.
             var p_lx: array<u32, 8>;
             var p_ly: array<u32, 8>;
             var p_rx: array<u32, 8>;
             var p_ry: array<u32, 8>;
-            var advance: u32;
             if (is_first[k] == 1u) {
-                let packed_l = l0_index[cur_l0_base[k] + cur_offset[k]];
-                let packed_r = l0_index[cur_l0_base[k] + cur_offset[k] + 1u];
-                p_lx = load_pt_x(packed_l);
-                p_ly = load_pt_y(packed_l);
-                p_rx = load_pt_x(packed_r);
-                p_ry = load_pt_y(packed_r);
-                advance = 2u;
+                p_lx = load_pt_x(cursor[k]);
+                p_ly = load_pt_y(cursor[k]);
+                p_rx = load_pt_x(cursor[k] + 1u);
+                p_ry = load_pt_y(cursor[k] + 1u);
+                cursor[k] += 2u;
             } else {
-                let q0x = acc_x_lo[k];
-                let q1x = acc_x_hi[k];
-                p_lx = array<u32, 8>(q0x.x, q0x.y, q0x.z, q0x.w, q1x.x, q1x.y, q1x.z, q1x.w);
-                let q0y = acc_y_lo[k];
-                let q1y = acc_y_hi[k];
-                p_ly = array<u32, 8>(q0y.x, q0y.y, q0y.z, q0y.w, q1y.x, q1y.y, q1y.z, q1y.w);
-                let packed_r = l0_index[cur_l0_base[k] + cur_offset[k]];
-                p_rx = load_pt_x(packed_r);
-                p_ry = load_pt_y(packed_r);
-                advance = 1u;
+                p_lx = acc_x[k];
+                p_ly = acc_y[k];
+                p_rx = load_pt_x(cursor[k]);
+                p_ry = load_pt_y(cursor[k]);
+                cursor[k] += 1u;
             }
 
-            let inv_dx = load_pref(pref_t_base + k * 2u);
-
+            let inv_dx = load_pref(pref_base + k * 2u);
             var lambda = fr_sub_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
-
             var r_x = montgomery_product_f8(lambda, lambda);
             let x_sum = fr_add_f8(p_lx, p_rx);
             r_x = fr_sub_f8(r_x, x_sum);
-
             var r_y = fr_sub_f8(p_lx, r_x);
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, p_ly);
 
-            cur_offset[k] = cur_offset[k] + advance;
-            is_first[k] = 0u;
+            // Task end is region-aware: only the task's designated last bucket
+            // can trigger it (cursor is meaningful only within the current
+            // bucket's l0 region).
+            let task_done = (cur_sorted[k] == task_end_sort[k]) && (cursor[k] >= task_end_cur[k]);
+            let bucket_done = cursor[k] >= bucket_end[k];
 
-            // Check bucket / task exhaustion.
-            let bucket_exhausted = (cur_offset[k] >= cur_count[k]);
-            let at_task_end_bucket = (cur_bucket_meta_idx[k] == task_end_b[k]);
-            let task_exhausted = at_task_end_bucket && (cur_offset[k] >= task_end_o[k]);
-
-            if (task_exhausted) {
-                // Task done. Decide retire destination:
-                //  - If task ends mid-bucket (bucket not exhausted at task end),
-                //    retire to split-END partial slot.
-                //  - Else if started-mid-bucket and this is still slot's FIRST bucket,
-                //    retire to split-START partial slot (slot's whole task was inside
-                //    one bucket — CC-2 / sub-task-of-CC-2 case).
-                //  - Else retire to bucket_sums (clean whole-bucket inside the task).
-                let bucket_finished_here = bucket_exhausted && (cur_offset[k] == cur_count[k]);
-                let started_mid_bucket = (cur_bucket_meta_idx[k] == task_b[k] && task_o[k] > 0u);
-                let ends_mid_bucket = !bucket_finished_here;
-
-                if (ends_mid_bucket) {
-                    // Split-end partial — slot index 2*k+1 within thread.
-                    let slot_global = t * PARTIALS_PER_THREAD + 2u * k + 1u;
-                    store_partial(slot_global, M_partials, r_x, r_y);
-                    if (split_write_count < SPLIT_RECORDS_PER_THREAD) {
-                        split_records[split_base + 2u * split_write_count + 0u] = cur_bucket_id[k];
-                        split_records[split_base + 2u * split_write_count + 1u] = slot_global;
-                        split_write_count = split_write_count + 1u;
-                    }
-                } else if (started_mid_bucket) {
-                    // Whole bucket inside task, started mid → split-start partial.
-                    let slot_global = t * PARTIALS_PER_THREAD + 2u * k;
-                    store_partial(slot_global, M_partials, r_x, r_y);
-                    if (split_write_count < SPLIT_RECORDS_PER_THREAD) {
-                        split_records[split_base + 2u * split_write_count + 0u] = cur_bucket_id[k];
-                        split_records[split_base + 2u * split_write_count + 1u] = slot_global;
-                        split_write_count = split_write_count + 1u;
-                    }
+            if (task_done) {
+                let is_partial = (split_start[k] == 1u) || (cursor[k] < bucket_end[k]);
+                if (is_partial) {
+                    store_partial(2u * (t * S + k) + 1u, cur_bucket[k], M_partials, r_x, r_y);
                 } else {
-                    // Clean whole-bucket completion at task end.
-                    store_bucket_sum(cur_bucket_id[k], M_buckets, r_x, r_y);
+                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
                 }
-                is_idle[k] = 1u;
-            } else if (bucket_exhausted) {
-                // Bucket completed inside the task. If slot started mid-bucket,
-                // this is the split-START partial for slot's first bucket.
-                let started_mid_bucket = (cur_bucket_meta_idx[k] == task_b[k] && task_o[k] > 0u);
-                if (started_mid_bucket) {
-                    let slot_global = t * PARTIALS_PER_THREAD + 2u * k;
-                    store_partial(slot_global, M_partials, r_x, r_y);
-                    if (split_write_count < SPLIT_RECORDS_PER_THREAD) {
-                        split_records[split_base + 2u * split_write_count + 0u] = cur_bucket_id[k];
-                        split_records[split_base + 2u * split_write_count + 1u] = slot_global;
-                        split_write_count = split_write_count + 1u;
-                    }
+                slot_done[k] = 1u;
+            } else if (bucket_done) {
+                if (split_start[k] == 1u) {
+                    store_partial(2u * (t * S + k) + 0u, cur_bucket[k], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(cur_bucket_id[k], M_buckets, r_x, r_y);
+                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
                 }
-                // Advance to next bucket in task.
-                cur_bucket_meta_idx[k] = cur_bucket_meta_idx[k] + 1u;
-                cur_offset[k] = 0u;
-                if (cur_bucket_meta_idx[k] < num_dense) {
-                    let m = bucket_meta[cur_bucket_meta_idx[k]];
-                    cur_bucket_id[k] = m.x;
-                    cur_count[k] = m.y;  // count, in points
-                    cur_l0_base[k] = m.z;
-                    is_first[k] = 1u;
-                } else {
-                    is_idle[k] = 1u;
-                }
+                // Advance to the next bucket within the task. Subsequent
+                // buckets always begin fresh (never split-start).
+                let nxt = cur_sorted[k] + 1u;
+                let nxt_id = sorted_bucket_list[nxt];
+                let nxt_base = offsets[nxt_id];
+                cur_sorted[k] = nxt;
+                cur_bucket[k] = nxt_id;
+                bucket_end[k] = nxt_base + sorted_count_list[nxt];
+                cursor[k] = nxt_base;
+                is_first[k] = 1u;
+                split_start[k] = 0u;
             } else {
-                // Within-bucket progress — stash accumulator in private registers.
-                acc_x_lo[k] = vec4<u32>(r_x[0], r_x[1], r_x[2], r_x[3]);
-                acc_x_hi[k] = vec4<u32>(r_x[4], r_x[5], r_x[6], r_x[7]);
-                acc_y_lo[k] = vec4<u32>(r_y[0], r_y[1], r_y[2], r_y[3]);
-                acc_y_hi[k] = vec4<u32>(r_y[4], r_y[5], r_y[6], r_y[7]);
+                acc_x[k] = r_x;
+                acc_y[k] = r_y;
+                is_first[k] = 0u;
             }
         }
     }

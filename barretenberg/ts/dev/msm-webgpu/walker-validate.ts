@@ -64,13 +64,13 @@ async function postResult(payload: Record<string, unknown>) {
     log('info', 'instantiating ShaderManager (chunk=4, n=131072)...');
     const sm = new ShaderManager(4, 131072, BN254_CURVE_CONFIG, false);
 
-    log('info', 'generating ba_stream_walker source (TPB=128, S=8, pk)...');
-    const walkerSrc = sm.gen_ba_stream_walker_shader(128, 8, 'pk');
+    log('info', 'generating ba_stream_walker source (TPB=64, S=8, pk — KNOB 1)...');
+    const walkerSrc = sm.gen_ba_stream_walker_shader(64, 8, 'pk');
     log('info', `walker source: ${walkerSrc.length} bytes`);
 
-    log('info', 'generating ba_bucket_meta_pack source (TPB=256)...');
-    const packSrc = sm.gen_ba_bucket_meta_pack_shader(256);
-    log('info', `pack source: ${packSrc.length} bytes`);
+    log('info', 'generating ba_planner_partition_task source (KNOB 2)...');
+    const packSrc = sm.gen_ba_planner_partition_task_shader(64, 8);
+    log('info', `partition_task source: ${packSrc.length} bytes`);
 
     // Tint compiles via createShaderModule. compilationInfo gives validator output.
     log('info', 'createShaderModule(walker)...');
