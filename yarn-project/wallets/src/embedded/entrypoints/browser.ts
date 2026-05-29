@@ -3,6 +3,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { createStore, openTmpStore } from '@aztec/kv-store/indexeddb';
 import { type PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
+import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint/lazy';
 
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
@@ -44,6 +46,9 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
 
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
+      preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
+        getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint(), await getStandardAuthRegistry()],
+      },
       loggers: {
         store: rootLogger.createChild('pxe:data'),
         pxe: rootLogger.createChild('pxe:service'),
@@ -71,8 +76,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
     const wallet = new this(pxe, aztecNode, walletDB, new LazyAccountContractsProvider(), rootLogger) as T;
-    const { getStandardAuthRegistry } = await import('@aztec/standard-contracts/auth-registry/lazy');
-    await Promise.all([wallet.initStubClasses(), wallet.registerAuthRegistry(getStandardAuthRegistry)]);
+    await wallet.initStubClasses();
     return wallet;
   }
 }

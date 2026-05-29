@@ -50,7 +50,9 @@ export async function createPXE(
     prover = new BBBundlePrivateKernelProver(simulator, { ...options.proverOrOptions, logger: proverLogger });
   }
   const protocolContractsProvider = new BundledProtocolContractsProvider();
-  const preloadedContractsProvider = { getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()] };
+  const preloadedContractsProvider = options.preloadedContractsProvider ?? {
+    getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()],
+  };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create({

@@ -60,7 +60,9 @@ export async function createPXE(
   }
 
   const protocolContractsProvider = new BundledProtocolContractsProvider();
-  const preloadedContractsProvider = { getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()] };
+  const preloadedContractsProvider = options.preloadedContractsProvider ?? {
+    getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()],
+  };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create({
