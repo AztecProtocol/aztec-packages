@@ -356,9 +356,10 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
 }
 
 /**
- * @brief On a transcript no-op row, setting accumulator_not_empty=1 must be caught by subrelation 22.
+ * @brief On a transcript no-op row, setting accumulator_not_empty=1 must be caught by the
+ *        ACCUMULATOR_EMPTY_UPDATE subrelation.
  *
- * @details The `accumulator_infinity_from_noop` term in subrelation 22 forces
+ * @details The `accumulator_infinity_from_noop` term in that subrelation forces
  * is_accumulator_empty_shift = 1 whenever all selectors are zero. This test corrupts
  * the shifted value (i.e. accumulator_not_empty at row+1) to 1 and verifies detection.
  */
@@ -384,7 +385,8 @@ TEST_F(ECCVMRelationCorruptionTests, TranscriptNoOpRowRejectsAccumulatorNotEmpty
         polynomials, params, "ECCVMTranscriptRelation", Flavor::TRACE_OFFSET);
     EXPECT_FALSE(failures.empty()) << "Transcript relation should fail after corrupting accumulator_not_empty on "
                                       "the row following a no-op";
-    EXPECT_TRUE(failures.contains(22)) << "Subrelation 22 (accumulator_infinity) should catch the corruption";
+    EXPECT_TRUE(failures.contains(ECCVMTranscriptRelationImpl<FF>::ACCUMULATOR_EMPTY_UPDATE))
+        << "ACCUMULATOR_EMPTY_UPDATE subrelation should catch the corruption";
 }
 
 /**

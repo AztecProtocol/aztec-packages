@@ -12,6 +12,7 @@
 #include "barretenberg/relations/ecc_vm/ecc_msm_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_set_short_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_transcript_msm_transition_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_transcript_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_short_relation_impl.hpp"
 
@@ -25,8 +26,12 @@ class ECCVMShortMonomialFlavor : public ECCVMFlavor {
     static constexpr bool USE_SHORT_MONOMIALS = true;
 
     using GrandProductRelations = std::tuple<ECCVMSetShortRelation<FF>>;
+    // ECCVMTranscriptMsmTransitionShortRelation immediately follows the main transcript relation: together they cover
+    // the same global subrelation index range (0..31) as the verifier's monolithic ECCVMTranscriptRelation, so the
+    // alpha batching is unchanged.
     template <typename FF_>
     using Relations_ = std::tuple<ECCVMTranscriptShortRelation<FF_>,
+                                  ECCVMTranscriptMsmTransitionShortRelation<FF_>,
                                   ECCVMPointTableShortRelation<FF_>,
                                   ECCVMWnafShortRelation<FF_>,
                                   ECCVMMSMShortRelation<FF_>,

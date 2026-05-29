@@ -17,11 +17,18 @@ template <typename FF_> class ECCVMTranscriptShortRelationImpl : public ECCVMTra
     using FF = FF_;
     using Base = ECCVMTranscriptRelationImpl<FF>;
 
+    // This relation covers the first 27 transcript subrelations (indices 0..26). The final 5 subrelations
+    // (OFFSET_GENERATOR_X/Y, MSM_INFINITY_*) are gated entirely by `msm_transition` and live in the separate
+    // ECCVMTranscriptMsmTransitionShortRelation, which the prover skips on the (overwhelming majority of) rows where
+    // msm_transition == 0. The base enum was ordered to place those 5 contiguously at the end so this split preserves
+    // the global subrelation order (and hence the alpha batching) expected by the verifier.
+    //
     // Tightened per-subrelation partial lengths. LAMBDA_RELATION / ACCUMULATOR_X/Y_UPDATE / ACCUMULATOR_EMPTY_UPDATE
     // stay at length 8 so they can share promoted Accumulator-typed intermediates (result_is_lhs/rhs/inf,
     // opcode_is_zero). Other subrelations only share length-2 short views with the core block and can shrink to
     // their true degree+1.
-    static constexpr std::array<size_t, Base::NUM_SUBRELATIONS> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr size_t NUM_MAIN_SUBRELATIONS = Base::OFFSET_GENERATOR_X; // 27 (everything before the split)
+    static constexpr std::array<size_t, NUM_MAIN_SUBRELATIONS> SUBRELATION_PARTIAL_LENGTHS{
         3, // Z1_ZERO_CHECK (deg 2)
         3, // Z2_ZERO_CHECK (deg 2)
         2, // OPCODE_WELL_FORMED (deg 1)
@@ -39,11 +46,6 @@ template <typename FF_> class ECCVMTranscriptShortRelationImpl : public ECCVMTra
         8, // LAMBDA_RELATION (deg 7)
         8, // ACCUMULATOR_X_UPDATE (deg 7)
         8, // ACCUMULATOR_Y_UPDATE (deg 7)
-        6, // OFFSET_GENERATOR_X (deg 5)
-        6, // OFFSET_GENERATOR_Y (deg 5)
-        4, // MSM_INFINITY_X_DIFF (deg 3)
-        4, // MSM_INFINITY_Y_SUM (deg 3)
-        5, // MSM_INFINITY_INVERSE (deg 4)
         8, // ACCUMULATOR_EMPTY_UPDATE (keep at 8 to share opcode_is_zero / result_is_infinity_short)
         6, // ADD_X_EQUAL_CHECK (deg 5)
         6, // ADD_Y_EQUAL_CHECK (deg 5)
@@ -55,7 +57,7 @@ template <typename FF_> class ECCVMTranscriptShortRelationImpl : public ECCVMTra
         3, // INFINITY_ACC_Y (deg 2)
         3, // ACCUMULATOR_NOT_EMPTY_INIT (deg 2)
     };
-    static_assert(Base::NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
+    static_assert(NUM_MAIN_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
