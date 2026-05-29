@@ -49,6 +49,7 @@ function test_cmds {
   # baked by build()).
   echo "$prefix $script golden rust"
   echo "$prefix $script golden ts"
+  echo "$prefix ipc-codegen/echo_example/cpp/build/bin/schema_reflection_test --schema ipc-codegen/echo_example/schema/schema.json"
 
   # Matrix: one command per (server, client) pair over UDS.
   for server in "${matrix_langs[@]}"; do
