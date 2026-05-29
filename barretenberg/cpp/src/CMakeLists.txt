@@ -132,6 +132,14 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/nodejs_module)
 endif()
 
+# Pull in ipc-runtime as a C++ dependency. Provides the `ipc_runtime`
+# library target (static, or INTERFACE under WASM with transport sources
+# stubbed) that bbapi/wsdb/etc link against for the codegen-emitted
+# bb_ipc_server.hpp dispatcher.
+if(NOT FUZZING AND NOT BB_LITE)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/../../ipc-runtime/cpp ${CMAKE_BINARY_DIR}/ipc-runtime)
+endif()
+
 if(FUZZING_AVM)
     if(FUZZING)
         # Only add these if they weren't added above (when NOT FUZZING AND NOT WASM)
