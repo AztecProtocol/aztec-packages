@@ -5,14 +5,14 @@
 ///   fn destroy(self: *T) void
 ///
 /// Implementations:
-///   UdsBackend (uds_backend.zig) — Unix Domain Socket IPC
+///   ipc_runtime.Client — UDS / MPSC-SHM transport from ipc-runtime/zig
 ///   FfiBackend (ffi_backend.zig) — Direct C FFI linking
 ///
 /// Usage with the generated client:
 ///   const Client = @import("my_service_client.zig").Client;
-///   const UdsBackend = @import("uds_backend.zig").UdsBackend;
-///   var backend = try UdsBackend.connect("/tmp/my-service.sock");
-///   var client = Client(UdsBackend){ .backend = &backend };
+///   const ipc_runtime = @import("ipc_runtime");
+///   var backend = try ipc_runtime.Client.fromPath(allocator, "/tmp/my-service.sock");
+///   var client = Client(ipc_runtime.Client){ .backend = &backend };
 
 /// Compile-time check that a type satisfies the backend interface.
 pub fn assertBackend(comptime T: type) void {
