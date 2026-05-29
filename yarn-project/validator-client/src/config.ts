@@ -79,6 +79,10 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
     ...booleanConfigHelper(false),
   },
+  skipProposalSlotValidation: {
+    description: 'Accept proposal validation regardless of slot timing (for testing only)',
+    ...booleanConfigHelper(false),
+  },
   validateMaxL2BlockGas: {
     env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
     description: 'Maximum L2 block gas for validation. Proposals exceeding this limit are rejected.',

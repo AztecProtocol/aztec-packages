@@ -11,6 +11,7 @@ import { computeCalldataHash } from '@aztec/stdlib/hash';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
@@ -26,8 +27,7 @@ describe('e2e_ordering', () => {
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
-  const expectLogsFromLastBlockToBe = async (logMessages: bigint[]) => {
-    const fromBlock = await aztecNode.getBlockNumber();
+  const expectLogsFromBlockToBe = async (logMessages: bigint[], fromBlock: number) => {
     const logFilter = {
       fromBlock,
       toBlock: fromBlock + 1,
@@ -45,7 +45,7 @@ describe('e2e_ordering', () => {
       wallet,
       aztecNode,
       accounts: [defaultAccountAddress],
-    } = await setup());
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
   }, TIMEOUT);
 
   afterEach(() => teardown());
@@ -77,7 +77,7 @@ describe('e2e_ordering', () => {
           const action = parent.methods[method](child.address, pubSetValueSelector);
           const tx = await proveInteraction(wallet, action, { from: defaultAccountAddress });
 
-          await tx.send();
+          const receipt = await tx.send();
 
           // There are two enqueued calls
           const enqueuedPublicCalls = tx.getPublicCallRequestsWithCalldata();
@@ -94,7 +94,7 @@ describe('e2e_ordering', () => {
           expect(enqueuedPublicCalls.map(c => c.args[0].toBigInt())).toEqual(expectedOrder);
 
           // Logs are emitted in the expected order
-          await expectLogsFromLastBlockToBe(expectedOrder);
+          await expectLogsFromBlockToBe(expectedOrder, receipt.blockNumber!);
 
           // The final value of the child is the last one set
           const value = await aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
@@ -133,10 +133,10 @@ describe('e2e_ordering', () => {
       ] as const)('orders public logs in %s', async method => {
         const expectedOrder = expectedOrders[method];
 
-        await child.methods[method]().send({ from: defaultAccountAddress });
+        const { receipt } = await child.methods[method]().send({ from: defaultAccountAddress });
 
         // Logs are emitted in the expected order
-        await expectLogsFromLastBlockToBe(expectedOrder);
+        await expectLogsFromBlockToBe(expectedOrder, receipt.blockNumber!);
       });
     });
   });

@@ -44,6 +44,12 @@ export class AnvilTestWatcher {
   // Tracks when we first observed the current unfilled slot with pending txs (real wall time).
   private unfilledSlotFirstSeen?: { slot: number; realTime: number };
 
+  // Latest target slot for which the proposer has built a block destined for L1 but which has
+  // not yet been committed. Set by the proposer-pipelining hook from `block-proposed` events so
+  // the watcher can advance L1 (and the injected date provider) to the target slot ahead of the
+  // publisher's `sendRequestsAt` sleep, instead of waiting a full wall-clock slot.
+  private proposedTargetSlot?: number;
+
   constructor(
     private cheatcodes: EthCheatCodes,
     rollupAddress: EthAddress,
@@ -84,6 +90,18 @@ export class AnvilTestWatcher {
   /** Sets a callback to check if the sequencer is actively building, to avoid warping while it works. */
   setIsSequencerBuilding(fn: () => boolean) {
     this.isSequencerBuilding = fn;
+  }
+
+  /**
+   * Records the target slot for which the proposer has built a block destined for L1. Used by
+   * the local-network watcher to fast-forward L1 (and the injected date provider) ahead of the
+   * pipelined publisher's `sendRequestsAt` sleep so it ends promptly instead of waiting a full
+   * wall-clock slot. Only ratchets up — late warps for stale slots are no-ops.
+   */
+  setProposedTargetSlot(slot: number) {
+    if (this.proposedTargetSlot === undefined || slot > this.proposedTargetSlot) {
+      this.proposedTargetSlot = slot;
+    }
   }
 
   async start() {
@@ -174,6 +192,20 @@ export class AnvilTestWatcher {
 
       // If we are not in local network, we don't need to warp time
       if (!this.isLocalNetwork) {
+        return;
+      }
+
+      // Pipelined-publish shortcut: if the proposer has built a block destined for a slot
+      // beyond the current L1 slot, fast-forward L1 to that slot's timestamp so the publisher's
+      // `sendRequestsAt(targetSlot)` sleep ends and the multicall mines inside the target slot.
+      // Without this, the publisher waits up to a full real-time slot for wall clock to catch up.
+      if (this.proposedTargetSlot !== undefined && this.proposedTargetSlot > currentSlot) {
+        const targetSlotTimestamp = Number(
+          await this.rollup.read.getTimestampForSlot([BigInt(this.proposedTargetSlot)]),
+        );
+        if (await this.warpToTimestamp(targetSlotTimestamp)) {
+          this.logger.info(`Warped L1 to target slot ${this.proposedTargetSlot} for pipelined publish`);
+        }
         return;
       }
 

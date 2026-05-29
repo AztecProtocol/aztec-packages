@@ -268,9 +268,9 @@ template <typename Builder, typename T> class bigfield {
 
 #ifndef NDEBUG
         std::array<bb::fr, NUM_LIMBS> limbs = { a.get_value(), b.get_value(), c.get_value(), d.get_value() };
-        bb::fr reconstructed_value = uint256_t(limbs[0]) + (uint256_t(limbs[1]) << NUM_LIMB_BITS) +
-                                     (uint256_t(limbs[2]) << (2 * NUM_LIMB_BITS)) +
-                                     (uint256_t(limbs[3]) << (3 * NUM_LIMB_BITS));
+        bb::fr shift(uint256_t(1) << NUM_LIMB_BITS);
+        bb::fr reconstructed_value =
+            limbs[0] + (limbs[1] * shift) + (limbs[2] * shift * shift) + (limbs[3] * shift * shift * shift);
         bb::fr prime_limb_native = prime_limb.get_value();
         BB_ASSERT_EQ(reconstructed_value, prime_limb_native);
 #endif

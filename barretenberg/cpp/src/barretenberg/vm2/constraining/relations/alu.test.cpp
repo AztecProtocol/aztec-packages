@@ -141,6 +141,35 @@ TEST_F(AluConstrainingTest, NegativeAluWrongOpId)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_DISPATCH_OPERATION), "DISPATCH_OPERATION");
 }
 
+// Two operation selectors active on the same row must violate the mutual exclusion of the operations.
+TEST_F(AluConstrainingTest, NegativeAluTwoOperationsActive)
+{
+    auto trace = TestTraceContainer({
+        {
+            { C::alu_sel, 1 },
+            { C::alu_sel_op_div, 1 },
+            { C::alu_sel_op_not, 1 },
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_EXACTLY_ONE_OPERATION_ACTIVE),
+                              "EXACTLY_ONE_OPERATION_ACTIVE");
+}
+
+// On an inactive row (sel == 0), no operation selector may be toggled.
+TEST_F(AluConstrainingTest, NegativeAluOperationActiveOnInactiveRow)
+{
+    auto trace = TestTraceContainer({
+        {
+            { C::alu_sel, 0 },
+            { C::alu_sel_op_add, 1 },
+        },
+    });
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_EXACTLY_ONE_OPERATION_ACTIVE),
+                              "EXACTLY_ONE_OPERATION_ACTIVE");
+}
+
 // ADD TESTS
 
 const std::vector<MemoryValue> TEST_VALUES_ADD_OUT = {
@@ -2493,6 +2522,109 @@ TEST_F(AluTruncateConstrainingTest, NegativeSetWrongDispatching)
     EXPECT_THROW_WITH_MESSAGE(
         (check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_set_settings>(trace)),
         "Failed.*EXECUTION_DISPATCH_TO_SET. Could not find tuple in destination.");
+}
+
+// Demonstrates that a malicious prover can silently replace a field element with its lower 128 bits
+// when performing SET_FF with a value >= 2^128. The honest trace uses sel_trunc_trivial (since any FF
+// value is <= p-1 = max_value for FF). The exploit switches to sel_trunc_gte_128, which decomposes
+// ia into a_lo (128 bits) + 2^128 * a_hi via ff_gt.sel_dec. The decomposition constraint
+// ic + mid * (max_value + 1) = a_lo degenerates because max_value + 1 = p = 0 in the field,
+// forcing ic = a_lo (the lower 128 bits only). All relations and lookups pass.
+TEST_F(AluTruncateConstrainingTest, ExploitSetFFTruncationTo128Bits)
+{
+    // Use p - 1 as the test value. It is >= 2^128 and its lower 128 bits differ from itself.
+    const FF large_value = FF::modulus - 1;
+    const uint256_t large_value_u256 = static_cast<uint256_t>(large_value);
+    const auto a_decomp = simulation::decompose_256(large_value_u256);
+    // Sanity: value is indeed >= 2^128 and truncation would lose data.
+    ASSERT_NE(a_decomp.hi, 0);
+    const FF a_lo_ff = FF(uint256_t(a_decomp.lo));
+    ASSERT_NE(a_lo_ff, large_value); // a_lo != ia: the exploit changes the output
+
+    // ---------------------------------------------------------------
+    // Step 1: Generate the honest trace for SET_FF with this value.
+    // ---------------------------------------------------------------
+    const auto params = ThreeOperandTestParams{
+        MemoryValue::from_tag(MemoryTag::FF, large_value_u256),
+        MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(MemoryTag::FF)),
+        MemoryValue::from_tag(MemoryTag::FF, large_value_u256),
+    };
+    auto trace = process_set_with_tracegen(params);
+
+    // Verify the honest trace: trivial path, ic == ia == large_value.
+    EXPECT_EQ(trace.get(C::alu_sel_trunc_trivial, 0), 1);
+    EXPECT_EQ(trace.get(C::alu_sel_trunc_gte_128, 0), 0);
+    EXPECT_EQ(trace.get(C::alu_ic, 0), large_value);
+
+    // The honest trace passes all checks.
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_set_settings>(trace);
+
+    // ---------------------------------------------------------------
+    // Step 2: Mutate the trace to exploit the truncation bug.
+    //         Switch from trivial path to sel_trunc_gte_128 path.
+    // ---------------------------------------------------------------
+
+    // 2a. Flip the ALU selectors: trivial -> gte_128.
+    trace.set(C::alu_sel_trunc_trivial, 0, 0);
+    trace.set(C::alu_sel_trunc_gte_128, 0, 1);
+    trace.set(C::alu_sel_trunc_non_trivial, 0, 1);
+
+    // 2b. Set the decomposition columns.
+    // a_lo = lower 128 bits of ia. mid can be anything 128-bit (mid * 0 = 0).
+    trace.set(C::alu_a_lo, 0, FF(uint256_t(a_decomp.lo)));
+    trace.set(C::alu_mid, 0, 0);
+    trace.set(C::alu_mid_bits, 0, 128); // 128 - max_bits = 128 - 0 = 128
+
+    // 2c. Set the exploited output: ic = a_lo (lower 128 bits, NOT the full value).
+    trace.set(C::alu_ic, 0, a_lo_ff);
+
+    // 2d. Update the execution side to match the exploited ic.
+    trace.set(C::execution_register_0_, 0, a_lo_ff);
+
+    // 2e. Add the ff_gt canonical decomposition sub-trace that sel_trunc_gte_128 requires.
+    //     This proves ia = a_lo + 2^128 * a_hi with both limbs range-checked.
+    auto p_limbs = simulation::decompose_256(FF::modulus);
+    bool borrow = a_decomp.lo >= p_limbs.lo;
+    simulation::LimbsComparisonWitness p_sub_a_witness = {
+        .lo = static_cast<uint128_t>(
+            (uint256_t(p_limbs.lo) - uint256_t(a_decomp.lo) - 1 + (borrow ? (uint256_t(1) << 128) : 0))),
+        .hi = static_cast<uint128_t>(uint256_t(p_limbs.hi) - uint256_t(a_decomp.hi) - (borrow ? 1 : 0)),
+        .borrow = borrow,
+    };
+    field_gt_builder.process({ { .operation = simulation::FieldGreaterOperation::CANONICAL_DECOMPOSITION,
+                                 .a = MemoryValue::from_tag(MemoryTag::FF, large_value_u256),
+                                 .a_limbs = a_decomp,
+                                 .p_sub_a_witness = p_sub_a_witness } },
+                             trace);
+
+    // 2f. Add the range check sub-trace for mid (0 bits to check, value 0, 128 bits).
+    range_check_builder.process({ { .value = 0, .num_bits = 128 } }, trace);
+
+    // ---------------------------------------------------------------
+    // Step 3: Verify the exploited trace passes ALL checks.
+    // ---------------------------------------------------------------
+
+    // ALU relation constraints pass.
+    EXPECT_THROW_WITH_MESSAGE((check_relation<alu>(trace)), "DEST_FF_IS_TRIVIAL");
+    // check_relation<alu>(trace);
+
+    /* EXPLOIT TESTING NOTE:
+     * To test the exploit, we need to comment out the check_relation<alu>(trace) above
+     * and remove the EXPECT_THROW_WITH_MESSAGE() line.
+     */
+
+    // All ALU child lookups pass (including LARGE_TRUNC_CANONICAL_DEC into ff_gt, RANGE_CHECK_TRUNC_MID).
+    check_all_interactions<AluTraceBuilder>(trace);
+
+    // The execution -> ALU dispatch lookup passes with the tampered ic.
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_set_settings>(trace);
+
+    // The exploit is complete: the prover proved that SET_FF(p-1) = a_lo (lower 128 bits)
+    // instead of p-1. The value written to the destination register is wrong.
+    EXPECT_NE(trace.get(C::alu_ic, 0), large_value);
+    EXPECT_EQ(trace.get(C::alu_ic, 0), a_lo_ff);
 }
 
 } // namespace

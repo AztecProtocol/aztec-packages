@@ -2,7 +2,6 @@
 import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
@@ -15,11 +14,11 @@ import { BlockHash, Body, GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdl
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { CompleteAddress, SerializableContractInstance } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
-import { PublicKeys } from '@aztec/stdlib/keys';
+import { PublicKey, PublicKeys } from '@aztec/stdlib/keys';
 import {
+  AppTaggingSecret,
   ContractClassLog,
   ContractClassLogFields,
-  ExtendedDirectionalAppTaggingSecret,
   PrivateLog,
   PublicLog,
   type TaggingIndexRange,
@@ -187,18 +186,17 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       await contractStore.addContractInstance(
         new SerializableContractInstance({
-          version: 1,
+          version: 2,
           salt: new Fr(73n),
           deployer: AztecAddress.fromBigInt(79n),
           currentContractClassId: new Fr(83n),
           originalContractClassId: new Fr(89n),
           initializationHash: new Fr(97n),
-          publicKeys: new PublicKeys(
-            new Point(new Fr(41n), new Fr(43n), false),
-            new Point(new Fr(47n), new Fr(53n), false),
-            new Point(new Fr(59n), new Fr(61n), false),
-            new Point(new Fr(67n), new Fr(71n), false),
-          ),
+          immutablesHash: new Fr(103n),
+          // Only `ivpk_m` is exposed as a curve point; the other three master keys
+          // are exposed as `hash_public_key` digests. Constructor signature is now
+          // `(npkMHash, ivpkM, ovpkMHash, tpkMHash)`.
+          publicKeys: new PublicKeys(new Fr(41n), new PublicKey(new Fr(47n), new Fr(53n)), new Fr(59n), new Fr(67n)),
         }).withAddress(AztecAddress.fromBigInt(101n)),
       );
     },
@@ -480,8 +478,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const recipientTaggingStore = new RecipientTaggingStore(kvStore);
 
       const jobId = 'fixture-job';
-      const secretA = new ExtendedDirectionalAppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
-      const secretB = new ExtendedDirectionalAppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
+      const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
+      const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
 
       await recipientTaggingStore.updateHighestFinalizedIndex(secretA, 11, jobId);
       await recipientTaggingStore.updateHighestAgedIndex(secretA, 13, jobId);
@@ -514,9 +512,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const senderTaggingStore = new SenderTaggingStore(kvStore);
 
       const jobId = 'fixture-job';
-      const secretA = new ExtendedDirectionalAppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
-      const secretB = new ExtendedDirectionalAppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
-      const secretC = new ExtendedDirectionalAppTaggingSecret(new Fr(11n), AztecAddress.fromBigInt(13n));
+      const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
+      const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
+      const secretC = new AppTaggingSecret(new Fr(11n), AztecAddress.fromBigInt(13n));
       const txHashA = TxHash.fromBigInt(17n);
       const txHashB = TxHash.fromBigInt(19n);
       const txHashC = TxHash.fromBigInt(23n);

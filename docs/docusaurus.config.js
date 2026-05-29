@@ -24,19 +24,24 @@ const macros = require("./src/katex-macros.js");
 function syncVersionsFromConfig(configFile, versionsFile, versionedDocsDir) {
   const config = require(configFile);
   const docsDir = path.join(__dirname, versionedDocsDir);
-  const configVersions = [...new Set(Object.values(config).filter(
-    (v) => v && fs.existsSync(path.join(docsDir, `version-${v}`))
-  ))];
+  const configVersions = [
+    ...new Set(
+      Object.values(config).filter(
+        (v) => v && fs.existsSync(path.join(docsDir, `version-${v}`)),
+      ),
+    ),
+  ];
   const configVersionSet = new Set(Object.values(config).filter(Boolean));
   const extraVersions = fs.existsSync(docsDir)
-    ? fs.readdirSync(docsDir)
+    ? fs
+        .readdirSync(docsDir)
         .filter((d) => d.startsWith("version-"))
         .map((d) => d.replace("version-", ""))
         .filter((v) => !configVersionSet.has(v))
     : [];
   fs.writeFileSync(
     path.join(__dirname, versionsFile),
-    JSON.stringify([...configVersions, ...extraVersions], null, 2) + "\n"
+    JSON.stringify([...configVersions, ...extraVersions], null, 2) + "\n",
   );
   return config;
 }
@@ -44,7 +49,7 @@ function syncVersionsFromConfig(configFile, versionsFile, versionedDocsDir) {
 const developerVersionConfig = syncVersionsFromConfig(
   "./developer_version_config.json",
   "developer_versions.json",
-  "developer_versioned_docs"
+  "developer_versioned_docs",
 );
 const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
 const developerTestnetVersion = developerVersionConfig.testnet || null;
@@ -52,7 +57,7 @@ const developerTestnetVersion = developerVersionConfig.testnet || null;
 const networkVersionConfig = syncVersionsFromConfig(
   "./network_version_config.json",
   "network_versions.json",
-  "network_versioned_docs"
+  "network_versioned_docs",
 );
 const mainnetNetworkVersion = networkVersionConfig.mainnet || null;
 const testnetVersion = networkVersionConfig.testnet || null;
@@ -105,6 +110,12 @@ const config = {
       onBrokenMarkdownLinks: "throw",
     },
   },
+  future: {
+    faster: true,
+    v4: {
+      removeLegacyPostBuildHeadAttribute: true,
+    },
+  },
   themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
   presets: [
     [
@@ -154,20 +165,22 @@ const config = {
         versions: {
           ...(mainnetDeveloperVersion && {
             [mainnetDeveloperVersion]: {
-              label: mainnetDeveloperVersion === developerTestnetVersion
-                ? `Alpha / Testnet (${mainnetDeveloperVersion})`
-                : `Alpha (${mainnetDeveloperVersion})`,
+              label:
+                mainnetDeveloperVersion === developerTestnetVersion
+                  ? `Alpha / Testnet (${mainnetDeveloperVersion})`
+                  : `Alpha (${mainnetDeveloperVersion})`,
               path: "",
               banner: "none",
             },
           }),
-          ...(developerTestnetVersion && developerTestnetVersion !== mainnetDeveloperVersion && {
-            [developerTestnetVersion]: {
-              label: `Testnet (${developerTestnetVersion})`,
-              path: mainnetDeveloperVersion ? "testnet" : "",
-              banner: "none",
-            },
-          }),
+          ...(developerTestnetVersion &&
+            developerTestnetVersion !== mainnetDeveloperVersion && {
+              [developerTestnetVersion]: {
+                label: `Testnet (${developerTestnetVersion})`,
+                path: mainnetDeveloperVersion ? "testnet" : "",
+                banner: "none",
+              },
+            }),
           ...(process.env.CONTEXT !== "production" && {
             current: {
               label: "dev",
@@ -203,20 +216,22 @@ const config = {
         versions: {
           ...(mainnetNetworkVersion && {
             [mainnetNetworkVersion]: {
-              label: mainnetNetworkVersion === testnetVersion
-                ? `Alpha / Testnet (${mainnetNetworkVersion})`
-                : `Alpha (${mainnetNetworkVersion})`,
+              label:
+                mainnetNetworkVersion === testnetVersion
+                  ? `Alpha / Testnet (${mainnetNetworkVersion})`
+                  : `Alpha (${mainnetNetworkVersion})`,
               path: process.env.CONTEXT !== "production" ? "alpha" : "",
               banner: "none",
             },
           }),
-          ...(testnetVersion && testnetVersion !== mainnetNetworkVersion && {
-            [testnetVersion]: {
-              label: `Testnet (${testnetVersion})`,
-              path: "testnet",
-              banner: "none",
-            },
-          }),
+          ...(testnetVersion &&
+            testnetVersion !== mainnetNetworkVersion && {
+              [testnetVersion]: {
+                label: `Testnet (${testnetVersion})`,
+                path: "testnet",
+                banner: "none",
+              },
+            }),
           ...(process.env.CONTEXT !== "production" && {
             current: {
               label: "dev",
@@ -289,9 +304,7 @@ const config = {
     ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
-  clientModules: [
-    './src/clientModules/docsgpt.js',
-  ],
+  clientModules: ["./src/clientModules/docsgpt.js"],
   customFields: {},
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -540,17 +553,6 @@ const config = {
           {
             className: "code-block-error-line",
             line: "this-will-error",
-          },
-          // This could be used to have release-please modify the current version in code blocks.
-          // However doing so requires to manually add each md file to release-please-config.json/extra-files
-          // which is easy to forget an error prone, so instead we rely on the AztecPackagesVersion() function.
-          {
-            line: "x-release-please-version",
-            block: {
-              start: "x-release-please-start-version",
-              end: "x-release-please-end",
-            },
-            className: "not-allowed-to-be-empty",
           },
         ],
       },

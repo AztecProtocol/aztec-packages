@@ -14,7 +14,9 @@ import type {
 export const ValidatorStatusInSlotSchema = zodFor<ValidatorStatusInSlot>()(
   z.enum([
     'checkpoint-mined',
-    'checkpoint-proposed',
+    'checkpoint-valid',
+    'checkpoint-invalid',
+    'checkpoint-unvalidated',
     'checkpoint-missed',
     'blocks-missed',
     'attestation-sent',
@@ -74,7 +76,7 @@ export const ValidatorsStatsSchema = zodFor<ValidatorsStats>()(
 export const SingleValidatorStatsSchema = zodFor<SingleValidatorStats>()(
   z.object({
     validator: ValidatorStatsSchema,
-    allTimeProvenPerformance: z.array(
+    allTimeEpochPerformance: z.array(
       z.object({
         missed: schemas.Integer,
         total: schemas.Integer,

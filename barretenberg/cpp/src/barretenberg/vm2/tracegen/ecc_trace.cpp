@@ -131,7 +131,6 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
                       // Resulting point
                       { C::ecc_r_x, result.x() },
                       { C::ecc_r_y, result.y() },
-                      { C::ecc_r_is_inf, result.is_infinity() ? 1 : 0 },
 
                       // Temporary result boolean to decrease relation degree
                       { C::ecc_use_computed_result, use_computed_result },
@@ -150,8 +149,7 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
                       // Witness for add operation
                       { C::ecc_add_op, add_predicate },
-                      // This is a witness for the result(r) being the point at infinity
-                      // It is used to constrain that ecc_r_is_inf is correctly set.
+                      // This is a witness for the result (r) being the point at infinity.
                       { C::ecc_result_infinity, result_is_infinity },
                       // The computed 'slope' between points P and Q.
                       { C::ecc_lambda, lambda },
@@ -273,17 +271,17 @@ void EccTraceBuilder::process_add_with_memory(
     // If there is no error, the trace constrains the correctness of the add result R with the ecc subtrace (see
     // process_add) via separate add events and the memory reads of the input points with the execution trace's
     // #[DISPATCH_TO_ECC_ADD]. The writes are handled in the trace with a permutation to memory (see #[WRITE_MEM_i]
-    // and interactions perm_ecc_mem_write_mem_i for i = 0, 1, 2).
+    // and interactions perm_ecc_mem_write_mem_i for i = 0, 1).
 
-    // If there is an error, the event has an empty result point (0, 0, false), the add/write lookups/permutations are
+    // If there is an error, the event has an empty result point (0, 0), the add/write lookups/permutations are
     // skipped, and the error flag is set to 1. This flag is checked against sel_opcode_error in #[DISPATCH_TO_ECC_ADD].
     for (const auto& event : events) {
         // Address cast to uint64_t to capture possible overflow.
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_address);
 
         // Error handling, check if the destination address is out of range.
-        // The max write address is dst_addr + 2, since we write 3 values for R (x, y, is_inf).
-        bool dst_out_of_range_err = dst_addr + 2 > AVM_HIGHEST_MEM_ADDRESS;
+        // The max write address is dst_addr + 1, since we write 2 values for R (x, y).
+        bool dst_out_of_range_err = dst_addr + 1 > AVM_HIGHEST_MEM_ADDRESS;
 
         // Error handling, check if the points are on the curve.
         // We do not use batch inversions as we do not need to invert in the happy path.
@@ -296,10 +294,6 @@ void EccTraceBuilder::process_add_with_memory(
         FF q_is_on_curve_eqn_inv = q_is_on_curve ? FF::zero() : q_is_on_curve_eqn.invert();
 
         bool error = dst_out_of_range_err || !p_is_on_curve || !q_is_on_curve;
-
-        // Normalized points, ensures that input infinity points are represented by (0, 0) in the ecc subtrace.
-        EmbeddedCurvePoint p_n = event.p.is_infinity() ? EmbeddedCurvePoint::infinity() : event.p;
-        EmbeddedCurvePoint q_n = event.q.is_infinity() ? EmbeddedCurvePoint::infinity() : event.q;
 
         trace.set(row,
                   { {
@@ -322,26 +316,19 @@ void EccTraceBuilder::process_add_with_memory(
                       // Memory Writes
                       { C::ecc_add_mem_dst_addr_0_, dst_addr },
                       { C::ecc_add_mem_dst_addr_1_, dst_addr + 1 },
-                      { C::ecc_add_mem_dst_addr_2_, dst_addr + 2 },
                       // Input - Point P
                       { C::ecc_add_mem_p_x, event.p.x() },
                       { C::ecc_add_mem_p_y, event.p.y() },
-                      { C::ecc_add_mem_p_is_inf, event.p.is_infinity() ? 1 : 0 },
                       // Input - Point Q
                       { C::ecc_add_mem_q_x, event.q.x() },
                       { C::ecc_add_mem_q_y, event.q.y() },
+                      // Input - Infinity flags required for ECC trace
+                      { C::ecc_add_mem_p_is_inf, event.p.is_infinity() ? 1 : 0 },
                       { C::ecc_add_mem_q_is_inf, event.q.is_infinity() ? 1 : 0 },
-                      // Normalized input - Point P
-                      { C::ecc_add_mem_p_x_n, p_n.x() },
-                      { C::ecc_add_mem_p_y_n, p_n.y() },
-                      // Normalized input - Point Q
-                      { C::ecc_add_mem_q_x_n, q_n.x() },
-                      { C::ecc_add_mem_q_y_n, q_n.y() },
                       // Output
                       { C::ecc_add_mem_sel_should_exec, error ? 0 : 1 },
                       { C::ecc_add_mem_res_x, event.result.x() },
                       { C::ecc_add_mem_res_y, event.result.y() },
-                      { C::ecc_add_mem_res_is_inf, event.result.is_infinity() ? 1 : 0 },
                   } });
 
         row++;

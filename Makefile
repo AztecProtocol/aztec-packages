@@ -126,6 +126,9 @@ bb-cpp-native-objects: bb-cpp-yarn
 bb-cpp-native: bb-cpp-native-objects avm-transpiler-native bb-cpp-yarn bb-cpp-format-check
 	$(call build,$@,barretenberg/cpp,build_native)
 
+bb-cpp-chonk-inputs:
+	$(call build,$@,barretenberg/cpp,download_chonk_inputs)
+
 # BB C++ WASM - Single-threaded WebAssembly build
 bb-cpp-wasm:
 	$(call build,$@,barretenberg/cpp,build_preset wasm)
@@ -238,7 +241,7 @@ bb-sol: bb-cpp-native bb-crs l1-contracts-solc
 # Barretenberg Tests
 #==============================================================================
 
-bb-cpp-native-tests: bb-cpp-native
+bb-cpp-native-tests: bb-cpp-native bb-cpp-chonk-inputs
 	$(call test,$@,barretenberg/cpp,native)
 
 bb-cpp-wasm-threads-tests: bb-cpp-wasm-threads

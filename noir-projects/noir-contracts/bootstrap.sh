@@ -93,20 +93,17 @@ function get_contract_path {
 }
 export -f get_contract_path
 
-# Stamps the aztec version into a contract artifact JSON in place. Mirrors stampAztecVersion in
-# yarn-project/aztec/src/cli/cmds/compile.ts so monorepo-built artifacts match those produced by `aztec compile`.
-# On release builds (REF_NAME is valid semver) the tag without the leading "v" is used; otherwise "dev".
-function stamp_aztec_version {
+# Stamps "dev" (DEV_VERSION) as the artifact's aztec_version - that is the expected version of a locally checked out
+# monorepo. The real release version is applied at publish time by whichever path owns it:
+# ci3/release_prep_package_json for npm packages, release-image/Dockerfile for the docker image.
+function stamp_dev_aztec_version {
   local json_path=$1
-  # "dev" here corresponds to DEV_VERSION in yarn-project/stdlib/src/update-checker/dev_version.ts.
-  local version="dev"
-  semver check "$REF_NAME" 2>/dev/null && version="${REF_NAME#v}"
   local tmp=$(mktemp)
-  jq --arg v "$version" '.aztec_version = $v' "$json_path" > "$tmp"
+  jq '.aztec_version = "dev"' "$json_path" > "$tmp"
   cat "$tmp" > "$json_path"
   rm "$tmp"
 }
-export -f stamp_aztec_version
+export -f stamp_dev_aztec_version
 
 # This compiles a noir contract, transpiles public functions, strips internal prefixes,
 # and generates verification keys for private functions via 'bb aztec_process'.
@@ -128,9 +125,9 @@ function compile {
     $BB aztec_process -i $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
-  # Stamp the current version after the cache block so the field always matches the build's version, whether
-  # the artifact came from a fresh compile or a cache hit.
-  stamp_aztec_version "$json_path"
+  # Stamp the version after the cache block so the field is always present, whether the artifact came from a fresh
+  # compile or a cache hit.
+  stamp_dev_aztec_version "$json_path"
 }
 export -f compile
 

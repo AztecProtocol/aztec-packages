@@ -68,8 +68,10 @@ The nullifier hiding key (`nhk`) — sometimes referred to in older documentatio
 To get the owner's master nullifier public key hash (needed as input):
 
 ```rust
-let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
 ```
+
+`PublicKeys` exposes the nullifier, outgoing-viewing, and tagging keys directly as their hashes; only `ivpk_m` is held as a Grumpkin point (it is required as a point for address derivation and encrypt-to-address).
 
 :::warning
 Do not compute nullifier keys by hand or derive custom blinding factors. The protocol kernel validates that `nhk_app` derives correctly from the master key — a hand-rolled value will fail verification.
@@ -122,17 +124,23 @@ Your Aztec address is deterministically computed from your public keys and accou
 
 ![Address derivation](/img/address_derivation.svg)
 
+:::note
+The diagram above is being updated to reflect the new key-hashing scheme described below. Treat the text formulas as authoritative until a refresh lands.
+:::
+
 ```text
 pre_address = hash(public_keys_hash, partial_address)
 
 where:
-  public_keys_hash = hash(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)
-  partial_address = hash(contract_class_id, salted_initialization_hash)
+  public_keys_hash = hash(npk_m_hash, ivpk_m_hash, ovpk_m_hash, tpk_m_hash)
+  ivpk_m_hash      = hash(Ivpk_m.x, Ivpk_m.y)        // computed in-circuit
+  npk_m_hash, ovpk_m_hash, tpk_m_hash                // computed off-circuit (PXE)
+  partial_address  = hash(contract_class_id, salted_initialization_hash)
   contract_class_id = hash(artifact_hash, fn_tree_root, public_bytecode_commitment)
-  salted_initialization_hash = hash(deployer_address, salt, constructor_hash)
+  salted_initialization_hash = hash(salt, constructor_hash, deployer_address, immutables_hash)
 ```
 
-The final address is derived as `address = (pre_address * G + Ivpk_m).x` - only the x-coordinate of the resulting elliptic curve point.
+The final address is derived as `address = (pre_address * G + Ivpk_m).x` - only the x-coordinate of the resulting elliptic curve point. Note that `Ivpk_m` (the master incoming viewing key) is the only public key still represented as an elliptic curve point: address derivation needs it as a point so that anyone can encrypt to the address without further information. The other three master keys are exposed only as their hashes.
 
 This derivation ensures:
 

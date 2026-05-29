@@ -82,18 +82,12 @@ export async function createAccountLogs(accountManagers: AccountManager[], walle
       accountLogStrings.push(` Address: ${completeAddress.address.toString()}\n`);
       accountLogStrings.push(` Partial Address: ${completeAddress.partialAddress.toString()}\n`);
       accountLogStrings.push(` Secret Key: ${account.getSecretKey().toString()}\n`);
+      accountLogStrings.push(` Master nullifier public key hash: ${completeAddress.publicKeys.npkMHash.toString()}\n`);
+      accountLogStrings.push(` Master incoming viewing public key: ${completeAddress.publicKeys.ivpkM.toString()}\n\n`);
       accountLogStrings.push(
-        ` Master nullifier public key: ${completeAddress.publicKeys.masterNullifierPublicKey.toString()}\n`,
+        ` Master outgoing viewing public key hash: ${completeAddress.publicKeys.ovpkMHash.toString()}\n\n`,
       );
-      accountLogStrings.push(
-        ` Master incoming viewing public key: ${completeAddress.publicKeys.masterIncomingViewingPublicKey.toString()}\n\n`,
-      );
-      accountLogStrings.push(
-        ` Master outgoing viewing public key: ${completeAddress.publicKeys.masterOutgoingViewingPublicKey.toString()}\n\n`,
-      );
-      accountLogStrings.push(
-        ` Master tagging public key: ${completeAddress.publicKeys.masterTaggingPublicKey.toString()}\n\n`,
-      );
+      accountLogStrings.push(` Master tagging public key hash: ${completeAddress.publicKeys.tpkMHash.toString()}\n\n`);
     }
   }
   return accountLogStrings;

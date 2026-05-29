@@ -1277,10 +1277,10 @@ sel_exec_dispatch_keccakf1600 {
 };
 
 // ECADD DISPATCHING
-// Each input point uses 3 registers:
-//  P = [x, y, is_inf] -> register[0..2], Q = [x, y, is_inf] -> register[3..5]
+// Each input point uses 2 registers:
+//  P = [x, y] -> register[0..1], Q = [x, y] -> register[2..3]
 // The output point is written to memory internally inside the ecc_add_mem (ecc_mem.pil) trace, starting at:
-//  dst_addr[0] -> rop[6]
+//  dst_addr[0] -> rop[4]
 // Outputs (#[WRITE_MEM_x]) and memory write checks (#[CHECK_DST_ADDR_IN_RANGE]) are hence handled by the trace.
 
 #[DISPATCH_TO_ECC_ADD]
@@ -1290,13 +1290,11 @@ sel_exec_dispatch_ecc_add {
         // Point P
         register[0],
         register[1],
-        register[2],
         // Point Q
+        register[2],
         register[3],
-        register[4],
-        register[5],
         // Dst address
-        rop[6],
+        rop[4],
         // Error
         sel_opcode_error
 } is ecc_add_mem.sel {
@@ -1305,11 +1303,9 @@ sel_exec_dispatch_ecc_add {
         // Point P
         ecc_add_mem.p_x,
         ecc_add_mem.p_y,
-        ecc_add_mem.p_is_inf,
         // Point Q
         ecc_add_mem.q_x,
         ecc_add_mem.q_y,
-        ecc_add_mem.q_is_inf,
         // Dst address
         ecc_add_mem.dst_addr[0],
         // Error

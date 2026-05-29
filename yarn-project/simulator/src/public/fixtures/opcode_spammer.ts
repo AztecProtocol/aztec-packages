@@ -1339,20 +1339,16 @@ export const SPAM_CONFIGS: Partial<Record<Opcode, SpamConfig[]>> = {
       setup: [
         { offset: 0, value: new Field(Grumpkin.generator.x) }, // p1X = G.x
         { offset: 1, value: new Field(Grumpkin.generator.y) }, // p1Y = G.y
-        { offset: 2, value: new Uint1(0n) }, // p1IsInfinite = false
-        { offset: 3, value: new Field(Grumpkin.generator.x) }, // p2X = G.x
-        { offset: 4, value: new Field(Grumpkin.generator.y) }, // p2Y = G.y
-        { offset: 5, value: new Uint1(0n) }, // p2IsInfinite = false
+        { offset: 2, value: new Field(Grumpkin.generator.x) }, // p2X = G.x
+        { offset: 3, value: new Field(Grumpkin.generator.y) }, // p2Y = G.y
       ],
       targetInstructions: () => [
         new EcAdd(
           /*addressing_mode=*/ 0,
           /*p1XOffset=*/ 0,
           /*p1YOffset=*/ 1,
-          /*p1IsInfiniteOffset=*/ 2,
-          /*p2XOffset=*/ 3,
-          /*p2YOffset=*/ 4,
-          /*p2IsInfiniteOffset=*/ 5,
+          /*p2XOffset=*/ 2,
+          /*p2YOffset=*/ 3,
           /*dstOffset=*/ 0,
         ),
       ],

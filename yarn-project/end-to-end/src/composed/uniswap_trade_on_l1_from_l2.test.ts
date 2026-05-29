@@ -1,3 +1,4 @@
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { setup as e2eSetup } from '../fixtures/utils.js';
 import { uniswapL1L2TestSuite } from '../shared/uniswap_l1_l2.js';
 
@@ -10,7 +11,7 @@ const EXPECTED_FORKED_BLOCK = 0; //17514288;
 let teardown: () => Promise<void>;
 
 const testSetup = async () => {
-  const context = await e2eSetup(2, { stateLoad: dumpedState, startProverNode: true });
+  const context = await e2eSetup(2, { ...PIPELINING_SETUP_OPTS, stateLoad: dumpedState, startProverNode: true });
 
   teardown = context.teardown;
 

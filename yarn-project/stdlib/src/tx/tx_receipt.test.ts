@@ -42,22 +42,12 @@ describe('TxReceipt', () => {
     });
 
     it('isSuccess returns false for reverted execution', () => {
-      const receipt = new TxReceipt(
-        TxHash.random(),
-        TxStatus.PROPOSED,
-        TxExecutionResult.APP_LOGIC_REVERTED,
-        undefined,
-      );
+      const receipt = new TxReceipt(TxHash.random(), TxStatus.PROPOSED, TxExecutionResult.REVERTED, undefined);
       expect(receipt.hasExecutionSucceeded()).toBe(false);
     });
 
     it('isReverted returns true for reverted execution', () => {
-      const receipt = new TxReceipt(
-        TxHash.random(),
-        TxStatus.PROPOSED,
-        TxExecutionResult.APP_LOGIC_REVERTED,
-        undefined,
-      );
+      const receipt = new TxReceipt(TxHash.random(), TxStatus.PROPOSED, TxExecutionResult.REVERTED, undefined);
       expect(receipt.hasExecutionReverted()).toBe(true);
     });
 

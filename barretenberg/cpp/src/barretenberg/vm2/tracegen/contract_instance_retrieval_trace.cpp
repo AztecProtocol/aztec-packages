@@ -62,20 +62,20 @@ void ContractInstanceRetrievalTraceBuilder::process(
                 { C::contract_instance_retrieval_original_class_id,
                   event.contract_instance.original_contract_class_id },
                 { C::contract_instance_retrieval_init_hash, event.contract_instance.initialization_hash },
+                { C::contract_instance_retrieval_immutables_hash, event.contract_instance.immutables_hash },
 
-                // Public keys (hinted)
-                { C::contract_instance_retrieval_nullifier_key_x, event.contract_instance.public_keys.nullifier_key.x },
-                { C::contract_instance_retrieval_nullifier_key_y, event.contract_instance.public_keys.nullifier_key.y },
+                // Public keys (hinted). Only ivpk_m is held as a Grumpkin point;
+                // the others are field-element hashes computed off-circuit by the PXE.
+                { C::contract_instance_retrieval_nullifier_key_hash,
+                  event.contract_instance.public_keys.nullifier_key_hash },
                 { C::contract_instance_retrieval_incoming_viewing_key_x,
                   event.contract_instance.public_keys.incoming_viewing_key.x },
                 { C::contract_instance_retrieval_incoming_viewing_key_y,
                   event.contract_instance.public_keys.incoming_viewing_key.y },
-                { C::contract_instance_retrieval_outgoing_viewing_key_x,
-                  event.contract_instance.public_keys.outgoing_viewing_key.x },
-                { C::contract_instance_retrieval_outgoing_viewing_key_y,
-                  event.contract_instance.public_keys.outgoing_viewing_key.y },
-                { C::contract_instance_retrieval_tagging_key_x, event.contract_instance.public_keys.tagging_key.x },
-                { C::contract_instance_retrieval_tagging_key_y, event.contract_instance.public_keys.tagging_key.y },
+                { C::contract_instance_retrieval_outgoing_viewing_key_hash,
+                  event.contract_instance.public_keys.outgoing_viewing_key_hash },
+                { C::contract_instance_retrieval_tagging_key_hash,
+                  event.contract_instance.public_keys.tagging_key_hash },
 
                 // Tree context
                 { C::contract_instance_retrieval_public_data_tree_root, event.public_data_tree_root },

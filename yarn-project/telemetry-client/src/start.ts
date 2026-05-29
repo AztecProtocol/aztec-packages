@@ -19,7 +19,12 @@ export async function initTelemetryClient(
     return telemetry;
   }
 
-  if (config.metricsCollectorUrl || config.publicMetricsCollectorUrl) {
+  if (
+    config.metricsCollectorUrl ||
+    config.publicMetricsCollectorUrl ||
+    config.tracesCollectorUrl ||
+    config.logsCollectorUrl
+  ) {
     log.info(`Using OpenTelemetry client with custom collector`);
     // Lazy load OpenTelemetry to avoid loading heavy deps at startup
     const { OpenTelemetryClient } = await import('./otel.js');

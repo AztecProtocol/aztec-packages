@@ -231,10 +231,10 @@ TEST_F(AcirComponentsCheckTest, AllBlackBoxFunctionOpcodesPassComponentsCheck)
     auto r1_signature = witnesses.next_input_array<64>();
     auto r1_hashed_message = witnesses.next_input_array<32>();
 
-    auto msm_outputs = witnesses.next_witness_array<3>();
-    auto ec_add_input1 = witnesses.next_input_array<3>();
-    auto ec_add_input2 = witnesses.next_input_array<3>();
-    auto ec_add_outputs = witnesses.next_witness_array<3>();
+    auto msm_outputs = witnesses.next_witness_array<2>();
+    auto ec_add_input1 = witnesses.next_input_array<2>();
+    auto ec_add_input2 = witnesses.next_input_array<2>();
+    auto ec_add_outputs = witnesses.next_witness_array<2>();
     auto keccak_inputs = witnesses.next_input_array<25>();
     auto keccak_outputs = witnesses.next_witness_array<25>();
 
@@ -346,7 +346,7 @@ TEST_F(AcirComponentsCheckTest, AllBlackBoxFunctionOpcodesPassComponentsCheck)
                                                             Acir::BlackBoxFuncCall{
                                                                 .value =
                                                                     Acir::BlackBoxFuncCall::MultiScalarMul{
-                                                                        .points = witnesses.next_inputs(3),
+                                                                        .points = witnesses.next_inputs(2),
                                                                         .scalars = witnesses.next_inputs(2),
                                                                         .predicate = make_constant_input(bb::fr::one()),
                                                                         .outputs = msm_outputs,
@@ -407,12 +407,10 @@ TEST_F(AcirComponentsCheckTest, FixedBaseMultiScalarMulMergesCircuitComponents)
                                                                 .value =
                                                                     Acir::BlackBoxFuncCall::MultiScalarMul{
                                                                         .points = { make_constant_input(generator_x),
-                                                                                    make_constant_input(generator_y),
-                                                                                    make_constant_input(
-                                                                                        bb::fr::zero()) },
+                                                                                    make_constant_input(generator_y) },
                                                                         .scalars = witnesses.next_inputs(2),
                                                                         .predicate = make_constant_input(bb::fr::one()),
-                                                                        .outputs = witnesses.next_witness_array<3>(),
+                                                                        .outputs = witnesses.next_witness_array<2>(),
                                                                     } } } },
                 Acir::Opcode{
                     .value =
@@ -422,11 +420,10 @@ TEST_F(AcirComponentsCheckTest, FixedBaseMultiScalarMulMergesCircuitComponents)
                                     .value =
                                         Acir::BlackBoxFuncCall::MultiScalarMul{
                                             .points = { make_constant_input(generator_x),
-                                                        make_constant_input(generator_y),
-                                                        make_constant_input(bb::fr::zero()) },
+                                                        make_constant_input(generator_y) },
                                             .scalars = witnesses.next_inputs(2),
                                             .predicate = make_constant_input(bb::fr::one()),
-                                            .outputs = witnesses.next_witness_array<3>(),
+                                            .outputs = witnesses.next_witness_array<2>(),
                                         } } } },
             });
 
@@ -452,9 +449,9 @@ TEST_F(AcirComponentsCheckTest, MemoryOpcodesPassComponentsCheck)
                                       .block_id = Acir::BlockId{ .value = 0 },
                                       .op =
                                           Acir::MemOp{
-                                              .operation = make_constant_expression(bb::fr::one()),
-                                              .index = make_witness_expression(2),
-                                              .value = make_witness_expression(3),
+                                              .read = false,
+                                              .index = make_witness(2),
+                                              .value = make_witness(3),
                                           },
                                   } },
             });

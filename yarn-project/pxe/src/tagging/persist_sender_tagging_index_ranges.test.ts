@@ -1,7 +1,7 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import { type ExtendedDirectionalAppTaggingSecret, PrivateLog, SiloedTag } from '@aztec/stdlib/logs';
-import { randomExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/testing';
+import { type AppTaggingSecret, PrivateLog, SiloedTag } from '@aztec/stdlib/logs';
+import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -11,7 +11,7 @@ import type { SenderTaggingStore } from '../storage/tagging_store/sender_tagging
 import { persistSenderTaggingIndexRangesForTx } from './persist_sender_tagging_index_ranges.js';
 
 describe('persistSenderTaggingIndexRangesForTx', () => {
-  let secret: ExtendedDirectionalAppTaggingSecret;
+  let secret: AppTaggingSecret;
   let store: MockProxy<SenderTaggingStore>;
   let publicInputs: MockProxy<PrivateKernelTailCircuitPublicInputs>;
   let log: Logger;
@@ -19,7 +19,7 @@ describe('persistSenderTaggingIndexRangesForTx', () => {
   let getTxHash: jest.Mock<() => Promise<TxHash>>;
 
   beforeAll(async () => {
-    secret = await randomExtendedDirectionalAppTaggingSecret();
+    secret = await randomAppTaggingSecret();
     log = createLogger('test:persist-sender-tagging-index-ranges');
   });
 

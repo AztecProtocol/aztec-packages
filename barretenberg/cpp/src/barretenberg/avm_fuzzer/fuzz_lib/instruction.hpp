@@ -573,12 +573,10 @@ struct SUCCESSCOPY_Instruction {
 struct ECADD_Instruction {
     ParamRef p1_x;
     ParamRef p1_y;
-    ParamRef p1_infinite;
     ParamRef p2_x;
     ParamRef p2_y;
-    ParamRef p2_infinite;
     AddressRef result;
-    SERIALIZATION_FIELDS(p1_x, p1_y, p1_infinite, p2_x, p2_y, p2_infinite, result);
+    SERIALIZATION_FIELDS(p1_x, p1_y, p2_x, p2_y, result);
 };
 
 /// @brief POSEIDON2PERM: Perform Poseidon2 permutation on 4 FF values
@@ -881,8 +879,8 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    << arg.dst_address;
             },
             [&](ECADD_Instruction arg) {
-                os << "ECADD_Instruction " << arg.p1_x << " " << arg.p1_y << " " << arg.p1_infinite << " " << arg.p2_x
-                   << " " << arg.p2_y << " " << arg.p2_infinite << " " << arg.result;
+                os << "ECADD_Instruction " << arg.p1_x << " " << arg.p1_y << " " << arg.p2_x << " " << arg.p2_y << " "
+                   << arg.result;
             },
             [&](POSEIDON2PERM_Instruction arg) {
                 os << "POSEIDON2PERM_Instruction " << arg.src_address << " " << arg.dst_address;

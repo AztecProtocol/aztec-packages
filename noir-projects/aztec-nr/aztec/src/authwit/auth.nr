@@ -282,7 +282,7 @@ pub fn assert_inner_hash_valid_authwit(context: &mut PrivateContext, on_behalf_o
     // already be handled in the verification, so we just need something to nullify, that allows the same inner_hash
     // for multiple actors.
     let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
-    context.push_nullifier(nullifier);
+    context.push_nullifier_unsafe(nullifier);
 }
 
 /// Assert that `on_behalf_of` has authorized the current call in the authentication registry

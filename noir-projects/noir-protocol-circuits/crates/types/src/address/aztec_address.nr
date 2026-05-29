@@ -2,15 +2,15 @@ use crate::{
     address::{
         partial_address::PartialAddress, salted_initialization_hash::SaltedInitializationHash,
     },
-    constants::{AZTEC_ADDRESS_LENGTH, DOM_SEP__CONTRACT_ADDRESS_V1, MAX_FIELD_VALUE},
+    constants::{AZTEC_ADDRESS_LENGTH, DOM_SEP__CONTRACT_ADDRESS_V2, MAX_FIELD_VALUE},
     contract_class_id::ContractClassId,
     hash::poseidon2_hash_with_separator,
-    public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
+    public_keys::{hash_public_key, IvpkM, PublicKeys, ToPoint},
     traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
     utils::field::sqrt,
 };
 
-use crate::point::Point;
+use crate::point::EmbeddedCurvePoint;
 
 use crate::public_keys::AddressPoint;
 use std::{
@@ -66,7 +66,7 @@ impl AztecAddress {
             // positive one (where y <= (r - 1) / 2) by negating it.
             let final_y = if Self::is_positive(y) { y } else { -y };
 
-            AddressPoint { inner: Point { x: self.inner, y: final_y, is_infinite: false } }
+            AddressPoint { inner: EmbeddedCurvePoint { x: self.inner, y: final_y } }
         })
     }
 
@@ -112,15 +112,15 @@ impl AztecAddress {
         //                                               /                   \                         .
         //                                             /                       \                       .
         //                               partial_address                        public_keys_hash       .
-        //                           /                    \                     /   /    \    \        .
-        //                         /                        \              Npk_m Ivpk_m Ovpk_m Tpk_m   .
+        //                           /                    \                     /       /      \      \  .
+        //                         /                        \          npk_m_hash  Ivpk_m  ovpk_m_hash  tpk_m_hash
         //          contract_class_id                         \                     |...................
         //             /   |    \                               \
-        // artifact_hash   |    public_bytecode_commitment       salted_initialization_hash
-        //                 |                                         /     /        \
-        //     private_function_tree_root              deployer_address  salt   initialization_hash
-        //             /       \                                                /              \
-        //          ...          ...                              constructor_fn_selector   constructor_args_hash
+        // artifact_hash   |    public_bytecode_commitment        salted_initialization_hash
+        //                 |                                      /        /                  \                  \
+        //     private_function_tree_root           salt   initialization_hash         deployer_address     immutables_hash
+        //             /       \                              /             \
+        //          ...          ...                 constructor_fn_selector   constructor_args_hash
         //         /                \
         //     /     \            /      \
         //   leaf   leaf        leaf    leaf
@@ -134,15 +134,13 @@ impl AztecAddress {
 
         let pre_address = poseidon2_hash_with_separator(
             [public_keys_hash.to_field(), partial_address.to_field()],
-            DOM_SEP__CONTRACT_ADDRESS_V1,
+            DOM_SEP__CONTRACT_ADDRESS_V2,
         );
 
         // Note: `.add()` will fail within the blackbox fn if either of the points are not on the curve. (See tests below).
-        // TODO(F-553): Drop the `.to_embedded()` / `.into()` round-trip once the custom `Point` wrapper is removed and
-        // we use `EmbeddedCurvePoint` directly.
-        let address_point: Point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address))
-            .add(public_keys.ivpk_m.to_point().to_embedded())
-            .into();
+        let address_point = derive_public_key(EmbeddedCurveScalar::from_field(pre_address)).add(
+            public_keys.ivpk_m.to_point(),
+        );
 
         // Note that our address is only the x-coordinate of the full address_point. This is okay because when people want to encrypt something and send it to us
         // they can recover our full point using the x-coordinate (our address itself). To do this, they recompute the y-coordinate according to the equation y^2 = x^3 - 17.
@@ -195,73 +193,55 @@ fn check_is_positive() {
 // because the blackbox function does this check for us.
 #[test(should_fail_with = "is not on curve")]
 fn check_embedded_curve_point_add() {
-    // Choose a point not on the curve:
-    let p1 = Point { x: 1, y: 1, is_infinite: false };
-    let p2 = Point::generator();
-    let _ = p1 + p2;
-}
-
-// Gives us confidence that we don't need to manually check that the input public keys need to be on the curve for `add`,
-// because the blackbox function does this check for us.
-#[test(should_fail_with = "is not on curve")]
-fn check_embedded_curve_point_add_2() {
     // Choose a point not on the curve in the 2nd position.
-    let p1 = Point::generator();
-    let p2 = Point { x: 1, y: 1, is_infinite: false };
-    let _ = p1 + p2;
+    let p1 = EmbeddedCurvePoint::generator();
+    let key = IvpkM { inner: EmbeddedCurvePoint { x: 1, y: 1 } };
+    let _ = p1 + key.to_point();
 }
 
 #[test]
 fn compute_address_from_partial_and_pub_keys() {
+    let npk_m_point = EmbeddedCurvePoint {
+        x: 0x22f7fcddfa3ce3e8f0cc8e82d7b94cdd740afa3e77f8e4a63ea78a239432dcab,
+        y: 0x0471657de2b6216ade6c506d28fbc22ba8b8ed95c871ad9f3e3984e90d9723a7,
+    };
+    let ovpk_m_point = EmbeddedCurvePoint {
+        x: 0x09115c96e962322ffed6522f57194627136b8d03ac7469109707f5e44190c484,
+        y: 0x0c49773308a13d740a7f0d4f0e6163b02c5a408b6f965856b6a491002d073d5b,
+    };
+    let tpk_m_point = EmbeddedCurvePoint {
+        x: 0x00d3d81beb009873eb7116327cf47c612d5758ef083d4fda78e9b63980b2a762,
+        y: 0x2f567d22d2b02fe1f4ad42db9d58a36afd1983e7e2909d1cab61cafedad6193a,
+    };
+
     let public_keys = PublicKeys {
-        npk_m: NpkM {
-            inner: Point {
-                x: 0x22f7fcddfa3ce3e8f0cc8e82d7b94cdd740afa3e77f8e4a63ea78a239432dcab,
-                y: 0x0471657de2b6216ade6c506d28fbc22ba8b8ed95c871ad9f3e3984e90d9723a7,
-                is_infinite: false,
-            },
-        },
+        npk_m_hash: hash_public_key(npk_m_point),
         ivpk_m: IvpkM {
-            inner: Point {
+            inner: EmbeddedCurvePoint {
                 x: 0x111223493147f6785514b1c195bb37a2589f22a6596d30bb2bb145fdc9ca8f1e,
                 y: 0x273bbffd678edce8fe30e0deafc4f66d58357c06fd4a820285294b9746c3be95,
-                is_infinite: false,
             },
         },
-        ovpk_m: OvpkM {
-            inner: Point {
-                x: 0x09115c96e962322ffed6522f57194627136b8d03ac7469109707f5e44190c484,
-                y: 0x0c49773308a13d740a7f0d4f0e6163b02c5a408b6f965856b6a491002d073d5b,
-                is_infinite: false,
-            },
-        },
-        tpk_m: TpkM {
-            inner: Point {
-                x: 0x00d3d81beb009873eb7116327cf47c612d5758ef083d4fda78e9b63980b2a762,
-                y: 0x2f567d22d2b02fe1f4ad42db9d58a36afd1983e7e2909d1cab61cafedad6193a,
-                is_infinite: false,
-            },
-        },
+        ovpk_m_hash: hash_public_key(ovpk_m_point),
+        tpk_m_hash: hash_public_key(tpk_m_point),
     };
 
     let partial_address = PartialAddress::from_field(
         0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de,
     );
 
-    let address = AztecAddress::compute(public_keys, partial_address);
+    let address = AztecAddress::compute(public_keys, partial_address).to_field();
 
-    // The following value was generated by `derivation.test.ts`.
-    // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
     let expected_computed_address_from_partial_and_pubkeys =
-        0x2f66081d4bb077fbe8e8abe96a3516a713a3d7e34360b4e985da0da95092b37d;
-    assert(address.to_field() == expected_computed_address_from_partial_and_pubkeys);
+        0x05f9c48c02e4dbd18d7e165f999c3b8426abb1911476f48e68deef42475d6145;
+    assert_eq(address, expected_computed_address_from_partial_and_pubkeys);
 }
 
 #[test]
 fn compute_preaddress_from_partial_and_pub_keys() {
-    let pre_address = poseidon2_hash_with_separator([1, 2], DOM_SEP__CONTRACT_ADDRESS_V1);
+    let pre_address = poseidon2_hash_with_separator([1, 2], DOM_SEP__CONTRACT_ADDRESS_V2);
     let expected_computed_preaddress_from_partial_and_pubkey =
-        0x286c7755f2924b1e53b00bcaf1adaffe7287bd74bba7a02f4ab867e3892d28da;
+        0x0fa1c698858df1a99170cd39d5f4bfad6d0d60f1f8afa3dc92281ee60b36f3bb;
     assert(pre_address == expected_computed_preaddress_from_partial_and_pubkey);
 }
 

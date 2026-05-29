@@ -123,8 +123,8 @@ import {
   PublicCallRequest,
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
-import { PublicKeys, computeAddress } from '../keys/index.js';
-import { ExtendedDirectionalAppTaggingSecret } from '../logs/extended_directional_app_tagging_secret.js';
+import { PublicKey, PublicKeys, computeAddress, hashPublicKey } from '../keys/index.js';
+import { AppTaggingSecret } from '../logs/app_tagging_secret.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
@@ -252,7 +252,7 @@ function makeScopedReadRequest(n: number): ScopedReadRequest {
  * @returns A KeyValidationRequest.
  */
 function makeKeyValidationRequests(seed: number): KeyValidationRequest {
-  return new KeyValidationRequest(makePoint(seed), fr(seed + 2));
+  return new KeyValidationRequest(fr(seed), fr(seed + 2));
 }
 
 /**
@@ -577,7 +577,7 @@ export function makeVerificationKeyAsFields(size: number): VerificationKeyAsFiel
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return new Point(fr(seed), fr(seed + 1), false);
+  return new Point(fr(seed), fr(seed + 1));
 }
 
 /**
@@ -1216,8 +1216,13 @@ export async function makeMapAsync<T>(size: number, fn: (i: number) => Promise<[
 
 export async function makePublicKeys(seed = 0): Promise<PublicKeys> {
   const f = (offset: number) => Grumpkin.mul(Grumpkin.generator, new Fq(seed + offset));
-
-  return new PublicKeys(await f(0), await f(1), await f(2), await f(3));
+  const ivpkM = await f(1);
+  return new PublicKeys(
+    await hashPublicKey(await f(0)),
+    ivpkM,
+    await hashPublicKey(await f(2)),
+    await hashPublicKey(await f(3)),
+  );
 }
 
 export async function makeContractInstanceFromClassId(
@@ -1226,6 +1231,7 @@ export async function makeContractInstanceFromClassId(
   overrides?: {
     deployer?: AztecAddress;
     initializationHash?: Fr;
+    immutablesHash?: Fr;
     publicKeys?: PublicKeys;
     currentClassId?: Fr;
   },
@@ -1234,21 +1240,24 @@ export async function makeContractInstanceFromClassId(
   const initializationHash = overrides?.initializationHash ?? new Fr(seed + 1);
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
   const publicKeys = overrides?.publicKeys ?? (await makePublicKeys(seed + 3));
+  const immutablesHash = overrides?.immutablesHash ?? new Fr(seed + 4);
 
   const partialAddress = await computePartialAddress({
     originalContractClassId: classId,
     salt,
     initializationHash,
+    immutablesHash,
     deployer,
   });
   const address = await computeAddress(publicKeys, partialAddress);
   return new SerializableContractInstance({
-    version: 1,
+    version: 2,
     salt,
     deployer,
     currentContractClassId: overrides?.currentClassId ?? classId,
     originalContractClassId: classId,
     initializationHash,
+    immutablesHash,
     publicKeys,
   }).withAddress(address);
 }
@@ -1426,11 +1435,12 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
     new Fr(seed + 0x6),
+    new Fr(seed + 0x7),
     new PublicKeys(
-      new Point(new Fr(seed + 0x7), new Fr(seed + 0x8), false),
-      new Point(new Fr(seed + 0x9), new Fr(seed + 0x10), false),
-      new Point(new Fr(seed + 0x11), new Fr(seed + 0x12), false),
-      new Point(new Fr(seed + 0x13), new Fr(seed + 0x14), false),
+      new Fr(seed + 0x7),
+      new PublicKey(new Fr(seed + 0x9), new Fr(seed + 0x10)),
+      new Fr(seed + 0x11),
+      new Fr(seed + 0x13),
     ),
   );
 }
@@ -1710,10 +1720,10 @@ export function makeL2Tips(
   };
 }
 
-export async function randomExtendedDirectionalAppTaggingSecret(): Promise<ExtendedDirectionalAppTaggingSecret> {
+export async function randomAppTaggingSecret(): Promise<AppTaggingSecret> {
   const resolvedApp = await AztecAddress.random();
   // Using the fromString method like this is messy as it leaks the underlying serialization format but I don't want to
   // expose the type's constructor just for tests since in prod the secret is always constructed via compute. Also this
-  // method is tested in extended_directional_app_tagging_secret.test.ts hence all should be fine.
-  return ExtendedDirectionalAppTaggingSecret.fromString(`${Fr.random().toString()}:${resolvedApp.toString()}`);
+  // method is tested in app_tagging_secret.test.ts hence all should be fine.
+  return AppTaggingSecret.fromString(`${Fr.random().toString()}:${resolvedApp.toString()}`);
 }

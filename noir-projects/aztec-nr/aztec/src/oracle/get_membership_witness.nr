@@ -11,7 +11,7 @@ unconstrained fn get_note_hash_membership_witness_oracle(
     note_hash: Field,
 ) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT> {}
 
-#[oracle(aztec_utl_getBlockHashMembershipWitnessV2)]
+#[oracle(aztec_utl_getBlockHashMembershipWitness)]
 unconstrained fn get_block_hash_membership_witness_oracle(
     anchor_block_hash: Field,
     block_hash: Field,

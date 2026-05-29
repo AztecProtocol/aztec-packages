@@ -9,7 +9,7 @@ use aztec::{
     protocol::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
+        traits::{Deserialize, FromField, Packable, Serialize, ToField},
     },
     state_vars::{Owned, PrivateSet, StateVariable},
 };
@@ -181,7 +181,7 @@ impl Deck<UtilityContext> {
 global PACK_CARDS: u32 = 3; // Limited by number of write requests (max 4)
 
 pub fn get_pack_cards(seed: Field, owner: AztecAddress, context: &mut PrivateContext) -> [Card; PACK_CARDS] {
-    let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+    let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
 
     // generate pseudo randomness deterministically from 'seed' and user secret
     let secret = context.request_nhk_app(owner_npk_m_hash);

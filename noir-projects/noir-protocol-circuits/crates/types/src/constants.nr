@@ -302,6 +302,16 @@ pub global DEFAULT_TPK_M_X: Field =
 pub global DEFAULT_TPK_M_Y: Field =
     0x2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f;
 
+// Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y })` for each non-ivpk key.
+// Used by `PublicKeys::default()` and the matching TS `PublicKeys.default()`. Verified by the
+// `compute_default_hash` test in public_keys.nr.
+pub global DEFAULT_NPK_M_HASH: Field =
+    0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a26;
+pub global DEFAULT_OVPK_M_HASH: Field =
+    0x0e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b;
+pub global DEFAULT_TPK_M_HASH: Field =
+    0x082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef0;
+
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 // TODO: figure out whether Noir is sophisticated enough to derive these for us, these days.
 pub global AZTEC_ADDRESS_LENGTH: u32 = 1;
@@ -312,7 +322,7 @@ pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH /* gas_limits */
     + GAS_FEES_LENGTH /* max_fees_per_gas */
     + GAS_FEES_LENGTH /* max_priority_fees_per_gas */;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
-pub global CONTRACT_INSTANCE_LENGTH: u32 = 16;
+pub global CONTRACT_INSTANCE_LENGTH: u32 = 10;
 pub global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 pub global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
 pub global ETH_ADDRESS_LENGTH: u32 = 1;
@@ -340,7 +350,7 @@ pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
 pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = COUNTED_L2_TO_L1_MESSAGE_LENGTH + 1;
-pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 4;
+pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 2;
 pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQUEST_LENGTH + 1;
 pub global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 =
     KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH + 1;
@@ -761,11 +771,12 @@ pub global DOM_SEP__IVSK_M: u32 = 2747825907;
 pub global DOM_SEP__OVSK_M: u32 = 4272201051;
 pub global DOM_SEP__TSK_M: u32 = 1546190975;
 pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 777457226;
+pub global DOM_SEP__SINGLE_PUBLIC_KEY_HASH: u32 = 3452068255;
 
 // Address
 pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 2103633018;
 
-pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 1788365517;
+pub global DOM_SEP__CONTRACT_ADDRESS_V2: u32 = 4099338721;
 
 // ---------------------------------------------------------------
 
@@ -1138,7 +1149,7 @@ pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 =
 
 // AVM_V2_PROOF_LENGTH_IN_FIELDS must be updated when AVM circuit changes.
 // Run barretenberg/cpp/scripts/bump_avm_proof_length.sh, to regenerate the constants
-pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 15530;
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 15456;
 
 // GAS DEFAULTS
 pub global DA_BYTES_PER_FIELD: u32 = 32;
@@ -1235,7 +1246,7 @@ pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 9;
 pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 24 * 15; // SLOW_SIM_MUL = 15
 pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 12288;
 pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 58176;
-pub global AVM_ECADD_BASE_L2_GAS: u32 = 27 * 10; // SLOW_SIM_MUL = 10
+pub global AVM_ECADD_BASE_L2_GAS: u32 = 18 * 10; // SLOW_SIM_MUL = 10
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
 
 // Dynamic L2 GAS

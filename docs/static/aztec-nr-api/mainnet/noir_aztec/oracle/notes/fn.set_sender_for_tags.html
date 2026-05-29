@@ -37,9 +37,9 @@
 <p>This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
 emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
 sender, and hence about the shared secret.</p>
-<p>Account contracts typically set this value before calling other contracts. The value persists through nested calls,
-meaning all calls down the stack will use the same 'senderForTags' value (unless it is replaced by another call to
-this setter).</p>
+<p>The override is scoped to the current contract call. It does not propagate to nested calls (which always start
+from the initial default), nor to siblings or parents. The default is typically set by the wallet (to the
+originating account), so most contracts do not need to call this setter.</p>
 </div>
 </main>
 </span>

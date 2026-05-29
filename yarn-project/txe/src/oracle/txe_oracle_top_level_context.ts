@@ -1,4 +1,8 @@
-import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import {
+  CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
+  MAX_PRIVATE_LOGS_PER_TX,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+} from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -59,6 +63,7 @@ import {
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
+import { hashPublicKey } from '@aztec/stdlib/keys';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -175,11 +180,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txEffects = block!.body.txEffects[0];
 
+    const privateLogs = txEffects.privateLogs;
+    if (privateLogs.length > MAX_PRIVATE_LOGS_PER_TX) {
+      throw new Error(`${privateLogs.length} private logs exceed max ${MAX_PRIVATE_LOGS_PER_TX}`);
+    }
+
     return {
       txHash: txEffects.txHash,
       noteHashes: txEffects.noteHashes,
       nullifiers: txEffects.nullifiers,
-      privateLogs: txEffects.privateLogs,
+      privateLogs,
     };
   }
 
@@ -273,7 +283,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
   async addAuthWitness(address: AztecAddress, messageHash: Fr) {
     const account = await this.accountStore.getAccount(address);
-    const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
+    const ivpkMHash = await hashPublicKey(account.publicKeys.ivpkM);
+    const privateKey = await this.keyStore.getMasterSecretKey(ivpkMHash);
 
     const schnorr = new Schnorr();
     const signature = await schnorr.constructSignature(messageHash, privateKey);

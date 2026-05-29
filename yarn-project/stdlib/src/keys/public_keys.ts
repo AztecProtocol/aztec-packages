@@ -1,17 +1,13 @@
 import {
   DEFAULT_IVPK_M_X,
   DEFAULT_IVPK_M_Y,
-  DEFAULT_NPK_M_X,
-  DEFAULT_NPK_M_Y,
-  DEFAULT_OVPK_M_X,
-  DEFAULT_OVPK_M_Y,
-  DEFAULT_TPK_M_X,
-  DEFAULT_TPK_M_Y,
+  DEFAULT_NPK_M_HASH,
+  DEFAULT_OVPK_M_HASH,
+  DEFAULT_TPK_M_HASH,
   DomainSeparator,
 } from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
@@ -19,108 +15,107 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import type { PublicKey } from './public_key.js';
+import { PublicKey, hashPublicKey } from './public_key.js';
 
+/**
+ * A non-owner's view of an account's master public keys.
+ *
+ * Only `ivpkM` is exposed as a point (since address derivation needs the curve
+ * point in-circuit); the other three keys are exposed as their `hashPublicKey` digests.
+ */
 export class PublicKeys {
   public constructor(
-    /** Master nullifier public key */
-    public masterNullifierPublicKey: PublicKey,
+    /** Hash of the master nullifier public key */
+    public npkMHash: Fr,
     /** Master incoming viewing public key */
-    public masterIncomingViewingPublicKey: PublicKey,
-    /** Master outgoing viewing public key */
-    public masterOutgoingViewingPublicKey: PublicKey,
-    /** Master tagging viewing public key */
-    public masterTaggingPublicKey: PublicKey,
+    public ivpkM: PublicKey,
+    /** Hash of the master outgoing viewing public key */
+    public ovpkMHash: Fr,
+    /** Hash of the master tagging public key */
+    public tpkMHash: Fr,
   ) {}
 
   static get schema() {
     return z
       .object({
-        masterNullifierPublicKey: schemas.Point,
-        masterIncomingViewingPublicKey: schemas.Point,
-        masterOutgoingViewingPublicKey: schemas.Point,
-        masterTaggingPublicKey: schemas.Point,
+        npkMHash: schemas.Fr,
+        ivpkM: schemas.Point,
+        ovpkMHash: schemas.Fr,
+        tpkMHash: schemas.Fr,
       })
       .transform(PublicKeys.from);
   }
 
   static from(fields: FieldsOf<PublicKeys>) {
-    return new PublicKeys(
-      fields.masterNullifierPublicKey,
-      fields.masterIncomingViewingPublicKey,
-      fields.masterOutgoingViewingPublicKey,
-      fields.masterTaggingPublicKey,
-    );
+    return new PublicKeys(fields.npkMHash, fields.ivpkM, fields.ovpkMHash, fields.tpkMHash);
   }
 
   /**
    * Creates a PublicKeys from a plain object without Zod validation.
-   * This method is optimized for performance and skips validation, making it suitable
-   * for deserializing trusted data (e.g., from C++ via MessagePack).
-   * @param obj - Plain object containing PublicKeys fields
-   * @returns A PublicKeys instance
+   * Suitable for deserializing trusted data (e.g., from C++ via MessagePack).
    */
   static fromPlainObject(obj: any): PublicKeys {
     if (obj instanceof PublicKeys) {
       return obj;
     }
     return new PublicKeys(
-      Point.fromPlainObject(obj.masterNullifierPublicKey),
-      Point.fromPlainObject(obj.masterIncomingViewingPublicKey),
-      Point.fromPlainObject(obj.masterOutgoingViewingPublicKey),
-      Point.fromPlainObject(obj.masterTaggingPublicKey),
+      Fr.fromPlainObject(obj.npkMHash),
+      PublicKey.fromPlainObject(obj.ivpkM),
+      Fr.fromPlainObject(obj.ovpkMHash),
+      Fr.fromPlainObject(obj.tpkMHash),
     );
   }
 
-  hash() {
-    return this.isEmpty()
-      ? Fr.ZERO
-      : poseidon2HashWithSeparator(
-          [
-            this.masterNullifierPublicKey,
-            this.masterIncomingViewingPublicKey,
-            this.masterOutgoingViewingPublicKey,
-            this.masterTaggingPublicKey,
-          ],
-          DomainSeparator.PUBLIC_KEYS_HASH,
-        );
+  async hash() {
+    if (this.isEmpty()) {
+      return Fr.ZERO;
+    }
+    // Mirror Noir's `PublicKeys::hash`: hash the four single-key digests under
+    // DOM_SEP__PUBLIC_KEYS_HASH. `ivpk_m` must be reduced to its single-key digest first
+    // (Poseidon2 over [x, y]); passing the Point directly would omit the DOM_SEP__SINGLE_PUBLIC_KEY_HASH
+    const ivpkMHash = await hashPublicKey(this.ivpkM);
+    return poseidon2HashWithSeparator(
+      [this.npkMHash, ivpkMHash, this.ovpkMHash, this.tpkMHash],
+      DomainSeparator.PUBLIC_KEYS_HASH,
+    );
   }
 
   isEmpty() {
-    return (
-      this.masterNullifierPublicKey.isZero() &&
-      this.masterIncomingViewingPublicKey.isZero() &&
-      this.masterOutgoingViewingPublicKey.isZero() &&
-      this.masterTaggingPublicKey.isZero()
-    );
+    return this.npkMHash.isZero() && this.ivpkM.isZero() && this.ovpkMHash.isZero() && this.tpkMHash.isZero();
   }
 
   static default(): PublicKeys {
+    // Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y })` for npk/ovpk/tpk.
+    // Sourced from constants.gen.ts (originally defined in
+    // noir-protocol-circuits/crates/types/src/constants.nr); a self-test in public_keys.nr
+    // (`default_hashes_match_default_points`) catches drift between the *_HASH constants and
+    // the underlying X/Y points.
     return new PublicKeys(
-      new Point(new Fr(DEFAULT_NPK_M_X), new Fr(DEFAULT_NPK_M_Y), false),
-      new Point(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y), false),
-      new Point(new Fr(DEFAULT_OVPK_M_X), new Fr(DEFAULT_OVPK_M_Y), false),
-      new Point(new Fr(DEFAULT_TPK_M_X), new Fr(DEFAULT_TPK_M_Y), false),
+      new Fr(DEFAULT_NPK_M_HASH),
+      new PublicKey(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y)),
+      new Fr(DEFAULT_OVPK_M_HASH),
+      new Fr(DEFAULT_TPK_M_HASH),
     );
   }
 
   static async random(): Promise<PublicKeys> {
-    return new PublicKeys(await Point.random(), await Point.random(), await Point.random(), await Point.random());
+    const npkM = await PublicKey.random();
+    const ovpkM = await PublicKey.random();
+    const tpkM = await PublicKey.random();
+    return new PublicKeys(
+      await hashPublicKey(npkM),
+      await PublicKey.random(),
+      await hashPublicKey(ovpkM),
+      await hashPublicKey(tpkM),
+    );
   }
 
-  /**
-   * Determines if this PublicKeys instance is equal to the given PublicKeys instance.
-   * Equality is based on the content of their respective buffers.
-   *
-   * @param other - The PublicKeys instance to compare against.
-   * @returns True if the buffers of both instances are equal, false otherwise.
-   */
   equals(other: PublicKeys): boolean {
     return (
-      this.masterNullifierPublicKey.equals(other.masterNullifierPublicKey) &&
-      this.masterIncomingViewingPublicKey.equals(other.masterIncomingViewingPublicKey) &&
-      this.masterOutgoingViewingPublicKey.equals(other.masterOutgoingViewingPublicKey) &&
-      this.masterTaggingPublicKey.equals(other.masterTaggingPublicKey)
+      this.npkMHash.equals(other.npkMHash) &&
+      this.ivpkM.equals(other.ivpkM) &&
+      this.ovpkMHash.equals(other.ovpkMHash) &&
+      this.tpkMHash.equals(other.tpkMHash)
     );
   }
 
@@ -131,77 +126,46 @@ export class PublicKeys {
    * @returns A Buffer representation of the PublicKeys instance.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer([
-      this.masterNullifierPublicKey,
-      this.masterIncomingViewingPublicKey,
-      this.masterOutgoingViewingPublicKey,
-      this.masterTaggingPublicKey,
-    ]);
+    return serializeToBuffer([this.npkMHash, this.ivpkM, this.ovpkMHash, this.tpkMHash]);
   }
 
-  /**
-   * Creates an PublicKeys instance from a given buffer or BufferReader.
-   * If the input is a Buffer, it wraps it in a BufferReader before processing.
-   * Throws an error if the input length is not equal to the expected size.
-   *
-   * @param buffer - The input buffer or BufferReader containing the address data.
-   * @returns - A new PublicKeys instance with the extracted address data.
-   */
   static fromBuffer(buffer: Buffer | BufferReader): PublicKeys {
     const reader = BufferReader.asReader(buffer);
-    const masterNullifierPublicKey = reader.readObject(Point);
-    const masterIncomingViewingPublicKey = reader.readObject(Point);
-    const masterOutgoingViewingPublicKey = reader.readObject(Point);
-    const masterTaggingPublicKey = reader.readObject(Point);
-    return new PublicKeys(
-      masterNullifierPublicKey,
-      masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey,
-    );
+    const npkMHash = Fr.fromBuffer(reader);
+    const ivpkM = reader.readObject(PublicKey);
+    const ovpkMHash = Fr.fromBuffer(reader);
+    const tpkMHash = Fr.fromBuffer(reader);
+    return new PublicKeys(npkMHash, ivpkM, ovpkMHash, tpkMHash);
   }
 
   toNoirStruct() {
-    // We need to use lowercase identifiers as those are what the noir interface expects
-
+    // We need to use lowercase identifiers as those are what the noir interface expects.
+    /* eslint-disable camelcase */
     return {
-      // TODO(#6337): Directly dump account.publicKeys here
-      /* eslint-disable camelcase */
-      npk_m: this.masterNullifierPublicKey.toWrappedNoirStruct(),
-      ivpk_m: this.masterIncomingViewingPublicKey.toWrappedNoirStruct(),
-      ovpk_m: this.masterOutgoingViewingPublicKey.toWrappedNoirStruct(),
-      tpk_m: this.masterTaggingPublicKey.toWrappedNoirStruct(),
-      /* eslint-enable camelcase */
+      npk_m_hash: this.npkMHash,
+      ivpk_m: this.ivpkM.toWrappedNoirStruct(),
+      ovpk_m_hash: this.ovpkMHash,
+      tpk_m_hash: this.tpkMHash,
     };
+    /* eslint-enable camelcase */
   }
 
   /**
-   * Serializes the payload to an array of fields
-   * @returns The fields of the payload
+   * Wire-format fields matching Noir's struct flattening of `PublicKeys`:
+   * `[npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash]` (5 fields).
    */
   toFields(): Fr[] {
-    return [
-      ...this.masterNullifierPublicKey.toFields(),
-      ...this.masterIncomingViewingPublicKey.toFields(),
-      ...this.masterOutgoingViewingPublicKey.toFields(),
-      ...this.masterTaggingPublicKey.toFields(),
-    ];
+    return [this.npkMHash, this.ivpkM.x, this.ivpkM.y, this.ovpkMHash, this.tpkMHash];
   }
 
-  // TOOD: This is used in foundation/src/abi/encoder. This is probably non-optimal but I did not want
-  // to spend too much time on the encoder now. It probably needs a refactor.
+  // Used in foundation/src/abi/encoder. Probably non-optimal but the encoder needs a refactor.
   encodeToNoir(): Fr[] {
     return this.toFields();
   }
 
   static fromFields(fields: Fr[] | FieldReader): PublicKeys {
     const reader = FieldReader.asReader(fields);
-    return new PublicKeys(
-      reader.readObject(Point),
-      reader.readObject(Point),
-      reader.readObject(Point),
-      reader.readObject(Point),
-    );
+    return new PublicKeys(reader.readField(), reader.readObject(PublicKey), reader.readField(), reader.readField());
   }
 
   toString() {

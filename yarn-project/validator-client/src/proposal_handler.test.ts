@@ -9,7 +9,7 @@ import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -98,6 +98,7 @@ describe('ProposalHandler checkpoint validation', () => {
       epochCache,
       config,
       mock<BlobClientInterface>(),
+      new CheckpointReexecutionTracker(),
       metrics,
       dateProvider,
     );
@@ -167,6 +168,7 @@ describe('ProposalHandler checkpoint validation', () => {
         epochCache,
         config,
         mock<BlobClientInterface>(),
+        new CheckpointReexecutionTracker(),
         metrics,
         dateProvider,
       );
@@ -328,7 +330,11 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: proposalHeader });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'checkpoint_header_mismatch' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_header_mismatch',
+        checkpointNumber: CheckpointNumber(1),
+      });
       expect(mockDispose).toHaveBeenCalled();
     });
 
@@ -342,7 +348,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'archive_mismatch' });
+      expect(result).toEqual({ isValid: false, reason: 'archive_mismatch', checkpointNumber: CheckpointNumber(1) });
     });
 
     it('returns out_hash_mismatch when epoch out hash differs', async () => {
@@ -355,7 +361,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'out_hash_mismatch' });
+      expect(result).toEqual({ isValid: false, reason: 'out_hash_mismatch', checkpointNumber: CheckpointNumber(1) });
     });
 
     it('returns checkpoint_validation_failed when validateCheckpoint throws', async () => {
@@ -370,7 +376,11 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'checkpoint_validation_failed' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_validation_failed',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
 
     it('returns isValid true when everything matches', async () => {

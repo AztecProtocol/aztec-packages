@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
+import { PublicKey } from './public_key.js';
 import { PublicKeys } from './public_keys.js';
 
 describe('PublicKeys', () => {
@@ -19,16 +19,11 @@ describe('PublicKeys', () => {
   });
 
   it('computes public keys hash', async () => {
-    const keys = new PublicKeys(
-      new Point(new Fr(1n), new Fr(2n), false),
-      new Point(new Fr(3n), new Fr(4n), false),
-      new Point(new Fr(5n), new Fr(6n), false),
-      new Point(new Fr(7n), new Fr(8n), false),
-    );
+    const keys = new PublicKeys(new Fr(11n), new PublicKey(new Fr(3n), new Fr(4n)), new Fr(22n), new Fr(33n));
 
     const hash = await keys.hash();
     expect(hash.toString()).toMatchInlineSnapshot(
-      `"0x056998309f6c119e4d753e404f94fef859dddfa530a9379634ceb0854b29bf7a"`,
+      `"0x0b8c7b67576d3ac859a7fab578b2b2e305c67eba9e133b0fa46af8d19a50b8fc"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
@@ -44,7 +39,7 @@ describe('PublicKeys', () => {
 
     const hash = await keys.hash();
     expect(hash.toString()).toMatchInlineSnapshot(
-      `"0x023547e676dba19784188825b901a0e70d8ad978300d21d6185a54281b734da0"`,
+      `"0x147a900f3e1abdfcc56355d65ab9bebb1016400cb9d81ee1c977d0df16bb198c"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

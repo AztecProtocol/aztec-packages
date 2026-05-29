@@ -20,7 +20,7 @@ import 'jest-extended';
 import { type Hex, type TransactionSerialized, recoverTransactionAddress } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { MNEMONIC } from './fixtures/fixtures.js';
+import { MNEMONIC, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
@@ -75,15 +75,23 @@ describe('e2e_multi_eoa', () => {
         accounts: [defaultAccountAddress],
         sequencer: sequencerClient,
         ethCheatCodes,
-      } = await setup(2, {
-        archiverPollingIntervalMS: 200,
-        sequencerPollingIntervalMS: 200,
-        worldStateBlockCheckIntervalMS: 200,
-        blockCheckIntervalMS: 200,
-        sequencerPublisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
-        l1PublisherKey: allKeysAndAddresses[0].key,
-        maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
-      }));
+      } = await setup(
+        2,
+        {
+          ...PIPELINING_SETUP_OPTS,
+          archiverPollingIntervalMS: 200,
+          sequencerPollingIntervalMS: 200,
+          worldStateBlockCheckIntervalMS: 200,
+          blockCheckIntervalMS: 200,
+          sequencerPublisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
+          l1PublisherKey: allKeysAndAddresses[0].key,
+          maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
+        },
+        // Anchor PXE to the checkpointed chain so that a missed-publish from publisher #1 in slot N
+        // (which invalidates the pipelined proposed chain) doesn't drop the wallet's in-flight tx
+        // when slot N+1's job rotates to publisher #2.
+        { syncChainTip: 'checkpointed' },
+      ));
       sequencer = sequencerClient! as TestSequencerClient;
       publisherManager = sequencer.publisherManager;
       aztecNodeAdmin = maybeAztecNodeAdmin!;
@@ -204,9 +212,10 @@ describe('e2e_multi_eoa', () => {
         return sequencerKeysAndAddresses.findIndex(ka => ka.address === address);
       };
 
-      // We should be at L2 block 2
+      // We should be at L2 block 2 or later (empty pipelined checkpoints can land between setup
+      // and the first assertion, so accept >=2 rather than pinning to exactly 2).
       const blockNumber = await aztecNode.getBlockNumber();
-      expect(blockNumber).toBe(2);
+      expect(blockNumber).toBeGreaterThanOrEqual(2);
 
       // This means that 2 of our accounts have been used to send blocks to L1.
       // We want to figure out which ones these are, they will be in the 'MINED' state within the sequencer

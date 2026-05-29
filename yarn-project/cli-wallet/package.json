@@ -19,7 +19,7 @@
   "scripts": {
     "start": "node --no-warnings ./dest/bin",
     "start:debug": "node --inspect=0.0.0.0:9221 --no-warnings ./dest/bin",
-    "dev": "LOG_LEVEL=debug && node ./dest/bin",
+    "dev": "LOG_LEVEL=\"debug; info: json-rpc, simulator\" node ./dest/bin",
     "build": "yarn clean && ../scripts/tsc.sh",
     "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",

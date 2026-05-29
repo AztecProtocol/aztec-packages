@@ -31,11 +31,13 @@ function print_usage {
   echo_cmd "network-scenarios"     "Spin up EC2 instances to run network scenario tests in parallel."
   echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
   echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
+  echo_cmd "network-proving-bench" "Spin up an EC2 instance to deploy a network and run proving benchmarks. Set SKIP_NETWORK_DEPLOY=1 to skip deploy."
   echo_cmd "network-bench-10tps"   "Spin up an EC2 instance to run the 10 TPS benchmark on bench-10tps."
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
   echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "compat-e2e"            "Spin up an EC2 instance and run backwards compat e2e tests."
+  echo_cmd "chonk-input-update"    "Spin up an EC2 instance to update pinned Chonk IVC inputs and push the diff."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
@@ -126,6 +128,12 @@ case "$cmd" in
     export JOB_ID="x-$cmd"
     export AWS_SHUTDOWN_TIME=75
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    ;;
+  chonk-input-update)
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-$cmd"
+    export AWS_SHUTDOWN_TIME=90
+    bootstrap_ec2 "./bootstrap.sh ci-chonk-input-update"
     ;;
   barretenberg-debug)
     export CI_DASHBOARD="nightly"
@@ -243,38 +251,48 @@ case "$cmd" in
   network-bench)
     # Args: <scenario> <namespace> [docker_image]
     # If docker_image is not provided, ci-network-bench will build and push to aztecdev.
+    # Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-bench"
     export INSTANCE_POSTFIX="n-bench"
     # Enough for the build, which should have a lot of caching, and the test harness.
     # Resources are on GCP.
     export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-bench $*"
     ;;
   network-proving-bench)
     # Args: <scenario> <namespace> [docker_image]
-    # Deploys network and runs proving benchmarks.
+    # Deploys network and runs proving benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-proving-bench" CPUS=16
     export INSTANCE_POSTFIX="n-proving-bench"
-    bootstrap_ec2 "./bootstrap.sh ci-network-proving-bench $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-proving-bench $*"
     ;;
   network-block-capacity-bench)
     # Args: <scenario> <namespace> [docker_image]
-    # Deploys network and runs block capacity benchmarks.
+    # Deploys network and runs block capacity benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-block-capacity-bench" CPUS=16
     export INSTANCE_POSTFIX="n-block-cap-bench"
-    bootstrap_ec2 "./bootstrap.sh ci-network-block-capacity-bench $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-block-capacity-bench $*"
     ;;
   network-bench-10tps)
     # Args: <scenario> <namespace> [docker_image]
     # Deploys the bench-10tps network and runs the 10-min 10 TPS benchmark.
+    # Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-bench-10tps" CPUS=16
     export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
     export INSTANCE_POSTFIX="n-bench-10tps"
-    bootstrap_ec2 "./bootstrap.sh ci-network-bench-10tps $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-bench-10tps $*"
     ;;
   network-teardown)
     # Args: <scenario> <namespace>

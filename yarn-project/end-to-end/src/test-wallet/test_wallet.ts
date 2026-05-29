@@ -221,7 +221,7 @@ export class TestWallet extends BaseWallet {
     const type = accountData?.type ?? 'schnorr';
     const contract = accountData?.contract ?? new SchnorrAccountContract(GrumpkinScalar.random());
 
-    const accountManager = await AccountManager.create(this, secret, contract, salt);
+    const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
     const artifact = await contract.getContractArtifact();

@@ -94,8 +94,8 @@ struct EccFuzzerInput {
     AffinePoint q = AffinePoint::one();
     Fq scalar = Fq::zero();
     // Addresses are organised as:
-    // p_x, p_y, p_inf, q_x, q_y, q_inf, output_addr
-    std::array<MemoryAddress, 7> addresses{};
+    // p_x, p_y, q_x, q_y, output_addr
+    std::array<MemoryAddress, 5> addresses{};
     EccFuzzerInput() = default;
 
     // Serialize to buffer
@@ -109,7 +109,7 @@ struct EccFuzzerInput {
         Fq::serialize_to_buffer(scalar, buffer + offset);
         offset += sizeof(Fq);
         // Serialize memory addresses
-        std::memcpy(buffer + offset, &addresses[0], sizeof(MemoryAddress) * 7);
+        std::memcpy(buffer + offset, &addresses[0], sizeof(MemoryAddress) * 5);
     }
 
     static EccFuzzerInput from_buffer(const uint8_t* buffer)
@@ -137,7 +137,7 @@ struct EccFuzzerInput {
         input.scalar = Fq::serialize_from_buffer(buffer + offset);
         offset += sizeof(Fq);
         // Deserialize memory addresses
-        std::memcpy(&input.addresses[0], buffer + offset, sizeof(MemoryAddress) * 7);
+        std::memcpy(&input.addresses[0], buffer + offset, sizeof(MemoryAddress) * 5);
 
         return input;
     }
@@ -210,7 +210,7 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* data, size_t size, size_t max
     case 7: {
         // Mutate memory addresses
         // Select a random address to mutate
-        std::uniform_int_distribution<size_t> addr_dist(0, 6);
+        std::uniform_int_distribution<size_t> addr_dist(0, 4);
         size_t addr_index = addr_dist(rng);
         input.addresses[addr_index] = mutate_memory_address(input.addresses[addr_index], rng);
         break;
@@ -268,15 +268,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     mem->set(/*p_x_addr*/ input.addresses[0], MemoryValue::from_tag(MemoryTag::FF, point_p.x()));
     mem->set(/*p_y_addr*/ input.addresses[1], MemoryValue::from_tag(MemoryTag::FF, point_p.y()));
-    mem->set(/*p_inf*/ input.addresses[2], MemoryValue::from_tag(MemoryTag::U1, point_p.is_infinity() ? FF(1) : FF(0)));
-    mem->set(/*q_x_addr*/ input.addresses[3], MemoryValue::from_tag(MemoryTag::FF, point_q.x()));
-    mem->set(/*q_y_addr*/ input.addresses[4], MemoryValue::from_tag(MemoryTag::FF, point_q.y()));
-    mem->set(/*q_inf*/ input.addresses[5], MemoryValue::from_tag(MemoryTag::U1, point_q.is_infinity() ? FF(1) : FF(0)));
+    mem->set(/*q_x_addr*/ input.addresses[2], MemoryValue::from_tag(MemoryTag::FF, point_q.x()));
+    mem->set(/*q_y_addr*/ input.addresses[3], MemoryValue::from_tag(MemoryTag::FF, point_q.y()));
 
     EmbeddedCurvePoint scalar_mul_result;
 
     try {
-        ecc.add(*mem, point_p, point_q, /* output_addr */ input.addresses[6]);
+        ecc.add(*mem, point_p, point_q, /* output_addr */ input.addresses[4]);
         scalar_mul_result = ecc.scalar_mul(input.p, FF(uint256_t(input.scalar)));
     } catch (std::exception& e) {
         // info("Caught exception during ECC add: {}", e.what());
@@ -286,15 +284,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         EmbeddedCurvePoint expected_result = point_p + point_q;
 
         // Verify output in memory
-        MemoryValue res_x = mem->get(input.addresses[6]);
-        MemoryValue res_y = mem->get(input.addresses[6] + 1);
-        MemoryValue res_inf = mem->get(input.addresses[6] + 2);
+        MemoryValue res_x = mem->get(input.addresses[4]);
+        MemoryValue res_y = mem->get(input.addresses[4] + 1);
 
-        EmbeddedCurvePoint result_point = EmbeddedCurvePoint(res_x.as_ff(), res_y.as_ff(), res_inf.as_ff() == FF(1));
+        EmbeddedCurvePoint result_point = EmbeddedCurvePoint(res_x.as_ff(), res_y.as_ff());
 
         BB_ASSERT(result_point.x() == expected_result.x(), "Result x-coordinate mismatch");
         BB_ASSERT(result_point.y() == expected_result.y(), "Result y-coordinate mismatch");
-        BB_ASSERT(result_point.is_infinity() == expected_result.is_infinity(), "Result infinity flag mismatch");
 
         // Non mem-aware ecmul result:
         expected_result = point_p * input.scalar;
@@ -309,15 +305,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     auto trace = TestTraceContainer({ {
         { Column::execution_context_id, 0 },
         // Point P
-        { Column::execution_register_0_, point_p.x() },                           // = px
-        { Column::execution_register_1_, point_p.y() },                           // = py
-        { Column::execution_register_2_, point_p.is_infinity() ? FF(1) : FF(0) }, // = p_inf
+        { Column::execution_register_0_, point_p.x() }, // = px
+        { Column::execution_register_1_, point_p.y() }, // = py
         // Point Q
-        { Column::execution_register_3_, point_q.x() },                           // = qx
-        { Column::execution_register_4_, point_q.y() },                           // = qy
-        { Column::execution_register_5_, point_q.is_infinity() ? FF(1) : FF(0) }, // = q_inf
+        { Column::execution_register_2_, point_q.x() }, // = qx
+        { Column::execution_register_3_, point_q.y() }, // = qy
         // Dst address
-        { Column::execution_rop_6_, input.addresses[6] },      // = dst_addr
+        { Column::execution_rop_4_, input.addresses[4] },      // = dst_addr
         { Column::execution_sel_exec_dispatch_ecc_add, 1 },    // = sel
         { Column::execution_sel_opcode_error, error ? 1 : 0 }, // = sel_err
     } });

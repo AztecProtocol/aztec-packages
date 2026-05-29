@@ -1,17 +1,16 @@
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2TipsProvider } from '@aztec/stdlib/block';
+import type { BlockHash, L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import {
-  ExtendedDirectionalAppTaggingSecret,
-  PendingTaggedLog,
-  SiloedTag,
-  type TxScopedL2Log,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, PendingTaggedLog, SiloedTag, type TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
+import {
+  type LogRetrievalRequest,
+  LogSource,
+} from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
@@ -39,10 +38,11 @@ export class LogService {
     this.log = createLogger('pxe:log_service', bindings);
   }
 
+  /** Fetches all logs matching each request's tag, returning an array of log arrays (one per request). */
   public async fetchLogsByTag(
     contractAddress: AztecAddress,
     logRetrievalRequests: LogRetrievalRequest[],
-  ): Promise<(LogRetrievalResponse | null)[]> {
+  ): Promise<LogRetrievalResponse[][]> {
     for (const request of logRetrievalRequests) {
       if (!contractAddress.equals(request.contractAddress)) {
         throw new Error(`Got a log retrieval request from ${request.contractAddress}, expected ${contractAddress}`);
@@ -54,51 +54,80 @@ export class LogService {
     }
 
     const anchorBlockHash = await this.anchorBlockHeader.hash();
-    const tags = logRetrievalRequests.map(r => r.tag);
-    const siloedTags = await Promise.all(
-      logRetrievalRequests.map(r => SiloedTag.computeFromTagAndApp(r.tag, r.contractAddress)),
-    );
 
-    const [allPublicLogsPerTag, allPrivateLogsPerTag] = await Promise.all([
-      getAllPublicLogsByTagsFromContract(this.aztecNode, contractAddress, tags, anchorBlockHash),
-      getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchorBlockHash),
+    const [publicLogsPerTag, privateLogsPerTag] = await Promise.all([
+      this.#fetchPublicLogs(contractAddress, logRetrievalRequests, anchorBlockHash),
+      this.#fetchPrivateLogs(logRetrievalRequests, anchorBlockHash),
     ]);
 
-    return logRetrievalRequests.map((request, i) => {
-      const publicLog = this.#extractSingleLog(
-        allPublicLogsPerTag[i],
-        `public log for tag ${request.tag} and contract ${request.contractAddress.toString()}`,
-      );
-      const privateLog = this.#extractSingleLog(allPrivateLogsPerTag[i], `private log for tag ${siloedTags[i]}`);
-
-      if (publicLog !== null && privateLog !== null) {
-        this.log.warn(
-          `Found both a public and private log for tag ${request.tag} from contract ${request.contractAddress}. This may indicate a contract bug. Returning the public log.`,
-        );
-      }
-
-      return publicLog ?? privateLog;
-    });
+    return logRetrievalRequests.map((request, i) => [
+      ...this.#extractLogs(publicLogsPerTag[i], request.fromBlock, request.toBlock),
+      ...this.#extractLogs(privateLogsPerTag[i], request.fromBlock, request.toBlock),
+    ]);
   }
 
-  #extractSingleLog(logsForTag: TxScopedL2Log[], description: string): LogRetrievalResponse | null {
-    if (logsForTag.length === 0) {
-      return null;
+  async #fetchPublicLogs(
+    contractAddress: AztecAddress,
+    requests: LogRetrievalRequest[],
+    anchorBlockHash: BlockHash,
+  ): Promise<TxScopedL2Log[][]> {
+    const indices = requests.flatMap((r, i) => (r.source !== LogSource.PRIVATE ? [i] : []));
+    if (indices.length === 0) {
+      return requests.map(() => []);
     }
 
-    if (logsForTag.length > 1) {
-      this.log.warn(
-        `Expected at most 1 ${description}, got ${logsForTag.length}. This may indicate a contract bug. Returning the first log.`,
-      );
+    const results = await getAllPublicLogsByTagsFromContract(
+      this.aztecNode,
+      contractAddress,
+      indices.map(i => requests[i].tag),
+      anchorBlockHash,
+    );
+
+    const logsPerTag: TxScopedL2Log[][] = requests.map(() => []);
+    indices.forEach((originalIdx, resultIdx) => {
+      logsPerTag[originalIdx] = results[resultIdx];
+    });
+    return logsPerTag;
+  }
+
+  async #fetchPrivateLogs(requests: LogRetrievalRequest[], anchorBlockHash: BlockHash): Promise<TxScopedL2Log[][]> {
+    const indices = requests.flatMap((r, i) => (r.source !== LogSource.PUBLIC ? [i] : []));
+    if (indices.length === 0) {
+      return requests.map(() => []);
     }
 
-    const scopedLog = logsForTag[0];
+    const siloedTags = await Promise.all(
+      indices.map(i => SiloedTag.computeFromTagAndApp(requests[i].tag, requests[i].contractAddress)),
+    );
 
-    return new LogRetrievalResponse(
-      scopedLog.logData.slice(1), // Skip the tag
-      scopedLog.txHash,
-      scopedLog.noteHashes,
-      scopedLog.firstNullifier,
+    const results = await getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchorBlockHash);
+
+    const logsPerTag: TxScopedL2Log[][] = requests.map(() => []);
+    indices.forEach((originalIdx, resultIdx) => {
+      logsPerTag[originalIdx] = results[resultIdx];
+    });
+    return logsPerTag;
+  }
+
+  #extractLogs(logsForTag: TxScopedL2Log[], fromBlock?: BlockNumber, toBlock?: BlockNumber): LogRetrievalResponse[] {
+    // TODO(F-650): push the block range filter down to the node query instead of filtering in memory.
+    const filtered =
+      fromBlock !== undefined || toBlock !== undefined
+        ? logsForTag.filter(
+            log =>
+              (fromBlock === undefined || log.blockNumber >= fromBlock) &&
+              (toBlock === undefined || log.blockNumber < toBlock),
+          )
+        : logsForTag;
+
+    return filtered.map(
+      scopedLog =>
+        new LogRetrievalResponse(
+          scopedLog.logData.slice(1), // Skip the tag
+          scopedLog.txHash,
+          scopedLog.noteHashes,
+          scopedLog.firstNullifier,
+        ),
     );
   }
 
@@ -124,10 +153,7 @@ export class LogService {
     );
   }
 
-  async #getSecretsForSenders(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<ExtendedDirectionalAppTaggingSecret[]> {
+  async #getSecretsForSenders(contractAddress: AztecAddress, recipient: AztecAddress): Promise<AppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
     if (!recipientCompleteAddress) {
       return [];
@@ -145,7 +171,7 @@ export class LogService {
 
     return Promise.all(
       deduplicatedSenders.map(async sender => {
-        const secret = await ExtendedDirectionalAppTaggingSecret.compute(
+        const secret = await AppTaggingSecret.compute(
           recipientCompleteAddress,
           recipientIvsk,
           sender,

@@ -1,4 +1,4 @@
-import { type ExtendedDirectionalAppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
+import { type AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
 
 /**
  * Reconciles tagging index ranges recorded by the PXE during private execution against the set of siloed tags whose
@@ -71,7 +71,7 @@ export async function reconcileTaggingIndexRangesAgainstSurvivingTags(
 
 /** Scans `[start, end]` ascending and returns the first index whose siloed tag is in `survivingTags`. */
 async function findFirstSurvivingIndex(
-  extendedSecret: ExtendedDirectionalAppTaggingSecret,
+  extendedSecret: AppTaggingSecret,
   start: number,
   end: number,
   survivingTags: Set<string>,
@@ -87,7 +87,7 @@ async function findFirstSurvivingIndex(
 
 /** Scans `[start, end]` descending and returns the first index whose siloed tag is in `survivingTags`. */
 async function findLastSurvivingIndex(
-  extendedSecret: ExtendedDirectionalAppTaggingSecret,
+  extendedSecret: AppTaggingSecret,
   start: number,
   end: number,
   survivingTags: Set<string>,

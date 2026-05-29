@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: 4.2.0
+Version: v4.3.0
 
 ## Quick Import Reference
 
@@ -193,7 +193,7 @@ new NoteService(noteStore: NoteStore, aztecNode: AztecNode, anchorBlockHeader: B
 **Methods**
 - `getNotes(contractAddress: AztecAddress, owner: AztecAddress | undefined, storageSlot: Fr, status: NoteStatus, scopes: AztecAddress[]) => Promise<{ contractAddress: AztecAddress; isPending: boolean; ... }[]>` - Retrieves a set of notes stored in the database for a given contract address and storage slot. The query result is paginated using 'limit' and 'offset' values. Returns an object containing an array of note data.
 - `syncNoteNullifiers(contractAddress: AztecAddress, scopes: AztecAddress[]) => Promise<void>` - Looks for nullifiers of active contract notes and marks them as nullified if a nullifier is found. Fetches notes from the NoteStore and checks which nullifiers are present in the onchain nullifier Merkle tree - up to the latest locally synced block. We use the locally synced block instead of querying the chain's 'latest' block to ensure correctness: notes are only marked nullified once their corresponding nullifier has been included in a block up to which the PXE has synced. This allows recent nullifications to be processed even if the node is not an archive node.
-- `validateAndStoreNote(contractAddress: AztecAddress, owner: AztecAddress, storageSlot: Fr, randomness: Fr, noteNonce: Fr, content: Fr[], noteHash: Fr, nullifier: Fr, txHash: TxHash, scope: AztecAddress) => Promise<void>`
+- `validateAndStoreNotes(requests: NoteValidationRequest[], scope: AztecAddress, txEffects: Map<string, IndexedTxEffect>) => Promise<void>` - Validates and stores a batch of notes against pre-fetched tx effects. For each request we must verify that: - the note actually exists in the corresponding tx effect (and thus in the note hash tree), and - the note has not already been nullified. Failing to do either would result in circuits getting either non-existent notes and failing to produce inclusion proofs for them, or getting nullified notes and producing duplicate nullifiers, both of which are catastrophic failure modes. Note that adding a note and removing it is *not* equivalent to never adding it in the first place. A nullifier emitted in a block that comes after note creation might result in the note being de-nullified by a chain reorg, so we must store both the note hash and nullifier block information.
 
 ### NoteStore
 
@@ -234,7 +234,7 @@ Private eXecution Environment (PXE) is a library used by wallets to simulate pri
 - `getSenders() => Promise<AztecAddress[]>` - Retrieves senders registered in this PXE.
 - `getSyncedBlockHeader() => Promise<BlockHeader>` - Returns the block header up to which the PXE has synced.
 - `profileTx(txRequest: TxExecutionRequest, __namedParameters: ProfileTxOpts) => Promise<TxProfileResult>` - Profiles a transaction, reporting gate counts (unless disabled) and returns an execution trace.
-- `proveTx(txRequest: TxExecutionRequest, scopes: AztecAddress[]) => Promise<TxProvingResult>` - Proves the private portion of a simulated transaction, ready to send to the network (where validators prove the public portion).
+- `proveTx(txRequest: TxExecutionRequest, scopes: ProveTxOpts) => Promise<TxProvingResult>` - Proves the private portion of a simulated transaction, ready to send to the network (where validators prove the public portion).
 - `registerAccount(secretKey: Fr, partialAddress: Fr) => Promise<CompleteAddress>` - Registers a user account in PXE given its master encryption private key. Once a new account is registered, the PXE will trial-decrypt all published notes on the chain and store those that correspond to the registered account. Will do nothing if the account is already registered.
 - `registerContract(contract: { artifact?: ContractArtifact; instance: ContractInstanceWithAddress }) => Promise<void>` - Adds deployed contracts to the PXE. Deployed contract information is used to access the contract code when simulating local transactions. This is automatically called by aztec.js when deploying a contract. Dapps that wish to interact with contracts already deployed should register these contracts in their users' PXE through this method.
 - `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class in the PXE without registering any associated contract instance with it.
@@ -281,10 +281,10 @@ new RecipientTaggingStore(store: AztecAsyncKVStore)
 **Methods**
 - `commit(jobId: string) => Promise<void>` - Writes all job-specific in-memory data to persistent storage.
 - `discardStaged(jobId: string) => Promise<void>` - Discards staged data without committing. Called on abort.
-- `getHighestAgedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>`
-- `getHighestFinalizedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>`
-- `updateHighestAgedIndex(secret: ExtendedDirectionalAppTaggingSecret, index: number, jobId: string) => Promise<void>`
-- `updateHighestFinalizedIndex(secret: ExtendedDirectionalAppTaggingSecret, index: number, jobId: string) => Promise<void>`
+- `getHighestAgedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>`
+- `getHighestFinalizedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>`
+- `updateHighestAgedIndex(secret: AppTaggingSecret, index: number, jobId: string) => Promise<void>`
+- `updateHighestFinalizedIndex(secret: AppTaggingSecret, index: number, jobId: string) => Promise<void>`
 
 ### SenderAddressBookStore
 
@@ -319,9 +319,9 @@ new SenderTaggingStore(store: AztecAsyncKVStore)
 - `dropPendingIndexes(txHashes: TxHash[], jobId: string) => Promise<void>` - Drops all pending indexes corresponding to the given transaction hashes.
 - `finalizePendingIndexes(txHashes: TxHash[], jobId: string) => Promise<void>` - Updates pending indexes corresponding to the given transaction hashes to be finalized and prunes any lower pending indexes.
 - `finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, jobId: string) => Promise<void>` - Handles finalization of pending indexes for a transaction whose execution was partially reverted. Recomputes the siloed tags for each pending index of the given tx and checks which ones appear in the TxEffect's private logs (i.e., which ones made it onchain). Those that survived are finalized; those that didn't are dropped.
-- `getLastFinalizedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last (highest) finalized index for a given secret.
-- `getLastUsedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last used index for a given directional app tagging secret, considering both finalized and pending indexes.
-- `getTxHashesOfPendingIndexes(secret: ExtendedDirectionalAppTaggingSecret, startIndex: number, endIndex: number, jobId: string) => Promise<TxHash[]>` - Returns the transaction hashes of all pending transactions that contain highest indexes within a specified range for a given directional app tagging secret. We check based on the highest indexes only as that is the relevant information for the caller of this function.
+- `getLastFinalizedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last (highest) finalized index for a given secret.
+- `getLastUsedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>` - Returns the last used index for a given directional app tagging secret, considering both finalized and pending indexes.
+- `getTxHashesOfPendingIndexes(secret: AppTaggingSecret, startIndex: number, endIndex: number, jobId: string) => Promise<TxHash[]>` - Returns the transaction hashes of all pending transactions that contain highest indexes within a specified range for a given directional app tagging secret. We check based on the highest indexes only as that is the relevant information for the caller of this function.
 - `storePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string) => Promise<void>` - Stores pending index ranges.
 
 ## Interfaces
@@ -334,6 +334,13 @@ Configuration settings for the block synchronizer.
 - `l2BlockBatchSize: number` - Maximum amount of blocks to pull from the stream in one request when synchronizing
 - `syncChainTip?: "proposed" | "checkpointed" | "proven" | "finalized"` - Which chain tip to sync to (proposed, checkpointed, proven, finalized)
 
+### ExecutionHooks
+
+Hooks that PXE invokes during client-side simulation to gate operations that the protocol does not restrict on its own. They give the wallet a chance to apply custom policies (e.g. prompting the user, consulting a dynamic allowlist, or inspecting call arguments) before the execution proceeds. For example, authorizeUtilityCall is called whenever a utility function makes a cross-contract call. A call made by a malicious contract could leak private information, so the hook lets the wallet decide, per-call, whether to allow it. A static allowlist would not work here because neither the app nor the wallet can predict ahead of time which contracts will be invoked during execution. Note: hooks are unrelated to authentication witnesses (authwits). Authwits are an on-chain mechanism where a contract verifies that a caller was authorized by a specific account; hooks are a client-side PXE concern that gates execution before it proceeds.
+
+**Properties**
+- `authorizeUtilityCall: AuthorizeUtilityCall` - Called when a contract attempts a cross-contract utility call.
+
 ### KernelProverConfig
 
 Configuration settings for the prover factory
@@ -342,6 +349,12 @@ Configuration settings for the prover factory
 - `proverEnabled?: boolean` - Whether we are running with real proofs
 
 ## Functions
+
+### composeHooks
+```typescript
+function composeHooks(partial: Partial<ExecutionHooks>) => ExecutionHooks | undefined
+```
+Builds an ExecutionHooks from individually-constructed hook callbacks. Returns `undefined` when every field is absent, so callers can unconditionally pass the result as `hooks`.
 
 ### createContractLogger
 ```typescript
@@ -401,6 +414,12 @@ function stripAztecnrLogPrefix(message: string) => { kind: CONTRACT_LOG_KIND; me
 
 ## Types
 
+### AuthorizeUtilityCall
+```typescript
+type AuthorizeUtilityCall = (request: UtilityCallAuthorizationRequest) => Promise<UtilityCallAuthorizationResponse>
+```
+Hook called when a utility function attempts a cross-contract call. Returns a response indicating whether the call is authorized and an optional denial reason.
+
 ### CONTRACT_LOG_KIND
 ```typescript
 type CONTRACT_LOG_KIND = "aztecnr" | "user"
@@ -436,7 +455,7 @@ type ORACLE_VERSION_MAJOR = 22
 
 ### ORACLE_VERSION_MINOR
 ```typescript
-type ORACLE_VERSION_MINOR = 1
+type ORACLE_VERSION_MINOR = 3
 ```
 
 ### PXEConfig
@@ -476,11 +495,29 @@ type ProfileTxOpts = unknown
 ```
 Options for PXE.profileTx.
 
+### ProveTxOpts
+```typescript
+type ProveTxOpts = unknown
+```
+Options for PXE.proveTx.
+
 ### SimulateTxOpts
 ```typescript
 type SimulateTxOpts = unknown
 ```
 Options for PXE.simulateTx.
+
+### UtilityCallAuthorizationRequest
+```typescript
+type UtilityCallAuthorizationRequest = unknown
+```
+Information about a cross-contract utility call that requires authorization.
+
+### UtilityCallAuthorizationResponse
+```typescript
+type UtilityCallAuthorizationResponse = Authorized | Denied
+```
+Result of an authorization hook evaluation.
 
 ### allPxeConfigMappings
 ```typescript
@@ -511,4 +548,4 @@ This package references types from other Aztec packages:
 - `AztecAsyncKVStore`, `DataStoreConfig`
 
 **@aztec/stdlib**
-- `AztecAddress`, `AztecNode`, `BlockHeader`, `Capsule`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstance`, `ContractInstanceWithAddress`, `DataInBlock`, `DebugLog`, `EventSelector`, `ExtendedDirectionalAppTaggingSecret`, `FunctionAbi`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `Note`, `NoteDao`, `NoteStatus`, `SimulationError`, `TaggingIndexRange`, `TxEffect`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`
+- `AppTaggingSecret`, `AztecAddress`, `AztecNode`, `BlockHeader`, `Capsule`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstance`, `ContractInstanceWithAddress`, `DataInBlock`, `DebugLog`, `EventSelector`, `FunctionAbi`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `IndexedTxEffect`, `Note`, `NoteDao`, `NoteStatus`, `SimulationError`, `TaggingIndexRange`, `TxEffect`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`

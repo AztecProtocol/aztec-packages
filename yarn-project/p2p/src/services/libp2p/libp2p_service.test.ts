@@ -19,7 +19,7 @@ import {
   makeCheckpointProposal,
   mockTx,
 } from '@aztec/stdlib/testing';
-import { type Tx, TxArray, TxHashArray, type TxValidator } from '@aztec/stdlib/tx';
+import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { ServerWorldStateSynchronizer } from '@aztec/world-state';
 
@@ -316,7 +316,7 @@ describe('LibP2PService', () => {
     });
   });
 
-  describe('validateRequestedBlockTxs', () => {
+  describe('validateRequestedBlockTxsConsistency', () => {
     function makeRequest(archiveRoot: Fr, length: number, indices: number[]): BlockTxsRequest {
       return new BlockTxsRequest(archiveRoot, new TxHashArray(), BitVector.init(length, indices));
     }
@@ -347,7 +347,7 @@ describe('LibP2PService', () => {
       const request = makeRequest(reqHash, 5, [0, 2]);
       const response = makeResponse(otherHash, 5, [0, 2], []);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
     });
@@ -357,7 +357,7 @@ describe('LibP2PService', () => {
       const request = makeRequest(hash, 5, [0, 2]);
       const response = makeResponse(hash, 4, [0, 2], []);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
     });
@@ -367,7 +367,7 @@ describe('LibP2PService', () => {
       const request = makeRequest(hash, 5, [0, 2, 3]);
       const response = makeResponse(hash, 5, [0, 2, 3], ['0xaaa', '0xaaa']); // duplicate
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
     });
@@ -378,7 +378,7 @@ describe('LibP2PService', () => {
       const request = makeRequest(hash, 3, [0, 2]);
       const response = makeResponse(hash, 3, [0], ['0x1', '0x2']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
     });
@@ -390,7 +390,7 @@ describe('LibP2PService', () => {
 
       setProposalTxHashes(service, ['0xgood0', '0xgood2', '0xgood4', '0xother', '0xother2']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
@@ -404,7 +404,7 @@ describe('LibP2PService', () => {
 
       setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
@@ -416,9 +416,8 @@ describe('LibP2PService', () => {
 
       setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(true);
-      expect(service.validateRequestedTxMock).toHaveBeenCalledTimes(3);
     });
 
     it('should accept partial subset when proposal exists and order matches requested indices', async () => {
@@ -429,9 +428,8 @@ describe('LibP2PService', () => {
 
       setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(true);
-      expect(service.validateRequestedTxMock).toHaveBeenCalledTimes(2);
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
     });
 
@@ -443,9 +441,8 @@ describe('LibP2PService', () => {
 
       setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xother4']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(true);
-      expect(service.validateRequestedTxMock).toHaveBeenCalledTimes(0);
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
     });
 
@@ -455,7 +452,7 @@ describe('LibP2PService', () => {
       const request = makeRequest(hash, 3, [1]);
       const response = makeResponse(hash, 3, [], ['0xsome']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
     });
@@ -468,7 +465,7 @@ describe('LibP2PService', () => {
 
       setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
@@ -481,7 +478,7 @@ describe('LibP2PService', () => {
 
       setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
@@ -498,7 +495,7 @@ describe('LibP2PService', () => {
       };
       service.setAttestationPool(mockAttestationPool);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
     });
@@ -1315,9 +1312,6 @@ interface CreateTestLibP2PServiceOptions {
  * and allows construction with mocked dependencies.
  */
 class TestLibP2PService extends LibP2PService {
-  /** Mocked validateRequestedTx for testing. */
-  public validateRequestedTxMock: jest.Mock;
-
   /** Controls whether first-stage gossip validation passes. Set to false to simulate first-stage failure. */
   public firstStageValidationPasses = true;
 
@@ -1329,9 +1323,6 @@ class TestLibP2PService extends LibP2PService {
 
   /** Controls the severity returned by the failing first-stage validator. */
   public firstStageSeverity: PeerErrorSeverity = PeerErrorSeverity.LowToleranceError;
-
-  /** Stub validator returned by createRequestedTxValidator. */
-  private stubValidator: TxValidator;
 
   /** Exposed epoch cache for test configuration. */
   public testEpochCache: MockProxy<EpochCacheInterface>;
@@ -1387,10 +1378,6 @@ class TestLibP2PService extends LibP2PService {
     this.mockPeerDiscoveryService = resolvedPeerDiscoveryService;
 
     this.testEpochCache = epochCache;
-    this.validateRequestedTxMock = jest.fn(() => Promise.resolve());
-    this.stubValidator = {
-      validateTx: () => Promise.resolve({ result: 'valid' as const }),
-    };
   }
 
   /** Exposes the protected handleNewGossipMessage for testing. */
@@ -1429,13 +1416,13 @@ class TestLibP2PService extends LibP2PService {
     };
   }
 
-  /** Exposes the protected validateRequestedBlockTxs for testing. */
-  public override validateRequestedBlockTxs(
+  /** Exposes the protected validateRequestedBlockTxsConsistency for testing. */
+  public override validateRequestedBlockTxsConsistency(
     request: BlockTxsRequest,
     response: BlockTxsResponse,
     peerId: PeerId,
   ): Promise<boolean> {
-    return super.validateRequestedBlockTxs(request, response, peerId);
+    return super.validateRequestedBlockTxsConsistency(request, response, peerId);
   }
 
   /** Exposes the protected processBlockFromPeer for testing. */
@@ -1451,21 +1438,6 @@ class TestLibP2PService extends LibP2PService {
   /** Exposes the protected validateAndStoreCheckpointAttestation for testing. */
   public override validateAndStoreCheckpointAttestation(peerId: PeerId, attestation: CheckpointAttestation) {
     return super.validateAndStoreCheckpointAttestation(peerId, attestation);
-  }
-
-  /** Override to use the mock. */
-  protected override async validateRequestedTx(
-    tx: Tx,
-    peerId: PeerId,
-    _txValidator: TxValidator,
-    _requested?: Set<`0x${string}`>,
-  ): Promise<void> {
-    await this.validateRequestedTxMock(tx, peerId);
-  }
-
-  /** Override to return the stub validator. */
-  protected override createRequestedTxValidator(): TxValidator {
-    return this.stubValidator;
   }
 
   /** Sets the attestation pool on the mempools for test setup. */

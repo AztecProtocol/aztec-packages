@@ -47,7 +47,7 @@ pub contract TestLog {
     /// Emits a single private log with the given raw tag and a one-field payload.
     #[external("private")]
     fn emit_raw_private_log(tag: Field, payload: Field) {
-        self.context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array([payload]));
+        self.context.emit_private_log_unsafe(tag, BoundedVec::from_array([payload]));
     }
 
     /// Emits three private logs with payloads of different lengths (1, 3, and 5 fields). Used to
@@ -61,9 +61,9 @@ pub contract TestLog {
         tag3: Field,
         payload3: [Field; 5],
     ) {
-        self.context.emit_private_log_vec_unsafe(tag1, BoundedVec::from_array([payload1]));
-        self.context.emit_private_log_vec_unsafe(tag2, BoundedVec::from_array(payload2));
-        self.context.emit_private_log_vec_unsafe(tag3, BoundedVec::from_array(payload3));
+        self.context.emit_private_log_unsafe(tag1, BoundedVec::from_array([payload1]));
+        self.context.emit_private_log_unsafe(tag2, BoundedVec::from_array(payload2));
+        self.context.emit_private_log_unsafe(tag3, BoundedVec::from_array(payload3));
     }
 
     #[external("private")]

@@ -24,49 +24,41 @@ variable "GCP_REGION" {
 variable "FULL_NODE_RESOURCE_PROFILE" {
   description = "Resource profile to use for the full node"
   type        = string
-  default     = "prod"
 }
 
 variable "P2P_BOOTSTRAP_RESOURCE_PROFILE" {
   description = "Resource profile to use for the p2p bootstrap"
   type        = string
-  default     = "prod"
 }
 
 variable "VALIDATOR_RESOURCE_PROFILE" {
   description = "Resource profile to use for the validator"
   type        = string
-  default     = "prod"
 }
 
 variable "PROVER_RESOURCE_PROFILE" {
   description = "Resource profile to use for the prover"
   type        = string
-  default     = "prod"
 }
 
 variable "RPC_RESOURCE_PROFILE" {
   description = "Resource profile to use for the rpc"
   type        = string
-  default     = "prod"
 }
 
 variable "BOT_RESOURCE_PROFILE" {
   description = "Resource profile to use for the bots"
   type        = string
-  default     = "prod"
 }
 
 variable "ARCHIVE_RESOURCE_PROFILE" {
   description = "Resource profile to use for the archive node"
   type        = string
-  default     = "prod"
 }
 
 variable "BLOB_SINK_RESOURCE_PROFILE" {
   description = "Resource profile to use for the blob sink"
   type        = string
-  default     = "prod"
 }
 
 variable "DEBUG_P2P_INSTRUMENT_MESSAGES" {
@@ -466,14 +458,14 @@ variable "SLASH_INACTIVITY_PENALTY" {
   nullable    = true
 }
 
-variable "SLASH_PRUNE_PENALTY" {
-  description = "The slash prune penalty"
+variable "SLASH_DATA_WITHHOLDING_PENALTY" {
+  description = "The slash data withholding penalty"
   type        = string
   nullable    = true
 }
 
-variable "SLASH_DATA_WITHHOLDING_PENALTY" {
-  description = "The slash data withholding penalty"
+variable "SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS" {
+  description = "L2 slots to wait after a checkpoint slot before slashing for data withholding"
   type        = string
   nullable    = true
 }
@@ -496,8 +488,8 @@ variable "SLASH_DUPLICATE_ATTESTATION_PENALTY" {
   nullable    = true
 }
 
-variable "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" {
-  description = "The slash attest descendant of invalid penalty"
+variable "SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY" {
+  description = "The slash propose descendant of invalid penalty"
   type        = string
   nullable    = true
 }
@@ -516,6 +508,12 @@ variable "SLASH_UNKNOWN_PENALTY" {
 
 variable "SLASH_INVALID_BLOCK_PENALTY" {
   description = "The slash invalid block penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY" {
+  description = "The slash invalid checkpoint proposal penalty"
   type        = string
   nullable    = true
 }

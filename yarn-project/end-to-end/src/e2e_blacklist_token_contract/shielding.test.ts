@@ -1,6 +1,7 @@
 import { computeSecretHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
@@ -9,7 +10,10 @@ describe('e2e_blacklist_token_contract shield + redeem_shield', () => {
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    await t.setup();
+    // TODO(kill-non-pipelined): re-enable pipelining once B1 (world-state fork lifecycle) is
+    // fixed — BlacklistTokenContractTest.applyBaseSetup runs two 86400s warps which time out
+    // mineBlock under pipelining. See PIPELINING_GOTCHAS.md.
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
     await t.applyMint(); // Beware that we are adding the admin as minter here
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t);

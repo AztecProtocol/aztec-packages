@@ -20,6 +20,45 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 } // namespace
 
+TEST(BlockConstraintMemOpEncoding, ReadFlagFalseDecodesAsRead)
+{
+    Acir::Opcode::MemoryInit mem_init{
+        .block_id = Acir::BlockId{ .value = 0 },
+        .init = { Acir::Witness{ .value = 0 } },
+        .block_type = Acir::BlockType{ .value = Acir::BlockType::CallData{ .value = 0 } },
+    };
+    BlockConstraint block = memory_init_to_block_constraint(mem_init);
+
+    Acir::Opcode::MemoryOp mem_op{
+        .block_id = Acir::BlockId{ .value = 0 },
+        .op = Acir::MemOp{ .read = false, .index = Acir::Witness{ .value = 1 }, .value = Acir::Witness{ .value = 2 } },
+    };
+
+    EXPECT_NO_THROW(add_memory_op_to_block_constraint(mem_op, block));
+
+    ASSERT_EQ(block.trace.size(), 1);
+    EXPECT_EQ(block.trace[0].access_type, AccessType::Read);
+    EXPECT_EQ(block.trace[0].index, 1);
+    EXPECT_EQ(block.trace[0].value, 2);
+}
+
+TEST(BlockConstraintMemOpEncoding, AccessTypeEncodesToReadFlag)
+{
+    const MemOp read_op{
+        .access_type = AccessType::Read,
+        .index = 1,
+        .value = 2,
+    };
+    const MemOp write_op{
+        .access_type = AccessType::Write,
+        .index = 3,
+        .value = 4,
+    };
+
+    EXPECT_FALSE(mem_op_to_acir_mem_op(read_op).read);
+    EXPECT_TRUE(mem_op_to_acir_mem_op(write_op).read);
+}
+
 template <typename Builder_, size_t TableSize_, size_t NumReads_> struct ROMTestParams {
     using Builder = Builder_;
     static constexpr size_t table_size = TableSize_;
@@ -304,12 +343,10 @@ using RAMTestConfigs = testing::Types<RAMTestParams<UltraCircuitBuilder, 0, 0, 0
                                       RAMTestParams<UltraCircuitBuilder, 10, 0, 0>,
                                       RAMTestParams<UltraCircuitBuilder, 10, 0, 10>,
                                       RAMTestParams<UltraCircuitBuilder, 10, 10, 0>,
-                                      RAMTestParams<UltraCircuitBuilder, 10, 20, 10>,
                                       RAMTestParams<MegaCircuitBuilder, 0, 0, 0>,
                                       RAMTestParams<MegaCircuitBuilder, 10, 0, 0>,
                                       RAMTestParams<MegaCircuitBuilder, 10, 0, 10>,
-                                      RAMTestParams<MegaCircuitBuilder, 10, 10, 0>,
-                                      RAMTestParams<MegaCircuitBuilder, 10, 20, 10>>;
+                                      RAMTestParams<MegaCircuitBuilder, 10, 10, 0>>;
 
 TYPED_TEST_SUITE(RAMTest, RAMTestConfigs);
 

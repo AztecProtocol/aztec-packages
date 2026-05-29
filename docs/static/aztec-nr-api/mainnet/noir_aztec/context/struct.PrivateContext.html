@@ -54,7 +54,9 @@
 <li><a href="#consume_l1_to_l2_message">consume_l1_to_l2_message</a></li>
 <li><a href="#emit_contract_class_log">emit_contract_class_log</a></li>
 <li><a href="#emit_private_log_unsafe">emit_private_log_unsafe</a></li>
+<li><a href="#emit_private_log_vec_unsafe">emit_private_log_vec_unsafe</a></li>
 <li><a href="#emit_raw_note_log_unsafe">emit_raw_note_log_unsafe</a></li>
+<li><a href="#emit_raw_note_log_vec_unsafe">emit_raw_note_log_vec_unsafe</a></li>
 <li><a href="#end_setup">end_setup</a></li>
 <li><a href="#finish">finish</a></li>
 <li><a href="#gas_settings">gas_settings</a></li>
@@ -696,7 +698,11 @@ double-consumption.</p>
 </div>
 </div><code id="emit_private_log_unsafe" class="code-header">pub fn <a href="#emit_private_log_unsafe"><span class="fn">emit_private_log_unsafe</span></a>(&mut self, tag: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; 15], length: <a href="../../std/primitive.u32.html" class="primitive">u32</a>)</code>
 
-<div class="padded-description"><div class="comments">
+<div class="padded-description"><div class="deprecated">
+<span class="emoji">👎</span>
+Deprecated: use `emit_private_log_vec_unsafe` instead
+</div>
+<div class="comments">
 <p>Emits a private log (an array of Fields) that will be published to an Ethereum blob.</p>
 <p>Private logs are intended for the broadcasting of ciphertexts: that is, encrypted events or encrypted note
 contents. Since the data in the logs is meant to be <em>encrypted</em>, private_logs are broadcast to publicly-visible
@@ -742,6 +748,12 @@ collisions between logs from different sources. Without domain separation, two u
 happen to share a raw tag value become indistinguishable. Prefer the higher-level APIs
 (<a href="../../noir_aztec/messages/message_delivery/global.MessageDelivery.html"><code>crate::messages::message_delivery::MessageDelivery</code></a> for messages, <code>self.emit(event)</code> for events) which
 handle tagging automatically.</p></div>
+</div><code id="emit_private_log_vec_unsafe" class="code-header">pub fn <a href="#emit_private_log_vec_unsafe"><span class="fn">emit_private_log_vec_unsafe</span></a>(&mut self, tag: <a href="../../std/primitive.Field.html" class="primitive">Field</a>, log: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;)</code>
+
+<div class="padded-description"><div class="comments">
+<p><code>BoundedVec</code>-based variant of <a href="../../noir_aztec/context/struct.PrivateContext.html#emit_private_log_unsafe"><code>emit_private_log_unsafe</code></a>.</p>
+<p>See <a href="../../noir_aztec/context/struct.PrivateContext.html#emit_private_log_unsafe"><code>emit_private_log_unsafe</code></a> for the full description of private
+log semantics.</p></div>
 </div><code id="emit_raw_note_log_unsafe" class="code-header">pub fn <a href="#emit_raw_note_log_unsafe"><span class="fn">emit_raw_note_log_unsafe</span></a>(
     &mut self,
     tag: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
@@ -750,7 +762,11 @@ handle tagging automatically.</p></div>
     note_hash_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
 )</code>
 
-<div class="padded-description"><div class="comments">
+<div class="padded-description"><div class="deprecated">
+<span class="emoji">👎</span>
+Deprecated: use `emit_raw_note_log_vec_unsafe` instead
+</div>
+<div class="comments">
 <p>Emits a private log that is explicitly tied to a newly-emitted note_hash, to convey to the kernel: &quot;this log
 relates to this note&quot;.</p>
 <p>This linkage is important in case the note gets squashed (due to being read later in this same tx), since we
@@ -768,6 +784,17 @@ this <code>PrivateContext</code>.</li>
 consider using <code>emit_private_log_unsafe</code> instead, or emitting additional events.</p>
 <h4>Safety</h4>
 <p>Same as <a href="../../noir_aztec/context/struct.PrivateContext.html#emit_private_log_unsafe"><code>PrivateContext::emit_private_log_unsafe</code></a>: the <code>tag</code> should be domain-separated.</p></div>
+</div><code id="emit_raw_note_log_vec_unsafe" class="code-header">pub fn <a href="#emit_raw_note_log_vec_unsafe"><span class="fn">emit_raw_note_log_vec_unsafe</span></a>(
+    &mut self,
+    tag: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    log: <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>, 15&gt;,
+    note_hash_counter: <a href="../../std/primitive.u32.html" class="primitive">u32</a>,
+)</code>
+
+<div class="padded-description"><div class="comments">
+<p><code>BoundedVec</code>-based variant of <a href="../../noir_aztec/context/struct.PrivateContext.html#emit_raw_note_log_unsafe"><code>emit_raw_note_log_unsafe</code></a>.</p>
+<p>See <a href="../../noir_aztec/context/struct.PrivateContext.html#emit_raw_note_log_unsafe"><code>emit_raw_note_log_unsafe</code></a> for the full description of
+note-tied private log semantics.</p></div>
 </div><code id="emit_contract_class_log" class="code-header">pub fn <a href="#emit_contract_class_log"><span class="fn">emit_contract_class_log</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(&mut self, log: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N])</code>
 
 <div class="padded-description"><div class="comments">

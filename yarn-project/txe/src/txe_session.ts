@@ -24,7 +24,6 @@ import {
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
   Oracle,
-  PrivateExecutionOracle,
   UtilityExecutionOracle,
 } from '@aztec/pxe/simulator';
 import {
@@ -46,10 +45,11 @@ import { CallContext, GlobalVariables, OFFCHAIN_MESSAGE_IDENTIFIER, TxContext } 
 
 import { z } from 'zod';
 
-import { DEFAULT_ADDRESS } from './constants.js';
+import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
+import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
@@ -111,7 +111,7 @@ export type TXEOracleFunctionName = Exclude<
 
 export interface TXESessionStateHandler {
   /** Records the TXE oracle version reported by the Noir test code for diagnostics. */
-  setTxeOracleVersion(version: { major: number; minor: number }): void;
+  setTxeOracleVersion(major: number, minor: number): void;
 
   enterTopLevelState(): Promise<void>;
   enterPublicState(contractAddress?: AztecAddress): Promise<void>;
@@ -397,7 +397,16 @@ export class TXESession implements TXESessionStateHandler {
 
   getLastCallOffchainEffects(): { effects: Fr[][] } {
     this.lastCallInfo.queried = true;
-    return { effects: this.lastCallInfo.offchainEffects };
+    const effects = this.lastCallInfo.offchainEffects;
+
+    if (effects.length > MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY) {
+      throw new Error(`${effects.length} offchain effects exceed max ${MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY}`);
+    }
+    if (effects.some(e => e.length > MAX_OFFCHAIN_EFFECT_LEN)) {
+      throw new Error(`Some offchain effect has length larger than max ${MAX_OFFCHAIN_EFFECT_LEN}`);
+    }
+
+    return { effects };
   }
 
   getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
@@ -405,9 +414,19 @@ export class TXESession implements TXESessionStateHandler {
     return { txHash, anchorBlockTimestamp };
   }
 
-  setTxeOracleVersion(version: { major: number; minor: number }): void {
-    this.txeOracleVersion = version;
-    this.logger.debug(`Test compiled with test oracle version ${version.major}.${version.minor}`);
+  setTxeOracleVersion(major: number, minor: number): void {
+    if (major !== TXE_ORACLE_VERSION_MAJOR) {
+      const hint =
+        major > TXE_ORACLE_VERSION_MAJOR
+          ? 'The test was compiled with a newer version of Aztec.nr than your test environment supports. Upgrade your test environment to a compatible version.'
+          : 'The test was compiled with an older version of Aztec.nr than your test environment supports. Recompile the test with a compatible version of Aztec.nr.';
+      throw new Error(
+        `Incompatible test environment version: ${hint} See https://docs.aztec.network/errors/12 (expected test oracle major version ${TXE_ORACLE_VERSION_MAJOR}, got ${major})`,
+      );
+    }
+
+    this.txeOracleVersion = { major, minor };
+    this.logger.debug(`Test compiled with test oracle version ${major}.${minor}`);
   }
 
   async enterTopLevelState() {
@@ -489,7 +508,7 @@ export class TXESession implements TXESessionStateHandler {
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
-    this.oracleHandler = new PrivateExecutionOracle({
+    this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
       callContext: new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
@@ -530,7 +549,7 @@ export class TXESession implements TXESessionStateHandler {
     // via `anchorBlockNumber`, "latest" would be the wrong anchor for offchain-message semantics.
     this.setLastCallContext(Fr.ZERO, anchorBlock!.globalVariables.timestamp);
 
-    return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
+    return (this.oracleHandler as TXEPrivateExecutionOracle).getPrivateContextInputs();
   }
 
   async enterPublicState(contractAddress?: AztecAddress) {

@@ -35,7 +35,7 @@ import {
   createKeyFile5,
   createKeyFile6,
 } from '../../e2e_multi_validator/utils.js';
-import { MNEMONIC } from '../../fixtures/fixtures.js';
+import { MNEMONIC, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
 import {
   createWeb3SignerKeystore,
@@ -153,6 +153,8 @@ function verifyKeyStore(directory: string) {
 
   expect(validatorAdapter.getAttesterAddresses()).toHaveLength(VALIDATOR_COUNT);
 }
+
+jest.setTimeout(10 * 60 * 1000);
 
 describe('e2e_multi_validator_node', () => {
   let initialValidatorPrivateKeys: `0x${string}`[];
@@ -283,6 +285,7 @@ describe('e2e_multi_validator_node', () => {
       aztecNode,
       sequencer: sequencerClient,
     } = await setup(1, {
+      ...PIPELINING_SETUP_OPTS,
       initialValidators,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       keyStoreDirectory,
@@ -293,6 +296,8 @@ describe('e2e_multi_validator_node', () => {
       worldStateBlockCheckIntervalMS: 200,
       blockCheckIntervalMS: 200,
       startProverNode: true,
+      aztecEpochDuration: 8,
+      aztecProofSubmissionEpochs: 4,
     }));
 
     sequencer = (sequencerClient! as TestSequencerClient).getSequencer();

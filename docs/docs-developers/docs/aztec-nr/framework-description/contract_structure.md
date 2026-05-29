@@ -10,18 +10,24 @@ High-level structure of how Aztec smart contracts including the different compon
 
 ## Directory structure
 
-When you create a new project with `aztec new my_project`, it generates a single-crate Noir contract project:
+When you create a new project with `aztec new my_project`, it generates a two-crate Noir workspace: a contract crate for your smart contract code and a sibling test crate for Noir tests.
 
 ```text title="layout of an aztec contract project"
 ─── my_project
-       ├── Nargo.toml                    <-- contract package and dependencies
-       └── src
-             └── main.nr                 <-- your contract
+       ├── Nargo.toml                    <-- workspace file ([workspace] members)
+       ├── my_project_contract
+       │     ├── Nargo.toml              <-- contract package (type = "contract")
+       │     └── src
+       │           └── main.nr           <-- your contract
+       └── my_project_test
+             ├── Nargo.toml              <-- test package (type = "lib")
+             └── src
+                   └── lib.nr            <-- Noir tests
 ```
 
-`Nargo.toml` declares the contract package (with `type = "contract"`) and its dependencies. Your contract code lives in `src/main.nr`. Noir tests using `#[test]` live alongside the contract in the same crate — see [Testing Contracts](../testing_contracts.md).
+The top-level `Nargo.toml` is a workspace file. Contract dependencies live in `my_project_contract/Nargo.toml` (with `type = "contract"`). Tests live in the separate `my_project_test` crate and import the contract by package name (for example, `use my_project_contract::MyContract;`) — see [Testing Contracts](../testing_contracts.md).
 
-To add another contract as a sibling of an existing one, run `aztec new <name>` from the parent directory (each contract is its own crate). To initialize a contract project inside an existing empty directory instead, `cd` into it and run `aztec init` (it takes no positional argument; pass `--name <name>` if you want the package name to differ from the directory name).
+To add another contract to the same workspace, run `aztec new <name>` from inside the workspace directory; this adds a new `<name>_contract` and `<name>_test` crate pair. To initialize a project inside an existing empty directory, `cd` into it and run `aztec init`, which scaffolds the same two-crate layout pre-populated with a runnable [Counter example](../../tutorials/contract_tutorials/counter_contract.md) (use `aztec new` if you want a blank starting point instead).
 
 See the vanilla Noir docs for [more info on packages](https://noir-lang.org/docs/noir/modules_packages_crates/crates_and_packages).
 

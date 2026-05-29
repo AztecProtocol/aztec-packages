@@ -1318,7 +1318,7 @@ impl TestEnvironment {
             note.compute_nullifier_unconstrained(owner, unique_note_hash)
         };
 
-        let process_custom_message: Option<CustomMessageHandler<()>> = Option::none();
+        let process_custom_message: Option<CustomMessageHandler> = Option::none();
         self.discover_data_in_message_plaintext(
             message_plaintext,
             opts.contract_address,
@@ -1433,7 +1433,7 @@ impl TestEnvironment {
             )
         };
 
-        let process_custom_message: Option<CustomMessageHandler<()>> = Option::none();
+        let process_custom_message: Option<CustomMessageHandler> = Option::none();
         self.discover_data_in_message_plaintext(
             message_plaintext,
             opts.contract_address,
@@ -1444,14 +1444,14 @@ impl TestEnvironment {
         );
     }
 
-    unconstrained fn discover_data_in_message_plaintext<CustomMessageHandlerEnv>(
+    unconstrained fn discover_data_in_message_plaintext(
         self,
         message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
         contract_address: Option<AztecAddress>,
         recipient: Option<AztecAddress>,
         compute_note_hash: ComputeNoteHash,
         compute_note_nullifier: ComputeNoteNullifier,
-        process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
+        process_custom_message: Option<CustomMessageHandler>,
     ) {
         // This function will emulate the message discovery and processing that would happen in a real contract, based
         // on a message plaintext.

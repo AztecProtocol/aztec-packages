@@ -7,6 +7,7 @@ import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { KeyPrefix } from './key_types.js';
+import { PublicKey, hashPublicKey } from './public_key.js';
 import { PublicKeys } from './public_keys.js';
 import { getKeyGenerator } from './utils.js';
 
@@ -44,18 +45,18 @@ export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
 }
 
 export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
-  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V1);
+  return poseidon2HashWithSeparator([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V2);
 }
 
 export async function computeAddress(publicKeys: PublicKeys, partialAddress: Fr): Promise<AztecAddress> {
   // Given public keys and a partial address, we can compute our address in the following steps.
-  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V1);
+  // 1. preaddress = poseidon2([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V2);
   // 2. addressPoint = (preaddress * G) + ivpk_m
   // 3. address = addressPoint.x
   const preaddress = await computePreaddress(await publicKeys.hash(), partialAddress);
   const address = await Grumpkin.add(
     await derivePublicKeyFromSecretKey(new Fq(preaddress.toBigInt())),
-    publicKeys.masterIncomingViewingPublicKey,
+    publicKeys.ivpkM,
   );
 
   return new AztecAddress(address.x);
@@ -83,7 +84,7 @@ export async function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
   return addressSecretCandidate;
 }
 
-export function derivePublicKeyFromSecretKey(secretKey: Fq) {
+export function derivePublicKeyFromSecretKey(secretKey: Fq): Promise<PublicKey> {
   return Grumpkin.mul(Grumpkin.generator, secretKey);
 }
 
@@ -106,12 +107,15 @@ export async function deriveKeys(secretKey: Fr) {
   const masterOutgoingViewingPublicKey = await derivePublicKeyFromSecretKey(masterOutgoingViewingSecretKey);
   const masterTaggingPublicKey = await derivePublicKeyFromSecretKey(masterTaggingSecretKey);
 
-  // We hash the public keys to get the public keys hash
+  // The non-owner-visible PublicKeys carries hashes for npk/ovpk/tpk and the raw
+  // point only for ivpk_m. The npk/ovpk/tpk raw points are also returned alongside so the key
+  // store can persist them under `${account}-{n|ov|t}pk_m` (only their hashes live in publicKeys).
+  // The ivpk_m point isn't returned separately because it already lives in publicKeys.ivpkM.
   const publicKeys = new PublicKeys(
-    masterNullifierPublicKey,
+    await hashPublicKey(masterNullifierPublicKey),
     masterIncomingViewingPublicKey,
-    masterOutgoingViewingPublicKey,
-    masterTaggingPublicKey,
+    await hashPublicKey(masterOutgoingViewingPublicKey),
+    await hashPublicKey(masterTaggingPublicKey),
   );
 
   return {
@@ -119,6 +123,9 @@ export async function deriveKeys(secretKey: Fr) {
     masterIncomingViewingSecretKey,
     masterOutgoingViewingSecretKey,
     masterTaggingSecretKey,
+    masterNullifierPublicKey,
+    masterOutgoingViewingPublicKey,
+    masterTaggingPublicKey,
     publicKeys,
   };
 }

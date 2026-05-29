@@ -141,7 +141,7 @@ pub contract Orderbook {
         // a nullifier is cheaper (1 Field in DA instead of multiple Fields for the order).
         // TODO(F-399): pushing a raw nullifier with no domain separator like we do here is unsafe: we should instead
         // use something like a singleton `SingleUseClaim`.
-        self.context.push_nullifier(order_id);
+        self.context.push_nullifier_unsafe(order_id);
 
         // Enqueue the fulfillment to finalize both partial notes
         self.enqueue_self._fulfill_order(order_id, taker_partial_note, bid_token, order.bid_amount);

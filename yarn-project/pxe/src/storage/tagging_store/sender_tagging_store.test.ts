@@ -1,28 +1,28 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
-import type { ExtendedDirectionalAppTaggingSecret, TaggingIndexRange } from '@aztec/stdlib/logs';
+import type { AppTaggingSecret, TaggingIndexRange } from '@aztec/stdlib/logs';
 import { PrivateLog, SiloedTag } from '@aztec/stdlib/logs';
-import { randomExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/testing';
+import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../../tagging/constants.js';
 import { SenderTaggingStore } from './sender_tagging_store.js';
 
 /** Helper to create a single-index range (lowestIndex === highestIndex). */
-function range(secret: ExtendedDirectionalAppTaggingSecret, lowest: number, highest?: number): TaggingIndexRange {
+function range(secret: AppTaggingSecret, lowest: number, highest?: number): TaggingIndexRange {
   return { extendedSecret: secret, lowestIndex: lowest, highestIndex: highest ?? lowest };
 }
 
 describe('SenderTaggingStore', () => {
   let taggingStore: SenderTaggingStore;
-  let secret1: ExtendedDirectionalAppTaggingSecret;
-  let secret2: ExtendedDirectionalAppTaggingSecret;
+  let secret1: AppTaggingSecret;
+  let secret2: AppTaggingSecret;
 
   beforeEach(async () => {
     taggingStore = new SenderTaggingStore(await openTmpStore('test'));
-    secret1 = await randomExtendedDirectionalAppTaggingSecret();
-    secret2 = await randomExtendedDirectionalAppTaggingSecret();
+    secret1 = await randomAppTaggingSecret();
+    secret2 = await randomAppTaggingSecret();
   });
 
   describe('storePendingIndexes', () => {
@@ -494,7 +494,7 @@ describe('SenderTaggingStore', () => {
   describe('finalizePendingIndexesOfAPartiallyRevertedTx', () => {
     function makeTxEffect(txHash: TxHash, siloedTags: SiloedTag[]): TxEffect {
       return new TxEffect(
-        RevertCode.APP_LOGIC_REVERTED,
+        RevertCode.REVERTED,
         txHash,
         Fr.ZERO,
         [Fr.random()], // noteHashes (at least 1 nullifier required below, not here)

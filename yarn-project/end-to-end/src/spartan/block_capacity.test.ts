@@ -112,7 +112,7 @@ describe('block capacity benchmark', () => {
           wallet,
           secret,
           new SchnorrAccountContract(deriveSigningKey(secret)),
-          salt,
+          { salt },
         );
         const deployMethod = await manager.getDeployMethod();
         await deployMethod.send({

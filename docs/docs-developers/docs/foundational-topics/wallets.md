@@ -35,7 +35,7 @@ Private functions use a UTXO model, so their execution trace is determined entir
 Public functions use an account model (like Ethereum), so their execution trace depends on chain state at inclusion time, which may differ from simulation.
 :::
 
-Before sending, the wallet may run a **simulation** — a lightweight execution using a stub account contract that avoids expensive kernel circuit execution. This simulation estimates gas limits for the transaction and captures any required private authorization data (see [Authorizing actions](#authorizing-actions) below). The `EmbeddedWallet` runs this step automatically on every send.
+Before sending, the wallet may run a **simulation**, a lightweight execution using a stub account contract that avoids expensive kernel circuit execution. This simulation estimates gas limits for the transaction and captures any required private authorization data (see [Authorizing actions](#authorizing-actions) below). The `EmbeddedWallet` runs this step automatically on every send. For details on what the PXE skips in this mode and how to wire it up in your own wallet, see [Kernelless simulations](./pxe/kernelless_simulations.md).
 
 Finally, the wallet **sends** the resulting _transaction_ object, which includes the proof of execution, to an Aztec Node. The transaction is then broadcasted through the peer-to-peer network, to be eventually picked up by a sequencer and included in a block.
 

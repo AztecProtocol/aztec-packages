@@ -156,15 +156,16 @@ Time | Proposer                     | Validator
 
 ## Configuration
 
-| Flag                                  | Purpose                                                                                |
-| ------------------------------------- | -------------------------------------------------------------------------------------- |
-| `fishermanMode`                       | Validate proposals but don't broadcast attestations (monitoring only)                  |
-| `alwaysReexecuteBlockProposals`       | Force re-execution even when not in committee                                          |
-| `slashBroadcastedInvalidBlockPenalty` | Penalty amount for invalid proposals (0 = disabled)                                    |
-| `slashDuplicateProposalPenalty`       | Penalty amount for duplicate proposals (0 = disabled)                                  |
-| `slashDuplicateAttestationPenalty`    | Penalty amount for duplicate attestations (0 = disabled)                               |
-| `attestationPollingIntervalMs`        | How often to poll for attestations when collecting                                     |
-| `disabledValidators`                  | Validator addresses to exclude from duties                                             |
+| Flag                                               | Purpose                                                              |
+| -------------------------------------------------- | -------------------------------------------------------------------- |
+| `fishermanMode`                                    | Validate proposals but don't broadcast attestations (monitoring only) |
+| `alwaysReexecuteBlockProposals`                    | Force re-execution even when not in committee                         |
+| `slashBroadcastedInvalidBlockPenalty`              | Penalty amount for invalid proposals (0 = disabled)                   |
+| `slashBroadcastedInvalidCheckpointProposalPenalty` | Penalty amount for invalid checkpoint proposals (0 = disabled)        |
+| `slashDuplicateProposalPenalty`                    | Penalty amount for duplicate proposals (0 = disabled)                 |
+| `slashDuplicateAttestationPenalty`                 | Penalty amount for duplicate attestations (0 = disabled)              |
+| `attestationPollingIntervalMs`                     | How often to poll for attestations when collecting                    |
+| `disabledValidators`                               | Validator addresses to exclude from duties                            |
 
 ### High Availability (HA) Keystore
 

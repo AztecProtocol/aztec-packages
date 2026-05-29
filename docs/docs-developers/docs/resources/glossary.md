@@ -38,7 +38,7 @@ Read more and review the source code [here](https://github.com/AztecProtocol/azt
 
 ### Aztec.nr
 
-[Aztec.nr](https://github.com/AztecProtocol/aztec-packages/tree/next/noir-projects/aztec-nr) is a Noir framework for writing Aztec smart contracts that abstracts away state management, handling note generation, state trees, and more.
+[Aztec.nr](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/aztec-nr) is a Noir framework for writing Aztec smart contracts that abstracts away state management, handling note generation, state trees, and more.
 
 Read more and review the source code [here](https://aztec.nr).
 

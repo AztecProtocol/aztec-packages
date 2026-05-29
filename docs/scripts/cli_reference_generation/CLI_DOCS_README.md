@@ -399,7 +399,7 @@ The documentation system uses a **unified script architecture** to reduce code d
 To add support for a new CLI (e.g., `aztec-prover`):
 1. Add configuration entry to `cli_docs_config.json` (single source of truth)
 2. If the CLI needs special handling (e.g., version-independent), update `generate_cli_docs.sh`
-3. Update CI workflows (`.github/workflows/nightly-docs-release.yml` and `release-please.yml`) if the CLI needs to be made available during CI builds
+3. Update CI workflows (`.github/workflows/nightly-docs-release.yml`) if the CLI needs to be made available during CI builds
 
 ## License
 

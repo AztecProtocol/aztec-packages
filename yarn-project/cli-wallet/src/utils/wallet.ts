@@ -138,7 +138,7 @@ export class CLIWallet extends BaseWallet {
   }
 
   private async createAccount(secret: Fr, salt: Fr, contract: AccountContract): Promise<AccountManager> {
-    const accountManager = await AccountManager.create(this, secret, contract, salt);
+    const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
     const artifact = await contract.getContractArtifact();

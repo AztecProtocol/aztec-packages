@@ -1,6 +1,6 @@
 # @aztec/entrypoints
 
-Version: 4.2.0
+Version: v4.3.0
 
 ## Quick Import Reference
 

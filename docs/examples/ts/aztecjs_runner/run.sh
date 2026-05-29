@@ -44,6 +44,26 @@ fi
 echo -e "${GREEN}✓ Network is running${NC}"
 echo ""
 
+# Run `yarn add` with retries. Silences output on early attempts but lets
+# stderr surface on the final attempt so transient flakes don't disappear
+# under set -euo pipefail (silent rc=1 from setup_project was the root cause
+# of the docs-examples merge-queue dequeue on aztecjs_advanced).
+yarn_add_with_retry() {
+    local max_attempts=3
+    local attempt=1
+    while [ "$attempt" -lt "$max_attempts" ]; do
+        if yarn add "$@" > /dev/null 2>&1; then
+            return 0
+        fi
+        echo -e "${YELLOW}  yarn add attempt $attempt failed, retrying in 5s...${NC}"
+        sleep 5
+        attempt=$((attempt + 1))
+    done
+    # Final attempt: surface yarn's output so the failure is visible in CI logs.
+    echo -e "${YELLOW}  yarn add attempt $attempt (final, output unsilenced):${NC}"
+    yarn add "$@"
+}
+
 # Setup function for a project
 setup_project() {
     local project_name=$1
@@ -91,11 +111,11 @@ setup_project() {
     parse_dependencies config.yaml "$REPO_ROOT"
     if [ "$PARSED_DEPS_FOUND" = true ]; then
         local all_link_deps=("${AZTEC_DEPS[@]}" "${EXPLICIT_LINK_DEPS[@]}")
-        [ ${#all_link_deps[@]} -gt 0 ] && yarn add "${all_link_deps[@]}" > /dev/null 2>&1
-        [ ${#NPM_DEPS[@]} -gt 0 ] && yarn add "${NPM_DEPS[@]}" > /dev/null 2>&1
+        [ ${#all_link_deps[@]} -gt 0 ] && yarn_add_with_retry "${all_link_deps[@]}"
+        [ ${#NPM_DEPS[@]} -gt 0 ] && yarn_add_with_retry "${NPM_DEPS[@]}"
     fi
 
-    yarn add -D typescript tsx > /dev/null 2>&1
+    yarn_add_with_retry -D typescript tsx
 
     # Copy tsconfig
     cp "$EXAMPLES_DIR/tsconfig.template.json" tsconfig.json

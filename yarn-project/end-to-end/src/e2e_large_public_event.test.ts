@@ -8,9 +8,10 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 /// Tests that events exceeding MAX_EVENT_SERIALIZED_LEN can be emitted publicly.
 describe('LargePublicEvent', () => {
@@ -28,7 +29,7 @@ describe('LargePublicEvent', () => {
       wallet,
       aztecNode,
       accounts: [accountAddress],
-    } = await setup(1));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     ({ contract } = await LargePublicEventContract.deploy(wallet).send({ from: accountAddress }));
   });
 

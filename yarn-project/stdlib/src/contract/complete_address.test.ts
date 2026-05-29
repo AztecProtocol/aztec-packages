@@ -3,6 +3,7 @@ import { Point } from '@aztec/foundation/curves/grumpkin';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { computeAddress } from '../keys/derivation.js';
+import { hashPublicKey } from '../keys/public_key.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { CompleteAddress } from './complete_address.js';
 
@@ -47,7 +48,12 @@ describe('CompleteAddress', () => {
 
     const partialAddress = Fr.fromHexString('0x0a7c585381b10f4666044266a02405bf6e01fa564c8517d4ad5823493abd31de');
 
-    const publicKeys = new PublicKeys(npkM, ivpkM, ovpkM, tpkM);
+    const publicKeys = new PublicKeys(
+      await hashPublicKey(npkM),
+      ivpkM,
+      await hashPublicKey(ovpkM),
+      await hashPublicKey(tpkM),
+    );
 
     // Compute the expected address from the public keys and partial address
     const expectedAddress = await computeAddress(publicKeys, partialAddress);

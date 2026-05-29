@@ -241,9 +241,9 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
         if maybe_note_hash_counter.is_some() {
             // We associate the log with the note's side effect counter, so that if the note ends up being squashed in
             // the current transaction, the log will be removed as well.
-            context.emit_raw_note_log_vec_unsafe(log_tag, log, maybe_note_hash_counter.unwrap());
+            context.emit_raw_note_log_unsafe(log_tag, log, maybe_note_hash_counter.unwrap());
         } else {
-            context.emit_private_log_vec_unsafe(log_tag, log);
+            context.emit_private_log_unsafe(log_tag, log);
         }
     }
 }

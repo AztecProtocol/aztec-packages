@@ -147,7 +147,7 @@ contract CustomMessage {
 
         // Emit commitment as nullifier computed from FULL event (same as standard events)
         let commitment = compute_private_event_commitment(event, randomness);
-        self.context.push_nullifier(commitment);
+        self.context.push_nullifier_unsafe(commitment);
 
         let event_type_id = MultiLogEvent::get_event_type_id().to_field();
 

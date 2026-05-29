@@ -6,7 +6,7 @@ on:
   workflow_call:
     inputs:
       network:
-        description: "Network that IRM will be monitoring e.g. testnet, staging-ignition..."
+        description: "Network that IRM will be monitoring e.g. testnet..."
         required: true
         type: string
         default: "testnet"
@@ -41,7 +41,7 @@ on:
   workflow_dispatch:
     inputs:
       network:
-        description: "Network that IRM will be monitoring e.g. testnet, staging-ignition..."
+        description: "Network that IRM will be monitoring e.g. testnet..."
         required: true
         type: string
         default: "testnet"

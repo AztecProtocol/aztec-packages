@@ -1,8 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { waitForTx } from '@aztec/aztec.js/node';
-import { EpochNumber } from '@aztec/foundation/branded-types';
-import { times } from '@aztec/foundation/collection';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { retryUntil } from '@aztec/foundation/retry';
 import { OffenseType } from '@aztec/slasher';
+import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -11,43 +12,56 @@ import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
-import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected, submitTransactions } from './shared.js';
+import { P2PNetworkTest } from './p2p_network.js';
+import { awaitCommitteeExists, awaitOffenseDetected, submitTransactions } from './shared.js';
 
-jest.setTimeout(1000000);
+const TEST_TIMEOUT = 1_000_000;
+jest.setTimeout(TEST_TIMEOUT);
 
-// Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
+// Don't set this above 9 — each node uses a distinct anvil seed for its publisher account.
 const NUM_VALIDATORS = 4;
 const BOOT_NODE_UDP_PORT = 4500;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
-
-// This test needs longer slot window to ensure that the client has enough time to submit their txs,
-// and have the nodes get recreated, prior to the reorg.
-const AZTEC_SLOT_DURATION = process.env.AZTEC_SLOT_DURATION ? parseInt(process.env.AZTEC_SLOT_DURATION) : 32;
+const ETHEREUM_SLOT_DURATION = 4;
+const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 3;
+const TOLERANCE_SLOTS = 3;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'data-withholding-slash-'));
 
 /**
- * Demonstrate that slashing occurs when the chain is pruned, and we are unable to collect the transactions data post-hoc.
+ * Verifies the per-slot data-withholding slash path (A-523).
  *
- * The setup of the test is as follows:
- * 1. Create the "initial" node, and 4 other nodes
- * 2. Await the 4 other nodes to form the committee
- * 3. Send a tx to the initial node
- * 4. Stop all the nodes and wipe their data directories
- * 5. Re-create the nodes
- * 6. Expect that a slash payload is deployed with the data withholding offense
+ * Scenario — a realistic data-withholding attack:
  *
- * The reason is that with the data directories wiped, they have no way to get the original transaction data
- * when the chain is pruned. So they slash themselves.
- *
+ *   1. 4 validators, all in the committee. slashSelfAllowed, quorum 3.
+ *   2. Pick one validator to be the malicious proposer (A). Its outbound tx gossip is
+ *      stubbed so the tx never leaves A's mempool. The tx is sent directly to A.
+ *   3. Two other committee members (B, C) are configured to "attest blindly" — their
+ *      block- and checkpoint-proposal handlers are stubbed to return isValid:true without
+ *      re-executing. They sign whatever A broadcasts.
+ *   4. The fourth committee member (D) is honest: it tries to fetch the missing tx, can't,
+ *      and refuses to attest.
+ *   5. Tx-collection is also stubbed on every node so no path can pull the tx from A —
+ *      not at proposal time, not via post-mining backfill. This simulates the data being
+ *      genuinely unavailable to anyone except A.
+ *   6. A self-attests + collects B's and C's attestations → quorum 3 → publishes.
+ *   7. After `slashDataWithholdingToleranceSlots` full slots, the watchers on B, C, and D
+ *      probe `getAvailableTxs` against their own mempools, find the tx missing, and emit
+ *      a slot-keyed DATA_WITHHOLDING for the three attesters (A, B, C).
+ *   8. With slashSelfAllowed the offense reaches quorum; A, B, C are slashed on L1. D is
+ *      not slashed because it never attested.
  */
 describe('e2e_p2p_data_withholding_slash', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: AztecNodeService[] = [];
 
   const slashingUnit = BigInt(1e18);
   const slashingQuorum = 3;
+  // L1 enforces `QUORUM > ROUND_SIZE / 2`, so with quorum=3 we cap round size at 5.
+  // With committee 4 and only B/C/D voting (A has the tx and never detects the offense),
+  // a single 4-slot round only meets quorum when all three of B/C/D happen to propose
+  // (~23% probability). Extending slashOffenseExpirationRounds gives us several rounds to
+  // hit quorum before the offense expires.
   const slashingRoundSize = 4;
   const aztecEpochDuration = 2;
 
@@ -62,17 +76,20 @@ describe('e2e_p2p_data_withholding_slash', () => {
         anvilSlotsInAnEpoch: 4,
         listenAddress: '127.0.0.1',
         aztecEpochDuration,
-        ethereumSlotDuration: 4,
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
-        aztecProofSubmissionEpochs: 0, // effectively forces instant reorgs
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
+        // Long proof submission window so the legacy L1-prune path is irrelevant.
+        aztecProofSubmissionEpochs: 1024,
+        slashInactivityConsecutiveEpochThreshold: 32,
         slashingQuorum,
         slashingRoundSizeInEpochs: slashingRoundSize / aztecEpochDuration,
         slashAmountSmall: slashingUnit,
         slashAmountMedium: slashingUnit * 2n,
         slashAmountLarge: slashingUnit * 3n,
         slashSelfAllowed: true,
-        minTxsPerBlock: 0,
+        slashDataWithholdingToleranceSlots: TOLERANCE_SLOTS,
+        minTxsPerBlock: 1,
         enableProposerPipelining: true,
         inboxLag: 2,
       },
@@ -83,41 +100,53 @@ describe('e2e_p2p_data_withholding_slash', () => {
   });
 
   afterEach(async () => {
-    await t.stopNodes(nodes);
+    if (nodes.length > 0) {
+      await t.stopNodes(nodes);
+    }
     await t.teardown();
     for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
 
-  const debugRollup = async () => {
-    await t.ctx.cheatCodes.rollup.debugRollup();
-  };
-
-  it('slashes the committee when data is unavailable for the pruned epoch', async () => {
+  it('slashes attesters that attest to proposals containing withheld transactions', async () => {
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    const { rollup, slashingProposer } = await t.getContracts();
+    const { rollup } = await t.getContracts();
 
-    // Jump forward to an epoch in the future such that the validator set is not empty
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
-    await debugRollup();
+    // Jump to an epoch where the validator set is non-empty. The validator set rotates per
+    // epoch and sometimes lands empty for early epochs, so advance epoch-by-epoch until we
+    // find one with a full committee.
+    let epoch = EpochNumber(4);
+    await retryUntil(
+      async () => {
+        await t.ctx.cheatCodes.rollup.advanceToEpoch(epoch);
+        const committee = await rollup.getCurrentEpochCommittee();
+        if (committee?.length === NUM_VALIDATORS) {
+          t.logger.warn(`Found valid committee of ${committee.length} at epoch ${epoch}`);
+          return true;
+        }
+        t.logger.warn(`Epoch ${epoch} has ${committee?.length ?? 0} committee members, advancing`);
+        epoch = EpochNumber(epoch + 1);
+        return false;
+      },
+      'epoch with full committee',
+      120,
+      0,
+    );
 
     const [activationThreshold, ejectionThreshold, localEjectionThreshold] = await Promise.all([
       rollup.getActivationThreshold(),
       rollup.getEjectionThreshold(),
       rollup.getLocalEjectionThreshold(),
     ]);
-
-    // Slashing amount should be enough to kick validators out
     const slashingAmount = slashingUnit * 3n;
     const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
     expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 
     t.ctx.aztecNodeConfig.slashDataWithholdingPenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
 
     t.logger.warn('Creating nodes');
@@ -129,124 +158,106 @@ describe('e2e_p2p_data_withholding_slash', () => {
       BOOT_NODE_UDP_PORT,
       t.genesis,
       DATA_DIR,
-      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
     );
 
-    // Wait for P2P mesh to be fully formed before proceeding
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
-    await debugRollup();
-    const committee = await awaitCommitteeExists({ rollup, logger: t.logger });
-    await debugRollup();
+    await awaitCommitteeExists({ rollup, logger: t.logger });
 
-    // Jump forward more time to ensure we're at the beginning of an epoch.
-    // This should reduce flake, since we need to have the transaction included
-    // and the nodes recreated, prior to the reorg.
-    // Considering the slot duration is 32 seconds,
-    // Considering the epoch duration is 2 slots,
-    // we have ~64 seconds to do this.
+    // The validator watchers floor processing at their boot slot. Advance past it so the tx
+    // checkpoint lands in a slot the watcher will actually process.
     await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(8));
-    await t.sendDummyTx();
-    await debugRollup();
 
-    // Send L2 txs through a validator node to ensure blocks are built (needed for pruning to trigger).
-    t.logger.warn('Sending L2 txs through a validator node');
-    const txHashes = await submitTransactions(t.logger, nodes[0], 1, t.fundedAccount);
-    await Promise.all(txHashes.map(txHash => waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT })));
-    t.logger.warn('L2 txs mined');
-
-    t.logger.warn('Stopping nodes');
-    // removeInitialNode sends a dummy L1 tx and awaits its receipt to sync the
-    // dateProvider, so it must run while L1 mining is still active.
-    await t.removeInitialNode();
-
-    // Pause L1 block production while we tear down and recreate validators. With
-    // `aztecProofSubmissionEpochs=0`, epoch 8 becomes prunable as soon as epoch 9 begins
-    // (~32s after slot 17). The stop/wipe/recreate cycle takes longer than that, so L1
-    // would otherwise race past the prune deadline before the recreated nodes come up.
-    // When that happens, the recreated archivers detect the prune during their initial
-    // sync (`handleEpochPrune` emits `L2PruneUnproven`), but the `EpochPruneWatcher`
-    // listener is only attached after `archiver.waitForInitialSync()` resolves
-    // (see `aztec-node/server.ts`), so the event is dropped and `DATA_WITHHOLDING` is
-    // never emitted. By freezing L1 here, the recreated archivers ingest checkpoint 1
-    // cleanly during initial sync, the watcher starts and attaches its listener, and
-    // then we resume L1 below so the prune fires while the listener is live.
-    const ethCheatCodes = t.ctx.cheatCodes.eth;
-    await ethCheatCodes.setAutomine(false);
-    await ethCheatCodes.setIntervalMining(0);
-
-    // Fail fast if we paused too late — i.e. if L1 already crossed into epoch 9 before
-    // we got here. In that case the recreated nodes would still see the prune during
-    // initial sync and the test would flake exactly the same way.
-    const epochAtPause = await rollup.getCurrentEpoch();
-    expect(Number(epochAtPause)).toBeLessThan(9);
-
-    // Now stop the validator nodes. With L1 paused, any in-flight L1 submissions from
-    // the validator sequencers would hang `sequencer.stop()` (it awaits pending L1
-    // submissions). Since `minTxsPerBlock=1` and no txs are queued for slot 18+, the
-    // sequencers don't submit further L1 transactions after the slot-17 checkpoint
-    // (already published before `waitForTx` returned), so this is safe.
-    await t.stopNodes(nodes);
-    // And remove the data directories (which forms the crux of the "attack")
-    for (let i = 0; i < NUM_VALIDATORS; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
-
-    // Re-create the nodes.
-    // ASSUMING they sync in the middle of the epoch, they will "see" the reorg, and try to slash.
-    // Reset minTxsPerBlock to 0 so re-created validators build empty checkpoints. Under proposer
-    // pipelining, the vote-offenses signature is bound to the target slot and the multicall is only
-    // delayed to the target slot start when a checkpoint is being proposed; without a proposal,
-    // votes would mine in the current wall-clock slot, causing the EIP-712 signature verification to fail.
-    t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
-    t.logger.warn('Re-creating nodes');
-    nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_VALIDATORS,
-      BOOT_NODE_UDP_PORT,
-      t.genesis,
-      DATA_DIR,
+    // Assign roles. With minTxsPerBlock=1 and tx gossip suppressed on the proposer, only the
+    // proposer can ever build a block, so we just wait for it to be designated proposer.
+    const [proposerNode, blindAttester1, blindAttester2, honestNode] = nodes;
+    const proposerAddress = proposerNode.getSequencer()!.validatorAddresses![0];
+    const blindAttester1Address = blindAttester1.getSequencer()!.validatorAddresses![0];
+    const blindAttester2Address = blindAttester2.getSequencer()!.validatorAddresses![0];
+    const honestAddress = honestNode.getSequencer()!.validatorAddresses![0];
+    t.logger.warn(
+      `Proposer ${proposerAddress}, blind attesters ${blindAttester1Address}/${blindAttester2Address}, honest ${honestAddress}`,
     );
 
-    // Wait for P2P mesh to be fully formed before proceeding
-    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
+    // 1. Stub outbound tx gossip on the proposer. Tx messages going out are dropped silently;
+    //    other gossip topics (proposals, attestations) pass through.
+    const proposerP2pService: any = (proposerNode as any).p2pClient.p2pService;
+    const originalPropagate = proposerP2pService.propagate.bind(proposerP2pService);
+    jest.spyOn(proposerP2pService, 'propagate').mockImplementation(((msg: any) => {
+      if (msg instanceof Tx) {
+        t.logger.info(`Suppressing outbound tx gossip from proposer ${proposerAddress}`);
+        return Promise.resolve();
+      }
+      return originalPropagate(msg);
+    }) as any);
 
-    // Resume L1 block production. Warp L1 forward to current wall-clock time so the
-    // epoch-8 deadline is crossed immediately on the next L1 block, then re-enable
-    // interval mining. By now each recreated archiver has block 1 stored locally and
-    // its `EpochPruneWatcher` listener is attached, so the next sync iteration emits
-    // `L2PruneUnproven` for epoch 8 to a live listener → `DATA_WITHHOLDING`.
-    const resumeTimestamp = Math.floor(t.ctx.dateProvider.now() / 1000);
-    await ethCheatCodes.setNextBlockTimestamp(resumeTimestamp);
-    await ethCheatCodes.mine();
-    await ethCheatCodes.setIntervalMining(t.ctx.aztecNodeConfig.ethereumSlotDuration);
+    // 2. Stub tx-collection on EVERY node so nothing can pull the tx back from the proposer
+    //    over reqresp (neither at proposal time nor via post-mining backfill).
+    for (const node of nodes) {
+      const txCollection: any = (node as any).p2pClient.txCollection;
+      jest.spyOn(txCollection, 'collectFastFor').mockResolvedValue([]);
+      jest.spyOn(txCollection, 'collectFastForBlock').mockResolvedValue(undefined);
+    }
+
+    // 3. Stub block- and checkpoint-proposal handling on the blind attesters so they attest
+    //    without re-executing or fetching txs.
+    for (const node of [blindAttester1, blindAttester2]) {
+      const proposalHandler: any = (node as any).validatorClient.getProposalHandler();
+      jest.spyOn(proposalHandler, 'handleBlockProposal').mockImplementation((async () => {
+        const blockNumber = await node.getBlockNumber();
+        return { isValid: true, blockNumber: BlockNumber(blockNumber + 1) };
+      }) as any);
+      jest.spyOn(proposalHandler, 'handleCheckpointProposal').mockResolvedValue({
+        isValid: true,
+        checkpointNumber: CheckpointNumber(1),
+      } as any);
+    }
+
+    // 4. Send the tx directly to the proposer; it propagates into the local mempool and stays
+    //    there (gossip suppressed). Combined with `minTxsPerBlock: 1`, only the proposer can
+    //    build a block, so the tx sits in the mempool until the proposer is next selected.
+    t.logger.warn(`Submitting tx through proposer ${proposerAddress}`);
+    const [txHash] = await submitTransactions(t.logger, proposerNode, 1, t.fundedAccount);
+    await waitForTx(proposerNode, txHash, { timeout: AZTEC_SLOT_DURATION * 6 * 1000 });
+    const checkpointSlot = await getMinedSlot(proposerNode, txHash);
+    t.logger.warn(`Tx ${txHash} mined at checkpoint slot ${checkpointSlot}`);
+
+    // 5. After the tolerance window, every non-proposer's watcher should fire for the 3
+    //    attesters (proposer A self-signs, plus blind attesters B and C).
+    const expectedOffendedAddresses = [proposerAddress, blindAttester1Address, blindAttester2Address]
+      .map(a => a.toString())
+      .sort();
 
     const offenses = await awaitOffenseDetected({
       epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
       logger: t.logger,
-      nodeAdmin: nodes[0],
+      nodeAdmin: honestNode,
       slashingRoundSize,
-      waitUntilOffenseCount: COMMITTEE_SIZE,
+      waitUntilOffenseCount: 3,
+      timeoutSeconds: AZTEC_SLOT_DURATION * (TOLERANCE_SLOTS + 8),
     });
 
-    // Check offenses are correct
-    expect(offenses.map(o => o.validator.toString()).sort()).toEqual(committee.map(a => a.toString()).sort());
-    expect(offenses.map(o => o.offenseType)).toEqual(times(COMMITTEE_SIZE, () => OffenseType.DATA_WITHHOLDING));
-    const offenseEpoch = Number(offenses[0].epochOrSlot);
-
-    await awaitCommitteeKicked({
-      rollup,
-      cheatCodes: t.ctx.cheatCodes.rollup,
-      committee,
-      slashingProposer,
-      slashingRoundSize,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      logger: t.logger,
-      offenseEpoch,
-      aztecEpochDuration,
-    });
+    expect(offenses).toHaveLength(3);
+    expect(offenses.map(o => o.offenseType)).toEqual(offenses.map(() => OffenseType.DATA_WITHHOLDING));
+    for (const offense of offenses) {
+      expect(offense.epochOrSlot).toEqual(BigInt(checkpointSlot));
+    }
+    expect(offenses.map(o => o.validator.toString()).sort()).toEqual(expectedOffendedAddresses);
+    // The honest non-attester must NOT be slashed.
+    expect(offenses.map(o => o.validator.toString())).not.toContain(honestAddress.toString());
   });
 });
+
+/** Returns the slot at which a tx was included, by querying the node's tx receipt. */
+async function getMinedSlot(node: AztecNodeService, txHash: TxHash): Promise<number> {
+  const receipt = await node.getTxReceipt(txHash);
+  if (!receipt.blockNumber) {
+    throw new Error(`Tx ${txHash} has no block number on receipt`);
+  }
+  const block = await node.getBlock(receipt.blockNumber);
+  if (!block) {
+    throw new Error(`Block ${receipt.blockNumber} not found`);
+  }
+  return Number(block.header.getSlot());
+}

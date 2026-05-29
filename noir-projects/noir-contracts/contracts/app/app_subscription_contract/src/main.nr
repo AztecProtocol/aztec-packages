@@ -52,7 +52,7 @@ pub contract AppSubscription {
         state_vars::{Owned, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
-    use public_checks::utils::privately_check_block_number;
+    use aztec::public_checks::privately_check_block_number;
     use token::Token;
 
     #[storage]

@@ -53,6 +53,7 @@ export const DefaultSequencerConfig = {
   skipCollectingAttestations: false,
   skipInvalidateBlockAsProposer: false,
   broadcastInvalidBlockProposal: false,
+  broadcastInvalidCheckpointProposalOnly: false,
   injectFakeAttestation: false,
   injectHighSValueAttestation: false,
   injectUnrecoverableSignatureAttestation: false,
@@ -190,6 +191,15 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   broadcastInvalidBlockProposal: {
     description: 'Broadcast invalid block proposals with corrupted state (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.broadcastInvalidBlockProposal),
+  },
+  invalidBlockProposalIndexWithinCheckpoint: {
+    description: 'Broadcast an invalid block proposal only at this indexWithinCheckpoint (for testing only)',
+    ...optionalNumberConfigHelper(),
+  },
+  broadcastInvalidCheckpointProposalOnly: {
+    description:
+      'Broadcast invalid checkpoint proposals while keeping the underlying block proposals valid (for testing only). When unset, the checkpoint follows broadcastInvalidBlockProposal.',
+    ...booleanConfigHelper(DefaultSequencerConfig.broadcastInvalidCheckpointProposalOnly),
   },
   injectFakeAttestation: {
     description: 'Inject a fake attestation (for testing only)',

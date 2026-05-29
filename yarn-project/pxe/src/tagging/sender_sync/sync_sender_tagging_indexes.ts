@@ -1,6 +1,6 @@
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import type { ExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
+import type { AppTaggingSecret } from '@aztec/stdlib/logs';
 
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
@@ -19,7 +19,7 @@ import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_taggin
  * updates its status accordingly.
  */
 export async function syncSenderTaggingIndexes(
-  secret: ExtendedDirectionalAppTaggingSecret,
+  secret: AppTaggingSecret,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
   anchorBlockHash: BlockHash,

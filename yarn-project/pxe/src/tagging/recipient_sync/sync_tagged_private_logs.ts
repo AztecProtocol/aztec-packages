@@ -2,7 +2,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { isDefined } from '@aztec/foundation/types';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { ExtendedDirectionalAppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { AppTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { SiloedTag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
@@ -61,7 +61,7 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
  * back per secret using tracked offsets. Only secrets whose window advanced are kept for the next iteration.
  */
 export async function syncTaggedPrivateLogs(
-  secrets: ExtendedDirectionalAppTaggingSecret[],
+  secrets: AppTaggingSecret[],
   aztecNode: AztecNode,
   taggingStore: RecipientTaggingStore,
   anchorBlockHeader: BlockHeader,
@@ -115,7 +115,7 @@ export async function syncTaggedPrivateLogs(
 
 /** Reads stored indexes for each secret and computes the initial index range to query. */
 function getIndexRangesForSecrets(
-  secrets: ExtendedDirectionalAppTaggingSecret[],
+  secrets: AppTaggingSecret[],
   taggingStore: RecipientTaggingStore,
   jobId: string,
 ): Promise<PendingSecret[]> {
@@ -225,7 +225,7 @@ async function updateIndexesAndAdvanceWindow(
 }
 
 type PendingSecret = {
-  secret: ExtendedDirectionalAppTaggingSecret;
+  secret: AppTaggingSecret;
   start: number;
   end: number;
 };

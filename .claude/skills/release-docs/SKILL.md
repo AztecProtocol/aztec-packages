@@ -84,6 +84,18 @@ state (the old version); they are still valid if the upgrade reuses the same
 contracts, but ask the user to confirm whether any addresses will change at
 upgrade time.
 
+**Run all work on the tag, not `next`.** Cut on the tag so the snapshot
+reflects what shipped. Then stash, switch to `next`, pop. Backport any newer
+docs from `next` into the snapshot as an explicit step *after* the cut.
+
+### Unversioned root pages
+
+Pages under `docs/docs/` (`networks.md`, `index.md`) are configured "no
+versioning" in `docusaurus.config.js` and aren't snapshotted. Edits land
+directly on `next` and become live. Treat them as post-release-live: if `next`
+already has a newer version, port it in and bump the version field rather than
+reverting to the tag's older copy.
+
 ### Step 3: Verify Aztec CLI Version
 
 ```bash
@@ -336,6 +348,14 @@ There is no dedicated `getting_started_on_testnet.md` page. Instead:
 
 ### Step 11: Run `yarn build` and Fix Issues
 
+**Run after Step 13.** Docusaurus validates `lastVersion` against existing
+versioned dirs, so the build fails if the config points to a version that
+hasn't been cut yet. Actual order: 5–10, 13 (cut), then 11 (build), 12.
+
+**`rc` tags are still mainnet.** Always pass `RELEASE_TYPE=mainnet` explicitly
+for rc-suffixed mainnet builds. The API-doc generation scripts fall back to
+`testnet` for `rc` strings when `RELEASE_TYPE` is unset.
+
 Set the environment variables matching the release type so the build preprocessor
 resolves version placeholders correctly:
 
@@ -425,6 +445,22 @@ Verify the new version appears in both `docs/developer_version_config.json` and
 Also verify that macros were resolved in the network versioned snapshot — check
 that `docs/network_versioned_docs/version-v<new_version>/` contains no raw
 `#release_version` or `#release_network` placeholders.
+
+#### Hardcoded version references
+
+Grep source and the new snapshot for the old version and update each hit. Skip
+historical refs (migration-note headings, changelog entries, "in vX, Y was
+removed" prose).
+
+```bash
+cd docs && grep -rn "<old_version>" src/ docs-developers/ docs-operate/ docs/ \
+  developer_versioned_docs/version-v<new_version>/ \
+  network_versioned_docs/version-v<new_version>/
+```
+
+Known hits: `src/clientModules/docsgpt.js` (`heroDescription`),
+`developer_versioned_docs/version-v<new_version>/docs/aztec-js/wallet-sdk/{wallet,dapp}_integration.md`
+(`yarn add @aztec/*@<version>`).
 
 ### Step 14: Review Recent Docs Updates on `next`
 

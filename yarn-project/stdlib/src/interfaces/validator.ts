@@ -66,6 +66,9 @@ export type ValidatorClientConfig = ValidatorHASignerConfig &
     /** Agree to attest to equivocated checkpoint proposals (for testing purposes only) */
     attestToEquivocatedProposals?: boolean;
 
+    /** Accept proposal validation regardless of slot timing (for testing only) */
+    skipProposalSlotValidation?: boolean;
+
     /** Maximum L2 gas per block for validation. Proposals exceeding this limit are rejected. */
     validateMaxL2BlockGas?: number;
 
@@ -84,6 +87,7 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<
     SlasherConfig,
     | 'slashBroadcastedInvalidBlockPenalty'
+    | 'slashBroadcastedInvalidCheckpointProposalPenalty'
     | 'slashDuplicateProposalPenalty'
     | 'slashDuplicateAttestationPenalty'
     | 'slashAttestInvalidCheckpointProposalPenalty'
@@ -107,6 +111,7 @@ export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'v
     skipCheckpointProposalValidation: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
     attestToEquivocatedProposals: z.boolean().optional(),
+    skipProposalSlotValidation: z.boolean().optional(),
     validateMaxL2BlockGas: z.number().optional(),
     validateMaxDABlockGas: z.number().optional(),
     validateMaxTxsPerBlock: z.number().optional(),
@@ -120,6 +125,7 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
     broadcastInvalidBlockProposal: z.boolean().optional(),
     maxBlocksPerCheckpoint: z.number().positive().optional(),
     slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
+    slashBroadcastedInvalidCheckpointProposalPenalty: schemas.BigInt,
     slashDuplicateProposalPenalty: schemas.BigInt,
     slashDuplicateAttestationPenalty: schemas.BigInt,
     slashAttestInvalidCheckpointProposalPenalty: schemas.BigInt,

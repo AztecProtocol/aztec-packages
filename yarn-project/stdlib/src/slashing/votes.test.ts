@@ -275,13 +275,13 @@ describe('SlashingHelpers', () => {
         {
           validator: mockValidator1,
           amount: 7n,
-          offenseType: OffenseType.DATA_WITHHOLDING,
+          offenseType: OffenseType.INACTIVITY,
           epochOrSlot: 3n,
         },
         {
           validator: mockValidator1,
           amount: 5n,
-          offenseType: OffenseType.VALID_EPOCH_PRUNED,
+          offenseType: OffenseType.INACTIVITY,
           epochOrSlot: 3n,
         },
       ];
@@ -530,10 +530,10 @@ describe('SlashingHelpers', () => {
       // Truncation must cut one validator (not one offense record).
       const offenses: Offense[] = [
         { validator: mockValidator1, amount: 15n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
-        { validator: mockValidator1, amount: 8n, offenseType: OffenseType.DATA_WITHHOLDING, epochOrSlot: 5n },
-        { validator: mockValidator1, amount: 5n, offenseType: OffenseType.VALID_EPOCH_PRUNED, epochOrSlot: 5n },
+        { validator: mockValidator1, amount: 8n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
+        { validator: mockValidator1, amount: 5n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
         { validator: mockValidator2, amount: 20n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
-        { validator: mockValidator2, amount: 5n, offenseType: OffenseType.DATA_WITHHOLDING, epochOrSlot: 5n },
+        { validator: mockValidator2, amount: 5n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
         { validator: mockValidator3, amount: 10n, offenseType: OffenseType.INACTIVITY, epochOrSlot: 5n },
       ];
 

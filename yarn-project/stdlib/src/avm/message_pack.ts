@@ -64,13 +64,22 @@ function setUpMessagePackExtensions() {
   addExtension({
     Class: Point,
     write: (p: Point) => {
-      assert(!p.inf, 'Cannot serialize infinity');
-      // TODO: should these be Frs?
+      // TODO: Now that we use a 2 elt point representation, we should be able to handle infs here.
+      // However this opens possible bad paths with public keys and requires sanitised conversion between
+      // BB's inf representation (see below), and ours/Noir's (0, 0), and empty points from BB, when inf
+      // does not actually pass through.
+      assert(!p.isInfinite, 'Cannot serialize infinity');
       return { x: new Fq(p.x.toBigInt()), y: new Fq(p.y.toBigInt()) };
     },
     read: (data: { x: Fq; y: Fq }) => {
+      // Note: BB encodes infinity as x == y == Buffer of all ones.
+      // Infinity should never pass through here, but for correctness:
+      const ALL_ONES = (1n << 256n) - 1n;
+      if (data.x.toBigInt() === ALL_ONES && data.y.toBigInt() === ALL_ONES) {
+        return Point.INFINITY;
+      }
       // Convert Fq back to Fr for Point constructor
-      return new Point(new Fr(data.x.toBigInt()), new Fr(data.y.toBigInt()), false);
+      return new Point(new Fr(data.x.toBigInt()), new Fr(data.y.toBigInt()));
     },
   });
   // EthAddress is a class that has a buffer in TS, but is itself just a field in C++.

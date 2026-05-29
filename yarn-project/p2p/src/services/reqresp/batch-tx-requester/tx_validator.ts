@@ -1,5 +1,5 @@
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
-import { Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
+import type { TxValidator } from '@aztec/stdlib/tx';
 
 import { createTxValidatorForOnDemandReceivedTxs } from '../../../msg_validators/index.js';
 
@@ -9,29 +9,9 @@ export interface BatchRequestTxValidatorConfig {
   proofVerifier: ClientProtocolCircuitVerifier;
 }
 
-export interface IBatchRequestTxValidator {
-  validateRequestedTx(tx: Tx): Promise<TxValidationResult>;
-  validateRequestedTxs(txs: Tx[]): Promise<TxValidationResult[]>;
-}
-
-export class BatchRequestTxValidator implements IBatchRequestTxValidator {
-  readonly txValidator: TxValidator;
-  constructor(private readonly config: BatchRequestTxValidatorConfig) {
-    this.txValidator = BatchRequestTxValidator.createRequestedTxValidator(this.config);
-  }
-
-  public async validateRequestedTx(tx: Tx): Promise<TxValidationResult> {
-    return await this.txValidator.validateTx(tx);
-  }
-
-  public async validateRequestedTxs(txs: Tx[]): Promise<TxValidationResult[]> {
-    return await Promise.all(txs.map(tx => this.validateRequestedTx(tx)));
-  }
-
-  static createRequestedTxValidator(config: BatchRequestTxValidatorConfig): TxValidator {
-    return createTxValidatorForOnDemandReceivedTxs(config.proofVerifier, {
-      l1ChainId: config.l1ChainId,
-      rollupVersion: config.rollupVersion,
-    });
-  }
+export function createBatchRequestTxValidator(config: BatchRequestTxValidatorConfig): TxValidator {
+  return createTxValidatorForOnDemandReceivedTxs(config.proofVerifier, {
+    l1ChainId: config.l1ChainId,
+    rollupVersion: config.rollupVersion,
+  });
 }

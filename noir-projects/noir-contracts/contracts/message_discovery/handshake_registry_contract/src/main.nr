@@ -83,7 +83,7 @@ pub contract HandshakeRegistry {
         );
 
         // TODO(F-653): Encrypt `eph_pk.x` to keep the log private
-        self.context.emit_private_log_vec_unsafe(log_tag, BoundedVec::from_array([eph_pk.x]));
+        self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array([eph_pk.x]));
 
         note.siloed_for(self.msg_sender())
     }

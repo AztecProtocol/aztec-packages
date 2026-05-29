@@ -4,7 +4,7 @@ import { waitForProven } from '@aztec/aztec.js/contracts';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
-import { CheatCodes } from '@aztec/aztec/testing';
+import { CheatCodes, EpochTestSettler } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { InboxContract, OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type {
@@ -19,6 +19,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
+import type { PXEConfig } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
@@ -37,6 +38,7 @@ export class CrossChainMessagingTest {
   private requireEpochProven: boolean;
   private setupOptions: SetupOptions;
   private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs>;
+  private pxeOpts: Partial<PXEConfig>;
   logger: Logger;
   context!: EndToEndContext;
   aztecNode!: AztecNode;
@@ -59,12 +61,23 @@ export class CrossChainMessagingTest {
   outbox!: OutboxContract;
   cheatCodes!: CheatCodes;
 
+  /**
+   * Background loop that marks each completed epoch as proven on L1. Started in `applyBaseSetup`
+   * when the test runs without a real prover node, because the e2e fixture uses L1 interval mining
+   * and the AnvilTestWatcher's auto-prove loop only runs under L1 automine. Without this, L1's
+   * `aztecProofSubmissionEpochs` window expires mid-test and triggers a chain prune that drops
+   * in-flight wallet txs. Tests that intentionally pause proving (e.g. inbox drift tests) can
+   * stop it via `await t.epochTestSettler?.stop()`.
+   */
+  epochTestSettler?: EpochTestSettler;
+
   deployL1ContractsValues!: DeployAztecL1ContractsReturnType;
 
   constructor(
     testName: string,
     opts: SetupOptions = {},
     deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
+    pxeOpts: Partial<PXEConfig> = {},
   ) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     this.setupOptions = opts;
@@ -72,17 +85,25 @@ export class CrossChainMessagingTest {
       initialValidators: [],
       ...deployL1ContractsArgs,
     };
+    this.pxeOpts = pxeOpts;
     this.requireEpochProven = opts.startProverNode ?? false;
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}, pxeOpts: Partial<PXEConfig> = {}) {
     this.logger.info('Setting up cross chain messaging test');
-    this.context = await setup(0, {
-      ...this.setupOptions,
-      fundSponsoredFPC: true,
-      skipAccountDeployment: true,
-      l1ContractsArgs: this.deployL1ContractsArgs,
-    });
+    // Recompute requireEpochProven from the merged options so per-call startProverNode is honored.
+    this.requireEpochProven = opts.startProverNode ?? this.setupOptions.startProverNode ?? false;
+    this.context = await setup(
+      0,
+      {
+        ...this.setupOptions,
+        ...opts,
+        fundSponsoredFPC: true,
+        skipAccountDeployment: true,
+        l1ContractsArgs: { ...this.deployL1ContractsArgs, ...opts.l1ContractsArgs },
+      },
+      { ...this.pxeOpts, ...pxeOpts },
+    );
     await this.applyBaseSetup();
   }
 
@@ -105,6 +126,7 @@ export class CrossChainMessagingTest {
   }
 
   async teardown() {
+    await this.epochTestSettler?.stop();
     await teardown(this.context);
   }
 
@@ -120,6 +142,19 @@ export class CrossChainMessagingTest {
     if (this.requireEpochProven) {
       // Turn off the watcher to prevent it from keep marking blocks as proven.
       this.context.watcher.setIsMarkingAsProven(false);
+    } else {
+      // When no real prover is running, the L1 proof window (aztecProofSubmissionEpochs) would
+      // otherwise expire mid-test and trigger a chain prune. The AnvilTestWatcher's auto-prove
+      // loop is dormant under L1 interval mining (it gates on `isAutoMining`), so start an
+      // EpochTestSettler to mark each completed epoch as proven on L1.
+      this.epochTestSettler = new EpochTestSettler(
+        this.context.ethCheatCodes,
+        this.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+        this.context.aztecNodeService.getBlockSource(),
+        this.logger.createChild('epoch-settler'),
+        { pollingIntervalMs: 500 },
+      );
+      await this.epochTestSettler.start();
     }
 
     // Deploy 3 accounts

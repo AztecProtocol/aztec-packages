@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import type { SlotNumber } from '@aztec/foundation/branded-types';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
@@ -216,7 +216,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     const firstNodeBlockProposedHistory = firstNodeValidators
       .flatMap(v => stats.stats[v.toString().toLowerCase()].history)
       .filter(h => h.slot > initialSlot && h.slot <= slotForSentinel)
-      .filter(h => h.status === 'checkpoint-proposed');
+      .filter(h => h.status === 'checkpoint-valid' || h.status === 'checkpoint-mined');
     expect(firstNodeBlockProposedHistory).not.toBeEmpty();
 
     // And all of the proposers for the offline node must be seen as missed attestation or proposal

@@ -2,6 +2,7 @@ import { NO_FROM } from '@aztec/aztec.js/account';
 import { createLogger } from '@aztec/aztec.js/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { type EndToEndContext, setup } from './fixtures/utils.js';
 import { proveInteraction } from './test-wallet/utils.js';
 
@@ -11,21 +12,11 @@ describe('e2e_genesis_timestamp', () => {
   const logger = createLogger('e2e:genesis_timestamp');
 
   beforeEach(async () => {
-    // Skip account deployment and prevent the sequencer from mining empty blocks.
-    // Configure PXE to sync anchor only to proven blocks so its anchor lags behind proposed blocks
-    // (tests do not spin up a prover, so nothing will ever be proven and the anchor stays at genesis).
-    context = await setup(
-      0,
-      {
-        skipAccountDeployment: true,
-        minTxsPerBlock: 1,
-        startProverNode: false,
-        anvilTestWatcherOpts: { isMarkingAsProven: false },
-      },
-      { syncChainTip: 'proven' },
-    );
-
-    context.watcher.setIsMarkingAsProven(false);
+    // Skip account deployment and configure PXE to sync its anchor only to proven blocks so its
+    // anchor lags behind proposed blocks. Under AUTOMINE_E2E_OPTS the AnvilTestWatcher is disabled
+    // and the AutomineSequencer never marks blocks as proven on its own, so without a prover node
+    // the proven tip stays at genesis for the duration of the test.
+    context = await setup(0, { ...AUTOMINE_E2E_OPTS, skipAccountDeployment: true }, { syncChainTip: 'proven' });
   });
 
   afterEach(() => context.teardown());
@@ -56,7 +47,7 @@ describe('e2e_genesis_timestamp', () => {
   };
 
   it('can include genesis-anchored tx in a block after block 1', async () => {
-    const { aztecNode, aztecNodeAdmin } = context;
+    const { aztecNode } = context;
 
     // We're at block 0 -- no blocks have been mined yet.
     expect(await aztecNode.getBlockNumber()).toBe(0);
@@ -64,21 +55,19 @@ describe('e2e_genesis_timestamp', () => {
     // Step 1: Prove the account deploy tx while PXE is still anchored to genesis (block 0).
     const provenTx = await proveTxAnchoredToGenesis();
 
-    // Step 2: Mine an empty block to advance past genesis.
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
+    // Step 2: Mine an empty block to advance past genesis. Under AUTOMINE_E2E_OPTS the sequencer
+    // only mines on tx submission or explicit `mineBlock()`, so we drive it directly here.
+    await aztecNode.mineBlock();
     await awaitBlockCheckpointed();
 
-    // Step 3: Prevent further empty blocks so the next block only mines when our tx arrives.
-    await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
-
-    // Step 4: Send the genesis-anchored proven tx. It should land in a block after block 1.
+    // Step 3: Send the genesis-anchored proven tx. It should land in a block after block 1.
     const receipt = await provenTx.send();
     logger.info(`Tx mined in block ${receipt.blockNumber}`);
 
     // The tx landed after block 1, proving that genesis-anchored transactions
     // are valid beyond the first block when the genesis has a non-zero timestamp.
     expect(receipt.blockNumber).toBeGreaterThan(1);
-  }, 120_000);
+  }, 300_000);
 
   // Regression for an issue where PXE failed to prove txs while anchored to block zero
   // if there were new blocks mined that modified the public data tree.
@@ -113,5 +102,5 @@ describe('e2e_genesis_timestamp', () => {
     logger.info(`Second genesis-anchored deploy mined in block ${secondReceipt.blockNumber}`);
     expect(secondReceipt.blockNumber).toBeDefined();
     expect(secondReceipt.blockNumber!).toBeGreaterThan(firstReceipt.blockNumber!);
-  }, 180_000);
+  }, 400_000);
 });

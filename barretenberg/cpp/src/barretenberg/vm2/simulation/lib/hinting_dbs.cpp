@@ -31,11 +31,11 @@ std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const 
             .current_contract_class_id = instance->current_contract_class_id,
             .original_contract_class_id = instance->original_contract_class_id,
             .initialization_hash = instance->initialization_hash,
-            .public_keys =
-                PublicKeysHint{ .master_nullifier_public_key = instance->public_keys.nullifier_key,
-                                .master_incoming_viewing_public_key = instance->public_keys.incoming_viewing_key,
-                                .master_outgoing_viewing_public_key = instance->public_keys.outgoing_viewing_key,
-                                .master_tagging_public_key = instance->public_keys.tagging_key }
+            .immutables_hash = instance->immutables_hash,
+            .public_keys = PublicKeysHint{ .npk_m_hash = instance->public_keys.nullifier_key_hash,
+                                           .ivpk_m = instance->public_keys.incoming_viewing_key,
+                                           .ovpk_m_hash = instance->public_keys.outgoing_viewing_key_hash,
+                                           .tpk_m_hash = instance->public_keys.tagging_key_hash }
 
         };
     }

@@ -96,8 +96,6 @@ std::vector<uint32_t> add_to_witness_and_track_indices(std::vector<bb::fr>& witn
         witness.emplace_back(input.x);
         indices.emplace_back(witness.size());
         witness.emplace_back(input.y);
-        indices.emplace_back(witness.size());
-        witness.emplace_back(input.is_point_at_infinity() ? bb::fr(1) : bb::fr(0));
     } else if constexpr (requires {
                              input.data();
                              input.size();

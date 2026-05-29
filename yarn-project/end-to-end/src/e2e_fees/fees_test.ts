@@ -84,6 +84,8 @@ export class FeesTest {
   public getBananaPublicBalanceFn!: BalancesFn;
   public getBananaPrivateBalanceFn!: BalancesFn;
   public getProverFee!: (blockNumber: BlockNumber) => Promise<bigint>;
+  public getCommittedProverFee!: (blockNumber: BlockNumber) => Promise<bigint>;
+  public getCommittedBurn!: (blockNumber: BlockNumber) => Promise<bigint>;
 
   public readonly ALICE_INITIAL_BANANAS = BigInt(1e22);
   public readonly SUBSCRIPTION_AMOUNT = BigInt(1e19);
@@ -102,13 +104,14 @@ export class FeesTest {
     this.logger = createLogger(`e2e:e2e_fees:${testName}`);
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.verbose('Setting up fresh context...');
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
     const tokenAllowList = await getTokenAllowedSetupFunctions();
     this.context = await setup(0, {
       startProverNode: true,
       ...this.setupOptions,
+      ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
       l1ContractsArgs: { ...this.setupOptions },
@@ -301,6 +304,27 @@ export class FeesTest {
 
       const mana = block!.header.totalManaUsed.toBigInt();
       return mulDiv(mana * proverCost, 10n ** 12n, price);
+    };
+
+    /**
+     * Reads the prover fee that the rollup actually committed for the block's checkpoint, which is what
+     * RewardLib uses to pay prover rewards. Unlike `getProverFee`, this does not re-derive the value
+     * from current L1 fees or current eth-per-fee-asset price, so it is robust to pipelined fee-asset-price
+     * drift between propose-time and reward-payout-time.
+     */
+    this.getCommittedProverFee = async (blockNumber: BlockNumber) => {
+      const block = await this.aztecNode.getBlock(blockNumber);
+      const feeHeader = await this.rollupContract.getFeeHeader(BigInt(block!.checkpointNumber));
+      return feeHeader.manaUsed * feeHeader.proverCost;
+    };
+
+    // RewardLib computes sequencerFee = checkpointFee - burn - proverFee where burn = manaUsed * congestionCost.
+    // The fixture's typical case keeps congestionCost at zero, but reading it explicitly avoids latent bugs
+    // when test load changes excess mana.
+    this.getCommittedBurn = async (blockNumber: BlockNumber) => {
+      const block = await this.aztecNode.getBlock(blockNumber);
+      const feeHeader = await this.rollupContract.getFeeHeader(BigInt(block!.checkpointNumber));
+      return feeHeader.manaUsed * feeHeader.congestionCost;
     };
   }
 

@@ -349,7 +349,7 @@ export class ClientFlowsBenchmark {
     // Register benchy on the user's Wallet, where we're going to be interacting from
     const accountManager = await this.userWallet.createAccount({
       secret: benchysAccount.getSecretKey(),
-      salt: new Fr(benchysAccount.salt),
+      salt: new Fr(benchysAccountManager.getInstance().salt),
       contract: benchysAccountManager.getAccountContract(),
     });
     return accountManager.address;

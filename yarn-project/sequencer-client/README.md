@@ -4,13 +4,13 @@ The sequencer client is the proposer-side counterpart to the [validator client](
 
 A single instance owns the entire proposer flow for one slot: deciding whether to propose, building several L2 blocks one after another, signing them, gossiping them, collecting attestations from the committee, and submitting the final checkpoint to L1 in one Multicall3 transaction together with governance and slashing votes.
 
-The sequencer does **not** decide what is in the next block on its own. It composes the work of several other subsystems: the [tx pool](../p2p/README.md) supplies transactions, the [validator client](../validator-client/README.md) owns the operator keys and signs proposals, the `CheckpointBuilder` (defined in `@aztec/validator-client`, but constructed and held by the sequencer's `CheckpointProposalJob`) executes the txs, the [archiver](../archiver/README.md) provides the L2 chain state needed to anchor each block, the [epoch cache](../epoch-cache/README.md) answers proposer/committee lookups, and the [slasher](../slasher/README.md) supplies offenses to vote on.
+The sequencer does **not** decide what is in the next block on its own. It composes the work of several other subsystems: the [tx pool](../p2p/README.md) supplies transactions, the [validator client](../validator-client/README.md) owns operator keys and contains the `CheckpointBuilder` that actually executes them, the [archiver](../archiver/README.md) provides the L2 chain state needed to anchor each block, the [epoch cache](../epoch-cache/README.md) answers proposer/committee lookups, and the [slasher](../slasher/README.md) supplies offenses to vote on.
 
 ## Key Concepts
 
 ### Slots, Blocks, and Checkpoints
 
-The Aztec design splits each Aztec slot into multiple L2 blocks:
+The Aztec consensus design splits each Aztec slot into multiple L2 blocks. This is the design originally called [building in chunks](https://github.com/AztecProtocol/engineering-designs/blob/main/docs/building-in-chunks/index.md).
 
 - **Slot** — a fixed time window (e.g. 72 s) during which one proposer is allowed to build.
 - **Block** — a single batch of transactions, executed and validated as a unit, with its own header.
@@ -26,13 +26,11 @@ There are two tips the sequencer cares about:
 - The **proposed chain** is the set of blocks that have been broadcast over p2p but not yet committed to L1. Both the sequencer and validators push these blocks into the archiver so the rest of the node can serve them.
 - The **checkpointed chain** is the set of checkpoints that have landed on L1, recovered from `CheckpointProposed` events.
 
-Within a slot, the proposer adds blocks to the proposed chain as it goes. At the end of its slot, it sends a `CheckpointProposal` that committee members attest to; intermediate blocks are accepted onto the proposed chain by virtue of the proposer's signature alone, and every node that wants to follow the proposed chain re-executes them. See the [validator client README](../validator-client/README.md) for the consumer side.
+Within a slot, the proposer adds blocks to the proposed chain as it goes. Only the last block within the slot is bundled with a `CheckpointProposal` that committee members attest to; intermediate blocks are accepted onto the proposed chain by virtue of the proposer's signature alone, and every node that wants to follow the proposed chain re-executes them. See the [validator client README](../validator-client/README.md) for the consumer side.
 
 ### Proposer Pipelining
 
-The legacy non-pipelined flow had the proposer for slot `N` build, attest, and publish inside slot `N`; so the proposer spent most of `N` collecting attestations and waiting for the L1 transaction to be mined, leaving a long idle window. 
-
-Pipelining removes that idle window: the proposer for slot `N` builds blocks during slot `N - 1`, finishes attestation collection before the slot boundary, and submits the L1 transaction at the start of slot `N`.
+The legacy ("non-pipelined") flow has the proposer for slot `N` build, attest, and publish inside slot `N`. The proposer spends most of `N` collecting attestations and waiting for the L1 transaction to be mined, leaving a long idle window. Pipelining, [proposed in this discussion](https://github.com/AztecProtocol/governance/discussions/8), removes that idle window: the proposer for slot `N` builds blocks during slot `N - 1`, finishes attestation collection before the slot boundary, and submits the L1 transaction at the start of slot `N`.
 
 Pipelining shifts the work like this:
 
@@ -45,35 +43,44 @@ Pipelining shifts the work like this:
 
 \* The pipelined timing model reserves enough end-of-slot budget for attestations to be in hand by the slot boundary, but the enforced deadline (`checkpointAttestationDeadline`) actually extends to `2 * aztecSlotDuration - l1PublishingTime`, so a late attestation can still spill into the target slot.
 
-The non-pipelined mode is being removed; this README treats pipelining as the default. The toggle still exists for lingering tests.
+In practice, "non-pipelined mode" is being removed; this README treats pipelining as the default. The toggle still exists (`enableProposerPipelining`) because `EpochCache` consults it when looking up the proposer for the next L1 slot — when pipelining is enabled, the sequencer asks the cache for the proposer of `slot + 1` rather than `slot`.
 
-Note that, under pipelining, if the parent checkpoint we built on top of fails to land cleanly on L1, the next proposer's work is discarded (`pipelined-checkpoint-discarded` event).
+The pipelining flow introduces two failure modes that block building has to handle:
+
+- **Pipeline depth** is bounded to 2 (`checkpointNumber ≤ confirmedCheckpoint + 2`). Building further ahead would require trusting more in-flight parent proposals than the design allows.
+- **Pipelined parent invalidation**: if the parent checkpoint we built on top of fails to land cleanly on L1, the next proposer's work is discarded (`pipelined-checkpoint-discarded` event) and an `invalidate` request is enqueued for the parent.
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    Seq["<b>Sequencer</b><br/>state machine, one slot at a time<br/>work() → prepareCheckpointProposal() → CheckpointProposalJob"]
-
-    VC["<b>ValidatorClient</b><br/>operator keys, HA signer<br/>signs block + checkpoint proposals"]
-    EC["<b>EpochCache</b><br/>proposer + committee lookup"]
-    CB["<b>CheckpointBuilder</b><br/>forked world state<br/>per-block execution via PublicProcessor"]
-    Pub["<b>SequencerPublisher</b><br/>Multicall3 L1 tx<br/>with preChecks"]
-
-    P2P["<b>p2pClient</b>"]
-    TP["<b>TxProvider</b><br/>(tx pool)"]
-    Arc["<b>Archiver</b><br/>L2 tips, addBlock"]
-    L1["<b>L1 Rollup Contract</b>"]
-
-    Seq -->|signs proposals| VC
-    Seq -->|proposer / committee| EC
-    Seq -->|builds blocks| CB
-    Seq -->|enqueues actions| Pub
-
-    Seq -->|broadcast block + checkpoint proposals| P2P
-    Seq -->|push to proposed chain| Arc
-    CB -->|pull txs| TP
-    Pub -->|submit Multicall3| L1
+```
+       ┌──────────────────────────────────────────────────────────────┐
+       │                          Sequencer                           │
+       │              (state machine, one slot at a time)             │
+       │                                                              │
+       │   work() ──► prepareCheckpointProposal() ──► proposal job    │
+       └─────┬────────────────┬──────────────────┬──────────────────┬─┘
+             │                │                  │                  │
+             ▼                ▼                  ▼                  ▼
+   ┌──────────────────┐  ┌──────────┐  ┌──────────────────┐ ┌────────────────┐
+   │ ValidatorClient  │  │ Epoch    │  │ CheckpointBuilder│ │ Sequencer      │
+   │  (owns keys,     │  │ Cache    │  │ (forked world    │ │ Publisher      │
+   │   HA signer,     │  │ (proposer│  │  state, per-block│ │ (Multicall3    │
+   │   signs the      │  │  +       │  │  execution via   │ │  L1 tx, with   │
+   │   proposals)     │  │  comm.)  │  │  PublicProcessor)│ │  pre-checks)   │
+   └──────────────────┘  └──────────┘  └──────────────────┘ └────────────────┘
+            │                              │                        │
+            │  block + checkpoint          │ pull txs               │
+            │  proposals over p2p          ▼                        ▼
+            │                          ┌──────────┐           ┌────────────┐
+            ├────────────────────────► │   Tx     │           │ L1 Rollup  │
+            │                          │ Provider │           │ Contract   │
+            │  push blocks to          └──────────┘           └────────────┘
+            ▼  proposed chain
+   ┌──────────────────┐
+   │     Archiver     │
+   │   (l2 tips,      │
+   │    addBlock)     │
+   └──────────────────┘
 ```
 
 `SequencerClient.new(config, deps)` is the entrypoint and is constructed by the full node. It reads L1 constants (`l1GenesisTime`, `slotDuration`, `rollupManaLimit`) from the rollup contract, builds the publisher factory, validator client wiring, and timetable, then instantiates the `Sequencer`. See `src/client/sequencer-client.ts`.
@@ -108,19 +115,17 @@ The sequencer is a `TypedEventEmitter<SequencerEvents>`. The most useful events 
 | `pipelined-checkpoint-discarded`   | Pipelined parent failed to land; this slot's work is thrown away.     |
 | `checkpoint-error`                 | Catch-all: an exception escaped `work()`.                             |
 
-State enum (`src/sequencer/utils.ts`). The happy-path slot cycle is:
+State enum (`src/sequencer/utils.ts`):
 
 ```
-IDLE → SYNCHRONIZING → PROPOSER_CHECK
-     → INITIALIZING_CHECKPOINT
-     → (WAITING_FOR_TXS ↔ CREATING_BLOCK ↔ WAITING_UNTIL_NEXT_BLOCK)*
-     → ASSEMBLING_CHECKPOINT
-     → COLLECTING_ATTESTATIONS
-     → PUBLISHING_CHECKPOINT
-     → IDLE
+STOPPED → STOPPING → IDLE → SYNCHRONIZING → PROPOSER_CHECK
+       → INITIALIZING_CHECKPOINT
+       → (WAITING_FOR_TXS ↔ CREATING_BLOCK ↔ WAITING_UNTIL_NEXT_BLOCK)*
+       → ASSEMBLING_CHECKPOINT
+       → COLLECTING_ATTESTATIONS
+       → PUBLISHING_CHECKPOINT
+       → IDLE
 ```
-
-Lifecycle transitions sit outside the cycle: `start()` moves `STOPPED → IDLE`, and `stop()` moves the current state through `STOPPING → STOPPED`.
 
 ### CheckpointProposalJob
 
@@ -214,6 +219,7 @@ Key entry points:
 | `GlobalVariableBuilder` | `src/global_variable_builder/` | Computes `CheckpointGlobalVariables` and predicts the per-slot fee asset price modifier. See its [README](src/global_variable_builder/README.md). |
 | `L1TxFailedStore` | `src/publisher/l1_tx_failed_store/` | Persists actions that returned a revert reason so they aren't retried in the same form on the next slot. |
 | `ChainStateOverrides` | `src/sequencer/chain_state_overrides.ts` | Builds the L1 `eth_call` overrides used during the pipelined parent + invalidation simulations. |
+| `AutomineSequencer` | `src/sequencer/automine/` | Minimal queue-driven sequencer for single-sequencer e2e tests. Bypasses consensus, pipelining, and timetable enforcement. See [`src/sequencer/automine/README.md`](src/sequencer/automine/README.md). |
 
 ## Configuration
 
@@ -227,11 +233,11 @@ The configuration object is `SequencerConfig` (`src/sequencer/config.ts` + `src/
 | `minValidTxsPerBlock` | falls back to `minTxsPerBlock` | After execution, discard the block if fewer txs validated. |
 | `maxTxsPerBlock` / `SEQ_MAX_TX_PER_BLOCK` | unset | Hard per-block tx cap (capped at `maxTxsPerCheckpoint` at startup). |
 | `maxTxsPerCheckpoint` / `SEQ_MAX_TX_PER_CHECKPOINT` | unset | Total tx cap across the checkpoint. Enables redistribution when set. |
-| `maxBlocksPerCheckpoint` / `MAX_BLOCKS_PER_CHECKPOINT` | 24 | Absolute ceiling on blocks per checkpoint, applied on top of the timetable's `maxNumberOfBlocks`. Also caps the `indexWithinCheckpoint` accepted on inbound block proposals. |
+| `maxBlocksPerCheckpoint` / `MAX_BLOCKS_PER_CHECKPOINT` | 24 | Hard ceiling beyond what the timetable allows. Also caps the `indexWithinCheckpoint` accepted on inbound block proposals. |
 | `maxL2BlockGas` / `SEQ_MAX_L2_BLOCK_GAS` | unset | Per-block mana cap, capped at `rollupManaLimit`. |
 | `maxDABlockGas` / `SEQ_MAX_DA_BLOCK_GAS` | unset | Per-block DA gas cap, capped at `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT`. |
 | `perBlockAllocationMultiplier` / `SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER` | 1.2 | Multiplier passed to the checkpoint builder so early blocks can use slightly more than their even share. |
-| `redistributeCheckpointBudget` / `SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET` | true | Legacy flag, kept for back-compat. Has no effect on proposal building — redistribution is always on. |
+| `redistributeCheckpointBudget` / `SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET` | true | Legacy flag. Redistribution is always on during proposal building. |
 
 ### Timing
 
@@ -242,7 +248,7 @@ The configuration object is `SequencerConfig` (`src/sequencer/config.ts` + `src/
 | `attestationPropagationTime` / `SEQ_ATTESTATION_PROPAGATION_TIME` | 2 s | One-way p2p estimate fed to the timetable. |
 | `l1PublishingTime` / `SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT` | full L1 slot | Time reserved for the L1 tx to land. |
 | `sequencerPollingIntervalMS` / `SEQ_POLLING_INTERVAL_MS` | 500 | Work-loop tick rate. |
-| `enableProposerPipelining` / `SEQ_ENABLE_PROPOSER_PIPELINING` | false | When true, the sequencer builds for `slot + 1`. The flag lives in shared `PipelineConfig`; both the sequencer's timetable and `EpochCache`'s proposer-of-next-slot lookup read it. |
+| `enableProposerPipelining` / `SEQ_ENABLE_PROPOSER_PIPELINING` | false | When true, the sequencer builds for `slot + 1`. The flag lives in shared `PipelineConfig` and is read by `EpochCache`, not by the sequencer directly. |
 
 ### Behavior
 
@@ -254,8 +260,8 @@ The configuration object is `SequencerConfig` (`src/sequencer/config.ts` + `src/
 | `coinbase` / `COINBASE` | proposer addr | Recipient of block rewards. |
 | `feeRecipient` / `FEE_RECIPIENT` | proposer addr | Recipient of tx fees. |
 | `governanceProposerPayload` / `GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS` | unset | Payload signaled in the governance vote each slot. |
-| `secondsBeforeInvalidatingBlockAsCommitteeMember` / `SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_COMMITTEE_MEMBER` | 144 | When *not* the proposer, committee members may invalidate a stuck checkpoint after this many seconds into the slot. |
-| `secondsBeforeInvalidatingBlockAsNonCommitteeMember` / `SEQ_SECONDS_BEFORE_INVALIDATING_BLOCK_AS_NON_COMMITTEE_MEMBER` | 432 | Same for any node — last resort. |
+| `secondsBeforeInvalidatingBlockAsCommitteeMember` | 144 | When *not* the proposer, committee members may invalidate a stuck checkpoint after this many seconds into the slot. |
+| `secondsBeforeInvalidatingBlockAsNonCommitteeMember` | 432 | Same for any node — last resort. |
 
 The full list (including test/fault-injection hooks like `pauseProposingForSlots` and `skipPublishingCheckpointsPercent`) lives in `src/config.ts`.
 

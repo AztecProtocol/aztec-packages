@@ -5,24 +5,20 @@ import { RevertCode } from '@aztec/stdlib/avm';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { PrivateLog } from '@aztec/stdlib/logs';
-import { randomExtendedDirectionalAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import { randomAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { type IndexedTxEffect, TxEffect, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
-import {
-  type ExtendedDirectionalAppTaggingSecret,
-  SiloedTag,
-  UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
-} from '../index.js';
+import { type AppTaggingSecret, SiloedTag, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../index.js';
 import { syncSenderTaggingIndexes } from './sync_sender_tagging_indexes.js';
 
 const MOCK_ANCHOR_BLOCK_HASH = BlockHash.random();
 
 describe('syncSenderTaggingIndexes', () => {
   // The secret to be used on the input of the syncSenderTaggingIndexes function.
-  let secret: ExtendedDirectionalAppTaggingSecret;
+  let secret: AppTaggingSecret;
 
   let aztecNode: MockProxy<AztecNode>;
   let taggingStore: SenderTaggingStore;
@@ -36,7 +32,7 @@ describe('syncSenderTaggingIndexes', () => {
   }
 
   async function setUp() {
-    secret = await randomExtendedDirectionalAppTaggingSecret();
+    secret = await randomAppTaggingSecret();
 
     aztecNode = mock<AztecNode>();
     taggingStore = new SenderTaggingStore(await openTmpStore('test'));
@@ -300,12 +296,12 @@ describe('syncSenderTaggingIndexes', () => {
       );
     });
 
-    // Mock getTxReceipt to return FINALIZED with APP_LOGIC_REVERTED
+    // Mock getTxReceipt to return FINALIZED with REVERTED
     aztecNode.getTxReceipt.mockResolvedValue(
       new TxReceipt(
         revertedTxHash,
         TxStatus.FINALIZED,
-        TxExecutionResult.APP_LOGIC_REVERTED,
+        TxExecutionResult.REVERTED,
         undefined,
         undefined,
         undefined,
@@ -315,7 +311,7 @@ describe('syncSenderTaggingIndexes', () => {
 
     // Mock getTxEffect to return a TxEffect where only the tag at index 4 survived (non-revertible phase)
     const txEffect = new TxEffect(
-      RevertCode.APP_LOGIC_REVERTED,
+      RevertCode.REVERTED,
       revertedTxHash,
       Fr.ZERO,
       [Fr.random()], // noteHashes

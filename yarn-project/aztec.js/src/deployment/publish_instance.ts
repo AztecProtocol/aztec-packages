@@ -17,6 +17,7 @@ export function publishInstance(wallet: Wallet, instance: ContractInstanceWithAd
     salt,
     contractClassId,
     instance.initializationHash,
+    instance.immutablesHash,
     publicKeys,
     isUniversalDeploy,
   );

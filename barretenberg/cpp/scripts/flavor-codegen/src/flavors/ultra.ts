@@ -6,9 +6,15 @@ export const Ultra = flavor({
     name: "UltraFlavor",
     family: "ultra",
     relations: [
-        R.ArithmeticRelation,
+        // Order matters: it determines both selector/entity layout and trace block indices.
+        // UltraPermutation (no gate block) is first so the to-be-shifted witnesses
+        // (w_l/w_r/w_o/w_4/z_perm) stay contiguous, keeping REPEATED_COMMITMENTS a single range.
+        // LogDerivLookup precedes Arithmetic so the lookup gate block (and its table columns) sits
+        // at the start of the trace instead of after the large arithmetic block — otherwise the
+        // table/read-count/inverse polynomials span the whole trace and balloon prover memory.
         R.UltraPermutationRelation,
         R.LogDerivLookupRelation,
+        R.ArithmeticRelation,
         R.DeltaRangeConstraintRelation,
         R.EllipticRelation,
         R.MemoryRelation,

@@ -157,11 +157,11 @@ locals {
   validator_base_config = {
     chart   = "aztec-validator"
     timeout = 1800
-    values = [
+    values = concat([
       "common.yaml",
       "validator.yaml",
       "validator-resources-${var.VALIDATOR_RESOURCE_PROFILE}.yaml"
-    ]
+    ], var.VALIDATOR_HA_REPLICAS > 0 ? ["validator-resources-spot.yaml", "validator-resources-ha.yaml"] : [])
     inline_values = [yamlencode({
       validator = {
         service = {
@@ -170,18 +170,6 @@ locals {
         node = {
           logLevel = var.LOG_LEVEL
         }
-        # spread validator pods to different nodes to avoid having two validators with the same attester keys on the same physical node
-        topologySpreadConstraints = [{
-          maxSkew           = 1
-          topologyKey       = "kubernetes.io/hostname"
-          whenUnsatisfiable = "ScheduleAnyway" # soft constraint
-          labelSelector = {
-            matchLabels = {
-              "app.kubernetes.io/component" = "sequencer-node"
-            }
-          }
-          matchLabelKeys = ["apps.kubernetes.io/pod-index"]
-        }]
       }
     })]
     boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
@@ -200,15 +188,16 @@ locals {
     "validator.sentinel.enabled"                                  = var.SENTINEL_ENABLED
     "validator.slash.inactivityTargetPercentage"                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
     "validator.slash.inactivityPenalty"                           = var.SLASH_INACTIVITY_PENALTY
-    "validator.slash.prunePenalty"                                = var.SLASH_PRUNE_PENALTY
     "validator.slash.dataWithholdingPenalty"                      = var.SLASH_DATA_WITHHOLDING_PENALTY
+    "validator.slash.dataWithholdingToleranceSlots"               = var.SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS
     "validator.slash.proposeInvalidAttestationsPenalty"           = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
     "validator.slash.duplicateProposalPenalty"                    = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
     "validator.slash.duplicateAttestationPenalty"                 = var.SLASH_DUPLICATE_ATTESTATION_PENALTY
-    "validator.slash.attestDescendantOfInvalidPenalty"            = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+    "validator.slash.proposeDescendantOfCheckpointWithInvalidAttestationsPenalty"           = var.SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY
     "validator.slash.attestInvalidCheckpointProposalPenalty"       = var.SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY
     "validator.slash.unknownPenalty"                              = var.SLASH_UNKNOWN_PENALTY
     "validator.slash.invalidBlockPenalty"                         = var.SLASH_INVALID_BLOCK_PENALTY
+    "validator.slash.invalidCheckpointProposalPenalty"            = var.SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY
     "validator.slash.offenseExpirationRounds"                     = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
     "validator.slash.maxPayloadSize"                              = var.SLASH_MAX_PAYLOAD_SIZE
     "validator.node.env.TRANSACTIONS_DISABLED"                    = var.TRANSACTIONS_DISABLED

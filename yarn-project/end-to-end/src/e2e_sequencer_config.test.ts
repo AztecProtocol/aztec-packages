@@ -12,6 +12,7 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
+import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_sequencer_config', () => {
@@ -35,6 +36,7 @@ describe('e2e_sequencer_config', () => {
     beforeAll(async () => {
       const [botAccount] = await getInitialTestAccountsData();
       ({ teardown, sequencer, aztecNode, logger } = await setup(0, {
+        ...PIPELINING_SETUP_OPTS,
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),
         initialFundedAccounts: [botAccount],
@@ -43,7 +45,10 @@ describe('e2e_sequencer_config', () => {
         ...getBotDefaultConfig(),
         followChain: 'CHECKPOINTED',
         botMode: 'transfer',
-        txMinedWaitSeconds: 12,
+        txMinedWaitSeconds: 60,
+        // Match pipelining fee padding so the bot's maxFeesPerGas keeps up with
+        // fee-asset price evolution between PXE snapshot and inclusion.
+        minFeePadding: PIPELINED_FEE_PADDING,
       };
       wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
       const accountManager = await wallet.createSchnorrAccount(

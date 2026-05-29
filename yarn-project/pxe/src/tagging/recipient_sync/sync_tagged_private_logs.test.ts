@@ -3,8 +3,8 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { type ExtendedDirectionalAppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
-import { randomExtendedDirectionalAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import { type AppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
+import { randomAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -21,7 +21,7 @@ describe('syncTaggedPrivateLogs', () => {
   const aztecNode: MockProxy<AztecNode> = mock<AztecNode>();
   let taggingStore: RecipientTaggingStore;
 
-  function computeSiloedTagForIndex(secret: ExtendedDirectionalAppTaggingSecret, index: number) {
+  function computeSiloedTagForIndex(secret: AppTaggingSecret, index: number) {
     return SiloedTag.compute({ extendedSecret: secret, index });
   }
 
@@ -270,6 +270,6 @@ describe('syncTaggedPrivateLogs', () => {
   });
 });
 
-function makeSecrets(count: number): Promise<ExtendedDirectionalAppTaggingSecret[]> {
-  return Promise.all(Array.from({ length: count }, () => randomExtendedDirectionalAppTaggingSecret()));
+function makeSecrets(count: number): Promise<AppTaggingSecret[]> {
+  return Promise.all(Array.from({ length: count }, () => randomAppTaggingSecret()));
 }

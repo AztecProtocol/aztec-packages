@@ -19,6 +19,7 @@ import type { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
@@ -48,7 +49,7 @@ describe('e2e tx effect oracle', () => {
       wallet,
       aztecNode,
       accounts: [defaultAccountAddress],
-    } = await setup(1));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     const { contract: deployed, receipt } = await TxEffectOracleTestContract.deploy(wallet).send({
       from: defaultAccountAddress,
     });

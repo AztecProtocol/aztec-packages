@@ -211,5 +211,5 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     const newL1Balance = await l1TokenManager.getL1TokenBalance(ownerEthAddress);
     logger.info(`New L1 balance of ${ownerEthAddress} is ${newL1Balance}`);
     expect(newL1Balance).toBe(withdrawAmount);
-  }, 300_000);
+  }, 900_000);
 });

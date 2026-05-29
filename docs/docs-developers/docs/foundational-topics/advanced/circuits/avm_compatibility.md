@@ -58,7 +58,7 @@ The [`noir-lang/schnorr`](https://github.com/noir-lang/schnorr) library implemen
 
 ## ISA Reference
 
-For the complete list of AVM opcodes, see the [AVM ISA Quick Reference](https://github.com/AztecProtocol/aztec-packages/blob/next/yarn-project/simulator/docs/avm/avm-isa-quick-reference.md).
+For the complete list of AVM opcodes, see the [AVM ISA Quick Reference](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/simulator/docs/avm/avm-isa-quick-reference.md).
 
 ## Related Pages
 

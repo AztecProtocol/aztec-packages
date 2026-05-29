@@ -340,6 +340,7 @@ template <class Params_> struct alignas(32) field {
     static constexpr uint256_t modulus_minus_two =
         uint256_t(Params::modulus_0 - 2ULL, Params::modulus_1, Params::modulus_2, Params::modulus_3);
     constexpr field invert() const noexcept;
+    constexpr field invert_const_time() const noexcept;
     template <typename C>
     // has size() and operator[].
         requires requires(C& c) {

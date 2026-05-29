@@ -13,7 +13,7 @@ pub contract Crowdfunding {
         utils::{array, comparison::Comparator},
     };
     use aztec::note::{constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteStatus};
-    use public_checks::utils::privately_check_timestamp;
+    use aztec::public_checks::privately_check_timestamp;
     use token::Token;
     use uint_note::UintNote;
 

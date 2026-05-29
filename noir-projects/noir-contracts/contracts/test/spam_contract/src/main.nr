@@ -31,7 +31,7 @@ pub contract Spam {
 
         for i in 0..MAX_NULLIFIERS_PER_CALL {
             if (i < nullifier_count) {
-                self.context.push_nullifier(compute_note_nullifier(nullifier_seed, [i as Field]));
+                self.context.push_nullifier_unsafe(compute_note_nullifier(nullifier_seed, [i as Field]));
             }
         }
 

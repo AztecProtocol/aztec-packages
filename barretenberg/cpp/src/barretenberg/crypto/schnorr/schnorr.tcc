@@ -86,7 +86,7 @@ schnorr_signature schnorr_construct_signature(const typename G1::Fq& message_fie
 
     // k is a secret nonce; use the constant-time multiplication to defend against the
     // Hamming-weight / bit-length timing leak in operator*.
-    typename G1::affine_element R(typename G1::element(G1::one).mul_const_time(k));
+    typename G1::affine_element R(typename G1::element(G1::one).mul_const_time(k).to_affine_const_time());
 
     using Fq = typename G1::Fq;
     Fq e = schnorr_generate_challenge<G1>(message_field, public_key, R);

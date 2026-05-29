@@ -69,10 +69,7 @@ import {
   mockTxIterator,
   setupTxsAndBlock,
 } from '../test/utils.js';
-import {
-  buildPipelinedParentSimulationOverridesPlan,
-  computePipelinedParentFeeHeader,
-} from './chain_state_overrides.js';
+import { buildCheckpointSimulationOverridesPlan, computePipelinedParentFeeHeader } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
@@ -188,8 +185,15 @@ describe('CheckpointProposalJob', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
+
+    // Default rollup contract reads used by pipelined fee-header derivation. Tests that exercise
+    // the failure modes override these via jest.spyOn.
+    jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockResolvedValue({
+      feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, congestionCost: 0n, proverCost: 0n },
+    } as any);
+    jest.spyOn(publisher.rollupContract, 'getManaTarget').mockResolvedValue(10_000n);
     publisher.sendRequestsAt.mockResolvedValue({
-      result: { receipt: { status: 'success' } as TransactionReceipt, errorMsg: undefined },
+      result: { receipt: { status: 'success' } as TransactionReceipt },
       successfulActions: ['propose'],
       failedActions: [],
       sentActions: ['propose'],
@@ -369,6 +373,8 @@ describe('CheckpointProposalJob', () => {
       checkpointBuilder.seedBlocks([block], [txs]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+      // We build checkpoint 2 on top of proposed parent at checkpoint 1.
+      checkpointNumber = CheckpointNumber(2);
 
       const checkpoint = await createCheckpointProposalJob({
         targetSlot: SlotNumber(newSlotNumber + 1),
@@ -772,6 +778,7 @@ describe('CheckpointProposalJob', () => {
       overrides?.targetEpoch ?? epoch,
       checkpointNumber,
       lastBlockNumber,
+      CheckpointNumber(checkpointNumber - 1),
       proposer,
       publisher,
       attestorAddress,
@@ -824,10 +831,10 @@ describe('CheckpointProposalJob', () => {
       proverCost: 10n,
     };
 
-    it('returns undefined when proposedCheckpointData is not set', async () => {
+    it('returns undefined when checkpoint number is below 2 (genesis grandparent)', async () => {
       const result = await computePipelinedParentFeeHeader({
-        checkpointNumber: pipelinedCheckpointNumber,
-        proposedCheckpointData: undefined,
+        checkpointNumber: CheckpointNumber(1),
+        proposedCheckpointData: pendingData,
         rollup: publisher.rollupContract,
         log: createLogger('test'),
       });
@@ -863,152 +870,155 @@ describe('CheckpointProposalJob', () => {
       expect(result).toEqual(expected);
     });
 
-    it('returns undefined when grandparent checkpoint is not found', async () => {
+    it('throws when grandparent checkpoint is not found', async () => {
       mockRollup({ grandparentCheckpoint: undefined });
 
-      const result = await computePipelinedParentFeeHeader({
-        checkpointNumber: pipelinedCheckpointNumber,
-        proposedCheckpointData: pendingData,
-        rollup: publisher.rollupContract,
-        log: createLogger('test'),
-      });
-      expect(result).toBeUndefined();
+      await expect(
+        computePipelinedParentFeeHeader({
+          checkpointNumber: pipelinedCheckpointNumber,
+          proposedCheckpointData: pendingData,
+          rollup: publisher.rollupContract,
+          log: createLogger('test'),
+        }),
+      ).rejects.toThrow(/Grandparent checkpoint or feeHeader missing/);
     });
 
-    it('returns undefined when grandparent checkpoint has no feeHeader', async () => {
+    it('throws when grandparent checkpoint has no feeHeader', async () => {
       mockRollup({ grandparentCheckpoint: { feeHeader: undefined } });
 
-      const result = await computePipelinedParentFeeHeader({
-        checkpointNumber: pipelinedCheckpointNumber,
-        proposedCheckpointData: pendingData,
-        rollup: publisher.rollupContract,
-        log: createLogger('test'),
-      });
-      expect(result).toBeUndefined();
+      await expect(
+        computePipelinedParentFeeHeader({
+          checkpointNumber: pipelinedCheckpointNumber,
+          proposedCheckpointData: pendingData,
+          rollup: publisher.rollupContract,
+          log: createLogger('test'),
+        }),
+      ).rejects.toThrow(/Grandparent checkpoint or feeHeader missing/);
     });
 
-    it('returns undefined when rollup calls throw', async () => {
+    it('propagates errors from rollup calls', async () => {
       jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockRejectedValue(new Error('rpc error'));
 
-      const result = await computePipelinedParentFeeHeader({
-        checkpointNumber: pipelinedCheckpointNumber,
-        proposedCheckpointData: pendingData,
-        rollup: publisher.rollupContract,
-        log: createLogger('test'),
-      });
-      expect(result).toBeUndefined();
+      await expect(
+        computePipelinedParentFeeHeader({
+          checkpointNumber: pipelinedCheckpointNumber,
+          proposedCheckpointData: pendingData,
+          rollup: publisher.rollupContract,
+          log: createLogger('test'),
+        }),
+      ).rejects.toThrow(/rpc error/);
     });
   });
 
-  describe('buildPipelinedParentSimulationOverridesPlan', () => {
+  describe('buildCheckpointSimulationOverridesPlan', () => {
     const checkpointNumberUnderTest = CheckpointNumber(2);
 
-    it('sets pending override for the parent checkpoint when pipelining is enabled', async () => {
-      const plan = await buildPipelinedParentSimulationOverridesPlan({
-        checkpointNumber: checkpointNumberUnderTest,
-        proposedCheckpointData: undefined,
-        rollup: publisher.rollupContract,
-        signatureContext,
-        log: createLogger('test'),
-        pipeliningEnabled: true,
-      });
-      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
-      expect(plan?.chainTipsOverride?.proven).toBeUndefined();
-    });
+    const grandparentFeeHeader: FeeHeader = {
+      manaUsed: 3000n,
+      excessMana: 1000n,
+      ethPerFeeAsset: 500n,
+      congestionCost: 50n,
+      proverCost: 10n,
+    };
 
-    it('returns undefined when pipelining off and no prunePending', async () => {
-      const plan = await buildPipelinedParentSimulationOverridesPlan({
-        checkpointNumber: checkpointNumberUnderTest,
-        proposedCheckpointData: undefined,
-        rollup: publisher.rollupContract,
-        signatureContext,
-        log: createLogger('test'),
-        pipeliningEnabled: false,
-      });
-      expect(plan).toBeUndefined();
-    });
-
-    it('returns plan with proven-only override when pipelining off and prunePending is set', async () => {
-      const plan = await buildPipelinedParentSimulationOverridesPlan({
-        checkpointNumber: checkpointNumberUnderTest,
-        proposedCheckpointData: undefined,
-        rollup: publisher.rollupContract,
-        signatureContext,
-        log: createLogger('test'),
-        pipeliningEnabled: false,
-        prunePending: { provenOverride: CheckpointNumber(0) },
-      });
-      expect(plan?.chainTipsOverride?.pending).toBeUndefined();
-      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(0));
-    });
-
-    it('attaches both parent and proven overrides when pipelining on and prunePending is set', async () => {
-      const plan = await buildPipelinedParentSimulationOverridesPlan({
-        checkpointNumber: checkpointNumberUnderTest,
-        proposedCheckpointData: undefined,
-        rollup: publisher.rollupContract,
-        signatureContext,
-        log: createLogger('test'),
-        pipeliningEnabled: true,
-        prunePending: { provenOverride: CheckpointNumber(0) },
-      });
-      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
-      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(0));
-    });
-
-    it('populates the per-checkpoint state from proposedCheckpointData when pipelining is enabled', async () => {
-      const proposedHeader = CheckpointHeader.empty({ slotNumber: SlotNumber(123) });
-      const proposedArchive = new AppendOnlyTreeSnapshot(Fr.random(), 1);
-      const proposedOutHash = Fr.random();
-      const proposedFeeHeader: FeeHeader = {
-        manaUsed: 3000n,
-        excessMana: 1000n,
-        ethPerFeeAsset: 500n,
-        congestionCost: 50n,
-        proverCost: 10n,
-      };
-      jest.spyOn(publisher.rollupContract, 'getCheckpoint').mockResolvedValue({ feeHeader: proposedFeeHeader } as any);
+    function mockGrandparentFeeHeader() {
+      jest
+        .spyOn(publisher.rollupContract, 'getCheckpoint')
+        .mockResolvedValue({ feeHeader: grandparentFeeHeader } as any);
       jest.spyOn(publisher.rollupContract, 'getManaTarget').mockResolvedValue(10_000n);
+    }
 
-      const proposedData: ProposedCheckpointData = {
-        checkpointNumber: CheckpointNumber(1),
-        header: proposedHeader,
-        archive: proposedArchive,
-        checkpointOutHash: proposedOutHash,
+    function makeProposedParent(checkpointNumber: CheckpointNumber): ProposedCheckpointData {
+      return {
+        checkpointNumber,
+        header: CheckpointHeader.empty(),
+        archive: new AppendOnlyTreeSnapshot(Fr.random(), 1),
+        checkpointOutHash: Fr.random(),
         startBlock: BlockNumber(1),
         blockCount: 1,
         totalManaUsed: 5000n,
         feeAssetPriceModifier: 100n,
       };
+    }
 
-      const plan = await buildPipelinedParentSimulationOverridesPlan({
-        checkpointNumber: CheckpointNumber(2),
-        proposedCheckpointData: proposedData,
+    it('pins both pending and proven to the snapshot when no proposed/invalidate input is provided', async () => {
+      const plan = await buildCheckpointSimulationOverridesPlan({
+        checkpointNumber: checkpointNumberUnderTest,
+        checkpointedCheckpointNumber: CheckpointNumber(4),
         rollup: publisher.rollupContract,
         signatureContext,
         log: createLogger('test'),
-        pipeliningEnabled: true,
+      });
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(4));
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(4));
+      expect(plan?.pendingCheckpointState).toBeUndefined();
+    });
+
+    it('overrides the full pending checkpoint cell from a pipelined parent', async () => {
+      mockGrandparentFeeHeader();
+      const proposedData = makeProposedParent(CheckpointNumber(1));
+
+      const plan = await buildCheckpointSimulationOverridesPlan({
+        checkpointNumber: checkpointNumberUnderTest,
+        proposedCheckpointData: proposedData,
+        checkpointedCheckpointNumber: CheckpointNumber(0),
+        rollup: publisher.rollupContract,
+        signatureContext,
+        log: createLogger('test'),
       });
 
       expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
-      expect(plan?.pendingCheckpointState?.archive).toEqual(proposedArchive.root);
-      expect(plan?.pendingCheckpointState?.headerHash).toEqual(proposedHeader.hash());
-      expect(plan?.pendingCheckpointState?.outHash).toEqual(proposedOutHash);
-      expect(plan?.pendingCheckpointState?.slotNumber).toEqual(SlotNumber(123));
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(1));
+      expect(plan?.pendingCheckpointState?.archive).toEqual(proposedData.archive.root);
+      expect(plan?.pendingCheckpointState?.slotNumber).toEqual(proposedData.header.slotNumber);
+      expect(plan?.pendingCheckpointState?.headerHash).toEqual(proposedData.header.hash());
+      expect(plan?.pendingCheckpointState?.outHash).toEqual(proposedData.checkpointOutHash);
       expect(plan?.pendingCheckpointState?.payloadDigest).toBeDefined();
       expect(plan?.pendingCheckpointState?.feeHeader).toBeDefined();
     });
 
-    it('omits per-checkpoint state when proposedCheckpointData is undefined', async () => {
-      const plan = await buildPipelinedParentSimulationOverridesPlan({
+    it('throws when the pipelined parent does not match the expected parent checkpoint', async () => {
+      const proposedData = makeProposedParent(CheckpointNumber(5));
+
+      await expect(
+        buildCheckpointSimulationOverridesPlan({
+          checkpointNumber: checkpointNumberUnderTest,
+          proposedCheckpointData: proposedData,
+          checkpointedCheckpointNumber: CheckpointNumber(0),
+          rollup: publisher.rollupContract,
+          signatureContext,
+          log: createLogger('test'),
+        }),
+      ).rejects.toThrow(/does not match expected parent/);
+    });
+
+    it('throws when both proposedCheckpointData and invalidateToPendingCheckpointNumber are provided', async () => {
+      const proposedData = makeProposedParent(CheckpointNumber(1));
+
+      await expect(
+        buildCheckpointSimulationOverridesPlan({
+          checkpointNumber: checkpointNumberUnderTest,
+          proposedCheckpointData: proposedData,
+          invalidateToPendingCheckpointNumber: CheckpointNumber(0),
+          checkpointedCheckpointNumber: CheckpointNumber(0),
+          rollup: publisher.rollupContract,
+          signatureContext,
+          log: createLogger('test'),
+        }),
+      ).rejects.toThrow(/mutually exclusive/);
+    });
+
+    it('sets pending and proven from an invalidation rollback without archive/fee overrides', async () => {
+      const plan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: checkpointNumberUnderTest,
-        proposedCheckpointData: undefined,
+        invalidateToPendingCheckpointNumber: CheckpointNumber(0),
+        checkpointedCheckpointNumber: CheckpointNumber(2),
         rollup: publisher.rollupContract,
         signatureContext,
         log: createLogger('test'),
-        pipeliningEnabled: true,
       });
-      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(0));
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(0));
       expect(plan?.pendingCheckpointState).toBeUndefined();
     });
   });

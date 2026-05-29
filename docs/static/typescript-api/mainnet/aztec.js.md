@@ -1,6 +1,6 @@
 # @aztec/aztec.js
 
-Version: 4.2.0
+Version: v4.3.0
 
 ## Quick Import Reference
 
@@ -142,8 +142,7 @@ new Contract(address: AztecAddress, artifact: ContractArtifact, wallet: Wallet)
 
 **Methods**
 - `static at(address: AztecAddress, artifact: ContractArtifact, wallet: Wallet) => Contract` - Gets a contract instance.
-- `static deploy(wallet: Wallet, artifact: ContractArtifact, args: any[], constructorName?: string) => DeployMethod<Contract>` - Creates a tx to deploy (initialize and/or publish) a new instance of a contract.
-- `static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, args: any[], constructorName?: string) => DeployMethod<Contract>` - Creates a tx to deploy (initialize and/or publish) a new instance of a contract using the specified public keys hash to derive the address.
+- `static deploy(wallet: Wallet, artifact: ContractArtifact, args: any[], constructorName?: string, instantiation?: DeployInstantiationOptions) => DeployMethod<Contract>` - Creates a tx to deploy (initialize and/or publish) a new instance of a contract.
 - `withWallet(wallet: Wallet) => this` - Creates a new instance of the contract wrapper attached to a different wallet.
 
 ### ContractBase
@@ -170,11 +169,11 @@ A class for deploying contract.
 
 **Constructor**
 ```typescript
-new ContractDeployer(artifact: ContractArtifact, wallet: Wallet, publicKeys?: PublicKeys, constructorName?: string)
+new ContractDeployer(artifact: ContractArtifact, wallet: Wallet, constructorName?: string)
 ```
 
 **Methods**
-- `deploy(...args: any[]) => DeployMethod<Contract>` - Deploy a contract using the provided ABI and constructor arguments. This function creates a new DeployMethod instance that can be used to send deployment transactions and query deployment status. The method accepts any number of constructor arguments, which will be passed to the contract's constructor during deployment.
+- `deploy(args?: any[], instantiation?: DeployInstantiationOptions) => DeployMethod<Contract>` - Deploy a contract using the provided instantiation parameters and constructor arguments. Creates a new DeployMethod instance that can be used to send the deployment transaction. The first argument is the DeployInstantiationOptions (salt, deployer) — pass `{}` to accept defaults (random salt, deployer = AztecAddress.ZERO). The remaining arguments are the constructor arguments for the contract.
 
 ### ContractFunctionInteraction
 
@@ -208,7 +207,7 @@ new ContractFunctionInteraction(wallet: Wallet, contractAddress: AztecAddress, f
 
 Modified version of the DeployMethod used to deploy account contracts. Supports deploying contracts that can pay for their own fee, plus some preconfigured options to avoid errors.
 
-Extends: `DeployMethod<TContract>`
+Extends: `UniversalDeployMethod<TContract>`
 
 **Constructor**
 ```typescript
@@ -216,29 +215,34 @@ new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: Contra
 ```
 
 **Properties**
-- `address: unknown`
-- `args: any[]`
-- `artifact: ContractArtifact`
+- `readonly args: any[]` - Encoded constructor arguments for the contract.
+- `readonly artifact: ContractArtifact` - Build artifact of the contract being deployed.
 - `authWitnesses: AuthWitness[]`
 - `capsules: Capsule[]`
 - `constructorArtifact: FunctionAbi | undefined` - Constructor function to call.
-- `extraHashedArgs: HashedValues[]`
+- `readonly extraHashedArgs: HashedValues[]` - Extra hashed args propagated through `with(...)` and into the deploy payload.
 - `log: Logger`
-- `partialAddress: unknown`
-- `postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract`
-- `publicKeys: PublicKeys`
+- `readonly postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract` - Factory invoked after deployment to produce the typed contract handle.
+- `readonly publicKeys: PublicKeys` - Public keys mixed into the address preimage.
+- `readonly salt: Fr` - Salt used in the address preimage.
 - `wallet: Wallet`
 
 **Methods**
-- `convertDeployOptionsToProfileOptions(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => ProfileOptions` - Converts deploy profile options into wallet-level profile options.
-- `convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait) => RequestDeployAccountOptions`
+- `cloneInstantiation() => DeployInstantiationOptions` - Re-emits this method's `DeployInstantiationOptions` for `with(...)` to consume.
+- `convertDeployOptionsToProfileOptions(options: RequestInteractionOptions & { skipClassPublication?: boolean; skipInitialization?: boolean; ... } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => ProfileOptions` - Converts deploy profile options into wallet-level profile options.
 - `convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(options: DeployOptions<W>) => SendOptions<unknown>` - Converts DeployOptions to SendOptions, stripping out the returnReceipt flag if present.
 - `convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions) => SimulateOptions` - Converts deploy simulation options into wallet-level simulate options.
+- `static create<TContract extends ContractBase>(wallet: Wallet, contract: DeployMethodContract<TContract>, instantiation: DeployInstantiationOptions, payload: DeployMethodPayload) => DeployMethod<TContract>` - Constructs the right concrete `DeployMethod` flavor for the supplied instantiation options: - `{ deployer: <addr> }` → BoundDeployMethod - `{ universalDeploy: true }` → UniversalDeployMethod - neither set → PendingDeployMethod Mixing `deployer` and `universalDeploy` throws. Returns the umbrella `DeployMethod<T>` type so callers can use the result generically without narrowing.
+- `getAddress() => Promise<AztecAddress>` - Returns the deployed contract address.
+- `getCachedInstanceOrThrow() => ContractInstanceWithAddress` - Returns the cached resolved instance synchronously, or throws if no instance has been computed yet. Intended for subclasses that run inside a code path where `getInstance()` is guaranteed to have already been awaited (e.g. `request()` invoked it). Not part of the public API.
+- `getDeployerAddress() => AztecAddress` - Universal deploys are anchored at `AztecAddress.ZERO`; the sender does not enter the preimage.
 - `getInitializationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the calls necessary to initialize the contract.
-- `getInstance(options?: RequestDeployOptions) => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it.
+- `getInstance() => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it. The instance is computed once and cached for the lifetime of this DeployMethod; subsequent calls return the same instance. On a PendingDeployMethod this throws unless a prior `send` / `simulate` / `profile` call has already locked the deployer — otherwise the resolved address could silently differ from the eventually-deployed one.
+- `getPartialAddress() => Promise<Fr>` - Returns the partial address for this deployment.
 - `getPublicationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns an execution payload for: - publication of the contract class and - publication of the contract instance to enable public execution depending on the provided options.
-- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
-- `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
+- `lockDeployer(_from: AztecAddress | "NO_FROM" | undefined) => void` - Universal deploys accept any sender, including `NO_FROM` / `undefined`.
+- `profile(options: RequestInteractionOptions & { skipClassPublication?: boolean; skipInitialization?: boolean; ... } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
+- `register() => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
 - `request(opts?: RequestDeployAccountOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain. For self-deployments (from === NO_FROM), the payload is wrapped through the multicall entrypoint on the app side so the wallet can execute it directly.
 - `send(options: DeployOptionsWithoutWait) => Promise<DeployResultMined<TContract>>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
 - `simulate(options: SimulateDeployOptions) => Promise<SimulationResult>` - Simulate the deployment
@@ -246,43 +250,48 @@ new DeployAccountMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: Contra
 
 ### DeployMethod
 
-Contract interaction for deployment. Handles class publication, instance publication, and initialization of the contract. Note that for some contracts, a tx is not required as part of its "creation": If there are no public functions, and if there are no initialization functions, then technically the contract has already been "created", and all of the contract's functions (private and utility) can be interacted-with immediately, without any "deployment tx".
+Umbrella type for a contract deployment interaction. `DeployMethod` is abstract: callers always interact with one of three concrete flavors — BoundDeployMethod, UniversalDeployMethod, or PendingDeployMethod — picked by DeployMethod.create based on the supplied DeployInstantiationOptions. The flavors only differ in their initial deployer-lock state; the full API (`request` / `send` / `simulate` / `profile` / `getInstance` / `getAddress` / `getPartialAddress` / `register` / `with`) lives on this base, so consumers can type variables as `DeployMethod<T>` and treat all three uniformly. The deployer (and therefore the deployed address) is locked once and never changes. Locking happens either at construction (via `deployer` or `universalDeploy: true` in the instantiation options) or lazily on the first `send` / `simulate` / `profile` call, which lock from `options.from`. Once locked: - The address is stable for the lifetime of this object. - Subsequent `send` / `simulate` / `profile` calls with a `from` that would imply a different deployer throw, to prevent silently deploying at a different address than `getAddress()` reported. - A locked universal deployer (`AztecAddress.ZERO`) is compatible with any `from`, since the address does not depend on the sender. Note that for some contracts, a tx is not required as part of its "creation": If there are no public functions, and if there are no initialization functions, then technically the contract has already been "created", and all of the contract's functions (private and utility) can be interacted-with immediately, without any "deployment tx".
 
 Extends: `BaseContractInteraction`
 
 **Constructor**
 ```typescript
-new DeployMethod(publicKeys: PublicKeys, wallet: Wallet, artifact: ContractArtifact, postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract, args: any[], constructorNameOrArtifact?: string | FunctionArtifact, authWitnesses: AuthWitness[], capsules: Capsule[], extraHashedArgs: HashedValues[])
+new DeployMethod(wallet: Wallet, contract: DeployMethodContract<TContract>, salt: Fr | undefined, publicKeys: PublicKeys | undefined, payload: DeployMethodPayload)
 ```
 
 **Properties**
-- `address: unknown`
-- `args: any[]`
-- `artifact: ContractArtifact`
+- `readonly args: any[]` - Encoded constructor arguments for the contract.
+- `readonly artifact: ContractArtifact` - Build artifact of the contract being deployed.
 - `authWitnesses: AuthWitness[]`
 - `capsules: Capsule[]`
 - `constructorArtifact: FunctionAbi | undefined` - Constructor function to call.
-- `extraHashedArgs: HashedValues[]`
+- `readonly extraHashedArgs: HashedValues[]` - Extra hashed args propagated through `with(...)` and into the deploy payload.
 - `log: Logger`
-- `partialAddress: unknown`
-- `postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract`
-- `publicKeys: PublicKeys`
+- `readonly postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract` - Factory invoked after deployment to produce the typed contract handle.
+- `readonly publicKeys: PublicKeys` - Public keys mixed into the address preimage.
+- `readonly salt: Fr` - Salt used in the address preimage.
 - `wallet: Wallet`
 
 **Methods**
-- `convertDeployOptionsToProfileOptions(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => ProfileOptions` - Converts deploy profile options into wallet-level profile options.
-- `convertDeployOptionsToRequestOptions(options: DeployOptionsWithoutWait) => RequestDeployOptions`
+- `cloneInstantiation() => DeployInstantiationOptions` - Returns the DeployInstantiationOptions that match this flavor. Used by `with(...)` to spawn a sibling instance carrying the same lock state.
+- `convertDeployOptionsToProfileOptions(options: RequestInteractionOptions & { skipClassPublication?: boolean; skipInitialization?: boolean; ... } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => ProfileOptions` - Converts deploy profile options into wallet-level profile options.
 - `convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(options: DeployOptions<W>) => SendOptions<unknown>` - Converts DeployOptions to SendOptions, stripping out the returnReceipt flag if present.
 - `convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions) => SimulateOptions` - Converts deploy simulation options into wallet-level simulate options.
+- `static create<TContract extends ContractBase>(wallet: Wallet, contract: DeployMethodContract<TContract>, instantiation: DeployInstantiationOptions, payload: DeployMethodPayload) => DeployMethod<TContract>` - Constructs the right concrete `DeployMethod` flavor for the supplied instantiation options: - `{ deployer: <addr> }` → BoundDeployMethod - `{ universalDeploy: true }` → UniversalDeployMethod - neither set → PendingDeployMethod Mixing `deployer` and `universalDeploy` throws. Returns the umbrella `DeployMethod<T>` type so callers can use the result generically without narrowing.
+- `getAddress() => Promise<AztecAddress>` - Returns the deployed contract address.
+- `getCachedInstanceOrThrow() => ContractInstanceWithAddress` - Returns the cached resolved instance synchronously, or throws if no instance has been computed yet. Intended for subclasses that run inside a code path where `getInstance()` is guaranteed to have already been awaited (e.g. `request()` invoked it). Not part of the public API.
+- `getDeployerAddress() => AztecAddress` - The address that will be mixed into the contract's address preimage. Owned returns the concrete deployer; Universal returns `AztecAddress.ZERO`; Pending throws unless a prior `send` / `simulate` / `profile` call has already locked it.
 - `getInitializationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the calls necessary to initialize the contract.
-- `getInstance(options?: RequestDeployOptions) => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it.
+- `getInstance() => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it. The instance is computed once and cached for the lifetime of this DeployMethod; subsequent calls return the same instance. On a PendingDeployMethod this throws unless a prior `send` / `simulate` / `profile` call has already locked the deployer — otherwise the resolved address could silently differ from the eventually-deployed one.
+- `getPartialAddress() => Promise<Fr>` - Returns the partial address for this deployment.
 - `getPublicationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns an execution payload for: - publication of the contract class and - publication of the contract instance to enable public execution depending on the provided options.
-- `profile(options: Omit<RequestDeployOptions, "deployer"> & { universalDeploy?: boolean } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
-- `register(options?: RequestDeployOptions) => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
-- `request(options: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain.
+- `lockDeployer(from: AztecAddress | "NO_FROM" | undefined) => void` - Reconciles a send-time `from` with the deploy's deployer. Owned asserts an exact match; Universal accepts anything; Pending uses the first call to lock its deployer (transitioning into an Owned/Universal sibling), then defers to that sibling's assertion on subsequent calls. The "locks-or-asserts" name is intentional: only Pending mutates state, and only on its first invocation. Owned and Universal are pure assertions.
+- `profile(options: RequestInteractionOptions & { skipClassPublication?: boolean; skipInitialization?: boolean; ... } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
+- `register() => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
+- `request(options: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain. Requires the deployer to be known — call `getDeployerAddress()` first; on a `PendingDeployMethod` this throws unless a prior `send` / `simulate` / `profile` has already locked the deployer.
 - `send(options: DeployOptionsWithoutWait) => Promise<DeployResultMined<TContract>>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
 - `simulate(options: SimulateDeployOptions) => Promise<SimulationResult>` - Simulate the deployment
-- `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[] }) => DeployMethod` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
+- `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[]; extraHashedArgs?: HashedValues[] }) => DeployMethod<TContract>` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules. The deployer lock is preserved: a Pending that has not yet been locked stays Pending; a Pending that has already locked, along with Owned and Universal, returns the matching locked flavor so the cloned method deploys at the same address as `this`.
 
 ### EventSelector
 
@@ -1009,6 +1018,51 @@ new TxSimulationResultWithAppOffset(privateExecutionResult: PrivateExecutionResu
 - `static random() => Promise<TxSimulationResultWithAppOffset>`
 - `toSimulatedTx() => Promise<Tx>`
 
+### UniversalDeployMethod
+
+Deploy method whose deployer is fixed at construction to AztecAddress.ZERO (universal deploy). The address does not depend on the sender, so any account may sign the deploy tx.
+
+Extends: `DeployMethod<TContract>`
+
+**Constructor**
+```typescript
+new UniversalDeployMethod(wallet: Wallet, contract: DeployMethodContract<TContract>, instantiation: UniversalInstantiationOptions, payload: DeployMethodPayload)
+```
+
+**Properties**
+- `readonly args: any[]` - Encoded constructor arguments for the contract.
+- `readonly artifact: ContractArtifact` - Build artifact of the contract being deployed.
+- `authWitnesses: AuthWitness[]`
+- `capsules: Capsule[]`
+- `constructorArtifact: FunctionAbi | undefined` - Constructor function to call.
+- `readonly extraHashedArgs: HashedValues[]` - Extra hashed args propagated through `with(...)` and into the deploy payload.
+- `log: Logger`
+- `readonly postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract` - Factory invoked after deployment to produce the typed contract handle.
+- `readonly publicKeys: PublicKeys` - Public keys mixed into the address preimage.
+- `readonly salt: Fr` - Salt used in the address preimage.
+- `wallet: Wallet`
+
+**Methods**
+- `cloneInstantiation() => DeployInstantiationOptions` - Re-emits this method's `DeployInstantiationOptions` for `with(...)` to consume.
+- `convertDeployOptionsToProfileOptions(options: RequestInteractionOptions & { skipClassPublication?: boolean; skipInitialization?: boolean; ... } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => ProfileOptions` - Converts deploy profile options into wallet-level profile options.
+- `convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(options: DeployOptions<W>) => SendOptions<unknown>` - Converts DeployOptions to SendOptions, stripping out the returnReceipt flag if present.
+- `convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions) => SimulateOptions` - Converts deploy simulation options into wallet-level simulate options.
+- `static create<TContract extends ContractBase>(wallet: Wallet, contract: DeployMethodContract<TContract>, instantiation: DeployInstantiationOptions, payload: DeployMethodPayload) => DeployMethod<TContract>` - Constructs the right concrete `DeployMethod` flavor for the supplied instantiation options: - `{ deployer: <addr> }` → BoundDeployMethod - `{ universalDeploy: true }` → UniversalDeployMethod - neither set → PendingDeployMethod Mixing `deployer` and `universalDeploy` throws. Returns the umbrella `DeployMethod<T>` type so callers can use the result generically without narrowing.
+- `getAddress() => Promise<AztecAddress>` - Returns the deployed contract address.
+- `getCachedInstanceOrThrow() => ContractInstanceWithAddress` - Returns the cached resolved instance synchronously, or throws if no instance has been computed yet. Intended for subclasses that run inside a code path where `getInstance()` is guaranteed to have already been awaited (e.g. `request()` invoked it). Not part of the public API.
+- `getDeployerAddress() => AztecAddress` - Universal deploys are anchored at `AztecAddress.ZERO`; the sender does not enter the preimage.
+- `getInitializationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the calls necessary to initialize the contract.
+- `getInstance() => Promise<ContractInstanceWithAddress>` - Builds the contract instance and returns it. The instance is computed once and cached for the lifetime of this DeployMethod; subsequent calls return the same instance. On a PendingDeployMethod this throws unless a prior `send` / `simulate` / `profile` call has already locked the deployer — otherwise the resolved address could silently differ from the eventually-deployed one.
+- `getPartialAddress() => Promise<Fr>` - Returns the partial address for this deployment.
+- `getPublicationExecutionPayload(options?: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns an execution payload for: - publication of the contract class and - publication of the contract instance to enable public execution depending on the provided options.
+- `lockDeployer(_from: AztecAddress | "NO_FROM" | undefined) => void` - Universal deploys accept any sender, including `NO_FROM` / `undefined`.
+- `profile(options: RequestInteractionOptions & { skipClassPublication?: boolean; skipInitialization?: boolean; ... } & Pick<SendInteractionOptionsWithoutWait, "fee" | "from" | "additionalScopes"> & Omit<SendInteractionOptions<undefined>, "fee"> & { fee?: SimulationInteractionFeeOptions; includeMetadata?: boolean; ... } & { profileMode: "gates" | "execution-steps" | "full"; skipProofGeneration?: boolean }) => Promise<TxProfileResult>` - Simulate a deployment and profile the gate count for each function in the transaction.
+- `register() => Promise<TContract>` - Adds this contract to the wallet and returns the Contract object.
+- `request(options: RequestDeployOptions) => Promise<ExecutionPayload>` - Returns the execution payload that allows this operation to happen on chain. Requires the deployer to be known — call `getDeployerAddress()` first; on a `PendingDeployMethod` this throws unless a prior `send` / `simulate` / `profile` has already locked the deployer.
+- `send(options: DeployOptionsWithoutWait) => Promise<DeployResultMined<TContract>>` - Send a contract deployment transaction (initialize and/or publish) using the provided options. By default, waits for the transaction to be mined and returns the deployed contract instance.
+- `simulate(options: SimulateDeployOptions) => Promise<SimulationResult>` - Simulate the deployment
+- `with(options: { authWitnesses?: AuthWitness[]; capsules?: Capsule[]; extraHashedArgs?: HashedValues[] }) => DeployMethod<TContract>` - Augments this DeployMethod with additional metadata, such as authWitnesses and capsules. The deployer lock is preserved: a Pending that has not yet been locked stays Pending; a Pending that has already locked, along with Owned and Universal, returns the matching locked flavor so the cloned method deploys at the same address as `this`.
+
 ## Interfaces
 
 ### AccountContract
@@ -1581,9 +1635,15 @@ type DefaultWaitOpts = WaitOpts
 
 ### DeployAccountOptions
 ```typescript
-type DeployAccountOptions = DeployAccountOptionsWithoutWait & { wait?: W }
+type DeployAccountOptions = DeployOptionsWithoutWait & { wait?: W }
 ```
-The configuration options for the send/prove methods. Omits: - The contractAddressSalt, since for account contracts that is fixed in the constructor. - UniversalDeployment flag, since account contracts are always deployed with it set to true
+The configuration options for the send/prove methods.
+
+### DeployInstantiationOptions
+```typescript
+type DeployInstantiationOptions = unknown
+```
+Inputs that determine the contract's deployment address. `salt` and `publicKeys` are optional and default to a random Fr and `PublicKeys.default()` respectively. `deployer` and `universalDeploy` are mutually exclusive and both optional: - If neither is supplied, the deployer is locked lazily on the first `send` / `simulate` / `profile` call from `options.from` (NO_FROM/undefined → universal). This preserves the ergonomics of `MyContract.deploy(wallet, ...args).send({ from: alice })`. - If `deployer` or `universalDeploy: true` is supplied, the deployer is locked at construction. Once locked, the deployer cannot change. Subsequent calls with a `from` that would imply a different deployer throw — except when locked to `AztecAddress.ZERO` (universal), which is compatible with any sender.
 
 ### DeployInteractionWaitOptions
 ```typescript
@@ -1790,9 +1850,9 @@ Represents a user public key.
 
 ### RequestDeployOptions
 ```typescript
-type RequestDeployOptions = RequestInteractionOptions & { contractAddressSalt?: Fr; deployer?: AztecAddress; ... }
+type RequestDeployOptions = RequestInteractionOptions & { skipClassPublication?: boolean; skipInitialization?: boolean; ... }
 ```
-Options for deploying a contract on the Aztec network. Allows specifying a contract address salt and different options to tweak contract publication and initialization
+Options for deploying a contract on the Aztec network. Controls publication and registration policy for this deployment.
 
 ### RequestInteractionOptions
 ```typescript

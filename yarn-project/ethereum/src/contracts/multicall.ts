@@ -1,15 +1,36 @@
-import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
-import { TimeoutError } from '@aztec/foundation/error';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 
-import { type Address, type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multicall3Abi } from 'viem';
+import {
+  type Abi,
+  type Address,
+  type BlockOverrides,
+  type Hex,
+  type RequiredBy,
+  type StateOverride,
+  type TransactionReceipt,
+  decodeFunctionResult,
+  encodeFunctionData,
+  multicall3Abi,
+} from 'viem';
 
 import type { L1BlobInputs, L1TxConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from '../types.js';
-import { FormattedViemError, formatViemError } from '../utils.js';
-import { RollupContract } from './rollup.js';
+import { tryDecodeRevertReason } from '../utils.js';
 
 export const MULTI_CALL_3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11' as const;
+
+/**
+ * Thrown by `Multicall3.forward` when the forwarder transaction lands but the receipt reports a
+ * reverted status. This is not expected (aggregate3 uses allowFailure: true), so callers should
+ * treat it as a fatal on-chain failure rather than retrying on a different publisher.
+ */
+export class MulticallForwarderRevertedError extends Error {
+  constructor(public readonly receipt: TransactionReceipt) {
+    super(`Multicall3 forwarder tx reverted: ${receipt.transactionHash}`);
+    this.name = 'MulticallForwarderRevertedError';
+  }
+}
 
 /** ABI fragment for aggregate3Value — not included in viem's multicall3Abi. */
 export const aggregate3ValueAbi = [
@@ -44,116 +65,169 @@ export const aggregate3ValueAbi = [
   },
 ] as const;
 
+/** A single call to embed inside an aggregate3 simulation. The abi is used to decode revert reasons. */
+export type SimulateAggregate3Request = {
+  to: Address;
+  data: Hex;
+  /** Optional ABI used to decode the revert reason if this entry reverts. */
+  abi?: Abi;
+};
+
+export type SimulateAggregate3EntryResult = {
+  success: boolean;
+  /** Decoded revert reason text when `success === false` and a request abi was provided. */
+  revertReason?: string;
+  /** Raw return data hex. `'0x'` for successful entries with void return. */
+  returnData: Hex;
+};
+
+/**
+ * Outcome of a bundle simulation.
+ * - `decoded`: eth_simulateV1 ran and produced a per-entry Result[]. Use `entries` for filtering.
+ * - `fallback`: the node does not support eth_simulateV1; `fallbackGasEstimate` was returned and no
+ *    per-entry info is available. Caller should send the bundle as-is with a conservative gas cap.
+ */
+export type SimulateAggregate3Result =
+  | { kind: 'decoded'; entries: SimulateAggregate3EntryResult[]; gasUsed: bigint }
+  | { kind: 'fallback'; gasUsed: bigint };
+
+export type SimulateAggregate3Options = {
+  blockOverrides?: BlockOverrides<bigint, number>;
+  stateOverrides?: StateOverride;
+  /**
+   * If set, append a state override that fakes the sender's balance during the simulation so a
+   * low or zero balance does not cause the simulate to fail with insufficient funds. The fake
+   * balance is applied to `l1TxUtils.getSenderAddress()`.
+   */
+  fakeSenderBalance?: bigint;
+  /** Gas cap to pass on the simulate call itself (defaults to viem's behavior). */
+  gas?: bigint;
+  /** When eth_simulateV1 is unavailable, fall back to this gas estimate instead of throwing. */
+  fallbackGasEstimate?: bigint;
+};
+
 export class Multicall3 {
-  static async forward(
+  /**
+   * Returns true iff Multicall3 bytecode is deployed at MULTI_CALL_3_ADDRESS. An empty result from
+   * a non-existent contract would otherwise silently validate any bundle that uses Multicall3.
+   */
+  static async hasCode(l1TxUtils: L1TxUtils): Promise<boolean> {
+    const code = await l1TxUtils.getCode(EthAddress.fromString(MULTI_CALL_3_ADDRESS));
+    return !!code && code !== '0x';
+  }
+
+  /**
+   * Simulates an aggregate3 call composed of the given requests via eth_simulateV1 and decodes the
+   * per-entry Result[]. Entries that revert are returned with a decoded revertReason (if the request
+   * provided an abi).
+   *
+   * Use this to pre-validate a bundle before sending it through `Multicall3.forward`. The caller can
+   * drop reverted entries from the bundle and re-simulate with the reduced list to get an accurate
+   * `gasUsed`.
+   */
+  static async simulateAggregate3(
+    requests: SimulateAggregate3Request[],
+    l1TxUtils: L1TxUtils,
+    opts: SimulateAggregate3Options = {},
+  ): Promise<SimulateAggregate3Result> {
+    const calldata = encodeFunctionData({
+      abi: multicall3Abi,
+      functionName: 'aggregate3',
+      args: [
+        requests.map(r => ({
+          target: r.to,
+          callData: r.data,
+          allowFailure: true,
+        })),
+      ],
+    });
+
+    const stateOverrides: StateOverride = [...(opts.stateOverrides ?? [])];
+    if (opts.fakeSenderBalance !== undefined) {
+      stateOverrides.push({
+        address: l1TxUtils.getSenderAddress().toString(),
+        balance: opts.fakeSenderBalance,
+      });
+    }
+
+    const simResult = await l1TxUtils.simulate(
+      { to: MULTI_CALL_3_ADDRESS, data: calldata, gas: opts.gas },
+      opts.blockOverrides,
+      stateOverrides,
+      multicall3Abi,
+      { fallbackGasEstimate: opts.fallbackGasEstimate },
+    );
+
+    if (simResult.result === '0x') {
+      return { kind: 'fallback', gasUsed: simResult.gasUsed };
+    }
+
+    const decoded = decodeFunctionResult({
+      abi: multicall3Abi,
+      functionName: 'aggregate3',
+      data: simResult.result,
+    }) as readonly { success: boolean; returnData: `0x${string}` }[];
+
+    const entries: SimulateAggregate3EntryResult[] = decoded.map((entry, i) => {
+      if (entry.success) {
+        return { success: true, returnData: entry.returnData };
+      }
+      const abi = requests[i].abi;
+      const revertReason = abi ? tryDecodeRevertReason(entry.returnData, abi) : undefined;
+      return { success: false, returnData: entry.returnData, revertReason };
+    });
+
+    return { kind: 'decoded', entries, gasUsed: simResult.gasUsed };
+  }
+
+  /**
+   * Sends a batch of requests through aggregate3. Individual calls may fail (allowFailure: true),
+   * but the top-level multicall is expected to land successfully. Throws if the send fails or if
+   * the receipt reports a reverted status.
+   */
+  static async forward<TOptGasLimitRequired extends boolean>(
     requests: L1TxRequest[],
     l1TxUtils: L1TxUtils,
-    gasConfig: L1TxConfig | undefined,
+    gasConfig: TOptGasLimitRequired extends true ? RequiredBy<L1TxConfig, 'gasLimit'> : L1TxConfig | undefined,
     blobConfig: L1BlobInputs | undefined,
-    rollupAddress: Hex,
-    logger: Logger,
-    opts: { revertOnFailure?: boolean } = {},
+    opts: { gasLimitRequired?: TOptGasLimitRequired } = {},
   ) {
-    requests = requests.filter(request => request.to !== null);
-    const args = requests.map(r => ({
-      target: r.to!,
-      callData: r.data!,
-      allowFailure: !opts.revertOnFailure,
-    }));
-    const forwarderFunctionData: Required<EncodeFunctionDataParameters<typeof multicall3Abi, 'aggregate3'>> = {
+    if (opts.gasLimitRequired && !gasConfig?.gasLimit) {
+      throw new Error('Multicall gasLimit is required when gasLimitRequired is true');
+    }
+
+    const args = requests
+      .filter(request => request.to !== null)
+      .map(r => ({
+        target: r.to!,
+        callData: r.data!,
+        allowFailure: true,
+      }));
+    const encodedForwarderData = encodeFunctionData({
       abi: multicall3Abi,
       functionName: 'aggregate3',
       args: [args],
-    };
+    });
 
-    const encodedForwarderData = encodeFunctionData(forwarderFunctionData);
-    try {
-      const { receipt, state } = await l1TxUtils.sendAndMonitorTransaction(
-        {
-          to: MULTI_CALL_3_ADDRESS,
-          data: encodedForwarderData,
-          abi: multicall3Abi,
-        },
-        gasConfig,
-        blobConfig,
-      );
+    const { receipt } = await l1TxUtils.sendAndMonitorTransaction(
+      {
+        to: MULTI_CALL_3_ADDRESS,
+        data: encodedForwarderData,
+        abi: multicall3Abi,
+      },
+      gasConfig,
+      blobConfig,
+    );
 
-      if (receipt.status === 'success') {
-        const stats = await l1TxUtils.getTransactionStats(receipt.transactionHash);
-        return { receipt, stats };
-      } else {
-        logger.error('Forwarder transaction failed', undefined, { receipt });
-
-        const args = {
-          ...forwarderFunctionData,
-          address: MULTI_CALL_3_ADDRESS,
-        };
-
-        let errorMsg: string | undefined;
-
-        if (blobConfig) {
-          const maxFeePerBlobGas = blobConfig.maxFeePerBlobGas ?? state.gasPrice.maxFeePerBlobGas;
-          if (maxFeePerBlobGas === undefined) {
-            errorMsg = 'maxFeePerBlobGas is required to get the error message';
-          } else {
-            logger.debug('Trying to get error from reverted tx with blob config');
-            errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(
-              encodedForwarderData,
-              args,
-              {
-                blobs: blobConfig.blobs,
-                kzg: blobConfig.kzg,
-                maxFeePerBlobGas,
-              },
-              [
-                {
-                  address: rollupAddress,
-                  stateDiff: [
-                    {
-                      slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true),
-                      value: toPaddedHex(0n, true),
-                    },
-                  ],
-                },
-              ],
-            );
-          }
-        } else {
-          logger.debug('Trying to get error from reverted tx without blob config');
-          errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(encodedForwarderData, args, undefined, []);
-        }
-
-        return { receipt, errorMsg };
-      }
-    } catch (err) {
-      if (err instanceof TimeoutError) {
-        throw err;
-      }
-
-      for (const request of requests) {
-        logger.debug('Simulating request', { request });
-        const result = await l1TxUtils
-          .simulate(request, undefined, [
-            {
-              address: rollupAddress,
-              stateDiff: [
-                { slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true), value: toPaddedHex(0n, true) },
-              ],
-            },
-          ])
-          .catch(err => formatViemError(err, request.abi));
-        if (result instanceof FormattedViemError) {
-          logger.error('Found error in simulation', result, {
-            to: request.to ?? 'null',
-            data: request.data,
-          });
-
-          return result;
-        }
-      }
-      logger.warn('Failed to get error from reverted tx', { err });
-      throw err;
+    // This shouldn't happen. Any failure in individual calls is swallowed by forward since we set
+    // allowFailure to true for all calls, so a reverted status here would indicate a problem with
+    // the Multicall3 contract itself or the forwarder transaction (such as an out-of-gas).
+    if (receipt.status !== 'success') {
+      throw new MulticallForwarderRevertedError(receipt);
     }
+
+    const stats = await l1TxUtils.getTransactionStats(receipt.transactionHash);
+    return { receipt, stats, multicallData: encodedForwarderData };
   }
 
   /** Batch multiple value transfers into a single aggregate3Value call on Multicall3. */

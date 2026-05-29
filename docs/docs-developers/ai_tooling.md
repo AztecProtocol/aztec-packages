@@ -42,7 +42,7 @@ This is an Aztec smart contract project. Always use the `aztec` CLI wrapper inst
 
 ## Version Compatibility
 
-The Aztec developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version (used by operators to run the network). For example, aztec-nr `4.2.0-aztecnr-rc.2` is compatible with node version `4.1.2`. Check the [Networks page](https://docs.aztec.network/networks) for current network versions. When in doubt, use the version from the developer docs you are reading — it is the correct SDK version for contract development on that network.
+The Aztec developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version (used by operators to run the network). Check the [Networks page](https://docs.aztec.network/networks) for current network versions. When in doubt, use the version from the developer docs you are reading, it is the correct SDK version for contract development on that network.
 
 ## Hashing: Default to Poseidon2
 

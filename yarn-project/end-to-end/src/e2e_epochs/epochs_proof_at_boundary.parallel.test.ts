@@ -172,7 +172,8 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
   // Tighter happy-path bound: the proof must land BEFORE the boundary slot's pipelined build kicks
   // off. With pipelining, the boundary slot's build starts at the start of the previous L2 slot
   // (i.e. boundaryTs - L2_SLOT_DURATION_IN_S). If the proof's L1 block is strictly earlier than
-  // that, the build at the boundary observes `tips.proven` already advanced and skips the override.
+  // that, the build at the boundary observes `tips.proven` already advanced so the proven pin is
+  // defensive only (no prune is due) and the boundary checkpoint publishes on the happy path.
   const assertProofMinedBeforeBoundaryBuild = async (proofReceipt: { blockNumber: bigint }, boundaryTs: bigint) => {
     const proofBlock = await test.l1Client.getBlock({ blockNumber: proofReceipt.blockNumber });
     expect(proofBlock.timestamp).toBeLessThan(boundaryTs - BigInt(test.L2_SLOT_DURATION_IN_S));
@@ -201,8 +202,8 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
 
   it('proof lands during slot build and checkpoint succeeds at boundary', async () => {
     // The proof for the unproven epoch lands AFTER the boundary slot's pipelined build starts but
-    // BEFORE the publisher's preCheck. The proven-override lets the boundary checkpoint build
-    // before the proof has landed; the preCheck succeeds because the proof arrives in time.
+    // BEFORE the publisher's preCheck. The proven pin lets the boundary checkpoint build before
+    // the proof has landed; the preCheck succeeds because the proof arrives in time.
     await setupTest({ aztecProofSubmissionEpochs: 1 });
 
     const sequencers = nodes.map(node => node.getSequencer()!);
@@ -238,17 +239,16 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     expect(boundaryPublished).toBeDefined();
 
     const boundaryPreparing = events.preparing.filter(p => Number(p.targetSlot) === Number(boundarySlot));
-    expect(boundaryPreparing.some(p => p.provenOverride !== undefined)).toBe(true);
     expect(boundaryPreparing.some(p => p.hadProposedParent)).toBe(true);
 
     expect(Number(test.monitor.checkpointNumber)).toBeGreaterThanOrEqual(Number(boundaryPublished!.checkpoint));
     logger.warn(`Test passed. Final tip checkpoint=${test.monitor.checkpointNumber}`);
   });
 
-  it('proof lands well before deadline and checkpoint succeeds without override', async () => {
+  it('proof lands well before deadline and checkpoint succeeds at boundary', async () => {
     // Sanity check: the prover runs on its natural schedule, so the proof lands well before the
-    // boundary epoch. By the time the boundary slot is built `tips.proven` is already advanced,
-    // `isPruneDueAtSlot` returns false, and the proven-override does not fire.
+    // boundary epoch. By the time the boundary slot is built `tips.proven` is already advanced
+    // and the proven pin is defensive only — but the boundary checkpoint must still publish.
     await setupTest({ aztecProofSubmissionEpochs: 1 });
 
     const sequencers = nodes.map(node => node.getSequencer()!);
@@ -272,15 +272,14 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
 
     const boundaryPreparing = events.preparing.filter(p => Number(p.targetSlot) === Number(boundarySlot));
     expect(boundaryPreparing.some(p => p.hadProposedParent)).toBe(true);
-    expect(boundaryPreparing.every(p => p.provenOverride === undefined)).toBe(true);
 
     expect(Number(test.monitor.checkpointNumber)).toBeGreaterThanOrEqual(Number(boundaryPublished!.checkpoint));
   });
 
   it('proof never lands so no checkpoint submission is attempted', async () => {
-    // The boundary slot's build applies the proven-override, but the publisher's preCheck rejects
-    // the propose tx because the proof never landed. After the prune fires on a later slot, a
-    // fresh propose advances the chain and a checkpoint is published in the new epoch.
+    // The boundary slot's build applies the proven pin, but the publisher's preCheck rejects the
+    // propose tx because the proof never landed. After the prune fires on a later slot, a fresh
+    // propose advances the chain and a checkpoint is published in the new epoch.
     await setupTest({ aztecProofSubmissionEpochs: 1 });
 
     const sequencers = nodes.map(node => node.getSequencer()!);
@@ -300,7 +299,6 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
 
     const boundaryPreparing = events.preparing.filter(p => Number(p.targetSlot) === Number(boundarySlot));
     expect(boundaryPreparing.some(p => p.hadProposedParent)).toBe(true);
-    expect(boundaryPreparing.some(p => p.provenOverride !== undefined)).toBe(true);
 
     // After the boundary fails, a subsequent slot's propose tx triggers the on-chain prune (since
     // the proof never landed and the deadline has expired) and resets `tips.pending`. The fresh
@@ -314,7 +312,7 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
 
   it('proof lands without a proposed parent and boundary checkpoint succeeds', async () => {
     // The slot before the boundary is paused so the boundary slot's build does not see a proposed
-    // parent. The proof still lands well before the deadline, so the proven-override never fires
+    // parent. The proof still lands well before the deadline, so the proven pin is defensive only
     // and the boundary checkpoint is published normally.
     await setupTest({ aztecProofSubmissionEpochs: 1 });
 
@@ -345,14 +343,13 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     const boundaryPreparing = events.preparing.filter(p => Number(p.targetSlot) === Number(boundarySlot));
     expect(boundaryPreparing.length).toBeGreaterThan(0);
     expect(boundaryPreparing.every(p => !p.hadProposedParent)).toBe(true);
-    expect(boundaryPreparing.every(p => p.provenOverride === undefined)).toBe(true);
 
     expect(Number(test.monitor.checkpointNumber)).toBeGreaterThanOrEqual(Number(boundaryPublished!.checkpoint));
   });
 
   it('proof never lands without a proposed parent so no checkpoint submission is attempted', async () => {
-    // Same as the no-parent variant above but with the proof never landing. The proven-override
-    // fires (no parent + prune is due) but the publisher's preCheck rejects the propose, so no
+    // Same as the no-parent variant above but with the proof never landing. The proven pin fires
+    // (no parent + prune is due) but the publisher's preCheck rejects the propose, so no
     // checkpoint is published for the boundary slot.
     await setupTest({ aztecProofSubmissionEpochs: 1 });
 
@@ -378,7 +375,6 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     const boundaryPreparing = events.preparing.filter(p => Number(p.targetSlot) === Number(boundarySlot));
     expect(boundaryPreparing.length).toBeGreaterThan(0);
     expect(boundaryPreparing.every(p => !p.hadProposedParent)).toBe(true);
-    expect(boundaryPreparing.some(p => p.provenOverride !== undefined)).toBe(true);
 
     // See the parent test for the reasoning: a subsequent slot's propose triggers the on-chain
     // prune in-tx, so the first post-boundary checkpoint lands within a couple of slots.

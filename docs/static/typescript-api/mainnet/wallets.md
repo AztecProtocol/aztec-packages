@@ -1,6 +1,6 @@
 # @aztec/wallets
 
-Version: 4.2.0
+Version: v4.3.0
 
 ## Quick Import Reference
 
@@ -127,9 +127,14 @@ new NodeEmbeddedWallet(pxe: PXE, aztecNode: AztecNode, walletDB: WalletDB, accou
 
 ### WalletDB
 
+**Constructor**
+```typescript
+new WalletDB(store: AztecAsyncKVStore, userLog: LogFn)
+```
+
 **Methods**
+- `close() => Promise<void>`
 - `deleteAccount(address: AztecAddress) => Promise<void>`
-- `static init(store: AztecAsyncKVStore, userLog: LogFn) => WalletDB`
 - `listAccounts() => Promise<Aliased<AztecAddress>[]>`
 - `listSenders() => Promise<Aliased<AztecAddress>[]>`
 - `retrieveAccount(address: string | AztecAddress) => Promise<{ address: string | AztecAddress; salt: Fr; ... }>`

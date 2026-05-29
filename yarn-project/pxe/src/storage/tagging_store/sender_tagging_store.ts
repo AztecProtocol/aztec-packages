@@ -1,5 +1,5 @@
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import { ExtendedDirectionalAppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
@@ -218,7 +218,7 @@ export class SenderTaggingStore implements StagedStore {
    * [startIndex, endIndex). Returns an empty array if no pending indexes exist in the range.
    */
   getTxHashesOfPendingIndexes(
-    secret: ExtendedDirectionalAppTaggingSecret,
+    secret: AppTaggingSecret,
     startIndex: number,
     endIndex: number,
     jobId: string,
@@ -237,7 +237,7 @@ export class SenderTaggingStore implements StagedStore {
    * @param secret - The secret to get the last finalized index for.
    * @returns The last (highest) finalized index for the given secret.
    */
-  getLastFinalizedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
+  getLastFinalizedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
     return this.#store.transactionAsync(() => this.#readLastFinalizedIndex(jobId, secret.toString()));
   }
 
@@ -247,7 +247,7 @@ export class SenderTaggingStore implements StagedStore {
    * @param secret - The directional app tagging secret to query the last used index for.
    * @returns The last used index.
    */
-  getLastUsedIndex(secret: ExtendedDirectionalAppTaggingSecret, jobId: string): Promise<number | undefined> {
+  getLastUsedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
     const secretStr = secret.toString();
 
     return this.#store.transactionAsync(async () => {
@@ -449,7 +449,7 @@ export class SenderTaggingStore implements StagedStore {
       const pendingEntry = matchingEntries[0];
 
       // Expand each matching entry's range and recompute siloed tags for each index.
-      const extendedSecret = ExtendedDirectionalAppTaggingSecret.fromString(secret);
+      const extendedSecret = AppTaggingSecret.fromString(secret);
       let highestSurvivingIndex: number | undefined;
 
       for (let index = pendingEntry.lowestIndex; index <= pendingEntry.highestIndex; index++) {
