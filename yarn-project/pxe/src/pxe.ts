@@ -257,8 +257,6 @@ export class PXE {
       node,
       store,
       canonicalBlockStore,
-      noteStore,
-      privateEventStore,
       l2TipsStore,
       contractSyncService,
       config,

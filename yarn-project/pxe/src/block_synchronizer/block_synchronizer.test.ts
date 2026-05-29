@@ -20,19 +20,13 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { CanonicalBlockStore } from '../storage/canonical_block_store/index.js';
-import { NoteStore } from '../storage/note_store/note_store.js';
-import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
-
-const alwaysCanonical = { isCanonical: () => true };
 
 describe('BlockSynchronizer', () => {
   let synchronizer: BlockSynchronizer;
   let store: AztecAsyncKVStore;
   let tipsStore: L2TipsKVStore;
   let anchorBlockStore: CanonicalBlockStore;
-  let noteStore: NoteStore;
-  let privateEventStore: PrivateEventStore;
   let aztecNode: MockProxy<AztecNode>;
   let blockStream: MockProxy<L2BlockStream>;
   let contractSyncService: MockProxy<ContractSyncService>;
@@ -44,16 +38,7 @@ describe('BlockSynchronizer', () => {
   };
 
   const createSynchronizer = (config: Partial<BlockSynchronizerConfig> = {}) => {
-    return new TestSynchronizer(
-      aztecNode,
-      store,
-      anchorBlockStore,
-      noteStore,
-      privateEventStore,
-      tipsStore,
-      contractSyncService,
-      config,
-    );
+    return new TestSynchronizer(aztecNode, store, anchorBlockStore, tipsStore, contractSyncService, config);
   };
 
   beforeEach(async () => {
@@ -63,8 +48,6 @@ describe('BlockSynchronizer', () => {
     tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
     anchorBlockStore = new CanonicalBlockStore(store);
     await anchorBlockStore.load();
-    noteStore = new NoteStore(store, alwaysCanonical);
-    privateEventStore = new PrivateEventStore(store, alwaysCanonical);
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });
@@ -131,6 +114,7 @@ describe('BlockSynchronizer', () => {
         indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
       };
       aztecNode.getBlockData.mockResolvedValue(genesisBlockData);
+      aztecNode.getBlockNumber.mockResolvedValue(BlockNumber(0));
 
       // Start a sync (don't await)
       const syncPromise = synchronizer.sync();
@@ -152,6 +136,79 @@ describe('BlockSynchronizer', () => {
 
       expect(stopped).toBe(true);
       expect(blockStream.stop).toHaveBeenCalled();
+    });
+  });
+
+  describe('canonical map', () => {
+    it('records canonical hashes for all blocks in a blocks-added event', async () => {
+      const blocks = await timesParallel(3, i => L2Block.random(BlockNumber(i + 1)));
+      await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });
+
+      for (const b of blocks) {
+        expect(anchorBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
+          true,
+        );
+      }
+    });
+
+    it('clears orphaned suffix on chain-pruned and updates the anchor header', async () => {
+      // Pre-record blocks 1..5
+      const blocks = await timesParallel(5, i => L2Block.random(BlockNumber(i + 1)));
+      await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });
+
+      // The block at common ancestor 3 (hash) is what the prune event reports
+      const commonAncestorBlock = blocks[2]; // blockNumber 3
+      aztecNode.getBlock.mockImplementation(async (param: any) => {
+        if (
+          param instanceof BlockHash &&
+          param.equals(Fr.fromString(await commonAncestorBlock.hash().then(h => h.toString())))
+        ) {
+          return {
+            header: commonAncestorBlock.header,
+            archive: commonAncestorBlock.archive,
+            hash: await commonAncestorBlock.hash(),
+            checkpointNumber: commonAncestorBlock.checkpointNumber,
+            indexWithinCheckpoint: commonAncestorBlock.indexWithinCheckpoint,
+            number: commonAncestorBlock.number,
+          } as any;
+        }
+        return undefined;
+      });
+
+      const commonAncestorHash = (await commonAncestorBlock.hash()).toString();
+      await synchronizer.handleBlockStreamEvent({
+        type: 'chain-pruned',
+        block: { number: BlockNumber(3), hash: commonAncestorHash },
+        checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      });
+
+      // Heights above 3 should no longer be canonical
+      for (const b of blocks.filter(b => b.number > 3)) {
+        expect(anchorBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
+          false,
+        );
+      }
+      // Heights at or below 3 should still be canonical
+      for (const b of blocks.filter(b => b.number <= 3)) {
+        expect(anchorBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
+          true,
+        );
+      }
+      // The new anchor header should be the common ancestor block
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      expect(obtainedHeader.equals(commonAncestorBlock.header)).toBe(true);
+    });
+
+    it('chain-finalized advances the finality tracker without changing the floor', async () => {
+      const initialFloor = anchorBlockStore.getFloor();
+
+      await synchronizer.handleBlockStreamEvent({
+        type: 'chain-finalized',
+        block: { number: BlockNumber(7), hash: '0xfin' },
+      });
+
+      expect(anchorBlockStore.getHighestFinalized()).toBe(7);
+      expect(anchorBlockStore.getFloor()).toBe(initialFloor);
     });
   });
 
