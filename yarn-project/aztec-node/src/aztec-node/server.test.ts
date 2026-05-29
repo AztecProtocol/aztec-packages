@@ -628,7 +628,9 @@ describe('aztec node', () => {
         // rather than syncing to bare latest height and racing the snapshot read.
         const blockHash = BlockHash.random();
         l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) =>
-          Promise.resolve(query && 'hash' in query ? BlockNumber(3) : lastBlockNumber)) as L2BlockSource['getBlockNumber']);
+          Promise.resolve(
+            query && 'hash' in query ? BlockNumber(3) : lastBlockNumber,
+          )) as L2BlockSource['getBlockNumber']);
         snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash);
 
         await node.getWorldState(blockHash);
