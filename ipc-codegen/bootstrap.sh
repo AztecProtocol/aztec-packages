@@ -59,17 +59,21 @@ function test_cmds {
     done
   done
 
-  # SHM matrix — restricted to *→ts cells. This is the only direction that
-  # the ipc-runtime NAPI addon directly exercises (TS is the SHM client;
-  # ipc-runtime/ts has no shm_server). The cpp/rust/zig SHM clients exist
-  # but the MPSC-SHM cross-impl path between them is a separate known
-  # surface that is not what this matrix is here to cover.
-  # Only emit when the NAPI addon has been built — ipc-runtime/bootstrap.sh
-  # produces it under ts/build/<arch>-<os>/.
+  # SHM matrix. Argument order is server then client. TS is only covered as a
+  # client because ipc-runtime/ts has no SHM server.
+  local shm_server_langs=(rust zig cpp)
+  local native_shm_client_langs=(rust zig cpp)
+  for server in "${shm_server_langs[@]}"; do
+    for client in "${native_shm_client_langs[@]}"; do
+      echo "$prefix $script matrix $server $client shm"
+    done
+  done
+
+  # TS SHM client coverage requires the NAPI addon built by
+  # ipc-runtime/bootstrap.sh under ts/build/<arch>-<os>/.
   local napi_dir="$(cd ../ipc-runtime/ts 2>/dev/null && pwd)/build"
   if [ -d "$napi_dir" ] && compgen -G "$napi_dir/*/ipc_runtime_napi.node" > /dev/null; then
-    for server in "${matrix_langs[@]}"; do
-      [ "$server" = "ts" ] && continue
+    for server in "${shm_server_langs[@]}"; do
       echo "$prefix $script matrix $server ts shm"
     done
   fi

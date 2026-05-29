@@ -5,10 +5,12 @@
 #include "shm/spsc_shm.hpp"
 #include "shm_common.hpp"
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 
 namespace ipc {
@@ -40,20 +42,30 @@ class MpscShmClient : public IpcClient {
             return true; // Already connected
         }
 
-        try {
-            // Connect as producer to the MPSC request system
-            producer_ = MpscProducer::connect(base_name_ + "_req", client_id_);
+        constexpr size_t max_attempts = 100;
+        constexpr auto retry_delay = std::chrono::milliseconds(10);
 
-            // Connect to our dedicated SPSC response ring
-            std::string resp_name = base_name_ + "_resp_" + std::to_string(client_id_);
-            response_ring_ = SpscShm::connect(resp_name);
+        for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
+            try {
+                // Connect as producer to the MPSC request system
+                producer_ = MpscProducer::connect(base_name_ + "_req", client_id_);
 
-            return true;
-        } catch (...) {
-            producer_.reset();
-            response_ring_.reset();
-            return false;
+                // Connect to our dedicated SPSC response ring
+                std::string resp_name = base_name_ + "_resp_" + std::to_string(client_id_);
+                response_ring_ = SpscShm::connect(resp_name);
+
+                return true;
+            } catch (...) {
+                producer_.reset();
+                response_ring_.reset();
+                if (attempt + 1 == max_attempts) {
+                    return false;
+                }
+                std::this_thread::sleep_for(retry_delay);
+            }
         }
+
+        return false;
     }
 
     bool send(const void* data, size_t len, uint64_t timeout_ns) override

@@ -1,11 +1,13 @@
 #include "ipc_runtime/socket_client.hpp"
 #include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <cstring>
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/un.h>
+#include <thread>
 #include <unistd.h>
 #include <utility>
 
@@ -26,25 +28,35 @@ bool SocketClient::connect()
         return true; // Already connected
     }
 
-    // Create socket
-    fd_ = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd_ < 0) {
-        return false;
-    }
+    constexpr size_t max_attempts = 100;
+    constexpr auto retry_delay = std::chrono::milliseconds(10);
 
-    // Connect to server
-    struct sockaddr_un addr;
-    std::memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    std::strncpy(addr.sun_path, socket_path_.c_str(), sizeof(addr.sun_path) - 1);
+    for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
+        // Create socket
+        fd_ = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd_ < 0) {
+            return false;
+        }
 
-    if (::connect(fd_, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
+        // Connect to server
+        struct sockaddr_un addr;
+        std::memset(&addr, 0, sizeof(addr));
+        addr.sun_family = AF_UNIX;
+        std::strncpy(addr.sun_path, socket_path_.c_str(), sizeof(addr.sun_path) - 1);
+
+        if (::connect(fd_, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) == 0) {
+            return true;
+        }
+
         ::close(fd_);
         fd_ = -1;
-        return false;
+        if (attempt + 1 == max_attempts) {
+            return false;
+        }
+        std::this_thread::sleep_for(retry_delay);
     }
 
-    return true;
+    return false;
 }
 
 bool SocketClient::send(const void* data, size_t len, uint64_t /*timeout_ns*/)

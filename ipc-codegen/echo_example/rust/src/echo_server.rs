@@ -40,6 +40,7 @@ fn main() {
     let handler = RefCell::new(EchoHandler);
 
     let mut server = IpcServer::from_path(socket_path).expect("IpcServer::from_path");
+    server.install_default_signal_handlers();
     server.listen().expect("IpcServer::listen");
 
     server.run(|_client_id, payload| {

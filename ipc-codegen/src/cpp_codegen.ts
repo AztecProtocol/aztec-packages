@@ -192,6 +192,7 @@ ${methods}
 #include "ipc_codegen/throw.hpp"
 #include "ipc_codegen/msgpack_adaptor.hpp"
 
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 
@@ -202,6 +203,10 @@ ${methods}
 #ifndef BB_NO_EXCEPTIONS
 
 namespace ${ns} {
+
+namespace {
+constexpr uint64_t DEFAULT_CALL_TIMEOUT_NS = 1000000000ULL;
+}
 
 ${className}::${className}(const std::string& path)
     : client_(::ipc::make_client(path))
@@ -228,10 +233,10 @@ Resp ${className}::send(Cmd&& cmd) const
     pk.pack(std::forward<Cmd>(cmd));
 
     // Send request, receive response.
-    if (!client_->send(send_buffer.data(), send_buffer.size(), 0 /* no timeout */)) {
+    if (!client_->send(send_buffer.data(), send_buffer.size(), DEFAULT_CALL_TIMEOUT_NS)) {
         throw std::runtime_error("ipc::IpcClient::send failed");
     }
-    auto response_view = client_->receive(0 /* no timeout */);
+    auto response_view = client_->receive(DEFAULT_CALL_TIMEOUT_NS);
     if (response_view.empty()) {
         throw std::runtime_error("Empty response from server");
     }

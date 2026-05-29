@@ -119,6 +119,8 @@ impl std::error::Error for Error {}
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+const DEFAULT_CALL_TIMEOUT_NS: u64 = 1_000_000_000;
+
 // ---------------------------------------------------------------------------
 // IpcServer
 // ---------------------------------------------------------------------------
@@ -258,13 +260,26 @@ impl IpcClient {
     /// Synchronous request/response. Sends `req`, blocks until a reply
     /// arrives, copies it out, releases the runtime's buffer.
     pub fn call(&mut self, req: &[u8]) -> Result<Vec<u8>> {
-        if !unsafe { sys::ipc_client_send(self.inner.as_ptr(), req.as_ptr(), req.len(), 0) } {
+        if !unsafe {
+            sys::ipc_client_send(
+                self.inner.as_ptr(),
+                req.as_ptr(),
+                req.len(),
+                DEFAULT_CALL_TIMEOUT_NS,
+            )
+        } {
             return Err(Error::Send);
         }
         let mut out: *const u8 = std::ptr::null();
         let mut out_len: usize = 0;
-        let status =
-            unsafe { sys::ipc_client_receive(self.inner.as_ptr(), 0, &mut out, &mut out_len) };
+        let status = unsafe {
+            sys::ipc_client_receive(
+                self.inner.as_ptr(),
+                DEFAULT_CALL_TIMEOUT_NS,
+                &mut out,
+                &mut out_len,
+            )
+        };
         if status != sys::IPC_OK || out.is_null() {
             return Err(Error::Receive);
         }
