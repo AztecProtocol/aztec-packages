@@ -54,9 +54,6 @@ class WsdbIpcMerkleDB final : public avm2::simulation::LowLevelMerkleDBInterface
     uint32_t get_checkpoint_id() const override;
 
   private:
-    template <typename T> static std::vector<uint8_t> serialize_to_msgpack(const T& value);
-    template <typename T> static T deserialize_from_msgpack(const std::vector<uint8_t>& bytes);
-
     /** Invalidate the cached tree roots (call after any write operation). */
     void invalidate_tree_roots_cache();
 

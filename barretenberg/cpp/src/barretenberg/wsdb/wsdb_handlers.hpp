@@ -22,16 +22,41 @@ wire::WsdbGetStateReferenceResponse handle_get_state_reference(WsdbRequest& ctx,
 wire::WsdbGetInitialStateReferenceResponse handle_get_initial_state_reference(WsdbRequest& ctx,
                                                                               wire::WsdbGetInitialStateReference&& cmd);
 wire::WsdbGetLeafValueResponse handle_get_leaf_value(WsdbRequest& ctx, wire::WsdbGetLeafValue&& cmd);
-wire::WsdbGetLeafPreimageResponse handle_get_leaf_preimage(WsdbRequest& ctx, wire::WsdbGetLeafPreimage&& cmd);
+wire::WsdbGetPublicDataLeafValueResponse handle_get_public_data_leaf_value(WsdbRequest& ctx,
+                                                                           wire::WsdbGetPublicDataLeafValue&& cmd);
+wire::WsdbGetNullifierLeafValueResponse handle_get_nullifier_leaf_value(WsdbRequest& ctx,
+                                                                        wire::WsdbGetNullifierLeafValue&& cmd);
+wire::WsdbGetPublicDataLeafPreimageResponse handle_get_public_data_leaf_preimage(
+    WsdbRequest& ctx, wire::WsdbGetPublicDataLeafPreimage&& cmd);
+wire::WsdbGetNullifierLeafPreimageResponse handle_get_nullifier_leaf_preimage(WsdbRequest& ctx,
+                                                                              wire::WsdbGetNullifierLeafPreimage&& cmd);
 wire::WsdbGetSiblingPathResponse handle_get_sibling_path(WsdbRequest& ctx, wire::WsdbGetSiblingPath&& cmd);
 wire::WsdbGetBlockNumbersForLeafIndicesResponse handle_get_block_numbers_for_leaf_indices(
     WsdbRequest& ctx, wire::WsdbGetBlockNumbersForLeafIndices&& cmd);
 wire::WsdbFindLeafIndicesResponse handle_find_leaf_indices(WsdbRequest& ctx, wire::WsdbFindLeafIndices&& cmd);
+wire::WsdbFindPublicDataLeafIndicesResponse handle_find_public_data_leaf_indices(
+    WsdbRequest& ctx, wire::WsdbFindPublicDataLeafIndices&& cmd);
+wire::WsdbFindNullifierLeafIndicesResponse handle_find_nullifier_leaf_indices(WsdbRequest& ctx,
+                                                                              wire::WsdbFindNullifierLeafIndices&& cmd);
 wire::WsdbFindLowLeafResponse handle_find_low_leaf(WsdbRequest& ctx, wire::WsdbFindLowLeaf&& cmd);
 wire::WsdbFindSiblingPathsResponse handle_find_sibling_paths(WsdbRequest& ctx, wire::WsdbFindSiblingPaths&& cmd);
+wire::WsdbFindPublicDataSiblingPathsResponse handle_find_public_data_sibling_paths(
+    WsdbRequest& ctx, wire::WsdbFindPublicDataSiblingPaths&& cmd);
+wire::WsdbFindNullifierSiblingPathsResponse handle_find_nullifier_sibling_paths(
+    WsdbRequest& ctx, wire::WsdbFindNullifierSiblingPaths&& cmd);
 wire::WsdbAppendLeavesResponse handle_append_leaves(WsdbRequest& ctx, wire::WsdbAppendLeaves&& cmd);
-wire::WsdbBatchInsertResponse handle_batch_insert(WsdbRequest& ctx, wire::WsdbBatchInsert&& cmd);
-wire::WsdbSequentialInsertResponse handle_sequential_insert(WsdbRequest& ctx, wire::WsdbSequentialInsert&& cmd);
+wire::WsdbAppendPublicDataLeavesResponse handle_append_public_data_leaves(WsdbRequest& ctx,
+                                                                          wire::WsdbAppendPublicDataLeaves&& cmd);
+wire::WsdbAppendNullifierLeavesResponse handle_append_nullifier_leaves(WsdbRequest& ctx,
+                                                                       wire::WsdbAppendNullifierLeaves&& cmd);
+wire::WsdbBatchInsertPublicDataResponse handle_batch_insert_public_data(WsdbRequest& ctx,
+                                                                        wire::WsdbBatchInsertPublicData&& cmd);
+wire::WsdbBatchInsertNullifierResponse handle_batch_insert_nullifier(WsdbRequest& ctx,
+                                                                     wire::WsdbBatchInsertNullifier&& cmd);
+wire::WsdbSequentialInsertPublicDataResponse handle_sequential_insert_public_data(
+    WsdbRequest& ctx, wire::WsdbSequentialInsertPublicData&& cmd);
+wire::WsdbSequentialInsertNullifierResponse handle_sequential_insert_nullifier(
+    WsdbRequest& ctx, wire::WsdbSequentialInsertNullifier&& cmd);
 wire::WsdbUpdateArchiveResponse handle_update_archive(WsdbRequest& ctx, wire::WsdbUpdateArchive&& cmd);
 wire::WsdbCommitResponse handle_commit(WsdbRequest& ctx, wire::WsdbCommit&& cmd);
 wire::WsdbRollbackResponse handle_rollback(WsdbRequest& ctx, wire::WsdbRollback&& cmd);
