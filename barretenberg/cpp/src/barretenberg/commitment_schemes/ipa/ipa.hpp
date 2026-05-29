@@ -655,13 +655,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
-     * @brief Batch verify multiple IPA proofs with a single large SRS MSM.
+     * @brief Batch verify multiple IPA proofs with batched SRS MSMs.
      *
      * @details For N proofs, IPA verification's dominant cost is the SRS MSM (pippenger over poly_length points).
-     * By combining N proofs via random linear combination with challenge \f$\alpha\f$, we replace N separate MSMs with
-     * one.
+     * By combining N proofs via random linear combinations, we replace per-proof MSMs with a constant number of batched
+     * MSMs.
      *
-     * The batch check verifies:
+     * The batch check first verifies that each prover-supplied \f$G_{0,i}\f$ matches the SRS MSM
+     * \f$\langle \vec{s}_i,\vec{G}\rangle\f$ via an independent random linear combination. It then verifies:
      *   \f$\sum \alpha^i C_{0,i} = \langle \sum \alpha^i a_{0,i} \vec{s}_i, \vec{G} \rangle
      *     + (\sum \alpha^i a_{0,i} b_{0,i} u_i) \cdot G\f$
      *
@@ -693,6 +694,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         std::vector<Fr> a_zeros(num_claims);
         std::vector<Fr> b_zeros(num_claims);
         std::vector<Fr> gen_challenges(num_claims);
+        std::vector<Commitment> G_zeros_from_prover(num_claims);
         std::vector<Polynomial<Fr>> s_vecs(num_claims);
 
         for (size_t i = 0; i < num_claims; i++) {
@@ -702,15 +704,22 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             b_zeros[i] = data.b_zero;
             s_vecs[i] = std::move(data.s_vec);
             gen_challenges[i] = data.gen_challenge;
+            G_zeros_from_prover[i] = data.G_zero_from_prover;
             a_zeros[i] = data.a_zero;
         }
 
-        // Phase 2: Batched computation using random challenge alpha
+        // Phase 2: Batched computation using random challenges alpha and beta
         Fr alpha = Fr::random_element();
         std::vector<Fr> alpha_pows(num_claims);
         alpha_pows[0] = Fr::one();
         for (size_t i = 1; i < num_claims; i++) {
             alpha_pows[i] = alpha_pows[i - 1] * alpha;
+        }
+        Fr beta = Fr::random_element();
+        std::vector<Fr> beta_pows(num_claims);
+        beta_pows[0] = Fr::one();
+        for (size_t i = 1; i < num_claims; i++) {
+            beta_pows[i] = beta_pows[i - 1] * beta;
         }
 
         // Combined s_vec: combined_s[j] = \sum \alpha^i * a_zero_i * s_vec_i[j]
@@ -725,6 +734,26 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
+
+        // Bind each prover-supplied G_0 to its transcript-derived s_vec. The single-proof verifier checks
+        // G_0 == <s_vec, SRS>; the batch verifier must enforce the same condition.
+        Polynomial<Fr> combined_g_zero_scalars(poly_length);
+        for (size_t i = 0; i < num_claims; i++) {
+            combined_g_zero_scalars.add_scaled(s_vecs[i], beta_pows[i]);
+        }
+        Commitment recomputed_g_zero_batch = scalar_multiplication::pippenger_unsafe<Curve>(
+            combined_g_zero_scalars, { &srs_elements[0], /*size*/ poly_length });
+
+        GroupElement prover_g_zero_batch = G_zeros_from_prover[0] * beta_pows[0];
+        for (size_t i = 1; i < num_claims; i++) {
+            prover_g_zero_batch += G_zeros_from_prover[i] * beta_pows[i];
+        }
+        GroupElement recomputed_g_zero_batch_element = recomputed_g_zero_batch;
+        if (recomputed_g_zero_batch_element.normalize() != prover_g_zero_batch.normalize()) {
+            info("IPA batch verification failed: G_0 mismatch");
+            return false;
+        }
+
         Commitment G_batch =
             scalar_multiplication::pippenger_unsafe<Curve>(combined_s, { &srs_elements[0], /*size*/ poly_length });
 
