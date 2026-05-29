@@ -828,21 +828,15 @@ export class RPCTranslator {
   public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignMaxNotePackedLen: ForeignCallSingle,
-    foreignMaxEventSerializedLen: ForeignCallSingle,
     foreignScope: ForeignCallSingle,
   ) {
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
-    const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
-    const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
-      maxNotePackedLen,
-      maxEventSerializedLen,
       scope,
     );
 
@@ -1446,5 +1440,14 @@ export class RPCTranslator {
     const nextAppTag = await this.handlerAsPrivate().getNextAppTagAsSender(sender, recipient);
 
     return toForeignCallResult([toSingle(nextAppTag.value)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_prv_getNextConstrainedTaggingIndex(foreignAppSiloedSecret: ForeignCallSingle) {
+    const appSiloedSecret = fromSingle(foreignAppSiloedSecret);
+
+    const index = await this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret);
+
+    return toForeignCallResult([toSingle(new Fr(index))]);
   }
 }

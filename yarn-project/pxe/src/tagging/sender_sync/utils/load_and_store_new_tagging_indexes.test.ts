@@ -1,7 +1,7 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { type AppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
+import { type AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -26,7 +26,7 @@ describe('loadAndStoreNewTaggingIndexes', () => {
   }
 
   beforeAll(async () => {
-    secret = await randomAppTaggingSecret();
+    secret = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
   });
 
   beforeEach(() => {

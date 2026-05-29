@@ -74,9 +74,19 @@ function make_pinned_chonk_state_tmpdir {
   mktemp -d "$PINNED_CHONK_STATE_DIR/${prefix}.XXXXXXXX"
 }
 
-# Canonical extraction directory used by downstream Chonk scripts.
+# Canonical extraction directory for the downloaded pinned inputs. Owned by the
+# barretenberg build (populated once by barretenberg/cpp/bootstrap.sh) and read
+# by every Chonk consumer. Kept under barretenberg/cpp so yarn-project/e2e jobs
+# sharing the checkout never clean it.
 function pinned_chonk_inputs_dir {
-  echo "$(git rev-parse --show-toplevel)/yarn-project/end-to-end/example-app-ivc-inputs-out"
+  echo "$(git rev-parse --show-toplevel)/barretenberg/cpp/chonk-pinned-flows"
+}
+
+# Output directory for live input capture during a refresh (chonk_inputs.sh
+# update / ci-refresh-chonk). Distinct from the read path: capture is produced
+# by the yarn-project/end-to-end stack and only consumed by the upload step.
+function chonk_capture_dir {
+  echo "$(git rev-parse --show-toplevel)/yarn-project/end-to-end/chonk-pinned-flows"
 }
 
 function list_chonk_input_flow_dirs {
@@ -284,7 +294,7 @@ function upload_and_pin_chonk_inputs {
   rm -rf "$state_dir"
 }
 
-export -f pinned_chonk_inputs_url pinned_chonk_inputs_s3_uri pinned_chonk_inputs_dir \
+export -f pinned_chonk_inputs_url pinned_chonk_inputs_s3_uri pinned_chonk_inputs_dir chonk_capture_dir \
           make_pinned_chonk_state_tmpdir list_chonk_input_flow_dirs \
           list_pinned_chonk_input_flows pinned_chonk_input_flow_dir \
           write_pinned_chonk_inputs_marker \

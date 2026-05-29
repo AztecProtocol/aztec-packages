@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `MessageDelivery` API syntax change
+
+`MessageDelivery` variants are now accessed via constructor functions instead of dot notation:
+
+```diff
+- MessageDelivery.OFFCHAIN
++ MessageDelivery::offchain()
+
+- MessageDelivery.ONCHAIN_UNCONSTRAINED
++ MessageDelivery::onchain_unconstrained()
+
+- MessageDelivery.ONCHAIN_CONSTRAINED
++ MessageDelivery::onchain_constrained()
+```
+
 ### [Aztec.js] `ExtendedDirectionalAppTaggingSecret` renamed to `AppTaggingSecret`
 
 `ExtendedDirectionalAppTaggingSecret` has been renamed to `AppTaggingSecret`.
@@ -24,6 +39,50 @@ Aztec is in active development. Each version may introduce breaking changes that
 ```
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
+
+### [Aztec.nr] `public_checks` demoted from protocol contract
+
+`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. The aztec-nr constant has moved and been renamed:
+
+```diff
+- use protocol_types::constants::PUBLIC_CHECKS_ADDRESS;
++ use crate::standard_addresses::STANDARD_PUBLIC_CHECKS_ADDRESS;
+```
+
+If your contract uses `privately_check_timestamp` or `privately_check_block_number`, you must deploy `PublicChecks` on your network and register it with PXE:
+
+```ts
+import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
+
+const { instance, artifact } = await getStandardPublicChecks();
+await pxe.registerContract({ instance, artifact });
+```
+
+For browser bundles, import from `@aztec/standard-contracts/public-checks/lazy` instead.
+
+Deploy `PublicChecks` once per fresh rollup: `aztec-wallet deploy public_checks_contract@PublicChecks --salt 1 --universal -f <fee-paying-account>`.
+
+### [Aztec.nr] `auth_registry` demoted from protocol contract
+
+`auth_registry` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `1`. The aztec-nr constant has moved and been renamed:
+
+```diff
+- use protocol_types::constants::CANONICAL_AUTH_REGISTRY_ADDRESS;
++ use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
+```
+
+PXE no longer auto-registers `AuthRegistry` on startup. If your wallet needs it, register it explicitly (as the `EmbeddedWallet` entrypoints do):
+
+```ts
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+
+const { instance, artifact } = await getStandardAuthRegistry();
+await pxe.registerContract({ instance, artifact });
+```
+
+For browser bundles, import from `@aztec/standard-contracts/auth-registry/lazy` instead.
+
+Deploy `AuthRegistry` once per fresh rollup: `aztec-wallet deploy auth_registry_contract@AuthRegistry --salt 1 --universal -f <fee-paying-account>`.
 
 ### [Aztec.nr] `public_checks` helpers moved to `aztec-nr`
 

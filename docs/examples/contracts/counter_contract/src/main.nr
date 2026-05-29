@@ -28,7 +28,7 @@ pub contract Counter {
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize(headstart: u128, owner: AztecAddress) {
         self.storage.counters.at(owner).add(headstart).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
     // docs:end:constructor
@@ -37,7 +37,7 @@ pub contract Counter {
     #[external("private")]
     fn increment(owner: AztecAddress) {
         debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
-        self.storage.counters.at(owner).add(1).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
     }
     // docs:end:increment
 

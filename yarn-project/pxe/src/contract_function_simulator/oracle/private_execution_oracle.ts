@@ -13,8 +13,13 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { AppTaggingSecret, type ContractClassLog, type TaggingIndexRange } from '@aztec/stdlib/logs';
-import { Tag } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  AppTaggingSecretKind,
+  type ContractClassLog,
+  Tag,
+  type TaggingIndexRange,
+} from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   CallContext,
@@ -201,7 +206,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Returns the next app tag for a given sender and recipient pair.
+   * Returns the next app tag for a given sender and recipient pair (unconstrained delivery).
+   *
+   * The simulator computes the directional tagging secret (derived via ECDH from `(sender, recipient, contract)`),
+   * as well as the full siloed tag, and hands the opaque value back to the caller.
+   *
    * @param sender - The address sending the log
    * @param recipient - The address receiving the log
    * @returns An app tag to be used in a log.
@@ -219,19 +228,50 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       return Tag.random();
     }
 
-    const index = await this.#getIndexToUseForSecret(extendedSecret);
+    const index = await this.#reserveNextIndexForSecret(extendedSecret);
     this.logger.debug(
       `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
     );
-    this.taggingIndexCache.setLastUsedIndex(extendedSecret, index);
 
     return Tag.compute({ extendedSecret, index });
+  }
+
+  /**
+   * Returns the next sender-side index for a constrained-delivery app-siloed shared secret.
+   *
+   * Unlike the unconstrained variant, the simulator does not compute the secret: it was supplied by the calling contract
+   * (which retrieved it from an onchain handshake registry). The simulator only acts as a per-secret index counter.
+   * The caller computes the onchain tag itself.
+   *
+   * @param appSiloedSecret - The app-siloed shared secret retrieved from the handshake registry by the caller.
+   * @returns The next index to use for this secret.
+   */
+  public async getNextConstrainedTaggingIndex(appSiloedSecret: Fr): Promise<number> {
+    const secret = new AppTaggingSecret(appSiloedSecret, this.contractAddress, AppTaggingSecretKind.CONSTRAINED);
+    const index = await this.#reserveNextIndexForSecret(secret);
+    this.logger.debug(
+      `Incrementing tagging index for constrained-delivery secret in contract ${this.contractAddress} to ${index}`,
+    );
+    return index;
+  }
+
+  /** Resolves the next index for a given tagging secret, syncing from chain if it is missing from the in-tx cache. */
+  async #reserveNextIndexForSecret(secret: AppTaggingSecret): Promise<number> {
+    const index = await this.#getIndexToUseForSecret(secret);
+    this.taggingIndexCache.setLastUsedIndex(secret, index);
+    return index;
   }
 
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return AppTaggingSecret.compute(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
+    return AppTaggingSecret.computeUnconstrained(
+      senderCompleteAddress,
+      senderIvsk,
+      recipient,
+      contractAddress,
+      recipient,
+    );
   }
 
   async #getIndexToUseForSecret(secret: AppTaggingSecret): Promise<number> {

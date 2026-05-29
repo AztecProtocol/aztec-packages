@@ -13,7 +13,7 @@ contract InvalidEventContract {
     fn trigger_event_check() {
         self.emit(InvalidEvent {}).deliver_to(
             self.msg_sender(),
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 }
