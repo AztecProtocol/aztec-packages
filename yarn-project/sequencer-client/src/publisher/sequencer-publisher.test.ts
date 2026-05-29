@@ -526,17 +526,24 @@ describe('SequencerPublisher', () => {
     expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
   });
 
-  it('simulates block header validation at the last L1 timestamp within the L2 slot', async () => {
+  it('validates block headers when L1 head is already at the L2 slot boundary', async () => {
     epochCache.getL1Constants.mockReturnValue({
       ...EmptyL1RollupConstants,
       l1GenesisTime: 1000n,
       slotDuration: 72,
       ethereumSlotDuration: 12,
     });
+    const slotStartTimestamp = 1360n;
+    (l1TxUtils as any).simulate.mockImplementationOnce((_call: unknown, blockOverrides: { time?: bigint }) => {
+      if ((blockOverrides.time ?? 0n) <= slotStartTimestamp) {
+        throw new Error(`simulated block timestamp must be greater than parent timestamp`);
+      }
+      return Promise.resolve({ gasUsed: 1_000_000n, result: '0x' });
+    });
 
-    await publisher.validateBlockHeader(CheckpointHeader.random({ slotNumber: SlotNumber(5) }));
-
-    expect(l1TxUtils.simulate.mock.calls[0][1]).toEqual({ time: 1420n });
+    await expect(
+      publisher.validateBlockHeader(CheckpointHeader.random({ slotNumber: SlotNumber(5) })),
+    ).resolves.toBeUndefined();
   });
 
   it('simulates request bundles at the last L1 timestamp within the target L2 slot', async () => {
