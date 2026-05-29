@@ -45,7 +45,7 @@ async function allArtifactsExist(): Promise<boolean> {
 describe('standard_contract_data drift', () => {
   describe('per-field derivation', () => {
     for (const { name, src } of standardContracts) {
-      it(`${name}: derived address and class data match committed values`, async () => {
+      it(`${name}: all derived fields match committed values`, async () => {
         if (!(await artifactExists(src))) {
           throw new Error(
             `Artifact \`${src}.json\` not found under ${NOIR_ARTIFACTS_SRC_PATH}. ` +
@@ -53,36 +53,40 @@ describe('standard_contract_data drift', () => {
           );
         }
 
-        const artifact = await loadArtifact(src);
-        const derived = await computeContractData(artifact);
+        const derived = await computeContractData(await loadArtifact(src));
+        const preimage = StandardContractClassIdPreimage[name as keyof typeof StandardContractClassIdPreimage];
 
-        const committedAddress = StandardContractAddress[name as keyof typeof StandardContractAddress];
-        const committedClassId = StandardContractClassId[name as keyof typeof StandardContractClassId];
-        const committedClassIdPreimage =
-          StandardContractClassIdPreimage[name as keyof typeof StandardContractClassIdPreimage];
-        const committedInitializationHash =
-          StandardContractInitializationHash[name as keyof typeof StandardContractInitializationHash];
-        const committedPrivateFunctions =
-          StandardContractPrivateFunctions[name as keyof typeof StandardContractPrivateFunctions];
+        // Assemble every derived field and its committed counterpart into matching objects so a
+        // single `toEqual` reports all differing fields at once as a standard expected/received diff.
+        const derivedValues = {
+          address: derived.address.toString(),
+          classId: derived.classId.toString(),
+          artifactHash: derived.artifactHash.toString(),
+          privateFunctionsRoot: derived.privateFunctionsRoot.toString(),
+          publicBytecodeCommitment: derived.publicBytecodeCommitment.toString(),
+          initializationHash: derived.initializationHash.toString(),
+          privateFunctions: derived.privateFunctions.map(fn => ({
+            selector: fn.selector.toField().toString(),
+            vkHash: fn.vkHash.toString(),
+          })),
+        };
+        const committedValues = {
+          address: StandardContractAddress[name as keyof typeof StandardContractAddress].toString(),
+          classId: StandardContractClassId[name as keyof typeof StandardContractClassId].toString(),
+          artifactHash: preimage.artifactHash.toString(),
+          privateFunctionsRoot: preimage.privateFunctionsRoot.toString(),
+          publicBytecodeCommitment: preimage.publicBytecodeCommitment.toString(),
+          initializationHash:
+            StandardContractInitializationHash[name as keyof typeof StandardContractInitializationHash].toString(),
+          privateFunctions: StandardContractPrivateFunctions[name as keyof typeof StandardContractPrivateFunctions].map(
+            fn => ({
+              selector: fn.selector.toField().toString(),
+              vkHash: fn.vkHash.toString(),
+            }),
+          ),
+        };
 
-        expect(derived.address.toString()).toEqual(committedAddress.toString());
-        expect(derived.classId.toString()).toEqual(committedClassId.toString());
-        expect(derived.artifactHash.toString()).toEqual(committedClassIdPreimage.artifactHash.toString());
-        expect(derived.privateFunctionsRoot.toString()).toEqual(
-          committedClassIdPreimage.privateFunctionsRoot.toString(),
-        );
-        expect(derived.publicBytecodeCommitment.toString()).toEqual(
-          committedClassIdPreimage.publicBytecodeCommitment.toString(),
-        );
-        expect(derived.initializationHash.toString()).toEqual(committedInitializationHash.toString());
-
-        expect(derived.privateFunctions.length).toEqual(committedPrivateFunctions.length);
-        for (let i = 0; i < derived.privateFunctions.length; i++) {
-          expect(derived.privateFunctions[i].selector.toField().toString()).toEqual(
-            committedPrivateFunctions[i].selector.toField().toString(),
-          );
-          expect(derived.privateFunctions[i].vkHash.toString()).toEqual(committedPrivateFunctions[i].vkHash.toString());
-        }
+        expect(derivedValues).toEqual(committedValues);
       });
     }
   });
