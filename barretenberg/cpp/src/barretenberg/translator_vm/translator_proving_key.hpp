@@ -90,7 +90,7 @@ template <typename Flavor_ = TranslatorFlavor> class TranslatorProvingKey_ {
         // constraint).
         compute_translator_range_constraint_ordered_polynomials();
 
-        compute_row_skip_ranges();
+        compute_row_skip_ranges(circuit.num_gates());
     };
 
     /**
@@ -132,7 +132,7 @@ template <typename Flavor_ = TranslatorFlavor> class TranslatorProvingKey_ {
 
     void split_concatenated_random_coefficients_to_ordered();
 
-    void compute_row_skip_ranges();
+    void compute_row_skip_ranges(size_t num_active_op_rows);
 };
 
 using TranslatorProvingKey = TranslatorProvingKey_<TranslatorFlavor>;

@@ -358,7 +358,7 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_extra_ran
     parallel_for(NUM_FACTORS_IN_NUMERATOR, fill_with_shift);
 }
 
-template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_row_skip_ranges()
+template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_row_skip_ranges(const size_t num_active_op_rows)
 {
     auto& polynomials = proving_key->polynomials;
     auto& ranges = polynomials.row_skip_ranges;
@@ -379,29 +379,13 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_row_skip_
     // The fixed extra numerator contributes at the front of the full concatenated trace.
     append_unsorted_range(0, polynomials.ordered_extra_range_constraints_numerator.end_index());
 
-    auto get_value = [](const auto& polynomial, const size_t idx) {
-        if (idx < polynomial.start_index() || idx >= polynomial.end_index()) {
-            return FF(0);
-        }
-        return polynomial[idx];
-    };
-
-    for (size_t odd_row = 1; odd_row < mini; odd_row += 2) {
-        const size_t even_row = odd_row - 1;
-        // Ultra opqueue rows are laid out as:
-        //   even: op, x_lo, x_hi, y_lo
-        //   odd:  op randomness, y_hi, z_1, z_2
-        const bool active_op_pair =
-            (get_value(polynomials.op, even_row) != FF(0)) || (get_value(polynomials.op, odd_row) != FF(0)) ||
-            (get_value(polynomials.x_lo_y_hi, odd_row) != FF(0)) ||
-            (get_value(polynomials.x_hi_z_1, odd_row) != FF(0)) || (get_value(polynomials.y_lo_z_2, odd_row) != FF(0));
-        if (!active_op_pair) {
-            continue;
-        }
-        for (size_t block_idx = 0; block_idx < Flavor::CONCATENATION_GROUP_SIZE; ++block_idx) {
-            const size_t block_start = block_idx * mini;
-            append_unsorted_range(block_start + even_row, block_start + odd_row + 1);
-        }
+    // Op-queue data is written densely into the front [0, num_active_op_rows) of the minicircuit (the constructor's
+    // wire-fill loop populates rows [0, num_gates) and asserts the rest are zero), and every concatenation block
+    // shares that layout. Mark the contiguous active prefix of each block directly from the gate count rather than
+    // scanning every op row to rediscover it.
+    for (size_t block_idx = 0; block_idx < Flavor::CONCATENATION_GROUP_SIZE; ++block_idx) {
+        const size_t block_start = block_idx * mini;
+        append_unsorted_range(block_start, block_start + num_active_op_rows);
     }
 
     // Masking selectors are active in the last NUM_MASKED_ROWS_END rows of every concatenation block.
