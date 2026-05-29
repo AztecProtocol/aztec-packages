@@ -171,7 +171,7 @@ export class LogService {
 
     return Promise.all(
       deduplicatedSenders.map(async sender => {
-        const secret = await AppTaggingSecret.compute(
+        const secret = await AppTaggingSecret.computeUnconstrained(
           recipientCompleteAddress,
           recipientIvsk,
           sender,

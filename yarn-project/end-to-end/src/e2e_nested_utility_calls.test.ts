@@ -113,7 +113,7 @@ describe('authorizeUtilityCall hook', () => {
       callerClassId: contractClassId,
       target: contractB.address,
       targetClassId: contractClassId,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'utility',
     });
@@ -130,7 +130,7 @@ describe('authorizeUtilityCall hook', () => {
       callerClassId: contractClassId,
       target: contractB.address,
       targetClassId: contractClassId,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'utility',
     });
@@ -145,7 +145,7 @@ describe('authorizeUtilityCall hook', () => {
       callerClassId: contractClassId,
       target: contractB.address,
       targetClassId: contractClassId,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'private',
     });
@@ -162,7 +162,7 @@ describe('authorizeUtilityCall hook', () => {
       callerClassId: contractClassId,
       target: contractB.address,
       targetClassId: contractClassId,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'private',
     });
@@ -177,7 +177,7 @@ describe('authorizeUtilityCall hook', () => {
       callerClassId: contractClassId,
       target: contractB.address,
       targetClassId: contractClassId,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'private view',
     });
@@ -194,7 +194,7 @@ describe('authorizeUtilityCall hook', () => {
       callerClassId: contractClassId,
       target: contractB.address,
       targetClassId: contractClassId,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'private view',
     });

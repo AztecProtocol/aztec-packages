@@ -492,6 +492,15 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_prv_getNextConstrainedTaggingIndex(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_getNextConstrainedTaggingIndex',
+      inputs,
+      handler: ([appSiloedSecret]) => this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_getPendingTaggedLogs(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
     return callHandler({
       oracle: 'aztec_utl_getPendingTaggedLogs',
@@ -505,18 +514,10 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents',
       inputs,
-      handler: ([
-        noteValidationRequestsArrayBaseSlot,
-        eventValidationRequestsArrayBaseSlot,
-        maxNotePackedLen,
-        maxEventSerializedLen,
-        scope,
-      ]) =>
+      handler: ([noteValidationRequestsArrayBaseSlot, eventValidationRequestsArrayBaseSlot, scope]) =>
         this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
           noteValidationRequestsArrayBaseSlot,
           eventValidationRequestsArrayBaseSlot,
-          maxNotePackedLen,
-          maxEventSerializedLen,
           scope,
         ),
     });
@@ -705,15 +706,6 @@ export class Oracle {
       oracle: 'aztec_prv_getSenderForTags',
       inputs: [],
       handler: () => this.handlerAsPrivate().getSenderForTags(),
-    });
-  }
-
-  // eslint-disable-next-line camelcase
-  aztec_prv_setSenderForTags(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
-    return callHandler({
-      oracle: 'aztec_prv_setSenderForTags',
-      inputs,
-      handler: ([senderForTags]) => this.handlerAsPrivate().setSenderForTags(senderForTags),
     });
   }
 }

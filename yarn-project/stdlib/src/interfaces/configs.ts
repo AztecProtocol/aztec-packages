@@ -62,6 +62,11 @@ export interface SequencerConfig {
   skipCollectingAttestations?: boolean;
   /** Do not invalidate the previous block if invalid when we are the proposer (for testing only) */
   skipInvalidateBlockAsProposer?: boolean;
+  /**
+   * Bypass the parent checkpoint validity check before submitting a pipelined checkpoint, allowing
+   * the proposer to publish even when the parent landed on L1 with invalid attestations (for testing only).
+   */
+  skipWaitForValidParentCheckpointOnL1?: boolean;
   /** Broadcast invalid block proposals with corrupted state (for testing only) */
   broadcastInvalidBlockProposal?: boolean;
   /** Broadcast an invalid block proposal only at this indexWithinCheckpoint (for testing only) */
@@ -126,6 +131,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     attestationPropagationTime: z.number().optional(),
     skipCollectingAttestations: z.boolean().optional(),
     skipInvalidateBlockAsProposer: z.boolean().optional(),
+    skipWaitForValidParentCheckpointOnL1: z.boolean().optional(),
     secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
     secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
     broadcastInvalidBlockProposal: z.boolean().optional(),

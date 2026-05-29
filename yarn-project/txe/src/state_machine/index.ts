@@ -9,7 +9,6 @@ import { L2Block, type L2TipsProvider } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { TXEArchiver } from './archiver.js';
 import { DummyP2P } from './dummy_p2p_client.js';
@@ -19,6 +18,9 @@ import { TXESynchronizer } from './synchronizer.js';
 
 const VERSION = 1;
 const CHAIN_ID = 1;
+// Hardcoded so the bundled TXE doesn't try to read stdlib's package.json at a relative path
+// that becomes invalid once bundled
+const PACKAGE_VERSION = 'txe';
 
 export class TXEStateMachine {
   constructor(
@@ -52,14 +54,13 @@ export class TXEStateMachine {
       undefined,
       undefined,
       undefined,
-      undefined,
-      undefined,
+      async () => {},
       VERSION,
       CHAIN_ID,
       new TXEGlobalVariablesBuilder(),
       new TXEFeeProvider(),
       new MockEpochCache(),
-      getPackageVersion(),
+      PACKAGE_VERSION,
       new TestCircuitVerifier(),
       new TestCircuitVerifier(),
       undefined,

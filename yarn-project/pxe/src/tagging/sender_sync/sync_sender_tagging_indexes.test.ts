@@ -4,7 +4,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { PrivateLog } from '@aztec/stdlib/logs';
+import { AppTaggingSecretKind, PrivateLog } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { type IndexedTxEffect, TxEffect, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
@@ -32,7 +32,7 @@ describe('syncSenderTaggingIndexes', () => {
   }
 
   async function setUp() {
-    secret = await randomAppTaggingSecret();
+    secret = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
 
     aztecNode = mock<AztecNode>();
     taggingStore = new SenderTaggingStore(await openTmpStore('test'));
@@ -51,6 +51,39 @@ describe('syncSenderTaggingIndexes', () => {
     // Highest used and finalized indexes should stay undefined
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBeUndefined();
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
+  });
+
+  it('updates the highest finalized index for a constrained secret', async () => {
+    await setUp();
+    // Override unconstrained secret from `setUp`
+    secret = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
+
+    const finalizedIndex = 3;
+    const finalizedTag = await computeSiloedTagForIndex(finalizedIndex);
+    const finalizedTxHash = TxHash.random();
+
+    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+      return Promise.resolve(
+        tags.map((tag: SiloedTag) => (tag.equals(finalizedTag) ? [makeLog(finalizedTxHash, finalizedTag.value)] : [])),
+      );
+    });
+
+    aztecNode.getTxReceipt.mockResolvedValue(
+      new TxReceipt(
+        finalizedTxHash,
+        TxStatus.FINALIZED,
+        TxExecutionResult.SUCCESS,
+        undefined,
+        undefined,
+        undefined,
+        BlockNumber(14),
+      ),
+    );
+
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(finalizedIndex);
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(finalizedIndex);
   });
 
   // These tests need to be run together in sequence.

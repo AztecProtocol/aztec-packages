@@ -39,7 +39,7 @@ import {
   toArray,
   toForeignCallResult,
   toSingle,
-} from './util/encoding.js';
+} from './utils/encoding.js';
 
 const MAX_EVENT_LEN = 10; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN
 const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
@@ -667,12 +667,12 @@ export class RPCTranslator {
     // with two fields: `some` (a boolean) and `value` (a field array in this case).
     if (!result.isSome()) {
       // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      // Wire shape: [npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash, partial_address] = 6 fields.
-      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(6).fill(new Fr(0)))]);
+      // Wire shape: [npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash, mspk_m_hash, fbpk_m_hash, partial_address] = 8 fields.
+      return toForeignCallResult([toSingle(new Fr(0)), toArray(Array(8).fill(new Fr(0)))]);
     } else {
-      // The Noir side hand-decodes a `[Field; 6]` here (see aztec-nr/aztec/src/oracle/keys.nr), so we
-      // emit the 5-field PublicKeys shape + partial_address explicitly
-      // rather than going through `publicKeys.toFields()` (which is the struct-flattened 6-field
+      // The Noir side hand-decodes a `[Field; 8]` here (see aztec-nr/aztec/src/oracle/keys.nr), so we
+      // emit the 7-field PublicKeys shape + partial_address explicitly
+      // rather than going through `publicKeys.toFields()` (which is the struct-flattened 8-field
       // wire for oracle returns that decode via struct shape).
       const { publicKeys, partialAddress } = result.value;
       return toForeignCallResult([
@@ -683,6 +683,8 @@ export class RPCTranslator {
           publicKeys.ivpkM.y,
           publicKeys.ovpkMHash,
           publicKeys.tpkMHash,
+          publicKeys.mspkMHash,
+          publicKeys.fbpkMHash,
           partialAddress,
         ]),
       ]);
@@ -826,21 +828,15 @@ export class RPCTranslator {
   public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
     foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignMaxNotePackedLen: ForeignCallSingle,
-    foreignMaxEventSerializedLen: ForeignCallSingle,
     foreignScope: ForeignCallSingle,
   ) {
     const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
     const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
-    const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
-    const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
-      maxNotePackedLen,
-      maxEventSerializedLen,
       scope,
     );
 
@@ -1428,15 +1424,6 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_setSenderForTags(foreignSenderForTags: ForeignCallSingle) {
-    const senderForTags = AztecAddress.fromField(fromSingle(foreignSenderForTags));
-
-    await this.handlerAsPrivate().setSenderForTags(senderForTags);
-
-    return toForeignCallResult([]);
-  }
-
-  // eslint-disable-next-line camelcase
   async aztec_prv_getNextAppTagAsSender(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
     const sender = AztecAddress.fromField(fromSingle(foreignSender));
     const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
@@ -1444,5 +1431,14 @@ export class RPCTranslator {
     const nextAppTag = await this.handlerAsPrivate().getNextAppTagAsSender(sender, recipient);
 
     return toForeignCallResult([toSingle(nextAppTag.value)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_prv_getNextConstrainedTaggingIndex(foreignAppSiloedSecret: ForeignCallSingle) {
+    const appSiloedSecret = fromSingle(foreignAppSiloedSecret);
+
+    const index = await this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret);
+
+    return toForeignCallResult([toSingle(new Fr(index))]);
   }
 }

@@ -228,12 +228,9 @@ pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
 // Chosen to be a multiple of 3 (-1 to account for the separator), to optimize the poseidon2 hash.
 pub global MAX_PROTOCOL_CONTRACTS: u32 = 11;
 // Address 0 is not a protocol contract.
-pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
-pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
-pub global PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
 // `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
 // contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).
@@ -271,6 +268,8 @@ pub global UPDATED_CLASS_IDS_SLOT: u32 = 1;
 // "az_null_ivpk"
 // "az_null_ovpk"
 // "az_null_tpk"
+// "az_null_mspk"
+// "az_null_fbpk"
 // as bytes, hashed to curve using grumpkin::g1::affine_element::hash_to_curve(<X>, 0);
 // TODO: AFAIK grumpkin's hash to curve is not exposed in noir. We should probably derive these from
 // a noir test within this file, so we should probably write a simple hash to curve function.
@@ -290,16 +289,28 @@ pub global DEFAULT_TPK_M_X: Field =
     0x019c111f36ad3fc1d9b7a7a14344314d2864b94f030594cd67f753ef774a1efb;
 pub global DEFAULT_TPK_M_Y: Field =
     0x2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f;
+pub global DEFAULT_MSPK_M_X: Field =
+    0x00d52691f35698f962ea20f2bd0ab906c82228a434593dd28f36a3807f3043b8;
+pub global DEFAULT_MSPK_M_Y: Field =
+    0x0e27412388283d55cffb96143b2b4493b5bf6895fdb5787dadd8b0105d7531c5;
+pub global DEFAULT_FBPK_M_X: Field =
+    0x1995b7952c9a39667e5333cb48435aade5e08ae1dcb066db87402e1dae09698a;
+pub global DEFAULT_FBPK_M_Y: Field =
+    0x1a07e89069fc04690e335ed68ca3914b9efd141014f24534276383c6361b1553;
 
 // Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y })` for each non-ivpk key.
 // Used by `PublicKeys::default()` and the matching TS `PublicKeys.default()`. Verified by the
-// `compute_default_hash` test in public_keys.nr.
+// `default_hashes_match_default_points` test in public_keys.nr.
 pub global DEFAULT_NPK_M_HASH: Field =
     0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a26;
 pub global DEFAULT_OVPK_M_HASH: Field =
     0x0e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b;
 pub global DEFAULT_TPK_M_HASH: Field =
     0x082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef0;
+pub global DEFAULT_MSPK_M_HASH: Field =
+    0x14a5d4bde495b8c3a9ba4aed0d4870526e46fdff22d341a2f689ac5a50d10356;
+pub global DEFAULT_FBPK_M_HASH: Field =
+    0x0f124f07811eebfaaa6d31316a2cc5bf255fa118f720e8ff1f2fc0d4aa46d496;
 
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 // TODO: figure out whether Noir is sophisticated enough to derive these for us, these days.
@@ -311,7 +322,7 @@ pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH /* gas_limits */
     + GAS_FEES_LENGTH /* max_fees_per_gas */
     + GAS_FEES_LENGTH /* max_priority_fees_per_gas */;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
-pub global CONTRACT_INSTANCE_LENGTH: u32 = 10;
+pub global CONTRACT_INSTANCE_LENGTH: u32 = 12;
 pub global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 pub global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
 pub global ETH_ADDRESS_LENGTH: u32 = 1;
@@ -716,6 +727,8 @@ pub global DOM_SEP__EVENT_LOG_TAG: u32 = 926040838;
 pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
 /// Domain separator for unconstrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
+/// Domain separator for constrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__CONSTRAINED_MSG_LOG_TAG: u32 = 3715244738;
 /// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
 /// [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG: u32 = 4046403018;

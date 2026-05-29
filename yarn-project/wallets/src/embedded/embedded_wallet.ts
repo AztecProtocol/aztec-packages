@@ -51,8 +51,12 @@ export function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
   if (!pxe) {
     return { config: {}, creation: {} };
   }
-  const { loggers, loggerActorLabel, proverOrOptions, store, simulator, ...config } = pxe;
-  return { config, creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator } };
+  const { loggers, loggerActorLabel, proverOrOptions, store, simulator, hooks, preloadedContractsProvider, ...config } =
+    pxe;
+  return {
+    config,
+    creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator, hooks, preloadedContractsProvider },
+  };
 }
 
 /** Options for the EmbeddedWallet's own DB (accounts, senders — distinct from PXE state). */

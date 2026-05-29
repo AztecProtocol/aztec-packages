@@ -189,6 +189,9 @@ export interface P2PConfig
   /** The node's seen message ID cache size */
   seenMessageCacheSize: number;
 
+  /** Maximum number of (validator, tx) pairs to keep in the tx validation LRU cache. */
+  txValidationCacheSize: number;
+
   /** True to disable the status handshake on peer connected. */
   p2pDisableStatusHandshake?: boolean;
 
@@ -511,6 +514,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_SEEN_MSG_CACHE_SIZE',
     description: 'The number of messages to keep in the seen message cache',
     ...numberConfigHelper(100_000), // 100K
+  },
+  txValidationCacheSize: {
+    env: 'P2P_TX_VALIDATION_CACHE_SIZE',
+    description: 'Maximum number of items to keep in the tx validation LRU cache.',
+    ...numberConfigHelper(5_000),
   },
   p2pDisableStatusHandshake: {
     env: 'P2P_DISABLE_STATUS_HANDSHAKE',

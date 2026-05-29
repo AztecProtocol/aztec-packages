@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `set_sender_for_tags` oracle removed
+
+The `set_sender_for_tags` oracle has been removed. Contracts that used it to override the sender for discovery tag derivation should now use the `with_sender` builder method on `MessageDelivery`:
+
+```diff
+- use aztec::oracle::notes::set_sender_for_tags;
++ use aztec::messages::message_delivery::MessageDelivery;
+
+- unsafe { set_sender_for_tags(some_address) };
+- note.deliver(MessageDelivery::onchain_constrained());
++ note.deliver(MessageDelivery::onchain_constrained().with_sender(some_address));
+```
+
+When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender.
+
 ### [Aztec.nr] `MessageDelivery` API syntax change
 
 `MessageDelivery` variants are now accessed via constructor functions instead of dot notation:
@@ -39,6 +54,55 @@ Aztec is in active development. Each version may introduce breaking changes that
 ```
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
+
+### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
+
+`multi_call_entrypoint` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. PXE no longer auto-registers it; `EmbeddedWallet` registers it on creation via `registerMultiCallEntrypoint`. Other PXE consumers using `DefaultMultiCallEntrypoint` (including `DeployAccountMethod`'s `NO_FROM` self-deploy path) must register the contract themselves with `pxe.registerContract({ instance, artifact })` from `getStandardMultiCallEntrypoint()`.
+
+### [Aztec.nr] `public_checks` demoted from protocol contract
+
+`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. The aztec-nr constant has moved and been renamed:
+
+```diff
+- use protocol_types::constants::PUBLIC_CHECKS_ADDRESS;
++ use crate::standard_addresses::STANDARD_PUBLIC_CHECKS_ADDRESS;
+```
+
+If your contract uses `privately_check_timestamp` or `privately_check_block_number`, you must deploy `PublicChecks` on your network and register it with PXE:
+
+```ts
+import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
+
+const { instance, artifact } = await getStandardPublicChecks();
+await pxe.registerContract({ instance, artifact });
+```
+
+For browser bundles, import from `@aztec/standard-contracts/public-checks/lazy` instead.
+
+Deploy `PublicChecks` once per fresh rollup: `aztec-wallet deploy public_checks_contract@PublicChecks --salt 1 --universal -f <fee-paying-account>`.
+
+### [Aztec.nr] `auth_registry` demoted from protocol contract
+
+`auth_registry` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `1`. The aztec-nr constant has moved and been renamed:
+
+```diff
+- use protocol_types::constants::CANONICAL_AUTH_REGISTRY_ADDRESS;
++ use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
+```
+
+PXE no longer auto-registers `AuthRegistry` on startup. If your wallet needs it, register it explicitly (as the `EmbeddedWallet` entrypoints do):
+
+```ts
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+
+const { instance, artifact } = await getStandardAuthRegistry();
+await pxe.registerContract({ instance, artifact });
+```
+
+For browser bundles, import from `@aztec/standard-contracts/auth-registry/lazy` instead.
+
+Deploy `AuthRegistry` once per fresh rollup: `aztec-wallet deploy auth_registry_contract@AuthRegistry --salt 1 --universal -f <fee-paying-account>`.
+
 ### [Aztec.nr] `public_checks` helpers moved to `aztec-nr`
 
 The `privately_check_timestamp`, `privately_check_block_number`, and related caller helpers previously in `noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr` are now in `aztec-nr/aztec/src/public_checks.nr`. Consumer contracts should update their imports:
@@ -788,6 +852,8 @@ The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
 - `aztec new <NAME>` — still scaffolds a blank contract, either as a new standalone project or as a new crate added to an existing workspace.
 
 **Impact**: any scripts, CI jobs, or onboarding docs that ran `aztec init` expecting an empty contract starting point now get the Counter example. Use `aztec new <NAME>` for the blank scaffold. The existing Counter tutorial under [`docs/tutorials/contract_tutorials`](../tutorials/contract_tutorials/counter_contract.md) is unaffected because it uses `aztec new`.
+
+## 4.3.0
 
 ### `aztec new` and `aztec init` now create a 2-crate workspace
 

@@ -80,13 +80,13 @@ import {
   collectNested,
 } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
-import { ForkCheckpoint } from '@aztec/world-state';
+import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { DEFAULT_ADDRESS } from '../constants.js';
 import type { TXEStateMachine } from '../state_machine/index.js';
-import type { TXEAccountStore } from '../util/txe_account_store.js';
-import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
+import type { TXEAccountStore } from '../utils/txe_account_store.js';
+import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
 
 export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
@@ -236,15 +236,14 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.nextBlockTimestamp += duration;
   }
 
+  private deploymentNullifier(address: AztecAddress): Promise<Fr> {
+    return siloNullifier(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address.toField());
+  }
+
   async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
     // Emit deployment nullifier
     await this.mineBlock({
-      nullifiers: [
-        await siloNullifier(
-          AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
-          instance.address.toField(),
-        ),
-      ],
+      nullifiers: [await this.deploymentNullifier(instance.address)],
     });
 
     if (!secret.equals(Fr.ZERO)) {
@@ -254,6 +253,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       await this.contractStore.addContractArtifact(artifact);
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
+  }
+
+  /**
+   * Mines a single block containing only the deployment nullifiers for the contracts at the given addresses.
+   */
+  async mineDeploymentNullifiers(addresses: AztecAddress[]) {
+    await this.mineBlock({
+      nullifiers: await Promise.all(addresses.map(address => this.deploymentNullifier(address))),
+    });
   }
 
   async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {

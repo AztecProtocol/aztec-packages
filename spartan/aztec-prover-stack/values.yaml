@@ -84,6 +84,17 @@ agent:
   nodeType: "prover-agent"
   replicaCount: 1
 
+  autoscaling:
+    keda:
+      enabled: false
+      pollingInterval: 30
+      cooldownPeriod: 300
+      minReplicaCount: 0
+      maxReplicaCount: 1
+      scalingBands: []
+      prometheus:
+        serverAddress: ""
+
   persistence:
     enabled: false
 

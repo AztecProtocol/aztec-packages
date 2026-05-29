@@ -106,7 +106,9 @@ pub contract StateVars {
         let owner = self.msg_sender();
         let private_mutable = FieldNote { value };
 
-        self.storage.private_mutable.at(owner).initialize(private_mutable).deliver(MessageDelivery::onchain_constrained());
+        self.storage.private_mutable.at(owner).initialize(private_mutable).deliver(
+            MessageDelivery::onchain_constrained(),
+        );
     }
 
     #[external("private")]

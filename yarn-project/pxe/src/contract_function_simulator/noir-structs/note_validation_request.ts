@@ -20,7 +20,7 @@ export class NoteValidationRequest {
     public txHash: TxHash,
   ) {}
 
-  static fromFields(fields: Fr[], maxNotePackedLen: number): NoteValidationRequest {
+  static fromFields(fields: Fr[]): NoteValidationRequest {
     const reader = FieldReader.asReader(fields);
 
     const contractAddress = AztecAddress.fromField(reader.readField());
@@ -29,6 +29,7 @@ export class NoteValidationRequest {
     const randomness = reader.readField();
     const noteNonce = reader.readField();
 
+    const maxNotePackedLen = reader.readField().toNumber();
     const contentStorage = reader.readFieldArray(maxNotePackedLen);
     const contentLen = reader.readField().toNumber();
     const content = contentStorage.slice(0, contentLen);

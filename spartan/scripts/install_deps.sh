@@ -134,6 +134,19 @@ if ! command -v cast &> /dev/null; then
   sudo chmod +x /usr/local/bin/cast
 fi
 
+TERRAFORM_VERSION="1.7.5"
+if ! command -v terraform &> /dev/null; then
+  log "Installing terraform ${TERRAFORM_VERSION}..."
+  tf_os="$(os)"
+  if [ "$tf_os" = "macos" ]; then
+    tf_os="darwin"
+  fi
+  curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${tf_os}_$(arch).zip" -o terraform.zip
+  unzip -qo terraform.zip
+  sudo mv terraform /usr/local/bin/terraform
+  rm terraform.zip
+fi
+
 require_cmd git
 require_cmd kubectl
 require_cmd terraform

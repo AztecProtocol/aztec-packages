@@ -264,6 +264,12 @@ variable "PROVER_REPLICAS" {
   default     = 4
 }
 
+variable "PROVER_ENABLED" {
+  description = "Whether to deploy the prover stack"
+  type        = bool
+  default     = true
+}
+
 variable "PROVER_TEST_DELAY_TYPE" {
   description = "The type of test delay to introduce in the prover (fixed, realistic)"
   type        = string
@@ -843,6 +849,51 @@ variable "PROVER_AGENT_POLL_INTERVAL_MS" {
   description = "Interval in milliseconds between prover agent polls"
   type        = number
   default     = 1000
+}
+
+variable "PROVER_AGENT_KEDA_ENABLED" {
+  description = "Whether KEDA should scale prover agent pods from proving queue depth"
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_AGENT_KEDA_MIN_REPLICAS" {
+  description = "Minimum prover agent pods managed by KEDA"
+  type        = number
+  default     = 0
+}
+
+variable "PROVER_AGENT_KEDA_MAX_REPLICAS" {
+  description = "Maximum prover agent pods managed by KEDA"
+  type        = number
+  default     = 1
+}
+
+variable "PROVER_AGENT_KEDA_SCALING_BANDS" {
+  description = "Step scaling bands for prover agents. Each band scales to replicas when total proving queue size is greater than queueSize."
+  type = list(object({
+    queueSize = number
+    replicas  = number
+  }))
+  default = []
+}
+
+variable "PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS" {
+  description = "Prometheus server URL queried by KEDA for prover queue depth"
+  type        = string
+  default     = ""
+}
+
+variable "PROVER_AGENT_KEDA_POLLING_INTERVAL_SECONDS" {
+  description = "KEDA polling interval for prover agent queue-depth scaling"
+  type        = number
+  default     = 30
+}
+
+variable "PROVER_AGENT_KEDA_COOLDOWN_PERIOD_SECONDS" {
+  description = "KEDA cooldown period before scaling prover agents back down"
+  type        = number
+  default     = 300
 }
 
 variable "PROVER_AGENT_INCLUDE_METRICS" {
