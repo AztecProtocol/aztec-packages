@@ -366,8 +366,12 @@ tests:
   # p2p checkpoint-attestation-validator's acceptance window, getting rejected
   # before the slasher's gossip callback fires. The slasher then never records
   # ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL and the test times out.
+  # The error_regex flake match still let ci3 retry-and-fail both attempts on
+  # merge-train/spartan (ci.aztec-labs.com/825d698daa933f9b), hard-failing the
+  # train's ci-full-no-test-cache run. Same remedy as #23544/#23542: skip
+  # outright until the pipelining attestation race stabilises.
   - regex: "src/e2e_slashing/attested_invalid_proposal.test.ts"
-    error_regex: "Timeout awaiting honest validator slash offenses for invalid proposal attestation"
+    skip: true
     owners:
       - *palla
 
