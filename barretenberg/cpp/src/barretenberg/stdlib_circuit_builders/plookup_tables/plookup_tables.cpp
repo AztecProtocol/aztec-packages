@@ -25,6 +25,7 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/dummy.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/non_native_group_generator.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/secp256r1_fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/uint.hpp"
 
@@ -99,6 +100,24 @@ std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES>& get_multi_tables()
             keccak_tables::Chi::get_chi_output_table(MultiTableId::KECCAK_CHI_OUTPUT);
         tables[MultiTableId::KECCAK_FORMAT_OUTPUT] =
             keccak_tables::KeccakOutput::get_keccak_output_table(MultiTableId::KECCAK_FORMAT_OUTPUT);
+        // secp256r1 tables for fixed-base mul
+        using secp256r1_fb = secp256r1_fixed_base::table;
+        tables[MultiTableId::SECP256R1_FIXED_BASE_XLO_LO] =
+            secp256r1_fb::get_multitable(MultiTableId::SECP256R1_FIXED_BASE_XLO_LO, secp256r1_fb::AXIS_XLO, true);
+        tables[MultiTableId::SECP256R1_FIXED_BASE_XLO_HI] =
+            secp256r1_fb::get_multitable(MultiTableId::SECP256R1_FIXED_BASE_XLO_HI, secp256r1_fb::AXIS_XLO, false);
+        tables[MultiTableId::SECP256R1_FIXED_BASE_XHI_LO] =
+            secp256r1_fb::get_multitable(MultiTableId::SECP256R1_FIXED_BASE_XHI_LO, secp256r1_fb::AXIS_XHI, true);
+        tables[MultiTableId::SECP256R1_FIXED_BASE_XHI_HI] =
+            secp256r1_fb::get_multitable(MultiTableId::SECP256R1_FIXED_BASE_XHI_HI, secp256r1_fb::AXIS_XHI, false);
+        tables[MultiTableId::SECP256R1_FIXED_BASE_YLO_LO] =
+            secp256r1_fb::get_multitable(MultiTableId::SECP256R1_FIXED_BASE_YLO_LO, secp256r1_fb::AXIS_YLO, true);
+        tables[MultiTableId::SECP256R1_FIXED_BASE_YLO_HI] =
+            secp256r1_fb::get_multitable(MultiTableId::SECP256R1_FIXED_BASE_YLO_HI, secp256r1_fb::AXIS_YLO, false);
+        tables[MultiTableId::SECP256R1_FIXED_BASE_YHI_LO] =
+            secp256r1_fb::get_multitable(MultiTableId::SECP256R1_FIXED_BASE_YHI_LO, secp256r1_fb::AXIS_YHI, true);
+        tables[MultiTableId::SECP256R1_FIXED_BASE_YHI_HI] =
+            secp256r1_fb::get_multitable(MultiTableId::SECP256R1_FIXED_BASE_YHI_HI, secp256r1_fb::AXIS_YHI, false);
         tables[MultiTableId::FIXED_BASE_LEFT_LO] =
             fixed_base::table::get_fixed_base_table<0, 128>(MultiTableId::FIXED_BASE_LEFT_LO);
         tables[MultiTableId::FIXED_BASE_LEFT_HI] =
@@ -260,6 +279,28 @@ BasicTable create_basic_table(const BasicTableId id, const size_t index)
     if (id_var >= static_cast<size_t>(FIXED_BASE_3_0) && id_var < static_cast<size_t>(HONK_DUMMY_BASIC1)) {
         return fixed_base::table::generate_basic_fixed_base_table<3>(
             id, index, id_var - static_cast<size_t>(FIXED_BASE_3_0));
+    }
+    // Four contiguous ranges (32 IDs each) of basic tables back `secp256r1_fixed_base_mul`. ID
+    // `SECP256R1_FIXED_BASE_<AXIS>_0 + w` corresponds to axis AXIS, window position w.
+    if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_XLO_0) &&
+        id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0)) {
+        return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_XLO>(
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_XLO_0));
+    }
+    if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0) &&
+        id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0)) {
+        return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_XHI>(
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_XHI_0));
+    }
+    if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0) &&
+        id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0)) {
+        return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_YLO>(
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_YLO_0));
+    }
+    if (id_var >= static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0) &&
+        id_var < static_cast<size_t>(SECP256R1_FIXED_BASE_END)) {
+        return secp256r1_fixed_base::table::generate_basic_table_runtime<secp256r1_fixed_base::table::AXIS_YHI>(
+            id, id_var - static_cast<size_t>(SECP256R1_FIXED_BASE_YHI_0));
     }
     switch (id) {
     case AES_SPARSE_MAP: {
