@@ -3,12 +3,23 @@
 
 use aztec::macros::aztec;
 
+mod pow_note;
 mod test;
 
 #[aztec]
 pub contract NestedUtility {
-    use aztec::macros::functions::external;
-    use aztec::protocol::address::AztecAddress;
+    use crate::pow_note::PowNote;
+    use aztec::macros::{functions::external, storage::storage};
+    use aztec::{
+        messages::message_delivery::MessageDelivery,
+        protocol::address::AztecAddress,
+        state_vars::{Owned, PrivateMutable},
+    };
+
+    #[storage]
+    struct Storage<Context> {
+        pow_args: Owned<PrivateMutable<PowNote, Context>, Context>,
+    }
 
     #[external("utility")]
     unconstrained fn pow_utility(x: Field, n: u32) -> Field {
@@ -22,6 +33,28 @@ pub contract NestedUtility {
     #[external("utility")]
     unconstrained fn delegate_pow_utility(target: AztecAddress, x: Field, n: u32) -> Field {
         self.call(NestedUtility::at(target).pow_utility(x, n))
+    }
+
+    /// Stores the base and exponent for pow in a private note.
+    #[external("private")]
+    fn set_pow_args(x: Field, n: Field) {
+        let owner = self.msg_sender();
+        self.storage.pow_args.at(owner).initialize_or_replace(|_| PowNote { x, n }).deliver(
+            MessageDelivery::onchain_constrained(),
+        );
+    }
+
+    /// Reads x and n from storage and computes x^n.
+    #[external("utility")]
+    unconstrained fn pow_from_storage(owner: AztecAddress) -> Field {
+        let note = self.storage.pow_args.at(owner).view_note();
+        self.call_self.pow_utility(note.x, note.n as u32)
+    }
+
+    /// Cross-contract version: calls pow_from_storage on the target contract.
+    #[external("utility")]
+    unconstrained fn delegate_pow_from_storage(target: AztecAddress, owner: AztecAddress) -> Field {
+        self.call(NestedUtility::at(target).pow_from_storage(owner))
     }
 
     #[external("private")]

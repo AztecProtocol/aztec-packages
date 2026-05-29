@@ -155,7 +155,7 @@ cmake --build --preset clang20-no-avm --target bb
 # 2. Transfer inputs + binary
 source scripts/_benchmark_remote_lock.sh
 scp $BB_SSH_KEY \
-  ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$FLOW/ivc-inputs.msgpack \
+  chonk-pinned-flows/$FLOW/ivc-inputs.msgpack \
   $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/
 scp $BB_SSH_KEY ./build-no-avm/bin/bb $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/
 
@@ -195,7 +195,7 @@ scp $BB_SSH_KEY ./build-wasm-threads/bin/bb $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/bu
 
 # 3. Also transfer inputs if benchmarking Chonk
 scp $BB_SSH_KEY \
-  ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$FLOW/ivc-inputs.msgpack \
+  chonk-pinned-flows/$FLOW/ivc-inputs.msgpack \
   $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build-wasm-threads/
 
 # 4. Run via wasmtime on remote

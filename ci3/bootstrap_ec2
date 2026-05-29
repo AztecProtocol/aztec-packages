@@ -84,6 +84,7 @@ else
 fi
 
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
+docker_hostname=$(echo -n "$instance_name" | tr '_' '-' | cut -c 1-63)
 
 if [ "$use_ssh" -eq 1 ]; then
   echo_header "request build instance (SSH)"
@@ -299,7 +300,7 @@ start_build() {
 
   docker run --privileged --rm \${docker_args:-} \
     --name aztec_build \
-    --hostname $instance_name \
+    --hostname $docker_hostname \
     -v bootstrap_ci_local_docker:/var/lib/docker \
     -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
     -v \$HOME/.ssh:/home/aztec-dev/.ssh:ro \

@@ -18,14 +18,14 @@ The real benchmark inputs are pinned to an S3 artifact keyed by a 16-character h
 barretenberg/cpp/scripts/chonk_inputs.sh download
 ```
 
-This populates `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inputs.msgpack`.
+This populates `barretenberg/cpp/chonk-pinned-flows/<flow>/ivc-inputs.msgpack`.
 
 Available flows (typical):
 - `ecdsar1+transfer_1_recursions+sponsored_fpc`
 - `schnorr+deploy_tokenContract_with_registration+sponsored_fpc`
 - `ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc`
 - `ecdsar1+transfer_1_recursions+private_fpc`
-- and more under `yarn-project/end-to-end/example-app-ivc-inputs-out/` after downloading
+- and more under `barretenberg/cpp/chonk-pinned-flows/` after downloading
 
 The pinned hash prefix is maintained in `barretenberg/cpp/scripts/chonk-inputs.hash`. The S3 URL is:
 ```
@@ -60,11 +60,11 @@ barretenberg/cpp/scripts/chonk_inputs.sh download
 HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native
 ```
 
-The benchmark script defaults to `ecdsar1+transfer_0_recursions+sponsored_fpc`. If a flow fails, the pinned inputs remain in `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inputs.msgpack`; rerun the same case by passing the flow directory:
+The benchmark script defaults to `ecdsar1+transfer_0_recursions+sponsored_fpc`. If a flow fails, the pinned inputs remain in `barretenberg/cpp/chonk-pinned-flows/<flow>/ivc-inputs.msgpack`; rerun the same case by passing the flow directory:
 
 ```bash
 HARDWARE_CONCURRENCY=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native \
-  yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>
+  barretenberg/cpp/chonk-pinned-flows/<flow>
 ```
 
 The CI benchmark also cross-checks the proof against the generated protocol VK artifacts under `noir-projects/noir-protocol-circuits/target`. That is a post-prove check, not part of the pinned input download.
@@ -80,7 +80,7 @@ mkdir -p $OUTPUT_DIR
 
 HARDWARE_CONCURRENCY=8 ./build/bin/bb prove \
   -o $OUTPUT_DIR \
-  --ivc_inputs_path ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$FLOW/ivc-inputs.msgpack \
+  --ivc_inputs_path chonk-pinned-flows/$FLOW/ivc-inputs.msgpack \
   --scheme chonk \
   -v \
   --print_bench \
@@ -116,7 +116,7 @@ OUTPUT_DIR="/tmp/chonk-bench-wasm"
 mkdir -p $OUTPUT_DIR
 
 # Copy inputs to a working dir wasmtime can access
-cp ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$FLOW/ivc-inputs.msgpack $OUTPUT_DIR/
+cp chonk-pinned-flows/$FLOW/ivc-inputs.msgpack $OUTPUT_DIR/
 
 cd $OUTPUT_DIR
 HARDWARE_CONCURRENCY=8 BB_BENCH=1 \

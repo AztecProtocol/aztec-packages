@@ -77,6 +77,19 @@ resource "helm_release" "web3signer" {
         repository = split(":", var.WEB3SIGNER_DOCKER_IMAGE)[0]
         tag        = split(":", var.WEB3SIGNER_DOCKER_IMAGE)[1]
       }
+      nodeSelector = {
+        "node-type" = "network"
+      }
+      resources = {
+        requests = {
+          cpu    = "100m"
+          memory = "512Mi"
+        }
+        limits = {
+          cpu    = "1"
+          memory = "2Gi"
+        }
+      }
       extraVolumes = [
         {
           name = "keystores"

@@ -30,7 +30,7 @@ A good example of this is writing to private state variables. These functions re
 
 ```rust
 storage.votes.insert(new_vote); // compiler error - unused NoteMessage return value
-storage.votes.insert(new_vote).deliver(MessageDelivery.ONCHAIN_CONSTRAINED); // deliver the note message onchain
+storage.votes.insert(new_vote).deliver(MessageDelivery::onchain_constrained()); // deliver the note message onchain
 ```
 
 ## Contract Development

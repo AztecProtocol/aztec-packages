@@ -71,7 +71,7 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   },
   slashDataWithholdingPenalty: {
     env: 'SLASH_DATA_WITHHOLDING_PENALTY',
-    description: 'Penalty amount for slashing validators for data withholding (set to 0 to disable).',
+    description: 'Penalty for data withholding (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashDataWithholdingPenalty),
   },
   slashDataWithholdingToleranceSlots: {
@@ -125,29 +125,28 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   },
   slashInactivityPenalty: {
     env: 'SLASH_INACTIVITY_PENALTY',
-    description: 'Penalty amount for slashing an inactive validator (set to 0 to disable).',
+    description: 'Penalty for an inactive validator (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashInactivityPenalty),
   },
   slashProposeInvalidAttestationsPenalty: {
     env: 'SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY',
-    description: 'Penalty amount for slashing a proposer that proposed invalid attestations (set to 0 to disable).',
+    description: 'Penalty for proposing invalid attestations (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashProposeInvalidAttestationsPenalty),
   },
   slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: {
     env: 'SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY',
     description:
-      'Penalty amount for slashing a proposer that published a checkpoint building on an invalid checkpoint (set to 0 to disable).',
+      'Penalty for publishing a checkpoint building on an invalid checkpoint (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty),
   },
   slashAttestInvalidCheckpointProposalPenalty: {
     env: 'SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY',
-    description:
-      'Penalty amount for slashing a validator that attested to an invalid checkpoint proposal (set to 0 to disable).',
+    description: 'Penalty for attesting to an invalid checkpoint proposal (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashAttestInvalidCheckpointProposalPenalty),
   },
   slashUnknownPenalty: {
     env: 'SLASH_UNKNOWN_PENALTY',
-    description: 'Penalty amount for slashing a validator for an unknown offense (set to 0 to disable).',
+    description: 'Penalty for an unknown offense (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashUnknownPenalty),
   },
   slashOffenseExpirationRounds: {

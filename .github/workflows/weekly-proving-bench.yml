@@ -71,7 +71,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: next
+          ref: ${{ github.sha }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f

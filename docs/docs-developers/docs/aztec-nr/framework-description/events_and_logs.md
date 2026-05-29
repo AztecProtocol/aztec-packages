@@ -40,7 +40,7 @@ fn transfer(to: AztecAddress, amount: u128) {
 
     self.emit(Transfer { from, to, amount }).deliver_to(
         to,
-        MessageDelivery.ONCHAIN_UNCONSTRAINED,
+        MessageDelivery::onchain_unconstrained(),
     );
 }
 ```
@@ -55,15 +55,15 @@ You can deliver the same event to multiple recipients with different delivery mo
 
 ```rust
 let message = self.emit(Transfer { from, to, amount });
-message.deliver_to(from, MessageDelivery.OFFCHAIN);
-message.deliver_to(to, MessageDelivery.ONCHAIN_CONSTRAINED);
+message.deliver_to(from, MessageDelivery::offchain());
+message.deliver_to(to, MessageDelivery::onchain_constrained());
 ```
 
 The `MessageDelivery` options are:
 
-- **`ONCHAIN_CONSTRAINED`** - Constrained encryption with onchain delivery. Slowest proving but provides cryptographic guarantees that recipients can decrypt messages.
-- **`ONCHAIN_UNCONSTRAINED`** - Unconstrained encryption with onchain delivery. Faster proving, but trusts the sender to encrypt correctly.
-- **`OFFCHAIN`** - Unconstrained encryption with offchain delivery. Lowest cost, but requires custom infrastructure to deliver messages to recipients.
+- **`onchain_constrained()`** - Constrained encryption with onchain delivery. Slowest proving but provides cryptographic guarantees that recipients can decrypt messages.
+- **`onchain_unconstrained()`** - Unconstrained encryption with onchain delivery. Faster proving, but trusts the sender to encrypt correctly.
+- **`offchain()`** - Unconstrained encryption with offchain delivery. Lowest cost, but requires custom infrastructure to deliver messages to recipients.
 
 :::note
 Emitting private events is optional. Onchain delivery publishes encrypted data to Ethereum blobs, inheriting Ethereum's data availability guarantees. You can choose to share information offchain instead.

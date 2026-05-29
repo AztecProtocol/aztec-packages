@@ -10,8 +10,7 @@ import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_taggin
 /**
  * Syncs tagging indexes. This function needs to be called whenever a private log is being sent.
  *
- * @param secret - The secret that's unique for (sender, recipient, app) tuple while the direction of
- * sender -> recipient matters.
+ * @param secret - The sender-side tagging `AppTaggingSecret`.
  * @remarks When syncing the indexes as sender we don't care about the log contents - we only care about the highest
  * pending and highest finalized indexes as that guides the next index choice when sending a log. The next index choice
  * is simply the highest pending index plus one (or finalized if pending is undefined).

@@ -689,6 +689,13 @@ describe('Archiver Sync', () => {
       const invalidCheckpointDetectedSpy = jest.fn();
       archiver.events.on(L2BlockSourceEvents.InvalidAttestationsCheckpointDetected, invalidCheckpointDetectedSpy);
 
+      // And another spy for DescendentOfInvalidAttestationsCheckpointDetected, which fires only for a
+      // checkpoint with VALID attestations that builds on a rejected ancestor. CP3 here has invalid
+      // attestations of its own, so it is caught by the attestation check first and should never
+      // reach the descendant path — this spy must not fire in this test.
+      const descendantOfInvalidSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected, descendantOfInvalidSpy);
+
       // Add valid checkpoint 1 with correct attestations
       const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
         l1BlockNumber: 70n,
@@ -780,20 +787,23 @@ describe('Archiver Sync', () => {
       expect(validationStatus.checkpoint.checkpointNumber).toEqual(2);
       expect(validationStatus.checkpoint.archive.toString()).toEqual(badCp2b.archive.root.toString());
 
-      // Check that event was also emitted for bad CP3
+      // CP3 has invalid attestations of its own, so it is caught by the attestation check (which
+      // runs before the descendant-of-invalid check) and surfaced as an
+      // InvalidAttestationsCheckpointDetected event — NOT a descendant event — even though it also
+      // builds on the rejected bad CP2b.
+      expect(descendantOfInvalidSpy).not.toHaveBeenCalled();
+
+      // Should have been called 3 times for invalid attestations: bad CP2, bad CP2b, bad CP3
+      expect(invalidCheckpointDetectedSpy).toHaveBeenCalledTimes(3);
       expect(invalidCheckpointDetectedSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           type: L2BlockSourceEvents.InvalidAttestationsCheckpointDetected,
           validationResult: expect.objectContaining({
             valid: false,
-            reason: 'invalid-attestation',
             checkpoint: expect.objectContaining({ checkpointNumber: 3 }),
           }),
         }),
       );
-
-      // Should have been called 3 times: bad CP2, bad CP2b, bad CP3
-      expect(invalidCheckpointDetectedSpy).toHaveBeenCalledTimes(3);
 
       // Now recover: remove bad checkpoints and add good CP2 and CP3 with valid attestations
       // Good checkpoints have messages that the archiver will validate
@@ -830,6 +840,76 @@ describe('Archiver Sync', () => {
 
       // With a valid pending chain validation status
       expect(await archiver.getPendingChainValidationStatus()).toEqual(expect.objectContaining({ valid: true }));
+    }, 15_000);
+
+    it('skips a valid-attestations checkpoint that builds on a rejected ancestor', async () => {
+      // Regression for the archiver "non-consecutive checkpoint" retry loop: when a checkpoint
+      // with insufficient/invalid attestations is followed by a valid-attestations descendant,
+      // addCheckpoints used to throw InitialCheckpointNumberNotSequentialError and loop on the
+      // catch handler's L1-sync-point rollback. Now the descendant is detected, skipped, and
+      // surfaced via DescendentOfInvalidAttestationsCheckpointDetected.
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
+
+      fake.setTargetCommitteeSize(3);
+      const signers = times(3, Secp256k1Signer.random);
+      const committee = signers.map(s => s.address);
+      epochCache.getCommitteeForEpoch.mockResolvedValue({ committee, seed: 0n } as EpochCommitteeInfo);
+
+      const descendantOfInvalidSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected, descendantOfInvalidSpy);
+
+      // Valid CP1
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+        signers,
+      });
+      const cp1Archive = cp1.blocks.at(-1)!.archive;
+
+      // Bad CP2 (insufficient attestations — random signers not in committee)
+      const badSigners = times(3, Secp256k1Signer.random);
+      const { checkpoint: badCp2 } = await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 80n,
+        numL1ToL2Messages: 0,
+        signers: badSigners,
+        previousArchive: cp1Archive,
+      });
+
+      // Valid-attestations CP3 chained from bad CP2: this is the case that used to wedge the
+      // synchronizer.
+      const { checkpoint: validCp3 } = await fake.addCheckpoint(CheckpointNumber(3), {
+        l1BlockNumber: 82n,
+        numL1ToL2Messages: 0,
+        signers,
+        previousArchive: badCp2.blocks.at(-1)!.archive,
+      });
+
+      fake.setL1BlockNumber(85n);
+      await archiver.syncImmediate();
+
+      // Archiver should have stayed at CP1 (skipped both CP2 and CP3) without throwing.
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      // The descendant event should have fired for CP3 with the bad CP2 ancestor.
+      expect(descendantOfInvalidSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected,
+          checkpoint: expect.objectContaining({
+            checkpointNumber: 3,
+            archive: validCp3.archive.root,
+          }),
+          ancestorArchiveRoot: badCp2.archive.root,
+          ancestorCheckpointNumber: 2,
+        }),
+      );
+      expect(descendantOfInvalidSpy).toHaveBeenCalledTimes(1);
+
+      // The rejected entries should persist in the store, keyed by their own archive roots.
+      const rejectedBad = await archiverStore.blocks.getRejectedCheckpointByArchiveRoot(badCp2.archive.root);
+      const rejectedValid = await archiverStore.blocks.getRejectedCheckpointByArchiveRoot(validCp3.archive.root);
+      expect(rejectedBad).toBeDefined();
+      expect(rejectedValid).toBeDefined();
     }, 15_000);
   });
 
@@ -891,7 +971,7 @@ describe('Archiver Sync', () => {
 
       // Verify data from checkpoint 2 is removed
       const txHash = cp2.blocks[0].body.txEffects[0].txHash;
-      expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
+      expect(await archiver.getTxEffect(txHash)).toBeUndefined();
       expect(await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 })).toEqual([]);
 
       expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);

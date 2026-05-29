@@ -19,11 +19,18 @@ describe('PublicKeys', () => {
   });
 
   it('computes public keys hash', async () => {
-    const keys = new PublicKeys(new Fr(11n), new PublicKey(new Fr(3n), new Fr(4n)), new Fr(22n), new Fr(33n));
+    const keys = new PublicKeys(
+      new Fr(11n),
+      new PublicKey(new Fr(3n), new Fr(4n)),
+      new Fr(22n),
+      new Fr(33n),
+      new Fr(44n),
+      new Fr(55n),
+    );
 
     const hash = await keys.hash();
     expect(hash.toString()).toMatchInlineSnapshot(
-      `"0x0b8c7b67576d3ac859a7fab578b2b2e305c67eba9e133b0fa46af8d19a50b8fc"`,
+      `"0x1e57c605207e2b607720b8e3023f69f5af25683277db5ff3b99f7948213c7878"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
@@ -39,7 +46,7 @@ describe('PublicKeys', () => {
 
     const hash = await keys.hash();
     expect(hash.toString()).toMatchInlineSnapshot(
-      `"0x147a900f3e1abdfcc56355d65ab9bebb1016400cb9d81ee1c977d0df16bb198c"`,
+      `"0x13c13fbec22a396f700180c621fb8c67b830b431fed47d4dd71a20d828829eaa"`,
     );
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

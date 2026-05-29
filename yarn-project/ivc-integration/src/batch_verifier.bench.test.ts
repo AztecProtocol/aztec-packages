@@ -1,8 +1,7 @@
 /**
  * Batch chonk verifier benchmarks using real protocol proofs.
  *
- * Uses pre-generated IVC inputs from example-app-ivc-inputs-out (built by
- * end-to-end/bootstrap.sh build_bench), proves a representative transaction,
+ * Uses pinned IVC inputs from chonk-pinned-flows, proves a representative transaction,
  * then benchmarks batch verification throughput at various configurations.
  */
 import { BatchChonkVerifier } from '@aztec/bb-prover';
@@ -11,8 +10,8 @@ import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/v
 
 import { jest } from '@jest/globals';
 import { execFile } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -21,8 +20,13 @@ import { corruptProofFields } from './batch_verifier_test_helpers.js';
 const execFileAsync = promisify(execFile);
 const logger = createLogger('ivc-integration:bench:batch-verifier');
 
-const INPUTS_DIR = resolve('../end-to-end/example-app-ivc-inputs-out');
+const REPO_ROOT = resolve('../..');
+const INPUTS_DIR = resolve(REPO_ROOT, 'barretenberg/cpp/chonk-pinned-flows');
 const BB_PATH = process.env.BB_BINARY_PATH ?? resolve('../../barretenberg/cpp/build/bin/bb');
+const CHONK_INPUTS_SCRIPT = resolve(REPO_ROOT, 'barretenberg/cpp/scripts/chonk_inputs.sh');
+const CHONK_INPUTS_HASH_FILE = resolve(REPO_ROOT, 'barretenberg/cpp/scripts/chonk-inputs.hash');
+const CHONK_INPUTS_MARKER_FILE = resolve(INPUTS_DIR, '.chonk-inputs.hash');
+const CHONK_INPUTS_STATE_DIR = resolve(REPO_ROOT, '.cache/chonk-inputs');
 
 jest.setTimeout(1_200_000); // 20 min — proving is slow
 
@@ -37,6 +41,20 @@ function proofToFields(proofBuf: Buffer): Uint8Array[] {
   return fields;
 }
 
+async function ensurePinnedInputs(): Promise<void> {
+  const expectedHash = readFileSync(CHONK_INPUTS_HASH_FILE, 'utf8').trim();
+  const currentHash = existsSync(CHONK_INPUTS_MARKER_FILE)
+    ? readFileSync(CHONK_INPUTS_MARKER_FILE, 'utf8').trim()
+    : undefined;
+
+  if (currentHash === expectedHash) {
+    return;
+  }
+
+  logger.info(`Downloading pinned Chonk inputs ${expectedHash}...`);
+  await execFileAsync(CHONK_INPUTS_SCRIPT, ['download'], { cwd: REPO_ROOT, timeout: 180_000 });
+}
+
 describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
   let validProofFields: Uint8Array[];
   let invalidProofFields: Uint8Array[];
@@ -45,7 +63,9 @@ describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
   const benchResults: BenchEntry[] = [];
 
   beforeAll(async () => {
-    // Use pre-generated IVC inputs from example-app-ivc-inputs-out
+    await ensurePinnedInputs();
+
+    // Use pinned IVC inputs from chonk-pinned-flows
     logger.info(`Using local IVC inputs from ${INPUTS_DIR}...`);
 
     // Pick the largest flow for a realistic proof
@@ -56,7 +76,7 @@ describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
     // Use a transfer flow (representative of typical txs)
     const flow = flowDirs.find(f => f.includes('transfer_0_recursions+sponsored')) ?? flowDirs[0];
     const ivcInputsPath = resolve(INPUTS_DIR, flow, 'ivc-inputs.msgpack');
-    proofDir = resolve(tmpdir(), `bb-bench-proof-${Date.now()}`);
+    proofDir = resolve(CHONK_INPUTS_STATE_DIR, `batch-verifier-proof-${Date.now()}`);
     await mkdir(proofDir, { recursive: true });
 
     // Prove the flow

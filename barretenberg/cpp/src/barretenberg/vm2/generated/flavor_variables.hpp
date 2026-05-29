@@ -141,10 +141,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 120;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2939;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2947;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 364;
-    static constexpr size_t NUM_WIRES = 2498;
-    static constexpr size_t NUM_ALL_ENTITIES = 3423;
+    static constexpr size_t NUM_WIRES = 2505;
+    static constexpr size_t NUM_ALL_ENTITIES = 3431;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -222,6 +222,7 @@ struct AvmFlavorVariables {
         lookup_address_derivation_preaddress_scalar_mul_relation<FF_>,
         lookup_address_derivation_public_keys_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_public_keys_hash_poseidon2_1_relation<FF_>,
+        lookup_address_derivation_public_keys_hash_poseidon2_2_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
         lookup_addressing_relative_overflow_result_0_relation<FF_>,
