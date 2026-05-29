@@ -2999,20 +2999,30 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     let M_partials = NUM_THREADS * PARTIALS_PER_THREAD;
     let num_dense = planner_meta[1];
 
-    if (t >= NUM_THREADS) { return; }
+    // num_active_threads = planner's nwg × partition_thread's TPB (=256).
+    // The planner's partition_thread writes thread_cuts entries [0, num_active_threads);
+    // entries beyond are left zeroed (host clears thread_cuts before each MSM).
+    let num_active_threads = planner_meta[3] * 256u;
+    if (t >= NUM_THREADS || t >= num_active_threads) { return; }
     if (num_dense == 0u) { return; }
-
-    // (Separated buffers: bucket_sums and partials_buf are distinct bindings.)
 
     // Per-thread split_records base index (in u32 elements).
     // Each record is 2 u32 (bucket_id, partial_slot_idx).
     let split_base = t * SPLIT_RECORDS_PER_THREAD * 2u;
 
-    // Read thread range from thread_cuts.
+    // Read thread range from thread_cuts. The last active thread's "successor"
+    // is out of the partitioned range; treat it as a clean end (num_dense, 0).
     let thread_first_bucket = thread_cuts[2u * t + 0u];
     let thread_first_offset = thread_cuts[2u * t + 1u];
-    let thread_last_bucket  = thread_cuts[2u * (t + 1u) + 0u];
-    let thread_last_offset  = thread_cuts[2u * (t + 1u) + 1u];
+    var thread_last_bucket: u32;
+    var thread_last_offset: u32;
+    if (t + 1u < num_active_threads) {
+        thread_last_bucket = thread_cuts[2u * (t + 1u) + 0u];
+        thread_last_offset = thread_cuts[2u * (t + 1u) + 1u];
+    } else {
+        thread_last_bucket = num_dense;
+        thread_last_offset = 0u;
+    }
 
     // Initialize all split_records slots to sentinel before populating.
     for (var i: u32 = 0u; i < SPLIT_RECORDS_PER_THREAD; i = i + 1u) {

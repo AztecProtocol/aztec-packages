@@ -527,6 +527,10 @@ interface SharedScratch {
   partialBucketsList: GPUBuffer;
   accBuf: GPUBuffer;
   streamPrefScratch: GPUBuffer;
+  // Stream-walker buffers (STREAM_WALKER_PLAN.md §3.1).
+  bucketMeta: GPUBuffer;            // packed (sorted_bucket, count, offset, cum_adds)
+  walkerPartials: GPUBuffer;        // 16 partials/thread × PG × 2 vec4
+  walkerSplitRecords: GPUBuffer;    // 16 records/thread × (bucket_id, partial_slot)
   // Pad-trio layout in bufA/bufB (depends on the M1 the buffers were
   // sized for). Re-derived whenever bufA grows.
   planeBytes: number;
@@ -661,6 +665,7 @@ export class MsmV2Pool {
       total += s.wgCuts.size + s.threadCuts.size;
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
+      total += s.bucketMeta.size + s.walkerPartials.size + s.walkerSplitRecords.size;
     }
     return total;
   }
@@ -840,6 +845,10 @@ export class MsmV2Pool {
     let partialBucketsList = s?.partialBucketsList;
     let accBuf = s?.accBuf;
     let streamPrefScratch = s?.streamPrefScratch;
+    // Stream-walker buffers (STREAM_WALKER_PLAN.md §3.1).
+    let bucketMeta = s?.bucketMeta;
+    let walkerPartials = s?.walkerPartials;
+    let walkerSplitRecords = s?.walkerSplitRecords;
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
       streamPlannerMeta?.destroy();
       size1BucketList?.destroy();
@@ -856,6 +865,9 @@ export class MsmV2Pool {
       partialBucketsList?.destroy();
       accBuf?.destroy();
       streamPrefScratch?.destroy();
+      bucketMeta?.destroy();
+      walkerPartials?.destroy();
+      walkerSplitRecords?.destroy();
       grow(dims.streamNumThreads > cur.streamNumThreads, 'streamNumThreads');
       grow(dims.streamS > cur.streamS, 'streamS');
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
@@ -878,6 +890,13 @@ export class MsmV2Pool {
       const maxSplitWgs = Math.min(sT, 256);
       const psSlots = maxSplitWgs * 256 * sS;
       streamPrefScratch = sbuf(Math.max(psSlots, saSlots) * 2 * 4 * 4);
+      // Stream-walker allocations. bucketMeta = bTotal × vec4<u32>.
+      // walkerPartials sized for 16 partial slots per thread (split-start
+      // and split-end for each of S=8 slots) × PG × 2 vec4 per point.
+      // walkerSplitRecords sized for 16 (bucket_id, partial_slot) pairs/thread.
+      bucketMeta = sbuf(sBTotal * 4 * 4);
+      walkerPartials = soaBuf(sT * 16);
+      walkerSplitRecords = sbuf(sT * 16 * 2 * 4);
       grew = true;
     }
 
@@ -921,6 +940,9 @@ export class MsmV2Pool {
       partialBucketsList: partialBucketsList!,
       accBuf: accBuf!,
       streamPrefScratch: streamPrefScratch!,
+      bucketMeta: bucketMeta!,
+      walkerPartials: walkerPartials!,
+      walkerSplitRecords: walkerSplitRecords!,
       planeBytes,
       padBytesPerPlane,
       padXOffset,
@@ -1209,6 +1231,13 @@ export class MsmV2 {
   private size1Layout!: GPUBindGroupLayout;
   private streamAccumLayout!: GPUBindGroupLayout;
   private partialSumLayout!: GPUBindGroupLayout;
+  // Stream-walker (STREAM_WALKER_PLAN.md §6).
+  private bucketMetaPackPipe!: GPUComputePipeline;
+  private bucketMetaPackLayout!: GPUBindGroupLayout;
+  private bucketMetaPackBind!: GPUBindGroup;
+  private streamWalkerPipe!: GPUComputePipeline;
+  private streamWalkerLayout!: GPUBindGroupLayout;
+  private streamWalkerBind!: GPUBindGroup;
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
@@ -1454,6 +1483,11 @@ export class MsmV2 {
     m.partialSumLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
     m.debugAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     m.splitRecomputeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
+    // Stream-walker layouts (STREAM_WALKER_PLAN.md §6.1).
+    //   bucket_meta_pack: sorted_bucket_list, sorted_count_list, offsets, cumulative_adds, bucket_meta(rw), planner_meta
+    m.bucketMetaPackLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage']);
+    //   stream_walker: bucket_meta, thread_cuts, l0_index, point_x, point_y, bucket_sums(rw), partials(rw), split_records(rw), planner_meta, params(uniform)
+    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'read-only-storage', 'uniform']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1543,6 +1577,13 @@ export class MsmV2 {
     m.splitRecomputePipe = await compile(
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
+    // Stream-walker (STREAM_WALKER_PLAN.md §6).
+    m.bucketMetaPackPipe = await compile(
+      sm.gen_ba_bucket_meta_pack_shader(256),
+      `bucket-meta-pack`, m.bucketMetaPackLayout);
+    m.streamWalkerPipe = await compile(
+      sm.gen_ba_stream_walker_shader(128, STREAM_S, INV_VARIANT),
+      `stream-walker`, m.streamWalkerLayout);
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
@@ -2039,6 +2080,17 @@ export class MsmV2 {
       this.debugAccumBind = mkBind(this.debugAccumLayout, [sb, sc, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, debugParams]);
       const splitParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, 0, 0]));
       this.splitRecomputeBind = mkBind(this.splitRecomputeLayout, [pbl, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, splitParams]);
+      // Stream-walker bind groups (STREAM_WALKER_PLAN.md §6).
+      const bm = scratch.bucketMeta;
+      const wp = scratch.walkerPartials;
+      const wsr = scratch.walkerSplitRecords;
+      this.bucketMetaPackBind = mkBind(this.bucketMetaPackLayout, [sb, sc, offsetsBufs[0], ca, bm, sp]);
+      // Walker params: (NUM_THREADS, M_buckets, reserved=0, IDLE_ANCHOR=batchSlots).
+      const walkerParams = ubuf(new Uint32Array([this.streamNumThreads, B_TOTAL, 0, batchSlots]));
+      this.streamWalkerBind = mkBind(this.streamWalkerLayout, [
+        bm, tc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
+        bucketResult, wp, wsr, sp, walkerParams,
+      ]);
     }
 
     this.redStaging = device.createBuffer({
@@ -2198,6 +2250,10 @@ export class MsmV2 {
     enc.clearBuffer(this.bufB, this.planeBytes, this.padXOffset);
     enc.clearBuffer(this.bucketResultBuf);
     enc.clearBuffer(this.pool.scratch!.partialsBuf);
+    // Stream-walker buffers (STREAM_WALKER_PLAN.md §6).
+    enc.clearBuffer(this.pool.scratch!.threadCuts);
+    enc.clearBuffer(this.pool.scratch!.walkerPartials);
+    enc.clearBuffer(this.pool.scratch!.walkerSplitRecords);
 
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
@@ -2224,8 +2280,11 @@ export class MsmV2 {
       dispatch(this.cumsumPipe, this.cumsumBind, 1, 1);
       dispatch(this.partitionWgPipe, this.partitionWgBind, 1, 1);
       dispatch(this.partitionThreadPipe, this.partitionThreadBind, 32, 1);
+      // Stream-walker pack + emit. The legacy emit/emit_fixup still run for
+      // now so the legacy stream_accum path stays correct as a baseline.
       dispatch(this.streamEmitPipe, this.streamEmitBind, 32, 1);
       dispatch(this.emitFixupPipe, this.emitFixupBind, 1, 1);
+      dispatch(this.bucketMetaPackPipe, this.bucketMetaPackBind, Math.ceil(this.bTotal / 256), 1);
       setPhase('accumulate');
       // Indirect-dispatched accumulation kernels.
       const indirectDispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, buf: GPUBuffer, off: number): void => {
@@ -2247,13 +2306,17 @@ export class MsmV2 {
       };
       setPhase('size1');
       indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
-      setPhase('stream_accum');
-      indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
-      setPhase('partial_sum');
-      dispatch(this.partialSumPipe, this.partialSumBind, 256, 1);
-      // debug_accum disabled in hot path while we hunt the residual
-      // whole-bucket bug. The A/B diagnostic below re-runs it for
-      // per-bucket mismatch detection.
+      // Stream-walker replaces stream_accum + partial_sum (note: the
+      // legacy path on this branch is already broken — iteration report
+      // flagged the "whole-bucket bug" in stream_accum and the zero-slot
+      // identity hack in partial_sum). Walker dispatch: 64 workgroups ×
+      // TPB=128 = 8192 threads, matches partition_thread's
+      // 32 wgs × TPB=256 = 8192 thread-cut entries.
+      // Host-side partials fixup (STREAM_WALKER_PLAN.md §10) is TODO —
+      // without it, split-bucket sums will be missing from bucketResultBuf
+      // and downstream reduce will produce incorrect window sums.
+      setPhase('stream_walker');
+      dispatch(this.streamWalkerPipe, this.streamWalkerBind, 64, 1);
     }
     setPhase('reduce');
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
