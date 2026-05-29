@@ -260,26 +260,6 @@ function planLevel(counts: Uint32Array, s: number, numWindows: number, BW: numbe
   return { plan, newCounts };
 }
 
-// Build the pad-trio SoA buffer for an active_sums buffer of element stride Mb:
-// the 3 pad slots sit at Mb-3..Mb-1 in Montgomery form.
-function buildPadBuf(Mb: number, padPts: Pt[], R: bigint): Uint32Array {
-  const padBuf = new Uint32Array(2 * PG * Mb * 4);
-  for (let j = 0; j < 3; j++) {
-    const slot = Mb - 3 + j;
-    const xw = bigintToPackedU32x8((padPts[j].x * R) % FP);
-    const yw = bigintToPackedU32x8((padPts[j].y * R) % FP);
-    for (let q = 0; q < PG; q++) {
-      const xb = (PG * slot + q) * 4;
-      const yb = (PG * Mb + PG * slot + q) * 4;
-      for (let k = 0; k < 4; k++) {
-        padBuf[xb + k] = xw[4 * q + k];
-        padBuf[yb + k] = yw[4 * q + k];
-      }
-    }
-  }
-  return padBuf;
-}
-
 // Window combine: Horner fold of the per-window weighted sums into the final
 // MSM point — acc = Σ_w L_w · 2^(w·c). The fold runs in Jacobian coordinates
 // (a = 0) so every step is inversion-free; one inverse converts back to affine.
@@ -493,20 +473,14 @@ class PipelineCache {
  * (buffer alloc) to ~2 ms (bind-group rebuild).
  */
 interface SharedScratch {
-  bufA: GPUBuffer;
-  bufB: GPUBuffer;
   bucketResultBuf: GPUBuffer;
   l0IdxBuf: GPUBuffer;
   bucketAndSignBuf: GPUBuffer;
   valIdxBuf: GPUBuffer;
   rowPtrBuf: GPUBuffer;
   planMeta: GPUBuffer;
-  pairBlockPlanRing: [GPUBuffer, GPUBuffer];
-  scatterPlanRing: [GPUBuffer, GPUBuffer];
-  carryPlanRing: [GPUBuffer, GPUBuffer];
   countsBufs: [GPUBuffer, GPUBuffer];
   offsetsBufs: [GPUBuffer, GPUBuffer];
-  prefScratchBuf: GPUBuffer;
   scalarsRawBuf: GPUBuffer;
   redBuf: GPUBuffer;
   isPresentBuf: GPUBuffer;
@@ -522,26 +496,14 @@ interface SharedScratch {
   cumulativeAdds: GPUBuffer;
   wgCuts: GPUBuffer;
   threadCuts: GPUBuffer;
-  queueBuf: GPUBuffer;
   partialsBuf: GPUBuffer;
-  partialBucketsList: GPUBuffer;
-  accBuf: GPUBuffer;
-  streamPrefScratch: GPUBuffer;
   // Stream-walker variant (KNOB 2): precomputed task cuts + per-partial-slot
   // destination bucket ids.
   taskCuts: GPUBuffer;
   partialDest: GPUBuffer;
-  // Pad-trio layout in bufA/bufB (depends on the M1 the buffers were
-  // sized for). Re-derived whenever bufA grows.
-  planeBytes: number;
-  padBytesPerPlane: number;
-  padXOffset: number;
-  padYOffset: number;
-  // The M1 the pool's bufA/bufB are sized to (in elements, not bytes).
-  // ALL MSMs binding to this pool MUST reference pad slots at element
-  // indices [poolM1-3, poolM1-2, poolM1-1] regardless of their own M1 —
-  // those are the only slots that contain the pad-trio data. The pool
-  // re-writes the pad bytes there whenever it grows bufA/bufB.
+  // The max-M1 the pool has served. The active-sums element stride and the
+  // finalize gather reference poolM1 (not a given MSM's own M1) so that all
+  // MSMs binding to the shared pool agree on the SoA layout.
   poolM1: number;
 }
 
@@ -648,23 +610,19 @@ export class MsmV2Pool {
     let total = this.poolX.size + this.poolY.size;
     if (this._scratch) {
       const s = this._scratch;
-      total += s.bufA.size + s.bufB.size + s.bucketResultBuf.size;
+      total += s.bucketResultBuf.size;
       total += s.l0IdxBuf.size + s.bucketAndSignBuf.size + s.valIdxBuf.size;
       total += s.rowPtrBuf.size + s.planMeta.size;
-      total += s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size;
-      total += s.scatterPlanRing[0].size + s.scatterPlanRing[1].size;
-      total += s.carryPlanRing[0].size + s.carryPlanRing[1].size;
       total += s.countsBufs[0].size + s.countsBufs[1].size;
       total += s.offsetsBufs[0].size + s.offsetsBufs[1].size;
-      total += s.prefScratchBuf.size + s.scalarsRawBuf.size;
+      total += s.scalarsRawBuf.size;
       total += s.redBuf.size + s.isPresentBuf.size + s.reducePrefScratch.size;
       total += s.streamPlannerMeta.size + s.size1BucketList.size;
       total += s.denseBucketList.size + s.denseCountList.size;
       total += s.sortedBucketList.size + s.sortedCountList.size;
       total += s.radixHist.size + s.cumulativeAdds.size;
       total += s.wgCuts.size + s.threadCuts.size;
-      total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
-      total += s.accBuf.size + s.streamPrefScratch.size;
+      total += s.partialsBuf.size + s.taskCuts.size + s.partialDest.size;
     }
     return total;
   }
@@ -673,14 +631,11 @@ export class MsmV2Pool {
    * Grow shared scratch buffers as needed to fit `dims`. Idempotent — if
    * every dimension already fits, no buffer is touched and `scratchEpoch`
    * stays put. If any dimension grows, the underlying buffers are destroyed
-   * and reallocated at the new max, the pad-trio is re-written into the
-   * fresh bufA/bufB, and `scratchEpoch` advances. Caller must consult
-   * `scratchEpoch` afterward to detect when bind groups need rebuilding.
-   *
-   * `padPts` and `R` are the pad-trio point coordinates + Montgomery R
-   * needed to refresh the pad slots on a bufA/bufB realloc.
+   * and reallocated at the new max and `scratchEpoch` advances. Caller must
+   * consult `scratchEpoch` afterward to detect when bind groups need
+   * rebuilding.
    */
-  ensureScratch(dims: ScratchDims, padPts: Pt[], R: bigint): SharedScratch {
+  ensureScratch(dims: ScratchDims): SharedScratch {
     const device = this._device;
     const cur = this._maxDims;
     let grew = false;
@@ -700,33 +655,23 @@ export class MsmV2Pool {
     const soaBuf = (M: number): GPUBuffer => sbuf(soaSize(M));
 
     const s = this._scratch;
-    let bufA = s?.bufA;
-    let bufB = s?.bufB;
     let bucketResultBuf = s?.bucketResultBuf;
     let l0IdxBuf = s?.l0IdxBuf;
     let bucketAndSignBuf = s?.bucketAndSignBuf;
     let valIdxBuf = s?.valIdxBuf;
     let rowPtrBuf = s?.rowPtrBuf;
     let planMeta = s?.planMeta;
-    let pairBlockPlanRing = s?.pairBlockPlanRing;
-    let scatterPlanRing = s?.scatterPlanRing;
-    let carryPlanRing = s?.carryPlanRing;
     let countsBufs = s?.countsBufs;
     let offsetsBufs = s?.offsetsBufs;
-    let prefScratchBuf = s?.prefScratchBuf;
     let scalarsRawBuf = s?.scalarsRawBuf;
     let redBuf = s?.redBuf;
     let isPresentBuf = s?.isPresentBuf;
     let reducePrefScratch = s?.reducePrefScratch;
 
-    // bufA/bufB depend on M1. They also need a pad-trio re-write whenever
-    // they realloc, so we handle them together.
-    if (!bufA || dims.M1 > cur.M1) {
-      bufA?.destroy();
-      bufB?.destroy();
+    // The SoA point buffers' max-M1 still tracks the largest MSM the pool
+    // has served (poolM1), which the active-sums / finalize strides reference.
+    if (dims.M1 > cur.M1) {
       grow(true, 'M1');
-      bufA = soaBuf(cur.M1);
-      bufB = soaBuf(cur.M1);
       grew = true;
     }
     if (!bucketResultBuf || dims.bTotal > cur.bTotal) {
@@ -764,36 +709,12 @@ export class MsmV2Pool {
       planMeta = sbuf(cur.planMetaLen * 4);
       grew = true;
     }
-    if (!pairBlockPlanRing || !scatterPlanRing || dims.totalPairBlocks > cur.totalPairBlocks) {
-      pairBlockPlanRing?.forEach(b => b.destroy());
-      scatterPlanRing?.forEach(b => b.destroy());
-      grow(true, 'totalPairBlocks');
-      const SmaxS = Math.max(cur.S, dims.S);
-      cur.S = SmaxS;
-      pairBlockPlanRing = [sbuf(2 * cur.totalPairBlocks * SmaxS * 4), sbuf(2 * cur.totalPairBlocks * SmaxS * 4)];
-      scatterPlanRing = [sbuf(cur.totalPairBlocks * SmaxS * 4), sbuf(cur.totalPairBlocks * SmaxS * 4)];
-      grew = true;
-    }
-    if (!carryPlanRing || dims.totalCarries > cur.totalCarries) {
-      carryPlanRing?.forEach(b => b.destroy());
-      grow(true, 'totalCarries');
-      carryPlanRing = [sbuf(2 * cur.totalCarries * 4), sbuf(2 * cur.totalCarries * 4)];
-      grew = true;
-    }
     if (!countsBufs || !offsetsBufs || dims.batchBuckets > cur.batchBuckets) {
       countsBufs?.forEach(b => b.destroy());
       offsetsBufs?.forEach(b => b.destroy());
       grow(true, 'batchBuckets');
       countsBufs = [sbuf(cur.batchBuckets * 4), sbuf(cur.batchBuckets * 4)];
       offsetsBufs = [sbuf(cur.batchBuckets * 4), sbuf(cur.batchBuckets * 4)];
-      grew = true;
-    }
-    if (!prefScratchBuf || dims.fusedTile > cur.fusedTile || dims.S > cur.S) {
-      prefScratchBuf?.destroy();
-      grow(true, 'fusedTile');
-      const SmaxS = Math.max(cur.S, dims.S);
-      cur.S = SmaxS;
-      prefScratchBuf = sbuf(cur.fusedTile * SmaxS * 8 * 4);
       grew = true;
     }
     if (!scalarsRawBuf || dims.scalarsBytes > cur.scalarsBytes) {
@@ -822,8 +743,6 @@ export class MsmV2Pool {
     const sS = dims.streamS || 8;
     const sBTotal = dims.bTotal || 1;
     const sRadixTiles = dims.streamRadixTiles || 1;
-    const sMaxQ = dims.streamQueueEntries || 1;
-    const sQHeaderLen = 2 * sT;
     const ibuf = (bytes: number): GPUBuffer =>
       device.createBuffer({
         size: Math.max(bytes, 4),
@@ -839,11 +758,7 @@ export class MsmV2Pool {
     let cumulativeAdds = s?.cumulativeAdds;
     let wgCuts = s?.wgCuts;
     let threadCuts = s?.threadCuts;
-    let queueBuf = s?.queueBuf;
     let partialsBuf = s?.partialsBuf;
-    let partialBucketsList = s?.partialBucketsList;
-    let accBuf = s?.accBuf;
-    let streamPrefScratch = s?.streamPrefScratch;
     let taskCuts = s?.taskCuts;
     let partialDest = s?.partialDest;
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
@@ -857,11 +772,7 @@ export class MsmV2Pool {
       cumulativeAdds?.destroy();
       wgCuts?.destroy();
       threadCuts?.destroy();
-      queueBuf?.destroy();
       partialsBuf?.destroy();
-      partialBucketsList?.destroy();
-      accBuf?.destroy();
-      streamPrefScratch?.destroy();
       taskCuts?.destroy();
       partialDest?.destroy();
       grow(dims.streamNumThreads > cur.streamNumThreads, 'streamNumThreads');
@@ -878,45 +789,25 @@ export class MsmV2Pool {
       cumulativeAdds = sbuf(sBTotal * 4);
       wgCuts = sbuf(32 * 2 * 4);
       threadCuts = sbuf(sT * 2 * 4);
-      queueBuf = sbuf((sQHeaderLen + sMaxQ * 3) * 4);
       // Walker needs up to 2 partials per task (split-start completion +
-      // task-end), so 2 * sT * sS slots; the legacy stream path uses the
-      // first 2 * sT and is unaffected by the larger allocation.
+      // task-end), so 2 * sT * sS slots.
       partialsBuf = soaBuf(2 * sT * sS);
-      partialBucketsList = sbuf(sT * 3 * 4);
-      accBuf = soaBuf(sT * sS);
       // KNOB 2 task cuts: (S+1) cut points/thread × 2 u32. partialDest: one
       // bucket id per partial slot (NO_BUCKET if unused).
       taskCuts = sbuf(sT * (sS + 1) * 2 * 4);
       partialDest = sbuf(2 * sT * sS * 4);
-      const saSlots = sT * sS;
-      const maxSplitWgs = Math.min(sT, 256);
-      const psSlots = maxSplitWgs * 256 * sS;
-      streamPrefScratch = sbuf(Math.max(psSlots, saSlots) * 2 * 4 * 4);
       grew = true;
     }
 
-    // Pad-trio layout in bufA/bufB. Recompute whenever bufA's size changed.
-    const planeBytes = cur.M1 * PG * 16;
-    const padBytesPerPlane = 3 * PG * 16;
-    const padXOffset = planeBytes - padBytesPerPlane;
-    const padYOffset = planeBytes + planeBytes - padBytesPerPlane;
-
     const newScratch: SharedScratch = {
-      bufA: bufA!,
-      bufB: bufB!,
       bucketResultBuf: bucketResultBuf!,
       l0IdxBuf: l0IdxBuf!,
       bucketAndSignBuf: bucketAndSignBuf!,
       valIdxBuf: valIdxBuf!,
       rowPtrBuf: rowPtrBuf!,
       planMeta: planMeta!,
-      pairBlockPlanRing: pairBlockPlanRing!,
-      scatterPlanRing: scatterPlanRing!,
-      carryPlanRing: carryPlanRing!,
       countsBufs: countsBufs!,
       offsetsBufs: offsetsBufs!,
-      prefScratchBuf: prefScratchBuf!,
       scalarsRawBuf: scalarsRawBuf!,
       redBuf: redBuf!,
       isPresentBuf: isPresentBuf!,
@@ -931,41 +822,18 @@ export class MsmV2Pool {
       cumulativeAdds: cumulativeAdds!,
       wgCuts: wgCuts!,
       threadCuts: threadCuts!,
-      queueBuf: queueBuf!,
       partialsBuf: partialsBuf!,
-      partialBucketsList: partialBucketsList!,
-      accBuf: accBuf!,
-      streamPrefScratch: streamPrefScratch!,
       taskCuts: taskCuts!,
       partialDest: partialDest!,
-      planeBytes,
-      padBytesPerPlane,
-      padXOffset,
-      padYOffset,
       poolM1: cur.M1,
     };
 
-    if (grew) {
-      // Re-write the pad-trio into the (possibly new) bufA/bufB. Other
-      // buffers are zero-initialized by WebGPU on creation, which is the
-      // correct starting state for them too.
-      const padBuf = buildPadBuf(cur.M1, padPts, R);
-      const padBytes = new Uint8Array(padBuf.buffer);
-      const xPadSlice = padBytes.subarray(padXOffset, padXOffset + padBytesPerPlane);
-      const yPadSlice = padBytes.subarray(padYOffset, padYOffset + padBytesPerPlane);
-      device.queue.writeBuffer(newScratch.bufA, padXOffset, xPadSlice as BufferSource);
-      device.queue.writeBuffer(newScratch.bufA, padYOffset, yPadSlice as BufferSource);
-      device.queue.writeBuffer(newScratch.bufB, padXOffset, xPadSlice as BufferSource);
-      device.queue.writeBuffer(newScratch.bufB, padYOffset, yPadSlice as BufferSource);
-      // Re-write the l0IdxBuf seed pad-trio at slots [batchSlots,
-      // batchSlots+1, batchSlots+2]. These positions move when batchSlots
-      // grows; the caller (MsmV2.prepare) writes the per-N value at its
-      // own batchSlots offset on every prepare. Nothing to do here.
-      this._scratch = newScratch;
-      this._scratchEpoch++;
-    } else {
-      this._scratch = newScratch;
-    }
+    // The l0-mode seed pad-trio lives in l0IdxBuf at slots [batchSlots,
+    // batchSlots+1, batchSlots+2]; the caller (MsmV2.prepare) writes the
+    // per-N value at its own batchSlots offset on every prepare, so there
+    // is nothing to initialize here.
+    this._scratch = newScratch;
+    if (grew) this._scratchEpoch++;
     return newScratch;
   }
 
@@ -1073,25 +941,16 @@ export class MsmV2Pool {
     this.poolY.destroy();
     if (this._scratch) {
       const s = this._scratch;
-      s.bufA.destroy();
-      s.bufB.destroy();
       s.bucketResultBuf.destroy();
       s.l0IdxBuf.destroy();
       s.bucketAndSignBuf.destroy();
       s.valIdxBuf.destroy();
       s.rowPtrBuf.destroy();
       s.planMeta.destroy();
-      s.pairBlockPlanRing[0].destroy();
-      s.pairBlockPlanRing[1].destroy();
-      s.scatterPlanRing[0].destroy();
-      s.scatterPlanRing[1].destroy();
-      s.carryPlanRing[0].destroy();
-      s.carryPlanRing[1].destroy();
       s.countsBufs[0].destroy();
       s.countsBufs[1].destroy();
       s.offsetsBufs[0].destroy();
       s.offsetsBufs[1].destroy();
-      s.prefScratchBuf.destroy();
       s.scalarsRawBuf.destroy();
       s.redBuf.destroy();
       s.isPresentBuf.destroy();
@@ -1121,7 +980,6 @@ export class MsmV2 {
   numWindows!: number;
   private BW!: number;
   private bTotal!: number;
-  private R!: bigint;
   private rinv!: bigint;
   // --- tuning knobs (from MsmConfig; resolved in create) ---
   private s!: number;
@@ -1137,7 +995,6 @@ export class MsmV2 {
   private redM!: number;
   private pointXBuf!: GPUBuffer;
   private pointYBuf!: GPUBuffer;
-  private padPts!: Pt[];
   private reducePasses!: { isDouble: boolean; shaderPhase: number; p2x: number; p2y: number; ppw: number }[];
   // pipelines
   private plannerAPipe!: GPUComputePipeline;
@@ -1166,18 +1023,8 @@ export class MsmV2 {
   private cumsumPipe!: GPUComputePipeline;
   private partitionWgPipe!: GPUComputePipeline;
   private partitionThreadPipe!: GPUComputePipeline;
-  private streamEmitPipe!: GPUComputePipeline;
-  private emitFixupPipe!: GPUComputePipeline;
   private size1Pipe!: GPUComputePipeline;
-  private streamAccumPipe!: GPUComputePipeline;
-  private partialSumPipe!: GPUComputePipeline;
-  private debugAccumPipe!: GPUComputePipeline;
-  private debugAccumBind!: GPUBindGroup;
-  private debugAccumLayout!: GPUBindGroupLayout;
-  private splitRecomputePipe!: GPUComputePipeline;
-  private splitRecomputeBind!: GPUBindGroup;
-  private splitRecomputeLayout!: GPUBindGroupLayout;
-  // Stream-walker variant (KNOB 1/2) — gated by ?use_walker=1.
+  // Stream-walker accumulator (KNOB 1/2).
   private partitionTaskPipe!: GPUComputePipeline;
   private partitionTaskBind!: GPUBindGroup;
   private partitionTaskLayout!: GPUBindGroupLayout;
@@ -1196,11 +1043,7 @@ export class MsmV2 {
   private cumsumBind!: GPUBindGroup;
   private partitionWgBind!: GPUBindGroup;
   private partitionThreadBind!: GPUBindGroup;
-  private streamEmitBind!: GPUBindGroup;
-  private emitFixupBind!: GPUBindGroup;
   private size1Bind!: GPUBindGroup;
-  private streamAccumBind!: GPUBindGroup;
-  private partialSumBind!: GPUBindGroup;
   private streamNumThreads = 8192;
   private streamS = 8;
   private numRadixTiles = 1;
@@ -1231,11 +1074,7 @@ export class MsmV2 {
   private cumsumLayout!: GPUBindGroupLayout;
   private partitionWgLayout!: GPUBindGroupLayout;
   private partitionThreadLayout!: GPUBindGroupLayout;
-  private streamEmitLayout!: GPUBindGroupLayout;
-  private emitFixupLayout!: GPUBindGroupLayout;
   private size1Layout!: GPUBindGroupLayout;
-  private streamAccumLayout!: GPUBindGroupLayout;
-  private partialSumLayout!: GPUBindGroupLayout;
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
@@ -1303,24 +1142,6 @@ export class MsmV2 {
   // rewriting this one buffer + the offset uniform, instead of tearing down
   // and re-creating every per-prepare buffer.
   private scalarsRawBuf!: GPUBuffer;
-  // Active-sums double-buffer for the pair-tree level loop. Reset at the top
-  // of every run() — different scalar distributions produce different
-  // per-bucket pair counts, and stale slots from the previous run would be
-  // read by subsequent levels and corrupt the accumulation.
-  private bufA!: GPUBuffer;
-  private bufB!: GPUBuffer;
-  // Pad-trio reset state. The planner's lever-E self-pad relies on 3
-  // sentinel points sitting at slots [M1-3, M1-2, M1-1] of each plane of
-  // every active_sums buffer. Slow-path setup writes those 192 bytes (96
-  // per plane × 2 planes) directly into bufA + bufB once and never again;
-  // each `encodeIntoBatch` reset uses two `clearBuffer` calls per buffer
-  // to wipe the NON-pad regions, leaving the pad slots intact across runs.
-  // This replaces the 64×M1-byte `padTemplateBuf` (~52 MB at n=131k) that
-  // used to be copied into both bufA and bufB on every run.
-  private planeBytes: number = 0; // bytes per plane = M1 × PG × 16
-  private padBytesPerPlane: number = 0; // 3 × PG × 16 = 96
-  private padXOffset: number = 0; // X plane pad start = planeBytes - padBytesPerPlane
-  private padYOffset: number = 0; // Y plane pad start = 2*planeBytes - padBytesPerPlane
   private convMetaBind!: GPUBindGroup;
   private reduceInitBind!: GPUBindGroup;
   private reduceLevelBinds: GPUBindGroup[] = [];
@@ -1362,7 +1183,6 @@ export class MsmV2 {
     m.stride = 2 ** (m.c - 1);
     m.redM = m.numWindows * m.stride;
     const misc = compute_misc_params(FP, 13);
-    m.R = misc.r;
     m.rinv = misc.rinv;
     const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false);
 
@@ -1375,13 +1195,6 @@ export class MsmV2 {
     }
     m.pointXBuf = pool.poolX;
     m.pointYBuf = pool.poolY;
-
-    // Pad trio — 3 distinct-x points (a dx==0 pad pair would poison a chunk's
-    // batched inversion). Deterministic, so every instance is reproducible.
-    const rng = makeRng(0x9111);
-    m.padPts = [];
-    for (let j = 0; j < 3; j++) m.padPts.push({ x: randomBelow(FP, rng), y: randomBelow(FP, rng) });
-    if (m.padPts[0].x === m.padPts[1].x) m.padPts[1].x = (m.padPts[1].x + 1n) % FP;
 
     // The reduction's data-independent 4-phase schedule.
     const STRIDE = m.stride;
@@ -1474,13 +1287,7 @@ export class MsmV2 {
     m.cumsumLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.partitionWgLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.partitionThreadLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-    m.streamEmitLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
-    m.emitFixupLayout = lt(['storage', 'storage', 'read-only-storage', 'read-only-storage', 'read-only-storage']);
     m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
-    m.streamAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
-    m.partialSumLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
-    m.debugAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
-    m.splitRecomputeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     // Stream-walker variant layouts (KNOB 2 planner + KNOB 1 walker).
     m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     m.walkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
@@ -1537,7 +1344,6 @@ export class MsmV2 {
     m.streamNumThreads = STREAM_T;
     m.streamS = STREAM_S;
     m.numRadixTiles = Math.ceil(m.bTotal / RADIX_TILE);
-    const qHeaderLen = 2 * STREAM_T;
     m.classifyPipe = await compile(
       sm.gen_ba_planner_classify_shader(256, m.bTotal), `classify`, m.classifyLayout);
     m.metaFixupPipe = await compile(
@@ -1555,25 +1361,8 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_wg_shader(), `partition-wg`, m.partitionWgLayout);
     m.partitionThreadPipe = await compile(
       sm.gen_ba_planner_partition_thread_shader(256), `partition-thread`, m.partitionThreadLayout);
-    m.streamEmitPipe = await compile(
-      sm.gen_ba_planner_emit_shader(256, STREAM_S, STREAM_T, qHeaderLen),
-      `stream-emit`, m.streamEmitLayout);
-    m.emitFixupPipe = await compile(
-      sm.gen_ba_planner_emit_fixup_shader(STREAM_T), `emit-fixup`, m.emitFixupLayout);
     m.size1Pipe = await compile(
       sm.gen_ba_size1_shader(), `size1`, m.size1Layout);
-    m.streamAccumPipe = await compile(
-      sm.gen_ba_stream_accum_shader(256, STREAM_S, qHeaderLen, INV_VARIANT),
-      `stream-accum`, m.streamAccumLayout);
-    m.partialSumPipe = await compile(
-      sm.gen_ba_partial_sum_shader(256, STREAM_S, INV_VARIANT),
-      `partial-sum`, m.partialSumLayout);
-    m.debugAccumPipe = await compile(
-      sm.gen_ba_stream_accum_debug_shader(INV_VARIANT),
-      `debug-accum`, m.debugAccumLayout);
-    m.splitRecomputePipe = await compile(
-      sm.gen_ba_recompute_split_shader(INV_VARIANT),
-      `split-recompute`, m.splitRecomputeLayout);
     const WALKER_TPB = 64; // KNOB 1: half the plan default (128) → 16 KB pref_scratch
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
@@ -1643,7 +1432,6 @@ export class MsmV2 {
     const NUM_WINDOWS = this.numWindows;
     const BW = this.BW;
     const B_TOTAL = this.bTotal;
-    const R = this.R;
     const { s: S, wgi: WGI, reduceWg: REDUCE_WG } = this;
 
     // --- Host: scalars (canonical) -> 8×u32 + Booth-decode -> level-0 counts.
@@ -1906,26 +1694,9 @@ export class MsmV2 {
         streamQueueEntries: B_TOTAL + this.streamNumThreads * (2 * this.streamS - 1),
         streamRadixTiles: this.numRadixTiles,
       },
-      this.padPts,
-      R,
     );
     this.boundEpoch = this.pool.scratchEpoch;
 
-    // Pad-trio layout from pool. Pool re-wrote the pad bytes into bufA/B if
-    // it grew them; otherwise we inherit pad bytes from the previous owner.
-    // Either way, the per-run reset's clearBuffer ranges avoid these slots.
-    this.planeBytes = scratch.planeBytes;
-    this.padBytesPerPlane = scratch.padBytesPerPlane;
-    this.padXOffset = scratch.padXOffset;
-    this.padYOffset = scratch.padYOffset;
-
-    // Local aliases so the per-level / per-tile bind-group setup below
-    // reads the same identifiers it always has. Each is a reference to
-    // pool.scratch.X — destroyed and re-created by the pool, not by us.
-    const bufA = scratch.bufA;
-    const bufB = scratch.bufB;
-    this.bufA = bufA;
-    this.bufB = bufB;
     this.bucketResultBuf = scratch.bucketResultBuf;
     const bucketResult = scratch.bucketResultBuf;
     const l0IdxBuf = scratch.l0IdxBuf;
@@ -1938,21 +1709,15 @@ export class MsmV2 {
     const countsBufs = scratch.countsBufs;
     const offsetsBufs = scratch.offsetsBufs;
     const planMeta = scratch.planMeta;
-    const pairBlockPlanRing = scratch.pairBlockPlanRing;
-    const scatterPlanRing = scratch.scatterPlanRing;
-    const carryPlanRing = scratch.carryPlanRing;
-    const prefScratchBuf = scratch.prefScratchBuf;
     const scalarsRawBuf = scratch.scalarsRawBuf;
     device.queue.writeBuffer(scalarsRawBuf, 0, scalars as BufferSource);
     this.scalarsRawBuf = scalarsRawBuf;
     const bucketAndSignBuf = scratch.bucketAndSignBuf;
     const rowPtrBuf = scratch.rowPtrBuf;
     const valIdxBuf = scratch.valIdxBuf;
-    // ALL active-sums indices must reference the POOL's M1, not this MSM's.
-    // The pool's bufA/bufB are sized to its max-M1 (across all MSMs that
-    // have ever bound to it), and the pad-trio sits at [poolM1-3, poolM1-2,
-    // poolM1-1]. This MSM's planner writes into [0, batchWindows*wstride1)
-    // which is always < poolM1, so the pad slots don't get clobbered.
+    // ALL active-sums indices must reference the POOL's M1 (its max across
+    // every MSM bound to it), not this MSM's own M1, so the SoA element
+    // stride agrees across instances sharing the pool.
     const poolM1 = scratch.poolM1;
     const padParams0Buf = ubuf(new Uint32Array([batchSlots, batchSlots + 1, poolM1 - 1, 0]));
     const padParams1Buf = ubuf(new Uint32Array([poolM1 - 3, poolM1 - 2, poolM1 - 1, 0]));
@@ -2036,11 +1801,7 @@ export class MsmV2 {
       const ca = scratch.cumulativeAdds;
       const wc = scratch.wgCuts;
       const tc = scratch.threadCuts;
-      const qb = scratch.queueBuf;
       const pb = scratch.partialsBuf;
-      const pbl = scratch.partialBucketsList;
-      const ab = scratch.accBuf;
-      const sps = scratch.streamPrefScratch;
       const classifyParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
       this.classifyBind = mkBind(this.classifyLayout, [countsBufs[0], offsetsBufs[0], s1, db, dc, sp, classifyParams]);
       this.metaFixupBind = mkBind(this.metaFixupLayout, [sp]);
@@ -2067,20 +1828,9 @@ export class MsmV2 {
       this.partitionWgBind = mkBind(this.partitionWgLayout, [sc, ca, sp, wc, pwgParams]);
       const ptParams = ubuf(new Uint32Array([0, 0, 0, 0]));
       this.partitionThreadBind = mkBind(this.partitionThreadLayout, [sc, ca, wc, sp, tc, ptParams]);
-      const emitParams = ubuf(new Uint32Array([batchSlots, 0, 0, 0]));
-      this.streamEmitBind = mkBind(this.streamEmitLayout, [sb, sc, offsetsBufs[0], tc, qb, sp, emitParams]);
-      this.emitFixupBind = mkBind(this.emitFixupLayout, [sp, pbl, tc, sb, sc]);
       const size1Params = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
       this.size1Bind = mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, size1Params]);
-      const streamParams = ubuf(new Uint32Array([this.streamNumThreads, this.streamNumThreads * this.streamS, batchSlots, B_TOTAL]));
-      this.streamAccumBind = mkBind(this.streamAccumLayout, [qb, this.pointXBuf, this.pointYBuf, l0IdxBuf, ab, sps, bucketResult, pb, streamParams]);
-      const psParams = ubuf(new Uint32Array([2 * this.streamNumThreads, B_TOTAL, 0, 0]));
-      this.partialSumBind = mkBind(this.partialSumLayout, [pbl, pb, bucketResult, sp, sps, psParams]);
-      const debugParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
-      this.debugAccumBind = mkBind(this.debugAccumLayout, [sb, sc, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, debugParams]);
-      const splitParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, 0, 0]));
-      this.splitRecomputeBind = mkBind(this.splitRecomputeLayout, [pbl, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, splitParams]);
-      // Stream-walker variant binds (KNOB 1/2).
+      // Stream-walker accumulator binds (KNOB 1/2).
       const taskc = scratch.taskCuts;
       const pdest = scratch.partialDest;
       const ptaskParams = ubuf(new Uint32Array([0, 0, 0, 0]));
@@ -2235,18 +1985,8 @@ export class MsmV2 {
       enc.copyBufferToBuffer(scalarsSrcBuf, scalarsSrcByteOff, this.scalarsRawBuf, 0, this.n * 32);
     }
 
-    // Reset active-sums + bucket-result buffers. The pad-trio at slots
-    // [M1-3, M1-2, M1-1] of each plane must survive (planner anchor) —
-    // so we clearBuffer only the NON-pad regions of each plane. The 192
-    // bytes of pad data were written once at slow-path setup and never
-    // touched again. Two clearBuffer calls per buffer = 4 total, each
-    // negligible on every driver. Replaces the old 64×M1 byte
-    // copyBufferToBuffer from a persistent padTemplateBuf — saves
-    // 64×M1 bytes of GPU memory (~52 MB at n=131k).
-    enc.clearBuffer(this.bufA, 0, this.padXOffset);
-    enc.clearBuffer(this.bufA, this.planeBytes, this.padXOffset);
-    enc.clearBuffer(this.bufB, 0, this.padXOffset);
-    enc.clearBuffer(this.bufB, this.planeBytes, this.padXOffset);
+    // Reset the bucket-result accumulator and the walker's partials buffer
+    // to zero before this batch's planner + accumulation passes.
     enc.clearBuffer(this.bucketResultBuf);
     enc.clearBuffer(this.pool.scratch!.partialsBuf);
 
@@ -2275,8 +2015,6 @@ export class MsmV2 {
       dispatch(this.cumsumPipe, this.cumsumBind, 1, 1);
       dispatch(this.partitionWgPipe, this.partitionWgBind, 1, 1);
       dispatch(this.partitionThreadPipe, this.partitionThreadBind, 32, 1);
-      dispatch(this.streamEmitPipe, this.streamEmitBind, 32, 1);
-      dispatch(this.emitFixupPipe, this.emitFixupBind, 1, 1);
       setPhase('accumulate');
       // Indirect-dispatched accumulation kernels.
       const indirectDispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, buf: GPUBuffer, off: number): void => {
@@ -2298,36 +2036,16 @@ export class MsmV2 {
       };
       setPhase('size1');
       indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
-      // `?use_debug_accum=1` swaps the streaming accumulator for the
-      // single-thread-per-bucket debug accumulator — a known-correct
-      // whole-bucket reference. Used to confirm the rest of the pipeline
-      // (decompose/transpose/planner/size1/reduce/combine) is sound
-      // independent of accumulator bugs.
-      const qp = typeof window !== 'undefined'
-        ? new URLSearchParams(window.location.search)
-        : new URLSearchParams('');
-      const useDebugAccum = qp.get('use_debug_accum') === '1';
-      // Stream-walker variant (KNOB 1/2). partition_task fills task_cuts and
-      // emits the walker's indirect args at planner_meta[15]; the walker
+      // Stream-walker accumulator (KNOB 1/2). partition_task fills task_cuts
+      // and emits the walker's indirect args at planner_meta[15]; the walker
       // retires whole buckets to bucket_sums and split pieces to partials_buf;
       // walker_combine folds split pieces back into bucket_sums.
-      const useWalker = qp.get('use_walker') === '1';
-      if (useWalker) {
-        setPhase('planner');
-        dispatch(this.partitionTaskPipe, this.partitionTaskBind, 32, 1);
-        setPhase('stream_accum');
-        indirectDispatch(this.walkerPipe, this.walkerBind, spMeta, 15 * 4);
-        setPhase('partial_sum');
-        dispatch(this.walkerCombinePipe, this.walkerCombineBind, Math.ceil(this.bTotal / 256), 1);
-      } else if (useDebugAccum) {
-        setPhase('stream_accum');
-        dispatch(this.debugAccumPipe, this.debugAccumBind, Math.ceil(this.bTotal / 256), 1);
-      } else {
-        setPhase('stream_accum');
-        indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
-        setPhase('partial_sum');
-        dispatch(this.partialSumPipe, this.partialSumBind, 256, 1);
-      }
+      setPhase('planner');
+      dispatch(this.partitionTaskPipe, this.partitionTaskBind, 32, 1);
+      setPhase('stream_accum');
+      indirectDispatch(this.walkerPipe, this.walkerBind, spMeta, 15 * 4);
+      setPhase('partial_sum');
+      dispatch(this.walkerCombinePipe, this.walkerCombineBind, Math.ceil(this.bTotal / 256), 1);
     }
     setPhase('reduce');
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
@@ -2411,158 +2129,6 @@ export class MsmV2 {
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
 
-    // WIP A/B / queue-introspection readbacks. These do ~7 sequential
-    // mapAsync round-trips and re-dispatch the debug accumulator on every
-    // run(), which stalls a SwiftShader software renderer for minutes and is
-    // dead weight in production. Opt in with `window.__msm_diag = true`.
-    const DIAG =
-      typeof window !== 'undefined' &&
-      (window as unknown as { __msm_diag?: boolean }).__msm_diag === true;
-    if (DIAG) {
-      const qb = this.pool.scratch!.queueBuf;
-      const headerBytes = Math.min(2 * this.streamNumThreads * 4, 1024);
-      const qStg = device.createBuffer({ size: headerBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const eq = device.createCommandEncoder();
-      eq.copyBufferToBuffer(qb, 0, qStg, 0, headerBytes);
-      device.queue.submit([eq.finish()]);
-      await qStg.mapAsync(GPUMapMode.READ);
-      const qHdr = new Uint32Array(qStg.getMappedRange().slice(0));
-      qStg.unmap(); qStg.destroy();
-      let totalEntries = 0;
-      let threadsWithWork = 0;
-      for (let t = 0; t < Math.min(this.streamNumThreads, headerBytes / 8); t++) {
-        const qs = qHdr[2 * t], qc = qHdr[2 * t + 1];
-        totalEntries += qc;
-        if (qc > 0) threadsWithWork++;
-      }
-      const numT = Math.min(this.streamNumThreads, headerBytes / 8);
-      console.log(`[QUEUE] ${numT} threads: ${threadsWithWork} with work, total entries=${totalEntries}`);
-      // Show first 10 threads with entries
-      // Read queue entries for thread 0
-      const QUEUE_HEADER_LEN = 2 * this.streamNumThreads;
-      const t0_start = qHdr[0];
-      const t0_count = qHdr[1];
-      const entryBytes = t0_count * 3 * 4;
-      const entryOff = (QUEUE_HEADER_LEN + t0_start) * 4;
-      const eStg = device.createBuffer({ size: entryBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const ee = device.createCommandEncoder();
-      ee.copyBufferToBuffer(qb, entryOff, eStg, 0, entryBytes);
-      device.queue.submit([ee.finish()]);
-      await eStg.mapAsync(GPUMapMode.READ);
-      const entries = new Uint32Array(eStg.getMappedRange().slice(0));
-      eStg.unmap(); eStg.destroy();
-      let realEntries = 0, idleEntries = 0, partialEntries = 0;
-      for (let i = 0; i < t0_count; i++) {
-        const sc = entries[i * 3], ec = entries[i * 3 + 1], dp = entries[i * 3 + 2];
-        const isIdle = (dp & 0x40000000) !== 0;
-        const isPartial = (dp & 0x80000000) !== 0;
-        if (isIdle) idleEntries++;
-        else if (isPartial) partialEntries++;
-        else realEntries++;
-      }
-      console.log(`[T0 QUEUE] ${t0_count} entries: ${realEntries} real, ${partialEntries} partial, ${idleEntries} idle`);
-      // Read ALL queue data in one batch to count real entries
-      const totalQBytes = Math.min(qb.size, 4 * 1024 * 1024);
-      const qDataStg = device.createBuffer({ size: totalQBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const eqd = device.createCommandEncoder();
-      eqd.copyBufferToBuffer(qb, 0, qDataStg, 0, totalQBytes);
-      device.queue.submit([eqd.finish()]);
-      await qDataStg.mapAsync(GPUMapMode.READ);
-      const allQ = new Uint32Array(qDataStg.getMappedRange().slice(0));
-      qDataStg.unmap(); qDataStg.destroy();
-      let totalReal2 = 0, totalPartial2 = 0, totalIdle2 = 0;
-      for (let t = 0; t < 256; t++) {
-        const qs = allQ[2 * t], qc = allQ[2 * t + 1];
-        for (let i = 0; i < qc; i++) {
-          const dp = allQ[QUEUE_HEADER_LEN + qs + i * 3 + 2];
-          if (dp === undefined) break;
-          if ((dp & 0x40000000) !== 0) totalIdle2++;
-          else if ((dp & 0x80000000) !== 0) totalPartial2++;
-          else totalReal2++;
-        }
-      }
-      console.log(`[ALL Q] real=${totalReal2} partial=${totalPartial2} idle=${totalIdle2} expected≈3407`);
-      // Readback thread_cuts for first 5 threads
-      const tcBuf = this.pool.scratch!.threadCuts;
-      const tcBytes = 5 * 2 * 4;
-      const tcStg = device.createBuffer({ size: tcBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const etc = device.createCommandEncoder();
-      etc.copyBufferToBuffer(tcBuf, 0, tcStg, 0, tcBytes);
-      device.queue.submit([etc.finish()]);
-      await tcStg.mapAsync(GPUMapMode.READ);
-      const tc = new Uint32Array(tcStg.getMappedRange().slice(0));
-      tcStg.unmap(); tcStg.destroy();
-      for (let t = 0; t < 5; t++) {
-        console.log(`  thread_cuts[${t}]: bucket=${tc[2*t]} offset=${tc[2*t+1]}`);
-      }
-      // Show first 5 real entries
-      let rShown = 0;
-      for (let i = 0; i < t0_count && rShown < 5; i++) {
-        const sc = entries[i * 3], ec = entries[i * 3 + 1], dp = entries[i * 3 + 2];
-        if ((dp & 0x40000000) === 0 && (dp & 0x80000000) === 0) {
-          console.log(`  entry ${i}: cursor=[${sc},${ec}) bucket=${dp} adds=${ec - sc - 1}`);
-          rShown++;
-        }
-      }
-    }
-    if (DIAG) {
-      const sp = this.pool.scratch!.streamPlannerMeta;
-      const metaStg = device.createBuffer({ size: 80, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const em = device.createCommandEncoder();
-      em.copyBufferToBuffer(sp, 0, metaStg, 0, 80);
-      device.queue.submit([em.finish()]);
-      await metaStg.mapAsync(GPUMapMode.READ);
-      const meta = new Uint32Array(metaStg.getMappedRange().slice(0));
-      metaStg.unmap(); metaStg.destroy();
-      console.log(`[META] size1=${meta[0]} dense=${meta[1]} total_adds=${meta[2]} nwg=${meta[3]} split=${meta[4]} slab_used=${meta[6]}`);
-    }
-    // A/B: read streaming bucket_sums, clear, re-run debug accum, compare
-    if (DIAG) {
-      const brb = this.pool.scratch!.bucketResultBuf;
-      const readSz = Math.min(this.bTotal * 2 * 16, 131072);
-      // 1) Read streaming result
-      const streamStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const e1 = device.createCommandEncoder();
-      e1.copyBufferToBuffer(brb, 0, streamStg, 0, readSz);
-      device.queue.submit([e1.finish()]);
-      await streamStg.mapAsync(GPUMapMode.READ);
-      const streamData = new Uint32Array(streamStg.getMappedRange().slice(0));
-      streamStg.unmap(); streamStg.destroy();
-      // 2) Clear bucket_sums and dispatch debug accumulator (planner state still valid)
-      const e2 = device.createCommandEncoder();
-      e2.clearBuffer(brb);
-      { const p = e2.beginComputePass(); p.setPipeline(this.debugAccumPipe); p.setBindGroup(0, this.debugAccumBind); p.dispatchWorkgroups(Math.ceil(this.bTotal / 256), 1); p.end(); }
-      // Also re-run size1 since clearing brb wiped those too
-      { const p = e2.beginComputePass(); p.setPipeline(this.size1Pipe); p.setBindGroup(0, this.size1Bind); p.dispatchWorkgroupsIndirect(this.pool.scratch!.streamPlannerMeta, 8 * 4); p.end(); }
-      const debugStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      e2.copyBufferToBuffer(brb, 0, debugStg, 0, readSz);
-      device.queue.submit([e2.finish()]);
-      await debugStg.mapAsync(GPUMapMode.READ);
-      const debugData = new Uint32Array(debugStg.getMappedRange().slice(0));
-      debugStg.unmap(); debugStg.destroy();
-      // 3) Compare
-      const PGU = 8;
-      const numB = Math.floor(Math.min(streamData.length, debugData.length) / PGU);
-      const mmBuckets: number[] = [];
-      for (let b = 0; b < numB; b++) {
-        let match = true;
-        for (let j = 0; j < PGU; j++) { if (streamData[b * PGU + j] !== debugData[b * PGU + j]) { match = false; break; } }
-        if (!match) mmBuckets.push(b);
-      }
-      const streamZero = mmBuckets.filter(b => streamData[b * PGU] === 0).length;
-      const debugZero = mmBuckets.filter(b => debugData[b * PGU] === 0).length;
-      const sample = mmBuckets.slice(0, 20).map(b => ({
-        b,
-        s0: streamData[b * PGU],
-        d0: debugData[b * PGU],
-        sz: streamData[b * PGU] === 0,
-      }));
-      const diag = { numB, mm: mmBuckets.length, streamZero, debugZero, firstMm: mmBuckets.slice(0, 30), sample };
-      console.log(`[A/B] ${numB} x-buckets: ${mmBuckets.length} mismatches streamZero=${streamZero} debugZero=${debugZero}`);
-      if (typeof window !== 'undefined') {
-        (window as unknown as { __abDiag?: typeof diag }).__abDiag = diag;
-      }
-    }
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new
     // encodeIntoBatch path doesn't capture category labels (the dev page's

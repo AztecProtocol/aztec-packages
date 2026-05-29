@@ -102,6 +102,14 @@ const gpuKnobs: MsmConfig = (() => {
     const v = Number(raw);
     return Number.isInteger(v) && v > 0 ? v : undefined;
   };
+  // Allows 0, unlike optInt — `?warmup_runs=0` skips the create-time warm-up
+  // dispatches so a single large-n run fits the SwiftShader time budget.
+  const optNonNegInt = (k: string): number | undefined => {
+    const raw = q.get(k);
+    if (raw === null) return undefined;
+    const v = Number(raw);
+    return Number.isInteger(v) && v >= 0 ? v : undefined;
+  };
   return {
     c: optInt('c'),
     s: optInt('s'),
@@ -110,6 +118,7 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    warmupRuns: optNonNegInt('warmup_runs'),
   };
 })();
 
