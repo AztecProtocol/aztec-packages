@@ -8,7 +8,6 @@ import {
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
   MAX_PROTOCOL_CONTRACTS,
-  MULTI_CALL_ENTRYPOINT_ADDRESS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -40,7 +39,6 @@ const salt = new Fr(1);
 const contractAddressMapping: { [name: string]: number } = {
   ContractInstanceRegistry: CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   ContractClassRegistry: CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-  MultiCallEntrypoint: MULTI_CALL_ENTRYPOINT_ADDRESS,
   FeeJuice: FEE_JUICE_ADDRESS,
 };
 

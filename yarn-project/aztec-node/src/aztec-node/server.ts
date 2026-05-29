@@ -53,6 +53,7 @@ import {
   type Watcher,
   createSlasher,
 } from '@aztec/slasher';
+import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from '@aztec/standard-contracts/multi-call-entrypoint';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -1732,7 +1733,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       classRegistry: ProtocolContractAddress.ContractClassRegistry,
       feeJuice: ProtocolContractAddress.FeeJuice,
       instanceRegistry: ProtocolContractAddress.ContractInstanceRegistry,
-      multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
+      multiCallEntrypoint: STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS,
     });
   }
 
