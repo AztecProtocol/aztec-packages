@@ -24,6 +24,7 @@ import {
   createTxValidatorForTransactionsEnteringPendingTxPool,
   getDefaultAllowedSetupFunctions,
 } from '../msg_validators/index.js';
+import { TxValidationCache } from '../msg_validators/tx_validator/tx_validation_cache.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
@@ -137,6 +138,9 @@ export async function createP2PClient(
     attestationPool: deps.attestationPool ?? new AttestationPool(attestationStore, telemetry),
   };
 
+  const txValidationCache =
+    config.txValidationCacheSize > 0 ? new TxValidationCache(config.txValidationCacheSize) : undefined;
+
   const p2pService = await createP2PService(
     config,
     archiver,
@@ -151,9 +155,15 @@ export async function createP2PClient(
     packageVersion,
     logger.createChild('libp2p_service'),
     telemetry,
+    txValidationCache,
   );
 
-  const txValidatorForTxCollection = createTxValidatorForOnDemandReceivedTxs(proofVerifier, config);
+  const txValidatorForTxCollection = createTxValidatorForOnDemandReceivedTxs(
+    proofVerifier,
+    config,
+    /*bindings=*/ undefined,
+    txValidationCache,
+  );
   const nodeSources = [
     ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, txValidatorForTxCollection, config),
     ...(deps.rpcTxProviders ?? []).map(
@@ -230,6 +240,7 @@ async function createP2PService(
   packageVersion: string,
   logger: Logger,
   telemetry: TelemetryClient,
+  txValidationCache?: TxValidationCache,
 ) {
   if (!config.p2pEnabled) {
     logger.verbose('P2P is disabled. Using dummy P2P service.');
@@ -253,6 +264,7 @@ async function createP2PService(
     blockMinFeesProvider,
     telemetry,
     logger: logger.createChild(`libp2p_service`),
+    txValidationCache,
   });
 
   return p2pService;

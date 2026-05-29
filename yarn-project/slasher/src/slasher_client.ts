@@ -14,6 +14,7 @@ import {
   type ProposerSlashAction,
   type ProposerSlashActionProvider,
   getEpochsForRound,
+  getOffenseTypeName,
   getSlashConsensusVotesFromOffenses,
 } from '@aztec/stdlib/slashing';
 
@@ -49,6 +50,14 @@ export type SlasherClientConfig = SlashOffensesCollectorConfig &
     SlasherConfig,
     'slashValidatorsAlways' | 'slashValidatorsNever' | 'slashExecuteRoundsLookBack' | 'slashMaxPayloadSize'
   >;
+
+type AlwaysSlashOffense = {
+  validator: EthAddress;
+  amount: bigint;
+  offenseType: OffenseType.UNKNOWN;
+};
+
+type SlashVoteOffense = Offense | AlwaysSlashOffense;
 
 /**
  * The Slasher client is responsible for managing slashable offenses using
@@ -309,7 +318,7 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
     // Compute offenses to slash, by loading the offenses for this round, adding synthetic offenses
     // for validators that should always be slashed, and removing the ones that should never be slashed.
     const offensesForRound = await this.gatherOffensesForRound(currentRound);
-    const offensesFromAlwaysSlash = (this.config.slashValidatorsAlways ?? []).map(validator => ({
+    const offensesFromAlwaysSlash: AlwaysSlashOffense[] = (this.config.slashValidatorsAlways ?? []).map(validator => ({
       validator,
       amount: this.settings.slashingAmounts[2],
       offenseType: OffenseType.UNKNOWN,
@@ -323,7 +332,7 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
         slotNumber,
         currentRound,
         slashedRound,
-        offensesToForgive,
+        offensesFromAlwaysSlash: offensesFromAlwaysSlash.map(getOffenseLogData),
         slashValidatorsAlways: this.config.slashValidatorsAlways,
       });
     }
@@ -333,7 +342,7 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
         slotNumber,
         currentRound,
         slashedRound,
-        offensesToForgive,
+        offensesToForgive: offensesToForgive.map(getOffenseLogData),
         slashValidatorsNever: this.config.slashValidatorsNever,
       });
     }
@@ -343,11 +352,11 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
       return undefined;
     }
 
-    this.log.info(`Voting to slash ${offensesToSlash.length} offenses`, {
+    this.log.debug(`Computing slash votes for ${offensesToSlash.length} offenses`, {
       slotNumber,
       currentRound,
       slashedRound,
-      offensesToSlash,
+      offensesToSlash: offensesToSlash.map(getOffenseLogData),
     });
 
     const committees = await this.collectCommitteesActiveDuringRound(slashedRound);
@@ -365,11 +374,19 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
         slotNumber,
         currentRound,
         slashedRound,
-        offensesToSlash,
+        offensesToSlash: offensesToSlash.map(getOffenseLogData),
         committees,
       });
       return undefined;
     }
+
+    this.log.info(`Voting to slash ${offensesToSlash.length} offenses`, {
+      slotNumber,
+      slashedRound,
+      currentRound,
+      votes,
+      offensesToSlash: offensesToSlash.map(getOffenseLogData),
+    });
 
     this.log.debug(`Computed votes for slashing ${offensesToSlash.length} offenses`, {
       slashedRound,
@@ -428,4 +445,12 @@ export class SlasherClient implements ProposerSlashActionProvider, SlasherClient
     round ??= this.roundMonitor.getCurrentRound().round;
     return round - BigInt(this.settings.slashingOffsetInRounds);
   }
+}
+
+function getOffenseLogData(offense: SlashVoteOffense) {
+  return {
+    ...offense,
+    validator: offense.validator.toString(),
+    offenseType: getOffenseTypeName(offense.offenseType),
+  };
 }
