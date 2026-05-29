@@ -537,10 +537,11 @@ template <typename Tag> struct Bin32Alias {
 
     void msgpack_unpack(auto object)
     {
-        if (object.type != msgpack::type::BIN || object.via.bin.size != value.size()) {
-            THROW msgpack::type_error();
+        if constexpr (requires { object.template as<std::array<uint8_t, 32>>(); }) {
+            value = object.template as<std::array<uint8_t, 32>>();
+        } else {
+            value = static_cast<std::array<uint8_t, 32>>(object);
         }
-        std::memcpy(value.data(), object.via.bin.ptr, value.size());
     }
 
     void msgpack_schema(auto& packer) const { packer.pack_alias(Tag::MSGPACK_SCHEMA_NAME, "bin32"); }
