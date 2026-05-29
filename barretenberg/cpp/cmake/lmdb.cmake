@@ -15,7 +15,13 @@ ExternalProject_Add(
     SOURCE_DIR ${LMDB_PREFIX}/src/lmdb_repo
     BUILD_IN_SOURCE YES
     CONFIGURE_COMMAND "" # No configure step
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env --unset=CFLAGS --unset=CXXFLAGS CC=${CMAKE_C_COMPILER}${CMAKE_C_COMPILER_ARG1} AR=${CMAKE_AR} make -e -C libraries/liblmdb XCFLAGS=-fPIC liblmdb.a
+    # build-lmdb.sh forces a clean rebuild when the C toolchain changes, so LMDB
+    # is never linked as stale objects built against a different glibc than the
+    # rest of barretenberg (e.g. host glibc's __isoc23_strtol vs the zig-pinned
+    # glibc 2.35). BUILD_ALWAYS lets it re-check the toolchain on every build; it
+    # is a no-op (and leaves liblmdb.a untouched) when nothing changed.
+    BUILD_COMMAND ${CMAKE_SOURCE_DIR}/scripts/build-lmdb.sh ${CMAKE_C_COMPILER}${CMAKE_C_COMPILER_ARG1} ${CMAKE_AR}
+    BUILD_ALWAYS YES
     INSTALL_COMMAND ""
     UPDATE_COMMAND "" # No update step
     BUILD_BYPRODUCTS ${LMDB_LIB}
