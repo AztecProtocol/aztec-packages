@@ -1160,6 +1160,13 @@ export class MsmV2 {
   private splitRecomputePipe!: GPUComputePipeline;
   private splitRecomputeBind!: GPUBindGroup;
   private splitRecomputeLayout!: GPUBindGroupLayout;
+  // Stream-walker variant (KNOB 1/2) — gated by ?use_walker=1.
+  private partitionTaskPipe!: GPUComputePipeline;
+  private partitionTaskBind!: GPUBindGroup;
+  private partitionTaskLayout!: GPUBindGroupLayout;
+  private walkerPipe!: GPUComputePipeline;
+  private walkerBind!: GPUBindGroup;
+  private walkerLayout!: GPUBindGroupLayout;
   // Streaming bind groups (built in prepare, rebuilt on epoch change)
   private classifyBind!: GPUBindGroup;
   private metaFixupBind!: GPUBindGroup;
@@ -1454,6 +1461,9 @@ export class MsmV2 {
     m.partialSumLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
     m.debugAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     m.splitRecomputeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
+    // Stream-walker variant layouts (KNOB 2 planner + KNOB 1 walker).
+    m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
+    m.walkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1543,6 +1553,13 @@ export class MsmV2 {
     m.splitRecomputePipe = await compile(
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
+    const WALKER_TPB = 64; // KNOB 1: half the plan default (128) → 16 KB pref_scratch
+    m.partitionTaskPipe = await compile(
+      sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
+      `partition-task`, m.partitionTaskLayout);
+    m.walkerPipe = await compile(
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
+      `stream-walker`, m.walkerLayout);
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
