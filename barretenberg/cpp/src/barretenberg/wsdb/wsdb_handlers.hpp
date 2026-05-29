@@ -12,8 +12,8 @@
  * Definitions live in wsdb_handlers.cpp. This header keeps the
  * instantiation-time lookup honest.
  */
-#include "barretenberg/wsdb/generated/wsdb_types.hpp"
 #include "barretenberg/wsdb/wsdb_request.hpp"
+#include "generated/wsdb_types.hpp"
 
 namespace bb::wsdb {
 
