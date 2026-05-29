@@ -1,5 +1,7 @@
-use crate::{authwit::utils::{compute_inner_authwit_hash, IS_VALID_SELECTOR}, context::{gas::GasOpts, PublicContext}};
-use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField};
+use crate::authwit::auth_registry_interface::AuthRegistryInterface;
+use crate::authwit::utils::{compute_inner_authwit_hash, IS_VALID_SELECTOR};
+use crate::context::PublicContext;
+use crate::protocol::{address::AztecAddress, traits::ToField};
 use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
 
 /// Public-flow authwit helpers.
@@ -86,14 +88,8 @@ pub unconstrained fn assert_inner_hash_valid_authwit_public(
     on_behalf_of: AztecAddress,
     inner_hash: Field,
 ) {
-    let results: [Field] = context.call_public_function(
-        STANDARD_AUTH_REGISTRY_ADDRESS,
-        comptime { FunctionSelector::from_signature("consume((Field),Field)") },
-        [on_behalf_of.to_field(), inner_hash],
-        GasOpts::default(),
-    );
-    assert(results.len() == 1, "Invalid response from registry");
-    assert(results[0] == IS_VALID_SELECTOR, "Message not authorized by account");
+    let result = AuthRegistryInterface::at(STANDARD_AUTH_REGISTRY_ADDRESS).consume(on_behalf_of, inner_hash).call(context);
+    assert(result == IS_VALID_SELECTOR, "Message not authorized by account");
 }
 
 /// Helper function to set the authorization status of a message hash
@@ -103,13 +99,7 @@ pub unconstrained fn assert_inner_hash_valid_authwit_public(
 /// @param message_hash The hash of the message to authorize @param authorize True if the message should be authorized,
 /// false if it should be revoked
 pub unconstrained fn set_authorized(context: PublicContext, message_hash: Field, authorize: bool) {
-    let res = context.call_public_function(
-        STANDARD_AUTH_REGISTRY_ADDRESS,
-        comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
-        [message_hash, authorize as Field],
-        GasOpts::default(),
-    );
-    assert(res.len() == 0);
+    AuthRegistryInterface::at(STANDARD_AUTH_REGISTRY_ADDRESS).set_authorized(message_hash, authorize).call(context);
 }
 
 /// Helper function to reject all authwits
@@ -118,11 +108,5 @@ pub unconstrained fn set_authorized(context: PublicContext, message_hash: Field,
 ///
 /// @param reject True if all authwits should be rejected, false otherwise
 pub unconstrained fn set_reject_all(context: PublicContext, reject: bool) {
-    let res = context.call_public_function(
-        STANDARD_AUTH_REGISTRY_ADDRESS,
-        comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
-        [reject as Field],
-        GasOpts::default(),
-    );
-    assert(res.len() == 0);
+    AuthRegistryInterface::at(STANDARD_AUTH_REGISTRY_ADDRESS).set_reject_all(reject).call(context);
 }
