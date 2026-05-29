@@ -461,8 +461,6 @@ function generate(args: Args) {
       const gen = new CppCodegen({
         namespace: ns,
         prefix,
-        executeHeader: "",
-        commandsHeader: "",
         wireNamespace: wireNs,
         generatedIncludeDir: args.cppIncludeDir,
       });
