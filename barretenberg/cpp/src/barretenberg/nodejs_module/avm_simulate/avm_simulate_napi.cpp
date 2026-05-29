@@ -5,16 +5,15 @@
 #include <vector>
 
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/ipc/ipc_client.hpp"
 #include "barretenberg/nodejs_module/avm_simulate/ts_callback_contract_db.hpp"
 #include "barretenberg/nodejs_module/util/async_op.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl/msgpack_impl.hpp"
 #include "barretenberg/vm2/avm_sim_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
+#include "barretenberg/vm2/simulation/dbs/wsdb_ipc_merkle_db.hpp"
 #include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
-#include "barretenberg/wsdb/wsdb_ipc_client_generated.hpp"
-#include "barretenberg/wsdb_client/wsdb_ipc_merkle_db.hpp"
+#include "barretenberg/wsdb/generated/wsdb_ipc_client.hpp"
 
 namespace bb::nodejs {
 namespace {
@@ -316,7 +315,7 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& cb_info)
                 // LowLevelMerkleDBInterface. The connection is per-simulation; aztec-wsdb is a
                 // long-running server that the TS layer spawned and owns.
                 bb::wsdb::WsdbIpcClient wsdb_client(wsdb_socket_path);
-                bb::wsdb_client::WsdbIpcMerkleDB merkle_db(wsdb_client, inputs.ws_revision);
+                bb::avm2::simulation::WsdbIpcMerkleDB merkle_db(wsdb_client, inputs.ws_revision);
 
                 avm2::AvmSimAPI avm;
                 avm2::TxSimulationResult result = avm.simulate(inputs, contract_db, merkle_db, cancellation_token);
