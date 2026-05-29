@@ -15,7 +15,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointData, ProposedCheckpointData, ProposedCheckpointInput } from '../checkpoint/checkpoint_data.js';
 import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
@@ -282,6 +282,19 @@ export interface L2BlockSink {
    * @throws If block number is not incremental (i.e., not exactly one more than the last stored block).
    */
   addBlock(block: L2Block): Promise<void>;
+}
+
+/**
+ * Interface for classes that can receive and store proposed (not-yet-L1-confirmed) checkpoints.
+ */
+export interface ProposedCheckpointSink {
+  /**
+   * Adds a proposed checkpoint to the store. The archive and checkpointOutHash are computed
+   * internally from the already-stored blocks, so every block in the checkpoint must be added
+   * (via {@link L2BlockSink.addBlock}) before calling this.
+   * @param checkpoint - The proposed checkpoint metadata.
+   */
+  addProposedCheckpoint(checkpoint: ProposedCheckpointInput): Promise<void>;
 }
 
 /**

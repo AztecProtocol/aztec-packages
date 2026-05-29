@@ -213,18 +213,6 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
 
     nodes = [maliciousNode1, maliciousNode2, honestNode1, honestNode2];
 
-    // Stub the proposer's own-checkpoint-proposal loopback on the malicious nodes. The default
-    // path awaits a local handleCheckpointProposal → validateCheckpointProposal that retries
-    // until the proposed block lands in the archiver — but skipPushProposedBlocksToArchiver
-    // means it never does, so the await hangs until the retry deadline (~one slot). By the
-    // time the proposer returns from broadcast, the wallclock is in the target slot and the
-    // staleness gate refuses the self-attestation, so no duplicate attestations are ever
-    // broadcast.
-    for (const node of [maliciousNode1, maliciousNode2]) {
-      const p2pService: any = (node as any).p2pClient.p2pService;
-      jest.spyOn(p2pService, 'notifyOwnCheckpointProposal').mockResolvedValue(undefined);
-    }
-
     // Wait for P2P mesh on all needed topics before starting sequencers
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS, 30, 0.1, [
       TopicType.tx,

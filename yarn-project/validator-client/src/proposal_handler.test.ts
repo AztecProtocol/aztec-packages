@@ -3,6 +3,7 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
@@ -273,6 +274,31 @@ describe('ProposalHandler checkpoint validation', () => {
 
       expect(archiver.addProposedCheckpoint).toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalToPipelinedStateDuration).toHaveBeenCalledWith(expect.any(Number));
+    });
+  });
+
+  describe('own checkpoint proposal handling', () => {
+    it('skips validation and does not touch the archiver for own proposals', async () => {
+      // The proposer's own proposed checkpoint is now set locally by the sequencer job, not via the
+      // p2p loopback, so the all-nodes handler must not re-validate or re-add it.
+      const signer = Secp256k1Signer.random();
+      const proposal = await makeProposal({ signer });
+
+      const p2p = mock<P2P>();
+      let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
+      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
+        checkpointHandler = handler;
+      });
+
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint'>>();
+      const handleSpy = jest.spyOn(handler, 'handleCheckpointProposal');
+
+      handler.register(p2p, true, archiver, () => [signer.address.toString()]);
+      await checkpointHandler!(proposal, {} as any);
+
+      expect(handleSpy).not.toHaveBeenCalled();
+      expect(archiver.addProposedCheckpoint).not.toHaveBeenCalled();
+      expect(blockSource.getBlockData).not.toHaveBeenCalled();
     });
   });
 

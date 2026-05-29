@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { CheckpointProposalCore, Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
+import type { Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -91,12 +91,6 @@ export class DummyP2PService implements P2PService {
   public registerValidatorCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
   public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
     this.allNodesCheckpointReceivedCallback = callback;
-  }
-
-  // Mirror libp2p's own-proposal loopback so the proposer's pipelined `canProposeAt` override sees its own
-  // in-flight parent checkpoint when running in p2p-disabled (single-node e2e) mode.
-  public async notifyOwnCheckpointProposal(checkpoint: CheckpointProposalCore): Promise<void> {
-    await this.allNodesCheckpointReceivedCallback?.(checkpoint, undefined as unknown as PeerId);
   }
 
   /**
