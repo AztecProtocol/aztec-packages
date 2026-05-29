@@ -12,13 +12,7 @@
  *   const impl = gen.generateImpl(schema);
  */
 
-import type {
-  CompiledSchema,
-  Type,
-  Struct,
-  Field,
-  Command,
-} from "./schema_visitor.ts";
+import type { CompiledSchema, Command } from "./schema_visitor.ts";
 import { toPascalCase, toSnakeCase } from "./naming.ts";
 
 // Convert a schema alias name into its C++ type name. Strips a trailing
@@ -34,28 +28,8 @@ export interface CppCodegenOptions {
   namespace: string;
   /** Prefix for command/response types, e.g. 'MyService' */
   prefix: string;
-  /** Header path for the *_execute.hpp file that defines Command/CommandResponse NamedUnions */
-  executeHeader: string;
-  /** Header path for the *_commands.hpp file that defines the command structs */
-  commandsHeader: string;
-  /**
-   * External types: types that already exist in the consumer's own headers.
-   * Map from type name → header include path.
-   * These types will be #included instead of generated.
-   */
-  externals?: Record<string, string>;
-  /**
-   * Using-namespace declarations to add at the top of generated commands file.
-   */
-  usingNamespaces?: string[];
-  /**
-   * Additional headers to include in generated commands file.
-   */
-  additionalIncludes?: string[];
   /**
    * Override for the generated output directory include path.
-   * Used when commandsHeader doesn't point to the generated/ directory
-   * (e.g. bb keeps hand-written commands but generates server dispatch).
    */
   generatedIncludeDir?: string;
   /**
@@ -344,10 +318,7 @@ ${methods}
     if (this.opts.generatedIncludeDir) {
       return this.opts.generatedIncludeDir;
     }
-    const lastSlash = this.opts.commandsHeader.lastIndexOf("/");
-    return lastSlash >= 0
-      ? this.opts.commandsHeader.substring(0, lastSlash)
-      : "";
+    return "";
   }
 
   /** Form an include path: `<dir>/<file>` if dir is non-empty, else bare `<file>`. */
@@ -689,188 +660,6 @@ ${methods}
   private:
     ipc::IpcClient client_;
 };
-
-} // namespace ${ns}
-`;
-  }
-
-  // -----------------------------------------------------------------------
-  // Barretenberg commands generation (uses native bb types, has execute())
-  // -----------------------------------------------------------------------
-
-  /**
-   * Map an IR type to a barretenberg C++ type.
-   * Uses native types (bb::fr, MerkleTreeId, StateReference) instead of
-   * standalone equivalents (Fr, uint32_t, std::unordered_map<...>).
-   */
-  private mapTypeBb(type: import("./schema_visitor.ts").Type): string {
-    const externals = this.opts.externals || {};
-
-    switch (type.kind) {
-      case "primitive":
-        switch (type.primitive) {
-          case "bool":
-            return "bool";
-          case "u8":
-            return "uint8_t";
-          case "u16":
-            return "uint16_t";
-          case "u32":
-            return "uint32_t";
-          case "u64":
-            return "uint64_t";
-          case "f64":
-            return "double";
-          case "string":
-            return "std::string";
-          case "bytes":
-            return "std::vector<uint8_t>";
-          case "fr":
-            return "bb::fr";
-          case "field2":
-            return "std::array<bb::fr, 2>";
-          case "enum_u32":
-            // Preserve original enum name if available
-            return type.originalName || "uint32_t";
-          case "map_u32_pair":
-            // StateReference is the only map type we've seen
-            return "StateReference";
-        }
-        break;
-      case "vector":
-        return `std::vector<${this.mapTypeBb(type.element!)}>`;
-      case "array":
-        return `std::array<${this.mapTypeBb(type.element!)}, ${type.size}>`;
-      case "optional":
-        return `std::optional<${this.mapTypeBb(type.element!)}>`;
-      case "struct":
-        return type.struct!.name;
-    }
-    return "void";
-  }
-
-  /**
-   * Generate barretenberg-specific commands header.
-   *
-   * This generates command structs that use native barretenberg types
-   * (bb::fr, MerkleTreeId, etc.) and include execute() declarations.
-   * External types (NullifierLeafValue, WorldStateRevision, etc.) are
-   * imported via #include instead of being generated.
-   */
-  generateCommands(schema: CompiledSchema): string {
-    const { namespace: ns, prefix } = this.opts;
-    const externals = this.opts.externals || {};
-
-    // Collect unique include paths from externals
-    const externalIncludes = new Set<string>();
-    for (const header of Object.values(externals)) {
-      externalIncludes.add(header);
-    }
-    for (const inc of this.opts.additionalIncludes || []) {
-      externalIncludes.add(inc);
-    }
-
-    const includeLines = [...externalIncludes]
-      .sort()
-      .map((h) => `#include "${h}"`)
-      .join("\n");
-    const usingLines = (this.opts.usingNamespaces || [])
-      .map((ns) => `using namespace ${ns};`)
-      .join("\n");
-
-    // Generate non-external struct types (only SiblingPathAndIndex-like types
-    // that are NOT commands/responses and NOT external)
-    const helperStructs: string[] = [];
-    for (const [name, struct] of schema.structs) {
-      if (name.startsWith(prefix)) continue; // Commands are generated below
-      if (externals[name]) continue; // External — imported via #include
-      // Generate this helper struct
-      const fields = struct.fields
-        .map((f) => `    ${this.mapTypeBb(f.type)} ${f.name};`)
-        .join("\n");
-      const fieldNames = struct.fields.map((f) => f.name).join(", ");
-      const serialization = fieldNames
-        ? `    SERIALIZATION_FIELDS(${fieldNames});`
-        : `    template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }`;
-      helperStructs.push(
-        `struct ${name} {\n    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${name}";\n${fields}\n${serialization}\n    bool operator==(const ${name}&) const = default;\n};`,
-      );
-    }
-    for (const [name, struct] of schema.responses) {
-      if (name.startsWith(prefix)) continue; // Responses generated nested inside commands
-      if (externals[name]) continue;
-      // Non-prefixed response types (shouldn't normally happen)
-    }
-
-    // Generate command structs with nested Response and execute()
-    const commandStructs = schema.commands
-      .map((cmd) => {
-        const respStruct = schema.responses.get(cmd.responseType);
-
-        // Command fields
-        const cmdFields = cmd.fields
-          .map((f) => `    ${this.mapTypeBb(f.type)} ${f.name};`)
-          .join("\n");
-        const cmdFieldNames = cmd.fields.map((f) => f.name).join(", ");
-        const cmdSerialization = cmdFieldNames
-          ? `    SERIALIZATION_FIELDS(${cmdFieldNames});`
-          : `    template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }`;
-
-        // Response fields
-        let responseBlock: string;
-        if (respStruct && respStruct.fields.length > 0) {
-          const respFields = respStruct.fields
-            .map((f) => `        ${this.mapTypeBb(f.type)} ${f.name};`)
-            .join("\n");
-          const respFieldNames = respStruct.fields
-            .map((f) => f.name)
-            .join(", ");
-          responseBlock = `    struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "${cmd.responseType}";
-${respFields}
-        SERIALIZATION_FIELDS(${respFieldNames});
-        bool operator==(const Response&) const = default;
-    };`;
-        } else {
-          responseBlock = `    struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "${cmd.responseType}";
-        template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }
-        bool operator==(const Response&) const = default;
-    };`;
-        }
-
-        return `struct ${cmd.name} {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${cmd.name}";
-${responseBlock}
-${cmdFields}
-    Response execute(${prefix}Request& request) &&;
-${cmdSerialization}
-    bool operator==(const ${cmd.name}&) const = default;
-};`;
-      })
-      .join("\n\n");
-
-    return `// AUTOGENERATED FILE - DO NOT EDIT
-#pragma once
-
-${includeLines}
-#include <cstdint>
-#include <optional>
-#include <string>
-#include <vector>
-
-namespace ${ns} {
-
-${usingLines}
-
-// Forward declaration
-struct ${prefix}Request;
-
-${helperStructs.join("\n\n")}${helperStructs.length > 0 ? "\n\n" : ""}// ---------------------------------------------------------------------------
-// Commands
-// ---------------------------------------------------------------------------
-
-${commandStructs}
 
 } // namespace ${ns}
 `;
