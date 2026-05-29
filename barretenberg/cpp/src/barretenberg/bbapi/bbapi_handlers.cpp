@@ -224,14 +224,14 @@ wire::Secp256k1MulResponse handle_secp256k1_mul(BBApiRequest& request, wire::Sec
 wire::Secp256k1GetRandomFrResponse handle_secp256k1_get_random_fr(BBApiRequest& /*ctx*/,
                                                                   wire::Secp256k1GetRandomFr&& /*cmd*/)
 {
-    return { .value = field_to_wire<secp256k1::fr>(secp256k1::fr::random_element()) };
+    return { .value = field_to_wire_as<::Secp256k1Fr>(secp256k1::fr::random_element()) };
 }
 wire::Secp256k1Reduce512Response handle_secp256k1_reduce512(BBApiRequest& /*ctx*/, wire::Secp256k1Reduce512&& cmd)
 {
     auto bigint_input = from_buffer<uint512_t>(cmd.input.data());
     uint512_t secp256k1_modulus(secp256k1::fr::modulus);
     uint512_t target_output = bigint_input % secp256k1_modulus;
-    return { .value = field_to_wire<secp256k1::fr>(secp256k1::fr(target_output.lo)) };
+    return { .value = field_to_wire_as<::Secp256k1Fr>(secp256k1::fr(target_output.lo)) };
 }
 
 // ===========================================================================
@@ -246,7 +246,7 @@ wire::Bn254FrSqrtResponse handle_bn254_fr_sqrt(BBApiRequest& /*ctx*/, wire::Bn25
 wire::Bn254FqSqrtResponse handle_bn254_fq_sqrt(BBApiRequest& /*ctx*/, wire::Bn254FqSqrt&& cmd)
 {
     auto [is_sqr, root] = field_from_wire<bb::fq>(cmd.input).sqrt();
-    return { .is_square_root = is_sqr, .value = field_to_wire<bb::fq>(root) };
+    return { .is_square_root = is_sqr, .value = field_to_wire_as<::Fq>(root) };
 }
 wire::Bn254G1MulResponse handle_bn254_g1_mul(BBApiRequest& request, wire::Bn254G1Mul&& cmd)
 {
@@ -305,12 +305,9 @@ wire::SchnorrComputePublicKeyResponse handle_schnorr_compute_public_key(BBApiReq
     auto private_key = field_from_wire<grumpkin::fr>(cmd.private_key);
     return { .public_key = grumpkin_point_to_wire(grumpkin::g1::one * private_key) };
 }
-// NOTE: schnorr_construct_signature / schnorr_verify_signature changed signature in
-// #21808 (schnorr w/ poseidon2). The new API takes a pre-derived field element. The
-// wire keeps `message: vector<u8>` rather than `bin32` for layout compatibility with
-// other byte-buffer endpoints, but the caller is expected to send the 32-byte
-// big-endian field encoding — matching the noir-side `schnorr::verify_signature`
-// which takes a `Field` directly with no internal hashing.
+// Schnorr signing takes a pre-derived field element. The wire keeps
+// `message: vector<u8>` for layout consistency with other byte-buffer
+// endpoints; callers must pass the 32-byte big-endian field encoding.
 wire::SchnorrConstructSignatureResponse handle_schnorr_construct_signature(BBApiRequest& /*ctx*/,
                                                                            wire::SchnorrConstructSignature&& cmd)
 {

@@ -10,5 +10,6 @@ endif()
 # ipc_runtime is a STATIC lib natively and an INTERFACE (header-only) lib under
 # WASM, so linking under both modes just propagates the include path.
 if(NOT BB_LITE)
+    target_include_directories(api_objects PRIVATE ${CMAKE_SOURCE_DIR}/src/barretenberg/bbapi/generated)
     target_link_libraries(api_objects PRIVATE ipc_runtime)
 endif()

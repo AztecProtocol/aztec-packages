@@ -7,15 +7,14 @@
  * builds the domain command struct from the wire fields, calls execute(),
  * and builds the wire response from the domain response fields.
  *
- * Wire field types (Fr / Fq / Uint256 / … — all `std::array<uint8_t, 32>`
- * aliases) and domain field types (`bb::fr`, `bb::fq`, `uint256_t`, …)
- * share a 32-byte msgpack `bin32` encoding, so the byte-level conversion
- * is a `serialize_to_buffer` / `serialize_from_buffer` call.
+ * Wire field types (Fr / Fq / Uint256 / … — nominal bin32 aliases) and
+ * domain field types (`bb::fr`, `bb::fq`, `uint256_t`, …) share a 32-byte
+ * msgpack `bin32` encoding, so the byte-level conversion is a
+ * `serialize_to_buffer` / `serialize_from_buffer` call.
  */
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/generated/bb_types.hpp"
-#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fq2.hpp"
@@ -27,71 +26,57 @@
 #include "barretenberg/serialize/msgpack.hpp"
 
 #include <array>
-#include <cstring>
+#include <utility>
 #include <vector>
 
 namespace bb::bbapi {
 
 // ---------------------------------------------------------------------------
 // Field element conversions. All field types (bb::fr, bb::fq, grumpkin::fr,
-// grumpkin::fq, secp256k1::*, secp256r1::*) pack as msgpack bin32. Wire `Fr`
-// also packs as bin32 (codegen Fr struct with custom adaptor). So a wire
-// `Fr` and any domain field element have identical wire bytes and can be
-// converted via serialize_to_buffer / serialize_from_buffer.
+// grumpkin::fq, secp256k1::*, secp256r1::*) pack as msgpack bin32. The wire
+// aliases are nominal C++ wrappers over the same 32 bytes, so conversions are
+// just serialize_to_buffer / serialize_from_buffer at the boundary.
 // ---------------------------------------------------------------------------
 
-template <typename Field> inline ::Fr field_to_wire(const Field& d)
+inline const std::array<uint8_t, 32>& wire_bytes(const std::array<uint8_t, 32>& w)
 {
-    ::Fr r{};
+    return w;
+}
+
+template <typename Wire> inline const std::array<uint8_t, 32>& wire_bytes(const Wire& w)
+{
+    return static_cast<const std::array<uint8_t, 32>&>(w);
+}
+
+template <typename Field> inline std::array<uint8_t, 32> field_to_bytes(const Field& d)
+{
+    std::array<uint8_t, 32> r{};
     Field::serialize_to_buffer(d, r.data());
     return r;
 }
 
-template <typename Field> inline Field field_from_wire(const ::Fr& w)
+template <typename Field> inline std::array<uint8_t, 32> field_to_wire(const Field& d)
 {
-    return Field::serialize_from_buffer(w.data());
+    return field_to_bytes(d);
+}
+
+template <typename Wire, typename Field> inline Wire field_to_wire_as(const Field& d)
+{
+    return Wire{ field_to_bytes(d) };
+}
+
+template <typename Field, typename Wire> inline Field field_from_wire(const Wire& w)
+{
+    return Field::serialize_from_buffer(wire_bytes(w).data());
 }
 
 inline ::Fr fr_to_wire(const bb::fr& d)
 {
-    return field_to_wire<bb::fr>(d);
+    return field_to_wire_as<::Fr>(d);
 }
 inline bb::fr fr_from_wire(const ::Fr& w)
 {
     return field_from_wire<bb::fr>(w);
-}
-
-// Wire `Fr` / `Fq` / `Secp256k1Fr` / … are all `using` aliases for
-// std::array<uint8_t, 32>, so what used to be `fr_wrap` / `fr_unwrap` is the
-// identity. The handlers can pass the byte array straight through without
-// helper calls; these names stay as compile-time-checked no-ops so existing
-// call sites read clearly at the conversion boundary.
-inline std::array<uint8_t, 32> fr_wrap(std::array<uint8_t, 32> bytes)
-{
-    return bytes;
-}
-inline std::array<uint8_t, 32> fr_unwrap(std::array<uint8_t, 32> bytes)
-{
-    return bytes;
-}
-
-// Fixed-size array <-> std::vector<uint8_t> for fields the schema declares as
-// ["array","unsigned char",N] when N != 32 (which would collapse to fr). Used
-// for AES iv/key (16 bytes) and GrumpkinReduce512/Secp256k1Reduce512 input
-// (64 bytes). The wire side is a length-prefixed vector; the domain side is
-// a fixed std::array.
-template <std::size_t N> inline std::array<uint8_t, N> array_from_vec(const std::vector<uint8_t>& v)
-{
-    std::array<uint8_t, N> r{};
-    // WASM builds compile with -fno-exceptions; bare `throw` is replaced
-    // by abort() via the THROW shim (see common/try_catch_shim.hpp).
-    BB_ASSERT_EQ(v.size(), N, "array_from_vec: size mismatch");
-    std::memcpy(r.data(), v.data(), N);
-    return r;
-}
-template <std::size_t N> inline std::vector<uint8_t> vec_from_array(const std::array<uint8_t, N>& a)
-{
-    return std::vector<uint8_t>(a.begin(), a.end());
 }
 
 inline std::vector<::Fr> fr_vec_to_wire(const std::vector<bb::fr>& d)
@@ -141,7 +126,7 @@ template <std::size_t N> inline std::array<bb::fr, N> fr_array_from_wire(const s
 
 inline wire::GrumpkinPoint grumpkin_point_to_wire(const grumpkin::g1::affine_element& d)
 {
-    return { .x = field_to_wire<grumpkin::fq>(d.x), .y = field_to_wire<grumpkin::fq>(d.y) };
+    return { .x = field_to_wire_as<::Fr>(d.x), .y = field_to_wire_as<::Fr>(d.y) };
 }
 
 inline grumpkin::g1::affine_element grumpkin_point_from_wire(const wire::GrumpkinPoint& w)
@@ -171,7 +156,7 @@ inline std::vector<grumpkin::g1::affine_element> grumpkin_point_vec_from_wire(co
 
 inline wire::Bn254G1Point bn254_g1_point_to_wire(const bb::g1::affine_element& d)
 {
-    return { .x = field_to_wire<bb::fq>(d.x), .y = field_to_wire<bb::fq>(d.y) };
+    return { .x = field_to_wire_as<::Fq>(d.x), .y = field_to_wire_as<::Fq>(d.y) };
 }
 
 inline bb::g1::affine_element bn254_g1_point_from_wire(const wire::Bn254G1Point& w)
@@ -179,13 +164,13 @@ inline bb::g1::affine_element bn254_g1_point_from_wire(const wire::Bn254G1Point&
     return { field_from_wire<bb::fq>(w.x), field_from_wire<bb::fq>(w.y) };
 }
 
-// Fq2 = { c0: bb::fq, c1: bb::fq }; wire field2 = std::array<std::array<uint8_t,32>, 2>.
-inline std::array<std::array<uint8_t, 32>, 2> fq2_to_wire(const bb::fq2& d)
+// Fq2 = { c0: bb::fq, c1: bb::fq }; wire Fq2 is two fq bin32 aliases.
+inline std::array<::Fq, 2> fq2_to_wire(const bb::fq2& d)
 {
-    return { field_to_wire<bb::fq>(d.c0), field_to_wire<bb::fq>(d.c1) };
+    return { field_to_wire_as<::Fq>(d.c0), field_to_wire_as<::Fq>(d.c1) };
 }
 
-inline bb::fq2 fq2_from_wire(const std::array<std::array<uint8_t, 32>, 2>& w)
+inline bb::fq2 fq2_from_wire(const std::array<::Fq, 2>& w)
 {
     return { field_from_wire<bb::fq>(w[0]), field_from_wire<bb::fq>(w[1]) };
 }
@@ -202,7 +187,7 @@ inline bb::g2::affine_element bn254_g2_point_from_wire(const wire::Bn254G2Point&
 
 inline wire::Secp256k1Point secp256k1_point_to_wire(const secp256k1::g1::affine_element& d)
 {
-    return { .x = field_to_wire<secp256k1::fq>(d.x), .y = field_to_wire<secp256k1::fq>(d.y) };
+    return { .x = field_to_wire_as<::Secp256k1Fq>(d.x), .y = field_to_wire_as<::Secp256k1Fq>(d.y) };
 }
 
 inline secp256k1::g1::affine_element secp256k1_point_from_wire(const wire::Secp256k1Point& w)
@@ -212,7 +197,7 @@ inline secp256k1::g1::affine_element secp256k1_point_from_wire(const wire::Secp2
 
 inline wire::Secp256r1Point secp256r1_point_to_wire(const secp256r1::g1::affine_element& d)
 {
-    return { .x = field_to_wire<secp256r1::fq>(d.x), .y = field_to_wire<secp256r1::fq>(d.y) };
+    return { .x = field_to_wire_as<::Secp256r1Fq>(d.x), .y = field_to_wire_as<::Secp256r1Fq>(d.y) };
 }
 
 inline secp256r1::g1::affine_element secp256r1_point_from_wire(const wire::Secp256r1Point& w)
@@ -268,51 +253,6 @@ inline std::vector<bb::numeric::uint256_t> uint256_vec_from_wire(const std::vect
         r.push_back(uint256_from_wire(x));
     }
     return r;
-}
-
-// ---------------------------------------------------------------------------
-// Aggregate (struct) conversions: each handler builds these by moving fields
-// across the wire ↔ domain boundary one at a time.
-// ---------------------------------------------------------------------------
-
-inline CircuitInput circuit_input_from_wire(wire::CircuitInput&& w)
-{
-    return { .name = std::move(w.name),
-             .bytecode = std::move(w.bytecode),
-             .verification_key = std::move(w.verification_key) };
-}
-
-inline wire::CircuitInput circuit_input_to_wire(CircuitInput&& d)
-{
-    return { .name = std::move(d.name),
-             .bytecode = std::move(d.bytecode),
-             .verification_key = std::move(d.verification_key) };
-}
-
-inline CircuitInputNoVK circuit_input_no_vk_from_wire(wire::CircuitInputNoVK&& w)
-{
-    return { .name = std::move(w.name), .bytecode = std::move(w.bytecode) };
-}
-
-inline wire::CircuitInputNoVK circuit_input_no_vk_to_wire(CircuitInputNoVK&& d)
-{
-    return { .name = std::move(d.name), .bytecode = std::move(d.bytecode) };
-}
-
-inline ProofSystemSettings proof_system_settings_from_wire(wire::ProofSystemSettings&& w)
-{
-    return { .ipa_accumulation = w.ipa_accumulation,
-             .oracle_hash_type = std::move(w.oracle_hash_type),
-             .disable_zk = w.disable_zk,
-             .optimized_solidity_verifier = w.optimized_solidity_verifier };
-}
-
-inline wire::ProofSystemSettings proof_system_settings_to_wire(ProofSystemSettings&& d)
-{
-    return { .ipa_accumulation = d.ipa_accumulation,
-             .oracle_hash_type = std::move(d.oracle_hash_type),
-             .disable_zk = d.disable_zk,
-             .optimized_solidity_verifier = d.optimized_solidity_verifier };
 }
 
 inline ChonkProof chonk_proof_from_wire(wire::ChonkProof&& w)
