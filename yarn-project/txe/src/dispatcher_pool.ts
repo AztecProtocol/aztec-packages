@@ -21,13 +21,10 @@ void BarretenbergSync.initSingleton({ backend: BackendType.Wasm });
 
 /**
  * Opens a fresh LMDB in a tmp dir and writes the protocol contracts in
- * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS}, the standard contracts (auth registry, public checks),
- * and the SchnorrAccount artifact, returning the directory path and the SchnorrAccount class id
- * (hex). Loading the standard contracts here — rather than in each worker's session init — mirrors
- * how the protocol contracts are preloaded: the artifacts are parsed and registered once in the
- * main thread, and every worker clones the result instead of re-parsing the ~1 MB JSONs. The store
- * handle is intentionally kept alive: closing it would trigger the ephemeral-store cleanup hook and
- * remove the tmp directory, so any worker that has not yet cloned would find it missing.
+ * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS} plus the standard AuthRegistry and the SchnorrAccount artifact,
+ * returning the directory path and the SchnorrAccount class id (hex). The store handle is intentionally kept
+ * alive: closing it would trigger the ephemeral-store cleanup hook and remove the tmp
+ * directory, so any worker that has not yet cloned would find it missing.
  */
 export async function buildSharedContractStore(): Promise<{ dataDir: string; schnorrClassId: string }> {
   const kvStore = await openEphemeralStore('txe-shared-contracts', undefined, 2);
