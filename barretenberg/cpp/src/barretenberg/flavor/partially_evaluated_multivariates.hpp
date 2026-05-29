@@ -24,6 +24,8 @@ namespace bb {
 template <typename AllEntitiesBase, typename ProverPolynomialsType, typename Polynomial>
 class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
   public:
+    size_t row_skip_active_prefix_end = 0;
+
     /**
      * @brief Construct from full polynomials, allocating based on their actual sizes.
      * @details After the initial sumcheck round, the new size is CEIL(size/2).
@@ -35,6 +37,10 @@ class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
             size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
             // partially_evaluate writes to [0, desired_size) before any read; backing memory can be left uninitialized.
             poly = Polynomial(desired_size, circuit_size / 2, 0, Polynomial::DontZeroMemory::FLAG);
+        }
+        if constexpr (requires { full_polynomials.row_skip_active_prefix_end; }) {
+            row_skip_active_prefix_end =
+                (full_polynomials.row_skip_active_prefix_end / 2) + (full_polynomials.row_skip_active_prefix_end % 2);
         }
     }
 };

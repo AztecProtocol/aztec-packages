@@ -30,6 +30,9 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
 
+#include <cstdlib>
+#include <iostream>
+
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
 
 namespace bb {
@@ -66,6 +69,12 @@ class ECCVMFlavor {
     // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
     // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
+
+    static bool row_skip_diagnostics_enabled()
+    {
+        const char* value = std::getenv("BB_SUMCHECK_ROW_SKIP_DIAGNOSTICS");
+        return value != nullptr && value[0] != '\0' && !(value[0] == '0' && value[1] == '\0');
+    }
 
     static constexpr size_t NUM_WIRES = 85;
 
@@ -490,6 +499,7 @@ class ECCVMFlavor {
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
+        size_t row_skip_active_prefix_end = 0;
         [[nodiscard]] size_t get_polynomial_size() const { return this->lagrange_first.size(); }
 
         /**
@@ -651,6 +661,14 @@ class ECCVMFlavor {
             // Trace data starts at row TRACE_OFFSET. lagrange_last goes to dyadic end.
             constexpr size_t trace_offset = TRACE_OFFSET;
             const size_t alloc_size = trace_offset + num_rows;
+            row_skip_active_prefix_end = num_rows;
+
+            if (ECCVMFlavor::row_skip_diagnostics_enabled()) {
+                std::cerr << "[eccvm-poly-allocation] transcript_rows=" << transcript_rows.size()
+                          << " point_table_rows=" << point_table_rows.size() << " msm_rows=" << msm_rows.size()
+                          << " active_trace_end=" << row_skip_active_prefix_end << " alloc_size=" << alloc_size
+                          << " dyadic_num_rows=" << dyadic_num_rows << std::endl;
+            }
 
             // 1. Wire non-shifted polys: allocate with offset, add masking at {1,2,3}
             for (auto& poly : WireNonShiftedEntities<Polynomial>::get_all()) {
@@ -1019,6 +1037,12 @@ class ECCVMFlavor {
             BB_ASSERT_EQ(NativeTranscript::proof_data.size(), old_proof_length);
         }
     };
+
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    static size_t row_skip_active_prefix_end(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials)
+    {
+        return polynomials.row_skip_active_prefix_end;
+    }
 
     /**
      * @brief   When evaluating the sumcheck protocol - can we skip evaluation of _all_ relations for a given row? This
