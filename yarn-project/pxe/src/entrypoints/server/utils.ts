@@ -5,6 +5,7 @@ import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
 import { FileCircuitRecorder } from '@aztec/simulator/testing';
+import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../../config/index.js';
@@ -59,6 +60,7 @@ export async function createPXE(
   }
 
   const protocolContractsProvider = new BundledProtocolContractsProvider();
+  const multiCallEntrypointProvider = { getStandardMultiCallEntrypoint };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create({
@@ -67,6 +69,7 @@ export async function createPXE(
     proofCreator: prover,
     simulator,
     protocolContractsProvider,
+    multiCallEntrypointProvider,
     config: configWithContracts,
     loggerOrSuffix: pxeLogger,
     hooks: options.hooks,

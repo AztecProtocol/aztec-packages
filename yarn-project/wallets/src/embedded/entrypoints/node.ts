@@ -80,9 +80,11 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
     const wallet = new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
-    await wallet.initStubClasses();
-    await wallet.registerAuthRegistry(getStandardAuthRegistry);
-    await wallet.registerMultiCallEntrypoint(getStandardMultiCallEntrypoint);
+    await Promise.all([
+      wallet.initStubClasses(),
+      wallet.registerAuthRegistry(getStandardAuthRegistry),
+      wallet.registerMultiCallEntrypoint(getStandardMultiCallEntrypoint),
+    ]);
     return wallet;
   }
 }

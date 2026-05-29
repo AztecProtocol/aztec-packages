@@ -756,7 +756,6 @@ __metadata:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
-    "@aztec/standard-contracts": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -773,6 +772,7 @@ __metadata:
     "@aztec/sequencer-client": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/slasher": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/validator-client": "workspace:^"
@@ -1283,10 +1283,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/entrypoints@workspace:entrypoints"
   dependencies:
-    "@aztec/standard-contracts": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
@@ -1896,6 +1896,7 @@ __metadata:
     "@aztec/noir-types": "workspace:*"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/simulator": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
@@ -2302,7 +2303,6 @@ __metadata:
   dependencies:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/standard-contracts": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"

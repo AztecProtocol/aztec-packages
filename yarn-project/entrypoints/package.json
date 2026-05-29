@@ -67,10 +67,10 @@
     ]
   },
   "dependencies": {
-    "@aztec/standard-contracts": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "tslib": "^2.4.0",
     "zod": "^4"

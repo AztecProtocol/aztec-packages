@@ -3,7 +3,11 @@ import { type ContractArtifact, loadContractArtifact } from '@aztec/stdlib/abi';
 import { makeStandardContract } from '../make_standard_contract.js';
 import type { StandardContract } from '../standard_contract.js';
 
-export { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS, STANDARD_MULTI_CALL_ENTRYPOINT_CLASS_ID } from './address.js';
+export {
+  STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS,
+  STANDARD_MULTI_CALL_ENTRYPOINT_CLASS_ID,
+  STANDARD_MULTI_CALL_ENTRYPOINT_SALT,
+} from './constants.js';
 
 let standardContract: StandardContract;
 let standardContractArtifact: ContractArtifact;

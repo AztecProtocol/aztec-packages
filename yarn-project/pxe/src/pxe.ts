@@ -141,6 +141,20 @@ export type ExecuteUtilityOpts = {
   scopes: AztecAddress[];
 };
 
+/**
+ * Supplies the standard multi-call entrypoint that every PXE must know about regardless of which
+ * wallet drives it: the SDK's self-paid account deploy flow ({@link DeployAccountMethod} with
+ * `from = NO_FROM`) routes its payload through it, so a PXE that did not register it would fail
+ * contract sync with an opaque "no contract instance" error.
+ *
+ * Injected the same way as {@link ProtocolContractsProvider} so the PXE never statically imports the
+ * bundled artifacts, keeping the bundle/lazy split intact.
+ */
+export type MultiCallEntrypointProvider = {
+  /** Returns the canonical multi-call entrypoint instance and artifact to preload. */
+  getStandardMultiCallEntrypoint: () => Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }>;
+};
+
 /** Args for PXE.create. */
 export type PXECreateArgs = {
   /** The Aztec node to connect to. */
@@ -153,6 +167,8 @@ export type PXECreateArgs = {
   simulator: CircuitSimulator;
   /** Provider for protocol contract artifacts and instances. */
   protocolContractsProvider: ProtocolContractsProvider;
+  /** Provider for the standard multi-call entrypoint the PXE preloads. */
+  multiCallEntrypointProvider: MultiCallEntrypointProvider;
   /** PXE configuration options. */
   config: PXEConfig;
   /** Optional logger instance or string suffix for the logger name. */
@@ -188,6 +204,7 @@ export class PXE {
     private autoSync: boolean,
     private proofCreator: PrivateKernelProver,
     private protocolContractsProvider: ProtocolContractsProvider,
+    private multiCallEntrypointProvider: MultiCallEntrypointProvider,
     private log: Logger,
     private jobQueue: SerialQueue,
     private jobCoordinator: JobCoordinator,
@@ -208,6 +225,7 @@ export class PXE {
     proofCreator,
     simulator,
     protocolContractsProvider,
+    multiCallEntrypointProvider,
     config,
     loggerOrSuffix,
     hooks,
@@ -301,6 +319,7 @@ export class PXE {
       config.autoSync,
       proofCreator,
       protocolContractsProvider,
+      multiCallEntrypointProvider,
       log,
       jobQueue,
       jobCoordinator,
@@ -317,6 +336,7 @@ export class PXE {
     pxe.jobQueue.start();
 
     await pxe.#registerProtocolContracts();
+    await pxe.#registerMultiCallEntrypoint();
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxe;
   }
@@ -400,6 +420,14 @@ export class PXE {
       registered[name] = address.toString();
     }
     this.log.verbose(`Registered protocol contracts in pxe`, registered);
+  }
+
+  async #registerMultiCallEntrypoint() {
+    const { instance, artifact } = await this.multiCallEntrypointProvider.getStandardMultiCallEntrypoint();
+    await this.registerContract({ instance, artifact });
+    this.log.verbose(`Registered standard multi-call entrypoint in pxe`, {
+      MultiCallEntrypoint: instance.address.toString(),
+    });
   }
 
   // Executes the entrypoint private function, as well as all nested private
