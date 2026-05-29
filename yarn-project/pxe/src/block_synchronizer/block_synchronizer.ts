@@ -127,11 +127,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           );
         }
 
-        // Operations are wrapped in a single transaction to ensure atomicity.
-        await this.store.transactionAsync(async () => {
-          await this.privateEventStore.rollback(event.block.number, currentAnchorBlockNumber);
-          await this.updateAnchorBlockHeader(newAnchorBlockHeader);
-        });
+        await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         break;
       }
     }

@@ -291,7 +291,7 @@ describe('PXE', () => {
 
       scope = await AztecAddress.random();
 
-      privateEventStore = new PrivateEventStore(kvStore);
+      privateEventStore = new PrivateEventStore(kvStore, { isCanonical: () => true });
     });
 
     let eventCounter = 0;

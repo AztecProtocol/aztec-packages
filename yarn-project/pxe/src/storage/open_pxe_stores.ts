@@ -37,7 +37,7 @@ export async function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: 
   await canonicalBlockStore.load();
   return {
     addressStore: new AddressStore(store),
-    privateEventStore: new PrivateEventStore(store),
+    privateEventStore: new PrivateEventStore(store, canonicalBlockStore),
     contractStore: new ContractStore(store),
     noteStore: new NoteStore(store, canonicalBlockStore),
     canonicalBlockStore,

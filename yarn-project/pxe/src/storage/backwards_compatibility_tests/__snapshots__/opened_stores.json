@@ -38,10 +38,6 @@
       "kind": "map"
     },
     {
-      "name": "events_by_block_number",
-      "kind": "multimap"
-    },
-    {
       "name": "events_by_contract_selector",
       "kind": "multimap"
     },

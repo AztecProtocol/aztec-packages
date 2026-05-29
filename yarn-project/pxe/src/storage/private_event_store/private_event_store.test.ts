@@ -8,6 +8,7 @@ import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { PackedPrivateEvent } from '../../pxe.js';
+import type { CanonicalityCheck } from '../foundation/index.js';
 import { PrivateEventStore } from './private_event_store.js';
 
 const getRandomMsgContent = () => {
@@ -16,6 +17,8 @@ const getRandomMsgContent = () => {
 
 describe('PrivateEventStore', () => {
   let privateEventStore: PrivateEventStore;
+  let canonical: Set<string>;
+  let check: CanonicalityCheck;
   let contractAddress: AztecAddress;
   let scope: AztecAddress;
   let msgContent: Fr[];
@@ -29,7 +32,10 @@ describe('PrivateEventStore', () => {
 
   beforeEach(async () => {
     const store = await openTmpStore('private_event_store_test');
-    privateEventStore = new PrivateEventStore(store);
+    canonical = new Set<string>();
+    check = { isCanonical: o => canonical.has(`${o.blockNumber}:${o.blockHash}`) };
+    // Most tests don't exercise canonicality filtering; use an always-true check so stored events are always visible.
+    privateEventStore = new PrivateEventStore(store, { isCanonical: () => true });
     contractAddress = await AztecAddress.random();
     scope = await AztecAddress.random();
     msgContent = getRandomMsgContent();
@@ -334,6 +340,40 @@ describe('PrivateEventStore', () => {
     expect(events).toEqual([]);
   });
 
+  it('hides events whose block is not canonical and shows them once it is', async () => {
+    const blockHash = BlockHash.random();
+    const blockNumber = BlockNumber(5);
+
+    // Use the set-backed check so we can toggle canonicality at runtime.
+    const store = await openTmpStore('canonicality_test');
+    const canonicityStore = new PrivateEventStore(store, check);
+
+    await canonicityStore.storePrivateEventLog(
+      eventSelector,
+      randomness,
+      msgContent,
+      siloedEventCommitment,
+      {
+        contractAddress,
+        scope,
+        txHash,
+        l2BlockNumber: blockNumber,
+        l2BlockHash: blockHash,
+        txIndexInBlock: 0,
+        eventIndexInTx: 0,
+      },
+      'test',
+    );
+    await canonicityStore.commit('test');
+
+    const filter = { contractAddress, fromBlock: blockNumber, toBlock: blockNumber + 1, scopes: [scope] };
+
+    expect(await canonicityStore.getPrivateEvents(eventSelector, filter)).toHaveLength(0);
+
+    canonical.add(`${blockNumber}:${blockHash.toString()}`);
+    expect(await canonicityStore.getPrivateEvents(eventSelector, filter)).toHaveLength(1);
+  });
+
   describe('event ordering', () => {
     let msgContent1: Fr[];
     let msgContent2: Fr[];
@@ -545,234 +585,6 @@ describe('PrivateEventStore', () => {
       });
 
       expect(events.map(e => e.packedEvent)).toEqual([msgContent1, msgContent2, msgContent3]);
-    });
-  });
-
-  describe('rollback', () => {
-    let msgContent1: Fr[];
-    let msgContent2: Fr[];
-    let msgContent3: Fr[];
-    let msgContent4: Fr[];
-
-    beforeAll(() => {
-      msgContent1 = getRandomMsgContent();
-      msgContent2 = getRandomMsgContent();
-      msgContent3 = getRandomMsgContent();
-      msgContent4 = getRandomMsgContent();
-    });
-
-    it('removes events after rollback block', async () => {
-      // Store events in blocks 100, 200, 300
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent1,
-        Fr.random(),
-        {
-          contractAddress,
-          scope,
-          txHash: TxHash.random(),
-          l2BlockNumber: BlockNumber(100),
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 0,
-        },
-        'before-rollback',
-      );
-      // We add another event in the same block to verify that more events per block work.
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent2,
-        Fr.random(),
-        {
-          contractAddress,
-          scope,
-          txHash: TxHash.random(),
-          l2BlockNumber: BlockNumber(100),
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 1,
-        },
-        'before-rollback',
-      );
-
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent3,
-        Fr.random(),
-        {
-          contractAddress,
-          scope,
-          txHash: TxHash.random(),
-          l2BlockNumber: BlockNumber(200),
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 0,
-        },
-        'before-rollback',
-      );
-
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent4,
-        Fr.random(),
-        {
-          contractAddress,
-          scope,
-          txHash: TxHash.random(),
-          l2BlockNumber: BlockNumber(300),
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 0,
-        },
-        'before-rollback',
-      );
-
-      await privateEventStore.commit('before-rollback');
-
-      // Rollback to block 150 (should remove events from blocks 200 and 300)
-      await privateEventStore.rollback(150, 300);
-
-      const events = await privateEventStore.getPrivateEvents(eventSelector, {
-        contractAddress,
-        fromBlock: 0,
-        toBlock: 1000,
-        scopes: [scope],
-      });
-
-      expect(events.length).toBe(2);
-      expect(events[0].packedEvent).toEqual(msgContent1);
-      expect(events[1].packedEvent).toEqual(msgContent2);
-    });
-
-    it('allows re-adding events after rollback', async () => {
-      // After a reorg, the same transaction might be re-included in the chain in the same block and at the same
-      // position in the block. This test verifies that this scenario works - i.e. that there is no collision in keys.
-      const reorgTxHash = TxHash.random();
-      const reorgEventCommitment = Fr.random();
-
-      // Store event at block 200
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent1,
-        reorgEventCommitment,
-        {
-          contractAddress,
-          scope,
-          txHash: reorgTxHash,
-          l2BlockNumber: BlockNumber(200),
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 0,
-        },
-        'before-rollback',
-      );
-      await privateEventStore.commit('before-rollback');
-
-      // Rollback to block 100
-      await privateEventStore.rollback(100, 200);
-
-      // Verify event was removed
-      let events = await privateEventStore.getPrivateEvents(eventSelector, {
-        contractAddress,
-        fromBlock: 0,
-        toBlock: 1000,
-        scopes: [scope],
-      });
-      expect(events.length).toBe(0);
-
-      // Re-add the same event (same siloedEventCommitment and txHash, as happens after a reorg)
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent1,
-        reorgEventCommitment,
-        {
-          contractAddress,
-          scope,
-          txHash: reorgTxHash,
-          l2BlockNumber: BlockNumber(200),
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 0,
-        },
-        're-add',
-      );
-
-      await privateEventStore.commit('re-add');
-
-      // Verify event can be retrieved again
-      events = await privateEventStore.getPrivateEvents(eventSelector, {
-        contractAddress,
-        fromBlock: 0,
-        toBlock: 1000,
-        scopes: [scope],
-      });
-      expect(events.length).toBe(1);
-    });
-
-    it('handles rollback with no events to remove', async () => {
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent1,
-        Fr.random(),
-        {
-          contractAddress,
-          scope,
-          txHash: TxHash.random(),
-          l2BlockNumber: BlockNumber(100),
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 0,
-        },
-        'before-rollback',
-      );
-      await privateEventStore.commit('before-rollback');
-
-      // Rollback after all existing events
-      await privateEventStore.rollback(200, 300);
-
-      const events = await privateEventStore.getPrivateEvents(eventSelector, {
-        contractAddress,
-        fromBlock: 0,
-        toBlock: 1000,
-        scopes: [scope],
-      });
-
-      expect(events.length).toBe(1);
-      expect(events[0].packedEvent).toEqual(msgContent1);
-    });
-
-    it('throws when rollback is called while jobs are running', async () => {
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent1,
-        Fr.random(),
-        {
-          contractAddress,
-          scope,
-          txHash: TxHash.random(),
-          l2BlockNumber: BlockNumber(100),
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 0,
-        },
-        'uncommitted-job',
-      );
-
-      await expect(privateEventStore.rollback(0, 10)).rejects.toThrow(
-        'PXE private event store rollback is not allowed while jobs are running',
-      );
-
-      await privateEventStore.discardStaged('uncommitted-job');
-
-      await expect(privateEventStore.rollback(0, 10)).resolves.not.toThrow();
     });
   });
 

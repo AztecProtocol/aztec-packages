@@ -5,6 +5,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
+import type { Origin } from '../foundation/index.js';
+
 /** Serializable private event entry with scope tracking. */
 export class StoredPrivateEvent {
   constructor(
@@ -19,6 +21,10 @@ export class StoredPrivateEvent {
     readonly eventSelector: EventSelector,
     readonly scopes: Set<string>,
   ) {}
+
+  get creationOrigin(): Origin {
+    return { blockNumber: this.l2BlockNumber, blockHash: this.l2BlockHash.toString() };
+  }
 
   addScope(scope: string) {
     this.scopes.add(scope);

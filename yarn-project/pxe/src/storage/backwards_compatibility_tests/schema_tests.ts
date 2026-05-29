@@ -391,7 +391,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   {
     name: 'PrivateEventStore',
     writeToStore: async kvStore => {
-      const privateEventStore = new PrivateEventStore(kvStore);
+      const privateEventStore = new PrivateEventStore(kvStore, { isCanonical: () => true });
 
       const jobId = 'fixture-job';
 
@@ -487,7 +487,6 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       events_by_contract_selector: await snapshotMap(
         kvStore.openMultiMap<string, string>('events_by_contract_selector'),
       ),
-      events_by_block_number: await snapshotMap(kvStore.openMultiMap<number, string>('events_by_block_number')),
     }),
   },
 

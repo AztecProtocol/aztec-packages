@@ -15,7 +15,6 @@ import {
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
-import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
@@ -65,7 +64,7 @@ describe('BlockSynchronizer', () => {
     anchorBlockStore = new CanonicalBlockStore(store);
     await anchorBlockStore.load();
     noteStore = new NoteStore(store, alwaysCanonical);
-    privateEventStore = new PrivateEventStore(store);
+    privateEventStore = new PrivateEventStore(store, alwaysCanonical);
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });
@@ -109,37 +108,6 @@ describe('BlockSynchronizer', () => {
     // The anchor block should be updated to the reorg block header.
     const obtainedHeader = await anchorBlockStore.getBlockHeader();
     expect(obtainedHeader.equals(reorgBlock!.header)).toBe(true);
-  });
-
-  it('removes private events from db on a reorg', async () => {
-    const rollback = jest.spyOn(privateEventStore, 'rollback').mockImplementation(() => Promise.resolve());
-    const block3Hash = Fr.fromString('0x3');
-    aztecNode.getBlock.mockImplementation(async (block: any) => {
-      if (block instanceof BlockHash && block.equals(block3Hash)) {
-        const b = await L2Block.random(BlockNumber(3));
-        return {
-          header: b.header,
-          archive: b.archive,
-          hash: await b.hash(),
-          checkpointNumber: b.checkpointNumber,
-          indexWithinCheckpoint: b.indexWithinCheckpoint,
-          number: b.number,
-        } as any;
-      }
-      return undefined;
-    });
-
-    await synchronizer.handleBlockStreamEvent({
-      type: 'blocks-added',
-      blocks: await timesParallel(5, i => L2Block.random(BlockNumber(i))),
-    });
-    await synchronizer.handleBlockStreamEvent({
-      type: 'chain-pruned',
-      block: { number: BlockNumber(3), hash: block3Hash.toString() },
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-    });
-
-    expect(rollback).toHaveBeenCalledWith(3, 4);
   });
 
   describe('stop', () => {
