@@ -529,6 +529,21 @@ describe('LibP2PService', () => {
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
       expect(mockArchiver.getBlock).toHaveBeenCalledWith({ archive: hash });
     });
+
+    // The reqresp BLOCK_TXS responder (block_txs_handler.ts:54-58) returns archiveRoot=Fr.ZERO
+    // when it doesn't have the block in either the attestation pool or the archiver, but the
+    // request carried full tx hashes — it matches them against its pool and ships whatever it
+    // finds. This is a documented "I don't have the block" signal, not misbehavior, so the
+    // requester must not penalize the peer for it.
+    it('should not penalize a peer that signals lacking the block with Fr.ZERO archive root', async () => {
+      const hash = Fr.random();
+      const request = makeRequest(hash, 3, [0, 2]);
+      const response = makeResponse(Fr.ZERO, 0, [], ['0xfound0', '0xfound2']);
+
+      await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
   });
 
   describe('processBlockFromPeer', () => {
