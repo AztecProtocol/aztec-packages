@@ -92,6 +92,7 @@ export class NoopL1Archiver extends Archiver {
         ethereumAllowNoDebugHosts: true, // Skip trace validation
         skipHistoricalLogsCheck: true, // Skip historical logs validation
         orphanProposedBlockPruneGraceSeconds: 2,
+        enableOrphanProposedBlockPruning: true,
       },
       blobClient,
       instrumentation,

@@ -1494,8 +1494,7 @@ export class CheckpointProposalJob implements Traceable {
    * tip advances locally. Gossip doesn't echo our own messages back, so without this the proposer
    * would never see its own proposed checkpoint and couldn't pipeline the next slot.
    *
-   * Only runs under proposer pipelining (the proposed tip is a pipelining-only concept) and is
-   * skipped whenever proposed blocks aren't pushed (`skipPushProposedBlocksToArchiver`, fisherman
+   * Skipped whenever proposed blocks aren't pushed (`skipPushProposedBlocksToArchiver`, fisherman
    * mode): the archiver derives the checkpoint archive from its stored blocks, so without them the
    * push would fail. All blocks were already added (and awaited) during block building, so this
    * needs no retry — they are guaranteed present by the time we get here.
@@ -1506,9 +1505,6 @@ export class CheckpointProposalJob implements Traceable {
     feeAssetPriceModifier: bigint,
   ): Promise<void> {
     if (this.config.skipPushProposedBlocksToArchiver || this.config.fishermanMode) {
-      return;
-    }
-    if (!this.epochCache.isProposerPipeliningEnabled()) {
       return;
     }
     const startBlock = BlockNumber(this.syncedToBlockNumber + 1);

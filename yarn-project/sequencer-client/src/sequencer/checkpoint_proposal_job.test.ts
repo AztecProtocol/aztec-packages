@@ -1728,20 +1728,6 @@ describe('CheckpointProposalJob', () => {
       expect(blockSink.addProposedCheckpoint).not.toHaveBeenCalled();
     });
 
-    it('does not push the proposed checkpoint when pipelining is disabled', async () => {
-      // The proposed-checkpoint tip is a pipelining-only concept, so a non-pipelining proposer
-      // must still broadcast but must not advance it.
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
-      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
-      checkpointBuilder.seedBlocks([block], [txs]);
-      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
-
-      await job.executeAndAwait();
-
-      expect(blockSink.addProposedCheckpoint).not.toHaveBeenCalled();
-      expect(p2p.broadcastCheckpointProposal).toHaveBeenCalledTimes(1);
-    });
-
     it('handles empty committee gracefully', async () => {
       // Mock empty committee
       epochCache.getCommittee.mockResolvedValue({

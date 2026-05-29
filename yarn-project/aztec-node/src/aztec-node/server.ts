@@ -589,7 +589,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       const archiver = await createArchiver(
         config,
         { blobClient, epochCache, telemetry, dateProvider },
-        { blockUntilSync: !config.skipArchiverInitialSync },
+        {
+          blockUntilSync: !config.skipArchiverInitialSync,
+          // The non-pipelined automine sequencer publishes each checkpoint in-slot, so it never
+          // leaves orphan proposed blocks; pruning would race its local push. See pruneOrphanProposedBlocks.
+          enableOrphanProposedBlockPruning: !config.useAutomineSequencer,
+        },
         initialHeader,
         initialBlockHash,
       );
