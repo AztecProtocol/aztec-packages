@@ -291,6 +291,16 @@ export class Tx extends Gossipable {
   }
 
   /**
+   * Returns a copy of this tx with its proof stripped (replaced by an empty {@link ChonkProof}). Used when archiving
+   * txs or shipping a pending tx over RPC where the proof is not needed. Note that {@link Tx.clone} with
+   * `cloneProof = false` does not strip the proof; it shares the original.
+   * @returns A new tx with an empty proof.
+   */
+  withoutProof(): Tx {
+    return new Tx(this.txHash, this.data, ChonkProof.empty(), this.contractClassLogFields, this.publicFunctionCalldata);
+  }
+
+  /**
    * Creates a random tx.
    * @param randomProof - Whether to create a random proof - this will be random bytes of the full size.
    * @returns A random tx.
