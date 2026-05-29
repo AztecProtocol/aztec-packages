@@ -126,6 +126,12 @@ op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
       + sel_op_shr * constants.AVM_EXEC_OP_ID_ALU_SHR
       + sel_op_truncate * constants.AVM_EXEC_OP_ID_ALU_TRUNCATE;
 
+#[EXACTLY_ONE_OPERATION_ACTIVE]
+sel = sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op_fdiv + sel_op_eq + sel_op_lt
+    + sel_op_lte + sel_op_not + sel_op_shl + sel_op_shr + sel_op_truncate;
+// Unconditional mutual exclusiveness of the operations selectors follow.
+// Enforces that no operation is active on an inactive portion of the trace.
+
 /******************************************************************************
 * Inputs and outputs and common helper selectors.
 ******************************************************************************/
@@ -204,6 +210,8 @@ sel_tag_err = sel_ab_tag_mismatch + FF_TAG_ERR - sel_ab_tag_mismatch * FF_TAG_ER
 // ------------------------------------------------------------
 // Error case 1: FF_TAG_ERR
 // ------------------------------------------------------------
+// FF_TAG_ERR is boolean by definition: sel_op_div, sel_op_not, SHIFT_OPS are unconditionally mutually exclusive
+// and sel_is_ff is boolean as well as IS_NOT_FF == (1 - sel_is_ff).
 pol FF_TAG_ERR = (sel_op_div + sel_op_not + SHIFT_OPS) * sel_is_ff + sel_op_fdiv * IS_NOT_FF;
 
 // ------------------------------------------------------------

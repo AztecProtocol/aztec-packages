@@ -750,7 +750,7 @@ const InteractionDefinition Sha256TraceBuilder::interactions =
         .add<InteractionType::LookupGeneric, lookup_sha256_maj_and_2_settings>(C::bitwise_start)
         .add<InteractionType::LookupGeneric, lookup_sha256_maj_xor_0_settings>(C::bitwise_start)
         .add<InteractionType::LookupGeneric, lookup_sha256_maj_xor_1_settings>(C::bitwise_start)
-        // GT Checks for Rotations and Shifts
+        // Range checks for Rotations and Shifts
         .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_7_settings>(C::range_check_sel)
         .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_18_settings>(C::range_check_sel)
         .add<InteractionType::LookupGeneric, lookup_sha256_range_rhs_w_3_settings>(C::range_check_sel)

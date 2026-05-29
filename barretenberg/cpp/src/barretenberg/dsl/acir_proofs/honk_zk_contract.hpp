@@ -224,13 +224,6 @@ uint256 constant NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1;
 
 // Must match UltraFlavor_Generated::EntityId order.
 enum WIRE {
-    Q_M,
-    Q_L,
-    Q_R,
-    Q_O,
-    Q_4,
-    Q_C,
-    Q_ARITH,
     SIGMA_1,
     SIGMA_2,
     SIGMA_3,
@@ -246,6 +239,13 @@ enum WIRE {
     TABLE_2,
     TABLE_3,
     TABLE_4,
+    Q_M,
+    Q_R,
+    Q_O,
+    Q_C,
+    Q_L,
+    Q_4,
+    Q_ARITH,
     Q_RANGE,
     Q_ELLIPTIC,
     Q_MEMORY,
@@ -876,7 +876,7 @@ library RelationsLib {
             accum = accum + (q_arith - ONE) * wire(p, WIRE.W_4_SHIFT);
             accum = accum * q_arith;
             accum = accum * domainSep;
-            evals[0] = accum;
+            evals[6] = accum;
         }
 
         // Relation 1
@@ -886,7 +886,7 @@ library RelationsLib {
             accum = accum * (q_arith - ONE);
             accum = accum * q_arith;
             accum = accum * domainSep;
-            evals[1] = accum;
+            evals[7] = accum;
         }
     }
 
@@ -924,19 +924,19 @@ library RelationsLib {
                 - ((wire(p, WIRE.Z_PERM_SHIFT) + (wire(p, WIRE.LAGRANGE_LAST) * rp.publicInputsDelta))
                     * grand_product_denominator);
             acc = acc * domainSep;
-            evals[2] = acc;
+            evals[0] = acc;
         }
 
         // Contribution 3
         {
             Fr acc = (wire(p, WIRE.LAGRANGE_LAST) * wire(p, WIRE.Z_PERM_SHIFT)) * domainSep;
-            evals[3] = acc;
+            evals[1] = acc;
         }
 
         // Contribution 4: z_perm initialization check (lagrange_first * z_perm = 0)
         {
             Fr acc = (wire(p, WIRE.LAGRANGE_FIRST) * wire(p, WIRE.Z_PERM)) * domainSep;
-            evals[4] = acc;
+            evals[2] = acc;
         }
     }
 
@@ -987,9 +987,9 @@ library RelationsLib {
 
         Fr read_tag_boolean_relation = read_tag * read_tag - read_tag;
 
-        evals[5] = accumulatorNone;
-        evals[6] = accumulatorOne;
-        evals[7] = read_tag_boolean_relation * domainSep;
+        evals[3] = accumulatorNone;
+        evals[4] = accumulatorOne;
+        evals[5] = read_tag_boolean_relation * domainSep;
     }
 
     function accumulateDeltaRangeRelation(
@@ -2072,28 +2072,28 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         commitments[1] = proof.geminiMaskingPoly;
 
-        commitments[2] = vk.qm;
-        commitments[3] = vk.ql;
-        commitments[4] = vk.qr;
-        commitments[5] = vk.qo;
-        commitments[6] = vk.q4;
-        commitments[7] = vk.qc;
-        commitments[8] = vk.qArith;
-        commitments[9] = vk.s1;
-        commitments[10] = vk.s2;
-        commitments[11] = vk.s3;
-        commitments[12] = vk.s4;
-        commitments[13] = vk.id1;
-        commitments[14] = vk.id2;
-        commitments[15] = vk.id3;
-        commitments[16] = vk.id4;
-        commitments[17] = vk.lagrangeFirst;
-        commitments[18] = vk.lagrangeLast;
-        commitments[19] = vk.qLookup;
-        commitments[20] = vk.t1;
-        commitments[21] = vk.t2;
-        commitments[22] = vk.t3;
-        commitments[23] = vk.t4;
+        commitments[2] = vk.s1;
+        commitments[3] = vk.s2;
+        commitments[4] = vk.s3;
+        commitments[5] = vk.s4;
+        commitments[6] = vk.id1;
+        commitments[7] = vk.id2;
+        commitments[8] = vk.id3;
+        commitments[9] = vk.id4;
+        commitments[10] = vk.lagrangeFirst;
+        commitments[11] = vk.lagrangeLast;
+        commitments[12] = vk.qLookup;
+        commitments[13] = vk.t1;
+        commitments[14] = vk.t2;
+        commitments[15] = vk.t3;
+        commitments[16] = vk.t4;
+        commitments[17] = vk.qm;
+        commitments[18] = vk.qr;
+        commitments[19] = vk.qo;
+        commitments[20] = vk.qc;
+        commitments[21] = vk.ql;
+        commitments[22] = vk.q4;
+        commitments[23] = vk.qArith;
         commitments[24] = vk.qDeltaRange;
         commitments[25] = vk.qElliptic;
         commitments[26] = vk.qMemory;

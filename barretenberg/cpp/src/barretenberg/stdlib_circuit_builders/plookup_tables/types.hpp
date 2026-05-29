@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "./fixed_base/fixed_base_params.hpp"
+#include "./secp256r1_fixed_base_params.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -89,6 +90,11 @@ enum BasicTableId {
     // Used by straus_plookup_table for fixed-base MSM with constant EC points (e.g. IPA verifier SRS elements).
     // Each table instance gets this id; uniqueness within a circuit is ensured by table_index, not id.
     STRAUS_EC_POINT,
+    SECP256R1_FIXED_BASE_XLO_0,
+    SECP256R1_FIXED_BASE_XHI_0 = SECP256R1_FIXED_BASE_XLO_0 + Secp256r1FixedBaseParams::NUM_WINDOWS,
+    SECP256R1_FIXED_BASE_YLO_0 = SECP256R1_FIXED_BASE_XHI_0 + Secp256r1FixedBaseParams::NUM_WINDOWS,
+    SECP256R1_FIXED_BASE_YHI_0 = SECP256R1_FIXED_BASE_YLO_0 + Secp256r1FixedBaseParams::NUM_WINDOWS,
+    SECP256R1_FIXED_BASE_END = SECP256R1_FIXED_BASE_YHI_0 + Secp256r1FixedBaseParams::NUM_WINDOWS,
 };
 
 enum MultiTableId {
@@ -121,6 +127,17 @@ enum MultiTableId {
     SECP256K1_XLO_ENDO,
     SECP256K1_XHI_ENDO,
     SECP256K1_XYPRIME_ENDO,
+    // secp256r1 fixed-base MultiTables — one per (axis, scalar-half) pair. Each chains the 32 per-window
+    // BasicTables for an axis: _LO covers the low 17 windows (136 bits), _HI covers the high 15 windows
+    // (120 bits). Used by `element::secp256r1_fixed_base_mul`.
+    SECP256R1_FIXED_BASE_XLO_LO,
+    SECP256R1_FIXED_BASE_XLO_HI,
+    SECP256R1_FIXED_BASE_XHI_LO,
+    SECP256R1_FIXED_BASE_XHI_HI,
+    SECP256R1_FIXED_BASE_YLO_LO,
+    SECP256R1_FIXED_BASE_YLO_HI,
+    SECP256R1_FIXED_BASE_YHI_LO,
+    SECP256R1_FIXED_BASE_YHI_HI,
     BLAKE_XOR,
     BLAKE_XOR_ROTATE_16,
     BLAKE_XOR_ROTATE_8,

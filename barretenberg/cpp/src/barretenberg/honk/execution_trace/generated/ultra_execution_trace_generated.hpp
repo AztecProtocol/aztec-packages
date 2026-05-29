@@ -22,8 +22,8 @@ struct UltraTraceBlockData {
     using BlockBase = UltraTraceBlock;
 
     UltraTraceBlock pub_inputs{};
-    UltraTraceBlock arithmetic{ GateKind::Arith };
     UltraTraceBlock lookup{ GateKind::Lookup };
+    UltraTraceBlock arithmetic{ GateKind::Arith };
     UltraTraceBlock delta_range{ GateKind::DeltaRange };
     UltraTraceBlock elliptic{ GateKind::Elliptic };
     UltraTraceBlock memory{ GateKind::Memory };
@@ -36,8 +36,8 @@ struct UltraTraceBlockData {
     std::vector<std::string_view> get_labels() const
     {
         return {
-            "pub_inputs",         "arithmetic",         "lookup", "delta_range", "elliptic", "memory", "nnf",
-            "poseidon2_external", "poseidon2_internal",
+            "pub_inputs", "lookup", "arithmetic",         "delta_range",        "elliptic",
+            "memory",     "nnf",    "poseidon2_external", "poseidon2_internal",
         };
     }
 
@@ -45,8 +45,8 @@ struct UltraTraceBlockData {
     {
         return RefArray(std::array<UltraTraceBlock*, NUM_BLOCKS>{
             &pub_inputs,
-            &arithmetic,
             &lookup,
+            &arithmetic,
             &delta_range,
             &elliptic,
             &memory,
@@ -60,8 +60,8 @@ struct UltraTraceBlockData {
     {
         return RefArray(std::array<const UltraTraceBlock*, NUM_BLOCKS>{
             &pub_inputs,
-            &arithmetic,
             &lookup,
+            &arithmetic,
             &delta_range,
             &elliptic,
             &memory,
@@ -75,8 +75,8 @@ struct UltraTraceBlockData {
     {
         info("Gate blocks summary:");
         info("pub_inputs              : ", this->pub_inputs.size());
-        info("arithmetic              : ", this->arithmetic.size());
         info("lookup                  : ", this->lookup.size());
+        info("arithmetic              : ", this->arithmetic.size());
         info("delta_range             : ", this->delta_range.size());
         info("elliptic                : ", this->elliptic.size());
         info("memory                  : ", this->memory.size());

@@ -211,10 +211,13 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
 
     // Tables start at the lookup block's trace offset, which is always past the disabled region
     BB_ASSERT_GTE(table_offset, TRACE_OFFSET);
-    // Allocate polynomials containing the actual table data; offset to align with the lookup gate block
+    // Allocate polynomials containing the actual table data. Back only [TRACE_OFFSET, tables_end):
+    // rows below TRACE_OFFSET are the disabled region and read as zero, so there is no need to
+    // materialise them. This keeps the table columns small regardless of where the lookup block
+    // lands in the trace.
     BB_ASSERT_GTE(dyadic_size(), tables_end);
     for (auto& table_poly : polynomials.get_tables()) {
-        table_poly = Polynomial(tables_end, dyadic_size());
+        table_poly = Polynomial(tables_end - TRACE_OFFSET, dyadic_size(), TRACE_OFFSET);
     }
 
     // Read counts and tags: track which table entries have been read
