@@ -20,7 +20,7 @@ pub fn build(b: *std.Build) void {
     const server_exe = b.addExecutable(.{
         .name = "echo_server",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("echo_server.zig"),
+            .root_source_file = b.path("src/echo_server.zig"),
             .target = target,
             .optimize = optimize,
         }),
@@ -33,7 +33,7 @@ pub fn build(b: *std.Build) void {
     const client_exe = b.addExecutable(.{
         .name = "echo_client",
         .root_module = b.createModule(.{
-            .root_source_file = b.path("echo_client.zig"),
+            .root_source_file = b.path("src/echo_client.zig"),
             .target = target,
             .optimize = optimize,
         }),

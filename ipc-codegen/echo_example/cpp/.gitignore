@@ -1,4 +1,4 @@
 build/
 echo_client
 echo_server
-generated/
+src/generated/

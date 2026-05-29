@@ -30,7 +30,7 @@ add_subdirectory(
 
 add_library(echo_common INTERFACE)
 target_include_directories(echo_common INTERFACE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src"
     "${REPO_ROOT}/ipc-codegen/cpp/include"
     "${msgpack_c_SOURCE_DIR}/include"
 )
@@ -39,11 +39,11 @@ target_compile_definitions(echo_common INTERFACE
     MSGPACK_USE_STD_VARIANT_ADAPTOR
 )
 
-add_executable(echo_server echo_server.cpp)
+add_executable(echo_server src/echo_server.cpp)
 target_link_libraries(echo_server PRIVATE echo_common ipc_runtime)
 
 add_executable(echo_client
-    echo_client.cpp
-    generated/echo_ipc_client.cpp
+    src/echo_client.cpp
+    src/generated/echo_ipc_client.cpp
 )
 target_link_libraries(echo_client PRIVATE echo_common ipc_runtime)

@@ -11,7 +11,7 @@ $NODE "$CODEGEN/src/generate.ts" \
   --server \
   --client \
   --uds \
-  --out "$DIR/generated" \
+  --out "$DIR/src/generated" \
   --prefix Echo \
   --cpp-namespace echo
 
