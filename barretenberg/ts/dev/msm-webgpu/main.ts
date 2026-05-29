@@ -79,6 +79,11 @@ const _bootInt = (k: string, dflt: number): number => {
   const v = Number(raw);
   return Number.isInteger(v) && v > 0 ? v : dflt;
 };
+// Opt into MsmV2.run()'s per-bucket A/B diagnostic (walker / stream vs the
+// debug accumulator). Heavy (extra readbacks + a debug re-dispatch) — dev only.
+if (_bootParams.get('msm_diag') === '1') {
+  (window as unknown as { __msm_diag?: boolean }).__msm_diag = true;
+}
 const LOGN_MIN = _bootInt('logn_min', 10);
 const LOGN_MAX = 20;
 const SRS_NUM_POINTS = 1 << _bootInt('srs_logn', LOGN_MAX);

@@ -71,8 +71,20 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let first_bucket = thread_cuts[2u * t + 0u];
     let first_off    = thread_cuts[2u * t + 1u];
-    let last_bucket  = thread_cuts[2u * (t + 1u) + 0u];
-    let last_off     = thread_cuts[2u * (t + 1u) + 1u];
+
+    // The last active thread's end is the global work end. partition_thread
+    // fills only nwg*256 start cuts (no end sentinel at index nwg*256), so
+    // reading thread_cuts[t+1] there would pick up a stale slot.
+    let total_adds = planner_meta[2];
+    var last_bucket: u32;
+    var last_off: u32;
+    if (t + 1u >= num_active_threads) {
+        last_bucket = num_dense - 1u;
+        last_off    = total_adds - cumulative_adds[num_dense - 1u];
+    } else {
+        last_bucket = thread_cuts[2u * (t + 1u) + 0u];
+        last_off    = thread_cuts[2u * (t + 1u) + 1u];
+    }
 
     let start_adds = cumulative_adds[first_bucket] + first_off;
     let end_adds   = cumulative_adds[last_bucket] + last_off;

@@ -125,17 +125,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     let pref_base = l * S * 2u;
     let cut_base = t * CUTS * 2u;
 
-    // Per-slot state (private). acc lives in registers (plan §7.1).
-    var cursor:       array<u32, {{ s }}>;   // l0_index point position
-    var bucket_end:   array<u32, {{ s }}>;   // l0 position past current bucket
-    var task_end:     array<u32, {{ s }}>;   // l0 position past the task
-    var cur_sorted:   array<u32, {{ s }}>;   // index into sorted_bucket_list
-    var cur_bucket:   array<u32, {{ s }}>;   // bucket id (for bucket_sums)
-    var is_first:     array<u32, {{ s }}>;
-    var slot_done:    array<u32, {{ s }}>;
-    var split_start:  array<u32, {{ s }}>;   // current bucket shared with a prior task
-    var acc_x:        array<array<u32, 8>, {{ s }}>;
-    var acc_y:        array<array<u32, 8>, {{ s }}>;
+    // Per-slot state (private). acc lives in registers (plan §7.1). The task
+    // end is tracked as (sorted index, l0 cursor within that bucket) — NOT a
+    // bare l0 cursor — because l0 positions are not monotonic across sorted
+    // buckets, so a raw cursor>=task_end test would be meaningless once a
+    // multi-bucket task walks into a bucket whose l0 region precedes the end.
+    var cursor:         array<u32, {{ s }}>;   // l0_index point position
+    var bucket_end:     array<u32, {{ s }}>;   // l0 position past current bucket
+    var task_end_sort:  array<u32, {{ s }}>;   // sorted index of the task's last bucket
+    var task_end_cur:   array<u32, {{ s }}>;   // l0 position past the task within that bucket
+    var cur_sorted:     array<u32, {{ s }}>;   // index into sorted_bucket_list
+    var cur_bucket:     array<u32, {{ s }}>;   // bucket id (for bucket_sums)
+    var is_first:       array<u32, {{ s }}>;
+    var slot_done:      array<u32, {{ s }}>;
+    var split_start:    array<u32, {{ s }}>;   // current bucket shared with a prior task
+    var acc_x:          array<array<u32, 8>, {{ s }}>;
+    var acc_y:          array<array<u32, 8>, {{ s }}>;
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -151,62 +156,76 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         let sb_base = offsets[sb_id];
         let sb_count = sorted_count_list[sb];
 
-        // Point cursors. A continuation (so>0) skips the prior task's last
-        // shared point: its piece is points (so+1 .. ] of bucket sb. A fresh
-        // start (so==0) begins at the bucket's first point.
+        // Start cursor. so==0 → fresh at the bucket's first point. so in
+        // (0,count-1) → continuation beginning at point so+1. so==count-1 →
+        // bucket sb is wholly the prior piece's, so this begins fresh at the
+        // next bucket.
+        var eff_sorted = sb;
+        var eff_id = sb_id;
+        var eff_base = sb_base;
+        var eff_count = sb_count;
         var start_cursor: u32;
-        if (so > 0u) {
+        if (so == 0u) {
+            start_cursor = sb_base;
+            split_start[k] = 0u;
+        } else if (so + 1u < sb_count) {
             start_cursor = sb_base + so + 1u;
             split_start[k] = 1u;
         } else {
-            start_cursor = sb_base + 0u;
+            eff_sorted = sb + 1u;
+            eff_id = sorted_bucket_list[eff_sorted];
+            eff_base = offsets[eff_id];
+            eff_count = sorted_count_list[eff_sorted];
+            start_cursor = eff_base;
             split_start[k] = 0u;
         }
 
-        // Task end in l0 space. eo>0 → ends mid-bucket eb at point eo (piece
-        // covers points [.., eo] of eb). eo==0 → ends at the start of eb,
-        // i.e. just past the end of bucket eb-1; the end cut bucket is then
-        // the previous sorted index with a full bucket boundary.
-        var end_cursor: u32;
+        // Task end. eo>0 → last bucket is eb, ending past point eo. eo==0 →
+        // the task stops at the end of bucket eb-1 (it does not touch eb).
+        var te_sort: u32;
+        var te_cur: u32;
         if (eo > 0u) {
-            let eb_id = sorted_bucket_list[eb];
-            end_cursor = offsets[eb_id] + eo + 1u;
+            te_sort = eb;
+            te_cur = offsets[sorted_bucket_list[eb]] + eo + 1u;
+        } else if (eb > 0u) {
+            te_sort = eb - 1u;
+            let pid = sorted_bucket_list[te_sort];
+            te_cur = offsets[pid] + sorted_count_list[te_sort];
         } else {
-            // eo==0: end coincides with bucket eb's first point. For the slot
-            // walk that means "stop when the cursor reaches eb's base".
-            let eb_id = sorted_bucket_list[eb];
-            end_cursor = offsets[eb_id];
+            te_sort = 0u;
+            te_cur = 0u;
         }
 
         cursor[k] = start_cursor;
-        bucket_end[k] = sb_base + sb_count;
-        task_end[k] = end_cursor;
-        cur_sorted[k] = sb;
-        cur_bucket[k] = sb_id;
+        bucket_end[k] = eff_base + eff_count;
+        task_end_sort[k] = te_sort;
+        task_end_cur[k] = te_cur;
+        cur_sorted[k] = eff_sorted;
+        cur_bucket[k] = eff_id;
         is_first[k] = 1u;
         slot_done[k] = 0u;
 
-        // Empty task → idle from the start.
-        if (start_cursor >= end_cursor) {
+        // Empty task (region-aware): the start is at or past the task end.
+        if (eff_sorted > te_sort || (eff_sorted == te_sort && start_cursor >= te_cur)) {
             slot_done[k] = 1u;
             continue;
         }
 
-        // Single-point leading segment. The batched inner loop's is_first
-        // step consumes two points, so a piece with exactly one point before
-        // its first boundary can't go through it. Dense buckets have count>=2,
-        // so this only arises for a split continuation (so>0) landing on a
-        // bucket's last point. Store that point directly as the piece sum.
-        let seg_end = min(bucket_end[k], task_end[k]);
+        // Single-point leading segment. The is_first step consumes two points,
+        // so a piece with one point before its first boundary can't go through
+        // it. Dense buckets have count>=2, so this only arises for a split
+        // continuation landing on a bucket's last point.
+        var seg_end = bucket_end[k];
+        if (eff_sorted == te_sort) { seg_end = te_cur; }
         if (split_start[k] == 1u && seg_end - start_cursor == 1u) {
             let px = load_pt_x(start_cursor);
             let py = load_pt_y(start_cursor);
-            if (task_end[k] <= bucket_end[k]) {
-                store_partial(2u * (t * S + k) + 1u, sb_id, M_partials, px, py);
+            if (eff_sorted == te_sort) {
+                store_partial(2u * (t * S + k) + 1u, eff_id, M_partials, px, py);
                 slot_done[k] = 1u;
             } else {
-                store_partial(2u * (t * S + k) + 0u, sb_id, M_partials, px, py);
-                let nxt = sb + 1u;
+                store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
+                let nxt = eff_sorted + 1u;
                 let nxt_id = sorted_bucket_list[nxt];
                 let nxt_base = offsets[nxt_id];
                 cur_sorted[k] = nxt;
@@ -214,7 +233,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 bucket_end[k] = nxt_base + sorted_count_list[nxt];
                 cursor[k] = nxt_base;
                 split_start[k] = 0u;
-                if (cursor[k] >= task_end[k]) { slot_done[k] = 1u; }
+                if (nxt > te_sort) { slot_done[k] = 1u; }
             }
         }
     }
@@ -311,7 +330,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, p_ly);
 
-            let task_done = cursor[k] >= task_end[k];
+            // Task end is region-aware: only the task's designated last bucket
+            // can trigger it (cursor is meaningful only within the current
+            // bucket's l0 region).
+            let task_done = (cur_sorted[k] == task_end_sort[k]) && (cursor[k] >= task_end_cur[k]);
             let bucket_done = cursor[k] >= bucket_end[k];
 
             if (task_done) {

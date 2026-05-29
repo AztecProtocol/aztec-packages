@@ -527,6 +527,10 @@ interface SharedScratch {
   partialBucketsList: GPUBuffer;
   accBuf: GPUBuffer;
   streamPrefScratch: GPUBuffer;
+  // Stream-walker variant (KNOB 2): precomputed task cuts + per-partial-slot
+  // destination bucket ids.
+  taskCuts: GPUBuffer;
+  partialDest: GPUBuffer;
   // Pad-trio layout in bufA/bufB (depends on the M1 the buffers were
   // sized for). Re-derived whenever bufA grows.
   planeBytes: number;
@@ -840,6 +844,8 @@ export class MsmV2Pool {
     let partialBucketsList = s?.partialBucketsList;
     let accBuf = s?.accBuf;
     let streamPrefScratch = s?.streamPrefScratch;
+    let taskCuts = s?.taskCuts;
+    let partialDest = s?.partialDest;
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
       streamPlannerMeta?.destroy();
       size1BucketList?.destroy();
@@ -856,6 +862,8 @@ export class MsmV2Pool {
       partialBucketsList?.destroy();
       accBuf?.destroy();
       streamPrefScratch?.destroy();
+      taskCuts?.destroy();
+      partialDest?.destroy();
       grow(dims.streamNumThreads > cur.streamNumThreads, 'streamNumThreads');
       grow(dims.streamS > cur.streamS, 'streamS');
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
@@ -871,9 +879,16 @@ export class MsmV2Pool {
       wgCuts = sbuf(32 * 2 * 4);
       threadCuts = sbuf(sT * 2 * 4);
       queueBuf = sbuf((sQHeaderLen + sMaxQ * 3) * 4);
-      partialsBuf = soaBuf(2 * sT);
+      // Walker needs up to 2 partials per task (split-start completion +
+      // task-end), so 2 * sT * sS slots; the legacy stream path uses the
+      // first 2 * sT and is unaffected by the larger allocation.
+      partialsBuf = soaBuf(2 * sT * sS);
       partialBucketsList = sbuf(sT * 3 * 4);
       accBuf = soaBuf(sT * sS);
+      // KNOB 2 task cuts: (S+1) cut points/thread × 2 u32. partialDest: one
+      // bucket id per partial slot (NO_BUCKET if unused).
+      taskCuts = sbuf(sT * (sS + 1) * 2 * 4);
+      partialDest = sbuf(2 * sT * sS * 4);
       const saSlots = sT * sS;
       const maxSplitWgs = Math.min(sT, 256);
       const psSlots = maxSplitWgs * 256 * sS;
@@ -921,6 +936,8 @@ export class MsmV2Pool {
       partialBucketsList: partialBucketsList!,
       accBuf: accBuf!,
       streamPrefScratch: streamPrefScratch!,
+      taskCuts: taskCuts!,
+      partialDest: partialDest!,
       planeBytes,
       padBytesPerPlane,
       padXOffset,
@@ -1167,6 +1184,9 @@ export class MsmV2 {
   private walkerPipe!: GPUComputePipeline;
   private walkerBind!: GPUBindGroup;
   private walkerLayout!: GPUBindGroupLayout;
+  private walkerCombinePipe!: GPUComputePipeline;
+  private walkerCombineBind!: GPUBindGroup;
+  private walkerCombineLayout!: GPUBindGroupLayout;
   // Streaming bind groups (built in prepare, rebuilt on epoch change)
   private classifyBind!: GPUBindGroup;
   private metaFixupBind!: GPUBindGroup;
@@ -1464,6 +1484,7 @@ export class MsmV2 {
     // Stream-walker variant layouts (KNOB 2 planner + KNOB 1 walker).
     m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     m.walkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
+    m.walkerCombineLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1560,6 +1581,9 @@ export class MsmV2 {
     m.walkerPipe = await compile(
       sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
       `stream-walker`, m.walkerLayout);
+    m.walkerCombinePipe = await compile(
+      sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
+      `walker-combine`, m.walkerCombineLayout);
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
@@ -2056,6 +2080,16 @@ export class MsmV2 {
       this.debugAccumBind = mkBind(this.debugAccumLayout, [sb, sc, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, debugParams]);
       const splitParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, 0, 0]));
       this.splitRecomputeBind = mkBind(this.splitRecomputeLayout, [pbl, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, splitParams]);
+      // Stream-walker variant binds (KNOB 1/2).
+      const taskc = scratch.taskCuts;
+      const pdest = scratch.partialDest;
+      const ptaskParams = ubuf(new Uint32Array([0, 0, 0, 0]));
+      this.partitionTaskBind = mkBind(this.partitionTaskLayout, [sc, ca, tc, sp, taskc, ptaskParams]);
+      const M_partials = 2 * this.streamNumThreads * this.streamS;
+      const walkerParams = ubuf(new Uint32Array([this.streamNumThreads, batchSlots, B_TOTAL, M_partials]));
+      this.walkerBind = mkBind(this.walkerLayout, [sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, pb, pdest, walkerParams]);
+      const combineParams = ubuf(new Uint32Array([B_TOTAL, M_partials, 0, 0]));
+      this.walkerCombineBind = mkBind(this.walkerCombineLayout, [sb, pdest, pb, bucketResult, sp, combineParams]);
     }
 
     this.redStaging = device.createBuffer({
@@ -2269,10 +2303,23 @@ export class MsmV2 {
       // whole-bucket reference. Used to confirm the rest of the pipeline
       // (decompose/transpose/planner/size1/reduce/combine) is sound
       // independent of accumulator bugs.
-      const useDebugAccum =
-        typeof window !== 'undefined' &&
-        new URLSearchParams(window.location.search).get('use_debug_accum') === '1';
-      if (useDebugAccum) {
+      const qp = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams('');
+      const useDebugAccum = qp.get('use_debug_accum') === '1';
+      // Stream-walker variant (KNOB 1/2). partition_task fills task_cuts and
+      // emits the walker's indirect args at planner_meta[15]; the walker
+      // retires whole buckets to bucket_sums and split pieces to partials_buf;
+      // walker_combine folds split pieces back into bucket_sums.
+      const useWalker = qp.get('use_walker') === '1';
+      if (useWalker) {
+        setPhase('planner');
+        dispatch(this.partitionTaskPipe, this.partitionTaskBind, 32, 1);
+        setPhase('stream_accum');
+        indirectDispatch(this.walkerPipe, this.walkerBind, spMeta, 15 * 4);
+        setPhase('partial_sum');
+        dispatch(this.walkerCombinePipe, this.walkerCombineBind, Math.ceil(this.bTotal / 256), 1);
+      } else if (useDebugAccum) {
         setPhase('stream_accum');
         dispatch(this.debugAccumPipe, this.debugAccumBind, Math.ceil(this.bTotal / 256), 1);
       } else {
