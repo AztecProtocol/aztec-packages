@@ -145,6 +145,13 @@ function build {
   if [ "$#" -eq 0 ]; then
     rm -rf target
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
+
+    # If pinned contracts exist, extract them and skip their compilation.
+    if [ -f pinned-protocol-contracts.tar.gz ]; then
+      echo_stderr "Using pinned-protocol-contracts.tar.gz for pinned contracts."
+      tar xzf pinned-protocol-contracts.tar.gz -C target
+      contracts=$(echo "$contracts" | grep -vE "^protocol/|^fees/sponsored_fpc_contract$")
+    fi
   else
     local contracts="$@"
   fi
@@ -217,6 +224,19 @@ function format {
   $NARGO fmt
 }
 
+function pin-build {
+  # Force a real build by removing any existing pinned archive.
+  rm -f pinned-protocol-contracts.tar.gz
+  local protocol_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^protocol/")
+  local fees_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^fees/")
+  build $protocol_contracts $fees_contracts
+  # Bundle protocol contracts plus SponsoredFPC (FPC is excluded — only SponsoredFPC is pinned).
+  local protocol_artifacts=$(jq -r '.[]' protocol_contracts.json | sed 's/$/.json/')
+  echo_stderr "Creating pinned-protocol-contracts.tar.gz..."
+  (cd target && tar czf ../pinned-protocol-contracts.tar.gz $protocol_artifacts sponsored_fpc_contract-SponsoredFPC.json)
+  echo_stderr "Done. pinned-protocol-contracts.tar.gz created. Commit it to pin these artifacts."
+}
+
 case "$cmd" in
   "clean-keys")
     for artifact in target/*.json; do
@@ -230,6 +250,9 @@ case "$cmd" in
     ;;
   "compile")
     VERBOSE=${VERBOSE:-1} build "$@"
+    ;;
+  "pin-build")
+    pin-build
     ;;
   *)
     default_cmd_handler "$@"
