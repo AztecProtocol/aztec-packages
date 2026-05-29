@@ -2962,16 +2962,23 @@ fn load_pref(pref_idx: u32) -> array<u32, 8> {
 }
 
 // Binary-search cumulative_adds for the bucket containing \`tgt\`.
-// cumulative_adds[i] = exclusive prefix sum of (count[i] - 1) over i.
+// cumulative_adds[i] = exclusive prefix sum of (count[j] - 1) over j<i.
 // bucket_meta[i].w == cumulative_adds[i]; bucket_meta[i].y == count.
-// The bucket's add-stream covers cum_adds[i]..cum_adds[i]+count[i]-1.
+// Bucket i's add-stream is the half-open range [cum_adds[i], cum_adds[i+1])
+// where cum_adds[i+1] = cum_adds[i] + count[i] - 1.
+// So inclusive end of bucket i's adds = cum_adds[i] + count[i] - 2.
+// Off-by-one here lets split-start slots land at task_o = count - 1, a
+// phantom position that triggers OOB reads in the slot init.
+// (Size-1 buckets have count=1 and would underflow \`count - 2u\`; they
+// are routed to ba_size1 and don't appear in the sorted-dense list the
+// walker sees, so count >= 2 holds.)
 fn binary_search_cum_adds(tgt: u32, lo_in: u32, hi_in: u32) -> vec2<u32> {
     var lo: u32 = lo_in;
     var hi: u32 = hi_in;
     while (lo < hi) {
         let mid = (lo + hi) >> 1u;
         let m = bucket_meta[mid];
-        let cum_end_inclusive = m.w + m.y - 1u;
+        let cum_end_inclusive = m.w + m.y - 2u;
         if (cum_end_inclusive < tgt) {
             lo = mid + 1u;
         } else {
