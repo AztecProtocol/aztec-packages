@@ -284,7 +284,7 @@ function generate(args: Args) {
         writeFile("async.ts", gen.generateAsyncApi(compiled));
         writeFile("sync.ts", gen.generateSyncApi(compiled));
         // No transport template copy — consumers import IpcClient from
-        // '@aztec/ipc-runtime' (or hand a compatible IMsgpackBackend in).
+        // '@aztec/ipc-runtime' (or hand in a compatible byte backend).
       }
       if (args.curveConstants) {
         generateCurveConstants(absOut, resolve(args.curveConstants));
