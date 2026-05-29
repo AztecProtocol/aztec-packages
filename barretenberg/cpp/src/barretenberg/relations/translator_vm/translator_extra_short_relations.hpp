@@ -196,11 +196,22 @@ template <typename FF_> class TranslatorZeroConstraintsShortRelationImpl {
      */
     template <typename AllEntities> static bool skip(const AllEntities& in)
     {
-        // Skip evaluation when inside the minicircuit or in the masking area. The relation constrains
-        // polynomials to be zero outside these regions.
+        // The contribution of every subrelation is wire * (lagrange_odd + lagrange_even + lagrange_mini_masking - 1).
+        // Let s = lagrange_odd + lagrange_even + lagrange_mini_masking. Per row s is 1 exactly where this relation is
+        // inactive (the minicircuit processing rows and the masking rows, where the selector s - 1 vanishes) and 0 on
+        // the remaining rows (the no-op head and the zero-padding tail). On the s == 0 rows every constrained wire is
+        // identically zero for the honest prover, so the contribution vanishes there too.
+        //
+        // We may therefore skip any edge on which s is constant: s == 1 makes the selector identically zero, and s == 0
+        // makes all wires identically zero (this is preserved under partial evaluation, since a folded s evaluates to 0
+        // only when both endpoints had s == 0, where the folded wires are likewise 0). Only edges straddling the
+        // active/inactive boundary, where s is non-constant, must be evaluated. Skipping only on s - 1 == 0 (as a pure
+        // selector argument would) needlessly evaluates the large zero-padding tail; skipping only on lagrange_odd +
+        // lagrange_even == 0 would be unsound, as it also drops masking-vs-head/tail straddle edges whose contribution
+        // is non-zero away from the edge endpoints.
         static constexpr auto minus_one = -FF(1);
-        return (in.lagrange_odd_in_minicircuit + in.lagrange_even_in_minicircuit + in.lagrange_mini_masking + minus_one)
-            .is_zero();
+        const auto s = in.lagrange_odd_in_minicircuit + in.lagrange_even_in_minicircuit + in.lagrange_mini_masking;
+        return (s + minus_one).is_zero() || s.is_zero();
     }
     /**
      * @brief Relation enforcing all the range-constraint polynomials to be zero after the minicircuit
