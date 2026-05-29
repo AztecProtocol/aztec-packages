@@ -726,8 +726,12 @@ export class MsmV2Pool {
       bufA?.destroy();
       bufB?.destroy();
       grow(true, 'M1');
-      bufA = soaBuf(cur.M1);
-      bufB = soaBuf(cur.M1);
+      // Step 9 (Plan §14): pair-tree V2 buffers shrunk to 4 B — no longer
+      // dispatched. ba_fused_super / ba_carry / ba_finalize bind groups
+      // still reference them so the type/binding system stays happy, but
+      // none of those pipelines run on the walker path.
+      bufA = sbuf(4);
+      bufB = sbuf(4);
       grew = true;
     }
     if (!bucketResultBuf || dims.bTotal > cur.bTotal) {
@@ -771,14 +775,17 @@ export class MsmV2Pool {
       grow(true, 'totalPairBlocks');
       const SmaxS = Math.max(cur.S, dims.S);
       cur.S = SmaxS;
-      pairBlockPlanRing = [sbuf(2 * cur.totalPairBlocks * SmaxS * 4), sbuf(2 * cur.totalPairBlocks * SmaxS * 4)];
-      scatterPlanRing = [sbuf(cur.totalPairBlocks * SmaxS * 4), sbuf(cur.totalPairBlocks * SmaxS * 4)];
+      // Step 9: pair-tree V2 ring buffers shrunk — only the dead fused_super
+      // pipeline reads them.
+      pairBlockPlanRing = [sbuf(4), sbuf(4)];
+      scatterPlanRing = [sbuf(4), sbuf(4)];
       grew = true;
     }
     if (!carryPlanRing || dims.totalCarries > cur.totalCarries) {
       carryPlanRing?.forEach(b => b.destroy());
       grow(true, 'totalCarries');
-      carryPlanRing = [sbuf(2 * cur.totalCarries * 4), sbuf(2 * cur.totalCarries * 4)];
+      // Step 9: shrunk — only the dead carry pipeline reads it.
+      carryPlanRing = [sbuf(4), sbuf(4)];
       grew = true;
     }
     if (!countsBufs || !offsetsBufs || dims.batchBuckets > cur.batchBuckets) {
@@ -794,7 +801,8 @@ export class MsmV2Pool {
       grow(true, 'fusedTile');
       const SmaxS = Math.max(cur.S, dims.S);
       cur.S = SmaxS;
-      prefScratchBuf = sbuf(cur.fusedTile * SmaxS * 8 * 4);
+      // Step 9: shrunk — only the dead fused_super pipeline reads it.
+      prefScratchBuf = sbuf(4);
       grew = true;
     }
     if (!scalarsRawBuf || dims.scalarsBytes > cur.scalarsBytes) {
@@ -882,14 +890,15 @@ export class MsmV2Pool {
       cumulativeAdds = sbuf(sBTotal * 4);
       wgCuts = sbuf(32 * 2 * 4);
       threadCuts = sbuf(sT * 2 * 4);
-      queueBuf = sbuf((sQHeaderLen + sMaxQ * 3) * 4);
-      partialsBuf = soaBuf(2 * sT);
-      partialBucketsList = sbuf(sT * 3 * 4);
-      accBuf = soaBuf(sT * sS);
-      const saSlots = sT * sS;
-      const maxSplitWgs = Math.min(sT, 256);
-      const psSlots = maxSplitWgs * 256 * sS;
-      streamPrefScratch = sbuf(Math.max(psSlots, saSlots) * 2 * 4 * 4);
+      // Step 9: legacy stream-accum buffers shrunk — only the dead
+      // ba_stream_accum / ba_partial_sum / ba_planner_emit / ba_emit_fixup /
+      // ba_debug_accum / ba_recompute_split pipelines reference these.
+      // Walker uses taskCuts + walkerPartials + walkerPartialDest instead.
+      queueBuf = sbuf(4);
+      partialsBuf = sbuf(4);
+      partialBucketsList = sbuf(4);
+      accBuf = sbuf(4);
+      streamPrefScratch = sbuf(4);
       // Stream-walker allocations (KNOB 2 — per C's variant).
       //   taskCuts:   (S+1) cut points/thread × 2 u32 = (sS+1) × 2 × 4 B/thread
       //   walkerPartials: 2*S slots/thread × PG × 2 vec4 (split-start + task-end)
@@ -951,21 +960,12 @@ export class MsmV2Pool {
     };
 
     if (grew) {
-      // Re-write the pad-trio into the (possibly new) bufA/bufB. Other
-      // buffers are zero-initialized by WebGPU on creation, which is the
-      // correct starting state for them too.
-      const padBuf = buildPadBuf(cur.M1, padPts, R);
-      const padBytes = new Uint8Array(padBuf.buffer);
-      const xPadSlice = padBytes.subarray(padXOffset, padXOffset + padBytesPerPlane);
-      const yPadSlice = padBytes.subarray(padYOffset, padYOffset + padBytesPerPlane);
-      device.queue.writeBuffer(newScratch.bufA, padXOffset, xPadSlice as BufferSource);
-      device.queue.writeBuffer(newScratch.bufA, padYOffset, yPadSlice as BufferSource);
-      device.queue.writeBuffer(newScratch.bufB, padXOffset, xPadSlice as BufferSource);
-      device.queue.writeBuffer(newScratch.bufB, padYOffset, yPadSlice as BufferSource);
-      // Re-write the l0IdxBuf seed pad-trio at slots [batchSlots,
-      // batchSlots+1, batchSlots+2]. These positions move when batchSlots
-      // grows; the caller (MsmV2.prepare) writes the per-N value at its
-      // own batchSlots offset on every prepare. Nothing to do here.
+      // Step 9: pad-trio writeBuffer to bufA/bufB removed. Those writes
+      // populated the V2 pair-tree's IDLE-anchor slots at [M1-3..M1-1] of
+      // each plane in bufA, read by the dead fused_super / carry / finalize
+      // pipelines. The walker reads its IDLE anchor through
+      // l0_index[batchSlots] → point_x/point_y[pt_idx] instead, and
+      // batchSlots is written by MsmV2.prepare on every run.
       this._scratch = newScratch;
       this._scratchEpoch++;
     } else {
@@ -2253,20 +2253,12 @@ export class MsmV2 {
       enc.copyBufferToBuffer(scalarsSrcBuf, scalarsSrcByteOff, this.scalarsRawBuf, 0, this.n * 32);
     }
 
-    // Reset active-sums + bucket-result buffers. The pad-trio at slots
-    // [M1-3, M1-2, M1-1] of each plane must survive (planner anchor) —
-    // so we clearBuffer only the NON-pad regions of each plane. The 192
-    // bytes of pad data were written once at slow-path setup and never
-    // touched again. Two clearBuffer calls per buffer = 4 total, each
-    // negligible on every driver. Replaces the old 64×M1 byte
-    // copyBufferToBuffer from a persistent padTemplateBuf — saves
-    // 64×M1 bytes of GPU memory (~52 MB at n=131k).
-    enc.clearBuffer(this.bufA, 0, this.padXOffset);
-    enc.clearBuffer(this.bufA, this.planeBytes, this.padXOffset);
-    enc.clearBuffer(this.bufB, 0, this.padXOffset);
-    enc.clearBuffer(this.bufB, this.planeBytes, this.padXOffset);
+    // Reset bucket-result buffer. bufA/bufB clears removed in step 9 (those
+    // buffers are 4-byte stubs now; the old clearBuffer's `size = padXOffset`
+    // would be out-of-range and invalidate the command buffer).
+    // partialsBuf likewise no longer needs zeroing — walker writes its own
+    // outputs to walkerPartials, which is cleared just below.
     enc.clearBuffer(this.bucketResultBuf);
-    enc.clearBuffer(this.pool.scratch!.partialsBuf);
     // Stream-walker buffers (Plan §6 + C's KNOB 2 variant).
     enc.clearBuffer(this.pool.scratch!.threadCuts);
     enc.clearBuffer(this.pool.scratch!.walkerPartials);
@@ -2418,7 +2410,12 @@ export class MsmV2 {
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
 
-    if (true as boolean) {
+    // Step 9: legacy queueBuf / streamPlannerMeta / debugAccum diagnostic
+    // readbacks gated off. They issued 1024-byte copyBufferToBuffers from
+    // the now-shrunk queueBuf (4 B), invalidating the encoder. Re-enable
+    // by changing to `if (true as boolean)` if you need the introspection
+    // back while debugging the legacy stream path (which is dead anyway).
+    if (false as boolean) {
       const qb = this.pool.scratch!.queueBuf;
       const headerBytes = Math.min(2 * this.streamNumThreads * 4, 1024);
       const qStg = device.createBuffer({ size: headerBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
@@ -2505,7 +2502,10 @@ export class MsmV2 {
         }
       }
     }
-    {
+    // Step 9: META + A/B diagnostic blocks gated off.
+    // A/B specifically dispatches debugAccumPipe whose bind group still
+    // references shrunk legacy buffers — would invalidate the encoder.
+    if (false as boolean) {
       const sp = this.pool.scratch!.streamPlannerMeta;
       const metaStg = device.createBuffer({ size: 80, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
       const em = device.createCommandEncoder();
@@ -2517,7 +2517,7 @@ export class MsmV2 {
       console.log(`[META] size1=${meta[0]} dense=${meta[1]} total_adds=${meta[2]} nwg=${meta[3]} split=${meta[4]} slab_used=${meta[6]}`);
     }
     // A/B: read streaming bucket_sums, clear, re-run debug accum, compare
-    {
+    if (false as boolean) {
       const brb = this.pool.scratch!.bucketResultBuf;
       const readSz = Math.min(this.bTotal * 2 * 16, 131072);
       // 1) Read streaming result
