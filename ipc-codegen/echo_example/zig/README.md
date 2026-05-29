@@ -3,8 +3,7 @@
 Build from this directory:
 
 ```sh
-../../echo-schema/generate.sh
-zig build
+./bootstrap.sh
 ```
 
 The Zig project depends on the repo-local `ipc-runtime/zig` package and the
