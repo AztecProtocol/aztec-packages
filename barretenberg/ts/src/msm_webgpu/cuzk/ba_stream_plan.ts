@@ -6,7 +6,17 @@ const PLANNER_TPB = 256;
 const STREAM_S = 8;
 const RADIX_TILE_SIZE = 2048;
 const MIN_ITERS_PER_WG = 8;
-const MAX_STREAM_WORKGROUPS = 32;
+// Bumped from 32 to 64 to give n=2^20 more parallelism. Existing kernels
+// gate on planner_meta[3] so the higher cap is backwards-compatible: at
+// n=2^17 cumsum still picks ~16 WGs.
+const MAX_STREAM_WORKGROUPS = 64;
+
+// Stream-walker kernel constants (new — see STREAM_WALKER_PLAN.md §4).
+// TPB=128 so pref_scratch (TPB × S × 2 planes × 16 B = 32 KB) fits in M2's
+// 32 KB workgroup-shared limit when held in var<workgroup>. Mali targets
+// that max at 16 KB workgroup memory must drop this to 64 at adapter init.
+const STREAM_WALKER_TPB = 128;
+const STREAM_WALKER_TPB_MALI_FALLBACK = 64;
 
 export interface StreamPlannerBuffers {
   plannerMeta: GPUBuffer;
@@ -24,6 +34,17 @@ export interface StreamPlannerBuffers {
   partialBucketsList: GPUBuffer;
   accBuf: GPUBuffer;
   prefScratch: GPUBuffer;
+  // Stream-walker additions (see STREAM_WALKER_PLAN.md §3.1, §6.1).
+  // bucketMeta packs (sorted_bucket_id, count, offset, cum_adds) into one
+  // vec4<u32> per bucket so the stream-walker stays within the 8-binding
+  // mobile WebGPU limit. Populated by a post-planner pack kernel; consumed
+  // by ba_stream_walker.
+  bucketMeta: GPUBuffer;
+  // splitRecords holds (bucket_idx, first_partial_slot, partial_count)
+  // entries — produced by ba_planner_split_detect for inter-thread splits
+  // and appended to by ba_stream_walker (atomic per thread) for
+  // intra-thread splits. Bounded at ≤ 9 × NUM_THREADS entries.
+  splitRecords: GPUBuffer;
 }
 
 export interface StreamPlanConfig {
@@ -40,6 +61,13 @@ export function computeStreamPlanSizes(cfg: StreamPlanConfig) {
   const maxQueueEntries = bTotal + numThreads * (2 * s - 1);
   const maxPartials = 2 * numThreads;
   const numRadixTiles = Math.ceil(bTotal / RADIX_TILE_SIZE);
+  // Stream-walker bounds (STREAM_WALKER_PLAN.md §3.1, §9).
+  //   bucketMeta: bTotal × vec4<u32> = bTotal × 16 B
+  //   walkerPartials: 8 slots × numThreads × 2 planes × 32 B = 8 × numThreads × 64 B
+  //   splitRecords: ≤ 9 × numThreads × 3 u32  (8 intra-thread + 1 inter-thread per thread)
+  const bucketMetaBytes = bTotal * 4 * 4;
+  const walkerPartialsBytes = 8 * numThreads * PG * 2 * 4 * 4;
+  const splitRecordsBytes = 9 * numThreads * 3 * 4;
   return {
     plannerMetaBytes: Math.max((20 + numThreads) * 4, 256),
     size1BucketListBytes: bTotal * 2 * 4,
@@ -56,12 +84,24 @@ export function computeStreamPlanSizes(cfg: StreamPlanConfig) {
     partialBucketsListBytes: numThreads * 3 * 4,
     accBufBytes: numThreads * s * PG * 2 * 4 * 4,
     prefScratchBytes: numThreads * s * 2 * 4 * 4,
+    bucketMetaBytes,
+    walkerPartialsBytes,
+    splitRecordsBytes,
     queueHeaderLen,
     maxQueueEntries,
     maxPartials,
     numRadixTiles,
   };
 }
+
+// Re-export constants for use by msm_v2.ts pool allocator and shader_manager.
+export {
+  STREAM_S,
+  MIN_ITERS_PER_WG,
+  MAX_STREAM_WORKGROUPS,
+  STREAM_WALKER_TPB,
+  STREAM_WALKER_TPB_MALI_FALLBACK,
+};
 
 /**
  * CPU reference accumulator for Phase-0 testing. Directly sums each
