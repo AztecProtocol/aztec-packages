@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/simulation/dbs/wsdb_ipc_merkle_db.hpp"
+#include "barretenberg/wsdb/vm2/wsdb_ipc_merkle_db.hpp"
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
