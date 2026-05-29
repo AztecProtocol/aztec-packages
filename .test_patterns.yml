@@ -98,6 +98,16 @@ tests:
     owners:
       - *palla
 
+  # Native gtest equivalent of the bb.js skip above, emitted by
+  # barretenberg/cpp/bootstrap.sh and run by the nightly debug build. The same
+  # stale pinned Chonk IVC inputs make proving fail a kernel_return_data vs
+  # kernel_calldata databus consistency check, so skip until the inputs are
+  # refreshed (ci-refresh-chonk). https://github.com/AztecProtocol/aztec-packages/actions/runs/26558683321
+  - regex: "bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+    skip: true
+    owners:
+      - *palla
+
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"
     skip: true
