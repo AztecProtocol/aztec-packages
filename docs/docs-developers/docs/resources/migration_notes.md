@@ -61,7 +61,28 @@ After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotion
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-`multi_call_entrypoint` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. PXE no longer auto-registers it; `EmbeddedWallet` registers it on creation via `registerMultiCallEntrypoint`. Other PXE consumers using `DefaultMultiCallEntrypoint` (including `DeployAccountMethod`'s `NO_FROM` self-deploy path) must register the contract themselves with `pxe.registerContract({ instance, artifact })` from `getStandardMultiCallEntrypoint()`.
+`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE *preloads*: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
+
+To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
+
+```ts
+const wallet = await EmbeddedWallet.create(node, {
+  pxe: {
+    preloadedContractsProvider: {
+      // EmbeddedWallet's built-in default preloads only MultiCallEntrypoint + AuthRegistry.
+      // A custom provider REPLACES that default (it is not additive), so re-list the ones you
+      // still want and add the extras — here, PublicChecks.
+      getPreloadedContracts: async () => [
+        await getStandardMultiCallEntrypoint(),
+        await getStandardAuthRegistry(),
+        await getStandardPublicChecks(),
+      ],
+    },
+  },
+});
+```
+
+The provider *replaces* the default list (it is not additive), so include every standard contract you want available.
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
@@ -72,7 +93,7 @@ After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotion
 + use crate::standard_addresses::STANDARD_PUBLIC_CHECKS_ADDRESS;
 ```
 
-If your contract uses `privately_check_timestamp` or `privately_check_block_number`, you must deploy `PublicChecks` on your network and register it with PXE:
+Unlike MultiCallEntrypoint and AuthRegistry, `PublicChecks` is **not** preloaded by `createPXE` or `EmbeddedWallet`. If your contract uses `privately_check_timestamp` or `privately_check_block_number`, `PublicChecks` must be deployed and made available to your PXE — either include it in a custom `preloadedContractsProvider` (see the `multi_call_entrypoint` note above) or register it directly:
 
 ```ts
 import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
@@ -94,7 +115,7 @@ Deploy `PublicChecks` once per fresh rollup: `aztec-wallet deploy public_checks_
 + use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
 ```
 
-PXE no longer auto-registers `AuthRegistry` on startup. If your wallet needs it, register it explicitly (as the `EmbeddedWallet` entrypoints do):
+PXE no longer auto-registers `AuthRegistry` on startup. `EmbeddedWallet` preloads it automatically (alongside the MultiCallEntrypoint — see the `multi_call_entrypoint` note above), so apps using the standard wallet need no changes. If you use a PXE setup that doesn't preload it, add it to a custom `preloadedContractsProvider` or register it explicitly:
 
 ```ts
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
