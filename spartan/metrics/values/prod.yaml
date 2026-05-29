@@ -2,16 +2,13 @@ opentelemetry-collector:
   replicaCount: 1
   resources:
     requests:
-      memory: 12Gi
+      memory: 1Gi
+      cpu: "0.5"
+    limits:
+      memory: 4Gi
       cpu: "2"
   nodeSelector:
     node-type: infra
-    #   pool: spot
-    # tolerations:
-    #   - key: "cloud.google.com/gke-spot"
-    #     operator: "Equal"
-    #     value: "true"
-    #     effect: "NoSchedule"
   ports:
     jaeger-compact:
       enabled: false
@@ -22,8 +19,8 @@ opentelemetry-collector:
     processors:
       memory_limiter:
         check_interval: 1s
-        limit_mib: 10000
-        spike_limit_mib: 2000
+        limit_mib: 3200
+        spike_limit_mib: 800
       filter/large_histograms:
         metrics:
           datapoint:
@@ -87,19 +84,23 @@ opentelemetry-collector:
             - otlp/tempo
 
 prometheus:
+  alertmanager:
+    enabled: false
+  prometheus-node-exporter:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
+
   server:
     resources:
       requests:
-        memory: 40Gi
-        cpu: "3.5"
+        memory: 4Gi
+        cpu: "1"
+      limits:
+        memory: 32Gi
+        cpu: "8"
     nodeSelector:
       node-type: infra
-    #   pool: spot
-    # tolerations:
-    #   - key: "cloud.google.com/gke-spot"
-    #     operator: "Equal"
-    #     value: "true"
-    #     effect: "NoSchedule"
 
     persistentVolume:
       enabled: true
@@ -107,15 +108,6 @@ prometheus:
     replicaCount: 1
     statefulSet:
       enabled: true
-  alertmanager:
-    nodeSelector:
-      node-type: infra
-  nodeExporter:
-    nodeSelector:
-      node-type: infra
-  pushgateway:
-    nodeSelector:
-      node-type: infra
 
 loki:
   enabled: false
@@ -126,7 +118,7 @@ tempo:
     resources:
       requests:
         memory: 4Gi
-        cpu: "2"
+        cpu: "0.5"
       limits:
         memory: 8Gi
         cpu: "4"
@@ -139,7 +131,7 @@ tempo:
         enabled: false
   persistence:
     enabled: true
-    size: 256Gi
+    size: 32Gi
     storageClassName: standard-rwo
   nodeSelector:
     node-type: infra
@@ -148,8 +140,11 @@ tempo:
 grafana:
   resources:
     requests:
+      memory: 1Gi
+      cpu: "0.5"
+    limits:
       memory: 4Gi
-      cpu: "1.5"
+      cpu: "2"
   nodeSelector:
     node-type: infra
   service:
