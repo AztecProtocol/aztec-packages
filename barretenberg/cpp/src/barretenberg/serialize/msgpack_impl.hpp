@@ -11,7 +11,6 @@
 #include "barretenberg/common/mem.hpp"
 
 #include "barretenberg/common/try_catch_shim.hpp"
-#include "ipc_codegen/msgpack_adaptor.hpp"
 #include "msgpack_impl/check_memory_span.hpp"
 #include "msgpack_impl/concepts.hpp"
 #include "msgpack_impl/func_traits.hpp"
@@ -19,6 +18,7 @@
 #include "msgpack_impl/name_value_pair_macro.hpp"
 #include "msgpack_impl/schema_impl.hpp"
 #include "msgpack_impl/schema_name.hpp"
+#include "msgpack_impl/struct_map_impl.hpp"
 
 /**
  * Represents this as a bbmalloc'ed object, fit for sending to e.g. TypeScript.
