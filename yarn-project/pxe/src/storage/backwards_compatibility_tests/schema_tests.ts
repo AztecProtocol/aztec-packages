@@ -36,7 +36,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { AddressStore } from '../address_store/address_store.js';
-import { AnchorBlockStore } from '../anchor_block_store/anchor_block_store.js';
+import { CanonicalBlockStore } from '../canonical_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
 import { NoteStore } from '../note_store/note_store.js';
@@ -81,13 +81,14 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   },
 
   {
-    name: 'AnchorBlockStore',
+    name: 'CanonicalBlockStore',
     writeToStore: async kvStore => {
-      const anchorBlockStore = new AnchorBlockStore(kvStore);
+      const canonicalBlockStore = new CanonicalBlockStore(kvStore);
+      await canonicalBlockStore.load();
 
       // Each primitive field gets a distinct prime so any reorder shows up in the snapshot diff. An all-zero
       // `BlockHeader.empty()` would silently pass through same-width field swaps.
-      await anchorBlockStore.setHeader(
+      await canonicalBlockStore.setHeader(
         new BlockHeader(
           new AppendOnlyTreeSnapshot(new Fr(2n), 3),
           new StateReference(
@@ -113,9 +114,19 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           new Fr(79n),
         ),
       );
+
+      // Populate the canonical map + finality meta so canonical_hashes / canonical_meta are fingerprinted.
+      await canonicalBlockStore.setManyCanonical([
+        { blockNumber: 101, blockHash: '0x6f' },
+        { blockNumber: 103, blockHash: '0x83' },
+      ]);
+      await canonicalBlockStore.setFloor(97);
+      await canonicalBlockStore.setFinalized(89);
     },
     snapshotStore: async kvStore => ({
       header: await snapshotSingleton(kvStore.openSingleton<Buffer>('header')),
+      canonical_hashes: await snapshotMap(kvStore.openMap<number, string>('canonical_hashes')),
+      canonical_meta: await snapshotSingleton(kvStore.openSingleton<Buffer>('canonical_meta')),
     }),
   },
 
