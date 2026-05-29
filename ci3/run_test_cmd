@@ -86,9 +86,20 @@ test_hash=$(hash_str_orig "$test_cmd")
 if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
   log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
-    log_info=" ($(ci_term_link $log_key))"
-    echo -e "${blue}SKIPPED${reset}${log_info:-}: $cmd"
-    exit 0
+    if [[ "$cmd" == *disabled-cache* ]]; then
+      # A 'disabled-cache' command's key is a constant string, not a content hash, so a cached pass
+      # here means the success cache was poisoned and the test would be skipped forever. Purge the
+      # entry, and in CI fail loudly (mirrors cache_content_hash) rather than silently skipping.
+      redis_cli DEL $key &>/dev/null
+      if [ "$CI" -eq 1 ]; then
+        echo_stderr "ERROR: 'disabled-cache' command found in test success cache (poisoned key, now purged): $cmd"
+        exit 1
+      fi
+    else
+      log_info=" ($(ci_term_link $log_key))"
+      echo -e "${blue}SKIPPED${reset}${log_info:-}: $cmd"
+      exit 0
+    fi
   fi
 fi
 
@@ -214,7 +225,9 @@ function finalize_test {
     # If the test succeeded and we're logging passes, save the test log.
     # If the test failed, save the test log.
     if [ $code -eq 0 ]; then
-      if [ "$CI" -eq 1 ]; then
+      # Never cache a pass for 'disabled-cache' commands: their key is a constant string, so a cached
+      # entry would permanently skip the test (see the poisoned-key guard in the cache check above).
+      if [ "$CI" -eq 1 ] && [[ "$cmd" != *disabled-cache* ]]; then
         redis_cli SETEX $key 604800 $log_key &>/dev/null
       fi
       if [ "$pass_log" -eq 1 ]; then
