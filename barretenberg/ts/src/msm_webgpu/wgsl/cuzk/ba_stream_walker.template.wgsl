@@ -242,28 +242,51 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     for (var k: u32 = 0u; k < S; k = k + 1u) {
         let start_b = task_b[k];
-        let start_o = task_o[k];
+        let start_o = task_o[k];  // cum-adds-space offset within start bucket
         let end_b   = task_b[k + 1u];
         let end_o   = task_o[k + 1u];
 
+        // Convert cum-adds offsets to point-index space. Each "add i" in
+        // a bucket's contiguous sequence consumes point i+1 (add 0 consumes
+        // points 0 and 1). So:
+        //   start_o == 0 (bucket start): start_point = 0 (slot reads points 0,1
+        //                                 as is_first pair)
+        //   start_o  > 0 (split-start):  start_point = start_o + 1 (prior
+        //                                 thread consumed point at offset start_o
+        //                                 in its running sum)
+        let start_point = select(start_o + 1u, 0u, start_o == 0u);
+
+        // For task end:
+        //   end_o  > 0: task ends mid-bucket end_b at point index end_o + 1
+        //   end_o == 0: task ends cleanly at end of bucket end_b - 1, point count
+        var task_end_bucket: u32;
+        var task_end_point: u32;
+        if (end_o > 0u) {
+            task_end_bucket = end_b;
+            task_end_point = end_o + 1u;
+        } else {
+            task_end_bucket = end_b - 1u;
+            task_end_point = bucket_meta[end_b - 1u].y;
+        }
+
         cur_bucket_meta_idx[k] = start_b;
-        cur_offset[k] = start_o;
-        task_end_b[k] = end_b;
-        task_end_o[k] = end_o;
+        cur_offset[k] = start_point;
+        task_end_b[k] = task_end_bucket;
+        task_end_o[k] = task_end_point;
         is_first[k] = 1u;
         is_idle[k] = 0u;
 
         if (start_b < num_dense) {
             let m = bucket_meta[start_b];
             cur_bucket_id[k] = m.x;
-            cur_count[k] = m.y - 1u;
+            cur_count[k] = m.y;  // count, in points (not adds)
             cur_l0_base[k] = m.z;
         } else {
             is_idle[k] = 1u;
         }
 
         // Empty task: start == end exactly.
-        if (start_b == end_b && start_o == end_o) {
+        if (start_b == task_end_bucket && start_point == task_end_point) {
             is_idle[k] = 1u;
         }
     }
@@ -463,7 +486,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 if (cur_bucket_meta_idx[k] < num_dense) {
                     let m = bucket_meta[cur_bucket_meta_idx[k]];
                     cur_bucket_id[k] = m.x;
-                    cur_count[k] = m.y - 1u;
+                    cur_count[k] = m.y;  // count, in points
                     cur_l0_base[k] = m.z;
                     is_first[k] = 1u;
                 } else {

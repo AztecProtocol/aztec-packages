@@ -25,7 +25,7 @@
 import { ShaderManager } from './cuzk/shader_manager.js';
 import { BN254_CURVE_CONFIG } from './cuzk/curve_config.js';
 import { compute_misc_params } from './cuzk/utils.js';
-import { BN254_BASE_FIELD, modInverse } from './cuzk/bn254.js';
+import { BN254_BASE_FIELD, addBn254Points, type Bn254Point, modInverse } from './cuzk/bn254.js';
 
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
@@ -2379,6 +2379,173 @@ export class MsmV2 {
     return out;
   }
 
+  /**
+   * Stream-walker host partials fixup (STREAM_WALKER_PLAN.md §10).
+   *
+   * The walker writes split-bucket contributions to `walkerPartials` and
+   * registers each contribution in `walkerSplitRecords` as a
+   * (bucket_id, partial_slot_idx) pair. This method reads both back,
+   * groups by bucket, performs sequential affine addition on CPU,
+   * combines with the existing whole-bucket `bucket_sums` write (if any),
+   * and writes the corrected per-bucket sum back via writeBuffer.
+   *
+   * Time-cost is excluded from the GPU profile breakdown — see §12 of
+   * the plan. A follow-up session will replace this with a GPU
+   * partials-reduction kernel.
+   */
+  private async _hostPartialsFixup(): Promise<void> {
+    const device = this.device;
+    const scratch = this.pool.scratch!;
+    const NUM_THREADS = this.streamNumThreads;
+    const PARTIALS_PER_THREAD = 16;
+    const SPLIT_RECORDS_PER_THREAD = 16;
+    const M_partials = NUM_THREADS * PARTIALS_PER_THREAD;
+    const M_buckets = this.bTotal;
+    const SENTINEL = 0xFFFFFFFF;
+    const PG = 2;
+
+    // Sizes (u32 element counts × 4 bytes each, vec4 = 16 bytes).
+    const recordsBytes = NUM_THREADS * SPLIT_RECORDS_PER_THREAD * 2 * 4;
+    const partialsBytes = M_partials * PG * 2 * 16;       // 2 planes × PG vec4 × 16 B
+    const bucketSumsBytes = M_buckets * PG * 2 * 16;
+
+    const recStg = device.createBuffer({ size: recordsBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    const partStg = device.createBuffer({ size: partialsBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    const bsStg = device.createBuffer({ size: bucketSumsBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    try {
+      const enc = device.createCommandEncoder();
+      enc.copyBufferToBuffer(scratch.walkerSplitRecords, 0, recStg, 0, recordsBytes);
+      enc.copyBufferToBuffer(scratch.walkerPartials, 0, partStg, 0, partialsBytes);
+      enc.copyBufferToBuffer(this.bucketResultBuf, 0, bsStg, 0, bucketSumsBytes);
+      device.queue.submit([enc.finish()]);
+
+      await Promise.all([
+        recStg.mapAsync(GPUMapMode.READ),
+        partStg.mapAsync(GPUMapMode.READ),
+        bsStg.mapAsync(GPUMapMode.READ),
+      ]);
+      const records = new Uint32Array(recStg.getMappedRange().slice(0));
+      const partials = new Uint32Array(partStg.getMappedRange().slice(0));
+      const bsArr = new Uint32Array(bsStg.getMappedRange().slice(0));
+      recStg.unmap();
+      partStg.unmap();
+      bsStg.unmap();
+
+      // Group records by bucket. The same (bucket, slot) pair may be
+      // written multiple times only if there's a kernel bug — we dedupe
+      // via Set to be robust.
+      const bucketToSlots = new Map<number, Set<number>>();
+      const TOTAL_RECORDS = NUM_THREADS * SPLIT_RECORDS_PER_THREAD;
+      for (let i = 0; i < TOTAL_RECORDS; i++) {
+        const bucketId = records[2 * i];
+        const slotIdx = records[2 * i + 1];
+        if (bucketId === SENTINEL) continue;
+        if (bucketId >= M_buckets) continue;
+        if (slotIdx >= M_partials) continue;
+        let s = bucketToSlots.get(bucketId);
+        if (!s) {
+          s = new Set();
+          bucketToSlots.set(bucketId, s);
+        }
+        s.add(slotIdx);
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(`[walker-fixup] M_buckets=${M_buckets} NUM_THREADS=${NUM_THREADS} ` +
+        `split-buckets=${bucketToSlots.size} ` +
+        `total-partials=${Array.from(bucketToSlots.values()).reduce((a, s) => a + s.size, 0)}`);
+      if (bucketToSlots.size === 0) return;
+
+      // Helper: read 8 Montgomery limbs starting at u32 offset.
+      const readMont = (arr: Uint32Array, u32Off: number): bigint =>
+        packedU32x8ToBigint(arr, u32Off);
+
+      // Convert Montgomery bigint to 32-byte little-endian limb representation.
+      // Returns a fresh ArrayBuffer so writeBuffer's strict types accept it.
+      const toLeBytes = (v: bigint): ArrayBuffer => {
+        const buf = new ArrayBuffer(32);
+        const view = new DataView(buf);
+        let val = v;
+        for (let i = 0; i < 8; i++) {
+          view.setUint32(i * 4, Number(val & 0xFFFFFFFFn), true);
+          val >>= 32n;
+        }
+        return buf;
+      };
+
+      // For each split bucket: combine existing bucket_sum + all partials → corrected sum.
+      // bucket_sums u32 offsets:
+      //   x at (PG * bucket) * 4 = 8 * bucket
+      //   y at (PG * M_buckets + PG * bucket) * 4 = 8 * (M_buckets + bucket)
+      // Same arithmetic for partials_buf with M_partials replacing M_buckets.
+      for (const [bucketId, slotSet] of bucketToSlots) {
+        const xExistMont = readMont(bsArr, 8 * bucketId);
+        const yExistMont = readMont(bsArr, 8 * (M_buckets + bucketId));
+        let acc: Bn254Point | null = null;
+        if (xExistMont !== 0n || yExistMont !== 0n) {
+          acc = {
+            x: (xExistMont * this.rinv) % FP,
+            y: (yExistMont * this.rinv) % FP,
+          };
+        }
+
+        for (const slot of slotSet) {
+          const xMont = readMont(partials, 8 * slot);
+          const yMont = readMont(partials, 8 * (M_partials + slot));
+          if (xMont === 0n && yMont === 0n) continue;
+          const pt: Bn254Point = {
+            x: (xMont * this.rinv) % FP,
+            y: (yMont * this.rinv) % FP,
+          };
+          if (!acc) {
+            acc = pt;
+          } else {
+            acc = addBn254Points(acc, pt);
+          }
+        }
+
+        if (!acc) continue;
+
+        // Re-Montgomerize and write back.
+        const xMontResult = (acc.x * this.R) % FP;
+        const yMontResult = (acc.y * this.R) % FP;
+        device.queue.writeBuffer(this.bucketResultBuf, 32 * bucketId, toLeBytes(xMontResult));
+        device.queue.writeBuffer(this.bucketResultBuf, 32 * (M_buckets + bucketId), toLeBytes(yMontResult));
+      }
+    } finally {
+      recStg.destroy();
+      partStg.destroy();
+      bsStg.destroy();
+    }
+  }
+
+  /**
+   * Re-encode just the reduce-phase passes (reduce_init + reduce_level
+   * tree + copyBufferToBuffer of redBuf into the staging buffer). Used
+   * after `_hostPartialsFixup` so the corrected `bucketResultBuf` is
+   * consumed by reduce.
+   */
+  private _encodeReducePhaseOnly(enc: GPUCommandEncoder, dstStaging: GPUBuffer, dstByteOff: number): void {
+    const pass = (pipe: GPUComputePipeline, bind: GPUBindGroup, x: number, y: number) => {
+      const p = enc.beginComputePass();
+      p.setPipeline(pipe);
+      p.setBindGroup(0, bind);
+      p.dispatchWorkgroups(x, y);
+      p.end();
+    };
+    pass(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
+    for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
+      const pipe = this.reduceLevelPipes[this.reduceLevelKinds[lv]];
+      pass(pipe, this.reduceLevelBinds[lv], this.numWindows, 1);
+    }
+    const yPlane = 32 * this.redM;
+    for (let w = 0; w < this.numWindows; w++) {
+      const g = 32 * w * this.stride;
+      enc.copyBufferToBuffer(this.redBuf, g, dstStaging, dstByteOff + w * 64, 32);
+      enc.copyBufferToBuffer(this.redBuf, yPlane + g, dstStaging, dstByteOff + w * 64 + 32, 32);
+    }
+  }
+
   async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null; windowSums: Pt[]; c: number }> {
     if (this.preparedFor === null) throw new Error('MsmV2.run: call prepare() first');
     const device = this.device;
@@ -2390,7 +2557,21 @@ export class MsmV2 {
       enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
     }
     device.queue.submit([enc.finish()]);
+    // Wait for the first dispatch (planner + walker + first reduce pass) to
+    // finish so we can read the walker's partials + bucket_sums state.
+    await device.queue.onSubmittedWorkDone();
+
+    // STREAM_WALKER_PLAN.md §10: host-side partials fixup. Re-combines
+    // split-bucket partials into bucket_sums on the CPU, then re-runs the
+    // reduce phase so redStaging reflects the corrected bucket_sums.
+    const hostFixupT0 = performance.now();
+    await this._hostPartialsFixup();
+    const enc2 = device.createCommandEncoder();
+    this._encodeReducePhaseOnly(enc2, this.redStaging, 0);
+    device.queue.submit([enc2.finish()]);
     await this.redStaging.mapAsync(GPUMapMode.READ);
+    const hostFixupMs = performance.now() - hostFixupT0;
+    void hostFixupMs;  // TODO: surface via bench output (§14 step 8).
 
     const stagingBytes = new Uint8Array(this.redStaging.getMappedRange());
     const L = this.decodeWindowSumsFromBytes(stagingBytes, 0);
