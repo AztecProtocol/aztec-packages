@@ -15,9 +15,8 @@
  * convention so consumers don't have to thread it through every include).
  *
  * The macros are defined inside an `#ifndef THROW` guard so callers that
- * predefine their own THROW/RETHROW (e.g. a parent project's exception
- * shim) can do so before this header is reached and we yield to whichever
- * variant the parent project wants.
+ * predefine their own THROW/RETHROW can do so before this header is reached
+ * and we yield to whichever variant the parent project wants.
  */
 
 #ifndef THROW

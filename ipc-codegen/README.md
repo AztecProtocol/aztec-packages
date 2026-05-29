@@ -65,8 +65,8 @@ ipc-codegen/
     rust_codegen.ts        # IR -> Rust output
     zig_codegen.ts         # IR -> Zig output
     naming.ts              # snake_case / PascalCase helpers
+  cpp/include/ipc_codegen/ # C++ support headers included by generated output
   templates/             # static templates copied alongside generated code
-    cpp/msgpack_struct_map_impl.hpp     # msgpack adaptor used by codegen output
     rust/{backend,error,ffi_backend,ipc_client}.rs
     zig/{backend,ffi_backend}.zig
   echo_example/          # 4-language echo service (cross-lang test harness)
@@ -159,12 +159,15 @@ src/generate.ts \
   --cpp-include-dir myservice/generated
 ```
 
-Produces `myservice_types.hpp`, `myservice_ipc_client.{hpp,cpp}`,
-`myservice_ipc_server.hpp`, plus the `msgpack_struct_map_impl.hpp` template.
-Cross-includes use the supplied `--cpp-include-dir` prefix
+Produces `myservice_types.hpp`, `myservice_ipc_client.{hpp,cpp}`, and
+`myservice_ipc_server.hpp`. Cross-includes use the supplied `--cpp-include-dir` prefix
 (`#include "myservice/generated/myservice_types.hpp"`). Wire to an
 `ipc::IpcServer` (from ipc-runtime) plus a hand-written
 `<service>_handlers.cpp` that supplies one `handle_<method>(...)` per command.
+Generated C++ includes support headers as `ipc_codegen/...`; add
+`ipc-codegen/cpp/include` to the consumer include path, or copy that
+`ipc_codegen/` directory into a project-local generated include root for a
+standalone example.
 
 ### Rust client + FFI backend
 

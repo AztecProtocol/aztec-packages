@@ -1,20 +1,13 @@
 #pragma once
 //
 // Struct-map msgpack adaptor: pack/unpack types that declare their fields via
-// the SERIALIZATION_FIELDS macro into a JSON-like map. The single source of
-// truth for this adaptor across the codebase — used by codegen-emitted IPC
-// clients/servers AND by barretenberg's serialization layer.
-//
-// Why one location: both ipc-codegen output and bb's own msgpack-able types
-// rely on `template <HasMsgPack T> msgpack::adaptor::convert<T> / pack<T>`.
-// Defining the same specialisation in two places puts both in a TU at once
-// and triggers "ambiguous partial specialisation". Keeping the canonical
-// version here means every consumer agrees.
+// the SERIALIZATION_FIELDS macro into a JSON-like map. Codegen-emitted C++
+// clients and servers include this support header when serializing wire types.
 //
 // Only depends on msgpack-c. Standalone-buildable.
 //
-// bb's patched msgpack-c uses THROW; ipc_codegen/throw.hpp defines it
-// (guarded so a parent project's predefinition wins).
+// Some consumers build msgpack-c with THROW/RETHROW hooks; throw.hpp defines
+// guarded defaults so a parent project's predefinition wins.
 #include "ipc_codegen/throw.hpp"
 
 #include <cassert>

@@ -185,7 +185,7 @@ ${methods}
 
 #include "${this.headerIncludePath()}"
 
-// THROW/RETHROW satisfy patched msgpack-c (-fno-exceptions support). They
+// THROW/RETHROW satisfy msgpack-c builds with -fno-exceptions support. They
 // must be defined before <msgpack.hpp> is included (transitively via
 // ipc_codegen/msgpack_adaptor.hpp). Under BB_NO_EXCEPTIONS THROW aborts;
 // the guard lets a consumer predefine its own variant.
@@ -454,8 +454,8 @@ ${methods}
 #include <vector>
 
 // Pull in THROW/RETHROW — \`throw\` natively, abort-on-throw under
-// BB_NO_EXCEPTIONS (WASM). Must be in scope before <msgpack.hpp> so the
-// patched bb msgpack-c picks up the right variant.
+// BB_NO_EXCEPTIONS (WASM). Must be in scope before <msgpack.hpp> so msgpack-c
+// picks up the right variant.
 #include "ipc_codegen/throw.hpp"
 #include <msgpack.hpp>
 
@@ -750,9 +750,8 @@ ${methods}
 #include "ipc_codegen/msgpack_adaptor.hpp"
 
 // Pull in THROW/RETHROW — 'throw' natively, abort-on-throw under
-// BB_NO_EXCEPTIONS (WASM). ipc-runtime/throw.hpp keeps definitions guarded
-// with #ifndef THROW, so a parent project (e.g. barretenberg's
-// try_catch_shim) that predefines them wins.
+// BB_NO_EXCEPTIONS (WASM). ipc_codegen/throw.hpp keeps definitions guarded
+// with #ifndef THROW, so a parent project that predefines them wins.
 #include "ipc_codegen/throw.hpp"
 #include <msgpack.hpp>
 
@@ -845,7 +844,7 @@ ${handlerEntries},
     };
 }
 
-// Server-side glue. Native targets compile this; WASM bbapi pulls in the
+// Server-side glue. Native targets compile this; WASM consumers pull in the
 // header for the dispatcher only (no transport in WASM), so we hide the
 // transport-using path from the WASM toolchain — its sysroot can't link
 // sockets/shm and \`throw\` is forbidden under -fno-exceptions.
