@@ -6,13 +6,22 @@ use types::{
         L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS,
+        PUBLIC_DATA_WRITE_LENGTH,
     },
 };
 
-/// A minimum (private) tx initialized in the TestBuilder contains a protocol nullifier, which must exist in every tx.
+/// DA cost of the public data write that the private tx base rollup always performs to update the
+/// fee payer's balance.
+fn get_fee_payer_public_data_write_gas_used() -> Gas {
+    Gas { da_gas: PUBLIC_DATA_WRITE_LENGTH * DA_GAS_PER_FIELD, l2_gas: 0 }
+}
+
+/// A minimum (private) tx initialized in the TestBuilder contains a protocol nullifier, which must
+/// exist in every tx. Every private-only tx also pays for the fee payer's balance public data
+/// write performed in the private tx base rollup.
 fn get_minimum_private_tx_gas_used() -> Gas {
     let nullifier_gas_used = Gas { da_gas: DA_GAS_PER_FIELD, l2_gas: L2_GAS_PER_NULLIFIER };
-    Gas::private_tx_overhead() + nullifier_gas_used
+    Gas::private_tx_overhead() + nullifier_gas_used + get_fee_payer_public_data_write_gas_used()
 }
 
 #[test]
@@ -101,6 +110,8 @@ fn full_side_effects() {
 
     // Fill the tx with side effects and compute the expected gas used.
     let mut expected_gas_used = Gas::private_tx_overhead();
+    // The fee payer balance public data write performed in the private tx base rollup.
+    expected_gas_used += get_fee_payer_public_data_write_gas_used();
     // Note hashes.
     builder.previous_kernel.append_siloed_note_hashes(MAX_NOTE_HASHES_PER_TX);
     expected_gas_used += Gas {
