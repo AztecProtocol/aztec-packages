@@ -7,10 +7,14 @@ namespace smt_circuit {
 #define RESET "\033[0m"
 
 enum class TableType : int32_t { XOR, AND, UNKNOWN };
+// Indices into the exported `selectors` array, which is filled in `blocks.get()` order. The Ultra
+// trace orders `lookup` before `arithmetic` (see ultra_execution_trace_generated.hpp::get()), so
+// LOOKUP must be index 1 and ARITHMETIC index 2 — getting these swapped silently reads each
+// relation's selectors from the wrong block.
 struct BlockType {
     static const size_t PUB = 0;
-    static const size_t ARITHMETIC = 1;
-    static const size_t LOOKUP = 2;
+    static const size_t LOOKUP = 1;
+    static const size_t ARITHMETIC = 2;
     static const size_t DELTA_RANGE = 3;
     static const size_t ELLIPTIC = 4;
     static const size_t MEMORY = 5;
@@ -53,8 +57,8 @@ struct WireType {
 class UltraCircuit : public CircuitBase {
   public:
     std::vector<std::vector<std::vector<bb::fr>>> selectors;    // all selectors from the circuit
-                                                                // 1st entry are arithmetic selectors
-                                                                // 2nd entry are lookup selectors
+                                                                // 1st entry are lookup selectors
+                                                                // 2nd entry are arithmetic selectors
                                                                 // 3rd entry are delta_range selectors
                                                                 // 4th entry are elliptic selectors
                                                                 // 5th entry are memory selectors
