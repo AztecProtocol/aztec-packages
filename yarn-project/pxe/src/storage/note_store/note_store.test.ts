@@ -747,6 +747,25 @@ describe('NoteStore (canonicality)', () => {
     expect(await store.getNotes(activeFilter, 'other-job')).toHaveLength(0);
   });
 
+  it('discardStaged drops staged notes and nullifications', async () => {
+    const { note, makeCanonical } = await makeCanonicalNote(BlockNumber(10));
+    makeCanonical();
+
+    await store.addNotes([note], scope, JOB);
+    await store.applyNullifiers(
+      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: Fr.random().toString() as any }],
+      JOB,
+    );
+
+    await store.discardStaged(JOB);
+
+    // A fresh job sees nothing committed — both the note and the nullification were discarded.
+    expect(await store.getNotes(activeFilter, 'fresh-job')).toHaveLength(0);
+    expect(await store.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'fresh-job')).toHaveLength(
+      0,
+    );
+  });
+
   afterEach(async () => {
     await kv.close();
   });

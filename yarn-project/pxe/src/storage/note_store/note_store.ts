@@ -125,41 +125,48 @@ export class NoteStore implements StagedStore {
     return this.#store.transactionAsync(async () => {
       const targetStatus = filter.status ?? NoteStatus.ACTIVE;
 
-      // Collect note-read promises and nullification-origin-collection promises together so all DB reads are
-      // in-flight before any await. This keeps the IndexedDB transaction alive — see the comment in the original
-      // implementation for the full explanation of the IndexedDB auto-commit hazard.
-      const noteReadPromises: Map<string, Promise<StoredNote | undefined>> = new Map();
-      const nullificationReadPromises: Map<string, Promise<string[]>> = new Map();
+      // Collect note-read and nullification-origin-read promises together in one map so all DB reads are in-flight
+      // before any await. This keeps the IndexedDB transaction alive — IndexedDB auto-commits when a new micro-task
+      // starts with no pending read requests, so both promises must be started during the synchronous iteration.
+      const candidates = new Map<
+        string,
+        { notePromise: Promise<StoredNote | undefined>; nullificationPromise: Promise<string[]> }
+      >();
 
       // Committed notes indexed by contract address
       for await (const nullifier of this.#nullifiersByContractAddress.getValuesAsync(
         filter.contractAddress.toString(),
       )) {
-        noteReadPromises.set(nullifier, this.#readNote(nullifier, jobId));
-        // Kick off nullification-origin reads for all candidates during iteration to keep the transaction alive.
-        nullificationReadPromises.set(nullifier, this.#collectNullificationOrigins(nullifier));
+        candidates.set(nullifier, {
+          notePromise: this.#readNote(nullifier, jobId),
+          nullificationPromise: this.#collectNullificationOrigins(nullifier),
+        });
       }
 
       // Staged notes from the current job (not yet committed to the DB index)
       for (const storedNote of this.#getNotesForJob(jobId).values()) {
         if (storedNote.noteDao.contractAddress.equals(filter.contractAddress)) {
           const nullifier = storedNote.noteDao.siloedNullifier.toString();
-          if (!noteReadPromises.has(nullifier)) {
-            noteReadPromises.set(nullifier, Promise.resolve(storedNote));
-            nullificationReadPromises.set(nullifier, this.#collectNullificationOrigins(nullifier));
+          if (!candidates.has(nullifier)) {
+            candidates.set(nullifier, {
+              notePromise: Promise.resolve(storedNote),
+              nullificationPromise: this.#collectNullificationOrigins(nullifier),
+            });
           }
         }
       }
 
       // Await all DB reads together before the await-free tail.
-      const notes = await Promise.all(noteReadPromises.values());
-      const nullifierKeys = [...noteReadPromises.keys()];
-      const nullificationOriginArrays = await Promise.all(nullificationReadPromises.values());
+      const entries = [...candidates.entries()];
+      const notes = await Promise.all(entries.map(([, { notePromise }]) => notePromise));
+      const nullificationOriginArrays = await Promise.all(
+        entries.map(([, { nullificationPromise }]) => nullificationPromise),
+      );
 
       // Build a lookup: nullifier => committed origins
       const committedOriginsMap = new Map<string, string[]>();
-      for (let i = 0; i < nullifierKeys.length; i++) {
-        committedOriginsMap.set(nullifierKeys[i], nullificationOriginArrays[i]);
+      for (let i = 0; i < entries.length; i++) {
+        committedOriginsMap.set(entries[i][0], nullificationOriginArrays[i]);
       }
 
       // Await-free tail: filter and sort. No DB ops from here on.
@@ -223,9 +230,10 @@ export class NoteStore implements StagedStore {
   /**
    * Records nullification origins for the given nullifiers without mutating note records.
    *
-   * Each nullifier gets an append-only origin entry `blockNumber:blockHash`. If a note for the nullifier is not
-   * found (e.g. it belongs to another account), that nullifier is silently skipped. Reorg safety comes from the
-   * CanonicalityCheck at read time — no physical deletion or mutation ever occurs here.
+   * Each nullifier gets an append-only origin entry `blockNumber:blockHash`. Nullifications are recorded only for
+   * notes already present in this store; a nullifier with no matching note is ignored (the note may belong to another
+   * account). Reorg safety comes from the CanonicalityCheck at read time — no physical deletion or mutation ever
+   * occurs here.
    *
    * applyNullifiers is idempotent with respect to read visibility: recording the same origin twice does not change
    * which notes appear active or nullified.
