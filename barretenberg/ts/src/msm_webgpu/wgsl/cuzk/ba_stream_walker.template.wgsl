@@ -117,18 +117,18 @@ fn load_pref(pref_idx: u32) -> array<u32, 8> {
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
-// Binary-search cumulative_adds for the bucket containing `target`.
+// Binary-search cumulative_adds for the bucket containing `tgt`.
 // cumulative_adds[i] = exclusive prefix sum of (count[i] - 1) over i.
 // bucket_meta[i].w == cumulative_adds[i]; bucket_meta[i].y == count.
 // The bucket's add-stream covers cum_adds[i]..cum_adds[i]+count[i]-1.
-fn binary_search_cum_adds(target: u32, lo_in: u32, hi_in: u32) -> vec2<u32> {
+fn binary_search_cum_adds(tgt: u32, lo_in: u32, hi_in: u32) -> vec2<u32> {
     var lo: u32 = lo_in;
     var hi: u32 = hi_in;
     while (lo < hi) {
         let mid = (lo + hi) >> 1u;
         let m = bucket_meta[mid];
         let cum_end_inclusive = m.w + m.y - 1u;
-        if (cum_end_inclusive < target) {
+        if (cum_end_inclusive < tgt) {
             lo = mid + 1u;
         } else {
             hi = mid;
@@ -137,8 +137,8 @@ fn binary_search_cum_adds(target: u32, lo_in: u32, hi_in: u32) -> vec2<u32> {
     let cut_bucket = lo;
     var cut_offset: u32 = 0u;
     let here = bucket_meta[lo];
-    if (target > here.w) {
-        cut_offset = target - here.w;
+    if (tgt > here.w) {
+        cut_offset = tgt - here.w;
     }
     return vec2<u32>(cut_bucket, cut_offset);
 }
@@ -210,8 +210,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     if (search_hi >= num_dense) { search_hi = num_dense - 1u; }
 
     for (var k: u32 = 1u; k < S; k = k + 1u) {
-        let target = cum_at_start + (k * thread_total) / S;
-        let bs = binary_search_cum_adds(target, search_lo, search_hi);
+        let tgt = cum_at_start + (k * thread_total) / S;
+        let bs = binary_search_cum_adds(tgt, search_lo, search_hi);
         task_b[k] = bs.x;
         task_o[k] = bs.y;
         search_lo = bs.x;
