@@ -32,7 +32,8 @@ export async function rerunEpochProvingJob(
   const telemetry = getTelemetryClient();
   const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
   const worldState = await createWorldState(config, genesis);
-  const archiver = await createArchiverStore(config);
+  const initialBlockHash = await worldState.getInitialHeader().hash();
+  const archiver = await createArchiverStore(config, initialBlockHash);
   const publicProcessorFactory = new PublicProcessorFactory(
     createContractDataSource(archiver),
     undefined,

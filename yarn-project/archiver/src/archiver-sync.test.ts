@@ -15,11 +15,12 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2BlockSourceEvents } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -92,13 +93,16 @@ describe('Archiver Sync', () => {
     // Create epoch cache mock (separate from fake)
     epochCache = mock<EpochCache>();
     epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
+    // Default to no pipelining offset; the orphan-prune tests below override this. Keeps the prune
+    // deadline well ahead of wall-clock time for the other tests so it never fires spuriously.
+    epochCache.pipeliningOffset.mockReturnValue(0);
 
     // Create instrumentation mock
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
     // Create archiver store
-    archiverStore = createArchiverDataStores(await openTmpStore('archiver_sync_test'), { logsMaxPageSize: 1000 });
+    archiverStore = createArchiverDataStores(await openTmpStore('archiver_sync_test'), GENESIS_BLOCK_HEADER_HASH);
 
     const contractAddresses = {
       rollupAddress,
@@ -118,6 +122,7 @@ describe('Archiver Sync', () => {
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
       skipHistoricalLogsCheck: true,
+      orphanProposedBlockPruneGraceSeconds: 2,
     };
 
     // Create event emitter shared by archiver and synchronizer
@@ -162,6 +167,8 @@ describe('Archiver Sync', () => {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
+      epochCache,
+      dateProvider,
     );
   });
 
@@ -222,24 +229,15 @@ describe('Archiver Sync', () => {
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toEqual(msgs3);
       await expect(archiver.getL1ToL2Messages(CheckpointNumber(4))).rejects.toThrow(L1ToL2MessagesNotReadyError);
 
-      // Verify logs for each block in the checkpoints
+      // Verify private logs are surfaced through the block body.
       for (const checkpoint of [cp1, cp2, cp3]) {
         for (const block of checkpoint.blocks) {
           const blockNumber = block.number;
-          const expectedTotalNumLogs = (name: 'private' | 'public' | 'contractClass') =>
+          const expectedTotalNumLogs = (name: 'private') =>
             sum(block.body.txEffects.map(txEffect => txEffect[`${name}Logs`].length));
 
           const privateLogs = (await archiver.getBlock({ number: blockNumber }))!.getPrivateLogs();
           expect(privateLogs.length).toBe(expectedTotalNumLogs('private'));
-
-          const publicLogs = (await archiver.getPublicLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 })).logs;
-          expect(publicLogs.length).toBe(expectedTotalNumLogs('public'));
-
-          const contractClassLogs = await archiver.getContractClassLogs({
-            fromBlock: blockNumber,
-            toBlock: blockNumber + 1,
-          });
-          expect(contractClassLogs.logs.length).toBe(expectedTotalNumLogs('contractClass'));
         }
       }
 
@@ -973,9 +971,6 @@ describe('Archiver Sync', () => {
       const txHash = cp2.blocks[0].body.txEffects[0].txHash;
       expect(await archiver.getTxEffect(txHash)).toBeUndefined();
       expect(await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 })).toEqual([]);
-
-      expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
-      expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
     }, 10_000);
 
     it('handles updated messages due to L1 reorg', async () => {
@@ -2141,6 +2136,159 @@ describe('Archiver Sync', () => {
       const tips = await archiver.getL2Tips();
       expect(tips.proposedCheckpoint.checkpoint.number).toEqual(tips.checkpointed.checkpoint.number);
       expect(tips.proposedCheckpoint.block.number).toEqual(tips.checkpointed.block.number);
+    }, 15_000);
+  });
+
+  describe('pruning orphan proposed blocks', () => {
+    let pruneSpy: jest.Mock;
+
+    // Slot the orphan block targets. With slotDuration=24, slot S starts at l1GenesisTime + S*24.
+    const orphanSlot = SlotNumber(1);
+    // Grace period configured for these tests (see the `config` object above).
+    const graceSeconds = 2;
+
+    beforeEach(() => {
+      pruneSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, pruneSpy);
+      // Normal proposer pipelining: a block targeting slot S is built during slot S-1, so its proposed
+      // checkpoint is expected by the start of slot S.
+      epochCache.pipeliningOffset.mockReturnValue(1);
+    });
+
+    afterEach(() => {
+      archiver.events.off(L2BlockSourceEvents.L2PruneUncheckpointed, pruneSpy);
+    });
+
+    // Wall-clock time (seconds) at which the orphan tip becomes prunable: start(orphanSlot) + grace.
+    const pruneDeadline = () => now + Number(orphanSlot) * l1Constants.slotDuration + graceSeconds;
+    const pruneDeadlineForSlot = (slot: SlotNumber) => now + Number(slot) * l1Constants.slotDuration + graceSeconds;
+
+    // Syncs checkpoint 1 (slot 0), then writes uncheckpointed blocks for slot 1 (checkpoint 2) straight
+    // into the store as a block-only tip with no matching proposed checkpoint. L1 is held at slot 1 so
+    // the L1-sync prune (which only fires once the build slot has ended on L1) stays out of the way.
+    const setupOrphanTip = async () => {
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 1n,
+        messagesL1BlockNumber: 1n,
+        numL1ToL2Messages: 3,
+        slotNumber: SlotNumber(0),
+      });
+      const cp1Archive = cp1.blocks.at(-1)!.archive;
+      fake.setL1BlockNumber(1n);
+      await archiver.syncImmediate();
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+
+      const lastBlockInCp1 = cp1.blocks.at(-1)!.number;
+      const provisionalBlocks = await fake.makeBlocks(CheckpointNumber(2), {
+        l1BlockNumber: 2n,
+        previousArchive: cp1Archive,
+        slotNumber: orphanSlot,
+      });
+      for (const block of provisionalBlocks) {
+        await archiver.addBlock(block);
+      }
+
+      // Hold L1 at slot 1 so the slot has not ended from L1's perspective.
+      fake.setL1BlockNumber(2n);
+      return { lastBlockInCp1, lastProvisional: provisionalBlocks.at(-1)!.number, provisionalBlocks };
+    };
+
+    const makeProposedCheckpoint = (lastBlockInCp1: BlockNumber, blockCount: number): ProposedCheckpointInput => ({
+      checkpointNumber: CheckpointNumber(2),
+      header: CheckpointHeader.empty({ slotNumber: orphanSlot }),
+      startBlock: BlockNumber(lastBlockInCp1 + 1),
+      blockCount,
+      totalManaUsed: 0n,
+      feeAssetPriceModifier: 0n,
+    });
+
+    it('does not prune before the grace window elapses', async () => {
+      const { lastProvisional } = await setupOrphanTip();
+
+      dateProvider.setTime((pruneDeadline() - 1) * 1000);
+      await archiver.syncImmediate();
+
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiver.getBlockNumber()).toEqual(lastProvisional);
+    }, 15_000);
+
+    it('prunes the orphan tip once the grace window elapses', async () => {
+      const { lastBlockInCp1, provisionalBlocks } = await setupOrphanTip();
+
+      dateProvider.setTime((pruneDeadline() + 1) * 1000);
+      await archiver.syncImmediate();
+
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: L2BlockSourceEvents.L2PruneUncheckpointed,
+          slotNumber: orphanSlot,
+          blocks: expect.arrayContaining(provisionalBlocks.map(b => expect.objectContaining({ number: b.number }))),
+        }),
+      );
+      expect(await archiver.getBlockNumber()).toEqual(lastBlockInCp1);
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+    }, 15_000);
+
+    it('does not prune when a matching proposed checkpoint exists', async () => {
+      const { lastBlockInCp1, lastProvisional, provisionalBlocks } = await setupOrphanTip();
+
+      await archiver.addProposedCheckpoint(makeProposedCheckpoint(lastBlockInCp1, provisionalBlocks.length));
+
+      dateProvider.setTime((pruneDeadline() + 100) * 1000);
+      await archiver.syncImmediate();
+
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiver.getBlockNumber()).toEqual(lastProvisional);
+      expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeDefined();
+    }, 15_000);
+
+    it('processes a queued proposed checkpoint before pruning, sparing the tip', async () => {
+      const { lastBlockInCp1, lastProvisional, provisionalBlocks } = await setupOrphanTip();
+
+      // Past the grace window: without the matching checkpoint the next sync would prune the tip.
+      dateProvider.setTime((pruneDeadline() + 100) * 1000);
+
+      // Queue the proposed checkpoint. The triggered sync drains the inbound queue (storing the
+      // checkpoint) before running the orphan prune, so the prune sees it and stands down. If the
+      // order were reversed, this sync would prune the tip before storing the checkpoint.
+      await archiver.addProposedCheckpoint(makeProposedCheckpoint(lastBlockInCp1, provisionalBlocks.length));
+      await archiver.syncImmediate();
+
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiver.getBlockNumber()).toEqual(lastProvisional);
+      expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeDefined();
+    }, 15_000);
+
+    it('prunes only the orphan suffix after a covered pending checkpoint', async () => {
+      const { lastBlockInCp1, provisionalBlocks: checkpointTwoBlocks } = await setupOrphanTip();
+
+      await archiver.addProposedCheckpoint(makeProposedCheckpoint(lastBlockInCp1, checkpointTwoBlocks.length));
+
+      const orphanSuffixSlot = SlotNumber(orphanSlot + 1);
+      const { checkpoint: orphanSuffixCheckpoint } = await mockCheckpointAndMessages(CheckpointNumber(3), {
+        startBlockNumber: BlockNumber(checkpointTwoBlocks.at(-1)!.number + 1),
+        numBlocks: 1,
+        previousArchive: checkpointTwoBlocks.at(-1)!.archive,
+        slotNumber: orphanSuffixSlot,
+      });
+      const orphanSuffixBlocks = orphanSuffixCheckpoint.blocks;
+      for (const block of orphanSuffixBlocks) {
+        await archiver.addBlock(block);
+      }
+
+      dateProvider.setTime((pruneDeadlineForSlot(orphanSuffixSlot) + 1) * 1000);
+      await archiver.syncImmediate();
+
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: L2BlockSourceEvents.L2PruneUncheckpointed,
+          slotNumber: orphanSuffixSlot,
+          blocks: expect.arrayContaining(orphanSuffixBlocks.map(b => expect.objectContaining({ number: b.number }))),
+        }),
+      );
+      expect(await archiver.getBlockNumber()).toEqual(checkpointTwoBlocks.at(-1)!.number);
+      expect(await archiverStore.blocks.getProposedCheckpointByNumber(CheckpointNumber(2))).toBeDefined();
+      expect(await archiverStore.blocks.getProposedCheckpointByNumber(CheckpointNumber(3))).toBeUndefined();
     }, 15_000);
   });
 });

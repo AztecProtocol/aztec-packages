@@ -4,7 +4,7 @@ import { type L1TxUtils, MAX_L1_TX_LIMIT } from '@aztec/ethereum/l1-tx-utils';
 import { formatViemError } from '@aztec/ethereum/utils';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getLastL1SlotTimestampForL2Slot } from '@aztec/stdlib/epoch-helpers';
 
 import type { Hex, StateOverride } from 'viem';
 
@@ -64,7 +64,7 @@ export class SequencerBundleSimulator {
   }
 
   /**
-   * Simulates the given bundle at the target slot's start timestamp and filters out entries
+   * Simulates the given bundle near the end of the target slot and filters out entries
    * that revert.
    *
    * - If all entries pass on the first pass, returns `success` with the gasLimit.
@@ -75,14 +75,15 @@ export class SequencerBundleSimulator {
    * - If eth_simulateV1 is unavailable, returns `fallback`. The caller is expected to send the
    *   bundle as-is with a safe gas limit.
    *
-   * The simulation `block.timestamp` is always the target L2 slot's start timestamp, since
-   * propose's `validateHeader` and EIP-712 signature checks both derive a slot from
-   * `block.timestamp` and compare against the slot the validator signed for.
+   * The simulation `block.timestamp` is the last L1 slot timestamp inside the target L2 slot.
+   * This still maps to the target L2 slot for propose's `validateHeader` and EIP-712 signature
+   * checks, while avoiding eth_simulateV1 rejecting a child block whose timestamp is not strictly
+   * greater than the current L1 head.
    *
    * Known limitation: on networks where L1 is mining behind cadence (missed L1 slots, anvil with
    * overridden timestamps), the actual `block.timestamp` at send time can land in the prior L2
    * slot. In that case `propose` would revert silently inside the multicall. The simulator does
-   * not detect this case because it simulates AT the target timestamp — the prior implementation
+   * not detect this case because it simulates inside the target slot — the prior implementation
    * used `min(predictedNextL1Ts, targetTimestamp)` to surface this failure mode at simulate time.
    */
   public async simulate(validRequests: RequestWithExpiry[], targetSlot: SlotNumber): Promise<BundleSimulateResult> {
@@ -94,7 +95,7 @@ export class SequencerBundleSimulator {
     const l1TxUtils = this.deps.getL1TxUtils();
 
     const proposeRequest = validRequests.find(r => r.action === 'propose');
-    const simulateTimestamp = getTimestampForSlot(targetSlot, this.deps.epochCache.getL1Constants());
+    const simulateTimestamp = getLastL1SlotTimestampForL2Slot(targetSlot, this.deps.epochCache.getL1Constants());
     const firstPassOverrides = await this.buildStateOverrides(!!proposeRequest);
 
     const firstPass = await this.simulateAndDecode(l1TxUtils, validRequests, simulateTimestamp, firstPassOverrides);

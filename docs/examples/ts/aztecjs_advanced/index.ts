@@ -306,6 +306,7 @@ async function pollForTransferEvents() {
       node,
       TokenContract.events.Transfer,
       {
+        contractAddress: token.address,
         fromBlock: BlockNumber(lastProcessedBlock + 1),
         toBlock: BlockNumber(currentBlock + 1), // toBlock is exclusive
       },
@@ -361,12 +362,14 @@ console.log("DA gas limit:", metaResult.estimatedGas.gasLimits.daGas);
 // docs:end:simulate_with_metadata
 
 // docs:start:read_public_logs
-const publicLogs = await node.getPublicLogs({
-  fromBlock: 1,
-  toBlock: (await node.getBlockNumber()) + 1,
+// Raw public logs are carried on each block's transaction effects.
+const latestBlockNumber = await node.getBlockNumber();
+const block = await node.getBlock(latestBlockNumber, {
+  includeTransactions: true,
 });
-if (publicLogs.logs.length > 0) {
-  const rawFields = publicLogs.logs[0].log.getEmittedFields(); // Fr[]
+const publicLogs = block?.body.txEffects.flatMap((tx) => tx.publicLogs) ?? [];
+if (publicLogs.length > 0) {
+  const rawFields = publicLogs[0].getEmittedFields(); // Fr[]
   console.log("Raw log fields:", rawFields.length);
 }
 // docs:end:read_public_logs
@@ -434,14 +437,30 @@ const { receipt: gsReceipt } = await token.methods
 // docs:end:send_with_gas_settings
 
 // docs:start:read_logs_by_filter
-// Get logs for a specific transaction
-const txLogs = await node.getPublicLogs({ txHash: gsReceipt.txHash });
-
-// Get logs for a block range
-const rangeLogs = await node.getPublicLogs({
-  fromBlock: 1,
-  toBlock: (await node.getBlockNumber()) + 1,
+// Get raw public logs for a specific transaction by locating its block and tx effect.
+const txReceiptForLogs = await node.getTxReceipt(gsReceipt.txHash);
+const txBlock = await node.getBlock(txReceiptForLogs.blockNumber!, {
+  includeTransactions: true,
 });
+const txLogs =
+  txBlock?.body.txEffects
+    .filter((tx) => tx.txHash.equals(gsReceipt.txHash))
+    .flatMap((tx) => tx.publicLogs) ?? [];
+
+// Get raw public logs for a block range by reading each block's tx effects.
+const tipBlockNumber = await node.getBlockNumber();
+const rangeLogs = (
+  await Promise.all(
+    Array.from({ length: tipBlockNumber }, (_, i) => BlockNumber(i + 1)).map(
+      async (blockNumber) => {
+        const rangeBlock = await node.getBlock(blockNumber, {
+          includeTransactions: true,
+        });
+        return rangeBlock?.body.txEffects.flatMap((tx) => tx.publicLogs) ?? [];
+      },
+    ),
+  )
+).flat();
 // docs:end:read_logs_by_filter
 
 // docs:start:auto_gas_estimation

@@ -93,6 +93,84 @@ The `privately_check_timestamp`, `privately_check_block_number`, and related cal
 + use aztec::public_checks::privately_check_timestamp;
 ```
 
+### [Aztec Node / Aztec.js / CLI] Log retrieval API consolidated to two tag-based methods
+
+The four log-retrieval methods on `AztecNode` have been collapsed into two. `getContractClassLogs` and the `LogFilter`-shaped `getPublicLogs` are removed entirely; the surviving methods are `getPrivateLogsByTags(query)` and `getPublicLogsByTags(query)`, both taking a single query object and returning `LogResult[][]` (one inner array per requested tag, in input order).
+
+**Removed methods on `AztecNode`:**
+
+| Removed                                                                     | Replacement                                              |
+| --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `getPublicLogs(filter: LogFilter)`                                          | `getPublicLogsByTags({ contractAddress, tags, ... })`    |
+| `getContractClassLogs(filter: LogFilter)`                                   | none — RPC removed; no production consumer existed       |
+| `getPrivateLogsByTags(tags, page?, referenceBlock?)`                        | `getPrivateLogsByTags({ tags, ... })`                    |
+| `getPublicLogsByTagsFromContract(contract, tags, page?, referenceBlock?)`   | `getPublicLogsByTags({ contractAddress, tags, ... })`    |
+
+**New query and response shapes:**
+
+```ts
+// Query
+type TagQuery<T> = T | { tag: T; afterLog?: LogCursor };
+
+type LogsQueryBase = {
+  fromBlock?: BlockNumber;        // inclusive
+  toBlock?: BlockNumber;          // exclusive
+  txHash?: TxHash;                // mutually exclusive with fromBlock/toBlock
+  referenceBlock?: BlockHash;     // reorg-safety anchor; throws if missing
+  includeEffects?: boolean;       // attach noteHashes + all nullifiers
+};
+
+type PrivateLogsQuery = LogsQueryBase & { tags: TagQuery<SiloedTag>[] };
+type PublicLogsQuery  = LogsQueryBase & { contractAddress: AztecAddress; tags: TagQuery<Tag>[] };
+
+// Response (per log)
+type LogResult = {
+  logData: Fr[];
+  blockNumber: BlockNumber;
+  blockHash: BlockHash;
+  blockTimestamp: UInt64;
+  txHash: TxHash;
+  logIndexWithinTx: number;
+  noteHashes?: Fr[];   // present only when includeEffects is set
+  nullifiers?: Fr[];   // all nullifiers of the tx, not just the first
+};
+```
+
+**Public queries now require a contract address.** Tag-only / contract-less public queries are no longer supported (the public log index is keyed on `(contract, tag)`).
+
+**Per-tag `afterLog` cursors replace the global `page` argument.** Each tag advances independently — pass `{ tag, afterLog: LogCursor.fromLog(lastLog) }` to resume that tag, and omit it for tags that are already exhausted.
+
+**Aztec.js wallet — `PublicEventFilter.contractAddress` is now required, and `afterLog` is a `LogCursor`:**
+
+```diff
+- type PublicEventFilter = EventFilterBase & { contractAddress?: AztecAddress };
++ type PublicEventFilter = EventFilterBase & { contractAddress: AztecAddress };
+
+  type EventFilterBase = {
+    txHash?: TxHash;
+    fromBlock?: BlockNumber;
+    toBlock?: BlockNumber;
+-   afterLog?: LogId;
++   afterLog?: LogCursor;
+  };
+```
+
+`LogId`, `LogFilter`, `TxScopedL2Log`, `ExtendedPublicLog`, `ExtendedContractClassLog`, `GetPublicLogsResponse`, and `GetContractClassLogsResponse` are no longer exported from `@aztec/aztec.js`. Build cursors with `LogCursor.fromLog(log)` and decode public-event payloads from `result.logData.slice(1)` (the tag is field 0).
+
+**CLI — `aztec get-logs` now requires `--contract-address` and `--tag`:**
+
+```diff
+- aztec get-logs [--tx-hash <tx>] [--from-block <n>] [--to-block <n>] [--after-log <id>]
++ aztec get-logs --contract-address <address> --tag <tag> \
++               [--tx-hash <tx>] [--from-block <n>] [--to-block <n>] [--after-log <cursor>]
+```
+
+`--after-log` now takes a `LogCursor` of the form `<blockNumber>-<txIndexWithinBlock>-<logIndexWithinTx>` (formerly a `LogId`).
+
+**Mutual exclusion**: setting both `txHash` and `fromBlock`/`toBlock` is rejected (a `txHash` already pins a block). `txHash` + `afterLog` is allowed and paginates within the tx's logs for a tag.
+
+**Impact**: Any consumer of `getPublicLogs(LogFilter)`, `getContractClassLogs`, the old tag-based methods, `PublicEventFilter` without a `contractAddress`, or `EventFilterBase.afterLog: LogId` must be updated. The CLI rejects calls missing `--contract-address` or `--tag`.
+
 ### [Aztec.js] `AccountManager.create` takes an options bag
 
 `AccountManager.create` no longer takes `salt` as a positional argument. The trailing `salt?: Salt` parameter has been folded into a new `AccountManagerCreateOptions` bag alongside `immutablesHash` and `deployer`:

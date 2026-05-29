@@ -325,12 +325,12 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     await test.waitUntilCheckpointNumber(CheckpointNumber(1), checkpointTimeout);
     const checkpointedBlockNumber = await archiver.getBlockNumber();
     logger.warn(`Baseline established: checkpoint 1 reached at block ${checkpointedBlockNumber}`);
-    // Find the next proposer and prevent it from publishing checkpoints
+    // Target a submission slot whose pipelined build has not started yet.
     const { slot: currentSlot } = test.epochCache.getEpochAndSlotNow();
     const { proposerIndex, slot: proposerSlotToNotPublish } = await findNextProposerIndex(
       test.epochCache,
       validators,
-      SlotNumber(currentSlot + 1),
+      SlotNumber(currentSlot + 2),
     );
     logger.warn(
       `Will skip checkpoint publishing for proposer ${proposerIndex} in slot ${proposerSlotToNotPublish} - current slot ${currentSlot}`,

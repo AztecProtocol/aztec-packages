@@ -32,14 +32,11 @@ import {
 } from '../contract/index.js';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
-import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import type { LogFilter } from '../logs/log_filter.js';
+import { type LogResult, randomLogResult } from '../logs/log_result.js';
+import type { PrivateLogsQuery, PublicLogsQuery } from '../logs/logs_query.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
-import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
-import { randomTxScopedPrivateL2Log } from '../tests/factories.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
@@ -47,7 +44,6 @@ import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import { type ArchiverApi, ArchiverApiSchema } from './archiver.js';
-import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 
 describe('ArchiverApiSchema', () => {
   let handler: MockArchiver;
@@ -165,41 +161,18 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getPrivateLogsByTags', async () => {
-    const result = await context.client.getPrivateLogsByTags([SiloedTag.random()]);
-    expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
-
-    const resultWithOptionals = await context.client.getPrivateLogsByTags([SiloedTag.random()], 3, BlockNumber(4));
-    expect(resultWithOptionals).toEqual([[expect.any(TxScopedL2Log)]]);
+    const result = await context.client.getPrivateLogsByTags({ tags: [SiloedTag.random()] });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toHaveLength(1);
+    expect(result[0][0].txHash).toBeDefined();
   });
 
-  it('getPublicLogsByTagsFromContract', async () => {
+  it('getPublicLogsByTags', async () => {
     const contractAddress = await AztecAddress.random();
-    const result = await context.client.getPublicLogsByTagsFromContract(contractAddress, [Tag.random()]);
-    expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
-
-    const resultWithOptionals = await context.client.getPublicLogsByTagsFromContract(
-      contractAddress,
-      [Tag.random()],
-      3,
-      BlockNumber(4),
-    );
-    expect(resultWithOptionals).toEqual([[expect.any(TxScopedL2Log)]]);
-  });
-
-  it('getPublicLogs', async () => {
-    const result = await context.client.getPublicLogs({
-      txHash: TxHash.random(),
-      contractAddress: await AztecAddress.random(),
-    });
-    expect(result).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
-  });
-
-  it('getContractClassLogs', async () => {
-    const result = await context.client.getContractClassLogs({
-      txHash: TxHash.random(),
-      contractAddress: await AztecAddress.random(),
-    });
-    expect(result).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
+    const result = await context.client.getPublicLogsByTags({ contractAddress, tags: [Tag.random()] });
+    expect(result).toHaveLength(1);
+    expect(result[0]).toHaveLength(1);
+    expect(result[0][0].txHash).toBeDefined();
   });
 
   it('getContractClass', async () => {
@@ -514,41 +487,14 @@ class MockArchiver implements ArchiverApi {
     expect(blockNumber).toEqual(BlockNumber(1));
     return Promise.resolve(`0x01`);
   }
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number, upToBlockNumber?: BlockNumber): Promise<TxScopedL2Log[][]> {
-    expect(tags[0]).toBeInstanceOf(SiloedTag);
-    if (page !== undefined) {
-      expect(page).toBe(3);
-    }
-    if (upToBlockNumber !== undefined) {
-      expect(upToBlockNumber).toBe(BlockNumber(4));
-    }
-    return Promise.resolve([tags.map(() => randomTxScopedPrivateL2Log())]);
+  getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+    expect(Array.isArray(query.tags)).toBe(true);
+    return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
-  getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    page?: number,
-    upToBlockNumber?: BlockNumber,
-  ): Promise<TxScopedL2Log[][]> {
-    expect(contractAddress).toBeInstanceOf(AztecAddress);
-    expect(tags[0]).toBeInstanceOf(Tag);
-    if (page !== undefined) {
-      expect(page).toBe(3);
-    }
-    if (upToBlockNumber !== undefined) {
-      expect(upToBlockNumber).toBe(BlockNumber(4));
-    }
-    return Promise.resolve([tags.map(() => randomTxScopedPrivateL2Log())]);
-  }
-  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    expect(filter.txHash).toBeInstanceOf(TxHash);
-    expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
-  }
-  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    expect(filter.txHash).toBeInstanceOf(TxHash);
-    expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
+  getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+    expect(query.contractAddress).toBeInstanceOf(AztecAddress);
+    expect(Array.isArray(query.tags)).toBe(true);
+    return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);

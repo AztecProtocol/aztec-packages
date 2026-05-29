@@ -24,6 +24,7 @@ import {
   L2Block,
   type L2BlockSink,
   type L2BlockSource,
+  type ProposedCheckpointSink,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import {
@@ -87,7 +88,7 @@ describe('CheckpointProposalJob', () => {
   let checkpointBuilder: MockCheckpointBuilder;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let l2BlockSource: MockProxy<L2BlockSource>;
-  let blockSink: MockProxy<L2BlockSink>;
+  let blockSink: MockProxy<L2BlockSink & ProposedCheckpointSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let dateProvider: TestDateProvider;
   let metrics: MockProxy<SequencerMetrics>;
@@ -244,8 +245,9 @@ describe('CheckpointProposalJob', () => {
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
 
-    blockSink = mock<L2BlockSink>();
+    blockSink = mock<L2BlockSink & ProposedCheckpointSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
+    blockSink.addProposedCheckpoint.mockResolvedValue(undefined);
 
     validatorClient = mock<ValidatorClient>();
     validatorClient.collectAttestations.mockImplementation(() => Promise.resolve([]));
@@ -1134,6 +1136,40 @@ describe('CheckpointProposalJob', () => {
       expect(mismatchEvents).toHaveLength(0);
     });
 
+    it('pushes the proposed checkpoint to the archiver from local data before broadcasting', async () => {
+      const pipelinedJob = await createPipelinedJobWithBlock(proposedParent);
+      mockL2BlockSource({ checkpointedNumber: CheckpointNumber(1), checkpointedHash: parentCheckpointHash });
+
+      await pipelinedJob.executeAndAwait();
+
+      // Built from local checkpoint data: startBlock = syncedToBlockNumber + 1, blockCount = blocks built,
+      // checkpointNumber from the job — never derived from the (possibly corrupted) broadcast proposal archive.
+      expect(blockSink.addProposedCheckpoint).toHaveBeenCalledTimes(1);
+      expect(blockSink.addProposedCheckpoint).toHaveBeenCalledWith(
+        expect.objectContaining({
+          checkpointNumber: CheckpointNumber(2),
+          startBlock: BlockNumber(lastBlockNumber + 1),
+          blockCount: 1,
+        }),
+      );
+      // The proposed checkpoint must be pushed locally before the proposal is gossiped.
+      expect(blockSink.addProposedCheckpoint.mock.invocationCallOrder[0]).toBeLessThan(
+        p2p.broadcastCheckpointProposal.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('aborts the checkpoint without broadcasting when the proposed checkpoint push fails', async () => {
+      blockSink.addProposedCheckpoint.mockRejectedValue(new Error('proposed checkpoint slot expired'));
+      const pipelinedJob = await createPipelinedJobWithBlock(proposedParent);
+      mockL2BlockSource({ checkpointedNumber: CheckpointNumber(1), checkpointedHash: parentCheckpointHash });
+
+      const checkpoint = await pipelinedJob.execute();
+
+      expect(checkpoint).toBeUndefined();
+      expect(blockSink.addProposedCheckpoint).toHaveBeenCalledTimes(1);
+      expect(p2p.broadcastCheckpointProposal).not.toHaveBeenCalled();
+    });
+
     it('skips proposal with archiver-sync-timeout when archiver does not sync in time', async () => {
       const pipelinedJob = await createPipelinedJobWithBlock(proposedParent);
       l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(0));
@@ -1705,6 +1741,21 @@ describe('CheckpointProposalJob', () => {
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
       // But must NOT push to the archiver — that was the bug causing reorgs on mainnet
       expect(blockSink.addBlock).not.toHaveBeenCalled();
+      expect(blockSink.addProposedCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('does not push the proposed checkpoint when pipelining is disabled', async () => {
+      // The proposed-checkpoint tip is a pipelining-only concept, so a non-pipelining proposer
+      // must still broadcast but must not advance it.
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      await job.executeAndAwait();
+
+      expect(blockSink.addProposedCheckpoint).not.toHaveBeenCalled();
+      expect(p2p.broadcastCheckpointProposal).toHaveBeenCalledTimes(1);
     });
 
     it('handles empty committee gracefully', async () => {

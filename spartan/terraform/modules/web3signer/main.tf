@@ -52,6 +52,9 @@ resource "helm_release" "keystore_setup" {
         publishersPerProver = var.PUBLISHERS_PER_PROVER
         mnemonicStartIndex  = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
       }
+      nodeSelector = {
+        "node-type" = "network"
+      }
     })
   ]
 
