@@ -1162,7 +1162,7 @@ pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 =
 
 // AVM_V2_PROOF_LENGTH_IN_FIELDS must be updated when AVM circuit changes.
 // Run barretenberg/cpp/scripts/bump_avm_proof_length.sh, to regenerate the constants
-pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 15496;
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 15516;
 
 // GAS DEFAULTS
 pub global DA_BYTES_PER_FIELD: u32 = 32;

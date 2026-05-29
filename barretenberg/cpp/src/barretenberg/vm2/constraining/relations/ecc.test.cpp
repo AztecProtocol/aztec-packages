@@ -1356,5 +1356,131 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
     EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_Y_CHECK), "Q_INF_Y_CHECK");
 }
 
+// Exercises the new #[P/Q_NOT_INF_CHECK] relations which enforce
+// (X, Y) == (INFINITY_X, INFINITY_Y) ==> is_inf. The relations have the form
+//     is_inf = (1 - (x - INFINITY_X) * x_inv) * (1 - (y - INFINITY_Y) * y_inv),
+// so an honestly-built trace satisfies them for every is_inf state.
+TEST(EccAddMemoryConstrainingTest, EccAddMemoryNotInfCheckHappyPath)
+{
+    EccTraceBuilder builder;
+    MemoryStore memory;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id).WillRepeatedly(Return(0));
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    // Exercise all four (is_inf_p, is_inf_q) combinations across multiple rows.
+    EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
+    MemoryAddress dst_address = 5;
+    ecc_simulator.add(memory, p, q, dst_address);     // non-inf, non-inf
+    ecc_simulator.add(memory, p, inf, dst_address);   // non-inf, inf
+    ecc_simulator.add(memory, inf, q, dst_address);   // inf,     non-inf
+    ecc_simulator.add(memory, inf, inf, dst_address); // inf,     inf
+
+    TestTraceContainer trace;
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+
+    check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_NOT_INF_CHECK);
+    check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_NOT_INF_CHECK);
+}
+
+// Attack scenario: cheater provides P == (INFINITY_X, INFINITY_Y) but claims
+// p_is_inf == 0 to force a spurious POINT_NOT_ON_CURVE error. With p_x - INFINITY_X
+// and p_y - INFINITY_Y both zero, the per-coordinate "at infinity" indicators are
+// forced to 1 regardless of how the cheater chooses the inverse witnesses, so the
+// relation requires p_is_inf == 1 and rejects the spoof.
+TEST(EccAddMemoryConstrainingTest, EccAddMemoryNegativeClaimInfPIsNotInf)
+{
+    EccTraceBuilder builder;
+    MemoryStore memory;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id).WillRepeatedly(Return(0));
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
+    MemoryAddress dst_address = 5;
+    ecc_simulator.add(memory, inf, q, dst_address);
+
+    TestTraceContainer trace;
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+
+    // Sanity: the honest trace satisfies the relation.
+    check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_NOT_INF_CHECK);
+
+    // Attack: claim the infinity P is not infinity.
+    trace.set(C::ecc_add_mem_p_is_inf, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_NOT_INF_CHECK),
+                              "P_NOT_INF_CHECK");
+
+    // Even arbitrary cheater witnesses cannot rescue the attack: both diffs are zero,
+    // so multiplying them by any inverse witness still yields zero indicators of 1.
+    trace.set(C::ecc_add_mem_p_x_inf_diff_inv, 0, FF(123));
+    trace.set(C::ecc_add_mem_p_y_inf_diff_inv, 0, FF(456));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_P_NOT_INF_CHECK),
+                              "P_NOT_INF_CHECK");
+}
+
+TEST(EccAddMemoryConstrainingTest, EccAddMemoryNegativeClaimInfQIsNotInf)
+{
+    EccTraceBuilder builder;
+    MemoryStore memory;
+
+    EventEmitter<EccAddEvent> ecc_add_event_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id).WillRepeatedly(Return(0));
+    PureGreaterThan gt;
+    PureToRadix to_radix_simulator = PureToRadix();
+    EccSimulator ecc_simulator(execution_id_manager,
+                               gt,
+                               to_radix_simulator,
+                               ecc_add_event_emitter,
+                               scalar_mul_event_emitter,
+                               ecc_add_memory_event_emitter);
+
+    EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
+    MemoryAddress dst_address = 5;
+    ecc_simulator.add(memory, p, inf, dst_address);
+
+    TestTraceContainer trace;
+    builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
+
+    check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_NOT_INF_CHECK);
+
+    trace.set(C::ecc_add_mem_q_is_inf, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_NOT_INF_CHECK),
+                              "Q_NOT_INF_CHECK");
+
+    trace.set(C::ecc_add_mem_q_x_inf_diff_inv, 0, FF(123));
+    trace.set(C::ecc_add_mem_q_y_inf_diff_inv, 0, FF(456));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_NOT_INF_CHECK),
+                              "Q_NOT_INF_CHECK");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining
