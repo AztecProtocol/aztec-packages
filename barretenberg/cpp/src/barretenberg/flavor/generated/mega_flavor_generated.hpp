@@ -37,28 +37,28 @@ class MegaFlavor_Generated {
   public:
     // Dense flavor-local entity index. Layout: [masking | precomputed | witness | shifted].
     enum class EntityId : uint16_t {
-        q_m = 0,
-        q_l = 1,
-        q_r = 2,
-        q_o = 3,
-        q_4 = 4,
-        q_c = 5,
-        q_arith = 6,
-        sigma_1 = 7,
-        sigma_2 = 8,
-        sigma_3 = 9,
-        sigma_4 = 10,
-        id_1 = 11,
-        id_2 = 12,
-        id_3 = 13,
-        id_4 = 14,
-        lagrange_first = 15,
-        lagrange_last = 16,
-        q_lookup = 17,
-        table_1 = 18,
-        table_2 = 19,
-        table_3 = 20,
-        table_4 = 21,
+        sigma_1 = 0,
+        sigma_2 = 1,
+        sigma_3 = 2,
+        sigma_4 = 3,
+        id_1 = 4,
+        id_2 = 5,
+        id_3 = 6,
+        id_4 = 7,
+        lagrange_first = 8,
+        lagrange_last = 9,
+        q_lookup = 10,
+        table_1 = 11,
+        table_2 = 12,
+        table_3 = 13,
+        table_4 = 14,
+        q_m = 15,
+        q_r = 16,
+        q_o = 17,
+        q_c = 18,
+        q_l = 19,
+        q_4 = 20,
+        q_arith = 21,
         q_delta_range = 22,
         q_elliptic = 23,
         q_memory = 24,
@@ -114,9 +114,9 @@ class MegaFlavor_Generated {
     // Sumcheck relation tuple. Source of truth is
     // flavor-codegen/src/flavors/mega.ts; structural relations are omitted.
     template <typename FF>
-    using Relations_ = std::tuple<bb::ArithmeticRelation<FF>,
-                                  bb::UltraPermutationRelation<FF>,
+    using Relations_ = std::tuple<bb::UltraPermutationRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
+                                  bb::ArithmeticRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::MemoryRelation<FF>,
@@ -189,8 +189,8 @@ class MegaFlavor_Generated {
     {
         using BlockBase = typename TraceBlocks::BlockBase;
         return RefArray<BlockBase, 12>(std::array<BlockBase*, 12>{
-            &blocks.arithmetic,
             &blocks.lookup,
+            &blocks.arithmetic,
             &blocks.delta_range,
             &blocks.elliptic,
             &blocks.memory,
@@ -208,8 +208,8 @@ class MegaFlavor_Generated {
     {
         using BlockBase = typename TraceBlocks::BlockBase;
         return RefArray<const BlockBase, 12>(std::array<const BlockBase*, 12>{
-            &blocks.arithmetic,
             &blocks.lookup,
+            &blocks.arithmetic,
             &blocks.delta_range,
             &blocks.elliptic,
             &blocks.memory,
@@ -225,8 +225,8 @@ class MegaFlavor_Generated {
 
     // GateKind for each gate selector, parallel to `get_gate_blocks()`.
     static constexpr std::array<GateKind, 12> GATE_KINDS{
-        GateKind::Arith,
         GateKind::Lookup,
+        GateKind::Arith,
         GateKind::DeltaRange,
         GateKind::Elliptic,
         GateKind::Memory,
@@ -261,20 +261,6 @@ class MegaFlavor_Generated {
         std::span<const DataType, NUM_ALL_ENTITIES> get_all() const { return data; }
 
         // Named accessors (unshifted + shifted): mutable + const overloads.
-        DataType& q_m() { return data[static_cast<size_t>(EntityId::q_m)]; }
-        const DataType& q_m() const { return data[static_cast<size_t>(EntityId::q_m)]; }
-        DataType& q_l() { return data[static_cast<size_t>(EntityId::q_l)]; }
-        const DataType& q_l() const { return data[static_cast<size_t>(EntityId::q_l)]; }
-        DataType& q_r() { return data[static_cast<size_t>(EntityId::q_r)]; }
-        const DataType& q_r() const { return data[static_cast<size_t>(EntityId::q_r)]; }
-        DataType& q_o() { return data[static_cast<size_t>(EntityId::q_o)]; }
-        const DataType& q_o() const { return data[static_cast<size_t>(EntityId::q_o)]; }
-        DataType& q_4() { return data[static_cast<size_t>(EntityId::q_4)]; }
-        const DataType& q_4() const { return data[static_cast<size_t>(EntityId::q_4)]; }
-        DataType& q_c() { return data[static_cast<size_t>(EntityId::q_c)]; }
-        const DataType& q_c() const { return data[static_cast<size_t>(EntityId::q_c)]; }
-        DataType& q_arith() { return data[static_cast<size_t>(EntityId::q_arith)]; }
-        const DataType& q_arith() const { return data[static_cast<size_t>(EntityId::q_arith)]; }
         DataType& sigma_1() { return data[static_cast<size_t>(EntityId::sigma_1)]; }
         const DataType& sigma_1() const { return data[static_cast<size_t>(EntityId::sigma_1)]; }
         DataType& sigma_2() { return data[static_cast<size_t>(EntityId::sigma_2)]; }
@@ -305,6 +291,20 @@ class MegaFlavor_Generated {
         const DataType& table_3() const { return data[static_cast<size_t>(EntityId::table_3)]; }
         DataType& table_4() { return data[static_cast<size_t>(EntityId::table_4)]; }
         const DataType& table_4() const { return data[static_cast<size_t>(EntityId::table_4)]; }
+        DataType& q_m() { return data[static_cast<size_t>(EntityId::q_m)]; }
+        const DataType& q_m() const { return data[static_cast<size_t>(EntityId::q_m)]; }
+        DataType& q_r() { return data[static_cast<size_t>(EntityId::q_r)]; }
+        const DataType& q_r() const { return data[static_cast<size_t>(EntityId::q_r)]; }
+        DataType& q_o() { return data[static_cast<size_t>(EntityId::q_o)]; }
+        const DataType& q_o() const { return data[static_cast<size_t>(EntityId::q_o)]; }
+        DataType& q_c() { return data[static_cast<size_t>(EntityId::q_c)]; }
+        const DataType& q_c() const { return data[static_cast<size_t>(EntityId::q_c)]; }
+        DataType& q_l() { return data[static_cast<size_t>(EntityId::q_l)]; }
+        const DataType& q_l() const { return data[static_cast<size_t>(EntityId::q_l)]; }
+        DataType& q_4() { return data[static_cast<size_t>(EntityId::q_4)]; }
+        const DataType& q_4() const { return data[static_cast<size_t>(EntityId::q_4)]; }
+        DataType& q_arith() { return data[static_cast<size_t>(EntityId::q_arith)]; }
+        const DataType& q_arith() const { return data[static_cast<size_t>(EntityId::q_arith)]; }
         DataType& q_delta_range() { return data[static_cast<size_t>(EntityId::q_delta_range)]; }
         const DataType& q_delta_range() const { return data[static_cast<size_t>(EntityId::q_delta_range)]; }
         DataType& q_elliptic() { return data[static_cast<size_t>(EntityId::q_elliptic)]; }
@@ -556,54 +556,6 @@ class MegaFlavor_Generated {
         }
 
         // Subset views (relation-declared groupings in layout order).
-        RefArray<DataType, 4> get_wires()
-        {
-            return { (*this)[EntityId::w_l], (*this)[EntityId::w_r], (*this)[EntityId::w_o], (*this)[EntityId::w_4] };
-        }
-        RefArray<const DataType, 4> get_wires() const
-        {
-            return { (*this)[EntityId::w_l], (*this)[EntityId::w_r], (*this)[EntityId::w_o], (*this)[EntityId::w_4] };
-        }
-        RefArray<DataType, 7> get_non_gate_selectors()
-        {
-            return { (*this)[EntityId::q_m], (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o],
-                     (*this)[EntityId::q_4], (*this)[EntityId::q_c], (*this)[EntityId::q_5] };
-        }
-        RefArray<const DataType, 7> get_non_gate_selectors() const
-        {
-            return { (*this)[EntityId::q_m], (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o],
-                     (*this)[EntityId::q_4], (*this)[EntityId::q_c], (*this)[EntityId::q_5] };
-        }
-        RefArray<DataType, 12> get_gate_selectors()
-        {
-            return { (*this)[EntityId::q_arith],
-                     (*this)[EntityId::q_lookup],
-                     (*this)[EntityId::q_delta_range],
-                     (*this)[EntityId::q_elliptic],
-                     (*this)[EntityId::q_memory],
-                     (*this)[EntityId::q_nnf],
-                     (*this)[EntityId::q_busread],
-                     (*this)[EntityId::q_poseidon2_external],
-                     (*this)[EntityId::q_poseidon2_external_initial],
-                     (*this)[EntityId::q_poseidon2_quad_internal],
-                     (*this)[EntityId::q_poseidon2_quad_internal_terminal],
-                     (*this)[EntityId::q_poseidon2_transition_entry] };
-        }
-        RefArray<const DataType, 12> get_gate_selectors() const
-        {
-            return { (*this)[EntityId::q_arith],
-                     (*this)[EntityId::q_lookup],
-                     (*this)[EntityId::q_delta_range],
-                     (*this)[EntityId::q_elliptic],
-                     (*this)[EntityId::q_memory],
-                     (*this)[EntityId::q_nnf],
-                     (*this)[EntityId::q_busread],
-                     (*this)[EntityId::q_poseidon2_external],
-                     (*this)[EntityId::q_poseidon2_external_initial],
-                     (*this)[EntityId::q_poseidon2_quad_internal],
-                     (*this)[EntityId::q_poseidon2_quad_internal_terminal],
-                     (*this)[EntityId::q_poseidon2_transition_entry] };
-        }
         RefArray<DataType, 4> get_sigmas()
         {
             return { (*this)[EntityId::sigma_1],
@@ -630,6 +582,36 @@ class MegaFlavor_Generated {
                 (*this)[EntityId::id_1], (*this)[EntityId::id_2], (*this)[EntityId::id_3], (*this)[EntityId::id_4]
             };
         }
+        RefArray<DataType, 12> get_gate_selectors()
+        {
+            return { (*this)[EntityId::q_lookup],
+                     (*this)[EntityId::q_arith],
+                     (*this)[EntityId::q_delta_range],
+                     (*this)[EntityId::q_elliptic],
+                     (*this)[EntityId::q_memory],
+                     (*this)[EntityId::q_nnf],
+                     (*this)[EntityId::q_busread],
+                     (*this)[EntityId::q_poseidon2_external],
+                     (*this)[EntityId::q_poseidon2_external_initial],
+                     (*this)[EntityId::q_poseidon2_quad_internal],
+                     (*this)[EntityId::q_poseidon2_quad_internal_terminal],
+                     (*this)[EntityId::q_poseidon2_transition_entry] };
+        }
+        RefArray<const DataType, 12> get_gate_selectors() const
+        {
+            return { (*this)[EntityId::q_lookup],
+                     (*this)[EntityId::q_arith],
+                     (*this)[EntityId::q_delta_range],
+                     (*this)[EntityId::q_elliptic],
+                     (*this)[EntityId::q_memory],
+                     (*this)[EntityId::q_nnf],
+                     (*this)[EntityId::q_busread],
+                     (*this)[EntityId::q_poseidon2_external],
+                     (*this)[EntityId::q_poseidon2_external_initial],
+                     (*this)[EntityId::q_poseidon2_quad_internal],
+                     (*this)[EntityId::q_poseidon2_quad_internal_terminal],
+                     (*this)[EntityId::q_poseidon2_transition_entry] };
+        }
         RefArray<DataType, 4> get_tables()
         {
             return { (*this)[EntityId::table_1],
@@ -643,6 +625,24 @@ class MegaFlavor_Generated {
                      (*this)[EntityId::table_2],
                      (*this)[EntityId::table_3],
                      (*this)[EntityId::table_4] };
+        }
+        RefArray<DataType, 4> get_wires()
+        {
+            return { (*this)[EntityId::w_l], (*this)[EntityId::w_r], (*this)[EntityId::w_o], (*this)[EntityId::w_4] };
+        }
+        RefArray<const DataType, 4> get_wires() const
+        {
+            return { (*this)[EntityId::w_l], (*this)[EntityId::w_r], (*this)[EntityId::w_o], (*this)[EntityId::w_4] };
+        }
+        RefArray<DataType, 7> get_non_gate_selectors()
+        {
+            return { (*this)[EntityId::q_m], (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o],
+                     (*this)[EntityId::q_4], (*this)[EntityId::q_c], (*this)[EntityId::q_5] };
+        }
+        RefArray<const DataType, 7> get_non_gate_selectors() const
+        {
+            return { (*this)[EntityId::q_m], (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o],
+                     (*this)[EntityId::q_4], (*this)[EntityId::q_c], (*this)[EntityId::q_5] };
         }
         RefArray<DataType, 4> get_ecc_op_wires()
         {
@@ -731,13 +731,6 @@ class MegaFlavor_Generated {
         static const std::vector<std::string>& get_labels()
         {
             static const std::vector<std::string> labels = {
-                "Q_M",
-                "Q_L",
-                "Q_R",
-                "Q_O",
-                "Q_4",
-                "Q_C",
-                "Q_ARITH",
                 "SIGMA_1",
                 "SIGMA_2",
                 "SIGMA_3",
@@ -753,6 +746,13 @@ class MegaFlavor_Generated {
                 "TABLE_2",
                 "TABLE_3",
                 "TABLE_4",
+                "Q_M",
+                "Q_R",
+                "Q_O",
+                "Q_C",
+                "Q_L",
+                "Q_4",
+                "Q_ARITH",
                 "Q_DELTA_RANGE",
                 "Q_ELLIPTIC",
                 "Q_MEMORY",
@@ -822,50 +822,50 @@ class MegaFlavor_Generated {
         static constexpr size_t size() { return NUM_PRECOMPUTED_ENTITIES; }
 
         // Named accessor methods — index into local `data` (NOT the AllEntities layout).
-        DataType& q_m() { return data[0]; }
-        const DataType& q_m() const { return data[0]; }
-        DataType& q_l() { return data[1]; }
-        const DataType& q_l() const { return data[1]; }
-        DataType& q_r() { return data[2]; }
-        const DataType& q_r() const { return data[2]; }
-        DataType& q_o() { return data[3]; }
-        const DataType& q_o() const { return data[3]; }
-        DataType& q_4() { return data[4]; }
-        const DataType& q_4() const { return data[4]; }
-        DataType& q_c() { return data[5]; }
-        const DataType& q_c() const { return data[5]; }
-        DataType& q_arith() { return data[6]; }
-        const DataType& q_arith() const { return data[6]; }
-        DataType& sigma_1() { return data[7]; }
-        const DataType& sigma_1() const { return data[7]; }
-        DataType& sigma_2() { return data[8]; }
-        const DataType& sigma_2() const { return data[8]; }
-        DataType& sigma_3() { return data[9]; }
-        const DataType& sigma_3() const { return data[9]; }
-        DataType& sigma_4() { return data[10]; }
-        const DataType& sigma_4() const { return data[10]; }
-        DataType& id_1() { return data[11]; }
-        const DataType& id_1() const { return data[11]; }
-        DataType& id_2() { return data[12]; }
-        const DataType& id_2() const { return data[12]; }
-        DataType& id_3() { return data[13]; }
-        const DataType& id_3() const { return data[13]; }
-        DataType& id_4() { return data[14]; }
-        const DataType& id_4() const { return data[14]; }
-        DataType& lagrange_first() { return data[15]; }
-        const DataType& lagrange_first() const { return data[15]; }
-        DataType& lagrange_last() { return data[16]; }
-        const DataType& lagrange_last() const { return data[16]; }
-        DataType& q_lookup() { return data[17]; }
-        const DataType& q_lookup() const { return data[17]; }
-        DataType& table_1() { return data[18]; }
-        const DataType& table_1() const { return data[18]; }
-        DataType& table_2() { return data[19]; }
-        const DataType& table_2() const { return data[19]; }
-        DataType& table_3() { return data[20]; }
-        const DataType& table_3() const { return data[20]; }
-        DataType& table_4() { return data[21]; }
-        const DataType& table_4() const { return data[21]; }
+        DataType& sigma_1() { return data[0]; }
+        const DataType& sigma_1() const { return data[0]; }
+        DataType& sigma_2() { return data[1]; }
+        const DataType& sigma_2() const { return data[1]; }
+        DataType& sigma_3() { return data[2]; }
+        const DataType& sigma_3() const { return data[2]; }
+        DataType& sigma_4() { return data[3]; }
+        const DataType& sigma_4() const { return data[3]; }
+        DataType& id_1() { return data[4]; }
+        const DataType& id_1() const { return data[4]; }
+        DataType& id_2() { return data[5]; }
+        const DataType& id_2() const { return data[5]; }
+        DataType& id_3() { return data[6]; }
+        const DataType& id_3() const { return data[6]; }
+        DataType& id_4() { return data[7]; }
+        const DataType& id_4() const { return data[7]; }
+        DataType& lagrange_first() { return data[8]; }
+        const DataType& lagrange_first() const { return data[8]; }
+        DataType& lagrange_last() { return data[9]; }
+        const DataType& lagrange_last() const { return data[9]; }
+        DataType& q_lookup() { return data[10]; }
+        const DataType& q_lookup() const { return data[10]; }
+        DataType& table_1() { return data[11]; }
+        const DataType& table_1() const { return data[11]; }
+        DataType& table_2() { return data[12]; }
+        const DataType& table_2() const { return data[12]; }
+        DataType& table_3() { return data[13]; }
+        const DataType& table_3() const { return data[13]; }
+        DataType& table_4() { return data[14]; }
+        const DataType& table_4() const { return data[14]; }
+        DataType& q_m() { return data[15]; }
+        const DataType& q_m() const { return data[15]; }
+        DataType& q_r() { return data[16]; }
+        const DataType& q_r() const { return data[16]; }
+        DataType& q_o() { return data[17]; }
+        const DataType& q_o() const { return data[17]; }
+        DataType& q_c() { return data[18]; }
+        const DataType& q_c() const { return data[18]; }
+        DataType& q_l() { return data[19]; }
+        const DataType& q_l() const { return data[19]; }
+        DataType& q_4() { return data[20]; }
+        const DataType& q_4() const { return data[20]; }
+        DataType& q_arith() { return data[21]; }
+        const DataType& q_arith() const { return data[21]; }
         DataType& q_delta_range() { return data[22]; }
         const DataType& q_delta_range() const { return data[22]; }
         DataType& q_elliptic() { return data[23]; }
@@ -904,44 +904,6 @@ class MegaFlavor_Generated {
         const DataType& q_poseidon2_transition_entry() const { return data[39]; }
 
         // Subset views.
-        RefArray<DataType, 7> get_non_gate_selectors()
-        {
-            return { this->q_m(), this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_c(), this->q_5() };
-        }
-        RefArray<const DataType, 7> get_non_gate_selectors() const
-        {
-            return { this->q_m(), this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_c(), this->q_5() };
-        }
-        RefArray<DataType, 12> get_gate_selectors()
-        {
-            return { this->q_arith(),
-                     this->q_lookup(),
-                     this->q_delta_range(),
-                     this->q_elliptic(),
-                     this->q_memory(),
-                     this->q_nnf(),
-                     this->q_busread(),
-                     this->q_poseidon2_external(),
-                     this->q_poseidon2_external_initial(),
-                     this->q_poseidon2_quad_internal(),
-                     this->q_poseidon2_quad_internal_terminal(),
-                     this->q_poseidon2_transition_entry() };
-        }
-        RefArray<const DataType, 12> get_gate_selectors() const
-        {
-            return { this->q_arith(),
-                     this->q_lookup(),
-                     this->q_delta_range(),
-                     this->q_elliptic(),
-                     this->q_memory(),
-                     this->q_nnf(),
-                     this->q_busread(),
-                     this->q_poseidon2_external(),
-                     this->q_poseidon2_external_initial(),
-                     this->q_poseidon2_quad_internal(),
-                     this->q_poseidon2_quad_internal_terminal(),
-                     this->q_poseidon2_transition_entry() };
-        }
         RefArray<DataType, 4> get_sigmas()
         {
             return { this->sigma_1(), this->sigma_2(), this->sigma_3(), this->sigma_4() };
@@ -955,6 +917,36 @@ class MegaFlavor_Generated {
         {
             return { this->id_1(), this->id_2(), this->id_3(), this->id_4() };
         }
+        RefArray<DataType, 12> get_gate_selectors()
+        {
+            return { this->q_lookup(),
+                     this->q_arith(),
+                     this->q_delta_range(),
+                     this->q_elliptic(),
+                     this->q_memory(),
+                     this->q_nnf(),
+                     this->q_busread(),
+                     this->q_poseidon2_external(),
+                     this->q_poseidon2_external_initial(),
+                     this->q_poseidon2_quad_internal(),
+                     this->q_poseidon2_quad_internal_terminal(),
+                     this->q_poseidon2_transition_entry() };
+        }
+        RefArray<const DataType, 12> get_gate_selectors() const
+        {
+            return { this->q_lookup(),
+                     this->q_arith(),
+                     this->q_delta_range(),
+                     this->q_elliptic(),
+                     this->q_memory(),
+                     this->q_nnf(),
+                     this->q_busread(),
+                     this->q_poseidon2_external(),
+                     this->q_poseidon2_external_initial(),
+                     this->q_poseidon2_quad_internal(),
+                     this->q_poseidon2_quad_internal_terminal(),
+                     this->q_poseidon2_transition_entry() };
+        }
         RefArray<DataType, 4> get_tables()
         {
             return { this->table_1(), this->table_2(), this->table_3(), this->table_4() };
@@ -962,6 +954,14 @@ class MegaFlavor_Generated {
         RefArray<const DataType, 4> get_tables() const
         {
             return { this->table_1(), this->table_2(), this->table_3(), this->table_4() };
+        }
+        RefArray<DataType, 7> get_non_gate_selectors()
+        {
+            return { this->q_m(), this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_c(), this->q_5() };
+        }
+        RefArray<const DataType, 7> get_non_gate_selectors() const
+        {
+            return { this->q_m(), this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_c(), this->q_5() };
         }
         RefArray<DataType, 5> get_databus_indicators()
         {
@@ -995,13 +995,6 @@ class MegaFlavor_Generated {
         static const std::vector<std::string>& get_labels()
         {
             static const std::vector<std::string> labels = {
-                "Q_M",
-                "Q_L",
-                "Q_R",
-                "Q_O",
-                "Q_4",
-                "Q_C",
-                "Q_ARITH",
                 "SIGMA_1",
                 "SIGMA_2",
                 "SIGMA_3",
@@ -1017,6 +1010,13 @@ class MegaFlavor_Generated {
                 "TABLE_2",
                 "TABLE_3",
                 "TABLE_4",
+                "Q_M",
+                "Q_R",
+                "Q_O",
+                "Q_C",
+                "Q_L",
+                "Q_4",
+                "Q_ARITH",
                 "Q_DELTA_RANGE",
                 "Q_ELLIPTIC",
                 "Q_MEMORY",

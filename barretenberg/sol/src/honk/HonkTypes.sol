@@ -26,13 +26,6 @@ uint256 constant NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1;
 
 // Must match UltraFlavor_Generated::EntityId order.
 enum WIRE {
-    Q_M,
-    Q_L,
-    Q_R,
-    Q_O,
-    Q_4,
-    Q_C,
-    Q_ARITH,
     SIGMA_1,
     SIGMA_2,
     SIGMA_3,
@@ -48,6 +41,13 @@ enum WIRE {
     TABLE_2,
     TABLE_3,
     TABLE_4,
+    Q_M,
+    Q_R,
+    Q_O,
+    Q_C,
+    Q_L,
+    Q_4,
+    Q_ARITH,
     Q_RANGE,
     Q_ELLIPTIC,
     Q_MEMORY,
