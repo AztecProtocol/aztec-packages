@@ -1,4 +1,4 @@
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
@@ -37,9 +37,9 @@ describe('syncSenderTaggingIndexes', () => {
       1n,
       BlockHash.random(),
       BlockNumber(blockNumber),
+      SlotNumber(Number(blockNumber)),
       0,
       EpochNumber(1),
-      undefined,
       txEffect,
     );
 

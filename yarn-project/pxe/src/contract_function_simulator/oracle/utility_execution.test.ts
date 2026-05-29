@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
@@ -455,9 +455,9 @@ describe('Utility Execution test suite', () => {
             0n,
             BlockHash.random(),
             BlockNumber(syncedBlockNumber - 1),
+            SlotNumber(0),
             0,
-            undefined,
-            undefined,
+            EpochNumber(1),
             TxEffect.from({
               ...(await TxEffect.random()),
               txHash,
@@ -487,9 +487,9 @@ describe('Utility Execution test suite', () => {
             0n,
             BlockHash.random(),
             BlockNumber(syncedBlockNumber + 1),
+            SlotNumber(0),
             0,
-            undefined,
-            undefined,
+            EpochNumber(1),
             TxEffect.from({
               ...(await TxEffect.random()),
               txHash,

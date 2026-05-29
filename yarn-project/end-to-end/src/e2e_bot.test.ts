@@ -2,7 +2,7 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { type TxReceipt, TxReceiptBase } from '@aztec/aztec.js/tx';
+import { MinedTxReceipt, type TxReceipt } from '@aztec/aztec.js/tx';
 import { DeployAccountMethod } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import {
@@ -288,7 +288,7 @@ describe('e2e_bot', () => {
     it('sends L2→L1 and consumes L1→L2 messages', async () => {
       const result = await bot.run();
       expect(result).toBeDefined();
-      expect(result).toBeInstanceOf(TxReceiptBase);
+      expect(result).toBeInstanceOf(MinedTxReceipt);
 
       const receipt = result as TxReceipt;
       expect(receipt.blockNumber).toBeDefined();

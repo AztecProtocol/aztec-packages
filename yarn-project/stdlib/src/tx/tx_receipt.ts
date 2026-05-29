@@ -1,5 +1,12 @@
-import { BlockNumber, BlockNumberSchema, EpochNumber, EpochNumberSchema } from '@aztec/foundation/branded-types';
-import type { FieldsOf } from '@aztec/foundation/types';
+import {
+  BlockNumber,
+  BlockNumberSchema,
+  EpochNumber,
+  EpochNumberSchema,
+  SlotNumber,
+  SlotNumberSchema,
+} from '@aztec/foundation/branded-types';
+import type { DefineIfFlag, FieldsOf, PickDefined } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -43,6 +50,53 @@ export enum TxExecutionResult {
   REVERTED = 'reverted',
 }
 
+/** Returned from a `getTxReceipt` call to the node RPC API. */
+export interface TxReceiptInterface {
+  /** The transaction's block finalization status. */
+  status: TxStatus;
+  /** The execution result of the transaction, only set when the tx is in a block. */
+  executionResult?: TxExecutionResult;
+  /** Description of the transaction error, if any. */
+  error?: string;
+  /** The transaction fee paid for the transaction. */
+  transactionFee?: bigint;
+  /** The hash of the block containing the transaction. */
+  blockHash?: BlockHash;
+  /** The block number in which the transaction was included. */
+  blockNumber?: BlockNumber;
+  /** The slot number in which the transaction's block was built. */
+  slotNumber?: SlotNumber;
+  /** The epoch number in which the transaction was included. */
+  epochNumber?: EpochNumber;
+  /** The index of the transaction within its block. */
+  txIndexInBlock?: number;
+  /** The full transaction effect, attached when requested via `includeTxEffect`. */
+  txEffect?: TxEffect;
+  /** The pending transaction, attached when requested via `includePendingTx`. */
+  tx?: Tx;
+  /**
+   * Debug logs collected during public function execution. Served only when the node is in test mode and placed on
+   * the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined
+   * tx receipt is obtained).
+   */
+  debugLogs?: DebugLog[];
+
+  /** Returns true (and narrows) if the transaction has been included in a block. */
+  isMined(): this is MinedTxReceipt;
+
+  /** Returns true (and narrows) if the transaction is pending. */
+  isPending(): this is PendingTxReceipt;
+
+  /** Returns true (and narrows) if the transaction was dropped. */
+  isDropped(): this is DroppedTxReceipt;
+
+  /** Returns true if the transaction was executed successfully. */
+  hasExecutionSucceeded(): boolean;
+
+  /** Returns true if the transaction execution reverted. */
+  hasExecutionReverted(): boolean;
+}
+
 /**
  * Common surface shared by every transaction receipt variant ({@link PendingTxReceipt}, {@link DroppedTxReceipt},
  * {@link MinedTxReceipt}).
@@ -52,35 +106,16 @@ export enum TxExecutionResult {
  * {@link TxReceipt} union (without first narrowing) and keep compiling. Use the `is*` guards to narrow to the strong
  * variant type and gain access to its required fields.
  */
-export abstract class TxReceiptBase {
+abstract class TxReceiptBase {
   /** The transaction's block finalization status. */
   public abstract readonly status: TxStatus;
-  /** The execution result of the transaction, only set when the tx is in a block. */
-  public readonly executionResult?: TxExecutionResult;
   /** Description of the transaction error, if any. */
   public readonly error?: string;
-  /** The transaction fee paid for the transaction. */
-  public readonly transactionFee?: bigint;
-  /** The hash of the block containing the transaction. */
-  public readonly blockHash?: BlockHash;
-  /** The block number in which the transaction was included. */
-  public readonly blockNumber?: BlockNumber;
-  /** The epoch number in which the transaction was included. */
-  public readonly epochNumber?: EpochNumber;
-  /** The index of the transaction within its block. */
-  public readonly txIndexInBlock?: number;
-  /**
-   * Debug logs collected during public function execution. Served only when the node is in test mode and placed on
-   * the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined
-   * tx receipt is obtained). Mutable because {@link decorateReceiptWithLogs} populates it after construction.
-   */
-  public debugLogs?: DebugLog[];
-  /** The full transaction effect, attached when requested via `includeTxEffect`. */
-  public readonly txEffect?: TxEffect;
-  /** The pending transaction, attached when requested via `includePendingTx`. */
-  public readonly tx?: Tx;
 
-  constructor(/** A unique identifier for a transaction. */ public readonly txHash: TxHash) {}
+  constructor(
+    /** A unique identifier for a transaction. */
+    public readonly txHash: TxHash,
+  ) {}
 
   /** Returns true (and narrows) if the transaction has been included in a block. */
   public isMined(): this is MinedTxReceipt {
@@ -108,25 +143,39 @@ export abstract class TxReceiptBase {
   }
 }
 
+abstract class UnminedTxReceipt extends TxReceiptBase {
+  public readonly executionResult: undefined = undefined;
+  public readonly transactionFee: undefined = undefined;
+  public readonly blockHash: undefined = undefined;
+  public readonly blockNumber: undefined = undefined;
+  public readonly slotNumber: undefined = undefined;
+  public readonly txIndexInBlock: undefined = undefined;
+  public readonly epochNumber: undefined = undefined;
+  public readonly txEffect: undefined = undefined;
+}
+
 /**
  * Receipt for a transaction that is in the mempool but not yet included in a block.
  */
-export class PendingTxReceipt extends TxReceiptBase {
+export class PendingTxReceipt<Opts extends GetTxReceiptOptions = GetTxReceiptOptions>
+  extends UnminedTxReceipt
+  implements TxReceiptInterface
+{
   public override readonly status = TxStatus.PENDING;
 
   constructor(
     txHash: TxHash,
     /** The pending transaction, attached when requested via `includePendingTx`. */
-    public override readonly tx?: Tx,
+    public readonly tx: DefineIfFlag<Opts, 'includePendingTx', Tx>,
   ) {
     super(txHash);
   }
 
   static empty(): PendingTxReceipt {
-    return new PendingTxReceipt(TxHash.zero());
+    return new PendingTxReceipt(TxHash.zero(), undefined);
   }
 
-  static from(fields: FieldsOf<PendingTxReceipt>): PendingTxReceipt {
+  static from(fields: PickDefined<FieldsOf<PendingTxReceipt>>): PendingTxReceipt {
     return new PendingTxReceipt(fields.txHash, fields.tx);
   }
 
@@ -137,19 +186,20 @@ export class PendingTxReceipt extends TxReceiptBase {
         status: z.literal(TxStatus.PENDING),
         tx: Tx.schema.optional(),
       })
-      .transform(PendingTxReceipt.from);
+      .transform(fields => PendingTxReceipt.from({ tx: undefined, ...fields }));
   }
 }
 
 /**
  * Receipt for a transaction that was dropped from the mempool without being mined.
  */
-export class DroppedTxReceipt extends TxReceiptBase {
+export class DroppedTxReceipt extends UnminedTxReceipt implements TxReceiptInterface {
   public override readonly status = TxStatus.DROPPED;
+
+  public tx: undefined = undefined;
 
   constructor(
     txHash: TxHash,
-    /** Description of the transaction error, if any. */
     public override readonly error?: string,
   ) {
     super(txHash);
@@ -159,7 +209,7 @@ export class DroppedTxReceipt extends TxReceiptBase {
     return new DroppedTxReceipt(TxHash.zero());
   }
 
-  static from(fields: FieldsOf<DroppedTxReceipt>): DroppedTxReceipt {
+  static from(fields: PickDefined<FieldsOf<DroppedTxReceipt>>): DroppedTxReceipt {
     return new DroppedTxReceipt(fields.txHash, fields.error);
   }
 
@@ -178,46 +228,29 @@ export class DroppedTxReceipt extends TxReceiptBase {
  * Receipt for a transaction that has been included in a block (proposed, checkpointed, proven, or finalized).
  * All block-related fields are required for this variant.
  */
-export class MinedTxReceipt extends TxReceiptBase {
+export class MinedTxReceipt<Opts extends GetTxReceiptOptions = GetTxReceiptOptions>
+  extends TxReceiptBase
+  implements TxReceiptInterface
+{
   public override readonly status: MinedTxStatus;
-  public override readonly executionResult: TxExecutionResult;
-  public override readonly transactionFee: bigint;
-  public override readonly blockHash: BlockHash;
-  public override readonly blockNumber: BlockNumber;
-  public override readonly txIndexInBlock: number;
+
+  public readonly tx = undefined;
 
   constructor(
     txHash: TxHash,
-    /** The transaction's block finalization status. */
     status: MinedTxStatus,
-    /** The execution result of the transaction. */
-    executionResult: TxExecutionResult,
-    /** The transaction fee paid for the transaction. */
-    transactionFee: bigint,
-    /** The hash of the block containing the transaction. */
-    blockHash: BlockHash,
-    /** The block number in which the transaction was included. */
-    blockNumber: BlockNumber,
-    /** The index of the transaction within its block. */
-    txIndexInBlock: number,
-    /** The epoch number in which the transaction was included. */
-    public override readonly epochNumber?: EpochNumber,
-    /**
-     * Debug logs collected during public function execution. Served only when the node is in test mode and placed on
-     * the receipt only because it's a convenient place for it (the logs are printed out by the wallet when a mined
-     * tx receipt is obtained). Mutable because {@link decorateReceiptWithLogs} populates it after construction.
-     */
-    public override debugLogs?: DebugLog[],
-    /** The full transaction effect, attached when requested via `includeTxEffect`. */
-    public override readonly txEffect?: TxEffect,
+    public readonly executionResult: TxExecutionResult,
+    public readonly transactionFee: bigint,
+    public readonly blockHash: BlockHash,
+    public readonly blockNumber: BlockNumber,
+    public readonly slotNumber: SlotNumber,
+    public readonly txIndexInBlock: number,
+    public readonly epochNumber: EpochNumber,
+    public readonly txEffect: DefineIfFlag<Opts, 'includeTxEffect', TxEffect>,
+    public debugLogs?: DebugLog[],
   ) {
     super(txHash);
     this.status = status;
-    this.executionResult = executionResult;
-    this.transactionFee = transactionFee;
-    this.blockHash = blockHash;
-    this.blockNumber = blockNumber;
-    this.txIndexInBlock = txIndexInBlock;
   }
 
   public override hasExecutionSucceeded(): boolean {
@@ -228,7 +261,7 @@ export class MinedTxReceipt extends TxReceiptBase {
     return this.executionResult !== TxExecutionResult.SUCCESS;
   }
 
-  static from(fields: FieldsOf<MinedTxReceipt>): MinedTxReceipt {
+  static from(fields: PickDefined<FieldsOf<MinedTxReceipt>>): MinedTxReceipt {
     return new MinedTxReceipt(
       fields.txHash,
       fields.status,
@@ -236,10 +269,11 @@ export class MinedTxReceipt extends TxReceiptBase {
       fields.transactionFee,
       fields.blockHash,
       fields.blockNumber,
+      fields.slotNumber,
       fields.txIndexInBlock,
       fields.epochNumber,
-      fields.debugLogs,
       fields.txEffect,
+      fields.debugLogs,
     );
   }
 
@@ -252,12 +286,13 @@ export class MinedTxReceipt extends TxReceiptBase {
         transactionFee: schemas.BigInt,
         blockHash: BlockHash.schema,
         blockNumber: BlockNumberSchema,
+        slotNumber: SlotNumberSchema,
         txIndexInBlock: schemas.Integer,
-        epochNumber: EpochNumberSchema.optional(),
-        debugLogs: z.array(DebugLog.schema).optional(),
+        epochNumber: EpochNumberSchema,
         txEffect: TxEffect.schema.optional(),
+        debugLogs: z.array(DebugLog.schema).optional(),
       })
-      .transform(MinedTxReceipt.from);
+      .transform(fields => MinedTxReceipt.from({ txEffect: undefined, ...fields }));
   }
 
   public static executionResultFromRevertCode(revertCode: RevertCode): TxExecutionResult {
@@ -270,7 +305,10 @@ export class MinedTxReceipt extends TxReceiptBase {
  * transaction's status: {@link PendingTxReceipt} while in the mempool, {@link DroppedTxReceipt} once dropped, and
  * {@link MinedTxReceipt} once included in a block.
  */
-export type TxReceipt = PendingTxReceipt | DroppedTxReceipt | MinedTxReceipt;
+export type TxReceipt<Opts extends GetTxReceiptOptions = GetTxReceiptOptions> =
+  | PendingTxReceipt<Opts>
+  | DroppedTxReceipt
+  | MinedTxReceipt<Opts>;
 
 /**
  * Zod schema for {@link TxReceipt}. Each member constrains its `status` field so the union routes

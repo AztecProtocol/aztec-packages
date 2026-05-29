@@ -907,6 +907,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
               l2BlockNumber: receipt.blockNumber,
               l2BlockHash: receipt.blockHash,
               txIndexInBlock: receipt.txIndexInBlock,
+              slotNumber: receipt.slotNumber,
             },
           ];
         })

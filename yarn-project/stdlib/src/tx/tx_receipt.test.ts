@@ -1,4 +1,4 @@
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { RevertCode } from '../avm/revert_code.js';
@@ -19,7 +19,7 @@ import {
 describe('TxReceipt', () => {
   describe('PendingTxReceipt', () => {
     it('constructs a bare pending receipt', () => {
-      const receipt = new PendingTxReceipt(TxHash.random());
+      const receipt = new PendingTxReceipt(TxHash.random(), undefined);
       expect(receipt.status).toEqual(TxStatus.PENDING);
       expect(receipt.isPending()).toBe(true);
       expect(receipt.isMined()).toBe(false);
@@ -30,7 +30,7 @@ describe('TxReceipt', () => {
     });
 
     it('round-trips a bare pending receipt', () => {
-      const receipt = new PendingTxReceipt(TxHash.random());
+      const receipt = new PendingTxReceipt(TxHash.random(), undefined);
       const parsed = TxReceiptSchema.parse(JSON.parse(jsonStringify(receipt)));
       expect(parsed).toBeInstanceOf(PendingTxReceipt);
       expect(parsed).toEqual(receipt);
@@ -102,8 +102,10 @@ describe('TxReceipt', () => {
         1n,
         BlockHash.random(),
         BlockNumber(1),
+        SlotNumber(1),
         0,
         EpochNumber(3),
+        undefined,
       );
 
     it('constructs a mined receipt with required fields', () => {
@@ -141,9 +143,9 @@ describe('TxReceipt', () => {
         7n,
         BlockHash.random(),
         BlockNumber(2),
+        SlotNumber(2),
         0,
         EpochNumber(1),
-        undefined,
         await TxEffect.random(),
       );
       const parsed = TxReceiptSchema.parse(JSON.parse(jsonStringify(receipt)));
@@ -160,8 +162,10 @@ describe('TxReceipt', () => {
         3n,
         BlockHash.random(),
         BlockNumber(5),
+        SlotNumber(5),
         4,
         EpochNumber(2),
+        undefined,
       );
       const parsed = TxReceiptSchema.parse(JSON.parse(jsonStringify(receipt)));
       expect(parsed).toBeInstanceOf(MinedTxReceipt);
@@ -172,7 +176,9 @@ describe('TxReceipt', () => {
 
   describe('union routing', () => {
     it('routes each status to the correct variant class', () => {
-      const pending = TxReceiptSchema.parse(JSON.parse(jsonStringify(new PendingTxReceipt(TxHash.random()))));
+      const pending = TxReceiptSchema.parse(
+        JSON.parse(jsonStringify(new PendingTxReceipt(TxHash.random(), undefined))),
+      );
       expect(pending).toBeInstanceOf(PendingTxReceipt);
 
       const dropped = TxReceiptSchema.parse(JSON.parse(jsonStringify(new DroppedTxReceipt(TxHash.random()))));
@@ -186,7 +192,10 @@ describe('TxReceipt', () => {
           1n,
           BlockHash.random(),
           BlockNumber(1),
+          SlotNumber(1),
           0,
+          EpochNumber(1),
+          undefined,
         );
         const parsed = TxReceiptSchema.parse(JSON.parse(jsonStringify(mined)));
         expect(parsed).toBeInstanceOf(MinedTxReceipt);
@@ -197,7 +206,9 @@ describe('TxReceipt', () => {
 
   describe('mined-only fields are ignored on other variants', () => {
     it('pending and dropped receipts do not surface mined-only fields after round-trip', () => {
-      const pending = TxReceiptSchema.parse(JSON.parse(jsonStringify(new PendingTxReceipt(TxHash.random()))));
+      const pending = TxReceiptSchema.parse(
+        JSON.parse(jsonStringify(new PendingTxReceipt(TxHash.random(), undefined))),
+      );
       expect(pending.blockNumber).toBeUndefined();
       expect(pending.transactionFee).toBeUndefined();
       expect(pending.txEffect).toBeUndefined();

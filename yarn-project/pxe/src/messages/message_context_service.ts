@@ -35,6 +35,7 @@ export class MessageContextService {
               l2BlockNumber: receipt.blockNumber,
               l2BlockHash: receipt.blockHash,
               txIndexInBlock: receipt.txIndexInBlock,
+              slotNumber: receipt.slotNumber,
             },
           ];
         })

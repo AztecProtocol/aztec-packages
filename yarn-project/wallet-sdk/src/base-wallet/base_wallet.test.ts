@@ -282,7 +282,7 @@ describe('BaseWallet', () => {
     pxe.getSyncedBlockHeader.mockResolvedValue(BlockHeader.empty());
     wallet.mockAccount.createTxExecutionRequest.mockResolvedValue(mock());
     pxe.proveTx.mockResolvedValue(provenTx);
-    node.getTxReceipt.mockResolvedValue(new PendingTxReceipt(TxHash.random()));
+    node.getTxReceipt.mockResolvedValue(new PendingTxReceipt(TxHash.random(), undefined));
     node.sendTx.mockResolvedValue();
 
     const payload = new ExecutionPayload([await makeFunctionCall(FunctionType.PRIVATE, false, 'transfer')], [], []);

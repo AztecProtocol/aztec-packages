@@ -1,4 +1,4 @@
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
@@ -21,7 +21,18 @@ describe('waitForTx', () => {
   let txHash: TxHash;
 
   const minedReceipt = (status: MinedTxStatus, executionResult = TxExecutionResult.SUCCESS): MinedTxReceipt =>
-    new MinedTxReceipt(txHash, status, executionResult, 1n, BlockHash.random(), BlockNumber(20), 0, EpochNumber(1));
+    new MinedTxReceipt(
+      txHash,
+      status,
+      executionResult,
+      1n,
+      BlockHash.random(),
+      BlockNumber(20),
+      SlotNumber(20),
+      0,
+      EpochNumber(1),
+      undefined,
+    );
 
   beforeEach(() => {
     node = mock();
@@ -58,7 +69,7 @@ describe('waitForTx', () => {
 
     it('keeps waiting while the tx is pending', async () => {
       node.getTxReceipt
-        .mockResolvedValueOnce(new PendingTxReceipt(txHash))
+        .mockResolvedValueOnce(new PendingTxReceipt(txHash, undefined))
         .mockResolvedValueOnce(minedReceipt(TxStatus.CHECKPOINTED));
       const receipt = await waitForTx(node, txHash, { timeout: 1, interval: 0.1 });
       expect(receipt.status).toBe(TxStatus.CHECKPOINTED);

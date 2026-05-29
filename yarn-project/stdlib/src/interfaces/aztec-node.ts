@@ -375,7 +375,10 @@ export interface AztecNode {
    * `includeProof` keeps the proof on that attached pending tx (only meaningful with `includePendingTx`).
    * @returns A receipt of the transaction.
    */
-  getTxReceipt(txHash: TxHash, options?: GetTxReceiptOptions): Promise<TxReceipt>;
+  getTxReceipt<TGetTxReceiptOptions extends GetTxReceiptOptions = {}>(
+    txHash: TxHash,
+    options?: TGetTxReceiptOptions,
+  ): Promise<TxReceipt<TGetTxReceiptOptions>>;
 
   /**
    * Gets a tx effect.

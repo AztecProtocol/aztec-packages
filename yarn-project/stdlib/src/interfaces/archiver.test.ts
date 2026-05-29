@@ -425,6 +425,7 @@ class MockArchiver implements ArchiverApi {
       l2BlockHash: new BlockHash(new Fr(0x12)),
       data: await TxEffect.random(),
       txIndexInBlock: randomInt(10),
+      slotNumber: SlotNumber(1),
     };
   }
   getSyncedL2SlotNumber(): Promise<SlotNumber> {

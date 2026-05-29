@@ -508,7 +508,7 @@ export abstract class BaseWallet implements Wallet {
     const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
 
     // Display debug logs from public execution if present (served in test mode only)
-    if (receipt.debugLogs?.length) {
+    if (receipt.isMined() && receipt.debugLogs?.length) {
       await displayDebugLogs(receipt.debugLogs, this.getContractName.bind(this));
     }
 

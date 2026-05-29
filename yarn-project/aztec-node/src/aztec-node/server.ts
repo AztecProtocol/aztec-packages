@@ -1182,7 +1182,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.log.info(`Received tx ${txHash} in ${duration}ms`, { txHash });
   }
 
-  public async getTxReceipt(txHash: TxHash, options?: GetTxReceiptOptions): Promise<TxReceipt> {
+  public async getTxReceipt<TGetTxReceiptOptions extends GetTxReceiptOptions = {}>(
+    txHash: TxHash,
+    options?: TGetTxReceiptOptions,
+  ): Promise<TxReceipt<TGetTxReceiptOptions>> {
     // Check the tx pool status first. If the tx is known to the pool (pending or mined), we'll use that
     // as a fallback if we don't find a mined tx effect in the archiver.
     const txPoolStatus = await this.p2pClient.getTxStatus(txHash);
@@ -1222,16 +1225,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    */
   async #assembleMinedReceipt(indexed: IndexedTxEffect, options?: GetTxReceiptOptions): Promise<MinedTxReceipt> {
     const blockNumber = indexed.l2BlockNumber;
-    const [tips, l1Constants, blockData] = await Promise.all([
-      this.blockSource.getL2Tips(),
-      this.blockSource.getL1Constants(),
-      this.blockSource.getBlockData({ number: blockNumber }),
-    ]);
+    const [tips, l1Constants] = await Promise.all([this.blockSource.getL2Tips(), this.blockSource.getL1Constants()]);
 
     const status = this.#deriveMinedStatus(blockNumber, tips);
-    const epochNumber = blockData
-      ? getEpochAtSlot(blockData.header.globalVariables.slotNumber, l1Constants)
-      : undefined;
+    const epochNumber = getEpochAtSlot(indexed.slotNumber, l1Constants);
 
     return new MinedTxReceipt(
       indexed.data.txHash,
@@ -1240,10 +1237,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       indexed.data.transactionFee.toBigInt(),
       indexed.l2BlockHash,
       blockNumber,
+      indexed.slotNumber,
       indexed.txIndexInBlock,
       epochNumber,
-      /*debugLogs=*/ undefined,
       options?.includeTxEffect ? indexed.data : undefined,
+      /*debugLogs=*/ undefined,
     );
   }
 

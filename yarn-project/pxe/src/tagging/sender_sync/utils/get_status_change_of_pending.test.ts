@@ -1,4 +1,4 @@
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { MinedTxStatus } from '@aztec/stdlib/tx';
@@ -24,8 +24,10 @@ describe('getStatusChangeOfPending', () => {
       1n,
       BlockHash.random(),
       BlockNumber(blockNumber),
+      SlotNumber(Number(blockNumber)),
       0,
       EpochNumber(1),
+      undefined,
     );
 
   beforeEach(() => {

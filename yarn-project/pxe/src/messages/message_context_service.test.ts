@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -39,9 +39,9 @@ describe('MessageContextService', () => {
       0n,
       opts.blockHash ?? BlockHash.random(),
       BlockNumber(opts.blockNumber),
+      SlotNumber(opts.blockNumber),
       opts.txIndexInBlock ?? 0,
-      undefined,
-      undefined,
+      EpochNumber(1),
       txEffect,
     );
   };
@@ -178,9 +178,9 @@ describe('MessageContextService', () => {
         0n,
         BlockHash.random(),
         BlockNumber(anchorBlockNumber - 1),
+        SlotNumber(anchorBlockNumber - 1),
         0,
-        undefined,
-        undefined,
+        EpochNumber(1),
         txEffect,
       ),
     );

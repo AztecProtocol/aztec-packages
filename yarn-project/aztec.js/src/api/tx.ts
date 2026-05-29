@@ -5,7 +5,6 @@ export {
   TxHash,
   TxStatus,
   SortedTxStatuses,
-  TxReceiptBase,
   PendingTxReceipt,
   DroppedTxReceipt,
   MinedTxReceipt,

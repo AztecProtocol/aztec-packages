@@ -756,9 +756,9 @@ class MockAztecNode implements AztecNode {
       1n,
       new BlockHash(new Fr(0x12)),
       BlockNumber(1),
+      SlotNumber(1),
       0,
       EpochNumber(1),
-      undefined,
       options?.includeTxEffect ? await TxEffect.random() : undefined,
     );
   }
@@ -769,6 +769,7 @@ class MockAztecNode implements AztecNode {
       l2BlockHash: new BlockHash(new Fr(0x12)),
       data: await TxEffect.random(),
       txIndexInBlock: randomInt(10),
+      slotNumber: SlotNumber(1),
     };
   }
   getPendingTxs(): Promise<Tx[]> {

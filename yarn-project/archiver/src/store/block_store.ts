@@ -518,6 +518,7 @@ export class BlockStore {
         l2BlockNumber: block.number,
         l2BlockHash: blockHash,
         txIndexInBlock: i,
+        slotNumber: block.header.globalVariables.slotNumber,
       };
       await this.#txEffects.set(txEffect.data.txHash.toString(), serializeIndexedTxEffect(txEffect));
     }

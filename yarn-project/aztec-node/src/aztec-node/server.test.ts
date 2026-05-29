@@ -1469,6 +1469,7 @@ describe('aztec node', () => {
     const makeIndexedTxEffect = (
       txHash: TxHash,
       blockNumber: number,
+      slotNumber: number,
       txIndexInBlock: number,
       revertCode: RevertCode,
       transactionFee: bigint,
@@ -1479,6 +1480,7 @@ describe('aztec node', () => {
         l2BlockNumber: BlockNumber(blockNumber),
         l2BlockHash: BlockHash.random(),
         txIndexInBlock,
+        slotNumber: SlotNumber(slotNumber),
       };
     };
 
@@ -1495,6 +1497,7 @@ describe('aztec node', () => {
       const indexed = makeIndexedTxEffect(
         opts.txHash,
         opts.blockNumber,
+        opts.slotNumber,
         opts.txIndexInBlock ?? 0,
         opts.revertCode ?? RevertCode.OK,
         opts.transactionFee ?? 7n,
@@ -1624,6 +1627,9 @@ describe('aztec node', () => {
 
       const receipt = await node.getTxReceipt(txHash);
       expect(receipt).toBeInstanceOf(PendingTxReceipt);
+      if (!receipt.isPending()) {
+        throw new Error('expected a pending receipt');
+      }
       expect(receipt.status).toEqual(TxStatus.PENDING);
       expect(receipt.tx).toBeUndefined();
     });
@@ -1637,6 +1643,9 @@ describe('aztec node', () => {
 
       const receipt = await node.getTxReceipt(txHash, { includePendingTx: true });
       expect(receipt).toBeInstanceOf(PendingTxReceipt);
+      if (!receipt.isPending()) {
+        throw new Error('expected a pending receipt');
+      }
       expect(receipt.tx).toBeDefined();
       expect(receipt.tx!.chonkProof).toEqual(pendingTx.withoutProof().chonkProof);
     });
