@@ -5,6 +5,10 @@ if(AVM_TRANSPILER_LIB)
     target_link_libraries(api_objects PRIVATE avm_transpiler)
 endif()
 
-if(NOT WASM AND NOT BB_LITE)
-    target_link_libraries(api_objects PRIVATE ipc)
+# api_objects compiles api_msgpack.cpp / api_chonk.cpp / api_ultra_honk.cpp
+# which transitively include bbapi/generated/bb_types.hpp → ipc_runtime/throw.hpp.
+# ipc_runtime is a STATIC lib natively and an INTERFACE (header-only) lib under
+# WASM, so linking under both modes just propagates the include path.
+if(NOT BB_LITE)
+    target_link_libraries(api_objects PRIVATE ipc_runtime)
 endif()

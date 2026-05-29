@@ -22,8 +22,12 @@ if (NOT(FUZZING))
     if(AVM_TRANSPILER_LIB)
         target_link_libraries(bb PRIVATE avm_transpiler)
     endif()
-    if(NOT WASM AND NOT BB_LITE)
-        target_link_libraries(bb PRIVATE ipc)
+    # ipc_runtime is INTERFACE-only under WASM (headers, no transport), STATIC
+    # natively — linking in both modes just propagates include paths so
+    # bb/cli.cpp can find ipc_runtime/throw.hpp via the codegen-emitted
+    # bb_types.hpp it transitively pulls in.
+    if(NOT BB_LITE)
+        target_link_libraries(bb PRIVATE ipc_runtime)
     endif()
     if(ENABLE_STACKTRACES)
         target_link_libraries(
@@ -62,8 +66,9 @@ if (NOT(FUZZING))
         if(AVM_TRANSPILER_LIB)
             target_link_libraries(bb-avm PRIVATE avm_transpiler)
         endif()
-        if(NOT WASM AND NOT BB_LITE)
-            target_link_libraries(bb-avm PRIVATE ipc)
+        # ipc_runtime as above — INTERFACE under WASM, STATIC native.
+        if(NOT BB_LITE)
+            target_link_libraries(bb-avm PRIVATE ipc_runtime)
         endif()
         if(ENABLE_STACKTRACES)
             target_link_libraries(

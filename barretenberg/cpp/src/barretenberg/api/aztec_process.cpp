@@ -1,7 +1,9 @@
 #ifndef __wasm__
 #include "aztec_process.hpp"
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/bbapi/bbapi_chonk.hpp"
+#include "barretenberg/bbapi/bbapi_handlers.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/generated/bb_types.hpp"
 #include "barretenberg/common/base64.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -109,7 +111,11 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
 
     // Generate new VK
     info("Generating verification key: ", hash_str);
-    auto response = bbapi::ChonkComputeVk{ .circuit = { .name = circuit_name, .bytecode = bytecode } }.execute();
+    bbapi::BBApiRequest request;
+    auto response =
+        bbapi::handle_chonk_compute_vk(request,
+                                       bbapi::wire::ChonkComputeVk{ .circuit = bbapi::wire::CircuitInputNoVK{
+                                                                        .name = circuit_name, .bytecode = bytecode } });
 
     // Cache the VK
     write_file(vk_cache_path, response.bytes);
