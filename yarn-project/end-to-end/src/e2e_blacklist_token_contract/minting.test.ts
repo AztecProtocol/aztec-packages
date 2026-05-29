@@ -11,9 +11,6 @@ describe('e2e_blacklist_token_contract mint', () => {
   let { asset, tokenSim, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    // TODO(kill-non-pipelined): re-enable pipelining once B1 (world-state fork lifecycle) is
-    // fixed — BlacklistTokenContractTest.applyBaseSetup runs two 86400s warps which time out
-    // mineBlock under pipelining. See PIPELINING_GOTCHAS.md.
     await t.setup({ ...AUTOMINE_E2E_OPTS });
     // Beware that we are adding the admin as minter here, which is very slow because it needs multiple blocks.
     await t.applyMint();

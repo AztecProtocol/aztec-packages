@@ -185,15 +185,7 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
-  # Under proposer pipelining each validator votes in its own slot and the votes
-  # don't aggregate into the same round, so the slashing quorum (3) is never
-  # reached within the 414s budget; the test consistently times out at the docker
-  # outer 600s (exit 124). The publisher refactor lands all vote-offenses tx's
-  # on L1 successfully — voteCount on the slasher proposer simply stays at 1
-  # per round. This is a slashing-payload aggregation issue independent of
-  # publisher work; skip until the slashing team addresses it separately.
   - regex: "e2e_p2p/valid_epoch_pruned_slash.test.ts"
-    skip: true
     owners:
       - *mitch
       - *palla
@@ -276,14 +268,10 @@ tests:
       - *adam
 
   - regex: "src/e2e_epochs/epochs_l1_reorgs.parallel.test.ts"
-    skip: true
     owners:
       - *phil
 
-  # Consistently times out — prune detection timing too tight for CI resources
-  # See https://github.com/AztecProtocol/aztec-packages/pull/22392
   - regex: "epochs_mbps.pipeline.parallel.test.ts.*prunes uncheckpointed"
-    skip: true
     owners:
       - *sean
 
@@ -383,15 +371,7 @@ tests:
     owners:
       - *palla
 
-  # HA full suite is unstable under HA pipelining: multiple distinct failure
-  # modes (governance vote coord, work distribution, afterAll teardown hook
-  # timeouts, peer races on checkpoint proposals — see #23344, #23541,
-  # ci.aztec-labs.com/136431da99834194). Flagging individual error_regex
-  # entries and even the whole-suite flake match still let it dequeue PRs
-  # because ci3 retries once and the suite fails both attempts. Skip
-  # outright on merge-train/spartan until HA pipelining stabilises.
   - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
-    skip: true
     owners:
       - *spyros
 
