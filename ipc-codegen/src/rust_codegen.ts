@@ -92,6 +92,13 @@ export class RustCodegen {
 
       case "array":
         const elemType = this.mapType(type.element!);
+        // Byte arrays wire-encode as msgpack `bin` (matches std::array<uint8_t, N>
+        // in C++ via msgpack-c's adapter), so emit Vec<u8> to pair with the
+        // `serde_bytes` adapter — `[u8; N]` would serialize as an array of N
+        // u8 elements, which is a different wire type and would fail to decode.
+        if (elemType === "u8") {
+          return "Vec<u8>";
+        }
         // Large arrays become Vec for ergonomics
         return type.size! > 32
           ? `Vec<${elemType}>`
@@ -110,7 +117,17 @@ export class RustCodegen {
 
   // Check if field needs serde(with = "serde_bytes")
   private needsSerdeBytes(type: Type): boolean {
-    return type.kind === "primitive" && type.primitive === "bytes";
+    if (type.kind === "primitive" && type.primitive === "bytes") return true;
+    // `array of u8` and `vector of u8` both map to Vec<u8> and must wire-encode
+    // as msgpack `bin` to match the C++ representation.
+    if (type.kind === "array" && this.isU8Primitive(type.element!)) return true;
+    if (type.kind === "vector" && this.isU8Primitive(type.element!))
+      return true;
+    return false;
+  }
+
+  private isU8Primitive(type: Type): boolean {
+    return type.kind === "primitive" && type.primitive === "u8";
   }
 
   // Check if field needs serde(with = "serde_vec_bytes")

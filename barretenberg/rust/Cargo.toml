@@ -17,17 +17,12 @@ rmp-serde = "1.1"
 rmpv = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 
-# Async runtime
-tokio = { version = "1.35", features = ["full"] }
-
 # IPC and system
 libc = "0.2"
-nix = { version = "0.27", features = ["socket", "uio"] }
 
 # Testing
 criterion = "0.5"
 
 # Utilities
 thiserror = "1.0"
-tracing = "0.1"
 hex = "0.4"
