@@ -84,6 +84,7 @@ async function main() {
     throw new Error(
       `Standard contract addresses have changed. The following generated files were out of date and have been rewritten in-place with the freshly-derived values:\n${list}\n\n` +
         `What changed (− actual / committed, + expected / freshly derived):\n\n${diffs}\n\n` +
+        `These are derived values — don't hand-edit them. Drift means an upstream change (a modified standard contract, its initialization parameters, or the bb/noir compiler) altered what they derive to.\n\n` +
         `Any noir-contract that imports the stale addresses (via aztec-nr or aztec_sublib) now has stale bytecode and must be rebuilt.\n\n` +
         `To recover, the simplest option is to re-run \`./bootstrap.sh\` from the repo root: the second pass picks up the now-correct values.\n\n` +
         `For a faster targeted recovery without rebuilding everything, run from the repo root:\n` +
