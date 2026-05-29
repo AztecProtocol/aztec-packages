@@ -50,28 +50,8 @@ function build {
   rm -rf examples/ts/echo/node_modules
   (cd examples/ts/echo && npm install --no-package-lock --quiet)
 
-  # C++ echo binaries compile the ipc-runtime .cpp sources directly into each
-  # binary (no prebuilt archive, no IPC_RUNTIME_LIB_DIR). msgpack-c headers
-  # are borrowed from bb's cmake build until we have a standalone source.
-  local IPC_RUNTIME_INC IPC_RUNTIME_SRCS
-  IPC_RUNTIME_INC="$(cd ../ipc-runtime/cpp 2>/dev/null && pwd)" || true
-  if [ -n "${IPC_RUNTIME_INC:-}" ]; then
-    # Skip *.test.cpp — those depend on gtest which is bb's build dep.
-    IPC_RUNTIME_SRCS="$(ls "$IPC_RUNTIME_INC"/ipc_runtime/*.cpp "$IPC_RUNTIME_INC"/ipc_runtime/shm/*.cpp 2>/dev/null | grep -v '\.test\.cpp$' | tr '\n' ' ')"
-  fi
-  local MSGPACK_INC
-  MSGPACK_INC="$(cd ../barretenberg/cpp/build/_deps/msgpack-c/src/msgpack-c/include 2>/dev/null && pwd)" || true
-  local IPC_CODEGEN_INC
-  IPC_CODEGEN_INC="$(pwd)/cpp/include"
-  if [ -n "${IPC_RUNTIME_SRCS:-}" ] && [ -n "${MSGPACK_INC:-}" ] && [ -d "$MSGPACK_INC" ]; then
-    echo "Building C++ echo binaries..."
-    # THROW/RETHROW satisfy the patched msgpack-c (-fno-exceptions support).
-    local CXX_FLAGS="-std=c++20 -I $MSGPACK_INC -I $IPC_RUNTIME_INC -I $IPC_CODEGEN_INC -DMSGPACK_NO_BOOST -DMSGPACK_USE_STD_VARIANT_ADAPTOR -DTHROW=throw -DRETHROW=throw"
-    (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_server echo_server.cpp $IPC_RUNTIME_SRCS -lpthread)
-    (cd examples/cpp/echo && clang++ $CXX_FLAGS -o echo_client echo_client.cpp generated/echo_ipc_client.cpp $IPC_RUNTIME_SRCS -lpthread)
-  else
-    echo "Skipping C++ echo build — ipc-runtime sources or msgpack-c not available"
-  fi
+  echo "Building C++ echo binaries..."
+  (cd examples/cpp/echo && cmake -S . -B build && cmake --build build --target echo_server echo_client)
 
   # NB: the golden msgpack fixtures under examples/echo-schema/golden/ are
   # COMMITTED and FROZEN — they're the binding wire-format contract. Don't
@@ -91,12 +71,7 @@ function update_goldens {
 }
 
 function test_cmds {
-  # Discover which languages can participate. Rust/TS/Zig are unconditional
-  # (build() always builds them); C++ is conditional on bb's msgpack being present.
-  local matrix_langs=(rust ts zig)
-  if [ -x examples/cpp/echo/echo_server ]; then
-    matrix_langs+=(cpp)
-  fi
+  local matrix_langs=(rust ts zig cpp)
 
   local prefix="$hash:CPUS=1:TIMEOUT=120s"
   local script="ipc-codegen/examples/scripts/run_cross_language_test.sh"

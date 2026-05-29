@@ -1,6 +1,7 @@
 # Local build artifacts produced by the echo wire-compat examples.
 examples/cpp/*/echo_client
 examples/cpp/*/echo_server
+examples/cpp/*/build*/
 examples/rust/*/target/
 examples/zig/*/.zig-cache/
 examples/zig/*/zig-out/

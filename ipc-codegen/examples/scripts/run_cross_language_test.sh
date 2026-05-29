@@ -24,7 +24,7 @@ server_cmd_for() {
   case "$1" in
     rust) echo "rust/echo/target/debug/echo_server" ;;
     ts)   echo "ts/echo/node_modules/.bin/tsx ts/echo/echo_server.ts" ;;
-    cpp)  echo "cpp/echo/echo_server" ;;
+    cpp)  echo "cpp/echo/build/bin/echo_server" ;;
     zig)  echo "zig/echo/zig-out/bin/echo_server" ;;
     *)    echo "unknown lang: $1" >&2; exit 1 ;;
   esac
@@ -34,7 +34,7 @@ client_cmd_for() {
   case "$1" in
     rust) echo "rust/echo/target/debug/echo_client" ;;
     ts)   echo "ts/echo/node_modules/.bin/tsx ts/echo/echo_client.ts" ;;
-    cpp)  echo "cpp/echo/echo_client" ;;
+    cpp)  echo "cpp/echo/build/bin/echo_client" ;;
     zig)  echo "zig/echo/zig-out/bin/echo_client" ;;
     *)    echo "unknown lang: $1" >&2; exit 1 ;;
   esac
