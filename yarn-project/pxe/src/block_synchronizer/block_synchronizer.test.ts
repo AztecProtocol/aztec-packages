@@ -140,6 +140,57 @@ describe('BlockSynchronizer', () => {
   });
 
   describe('canonical map', () => {
+    it('hydrates the canonical map from finality on cold start', async () => {
+      // Provide the genesis header so doSync can set the initial anchor.
+      const genesisBlock = await L2Block.random(BlockNumber(0));
+      const genesisBlockData: BlockData = {
+        header: genesisBlock.header,
+        archive: genesisBlock.archive,
+        blockHash: await genesisBlock.hash(),
+        checkpointNumber: genesisBlock.checkpointNumber,
+        indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
+      };
+      aztecNode.getBlockData.mockResolvedValue(genesisBlockData);
+
+      // finalized tip = 2, latest tip = 4.
+      aztecNode.getBlockNumber.mockImplementation((tip?: string) =>
+        Promise.resolve(BlockNumber(tip === 'finalized' ? 2 : 4)),
+      );
+
+      // Build blocks 2..4 with deterministic hashes (L2Block.random gives each a unique archive root).
+      const blocksByNumber = new Map<number, { hash: BlockHash; header: any; archive: any }>();
+      for (let h = 2; h <= 4; h++) {
+        const b = await L2Block.random(BlockNumber(h));
+        blocksByNumber.set(h, { hash: await b.hash(), header: b.header, archive: b.archive });
+      }
+
+      // Mock getBlock(BlockNumber(h)) — doSync calls node.getBlock(BlockNumber(h)) and reads `.hash` as a property.
+      aztecNode.getBlock.mockImplementation((param: any) => {
+        const n = Number(param);
+        const entry = blocksByNumber.get(n);
+        if (!entry) {
+          return Promise.resolve(undefined);
+        }
+        return Promise.resolve({ hash: entry.hash, header: entry.header, archive: entry.archive } as any);
+      });
+
+      // blockStream.sync() resolves immediately (no events).
+      blockStream.sync.mockResolvedValue(undefined);
+
+      await synchronizer.sync();
+
+      expect(anchorBlockStore.getFloor()).toBe(2);
+      expect(anchorBlockStore.getHighestFinalized()).toBe(2);
+
+      // All three hydrated heights must be canonical with the hashes doSync stored.
+      for (const [n, entry] of blocksByNumber) {
+        expect(anchorBlockStore.isCanonical({ blockNumber: n, blockHash: entry.hash.toString() })).toBe(true);
+      }
+
+      // A competing hash at a hydrated height is NOT canonical.
+      expect(anchorBlockStore.isCanonical({ blockNumber: 3, blockHash: '0xdeadbeef' })).toBe(false);
+    });
+
     it('records canonical hashes for all blocks in a blocks-added event', async () => {
       const blocks = await timesParallel(3, i => L2Block.random(BlockNumber(i + 1)));
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });
