@@ -1,0 +1,11 @@
+# Local build artifacts produced by the echo wire-compat examples.
+examples/cpp/*/echo_client
+examples/cpp/*/echo_server
+examples/rust/*/target/
+examples/zig/*/.zig-cache/
+examples/zig/*/zig-out/
+examples/ts/*/node_modules/
+
+# All files under any generated/ directory are produced by bootstrap.sh build
+# (either codegen output or one-time-copied templates) and are never committed.
+**/generated/

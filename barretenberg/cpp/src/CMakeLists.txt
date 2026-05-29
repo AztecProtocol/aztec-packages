@@ -52,7 +52,7 @@ if(WASM)
     add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${BACKWARD_INCLUDE} ${NLOHMANN_JSON_INCLUDE})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${BACKWARD_INCLUDE} ${NLOHMANN_JSON_INCLUDE} ${CMAKE_CURRENT_SOURCE_DIR}/../../../ipc-runtime/cpp ${CMAKE_CURRENT_SOURCE_DIR}/../../../ipc-codegen/cpp/include)
 
 # Add avm-transpiler include path when library is provided
 if(AVM_TRANSPILER_LIB)
@@ -130,6 +130,14 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/wsdb)
     add_subdirectory(barretenberg/wsdb_client)
     add_subdirectory(barretenberg/nodejs_module)
+endif()
+
+# Pull in ipc-runtime as a C++ dependency. Provides the `ipc_runtime`
+# library target (static, or INTERFACE under WASM with transport sources
+# stubbed) that bbapi/wsdb/etc link against for the codegen-emitted
+# bb_ipc_server.hpp dispatcher.
+if(NOT FUZZING AND NOT BB_LITE)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/../../ipc-runtime/cpp ${CMAKE_BINARY_DIR}/ipc-runtime)
 endif()
 
 if(FUZZING_AVM)

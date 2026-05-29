@@ -1,0 +1,10 @@
+{
+  "name": "echo-wire-compat-ts",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aztec/ipc-runtime": "file:../../../../ipc-runtime/ts",
+    "msgpackr": "^1.10.0",
+    "tsx": "^4.19.0"
+  }
+}
