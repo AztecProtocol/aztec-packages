@@ -2,8 +2,7 @@
 /**
  * @file named_union.hpp
  * @brief Tagged-union with msgpack [name, payload] wire format. Single source
- *        of truth used by both ipc-runtime's own dispatcher and by
- *        in-tree consumers (bbapi command unions etc).
+ *        of truth used by codegen-emitted dispatchers and schema reflection.
  *
  * Each type in the union must declare:
  *   static constexpr const char MSGPACK_SCHEMA_NAME[] = "...";

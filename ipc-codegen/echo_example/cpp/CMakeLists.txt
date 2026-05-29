@@ -31,7 +31,7 @@ add_subdirectory(
 add_library(echo_common INTERFACE)
 target_include_directories(echo_common INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    "${REPO_ROOT}/ipc-codegen/cpp/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/generated"
     "${msgpack_c_SOURCE_DIR}/include"
 )
 target_compile_definitions(echo_common INTERFACE

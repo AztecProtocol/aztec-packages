@@ -9,13 +9,8 @@
  * canonical schema source — the binary serialises its own understanding of
  * the wire format and that becomes the input for cross-language codegen.
  *
- * This is the `ipc::`-namespaced sibling of barretenberg's
- * `serialize/msgpack_impl/schema_impl.hpp`. The two are independent — they
- * don't share template specialisations and can coexist in the same TU.
- *
- * The schema reflection itself is in this file (no barretenberg headers,
- * stdlib + msgpack-c only) so labs-owned services consuming ipc-codegen
- * output don't need to link barretenberg.
+ * The schema reflection itself is in this file (stdlib + msgpack-c only) so
+ * services consuming ipc-codegen output do not need project-specific headers.
  */
 #include <array>
 #include <cstdint>
