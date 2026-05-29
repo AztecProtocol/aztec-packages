@@ -21,7 +21,11 @@ import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
-import { type EndToEndContext, ensureAccountContractsPublished } from '../fixtures/utils.js';
+import {
+  type EndToEndContext,
+  ensureAccountContractsPublished,
+  ensureAuthRegistryPublished,
+} from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
@@ -32,7 +36,7 @@ import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 // anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --fork-block-number 17514288 --chain-id 31337
 // For CI, this is configured in `run_tests.sh` and `docker-compose-images.yml`
 
-const TIMEOUT = 360_000;
+const TIMEOUT = 15 * 60 * 1000;
 
 export const uniswapL1L2TestSuite = (
   setup: () => Promise<EndToEndContext>,
@@ -98,6 +102,7 @@ export const uniswapL1L2TestSuite = (
       ownerEthAddress = EthAddress.fromString((await l1Client.getAddresses())[0]);
 
       await ensureAccountContractsPublished(wallet, [ownerAddress, sponsorAddress]);
+      await ensureAuthRegistryPublished(wallet, ownerAddress);
 
       logger.info('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(

@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: 4.2.0
+Version: v4.3.0
 
 ## Quick Import Reference
 
@@ -78,6 +78,7 @@ new AztecAddress(buffer: Fr | Buffer<ArrayBufferLike>)
 
 **Properties**
 - `_branding: "AztecAddress"` - Brand.
+- `static NULL_MSG_SENDER: AztecAddress` - Null msg sender address. Not part of the protocol contracts tree.
 - `static schema: unknown`
 - `size: unknown`
 - `static SIZE_IN_BYTES: number`
@@ -645,13 +646,13 @@ new ExtendedContractClassLog(id: LogId, log: ContractClassLog)
 - `toBuffer() => Buffer` - Serializes log to a buffer.
 - `toString() => string` - Serializes log to a string.
 
-### ExtendedDirectionalAppTaggingSecret
+### AppTaggingSecret
 
-Extended directional application tagging secret used for log tagging. "Extended" because it bundles the directional app tagging secret with the app (contract) address. This bundling was done because where this type is used we commonly need access to both the secret and the address. "Directional" because the derived secret is bound to the recipient address: A→B differs from B→A even with the same participants and app. Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there doesn't seem to be a good way around this.
+Application tagging secret used for log tagging. It bundles the directional app tagging secret with the app (contract) address. This bundling was done because where this type is used we commonly need access to both the secret and the address. The derived secret is directional because it is bound to the recipient address: A→B differs from B→A even with the same participants and app. Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types in stdlib hence there doesn't seem to be a good way around this.
 
 **Constructor**
 ```typescript
-new ExtendedDirectionalAppTaggingSecret(secret: Fr, app: AztecAddress)
+new AppTaggingSecret(secret: Fr, app: AztecAddress)
 ```
 
 **Properties**
@@ -659,8 +660,8 @@ new ExtendedDirectionalAppTaggingSecret(secret: Fr, app: AztecAddress)
 - `readonly secret: Fr`
 
 **Methods**
-- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<ExtendedDirectionalAppTaggingSecret | undefined>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret. Returns undefined if `externalAddress` is an invalid address.
-- `static fromString(str: string) => ExtendedDirectionalAppTaggingSecret`
+- `static compute(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<AppTaggingSecret | undefined>` - Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging secret. Returns undefined if `externalAddress` is an invalid address.
+- `static fromString(str: string) => AppTaggingSecret`
 - `toString() => string`
 
 ### ExtendedPublicLog
@@ -1848,6 +1849,7 @@ new Tag(value: Fr)
 **Methods**
 - `static compute(preTag: PreTag) => Promise<Tag>`
 - `equals(other: Tag) => boolean`
+- `static random() => Tag`
 - `toJSON() => string`
 - `toString() => string`
 
@@ -2138,6 +2140,7 @@ new TxProvingResult(privateExecutionResult: PrivateExecutionResult, publicInputs
 **Methods**
 - `static from(fields: FieldsOf<TxProvingResult>) => TxProvingResult`
 - `getOffchainEffects() => OffchainEffect[]`
+- `getTxHash() => Promise<TxHash>`
 - `static random() => Promise<TxProvingResult>`
 - `toTx() => Promise<Tx>`
 
@@ -2295,6 +2298,7 @@ A basic value.
 Defines artifact of a contract.
 
 **Properties**
+- `aztecVersion: string` - The version of the Aztec stack that compiled this artifact.
 - `fileMap: DebugFileMap` - The map of file ID to the source code and path of the file.
 - `functions: FunctionArtifact[]` - The functions of the contract. Includes private and utility functions, plus the public dispatch function.
 - `name: string` - The name of the contract.
@@ -2612,8 +2616,17 @@ Interface to a handler of events emitted.
 
 Interface to the local view of the chain. Implemented by world-state and l2-tips-store.
 
+Extends: `L2TipsProvider`
+
 **Methods**
 - `getL2BlockHash(number: number) => Promise<string | undefined>`
+- `getL2Tips() => Promise<L2Tips>`
+
+### L2TipsProvider
+
+Provides the current chain tips. Implemented by world-state, l2-tips-store, and AztecNode.
+
+**Methods**
 - `getL2Tips() => Promise<L2Tips>`
 
 ### NodeInfo
@@ -2906,6 +2919,12 @@ Computes the partial address defined as the hash of the contract class id and sa
 ```typescript
 function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) => Promise<Fr>
 ```
+
+### computePrivateEventCommitment
+```typescript
+function computePrivateEventCommitment(randomness: Fr, eventSelector: Fr, content: Fr[]) => Promise<Fr>
+```
+Computes the commitment of a private event from its preimage.
 
 ### computePrivateFunctionLeaf
 ```typescript
@@ -3482,6 +3501,12 @@ A named type.
 type APPROXIMATE_MAX_DA_GAS_PER_BLOCK = number
 ```
 Approximate max DA gas limit. Arbitrary, assuming 4 blocks per checkpoint — users should use gas estimation.
+
+### ARTIFACT_VERSION_BEFORE_INJECTION
+```typescript
+type ARTIFACT_VERSION_BEFORE_INJECTION = "FROM_RELEASE_BEFORE_VERSION_INJECTION"
+```
+Placeholder version injected into artifacts compiled before aztecVersion was added. Remove.
 
 ### AbiDecoded
 ```typescript
@@ -4085,7 +4110,7 @@ type TX_ERROR_SIZE_ABOVE_LIMIT = "Transaction size above size limit"
 ```typescript
 type TaggingIndexRange = unknown
 ```
-Represents a range of tagging indexes for a given extended directional app tagging secret. Used to track the lowest and highest indexes used in a transaction for a given (sender, recipient, app/contract) tuple.
+Represents a range of tagging indexes for a given app tagging secret.
 
 ### TxValidationResult
 ```typescript

@@ -1,4 +1,5 @@
 import { timesParallel } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { CompleteAddress } from '@aztec/stdlib/contract';
@@ -30,7 +31,7 @@ describe('addresses', () => {
     const address = await CompleteAddress.random();
     const otherAddress = await CompleteAddress.create(
       address.address,
-      new PublicKeys(await Point.random(), await Point.random(), await Point.random(), await Point.random()),
+      new PublicKeys(Fr.random(), await Point.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()),
       address.partialAddress,
     );
 

@@ -53,7 +53,8 @@ include "update_check.pil";
  *         caller.exists,
  *         caller.deployer_addr,   // situational - only if caller needs it
  *         caller.current_class_id,
- *         caller.init_hash        // situational - only if caller needs it
+ *         caller.init_hash,       // situational - only if caller needs it
+ *         caller.immutables_hash  // situational - only if caller needs it
  *     } in contract_instance_retrieval.sel {
  *         contract_instance_retrieval.address,
  *         contract_instance_retrieval.nullifier_tree_root,
@@ -61,10 +62,11 @@ include "update_check.pil";
  *         contract_instance_retrieval.exists,
  *         contract_instance_retrieval.deployer_addr,
  *         contract_instance_retrieval.current_class_id,
- *         contract_instance_retrieval.init_hash
+ *         contract_instance_retrieval.init_hash,
+ *         contract_instance_retrieval.immutables_hash
  *     };
  *
- *     Situational columns (deployer_addr, init_hash) can be omitted if the caller doesn't need
+ *     Situational columns (deployer_addr, init_hash, immutables_hash) can be omitted if the caller doesn't need
  *     them. When omitted, they are only hinted for address derivation. This is secure because
  *     incorrect values would break derivation of the given address.
  *
@@ -103,6 +105,7 @@ namespace contract_instance_retrieval;
     pol commit current_class_id;
     pol commit original_class_id; // HINTED!
     pol commit init_hash;
+    pol commit immutables_hash;
 
     // Current state — these should be looked up and constrained by the caller.
     pol commit nullifier_tree_root;
@@ -115,15 +118,16 @@ namespace contract_instance_retrieval;
     // or is just assigned "address" (from input) for non-protocol contracts.
     pol commit derived_address;
 
-    // Public keys (all hinted).
-    pol commit nullifier_key_x;
-    pol commit nullifier_key_y;
+    // Public keys (all hinted). Only the incoming viewing key is exchanged with the
+    // address derivation circuit as a Grumpkin point; the other five are hashes computed
+    // off-circuit by the PXE.
+    pol commit nullifier_key_hash;
     pol commit incoming_viewing_key_x;
     pol commit incoming_viewing_key_y;
-    pol commit outgoing_viewing_key_x;
-    pol commit outgoing_viewing_key_y;
-    pol commit tagging_key_x;
-    pol commit tagging_key_y;
+    pol commit outgoing_viewing_key_hash;
+    pol commit tagging_key_hash;
+    pol commit message_signing_key_hash;
+    pol commit fallback_key_hash;
 
     // ==== Determine if It Is a Protocol Contract (<= max) ====
 
@@ -242,6 +246,8 @@ namespace contract_instance_retrieval;
     sel * (1 - exists) * original_class_id = 0; // technically not needed since original_class_id is hinted, but good for consistency
     #[INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE]
     sel * (1 - exists) * init_hash = 0;
+    #[INSTANCE_MEMBER_IMMUTABLES_HASH_IS_ZERO_IF_DNE]
+    sel * (1 - exists) * immutables_hash = 0;
 
     // Address derivation lookup (only if the nullifier exists or for protocol contract instances).
     #[ADDRESS_DERIVATION]
@@ -251,28 +257,28 @@ namespace contract_instance_retrieval;
         deployer_addr,
         original_class_id,
         init_hash,
-        nullifier_key_x,
-        nullifier_key_y,
+        immutables_hash,
+        nullifier_key_hash,
         incoming_viewing_key_x,
         incoming_viewing_key_y,
-        outgoing_viewing_key_x,
-        outgoing_viewing_key_y,
-        tagging_key_x,
-        tagging_key_y
+        outgoing_viewing_key_hash,
+        tagging_key_hash,
+        message_signing_key_hash,
+        fallback_key_hash
     } in address_derivation.sel {
         address_derivation.address,
         address_derivation.salt,
         address_derivation.deployer_addr,
         address_derivation.class_id,
         address_derivation.init_hash,
-        address_derivation.nullifier_key_x,
-        address_derivation.nullifier_key_y,
+        address_derivation.immutables_hash,
+        address_derivation.nullifier_key_hash,
         address_derivation.incoming_viewing_key_x,
         address_derivation.incoming_viewing_key_y,
-        address_derivation.outgoing_viewing_key_x,
-        address_derivation.outgoing_viewing_key_y,
-        address_derivation.tagging_key_x,
-        address_derivation.tagging_key_y
+        address_derivation.outgoing_viewing_key_hash,
+        address_derivation.tagging_key_hash,
+        address_derivation.message_signing_key_hash,
+        address_derivation.fallback_key_hash
     };
 
     // ==== Constrain That "current" Class ID Truly Is Current (Non-protocol Contracts That Exist) ====

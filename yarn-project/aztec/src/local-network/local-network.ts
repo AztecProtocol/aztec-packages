@@ -41,6 +41,7 @@ import { DefaultMnemonic } from '../mnemonic.js';
 import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
 import { EpochTestSettler } from '../testing/epoch_test_settler.js';
 import { getTokenAllowedSetupFunctions } from '../testing/token_allowed_setup.js';
+import { publishStandardAuthRegistry } from './auth_registry.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
@@ -206,6 +207,21 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
       SequencerState.SYNCHRONIZING,
     ]);
     watcher?.setIsSequencerBuilding(() => !idleStates.has(sequencer.getState()));
+    // Under proposer pipelining the L1 publish for slot N happens during wall-clock slot N,
+    // but the proposer for slot N has already built the checkpoint during slot N-1 and is
+    // waiting for L1 to advance. We need to fast-forward L1 to wake that wait — and the wait
+    // we have to break first is `waitForValidParentCheckpointOnL1`, which blocks the
+    // checkpoint_proposal_job's background submission task until the archiver has synced past
+    // the build slot. That wait happens *before* `PUBLISHING_CHECKPOINT` is set, so a hook on
+    // that state transition would be circular (L1 has to advance before the state we'd use to
+    // advance L1 fires). The earliest pre-wait signal is `block-proposed`, which the sequencer
+    // emits once each block is built. In sandbox single-block-per-slot mode this is
+    // effectively "checkpoint built", and the watcher warp is harmless if a subsequent
+    // assembly/validation/parent-wait step aborts: L1 just sits one slot ahead, which the
+    // cascade absorbs.
+    if (watcher) {
+      sequencer.on('block-proposed', ({ slot }) => watcher!.setProposedTargetSlot(Number(slot)));
+    }
   }
 
   let epochTestSettler: EpochTestSettler | undefined;
@@ -230,6 +246,9 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
     const accLogs = await createAccountLogs(accountManagers, wallet);
     userLog(accLogs.join(''));
+
+    userLog('Publishing standard AuthRegistry contract...');
+    await publishStandardAuthRegistry(wallet, initialAccounts[0].address);
 
     await setupBananaFPC(initialAccounts, wallet, userLog);
 

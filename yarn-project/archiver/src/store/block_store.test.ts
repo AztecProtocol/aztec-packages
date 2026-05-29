@@ -2833,4 +2833,87 @@ describe('BlockStore', () => {
       expect(await blockStore.getBlock({ number: BlockNumber(2) })).toBeUndefined();
     });
   });
+
+  describe('rejected checkpoints', () => {
+    const makeEntry = (overrides: { archiveRoot?: Fr; l1BlockNumber?: number; checkpointNumber?: number } = {}) => ({
+      checkpointNumber: CheckpointNumber(overrides.checkpointNumber ?? 1),
+      archiveRoot: overrides.archiveRoot ?? Fr.random(),
+      parentArchiveRoot: Fr.random(),
+      slotNumber: SlotNumber(1),
+      l1: makeL1PublishedData(overrides.l1BlockNumber ?? 100),
+      reason: 'invalid-attestations' as const,
+    });
+
+    it('returns an empty result when no rejected checkpoints have been recorded', async () => {
+      expect(await blockStore.getRejectedCheckpointByArchiveRoot(Fr.random())).toBeUndefined();
+      expect(await blockStore.getLatestRejectedCheckpointNumber()).toEqual(
+        CheckpointNumber(INITIAL_CHECKPOINT_NUMBER - 1),
+      );
+    });
+
+    it('round-trips an added rejected entry', async () => {
+      const entry = makeEntry();
+      await blockStore.addRejectedCheckpoint(entry);
+
+      const stored = await blockStore.getRejectedCheckpointByArchiveRoot(entry.archiveRoot);
+      expect(stored).toBeDefined();
+      expect(stored!.checkpointNumber).toEqual(entry.checkpointNumber);
+      expect(stored!.archiveRoot.toString()).toEqual(entry.archiveRoot.toString());
+      expect(stored!.parentArchiveRoot.toString()).toEqual(entry.parentArchiveRoot.toString());
+      expect(stored!.slotNumber).toEqual(entry.slotNumber);
+      expect(stored!.l1.blockNumber).toEqual(entry.l1.blockNumber);
+      expect(stored!.l1.blockHash).toEqual(entry.l1.blockHash);
+      expect(stored!.reason).toEqual(entry.reason);
+    });
+
+    it('updates an existing entry when re-added with the same archive root', async () => {
+      const archiveRoot = Fr.random();
+      await blockStore.addRejectedCheckpoint(makeEntry({ archiveRoot, l1BlockNumber: 100 }));
+      await blockStore.addRejectedCheckpoint(makeEntry({ archiveRoot, l1BlockNumber: 110 }));
+
+      const stored = await blockStore.getRejectedCheckpointByArchiveRoot(archiveRoot);
+      expect(stored).toBeDefined();
+      expect(stored!.l1.blockNumber).toEqual(110n);
+    });
+
+    it('preserves the descends-from-invalid-attestations reason', async () => {
+      const entry = {
+        ...makeEntry(),
+        reason: 'descends-from-invalid-attestations' as const,
+      };
+      await blockStore.addRejectedCheckpoint(entry);
+      const stored = await blockStore.getRejectedCheckpointByArchiveRoot(entry.archiveRoot);
+      expect(stored!.reason).toEqual('descends-from-invalid-attestations');
+    });
+
+    it('returns the latest rejected checkpoint number across all entries', async () => {
+      await blockStore.addRejectedCheckpoint(makeEntry({ checkpointNumber: 1 }));
+      await blockStore.addRejectedCheckpoint(makeEntry({ checkpointNumber: 5 }));
+      await blockStore.addRejectedCheckpoint(makeEntry({ checkpointNumber: 3 }));
+
+      expect(await blockStore.getLatestRejectedCheckpointNumber()).toEqual(CheckpointNumber(5));
+    });
+
+    it('looks up a rejected entry by checkpoint number', async () => {
+      const entry = makeEntry({ checkpointNumber: 7 });
+      await blockStore.addRejectedCheckpoint(entry);
+
+      const stored = await blockStore.getRejectedCheckpointByNumber(CheckpointNumber(7));
+      expect(stored?.archiveRoot.toString()).toEqual(entry.archiveRoot.toString());
+      expect(await blockStore.getRejectedCheckpointByNumber(CheckpointNumber(8))).toBeUndefined();
+    });
+
+    it('removes a rejected entry by archive root', async () => {
+      const entry = makeEntry({ checkpointNumber: 4 });
+      await blockStore.addRejectedCheckpoint(entry);
+      expect(await blockStore.getRejectedCheckpointByArchiveRoot(entry.archiveRoot)).toBeDefined();
+
+      await blockStore.removeRejectedCheckpointByArchiveRoot(entry.archiveRoot);
+      expect(await blockStore.getRejectedCheckpointByArchiveRoot(entry.archiveRoot)).toBeUndefined();
+      expect(await blockStore.getRejectedCheckpointByNumber(CheckpointNumber(4))).toBeUndefined();
+      expect(await blockStore.getLatestRejectedCheckpointNumber()).toEqual(
+        CheckpointNumber(INITIAL_CHECKPOINT_NUMBER - 1),
+      );
+    });
+  });
 });

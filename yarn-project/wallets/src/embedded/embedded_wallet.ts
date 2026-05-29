@@ -274,6 +274,16 @@ export class EmbeddedWallet extends BaseWallet {
     this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
   }
 
+  async registerAuthRegistry(
+    getStandardAuthRegistry: () => Promise<{
+      instance: ContractInstanceWithAddress;
+      artifact: ContractArtifact;
+    }>,
+  ): Promise<void> {
+    const { instance, artifact } = await getStandardAuthRegistry();
+    await this.pxe.registerContract({ instance, artifact });
+  }
+
   /**
    * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
    * Uses a type-specific stub artifact so that the stub's constructor selector matches the real account's constructor.
@@ -392,7 +402,7 @@ export class EmbeddedWallet extends BaseWallet {
       }
     }
 
-    const accountManager = await AccountManager.create(this, secret, contract, salt);
+    const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
     const existingInstance = await this.pxe.getContractInstance(instance.address);

@@ -20,6 +20,14 @@ import { ReadOnlyGovernanceContract, extractProposalIdFromLogs } from './governa
 export class GovernanceProposerContract implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, ViemClient>;
 
+  /**
+   * Cache of bytecode-existence checks keyed by payload address. The check is stable for a
+   * contract's lifetime -- a contract either has code or it does not, and code cannot be removed
+   * after deployment (selfdestruct aside, which is not relevant here). Safe to memoize
+   * indefinitely for the lifetime of this instance.
+   */
+  private readonly emptyPayloadCache: Map<Hex, boolean> = new Map();
+
   constructor(
     public readonly client: ViemClient,
     address: Hex | EthAddress,
@@ -131,6 +139,28 @@ export class GovernanceProposerContract implements IEmpireBase {
   public async hasActiveProposalWithPayload(payload: Hex): Promise<boolean> {
     const governance = await this.getGovernance();
     return governance.hasActiveProposalWithPayload(payload);
+  }
+
+  /**
+   * Returns true if the given payload address has no deployed bytecode. Used as a cheap
+   * pre-flight check before casting a governance signal — voting for a zero-code address
+   * is unrecoverable.
+   *
+   * We only cache the `false` result (address has bytecode). The `true` result is NOT
+   * cached because a CREATE2-redeployed address could go from empty to populated, and
+   * caching `true` would make us keep skipping a payload that later becomes valid.
+   */
+  public async isPayloadEmpty(payload: EthAddress): Promise<boolean> {
+    const key = payload.toString() as Hex;
+    if (this.emptyPayloadCache.get(key) === false) {
+      return false;
+    }
+    const code = await this.client.getCode({ address: key });
+    const isEmpty = !code || code === '0x';
+    if (!isEmpty) {
+      this.emptyPayloadCache.set(key, false);
+    }
+    return isEmpty;
   }
 
   public async submitRoundWinner(

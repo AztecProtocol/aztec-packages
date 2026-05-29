@@ -28,12 +28,15 @@ ContractInstance create_test_contract_instance(uint32_t salt_value = 123)
         .current_contract_class_id = FF(0xdeadbeefULL),
         .original_contract_class_id = FF(0xcafebabeULL),
         .initialization_hash = FF(0x11111111ULL),
+        .immutables_hash = FF(0x22222222ULL),
         .public_keys =
             PublicKeys{
-                .nullifier_key = { FF(0x100), FF(0x101) },
+                .nullifier_key_hash = FF(0x100),
                 .incoming_viewing_key = { FF(0x200), FF(0x201) },
-                .outgoing_viewing_key = { FF(0x300), FF(0x301) },
-                .tagging_key = { FF(0x400), FF(0x401) },
+                .outgoing_viewing_key_hash = FF(0x300),
+                .tagging_key_hash = FF(0x400),
+                .message_signing_key_hash = FF(0x500),
+                .fallback_key_hash = FF(0x600),
             },
     };
 }
@@ -98,16 +101,16 @@ TEST(ContractInstanceRetrievalTraceGenTest, SingleEvent)
                       ROW_FIELD_EQ(contract_instance_retrieval_current_class_id, 0xdeadbeefULL),
                       ROW_FIELD_EQ(contract_instance_retrieval_original_class_id, 0xcafebabeULL),
                       ROW_FIELD_EQ(contract_instance_retrieval_init_hash, 0x11111111ULL),
+                      ROW_FIELD_EQ(contract_instance_retrieval_immutables_hash, 0x22222222ULL),
 
-                      // Public keys
-                      ROW_FIELD_EQ(contract_instance_retrieval_nullifier_key_x, 0x100),
-                      ROW_FIELD_EQ(contract_instance_retrieval_nullifier_key_y, 0x101),
+                      // Public keys (ivpk_m as a point, others as hashes)
+                      ROW_FIELD_EQ(contract_instance_retrieval_nullifier_key_hash, 0x100),
                       ROW_FIELD_EQ(contract_instance_retrieval_incoming_viewing_key_x, 0x200),
                       ROW_FIELD_EQ(contract_instance_retrieval_incoming_viewing_key_y, 0x201),
-                      ROW_FIELD_EQ(contract_instance_retrieval_outgoing_viewing_key_x, 0x300),
-                      ROW_FIELD_EQ(contract_instance_retrieval_outgoing_viewing_key_y, 0x301),
-                      ROW_FIELD_EQ(contract_instance_retrieval_tagging_key_x, 0x400),
-                      ROW_FIELD_EQ(contract_instance_retrieval_tagging_key_y, 0x401),
+                      ROW_FIELD_EQ(contract_instance_retrieval_outgoing_viewing_key_hash, 0x300),
+                      ROW_FIELD_EQ(contract_instance_retrieval_tagging_key_hash, 0x400),
+                      ROW_FIELD_EQ(contract_instance_retrieval_message_signing_key_hash, 0x500),
+                      ROW_FIELD_EQ(contract_instance_retrieval_fallback_key_hash, 0x600),
 
                       // Tree context
                       ROW_FIELD_EQ(contract_instance_retrieval_public_data_tree_root, public_data_tree_root),

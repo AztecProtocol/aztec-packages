@@ -43,6 +43,9 @@
       "path": "../simulator"
     },
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../stdlib"
     },
     {

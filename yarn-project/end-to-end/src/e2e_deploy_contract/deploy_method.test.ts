@@ -11,6 +11,7 @@ import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstruct
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { DeployTest } from './deploy_test.js';
 
@@ -23,7 +24,7 @@ describe('e2e_deploy_contract deploy method', () => {
   let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
-    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup());
+    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup({ ...AUTOMINE_E2E_OPTS }));
   });
 
   afterAll(() => t.teardown());

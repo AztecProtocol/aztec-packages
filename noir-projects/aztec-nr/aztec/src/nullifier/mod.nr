@@ -31,8 +31,8 @@
 //!
 //! ## Nullifier Creation
 //!
-//! The low-level mechanisms to create new nullifiers are [`crate::context::PrivateContext::push_nullifier`] and
-//! [`crate::context::PublicContext::push_nullifier`], but these require care and can be hard to use correctly.
+//! The low-level mechanisms to create new nullifiers are [`crate::context::PrivateContext::push_nullifier_unsafe`] and
+//! [`crate::context::PublicContext::push_nullifier_unsafe`], but these require care and can be hard to use correctly.
 //! Higher-level abstractions exist which safely create nullifiers, such as [`crate::note::lifecycle::destroy_note`]
 //! and
 //! [`crate::state_vars::SingleUseClaim`].

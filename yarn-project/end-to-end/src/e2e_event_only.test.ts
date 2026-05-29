@@ -6,9 +6,10 @@ import { EventOnlyContract, type TestEvent } from '@aztec/noir-test-contracts.js
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 /// Tests that a private event can be obtained for a contract that does not work with notes.
 describe('EventOnly', () => {
@@ -24,7 +25,7 @@ describe('EventOnly', () => {
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup(1));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     await ensureAccountContractsPublished(wallet, [defaultAccountAddress]);
     ({ contract: eventOnlyContract } = await EventOnlyContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });

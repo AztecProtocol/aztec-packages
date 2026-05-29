@@ -16,6 +16,7 @@ import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import type { PXEConfig } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
@@ -54,7 +55,13 @@ export class CLIWallet extends BaseWallet {
     const pxe = await createPXE(node, pxeConfig);
     const wallet = new CLIWallet(pxe, node, log, db);
     await wallet.initStubClasses();
+    await wallet.registerAuthRegistry();
     return wallet;
+  }
+
+  private async registerAuthRegistry(): Promise<void> {
+    const { instance, artifact } = await getStandardAuthRegistry();
+    await this.pxe.registerContract({ instance, artifact });
   }
 
   /**
@@ -138,7 +145,7 @@ export class CLIWallet extends BaseWallet {
   }
 
   private async createAccount(secret: Fr, salt: Fr, contract: AccountContract): Promise<AccountManager> {
-    const accountManager = await AccountManager.create(this, secret, contract, salt);
+    const accountManager = await AccountManager.create(this, secret, contract, { salt });
 
     const instance = accountManager.getInstance();
     const artifact = await contract.getContractArtifact();

@@ -16,6 +16,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -42,14 +43,14 @@ export type BlocksQuery =
   | { from: BlockNumber; limit: number; onlyCheckpointed?: boolean }
   | { epoch: EpochNumber; onlyCheckpointed: true };
 
-export const BlockQuerySchema: z.ZodType<BlockQuery, z.ZodTypeDef, unknown> = z.union([
+export const BlockQuerySchema: z.ZodType<BlockQuery, unknown> = z.union([
   z.object({ number: BlockNumberSchema }).strict(),
   z.object({ hash: BlockHash.schema }).strict(),
   z.object({ archive: schemas.Fr }).strict(),
   z.object({ tag: BlockTagWithoutLatestSchema }).strict(),
 ]);
 
-export const BlocksQuerySchema: z.ZodType<BlocksQuery, z.ZodTypeDef, unknown> = z.union([
+export const BlocksQuerySchema: z.ZodType<BlocksQuery, unknown> = z.union([
   z
     .object({ from: BlockNumberSchema, limit: z.number().int().min(1), onlyCheckpointed: z.boolean().optional() })
     .strict(),
@@ -72,18 +73,18 @@ export type CheckpointsQuery = { from: CheckpointNumber; limit: number } | { epo
  */
 export type ProposedCheckpointQuery = { number: CheckpointNumber } | { slot: SlotNumber } | { tag: 'proposed' };
 
-export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, z.ZodTypeDef, unknown> = z.union([
+export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, unknown> = z.union([
   z.object({ number: CheckpointNumberSchema }).strict(),
   z.object({ slot: SlotNumberSchema }).strict(),
   z.object({ tag: z.union([z.literal('checkpointed'), z.literal('proven'), z.literal('finalized')]) }).strict(),
 ]);
 
-export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, z.ZodTypeDef, unknown> = z.union([
+export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, unknown> = z.union([
   z.object({ from: CheckpointNumberSchema, limit: z.number().int().min(1) }).strict(),
   z.object({ epoch: EpochNumberSchema }).strict(),
 ]);
 
-export const ProposedCheckpointQuerySchema: z.ZodType<ProposedCheckpointQuery, z.ZodTypeDef, unknown> = z.union([
+export const ProposedCheckpointQuerySchema: z.ZodType<ProposedCheckpointQuery, unknown> = z.union([
   z.object({ number: CheckpointNumberSchema }).strict(),
   z.object({ slot: SlotNumberSchema }).strict(),
   z.object({ tag: z.literal('proposed') }).strict(),
@@ -293,6 +294,10 @@ export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
   [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
   [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
+  [L2BlockSourceEvents.CheckpointEquivocationDetected]: (args: CheckpointEquivocationDetectedEvent) => void;
+  [L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected]: (
+    args: DescendentOfInvalidAttestationsCheckpointEvent,
+  ) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource {
   events: ArchiverEmitter;
@@ -374,6 +379,8 @@ export enum L2BlockSourceEvents {
   L2BlockProven = 'l2BlockProven',
   L2BlocksCheckpointed = 'l2BlocksCheckpointed',
   InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
+  CheckpointEquivocationDetected = 'checkpointEquivocationDetected',
+  DescendentOfInvalidAttestationsCheckpointDetected = 'descendentOfInvalidAttestationsCheckpointDetected',
 }
 
 export type L2BlockProvenEvent = {
@@ -403,4 +410,32 @@ export type L2CheckpointEvent = {
 export type InvalidCheckpointDetectedEvent = {
   type: 'invalidCheckpointDetected';
   validationResult: ValidateCheckpointNegativeResult;
+};
+
+/**
+ * Emitted when a local proposed checkpoint is found to disagree with the L1-confirmed
+ * checkpoint at the same slot. The slot proposer signed both — equivocation.
+ */
+export type CheckpointEquivocationDetectedEvent = {
+  type: 'checkpointEquivocationDetected';
+  slotNumber: SlotNumber;
+  checkpointNumber: CheckpointNumber;
+  l1ArchiveRoot: Fr;
+  proposedArchiveRoot: Fr;
+};
+
+/**
+ * Emitted when the archiver observes a checkpoint that builds on a previously-rejected
+ * ancestor (typically one with insufficient/invalid attestations). The descendant itself may
+ * have valid attestations, but it cannot be ingested because the chain it extends was
+ * skipped. The slasher uses this to slash the proposer of the descendant.
+ */
+export type DescendentOfInvalidAttestationsCheckpointEvent = {
+  type: 'descendentOfInvalidAttestationsCheckpointDetected';
+  /** The descendant checkpoint being rejected. */
+  checkpoint: CheckpointInfo;
+  /** Archive root of the rejected ancestor this descendant builds on. */
+  ancestorArchiveRoot: Fr;
+  /** Checkpoint number of the rejected ancestor. */
+  ancestorCheckpointNumber: CheckpointNumber;
 };

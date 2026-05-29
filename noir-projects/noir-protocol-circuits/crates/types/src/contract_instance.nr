@@ -12,6 +12,7 @@ pub struct ContractInstance {
     pub deployer: AztecAddress,
     pub contract_class_id: ContractClassId,
     pub initialization_hash: Field,
+    pub immutables_hash: Field,
     pub public_keys: PublicKeys,
 }
 
@@ -30,6 +31,7 @@ impl ContractInstance {
                 self.salt,
                 self.initialization_hash,
                 self.deployer,
+                self.immutables_hash,
             ),
         )
     }
@@ -52,6 +54,7 @@ mod test {
             deployer: AztecAddress::from_field(12),
             contract_class_id: ContractClassId::from_field(13),
             initialization_hash: 156,
+            immutables_hash: 789,
             public_keys: PublicKeys::default(),
         };
 

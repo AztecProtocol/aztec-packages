@@ -38,7 +38,8 @@ export class CompleteAddress {
   }
 
   /** Size in bytes of an instance */
-  static readonly SIZE_IN_BYTES = 32 * 10;
+  // address (1 Fr) + publicKeys (1 Fr hash + 1 Point + 4 Fr hashes = 7 Fr) + partialAddress (1 Fr) = 9 Fr
+  static readonly SIZE_IN_BYTES = 32 * 9;
 
   static get schema() {
     return hexSchemaFor(CompleteAddress);
@@ -54,8 +55,11 @@ export class CompleteAddress {
 
   static async fromSecretKeyAndPartialAddress(secretKey: Fr, partialAddress: Fr): Promise<CompleteAddress> {
     const { publicKeys } = await deriveKeys(secretKey);
-    const address = await computeAddress(publicKeys, partialAddress);
+    return await this.fromPublicKeysAndPartialAddress(publicKeys, partialAddress);
+  }
 
+  static async fromPublicKeysAndPartialAddress(publicKeys: PublicKeys, partialAddress: Fr): Promise<CompleteAddress> {
+    const address = await computeAddress(publicKeys, partialAddress);
     return new CompleteAddress(address, publicKeys, partialAddress);
   }
 
@@ -87,7 +91,7 @@ export class CompleteAddress {
    * @returns A readable string representation of the complete address.
    */
   public toReadableString(): string {
-    return `Address: ${this.address.toString()}\nMaster Nullifier Public Key: ${this.publicKeys.masterNullifierPublicKey.toString()}\nMaster Incoming Viewing Public Key: ${this.publicKeys.masterIncomingViewingPublicKey.toString()}\nMaster Outgoing Viewing Public Key: ${this.publicKeys.masterOutgoingViewingPublicKey.toString()}\nMaster Tagging Public Key: ${this.publicKeys.masterTaggingPublicKey.toString()}\nPartial Address: ${this.partialAddress.toString()}\n`;
+    return `Address: ${this.address.toString()}\nNpkM hash: ${this.publicKeys.npkMHash.toString()}\nIvpkM: ${this.publicKeys.ivpkM.toString()}\nOvpkM hash: ${this.publicKeys.ovpkMHash.toString()}\nTpkM hash: ${this.publicKeys.tpkMHash.toString()}\nMspkM hash: ${this.publicKeys.mspkMHash.toString()}\nFbpkM hash: ${this.publicKeys.fbpkMHash.toString()}\nPartial Address: ${this.partialAddress.toString()}\n`;
   }
 
   /**

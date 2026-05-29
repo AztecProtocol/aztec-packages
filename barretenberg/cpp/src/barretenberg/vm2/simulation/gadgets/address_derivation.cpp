@@ -15,19 +15,21 @@ namespace bb::avm2::simulation {
  * If the address has already been derived, an event has already been emitted and we skip
  * repeating the computation and emission. Otherwise, we compute the address from the instance
  * members using the poseidon2, scalar_mul, and ecc traces, which is given as:
- *   1. salted_init_hash  = Poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr)
- *   2. partial_address   = Poseidon2(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
- *   3. public_keys_hash  = Poseidon2(DOM_SEP__PUBLIC_KEYS_HASH, [...public_keys.to_fields()])
- *   4. preaddress        = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address)
- *   5. preaddress_public_key = preaddress * G1  (Grumpkin scalar multiplication)
- *   6. address           = (preaddress_public_key + incoming_viewing_key).x  (Grumpkin EC add)
+ *   1. salted_init_hash          = Poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr,
+ *                                            immutables_hash)
+ *   2. partial_address           = Poseidon2(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
+ *   3. incoming_viewing_key_hash = Poseidon2(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, ivpk.x, ivpk.y)
+ *   4. public_keys_hash          = Poseidon2(DOM_SEP__PUBLIC_KEYS_HASH,
+ *                                    nullifier_key_hash, incoming_viewing_key_hash, outgoing_viewing_key_hash,
+ *                                    tagging_key_hash, message_signing_key_hash, fallback_key_hash)
+ *   5. preaddress                = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
+ *   6. preaddress_public_key     = preaddress * G1  (Grumpkin scalar multiplication)
+ *   7. address                   = (preaddress_public_key + incoming_viewing_key).x  (Grumpkin EC add)
  *  and we add the output to the local cache.
  *
- * @throws Unexpected exception if
- *        - the calculated address does not match @p address.
- *
  * @param address The expected derived address.
- * @param instance The contract instance containing the address preimage.
+ * @param instance The contract instance containing the address preimage members.
+ * @throws Unexpected exception if the calculated address does not match @p address.
  */
 void AddressDerivation::assert_derivation(const AztecAddress& address, const ContractInstance& instance)
 {
@@ -44,28 +46,33 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
     // First time seeing this address - do the actual derivation.
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[SALTED_INITIALIZATION_HASH_POSEIDON2_i] in
     // address_derivation.pil.
-    FF salted_initialization_hash = poseidon2.hash(
-        { DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer });
+    FF salted_initialization_hash = poseidon2.hash({ DOM_SEP__SALTED_INITIALIZATION_HASH,
+                                                     instance.salt,
+                                                     instance.initialization_hash,
+                                                     instance.deployer,
+                                                     instance.immutables_hash });
+
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[PARTIAL_ADDRESS_POSEIDON2] in
     // address_derivation.pil.
     FF partial_address =
         poseidon2.hash({ DOM_SEP__PARTIAL_ADDRESS, instance.original_contract_class_id, salted_initialization_hash });
 
-    std::vector<FF> public_keys_hash_fields = instance.public_keys.to_fields();
-    std::vector<FF> public_key_hash_vec{ DOM_SEP__PUBLIC_KEYS_HASH };
-    for (size_t i = 0; i < public_keys_hash_fields.size(); i += 2) {
-        // Public key x coordinate.
-        public_key_hash_vec.push_back(public_keys_hash_fields[i]);
-        // Public key y coordinate.
-        public_key_hash_vec.push_back(public_keys_hash_fields[i + 1]);
-        // TODO(#7529): Public key is_infinity will be removed from address preimage, assuming false.
-        public_key_hash_vec.push_back(FF::zero());
-    }
-    // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[PUBLIC_KEYS_HASH_POSEIDON2_i] in
-    // address_derivation.pil.
-    FF public_keys_hash = poseidon2.hash(public_key_hash_vec);
+    // incoming_viewing_key_hash is the only single-key hash computed in-circuit (see #[IVPK_M_HASH_POSEIDON2]).
+    FF incoming_viewing_key_hash = poseidon2.hash({ DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
+                                                    instance.public_keys.incoming_viewing_key.x,
+                                                    instance.public_keys.incoming_viewing_key.y });
+
+    // public_keys_hash combines the six single-key hashes (see #[PUBLIC_KEYS_HASH_POSEIDON2_0..2]).
+    FF public_keys_hash = poseidon2.hash({ DOM_SEP__PUBLIC_KEYS_HASH,
+                                           instance.public_keys.nullifier_key_hash,
+                                           incoming_viewing_key_hash,
+                                           instance.public_keys.outgoing_viewing_key_hash,
+                                           instance.public_keys.tagging_key_hash,
+                                           instance.public_keys.message_signing_key_hash,
+                                           instance.public_keys.fallback_key_hash });
+
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[PREADDRESS_POSEIDON2] in address_derivation.pil.
-    FF preaddress = poseidon2.hash({ DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
+    FF preaddress = poseidon2.hash({ DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address });
 
     // Note: the below ecc calls assume points are on the curve. We know preaddress_public_key is (by definition),
     // but it may be possible that incoming_viewing_key is not.
@@ -91,6 +98,7 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
         .instance = instance,
         .salted_initialization_hash = salted_initialization_hash,
         .partial_address = partial_address,
+        .incoming_viewing_key_hash = incoming_viewing_key_hash,
         .public_keys_hash = public_keys_hash,
         .preaddress = preaddress,
         .preaddress_public_key = preaddress_public_key,

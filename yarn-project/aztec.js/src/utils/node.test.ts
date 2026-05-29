@@ -42,7 +42,7 @@ describe('waitForTx', () => {
       const revertedReceipt = new TxReceipt(
         txHash,
         TxStatus.CHECKPOINTED,
-        TxExecutionResult.APP_LOGIC_REVERTED,
+        TxExecutionResult.REVERTED,
         undefined,
         undefined,
         undefined,
@@ -56,7 +56,7 @@ describe('waitForTx', () => {
       const revertedReceipt = new TxReceipt(
         txHash,
         TxStatus.CHECKPOINTED,
-        TxExecutionResult.APP_LOGIC_REVERTED,
+        TxExecutionResult.REVERTED,
         undefined,
         undefined,
         undefined,

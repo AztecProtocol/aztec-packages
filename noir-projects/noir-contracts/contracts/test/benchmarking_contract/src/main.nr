@@ -33,7 +33,7 @@ pub contract Benchmarking {
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         let note = FieldNote { value };
-        self.storage.notes.at(owner).insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.notes.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.
     // We explicitly pass in the note index so we can ensure we consume different notes when sending
@@ -46,7 +46,7 @@ pub contract Benchmarking {
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.pop_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes.get(0);
-        owner_notes.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        owner_notes.insert(note).deliver(MessageDelivery::onchain_constrained());
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.
@@ -78,7 +78,7 @@ pub contract Benchmarking {
         // Safety: Benchmarking code
         let random_seed = unsafe { random() };
         for i in 0..MAX_NULLIFIERS_PER_CALL {
-            self.context.push_nullifier(random_seed + (i as Field));
+            self.context.push_nullifier_unsafe(random_seed + (i as Field));
         }
     }
 
@@ -113,7 +113,7 @@ pub contract Benchmarking {
             for j in 0..PRIVATE_LOG_CIPHERTEXT_LEN {
                 log.push(random_seed + (i * MAX_PRIVATE_LOGS_PER_CALL + j) as Field);
             }
-            self.context.emit_private_log_vec_unsafe(0, log);
+            self.context.emit_private_log_unsafe(0, log);
         }
     }
 

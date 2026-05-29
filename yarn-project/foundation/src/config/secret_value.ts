@@ -43,7 +43,7 @@ export class SecretValue<T> {
   /**
    * Returns a Zod schema
    */
-  static schema<O>(valueSchema: ZodType<O, any, any>): ZodType<SecretValue<O>, any, any> {
+  static schema<O>(valueSchema: ZodType<O, any>): ZodType<SecretValue<O>, any> {
     return valueSchema.transform(value => new SecretValue<O>(value));
   }
 }

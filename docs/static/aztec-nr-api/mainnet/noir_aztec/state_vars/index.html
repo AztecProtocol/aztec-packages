@@ -57,6 +57,117 @@ mappings, arrays, immutable, etc.).</p>
 <p>Due to Aztec contracts being able to store both public and private state, there are many more different types of
 state variables, each with their nuance and use cases. Understanding these is key to understanding how a contract
 works.</p>
+<h2>Declaration</h2>
+<p>All of a contract's state variables, both public and private, are declared in a single place: as members of a struct
+to which the <a href="../../noir_aztec/macros/storage/fn.storage.html"><code>#[storage]</code></a> macro is applied.</p>
+<pre><code>#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    a: PublicMutable&lt;bool, C&gt;,
+    b: Map&lt;AztecAddress, DelayedPublicMutable&lt;u128, C&gt;, C&gt;,
+    c: Owned&lt;PrivateSet&lt;UintNote, C&gt;, C&gt;,
+}</code></pre>
+<h2>Choosing a State Variable</h2>
+<p>The very first question to answer is whether the contents of the variable should be <em>public</em> (everyone in the
+network can see their contents, like Solidity state variables), or <em>private</em> (only some people know what is stored
+in them).</p>
+<h3>Public State Variables</h3>
+<p>Public state variables typically store their contents in the public storage tree, and can therefore only be written
+to by public contract functions.</p>
+<table>
+<thead>
+<tr>
+<th>State Variable</th>
+<th>Mutable?</th>
+<th>Readable in Private?</th>
+<th>Writable in Private?</th>
+<th>Example Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../../noir_aztec/state_vars/struct.PublicMutable.html"><code>PublicMutable</code></a></td>
+<td>yes</td>
+<td>no</td>
+<td>no</td>
+<td>Configuration of admins, global state (e.g. token total supply, total votes)</td>
+</tr>
+<tr>
+<td><a href="../../noir_aztec/state_vars/struct.PublicImmutable.html"><code>PublicImmutable</code></a></td>
+<td>no</td>
+<td>yes</td>
+<td>no</td>
+<td>Fixed configuration, one-way actions (e.g. initialization settings for a proposal)</td>
+</tr>
+<tr>
+<td><a href="../../noir_aztec/state_vars/struct.DelayedPublicMutable.html"><code>DelayedPublicMutable</code></a></td>
+<td>yes (after a delay)</td>
+<td>yes</td>
+<td>no</td>
+<td>Non time sensitive system configuration</td>
+</tr>
+</tbody>
+</table>
+<h3>Private State Variables</h3>
+<p>Private state variables typically store their contents in the note and nullifier trees, and are therefore mainly
+interacted with from private contract functions.</p>
+<table>
+<thead>
+<tr>
+<th>State Variable</th>
+<th>Mutable?</th>
+<th>Cost to Read?</th>
+<th>Writable by Third Parties?</th>
+<th>Example Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../../noir_aztec/state_vars/struct.PrivateMutable.html"><code>PrivateMutable</code></a></td>
+<td>yes</td>
+<td>yes</td>
+<td>no</td>
+<td>Mutable user state only accessible by them (e.g. user settings or keys)</td>
+</tr>
+<tr>
+<td><a href="../../noir_aztec/state_vars/struct.PrivateImmutable.html"><code>PrivateImmutable</code></a></td>
+<td>no</td>
+<td>no</td>
+<td>no</td>
+<td>Fixed configuration, one-way actions (e.g. initialization settings for a proposal)</td>
+</tr>
+<tr>
+<td><a href="../../noir_aztec/state_vars/struct.PrivateSet.html"><code>PrivateSet</code></a></td>
+<td>yes</td>
+<td>yes</td>
+<td>yes</td>
+<td>Aggregated state others can add to, e.g. token balance (set of amount notes), NFT collections (set of NFT ids)</td>
+</tr>
+</tbody>
+</table>
+<h2>Storage Slots</h2>
+<p>Each state variable in a contract gets assigned a unique storage slot, which isolates the different variables so
+that reads and writes to one do not interfere with others.</p>
+<p>Storage slot allocation is automatic and cannot be overridden. A state variable's storage slot can be queried via
+<a href="../../noir_aztec/state_vars/trait.StateVariable.html#get_storage_slot"><code>crate::state_vars::StateVariable::get_storage_slot</code></a>.</p>
+<pre><code>#[storage]
+<span class="kw">struct</span> Storage&lt;C&gt; {
+    a: PublicMutable&lt;bool, C&gt;,
+}
+
+#[external(<span class="string">"utility"</span>)]
+<span class="kw">fn</span> get_a_storage_slot() -&gt; Field {
+    self.storage.a.get_storage_slot()
+}</code></pre>
+<h2>The Context Parameter</h2>
+<p>All state variables take a generic <code>Context</code> parameter, which will be set to one of
+<a href="../../noir_aztec/context/struct.PrivateContext.html"><code>PrivateContext</code></a>, <a href="../../noir_aztec/context/struct.PublicContext.html"><code>PublicContext</code></a> or
+<a href="../../noir_aztec/context/struct.UtilityContext.html"><code>UtilityContext</code></a> depending on the contract function type. This leads to some
+unfortunate boilerplate when declaring contract storage.</p>
+<p>Different methods are available depending on the context, reflecting that certain actions can only be performed in
+some or other context. For example, <a href="../../noir_aztec/state_vars/struct.PublicMutable.html"><code>PublicMutable</code></a>'s
+<a href="../../noir_aztec/state_vars/struct.PublicMutable.html#read"><code>read</code></a> function is available under both <code>PublicContext</code> and
+<code>UtilityContext</code>, but not <code>PrivateContext</code> since <code>PublicMutable</code> cannot be read from private functions. Similarly,
+<a href="../../noir_aztec/state_vars/struct.PublicMutable.html#write"><code>write</code></a> is only available in <code>PublicContext</code>.</p>
 <h2>Packing for Efficient Access</h2>
 <p>Because all state variables are fully independent, when a contract reads or writes one of them all others are left
 untouched. This is good for isolation, but in some cases users may want to group variables together for more
@@ -64,8 +175,7 @@ efficient access, for example to access multiple values in a single storage read
 <p>The pattern to follow is to <strong>group related values in a <code>struct</code></strong>, just like in Solidity. How values are packed
 inside this <code>struct</code> is governed by the <a href="../../protocol_types/traits/trait.Packable.html"><code>crate::protocol::traits::Packable</code></a> trait, which must be <code>#[derive]</code>'d or
 manually implemented - see the <a href="../../protocol_types/traits/trait.Packable.html"><code>Packable</code></a>'s docs on how to do this.</p>
-<pre><code><span class="comment">// Inefficient reads and writes - each bool is assigned a distinct storage slot, so reading or writing both</span>
-requires
+<pre><code><span class="comment">// Inefficient reads and writes - each bool is assigned a distinct storage slot, so reading or writing both requires</span>
 <span class="comment">// executing `SLOAD` or `SSTORE` twice.</span>
 #[storage]
 <span class="kw">struct</span> Storage&lt;C&gt; {
@@ -73,7 +183,7 @@ requires
     b: PublicMutable&lt;bool, C&gt;,
 }
 
-<span class="comment">// By storing the booleans in a single struct and implementing the Packable trait with tight packing, we can now</span>
+<span class="comment">// By storing the booleans in a single struct and implementing the Packable trait with tight packing, we can instead</span>
 <span class="comment">// read and write both values in a single `SLOAD` or `SSTORE` opcode.</span>
 <span class="kw">struct</span> TwoBooleans {
     a: bool,
@@ -123,9 +233,7 @@ a single read.</p></div>
 <h2 id="traits">Traits</h2><ul class="item-list">
 <li><div class="item-name"><a href="trait.OwnedStateVariable.html" class="trait">OwnedStateVariable</a></div><div class="item-description">A trait that defines the interface for Aztec state variables that have an owner. Unlike regular state variables,
 owned state variables need to be wrapped in <code>Owned</code> state variable when placed in storage:</div></li>
-<li><div class="item-name"><a href="trait.StateVariable.html" class="trait">StateVariable</a></div><div class="item-description">A trait that defines the common interface for all Aztec state variables. State variables are variables that can be
-stored in the contract's storage. Examples of state variables are <code>Owned</code>, <code>PublicMutable</code>, <code>Map</code> or
-<code>DelayedPublicMutable</code>.</div></li>
+<li><div class="item-name"><a href="trait.StateVariable.html" class="trait">StateVariable</a></div><div class="item-description">A container for contract state.</div></li>
 </ul>
 </main>
 </span>

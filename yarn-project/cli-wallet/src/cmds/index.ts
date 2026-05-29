@@ -297,12 +297,12 @@ export function injectCommands(
     const { wallet, node } = walletAndNodeWrapper;
     const artifactPath = await artifactPathPromise;
 
-    debugLogger.info(`Using wallet with address ${parsedFromAddress.toString()}`);
+    debugLogger.info(`Using wallet with address ${parsedFromAddress?.toString() ?? '<none>'}`);
 
     const address = await deploy(
       wallet,
       node,
-      universal ? undefined : parsedFromAddress,
+      parsedFromAddress,
       artifactPath,
       json,
       publicKey,
@@ -319,6 +319,7 @@ export function injectCommands(
       timeout,
       debugLogger,
       log,
+      universal,
     );
     if (db && address) {
       await db.storeContract(address, artifactPath, log, alias);

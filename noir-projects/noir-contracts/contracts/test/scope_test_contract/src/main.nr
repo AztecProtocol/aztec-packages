@@ -9,7 +9,7 @@ pub contract ScopeTest {
         keys::getters::{get_nhk_app, get_public_keys},
         macros::{functions::{external, initializer, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol::{address::AztecAddress, traits::Hash},
+        protocol::address::AztecAddress,
         state_vars::{Owned, PrivateImmutable},
     };
 
@@ -29,7 +29,7 @@ pub contract ScopeTest {
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         let note = FieldNote { value };
-        self.storage.note.at(owner).initialize(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.note.at(owner).initialize(note).deliver(MessageDelivery::onchain_constrained());
     }
 
     /// Reads the note owned by the specified owner and returns its value.
@@ -52,7 +52,7 @@ pub contract ScopeTest {
     /// Will fail if the caller is not authorized to access the owner's keys.
     #[external("private")]
     fn get_nhk(owner: AztecAddress) -> Field {
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
         self.context.request_nhk_app(owner_npk_m_hash)
     }
 
@@ -67,7 +67,7 @@ pub contract ScopeTest {
     /// Will fail if the caller is not authorized to access the owner's keys.
     #[external("utility")]
     unconstrained fn get_nhk_utility(owner: AztecAddress) -> Field {
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
         get_nhk_app(owner_npk_m_hash)
     }
 

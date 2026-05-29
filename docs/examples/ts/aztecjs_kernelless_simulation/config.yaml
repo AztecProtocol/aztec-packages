@@ -1,0 +1,16 @@
+# Configuration for aztecjs_kernelless_simulation example
+# Demonstrates kernelless simulation with stub account overrides:
+# - Calling .simulate() on a view function without signing prompts
+# - Harvesting CallAuthorizationRequest offchain effects to build authwits
+
+# No custom contracts needed - using pre-built contracts from @aztec/noir-contracts.js
+contracts: []
+
+# Dependencies:
+#   - @aztec/* packages are auto-linked from yarn-project/
+#   - Use npm:package-name for external npm packages
+dependencies:
+  - "@aztec/aztec.js"
+  - "@aztec/accounts"
+  - "@aztec/wallets"
+  - "@aztec/noir-contracts.js"

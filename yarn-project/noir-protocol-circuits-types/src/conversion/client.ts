@@ -92,7 +92,6 @@ import {
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
   mapNumberToNoir,
-  mapPointFromNoir,
   mapPointToNoir,
   mapPrivateLogFromNoir,
   mapPrivateLogToNoir,
@@ -260,7 +259,7 @@ function mapScopedReadRequestFromNoir(scoped: Scoped<Counted<NoirField>>): Scope
  */
 export function mapKeyValidationRequestToNoir(request: KeyValidationRequest): KeyValidationRequestsNoir {
   return {
-    pk_m: mapPointToNoir(request.pkM),
+    pk_m_hash: mapFieldToNoir(request.pkMHash),
     sk_app: mapFieldToNoir(request.skApp),
   };
 }
@@ -280,7 +279,7 @@ export function mapKeyValidationRequestAndSeparatorToNoir(
  * @returns The TS KeyValidationRequest.
  */
 function mapKeyValidationRequestFromNoir(request: KeyValidationRequestsNoir): KeyValidationRequest {
-  return new KeyValidationRequest(mapPointFromNoir(request.pk_m), mapFieldFromNoir(request.sk_app));
+  return new KeyValidationRequest(mapFieldFromNoir(request.pk_m_hash), mapFieldFromNoir(request.sk_app));
 }
 
 function mapKeyValidationRequestAndSeparatorFromNoir(
@@ -479,18 +478,14 @@ export function mapPrivateCircuitPublicInputsToNoir(
 
 export function mapPublicKeysToNoir(publicKeys: PublicKeys): PublicKeysNoir {
   return {
-    npk_m: {
-      inner: mapPointToNoir(publicKeys.masterNullifierPublicKey),
-    },
+    npk_m_hash: mapFieldToNoir(publicKeys.npkMHash),
     ivpk_m: {
-      inner: mapPointToNoir(publicKeys.masterIncomingViewingPublicKey),
+      inner: mapPointToNoir(publicKeys.ivpkM),
     },
-    ovpk_m: {
-      inner: mapPointToNoir(publicKeys.masterOutgoingViewingPublicKey),
-    },
-    tpk_m: {
-      inner: mapPointToNoir(publicKeys.masterTaggingPublicKey),
-    },
+    ovpk_m_hash: mapFieldToNoir(publicKeys.ovpkMHash),
+    tpk_m_hash: mapFieldToNoir(publicKeys.tpkMHash),
+    mspk_m_hash: mapFieldToNoir(publicKeys.mspkMHash),
+    fbpk_m_hash: mapFieldToNoir(publicKeys.fbpkMHash),
   };
 }
 

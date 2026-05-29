@@ -64,9 +64,9 @@ error: Function _assert_is_owner must be marked as either #[external(...)], #[in
     1: #[aztec]
             at src/main.nr:18:1
     2: aztec
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:93:5
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:107:5
     3: check_each_fn_macroified
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:295:13
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:341:13
 
 error: cannot find `self` in this scope
    ┌─ src/main.nr:41:9

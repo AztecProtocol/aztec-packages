@@ -8,12 +8,11 @@ use crate::{
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::{
-        CANONICAL_AUTH_REGISTRY_ADDRESS, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER, DOM_SEP__AUTHWIT_OUTER,
-    },
+    constants::{DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER, DOM_SEP__AUTHWIT_OUTER},
     hash::poseidon2_hash_with_separator,
     traits::{Serialize, ToField},
 };
+use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
 
 /// Authentication witness helper library
 ///
@@ -282,7 +281,7 @@ pub fn assert_inner_hash_valid_authwit(context: &mut PrivateContext, on_behalf_o
     // already be handled in the verification, so we just need something to nullify, that allows the same inner_hash
     // for multiple actors.
     let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
-    context.push_nullifier(nullifier);
+    context.push_nullifier_unsafe(nullifier);
 }
 
 /// Assert that `on_behalf_of` has authorized the current call in the authentication registry
@@ -318,7 +317,7 @@ pub unconstrained fn assert_inner_hash_valid_authwit_public(
     inner_hash: Field,
 ) {
     let results: [Field] = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        STANDARD_AUTH_REGISTRY_ADDRESS,
         comptime { FunctionSelector::from_signature("consume((Field),Field)") },
         [on_behalf_of.to_field(), inner_hash],
         GasOpts::default(),
@@ -399,7 +398,7 @@ pub fn compute_authwit_message_hash(
 /// false if it should be revoked
 pub unconstrained fn set_authorized(context: PublicContext, message_hash: Field, authorize: bool) {
     let res = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        STANDARD_AUTH_REGISTRY_ADDRESS,
         comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
         [message_hash, authorize as Field],
         GasOpts::default(),
@@ -414,7 +413,7 @@ pub unconstrained fn set_authorized(context: PublicContext, message_hash: Field,
 /// @param reject True if all authwits should be rejected, false otherwise
 pub unconstrained fn set_reject_all(context: PublicContext, reject: bool) {
     let res = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        STANDARD_AUTH_REGISTRY_ADDRESS,
         comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
         [reject as Field],
         GasOpts::default(),

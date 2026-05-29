@@ -15,6 +15,7 @@ import {
   computeAppSecretKey,
   deriveKeys,
   derivePublicKeyFromSecretKey,
+  hashPublicKey,
 } from '@aztec/stdlib/keys';
 
 /** Maps a key prefix to the storage suffix for the corresponding master secret key. */
@@ -57,17 +58,24 @@ export class KeyStore {
       masterIncomingViewingSecretKey,
       masterOutgoingViewingSecretKey,
       masterTaggingSecretKey,
+      masterNullifierPublicKey,
+      masterOutgoingViewingPublicKey,
+      masterTaggingPublicKey,
       publicKeys,
     } = await deriveKeys(sk);
 
-    const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(sk, partialAddress);
+    const completeAddress = await CompleteAddress.fromPublicKeysAndPartialAddress(publicKeys, partialAddress);
     const { address: account } = completeAddress;
 
-    // Compute hashes before transaction
-    const masterNullifierPublicKeyHash = await publicKeys.masterNullifierPublicKey.hash();
-    const masterIncomingViewingPublicKeyHash = await publicKeys.masterIncomingViewingPublicKey.hash();
-    const masterOutgoingViewingPublicKeyHash = await publicKeys.masterOutgoingViewingPublicKey.hash();
-    const masterTaggingPublicKeyHash = await publicKeys.masterTaggingPublicKey.hash();
+    // The kernel cannot check that nhpk/ovpk/tpk are on-curve or non-infinity, so the PXE/key-store
+    // must guarantee it before persistence. By design, the above derivation produces points that are on
+    // the curve and not at infinity.
+
+    // The npk/ovpk/tpk hashes are already in publicKeys; ivpk_m_hash is computed for indexing.
+    const masterIncomingViewingPublicKeyHash = await hashPublicKey(publicKeys.ivpkM);
+
+    // The Message Signing and Fallback Keys don't have a derivation path yet, so we just use the default values for their hashes.
+    // So we avoid storing them persistently. The default hash is still required for address derivation
 
     await this.#db.transactionAsync(async () => {
       // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
@@ -76,17 +84,17 @@ export class KeyStore {
       await this.#keys.set(`${account.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
       await this.#keys.set(`${account.toString()}-nhk_m`, masterNullifierHidingKey.toBuffer());
 
-      await this.#keys.set(`${account.toString()}-npk_m`, publicKeys.masterNullifierPublicKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-ivpk_m`, publicKeys.masterIncomingViewingPublicKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-ovpk_m`, publicKeys.masterOutgoingViewingPublicKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-tpk_m`, publicKeys.masterTaggingPublicKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-ivpk_m`, publicKeys.ivpkM.toBuffer());
+      await this.#keys.set(`${account.toString()}-ovpk_m`, masterOutgoingViewingPublicKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
 
       // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
       // using the #getKeyPrefixAndAccount function later on
-      await this.#keys.set(`${account.toString()}-npk_m_hash`, masterNullifierPublicKeyHash.toBuffer());
+      await this.#keys.set(`${account.toString()}-npk_m_hash`, publicKeys.npkMHash.toBuffer());
       await this.#keys.set(`${account.toString()}-ivpk_m_hash`, masterIncomingViewingPublicKeyHash.toBuffer());
-      await this.#keys.set(`${account.toString()}-ovpk_m_hash`, masterOutgoingViewingPublicKeyHash.toBuffer());
-      await this.#keys.set(`${account.toString()}-tpk_m_hash`, masterTaggingPublicKeyHash.toBuffer());
+      await this.#keys.set(`${account.toString()}-ovpk_m_hash`, publicKeys.ovpkMHash.toBuffer());
+      await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.tpkMHash.toBuffer());
     });
 
     // At last, we return the newly derived account address
@@ -120,7 +128,9 @@ export class KeyStore {
     return this.#db.transactionAsync(async () => {
       const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
 
-      // Now we find the master public key for the account
+      // Load the stored master public key point. The returned KVR carries only the hash, but we
+      // use the point here as a witness for two integrity checks below: (1) it matches the supplied
+      // hash, and (2) it matches the value derived from the stored secret key.
       const pkMBuffer = await this.#keys.getAsync(`${account.toString()}-${keyPrefix}pk_m`);
       if (!pkMBuffer) {
         throw new Error(
@@ -142,7 +152,7 @@ export class KeyStore {
       const skM = GrumpkinScalar.fromBuffer(skMBuffer);
 
       // The remaining awaits are non-DB computations. They are safe because no further IDB operations follow them.
-      const computedPkMHash = await pkM.hash();
+      const computedPkMHash = await hashPublicKey(pkM);
       if (!computedPkMHash.equals(pkMHash)) {
         throw new Error(`Could not find ${keyPrefix}pkM for ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`);
       }
@@ -154,7 +164,7 @@ export class KeyStore {
 
       const skApp = await computeAppSecretKey(skM, contractAddress, keyPrefix!);
 
-      return new KeyValidationRequest(pkM, skApp);
+      return new KeyValidationRequest(pkMHash, skApp);
     });
   }
 
@@ -261,31 +271,36 @@ export class KeyStore {
   }
 
   /**
-   * Retrieves the sk_m corresponding to the pk_m.
-   * @throws If the provided public key is not associated with any of the registered accounts.
-   * @param pkM - The master public key to get secret key for.
+   * Retrieves the sk_m corresponding to the given pk_m hash.
+   * @throws If the provided hash is not associated with any of the registered accounts.
+   * @param pkMHash - The master public key hash to get secret key for.
    * @returns A Promise that resolves to sk_m.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  public getMasterSecretKey(pkM: PublicKey): Promise<GrumpkinScalar> {
+  public getMasterSecretKey(pkMHash: Fr): Promise<GrumpkinScalar> {
     return this.#db.transactionAsync(async () => {
-      const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkM);
+      const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
 
       const skStorageSuffix = secretKeyStorageSuffix(keyPrefix);
       const secretKeyBuffer = await this.#keys.getAsync(`${account.toString()}-${skStorageSuffix}`);
       if (!secretKeyBuffer) {
         throw new Error(
-          `Could not find ${skStorageSuffix} for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,
+          `Could not find ${skStorageSuffix} for ${keyPrefix}pk_m_hash ${pkMHash.toString()}. This should not happen.`,
         );
       }
 
       const skM = GrumpkinScalar.fromBuffer(secretKeyBuffer);
 
       // Non-DB computation — safe because no further IDB operations follow.
-      const derivedpkM = await derivePublicKeyFromSecretKey(skM);
-      if (!derivedpkM.equals(pkM)) {
+      // Integrity check: confirm the stored secret key still derives the requested hash. The check
+      // is hash-based rather than point-equal because the on-disk identifier is `pk_m_hash`;
+      // cryptographic collision resistance of `hashPublicKey` makes this equivalent to a
+      // direct point comparison in practice.
+      const derivedPkM = await derivePublicKeyFromSecretKey(skM);
+      const derivedPkMHash = await hashPublicKey(derivedPkM);
+      if (!derivedPkMHash.equals(pkMHash)) {
         throw new Error(
-          `Could not find ${skStorageSuffix} for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`,
+          `Could not find ${skStorageSuffix} for ${keyPrefix}pk_m_hash ${pkMHash.toString()} in secret keys buffer.`,
         );
       }
 

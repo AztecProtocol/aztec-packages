@@ -2,7 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(../bootstrap.sh hash)
-bench_fixtures_dir=example-app-ivc-inputs-out
+bench_fixtures_dir=chonk-pinned-flows
 default_avm_inputs_dump_dir=dumped-avm-circuit-inputs
 ultrahonk_bench_dir=ultrahonk-bench-inputs
 
@@ -25,20 +25,23 @@ function set_dump_avm {
 
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  local prefix="$hash:ISOLATE=1"
+  local prefix="$hash:ISOLATE=1:TIMEOUT=20m"
 
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
   else
     echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
   fi
-  echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
+  echo "$prefix:TIMEOUT=25m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
+  echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
+
+
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_!(prover)/*.test.ts
     src/e2e_p2p/reqresp/*.test.ts
-    src/e2e_!(block_building).test.ts
+    src/e2e_!(block_building|avm_simulator).test.ts
   )
   for test in "${tests[@]}"; do
     local name=${test#*e2e_}
@@ -48,6 +51,9 @@ function test_cmds {
     local test_prefix="$prefix"
     case "$name" in
       e2e_p2p/add_rollup)
+        test_prefix="$prefix:TIMEOUT=20m"
+        ;;
+      e2e_cross_chain_messaging/l1_to_l2)
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
     esac
@@ -74,7 +80,7 @@ function test_cmds {
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
-    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script compose $test"
+    echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=20m $run_test_script compose $test"
   done
 
   tests=(
@@ -82,7 +88,7 @@ function test_cmds {
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
-    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer $test"
+    echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=20m $run_test_script web3signer $test"
   done
 
   tests=(
@@ -90,7 +96,7 @@ function test_cmds {
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
-    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script ha $test"
+    echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=30m $run_test_script ha $test"
   done
 
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"

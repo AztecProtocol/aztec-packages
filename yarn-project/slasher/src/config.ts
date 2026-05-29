@@ -16,16 +16,19 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashOverridePayload: undefined,
   slashValidatorsAlways: [], // Empty by default
   slashValidatorsNever: [], // Empty by default
-  slashPrunePenalty: BigInt(slasherDefaultEnv.SLASH_PRUNE_PENALTY),
   slashDataWithholdingPenalty: BigInt(slasherDefaultEnv.SLASH_DATA_WITHHOLDING_PENALTY),
+  slashDataWithholdingToleranceSlots: slasherDefaultEnv.SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS,
   slashInactivityTargetPercentage: slasherDefaultEnv.SLASH_INACTIVITY_TARGET_PERCENTAGE,
   slashInactivityConsecutiveEpochThreshold: slasherDefaultEnv.SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD,
   slashBroadcastedInvalidBlockPenalty: BigInt(slasherDefaultEnv.SLASH_INVALID_BLOCK_PENALTY),
+  slashBroadcastedInvalidCheckpointProposalPenalty: BigInt(slasherDefaultEnv.SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY),
   slashDuplicateProposalPenalty: BigInt(slasherDefaultEnv.SLASH_DUPLICATE_PROPOSAL_PENALTY),
   slashDuplicateAttestationPenalty: BigInt(slasherDefaultEnv.SLASH_DUPLICATE_ATTESTATION_PENALTY),
   slashInactivityPenalty: BigInt(slasherDefaultEnv.SLASH_INACTIVITY_PENALTY),
   slashProposeInvalidAttestationsPenalty: BigInt(slasherDefaultEnv.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY),
-  slashAttestDescendantOfInvalidPenalty: BigInt(slasherDefaultEnv.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY),
+  slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: BigInt(
+    slasherDefaultEnv.SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY,
+  ),
   slashAttestInvalidCheckpointProposalPenalty: BigInt(
     slasherDefaultEnv.SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY,
   ),
@@ -66,20 +69,26 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
         .map(addr => EthAddress.fromString(addr)),
     defaultValue: DefaultSlasherConfig.slashValidatorsNever,
   },
-  slashPrunePenalty: {
-    env: 'SLASH_PRUNE_PENALTY',
-    description: 'Penalty amount for slashing validators of a valid pruned epoch (set to 0 to disable).',
-    ...bigintConfigHelper(DefaultSlasherConfig.slashPrunePenalty),
-  },
   slashDataWithholdingPenalty: {
     env: 'SLASH_DATA_WITHHOLDING_PENALTY',
-    description: 'Penalty amount for slashing validators for data withholding (set to 0 to disable).',
+    description: 'Penalty for data withholding (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashDataWithholdingPenalty),
+  },
+  slashDataWithholdingToleranceSlots: {
+    env: 'SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS',
+    description:
+      'Number of full L2 slots that must elapse after a checkpoint slot before declaring its txs missing and slashing its attesters for data withholding.',
+    ...numberConfigHelper(DefaultSlasherConfig.slashDataWithholdingToleranceSlots),
   },
   slashBroadcastedInvalidBlockPenalty: {
     env: 'SLASH_INVALID_BLOCK_PENALTY',
     description: 'Penalty amount for slashing a validator for an invalid block proposed via p2p.',
     ...bigintConfigHelper(DefaultSlasherConfig.slashBroadcastedInvalidBlockPenalty),
+  },
+  slashBroadcastedInvalidCheckpointProposalPenalty: {
+    env: 'SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY',
+    description: 'Penalty amount for slashing a validator for an invalid checkpoint proposal proposed via p2p.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashBroadcastedInvalidCheckpointProposalPenalty),
   },
   slashDuplicateProposalPenalty: {
     env: 'SLASH_DUPLICATE_PROPOSAL_PENALTY',
@@ -116,29 +125,28 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
   },
   slashInactivityPenalty: {
     env: 'SLASH_INACTIVITY_PENALTY',
-    description: 'Penalty amount for slashing an inactive validator (set to 0 to disable).',
+    description: 'Penalty for an inactive validator (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashInactivityPenalty),
   },
   slashProposeInvalidAttestationsPenalty: {
     env: 'SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY',
-    description: 'Penalty amount for slashing a proposer that proposed invalid attestations (set to 0 to disable).',
+    description: 'Penalty for proposing invalid attestations (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashProposeInvalidAttestationsPenalty),
   },
-  slashAttestDescendantOfInvalidPenalty: {
-    env: 'SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY',
+  slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: {
+    env: 'SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY',
     description:
-      'Penalty amount for slashing a validator that attested to a descendant of an invalid block (set to 0 to disable).',
-    ...bigintConfigHelper(DefaultSlasherConfig.slashAttestDescendantOfInvalidPenalty),
+      'Penalty for publishing a checkpoint building on an invalid checkpoint (0 records offenses without slash votes).',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty),
   },
   slashAttestInvalidCheckpointProposalPenalty: {
     env: 'SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY',
-    description:
-      'Penalty amount for slashing a validator that attested to an invalid checkpoint proposal (set to 0 to disable).',
+    description: 'Penalty for attesting to an invalid checkpoint proposal (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashAttestInvalidCheckpointProposalPenalty),
   },
   slashUnknownPenalty: {
     env: 'SLASH_UNKNOWN_PENALTY',
-    description: 'Penalty amount for slashing a validator for an unknown offense (set to 0 to disable).',
+    description: 'Penalty for an unknown offense (0 records offenses without slash votes).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashUnknownPenalty),
   },
   slashOffenseExpirationRounds: {

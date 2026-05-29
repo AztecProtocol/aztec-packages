@@ -2,9 +2,10 @@ import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
+import { getCanonicalClassRegistry } from '@aztec/protocol-contracts/class-registry';
 import { computeFeePayerBalanceStorageSlot, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceRegistry } from '@aztec/protocol-contracts/instance-registry';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -91,7 +92,7 @@ export abstract class BaseAvmSimulationTester {
   }
 
   async registerAuthContract(): Promise<ContractInstanceWithAddress> {
-    const authRegistry = await getCanonicalAuthRegistry();
+    const authRegistry = await getStandardAuthRegistry();
     const authRegistryContractClassPublic = {
       ...authRegistry.contractClass,
       privateFunctions: [],
@@ -102,7 +103,26 @@ export abstract class BaseAvmSimulationTester {
       authRegistryContractClassPublic,
       authRegistry.instance,
     );
+    // AuthRegistry is a standard contract (not a protocol contract), so the AVM enforces a
+    // deployment-nullifier check on every instance retrieval. Insert the nullifier here so
+    // calls to AuthRegistry don't EXCEPTIONAL_HALT during simulation.
+    await this.insertContractAddressNullifier(authRegistry.instance.address);
     return authRegistry.instance;
+  }
+
+  async registerClassRegistryContract(): Promise<ContractInstanceWithAddress> {
+    const classRegistry = await getCanonicalClassRegistry();
+    const classRegistryContractClassPublic = {
+      ...classRegistry.contractClass,
+      privateFunctions: [],
+      utilityFunctions: [],
+    };
+    await this.contractDataSource.addNewContract(
+      classRegistry.artifact,
+      classRegistryContractClassPublic,
+      classRegistry.instance,
+    );
+    return classRegistry.instance;
   }
 
   async registerInstanceRegistryContract(): Promise<ContractInstanceWithAddress> {

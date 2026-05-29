@@ -14,7 +14,15 @@ import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext, deployAccounts, publicDeployAccounts, setup, teardown } from '../fixtures/setup.js';
+import {
+  type EndToEndContext,
+  type SetupOptions,
+  deployAccounts,
+  ensureAuthRegistryPublished,
+  publicDeployAccounts,
+  setup,
+  teardown,
+} from '../fixtures/setup.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
@@ -69,6 +77,12 @@ export class BlacklistTokenContractTest {
   }
 
   async crossTimestampOfChange() {
+    // Under AUTOMINE_E2E_OPTS, the 86400s warp crosses many epochs without any proofs being
+    // submitted. Mark current pending checkpoints as proven first so the rollup contract's
+    // pruning window doesn't reset the chain tip to genesis (which would make the warp's
+    // own empty-checkpoint propose fail with Rollup__InvalidArchive). See the AutomineSequencer
+    // README "Epoch proving caveat" and the equivalent pattern in lending_simulator.progressSlots.
+    await this.cheatCodes.rollup.markAsProven();
     await this.cheatCodes.warpL2TimeAtLeastBy(this.aztecNode, BlacklistTokenContractTest.CHANGE_ROLES_DELAY);
   }
 
@@ -78,8 +92,9 @@ export class BlacklistTokenContractTest {
    * 2. Publicly deploy accounts, deploy token contract and a "bad account".
    */
   async applyBaseSetup() {
-    // Adding a timeout of 2 minutes in here such that it is propagated to the underlying tests
-    jest.setTimeout(120_000);
+    // Bumped from 2 min: pipelined cadence (~24s/dependent-tx) makes the 3-account deploy plus token/bad-account/
+    // proxy deploys exceed the original window.
+    jest.setTimeout(600_000);
 
     this.logger.info('Deploying 3 accounts');
     const { deployedAccounts } = await deployAccounts(
@@ -99,6 +114,7 @@ export class BlacklistTokenContractTest {
     this.blacklistedAddress = deployedAccounts[2].address;
 
     this.logger.info('Setting up blacklist token contract');
+    await ensureAuthRegistryPublished(this.wallet, this.adminAddress);
     // Create the token contract state.
     this.logger.verbose(`Public deploy accounts...`);
     await publicDeployAccounts(this.wallet, [this.adminAddress, this.otherAddress, this.blacklistedAddress]);
@@ -139,9 +155,10 @@ export class BlacklistTokenContractTest {
     ).toEqual(new Role().withAdmin().toNoirStruct());
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up fresh context');
     this.context = await setup(0, {
+      ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
     });

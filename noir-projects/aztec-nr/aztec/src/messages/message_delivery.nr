@@ -9,23 +9,43 @@ use crate::{
 };
 use crate::protocol::{address::AztecAddress, constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, hash::compute_log_tag};
 
-/// Placeholder struct until Noir adds `enum` support.
+/// Specifies how to deliver a message to a recipient.
 ///
-/// See [`MessageDelivery`] instead.
-pub struct MessageDeliveryEnum {
+/// All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
+/// read their contents. This struct instead configures which **guarantees** exist regarding delivery.
+///
+/// There are two aspects to delivery guarantees:
+/// - the medium on which the message is sent (off-chain or on-chain)
+/// - whether the contract constrains the message to be constructed correctly
+///
+/// For scenarios where the sender is incentivized to deliver the message correctly, use [`MessageDelivery::offchain`]
+/// (the cheapest delivery option, but requiring that sender and recipient can communicate off-chain) or
+/// [`MessageDelivery::onchain_unconstrained`]. If the sender cannot be trusted to send the message to the recipient,
+/// use [`MessageDelivery::onchain_constrained`].
+pub struct MessageDelivery {
+    variant: u8,
+}
+
+impl Eq for MessageDelivery {
+    fn eq(self, other: Self) -> bool {
+        self.variant == other.variant
+    }
+}
+
+impl MessageDelivery {
     /// Delivers the message fully off-chain, with no guarantees whatsoever.
     ///
     /// ## Use Cases
     ///
     /// This delivery method is suitable when the sender is required to send the message to the recipient because of
-    /// some external reason, and where the sender is able to directly contact the recipient off-chain. In these cases,
-    /// it might be unnecessary to force the sender to spend proving time guaranteeing message correctness, or to pay
-    /// transaction fees in order to use the chain as a medium.
+    /// some external reason, and where the sender is able to directly contact the recipient off-chain. In these
+    /// cases, it might be unnecessary to force the sender to spend proving time guaranteeing message correctness, or
+    /// to pay transaction fees in order to use the chain as a medium.
     ///
     /// For example, if performing a payment in exchange for some good or service, the recipient will only accept the
     /// payment once they receive note and event messages, allowing them to observe the balance increase. The sender
-    /// has no reason not to deliver the message correctly to the recipient, and in all likelihood has a way to send it
-    /// to them.
+    /// has no reason not to deliver the message correctly to the recipient, and in all likelihood has a way to send
+    /// it to them.
     ///
     /// Similarly, in games and other applications that might rely on some server processing state, players might be
     /// required to update the server with their current state.
@@ -59,7 +79,9 @@ pub struct MessageDeliveryEnum {
     /// No information is revelead on-chain about sender, recipient, or the message contents. The message itself
     /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
     /// keys in order to obtain the plaintext.
-    pub OFFCHAIN: u8,
+    pub fn offchain() -> Self {
+        Self { variant: 1 }
+    }
 
     /// Delivers the message on-chain, but with no guarantees on the content.
     ///
@@ -85,7 +107,7 @@ pub struct MessageDeliveryEnum {
     /// An undecryptable or otherwise invalid note or event message will however simply be ignored by the recipient,
     /// who can always validate the existence of the note or event on-chain.
     ///
-    /// These guarantees make this delivery mechanism be quite similar to [`MessageDeliveryEnum::OFFCHAIN`], except the
+    /// These guarantees make this delivery mechanism be quite similar to [`MessageDelivery::offchain`], except the
     /// sender does not need to establish an off-chain communication channel with the recipient, and neither party
     /// needs to worry about backups.
     ///
@@ -109,19 +131,21 @@ pub struct MessageDeliveryEnum {
     ///
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
-    pub ONCHAIN_UNCONSTRAINED: u8,
+    pub fn onchain_unconstrained() -> Self {
+        Self { variant: 2 }
+    }
 
     /// Delivers the message on-chain, guaranteeing the recipient will receive the correct content.
     ///
     /// >**WARNING**: this delivery mode is [currently NOT fully
     /// constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565). The log's tag is unconstrained,
-    /// meaning a malicious sender could manipulate it to prevent the recipient from  finding the message.
+    /// meaning a malicious sender could manipulate it to prevent the recipient from finding the message.
     ///
     /// ## Use Cases
     ///
     /// This delivery method is suitable for all use cases, since it always works as expected. It is however the most
-    /// costly method, and there are multiple scenarios where alternatives such as [`MessageDeliveryEnum::OFFCHAIN`] or
-    /// [`MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED`] will suffice.
+    /// costly method, and there are multiple scenarios where alternatives such as [`MessageDelivery::offchain`] or
+    /// [`MessageDelivery::onchain_unconstrained`] will suffice.
     ///
     /// If the sender cannot be relied on to correctly send the message to the recipient (e.g. because they have no
     /// incentive to do so, such as when paying a fee to a protocol, creating the change note after spending a third
@@ -146,8 +170,8 @@ pub struct MessageDeliveryEnum {
     /// Additionally, the constraining of the log's tag results in additional DA usage and hence transaction fees due
     /// to the emission of nullifiers.
     ///
-    /// Proving time is also increased as circuit gates are introduced to guarantee both the correct encryption of the
-    /// message, and selection of log tag.
+    /// Proving time is also increased as circuit gates are introduced to guarantee both the correct encryption of
+    /// the message, and selection of log tag.
     ///
     /// ## Privacy
     ///
@@ -160,25 +184,10 @@ pub struct MessageDeliveryEnum {
     ///
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
-    pub ONCHAIN_CONSTRAINED: u8,
+    pub fn onchain_constrained() -> Self {
+        Self { variant: 3 }
+    }
 }
-
-/// Specifies how to deliver a message to a recipient.
-///
-/// All messages are delivered encrypted to their recipient's public address key, so no other account will be able to
-/// read their contents. This enum instead configures which **guarantees** exist regarding delivery.
-///
-/// There are two aspects to delivery guarantees:
-/// - the medium on which the message is sent (off-chain or on-chain)
-/// - whether the contract constrains the message to be constructed correctly
-///
-/// For scenarios where the sender is incentivized to deliver the message correctly, use
-/// [`MessageDeliveryEnum::OFFCHAIN`] (the cheapest delivery option, but requiring that sender and recipient can
-/// communicate off-chain) or [`MessageDeliveryEnum::ONCHAIN_UNCONSTRAINED`]. If the sender cannot be trusted to send
-/// the
-/// message to the recipient, use [`MessageDeliveryEnum::ONCHAIN_CONSTRAINED`].
-pub global MessageDelivery: MessageDeliveryEnum =
-    MessageDeliveryEnum { OFFCHAIN: 1, ONCHAIN_UNCONSTRAINED: 2, ONCHAIN_CONSTRAINED: 3 };
 
 /// Performs private delivery of a message to `recipient` according to `delivery_mode`.
 ///
@@ -191,7 +200,7 @@ pub global MessageDelivery: MessageDeliveryEnum =
 /// emitted in the current transaction. This is typically only used for note messages: since the note will not actually
 /// be created, there is no point in delivering the message.
 ///
-/// `delivery_mode` must be one of [`MessageDeliveryEnum`].
+/// `delivery_mode` must be a [`MessageDelivery`] value.
 ///
 /// ## Privacy
 ///
@@ -202,7 +211,7 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     encode_into_message_plaintext: fn[Env]() -> [Field; MESSAGE_PLAINTEXT_LEN],
     maybe_note_hash_counter: Option<u32>,
     recipient: AztecAddress,
-    delivery_mode: u8,
+    delivery_mode: MessageDelivery,
 ) {
     // This function relies on `delivery_mode` being a constant in order to reduce circuit constraints when
     // unconstrained usage is requested. If `delivery_mode` were a runtime value the compiler would be unable to
@@ -210,10 +219,10 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     assert_constant(delivery_mode);
 
     // The following maps out the 3 dimensions across which we configure message delivery.
-    let constrained_encryption = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
-    let deliver_as_offchain_message = delivery_mode == MessageDelivery.OFFCHAIN;
+    let constrained_encryption = delivery_mode == MessageDelivery::onchain_constrained();
+    let deliver_as_offchain_message = delivery_mode == MessageDelivery::offchain();
     // TODO(#14565): Add constrained tagging
-    let _constrained_tagging = delivery_mode == MessageDelivery.ONCHAIN_CONSTRAINED;
+    let _constrained_tagging = delivery_mode == MessageDelivery::onchain_constrained();
 
     let contract_address = context.this_address();
 
@@ -241,9 +250,9 @@ pub fn do_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
         if maybe_note_hash_counter.is_some() {
             // We associate the log with the note's side effect counter, so that if the note ends up being squashed in
             // the current transaction, the log will be removed as well.
-            context.emit_raw_note_log_vec_unsafe(log_tag, log, maybe_note_hash_counter.unwrap());
+            context.emit_raw_note_log_unsafe(log_tag, log, maybe_note_hash_counter.unwrap());
         } else {
-            context.emit_private_log_vec_unsafe(log_tag, log);
+            context.emit_private_log_unsafe(log_tag, log);
         }
     }
 }

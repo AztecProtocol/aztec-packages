@@ -408,7 +408,7 @@ Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect 
 #### Running Realistic Chonk from barretenberg folder
 
 Realistic IVC inputs are pinned in CI and downloaded into
-`yarn-project/end-to-end/example-app-ivc-inputs-out`.
+`barretenberg/cpp/chonk-pinned-flows`.
 Run the benchmark flow with:
 `barretenberg/cpp/bootstrap.sh bench_ivc`
 

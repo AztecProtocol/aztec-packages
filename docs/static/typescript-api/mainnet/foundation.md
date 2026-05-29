@@ -1,6 +1,6 @@
 # @aztec/foundation
 
-Version: 4.2.0
+Version: v4.3.0
 
 ## Quick Import Reference
 
@@ -1310,6 +1310,12 @@ function unique<T>(arr: T[]) => T[]
 ```
 Removes duplicates from the given array.
 
+### uniqueBy
+```typescript
+function uniqueBy<T, K extends string | number | bigint>(arr: T[], keyFn: (item: T) => K) => T[]
+```
+Removes duplicates from the given array using a key function. The first occurrence of each key is kept.
+
 ### variance
 ```typescript
 function variance(values: number[]) => number | undefined
@@ -1416,7 +1422,7 @@ type NetworkConfigMap = z.infer<typeof NetworkConfigMapSchema>
 
 ### NetworkNames
 ```typescript
-type NetworkNames = "local" | "staging-ignition" | "staging-public" | "testnet" | "mainnet" | "next-net" | "devnet"
+type NetworkNames = "local" | "staging-public" | "testnet" | "mainnet" | "next-net" | "devnet"
 ```
 
 ### PartialBy

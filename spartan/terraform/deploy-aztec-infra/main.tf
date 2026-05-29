@@ -52,7 +52,7 @@ module "web3signer" {
   VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHERS_PER_REPLICA         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-  PROVER_COUNT                             = tonumber(var.PROVER_REPLICAS)
+  PROVER_COUNT                             = local.prover_agent_replica_capacity
   PUBLISHERS_PER_PROVER                    = tonumber(var.PROVER_PUBLISHERS_PER_PROVER)
   PROVER_PUBLISHER_MNEMONIC_START_INDEX    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
 
@@ -93,6 +93,8 @@ locals {
     repository = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[0]
     tag        = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[1]
   } : local.aztec_image
+
+  prover_agent_replica_capacity = var.PROVER_ENABLED ? (var.PROVER_AGENT_KEDA_ENABLED ? var.PROVER_AGENT_KEDA_MAX_REPLICAS : tonumber(var.PROVER_REPLICAS)) : 0
 
   # Max node count: max of primary (VALIDATOR_REPLICAS) and HA pod counts
   # Determines how many attester keystores and publisher key ranges to generate
@@ -157,11 +159,11 @@ locals {
   validator_base_config = {
     chart   = "aztec-validator"
     timeout = 1800
-    values = [
+    values = concat([
       "common.yaml",
       "validator.yaml",
       "validator-resources-${var.VALIDATOR_RESOURCE_PROFILE}.yaml"
-    ]
+    ], var.VALIDATOR_HA_REPLICAS > 0 ? ["validator-resources-spot.yaml", "validator-resources-ha.yaml"] : [])
     inline_values = [yamlencode({
       validator = {
         service = {
@@ -170,18 +172,6 @@ locals {
         node = {
           logLevel = var.LOG_LEVEL
         }
-        # spread validator pods to different nodes to avoid having two validators with the same attester keys on the same physical node
-        topologySpreadConstraints = [{
-          maxSkew           = 1
-          topologyKey       = "kubernetes.io/hostname"
-          whenUnsatisfiable = "ScheduleAnyway" # soft constraint
-          labelSelector = {
-            matchLabels = {
-              "app.kubernetes.io/component" = "sequencer-node"
-            }
-          }
-          matchLabelKeys = ["apps.kubernetes.io/pod-index"]
-        }]
       }
     })]
     boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
@@ -200,15 +190,16 @@ locals {
     "validator.sentinel.enabled"                                  = var.SENTINEL_ENABLED
     "validator.slash.inactivityTargetPercentage"                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
     "validator.slash.inactivityPenalty"                           = var.SLASH_INACTIVITY_PENALTY
-    "validator.slash.prunePenalty"                                = var.SLASH_PRUNE_PENALTY
     "validator.slash.dataWithholdingPenalty"                      = var.SLASH_DATA_WITHHOLDING_PENALTY
+    "validator.slash.dataWithholdingToleranceSlots"               = var.SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS
     "validator.slash.proposeInvalidAttestationsPenalty"           = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
     "validator.slash.duplicateProposalPenalty"                    = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
     "validator.slash.duplicateAttestationPenalty"                 = var.SLASH_DUPLICATE_ATTESTATION_PENALTY
-    "validator.slash.attestDescendantOfInvalidPenalty"            = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
+    "validator.slash.proposeDescendantOfCheckpointWithInvalidAttestationsPenalty"           = var.SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY
     "validator.slash.attestInvalidCheckpointProposalPenalty"       = var.SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY
     "validator.slash.unknownPenalty"                              = var.SLASH_UNKNOWN_PENALTY
     "validator.slash.invalidBlockPenalty"                         = var.SLASH_INVALID_BLOCK_PENALTY
+    "validator.slash.invalidCheckpointProposalPenalty"            = var.SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY
     "validator.slash.offenseExpirationRounds"                     = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
     "validator.slash.maxPayloadSize"                              = var.SLASH_MAX_PAYLOAD_SIZE
     "validator.node.env.TRANSACTIONS_DISABLED"                    = var.TRANSACTIONS_DISABLED
@@ -328,7 +319,7 @@ locals {
       wait                 = true
     } : null
 
-    prover = {
+    prover = var.PROVER_ENABLED ? {
       name  = "${var.RELEASE_PREFIX}-prover"
       chart = "aztec-prover-stack"
       values = [
@@ -353,6 +344,19 @@ locals {
         agent = {
           node = {
             logLevel = var.LOG_LEVEL
+          }
+          autoscaling = {
+            keda = {
+              enabled         = var.PROVER_AGENT_KEDA_ENABLED && var.PROVER_ENABLED
+              pollingInterval = var.PROVER_AGENT_KEDA_POLLING_INTERVAL_SECONDS
+              cooldownPeriod  = var.PROVER_AGENT_KEDA_COOLDOWN_PERIOD_SECONDS
+              minReplicaCount = var.PROVER_AGENT_KEDA_MIN_REPLICAS
+              maxReplicaCount = var.PROVER_AGENT_KEDA_MAX_REPLICAS
+              scalingBands    = var.PROVER_AGENT_KEDA_SCALING_BANDS
+              prometheus = {
+                serverAddress = var.PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS
+              }
+            }
           }
         }
         })], local.is_kind ? [yamlencode({
@@ -388,7 +392,7 @@ locals {
           "agent.node.env.CRS_PATH"                             = "/usr/src/crs"
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
-          "agent.replicaCount"                                  = var.PROVER_REPLICAS
+          "agent.replicaCount"                                  = var.PROVER_AGENT_KEDA_ENABLED ? "0" : var.PROVER_REPLICAS
           "agent.node.env.BOOTSTRAP_NODES"                      = "asdf"
           "agent.node.env.PROVER_AGENT_COUNT"                   = var.PROVER_AGENTS_PER_PROVER
           "agent.node.env.PROVER_TEST_DELAY_TYPE"               = var.PROVER_TEST_DELAY_TYPE
@@ -421,7 +425,7 @@ locals {
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
       wait                 = var.WAIT_FOR_PROVER_DEPLOY
-    }
+    } : null
 
     rpc = {
       name  = "${var.RELEASE_PREFIX}-rpc"

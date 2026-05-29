@@ -1,6 +1,9 @@
 use crate::{
     context::PrivateContext,
-    messages::{logs::note::encode_private_note_message, message_delivery::do_private_message_delivery},
+    messages::{
+        logs::note::encode_private_note_message,
+        message_delivery::{do_private_message_delivery, MessageDelivery},
+    },
     note::{lifecycle::NewNote, note_interface::NoteType},
 };
 use crate::protocol::{address::AztecAddress, traits::Packable};
@@ -32,7 +35,7 @@ where
     ///
     /// The message is first encrypted to the owner's public key, ensuring no other actor can read it.
     ///
-    /// The `delivery_mode` must be one of [`crate::messages::message_delivery::MessageDeliveryEnum`], and will inform
+    /// The `delivery_mode` must be a [`crate::messages::message_delivery::MessageDelivery`] value, and will inform
     /// costs (both proving time and TX fees) as well as delivery guarantees. This value must be a compile-time
     /// constant.
     ///
@@ -45,7 +48,7 @@ where
     /// as normal. This prevents both 'king of the hill' attacks (where a sender would otherwise fail to deliver a note
     /// to an invalid recipient) and forced privacy leaks (where an invalid recipient results in a unique transaction
     /// fingerprint, e.g. one lacking the private logs that would correspond to message delivery).
-    pub fn deliver(self, delivery_mode: u8) {
+    pub fn deliver(self, delivery_mode: MessageDelivery) {
         self.deliver_to(self.new_note.owner, delivery_mode);
     }
 
@@ -63,7 +66,7 @@ where
     /// institutional contract may require to have some actor receive all notes created for compliance purposes. Or a
     /// low value application like a game might deliver all notes offchain to a centralized server that then serves
     /// them via the app, bypassing the need for contract sync and improving UX.
-    pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
+    pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: MessageDelivery) {
         // Technical note: we're about to call a closure that needs access to `new_note`, but we can't pass `self` to
         // it because the closure might execute in unconstrained mode, and since `self` contains a mutable reference to
         // `context` this would cause for a mutable reference to cross the constrained-unconstrained barrier, which is
@@ -126,10 +129,9 @@ where
 
     /// Same as [`NoteMessage::deliver`], except the message will only be delivered if it actually exists.
     ///
-    /// Messages delivered using [`crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED`] will
-    /// pay
-    /// proving costs regardless of whether the message exists or not.
-    pub fn deliver(self, delivery_mode: u8) {
+    /// Messages delivered using [`crate::messages::message_delivery::MessageDelivery::onchain_constrained()`] will
+    /// pay proving costs regardless of whether the message exists or not.
+    pub fn deliver(self, delivery_mode: MessageDelivery) {
         if self.maybe_new_note.is_some() {
             NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver(delivery_mode);
         }
@@ -137,10 +139,9 @@ where
 
     /// Same as [`NoteMessage::deliver_to`], except the message will only be delivered if it actually exists.
     ///
-    /// Messages delivered using [`crate::messages::message_delivery::MessageDeliveryEnum::ONCHAIN_CONSTRAINED`] will
-    /// pay
-    /// proving costs regardless of whether the message exists or not.
-    pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: u8) {
+    /// Messages delivered using [`crate::messages::message_delivery::MessageDelivery::onchain_constrained()`] will
+    /// pay proving costs regardless of whether the message exists or not.
+    pub fn deliver_to(self, recipient: AztecAddress, delivery_mode: MessageDelivery) {
         if self.maybe_new_note.is_some() {
             NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver_to(recipient, delivery_mode);
         }
