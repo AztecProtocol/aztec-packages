@@ -1,9 +1,17 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "stores": [
     {
       "name": "address_book",
       "kind": "map"
+    },
+    {
+      "name": "canonical_hashes",
+      "kind": "map"
+    },
+    {
+      "name": "canonical_meta",
+      "kind": "singleton"
     },
     {
       "name": "capsules",
@@ -58,7 +66,7 @@
       "kind": "map"
     },
     {
-      "name": "note_block_number_to_nullifier",
+      "name": "note_nullifications_by_nullifier",
       "kind": "multimap"
     },
     {

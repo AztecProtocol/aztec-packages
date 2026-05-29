@@ -25,6 +25,8 @@ import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
 
+const alwaysCanonical = { isCanonical: () => true };
+
 describe('BlockSynchronizer', () => {
   let synchronizer: BlockSynchronizer;
   let store: AztecAsyncKVStore;
@@ -62,7 +64,7 @@ describe('BlockSynchronizer', () => {
     tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
     anchorBlockStore = new CanonicalBlockStore(store);
     await anchorBlockStore.load();
-    noteStore = new NoteStore(store);
+    noteStore = new NoteStore(store, alwaysCanonical);
     privateEventStore = new PrivateEventStore(store);
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
@@ -76,19 +78,19 @@ describe('BlockSynchronizer', () => {
     expect(obtainedHeader.equals(block.header)).toBe(true);
   });
 
-  it('removes notes from db on a reorg', async () => {
-    const rollback = jest.spyOn(noteStore, 'rollback').mockImplementation(() => Promise.resolve());
+  it('updates anchor block on a reorg', async () => {
     const block3Hash = Fr.fromString('0x3');
+    let reorgBlock: L2Block | undefined;
     aztecNode.getBlock.mockImplementation(async (block: any) => {
       if (block instanceof BlockHash && block.equals(block3Hash)) {
-        const b = await L2Block.random(BlockNumber(3));
+        reorgBlock = await L2Block.random(BlockNumber(3));
         return {
-          header: b.header,
-          archive: b.archive,
-          hash: await b.hash(),
-          checkpointNumber: b.checkpointNumber,
-          indexWithinCheckpoint: b.indexWithinCheckpoint,
-          number: b.number,
+          header: reorgBlock.header,
+          archive: reorgBlock.archive,
+          hash: await reorgBlock.hash(),
+          checkpointNumber: reorgBlock.checkpointNumber,
+          indexWithinCheckpoint: reorgBlock.indexWithinCheckpoint,
+          number: reorgBlock.number,
         } as any;
       }
       return undefined;
@@ -104,7 +106,9 @@ describe('BlockSynchronizer', () => {
       checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
     });
 
-    expect(rollback).toHaveBeenCalledWith(3, 4);
+    // The anchor block should be updated to the reorg block header.
+    const obtainedHeader = await anchorBlockStore.getBlockHeader();
+    expect(obtainedHeader.equals(reorgBlock!.header)).toBe(true);
   });
 
   it('removes private events from db on a reorg', async () => {
@@ -302,16 +306,12 @@ describe('BlockSynchronizer', () => {
       const anchorBlock = await L2Block.random(BlockNumber(2));
       await anchorBlockStore.setHeader(anchorBlock.header);
 
-      const rollback = jest.spyOn(noteStore, 'rollback').mockImplementation(() => Promise.resolve());
-
       // Prune to block 3 (above anchor) - should be ignored
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-pruned',
         block: { number: BlockNumber(3), hash: '0x3' },
         checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
       });
-
-      expect(rollback).not.toHaveBeenCalled();
 
       // Anchor should be unchanged
       const obtainedHeader = await anchorBlockStore.getBlockHeader();

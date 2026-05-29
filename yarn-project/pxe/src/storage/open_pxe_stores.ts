@@ -39,7 +39,7 @@ export async function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: 
     addressStore: new AddressStore(store),
     privateEventStore: new PrivateEventStore(store),
     contractStore: new ContractStore(store),
-    noteStore: new NoteStore(store),
+    noteStore: new NoteStore(store, canonicalBlockStore),
     canonicalBlockStore,
     senderTaggingStore: new SenderTaggingStore(store),
     senderAddressBookStore: new SenderAddressBookStore(store),

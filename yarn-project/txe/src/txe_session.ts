@@ -257,7 +257,8 @@ export class TXESession implements TXESessionStateHandler {
 
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
-    const noteStore = new NoteStore(store);
+    // TXE sessions are ephemeral and have no reorg concept; all notes are always canonical.
+    const noteStore = new NoteStore(store, { isCanonical: () => true });
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
