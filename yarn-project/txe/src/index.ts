@@ -8,7 +8,6 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { PublicKeys, deriveKeys } from '@aztec/aztec.js/keys';
 import type { Logger } from '@aztec/foundation/log';
 import { cloneEphemeralStoreFrom } from '@aztec/kv-store/lmdb-v2';
-import type { ProtocolContractName } from '@aztec/protocol-contracts';
 import { ContractStore } from '@aztec/pxe/client/lazy';
 import { computeArtifactHash } from '@aztec/stdlib/contract';
 import type { ContractArtifactWithHash } from '@aztec/stdlib/contract';
@@ -38,9 +37,9 @@ import {
   toSingle,
 } from './utils/encoding.js';
 
-// Protocol contracts TXE registers in its contract store. Only AuthRegistry is needed for the
-// current test suites; add a contract here if a lookup against a `0x000…00X` address fails.
-export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = ['AuthRegistry'];
+// Protocol contracts TXE preloads in its shared contract store. AuthRegistry and PublicChecks are
+// standard contracts now, and TXESession.init deploys them into each per-session store.
+export const TXE_REQUIRED_PROTOCOL_CONTRACTS = [] as const;
 
 const sessions = new Map<number, TXESession>();
 
@@ -156,7 +155,7 @@ export class TXEDispatcher {
       2,
     );
     this.contractStore = new ContractStore(kvStore);
-    this.logger.debug('Cloned shared protocol-contracts store', { totalMs: Date.now() - t0 });
+    this.logger.debug('Cloned shared contract store', { totalMs: Date.now() - t0 });
   }
 
   private fastHashFile(path: string): Promise<string> {

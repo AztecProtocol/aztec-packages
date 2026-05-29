@@ -19,8 +19,8 @@ void Barretenberg.initSingleton({ backend: BackendType.Wasm, skipSrsInit: true, 
 void BarretenbergSync.initSingleton({ backend: BackendType.Wasm });
 
 /**
- * Opens a fresh LMDB in a tmp dir and writes the protocol contracts in
- * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS} plus the SchnorrAccount artifact, returning the
+ * Opens a fresh LMDB in a tmp dir and writes the SchnorrAccount artifact plus any protocol contracts in
+ * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS}, returning the
  * directory path and the SchnorrAccount class id (hex). The store handle is intentionally kept
  * alive: closing it would trigger the ephemeral-store cleanup hook and remove the tmp
  * directory, so any worker that has not yet cloned would find it missing.
@@ -115,7 +115,7 @@ export interface TXEDispatcherPoolOptions {
  * Each session's state — TXESession, native world state, KV stores — stays single-threaded
  * within its worker; different sessions run in parallel across workers.
  *
- * The main thread builds a shared protocol-contracts LMDB once and passes its path via
+ * The main thread builds a shared contract-store LMDB once and passes its path via
  * `workerData`. Workers clone the data file on demand instead of re-registering the contracts.
  */
 export class TXEDispatcherPool {
