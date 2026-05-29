@@ -1,7 +1,7 @@
-import { throwTrap } from '@aztec/foundation/error';
+import { throwStub } from './stub_helpers.js';
 
 export class Sentinel {
   constructor(..._args: unknown[]) {
-    throwTrap('Sentinel');
+    throwStub('Sentinel');
   }
 }

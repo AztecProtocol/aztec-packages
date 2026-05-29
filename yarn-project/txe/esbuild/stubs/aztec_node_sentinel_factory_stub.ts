@@ -1,5 +1,5 @@
-import { throwTrap } from '@aztec/foundation/error';
+import { throwStub } from './stub_helpers.js';
 
 export function createSentinel(..._args: unknown[]): never {
-  throwTrap('createSentinel');
+  throwStub('createSentinel');
 }

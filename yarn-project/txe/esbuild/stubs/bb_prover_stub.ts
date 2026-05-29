@@ -1,19 +1,19 @@
-import { throwTrap } from '@aztec/foundation/error';
+import { throwStub } from './stub_helpers.js';
 
 export class BBCircuitVerifier {
   constructor(..._args: unknown[]) {
-    throwTrap('BBCircuitVerifier');
+    throwStub('BBCircuitVerifier');
   }
 }
 
 export class BatchChonkVerifier {
   constructor(..._args: unknown[]) {
-    throwTrap('BatchChonkVerifier');
+    throwStub('BatchChonkVerifier');
   }
 }
 
 export class QueuedIVCVerifier {
   constructor(..._args: unknown[]) {
-    throwTrap('QueuedIVCVerifier');
+    throwStub('QueuedIVCVerifier');
   }
 }

@@ -20,12 +20,3 @@ export class TimeoutError extends Error {
 export class AbortError extends Error {
   public override readonly name = 'AbortError';
 }
-
-/**
- * Throws a uniform "unreachable" error. Use in stub implementations whose only purpose is to
- * satisfy an import shape — calling the stubbed code path should never happen and indicates the
- * stub is being used outside its intended bundle context.
- */
-export function throwTrap(name: string): never {
-  throw new Error(`${name} is stubbed in this bundle; this code path should never run`);
-}

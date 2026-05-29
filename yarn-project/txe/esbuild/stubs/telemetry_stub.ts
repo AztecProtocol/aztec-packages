@@ -2,6 +2,8 @@
 // eslint-disable-next-line import-x/no-extraneous-dependencies
 import { ValueType } from '@opentelemetry/api';
 
+import { noop } from './stub_helpers.js';
+
 export * from '../../../telemetry-client/dest/telemetry.js';
 export * from '../../../telemetry-client/dest/noop.js';
 export * from '../../../telemetry-client/dest/with_tracer.js';
@@ -15,9 +17,9 @@ type MetricDefinition = { name: string; description: string; valueType: ValueTyp
 
 export class LmdbMetrics {
   constructor(..._args: unknown[]) {}
-  recordDBMetrics(): void {}
-  start(): void {}
-  stop(): void {}
+  recordDBMetrics = noop;
+  start = noop;
+  stop = noop;
 }
 
 function makeMetricDefinition(prop: string): MetricDefinition {

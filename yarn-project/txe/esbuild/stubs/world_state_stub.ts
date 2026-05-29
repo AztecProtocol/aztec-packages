@@ -1,9 +1,9 @@
-import { throwTrap } from '@aztec/foundation/error';
+import { throwStub } from './stub_helpers.js';
 
 export function createWorldState(..._args: unknown[]): never {
-  throwTrap('createWorldState');
+  throwStub('createWorldState');
 }
 
 export function createWorldStateSynchronizer(..._args: unknown[]): never {
-  throwTrap('createWorldStateSynchronizer');
+  throwStub('createWorldStateSynchronizer');
 }
