@@ -39,6 +39,9 @@ struct ServerOptions {
  *  - "*.shm"  → IpcServer::create_mpsc_shm(<basename>, opts.max_shm_clients,
  *                                          opts.shm_request_ring_size,
  *                                          opts.shm_response_ring_size)
+ * The single-client SHM factories (`IpcServer::create_shm` /
+ * `IpcClient::create_shm`) are intentionally not selected by suffix; call
+ * them directly when a service does not need multiple producers.
  *
  * Returns nullptr if the suffix is not recognised.
  *

@@ -46,8 +46,8 @@ ipc-runtime/
     ipc_runtime/
       ipc_client.{hpp,cpp}        # abstract IpcClient + UDS implementation
       ipc_server.{hpp,cpp}        # abstract IpcServer + UDS implementation, ShutdownRequested
-      shm_client.hpp              # MPSC-SHM client
-      shm_server.hpp              # MPSC-SHM server
+      shm_client.hpp              # single-client SHM client
+      shm_server.hpp              # single-client SHM server
       shm_common.hpp              # shared MPSC-SHM glue
       shm/                        # lock-free SPSC/MPSC ring buffer primitives
       serve_helper.{hpp,cpp}      # ipc::make_server / make_client (path-suffix dispatch)
@@ -100,6 +100,12 @@ server->run(make_service_handler(request_ctx)); // codegen-emitted dispatcher
 
 UDS is the default; SHM is a sub-microsecond hot path for latency-sensitive
 local clients (`shm/README.md` covers the ring-buffer internals).
+
+The suffix helpers use MPSC-SHM for `.shm` because it supports multiple
+client slots. If a service only ever needs one producer/client, the lower-level
+`IpcServer::create_shm` / `IpcClient::create_shm` factories are also supported;
+they use one request ring and one response ring directly. They are not selected
+by path suffix to keep `.shm` behavior stable for multi-client services.
 
 ## API surface
 

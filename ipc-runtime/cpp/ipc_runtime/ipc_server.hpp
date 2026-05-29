@@ -213,13 +213,17 @@ public:
     }
   }
 
-  // Factory methods
+  // Factory methods.
   static std::unique_ptr<IpcServer>
   create_socket(const std::string &socket_path, int max_clients);
+  // Single-client SHM: one request ring and one response ring. Use this
+  // directly when the service only needs one producer/client.
   static std::unique_ptr<IpcServer>
   create_shm(const std::string &base_name,
              size_t request_ring_size = static_cast<size_t>(1024 * 1024),
              size_t response_ring_size = static_cast<size_t>(1024 * 1024));
+  // Multi-producer SHM: one request ring per client slot and one response
+  // ring per client slot. This is what make_server("*.shm") selects.
   static std::unique_ptr<IpcServer>
   create_mpsc_shm(const std::string &base_name, size_t max_clients,
                   size_t request_ring_size = static_cast<size_t>(1024 * 1024),
