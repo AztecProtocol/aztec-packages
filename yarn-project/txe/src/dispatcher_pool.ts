@@ -4,6 +4,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { ContractStore } from '@aztec/pxe/client/lazy';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { existsSync } from 'node:fs';
@@ -20,23 +21,27 @@ void BarretenbergSync.initSingleton({ backend: BackendType.Wasm });
 
 /**
  * Opens a fresh LMDB in a tmp dir and writes the protocol contracts in
- * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS} plus the SchnorrAccount artifact, returning the
- * directory path and the SchnorrAccount class id (hex). The store handle is intentionally kept
- * alive: closing it would trigger the ephemeral-store cleanup hook and remove the tmp
- * directory, so any worker that has not yet cloned would find it missing.
+ * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS}, the standard auth registry, and the SchnorrAccount
+ * artifact, returning the directory path and the SchnorrAccount class id (hex). Loading the auth
+ * registry here — rather than in each worker's session init — mirrors how the protocol contracts
+ * are preloaded: the artifact is parsed and registered once in the main thread, and every worker
+ * clones the result instead of re-parsing the ~1 MB JSON. The store handle is intentionally kept
+ * alive: closing it would trigger the ephemeral-store cleanup hook and remove the tmp directory, so
+ * any worker that has not yet cloned would find it missing.
  */
 export async function buildSharedContractStore(): Promise<{ dataDir: string; schnorrClassId: string }> {
   const kvStore = await openEphemeralStore('txe-shared-contracts', undefined, 2);
   const dataDir = kvStore.dataDirectory;
   const contractStore = new ContractStore(kvStore);
   const provider = new LazyProtocolContractsProvider();
-  const [protocolContracts, schnorrArtifact] = await Promise.all([
+  const [protocolContracts, authRegistry, schnorrArtifact] = await Promise.all([
     Promise.all(TXE_REQUIRED_PROTOCOL_CONTRACTS.map(name => provider.getProtocolContractArtifact(name))),
+    getStandardAuthRegistry(),
     getSchnorrAccountContractArtifact(),
   ]);
   const schnorrClass = await getContractClassFromArtifact(schnorrArtifact);
   await Promise.all([
-    ...protocolContracts.flatMap(({ instance, artifact, contractClass }) => [
+    ...[...protocolContracts, authRegistry].flatMap(({ instance, artifact, contractClass }) => [
       contractStore.addContractArtifact(artifact, contractClass),
       contractStore.addContractInstance(instance),
     ]),
