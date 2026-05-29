@@ -31,6 +31,7 @@ import {
   type L2BlockSink,
   type L2BlockSource,
   MaliciousCommitteeAttestationsAndSigners,
+  type ProposedCheckpointSink,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import {
@@ -137,7 +138,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly l1ToL2MessageSource: L1ToL2MessageSource,
     private readonly l2BlockSource: L2BlockSource,
     private readonly checkpointsBuilder: FullNodeCheckpointsBuilder,
-    private readonly blockSink: L2BlockSink,
+    private readonly blockSink: L2BlockSink & ProposedCheckpointSink,
     private readonly l1Constants: SequencerRollupConstants,
     private readonly signatureContext: CoordinationSignatureContext,
     protected config: ResolvedSequencerConfig,
@@ -773,6 +774,13 @@ export class CheckpointProposalJob implements Traceable {
         this.proposer,
         checkpointProposalOptions,
       );
+
+      // Advance our own optimistic proposed-checkpoint tip locally before gossiping. Gossipsub
+      // doesn't echo our own messages back, so this is how the proposer makes its own proposed
+      // checkpoint visible for pipelining the next slot. Built from local checkpoint data — never
+      // from the broadcast proposal archive, which may be deliberately corrupted under test flags.
+      // Fail closed: if this throws, the outer catch aborts the slot before gossiping.
+      await this.syncProposedCheckpointToArchiver(checkpoint, blocksInCheckpoint.length, feeAssetPriceModifier);
 
       const blockProposedAt = this.dateProvider.now();
       if (this.config.skipBroadcastCheckpointProposal) {
@@ -1487,6 +1495,45 @@ export class CheckpointProposalJob implements Traceable {
       slot: block.header.globalVariables.slotNumber,
     });
     await this.blockSink.addBlock(block);
+  }
+
+  /**
+   * Adds the proposed checkpoint to the archiver so the proposer's optimistic proposed-checkpoint
+   * tip advances locally. Gossip doesn't echo our own messages back, so without this the proposer
+   * would never see its own proposed checkpoint and couldn't pipeline the next slot.
+   *
+   * Only runs under proposer pipelining (the proposed tip is a pipelining-only concept) and is
+   * skipped whenever proposed blocks aren't pushed (`skipPushProposedBlocksToArchiver`, fisherman
+   * mode): the archiver derives the checkpoint archive from its stored blocks, so without them the
+   * push would fail. All blocks were already added (and awaited) during block building, so this
+   * needs no retry — they are guaranteed present by the time we get here.
+   */
+  private async syncProposedCheckpointToArchiver(
+    checkpoint: Checkpoint,
+    blockCount: number,
+    feeAssetPriceModifier: bigint,
+  ): Promise<void> {
+    if (this.config.skipPushProposedBlocksToArchiver || this.config.fishermanMode) {
+      return;
+    }
+    if (!this.epochCache.isProposerPipeliningEnabled()) {
+      return;
+    }
+    const startBlock = BlockNumber(this.syncedToBlockNumber + 1);
+    this.log.debug(`Syncing proposed checkpoint ${this.checkpointNumber} to archiver`, {
+      checkpointNumber: this.checkpointNumber,
+      slot: this.targetSlot,
+      startBlock,
+      blockCount,
+    });
+    await this.blockSink.addProposedCheckpoint({
+      header: checkpoint.header,
+      checkpointNumber: this.checkpointNumber,
+      startBlock,
+      blockCount,
+      totalManaUsed: checkpoint.header.totalManaUsed.toBigInt(),
+      feeAssetPriceModifier,
+    });
   }
 
   /** Runs fee analysis and logs checkpoint outcome as fisherman */

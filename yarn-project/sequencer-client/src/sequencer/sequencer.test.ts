@@ -26,6 +26,7 @@ import {
   L2Block,
   type L2BlockSink,
   type L2BlockSource,
+  type ProposedCheckpointSink,
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
@@ -65,7 +66,7 @@ describe('sequencer', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let checkpointsBuilder: MockCheckpointsBuilder;
   let checkpointBuilder: MockCheckpointBuilder;
-  let l2BlockSource: MockProxy<L2BlockSource & L2BlockSink>;
+  let l2BlockSource: MockProxy<L2BlockSource & L2BlockSink & ProposedCheckpointSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let publisherFactory: MockProxy<SequencerPublisherFactory>;
@@ -292,7 +293,7 @@ describe('sequencer', () => {
     // Use blockProvider so the mock returns whatever `block` is set to at call time
     checkpointBuilder.setBlockProvider(() => block);
 
-    l2BlockSource = mock<L2BlockSource & L2BlockSink>({
+    l2BlockSource = mock<L2BlockSource & L2BlockSink & ProposedCheckpointSink>({
       getBlockData: mockFn().mockResolvedValue({
         header: BlockHeader.empty(),
         archive: AppendOnlyTreeSnapshot.empty(),

@@ -722,10 +722,6 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.allNodesCheckpointReceivedCallback = callback;
   }
 
-  public async notifyOwnCheckpointProposal(checkpoint: CheckpointProposalCore): Promise<void> {
-    await this.allNodesCheckpointReceivedCallback(checkpoint, this.node.peerId);
-  }
-
   /**
    * Registers a callback to be invoked when a duplicate proposal is detected.
    * This callback is triggered on the first duplicate (when count goes from 1 to 2).

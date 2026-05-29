@@ -1071,16 +1071,6 @@ describe('LibP2PService', () => {
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
     });
 
-    it('notifyOwnCheckpointProposal fires allNodesCheckpointReceivedCallback', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
-      const proposal = await makeCheckpointProposal({ signer, checkpointHeader });
-
-      await service.notifyOwnCheckpointProposal(proposal.toCore());
-
-      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
-      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledWith(expect.any(Object), expect.anything());
-    });
-
     // Regression for A-1013: payloads sharing (slot, archive) but differing on feeAssetPriceModifier
     // used to dedup by archive only and silently drop the second one. The pool now dedups by
     // signed-payload hash, so the equivocation surfaces.
