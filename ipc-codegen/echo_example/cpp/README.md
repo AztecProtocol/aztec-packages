@@ -3,9 +3,7 @@
 Build from this directory:
 
 ```sh
-../../echo-schema/generate.sh
-cmake -S . -B build
-cmake --build build --target echo_server echo_client
+./bootstrap.sh
 ```
 
 The CMake project fetches upstream `msgpack-c` and builds `ipc-runtime/cpp` as

@@ -3,8 +3,7 @@
 Build from this directory:
 
 ```sh
-../../echo-schema/generate.sh
-cargo build
+./bootstrap.sh
 ```
 
 The Cargo project depends on `ipc-runtime/rust` via a repo-relative path.

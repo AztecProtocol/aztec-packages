@@ -16,7 +16,7 @@
         // ipc-runtime/zig: UDS + MPSC-SHM transport binding (compiles the
         // shared C++ sources via Zig's clang).
         .ipc_runtime = .{
-            .path = "../../../../ipc-runtime/zig",
+            .path = "../../../ipc-runtime/zig",
         },
     },
     .paths = .{

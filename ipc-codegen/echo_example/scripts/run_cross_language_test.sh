@@ -22,20 +22,20 @@ cd "$EXAMPLES_DIR"
 # `--socket <path>` appended.
 server_cmd_for() {
   case "$1" in
-    rust) echo "rust/echo/target/debug/echo_server" ;;
-    ts)   echo "ts/echo/node_modules/.bin/tsx ts/echo/echo_server.ts" ;;
-    cpp)  echo "cpp/echo/build/bin/echo_server" ;;
-    zig)  echo "zig/echo/zig-out/bin/echo_server" ;;
+    rust) echo "rust/target/debug/echo_server" ;;
+    ts)   echo "ts/node_modules/.bin/tsx ts/echo_server.ts" ;;
+    cpp)  echo "cpp/build/bin/echo_server" ;;
+    zig)  echo "zig/zig-out/bin/echo_server" ;;
     *)    echo "unknown lang: $1" >&2; exit 1 ;;
   esac
 }
 
 client_cmd_for() {
   case "$1" in
-    rust) echo "rust/echo/target/debug/echo_client" ;;
-    ts)   echo "ts/echo/node_modules/.bin/tsx ts/echo/echo_client.ts" ;;
-    cpp)  echo "cpp/echo/build/bin/echo_client" ;;
-    zig)  echo "zig/echo/zig-out/bin/echo_client" ;;
+    rust) echo "rust/target/debug/echo_client" ;;
+    ts)   echo "ts/node_modules/.bin/tsx ts/echo_client.ts" ;;
+    cpp)  echo "cpp/build/bin/echo_client" ;;
+    zig)  echo "zig/zig-out/bin/echo_client" ;;
     *)    echo "unknown lang: $1" >&2; exit 1 ;;
   esac
 }
@@ -44,10 +44,10 @@ run_golden() {
   local lang="$1"
   case "$lang" in
     rust)
-      rust/echo/target/debug/golden_test --golden-dir echo-schema/golden
+      rust/target/debug/golden_test --golden-dir schema/golden
       ;;
     ts)
-      ts/echo/node_modules/.bin/tsx ts/echo/golden_test.ts
+      ts/node_modules/.bin/tsx ts/golden_test.ts
       ;;
     *)
       echo "golden tests only defined for rust and ts (got: $lang)" >&2

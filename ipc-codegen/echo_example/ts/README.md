@@ -3,14 +3,12 @@
 Build from this directory:
 
 ```sh
-../../echo-schema/generate.sh
-(cd ../../../../ipc-runtime && ./bootstrap.sh)
-(cd ../../../../ipc-runtime/ts && yarn install --immutable && yarn build)
-npm install --no-package-lock
+./bootstrap.sh
 ```
 
 The package consumes `@aztec/ipc-runtime` via a repo-relative `file:`
-dependency, so build `ipc-runtime/ts` before installing this example.
+dependency. The bootstrap builds `ipc-runtime/ts` before installing this
+example so the file-linked package contains compiled output.
 
 Run locally:
 

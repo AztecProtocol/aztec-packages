@@ -69,7 +69,7 @@ ipc-codegen/
     cpp/msgpack_struct_map_impl.hpp     # msgpack adaptor used by codegen output
     rust/{backend,error,ffi_backend,ipc_client}.rs
     zig/{backend,ffi_backend}.zig
-  examples/              # 4-language echo service (cross-lang test harness)
+  echo_example/          # 4-language echo service (cross-lang test harness)
   SCHEMA_SPEC.md         # wire protocol and schema-format reference
 ```
 
@@ -236,11 +236,11 @@ connection time that their bindings predate the server.
 
 ## Wire-format contract
 
-`examples/echo-schema/golden/*.msgpack` is a frozen set of byte-level
+`echo_example/schema/golden/*.msgpack` is a frozen set of byte-level
 fixtures covering every relevant msgpack encoding boundary (variable-width
 ints, fixstr/str8/str16, bin8/bin16, optional `Some`/`None`, empty
 containers, multi-byte UTF-8). The per-language golden tests
-(`examples/{rust,ts}/echo/...`) both decode the fixtures and re-encode
+(`echo_example/{rust,ts}/...`) both decode the fixtures and re-encode
 round-trip — pinning down canonical msgpack output across implementations.
 
 If you intentionally change the wire format, run
