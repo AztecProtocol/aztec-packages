@@ -69,53 +69,24 @@ run_matrix() {
     exit 1
   fi
 
-  # SHM names go through shm_open(3), which requires a flat name (no slashes
-  # after the leading slot). UDS paths can sit under /tmp because they're
-  # filesystem-resident. Tag both with $$ to keep parallel test commands distinct.
-  local path shm_basename
+  local ext path basename
   case "$transport" in
-    uds)
-      path="/tmp/echo-matrix-${server_lang}-${client_lang}-uds-$$.sock"
-      shm_basename=""
-      ;;
-    shm)
-      shm_basename="echo-matrix-${server_lang}-${client_lang}-shm-$$"
-      path="${shm_basename}.shm"
-      ;;
+    uds) ext="sock" ;;
+    shm) ext="shm" ;;
     *)
       echo "unknown transport: $transport (expected uds|shm)" >&2; exit 1 ;;
   esac
+  basename="echo-matrix-${server_lang}-${client_lang}-${transport}-$$"
+  path="${basename}.${ext}"
 
-  # Spawn first, then install cleanup. Cleanup kills the server + removes the
-  # UDS socket + removes SHM rings (MPSC layout: _req_doorbell, _req_ring_<slot>,
-  # _resp_<slot>). Note: `local server_pid=...` and `set -u` interact poorly
-  # with EXIT traps that reference the variable, so we use a plain global.
+  # Spawn first, then install cleanup. Servers install SIGTERM handlers where
+  # the runtime needs graceful shutdown, so waiting lets transport close paths
+  # unlink their own resources.
   $server_cmd --socket "$path" &
   server_pid=$!
   trap "kill ${server_pid} 2>/dev/null || true; \
-        rm -f '$path'; \
-        [ -n '$shm_basename' ] && rm -f /dev/shm/${shm_basename}_req_doorbell /dev/shm/${shm_basename}_req_ring_* /dev/shm/${shm_basename}_resp_* || true" EXIT
-
-  # Wait for transport readiness. UDS: socket file. SHM: the MPSC request
-  # doorbell — the consumer (server) creates it last in MpscConsumer::create,
-  # so its existence implies all rings + ring meta are ready for producers.
-  # Same generous timeout for both — TS cold start dominates either way.
-  for _ in $(seq 1 300); do
-    if [ "$transport" = "uds" ]; then
-      [ -S "$path" ] && break
-    else
-      [ -e "/dev/shm/${shm_basename}_req_doorbell" ] && break
-    fi
-    sleep 0.1
-  done
-  if [ "$transport" = "uds" ] && [ ! -S "$path" ]; then
-    echo "server did not create socket within 30s" >&2
-    exit 1
-  fi
-  if [ "$transport" = "shm" ] && [ ! -e "/dev/shm/${shm_basename}_req_doorbell" ]; then
-    echo "server did not create shm rings within 30s" >&2
-    exit 1
-  fi
+        wait ${server_pid} 2>/dev/null || true; \
+        rm -f '$path'" EXIT
 
   if [ "$transport" = "shm" ] && [ "$client_lang" = "ts" ]; then
     $client_cmd --socket "$path" --transport shm

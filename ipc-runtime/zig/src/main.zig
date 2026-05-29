@@ -14,6 +14,8 @@ const c = @cImport({
     @cInclude("ipc_runtime/c_abi.h");
 });
 
+const default_call_timeout_ns: u64 = 1_000_000_000;
+
 pub const Error = error{
     InvalidPath,
     Connect,
@@ -118,12 +120,12 @@ pub const Client = struct {
     /// Synchronous request/response. Returns an owned slice (free with the
     /// allocator passed at construction).
     pub fn call(self: *Client, request: []const u8) ![]u8 {
-        if (!c.ipc_client_send(self.handle, request.ptr, request.len, 0)) {
+        if (!c.ipc_client_send(self.handle, request.ptr, request.len, default_call_timeout_ns)) {
             return Error.Send;
         }
         var out_ptr: [*c]const u8 = null;
         var out_len: usize = 0;
-        const status = c.ipc_client_receive(self.handle, 0, &out_ptr, &out_len);
+        const status = c.ipc_client_receive(self.handle, default_call_timeout_ns, &out_ptr, &out_len);
         if (status != c.IPC_OK or out_ptr == null) {
             return Error.Receive;
         }

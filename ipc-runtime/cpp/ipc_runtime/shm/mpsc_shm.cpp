@@ -356,9 +356,15 @@ MpscProducer MpscProducer::connect(const std::string& name, size_t producer_id)
 
     // Connect to assigned ring
     std::string ring_name = name + "_ring_" + std::to_string(producer_id);
-    SpscShm ring = SpscShm::connect(ring_name);
+    try {
+        SpscShm ring = SpscShm::connect(ring_name);
+        return MpscProducer(std::move(ring), doorbell_fd, doorbell_len, doorbell, producer_id);
+    } catch (...) {
+        munmap(doorbell, doorbell_len);
+        ::close(doorbell_fd);
+        throw;
+    }
 
-    return MpscProducer(std::move(ring), doorbell_fd, doorbell_len, doorbell, producer_id);
 }
 
 void* MpscProducer::claim(size_t want, uint32_t timeout_ns)

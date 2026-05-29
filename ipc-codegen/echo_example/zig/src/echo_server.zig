@@ -30,6 +30,7 @@ pub fn main() !void {
 
     var server = try ipc_runtime.Server.fromPath(path);
     defer server.deinit();
+    server.installDefaultSignalHandlers();
     try server.listen();
     std.debug.print("ipc-server(zig): listening on {s}\n", .{path});
 
