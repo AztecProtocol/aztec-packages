@@ -430,6 +430,21 @@ fi
 if [ "$exit_code" -eq 155 ]; then
   echo "Spot was evicted. Retrying with on-demand instance."
   NO_SPOT=1 exec "$0" "$@"
+elif [ "$exit_code" -eq 156 ]; then
+  # SSM could not deliver the command / the agent went away mid-build (e.g.
+  # amazon-ssm-agent restarted by unattended-upgrades or a snap refresh). This is
+  # a host/transport failure rather than a build failure, so retry on a fresh
+  # instance like a spot eviction. Bound the retries so a persistently broken
+  # host eventually surfaces the failure instead of looping forever.
+  ssm_retries=${SSM_TRANSPORT_RETRIES:-0}
+  if [ "$ssm_retries" -lt 2 ]; then
+    echo "SSM command was undeliverable (host/agent transport failure). Retrying on a fresh instance (attempt $((ssm_retries + 1)) of 2)."
+    SSM_TRANSPORT_RETRIES=$((ssm_retries + 1)) exec "$0" "$@"
+  fi
+  echo -e "CI Log: ${yellow}$log_url${reset}"
+  echo "SSM command remained undeliverable after $ssm_retries retries; failing."
+  post_github_status failure "ci/${JOB_ID}" "$log_url" "${cmd:0:140}" 2>/dev/null || true
+  exit "$exit_code"
 else
   # Print CI log URL at the end for easy access (avoid scrolling up).
   echo -e "CI Log: ${yellow}$log_url${reset}"

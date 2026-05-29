@@ -147,5 +147,15 @@ if [ "$status" != "Success" ] || [ "$exit_code" != "0" ]; then
     echo "SSM stderr tail:" >&2
     printf '%s\n' "$stderr_content" | tail -40 >&2
   fi
+
+  # A responseCode of -1 means the agent never returned a real exit code: the
+  # command could not be delivered or the agent went away mid-run (e.g.
+  # statusDetails=Undeliverable when unattended-upgrades or snap refresh restarts
+  # amazon-ssm-agent during the build). This is a transport/agent failure, not a
+  # build failure, so surface a dedicated sentinel the caller can retry on
+  # instead of conflating it with a genuine non-zero build exit.
+  if [ "$exit_code" = "-1" ]; then
+    exit 156
+  fi
 fi
 exit "$exit_code"
