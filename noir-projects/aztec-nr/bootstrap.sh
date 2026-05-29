@@ -18,11 +18,13 @@ function build {
   echo_stderr "Checking aztec-nr for warnings..."
   # nargo resolves git dependencies (e.g. noir-lang/sha256, noir-lang/poseidon) by cloning from
   # github.com on a cold cache, which intermittently fails with transient DNS/network errors. Retry
-  # so a flaky clone does not dequeue the merge train.
-  retry "$NARGO check --deny-warnings"
+  # only on those transport failures so a flaky clone does not dequeue the merge train, while genuine
+  # check failures (type errors, warnings) still fail immediately.
+  local git_net_flake="Could not resolve host|unable to access|Connection timed out|Connection refused|Failed to connect|TLS connect error|early EOF|RPC failed"
+  retry -p "$git_net_flake" "$NARGO check --deny-warnings"
 
   # We also check that no docstring links are broken
-  retry "$NARGO doc --check"
+  retry -p "$git_net_flake" "$NARGO doc --check"
 }
 
 function test_cmds {
