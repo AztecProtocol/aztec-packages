@@ -4,7 +4,6 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
-#include "barretenberg/bbapi/bbapi_eccvm_bench.hpp"
 #include "barretenberg/bbapi/bbapi_ecdsa.hpp"
 #include "barretenberg/bbapi/bbapi_schnorr.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
@@ -46,7 +45,6 @@ using Command = NamedUnion<AvmProve,
                            Blake2sToField,
                            AesEncrypt,
                            AesDecrypt,
-                           EccvmBench,
                            GrumpkinMul,
                            GrumpkinAdd,
                            GrumpkinBatchMul,
@@ -111,7 +109,6 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    Blake2sToField::Response,
                                    AesEncrypt::Response,
                                    AesDecrypt::Response,
-                                   EccvmBench::Response,
                                    GrumpkinMul::Response,
                                    GrumpkinAdd::Response,
                                    GrumpkinBatchMul::Response,

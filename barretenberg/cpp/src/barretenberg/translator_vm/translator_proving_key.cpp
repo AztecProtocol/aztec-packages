@@ -386,7 +386,6 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_row_skip_
         return polynomial[idx];
     };
 
-    size_t active_op_pairs = 0;
     for (size_t odd_row = 1; odd_row < mini; odd_row += 2) {
         const size_t even_row = odd_row - 1;
         // Ultra opqueue rows are laid out as:
@@ -399,7 +398,6 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_row_skip_
         if (!active_op_pair) {
             continue;
         }
-        ++active_op_pairs;
         for (size_t block_idx = 0; block_idx < Flavor::CONCATENATION_GROUP_SIZE; ++block_idx) {
             const size_t block_start = block_idx * mini;
             append_unsorted_range(block_start + even_row, block_start + odd_row + 1);
@@ -436,18 +434,6 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_row_skip_
         append_row_skip_range(merged_ranges, start, end);
     }
     ranges = std::move(merged_ranges);
-
-    const char* row_skip_diag = std::getenv("BB_SUMCHECK_ROW_SKIP_DIAGNOSTICS");
-    if (row_skip_diag != nullptr && row_skip_diag[0] != '\0' &&
-        !(row_skip_diag[0] == '0' && row_skip_diag[1] == '\0')) {
-        size_t active_edges = 0;
-        for (const auto& [start, end] : ranges) {
-            active_edges += end - start;
-        }
-        std::cerr << "[translator-row-skip-static-ranges] active_op_pairs=" << active_op_pairs
-                  << " first_ordered_nonzero=" << first_ordered_nonzero << " static_ranges=" << ranges.size()
-                  << " static_edge_pairs=" << active_edges / 2 << std::endl;
-    }
 }
 
 template class TranslatorProvingKey_<TranslatorFlavor>;
