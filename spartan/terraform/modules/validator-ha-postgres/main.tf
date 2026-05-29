@@ -51,6 +51,9 @@ resource "helm_release" "postgres" {
       enabled = true
       size    = var.STORAGE_SIZE
     }
+    nodeSelector = {
+      "node-type" = "network"
+    }
   })]
 
   timeout       = 300
@@ -68,6 +71,9 @@ resource "kubernetes_job_v1" "migrations" {
     template {
       metadata {}
       spec {
+        node_selector = {
+          "node-type" = "network"
+        }
         container {
           name  = "migrate"
           image = var.AZTEC_DOCKER_IMAGE

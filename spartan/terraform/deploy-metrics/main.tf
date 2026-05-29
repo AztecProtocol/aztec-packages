@@ -29,6 +29,11 @@ data "terraform_remote_state" "ssl" {
   }
 }
 
+data "google_compute_subnetwork" "default" {
+  name   = "default"
+  region = var.region
+}
+
 resource "google_compute_address" "grafana_ip" {
   provider     = google
   name         = "grafana-ip"
@@ -45,6 +50,18 @@ resource "google_compute_address" "otel_collector_ip" {
   name         = "otel-ip"
   address_type = "EXTERNAL"
   region       = var.region
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "google_compute_address" "prometheus_ip" {
+  provider     = google
+  name         = "prometheus-ip"
+  address_type = "INTERNAL"
+  region       = var.region
+  subnetwork   = data.google_compute_subnetwork.default.id
 
   lifecycle {
     prevent_destroy = true
@@ -207,6 +224,21 @@ resource "helm_release" "aztec-gke-cluster" {
   set {
     name  = "opentelemetry-collector.service.loadBalancerIP"
     value = google_compute_address.otel_collector_ip.address
+  }
+
+  set {
+    name  = "prometheus.server.service.type"
+    value = "LoadBalancer"
+  }
+
+  set {
+    name  = "prometheus.server.service.annotations.networking\\.gke\\.io\\/load-balancer-type"
+    value = "Internal"
+  }
+
+  set {
+    name  = "prometheus.server.service.loadBalancerIP"
+    value = google_compute_address.prometheus_ip.address
   }
 
   set {

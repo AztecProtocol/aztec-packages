@@ -83,7 +83,8 @@ export function detectPlatform(): Platform | null {
  *
  * Search order:
  * 1. If customPath is provided and exists, return it
- * 2. Otherwise search in <package-root>/build/<platform>/bb
+ * 2. If BB_BINARY_PATH is set and exists, return it
+ * 3. Otherwise search in <package-root>/build/<platform>/bb
  */
 export function findBbBinary(customPath?: string): string | null {
   // Check custom path first if provided
@@ -92,6 +93,14 @@ export function findBbBinary(customPath?: string): string | null {
       return path.resolve(customPath);
     }
     // Custom path provided but doesn't exist - return null
+    return null;
+  }
+
+  const envPath = process.env.BB_BINARY_PATH;
+  if (envPath) {
+    if (fs.existsSync(envPath)) {
+      return path.resolve(envPath);
+    }
     return null;
   }
 

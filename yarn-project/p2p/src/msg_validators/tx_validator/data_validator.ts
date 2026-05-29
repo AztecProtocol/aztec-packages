@@ -20,6 +20,8 @@ import {
 } from '@aztec/stdlib/tx';
 
 export class DataTxValidator implements TxValidator<Tx> {
+  public readonly identifier: symbol = Symbol('DataTxValidator');
+
   #log: Logger;
 
   constructor(bindings?: LoggerBindings) {

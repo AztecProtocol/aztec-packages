@@ -195,6 +195,26 @@ describe('BroadcastedInvalidCheckpointProposalWatcher', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it('emits zero-amount offenses when the penalty is zero', async () => {
+    const signer = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    watcher.updateConfig({ slashBroadcastedInvalidCheckpointProposalPenalty: 0n });
+    mockProposals(slot, blocks, [checkpoint]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).toHaveBeenCalledWith([
+      {
+        validator: signer.address,
+        amount: 0n,
+        offenseType: OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 10n,
+      },
+    ]);
+  });
+
   it('does not emit duplicate offenses on repeated scans', async () => {
     const signer = Secp256k1Signer.random();
     const slot = SlotNumber(10);

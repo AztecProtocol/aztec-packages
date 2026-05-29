@@ -49,13 +49,6 @@ locals {
     # we have to mark it as non-sensitive otherwise we can't run for_each on helm_releases :(
     jwt = nonsensitive(random_bytes.jwt.hex)
 
-    resources = {
-      requests = {
-        cpu    = 2
-        memory = "60Gi"
-      }
-    }
-
     nodeSelector = {
       "node-type" = "infra"
     }
@@ -75,12 +68,25 @@ locals {
             repository = split(":", var.reth_image)[0]
             tag        = split(":", var.reth_image)[1]
           }
+
+          resources = {
+            requests = {
+              cpu    = var.reth_cpu_request
+              memory = var.reth_memory_request
+            }
+            limits = {
+              cpu    = var.reth_cpu_limit
+              memory = var.reth_memory_limit
+            }
+          }
+
           p2pNodePort = {
             enabled = true
             port    = var.reth_p2p_port
           }
           extraArgs = [
             "--chain=${var.chain}",
+            # "--storage.v2=true",
           ]
 
           persistence = {
@@ -88,6 +94,33 @@ locals {
             size             = var.reth_storage
             storageClassName = "premium-rwo"
           }
+
+          # disabled because sepolia db has already been migrated, mainnet has not been migrated yet
+          #initContainers = [
+          #  {
+          #    name            = "migrate-storage-v2"
+          #    image           = var.reth_image
+          #    imagePullPolicy = "Always"
+          #    command = [
+          #      "sh",
+          #      "-ac",
+          #      <<-EOT
+          #      if [ ! -f /data/db/database.version ]; then
+          #        echo "No existing Reth database found, skipping storage v2 migration."
+          #        exit 0
+          #      fi
+
+          #      reth db --datadir=/data --chain=${var.chain} migrate-v2
+          #      EOT
+          #    ]
+          #    volumeMounts = [
+          #      {
+          #        name      = "storage"
+          #        mountPath = "/data"
+          #      }
+          #    ]
+          #  }
+          #]
         })
       ]
     }
@@ -105,6 +138,18 @@ locals {
             repository = split(":", var.lighthouse_image)[0]
             tag        = split(":", var.lighthouse_image)[1]
           }
+
+          resources = {
+            requests = {
+              cpu    = var.lighthouse_cpu_request
+              memory = var.lighthouse_memory_request
+            }
+            limits = {
+              cpu    = var.lighthouse_cpu_limit
+              memory = var.lighthouse_memory_limit
+            }
+          }
+
           checkpointSync = {
             enabled = true
             url     = var.checkpoint_sync_url
