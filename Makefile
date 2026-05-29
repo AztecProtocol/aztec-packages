@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan
+.PHONY: noir barretenberg noir-projects l1-contracts yarn-project-end-to-end release-image boxes playground docs aztec-up spartan
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -344,7 +344,10 @@ l1-contracts-tests: l1-contracts-verifier
 yarn-project: bb-ts noir-projects l1-contracts
 	$(call build,$@,yarn-project)
 
-yarn-project-tests: yarn-project
+yarn-project-end-to-end: yarn-project
+	$(call build,$@,yarn-project/end-to-end)
+
+yarn-project-tests: yarn-project-end-to-end
 	$(call test,$@,yarn-project/end-to-end)
 	$(call test,$@,yarn-project)
 
