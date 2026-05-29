@@ -487,9 +487,11 @@ TYPED_TEST(EcdsaTests, SignatureDoubleGenerator)
 
 TYPED_TEST(EcdsaTests, SignatureGenerator)
 {
-    // Circuit works for Secp256k1, fails for Secp256r1
-    bool signature_result = (TypeParam::type == bb::CurveType::SECP256K1);
-    bool expected_circuit_result = (TypeParam::type == bb::CurveType::SECP256K1);
+    // Both curves now verify correctly when the public key is ±G: secp256k1 via its GLV path, secp256r1 via the
+    // fake-GLV two-2-MSM path (each MSM's inputs are {G, ±T₁} or {Q, ±T₂}, which only collide if u_i = ±1 -- a
+    // negligible probability for honest signatures).
+    bool signature_result = true;
+    bool expected_circuit_result = true;
 
     TestFixture::test_signature_generator(false, signature_result, expected_circuit_result);
     TestFixture::test_signature_generator(true, signature_result, expected_circuit_result);
@@ -692,4 +694,76 @@ TEST(EcdsaTests, Secp256r1NafOverflowRegression)
 
     const bool circuit_valid = CircuitChecker::check(builder);
     ASSERT_TRUE(circuit_valid);
+}
+
+// Regression for the `is_u2_acceptable` AND-term on `ecdsa_impl.hpp`'s validity flag. The fake-GLV
+// path substitutes u₂ ∈ {0, ±1} with u₂ = 2 (to avoid a ROM x-collision between Q and T₂), so the
+// MSM result is wrong; rejection relies on `is_u2_acceptable` being ANDed into the validity bit.
+// We construct an honest signature with s = r so u₂ ≡ 1, confirm native ECDSA accepts, and assert
+// the circuit rejects. Probability of hitting this branch honestly is ≈ 1/n ≈ 2⁻²⁵⁶.
+TEST(EcdsaTests, Secp256r1HonestU2EqualsOneRejected)
+{
+    using Curve = stdlib::secp256r1<UltraCircuitBuilder>;
+    using Builder = Curve::Builder;
+    using FqNative = Curve::BaseFieldNative;
+    using FrNative = Curve::ScalarFieldNative;
+    using G1Native = Curve::GroupNative;
+    using FrStdlib = Curve::ScalarField;
+    using FqStdlib = Curve::BaseField;
+    using G1Stdlib = Curve::Group;
+    using bool_t = stdlib::bool_t<Builder>;
+
+    // Pick k so r = (kG).x mod n is in low-s range (so s = r passes is_s_in_range).
+    const FrNative d("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
+    const G1Native::affine_element Q = G1Native::one * d;
+    FrNative k;
+    FrNative r;
+    const uint256_t half_n_plus_one = (uint256_t(FrNative::modulus) + uint256_t(1)) / uint256_t(2);
+    for (uint64_t seed = 1; seed < 100; ++seed) {
+        k = FrNative(uint256_t(seed));
+        const G1Native::affine_element R(G1Native::one * k);
+        r = FrNative(uint256_t(R.x));
+        if (r != FrNative::zero() && uint256_t(r) < half_n_plus_one) {
+            break;
+        }
+    }
+    ASSERT_NE(r, FrNative::zero());
+    ASSERT_LT(uint256_t(r), half_n_plus_one);
+
+    // s = r and z = r·(k − d) give s = k⁻¹·(z + r·d) = r, so u₂ = r/s ≡ 1.
+    const FrNative s = r;
+    const FrNative z = r * (k - d);
+    const FrNative s_inv = s.invert();
+    ASSERT_EQ(r * s_inv, FrNative::one());
+
+    // Native ECDSA accepts (computed manually since the existing helper SHA-hashes its input).
+    {
+        const FrNative u1 = z * s_inv;
+        const FrNative u2 = r * s_inv;
+        const G1Native::affine_element R_native(G1Native::one * u1 + G1Native::element(Q) * u2);
+        ASSERT_FALSE(R_native.is_point_at_infinity());
+        EXPECT_EQ(FrNative(uint256_t(R_native.x)), r);
+    }
+
+    Builder builder;
+    G1Stdlib public_key_ct = G1Stdlib::from_witness(&builder, Q);
+
+    std::array<uint8_t, 32> r_bytes;
+    std::array<uint8_t, 32> s_bytes;
+    std::array<uint8_t, 32> z_bytes;
+    FrNative::serialize_to_buffer(r, r_bytes.data());
+    FrNative::serialize_to_buffer(s, s_bytes.data());
+    FqNative::serialize_to_buffer(FqNative(uint256_t(z)), z_bytes.data());
+
+    const std::vector<uint8_t> r_vec(r_bytes.begin(), r_bytes.end());
+    const std::vector<uint8_t> s_vec(s_bytes.begin(), s_bytes.end());
+    const std::vector<uint8_t> z_vec(z_bytes.begin(), z_bytes.end());
+    stdlib::ecdsa_signature<Builder> sig_ct{ stdlib::byte_array<Builder>(&builder, r_vec),
+                                             stdlib::byte_array<Builder>(&builder, s_vec) };
+    stdlib::byte_array<Builder> hashed_message(&builder, z_vec);
+
+    bool_t result = stdlib::ecdsa_verify_signature<Builder, Curve, FqStdlib, FrStdlib, G1Stdlib>(
+        hashed_message, public_key_ct, sig_ct);
+    EXPECT_FALSE(result.get_value()) << "circuit must reject honest u₂ ≡ 1";
+    EXPECT_TRUE(CircuitChecker::check(builder));
 }

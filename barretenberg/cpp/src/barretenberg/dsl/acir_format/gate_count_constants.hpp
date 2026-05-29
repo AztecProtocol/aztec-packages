@@ -36,7 +36,7 @@ template <typename Builder> inline constexpr size_t AES128_ENCRYPTION = 1559 + Z
 // contain only 2 of the values set for ECCVM (hence the difference of two gates between Ultra and Mega builders).
 template <typename Builder> inline constexpr size_t ECDSA_SECP256K1 = 42837 + ZERO_GATE;
 template <typename Builder>
-inline constexpr size_t ECDSA_SECP256R1 = 72613 + ZERO_GATE + (IsMegaBuilder<Builder> ? 2 : 0);
+inline constexpr size_t ECDSA_SECP256R1 = 45945 + ZERO_GATE + (IsMegaBuilder<Builder> ? 2 : 0);
 
 template <typename Builder> inline constexpr size_t BLAKE2S = 2952 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLAKE3 = 2158 + ZERO_GATE + MEGA_OFFSET<Builder>;
