@@ -63,7 +63,8 @@ describe('syncSenderTaggingIndexes', () => {
     const finalizedTag = await computeSiloedTagForIndex(finalizedIndex);
     const finalizedTxHash = TxHash.random();
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
       return Promise.resolve(
         tags.map((tag: SiloedTag) => (tag.equals(finalizedTag) ? [makeLog(finalizedTxHash, finalizedTag.value)] : [])),
       );
