@@ -15,6 +15,9 @@
 #include <tuple>
 #include <type_traits>
 
+#ifndef IPC_CODEGEN_MSGPACK_CONCEPTS_DEFINED
+#define IPC_CODEGEN_MSGPACK_CONCEPTS_DEFINED
+
 namespace msgpack_concepts {
 
 struct DoNothing {
@@ -28,6 +31,11 @@ template <typename T, typename... Args>
 concept MsgpackConstructible = requires(T object, Args... args) { T{args...}; };
 
 } // namespace msgpack_concepts
+
+#endif
+
+#ifndef IPC_CODEGEN_MSGPACK_DROP_KEYS_DEFINED
+#define IPC_CODEGEN_MSGPACK_DROP_KEYS_DEFINED
 
 namespace msgpack {
 
@@ -46,6 +54,11 @@ template <typename... Args> auto drop_keys(std::tuple<Args...> &&tuple) {
 }
 
 } // namespace msgpack
+
+#endif
+
+#ifndef IPC_CODEGEN_MSGPACK_STRUCT_MAP_ADAPTOR_DEFINED
+#define IPC_CODEGEN_MSGPACK_STRUCT_MAP_ADAPTOR_DEFINED
 
 namespace msgpack::adaptor {
 
@@ -106,3 +119,5 @@ template <msgpack_concepts::HasMsgPack T> struct pack<T> {
 };
 
 } // namespace msgpack::adaptor
+
+#endif

@@ -1,13 +1,26 @@
 #pragma once
 
-// HasMsgPack / MsgpackConstructible / DoNothing live in ipc-runtime alongside
-// the struct-map msgpack adaptor that uses them (single source of truth).
-#include "ipc_codegen/msgpack_adaptor.hpp"
+#ifndef IPC_CODEGEN_MSGPACK_CONCEPTS_DEFINED
+#define IPC_CODEGEN_MSGPACK_CONCEPTS_DEFINED
+
+struct DoNothing {
+    void operator()(auto...) {}
+};
 
 namespace msgpack_concepts {
 
-// Bb-specific concepts for the schema-introspection and custom-pack paths
-// (these aren't ipc-codegen concerns).
+template <typename T>
+concept HasMsgPack = requires(T t, DoNothing nop) { t.msgpack(nop); };
+
+template <typename T, typename... Args>
+concept MsgpackConstructible = requires(T object, Args... args) { T{ args... }; };
+
+} // namespace msgpack_concepts
+
+#endif
+
+namespace msgpack_concepts {
+
 template <typename T>
 concept HasMsgPackSchema = requires(const T t, DoNothing nop) { t.msgpack_schema(nop); };
 

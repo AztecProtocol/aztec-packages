@@ -1,8 +1,8 @@
 #pragma once
 
 #include "barretenberg/common/try_catch_shim.hpp"
-#include "ipc_codegen/msgpack_adaptor.hpp"
 #include "msgpack.hpp"
+#include "msgpack_impl/drop_keys.hpp"
 
 namespace msgpack {
 /**
