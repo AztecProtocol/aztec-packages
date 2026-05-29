@@ -2,8 +2,8 @@ use crate::context::PrivateContext;
 
 use crate::protocol::{constants::DOM_SEP__TX_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Hash};
 
-use crate::authwit::auth::{compute_authwit_message_hash, IS_VALID_SELECTOR};
 use crate::authwit::entrypoint::app::AppPayload;
+use crate::authwit::utils::{compute_authwit_message_hash, IS_VALID_SELECTOR};
 
 pub struct AccountActions<Context> {
     context: Context,

@@ -11,7 +11,7 @@ pub contract SimpleToken {
     use compressed_string::FieldCompressedString;
 
     use aztec::{
-        authwit::auth::compute_authwit_nullifier,
+        authwit::utils::compute_authwit_nullifier,
         context::{PrivateCall, PrivateContext},
         macros::{
             events::event,
