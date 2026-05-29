@@ -2247,13 +2247,23 @@ export class MsmV2 {
       };
       setPhase('size1');
       indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
-      setPhase('stream_accum');
-      indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
-      setPhase('partial_sum');
-      dispatch(this.partialSumPipe, this.partialSumBind, 256, 1);
-      // debug_accum disabled in hot path while we hunt the residual
-      // whole-bucket bug. The A/B diagnostic below re-runs it for
-      // per-bucket mismatch detection.
+      // `?use_debug_accum=1` swaps the streaming accumulator for the
+      // single-thread-per-bucket debug accumulator — a known-correct
+      // whole-bucket reference. Used to confirm the rest of the pipeline
+      // (decompose/transpose/planner/size1/reduce/combine) is sound
+      // independent of accumulator bugs.
+      const useDebugAccum =
+        typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('use_debug_accum') === '1';
+      if (useDebugAccum) {
+        setPhase('stream_accum');
+        dispatch(this.debugAccumPipe, this.debugAccumBind, Math.ceil(this.bTotal / 256), 1);
+      } else {
+        setPhase('stream_accum');
+        indirectDispatch(this.streamAccumPipe, this.streamAccumBind, spMeta, 12 * 4);
+        setPhase('partial_sum');
+        dispatch(this.partialSumPipe, this.partialSumBind, 256, 1);
+      }
     }
     setPhase('reduce');
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
@@ -2337,7 +2347,14 @@ export class MsmV2 {
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
 
-    if (true as boolean) {
+    // WIP A/B / queue-introspection readbacks. These do ~7 sequential
+    // mapAsync round-trips and re-dispatch the debug accumulator on every
+    // run(), which stalls a SwiftShader software renderer for minutes and is
+    // dead weight in production. Opt in with `window.__msm_diag = true`.
+    const DIAG =
+      typeof window !== 'undefined' &&
+      (window as unknown as { __msm_diag?: boolean }).__msm_diag === true;
+    if (DIAG) {
       const qb = this.pool.scratch!.queueBuf;
       const headerBytes = Math.min(2 * this.streamNumThreads * 4, 1024);
       const qStg = device.createBuffer({ size: headerBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
@@ -2424,7 +2441,7 @@ export class MsmV2 {
         }
       }
     }
-    {
+    if (DIAG) {
       const sp = this.pool.scratch!.streamPlannerMeta;
       const metaStg = device.createBuffer({ size: 80, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
       const em = device.createCommandEncoder();
@@ -2436,7 +2453,7 @@ export class MsmV2 {
       console.log(`[META] size1=${meta[0]} dense=${meta[1]} total_adds=${meta[2]} nwg=${meta[3]} split=${meta[4]} slab_used=${meta[6]}`);
     }
     // A/B: read streaming bucket_sums, clear, re-run debug accum, compare
-    {
+    if (DIAG) {
       const brb = this.pool.scratch!.bucketResultBuf;
       const readSz = Math.min(this.bTotal * 2 * 16, 131072);
       // 1) Read streaming result

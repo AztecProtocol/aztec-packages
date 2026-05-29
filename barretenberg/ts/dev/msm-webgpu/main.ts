@@ -64,12 +64,27 @@ const $results = document.getElementById('results') as HTMLDivElement;
 
 // The sweep spans 2^10..2^20 — small sizes show where the GPU pipeline
 // overtakes the WASM Pippenger; the v2 pipeline has no size floor.
-const LOGN_MIN = 10;
+//
+// SwiftShader / small-vector testing: preloading the full 2^20 SRS costs a
+// ~32 MB download + minutes of bigint sqrt decompression, which is wasteful
+// when validating correctness at logn≤10 and tips a software-renderer
+// container into the OOM-killer. `?srs_logn=N` caps the SRS preload at 2^N,
+// `?noble_logn=N` moves the pure-JS reference cross-check to 2^N (noble is
+// instant at small n), and `?logn_min=N` lowers the input-size floor so
+// gates at logn=8 are reachable. None of these change default behaviour.
+const _bootParams = new URLSearchParams(window.location.search);
+const _bootInt = (k: string, dflt: number): number => {
+  const raw = _bootParams.get(k);
+  if (raw === null) return dflt;
+  const v = Number(raw);
+  return Number.isInteger(v) && v > 0 ? v : dflt;
+};
+const LOGN_MIN = _bootInt('logn_min', 10);
 const LOGN_MAX = 20;
-const SRS_NUM_POINTS = 1 << LOGN_MAX;
+const SRS_NUM_POINTS = 1 << _bootInt('srs_logn', LOGN_MAX);
 
 const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
-const NOBLE_REFERENCE_LOGN = 16;
+const NOBLE_REFERENCE_LOGN = _bootInt('noble_logn', 16);
 const SWEEP_REPS = 5;
 
 // GPU pipeline knobs from the URL — forwarded to every MsmV2 (unset = defaults).
@@ -1581,6 +1596,64 @@ function hideProgress(): void {
       await client.postResults({
         state: 'error',
         params: { logN: autorunLogN, tree, page: 'msm-autorun' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
+  } else if (autorun === 'msm-gpu-noble') {
+    // GPU-vs-noble cross-check with NO WASM dependency — the correctness
+    // oracle for SwiftShader gating, where the threaded MSM-hook WASM isn't
+    // built in-container. Uses the pure-JS noble Pippenger as ground truth,
+    // so it's only practical at small logn (pair with ?srs_logn / ?logn_min;
+    // noble runs at whatever ?logn is passed, ignoring NOBLE_REFERENCE_LOGN).
+    const autorunLogN = parseInt(qp.get('logn') ?? '8', 10);
+    const client = makeResultsClient({ page: 'msm-gpu-noble' });
+    log('info', `[autorun] msm-gpu-noble logN=${autorunLogN}`);
+    // Gate on SRS readiness only (the WebGPU-only $runSanity button), NOT
+    // $run — $run additionally requires WASM_AVAILABLE, which is false
+    // without cross-origin isolation, and this path needs no WASM.
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const inputs = await generateInputs(autorunLogN, true);
+      const gpu = await runWebGpuOnce(inputs);
+      log('info', `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
+      if (!inputs.points || !inputs.scalars) {
+        throw new Error('noble mirror inputs missing (mirrorForNoble was false)');
+      }
+      const noble = referenceMsm(inputs.points, inputs.scalars);
+      const ok = pointsEqual(noble, gpu.xy);
+      log(
+        ok ? 'ok' : 'err',
+        ok
+          ? `[cross-check] WebGPU and noble agree`
+          : `[cross-check] disagreement: gpu.x=${gpu.xy.x}, noble.x=${noble.x}`,
+      );
+      await client.postResults({
+        state: ok ? 'done' : 'error',
+        params: { logN: autorunLogN, page: 'msm-gpu-noble' },
+        results: { cross_ok: ok, gpu_x: gpu.xy.x.toString(16), noble_x: noble.x.toString(16) },
+        error: ok ? null : 'gpu≠noble',
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=${ok ? 'done' : 'error'}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'msm-gpu-noble' },
         results: null,
         error: msg,
         log: [],
