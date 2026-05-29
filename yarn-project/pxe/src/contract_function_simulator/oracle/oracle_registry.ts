@@ -396,8 +396,6 @@ const ORACLE_REGISTRY = {
     params: [
       { name: 'noteValidationRequestsArrayBaseSlot', type: FIELD },
       { name: 'eventValidationRequestsArrayBaseSlot', type: FIELD },
-      { name: 'maxNotePackedLen', type: U32 },
-      { name: 'maxEventSerializedLen', type: U32 },
       { name: 'scope', type: AZTEC_ADDRESS },
     ],
   }),
@@ -618,6 +616,11 @@ const ORACLE_REGISTRY = {
       { name: 'recipient', type: AZTEC_ADDRESS },
     ],
     returnType: TAG,
+  }),
+
+  aztec_prv_getNextConstrainedTaggingIndex: makeEntry({
+    params: [{ name: 'appSiloedSecret', type: FIELD }],
+    returnType: U32,
   }),
 
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),

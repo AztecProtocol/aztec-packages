@@ -3,7 +3,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { type AppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
+import { type AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
@@ -271,5 +271,5 @@ describe('syncTaggedPrivateLogs', () => {
 });
 
 function makeSecrets(count: number): Promise<AppTaggingSecret[]> {
-  return Promise.all(Array.from({ length: count }, () => randomAppTaggingSecret()));
+  return Promise.all(Array.from({ length: count }, () => randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED)));
 }

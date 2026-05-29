@@ -2,7 +2,7 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(../bootstrap.sh hash)
-bench_fixtures_dir=example-app-ivc-inputs-out
+bench_fixtures_dir=chonk-pinned-flows
 default_avm_inputs_dump_dir=dumped-avm-circuit-inputs
 ultrahonk_bench_dir=ultrahonk-bench-inputs
 

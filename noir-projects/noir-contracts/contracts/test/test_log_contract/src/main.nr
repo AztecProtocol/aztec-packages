@@ -70,14 +70,14 @@ pub contract TestLog {
     fn emit_encrypted_events(other: AztecAddress, preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
-        self.emit(event0).deliver_to(self.msg_sender(), MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.emit(event0).deliver_to(self.msg_sender(), MessageDelivery::onchain_constrained());
 
         // We duplicate the emission, but swapping the sender and recipient:
-        self.emit(event0).deliver_to(other, MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.emit(event0).deliver_to(other, MessageDelivery::onchain_constrained());
 
         let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
 
-        self.emit(event1).deliver_to(self.msg_sender(), MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.emit(event1).deliver_to(self.msg_sender(), MessageDelivery::onchain_constrained());
     }
 
     #[external("public")]
@@ -105,11 +105,11 @@ pub contract TestLog {
         let note_set = self.storage.example_set.at(other);
 
         // Create the first note and message, then immediately nullify. This squashes all effects.
-        note_set.insert(FieldNote { value: 0 }).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        note_set.insert(FieldNote { value: 0 }).deliver(MessageDelivery::onchain_unconstrained());
         let _ = note_set.pop_notes(NoteGetterOptions::new());
 
         // Deliver a second note message. Only this one will be included in the logs.
-        note_set.insert(FieldNote { value: 1 }).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        note_set.insert(FieldNote { value: 1 }).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
@@ -125,12 +125,12 @@ pub contract TestLog {
 
         self.emit(ExampleEvent0 { value0: random_value_0, value1: random_value_1 }).deliver_to(
             other,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         self.emit(ExampleEvent0 { value0: random_value_2, value1: random_value_3 }).deliver_to(
             other,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         if num_nested_calls > 0 {

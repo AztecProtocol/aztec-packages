@@ -19,7 +19,7 @@ contract OffchainPayment {
     #[external("private")]
     fn mint(amount: u128, recipient: AztecAddress) {
         // Minted notes are delivered onchain to ensure the recipient can always discover them.
-        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery::onchain_constrained());
     }
 
     #[external("private")]
@@ -27,9 +27,9 @@ contract OffchainPayment {
         let sender = self.msg_sender();
 
         // Sender change note and recipient note are both delivered offchain.
-        self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery.OFFCHAIN);
+        self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery::offchain());
 
-        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.OFFCHAIN);
+        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery::offchain());
     }
 
     #[external("utility")]
