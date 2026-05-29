@@ -371,10 +371,13 @@ ${methods}
   generateStandaloneTypes(schema: CompiledSchema): string {
     const { namespace: ns, prefix } = this.opts;
 
-    const aliasTypes = new Map<string, string>();
+    const aliasTypes = new Map<string, { underlying: string; schemaName: string }>();
     const collect = (type: import("./schema_visitor.ts").Type): void => {
       if (type.kind === "primitive" && type.originalName) {
-        aliasTypes.set(toAliasName(type.originalName), this.primitiveType(type));
+        aliasTypes.set(toAliasName(type.originalName), {
+          underlying: this.primitiveType(type),
+          schemaName: type.originalName,
+        });
       } else if (
         type.kind === "vector" ||
         type.kind === "array" ||
@@ -391,7 +394,15 @@ ${methods}
     }
     const aliasDecls = [...aliasTypes.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, underlying]) => `using ${name} = ${underlying};`)
+      .map(([name, { underlying, schemaName }]) => {
+        if (underlying === "std::array<uint8_t, 32>") {
+          return `struct ${name} : ::ipc::Bin32Alias<${name}> {
+    using ::ipc::Bin32Alias<${name}>::Bin32Alias;
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${schemaName}";
+};`;
+        }
+        return `using ${name} = ${underlying};`;
+      })
       .join("\n");
 
     // Map schema types to C++ types
@@ -441,6 +452,7 @@ ${methods}
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 // Pull in THROW/RETHROW: \`throw\` natively, abort-on-throw under
@@ -487,10 +499,41 @@ ${methods}
 #endif
 
 // ---------------------------------------------------------------------------
-// Wire aliases for primitive schema aliases. msgpack-c's
-// std::array<unsigned char, N> adapter packs fixed-size byte aliases as \`bin\`;
-// scalar aliases carry no extra machinery beyond the typedef.
+// Wire aliases for primitive schema aliases. bin32 aliases are nominal wrappers
+// so schema reflection can preserve their alias names.
 // ---------------------------------------------------------------------------
+
+#ifndef IPC_CODEGEN_BIN32_ALIAS_DEFINED
+#define IPC_CODEGEN_BIN32_ALIAS_DEFINED
+namespace ipc {
+template <typename Tag> struct Bin32Alias {
+    using IPC_CODEGEN_BIN32_ALIAS = void;
+    std::array<uint8_t, 32> value{};
+
+    Bin32Alias() = default;
+    Bin32Alias(const std::array<uint8_t, 32>& bytes) : value(bytes) {}
+    Bin32Alias(std::array<uint8_t, 32>&& bytes) : value(std::move(bytes)) {}
+
+    uint8_t* data() { return value.data(); }
+    const uint8_t* data() const { return value.data(); }
+    constexpr std::size_t size() const { return 32; }
+
+    uint8_t& operator[](std::size_t i) { return value[i]; }
+    const uint8_t& operator[](std::size_t i) const { return value[i]; }
+
+    auto begin() { return value.begin(); }
+    auto end() { return value.end(); }
+    auto begin() const { return value.begin(); }
+    auto end() const { return value.end(); }
+
+    operator std::array<uint8_t, 32>&() { return value; }
+    operator const std::array<uint8_t, 32>&() const { return value; }
+
+    void msgpack_schema(auto& packer) const { packer.pack_alias(Tag::MSGPACK_SCHEMA_NAME, "bin32"); }
+    bool operator==(const Bin32Alias&) const = default;
+};
+} // namespace ipc
+#endif
 
 ${aliasDecls}
 

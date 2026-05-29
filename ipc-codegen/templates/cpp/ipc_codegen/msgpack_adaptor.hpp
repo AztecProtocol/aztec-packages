@@ -30,6 +30,15 @@ struct DoNothing {
 template <typename T>
 concept HasMsgPack = requires(T t, DoNothing nop) { t.msgpack(nop); };
 
+template <typename T>
+concept Bin32Alias =
+    requires(T t, const T ct) {
+      typename T::IPC_CODEGEN_BIN32_ALIAS;
+      { t.data() } -> std::same_as<uint8_t *>;
+      { ct.data() } -> std::same_as<const uint8_t *>;
+      { ct.size() } -> std::convertible_to<std::size_t>;
+    };
+
 template <typename T, typename... Args>
 concept MsgpackConstructible = requires(T object, Args... args) { T{args...}; };
 
@@ -79,6 +88,26 @@ template <> struct pack<std::array<uint8_t, 32>> {
 template <> struct convert<std::array<uint8_t, 32>> {
   msgpack::object const &operator()(msgpack::object const &o,
                                     std::array<uint8_t, 32> &v) const {
+    if (o.type != msgpack::type::BIN || o.via.bin.size != v.size()) {
+      THROW msgpack::type_error();
+    }
+    std::memcpy(v.data(), o.via.bin.ptr, v.size());
+    return o;
+  }
+};
+
+template <msgpack_concepts::Bin32Alias T> struct pack<T> {
+  template <typename Stream>
+  packer<Stream> &operator()(msgpack::packer<Stream> &o, T const &v) const {
+    o.pack_bin(static_cast<uint32_t>(v.size()));
+    o.pack_bin_body(reinterpret_cast<const char *>(v.data()),
+                    static_cast<uint32_t>(v.size()));
+    return o;
+  }
+};
+
+template <msgpack_concepts::Bin32Alias T> struct convert<T> {
+  msgpack::object const &operator()(msgpack::object const &o, T &v) const {
     if (o.type != msgpack::type::BIN || o.via.bin.size != v.size()) {
       THROW msgpack::type_error();
     }
