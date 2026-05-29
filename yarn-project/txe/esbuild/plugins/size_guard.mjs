@@ -1,6 +1,5 @@
 /**
  * Post-build size guard. Catches unintended bundle growth without involving CI separately.
- * Modeled on the playground's `chunkSizeValidator` (playground/vite.config.ts).
  *
  * Each entry pairs a regex against the output path with a `maxKB` cap and a `description` that
  * shows up in the failure message. The build fails (exit 1) if any matching file exceeds its

@@ -3,13 +3,12 @@ import { readFile } from 'node:fs/promises';
 /**
  * Strips `file_map` and per-function `debug_symbols` from bundled contract artifact JSON files.
  * Roughly 75% of each compiled artifact is sourcemaps / file maps used only by
- * `getFunctionDebugMetadata` for error-trace enrichment — `loadContractArtifact` already
- * tolerates empty values (callers gate on truthiness and return `undefined`), so stripping these
- * is safe for TXE which never decodes private-function failure traces against the bundled
- * protocol contracts or the SchnorrAccount artifact.
+ * `getFunctionDebugMetadata` for error-trace enrichment - stripping these only
+ * results in TXE losing the capacity for private-function failure traces against the
+ * bundled protocol contracts or the SchnorrAccount artifact.
  *
  * Affects only the artifacts inlined into the bundle (protocol-contracts + SchnorrAccount).
- * User contracts loaded at runtime from disk in `#processDeployInputs` keep their full metadata.
+ * User contracts loaded at runtime during tests keep their full metadata.
  */
 export const stripArtifactDebugPlugin = {
   name: 'strip-artifact-debug',
@@ -19,7 +18,6 @@ export const stripArtifactDebugPlugin = {
       const json = JSON.parse(raw);
       // `ContractArtifactSchema` (yarn-project/stdlib/src/abi/abi.ts) requires `fileMap` to be a
       // record and `debugSymbols` to be a string, so we zero them out instead of deleting them.
-      // Empty values are tolerated by `getFunctionDebugMetadata`, which returns `undefined`.
       json.file_map = {};
       if (Array.isArray(json.functions)) {
         for (const fn of json.functions) {
