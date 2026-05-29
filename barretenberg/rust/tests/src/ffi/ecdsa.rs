@@ -125,8 +125,8 @@ fn test_ecdsa_sign_and_verify() {
         .ecdsa_secp256k1_verify_signature(
             &message_hash,
             public_key,
-            &sign_response.r,
-            &sign_response.s,
+            sign_response.r,
+            sign_response.s,
             sign_response.v,
         )
         .expect("ecdsa_secp256k1_verify_signature failed");
@@ -168,8 +168,8 @@ fn test_ecdsa_verify_wrong_message() {
         .ecdsa_secp256k1_verify_signature(
             &message_hash2,
             public_key,
-            &sign_response.r,
-            &sign_response.s,
+            sign_response.r,
+            sign_response.s,
             sign_response.v,
         )
         .expect("ecdsa_secp256k1_verify_signature failed");

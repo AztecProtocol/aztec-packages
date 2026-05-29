@@ -118,8 +118,8 @@ fn test_schnorr_sign_and_verify() {
         .schnorr_verify_signature(
             &message,
             pub_key_response.public_key.clone(),
-            &sign_response.s,
-            &sign_response.e,
+            sign_response.s,
+            sign_response.e,
         )
         .expect("schnorr_verify_signature failed");
 
@@ -157,8 +157,8 @@ fn test_schnorr_verify_wrong_message() {
         .schnorr_verify_signature(
             &message2,
             pub_key_response.public_key.clone(),
-            &sign_response.s,
-            &sign_response.e,
+            sign_response.s,
+            sign_response.e,
         )
         .expect("schnorr_verify_signature failed");
 
