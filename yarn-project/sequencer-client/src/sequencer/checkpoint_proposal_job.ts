@@ -396,6 +396,13 @@ export class CheckpointProposalJob implements Traceable {
    * If the parent has invalid attestations, enqueues an invalidation. Returns whether to proceed with the proposal.
    */
   protected async waitForValidParentCheckpointOnL1(): Promise<boolean> {
+    if (this.config.skipWaitForValidParentCheckpointOnL1) {
+      this.log.warn(`Skipping waitForValidParentCheckpointOnL1 due to test configuration`, {
+        checkpointNumber: this.checkpointNumber,
+      });
+      return true;
+    }
+
     const parentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 1);
 
     // Wait until archiver has synced L1 past the parent's slot (slotNow)

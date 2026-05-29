@@ -4,7 +4,9 @@
 # `test`. Keeps hook scripts and their tests as a self-contained component.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(cache_content_hash ^.claude)
+# Hash everything agents_symlink_test inspects, not just .claude/: the .codex mirrors and the root
+# AGENTS.md/CLAUDE.md symlinks live outside .claude/, so a change there must still rerun the test.
+hash=$(cache_content_hash "^.*.claude" "^.*.codex" "^AGENTS.md" "^CLAUDE.md")
 
 function test_cmds {
   # source_base cd's us into .claude/, so glob relative-to-here, but emit paths

@@ -301,6 +301,24 @@ describe('SlasherClient', () => {
         const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
         expect(actions).toHaveLength(0);
       });
+
+      it('should not return any action for zero-amount offenses', async () => {
+        const currentRound = 5n;
+        const currentSlot = currentRound * BigInt(roundSize);
+        const targetRound = 3n;
+
+        await offensesStore.addOffense(
+          createOffense({
+            validator: committee[0],
+            epochOrSlot: targetRound * BigInt(roundSize),
+            offenseType: OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
+            amount: 0n,
+          }),
+        );
+
+        const actions = await slasherClient.getProposerActions(SlotNumber.fromBigInt(currentSlot));
+        expect(actions).toHaveLength(0);
+      });
     });
 
     describe('execute-slash', () => {

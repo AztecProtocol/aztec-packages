@@ -24,6 +24,15 @@ function source_network_env {
       if grep -q "REPLACE_WITH_GCP_SECRET" "$env_file" && command -v gcloud &> /dev/null; then
         echo "Environment file contains GCP secret placeholders. Processing secrets..."
 
+        # Activate GCP credentials before Secret Manager reads (same order as network_deploy.sh).
+        if declare -f gcp_auth >/dev/null 2>&1; then
+          gcp_auth
+        else
+          # shellcheck source=scripts/gcp_auth.sh
+          source "$spartan/scripts/gcp_auth.sh"
+          gcp_auth
+        fi
+
         # Process GCP secrets
         source $spartan/scripts/setup_gcp_secrets.sh "$env_file"
 

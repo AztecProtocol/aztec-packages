@@ -1,0 +1,40 @@
+{{- if .Values.agent.autoscaling.keda.enabled }}
+{{- $agentChartName := default "agent" .Values.agent.nameOverride }}
+{{- $agentDefaultName := ternary .Release.Name (printf "%s-%s" .Release.Name $agentChartName) (contains $agentChartName .Release.Name) }}
+{{- $agentName := default $agentDefaultName .Values.agent.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- $queueQuery := printf "sum(aztec_proving_queue_size{k8s_namespace_name=%q})" .Release.Namespace }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $agentName }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    kind: Deployment
+    name: {{ $agentName }}
+  pollingInterval: {{ .Values.agent.autoscaling.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.agent.autoscaling.keda.cooldownPeriod }}
+  minReplicaCount: {{ .Values.agent.autoscaling.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.agent.autoscaling.keda.maxReplicaCount }}
+  triggers:
+    {{- if .Values.agent.autoscaling.keda.scalingBands }}
+    {{- range $band := .Values.agent.autoscaling.keda.scalingBands }}
+    - type: prometheus
+      metadata:
+        serverAddress: {{ $.Values.agent.autoscaling.keda.prometheus.serverAddress | quote }}
+        metricName: {{ printf "aztec_proving_queue_size_agents_%v_over_%v" $band.replicas $band.queueSize | replace "." "_" | quote }}
+        query: {{ printf "((%s or vector(0)) > bool %v) * %v" $queueQuery $band.queueSize $band.replicas | quote }}
+        threshold: "1"
+        activationThreshold: "0"
+    {{- end }}
+    {{- else }}
+    - type: prometheus
+      metadata:
+        serverAddress: {{ .Values.agent.autoscaling.keda.prometheus.serverAddress | quote }}
+        metricName: "aztec_proving_queue_size"
+        query: {{ $queueQuery | quote }}
+        threshold: "1"
+        activationThreshold: "0"
+    {{- end }}
+{{- end }}
