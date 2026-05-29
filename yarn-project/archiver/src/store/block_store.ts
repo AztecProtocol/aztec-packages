@@ -30,7 +30,6 @@ import {
   type ProposedCheckpointInput,
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
@@ -38,8 +37,6 @@ import {
   type IndexedTxEffect,
   TxEffect,
   TxHash,
-  TxReceipt,
-  TxStatus,
   deserializeIndexedTxEffect,
   serializeIndexedTxEffect,
 } from '@aztec/stdlib/tx';
@@ -61,7 +58,7 @@ import {
   ProposedCheckpointPromotionNotSequentialError,
 } from '../errors.js';
 
-export { TxReceipt, type TxEffect, type TxHash } from '@aztec/stdlib/tx';
+export type { TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -1090,56 +1087,6 @@ export class BlockStore {
       return undefined;
     }
     return deserializeIndexedTxEffect(buffer);
-  }
-
-  /**
-   * Gets a receipt of a settled tx.
-   * @param txHash - The hash of a tx we try to get the receipt for.
-   * @returns The requested tx receipt (or undefined if not found).
-   */
-  async getSettledTxReceipt(
-    txHash: TxHash,
-    l1Constants?: Pick<L1RollupConstants, 'epochDuration'>,
-  ): Promise<TxReceipt | undefined> {
-    const txEffect = await this.getTxEffect(txHash);
-    if (!txEffect) {
-      return undefined;
-    }
-
-    const blockNumber = BlockNumber(txEffect.l2BlockNumber);
-
-    // Use existing archiver methods to determine finalization level
-    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber, blockData] = await Promise.all([
-      this.getProvenBlockNumber(),
-      this.getCheckpointedL2BlockNumber(),
-      this.getFinalizedL2BlockNumber(),
-      this.getBlockData({ number: blockNumber }),
-    ]);
-
-    let status: TxStatus;
-    if (blockNumber <= finalizedBlockNumber) {
-      status = TxStatus.FINALIZED;
-    } else if (blockNumber <= provenBlockNumber) {
-      status = TxStatus.PROVEN;
-    } else if (blockNumber <= checkpointedBlockNumber) {
-      status = TxStatus.CHECKPOINTED;
-    } else {
-      status = TxStatus.PROPOSED;
-    }
-
-    const epochNumber =
-      blockData && l1Constants ? getEpochAtSlot(blockData.header.globalVariables.slotNumber, l1Constants) : undefined;
-
-    return new TxReceipt(
-      txHash,
-      status,
-      TxReceipt.executionResultFromRevertCode(txEffect.data.revertCode),
-      undefined,
-      txEffect.data.transactionFee.toBigInt(),
-      txEffect.l2BlockHash,
-      blockNumber,
-      epochNumber,
-    );
   }
 
   /**

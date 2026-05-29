@@ -26,7 +26,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
-import { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
+import type { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';

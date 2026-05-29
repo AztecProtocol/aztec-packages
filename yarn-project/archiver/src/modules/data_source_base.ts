@@ -42,7 +42,7 @@ import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import type { LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import type { BlockHeader, IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import type { BlockHeader, IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiverDataSource } from '../interfaces.js';
@@ -284,10 +284,6 @@ export abstract class ArchiverDataSourceBase
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.stores.blocks.getTxEffect(txHash);
-  }
-
-  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
-    return this.stores.blocks.getSettledTxReceipt(txHash, this.l1Constants);
   }
 
   public isPendingChainInvalid(): Promise<boolean> {

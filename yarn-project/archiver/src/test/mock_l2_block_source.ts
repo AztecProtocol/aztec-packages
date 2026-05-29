@@ -38,16 +38,11 @@ import {
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import {
-  EmptyL1RollupConstants,
-  type L1RollupConstants,
-  getEpochAtSlot,
-  getSlotRangeForEpoch,
-} from '@aztec/stdlib/epoch-helpers';
+import { EmptyL1RollupConstants, type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { BlockHeader, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 /**
@@ -369,32 +364,6 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       l2BlockHash: await block.hash(),
       txIndexInBlock: block.body.txEffects.findIndex(t => t.txHash.equals(txHash)),
     };
-  }
-
-  /**
-   * Gets a receipt of a settled tx.
-   * @param txHash - The hash of a tx we try to get the receipt for.
-   * @returns The requested tx receipt (or undefined if not found).
-   */
-  public async getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
-    for (const block of this.l2Blocks) {
-      for (const txEffect of block.body.txEffects) {
-        if (txEffect.txHash.equals(txHash)) {
-          // In mock, assume all txs are checkpointed with successful execution
-          return new TxReceipt(
-            txHash,
-            TxStatus.CHECKPOINTED,
-            TxExecutionResult.SUCCESS,
-            undefined,
-            txEffect.transactionFee.toBigInt(),
-            await block.hash(),
-            block.number,
-            getEpochAtSlot(block.slot, EmptyL1RollupConstants),
-          );
-        }
-      }
-    }
-    return undefined;
   }
 
   async getL2Tips(): Promise<L2Tips> {
