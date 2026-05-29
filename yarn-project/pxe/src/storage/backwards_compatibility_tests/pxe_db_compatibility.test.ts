@@ -126,7 +126,7 @@ async function collectOpenedStores() {
   const kvStore = await openTmpStore('pxe-schema-stores', true);
   try {
     const spy = createStoreSpy(kvStore);
-    openPxeStores(spy.store, GENESIS_BLOCK_HEADER_HASH);
+    await openPxeStores(spy.store, GENESIS_BLOCK_HEADER_HASH);
     return spy.getOpenedStores();
   } finally {
     await kvStore.close();

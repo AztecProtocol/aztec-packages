@@ -6,7 +6,7 @@ import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { mock } from 'jest-mock-extended';
 import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
-import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import { CanonicalBlockStore } from '../storage/canonical_block_store/index.js';
 import { PrivateEventFilterValidator } from './private_event_filter_validator.js';
 
 describe('PrivateEventFilterValidator', () => {
@@ -14,7 +14,7 @@ describe('PrivateEventFilterValidator', () => {
   let lastKnownBlock: BlockHeader;
   let lastKnownBlockNumber: BlockNumber;
   let scope: AztecAddress;
-  let anchorBlockStore: MockProxy<AnchorBlockStore>;
+  let anchorBlockStore: MockProxy<CanonicalBlockStore>;
   let validator: PrivateEventFilterValidator;
 
   beforeEach(async () => {
@@ -22,7 +22,7 @@ describe('PrivateEventFilterValidator', () => {
     lastKnownBlockNumber = lastKnownBlock.getBlockNumber();
     contractAddress = await AztecAddress.random();
     scope = await AztecAddress.random();
-    anchorBlockStore = mock<AnchorBlockStore>();
+    anchorBlockStore = mock<CanonicalBlockStore>();
 
     anchorBlockStore.getBlockHeader.mockResolvedValue(lastKnownBlock);
     validator = new PrivateEventFilterValidator(lastKnownBlockNumber);

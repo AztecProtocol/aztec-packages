@@ -75,7 +75,7 @@ import {
 } from './private_kernel/private_kernel_execution_prover.js';
 import { PrivateKernelOracle } from './private_kernel/private_kernel_oracle.js';
 import { AddressStore } from './storage/address_store/address_store.js';
-import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_store.js';
+import { CanonicalBlockStore } from './storage/canonical_block_store/index.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
 import { NoteStore } from './storage/note_store/note_store.js';
@@ -174,7 +174,7 @@ export class PXE {
     private contractStore: ContractStore,
     private noteStore: NoteStore,
     private capsuleStore: CapsuleStore,
-    private anchorBlockStore: AnchorBlockStore,
+    private canonicalBlockStore: CanonicalBlockStore,
     private senderTaggingStore: SenderTaggingStore,
     private senderAddressBookStore: SenderAddressBookStore,
     private recipientTaggingStore: RecipientTaggingStore,
@@ -237,14 +237,14 @@ export class PXE {
       privateEventStore,
       contractStore,
       noteStore,
-      anchorBlockStore,
+      canonicalBlockStore,
       senderTaggingStore,
       senderAddressBookStore,
       recipientTaggingStore,
       capsuleStore,
       keyStore,
       l2TipsStore,
-    } = openPxeStores(store, initialBlockHash);
+    } = await openPxeStores(store, initialBlockHash);
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,
@@ -256,7 +256,7 @@ export class PXE {
     const synchronizer = new BlockSynchronizer(
       node,
       store,
-      anchorBlockStore,
+      canonicalBlockStore,
       noteStore,
       privateEventStore,
       l2TipsStore,
@@ -275,7 +275,7 @@ export class PXE {
       contractSyncService,
     ]);
 
-    const debugUtils = new PXEDebugUtils(contractSyncService, noteStore, synchronizer, anchorBlockStore);
+    const debugUtils = new PXEDebugUtils(contractSyncService, noteStore, synchronizer, canonicalBlockStore);
 
     const jobQueue = new SerialQueue();
 
@@ -287,7 +287,7 @@ export class PXE {
       contractStore,
       noteStore,
       capsuleStore,
-      anchorBlockStore,
+      canonicalBlockStore,
       senderTaggingStore,
       senderAddressBookStore,
       recipientTaggingStore,
@@ -468,7 +468,7 @@ export class PXE {
     jobId: string,
   ) {
     try {
-      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+      const anchorBlockHeader = await this.canonicalBlockStore.getBlockHeader();
       const { result, offchainEffects } = await contractFunctionSimulator.runUtility(
         call,
         authWitnesses ?? [],
@@ -569,7 +569,7 @@ export class PXE {
    */
   public getSyncedBlockHeader(): Promise<BlockHeader> {
     return this.#putInJobQueue(() => {
-      return this.anchorBlockStore.getBlockHeader();
+      return this.canonicalBlockStore.getBlockHeader();
     });
   }
 
@@ -768,7 +768,7 @@ export class PXE {
       const contractClass = await getContractClassFromArtifact(artifact);
       await this.#maybeSync();
 
-      const header = await this.anchorBlockStore.getBlockHeader();
+      const header = await this.canonicalBlockStore.getBlockHeader();
 
       const currentClassId = await readCurrentClassId(contractAddress, currentInstance, this.node, header);
       if (!contractClass.id.equals(currentClassId)) {
@@ -818,7 +818,7 @@ export class PXE {
       try {
         const syncTimer = new Timer();
         await this.#maybeSync();
-        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+        const anchorBlockHeader = await this.canonicalBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
         privateExecutionResult = await this.#executePrivate({
@@ -915,7 +915,7 @@ export class PXE {
         );
         const syncTimer = new Timer();
         await this.#maybeSync();
-        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+        const anchorBlockHeader = await this.canonicalBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -1023,7 +1023,7 @@ export class PXE {
         );
         const syncTimer = new Timer();
         await this.#maybeSync();
-        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+        const anchorBlockHeader = await this.canonicalBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
         if (overrides?.contracts && Object.keys(overrides.contracts).length > 0 && !skipKernels) {
@@ -1164,7 +1164,7 @@ export class PXE {
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
 
-        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+        const anchorBlockHeader = await this.canonicalBlockStore.getBlockHeader();
         await this.contractSyncService.ensureContractSynced(
           call.to,
           call.selector,
@@ -1236,7 +1236,7 @@ export class PXE {
     await this.#putInJobQueue(async jobId => {
       await this.#maybeSync();
 
-      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+      const anchorBlockHeader = await this.canonicalBlockStore.getBlockHeader();
       anchorBlockNumber = anchorBlockHeader.getBlockNumber();
 
       const contractFunctionSimulator = this.#getSimulatorForTx();
