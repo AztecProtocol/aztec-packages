@@ -2863,19 +2863,23 @@ export const ba_stream_walker = `{{> structs }}
 // and retires either to bucket_sums (whole bucket inside one task) or to
 // partials_buf (task ends mid-bucket → split).
 //
-// Bindings (8 total — within mobile WebGPU storage-binding limit):
-//   0 bucket_meta       : (sorted_bucket_id, count, offset, cum_adds) per dense bucket
-//   1 thread_cuts       : (cut_bucket_meta_idx, cut_offset) per thread
-//   2 l0_index          : packed (sign, pt_idx) per l0 position
-//   3 points            : combined point_x and point_y, x_plane at base 0, y_plane at offset params.z
-//   4 sums_and_partials : bucket_sums + partials_buf in one buffer (x then y planes, see §3.1)
-//   5 split_records     : per-thread × 9 record slots, (bucket, slot_idx) pairs, sentinel=0xFFFFFFFF
-//   6 planner_meta      : shared planner output
-//   7 params            : uniform vec4<u32>
+// Bindings (9 storage + 1 uniform — fits M2 desktop's
+// maxStorageBuffersPerShaderStage=10; mobile fallback would combine
+// bucket_sums+partials and point_x+point_y to reach 7-storage):
+//   0 bucket_meta   : (sorted_bucket_id, count, offset, cum_adds) per dense bucket
+//   1 thread_cuts   : (cut_bucket_meta_idx, cut_offset) per thread
+//   2 l0_index      : packed (sign, pt_idx) per l0 position
+//   3 point_x       : SoA x-plane of the SRS
+//   4 point_y       : SoA y-plane of the SRS
+//   5 bucket_sums   : output, written for whole-bucket retires
+//   6 partials_buf  : output, written for split retires (16 slots / thread)
+//   7 split_records : per-thread × 16 record slots, (bucket_id, partial_slot) pairs, sentinel=0xFFFFFFFF
+//   8 planner_meta  : shared planner output
+//   9 params        : uniform vec4<u32>
 //
 // params.x = NUM_THREADS                   (active count)
 // params.y = M_buckets                      (bucket_sums stride in 64-B point units)
-// params.z = point_y_offset_in_points       (where point_y begins, in vec4 elements)
+// params.z = (reserved, was point_y_offset) — currently unused
 // params.w = idle_anchor_l0_pos             (l0_index position with a known non-degenerate dx)
 
 const S: u32 = {{ s }}u;
@@ -2894,11 +2898,13 @@ const SPLIT_SENTINEL: u32 = 0xFFFFFFFFu;
 @group(0) @binding(0) var<storage, read>        bucket_meta:       array<vec4<u32>>;
 @group(0) @binding(1) var<storage, read>        thread_cuts:       array<u32>;
 @group(0) @binding(2) var<storage, read>        l0_index:          array<u32>;
-@group(0) @binding(3) var<storage, read>        points:            array<vec4<u32>>;
-@group(0) @binding(4) var<storage, read_write>  sums_and_partials: array<vec4<u32>>;
-@group(0) @binding(5) var<storage, read_write>  split_records:     array<u32>;
-@group(0) @binding(6) var<storage, read>        planner_meta:      array<u32>;
-@group(0) @binding(7) var<uniform>              params:            vec4<u32>;
+@group(0) @binding(3) var<storage, read>        point_x:           array<vec4<u32>>;
+@group(0) @binding(4) var<storage, read>        point_y:           array<vec4<u32>>;
+@group(0) @binding(5) var<storage, read_write>  bucket_sums:       array<vec4<u32>>;
+@group(0) @binding(6) var<storage, read_write>  partials_buf:      array<vec4<u32>>;
+@group(0) @binding(7) var<storage, read_write>  split_records:     array<u32>;
+@group(0) @binding(8) var<storage, read>        planner_meta:      array<u32>;
+@group(0) @binding(9) var<uniform>              params:            vec4<u32>;
 
 // pref_scratch — workgroup-local. Sized TPB × S × 2 vec4 (forward prefix +
 // inverse storage per slot). At TPB=128, S=8: 128*8*2 = 2048 vec4 = 32 KB,
@@ -2907,45 +2913,41 @@ var<workgroup> pref_scratch: array<vec4<u32>, {{ pref_scratch_len }}>;
 
 fn load_pt_x(packed: u32) -> array<u32, 8> {
     let pt = packed & L0_IDX_MASK;
-    let q0 = points[2u * pt];
-    let q1 = points[2u * pt + 1u];
+    let q0 = point_x[2u * pt];
+    let q1 = point_x[2u * pt + 1u];
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
 fn load_pt_y(packed: u32) -> array<u32, 8> {
     let pt = packed & L0_IDX_MASK;
-    let py_off = params.z;
-    let q0 = points[py_off + 2u * pt];
-    let q1 = points[py_off + 2u * pt + 1u];
+    let q0 = point_y[2u * pt];
+    let q1 = point_y[2u * pt + 1u];
     let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
     if ((packed & L0_SIGN_BIT) == 0u) { return y; }
     let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     return fr_sub_f8(zero, y);
 }
 
-// sums_and_partials layout (see STREAM_WALKER_PLAN.md §3.1):
-//   [0, M_buckets * PG)             : bucket_sums x plane
-//   [M_buckets * PG, 2 * M_buckets * PG) : bucket_sums y plane
-//   [2 * M_buckets * PG, ...)       : partials_buf, same x-then-y plane layout
-//                                      with stride = NUM_THREADS * S
-//
-// We compute the partials base offset on the fly from params.x and M_buckets.
+// bucket_sums layout: SoA with PG=2 planes.
+//   x plane: bucket_sums[0 .. M_buckets * PG)
+//   y plane: bucket_sums[M_buckets * PG .. 2 * M_buckets * PG)
 fn store_bucket_sum(bucket_id: u32, M_buckets: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
     let bx = PG * bucket_id;
-    sums_and_partials[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
-    sums_and_partials[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
+    bucket_sums[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
+    bucket_sums[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
     let by = PG * M_buckets + PG * bucket_id;
-    sums_and_partials[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
-    sums_and_partials[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
+    bucket_sums[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
+    bucket_sums[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
 }
 
-fn store_partial(partials_base: u32, slot: u32, M_partials: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
-    let bx = partials_base + PG * slot;
-    sums_and_partials[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
-    sums_and_partials[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
-    let by = partials_base + PG * M_partials + PG * slot;
-    sums_and_partials[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
-    sums_and_partials[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
+// partials_buf layout: same SoA pattern with stride M_partials.
+fn store_partial(slot: u32, M_partials: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
+    let bx = PG * slot;
+    partials_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
+    partials_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
+    let by = PG * M_partials + PG * slot;
+    partials_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
+    partials_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
 }
 
 fn store_pref(pref_idx: u32, val: array<u32, 8>) {
@@ -3000,13 +3002,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     if (t >= NUM_THREADS) { return; }
     if (num_dense == 0u) { return; }
 
-    // Per-thread partials base offset within sums_and_partials, in vec4 elements.
-    // Layout: [bucket_sums_x][bucket_sums_y][partials_x][partials_y]
-    //   bucket_sums_x at [0, M_buckets * PG)
-    //   bucket_sums_y at [M_buckets * PG, 2 * M_buckets * PG)
-    //   partials_x   at [2 * M_buckets * PG, 2 * M_buckets * PG + M_partials * PG)
-    //   partials_y   at [2 * M_buckets * PG + M_partials * PG, ...)
-    let partials_base = 2u * PG * M_buckets;
+    // (Separated buffers: bucket_sums and partials_buf are distinct bindings.)
 
     // Per-thread split_records base index (in u32 elements).
     // Each record is 2 u32 (bucket_id, partial_slot_idx).
@@ -3258,7 +3254,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 if (ends_mid_bucket) {
                     // Split-end partial — slot index 2*k+1 within thread.
                     let slot_global = t * PARTIALS_PER_THREAD + 2u * k + 1u;
-                    store_partial(partials_base, slot_global, M_partials, r_x, r_y);
+                    store_partial(slot_global, M_partials, r_x, r_y);
                     if (split_write_count < SPLIT_RECORDS_PER_THREAD) {
                         split_records[split_base + 2u * split_write_count + 0u] = cur_bucket_id[k];
                         split_records[split_base + 2u * split_write_count + 1u] = slot_global;
@@ -3267,7 +3263,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 } else if (started_mid_bucket) {
                     // Whole bucket inside task, started mid → split-start partial.
                     let slot_global = t * PARTIALS_PER_THREAD + 2u * k;
-                    store_partial(partials_base, slot_global, M_partials, r_x, r_y);
+                    store_partial(slot_global, M_partials, r_x, r_y);
                     if (split_write_count < SPLIT_RECORDS_PER_THREAD) {
                         split_records[split_base + 2u * split_write_count + 0u] = cur_bucket_id[k];
                         split_records[split_base + 2u * split_write_count + 1u] = slot_global;
@@ -3284,7 +3280,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 let started_mid_bucket = (cur_bucket_meta_idx[k] == task_b[k] && task_o[k] > 0u);
                 if (started_mid_bucket) {
                     let slot_global = t * PARTIALS_PER_THREAD + 2u * k;
-                    store_partial(partials_base, slot_global, M_partials, r_x, r_y);
+                    store_partial(slot_global, M_partials, r_x, r_y);
                     if (split_write_count < SPLIT_RECORDS_PER_THREAD) {
                         split_records[split_base + 2u * split_write_count + 0u] = cur_bucket_id[k];
                         split_records[split_base + 2u * split_write_count + 1u] = slot_global;
