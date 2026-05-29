@@ -38,10 +38,8 @@ import {
   toSingle,
 } from './utils/encoding.js';
 
-// Protocol contracts TXE preloads into its shared contract store. Currently none are required: the
-// canonical-address contracts test suites rely on (e.g. the auth registry) are deployed per-session
-// in `txe_session.ts` as standard contracts. Add a name here if a lookup against a `0x000…00X`
-// protocol-contract address fails.
+// Protocol contracts TXE registers in its contract store. Only AuthRegistry is needed for the
+// current test suites; add a contract here if a lookup against a `0x000…00X` address fails.
 export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = [];
 
 const sessions = new Map<number, TXESession>();
