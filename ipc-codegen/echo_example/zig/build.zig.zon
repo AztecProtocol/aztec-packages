@@ -22,8 +22,6 @@
     .paths = .{
         "build.zig",
         "build.zig.zon",
-        "echo_server.zig",
-        "echo_client.zig",
-        "generated",
+        "src",
     },
 }

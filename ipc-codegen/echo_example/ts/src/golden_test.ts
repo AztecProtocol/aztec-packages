@@ -21,7 +21,7 @@ const decoder = new Decoder({ useRecords: false });
 const encoder = new Encoder({ useRecords: false, variableMapSize: true });
 const goldenDir = path.join(
   import.meta.dirname!,
-  "../schema",
+  "../../schema",
   "golden",
 );
 

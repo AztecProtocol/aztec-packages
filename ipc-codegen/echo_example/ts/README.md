@@ -13,6 +13,6 @@ example so the file-linked package contains compiled output.
 Run locally:
 
 ```sh
-node_modules/.bin/tsx echo_server.ts --socket /tmp/echo.sock
-node_modules/.bin/tsx echo_client.ts --socket /tmp/echo.sock
+node_modules/.bin/tsx src/echo_server.ts --socket /tmp/echo.sock
+node_modules/.bin/tsx src/echo_client.ts --socket /tmp/echo.sock
 ```
