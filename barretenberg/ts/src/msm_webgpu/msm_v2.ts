@@ -570,6 +570,63 @@ interface ScratchDims {
   streamRadixTiles: number;
 }
 
+/**
+ * Post-rewrite fate of a pool buffer, used by the opt-in budget report.
+ *   - `live`         — survives the stream-walker cleanup (kept post-rewrite).
+ *   - `pre-cleanup`  — pair-tree / queue-model scratch that the plan's §14
+ *                      step 7/9 cleanup frees (bufA, bufB, the ring buffers,
+ *                      prefScratchBuf, plus the legacy queue-model buffers).
+ *   - `post-cleanup` — allocated only after the rewrite lands (none yet on
+ *                      this branch; reserved so the column is future-proof).
+ */
+type BudgetLifetime = 'live' | 'pre-cleanup' | 'post-cleanup';
+
+interface BudgetRow {
+  name: string;
+  bytes: number;
+  lifetime: BudgetLifetime;
+}
+
+/**
+ * Whether the opt-in GPU buffer-budget report should print. Off by default so
+ * normal runs are unaffected. Enabled by `MSM_REPORT_BUDGET=1` (Node driver) or
+ * `?report_budget=1` on the dev page, or by setting `globalThis.__MSM_REPORT_BUDGET__`.
+ */
+function msmBudgetReportEnabled(): boolean {
+  const g = globalThis as {
+    __MSM_REPORT_BUDGET__?: boolean;
+    process?: { env?: Record<string, string | undefined> };
+    location?: { search?: string };
+  };
+  if (g.__MSM_REPORT_BUDGET__) return true;
+  const env = g.process?.env;
+  if (env && env.MSM_REPORT_BUDGET === '1') return true;
+  const search = g.location?.search;
+  if (typeof search === 'string' && /[?&]report_budget=1\b/.test(search)) return true;
+  return false;
+}
+
+function formatBudgetTable(label: string, rows: BudgetRow[]): string {
+  const mib = (b: number): string => (b / (1024 * 1024)).toFixed(3);
+  const totalPre = rows.reduce((a, r) => a + r.bytes, 0);
+  const totalLive = rows.filter(r => r.lifetime !== 'pre-cleanup').reduce((a, r) => a + r.bytes, 0);
+  const freed = totalPre - totalLive;
+  const pctFreed = totalPre > 0 ? (100 * freed) / totalPre : 0;
+  const nameW = Math.max(20, ...rows.map(r => r.name.length));
+  const lines: string[] = [];
+  const p = (s: string): void => void lines.push(`[budget] ${s}`);
+  p(`==== GPU buffer budget: ${label} ====`);
+  p(`${'buffer'.padEnd(nameW)}  ${'bytes'.padStart(13)}  ${'MiB'.padStart(10)}  lifetime`);
+  for (const r of [...rows].sort((a, b) => b.bytes - a.bytes)) {
+    p(`${r.name.padEnd(nameW)}  ${String(r.bytes).padStart(13)}  ${mib(r.bytes).padStart(10)}  ${r.lifetime}`);
+  }
+  p('-'.repeat(nameW + 40));
+  p(`${'TOTAL (pre-cleanup)'.padEnd(nameW)}  ${String(totalPre).padStart(13)}  ${mib(totalPre).padStart(10)}`);
+  p(`${'TOTAL (post-cleanup)'.padEnd(nameW)}  ${String(totalLive).padStart(13)}  ${mib(totalLive).padStart(10)}`);
+  p(`freed by cleanup: ${freed} B (${mib(freed)} MiB), ${pctFreed.toFixed(1)}% of pre-cleanup total`);
+  return lines.join('\n');
+}
+
 export class MsmV2Pool {
   /** @internal — used by MsmV2.create to share compiled pipelines. */
   readonly cache: PipelineCache;
@@ -667,6 +724,84 @@ export class MsmV2Pool {
       total += s.accBuf.size + s.streamPrefScratch.size;
     }
     return total;
+  }
+
+  /**
+   * Opt-in per-buffer GPU memory budget. Enumerates every buffer the pool owns
+   * (SRS point pool + shared scratch) with its byte size and post-rewrite
+   * lifetime, so the plan's §14 step 7/9 buffer cleanup can be measured per
+   * logn without touching the hot path. `lifetime === 'pre-cleanup'` marks the
+   * buffers that cleanup frees (the pair-tree bufA, bufB, ring buffers and
+   * prefScratchBuf plus the legacy queue-model scratch); the post total is
+   * the rest. Pure read of `.size`; allocates nothing.
+   */
+  budgetReport(): { rows: BudgetRow[]; totalPre: number; totalLive: number } {
+    const rows: BudgetRow[] = [
+      { name: 'poolX (SRS x)', bytes: this.poolX.size, lifetime: 'live' },
+      { name: 'poolY (SRS y)', bytes: this.poolY.size, lifetime: 'live' },
+    ];
+    const s = this._scratch;
+    if (s) {
+      const add = (name: string, buf: GPUBuffer, lifetime: BudgetLifetime): void => {
+        rows.push({ name, bytes: buf.size, lifetime });
+      };
+      // Pair-tree scratch — freed by §14 step 9.
+      add('bufA', s.bufA, 'pre-cleanup');
+      add('bufB', s.bufB, 'pre-cleanup');
+      add('pairBlockPlanRing[0]', s.pairBlockPlanRing[0], 'pre-cleanup');
+      add('pairBlockPlanRing[1]', s.pairBlockPlanRing[1], 'pre-cleanup');
+      add('scatterPlanRing[0]', s.scatterPlanRing[0], 'pre-cleanup');
+      add('scatterPlanRing[1]', s.scatterPlanRing[1], 'pre-cleanup');
+      add('carryPlanRing[0]', s.carryPlanRing[0], 'pre-cleanup');
+      add('carryPlanRing[1]', s.carryPlanRing[1], 'pre-cleanup');
+      add('prefScratchBuf', s.prefScratchBuf, 'pre-cleanup');
+      // Legacy queue-model scratch — freed by §14 step 7 (kernel deletions).
+      add('queueBuf', s.queueBuf, 'pre-cleanup');
+      add('partialBucketsList', s.partialBucketsList, 'pre-cleanup');
+      add('streamPrefScratch', s.streamPrefScratch, 'pre-cleanup');
+      // Survivors — planner outputs, reduce, SRS-derived indices, walker working set.
+      add('bucketResultBuf', s.bucketResultBuf, 'live');
+      add('l0IdxBuf', s.l0IdxBuf, 'live');
+      add('bucketAndSignBuf', s.bucketAndSignBuf, 'live');
+      add('valIdxBuf', s.valIdxBuf, 'live');
+      add('rowPtrBuf', s.rowPtrBuf, 'live');
+      add('planMeta', s.planMeta, 'live');
+      add('countsBufs[0]', s.countsBufs[0], 'live');
+      add('countsBufs[1]', s.countsBufs[1], 'live');
+      add('offsetsBufs[0]', s.offsetsBufs[0], 'live');
+      add('offsetsBufs[1]', s.offsetsBufs[1], 'live');
+      add('scalarsRawBuf', s.scalarsRawBuf, 'live');
+      add('redBuf', s.redBuf, 'live');
+      add('isPresentBuf', s.isPresentBuf, 'live');
+      add('reducePrefScratch', s.reducePrefScratch, 'live');
+      add('streamPlannerMeta', s.streamPlannerMeta, 'live');
+      add('size1BucketList', s.size1BucketList, 'live');
+      add('denseBucketList', s.denseBucketList, 'live');
+      add('denseCountList', s.denseCountList, 'live');
+      add('sortedBucketList', s.sortedBucketList, 'live');
+      add('sortedCountList', s.sortedCountList, 'live');
+      add('radixHist', s.radixHist, 'live');
+      add('cumulativeAdds', s.cumulativeAdds, 'live');
+      add('wgCuts', s.wgCuts, 'live');
+      add('threadCuts', s.threadCuts, 'live');
+      add('partialsBuf', s.partialsBuf, 'live');
+      add('accBuf', s.accBuf, 'live');
+      add('taskCuts', s.taskCuts, 'live');
+      add('partialDest', s.partialDest, 'live');
+    }
+    const totalPre = rows.reduce((a, r) => a + r.bytes, 0);
+    const totalLive = rows.filter(r => r.lifetime !== 'pre-cleanup').reduce((a, r) => a + r.bytes, 0);
+    return { rows, totalPre, totalLive };
+  }
+
+  /**
+   * Print {@link budgetReport} as a table via `console.log`, but only when the
+   * report is enabled (see {@link msmBudgetReportEnabled}). No-op otherwise, so
+   * this is safe to call unconditionally from a run path.
+   */
+  logBudgetReport(label: string): void {
+    if (!msmBudgetReportEnabled()) return;
+    console.log(formatBudgetTable(label, this.budgetReport().rows));
   }
 
   /**

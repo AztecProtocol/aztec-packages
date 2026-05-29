@@ -531,6 +531,10 @@ async function runWebGpuOnce(
   // Plan the level tree for these scalars + (re)build the data-dependent
   // buffers — untimed setup, outside the `t0` window.
   msm.prepare(inputs.scalarsBuf);
+  // Opt-in GPU buffer-budget table (MSM_REPORT_BUDGET=1 / ?report_budget=1).
+  // Fired here, right after prepare() has grown the pool to its high-water
+  // allocation, so the numbers print even when a large-n accumulate is slow.
+  msmV2Pool?.logBudgetReport(`logn=${Math.round(Math.log2(inputs.n))} n=${inputs.n}`);
   // prepare() reallocates every data-dependent buffer; the first run() on
   // those fresh buffers pays a one-time first-use cost (driver lazy
   // zero-init / first-touch). Warm it out of the timed window so the
