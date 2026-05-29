@@ -9,6 +9,10 @@ spec:
   template:
     spec:
       serviceAccountName: {{ include "aztec-keystore.serviceAccountName" . }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       restartPolicy: OnFailure
       volumes:
         - name: shared

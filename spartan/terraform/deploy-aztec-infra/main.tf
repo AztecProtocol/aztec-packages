@@ -287,6 +287,7 @@ locals {
         "snapshots.aztecNodeAdminUrl" = local.internal_rpc_admin_url
         "snapshots.uploadLocation"    = var.STORE_SNAPSHOT_URL
         "snapshots.frequency"         = var.SNAPSHOT_CRON
+        "nodeSelector.node-type"      = "network"
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
