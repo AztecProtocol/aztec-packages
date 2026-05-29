@@ -281,6 +281,53 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             cur_bucket_id[k] = m.x;
             cur_count[k] = m.y;  // count, in points (not adds)
             cur_l0_base[k] = m.z;
+
+            // Single-point-in-first-bucket case: slot starts at the LAST
+            // point of its first bucket and can't do is_first (which would
+            // read OOB). Pre-load that point as the slot's acc, then either
+            //  (a) if slot's task is just this single point — write it as
+            //      a partial-start, mark idle; or
+            //  (b) advance to the next bucket and continue with is_first=false.
+            if (start_point + 1u >= m.y && start_point < m.y) {
+                let packed = l0_index[m.z + start_point];
+                let px = load_pt_x(packed);
+                let py = load_pt_y(packed);
+                acc_x_lo[k] = vec4<u32>(px[0], px[1], px[2], px[3]);
+                acc_x_hi[k] = vec4<u32>(px[4], px[5], px[6], px[7]);
+                acc_y_lo[k] = vec4<u32>(py[0], py[1], py[2], py[3]);
+                acc_y_hi[k] = vec4<u32>(py[4], py[5], py[6], py[7]);
+
+                if (start_b == task_end_bucket) {
+                    // (a) Whole task is this single point. Write split-start partial.
+                    let slot_global = t * PARTIALS_PER_THREAD + 2u * k;
+                    store_partial(slot_global, NUM_THREADS * PARTIALS_PER_THREAD, px, py);
+                    if (split_write_count < SPLIT_RECORDS_PER_THREAD) {
+                        split_records[split_base + 2u * split_write_count + 0u] = m.x;
+                        split_records[split_base + 2u * split_write_count + 1u] = slot_global;
+                        split_write_count = split_write_count + 1u;
+                    }
+                    is_idle[k] = 1u;
+                } else if (start_b + 1u < num_dense) {
+                    // (b) Carry single point into next bucket.
+                    cur_bucket_meta_idx[k] = start_b + 1u;
+                    cur_offset[k] = 0u;
+                    let mn = bucket_meta[start_b + 1u];
+                    cur_bucket_id[k] = mn.x;
+                    cur_count[k] = mn.y;
+                    cur_l0_base[k] = mn.z;
+                    is_first[k] = 0u;
+                } else {
+                    // Out of buckets — single-point partial, mark idle.
+                    let slot_global = t * PARTIALS_PER_THREAD + 2u * k;
+                    store_partial(slot_global, NUM_THREADS * PARTIALS_PER_THREAD, px, py);
+                    if (split_write_count < SPLIT_RECORDS_PER_THREAD) {
+                        split_records[split_base + 2u * split_write_count + 0u] = m.x;
+                        split_records[split_base + 2u * split_write_count + 1u] = slot_global;
+                        split_write_count = split_write_count + 1u;
+                    }
+                    is_idle[k] = 1u;
+                }
+            }
         } else {
             is_idle[k] = 1u;
         }
