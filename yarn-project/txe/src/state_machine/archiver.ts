@@ -13,7 +13,7 @@ import {
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 /**
@@ -47,7 +47,9 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   }
 
   public getL1Constants(): Promise<L1RollupConstants> {
-    throw new Error('TXE Archiver does not implement "getL1Constants"');
+    // The TXE has no L1, so it serves the empty constants (epochDuration=1) used throughout the TXE state machine
+    // (see mock_epoch_cache). The node calls this when assembling a mined tx receipt to derive the epoch number.
+    return Promise.resolve(EmptyL1RollupConstants);
   }
 
   public getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
