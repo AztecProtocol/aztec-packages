@@ -3,23 +3,19 @@
 //! Ported from zkpassport/aztec-packages bb_rs poseidon2_tests.rs
 
 #[cfg(test)]
-use barretenberg_rs::{backends::FfiBackend, BarretenbergApi, Fr};
+use barretenberg_rs::{BbApi, FfiBackend, Fr};
 
 #[test]
 fn test_poseidon2_hash() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
-    let inputs = vec![
-        Fr::from_u64(4).to_buffer(),
-        Fr::from_u64(8).to_buffer(),
-    ];
+    let inputs = vec![Fr::from_u64(4), Fr::from_u64(8)];
 
     let response = api.poseidon2_hash(inputs).expect("Poseidon2Hash failed");
-    let result = Fr::from_buffer_reduce(&response.hash);
 
     // Print result for snapshot comparison
-    println!("Poseidon2 hash result: {:?}", hex::encode(&result.0));
+    println!("Poseidon2 hash result: {:?}", hex::encode(&response.hash.0));
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -27,12 +23,16 @@ fn test_poseidon2_hash() {
 #[test]
 fn test_poseidon2_hash_deterministic() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
-    let input = vec![42u8; 32];
+    let input = Fr::from_be_bytes([42u8; 32]);
 
-    let response1 = api.poseidon2_hash(vec![input.clone()]).expect("Poseidon2Hash failed");
-    let response2 = api.poseidon2_hash(vec![input]).expect("Poseidon2Hash failed");
+    let response1 = api
+        .poseidon2_hash(vec![input.clone()])
+        .expect("Poseidon2Hash failed");
+    let response2 = api
+        .poseidon2_hash(vec![input])
+        .expect("Poseidon2Hash failed");
 
     // Same input should produce same output
     assert_eq!(response1.hash, response2.hash);
@@ -43,13 +43,17 @@ fn test_poseidon2_hash_deterministic() {
 #[test]
 fn test_poseidon2_hash_different_inputs() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
-    let input1 = vec![1u8; 32];
-    let input2 = vec![2u8; 32];
+    let input1 = Fr::from_be_bytes([1u8; 32]);
+    let input2 = Fr::from_be_bytes([2u8; 32]);
 
-    let response1 = api.poseidon2_hash(vec![input1]).expect("Poseidon2Hash failed");
-    let response2 = api.poseidon2_hash(vec![input2]).expect("Poseidon2Hash failed");
+    let response1 = api
+        .poseidon2_hash(vec![input1])
+        .expect("Poseidon2Hash failed");
+    let response2 = api
+        .poseidon2_hash(vec![input2])
+        .expect("Poseidon2Hash failed");
 
     // Different inputs should produce different outputs
     assert_ne!(response1.hash, response2.hash);
@@ -60,14 +64,16 @@ fn test_poseidon2_hash_different_inputs() {
 #[test]
 fn test_poseidon2_hash_zero_input() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
-    let input = vec![0u8; 32];
+    let input = Fr::from_be_bytes([0u8; 32]);
 
-    let response = api.poseidon2_hash(vec![input.clone()]).expect("Poseidon2Hash failed");
+    let response = api
+        .poseidon2_hash(vec![input.clone()])
+        .expect("Poseidon2Hash failed");
 
     // Even zero input should produce non-zero output
-    assert_ne!(response.hash, vec![0u8; 32]);
+    assert_ne!(response.hash, Fr::from_be_bytes([0u8; 32]));
     assert_ne!(response.hash, input);
 
     api.destroy().expect("Failed to destroy backend");
@@ -76,17 +82,19 @@ fn test_poseidon2_hash_zero_input() {
 #[test]
 fn test_poseidon2_permutation_js_compatibility_cpp() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // JS test: poseidon2Permutation([0, 1, 2, 3])
-    // Expected results from the JS test
-    let mut inputs = [vec![0u8; 32], vec![0u8; 32], vec![0u8; 32], vec![0u8; 32]];
-    // inputs[0] stays 0
-    inputs[1][31] = 1;
-    inputs[2][31] = 2;
-    inputs[3][31] = 3;
+    let inputs = [
+        Fr::from_u64(0),
+        Fr::from_u64(1),
+        Fr::from_u64(2),
+        Fr::from_u64(3),
+    ];
 
-    let response = api.poseidon2_permutation(inputs).expect("Poseidon2Permutation failed");
+    let response = api
+        .poseidon2_permutation(inputs)
+        .expect("Poseidon2Permutation failed");
 
     assert_eq!(response.outputs.len(), 4);
 
@@ -112,10 +120,10 @@ fn test_poseidon2_permutation_js_compatibility_cpp() {
         0x84, 0x7a,
     ];
 
-    assert_eq!(response.outputs[0].as_slice(), &expected_0);
-    assert_eq!(response.outputs[1].as_slice(), &expected_1);
-    assert_eq!(response.outputs[2].as_slice(), &expected_2);
-    assert_eq!(response.outputs[3].as_slice(), &expected_3);
+    assert_eq!(response.outputs[0].0, expected_0);
+    assert_eq!(response.outputs[1].0, expected_1);
+    assert_eq!(response.outputs[2].0, expected_2);
+    assert_eq!(response.outputs[3].0, expected_3);
 
     api.destroy().expect("Failed to destroy backend");
 }
@@ -123,19 +131,21 @@ fn test_poseidon2_permutation_js_compatibility_cpp() {
 #[test]
 fn test_poseidon2_permutation_js_compatibility_noir() {
     let backend = FfiBackend::new().expect("Failed to create backend");
-    let mut api = BarretenbergApi::new(backend);
+    let mut api = BbApi::new(backend);
 
     // JS test: poseidon2Permutation([1n, 2n, 3n, 0x0a0000000000000000n])
-    let mut inputs = [vec![0u8; 32], vec![0u8; 32], vec![0u8; 32], vec![0u8; 32]];
+    let mut input3 = [0u8; 32];
+    input3[23] = 0x0a; // 0x0a0000000000000000n
+    let inputs = [
+        Fr::from_u64(1),
+        Fr::from_u64(2),
+        Fr::from_u64(3),
+        Fr::from_be_bytes(input3),
+    ];
 
-    // Set the values in big-endian
-    inputs[0][31] = 1; // 1n
-    inputs[1][31] = 2; // 2n
-    inputs[2][31] = 3; // 3n
-    // 0x0a0000000000000000n = 720575940379279360
-    inputs[3][23] = 0x0a; // Set the appropriate byte for this large number
-
-    let response = api.poseidon2_permutation(inputs).expect("Poseidon2Permutation failed");
+    let response = api
+        .poseidon2_permutation(inputs)
+        .expect("Poseidon2Permutation failed");
 
     assert_eq!(response.outputs.len(), 4);
 
@@ -161,10 +171,10 @@ fn test_poseidon2_permutation_js_compatibility_noir() {
         0x3d, 0x4a,
     ];
 
-    assert_eq!(response.outputs[0].as_slice(), &expected_0);
-    assert_eq!(response.outputs[1].as_slice(), &expected_1);
-    assert_eq!(response.outputs[2].as_slice(), &expected_2);
-    assert_eq!(response.outputs[3].as_slice(), &expected_3);
+    assert_eq!(response.outputs[0].0, expected_0);
+    assert_eq!(response.outputs[1].0, expected_1);
+    assert_eq!(response.outputs[2].0, expected_2);
+    assert_eq!(response.outputs[3].0, expected_3);
 
     api.destroy().expect("Failed to destroy backend");
 }
