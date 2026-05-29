@@ -1,4 +1,5 @@
 import type { EpochNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { OutboxAbi } from '@aztec/l1-artifacts/OutboxAbi';
 
@@ -42,8 +43,20 @@ export class OutboxContract {
     return new OutboxContract(client, address);
   }
 
-  static getEpochRootStorageSlot(epoch: EpochNumber) {
-    return hexToBigInt(keccak256(encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [BigInt(epoch), 0n])));
+  /**
+   * Storage slot of `epochs[epoch].roots[numCheckpointsInEpoch - 1]` in the Outbox contract.
+   *
+   * The Outbox lays out storage as `mapping(Epoch => EpochData) internal epochs` at base slot 0
+   * (ROLLUP and VERSION are immutable and do not occupy slots). For a mapping at slot `b`, the
+   * value for key `k` begins at `keccak256(abi.encode(k, b))`. `EpochData` starts with a fixed-
+   * size `bytes32[MAX_CHECKPOINTS_PER_EPOCH] roots` array, so `roots[i]` sits at the EpochData's
+   * base slot plus `i`. `numCheckpointsInEpoch` is 1-indexed (matches `Outbox.insert`/`consume`).
+   */
+  static getEpochRootStorageSlot(epoch: EpochNumber, numCheckpointsInEpoch: number) {
+    const epochDataSlot = hexToBigInt(
+      keccak256(encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [BigInt(epoch), 0n])),
+    );
+    return epochDataSlot + BigInt(numCheckpointsInEpoch - 1);
   }
 
   constructor(
@@ -68,24 +81,41 @@ export class OutboxContract {
     return this.outbox.read.hasMessageBeenConsumedAtEpoch([BigInt(epoch), leafId]);
   }
 
-  public getRootData(epoch: EpochNumber) {
-    return this.outbox.read.getRootData([BigInt(epoch)]);
+  public getRootData(epoch: EpochNumber, numCheckpointsInEpoch: number) {
+    return this.outbox.read.getRootData([BigInt(epoch), BigInt(numCheckpointsInEpoch)]);
   }
 
-  public consume(message: ViemL2ToL1Msg, epoch: EpochNumber, leafIndex: bigint, path: Hex[]) {
+  /**
+   * Returns every root stored for `epoch`. Slot `i` of the returned array holds the root inserted
+   * for `numCheckpointsInEpoch = i + 1`, or `Fr.ZERO` if no proof of that depth has been inserted
+   * yet. The array length is always `MAX_CHECKPOINTS_PER_EPOCH`.
+   */
+  public async getRoots(epoch: EpochNumber): Promise<Fr[]> {
+    const raw = await this.outbox.read.getRoots([BigInt(epoch)]);
+    return raw.map(hex => Fr.fromString(hex));
+  }
+
+  public consume(
+    message: ViemL2ToL1Msg,
+    epoch: EpochNumber,
+    numCheckpointsInEpoch: number,
+    leafIndex: bigint,
+    path: Hex[],
+  ) {
     const wallet = this.assertWallet();
-    return wallet.write.consume([message, BigInt(epoch), leafIndex, path]);
+    return wallet.write.consume([message, BigInt(epoch), BigInt(numCheckpointsInEpoch), leafIndex, path]);
   }
 
   public async getMessageConsumedEvents(
     l1BlockHash: Hex,
-  ): Promise<{ epoch: bigint; root: Hex; messageHash: Hex; leafId: bigint }[]> {
+  ): Promise<{ epoch: bigint; root: Hex; messageHash: Hex; leafId: bigint; numCheckpointsInEpoch: bigint }[]> {
     const events = await this.outbox.getEvents.MessageConsumed({}, { blockHash: l1BlockHash, strict: true });
     return events.map(event => ({
       epoch: event.args.epoch!,
       root: event.args.root!,
       messageHash: event.args.messageHash!,
       leafId: event.args.leafId!,
+      numCheckpointsInEpoch: event.args.numCheckpointsInEpoch!,
     }));
   }
 
