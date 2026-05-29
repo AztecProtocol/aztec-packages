@@ -9,6 +9,7 @@ describe('TXESession.processFunction', () => {
   beforeAll(() => {
     session = new TXESession(
       {} as any, // logger
+      {} as any, // sessionStore
       {} as any, // stateMachine
       {} as any, // oracleHandler
       {} as any, // contractStore

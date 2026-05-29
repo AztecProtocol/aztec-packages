@@ -107,7 +107,7 @@ describe('authorizeUtilityCall hook', () => {
     expect(lastRequest).toMatchObject({
       caller: contractA.address,
       target: contractB.address,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'utility',
     });
@@ -122,7 +122,7 @@ describe('authorizeUtilityCall hook', () => {
     expect(lastRequest).toMatchObject({
       caller: contractA.address,
       target: contractB.address,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'utility',
     });
@@ -135,7 +135,7 @@ describe('authorizeUtilityCall hook', () => {
     expect(lastRequest).toMatchObject({
       caller: contractA.address,
       target: contractB.address,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'private',
     });
@@ -150,7 +150,7 @@ describe('authorizeUtilityCall hook', () => {
     expect(lastRequest).toMatchObject({
       caller: contractA.address,
       target: contractB.address,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'private',
     });

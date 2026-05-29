@@ -1227,6 +1227,8 @@ export async function makePublicKeys(seed = 0): Promise<PublicKeys> {
     ivpkM,
     await hashPublicKey(await f(2)),
     await hashPublicKey(await f(3)),
+    await hashPublicKey(await f(4)),
+    await hashPublicKey(await f(5)),
   );
 }
 
@@ -1446,6 +1448,8 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
       new PublicKey(new Fr(seed + 0x9), new Fr(seed + 0x10)),
       new Fr(seed + 0x11),
       new Fr(seed + 0x13),
+      new Fr(seed + 0x15),
+      new Fr(seed + 0x17),
     ),
   );
 }

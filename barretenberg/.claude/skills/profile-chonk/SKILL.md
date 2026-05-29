@@ -64,7 +64,7 @@ Always re-download so that stale inputs (e.g. from before a VK-breaking change l
 ```bash
 cd barretenberg/cpp
 FLOW="ecdsar1+transfer_0_recursions+sponsored_fpc"
-INPUTS_ROOT="../../yarn-project/end-to-end/example-app-ivc-inputs-out"
+INPUTS_ROOT="chonk-pinned-flows"
 
 ./scripts/chonk_inputs.sh download
 ```
@@ -92,7 +92,7 @@ Set these variables first:
 ```bash
 FLOW="ecdsar1+transfer_0_recursions+sponsored_fpc"
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
-INPUTS_ROOT="../../yarn-project/end-to-end/example-app-ivc-inputs-out"
+INPUTS_ROOT="chonk-pinned-flows"
 
 # Acquire remote lock (auto-releases on exit)
 source scripts/_benchmark_remote_lock.sh

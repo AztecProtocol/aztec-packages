@@ -336,7 +336,7 @@ function chonk_ivc_bench_cmds {
   while IFS= read -r flow; do
     [[ -n "$flow" ]] || continue
     [[ -z "$flow_filter" || "$flow" == *"$flow_filter"* ]] || continue
-    flow_dir="../../yarn-project/end-to-end/example-app-ivc-inputs-out/$flow"
+    flow_dir="chonk-pinned-flows/$flow"
     echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native $flow_dir"
     if [[ "${NO_WASM:-}" != "1" ]]; then
       echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh wasm $flow_dir"
@@ -348,7 +348,7 @@ function chonk_browser_bench_cmds {
   local flow flow_dir
   while IFS= read -r flow; do
     [[ -n "$flow" ]] || continue
-    flow_dir="../../yarn-project/end-to-end/example-app-ivc-inputs-out/$flow"
+    flow_dir="chonk-pinned-flows/$flow"
     echo "$hash:ISOLATE=1:NET=1:CPUS=8:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh $flow_dir"
   done < <(pinned_chonk_bench_flow_names)
 }

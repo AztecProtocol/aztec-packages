@@ -2,7 +2,7 @@
 
 exports[`Data generation for noir tests Computes contract info for defaultContract 1`] = `
 {
-  "address": "AztecAddress { inner: 0x1599beafce80b22c56446667e1627d865bb87ea94b8f1bdc757979f78a596042 }",
+  "address": "AztecAddress { inner: 0x07680e2c2f956fafe2ee3a31150da694fd5792515b9349febc7fb738cfb24d7a }",
   "artifact_hash": "0x0000000000000000000000000000000000000000000000000000000000003039",
   "contract_address_salt": "0x000000000000000000000000000000000000000000000000000000000000ddd5",
   "contract_class_id": "ContractClassId { inner: 0x2888d24c26f34b139f0f1d30278df8f9007d06da3b63cfe6eeb9a710d51f4f4a }",
@@ -10,14 +10,14 @@ exports[`Data generation for noir tests Computes contract info for defaultContra
   "partial_address": "PartialAddress { inner: 0x13bf689e2b04d5a75694270c1872e74b0c998c3f7f2f3a0a95648f9f41600808 }",
   "private_functions_root": "0x2653ec1bf2be3a13fa9b645cec2557f2b543286fc39168ec42b705835a301bb6",
   "public_bytecode_commitment": "0x256abef672381d551191d5bbecf2dec6ac9cc2a81189f886ac22e29e5c58c49c",
-  "public_keys": "PublicKeys { inner: 0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a2600c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1510e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef0 }",
+  "public_keys": "PublicKeys { inner: 0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a2600c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1510e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef014a5d4bde495b8c3a9ba4aed0d4870526e46fdff22d341a2f689ac5a50d103560f124f07811eebfaaa6d31316a2cc5bf255fa118f720e8ff1f2fc0d4aa46d496 }",
   "salted_initialization_hash": "SaltedInitializationHash { inner: 0x20b8accdca7010cfebfcc932f55e3acf5136dfe57ba51d386dac8e9d110d9567 }",
 }
 `;
 
 exports[`Data generation for noir tests Computes contract info for parentContract 1`] = `
 {
-  "address": "AztecAddress { inner: 0x1ea25c8d3d0223005170fc2cc0a0e8e3593e322bfcdebc817cc2a02cc95fca9c }",
+  "address": "AztecAddress { inner: 0x0e8d8115be632405aa0b0540f28c2f6c7a8a1b99ee18ea975c31d14f52377cb1 }",
   "artifact_hash": "0x00000000000000000000000000000000000000000000000000000000000004bc",
   "contract_address_salt": "0x0000000000000000000000000000000000000000000000000000000000001618",
   "contract_class_id": "ContractClassId { inner: 0x2998b9cf4a582f068a01b43c141dbcc5fd8f5cd17a797484b5a5db2386cf7574 }",
@@ -25,14 +25,14 @@ exports[`Data generation for noir tests Computes contract info for parentContrac
   "partial_address": "PartialAddress { inner: 0x09dba9fffbfd68d6828334a178433b7bfae9d07c3c6f424ee4afa0304655c5d3 }",
   "private_functions_root": "0x03cca4d59a01776df283eb2c8915cb144ad3f40a0b0ba06e9c24c532c59e3c43",
   "public_bytecode_commitment": "0x1cfb8e870870be1d102249b47923b63c2d54f33ca81e3028d74a06d8dd5944ca",
-  "public_keys": "PublicKeys { inner: 0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a2600c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1510e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef0 }",
+  "public_keys": "PublicKeys { inner: 0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a2600c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1510e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef014a5d4bde495b8c3a9ba4aed0d4870526e46fdff22d341a2f689ac5a50d103560f124f07811eebfaaa6d31316a2cc5bf255fa118f720e8ff1f2fc0d4aa46d496 }",
   "salted_initialization_hash": "SaltedInitializationHash { inner: 0x1384ae0b0212cbeb6cd53d6c8d9dfc6334318553dd6f33fdaa97b5dae4ab9dbb }",
 }
 `;
 
 exports[`Data generation for noir tests Computes contract info for updatedContract 1`] = `
 {
-  "address": "AztecAddress { inner: 0x144f3aaae816b99f40fbea5b9f80fe4683bf68a14876e7379c4171c871a1ef09 }",
+  "address": "AztecAddress { inner: 0x1b1ac9bb4af44a4f2f4e6ecc488dc18b9b8b8b3bacfa99e6cec1b81fa9d10b1e }",
   "artifact_hash": "0x0000000000000000000000000000000000000000000000000000000000054501",
   "contract_address_salt": "0x0000000000000000000000000000000000000000000000000000000000000315",
   "contract_class_id": "ContractClassId { inner: 0x07a63b1343bb8515d1115202c71cdc95f9bcda9c2237bdfc25435b89ffa06b46 }",
@@ -40,7 +40,7 @@ exports[`Data generation for noir tests Computes contract info for updatedContra
   "partial_address": "PartialAddress { inner: 0x12b89345d5d63f8bf9f73f5890d5caa0c5f023c61d313b1abeea40e300a83755 }",
   "private_functions_root": "0x2b26caef823c6be4c41ef1980dace9b61825f8e6a16792c765a2cd8cb2121e75",
   "public_bytecode_commitment": "0x225d884cfeaddc5292dadbf921e7699632336876c65a33459d3b2ad9b5ec0da3",
-  "public_keys": "PublicKeys { inner: 0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a2600c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1510e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef0 }",
+  "public_keys": "PublicKeys { inner: 0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a2600c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1510e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef014a5d4bde495b8c3a9ba4aed0d4870526e46fdff22d341a2f689ac5a50d103560f124f07811eebfaaa6d31316a2cc5bf255fa118f720e8ff1f2fc0d4aa46d496 }",
   "salted_initialization_hash": "SaltedInitializationHash { inner: 0x1f121db378dbceaf871eed1b9f0b20efcdca988e76f8abeaa11b2cdc80474189 }",
 }
 `;
