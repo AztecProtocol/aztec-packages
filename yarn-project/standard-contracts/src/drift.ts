@@ -184,18 +184,103 @@ export async function readIfExists(filePath: string): Promise<string | null> {
   }
 }
 
+/** Result of a {@link writeIfChanged} call: whether the file changed, and its prior bytes. */
+export type WriteResult = { changed: boolean; previous: string | null };
+
 /**
  * Compares `content` against the bytes currently at `filePath`. If they differ (including the file
- * not existing), writes the new content and returns `true`. If they match, leaves the file
- * untouched and returns `false`. Skipping the write when the content is identical avoids mtime
- * churn that would otherwise re-trigger downstream build steps on every generator run.
+ * not existing), writes the new content and returns `{ changed: true }`. If they match, leaves the
+ * file untouched and returns `{ changed: false }`. Skipping the write when the content is identical
+ * avoids mtime churn that would otherwise re-trigger downstream build steps on every generator run.
+ *
+ * The file's prior content is returned as `previous` (`null` if it didn't exist) so callers can
+ * render a diff of what changed without re-reading the now-overwritten file.
  */
-export async function writeIfChanged(filePath: string, content: string): Promise<boolean> {
+export async function writeIfChanged(filePath: string, content: string): Promise<WriteResult> {
   const existing = await readIfExists(filePath);
   if (existing === content) {
-    return false;
+    return { changed: false, previous: existing };
   }
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, content);
-  return true;
+  return { changed: true, previous: existing };
+}
+
+/**
+ * Line-level longest-common-subsequence diff. Returns one tagged entry per line: `' '` for an
+ * unchanged line, `'-'` for a line only in `a`, `'+'` for a line only in `b`. The generated files
+ * are small (tens of lines), so the O(n*m) table is not a concern.
+ */
+function lcsLineDiff(a: string[], b: string[]): { tag: ' ' | '-' | '+'; line: string }[] {
+  const n = a.length;
+  const m = b.length;
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const out: { tag: ' ' | '-' | '+'; line: string }[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      out.push({ tag: ' ', line: a[i++] });
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      out.push({ tag: '-', line: a[i++] });
+    } else {
+      out.push({ tag: '+', line: b[j++] });
+    }
+  }
+  while (i < n) {
+    out.push({ tag: '-', line: a[i++] });
+  }
+  while (j < m) {
+    out.push({ tag: '+', line: b[j++] });
+  }
+  return out;
+}
+
+/**
+ * Renders a compact unified-style diff between the file currently on disk (`actual` — the committed
+ * bytes) and the freshly-derived bytes (`expected`). Runs of unchanged lines beyond `context` are
+ * collapsed to a `...` marker so only the changed addresses/hashes (and a little surrounding
+ * context) are shown. Surfaced in the generator's drift error so a developer — or anyone reading a
+ * CI log — can read the new values straight off the `+` lines without rebuilding locally.
+ */
+export function renderDriftDiff(filePath: string, actual: string | null, expected: string, context = 3): string {
+  // Drop the empty trailing segment that a terminal newline yields so the diff doesn't end on a
+  // meaningless blank context line; intentional blank lines mid-file are preserved.
+  const splitLines = (s: string) => {
+    const ls = s.split('\n');
+    if (ls.length > 0 && ls[ls.length - 1] === '') {
+      ls.pop();
+    }
+    return ls;
+  };
+  const diff = lcsLineDiff(splitLines(actual ?? ''), splitLines(expected));
+  const visible = new Array<boolean>(diff.length).fill(false);
+  diff.forEach((entry, idx) => {
+    if (entry.tag !== ' ') {
+      const lo = Math.max(0, idx - context);
+      const hi = Math.min(diff.length - 1, idx + context);
+      for (let k = lo; k <= hi; k++) {
+        visible[k] = true;
+      }
+    }
+  });
+  const actualLabel = actual === null ? '(actual: file did not exist)' : '(actual / committed on disk)';
+  const lines = [`--- ${filePath}  ${actualLabel}`, `+++ ${filePath}  (expected / freshly derived)`];
+  let collapsed = false;
+  for (let idx = 0; idx < diff.length; idx++) {
+    if (visible[idx]) {
+      lines.push(`${diff[idx].tag} ${diff[idx].line}`);
+      collapsed = false;
+    } else if (!collapsed) {
+      lines.push('  ...');
+      collapsed = true;
+    }
+  }
+  return lines.join('\n');
 }

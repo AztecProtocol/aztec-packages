@@ -22,7 +22,7 @@ import {
   loadArtifact,
   standardContracts,
 } from '../contract_data.js';
-import { renderAllTargets, writeIfChanged } from '../drift.js';
+import { renderAllTargets, renderDriftDiff, writeIfChanged } from '../drift.js';
 
 const log = createConsoleLogger('autogenerate');
 
@@ -70,17 +70,20 @@ async function main() {
   }
 
   const targets = await renderAllTargets(names, contractDataList);
-  const driftedFiles: string[] = [];
+  const driftedFiles: { path: string; diff: string }[] = [];
   for (const { path: filePath, content } of targets) {
-    if (await writeIfChanged(filePath, content)) {
-      driftedFiles.push(filePath);
+    const { changed, previous } = await writeIfChanged(filePath, content);
+    if (changed) {
+      driftedFiles.push({ path: filePath, diff: renderDriftDiff(filePath, previous, content) });
     }
   }
 
   if (driftedFiles.length > 0) {
-    const list = driftedFiles.map(f => `  - ${f}`).join('\n');
+    const list = driftedFiles.map(f => `  - ${f.path}`).join('\n');
+    const diffs = driftedFiles.map(f => f.diff).join('\n\n');
     throw new Error(
       `Standard contract addresses have changed. The following generated files were out of date and have been rewritten in-place with the freshly-derived values:\n${list}\n\n` +
+        `What changed (− actual / committed, + expected / freshly derived):\n\n${diffs}\n\n` +
         `Any noir-contract that imports the stale addresses (via aztec-nr or aztec_sublib) now has stale bytecode and must be rebuilt.\n\n` +
         `To recover, the simplest option is to re-run \`./bootstrap.sh\` from the repo root: the second pass picks up the now-correct values.\n\n` +
         `For a faster targeted recovery without rebuilding everything, run from the repo root:\n` +
