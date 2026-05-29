@@ -20,6 +20,7 @@ jobs:
     outputs:
       nightly_tag: ${{ steps.nightly-tag.outputs.nightly_tag }}
       docker_image: ${{ steps.nightly-tag.outputs.docker_image }}
+      source_ref: ${{ steps.nightly-tag.outputs.source_ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -37,9 +38,20 @@ jobs:
           fi
 
           docker_image="aztecprotocol/aztec:${nightly_tag}"
+          source_ref="v${nightly_tag}"
           echo "nightly_tag=$nightly_tag" >> "$GITHUB_OUTPUT"
           echo "docker_image=$docker_image" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
           echo "Using nightly tag: $nightly_tag"
+          echo "Using source ref: $source_ref"
+
+      - name: Verify source git ref
+        run: |
+          set -euo pipefail
+          source_ref="${{ steps.nightly-tag.outputs.source_ref }}"
+          git fetch --depth 1 origin "refs/tags/${source_ref}:refs/tags/${source_ref}"
+          source_sha=$(git rev-parse "${source_ref}^{}")
+          echo "Nightly source commit: $source_sha"
 
       - name: Check if Docker image exists
         run: |
@@ -59,19 +71,21 @@ jobs:
       network: prove-n-tps-real
       namespace: prove-n-tps-real
       aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
-      ref: next
+      ref: ${{ needs.select-image.outputs.source_ref }}
       notify_on_failure: false
     secrets: inherit
 
   wait-for-first-l2-block:
-    needs: deploy-real-proving-network
+    needs:
+      - select-image
+      - deploy-real-proving-network
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
@@ -91,13 +105,15 @@ jobs:
           ./bootstrap.sh wait_for_l2_block prove-n-tps-real
 
   benchmark:
-    needs: wait-for-first-l2-block
+    needs:
+      - select-image
+      - wait-for-first-l2-block
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Run real proving benchmarks
         timeout-minutes: 180
@@ -154,7 +170,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Cleanup network resources
         env:
@@ -180,7 +196,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         env:

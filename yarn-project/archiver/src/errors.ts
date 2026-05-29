@@ -102,22 +102,6 @@ export class BlockAlreadyCheckpointedError extends Error {
   }
 }
 
-/** Thrown when logs are added for a tag whose last stored log has a higher block number than the new log. */
-export class OutOfOrderLogInsertionError extends Error {
-  constructor(
-    public readonly logType: 'private' | 'public',
-    public readonly tag: string,
-    public readonly lastBlockNumber: number,
-    public readonly newBlockNumber: number,
-  ) {
-    super(
-      `Out-of-order ${logType} log insertion for tag ${tag}: ` +
-        `last existing log is from block ${lastBlockNumber} but new log is from block ${newBlockNumber}`,
-    );
-    this.name = 'OutOfOrderLogInsertionError';
-  }
-}
-
 /** Thrown when L1 to L2 messages are requested for a checkpoint whose message tree hasn't been sealed yet. */
 export class L1ToL2MessagesNotReadyError extends Error {
   constructor(

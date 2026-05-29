@@ -51,16 +51,6 @@ variable "BOT_RESOURCE_PROFILE" {
   type        = string
 }
 
-variable "ARCHIVE_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the archive node"
-  type        = string
-}
-
-variable "BLOB_SINK_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the blob sink"
-  type        = string
-}
-
 variable "DEBUG_P2P_INSTRUMENT_MESSAGES" {
   description = "Whether to enable debug instrumentation of P2P messages"
   type        = bool
@@ -557,12 +547,6 @@ variable "EXTERNAL_BOOTNODES" {
   description = "Whether to use externally deployed bootnodes"
   type        = list(string)
   default     = []
-}
-
-variable "DEPLOY_ARCHIVAL_NODE" {
-  description = "Whether to deploy the archival node"
-  type        = bool
-  default     = false
 }
 
 variable "NETWORK" {

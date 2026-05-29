@@ -26,6 +26,16 @@ module "gke_cluster_private" {
   zone                     = var.zone
   service_account          = google_service_account.gke_sa.email
   enable_workload_identity = true
+
+  infra_8core_pool_size = {
+    min = 0
+    max = 1
+  }
+
+  infra_16core_pool_size = {
+    min = 0
+    max = 0
+  }
 }
 
 module "gke_cluster_public" {
