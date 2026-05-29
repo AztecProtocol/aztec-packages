@@ -15,7 +15,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2BlockSourceEvents } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
@@ -102,7 +102,7 @@ describe('Archiver Sync', () => {
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
     // Create archiver store
-    archiverStore = createArchiverDataStores(await openTmpStore('archiver_sync_test'), { logsMaxPageSize: 1000 });
+    archiverStore = createArchiverDataStores(await openTmpStore('archiver_sync_test'), GENESIS_BLOCK_HEADER_HASH);
 
     const contractAddresses = {
       rollupAddress,
@@ -229,24 +229,15 @@ describe('Archiver Sync', () => {
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toEqual(msgs3);
       await expect(archiver.getL1ToL2Messages(CheckpointNumber(4))).rejects.toThrow(L1ToL2MessagesNotReadyError);
 
-      // Verify logs for each block in the checkpoints
+      // Verify private logs are surfaced through the block body.
       for (const checkpoint of [cp1, cp2, cp3]) {
         for (const block of checkpoint.blocks) {
           const blockNumber = block.number;
-          const expectedTotalNumLogs = (name: 'private' | 'public' | 'contractClass') =>
+          const expectedTotalNumLogs = (name: 'private') =>
             sum(block.body.txEffects.map(txEffect => txEffect[`${name}Logs`].length));
 
           const privateLogs = (await archiver.getBlock({ number: blockNumber }))!.getPrivateLogs();
           expect(privateLogs.length).toBe(expectedTotalNumLogs('private'));
-
-          const publicLogs = (await archiver.getPublicLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 })).logs;
-          expect(publicLogs.length).toBe(expectedTotalNumLogs('public'));
-
-          const contractClassLogs = await archiver.getContractClassLogs({
-            fromBlock: blockNumber,
-            toBlock: blockNumber + 1,
-          });
-          expect(contractClassLogs.logs.length).toBe(expectedTotalNumLogs('contractClass'));
         }
       }
 
@@ -980,9 +971,6 @@ describe('Archiver Sync', () => {
       const txHash = cp2.blocks[0].body.txEffects[0].txHash;
       expect(await archiver.getTxEffect(txHash)).toBeUndefined();
       expect(await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 })).toEqual([]);
-
-      expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
-      expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
     }, 10_000);
 
     it('handles updated messages due to L1 reorg', async () => {

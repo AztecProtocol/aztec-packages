@@ -4,7 +4,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { L2Block } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import '@aztec/stdlib/testing/jest';
@@ -46,7 +46,7 @@ describe('ArchiverDataStoreUpdater', () => {
   let instanceAddress: AztecAddress;
 
   beforeEach(async () => {
-    store = createArchiverDataStores(await openTmpStore('data_store_updater_test'), { logsMaxPageSize: 1000 });
+    store = createArchiverDataStores(await openTmpStore('data_store_updater_test'), GENESIS_BLOCK_HEADER_HASH);
     updater = new ArchiverDataStoreUpdater(store);
 
     // Create contract class log from sample fixture data
@@ -279,8 +279,18 @@ describe('ArchiverDataStoreUpdater', () => {
   });
 
   describe('logs handling', () => {
+    /**
+     * Counts how many indexed public logs at `block.number` come from `block`'s txs. Compares the indexed
+     * logs' `txHash` against the block's tx-effect hashes, so an orphan write from a different block at
+     * the same number (e.g. after a slot conflict swap) doesn't get counted.
+     */
+    async function countIndexedPublicLogs(block: L2Block): Promise<number> {
+      const expectedTxHashes = new Set(block.body.txEffects.map(tx => tx.txHash.toString()));
+      const indexed = await store.logs.getPublicLogsForBlock(block.number);
+      return indexed.filter(log => expectedTxHashes.has(log.txHash.toString())).length;
+    }
+
     it('does not duplicate logs when checkpoint contains same block as provisional', async () => {
-      // Add provisional block with some logs
       const block = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
@@ -294,24 +304,23 @@ describe('ArchiverDataStoreUpdater', () => {
 
       await updater.addCheckpoints([publishedCheckpoint]);
 
-      // Verify logs are NOT duplicated
-      const publicLogs = await store.logs.getPublicLogs({ fromBlock: block.number, toBlock: block.number + 1 });
-      expect(publicLogs.logs.length).toBe(block.body.txEffects.flatMap(tx => tx.publicLogs).length);
-      expect(publicLogs.logs.length).toBeGreaterThan(0);
+      const expected = block.body.txEffects.flatMap(tx => tx.publicLogs).length;
+      const indexed = await countIndexedPublicLogs(block);
+      expect(indexed).toBe(expected);
+      expect(indexed).toBeGreaterThan(0);
     });
 
     it('replaces logs when checkpoint conflicts with provisional block', async () => {
-      // Add local provisional block
       const localBlock = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
       await updater.addProposedBlock(localBlock);
-      const publicLogsBefore = await store.logs.getPublicLogs({});
-      expect(publicLogsBefore.logs.map(l => l.log)).toEqual(localBlock.body.txEffects.flatMap(tx => tx.publicLogs));
+      expect(await countIndexedPublicLogs(localBlock)).toBe(
+        localBlock.body.txEffects.flatMap(tx => tx.publicLogs).length,
+      );
 
-      // Create checkpoint with DIFFERENT block (different archive root)
       const checkpointBlock = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
@@ -321,30 +330,30 @@ describe('ArchiverDataStoreUpdater', () => {
 
       await updater.addCheckpoints([makePublishedCheckpoint(makeCheckpoint([checkpointBlock]), 10)]);
 
-      // Verify checkpoint block is stored
       const storedBlock = await store.blocks.getBlock({ number: BlockNumber(1) });
       expect(storedBlock?.archive.root.equals(checkpointBlock.archive.root)).toBe(true);
-      const publicLogsAfter = await store.logs.getPublicLogs({});
-      expect(publicLogsAfter.logs.map(l => l.log)).toEqual(checkpointBlock.body.txEffects.flatMap(tx => tx.publicLogs));
+
+      expect(await countIndexedPublicLogs(checkpointBlock)).toBe(
+        checkpointBlock.body.txEffects.flatMap(tx => tx.publicLogs).length,
+      );
+      // The old (now-removed) block's logs are no longer indexed.
+      expect(await countIndexedPublicLogs(localBlock)).toBe(0);
     });
 
     it('removes logs when removing uncheckpointed blocks', async () => {
-      // Add local provisional block
       const localBlock = await L2Block.random(BlockNumber(1), {
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
         slotNumber: SlotNumber(100),
       });
       await updater.addProposedBlock(localBlock);
-      const publicLogsBefore = await store.logs.getPublicLogs({});
-      expect(publicLogsBefore.logs.map(l => l.log)).toEqual(localBlock.body.txEffects.flatMap(tx => tx.publicLogs));
+      expect(await countIndexedPublicLogs(localBlock)).toBe(
+        localBlock.body.txEffects.flatMap(tx => tx.publicLogs).length,
+      );
 
-      // Remove the uncheckpointed block
       await updater.removeUncheckpointedBlocksAfter(BlockNumber.ZERO);
 
-      // Verify logs are removed
-      const publicLogsAfter = await store.logs.getPublicLogs({});
-      expect(publicLogsAfter.logs.length).toBe(0);
+      expect(await countIndexedPublicLogs(localBlock)).toBe(0);
     });
   });
 

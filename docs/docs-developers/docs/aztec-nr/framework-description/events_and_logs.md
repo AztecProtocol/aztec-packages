@@ -95,15 +95,14 @@ self.context.emit_public_log([1, 2, 3]);
 
 ## Query public logs
 
-Query public logs from offchain applications using the Aztec node:
+Query public logs from offchain applications using the Aztec node. Raw public logs are
+attached to each block's transaction effects — fetch a block with `includeTransactions: true`
+and read `body.txEffects[*].publicLogs`:
 
 ```typescript
-const fromBlock = await node.getBlockNumber();
-const logFilter = {
-  fromBlock,
-  toBlock: fromBlock + 1,
-};
-const publicLogs = (await node.getPublicLogs(logFilter)).logs;
+const blockNumber = await node.getBlockNumber();
+const block = await node.getBlock(blockNumber, { includeTransactions: true });
+const publicLogs = block?.body.txEffects.flatMap(tx => tx.publicLogs) ?? [];
 ```
 
 ## Cost considerations

@@ -14,7 +14,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2Block } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeStateReference } from '@aztec/stdlib/testing';
@@ -72,7 +72,7 @@ describe('Archiver Store', () => {
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
-    archiverStore = createArchiverDataStores(await openTmpStore('archiver_test'), { logsMaxPageSize: 1000 });
+    archiverStore = createArchiverDataStores(await openTmpStore('archiver_test'), GENESIS_BLOCK_HEADER_HASH);
 
     l1Constants = {
       l1GenesisTime: BigInt(now),

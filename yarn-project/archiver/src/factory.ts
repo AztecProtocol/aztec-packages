@@ -34,14 +34,15 @@ export const ARCHIVER_STORE_NAME = 'archiver';
 
 /** Creates an archiver store. */
 export async function createArchiverStore(
-  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
+  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb'> & DataStoreConfig,
+  genesisBlockHash: BlockHash,
 ): Promise<ArchiverDataStores> {
   const config = {
     ...userConfig,
     dataStoreMapSizeKb: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKb,
   };
   const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config);
-  return createArchiverDataStores(store, { logsMaxPageSize: config.maxLogs });
+  return createArchiverDataStores(store, genesisBlockHash);
 }
 
 /**
@@ -61,7 +62,7 @@ export async function createArchiver(
   initialHeader: BlockHeader,
   initialBlockHash: BlockHash,
 ): Promise<Archiver> {
-  const archiverStore = await createArchiverStore(config);
+  const archiverStore = await createArchiverStore(config, initialBlockHash);
   await registerProtocolContracts(archiverStore);
 
   // Create Ethereum clients

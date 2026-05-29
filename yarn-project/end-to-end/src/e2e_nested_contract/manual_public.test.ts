@@ -50,14 +50,9 @@ describe('e2e_nested_contract manual', () => {
     ];
 
     const { receipt: tx } = await new BatchCall(wallet, actions).send({ from: defaultAccountAddress });
-    const extendedLogs = (
-      await aztecNode.getPublicLogs({
-        fromBlock: tx.blockNumber!,
-      })
-    ).logs;
-    const processedLogs = extendedLogs.map(extendedLog =>
-      toBigIntBE(serializeToBuffer(extendedLog.log.getEmittedFields())),
-    );
+    const block = (await aztecNode.getBlock({ number: tx.blockNumber! }, { includeTransactions: true }))!;
+    const allPublicLogs = block.body.txEffects.flatMap(tx => tx.publicLogs);
+    const processedLogs = allPublicLogs.map(log => toBigIntBE(serializeToBuffer(log.getEmittedFields())));
     expect(processedLogs).toEqual([20n, 40n]);
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(40n));
   });
