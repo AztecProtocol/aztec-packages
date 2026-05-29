@@ -10,7 +10,7 @@
     "./*/lazy": "./dest/*/lazy.js",
     "./auth-registry/constants": "./dest/auth-registry/constants.js",
     "./public-checks/constants": "./dest/public-checks/constants.js",
-    "./multi-call-entrypoint/address": "./dest/multi-call-entrypoint/address.js"
+    "./multi-call-entrypoint/constants": "./dest/multi-call-entrypoint/constants.js"
   },
   "typedocOptions": {
     "entryPoints": [

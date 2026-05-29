@@ -71,11 +71,13 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
     const wallet = new this(pxe, aztecNode, walletDB, new LazyAccountContractsProvider(), rootLogger) as T;
-    await wallet.initStubClasses();
     const { getStandardAuthRegistry } = await import('@aztec/standard-contracts/auth-registry/lazy');
-    await wallet.registerAuthRegistry(getStandardAuthRegistry);
     const { getStandardMultiCallEntrypoint } = await import('@aztec/standard-contracts/multi-call-entrypoint/lazy');
-    await wallet.registerMultiCallEntrypoint(getStandardMultiCallEntrypoint);
+    await Promise.all([
+      wallet.initStubClasses(),
+      wallet.registerAuthRegistry(getStandardAuthRegistry),
+      wallet.registerMultiCallEntrypoint(getStandardMultiCallEntrypoint),
+    ]);
     return wallet;
   }
 }

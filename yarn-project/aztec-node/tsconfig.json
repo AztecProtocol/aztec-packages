@@ -19,9 +19,6 @@
       "path": "../blob-lib"
     },
     {
-      "path": "../standard-contracts"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -68,6 +65,9 @@
     },
     {
       "path": "../slasher"
+    },
+    {
+      "path": "../standard-contracts"
     },
     {
       "path": "../stdlib"

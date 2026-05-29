@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../standard-contracts"
-    },
-    {
       "path": "../constants"
     },
     {
@@ -17,6 +14,9 @@
     },
     {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../standard-contracts"
     },
     {
       "path": "../stdlib"
