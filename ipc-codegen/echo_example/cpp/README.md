@@ -6,9 +6,9 @@ Build from this directory:
 ./bootstrap.sh
 ```
 
-The bootstrap generates bindings, copies the C++ codegen support headers into
-`src/generated/`, fetches upstream `msgpack-c`, and builds `ipc-runtime/cpp` as
-a subproject. Binaries are written to `build/bin/`.
+The bootstrap generates bindings and C++ codegen support headers into
+`src/generated/`, fetches upstream `msgpack-c`, and builds `ipc-runtime/cpp`
+as a subproject. Binaries are written to `build/bin/`.
 
 Run locally:
 

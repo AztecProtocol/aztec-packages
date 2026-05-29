@@ -29,6 +29,8 @@ import {
   renameSync,
   mkdirSync,
   existsSync,
+  cpSync,
+  rmSync,
 } from "fs";
 import { execSync } from "child_process";
 import { dirname, join, resolve } from "path";
@@ -221,6 +223,14 @@ function copyTemplateOnce(lang: string, filename: string, outDir: string) {
     return;
   }
   copyTemplate(lang, filename, outDir);
+}
+
+function copyTemplateDir(lang: string, dirname: string, outDir: string) {
+  const templatePath = join(__dirname, "..", "templates", lang, dirname);
+  const destPath = join(outDir, dirname);
+  rmSync(destPath, { recursive: true, force: true });
+  cpSync(templatePath, destPath, { recursive: true });
+  console.log(`  ${destPath} (template)`);
 }
 
 // ---------------------------------------------------------------------------
@@ -471,10 +481,7 @@ function generate(args: Args) {
           gen.generateStandaloneTypes(compiled),
         ),
       );
-      // The msgpack struct-map adaptor lives in ipc-runtime/cpp/ipc_runtime/
-      // msgpack_adaptor.hpp — consumers already have ipc-runtime on their
-      // include path, so the generated client/server includes that directly
-      // (no template copy, no per-consumer duplicates of the same adaptor).
+      copyTemplateDir("cpp", "ipc_codegen", absOut);
       if (args.server) {
         cppFiles.push(
           writeFile(

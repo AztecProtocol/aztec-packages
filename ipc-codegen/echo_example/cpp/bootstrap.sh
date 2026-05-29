@@ -15,8 +15,5 @@ $NODE "$CODEGEN/src/generate.ts" \
   --prefix Echo \
   --cpp-namespace echo
 
-rm -rf "$DIR/src/generated/ipc_codegen"
-cp -R "$CODEGEN/cpp/include/ipc_codegen" "$DIR/src/generated/ipc_codegen"
-
 cmake -S "$DIR" -B "$DIR/build"
 cmake --build "$DIR/build" --target echo_server echo_client
