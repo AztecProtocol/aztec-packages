@@ -26,9 +26,11 @@ pub contract EcdsaRAccount {
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let pub_key_note = EcdsaPublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
-        self.storage.signing_public_key.initialize(pub_key_note).deliver(
-            MessageDelivery::onchain_constrained().with_sender(self.address),
-        );
+        // The deployment transaction is typically sent from a separate account (e.g. a fee-paying deployer), which
+        // would otherwise be used as the sender for tags. We override it with this account's own address so the
+        // recipient can discover the note by registering the account address, regardless of who deployed it.
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery::onchain_constrained()
+            .with_sender(self.address));
     }
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file

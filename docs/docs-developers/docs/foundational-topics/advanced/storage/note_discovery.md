@@ -53,7 +53,7 @@ When the log is emitted, the protocol kernel **siloes** the tag with the contrac
 
 #### The sender in note tagging
 
-The "sender" in note tagging is **not necessarily the transaction sender**. It's the **sender for tags**, which the wallet supplies as a default (typically the originating account address). Contracts can override this at the log emission site by using `MessageDelivery::onchain_unconstrained().with_sender(address)`.
+The "sender" in note tagging is **not necessarily the transaction sender**. It's the **sender for tags**, which the wallet supplies as a default (typically the originating account address). Contracts can override this at message delivery by using `MessageDelivery::onchain_unconstrained().with_sender(address)`.
 
 This sender address is used along with the recipient address to compute the shared secret via Diffie-Hellman key exchange, which is then used to derive the tag.
 

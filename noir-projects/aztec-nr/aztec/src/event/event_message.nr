@@ -38,11 +38,9 @@ where
     ///
     /// The message is first encrypted to the recipient's public key, ensuring no other actor can read it.
     ///
-    /// The `delivery_mode` must be a value that implements
-    /// [`crate::messages::message_delivery::MessageDeliveryBuilder`] (such as
-    /// [`crate::messages::message_delivery::MessageDelivery`] or
-    /// [`crate::messages::message_delivery::OnchainDelivery`]), and will inform costs (both proving time and TX fees)
-    /// as well as delivery guarantees. This value must be a compile-time constant.
+    /// The `delivery_mode` is produced by the [`crate::messages::message_delivery::MessageDelivery`] entrypoints
+    /// (`offchain`, `onchain_unconstrained`, or `onchain_constrained`). It informs costs (both proving time and TX
+    /// fees) as well as delivery guarantees, and must be a compile-time constant.
     ///
     /// # Invalid Recipients
     ///

@@ -17,8 +17,7 @@ pub contract SchnorrAccount {
         macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::{
-            auth_witness::get_auth_witness,
-            get_nullifier_membership_witness::get_low_nullifier_membership_witness,
+            auth_witness::get_auth_witness, get_nullifier_membership_witness::get_low_nullifier_membership_witness,
         },
         protocol::address::AztecAddress,
         state_vars::SinglePrivateImmutable,
@@ -37,9 +36,11 @@ pub contract SchnorrAccount {
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let pub_key_note = PublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
-        self.storage.signing_public_key.initialize(pub_key_note).deliver(
-            MessageDelivery::onchain_constrained().with_sender(self.address),
-        );
+        // The deployment transaction is typically sent from a separate account (e.g. a fee-paying deployer), which
+        // would otherwise be used as the sender for tags. We override it with this account's own address so the
+        // recipient can discover the note by registering the account address, regardless of who deployed it.
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery::onchain_constrained()
+            .with_sender(self.address));
     }
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file

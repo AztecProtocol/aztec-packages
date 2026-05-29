@@ -78,8 +78,8 @@ impl MessageDelivery {
     /// No information is revelead on-chain about sender, recipient, or the message contents. The message itself
     /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
     /// keys in order to obtain the plaintext.
-    pub fn offchain() -> Self {
-        Self { variant: OFFCHAIN, sender_override: Option::none() }
+    pub fn offchain() -> OffchainDelivery {
+        OffchainDelivery {}
     }
 
     /// Delivers the message on-chain, but with no guarantees on the content.
@@ -199,8 +199,9 @@ impl MessageDelivery {
 /// emitted in the current transaction. This is typically only used for note messages: since the note will not actually
 /// be created, there is no point in delivering the message.
 ///
-/// `delivery_mode` must be a value that implements [`MessageDeliveryBuilder`], such as [`MessageDelivery`] or
-/// [`OnchainDelivery`].
+/// `delivery_mode` must be a value that implements [`MessageDeliveryBuilder`], such as [`OffchainDelivery`] or
+/// [`OnchainDelivery`] (constructed via [`MessageDelivery::offchain`], [`MessageDelivery::onchain_unconstrained`], or
+/// [`MessageDelivery::onchain_constrained`]).
 ///
 /// ## Privacy
 ///
@@ -218,11 +219,10 @@ where
 {
     let delivery = delivery_mode.build_message_delivery();
 
-    // This function relies on `delivery` being a constant in order to reduce circuit constraints when
-    // unconstrained usage is requested. If `delivery` were a runtime value the compiler would be unable to
-    // perform dead-code elimination.
+    // This function relies on `delivery.variant` being a constant in order to reduce circuit constraints when
+    // unconstrained usage is requested. If it were a runtime value the compiler would be unable to perform
+    // dead-code elimination.
     assert_constant(delivery.variant);
-    assert_constant(delivery.sender_override.is_some());
 
     // The following maps out the 3 dimensions across which we configure message delivery.
     let constrained_encryption = delivery.variant == ONCHAIN_CONSTRAINED;
@@ -263,47 +263,50 @@ where
     }
 }
 
-/// A type that can be converted into a [`MessageDelivery`] value for use by
-/// [`do_private_message_delivery`].
+/// Builds the [`MessageDelivery`] configuration consumed by the message delivery APIs (e.g. `NoteMessage::deliver` and
+/// `EventMessage::deliver`). Implemented by the builder types returned from the [`MessageDelivery`] constructors,
+/// namely [`OffchainDelivery`] and [`OnchainDelivery`].
 pub trait MessageDeliveryBuilder {
     fn build_message_delivery(self) -> MessageDelivery;
 }
 
-/// Builder for on-chain delivery modes. Returned by [`MessageDelivery::onchain_unconstrained`] and
+/// Off-chain delivery. Returned by [`MessageDelivery::offchain`].
+pub struct OffchainDelivery {}
+
+impl MessageDeliveryBuilder for OffchainDelivery {
+    fn build_message_delivery(self) -> MessageDelivery {
+        MessageDelivery { variant: OFFCHAIN, sender_override: Option::none() }
+    }
+}
+
+/// On-chain delivery. Returned by [`MessageDelivery::onchain_unconstrained`] and
 /// [`MessageDelivery::onchain_constrained`].
 ///
-/// Unlike [`MessageDelivery`] (which is returned by [`MessageDelivery::offchain`]), this type exposes
-/// [`with_sender`](OnchainDelivery::with_sender), which overrides the sender address used for discovery tag
-/// derivation.
+/// Delivery can be further configured via [`with_sender`](OnchainDelivery::with_sender), which overrides the default
+/// sender address used during discovery tag derivation.
 pub struct OnchainDelivery {
     variant: u8,
     sender_override: Option<AztecAddress>,
-}
-
-/// [`MessageDelivery::offchain`] returns this type directly, so it must satisfy the
-/// [`MessageDeliveryBuilder`] bound required by [`do_private_message_delivery`].
-impl MessageDeliveryBuilder for MessageDelivery {
-    fn build_message_delivery(self) -> MessageDelivery {
-        self
-    }
 }
 
 impl OnchainDelivery {
     /// Overrides the sender address used for discovery tag derivation.
     ///
     /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
-    /// is derived from a shared secret between a "sender" and the recipient. By default this sender is the
-    /// wallet-supplied address (typically the account contract that initiated the transaction). Account contracts
-    /// should override it with their own address so that recipients can discover the notes by registering that
-    /// address as a known sender.
+    /// is derived from a shared secret between a "sender" and the recipient. By default, the sender is the
+    /// wallet-supplied address (typically the account that initiated the transaction), but some contracts need to
+    /// override it so that recipients can discover the notes correctly. This is the case for account contracts in their
+    /// constructor: the deployer is the one that initiated the transaction, but any notes generated during deployment
+    /// should be tagged by the account contract itself.
     ///
     /// ## Examples
     ///
-    /// ```
+    /// ```noir
     /// MessageDelivery::onchain_constrained().with_sender(self.address)
     /// ```
-    pub fn with_sender(self, sender: AztecAddress) -> Self {
-        Self { variant: self.variant, sender_override: Option::some(sender) }
+    pub fn with_sender(&mut self, sender: AztecAddress) -> Self {
+        self.sender_override = Option::some(sender);
+        *self
     }
 }
 
@@ -314,10 +317,7 @@ impl MessageDeliveryBuilder for OnchainDelivery {
 }
 
 mod test {
-    use super::{
-        MessageDelivery, MessageDeliveryBuilder, OFFCHAIN, ONCHAIN_CONSTRAINED,
-        ONCHAIN_UNCONSTRAINED,
-    };
+    use super::{MessageDelivery, MessageDeliveryBuilder, OFFCHAIN, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED};
 
     #[test]
     fn constructors_produce_distinct_variants() {

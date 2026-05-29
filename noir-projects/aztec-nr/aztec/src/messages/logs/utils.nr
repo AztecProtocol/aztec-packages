@@ -8,17 +8,14 @@ use crate::protocol::address::AztecAddress;
 /// To solve this, sender and recipient derive a shared secret from their keys, and from that secret they produce a
 /// sequence of one-time tags (tag_0, tag_1, ...). The recipient scans for these tags because it can compute the same
 /// sequence. This function returns the next raw (not domain-separated) tag in the sequence.
-pub(crate) fn compute_discovery_tag(
-    recipient: AztecAddress,
-    sender_override: Option<AztecAddress>,
-) -> Field {
+pub(crate) fn compute_discovery_tag(recipient: AztecAddress, sender_override: Option<AztecAddress>) -> Field {
     // Safety: we assume that the sender wants for the recipient to find the tagged note, and therefore that they will
     // cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the
     // note automatically.
     unsafe {
         let sender = sender_override.unwrap_or_else(|| {
             get_sender_for_tags().expect(
-                f"Sender for tags is not set when emitting a private log. Ensure the wallet provides a default sender.",
+                f"Sender for tags is not set when emitting a private log and no override is set. Ensure the wallet provides a default sender.",
             )
         });
         get_next_app_tag_as_sender(sender, recipient)

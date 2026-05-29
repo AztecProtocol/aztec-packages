@@ -35,11 +35,9 @@ where
     ///
     /// The message is first encrypted to the owner's public key, ensuring no other actor can read it.
     ///
-    /// The `delivery_mode` must be a value that implements
-    /// [`crate::messages::message_delivery::MessageDeliveryBuilder`] (such as
-    /// [`crate::messages::message_delivery::MessageDelivery`] or
-    /// [`crate::messages::message_delivery::OnchainDelivery`]), and will inform costs (both proving time and TX fees)
-    /// as well as delivery guarantees. This value must be a compile-time constant.
+    /// The `delivery_mode` is produced by the [`crate::messages::message_delivery::MessageDelivery`] entrypoints
+    /// (`offchain`, `onchain_unconstrained`, or `onchain_constrained`). It informs costs (both proving time and TX
+    /// fees) as well as delivery guarantees, and must be a compile-time constant.
     ///
     /// To deliver the message to a recipient that is not the note's owner, use [`deliver_to`](NoteMessage::deliver_to)
     /// instead.
@@ -144,8 +142,7 @@ where
         D: MessageDeliveryBuilder,
     {
         if self.maybe_new_note.is_some() {
-            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context)
-                .deliver(delivery_mode);
+            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver(delivery_mode);
         }
     }
 
@@ -158,8 +155,7 @@ where
         D: MessageDeliveryBuilder,
     {
         if self.maybe_new_note.is_some() {
-            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context)
-                .deliver_to(recipient, delivery_mode);
+            NoteMessage::new(self.maybe_new_note.unwrap_unchecked(), self.context).deliver_to(recipient, delivery_mode);
         }
     }
 
