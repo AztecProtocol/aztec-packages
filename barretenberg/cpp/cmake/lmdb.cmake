@@ -15,11 +15,14 @@ ExternalProject_Add(
     SOURCE_DIR ${LMDB_PREFIX}/src/lmdb_repo
     BUILD_IN_SOURCE YES
     CONFIGURE_COMMAND "" # No configure step
-    # build-lmdb.sh forces a clean rebuild when the C toolchain changes, so LMDB
-    # is never linked as stale objects built against a different glibc than the
-    # rest of barretenberg (e.g. host glibc's __isoc23_strtol vs the zig-pinned
-    # glibc 2.35). BUILD_ALWAYS lets it re-check the toolchain on every build; it
-    # is a no-op (and leaves liblmdb.a untouched) when nothing changed.
+    # build-lmdb.sh pins LMDB's toolchain to the rest of barretenberg. Passing
+    # CC only via the environment is not enough: this make is nested under the
+    # outer build's make, and a CC inherited as a command-line variable (via
+    # MAKEFLAGS) outranks both the environment and `make -e`, so an ambient
+    # CC=gcc would build LMDB against the host glibc (undefined __isoc23_strtol
+    # vs the zig-pinned glibc 2.35). The script severs inherited make state and
+    # passes CC on make's command line. BUILD_ALWAYS lets it re-check the
+    # toolchain each build; it is a no-op (liblmdb.a untouched) when unchanged.
     BUILD_COMMAND ${CMAKE_SOURCE_DIR}/scripts/build-lmdb.sh ${CMAKE_C_COMPILER}${CMAKE_C_COMPILER_ARG1} ${CMAKE_AR}
     BUILD_ALWAYS YES
     INSTALL_COMMAND ""
