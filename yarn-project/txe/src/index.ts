@@ -38,9 +38,11 @@ import {
   toSingle,
 } from './utils/encoding.js';
 
-// Protocol contracts TXE registers in its contract store. Only AuthRegistry is needed for the
-// current test suites; add a contract here if a lookup against a `0x000…00X` address fails.
-export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = ['AuthRegistry'];
+// Protocol contracts TXE pre-registers in its shared contract store. AuthRegistry and the other
+// standard contracts are no longer protocol contracts and are deployed per-session in
+// txe_session.ts, so none are needed here today; add a contract if a lookup against a
+// `0x000…00X` address fails.
+export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = [];
 
 const sessions = new Map<number, TXESession>();
 
