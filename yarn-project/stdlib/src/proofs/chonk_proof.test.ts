@@ -10,9 +10,20 @@ describe('ChonkProof', () => {
     expect(() => new ChonkProof(fields)).toThrow(`Invalid ChonkProof length: ${CHONK_PROOF_LENGTH + 1}`);
   });
 
+  it('empty proof holds an empty fields array', () => {
+    const proof = ChonkProof.empty();
+    expect(proof.fields).toEqual([]);
+  });
+
   it('isEmpty should return true for empty proof', () => {
     const proof = ChonkProof.empty();
     expect(proof.isEmpty()).toBe(true);
+  });
+
+  it('serializes empty proof as a single zero length', () => {
+    const buffer = ChonkProof.empty().toBuffer();
+    expect(buffer).toEqual(numToUInt32BE(0));
+    expect(buffer.length).toBe(4);
   });
 
   it('should serialize and deserialize empty proof', () => {
@@ -99,6 +110,15 @@ describe('ChonkProofWithPublicInputs', () => {
   it('isEmpty should return true for empty proof', () => {
     const proof = ChonkProofWithPublicInputs.empty();
     expect(proof.isEmpty()).toBe(true);
+  });
+
+  it('empty proof round-trips with an empty fields array', () => {
+    const original = ChonkProofWithPublicInputs.empty();
+    expect(original.fieldsWithPublicInputs).toEqual([]);
+
+    const deserialized = ChonkProofWithPublicInputs.fromBuffer(original.toBuffer());
+    expect(deserialized.fieldsWithPublicInputs).toEqual([]);
+    expect(deserialized.isEmpty()).toBe(true);
   });
 
   it('should serialize and deserialize proof with public inputs', () => {
