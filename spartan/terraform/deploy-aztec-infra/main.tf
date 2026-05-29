@@ -52,7 +52,7 @@ module "web3signer" {
   VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHERS_PER_REPLICA         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-  PROVER_COUNT                             = tonumber(var.PROVER_REPLICAS)
+  PROVER_COUNT                             = local.prover_agent_replica_capacity
   PUBLISHERS_PER_PROVER                    = tonumber(var.PROVER_PUBLISHERS_PER_PROVER)
   PROVER_PUBLISHER_MNEMONIC_START_INDEX    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
 
@@ -93,6 +93,8 @@ locals {
     repository = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[0]
     tag        = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[1]
   } : local.aztec_image
+
+  prover_agent_replica_capacity = var.PROVER_ENABLED ? (var.PROVER_AGENT_KEDA_ENABLED ? var.PROVER_AGENT_KEDA_MAX_REPLICAS : tonumber(var.PROVER_REPLICAS)) : 0
 
   # Max node count: max of primary (VALIDATOR_REPLICAS) and HA pod counts
   # Determines how many attester keystores and publisher key ranges to generate
@@ -317,7 +319,7 @@ locals {
       wait                 = true
     } : null
 
-    prover = {
+    prover = var.PROVER_ENABLED ? {
       name  = "${var.RELEASE_PREFIX}-prover"
       chart = "aztec-prover-stack"
       values = [
@@ -342,6 +344,19 @@ locals {
         agent = {
           node = {
             logLevel = var.LOG_LEVEL
+          }
+          autoscaling = {
+            keda = {
+              enabled         = var.PROVER_AGENT_KEDA_ENABLED && var.PROVER_ENABLED
+              pollingInterval = var.PROVER_AGENT_KEDA_POLLING_INTERVAL_SECONDS
+              cooldownPeriod  = var.PROVER_AGENT_KEDA_COOLDOWN_PERIOD_SECONDS
+              minReplicaCount = var.PROVER_AGENT_KEDA_MIN_REPLICAS
+              maxReplicaCount = var.PROVER_AGENT_KEDA_MAX_REPLICAS
+              scalingBands    = var.PROVER_AGENT_KEDA_SCALING_BANDS
+              prometheus = {
+                serverAddress = var.PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS
+              }
+            }
           }
         }
         })], local.is_kind ? [yamlencode({
@@ -377,7 +392,7 @@ locals {
           "agent.node.env.CRS_PATH"                             = "/usr/src/crs"
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
-          "agent.replicaCount"                                  = var.PROVER_REPLICAS
+          "agent.replicaCount"                                  = var.PROVER_AGENT_KEDA_ENABLED ? "0" : var.PROVER_REPLICAS
           "agent.node.env.BOOTSTRAP_NODES"                      = "asdf"
           "agent.node.env.PROVER_AGENT_COUNT"                   = var.PROVER_AGENTS_PER_PROVER
           "agent.node.env.PROVER_TEST_DELAY_TYPE"               = var.PROVER_TEST_DELAY_TYPE
@@ -410,7 +425,7 @@ locals {
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
       wait                 = var.WAIT_FOR_PROVER_DEPLOY
-    }
+    } : null
 
     rpc = {
       name  = "${var.RELEASE_PREFIX}-rpc"

@@ -14,3 +14,5 @@ export * from './tx_permitted_validator.js';
 export * from './timestamp_validator.js';
 export * from './size_validator.js';
 export * from './factory.js';
+export * from './tx_validation_cache.js';
+export * from './cached_tx_validator.js';
