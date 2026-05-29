@@ -33,12 +33,20 @@ contract FakeFeePortal {
 }
 
 contract FakeRewardDistributor {
-  address public canonicalRollup;
+  address internal _canonicalRollup;
   IERC20 public feeAsset;
 
   constructor(IERC20 _feeAsset) {
-    canonicalRollup = msg.sender;
+    _canonicalRollup = msg.sender;
     feeAsset = _feeAsset;
+  }
+
+  function canonicalRollup() external view returns (address) {
+    return _canonicalRollup;
+  }
+
+  function availableTo(address _rollup) external view returns (uint256) {
+    return _rollup == _canonicalRollup ? feeAsset.balanceOf(address(this)) : 0;
   }
 
   function claim(address _to, uint256 _amount) external {
@@ -46,7 +54,7 @@ contract FakeRewardDistributor {
   }
 
   function nuke() external {
-    canonicalRollup = address(0);
+    _canonicalRollup = address(0);
   }
 }
 
@@ -73,7 +81,7 @@ contract RewardLibWrapper {
       checkpointReward: _checkpointReward
     });
 
-    RewardLib.setConfig(config);
+    RewardLib.initializeConfig(config);
 
     RollupStore storage rollupStore = STFLib.getStorage();
     rollupStore.config.feeAsset = _feeAsset;
