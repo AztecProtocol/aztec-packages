@@ -4,7 +4,7 @@ if(NOT(FUZZING) AND NOT(WASM))
     # command below wires generation into ninja so clients and servers only
     # consume the generated output directory.
     set(WSDB_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/wsdb_schema.json)
-    set(WSDB_GEN_PARENT ${CMAKE_CURRENT_BINARY_DIR})
+    set(WSDB_GEN_PARENT ${CMAKE_CURRENT_SOURCE_DIR})
     set(WSDB_GEN_DIR ${WSDB_GEN_PARENT}/generated)
     set(WSDB_GEN_OUTPUTS
         ${WSDB_GEN_DIR}/wsdb_ipc_client.cpp
@@ -30,7 +30,7 @@ if(NOT(FUZZING) AND NOT(WASM))
                 --out ${WSDB_GEN_DIR}
                 --client --server
                 --cpp-namespace bb::wsdb
-                --cpp-include-dir generated
+                --cpp-include-dir barretenberg/wsdb/generated
                 --prefix Wsdb
         DEPENDS ${WSDB_SCHEMA} ${IPC_CODEGEN_SRC}
         COMMENT "Generating WSDB IPC client + server from wsdb_schema.json"
@@ -46,7 +46,6 @@ if(NOT(FUZZING) AND NOT(WASM))
     target_include_directories(
         wsdb_ipc_client
         PUBLIC
-        ${WSDB_GEN_PARENT}
         ${WSDB_GEN_DIR}
     )
     target_link_libraries(
@@ -68,7 +67,6 @@ if(NOT(FUZZING) AND NOT(WASM))
     target_include_directories(
         aztec-wsdb
         PRIVATE
-        ${WSDB_GEN_PARENT}
         ${WSDB_GEN_DIR}
     )
     target_link_libraries(

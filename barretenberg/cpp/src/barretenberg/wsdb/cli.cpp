@@ -3,8 +3,8 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/wsdb/generated/wsdb_ipc_server.hpp"
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
-#include "generated/wsdb_ipc_server.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
 #include <cstdint>

@@ -17,8 +17,8 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/wsdb/generated/wsdb_ipc_server.hpp"
 #include "barretenberg/wsdb/wsdb_wire_convert.hpp"
-#include "generated/wsdb_ipc_server.hpp"
 
 #include <optional>
 #include <stdexcept>

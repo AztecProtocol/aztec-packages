@@ -16,7 +16,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/lmdblib/types.hpp"
 #include "barretenberg/world_state/types.hpp"
-#include "generated/wsdb_types.hpp"
+#include "barretenberg/wsdb/generated/wsdb_types.hpp"
 
 #include <cstring>
 
