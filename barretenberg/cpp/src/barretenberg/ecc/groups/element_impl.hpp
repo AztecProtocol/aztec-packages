@@ -8,6 +8,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/ecc/groups/booth_recode.hpp"
 #include "barretenberg/ecc/groups/element.hpp"
 #include "element.hpp"
 #include <cstdint>
@@ -633,52 +634,11 @@ namespace detail {
 // (k1, k2) such that `k = k1 - k2·λ (mod r)`, where λ = endomorphism scalar.
 using EndoScalars = std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>>;
 
-/**
- * @brief Carry-less signed-Booth window slice parameters.
- *        Each window is a c-bit signed digit in [-2^(c-1), 2^(c-1)], read as
- *        a c+1-bit window that overlaps its lower neighbour by one bit;
- */
-struct BoothSliceParams {
-    uint32_t lo_mask;
-    uint32_t hi_mask;
-    uint32_t lo_limb;
-    uint32_t hi_limb;
-    uint32_t lo_off;
-    uint32_t lo_bits;
-};
-
-[[nodiscard]] constexpr BoothSliceParams compute_booth_slice_params(size_t bit_offset,
-                                                                    size_t window_bits,
-                                                                    size_t num_uint64_limbs) noexcept
-{
-    constexpr size_t LIMB_BITS = 64;
-    BoothSliceParams sp{};
-    if (bit_offset == 0) {
-        sp.lo_limb = 0;
-        sp.hi_limb = 0;
-        sp.lo_off = LIMB_BITS - 1;
-        sp.lo_bits = 1;
-        sp.lo_mask = 0;
-        sp.hi_mask = (uint32_t{ 1 } << window_bits) - 1;
-    } else {
-        const size_t lookback_bit = bit_offset - 1;
-        const size_t bits_to_read = window_bits + 1;
-        sp.lo_limb = static_cast<uint32_t>(lookback_bit / LIMB_BITS);
-        sp.lo_off = static_cast<uint32_t>(lookback_bit & (LIMB_BITS - 1));
-        sp.lo_bits = static_cast<uint32_t>(LIMB_BITS - sp.lo_off < bits_to_read ? LIMB_BITS - sp.lo_off : bits_to_read);
-        const uint32_t hi_bits = static_cast<uint32_t>(bits_to_read) - sp.lo_bits;
-        // window_bits+1 ≤ 32, so lo_bits ≤ 32 and (1 << lo_bits) - 1 fits in uint32.
-        sp.lo_mask = (uint32_t{ 1 } << sp.lo_bits) - 1;
-        if (static_cast<size_t>(sp.lo_limb) + 1 >= num_uint64_limbs) {
-            sp.hi_limb = sp.lo_limb;
-            sp.hi_mask = 0;
-        } else {
-            sp.hi_limb = sp.lo_limb + 1;
-            sp.hi_mask = (uint32_t{ 1 } << hi_bits) - 1;
-        }
-    }
-    return sp;
-}
+// Carry-less signed-Booth window slice machinery is shared with the Pippenger MSM path; see
+// `ecc/groups/booth_recode.hpp`. element_impl only needs the slice-param computation — its
+// packed-digit reader (`booth_packed_digit`, below) is the simple branchless variant.
+using bb::ecc::booth::BoothSliceParams;
+using bb::ecc::booth::compute_booth_slice_params;
 
 /**
  * @brief Read a (window_bits+1)-bit window from `s[]` (uint64 limbs) and apply
