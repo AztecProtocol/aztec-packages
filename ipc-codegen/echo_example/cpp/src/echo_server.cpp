@@ -29,6 +29,15 @@ wire::EchoNestedResponse handle_nested(EchoCtx & /*ctx*/,
   return {.inner = std::move(cmd.inner)};
 }
 
+template <>
+wire::EchoAliasesResponse handle_aliases(EchoCtx & /*ctx*/,
+                                         wire::EchoAliases &&cmd) {
+  return {.treeId = cmd.treeId,
+          .hash = cmd.hash,
+          .maybeHash = cmd.maybeHash,
+          .hashes = std::move(cmd.hashes)};
+}
+
 } // namespace echo
 
 int main(int argc, char **argv) {

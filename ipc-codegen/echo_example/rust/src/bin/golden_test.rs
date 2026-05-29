@@ -136,6 +136,23 @@ fn main() {
             }
         }
     );
+    check_request!(
+        "echo_aliases_request.msgpack",
+        EchoAliases,
+        |v: &EchoAliases| {
+            let hash = test_hash(0x10);
+            let second = test_hash(0x40);
+            if v.tree_id != 7
+                || v.hash != hash
+                || v.maybe_hash != Some(second.clone())
+                || v.hashes != vec![hash, second]
+            {
+                Err("aliases".into())
+            } else {
+                Ok(())
+            }
+        }
+    );
 
     check_response!(
         "echo_bytes_response.msgpack",
@@ -165,6 +182,23 @@ fn main() {
         |v: &EchoNestedResponse| {
             if v.inner.values != vec![vec![1u8, 2, 3], vec![4, 5]] || v.inner.flag != Some(true) {
                 Err("nested".into())
+            } else {
+                Ok(())
+            }
+        }
+    );
+    check_response!(
+        "echo_aliases_response.msgpack",
+        EchoAliasesResponse,
+        |v: &EchoAliasesResponse| {
+            let hash = test_hash(0x10);
+            let second = test_hash(0x40);
+            if v.tree_id != 7
+                || v.hash != hash
+                || v.maybe_hash != Some(second.clone())
+                || v.hashes != vec![hash, second]
+            {
+                Err("aliases".into())
             } else {
                 Ok(())
             }
@@ -250,4 +284,8 @@ fn main() {
     if fail > 0 {
         std::process::exit(1);
     }
+}
+
+fn test_hash(base: u8) -> Fr {
+    Fr::from_bytes(std::array::from_fn(|i| base + i as u8))
 }

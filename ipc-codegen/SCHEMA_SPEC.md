@@ -50,10 +50,9 @@ Types in the schema are represented as one of:
 | `"unsigned char"` | `unsigned char` / `uint8_t` | Unsigned 8-bit integer |
 | `"double"` | `double` | 64-bit floating point |
 | `"string"` | `std::string` | UTF-8 string |
-| `"bin32"` | Fixed-size byte arrays | Raw binary data (e.g., field elements) |
-| `"field2"` | `Fq2` | Extension field: pair of 32-byte field elements |
-| `"MerkleTreeId"` | `MerkleTreeId` enum | C++ enum, serialized as uint32 |
-| `"unordered_map"` | `std::unordered_map<K,V>` | Map type (special-cased per usage) |
+| `"bin32"` | `std::array<uint8_t, 32>` | Fixed 32-byte binary value |
+
+Domain names such as `Fr`, `MerkleTreeId`, `ForkId`, `LeafIndex`, or service-specific IDs are not primitives. Express them as aliases over the primitive wire type.
 
 ### Container Types (JSON arrays)
 
@@ -73,7 +72,7 @@ Example: `["vector", ["unsigned char"]]` = `std::vector<uint8_t>` = byte array
 ```
 Example: `["array", ["unsigned char", 32]]` = `std::array<uint8_t, 32>` = 32-byte fixed buffer
 
-**Special case**: `["array", ["unsigned char", N]]` is treated as raw bytes (like `vector<uint8_t>`).
+`["array", ["unsigned char", N]]` is a fixed-length array of integer bytes. Use `"bin32"` or `["alias", ["Name", "bin32"]]` for fixed 32-byte binary values that must encode as msgpack `bin`.
 
 #### `optional`
 ```json
@@ -87,18 +86,20 @@ Example: `["optional", ["string"]]` = `std::optional<std::string>`
 ```
 Treated as a transparent wrapper; the inner type is used directly.
 
-#### `tuple`
-```json
-["tuple", [<type1>, <type2>, ...]]
-```
-Example: `["tuple", ["string", "unsigned long"]]` = `std::tuple<std::string, uint64_t>`
-
 #### `alias`
 ```json
 ["alias", [<schema_name>, <msgpack_name>]]
 ```
-Alias for a type that serializes as another msgpack type (e.g., `uint256_t` serializes as raw bytes).
-Treated as raw bytes in code generation.
+Alias for a named schema type that serializes as a primitive wire type.
+The second element must be a primitive schema string. Code generators emit a named type alias over the primitive wire shape.
+
+Examples:
+
+```json
+["alias", ["Fr", "bin32"]]
+["alias", ["MerkleTreeId", "unsigned int"]]
+["alias", ["ForkId", "unsigned long"]]
+```
 
 ### Struct Types (JSON objects)
 
@@ -202,12 +203,11 @@ used for schema identification.
 | `string` | msgpack str |
 | `bin32`, `bytes` | msgpack bin |
 | `vector<unsigned char>` | msgpack bin (NOT array of integers) |
-| `array<unsigned char, N>` | msgpack bin |
+| `array<unsigned char, N>` | msgpack array of integers |
 | `vector<T>` | msgpack array |
 | `array<T, N>` | msgpack array (fixed length) |
 | `optional<T>` | msgpack nil (if absent) or value |
-| `field2` | msgpack ext type or array of 2 bin values |
-| `enum` | msgpack integer (uint32) |
+| `alias<T>` | same msgpack encoding as its primitive target |
 | struct | msgpack map with string keys |
 | NamedUnion | msgpack array(2): [string, map] |
 

@@ -18,6 +18,13 @@
         "flag": ["optional", ["bool"]]
       }
     }],
+    ["EchoAliases", {
+      "__typename": "EchoAliases",
+      "treeId": ["alias", ["MerkleTreeId", "unsigned int"]],
+      "hash": ["alias", ["Fr", "bin32"]],
+      "maybeHash": ["optional", [["alias", ["Fr", "bin32"]]]],
+      "hashes": ["vector", [["alias", ["Fr", "bin32"]]]]
+    }],
     ["EchoShutdown", {
       "__typename": "EchoShutdown"
     }]
@@ -35,11 +42,14 @@
     }],
     ["EchoNestedResponse", {
       "__typename": "EchoNestedResponse",
-      "inner": {
-        "__typename": "EchoInner",
-        "values": ["vector", [["vector", ["unsigned char"]]]],
-        "flag": ["optional", ["bool"]]
-      }
+      "inner": "EchoInner"
+    }],
+    ["EchoAliasesResponse", {
+      "__typename": "EchoAliasesResponse",
+      "treeId": ["alias", ["MerkleTreeId", "unsigned int"]],
+      "hash": ["alias", ["Fr", "bin32"]],
+      "maybeHash": ["optional", [["alias", ["Fr", "bin32"]]]],
+      "hashes": ["vector", [["alias", ["Fr", "bin32"]]]]
     }],
     ["EchoShutdownResponse", {
       "__typename": "EchoShutdownResponse"

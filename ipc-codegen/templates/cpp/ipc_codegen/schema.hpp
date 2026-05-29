@@ -184,10 +184,10 @@ inline void schema_pack(SchemaPacker &packer, std::variant<Args...> const &) {
 }
 template <typename T, std::size_t N>
 inline void schema_pack(SchemaPacker &packer, std::array<T, N> const &) {
-  // Special case: array<unsigned char, N> is the bin32 / fixed-byte form.
-  if constexpr (std::is_same_v<T, unsigned char> ||
-                std::is_same_v<T, std::uint8_t>) {
-    packer.pack_alias("bin32", "bin32");
+  // Exactly 32 bytes is the fixed-byte primitive used by bin32 aliases.
+  if constexpr (N == 32 && (std::is_same_v<T, unsigned char> ||
+                            std::is_same_v<T, std::uint8_t>)) {
+    packer.pack("bin32");
   } else {
     packer.pack_array(2);
     packer.pack("array");

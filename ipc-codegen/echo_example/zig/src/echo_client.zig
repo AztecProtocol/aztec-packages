@@ -6,6 +6,14 @@ const ipc_runtime = @import("ipc_runtime");
 const echo_client = @import("generated/echo_client.zig");
 const types = @import("generated/echo_types.zig");
 
+fn testHash(base: u8) types.Fr {
+    var hash: types.Fr = undefined;
+    for (&hash, 0..) |*byte, i| {
+        byte.* = base + @as(u8, @intCast(i));
+    }
+    return hash;
+}
+
 pub fn main() !void {
     var args = std.process.args();
     _ = args.next();
@@ -67,6 +75,29 @@ pub fn main() !void {
             std.process.exit(1);
         }
         std.debug.print("echo_client(zig): EchoNested OK\n", .{});
+    }
+
+    // Test 4: EchoAliases
+    {
+        const hash = testHash(0x10);
+        const second = testHash(0x40);
+        const hashes = &[_]types.Fr{ hash, second };
+        const cmd = types.EchoAliases{
+            .tree_id = 7,
+            .hash = hash,
+            .maybe_hash = second,
+            .hashes = hashes,
+        };
+        const resp = try client.aliases(cmd);
+        if (resp.tree_id != 7 or !std.mem.eql(u8, &resp.hash, &hash)) {
+            std.debug.print("echo_client(zig): EchoAliases FAIL\n", .{});
+            std.process.exit(1);
+        }
+        if (resp.maybe_hash == null or !std.mem.eql(u8, &resp.maybe_hash.?, &second) or resp.hashes.len != 2) {
+            std.debug.print("echo_client(zig): EchoAliases optional/vector FAIL\n", .{});
+            std.process.exit(1);
+        }
+        std.debug.print("echo_client(zig): EchoAliases OK\n", .{});
     }
 
     // Shutdown

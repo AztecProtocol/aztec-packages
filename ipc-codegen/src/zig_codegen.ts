@@ -43,39 +43,37 @@ export class ZigCodegen {
     };
   }
 
+  private primitiveType(type: Type): string {
+    switch (type.primitive) {
+      case "bool":
+        return "bool";
+      case "u8":
+        return "u8";
+      case "u16":
+        return "u16";
+      case "u32":
+        return "u32";
+      case "u64":
+        return "u64";
+      case "f64":
+        return "f64";
+      case "string":
+        return "[]const u8";
+      case "bytes":
+        return "[]const u8";
+      case "bin32":
+        return "[32]u8";
+    }
+    throw new Error(`Unsupported primitive type: ${type.primitive}`);
+  }
+
   /** Map schema type to Zig type */
   private mapType(type: Type): string {
     switch (type.kind) {
       case "primitive":
-        switch (type.primitive) {
-          case "bool":
-            return "bool";
-          case "u8":
-            return "u8";
-          case "u16":
-            return "u16";
-          case "u32":
-            return "u32";
-          case "u64":
-            return "u64";
-          case "f64":
-            return "f64";
-          case "string":
-            return "[]const u8";
-          case "bytes":
-            return "[]const u8";
-          case "fr":
-            return "Fr"; // legacy path (current schemas emit bin32_alias)
-          case "bin32_alias":
-            return type.originalName ? toAliasName(type.originalName) : "Fr";
-          case "field2":
-            return "[2]Fr";
-          case "enum_u32":
-            return "u32";
-          case "map_u32_pair":
-            return "void"; // TODO: proper map support
-        }
-        break;
+        return type.originalName
+          ? toAliasName(type.originalName)
+          : this.primitiveType(type);
       case "vector":
         return `[]const ${this.mapType(type.element!)}`;
       case "array":
@@ -85,7 +83,7 @@ export class ZigCodegen {
       case "struct":
         return toPascalCase(type.struct!.name);
     }
-    return "void";
+    throw new Error(`Unsupported type kind: ${type.kind}`);
   }
 
   /** Generate a Zig field-to-payload conversion expression */
@@ -109,13 +107,10 @@ export class ZigCodegen {
             return `try Payload.strToPayload(${fieldExpr}, allocator)`;
           case "bytes":
             return `try Payload.binToPayload(${fieldExpr}, allocator)`;
-          case "fr":
-          case "bin32_alias":
+          case "bin32":
             return `try Payload.binToPayload(&${fieldExpr}, allocator)`;
-          case "enum_u32":
-            return `Payload{ .uint = @intCast(${fieldExpr}) }`;
           default:
-            return `Payload{ .nil = {} }`;
+            throw new Error(`Unsupported primitive type: ${type.primitive}`);
         }
       case "optional":
         return `if (${fieldExpr}) |v| ${this.fieldToPayload("v", type.element!)} else Payload{ .nil = {} }`;
@@ -131,8 +126,16 @@ export class ZigCodegen {
       }
       case "struct":
         return `try ${fieldExpr}.toPayload(allocator)`;
+      case "array":
+        return `blk: {
+                var arr = try Payload.arrPayload(${fieldExpr}.len, allocator);
+                for (${fieldExpr}, 0..) |item, i| {
+                    try arr.setArrElement(i, ${this.fieldToPayload("item", type.element!)});
+                }
+                break :blk arr;
+            }`;
       default:
-        return `Payload{ .nil = {} }`;
+        throw new Error(`Unsupported type kind: ${type.kind}`);
     }
   }
 
@@ -160,13 +163,10 @@ export class ZigCodegen {
             return `try ${payloadExpr}.asStr()`;
           case "bytes":
             return `${payloadExpr}.bin.value()`;
-          case "fr":
-          case "bin32_alias":
+          case "bin32":
             return `${payloadExpr}.bin.value()[0..32].*`;
-          case "enum_u32":
-            return `@intCast(try ${payloadExpr}.asUint())`;
           default:
-            return `undefined`;
+            throw new Error(`Unsupported primitive type: ${type.primitive}`);
         }
       case "vector": {
         const elemConv = this.fieldFromPayload("elem", type.element!);
@@ -184,8 +184,19 @@ export class ZigCodegen {
         return `if (${payloadExpr} == .nil) null else ${this.fieldFromPayload(payloadExpr, type.element!)}`;
       case "struct":
         return `try ${toPascalCase(type.struct!.name)}.fromPayload(${payloadExpr})`;
+      case "array": {
+        const elemConv = this.fieldFromPayload("elem", type.element!);
+        return `blk: {
+                var result: ${this.mapType(type)} = undefined;
+                for (0..${type.size}) |i| {
+                    const elem = try ${payloadExpr}.getArrElement(i);
+                    result[i] = ${elemConv};
+                }
+                break :blk result;
+            }`;
+      }
       default:
-        return `undefined`;
+        throw new Error(`Unsupported type kind: ${type.kind}`);
     }
   }
 
@@ -200,10 +211,7 @@ export class ZigCodegen {
       })
       .join("\n");
 
-    // Treat structs with only void fields as empty (void comes from unmapped types)
-    const hasFields =
-      struct.fields.length > 0 &&
-      struct.fields.some((f) => this.mapType(f.type) !== "void");
+    const hasFields = struct.fields.length > 0;
 
     // toPayload method
     const toPayloadFields = struct.fields
@@ -353,17 +361,13 @@ ${variants}
       ...schema.responses.values(),
     ];
 
-    // Collect every distinct bin32 alias name in the schema. Each becomes a
-    // `pub const` alias so wire fields with semantic aliases (Fr / Fq /
-    // Secp256k1Fr / …) keep their names; all share the underlying [32]u8.
-    const aliasNames = new Set<string>();
+    const aliasTypes = new Map<string, string>();
     const collect = (type: Type): void => {
-      if (
-        type.kind === "primitive" &&
-        type.primitive === "bin32_alias" &&
-        type.originalName
-      ) {
-        aliasNames.add(toAliasName(type.originalName));
+      if (type.kind === "primitive" && type.originalName) {
+        aliasTypes.set(
+          toAliasName(type.originalName),
+          type.primitive === "bin32" ? "[32]u8" : this.primitiveType(type),
+        );
       } else if (
         type.kind === "vector" ||
         type.kind === "array" ||
@@ -378,11 +382,9 @@ ${variants}
     for (const s of schema.responses.values()) {
       for (const f of s.fields) collect(f.type);
     }
-    // Make sure `Fr` always exists (legacy path / field2 expansion uses it).
-    aliasNames.add("Fr");
-    const aliasDecls = [...aliasNames]
-      .sort()
-      .map((n) => `pub const ${n} = [32]u8;`)
+    const aliasDecls = [...aliasTypes.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, underlying]) => `pub const ${name} = ${underlying};`)
       .join("\n");
 
     const structDefs = allStructs
@@ -405,9 +407,9 @@ const Payload = msgpack.Payload;
 const PackerIO = msgpack.PackerIO;
 ${hashLine}
 // ---------------------------------------------------------------------------
-// Bin32 aliases (Fr / Fq / Secp256k1Fr / …). Each is a zero-cost pub const
-// alias to [32]u8; the wire encoding (msgpack bin32) is applied by the
-// fieldToPayload / fieldFromPayload helpers.
+// Primitive schema aliases. Bin32 aliases use [32]u8 and are encoded as
+// msgpack bin32 by fieldToPayload / fieldFromPayload; scalar aliases use
+// their scalar wire type directly.
 // ---------------------------------------------------------------------------
 
 ${aliasDecls}

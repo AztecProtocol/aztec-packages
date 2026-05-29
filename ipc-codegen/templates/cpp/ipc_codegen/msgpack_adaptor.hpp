@@ -10,7 +10,10 @@
 // guarded defaults so a parent project's predefinition wins.
 #include "ipc_codegen/throw.hpp"
 
+#include <array>
 #include <cassert>
+#include <cstdint>
+#include <cstring>
 #include <msgpack.hpp>
 #include <tuple>
 #include <type_traits>
@@ -61,6 +64,28 @@ template <typename... Args> auto drop_keys(std::tuple<Args...> &&tuple) {
 #define IPC_CODEGEN_MSGPACK_STRUCT_MAP_ADAPTOR_DEFINED
 
 namespace msgpack::adaptor {
+
+template <> struct pack<std::array<uint8_t, 32>> {
+  template <typename Stream>
+  packer<Stream> &operator()(msgpack::packer<Stream> &o,
+                             std::array<uint8_t, 32> const &v) const {
+    o.pack_bin(static_cast<uint32_t>(v.size()));
+    o.pack_bin_body(reinterpret_cast<const char *>(v.data()),
+                    static_cast<uint32_t>(v.size()));
+    return o;
+  }
+};
+
+template <> struct convert<std::array<uint8_t, 32>> {
+  msgpack::object const &operator()(msgpack::object const &o,
+                                    std::array<uint8_t, 32> &v) const {
+    if (o.type != msgpack::type::BIN || o.via.bin.size != v.size()) {
+      THROW msgpack::type_error();
+    }
+    std::memcpy(v.data(), o.via.bin.ptr, v.size());
+    return o;
+  }
+};
 
 // reads structs with msgpack() method from a JSON-like dictionary
 template <msgpack_concepts::HasMsgPack T> struct convert<T> {

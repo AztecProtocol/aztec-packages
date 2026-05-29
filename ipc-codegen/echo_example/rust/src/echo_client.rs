@@ -3,7 +3,7 @@
 //! Exits 0 on success, 1 on failure.
 
 use echo_wire_compat::generated::echo_client::EchoApi;
-use echo_wire_compat::generated::echo_types::EchoInner;
+use echo_wire_compat::generated::echo_types::{EchoInner, Fr};
 use echo_wire_compat::generated::error::{IpcError, Result};
 use ipc_runtime::IpcClient;
 
@@ -41,6 +41,21 @@ fn main() -> Result<()> {
     assert_eq!(resp.inner.values, inner.values);
     assert_eq!(resp.inner.flag, inner.flag);
     eprintln!("echo_client(rust): EchoNested OK");
+
+    // Test 4: EchoAliases
+    let hash = Fr::from_bytes(std::array::from_fn(|i| 0x10 + i as u8));
+    let second = Fr::from_bytes(std::array::from_fn(|i| 0x40 + i as u8));
+    let resp = client.aliases(
+        7,
+        hash.clone(),
+        Some(second.clone()),
+        vec![hash.clone(), second.clone()],
+    )?;
+    assert_eq!(resp.tree_id, 7);
+    assert_eq!(resp.hash, hash);
+    assert_eq!(resp.maybe_hash, Some(second.clone()));
+    assert_eq!(resp.hashes, vec![hash, second]);
+    eprintln!("echo_client(rust): EchoAliases OK");
 
     // Shutdown
     client.shutdown()?;
