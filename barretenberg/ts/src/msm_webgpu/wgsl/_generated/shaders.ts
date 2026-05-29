@@ -3053,6 +3053,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     var split_start:    array<u32, {{ s }}>;   // current bucket shared with a prior task
     var acc_x:          array<array<u32, 8>, {{ s }}>;
     var acc_y:          array<array<u32, 8>, {{ s }}>;
+    // Per-iteration x-coordinate / dx cache. The forward prefix, inverse pass,
+    // and backward peel all consume the same cursor[k] point pair; loading it
+    // once here removes two of the three load_pt_x groups per slot and the
+    // duplicate dx subtraction (it was computed in both the forward and the
+    // inverse pass).
+    var plx_cache:      array<array<u32, 8>, {{ s }}>;
+    var prx_cache:      array<array<u32, 8>, {{ s }}>;
+    var dx_cache:       array<array<u32, 8>, {{ s }}>;
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -3157,9 +3165,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         }
         if (!any_active) { break; }
 
-        // Forward prefix of dx across the S slots (idle slots use the pad
-        // trio so the product stays invertible), exactly as ba_stream_accum.
-        var acc: array<u32, 8> = get_r_f8();
+        // Load each slot's x-coordinate pair and dx exactly once per iteration
+        // (idle slots use the pad trio so the product stays invertible). The
+        // cached values feed all three sub-passes below: cursor[k], is_first[k]
+        // and slot_done[k] only change at the end of the backward peel, and
+        // there is no workgroup barrier in this loop (KNOB 1), so the cache
+        // stays valid across the forward prefix, inverse pass and backward peel.
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             var p_lx: array<u32, 8>;
             var p_rx: array<u32, 8>;
@@ -3173,7 +3184,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 p_lx = acc_x[k];
                 p_rx = load_pt_x(cursor[k]);
             }
-            let dx = fr_sub_f8(p_rx, p_lx);
+            plx_cache[k] = p_lx;
+            prx_cache[k] = p_rx;
+            dx_cache[k] = fr_sub_f8(p_rx, p_lx);
+        }
+
+        // Forward prefix of dx across the S slots, exactly as ba_stream_accum.
+        var acc: array<u32, 8> = get_r_f8();
+        for (var k: u32 = 0u; k < S; k = k + 1u) {
+            let dx = dx_cache[k];
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
             store_pref(pref_base + k * 2u, acc);
         }
@@ -3191,20 +3210,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 let pp = load_pref(pref_base + (k - 1u) * 2u);
                 inv_dx = montgomery_product_f8(inv, pp);
-                var p_lx_b: array<u32, 8>;
-                var p_rx_b: array<u32, 8>;
-                if (slot_done[k] == 1u) {
-                    p_lx_b = load_pt_x(IDLE_ANCHOR);
-                    p_rx_b = load_pt_x(IDLE_ANCHOR + 1u);
-                } else if (is_first[k] == 1u) {
-                    p_lx_b = load_pt_x(cursor[k]);
-                    p_rx_b = load_pt_x(cursor[k] + 1u);
-                } else {
-                    p_lx_b = acc_x[k];
-                    p_rx_b = load_pt_x(cursor[k]);
-                }
-                let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
-                inv = montgomery_product_f8(inv, dx_b);
+                inv = montgomery_product_f8(inv, dx_cache[k]);
             }
             store_pref(pref_base + k * 2u, inv_dx);
         }
@@ -3214,20 +3220,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             let k = S - 1u - jj;
             if (slot_done[k] == 1u) { continue; }
 
-            var p_lx: array<u32, 8>;
+            let p_lx = plx_cache[k];
+            let p_rx = prx_cache[k];
             var p_ly: array<u32, 8>;
-            var p_rx: array<u32, 8>;
             var p_ry: array<u32, 8>;
             if (is_first[k] == 1u) {
-                p_lx = load_pt_x(cursor[k]);
                 p_ly = load_pt_y(cursor[k]);
-                p_rx = load_pt_x(cursor[k] + 1u);
                 p_ry = load_pt_y(cursor[k] + 1u);
                 cursor[k] += 2u;
             } else {
-                p_lx = acc_x[k];
                 p_ly = acc_y[k];
-                p_rx = load_pt_x(cursor[k]);
                 p_ry = load_pt_y(cursor[k]);
                 cursor[k] += 1u;
             }
