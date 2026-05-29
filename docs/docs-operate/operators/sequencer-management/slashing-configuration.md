@@ -55,6 +55,10 @@ The L1 contract defines three fixed slashing tiers that can be configured for di
 On the current network, **all offenses are currently configured to slash 2,000 tokens (1% of the Activation Threshold - the minimum stake required to join the validator set)**. With the ejection threshold at 98%, validators can be slashed a maximum of **3 times** (totaling 3% of their Activation Threshold) before being automatically ejected from the validator set.
 :::
 
+:::tip For delegators
+If you delegated stake to a validator and want to understand how slashing affects your balance specifically (not how to configure your own sequencer), see [Delegating stake, what happens if your operator is slashed](/participate/token/delegation#what-happens-if-your-operator-is-slashed). Slashing burns proportionally from the validator's total pool, so your loss depends on your share of the pool, including how much of their own stake the operator has put up.
+:::
+
 ## Slashable Offenses
 
 Your sequencer automatically detects and votes to slash the following offenses:
