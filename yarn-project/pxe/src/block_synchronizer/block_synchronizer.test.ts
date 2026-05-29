@@ -115,6 +115,7 @@ describe('BlockSynchronizer', () => {
       };
       aztecNode.getBlockData.mockResolvedValue(genesisBlockData);
       aztecNode.getBlockNumber.mockResolvedValue(BlockNumber(0));
+      aztecNode.getBlocks.mockResolvedValue([]);
 
       // Start a sync (don't await)
       const syncPromise = synchronizer.sync();
@@ -158,20 +159,28 @@ describe('BlockSynchronizer', () => {
       );
 
       // Build blocks 2..4 with deterministic hashes (L2Block.random gives each a unique archive root).
-      const blocksByNumber = new Map<number, { hash: BlockHash; header: any; archive: any }>();
+      const blocksByNumber = new Map<number, { hash: BlockHash; header: any; archive: any; number: number }>();
       for (let h = 2; h <= 4; h++) {
         const b = await L2Block.random(BlockNumber(h));
-        blocksByNumber.set(h, { hash: await b.hash(), header: b.header, archive: b.archive });
+        blocksByNumber.set(h, { hash: await b.hash(), header: b.header, archive: b.archive, number: h });
       }
 
-      // Mock getBlock(BlockNumber(h)) — doSync calls node.getBlock(BlockNumber(h)) and reads `.hash` as a property.
-      aztecNode.getBlock.mockImplementation((param: any) => {
-        const n = Number(param);
-        const entry = blocksByNumber.get(n);
-        if (!entry) {
-          return Promise.resolve(undefined);
+      // Mock getBlocks(from, limit) — doSync calls node.getBlocks and reads `.hash` and `.number` as properties.
+      aztecNode.getBlocks.mockImplementation((from: any, limit: number) => {
+        const start = Number(from);
+        const result = [];
+        for (let n = start; n < start + limit; n++) {
+          const entry = blocksByNumber.get(n);
+          if (entry) {
+            result.push({
+              hash: entry.hash,
+              header: entry.header,
+              archive: entry.archive,
+              number: entry.number,
+            } as any);
+          }
         }
-        return Promise.resolve({ hash: entry.hash, header: entry.header, archive: entry.archive } as any);
+        return Promise.resolve(result);
       });
 
       // blockStream.sync() resolves immediately (no events).

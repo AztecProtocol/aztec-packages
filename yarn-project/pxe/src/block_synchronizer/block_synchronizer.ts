@@ -114,7 +114,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           return;
         }
 
-        this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
+        this.log.warn(`Pruning data after block ${event.block.number} due to reorg`, { pruneBlock: event.block });
 
         // Note that the following is not necessarily the anchor block that will be used in the transaction - if
         // the chain has already moved past the reorg, we'll also see blocks-added events that will push the anchor
@@ -194,19 +194,17 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
       await this.canonicalBlockStore.setHeader((await this.node.getBlockData(BlockNumber.ZERO))!.header);
     }
+    // Empty map means this is the first sync since the store was created (or wiped); hydrate the canonical chain
+    // from the finality floor forward. Blocks below the floor are immutable-canonical and need no hash.
     if (this.canonicalBlockStore.isEmpty()) {
       const finalized = await this.node.getBlockNumber('finalized');
       await this.canonicalBlockStore.setFloor(finalized);
       await this.canonicalBlockStore.setFinalized(finalized);
       const tip = await this.node.getBlockNumber();
-      const origins = [];
-      for (let h = finalized; h <= tip; h++) {
-        const block = await this.node.getBlock(BlockNumber(h));
-        if (block) {
-          origins.push({ blockNumber: h, blockHash: block.hash.toString() });
-        }
-      }
-      await this.canonicalBlockStore.setManyCanonical(origins);
+      const blocks = await this.node.getBlocks(BlockNumber(finalized), tip - finalized + 1);
+      await this.canonicalBlockStore.setManyCanonical(
+        blocks.map(b => ({ blockNumber: b.number, blockHash: b.hash.toString() })),
+      );
     }
     await this.blockStream.sync();
   }
