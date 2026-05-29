@@ -19,6 +19,11 @@ contract SetSlasherTest is StakingBase {
   ///      queueSetSlasher accepts it. Tests that want to exercise the uninitialized-slasher
   ///      guard call queueSetSlasher directly without mocking.
   function _mockInitializedSlasher(address _slasher) internal {
+    // Foundry intercepts every call to the console address and dispatches it to its console
+    // handler, which bypasses vm.mockCall. A fuzzed slasher equal to that address therefore makes
+    // the PROPOSER() lookup revert with "unknown selector for ConsoleCalls" instead of returning
+    // the mocked value, so exclude the reserved forge addresses.
+    assumeNotForgeAddress(_slasher);
     vm.mockCall(_slasher, abi.encodeWithSignature("PROPOSER()"), abi.encode(address(0xBEEF)));
   }
 
@@ -140,6 +145,7 @@ contract SetSlasherTest is StakingBase {
     // Slasher.initializeProposer is permissionless and an attacker could claim the proposer
     // role during the 60-day delay.
     address owner = _owner(); // cache before expectRevert to avoid consuming it
+    assumeNotForgeAddress(_newSlasher);
     vm.mockCall(_newSlasher, abi.encodeWithSignature("PROPOSER()"), abi.encode(address(0)));
 
     vm.prank(owner);
