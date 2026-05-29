@@ -68,6 +68,7 @@ describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
   let slashingProposerContract: MockProxy<SlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
+  let epochCache: MockProxy<EpochCache>;
   let l1TxUtils: MockProxy<L1TxUtils>;
   let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
@@ -137,7 +138,7 @@ describe('SequencerPublisher', () => {
 
     governanceProposerContract = mock<GovernanceProposerContract>();
 
-    const epochCache = mock<EpochCache>();
+    epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, nowMs: 3000n });
     epochCache.getL1Constants.mockReturnValue(EmptyL1RollupConstants);
     epochCache.getSlotNow.mockReturnValue(SlotNumber(2));
@@ -523,6 +524,42 @@ describe('SequencerPublisher', () => {
     expect(result).toEqual(undefined);
     expect(forwardSpy).not.toHaveBeenCalled();
     expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
+  });
+
+  it('simulates block header validation at the last L1 timestamp within the L2 slot', async () => {
+    epochCache.getL1Constants.mockReturnValue({
+      ...EmptyL1RollupConstants,
+      l1GenesisTime: 1000n,
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    });
+
+    await publisher.validateBlockHeader(CheckpointHeader.random({ slotNumber: SlotNumber(5) }));
+
+    expect(l1TxUtils.simulate.mock.calls[0][1]).toEqual({ time: 1420n });
+  });
+
+  it('simulates request bundles at the last L1 timestamp within the target L2 slot', async () => {
+    epochCache.getL1Constants.mockReturnValue({
+      ...EmptyL1RollupConstants,
+      l1GenesisTime: 1000n,
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    });
+    publisher.addRequest({
+      action: 'invalidate-by-invalid-attestation',
+      request: { to: mockRollupAddress, data: '0xdeadbeef' },
+      lastValidL2Slot: SlotNumber(5),
+      checkSuccess: () => true,
+    });
+    forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+
+    await publisher.sendRequests(SlotNumber(5));
+
+    expect(l1TxUtils.simulate.mock.calls[0][1]).toEqual({
+      time: 1420n,
+      gasLimit: MAX_L1_TX_LIMIT * 2n,
+    });
   });
 
   describe('bundleSimulate second-pass re-decode', () => {
