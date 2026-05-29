@@ -13,7 +13,7 @@
  * The reference is stored in a file-scope static, so this is a singleton:
  * exactly one IpcServer can be "registered" for the process. Calling
  * install_default_signal_handlers() a second time replaces the previous
- * registration. Matches the convention used by aztec-wsdb's main().
+ * registration.
  */
 
 #include "ipc_runtime/ipc_server.hpp"

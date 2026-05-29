@@ -15,7 +15,7 @@
  *   --server                 Generate server dispatch
  *   --client                 Generate client
  *   --skeleton <dir>         Generate handler stubs + main (one-time, not regenerated)
- *   --cpp-namespace <ns>     C++ namespace (e.g. bb::wsdb)
+ *   --cpp-namespace <ns>     C++ namespace (e.g. my::service)
  *   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
  *   --curve-constants <path> Generate TS curve constants from JSON at <path>
  *
@@ -265,11 +265,10 @@ function generate(args: Args) {
   function writeFile(name: string, content: string) {
     const path = join(absOut, name);
     mkdirSync(dirname(path), { recursive: true });
-    // Atomic write: write to a sibling tempfile then rename. Multiple CMake
-    // build trees (wasm, wasm-threads, native) can invoke this codegen
-    // concurrently against the same source-tree output dir; non-atomic
-    // writeFileSync can leave a half-written file visible to a parallel
-    // compiler include, showing up as embedded NUL bytes.
+    // Atomic write: write to a sibling tempfile then rename. Multiple build
+    // trees can invoke this codegen concurrently against the same source-tree
+    // output dir; non-atomic writeFileSync can leave a half-written file
+    // visible to a parallel compiler include, showing up as embedded NUL bytes.
     const tmpPath = `${path}.${process.pid}.tmp`;
     writeFileSync(tmpPath, content);
     renameSync(tmpPath, path);
@@ -556,7 +555,7 @@ function generate(args: Args) {
 }
 
 // ---------------------------------------------------------------------------
-// Curve constants (special case for bb)
+// Curve constants
 // ---------------------------------------------------------------------------
 
 function hexToBigInt(hex: string): bigint {

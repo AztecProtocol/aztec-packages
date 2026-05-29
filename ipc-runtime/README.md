@@ -85,8 +85,8 @@ from the path's suffix:
 
 | Path suffix | Transport                  | Used by                              |
 |-------------|----------------------------|--------------------------------------|
-| `*.sock`    | Unix-domain socket         | bb.js TS client, CLI tools           |
-| `*.shm`     | MPSC shared-memory rings   | bb.js native client, AVM merkle DB   |
+| `*.sock`    | Unix-domain socket         | Async local clients, CLI tools       |
+| `*.shm`     | MPSC shared-memory rings   | Low-latency native clients           |
 
 ```cpp
 #include "ipc_runtime/serve_helper.hpp"
@@ -95,12 +95,11 @@ from the path's suffix:
 auto server = ipc::make_server(input_path);    // .sock or .shm
 ipc::install_default_signal_handlers(*server); // SIGINT/SIGTERM → clean exit
 server->listen();
-server->run(make_bb_handler(request_ctx));     // codegen-emitted dispatcher
+server->run(make_service_handler(request_ctx)); // codegen-emitted dispatcher
 ```
 
-UDS is the default; SHM is a sub-microsecond hot-path used where TS↔C++ or
-WASM↔native traffic is on the critical path (`shm/README.md` covers the
-ring-buffer internals).
+UDS is the default; SHM is a sub-microsecond hot path for latency-sensitive
+local clients (`shm/README.md` covers the ring-buffer internals).
 
 ## API surface
 
@@ -227,8 +226,8 @@ sits inside that payload — see `ipc-codegen/SCHEMA_SPEC.md`.
 | MPSC-SHM (hot)| 0.3–1 µs            | ~1M msgs/s           | Lock-free; adaptive spin + futex     |
 | MPSC-SHM (cold)| 3–6 µs             | n/a                  | First message after idle ring         |
 
-The `cpp/ipc_runtime/grind_ipc.sh` script + `barretenberg/cpp` benchmarks
-(`ipc_bench` target) drive these numbers.
+The `cpp/ipc_runtime/grind_ipc.sh` script and `ipc_runtime_tests` stress the
+SHM implementation; benchmark harnesses can reuse the same runtime APIs.
 
 ## Threading model
 
@@ -246,8 +245,8 @@ The `cpp/ipc_runtime/grind_ipc.sh` script + `barretenberg/cpp` benchmarks
 ## Limitations
 
 - **SHM** is Linux-first (futex), and capacity is fixed at server-create
-  time. Clean shutdown requires unlinking `/dev/shm/<name>_{request,response}`
-  — done automatically when `IpcServer` destructs.
+  time. Clean shutdown unlinks the request and response shared-memory
+  objects automatically when `IpcServer` destructs.
 - **UDS** has the usual `ulimit` for file descriptors and one syscall per
   send/recv. Buffer copies on send are unavoidable.
 

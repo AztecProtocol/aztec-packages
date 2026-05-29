@@ -115,7 +115,7 @@ node --experimental-strip-types --experimental-transform-types --no-warnings \
 
 | Flag | Purpose |
 |---|---|
-| `--cpp-namespace <ns>` | C++ namespace, e.g. `bb::wsdb`. Default: lowercased prefix. |
+| `--cpp-namespace <ns>` | C++ namespace, e.g. `my::service`. Default: lowercased prefix. |
 | `--cpp-wire-namespace <ns>` | Inner namespace for wire types, default `wire`. |
 | `--cpp-include-dir <path>` | Include-path prefix for cross-includes between generated files, e.g. `myservice/generated`. Leave unset when generated files are in the same directory as their consumer. |
 
@@ -123,7 +123,7 @@ node --experimental-strip-types --experimental-transform-types --no-warnings \
 
 | Flag | Purpose |
 |---|---|
-| `--curve-constants` | TS only. Also emit `curve_constants.ts` with bn254/grumpkin/secp moduli & generators (currently only used by bb). |
+| `--curve-constants` | TS only. Also emit `curve_constants.ts` with bn254/grumpkin/secp moduli & generators for schemas that need curve constants. |
 | `--skeleton <dir>` | One-shot scaffolding: writes a `<service>_handlers.{ts,rs,zig,cpp}` stub, `main`, and a build file into `<dir>` if they don't already exist. Skipped on subsequent runs. |
 
 ## Worked examples

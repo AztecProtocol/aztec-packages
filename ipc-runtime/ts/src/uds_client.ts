@@ -23,8 +23,8 @@ export interface UdsIpcClientConnectOptions {
  * prefix followed by `length` bytes of msgpack payload, per direction.
  *
  * Supports pipelining: multiple concurrent `call()` invocations are queued
- * FIFO and matched with responses in order. Pipelining keeps a server-side
- * Nagle window full and matches the bb.js native-backend behaviour.
+ * FIFO and matched with responses in order. Pipelining keeps the server-side
+ * socket window full and matches the native client behaviour.
  */
 export class UdsIpcClient implements IpcClientAsync {
   private buffer: Buffer = Buffer.alloc(0);

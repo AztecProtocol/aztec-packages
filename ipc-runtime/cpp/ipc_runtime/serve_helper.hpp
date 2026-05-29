@@ -4,8 +4,8 @@
  * @brief Factory helpers for instantiating IpcServer from a path string.
  *
  * The make_server() helper picks the right transport (Unix domain socket
- * vs. MPSC shared-memory) based on the input path's suffix, matching the
- * convention used by aztec-wsdb today: ".sock" → UDS, ".shm" → MPSC-SHM.
+ * vs. MPSC shared-memory) based on the input path's suffix:
+ * ".sock" → UDS, ".shm" → MPSC-SHM.
  * This keeps per-service main() code free of transport-selection logic.
  */
 
@@ -18,10 +18,10 @@
 
 namespace ipc {
 
-/// Options for make_server(). Defaults match aztec-wsdb's production config.
+/// Options for make_server().
 struct ServerOptions {
   /// Maximum concurrent SHM clients (only used when .shm path is chosen).
-  /// Default 2: typical "TS client + native AVM client" setup.
+  /// Default 2: enough for a primary client plus one auxiliary native client.
   std::size_t max_shm_clients = 2;
   /// SHM request ring size (per-client → server). Default 4 MiB.
   std::size_t shm_request_ring_size = 4 * 1024 * 1024;
@@ -43,7 +43,7 @@ struct ServerOptions {
  * Returns nullptr if the suffix is not recognised.
  *
  * @param input_path Path passed by the caller (often a CLI flag).
- * @param opts SHM and socket tuning knobs (defaults match aztec-wsdb).
+ * @param opts SHM and socket tuning knobs.
  */
 std::unique_ptr<IpcServer> make_server(const std::string &input_path,
                                        const ServerOptions &opts = {});
@@ -57,7 +57,7 @@ std::unique_ptr<IpcServer> make_server(const std::string &input_path,
  *
  * Returns nullptr if the suffix is not recognised. `shm_client_id` is only
  * consulted for the SHM path; for MPSC-SHM, each connecting client picks a
- * distinct slot (0..max_clients-1) — typical convention is "TS=0, AVM=1".
+ * distinct slot (0..max_clients-1).
  *
  * @param input_path Path passed by the caller (often a CLI flag).
  * @param shm_client_id Client slot to claim in MPSC-SHM mode. Ignored for UDS.

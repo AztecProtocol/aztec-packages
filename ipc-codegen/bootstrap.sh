@@ -4,9 +4,8 @@
 # Rust and Zig. Zero npm dependencies — runs with just Node.js (v22+).
 #
 # The build's only direct consumer is its own cross-language test harness under
-# echo_example/. Service consumers (bb, wsdb, cdb, avm) are wired up by their
-# own bootstrap scripts, which invoke `ipc-codegen/bootstrap.sh build` as
-# a build-time prerequisite.
+# echo_example/. Service consumers invoke ipc-codegen from their own build
+# scripts with their own schema inputs.
 
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
@@ -15,10 +14,9 @@ hash=$(cache_content_hash .rebuild_patterns)
 function build {
   echo_header "ipc-codegen build"
 
-  # Service generation (bb, wsdb, cdb, avm) is invoked by each service's own
-  # bootstrap as those consumers migrate over. The build step here invokes each
-  # echo example project's own bootstrap, so every project documents and owns
-  # its generation/build flow.
+  # Service generation is invoked by each service's own build flow. The build
+  # step here invokes each echo example project's own bootstrap, so every
+  # project documents and owns its generation/build flow.
   (cd echo_example/cpp && ./bootstrap.sh)
   (cd echo_example/rust && ./bootstrap.sh)
   (cd echo_example/ts && ./bootstrap.sh)
