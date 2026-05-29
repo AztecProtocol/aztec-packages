@@ -2556,6 +2556,74 @@ export class MsmV2 {
   }
 
   /**
+   * Read back the planner's CSR output + partition cut points after a
+   * `run()`. These are the oracle INPUTS for the §11 correctness gates:
+   * `cpuReferenceAccumulate(points, l0Idx, counts, offsets, bTotal)`
+   * reproduces the per-bucket sums a stream-walker must match (G2-G4),
+   * and `threadCuts` + `sortedBucketList` drive the CPU split-detect
+   * reference (G1). `bucketSums` decodes whatever currently lives in
+   * `bucketResultBuf` (Montgomery → affine) for diagnostics.
+   */
+  async gateReadback(): Promise<{
+    bTotal: number;
+    totalAdds: number;
+    streamNumThreads: number;
+    plannerNwg: number;
+    splitCount: number;
+    counts: Uint32Array;
+    offsets: Uint32Array;
+    l0Idx: Uint32Array;
+    threadCuts: Uint32Array;
+    sortedBucketList: Uint32Array;
+    bucketSums: Map<number, { x: bigint; y: bigint }>;
+  }> {
+    const device = this.device;
+    const scratch = this.pool.scratch!;
+    const bTotal = this.bTotal;
+
+    const meta = await readbackU32(device, scratch.streamPlannerMeta, 80);
+    const totalAdds = meta[2];
+    const plannerNwg = meta[3];
+    const splitCount = meta[4];
+
+    const countsBytes = Math.min(scratch.countsBufs[0].size, bTotal * 4);
+    const offsetsBytes = Math.min(scratch.offsetsBufs[0].size, bTotal * 4);
+    const counts = await readbackU32(device, scratch.countsBufs[0], countsBytes);
+    const offsets = await readbackU32(device, scratch.offsetsBufs[0], offsetsBytes);
+    const l0Bytes = Math.min(scratch.l0IdxBuf.size, Math.max(totalAdds, 1) * 4);
+    const l0Idx = await readbackU32(device, scratch.l0IdxBuf, l0Bytes);
+    const threadCuts = await readbackU32(device, scratch.threadCuts, scratch.threadCuts.size);
+    const sortedBucketList = await readbackU32(
+      device,
+      scratch.sortedBucketList,
+      Math.min(scratch.sortedBucketList.size, bTotal * 4),
+    );
+
+    const bs = await readbackU32(device, this.bucketResultBuf, 2 * PG * bTotal * 4 * 4);
+    const bucketSums = new Map<number, { x: bigint; y: bigint }>();
+    for (let b = 0; b < bTotal; b++) {
+      const x = (packedU32x8ToBigint(bs, PG * b * 4) * this.rinv) % FP;
+      if (x === 0n) continue;
+      const y = (packedU32x8ToBigint(bs, PG * bTotal * 4 + PG * b * 4) * this.rinv) % FP;
+      bucketSums.set(b, { x, y });
+    }
+
+    return {
+      bTotal,
+      totalAdds,
+      streamNumThreads: this.streamNumThreads,
+      plannerNwg,
+      splitCount,
+      counts,
+      offsets,
+      l0Idx,
+      threadCuts,
+      sortedBucketList,
+      bucketSums,
+    };
+  }
+
+  /**
    * Release every GPU buffer owned by this instance. The shared point pool is
    * owned by the {@link MsmV2Pool}, not by an instance, and is not freed here.
    */

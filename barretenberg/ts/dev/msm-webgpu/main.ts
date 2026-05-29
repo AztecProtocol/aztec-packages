@@ -28,6 +28,7 @@ import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
+import { runGates, type GateResult } from './gates.js';
 
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 
@@ -64,7 +65,7 @@ const $results = document.getElementById('results') as HTMLDivElement;
 
 // The sweep spans 2^10..2^20 — small sizes show where the GPU pipeline
 // overtakes the WASM Pippenger; the v2 pipeline has no size floor.
-const LOGN_MIN = 10;
+const LOGN_MIN = 8;
 const LOGN_MAX = 20;
 const SRS_NUM_POINTS = 1 << LOGN_MAX;
 
@@ -1588,5 +1589,55 @@ function hideProgress(): void {
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
     }
+  } else if (autorun === 'gates') {
+    // §11 correctness gates G1-G5. The CPU oracles run against live planner
+    // output; GPU hooks default to NotImplemented, so unbuilt kernels report
+    // NYI (RED). No WASM needed for G1-G4 — only the CPU oracle + GPU planner.
+    const autorunLogN = parseInt(qp.get('logn') ?? '8', 10);
+    const client = makeResultsClient({ page: 'msm-gates' });
+    log('info', `[autorun] gates logN=${autorunLogN}`);
+    let results: GateResult[] = [];
+    let fatal: string | null = null;
+    try {
+      // Wait for the SRS to finish loading (gates need affine points but not
+      // WASM, so we poll srsBuf directly rather than the Run button).
+      for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+      if (srsBuf === null) throw new Error('SRS never loaded within 10 minutes');
+
+      const inputs = await generateInputs(autorunLogN, true);
+      if (!inputs.points) throw new Error('gates need affine points (mirrorForNoble was false)');
+      const msm = await ensureWebGpuWarmed(inputs);
+      msm.prepare(inputs.scalarsBuf);
+      await msm.run(); // warm
+      await msm.run(); // populate planner + bucket buffers
+      const planner = await msm.gateReadback();
+      log(
+        'info',
+        `[gates] bTotal=${planner.bTotal} total_adds=${planner.totalAdds} nwg=${planner.plannerNwg} ` +
+          `split=${planner.splitCount} gpuBuckets=${planner.bucketSums.size}`,
+      );
+      results = await runGates(autorunLogN, inputs.points, planner);
+      for (const r of results) {
+        const lvl = r.status === 'PASS' ? 'ok' : r.status === 'NYI' ? 'warn' : 'err';
+        log(lvl, `[gate ${r.id}] ${r.status} — ${r.title} :: ${r.detail}`);
+      }
+    } catch (e) {
+      fatal = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
+      log('err', `[autorun] FATAL: ${fatal}`);
+    }
+    const pass = results.filter(r => r.status === 'PASS').length;
+    const nyi = results.filter(r => r.status === 'NYI').length;
+    const fail = results.filter(r => r.status === 'FAIL').length;
+    const state = fatal ? 'error' : 'done';
+    await client.postResults({
+      state,
+      params: { logN: autorunLogN, page: 'msm-gates' },
+      results: { gates: results, pass, nyi, fail },
+      error: fatal,
+      log: [],
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    });
+    log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state} pass=${pass} nyi=${nyi} fail=${fail}`);
   }
 })();
