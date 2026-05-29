@@ -69,9 +69,13 @@ class IpcClient {
      */
     virtual void close() = 0;
 
-    // Factory methods
+    // Factory methods.
     static std::unique_ptr<IpcClient> create_socket(const std::string& socket_path);
+    // Single-client SHM: one request ring and one response ring. Use this
+    // directly when the service only needs one producer/client.
     static std::unique_ptr<IpcClient> create_shm(const std::string& base_name);
+    // Multi-producer SHM: one request ring per client slot and one response
+    // ring per client slot. This is what make_client("*.shm") selects.
     static std::unique_ptr<IpcClient> create_mpsc_shm(const std::string& base_name, size_t client_id);
 };
 
