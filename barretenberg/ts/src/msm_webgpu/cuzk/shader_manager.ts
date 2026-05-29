@@ -16,6 +16,8 @@ import {
   ba_planner_partition_task as ba_planner_partition_task_shader,
   ba_stream_walker as ba_stream_walker_shader,
   ba_walker_combine as ba_walker_combine_shader,
+  ba_walker_combine_list as ba_walker_combine_list_shader,
+  ba_walker_indexer as ba_walker_indexer_shader,
   ba_planner_emit as ba_planner_emit_shader,
   ba_planner_emit_fixup as ba_planner_emit_fixup_shader,
   ba_size1 as ba_size1_shader,
@@ -795,6 +797,41 @@ ${packLines.join('\n')}
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_walker_combine_shader,
+      {
+        s, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  // Stream-walker split-bucket indexer: threads each tagged partial slot onto
+  // its bucket's linked list (atomic node alloc + CAS head update). Pure u32 —
+  // no field context. See ba_walker_indexer.template.wgsl.
+  public gen_ba_walker_indexer_shader(s: number): string {
+    return mustache.render(ba_walker_indexer_shader, { s, recompile: this.recompile });
+  }
+
+  // Stream-walker split-bucket combine (indexed linked-list variant). Walks
+  // each dense bucket's list built by ba_walker_indexer instead of scanning
+  // all partial slots. Same field context as the scan combine.
+  public gen_ba_walker_combine_list_shader(s: number, variant: 'loop' | 'pk' = 'pk'): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_walker_combine_list_shader,
       {
         s, inv_fn,
         p8_consts, r8_csv, f8_words,

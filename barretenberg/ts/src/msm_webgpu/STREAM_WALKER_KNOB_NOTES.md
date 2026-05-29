@@ -71,11 +71,61 @@ they do **not** generalise to M2 and must be re-measured on real hardware
   replaces.
 - **G2 / G3 / G4: PASS** — walker bit-exact vs noble + debug accumulator at
   logn=8 (heavy splits) and logn=10. `?use_walker=1`.
-- G5 (logn≥14): not run. The split-combine here is a correctness-first
-  O(num_dense × active_partial_slots) scan, fine for the small-n gates but too
-  slow at logn≥14; large-n needs the plan's host-side partials fixup or an
-  indexed GPU reduction. (Flagged, not silently capped.)
+- **Indexed combine (this PR): PASS** — bit-exact vs noble at logn=8, 10 and
+  **14** (`?use_walker=1`, default combine path). See "Indexed linked-list
+  combine" below. The old O(num_dense × active_partial_slots) scan is still
+  reachable with `&combine=scan` for A/B only; it crashes SwiftShader (device
+  lost) at logn≥10 and is not viable past the smallest gates.
+- G5 (WASM cross-check): not achievable in this container — no emcc / wasi-sdk,
+  so bb.js WASM cannot be built. Substituted the pure-JS noble Pippenger oracle
+  (viable through ~logn=14, ~3 s). WASM cross-check deferred to M2 hardware.
 - G6 / G7: require real GPU (M2 / n=2^17, 2^20) — out of scope for SwiftShader.
+
+## Indexed linked-list combine (replaces the O(num_dense × num_slots) scan)
+
+The correctness-first scan rescans every active partial slot for every dense
+bucket. This PR replaces it with a per-bucket linked list built in one extra
+pass:
+
+- **`ba_walker_indexer`** (pure u32): one thread per partial slot. A slot
+  tagged with a bucket id in `partial_dest` claims a node via a global
+  `atomicAdd(&node_count, 1)` and prepends it to `bucket_head[bucket_id]` with
+  an `atomicCompareExchangeWeak` retry loop. Handles are 1-indexed so
+  `bucket_head == 0` means empty. Each node is 3 u32:
+  `[next_handle, partial_slot, bucket_id]`.
+- **`ba_walker_combine_list`**: one thread per dense bucket walks its list from
+  `bucket_head` and affine-sums the pieces. Affine add is commutative, so the
+  reverse-insertion list order is bit-exact with the scan.
+
+Total combine work drops from O(num_dense × num_slots) to O(num_split_partials),
+and each thread touches only its own pieces.
+
+### Timing (SwiftShader, full GPU pipeline wall via `[gpu] returned in`)
+
+| logn | scan combine (`&combine=scan`)    | indexed list (default) |
+|------|-----------------------------------|------------------------|
+| 8    | 21,320 ms (agrees)                | 346 ms (agrees)        |
+| 10   | crashes SwiftShader (device lost) | 215 ms (agrees)        |
+| 12   | crashes SwiftShader               | 518 ms (agrees)        |
+| 14   | crashes SwiftShader               | 1,060 ms (agrees)      |
+
+Everything but the combine path is identical between the two columns, so the
+delta is the combine. These are software-renderer numbers and do **not**
+generalise to M2 — but the operator has already proven the indexed design on
+M2; this is the SwiftShader correctness + relative-cost confirmation.
+
+### Buffer budget (new linked-list storage)
+
+Sized to the worst case (every partial slot tagged), independent of logn.
+At logn=17 (c=13, numWindows=20, BW=4352, B_TOTAL=87040; STREAM_T=8192, S=8;
+num_partial_slots = 2·8192·8 = 131072):
+
+| buffer         | size formula             | bytes @ logn=17      |
+|----------------|--------------------------|----------------------|
+| `bucket_head`  | B_TOTAL × 4 B            | 348,160 (~340 KB)    |
+| `node_count`   | 1 atomic u32 (16 B min) | 16                   |
+| `walker_nodes` | num_slots × 3 u32 × 4 B | 1,572,864 (~1.50 MB) |
+| **total**      |                          | **~1.84 MB**         |
 
 ## How to reproduce
 ```
@@ -84,4 +134,5 @@ cd barretenberg/ts && yarn dev:msm-webgpu --host 127.0.0.1 --port 5173
 node dev/msm-webgpu/drive-swiftshader.mjs \
   'http://127.0.0.1:5173/dev/msm-webgpu/index.html?autorun=msm-gpu-noble&logn=8&srs_logn=10&logn_min=8&use_walker=1'
 # add &msm_diag=1 for the per-bucket A/B (walker vs debug accumulator) dump.
+# indexed combine is the default; add &combine=scan to A/B against the old scan.
 ```
