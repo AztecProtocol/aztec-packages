@@ -148,18 +148,34 @@ library ValidatorSelectionLib {
   }
 
   /**
-   * @notice Sets the escape hatch contract address
-   * @dev Only callable through RollupCore.setEscapeHatch (governance-controlled).
-   *      Set to address(0) to disable escape hatch functionality.
-   * @param _escapeHatch The address of the EscapeHatch contract, or address(0) to disable
+   * @notice Sets the escape hatch contract address. One-shot: can only be called once per rollup.
+   * @dev Only callable through RollupCore.setEscapeHatch (owner-gated). Once set, the rollup's
+   *      escape hatch is immutable for the life of the rollup -- there is no replacement path.
+   *      Callers who want no escape hatch should simply never call this function.
+   * @param _escapeHatch The address of the EscapeHatch contract (must be non-zero)
    */
-  function updateEscapeHatch(address _escapeHatch) internal {
-    // Key the checkpoint to the START of the next epoch so the change never affects
-    // the current epoch. This prevents a same-block governance action from retroactively
-    // altering the escape hatch for an epoch where proposals may have already been made.
+  function setEscapeHatch(address _escapeHatch) internal {
+    require(_escapeHatch != address(0), Errors.ValidatorSelection__EscapeHatchCannotBeZero());
+
+    // The registration is one-shot and ungoverned after setup, and an open escape hatch can act
+    // as an alternate proposal route (ProposeLib.propose authorizes the registered escape
+    // hatch's designated proposer during escape-hatch epochs). Pointing at a stranger contract
+    // -- including a hatch wired to a different rollup -- would create a permanent foreign
+    // proposal authority that cannot be replaced. Require the hatch to point back here.
+    address hatchRollup = IEscapeHatch(_escapeHatch).getRollup();
+    require(
+      hatchRollup == address(this), Errors.ValidatorSelection__EscapeHatchRollupMismatch(address(this), hatchRollup)
+    );
+
+    ValidatorSelectionStorage storage store = getStorage();
+    require(store.escapeHatchCheckpoints.length() == 0, Errors.ValidatorSelection__EscapeHatchAlreadySet());
+
+    // Key the checkpoint to the START of the next epoch so the registration never affects
+    // the current epoch. This prevents a same-block action from retroactively classifying
+    // an in-flight epoch as an escape-hatch epoch.
     Epoch nextEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp() + Epoch.wrap(1);
     uint96 nextEpochTs = uint96(Timestamp.unwrap(nextEpoch.toTimestamp()));
-    getStorage().escapeHatchCheckpoints.push(nextEpochTs, uint160(_escapeHatch));
+    store.escapeHatchCheckpoints.push(nextEpochTs, uint160(_escapeHatch));
   }
 
   /**

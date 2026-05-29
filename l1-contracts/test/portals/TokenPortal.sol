@@ -117,8 +117,10 @@ contract TokenPortal {
    * @param _amount - The amount to withdraw
    * @param _withCaller - Flag to use `msg.sender` as caller, otherwise address(0)
    * @param _epoch - The epoch the message is in
-   * @param _leafIndex - The amount to withdraw
-   * @param _path - Flag to use `msg.sender` as caller, otherwise address(0)
+   * @param _numCheckpointsInEpoch - The number of checkpoints in the partial proof whose root this
+   * consume verifies against
+   * @param _leafIndex - The index of the leaf in the epoch message tree
+   * @param _path - The sibling path proving inclusion of the message in the epoch's root
    * Must match the caller of the message (specified from L2) to consume it.
    */
   function withdraw(
@@ -126,6 +128,7 @@ contract TokenPortal {
     uint256 _amount,
     bool _withCaller,
     Epoch _epoch,
+    uint256 _numCheckpointsInEpoch,
     uint256 _leafIndex,
     bytes32[] calldata _path
   ) external {
@@ -141,7 +144,7 @@ contract TokenPortal {
       )
     });
 
-    outbox.consume(message, _epoch, _leafIndex, _path);
+    outbox.consume(message, _epoch, _numCheckpointsInEpoch, _leafIndex, _path);
 
     underlying.safeTransfer(_recipient, _amount);
   }
