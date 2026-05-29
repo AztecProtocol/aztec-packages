@@ -5,6 +5,8 @@
 // =====================
 
 #pragma once
+#include <cstdlib>
+#include <iostream>
 #include <utility>
 
 #include "barretenberg/common/assert.hpp"
@@ -52,6 +54,18 @@ template <typename Flavor_ = TranslatorFlavor> class TranslatorProvingKey_ {
                       "The Translator circuit size has exceeded the fixed upper bound");
 
         proving_key = std::make_shared<ProvingKey>();
+        const char* row_skip_diag = std::getenv("BB_SUMCHECK_ROW_SKIP_DIAGNOSTICS");
+        if (row_skip_diag != nullptr && row_skip_diag[0] != '\0' &&
+            !(row_skip_diag[0] == '0' && row_skip_diag[1] == '\0')) {
+            std::cerr << "[translator-poly-allocation] num_gates=" << circuit.num_gates()
+                      << " mini_circuit_size=" << Flavor::MINI_CIRCUIT_SIZE
+                      << " circuit_size=" << proving_key->polynomials.get_polynomial_size()
+                      << " concat_group_size=" << Flavor::CONCATENATION_GROUP_SIZE
+                      << " num_masked_rows_end=" << Flavor::NUM_MASKED_ROWS_END
+                      << " randomness_start=" << Flavor::RANDOMNESS_START << " result_row=" << Flavor::RESULT_ROW
+                      << " dyadic_mini_circuit_size_without_masking=" << dyadic_mini_circuit_size_without_masking
+                      << " dyadic_circuit_size_without_masking=" << dyadic_circuit_size_without_masking << std::endl;
+        }
         auto wires = proving_key->polynomials.get_wires();
         // Distribute wires across threads (one task per wire) rather than multithreading within each wire.
         parallel_for(wires.size(), [&](size_t wire_idx) {

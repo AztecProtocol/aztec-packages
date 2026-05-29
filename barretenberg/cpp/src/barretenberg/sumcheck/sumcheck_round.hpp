@@ -303,6 +303,24 @@ template <typename Flavor> class SumcheckProverRound {
         return value != nullptr && value[0] != '\0' && !(value[0] == '0' && value[1] == '\0');
     }
 
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    static constexpr bool HAS_STATIC_ROW_SKIP_MANIFEST =
+        IsAnyOf<Flavor, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor> &&
+        requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials) {
+            Flavor::row_skip_active_prefix_end(polynomials);
+        };
+
+    static constexpr const char* row_skip_diagnostic_label()
+    {
+        if constexpr (IsAnyOf<Flavor, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor>) {
+            return "eccvm-row-skip";
+        } else if constexpr (IsTranslatorFlavor<Flavor>) {
+            return "translator-row-skip";
+        } else {
+            return "row-skip";
+        }
+    }
+
     static size_t round_up_to_even(const size_t value) { return value + (value & 1U); }
 
     static void append_scan_range(std::vector<BlockOfContiguousRows>& ranges, const size_t start, const size_t end)
@@ -378,12 +396,14 @@ template <typename Flavor> class SumcheckProverRound {
         return ranges;
     }
 
-    void maybe_print_eccvm_row_skip_diagnostics(const std::vector<BlockOfContiguousRows>& round_manifest,
-                                                const std::vector<BlockOfContiguousRows>& scan_ranges,
-                                                const size_t effective_round_size) const
+    void maybe_print_row_skip_diagnostics(const std::vector<BlockOfContiguousRows>& round_manifest,
+                                          const std::vector<BlockOfContiguousRows>& scan_ranges,
+                                          const size_t effective_round_size,
+                                          const bool used_static_manifest) const
     {
-        constexpr bool is_eccvm_flavor = IsAnyOf<Flavor, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor>;
-        if constexpr (is_eccvm_flavor) {
+        constexpr bool should_print_diagnostics =
+            IsAnyOf<Flavor, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor> || IsTranslatorFlavor<Flavor>;
+        if constexpr (should_print_diagnostics) {
             if (!row_skip_diagnostics_enabled()) {
                 return;
             }
@@ -443,7 +463,11 @@ template <typename Flavor> class SumcheckProverRound {
                 active_edges < scanned_edges ? scanned_edges - active_edges : static_cast<size_t>(0);
             const size_t unscanned_skipped_edges =
                 scanned_edges < candidate_edges ? candidate_edges - scanned_edges : static_cast<size_t>(0);
-            std::cerr << "[eccvm-row-skip] round_size=" << round_size
+            const double scan_reduction_pct =
+                candidate_edges == 0
+                    ? 0
+                    : 100.0 * static_cast<double>(candidate_edges - scanned_edges) / static_cast<double>(candidate_edges);
+            std::cerr << "[" << row_skip_diagnostic_label() << "] round_size=" << round_size
                       << " effective_round_size=" << effective_round_size << " excluded_head_edges=" << scan_start
                       << " candidate_edge_pairs=" << candidate_edges / 2 << " scanned_edge_pairs=" << scanned_edges / 2
                       << " active_edge_pairs=" << active_edges / 2 << " skipped_edge_pairs=" << skipped_edges / 2
@@ -452,15 +476,36 @@ template <typename Flavor> class SumcheckProverRound {
                       << " manifest_blocks=" << round_manifest.size() << " scan_ranges=" << scan_ranges.size()
                       << " merged_active_ranges=" << merged_active_ranges << " skipped_ranges=" << skipped_ranges
                       << " largest_skipped_range_pairs=" << largest_skipped_range / 2
-                      << " largest_active_range_pairs=" << largest_active_range / 2 << std::endl;
+                      << " largest_active_range_pairs=" << largest_active_range / 2
+                      << " scan_reduction_pct=" << scan_reduction_pct
+                      << " static_manifest=" << (used_static_manifest ? 1 : 0) << std::endl;
+
+            std::cerr << "[" << row_skip_diagnostic_label() << "-ranges] round_size=" << round_size
+                      << " active_ranges=";
+            for (size_t i = 0; i < sorted_manifest.size(); ++i) {
+                const auto& block = sorted_manifest[i];
+                if (i != 0) {
+                    std::cerr << ",";
+                }
+                std::cerr << "[" << block.starting_edge_idx << "," << block.starting_edge_idx + block.size << ")";
+            }
+            std::cerr << " scan_ranges=";
+            for (size_t i = 0; i < scan_ranges.size(); ++i) {
+                const auto& range = scan_ranges[i];
+                if (i != 0) {
+                    std::cerr << ",";
+                }
+                std::cerr << "[" << range.starting_edge_idx << "," << range.starting_edge_idx + range.size << ")";
+            }
+            std::cerr << std::endl;
         }
     }
 
     /**
      * @brief Compute the number of unskippable rows we must iterate over
      * @details Some circuits have a circuit size much larger than the number of used rows (ECCVM, Translator).
-     *          For relevant flavors, we have a `skip_entire_row` method that can be used to check whether to skip.
-     *          This method iterates over the execution trace & computes blocks of contiguous unskippable rows.
+     *          Static row-manifest flavors provide the unskippable ranges directly; row-skippable flavors expose a
+     *          `skip_entire_row` predicate and this method scans the trace to compute contiguous unskippable blocks.
      * @note We assume that the number of blocks returned by this fn is small. i.e. the circuit does not have a large
      * number of interleaved empty rows. If the circuit *does* have a lot of interleaved empty/non-empty rows, this
      * function will be quite slow as the returned vector will be large.
@@ -480,9 +525,16 @@ template <typename Flavor> class SumcheckProverRound {
         const size_t start_edge_idx = excluded_head_size;
 
         std::vector<BlockOfContiguousRows> result;
+        constexpr bool has_static_row_skip_manifest =
+            HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
 
-        if constexpr (can_skip_rows) {
+        if constexpr (has_static_row_skip_manifest) {
+            // ECCVM's allocated trace is an active prefix plus the final lagrange-last edge. The middle is known
+            // relation-trivial from construction, so avoid the old per-row skip scan entirely.
+            result = compute_row_skip_scan_ranges(polynomials, effective_round_size);
+            maybe_print_row_skip_diagnostics(result, result, effective_round_size, /*used_static_manifest=*/true);
+        } else if constexpr (can_skip_rows) {
             // Iterate over edge-pairs (stride-2) so each thread gets an even-aligned range.
             const std::vector<BlockOfContiguousRows> scan_ranges =
                 compute_row_skip_scan_ranges(polynomials, effective_round_size);
@@ -540,7 +592,7 @@ template <typename Flavor> class SumcheckProverRound {
                 }
             }
             merge_contiguous_blocks(result);
-            maybe_print_eccvm_row_skip_diagnostics(result, scan_ranges, effective_round_size);
+            maybe_print_row_skip_diagnostics(result, scan_ranges, effective_round_size, /*used_static_manifest=*/false);
         } else {
             result.push_back(BlockOfContiguousRows{ .starting_edge_idx = start_edge_idx,
                                                     .size = effective_round_size - start_edge_idx });
@@ -578,9 +630,12 @@ template <typename Flavor> class SumcheckProverRound {
     {
         BB_BENCH_NAME("compute_univariate_with_row_skipping");
 
+        constexpr bool has_static_row_skip_manifest =
+            HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
+        constexpr bool uses_row_manifest = has_static_row_skip_manifest || can_skip_rows;
 
-        if constexpr (!can_skip_rows) {
+        if constexpr (!uses_row_manifest) {
             // Non-row-skipping flavors (UltraHonk, Mega, MultilinearBatching) use dynamic chunk
             // dispatch to balance per-row cost variance from selector-gated relation skipping.
             // Short traces don't need to iterate over the zero tail of the polynomial.
