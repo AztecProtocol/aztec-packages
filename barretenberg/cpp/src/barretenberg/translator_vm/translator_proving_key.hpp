@@ -103,6 +103,8 @@ template <typename Flavor_ = TranslatorFlavor> class TranslatorProvingKey_ {
         // bridge the range from 0 to 3 (3 is the maximum difference between two consecutive values in the ordered range
         // constraint).
         compute_translator_range_constraint_ordered_polynomials();
+
+        compute_row_skip_ranges();
     };
 
     /**
@@ -143,6 +145,8 @@ template <typename Flavor_ = TranslatorFlavor> class TranslatorProvingKey_ {
     void compute_concatenated_polynomials();
 
     void split_concatenated_random_coefficients_to_ordered();
+
+    void compute_row_skip_ranges();
 };
 
 using TranslatorProvingKey = TranslatorProvingKey_<TranslatorFlavor>;

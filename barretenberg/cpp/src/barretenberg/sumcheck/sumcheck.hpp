@@ -697,6 +697,12 @@ template <typename Flavor> class SumcheckProver {
                       }) {
             dest_polynomials.row_skip_active_prefix_end = next_row_skip_active_prefix_end;
         }
+        if constexpr (requires {
+                          source_polynomials.row_skip_ranges;
+                          dest_polynomials.row_skip_ranges;
+                      }) {
+            dest_polynomials.row_skip_ranges = fold_row_skip_ranges(source_polynomials.row_skip_ranges);
+        }
     };
 
     /**

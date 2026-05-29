@@ -304,11 +304,22 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    static constexpr bool HAS_STATIC_ROW_SKIP_MANIFEST =
+    static constexpr bool HAS_ECCVM_STATIC_ROW_SKIP_MANIFEST =
         IsAnyOf<Flavor, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor> &&
         requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials) {
             Flavor::row_skip_active_prefix_end(polynomials);
         };
+
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    static constexpr bool HAS_TRANSLATOR_STATIC_ROW_SKIP_MANIFEST =
+        IsTranslatorFlavor<Flavor> && requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials) {
+            polynomials.row_skip_ranges;
+        };
+
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    static constexpr bool HAS_STATIC_ROW_SKIP_MANIFEST =
+        HAS_ECCVM_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates> ||
+        HAS_TRANSLATOR_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>;
 
     static constexpr const char* row_skip_diagnostic_label()
     {
@@ -374,7 +385,7 @@ template <typename Flavor> class SumcheckProverRound {
             return ranges;
         }
 
-        if constexpr (requires { Flavor::row_skip_active_prefix_end(polynomials); }) {
+        if constexpr (HAS_ECCVM_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>) {
             const size_t row_skip_active_prefix_end = Flavor::row_skip_active_prefix_end(polynomials);
             if (row_skip_active_prefix_end == 0) {
                 append_scan_range(ranges, scan_start, effective_round_size);
@@ -390,10 +401,77 @@ template <typename Flavor> class SumcheckProverRound {
             if (effective_round_size >= scan_start + 2) {
                 append_scan_range(ranges, effective_round_size - 2, effective_round_size);
             }
+        } else if constexpr (HAS_TRANSLATOR_STATIC_ROW_SKIP_MANIFEST<
+                                 ProverPolynomialsOrPartiallyEvaluatedMultivariates>) {
+            if (polynomials.row_skip_ranges.empty()) {
+                append_scan_range(ranges, scan_start, effective_round_size);
+                return ranges;
+            }
+            for (const auto& [start, end] : polynomials.row_skip_ranges) {
+                append_scan_range(ranges, std::max(start, scan_start), std::min(end, effective_round_size));
+            }
         } else {
             append_scan_range(ranges, scan_start, effective_round_size);
         }
         return ranges;
+    }
+
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    void maybe_print_static_row_skip_validation(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
+                                                std::vector<BlockOfContiguousRows> static_manifest,
+                                                const size_t effective_round_size) const
+    {
+        constexpr bool can_validate =
+            IsTranslatorFlavor<Flavor> && isRowSkippable<Flavor, decltype(polynomials), size_t>;
+        if constexpr (can_validate) {
+            if (!row_skip_diagnostics_enabled()) {
+                return;
+            }
+            std::sort(static_manifest.begin(),
+                      static_manifest.end(),
+                      [](const BlockOfContiguousRows& lhs, const BlockOfContiguousRows& rhs) {
+                          return lhs.starting_edge_idx < rhs.starting_edge_idx;
+                      });
+
+            size_t manifest_idx = 0;
+            size_t missed_active_pairs = 0;
+            size_t extra_active_pairs = 0;
+            size_t dynamic_active_pairs = 0;
+            size_t static_active_pairs = 0;
+            size_t first_missed_active_pair = effective_round_size;
+            size_t first_extra_active_pair = effective_round_size;
+            for (size_t edge_idx = excluded_head_size; edge_idx < effective_round_size; edge_idx += 2) {
+                while (manifest_idx < static_manifest.size() &&
+                       static_manifest[manifest_idx].starting_edge_idx + static_manifest[manifest_idx].size <=
+                           edge_idx) {
+                    ++manifest_idx;
+                }
+                const bool static_active =
+                    manifest_idx < static_manifest.size() &&
+                    static_manifest[manifest_idx].starting_edge_idx <= edge_idx &&
+                    edge_idx < static_manifest[manifest_idx].starting_edge_idx + static_manifest[manifest_idx].size;
+                const bool dynamic_active = !Flavor::skip_entire_row(polynomials, edge_idx);
+                dynamic_active_pairs += dynamic_active ? 1 : 0;
+                static_active_pairs += static_active ? 1 : 0;
+                missed_active_pairs += dynamic_active && !static_active ? 1 : 0;
+                extra_active_pairs += static_active && !dynamic_active ? 1 : 0;
+                if (dynamic_active && !static_active) {
+                    first_missed_active_pair = std::min(first_missed_active_pair, edge_idx);
+                }
+                if (static_active && !dynamic_active) {
+                    first_extra_active_pair = std::min(first_extra_active_pair, edge_idx);
+                }
+            }
+
+            std::cerr << "[translator-row-skip-validation] round_size=" << round_size
+                      << " dynamic_active_edge_pairs=" << dynamic_active_pairs
+                      << " static_active_edge_pairs=" << static_active_pairs
+                      << " missed_active_edge_pairs=" << missed_active_pairs
+                      << " extra_active_edge_pairs=" << extra_active_pairs << " first_missed_active_edge_pair="
+                      << (first_missed_active_pair == effective_round_size ? 0 : first_missed_active_pair)
+                      << " first_extra_active_edge_pair="
+                      << (first_extra_active_pair == effective_round_size ? 0 : first_extra_active_pair) << std::endl;
+        }
     }
 
     void maybe_print_row_skip_diagnostics(const std::vector<BlockOfContiguousRows>& round_manifest,
@@ -463,10 +541,10 @@ template <typename Flavor> class SumcheckProverRound {
                 active_edges < scanned_edges ? scanned_edges - active_edges : static_cast<size_t>(0);
             const size_t unscanned_skipped_edges =
                 scanned_edges < candidate_edges ? candidate_edges - scanned_edges : static_cast<size_t>(0);
-            const double scan_reduction_pct =
-                candidate_edges == 0
-                    ? 0
-                    : 100.0 * static_cast<double>(candidate_edges - scanned_edges) / static_cast<double>(candidate_edges);
+            const double scan_reduction_pct = candidate_edges == 0
+                                                  ? 0
+                                                  : 100.0 * static_cast<double>(candidate_edges - scanned_edges) /
+                                                        static_cast<double>(candidate_edges);
             std::cerr << "[" << row_skip_diagnostic_label() << "] round_size=" << round_size
                       << " effective_round_size=" << effective_round_size << " excluded_head_edges=" << scan_start
                       << " candidate_edge_pairs=" << candidate_edges / 2 << " scanned_edge_pairs=" << scanned_edges / 2
@@ -530,10 +608,11 @@ template <typename Flavor> class SumcheckProverRound {
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
 
         if constexpr (has_static_row_skip_manifest) {
-            // ECCVM's allocated trace is an active prefix plus the final lagrange-last edge. The middle is known
-            // relation-trivial from construction, so avoid the old per-row skip scan entirely.
+            // Static row manifests describe the relation-active edge pairs directly, avoiding the old per-row skip
+            // scan over the whole trace.
             result = compute_row_skip_scan_ranges(polynomials, effective_round_size);
             maybe_print_row_skip_diagnostics(result, result, effective_round_size, /*used_static_manifest=*/true);
+            maybe_print_static_row_skip_validation(polynomials, result, effective_round_size);
         } else if constexpr (can_skip_rows) {
             // Iterate over edge-pairs (stride-2) so each thread gets an even-aligned range.
             const std::vector<BlockOfContiguousRows> scan_ranges =

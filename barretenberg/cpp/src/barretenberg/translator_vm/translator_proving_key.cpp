@@ -6,6 +6,9 @@
 
 #include "translator_proving_key.hpp"
 #include "barretenberg/common/assert.hpp"
+
+#include <algorithm>
+
 namespace bb {
 /**
  * @brief Construct a set of polynomials that are the result of concatenating a group of polynomials into one.
@@ -354,6 +357,99 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_extra_ran
     // Fill polynomials with a sequence, where each element is repeated NUM_FACTORS_IN_NUMERATOR times
     parallel_for(NUM_FACTORS_IN_NUMERATOR, fill_with_shift);
 }
+
+template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_row_skip_ranges()
+{
+    auto& polynomials = proving_key->polynomials;
+    auto& ranges = polynomials.row_skip_ranges;
+    ranges.clear();
+
+    const size_t circuit_size = polynomials.get_polynomial_size();
+    const size_t mini = Flavor::MINI_CIRCUIT_SIZE;
+    auto append_unsorted_range = [&](size_t start, size_t end) {
+        start = std::min(start, circuit_size);
+        end = std::min(end, circuit_size);
+        start &= ~static_cast<size_t>(1);
+        end = row_skip_round_up_to_even(end);
+        if (end > start) {
+            ranges.emplace_back(start, end);
+        }
+    };
+
+    // The fixed extra numerator contributes at the front of the full concatenated trace.
+    append_unsorted_range(0, polynomials.ordered_extra_range_constraints_numerator.end_index());
+
+    auto get_value = [](const auto& polynomial, const size_t idx) {
+        if (idx < polynomial.start_index() || idx >= polynomial.end_index()) {
+            return FF(0);
+        }
+        return polynomial[idx];
+    };
+
+    size_t active_op_pairs = 0;
+    for (size_t odd_row = 1; odd_row < mini; odd_row += 2) {
+        const size_t even_row = odd_row - 1;
+        // Ultra opqueue rows are laid out as:
+        //   even: op, x_lo, x_hi, y_lo
+        //   odd:  op randomness, y_hi, z_1, z_2
+        const bool active_op_pair =
+            (get_value(polynomials.op, even_row) != FF(0)) || (get_value(polynomials.op, odd_row) != FF(0)) ||
+            (get_value(polynomials.x_lo_y_hi, odd_row) != FF(0)) ||
+            (get_value(polynomials.x_hi_z_1, odd_row) != FF(0)) || (get_value(polynomials.y_lo_z_2, odd_row) != FF(0));
+        if (!active_op_pair) {
+            continue;
+        }
+        ++active_op_pairs;
+        for (size_t block_idx = 0; block_idx < Flavor::CONCATENATION_GROUP_SIZE; ++block_idx) {
+            const size_t block_start = block_idx * mini;
+            append_unsorted_range(block_start + even_row, block_start + odd_row + 1);
+        }
+    }
+
+    // Masking selectors are active in the last NUM_MASKED_ROWS_END rows of every concatenation block.
+    for (size_t block_idx = 0; block_idx < Flavor::CONCATENATION_GROUP_SIZE; ++block_idx) {
+        const size_t block_start = block_idx * mini;
+        append_unsorted_range(block_start + dyadic_mini_circuit_size_without_masking, block_start + mini);
+    }
+
+    // Ordered polynomials are sorted, so after their first nonzero row the shifted ordered columns can make rows
+    // nontrivial through the range and permutation relations.
+    size_t first_ordered_nonzero = circuit_size;
+    for (const auto& ordered_poly : polynomials.get_ordered_range_constraints()) {
+        for (size_t idx = ordered_poly.start_index(); idx < ordered_poly.end_index(); ++idx) {
+            if (ordered_poly[idx] != FF(0)) {
+                first_ordered_nonzero = std::min(first_ordered_nonzero, idx);
+                break;
+            }
+        }
+    }
+    if (first_ordered_nonzero < circuit_size) {
+        append_unsorted_range(first_ordered_nonzero == 0 ? 0 : first_ordered_nonzero - 1, circuit_size);
+    }
+
+    // Always keep the final lagrange-last edge pair.
+    append_unsorted_range(circuit_size - 2, circuit_size);
+
+    std::sort(ranges.begin(), ranges.end());
+    std::vector<RowSkipRange> merged_ranges;
+    for (const auto& [start, end] : ranges) {
+        append_row_skip_range(merged_ranges, start, end);
+    }
+    ranges = std::move(merged_ranges);
+
+    const char* row_skip_diag = std::getenv("BB_SUMCHECK_ROW_SKIP_DIAGNOSTICS");
+    if (row_skip_diag != nullptr && row_skip_diag[0] != '\0' &&
+        !(row_skip_diag[0] == '0' && row_skip_diag[1] == '\0')) {
+        size_t active_edges = 0;
+        for (const auto& [start, end] : ranges) {
+            active_edges += end - start;
+        }
+        std::cerr << "[translator-row-skip-static-ranges] active_op_pairs=" << active_op_pairs
+                  << " first_ordered_nonzero=" << first_ordered_nonzero << " static_ranges=" << ranges.size()
+                  << " static_edge_pairs=" << active_edges / 2 << std::endl;
+    }
+}
+
 template class TranslatorProvingKey_<TranslatorFlavor>;
 template class TranslatorProvingKey_<TranslatorShortMonomialFlavor>;
 } // namespace bb

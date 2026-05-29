@@ -8,7 +8,45 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
+#include <algorithm>
+#include <utility>
+#include <vector>
+
 namespace bb {
+
+using RowSkipRange = std::pair<size_t, size_t>;
+
+inline size_t row_skip_round_up_to_even(const size_t value)
+{
+    return value + (value & 1U);
+}
+
+inline void append_row_skip_range(std::vector<RowSkipRange>& ranges, size_t start, size_t end)
+{
+    start &= ~static_cast<size_t>(1);
+    end = row_skip_round_up_to_even(end);
+    if (end <= start) {
+        return;
+    }
+
+    if (!ranges.empty()) {
+        auto& previous = ranges.back();
+        if (start <= previous.second) {
+            previous.second = std::max(previous.second, end);
+            return;
+        }
+    }
+    ranges.emplace_back(start, end);
+}
+
+inline std::vector<RowSkipRange> fold_row_skip_ranges(const std::vector<RowSkipRange>& ranges)
+{
+    std::vector<RowSkipRange> result;
+    for (const auto& [start, end] : ranges) {
+        append_row_skip_range(result, start / 2, (end / 2) + (end & 1U));
+    }
+    return result;
+}
 
 /**
  * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
@@ -25,6 +63,7 @@ template <typename AllEntitiesBase, typename ProverPolynomialsType, typename Pol
 class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
   public:
     size_t row_skip_active_prefix_end = 0;
+    std::vector<RowSkipRange> row_skip_ranges;
 
     /**
      * @brief Construct from full polynomials, allocating based on their actual sizes.
@@ -41,6 +80,9 @@ class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
         if constexpr (requires { full_polynomials.row_skip_active_prefix_end; }) {
             row_skip_active_prefix_end =
                 (full_polynomials.row_skip_active_prefix_end / 2) + (full_polynomials.row_skip_active_prefix_end % 2);
+        }
+        if constexpr (requires { full_polynomials.row_skip_ranges; }) {
+            row_skip_ranges = fold_row_skip_ranges(full_polynomials.row_skip_ranges);
         }
     }
 };
