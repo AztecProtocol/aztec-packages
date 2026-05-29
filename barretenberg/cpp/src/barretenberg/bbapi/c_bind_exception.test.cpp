@@ -1,62 +1,91 @@
-#include "barretenberg/bbapi/bbapi_execute.hpp"
-#include "barretenberg/bbapi/bbapi_srs.hpp"
-#include "barretenberg/bbapi/c_bind.hpp"
+#include "barretenberg/bbapi/bbapi_handlers.hpp"
+#include "barretenberg/bbapi/bbapi_shared.hpp"
+#include "barretenberg/bbapi/generated/bb_ipc_server.hpp"
+#include "barretenberg/bbapi/generated/bb_types.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+#include "ipc_runtime/ipc_server.hpp"
 #include <gtest/gtest.h>
 #include <stdexcept>
 #include <string_view>
+#include <vector>
 
-using namespace bb::bbapi;
+using namespace bb;
 
 #ifndef BB_NO_EXCEPTIONS
 
-// Test that exceptions thrown during command execution are caught and converted to ErrorResponse
-TEST(CBind, CatchesExceptionAndReturnsErrorResponse)
+namespace {
+// Pack a wire-typed command into the bb dispatcher's expected input:
+// `[ [type_name, payload] ]`.
+template <typename WireCmd> std::vector<uint8_t> pack_wire_command(const WireCmd& cmd)
 {
-    // Create an SrsInitSrs command with invalid data that will cause an exception
-    // The from_buffer calls in bbapi_srs.cpp will read past buffer boundaries
-    SrsInitSrs cmd;
-    cmd.num_points = 100;                         // Request 100 points (6400 bytes needed)
-    cmd.points_buf = std::vector<uint8_t>(10, 0); // Only provide 10 bytes - will cause out of bounds access
-    cmd.g2_point = std::vector<uint8_t>(10, 0);   // Also too small (needs 128 bytes)
-
-    Command command = std::move(cmd);
-
-    // Call bbapi - exception should be caught and converted to ErrorResponse
-    CommandResponse response = bbapi(std::move(command));
-
-    // Check that we got an ErrorResponse using get_type_name()
-    std::string_view type_name = response.get_type_name();
-    EXPECT_EQ(type_name, "ErrorResponse") << "Expected ErrorResponse but got: " << type_name;
-
-    // Also verify using std::holds_alternative on the underlying variant
-    bool is_error = std::holds_alternative<ErrorResponse>(response.get());
-    EXPECT_TRUE(is_error) << "Expected ErrorResponse variant";
-
-    if (is_error) {
-        const auto& error = std::get<ErrorResponse>(response.get());
-        EXPECT_FALSE(error.message.empty()) << "Error message should not be empty";
-        std::cout << "Successfully caught exception with message: " << error.message << '\n';
-    }
+    msgpack::sbuffer buf;
+    msgpack::packer<msgpack::sbuffer> pk(buf);
+    pk.pack_array(1);
+    pk.pack_array(2);
+    pk.pack(std::string(WireCmd::MSGPACK_SCHEMA_NAME));
+    pk.pack(cmd);
+    return std::vector<uint8_t>(buf.data(), buf.data() + buf.size());
 }
 
-// Test that valid operations still work correctly (no false positives)
+// Extract the response type name from a packed `[name, payload]` response.
+std::string response_type_name(const std::vector<uint8_t>& bytes)
+{
+    auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    auto obj = unpacked.get();
+    if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 2) {
+        return "";
+    }
+    const auto& name_obj = obj.via.array.ptr[0];
+    return std::string(name_obj.via.str.ptr, name_obj.via.str.size);
+}
+
+// Extract the error message from an ErrorResponse-shaped `[name, {message: ...}]`.
+std::string response_error_message(const std::vector<uint8_t>& bytes)
+{
+    auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    auto obj = unpacked.get();
+    bbapi::wire::ErrorResponse err;
+    obj.via.array.ptr[1].convert(err);
+    return err.message;
+}
+} // namespace
+
+// Test that exceptions thrown during command execution are caught by the
+// codegen-emitted dispatcher and converted to ErrorResponse.
+TEST(CBind, CatchesExceptionAndReturnsErrorResponse)
+{
+    // SrsInitSrs with num_points=100 requests 6400 bytes but points_buf has only 10.
+    bbapi::wire::SrsInitSrs cmd{ .points_buf = std::vector<uint8_t>(10, 0),
+                                 .num_points = 100,
+                                 .g2_point = std::vector<uint8_t>(10, 0) };
+
+    bbapi::BBApiRequest request;
+    auto handler = bbapi::make_bb_handler(request);
+    auto response = handler(pack_wire_command(cmd));
+
+    EXPECT_EQ(response_type_name(response), "ErrorResponse");
+    auto msg = response_error_message(response);
+    EXPECT_FALSE(msg.empty()) << "Error message should not be empty";
+    std::cout << "Successfully caught exception with message: " << msg << '\n';
+}
+
+// Shutdown is special: the dispatcher throws ShutdownRequested with the
+// pre-packed ShutdownResponse, which we catch and unpack here.
 TEST(CBind, ValidOperationReturnsSuccess)
 {
-    // Create a Shutdown command which should succeed without throwing
-    Shutdown shutdown_cmd;
-    Command command = shutdown_cmd;
+    bbapi::wire::Shutdown cmd{};
 
-    // Call bbapi - should return success response
-    CommandResponse response = bbapi(std::move(command));
+    bbapi::BBApiRequest request;
+    auto handler = bbapi::make_bb_handler(request);
 
-    // Check that we got a ShutdownResponse, not an ErrorResponse
-    std::string_view type_name = response.get_type_name();
-    EXPECT_NE(type_name, "ErrorResponse") << "Valid command should not return ErrorResponse";
-    EXPECT_EQ(type_name, "ShutdownResponse") << "Expected ShutdownResponse";
-
-    // Also verify using std::holds_alternative on the underlying variant
-    bool is_shutdown = std::holds_alternative<Shutdown::Response>(response.get());
-    EXPECT_TRUE(is_shutdown) << "Expected Shutdown::Response variant";
+    std::vector<uint8_t> response;
+    try {
+        response = handler(pack_wire_command(cmd));
+        FAIL() << "Shutdown should have thrown ShutdownRequested";
+    } catch (const ::ipc::ShutdownRequested& shutdown) {
+        response = shutdown.response();
+    }
+    EXPECT_EQ(response_type_name(response), "ShutdownResponse");
 }
 
 #else

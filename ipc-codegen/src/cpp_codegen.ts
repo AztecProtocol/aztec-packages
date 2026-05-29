@@ -940,6 +940,18 @@ ${commandStructs}
         return `            { "${cmd.name}", [](Ctx& ctx, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
                 ${deserialize}
                 auto wire_resp = handle_${method}(ctx, std::move(wire_cmd));
+                // Pre-codegen bb dispatch (\`bbapi_execute.hpp\`) checked
+                // \`request.error_message\` after every handler call and turned
+                // a non-empty value into an ErrorResponse. The BBAPI_ERROR
+                // macro still sets that field and returns a default response,
+                // so honour it here for any context that exposes the field.
+                if constexpr (requires { ctx.error_message; }) {
+                    if (!ctx.error_message.empty()) {
+                        std::string msg = std::move(ctx.error_message);
+                        ctx.error_message.clear();
+                        return detail::make_error(msg);
+                    }
+                }
                 msgpack::sbuffer buf;
                 msgpack::packer<msgpack::sbuffer> pk(buf);
                 pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(wire_resp);
