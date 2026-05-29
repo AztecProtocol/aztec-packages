@@ -23,6 +23,14 @@ impl Handler for EchoHandler {
     fn nested(&mut self, cmd: EchoNested) -> Result<EchoNestedResponse> {
         Ok(EchoNestedResponse { inner: cmd.inner })
     }
+    fn aliases(&mut self, cmd: EchoAliases) -> Result<EchoAliasesResponse> {
+        Ok(EchoAliasesResponse {
+            tree_id: cmd.tree_id,
+            hash: cmd.hash,
+            maybe_hash: cmd.maybe_hash,
+            hashes: cmd.hashes,
+        })
+    }
 }
 
 fn main() {

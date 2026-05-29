@@ -10,6 +10,8 @@ import type { Handler } from "./generated/server.js";
 import type {
   EchoBytes,
   EchoBytesResponse,
+  EchoAliases,
+  EchoAliasesResponse,
   EchoFields,
   EchoFieldsResponse,
   EchoNested,
@@ -36,6 +38,14 @@ const handler: Handler = {
   },
   async echoNested(cmd: EchoNested): Promise<EchoNestedResponse> {
     return { inner: cmd.inner };
+  },
+  async echoAliases(cmd: EchoAliases): Promise<EchoAliasesResponse> {
+    return {
+      treeId: cmd.treeId,
+      hash: cmd.hash,
+      maybeHash: cmd.maybeHash,
+      hashes: cmd.hashes,
+    };
   },
 };
 

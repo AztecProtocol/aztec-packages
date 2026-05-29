@@ -43,6 +43,30 @@ export interface CppCodegenOptions {
 export class CppCodegen {
   constructor(private opts: CppCodegenOptions) {}
 
+  private primitiveType(type: import("./schema_visitor.ts").Type): string {
+    switch (type.primitive) {
+      case "bool":
+        return "bool";
+      case "u8":
+        return "uint8_t";
+      case "u16":
+        return "uint16_t";
+      case "u32":
+        return "uint32_t";
+      case "u64":
+        return "uint64_t";
+      case "f64":
+        return "double";
+      case "string":
+        return "std::string";
+      case "bytes":
+        return "std::vector<uint8_t>";
+      case "bin32":
+        return "std::array<uint8_t, 32>";
+    }
+    throw new Error(`Unsupported primitive type: ${type.primitive}`);
+  }
+
   /** Convert a command name to a C++ method name (snake_case without prefix) */
   private methodName(commandName: string): string {
     // Strip prefix: "CdbGetContractInstance" -> "GetContractInstance" -> "get_contract_instance"
@@ -347,20 +371,10 @@ ${methods}
   generateStandaloneTypes(schema: CompiledSchema): string {
     const { namespace: ns, prefix } = this.opts;
 
-    // Collect every distinct bin32 alias name in the schema. Each becomes
-    // a `using` declaration so wire fields with semantic aliases (Fr / Fq /
-    // Secp256k1Fr / …) surface with their names. All share the same
-    // underlying type (std::array<uint8_t, 32>) and msgpack bin encoding
-    // (via ipc_runtime/std_array_bin.hpp's global adapter).
-    const aliasNames = new Set<string>();
+    const aliasTypes = new Map<string, string>();
     const collect = (type: import("./schema_visitor.ts").Type): void => {
-      if (
-        type.kind === "primitive" &&
-        type.primitive === "bin32_alias" &&
-        type.originalName
-      ) {
-        // Capitalise first letter for the C++ alias (fr → Fr, secp256k1_fr → Secp256k1Fr).
-        aliasNames.add(toAliasName(type.originalName));
+      if (type.kind === "primitive" && type.originalName) {
+        aliasTypes.set(toAliasName(type.originalName), this.primitiveType(type));
       } else if (
         type.kind === "vector" ||
         type.kind === "array" ||
@@ -375,47 +389,18 @@ ${methods}
     for (const s of schema.responses.values()) {
       for (const f of s.fields) collect(f.type);
     }
-    const aliasDecls = [...aliasNames]
-      .sort()
-      .map((n) => `using ${n} = std::array<uint8_t, 32>;`)
+    const aliasDecls = [...aliasTypes.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, underlying]) => `using ${name} = ${underlying};`)
       .join("\n");
 
     // Map schema types to C++ types
     const mapType = (type: import("./schema_visitor.ts").Type): string => {
       switch (type.kind) {
         case "primitive":
-          switch (type.primitive) {
-            case "bool":
-              return "bool";
-            case "u8":
-              return "uint8_t";
-            case "u16":
-              return "uint16_t";
-            case "u32":
-              return "uint32_t";
-            case "u64":
-              return "uint64_t";
-            case "f64":
-              return "double";
-            case "string":
-              return "std::string";
-            case "bytes":
-              return "std::vector<uint8_t>";
-            case "fr":
-              // Legacy path (kept in case anything still produces this).
-              return "std::array<uint8_t, 32>";
-            case "bin32_alias":
-              return type.originalName
-                ? toAliasName(type.originalName)
-                : "std::array<uint8_t, 32>";
-            case "field2":
-              return "std::array<std::array<uint8_t, 32>, 2>";
-            case "enum_u32":
-              return "uint32_t";
-            case "map_u32_pair":
-              return "std::unordered_map<uint32_t, std::pair<std::vector<uint8_t>, uint64_t>>";
-          }
-          break;
+          return type.originalName
+            ? toAliasName(type.originalName)
+            : this.primitiveType(type);
         case "vector":
           return `std::vector<${mapType(type.element!)}>`;
         case "array":
@@ -425,7 +410,7 @@ ${methods}
         case "struct":
           return type.struct!.name;
       }
-      return "void";
+      throw new Error(`Unsupported type kind: ${type.kind}`);
     };
 
     const allStructs = [
@@ -458,7 +443,7 @@ ${methods}
 #include <unordered_map>
 #include <vector>
 
-// Pull in THROW/RETHROW — \`throw\` natively, abort-on-throw under
+// Pull in THROW/RETHROW: \`throw\` natively, abort-on-throw under
 // BB_NO_EXCEPTIONS (WASM). Must be in scope before <msgpack.hpp> so msgpack-c
 // picks up the right variant.
 #include "ipc_codegen/throw.hpp"
@@ -502,10 +487,9 @@ ${methods}
 #endif
 
 // ---------------------------------------------------------------------------
-// Wire aliases for the schema's bin32 alias family. msgpack-c's
-// std::array<unsigned char, N> adapter already packs as \`bin\` (which is
-// what we want for fixed-size byte aliases across the supported languages), so
-// the aliases below carry no extra machinery beyond the std::array typedef.
+// Wire aliases for primitive schema aliases. msgpack-c's
+// std::array<unsigned char, N> adapter packs fixed-size byte aliases as \`bin\`;
+// scalar aliases carry no extra machinery beyond the typedef.
 // ---------------------------------------------------------------------------
 
 ${aliasDecls}

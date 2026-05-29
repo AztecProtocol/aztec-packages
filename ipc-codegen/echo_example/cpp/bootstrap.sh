@@ -16,4 +16,5 @@ $NODE "$CODEGEN/src/generate.ts" \
   --cpp-namespace echo
 
 cmake -S "$DIR" -B "$DIR/build"
-cmake --build "$DIR/build" --target echo_server echo_client
+cmake --build "$DIR/build" --target echo_server echo_client schema_reflection_test
+"$DIR/build/bin/schema_reflection_test" --schema "$DIR/../schema/schema.json"

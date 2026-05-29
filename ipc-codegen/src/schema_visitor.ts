@@ -17,11 +17,7 @@ export type PrimitiveType =
   | "f64"
   | "string"
   | "bytes"
-  | "fr"
-  | "bin32_alias" // ["alias", [<name>, "bin32"]] — 32 bytes named per alias
-  | "field2"
-  | "enum_u32"
-  | "map_u32_pair";
+  | "bin32";
 
 export interface Type {
   kind: "primitive" | "vector" | "array" | "optional" | "struct";
@@ -29,7 +25,7 @@ export interface Type {
   element?: Type; // For vector, array, optional
   size?: number; // For array
   struct?: Struct; // For struct types
-  originalName?: string; // Original type name from schema (e.g. 'MerkleTreeId', 'unordered_map')
+  originalName?: string; // Alias name from schema, when present.
 }
 
 export interface Field {
@@ -115,12 +111,14 @@ export class SchemaVisitor {
       });
     }
 
-    return {
+    const compiled = {
       structs: this.structs,
       commands,
       responses: this.responses,
       errorTypeName,
     };
+    this.validateStructReferences(compiled);
+    return compiled;
   }
 
   private visitStruct(name: string, schema: any): Struct {
@@ -164,14 +162,6 @@ export class SchemaVisitor {
 
         case "array": {
           const [elemType, size] = args as [any, number];
-          // ["array", ["unsigned char", N]] → std::array<uint8_t, N> in
-          // C++. The default msgpack adapter for std::array<uint8_t, N>
-          // packs it as `array<uint8>`, which is the wrong wire shape;
-          // a global override packs it as `bin` instead (matching
-          // 32-byte field elements across the cross-language wire format
-          // — Rust rmp-serde, TS msgpackr, etc.). So no special-casing
-          // here — the schema's array declaration produces a fixed-size
-          // byte buffer with the right wire encoding via the adapter.
           return {
             kind: "array",
             element: this.visitType(elemType),
@@ -195,21 +185,21 @@ export class SchemaVisitor {
 
         case "alias": {
           // Aliases carry [aliasName, underlyingKind]. The underlying kind is
-          // bin32 (32 raw bytes) for the field-element / uint256 family;
-          // anything else falls back to a plain byte buffer.
-          // We preserve the alias *name* so the codegen can emit
-          //   using <AliasName> = std::array<uint8_t, 32>;
-          // and downstream callers see semantically-named types
-          // (Fr, Fq, Secp256k1Fr, …) even though they share one byte shape.
+          // usually a primitive schema string. We preserve the alias name so
+          // generators can emit named zero-cost aliases over primitive wire
+          // shapes.
           const [aliasName, underlying] = args as [string, string];
           if (underlying === "bin32") {
             return {
               kind: "primitive",
-              primitive: "bin32_alias",
+              primitive: "bin32",
               originalName: aliasName,
             };
           }
-          return { kind: "primitive", primitive: "bytes" };
+          return {
+            ...this.resolvePrimitive(underlying),
+            originalName: aliasName,
+          };
         }
 
         default:
@@ -245,22 +235,58 @@ export class SchemaVisitor {
       "unsigned char": "u8",
       double: "f64",
       string: "string",
-      bin32: "bytes",
-      field2: "field2", // Extension field (Fq2) - pair of field elements
-      MerkleTreeId: "enum_u32", // C++ enum serialized as uint32
-      unordered_map: "map_u32_pair", // StateReference: map<MerkleTreeId, pair<fr, index_t>>
+      bin32: "bin32",
     };
 
     const primitive = primitiveMap[name];
     if (primitive) {
-      return { kind: "primitive", primitive, originalName: name };
+      return { kind: "primitive", primitive };
     }
 
-    // Unknown primitive - treat as struct reference
-    // This will be resolved later if it's a real struct
+    const knownStruct = this.structs.get(name);
+    if (knownStruct) {
+      return { kind: "struct", struct: knownStruct };
+    }
+
+    // Unknown primitive - treat as a forward struct reference.
     return {
       kind: "struct",
-      struct: { name, fields: [] }, // Placeholder
+      struct: { name, fields: [] },
     };
+  }
+
+  private validateStructReferences(schema: CompiledSchema): void {
+    const knownNames = new Set([
+      ...schema.structs.keys(),
+      ...schema.responses.keys(),
+    ]);
+    const visitType = (type: Type): void => {
+      if (
+        type.kind === "struct" &&
+        type.struct &&
+        !knownNames.has(type.struct.name)
+      ) {
+        throw new Error(`Unknown struct reference: ${type.struct.name}`);
+      }
+      if (
+        (type.kind === "vector" ||
+          type.kind === "array" ||
+          type.kind === "optional") &&
+        type.element
+      ) {
+        visitType(type.element);
+      }
+    };
+
+    for (const struct of schema.structs.values()) {
+      for (const field of struct.fields) {
+        visitType(field.type);
+      }
+    }
+    for (const struct of schema.responses.values()) {
+      for (const field of struct.fields) {
+        visitType(field.type);
+      }
+    }
   }
 }

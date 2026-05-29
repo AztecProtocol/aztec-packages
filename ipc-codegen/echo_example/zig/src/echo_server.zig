@@ -79,6 +79,16 @@ fn dispatch(cmd_name: []const u8, fields: Payload) ![]u8 {
         const resp = types.EchoNestedResponse{ .inner = cmd.inner };
         return try packResponse("EchoNestedResponse", try resp.toPayload(alloc));
     }
+    if (std.mem.eql(u8, cmd_name, "EchoAliases")) {
+        const cmd = try types.EchoAliases.fromPayload(fields);
+        const resp = types.EchoAliasesResponse{
+            .tree_id = cmd.tree_id,
+            .hash = cmd.hash,
+            .maybe_hash = cmd.maybe_hash,
+            .hashes = cmd.hashes,
+        };
+        return try packResponse("EchoAliasesResponse", try resp.toPayload(alloc));
+    }
     return makeErrorBytes("unknown command");
 }
 

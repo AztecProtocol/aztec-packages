@@ -57,35 +57,37 @@ export class RustCodegen {
     };
   }
 
+  private primitiveType(type: Type): string {
+    switch (type.primitive) {
+      case "bool":
+        return "bool";
+      case "u8":
+        return "u8";
+      case "u16":
+        return "u16";
+      case "u32":
+        return "u32";
+      case "u64":
+        return "u64";
+      case "f64":
+        return "f64";
+      case "string":
+        return "String";
+      case "bytes":
+        return "Vec<u8>";
+      case "bin32":
+        return "Bin32";
+    }
+    throw new Error(`Unsupported primitive type: ${type.primitive}`);
+  }
+
   // Type mapping: Schema type -> Rust type
   private mapType(type: Type): string {
     switch (type.kind) {
       case "primitive":
-        switch (type.primitive) {
-          case "bool":
-            return "bool";
-          case "u8":
-            return "u8";
-          case "u16":
-            return "u16";
-          case "u32":
-            return "u32";
-          case "u64":
-            return "u64";
-          case "f64":
-            return "f64";
-          case "string":
-            return "String";
-          case "bytes":
-            return "Vec<u8>";
-          case "fr":
-            return "Fr"; // legacy path (current schemas emit bin32_alias instead)
-          case "bin32_alias":
-            return type.originalName ? toAliasName(type.originalName) : "Fr";
-          case "field2":
-            return "[Fr; 2]"; // Extension field (Fq2)
-        }
-        break;
+        return type.originalName
+          ? toAliasName(type.originalName)
+          : this.primitiveType(type);
 
       case "vector":
         return `Vec<${this.mapType(type.element!)}>`;
@@ -105,7 +107,7 @@ export class RustCodegen {
         return toPascalCase(type.struct!.name);
     }
 
-    return "Unknown";
+    throw new Error(`Unsupported type kind: ${type.kind}`);
   }
 
   // Check if field needs serde(with = "serde_bytes")
@@ -452,17 +454,13 @@ mod serde_array4_bytes {
     // Create set of top-level command struct names (only these need __typename)
     const commandNames = new Set(schema.commands.map((c) => c.name));
 
-    // Collect every distinct bin32 alias name in the schema. Each becomes a
-    // `pub type` alias to the shared `Bin32` newtype so wire fields with
-    // semantic aliases (Fr / Fq / Secp256k1Fr / …) keep their names.
-    const aliasNames = new Set<string>();
+    const aliasTypes = new Map<string, string>();
     const collect = (type: Type): void => {
-      if (
-        type.kind === "primitive" &&
-        type.primitive === "bin32_alias" &&
-        type.originalName
-      ) {
-        aliasNames.add(toAliasName(type.originalName));
+      if (type.kind === "primitive" && type.originalName) {
+        aliasTypes.set(
+          toAliasName(type.originalName),
+          type.primitive === "bin32" ? "Bin32" : this.primitiveType(type),
+        );
       } else if (
         type.kind === "vector" ||
         type.kind === "array" ||
@@ -477,11 +475,9 @@ mod serde_array4_bytes {
     for (const s of schema.responses.values()) {
       for (const f of s.fields) collect(f.type);
     }
-    // Make sure `Fr` always exists (legacy path / field2 expansion uses it).
-    aliasNames.add("Fr");
-    const aliasDecls = [...aliasNames]
-      .sort()
-      .map((n) => `pub type ${n} = Bin32;`)
+    const aliasDecls = [...aliasTypes.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, underlying]) => `pub type ${name} = ${underlying};`)
       .join("\n");
 
     // Generate all structs (commands first, then responses)
@@ -502,10 +498,8 @@ mod serde_array4_bytes {
 
 use serde::{Deserialize, Serialize};
 ${hashLine}
-/// 32 raw bytes encoded as msgpack bin32. Shared underlying type for every
-/// bin32 alias the schema declares (Fr / Fq / Secp256k1Fr / …) — the aliases
-/// below are zero-cost pub type declarations onto this newtype, so callers
-/// can write Fr(bytes) / Fq(bytes) and the wire encoding stays uniform.
+/// 32 raw bytes encoded as msgpack bin32. Primitive schema aliases below are
+/// zero-cost pub type declarations over either this newtype or a scalar.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bin32(pub [u8; 32]);
 

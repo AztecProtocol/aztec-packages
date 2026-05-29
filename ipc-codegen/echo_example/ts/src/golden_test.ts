@@ -113,6 +113,10 @@ function resp(respName: string, fields: any) {
   return [respName, fields];
 }
 
+function testHash(base: number): Uint8Array {
+  return Uint8Array.from({ length: 32 }, (_v, i) => base + i);
+}
+
 // ============ Original happy-path cases ============
 check(
   "echo_bytes_request.msgpack",
@@ -129,6 +133,15 @@ check(
       values: [new Uint8Array([1, 2, 3]), new Uint8Array([4, 5])],
       flag: true,
     },
+  }),
+);
+check(
+  "echo_aliases_request.msgpack",
+  req("EchoAliases", {
+    treeId: 7,
+    hash: testHash(0x10),
+    maybeHash: testHash(0x40),
+    hashes: [testHash(0x10), testHash(0x40)],
   }),
 );
 
@@ -149,6 +162,15 @@ check(
       values: [new Uint8Array([1, 2, 3]), new Uint8Array([4, 5])],
       flag: true,
     },
+  }),
+);
+check(
+  "echo_aliases_response.msgpack",
+  resp("EchoAliasesResponse", {
+    treeId: 7,
+    hash: testHash(0x10),
+    maybeHash: testHash(0x40),
+    hashes: [testHash(0x10), testHash(0x40)],
   }),
 );
 

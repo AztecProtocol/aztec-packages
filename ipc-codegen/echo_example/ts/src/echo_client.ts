@@ -15,6 +15,7 @@ import {
 } from "@aztec/ipc-runtime";
 import { Decoder, Encoder } from "msgpackr";
 import type {
+  EchoAliasesResponse,
   EchoBytesResponse,
   EchoFieldsResponse,
   EchoNestedResponse,
@@ -29,6 +30,10 @@ const socketPath = socketIdx >= 0 ? args[socketIdx + 1] : undefined;
 if (!socketPath) {
   console.error("Usage: echo_client.ts --socket <path> [--transport uds|shm]");
   process.exit(1);
+}
+
+function testHash(base: number): Uint8Array {
+  return Uint8Array.from({ length: 32 }, (_v, i) => base + i);
 }
 const transportIdx = args.indexOf("--transport");
 const transport = transportIdx >= 0 ? args[transportIdx + 1] : "uds";
@@ -99,6 +104,30 @@ async function run() {
   assertEqual(resp3.inner.flag, true, "EchoNested flag");
   assertEqual(resp3.inner.values.length, 2, "EchoNested values length");
   console.error("echo_client(ts): EchoNested OK");
+
+  // Test 4: EchoAliases
+  const hash = testHash(0x10);
+  const second = testHash(0x40);
+  const [name4, resp4] = (await call(client, "EchoAliases", {
+    treeId: 7,
+    hash,
+    maybeHash: second,
+    hashes: [hash, second],
+  })) as [string, EchoAliasesResponse];
+  assertEqual(name4, "EchoAliasesResponse", "EchoAliases name");
+  assertEqual(resp4.treeId, 7, "EchoAliases treeId");
+  assertEqual(
+    Buffer.from(resp4.hash).toString("hex"),
+    Buffer.from(hash).toString("hex"),
+    "EchoAliases hash",
+  );
+  assertEqual(
+    Buffer.from(resp4.maybeHash!).toString("hex"),
+    Buffer.from(second).toString("hex"),
+    "EchoAliases maybeHash",
+  );
+  assertEqual(resp4.hashes.length, 2, "EchoAliases hashes length");
+  console.error("echo_client(ts): EchoAliases OK");
 
   // Shutdown
   await call(client, "EchoShutdown", {});

@@ -51,6 +51,19 @@ fn main() {
         })),
     );
 
+    let hash = test_hash(0x10);
+    let second = test_hash(0x40);
+    write_request(
+        output_dir,
+        "echo_aliases_request.msgpack",
+        Command::EchoAliases(EchoAliases::new(
+            7,
+            hash.clone(),
+            Some(second.clone()),
+            vec![hash.clone(), second.clone()],
+        )),
+    );
+
     write_response(
         output_dir,
         "echo_bytes_response.msgpack",
@@ -77,6 +90,17 @@ fn main() {
                 values: vec![vec![1, 2, 3], vec![4, 5]],
                 flag: Some(true),
             },
+        }),
+    );
+
+    write_response(
+        output_dir,
+        "echo_aliases_response.msgpack",
+        Response::EchoAliasesResponse(EchoAliasesResponse {
+            tree_id: 7,
+            hash: hash.clone(),
+            maybe_hash: Some(second.clone()),
+            hashes: vec![hash, second],
         }),
     );
 
@@ -164,4 +188,8 @@ fn write_response(dir: &str, name: &str, response: Response) {
     let path = Path::new(dir).join(name);
     fs::write(&path, &bytes).unwrap();
     eprintln!("  {} ({} bytes)", name, bytes.len());
+}
+
+fn test_hash(base: u8) -> Fr {
+    Fr::from_bytes(std::array::from_fn(|i| base + i as u8))
 }
