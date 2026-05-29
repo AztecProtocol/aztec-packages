@@ -128,7 +128,6 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/vm2)
     add_subdirectory(barretenberg/ipc)
     add_subdirectory(barretenberg/wsdb)
-    add_subdirectory(barretenberg/wsdb_client)
     add_subdirectory(barretenberg/nodejs_module)
 endif()
 
