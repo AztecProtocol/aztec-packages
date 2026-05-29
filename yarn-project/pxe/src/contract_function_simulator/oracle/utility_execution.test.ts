@@ -18,7 +18,16 @@ import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { MessageContext } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
-import { BlockHeader, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  Capsule,
+  GlobalVariables,
+  MinedTxReceipt,
+  TxEffect,
+  TxExecutionResult,
+  TxHash,
+  TxStatus,
+} from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
@@ -430,7 +439,7 @@ describe('Utility Execution test suite', () => {
         const responseSlot = await utilityExecutionOracle.getMessageContextsByTxHash(requestSlot);
         const responseFields = utilityExecutionOracle.getEphemeral(responseSlot, 0);
         expect(responseFields).toEqual(MessageContext.toSerializedOption(null));
-        expect(aztecNode.getTxEffect).not.toHaveBeenCalled();
+        expect(aztecNode.getTxReceipt).not.toHaveBeenCalled();
       });
 
       it('resolves a valid tx hash into a MessageContext', async () => {
@@ -438,12 +447,25 @@ describe('Utility Execution test suite', () => {
         const noteHash = Fr.random();
         const firstNullifier = Fr.random();
 
-        aztecNode.getTxEffect.mockResolvedValueOnce({
-          l2BlockNumber: BlockNumber(syncedBlockNumber - 1),
-          l2BlockHash: BlockHash.random(),
-          txIndexInBlock: 0,
-          data: { txHash, noteHashes: [noteHash], nullifiers: [firstNullifier] },
-        } as any);
+        aztecNode.getTxReceipt.mockResolvedValueOnce(
+          new MinedTxReceipt(
+            txHash,
+            TxStatus.PROPOSED,
+            TxExecutionResult.SUCCESS,
+            0n,
+            BlockHash.random(),
+            BlockNumber(syncedBlockNumber - 1),
+            0,
+            undefined,
+            undefined,
+            TxEffect.from({
+              ...(await TxEffect.random()),
+              txHash,
+              noteHashes: [noteHash],
+              nullifiers: [firstNullifier],
+            }),
+          ),
+        );
 
         const requestSlot = Fr.random();
         utilityExecutionOracle.pushEphemeral(requestSlot, [txHash.hash]);
@@ -457,12 +479,25 @@ describe('Utility Execution test suite', () => {
       it('sets null in response for tx effects beyond anchor block', async () => {
         const txHash = TxHash.random();
 
-        aztecNode.getTxEffect.mockResolvedValueOnce({
-          l2BlockNumber: BlockNumber(syncedBlockNumber + 1),
-          l2BlockHash: BlockHash.random(),
-          txIndexInBlock: 0,
-          data: { txHash, noteHashes: [], nullifiers: [Fr.random()] },
-        } as any);
+        aztecNode.getTxReceipt.mockResolvedValueOnce(
+          new MinedTxReceipt(
+            txHash,
+            TxStatus.PROPOSED,
+            TxExecutionResult.SUCCESS,
+            0n,
+            BlockHash.random(),
+            BlockNumber(syncedBlockNumber + 1),
+            0,
+            undefined,
+            undefined,
+            TxEffect.from({
+              ...(await TxEffect.random()),
+              txHash,
+              noteHashes: [],
+              nullifiers: [Fr.random()],
+            }),
+          ),
+        );
 
         const requestSlot = Fr.random();
         utilityExecutionOracle.pushEphemeral(requestSlot, [txHash.hash]);
