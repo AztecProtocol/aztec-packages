@@ -36,7 +36,11 @@ class BatchedHonkTranslatorProver {
     using MegaZKProverRound = SumcheckProverRound<MegaZKFlavor>;
     using MegaZKPartialEvals = MegaZKFlavor::PartiallyEvaluatedMultivariates;
     using MegaZKSubrelationSeparators = std::array<FF, MegaZKFlavor::NUM_SUBRELATIONS - 1>;
-    using TransProverRound = SumcheckProverRound<TranslatorFlavor>;
+    // Short-monomial round: runs the translator relation accumulation over length-2 edges. Produces an identical
+    // round univariate (same BATCHED_RELATION_PARTIAL_LENGTH / NUM_SUBRELATIONS as TranslatorFlavor), so the joint
+    // sumcheck, proof, and VK are unchanged. The partial-eval / AllValues types below stay on TranslatorFlavor since
+    // TranslatorShortMonomialFlavor inherits them unchanged.
+    using TransProverRound = SumcheckProverRound<TranslatorShortMonomialFlavor>;
     using TransPartialEvals = TranslatorFlavor::PartiallyEvaluatedMultivariates;
     using TransSubrelationSeparators = std::array<FF, TranslatorFlavor::NUM_SUBRELATIONS - 1>;
     using ZKData = ZKSumcheckData<MegaZKFlavor>;

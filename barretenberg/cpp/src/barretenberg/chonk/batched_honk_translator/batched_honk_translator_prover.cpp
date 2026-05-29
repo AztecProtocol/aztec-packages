@@ -8,6 +8,15 @@
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 
+// Short-monomial translator relation definitions: the joint sumcheck round (TransProverRound) is templated on
+// TranslatorShortMonomialFlavor, so this TU instantiates the short relations' prover-side accumulate. The short
+// relations are otherwise header-only (no explicit instantiation into librelations), so include the _impl here.
+#include "barretenberg/relations/translator_vm/translator_decomposition_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_short_relations_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_short_relation_impl.hpp"
+
 namespace bb {
 
 BatchedHonkTranslatorProver::BatchedHonkTranslatorProver(std::shared_ptr<MegaZKProverInstance> mega_zk_instance,
