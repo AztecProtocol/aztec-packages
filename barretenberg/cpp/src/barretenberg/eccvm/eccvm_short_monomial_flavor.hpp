@@ -32,8 +32,12 @@ class ECCVMShortMonomialFlavor : public ECCVMFlavor {
     template <typename FF_>
     using Relations_ = std::tuple<ECCVMTranscriptShortRelation<FF_>,
                                   ECCVMTranscriptMsmTransitionShortRelation<FF_>,
+                                  ECCVMPointTableDoubleShortRelation<FF_>,
                                   ECCVMPointTableShortRelation<FF_>,
                                   ECCVMWnafShortRelation<FF_>,
+                                  ECCVMMSMAddShortRelation<FF_>,
+                                  ECCVMMSMDoubleShortRelation<FF_>,
+                                  ECCVMMSMSkewShortRelation<FF_>,
                                   ECCVMMSMShortRelation<FF_>,
                                   ECCVMSetShortRelation<FF_>,
                                   ECCVMLookupShortRelation<FF_>,
