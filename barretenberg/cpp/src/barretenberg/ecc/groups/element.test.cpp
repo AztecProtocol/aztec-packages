@@ -328,6 +328,48 @@ template <typename G_> class TestElement : public testing::Test {
         }
     }
 
+    static void test_straus_msm_matches_naive_sum()
+    {
+        for (size_t n = 1; n <= 16; ++n) {
+            std::vector<affine_element> points(n);
+            std::vector<Fr> scalars(n);
+            for (size_t i = 0; i < n; ++i) {
+                points[i] = affine_element(element::random_element());
+                scalars[i] = Fr::random_element();
+            }
+            element naive = element::infinity();
+            for (size_t i = 0; i < n; ++i) {
+                naive += points[i] * scalars[i];
+            }
+            element strauss = element::straus_msm(points, scalars);
+            EXPECT_EQ(strauss == naive, true) << "straus_msm mismatch at n=" << n;
+        }
+    }
+
+    static void test_straus_msm_edge_cases()
+    {
+        // Empty input → infinity
+        EXPECT_EQ(element::straus_msm({}, {}).is_point_at_infinity(), true);
+
+        // All-zero scalars → infinity
+        std::vector<affine_element> points = { affine_element(element::random_element()),
+                                               affine_element(element::random_element()) };
+        std::vector<Fr> zeros = { Fr::zero(), Fr::zero() };
+        EXPECT_EQ(element::straus_msm(points, zeros).is_point_at_infinity(), true);
+
+        // Mixed: some zero scalars, some infinity points → matches non-zero/non-infinity sum
+        const Fr s0 = Fr::random_element();
+        const Fr s2 = Fr::random_element();
+        std::vector<affine_element> mixed_points = {
+            affine_element(element::random_element()),
+            affine_element::infinity(),
+            affine_element(element::random_element()),
+        };
+        std::vector<Fr> mixed_scalars = { s0, Fr::random_element(), s2 };
+        element expected = mixed_points[0] * s0 + mixed_points[2] * s2;
+        EXPECT_EQ(element::straus_msm(mixed_points, mixed_scalars) == expected, true);
+    }
+
     static void test_derive_generators()
     {
         constexpr size_t num_generators = 128;
@@ -448,5 +490,19 @@ TYPED_TEST(TestElement, DeriveGenerators)
 {
     if constexpr (!std::is_same_v<typename TestFixture::G, bb::g2>) {
         TestFixture::test_derive_generators();
+    }
+}
+
+TYPED_TEST(TestElement, StrausMsmMatchesNaiveSum)
+{
+    if constexpr (!std::is_same_v<typename TestFixture::G, bb::g2>) {
+        TestFixture::test_straus_msm_matches_naive_sum();
+    }
+}
+
+TYPED_TEST(TestElement, StrausMsmEdgeCases)
+{
+    if constexpr (!std::is_same_v<typename TestFixture::G, bb::g2>) {
+        TestFixture::test_straus_msm_edge_cases();
     }
 }

@@ -102,60 +102,6 @@ inline uint64_t get_wnaf_bits(const uint64_t* scalar, const uint64_t bits, const
 }
 
 /**
- * @brief Performs fixed-window non-adjacent form (WNAF) computation for scalar multiplication.
- *
- * @details WNAF is a method for representing integers which optimizes the number of non-zero terms, which in turn
- * optimizes the number of point doublings in scalar multiplication, in turn aiding efficiency.
- *
- * @param scalar Pointer to 128-bit scalar for which WNAF is to be computed.
- * @param wnaf Pointer to num_points+1 size array where the computed WNAF will be stored.
- * @param skew_map Reference to a boolean variable which will be set based on the least significant bit of the scalar.
- * @param point_index The index of the point being computed in the context of multiple point multiplication.
- * @param num_points The number of points being computed in parallel.
- * @param wnaf_bits The number of bits to use in each window of the WNAF representation.
- */
-inline void fixed_wnaf(const uint64_t* scalar,
-                       uint64_t* wnaf,
-                       bool& skew_map,
-                       const uint64_t point_index,
-                       const uint64_t num_points,
-                       const size_t wnaf_bits) noexcept
-{
-    // If the scalar is even, we set the skew map to true. The skew is used to subtract a base point from the msm result
-    // in case scalar is even.
-    skew_map = ((scalar[0] & 1) == 0);
-    // The first slice is the least significant slice of the scalar.
-    uint64_t previous = get_wnaf_bits(scalar, wnaf_bits, 0) + static_cast<uint64_t>(skew_map);
-    const size_t wnaf_entries = (SCALAR_BITS + wnaf_bits - 1) / wnaf_bits;
-
-    // For the rest we start a rolling window of wnaf_bits bits, and compute the wnaf slice.
-    for (size_t round_i = 1; round_i < wnaf_entries - 1; ++round_i) {
-        uint64_t slice = get_wnaf_bits(scalar, wnaf_bits, round_i * wnaf_bits);
-        // Check if the slice is even. This will be used to borrow from the previous slice.
-        uint64_t predicate = ((slice & 1UL) == 0UL);
-        // If the current slice is odd (predicate=0), the WNAF digit is simply `previous`.
-        // If even (predicate=1), we borrow: subtract 2^wnaf_bits from `previous` to get a
-        // negative value, then negate via XOR with all-ones (two's complement identity:
-        // -x = ~x + 1, but we immediately shift right by 1, absorbing the +1 since the
-        // result is guaranteed odd). The >> 1 converts from the raw odd value to a bucket
-        // index (e.g., value 5 → bucket 2, value 7 → bucket 3). Bit 31 stores the sign
-        // (1 = negative), and the upper bits carry point_index for multi-scalar indexing.
-        wnaf[(wnaf_entries - round_i) * num_points] =
-            ((((previous - (predicate << wnaf_bits)) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) |
-            (point_index);
-        // Carry the borrow into the next window: if we borrowed, add 1 to the current slice.
-        previous = slice + predicate;
-    }
-    size_t final_bits = SCALAR_BITS - (wnaf_bits * (wnaf_entries - 1));
-    uint64_t slice = get_wnaf_bits(scalar, final_bits, (wnaf_entries - 1) * wnaf_bits);
-    uint64_t predicate = ((slice & 1UL) == 0UL);
-
-    wnaf[num_points] =
-        ((((previous - (predicate << (wnaf_bits))) ^ (0UL - predicate)) >> 1UL) | (predicate << 31UL)) | (point_index);
-    wnaf[0] = ((slice + predicate) >> 1UL) | (point_index);
-}
-
-/**
  * @brief Recursive WNAF round for a fixed 127-bit scalar (SCALAR_BITS).
  *
  * @details Processes one window per recursive call, using compile-time unrolling via `round_i`.
