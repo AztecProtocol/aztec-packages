@@ -40,7 +40,7 @@ export async function inspectTx(
   log: LogFn,
   opts: { includeBlockInfo?: boolean } = {},
 ) {
-  const [receipt, effectsInBlock] = await Promise.all([aztecNode.getTxReceipt(txHash), aztecNode.getTxEffect(txHash)]);
+  const receipt = await aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
   // Base tx data
   log(`Tx ${txHash.toString()}`);
   log(` Status: ${receipt.status}`);
@@ -51,11 +51,11 @@ export async function inspectTx(
     log(` Error: ${receipt.error}`);
   }
 
-  if (!effectsInBlock) {
+  if (!receipt.isMined() || !receipt.txEffect) {
     return;
   }
 
-  const effects = effectsInBlock.data;
+  const effects = receipt.txEffect;
 
   if (opts.includeBlockInfo) {
     log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString()})`);

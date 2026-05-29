@@ -489,7 +489,7 @@ export abstract class BaseWallet implements Wallet {
     );
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
-    if (await this.aztecNode.getTxEffect(txHash)) {
+    if ((await this.aztecNode.getTxReceipt(txHash)).isMined()) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
     this.log.debug(`Sending transaction ${txHash}`);

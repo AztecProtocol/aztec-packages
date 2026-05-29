@@ -18,10 +18,26 @@ export class MessageContextService {
   async getMessageContextsByTxHash(txHashes: Fr[], anchorBlockNumber: number): Promise<(MessageContext | null)[]> {
     const nonZeroTxHashes = txHashes.filter(h => !h.isZero()).map(h => TxHash.fromField(h));
     const uniqueTxHashes = uniqueBy(nonZeroTxHashes, h => h.toString());
-    const fetched = await Promise.all(uniqueTxHashes.map(h => this.aztecNode.getTxEffect(h)));
+    const fetched = await Promise.all(
+      uniqueTxHashes.map(h => this.aztecNode.getTxReceipt(h, { includeTxEffect: true })),
+    );
     const txEffects = new Map(
       uniqueTxHashes
-        .map((h, i): [string, IndexedTxEffect | undefined] => [h.toString(), fetched[i]])
+        .map((h, i): [string, IndexedTxEffect | undefined] => {
+          const receipt = fetched[i];
+          if (!receipt.isMined() || !receipt.txEffect) {
+            return [h.toString(), undefined];
+          }
+          return [
+            h.toString(),
+            {
+              data: receipt.txEffect,
+              l2BlockNumber: receipt.blockNumber,
+              l2BlockHash: receipt.blockHash,
+              txIndexInBlock: receipt.txIndexInBlock,
+            },
+          ];
+        })
         .filter((entry): entry is [string, IndexedTxEffect] => entry[1] !== undefined),
     );
 
