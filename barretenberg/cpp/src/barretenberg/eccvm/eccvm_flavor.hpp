@@ -318,8 +318,7 @@ class ECCVMFlavor {
     };
 
     /**
-     * @brief Containter for transcript accumulators, they stand out as the only to-be-shifted wires that are always
-     * populated until the dyadic size of the circuit.
+     * @brief Container for transcript accumulator wires that need shifted views.
      */
     template <typename DataType> class WireToBeShiftedAccumulatorEntities {
       public:
@@ -357,6 +356,75 @@ class ECCVMFlavor {
             return concatenate(WireNonShiftedEntities<DataType>::get_all(),
                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
         }
+        auto get_transcript_wires()
+        {
+            return RefArray{ this->transcript_add,
+                             this->transcript_eq,
+                             this->transcript_msm_transition,
+                             this->transcript_Px,
+                             this->transcript_Py,
+                             this->transcript_z1,
+                             this->transcript_z2,
+                             this->transcript_z1zero,
+                             this->transcript_z2zero,
+                             this->transcript_op,
+                             this->transcript_msm_x,
+                             this->transcript_msm_y,
+                             this->transcript_reset_accumulator,
+                             this->transcript_base_infinity,
+                             this->transcript_base_x_inverse,
+                             this->transcript_base_y_inverse,
+                             this->transcript_add_x_equal,
+                             this->transcript_add_y_equal,
+                             this->transcript_add_lambda,
+                             this->transcript_msm_intermediate_x,
+                             this->transcript_msm_intermediate_y,
+                             this->transcript_msm_infinity,
+                             this->transcript_msm_x_inverse,
+                             this->transcript_msm_count_zero_at_transition,
+                             this->transcript_msm_count_at_transition_inverse };
+        }
+        auto get_shifted_transcript_wires()
+        {
+            return RefArray{ this->transcript_mul, this->transcript_msm_count, this->transcript_pc };
+        }
+        auto get_precompute_wires()
+        {
+            return RefArray{ this->precompute_point_transition,
+                             this->precompute_s1lo,
+                             this->precompute_s2hi,
+                             this->precompute_s2lo,
+                             this->precompute_s3hi,
+                             this->precompute_s3lo,
+                             this->precompute_s4hi,
+                             this->precompute_s4lo,
+                             this->precompute_skew };
+        }
+        auto get_shifted_precompute_wires()
+        {
+            return RefArray{ this->precompute_scalar_sum, this->precompute_s1hi,  this->precompute_dx,
+                             this->precompute_dy,         this->precompute_tx,    this->precompute_ty,
+                             this->precompute_pc,         this->precompute_round, this->precompute_select };
+        }
+        auto get_msm_wires()
+        {
+            return RefArray{ this->msm_size_of_msm,  this->msm_add2,         this->msm_add3,
+                             this->msm_add4,         this->msm_x1,           this->msm_y1,
+                             this->msm_x2,           this->msm_y2,           this->msm_x3,
+                             this->msm_y3,           this->msm_x4,           this->msm_y4,
+                             this->msm_collision_x1, this->msm_collision_x2, this->msm_collision_x3,
+                             this->msm_collision_x4, this->msm_lambda1,      this->msm_lambda2,
+                             this->msm_lambda3,      this->msm_lambda4,      this->msm_slice1,
+                             this->msm_slice2,       this->msm_slice3,       this->msm_slice4 };
+        }
+        auto get_shifted_msm_wires()
+        {
+            return RefArray{ this->msm_transition, this->msm_add,           this->msm_double,
+                             this->msm_skew,       this->msm_accumulator_x, this->msm_accumulator_y,
+                             this->msm_count,      this->msm_round,         this->msm_add1,
+                             this->msm_pc };
+        }
+        auto get_lookup_read_counts() { return RefArray{ this->lookup_read_counts_0, this->lookup_read_counts_1 }; }
     };
 
     /**
@@ -501,7 +569,7 @@ class ECCVMFlavor {
         {
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                result_field = polynomial[row_idx];
+                result_field = polynomial.get(row_idx);
             }
             return result;
         }
@@ -651,24 +719,47 @@ class ECCVMFlavor {
             // The first TRACE_OFFSET rows are disabled.
             // Trace data starts at row TRACE_OFFSET. lagrange_last goes to dyadic end.
             constexpr size_t trace_offset = TRACE_OFFSET;
-            const size_t alloc_size = trace_offset + num_rows;
-            // Active trace data occupies [TRACE_OFFSET, num_rows); the sumcheck prover uses this as the relation-active
-            // row-skip prefix (num_rows already includes the TRACE_OFFSET shift). See SumcheckProverRound row-skip
-            // manifest handling.
+            const auto offset_size = [](const size_t size) { return TRACE_OFFSET + size; };
+            const size_t transcript_alloc_size = offset_size(transcript_rows.size());
+            const size_t point_table_alloc_size = offset_size(point_table_rows.size());
+            const size_t msm_alloc_size = offset_size(msm_rows.size());
+            const size_t read_counts_alloc_size = offset_size(point_table_read_counts[0].size() + 1);
+
+            // Active trace data occupies [TRACE_OFFSET, num_rows) (the union of the subtable ranges above); the
+            // sumcheck prover uses this as the relation-active row-skip prefix (num_rows already includes the
+            // TRACE_OFFSET shift). See SumcheckProverRound row-skip manifest handling.
             row_skip_active_prefix_end = num_rows;
 
-            // 1. Wire non-shifted polys: allocate with offset, add masking at {1,2,3}
-            for (auto& poly : WireNonShiftedEntities<Polynomial>::get_all()) {
-                poly = Polynomial(alloc_size, dyadic_num_rows);
+            // 1. Wires backed by their active table range, with virtual zeros beyond that range.
+            for (auto& poly : get_transcript_wires()) {
+                poly = Polynomial(transcript_alloc_size, dyadic_num_rows);
+                poly.add_masking();
+            }
+            for (auto& poly : get_precompute_wires()) {
+                poly = Polynomial(point_table_alloc_size, dyadic_num_rows);
+                poly.add_masking();
+            }
+            for (auto& poly : get_msm_wires()) {
+                poly = Polynomial(msm_alloc_size, dyadic_num_rows);
+                poly.add_masking();
+            }
+            for (auto& poly : get_lookup_read_counts()) {
+                poly = Polynomial(read_counts_alloc_size, dyadic_num_rows);
                 poly.add_masking();
             }
 
-            // 2. Wire to-be-shifted polys: shiftable with masking
-            for (auto& poly : WireToBeShiftedWithoutAccumulatorsEntities<Polynomial>::get_all()) {
-                poly = Polynomial::shiftable(alloc_size, dyadic_num_rows, /*masked=*/true);
+            // 2. To-be-shifted wires retain one leading zero row for their shifted views.
+            for (auto& poly : get_shifted_transcript_wires()) {
+                poly = Polynomial::shiftable(transcript_alloc_size, dyadic_num_rows, /*masked=*/true);
+            }
+            for (auto& poly : get_shifted_precompute_wires()) {
+                poly = Polynomial::shiftable(point_table_alloc_size, dyadic_num_rows, /*masked=*/true);
+            }
+            for (auto& poly : get_shifted_msm_wires()) {
+                poly = Polynomial::shiftable(msm_alloc_size, dyadic_num_rows, /*masked=*/true);
             }
             for (auto& poly : WireToBeShiftedAccumulatorEntities<Polynomial>::get_all()) {
-                poly = Polynomial::shiftable(alloc_size, dyadic_num_rows, /*masked=*/true);
+                poly = Polynomial::shiftable(transcript_alloc_size, dyadic_num_rows, /*masked=*/true);
             }
 
             // 3. z_perm: shiftable with masking (grand product starts after disabled region)
