@@ -529,6 +529,20 @@ template <typename Tag> struct Bin32Alias {
     operator std::array<uint8_t, 32>&() { return value; }
     operator const std::array<uint8_t, 32>&() const { return value; }
 
+    void msgpack_pack(auto& packer) const
+    {
+        packer.pack_bin(static_cast<uint32_t>(value.size()));
+        packer.pack_bin_body(reinterpret_cast<const char*>(value.data()), static_cast<uint32_t>(value.size()));
+    }
+
+    void msgpack_unpack(auto object)
+    {
+        if (object.type != msgpack::type::BIN || object.via.bin.size != value.size()) {
+            THROW msgpack::type_error();
+        }
+        std::memcpy(value.data(), object.via.bin.ptr, value.size());
+    }
+
     void msgpack_schema(auto& packer) const { packer.pack_alias(Tag::MSGPACK_SCHEMA_NAME, "bin32"); }
     bool operator==(const Bin32Alias&) const = default;
 };
