@@ -67,7 +67,7 @@ ipc-codegen/
     naming.ts              # snake_case / PascalCase helpers
   templates/             # static templates copied alongside generated code
     cpp/ipc_codegen/*.hpp   # C++ support headers copied into generated output
-    rust/{backend,error,ffi_backend,ipc_client}.rs
+    rust/{backend,error,ffi_backend}.rs
     zig/{backend,ffi_backend}.zig
   echo_example/          # 4-language echo service (cross-lang test harness)
   SCHEMA_SPEC.md         # wire protocol and schema-format reference

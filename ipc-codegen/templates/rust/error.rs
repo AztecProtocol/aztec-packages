@@ -1,4 +1,4 @@
-//! Error types for Barretenberg operations
+//! Error types for generated IPC clients
 
 use thiserror::Error;
 

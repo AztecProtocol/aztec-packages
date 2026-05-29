@@ -1,13 +1,13 @@
 //! Backend trait for msgpack communication
 //!
-//! This module defines a simple, pluggable interface for Barretenberg backends.
+//! This module defines a simple, pluggable interface for byte backends.
 //! Users can easily implement custom backends (FFI, WASM, IPC, etc.).
 
 use super::error::Result;
 
 /// Simple interface for msgpack backend implementations.
 ///
-/// Implement this trait to create a custom backend for Barretenberg.
+/// Implement this trait to create a custom backend for a generated client.
 /// The backend handles msgpack-encoded command/response communication.
 ///
 /// # Example

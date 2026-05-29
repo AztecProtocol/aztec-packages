@@ -467,7 +467,7 @@ ${this.generateResponseUnion(schema)}
 //!
 //! The backend must satisfy: call(self, request: []const u8) ![]u8 and destroy(self) void.
 //! See backend.zig for the interface contract.
-//! Implementations: UdsBackend (uds_backend.zig), FfiBackend (ffi_backend.zig).
+//! Implementations: ipc_runtime.Client, FfiBackend (ffi_backend.zig).
 
 const std = @import("std");
 const msgpack = @import("msgpack");
