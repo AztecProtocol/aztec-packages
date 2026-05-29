@@ -24,6 +24,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import 'jest-extended';
 import * as path from 'path';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { setup } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
@@ -148,6 +149,7 @@ describe('e2e_node_rpc_perf', () => {
       sequencerPollingIntervalMS: 200,
       worldStateBlockCheckIntervalMS: 200,
       blockCheckIntervalMS: 200,
+      ...PIPELINING_SETUP_OPTS,
       minTxsPerBlock: 1,
     }));
 
