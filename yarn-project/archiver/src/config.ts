@@ -78,6 +78,14 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
       'Set to true to bypass the check when the connected RPC node is known to prune old logs.',
     ...booleanConfigHelper(false),
   },
+  orphanProposedBlockPruneGraceSeconds: {
+    env: 'ARCHIVER_ORPHAN_PROPOSED_BLOCK_PRUNE_GRACE_SECONDS',
+    description:
+      'Grace period in seconds, measured from the end of a proposed block build slot, after which a ' +
+      'proposed block with no matching proposed checkpoint is pruned as an orphan. Defaults from the ' +
+      'sequencer block duration at the node wiring layer when unset.',
+    ...optionalNumberConfigHelper(),
+  },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,
   viemPollingIntervalMS: {
@@ -107,5 +115,6 @@ export function mapArchiverConfig(config: Partial<ArchiverConfig>) {
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
     skipHistoricalLogsCheck: config.archiverSkipHistoricalLogsCheck,
+    orphanProposedBlockPruneGraceSeconds: config.orphanProposedBlockPruneGraceSeconds,
   };
 }

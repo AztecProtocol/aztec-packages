@@ -775,7 +775,15 @@ export class CheckpointProposalJob implements Traceable {
       );
 
       const blockProposedAt = this.dateProvider.now();
-      if (!this.config.skipBroadcastProposals) {
+      if (this.config.skipBroadcastCheckpointProposal) {
+        // Test-only: suppress the CheckpointProposal so peers never see a proposed checkpoint for
+        // this slot, but still broadcast the held last block standalone so peers' archivers ingest
+        // it as a proposed-but-uncheckpointed tip — the exact orphan-block state that
+        // pruneOrphanProposedBlocks / checkSync must handle.
+        if (blockPendingBroadcast && !this.config.skipBroadcastProposals) {
+          await this.p2pClient.broadcastProposal(blockPendingBroadcast);
+        }
+      } else if (!this.config.skipBroadcastProposals) {
         await this.p2pClient.broadcastCheckpointProposal(proposal);
         this.checkpointMetrics.noteCheckpointBroadcast(this.dateProvider.now());
       }

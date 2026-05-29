@@ -8,6 +8,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2Tips } from '@aztec/stdlib/block';
 import type { CheckpointData } from '@aztec/stdlib/checkpoint';
@@ -57,6 +58,7 @@ describe('Archiver misc', () => {
     const rollupContract = mock<RollupContract>();
     const epochCache = mock<EpochCache>();
     epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
+    epochCache.pipeliningOffset.mockReturnValue(0);
 
     const tracer = getTelemetryClient().getTracer('');
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
@@ -78,7 +80,12 @@ describe('Archiver misc', () => {
         slashingProposerAddress: EthAddress.random(),
       },
       archiverStore,
-      { pollingIntervalMs: 1000, batchSize: 1000, maxAllowedEthClientDriftSeconds: 300 },
+      {
+        pollingIntervalMs: 1000,
+        batchSize: 1000,
+        maxAllowedEthClientDriftSeconds: 300,
+        orphanProposedBlockPruneGraceSeconds: 2,
+      },
       blobClient,
       instrumentation,
       l1Constants,
@@ -87,6 +94,8 @@ describe('Archiver misc', () => {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
+      epochCache,
+      new DateProvider(),
     );
   });
 

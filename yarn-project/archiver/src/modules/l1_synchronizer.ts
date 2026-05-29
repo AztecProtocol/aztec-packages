@@ -295,7 +295,6 @@ export class ArchiverL1Synchronizer implements Traceable {
     );
 
     const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
-
     if (prunedBlocks.length > 0) {
       this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
         type: L2BlockSourceEvents.L2PruneUncheckpointed,
