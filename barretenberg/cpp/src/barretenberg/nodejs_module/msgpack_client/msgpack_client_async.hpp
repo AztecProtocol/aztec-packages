@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/ipc/ipc_client.hpp"
+#include "ipc_runtime/ipc_client.hpp"
 #include "napi.h"
 #include <atomic>
 #include <mutex>
@@ -71,7 +71,7 @@ class MsgpackClientAsync : public Napi::ObjectWrap<MsgpackClientAsync> {
     void poll_responses();
 
     // IPC client for shared memory communication
-    std::unique_ptr<bb::ipc::IpcClient> client_;
+    std::unique_ptr<ipc::IpcClient> client_;
 
     // Background polling thread (detached - will be cleaned up by OS on process exit)
     std::thread poll_thread_;

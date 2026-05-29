@@ -74,6 +74,8 @@ export class TypeScriptCodegen {
           : this.primitiveType(type);
 
       case "vector": {
+        // `vector<unsigned char>` → raw bytes (msgpack `bin`), use Uint8Array.
+        if (this.isU8Primitive(type.element!)) return "Uint8Array";
         const inner = this.mapType(type.element!);
         // Wrap union types in parens to avoid precedence issues: (Foo | undefined)[]
         return type.element!.kind === "optional"
@@ -82,6 +84,10 @@ export class TypeScriptCodegen {
       }
 
       case "array": {
+        // `array<unsigned char, N>` → raw bytes (msgpack `bin`), use Uint8Array
+        // — matches the C++ `std::array<uint8_t, N>` adapter and the legacy
+        // bb/ts/cbind codegen shape that callers depend on.
+        if (this.isU8Primitive(type.element!)) return "Uint8Array";
         const inner = this.mapType(type.element!);
         return type.element!.kind === "optional"
           ? `(${inner})[]`
@@ -98,6 +104,10 @@ export class TypeScriptCodegen {
     throw new Error(`Unsupported type kind: ${type.kind}`);
   }
 
+  private isU8Primitive(type: Type): boolean {
+    return type.kind === "primitive" && type.primitive === "u8";
+  }
+
   // Type mapping for msgpack interfaces (uses Msgpack* prefix for structs)
   private mapMsgpackType(type: Type): string {
     switch (type.kind) {
@@ -105,6 +115,7 @@ export class TypeScriptCodegen {
         return this.primitiveType(type);
 
       case "vector": {
+        if (this.isU8Primitive(type.element!)) return "Uint8Array";
         const inner = this.mapMsgpackType(type.element!);
         return type.element!.kind === "optional"
           ? `(${inner})[]`
@@ -112,6 +123,7 @@ export class TypeScriptCodegen {
       }
 
       case "array": {
+        if (this.isU8Primitive(type.element!)) return "Uint8Array";
         const inner = this.mapMsgpackType(type.element!);
         return type.element!.kind === "optional"
           ? `(${inner})[]`

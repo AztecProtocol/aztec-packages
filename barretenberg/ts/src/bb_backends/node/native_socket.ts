@@ -1,79 +1,48 @@
 import { spawn, ChildProcess } from 'child_process';
-import * as net from 'net';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { IMsgpackBackendAsync } from '../interface.js';
 import readline from 'readline';
 import { threadId } from 'worker_threads';
+import { UdsIpcClient } from '@aztec/ipc-runtime';
+import { IMsgpackBackendAsync } from '../interface.js';
 
 let instanceCounter = 0;
 
 /**
- * Asynchronous native backend that communicates with bb binary via Unix Domain Socket.
- * Uses event-based I/O with a state machine to handle partial reads.
+ * Async native backend that talks to the `bb` binary over a Unix Domain
+ * Socket. bb owns the socket (server side); this class spawns the bb
+ * process, waits for the socket file to appear, and delegates the wire
+ * protocol to @aztec/ipc-runtime's UdsIpcClient.
  *
- * Architecture: bb acts as the SERVER, TypeScript is the CLIENT
- * - bb creates the socket and listens for connections
- * - TypeScript waits for socket file to exist, then connects
- *
- * Protocol:
- * - Request: 4-byte little-endian length + msgpack buffer
- * - Response: 4-byte little-endian length + msgpack buffer
+ * The transport (4-byte LE length prefix + msgpack) is identical across
+ * every language client of bb. Length-prefix framing, FIFO pipelining,
+ * and connect retry all live in UdsIpcClient.
  */
 export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsync {
   private process: ChildProcess;
-  private socket: net.Socket | null = null;
   private socketPath: string;
-  private connectionPromise: Promise<void>;
-  private connectionTimeout: NodeJS.Timeout | null = null;
-
-  // Queue of pending callbacks for pipelined requests
-  // Responses come back in FIFO order, so we match them with queued callbacks
-  private pendingCallbacks: Array<{
-    resolve: (data: Uint8Array) => void;
-    reject: (error: Error) => void;
-  }> = [];
-
-  // State machine for reading responses
-  private readingLength: boolean = true;
-  private lengthBuffer: Buffer = Buffer.alloc(4);
-  private lengthBytesRead: number = 0;
-  private responseLength: number = 0;
-  private responseBuffer: Buffer | null = null;
-  private responseBytesRead: number = 0;
+  private clientPromise: Promise<UdsIpcClient>;
+  private client: UdsIpcClient | null = null;
+  private destroyed = false;
 
   constructor(bbBinaryPath: string, threads?: number, logger?: (msg: string) => void, unref?: boolean) {
-    // Create a unique socket path in temp directory
     this.socketPath = path.join(os.tmpdir(), `bb-${process.pid}-${threadId}-${instanceCounter++}.sock`);
-
-    // Ensure socket path doesn't already exist (cleanup from previous crashes)
     if (fs.existsSync(this.socketPath)) {
       fs.unlinkSync(this.socketPath);
     }
 
-    let connectionResolve: (() => void) | null = null;
-    let connectionReject: ((error: Error) => void) | null = null;
-
-    this.connectionPromise = new Promise<void>((resolve, reject) => {
-      connectionResolve = resolve;
-      connectionReject = reject;
-    });
-
-    // If threads not set use num cpu cores, max 16.
     const hwc = threads ? threads.toString() : Math.min(16, os.cpus().length).toString();
     const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
 
-    // Spawn bb process - it will create the socket server
     const args = ['msgpack', 'run', '--input', this.socketPath];
     this.process = spawn(bbBinaryPath, args, {
       stdio: ['ignore', logger ? 'pipe' : 'ignore', logger ? 'pipe' : 'ignore'],
       env,
     });
 
-    // Disconnect from event loop so process can exit without waiting for bb
-    // The bb process has parent death monitoring (prctl on Linux, kqueue on macOS)
-    // so it will automatically exit when Node.js exits
+    // bb has parent-death monitoring; we don't need the event loop pinned
+    // open by the child process handle.
     this.process.unref();
 
     if (logger) {
@@ -86,279 +55,69 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       }
     }
 
-    this.process.on('error', err => {
-      if (connectionReject) {
-        connectionReject(new Error(`Native backend process error: ${err.message}`));
-        connectionReject = null;
-        connectionResolve = null;
-      }
-      // Reject all pending callbacks and destroy socket to prevent further writes
-      const error = new Error(`Native backend process error: ${err.message}`);
-      for (const callback of this.pendingCallbacks) {
-        callback.reject(error);
-      }
-      this.pendingCallbacks = [];
-      if (this.socket) {
-        this.socket.destroy();
-        this.socket = null;
-      }
-    });
+    this.clientPromise = this.waitForSocketAndConnect();
 
+    // Surface process exit / spawn errors. UdsIpcClient already rejects
+    // in-flight calls on socket close; this catches the case where the
+    // process dies before we ever connect.
+    this.process.on('error', err => this.abortPending(new Error(`Native backend process error: ${err.message}`)));
     this.process.on('exit', (code, signal) => {
-      const errorMsg =
+      const msg =
         code !== null && code !== 0
           ? `Native backend process exited with code ${code}`
           : signal && signal !== 'SIGTERM'
             ? `Native backend process killed with signal ${signal}`
             : 'Native backend process exited unexpectedly';
-
-      if (connectionReject) {
-        connectionReject(new Error(errorMsg));
-        connectionReject = null;
-        connectionResolve = null;
-      }
-      // Reject all pending callbacks and destroy socket to prevent further writes
-      const error = new Error(errorMsg);
-      for (const callback of this.pendingCallbacks) {
-        callback.reject(error);
-      }
-      this.pendingCallbacks = [];
-      if (this.socket) {
-        this.socket.destroy();
-        this.socket = null;
-      }
+      this.abortPending(new Error(msg));
     });
-
-    // Wait for bb to create socket file, then connect
-    this.waitForSocketAndConnect()
-      .then(() => {
-        if (connectionResolve) {
-          connectionResolve();
-          connectionResolve = null;
-          connectionReject = null;
-        }
-      })
-      .catch(err => {
-        if (connectionReject) {
-          connectionReject(err);
-          connectionReject = null;
-          connectionResolve = null;
-        }
-      });
-
-    // Set a timeout for connection
-    this.connectionTimeout = setTimeout(() => {
-      if (connectionReject) {
-        connectionReject(new Error('Timeout waiting for bb socket connection'));
-        connectionReject = null;
-        connectionResolve = null;
-        this.cleanup();
-      }
-    }, 5000);
   }
 
-  private async waitForSocketAndConnect(): Promise<void> {
-    // Poll for socket file to exist (bb is creating it)
-    const startTime = Date.now();
+  private async waitForSocketAndConnect(): Promise<UdsIpcClient> {
+    const start = Date.now();
     while (!fs.existsSync(this.socketPath)) {
-      if (Date.now() - startTime > 5000) {
+      if (Date.now() - start > 5000) {
         throw new Error('Timeout waiting for bb to create socket file');
       }
       await new Promise(resolve => setTimeout(resolve, 50));
     }
-
-    // Additional check: ensure it's actually a socket
-    const stats = fs.statSync(this.socketPath);
-    if (!stats.isSocket()) {
+    if (!fs.statSync(this.socketPath).isSocket()) {
       throw new Error(`Path exists but is not a socket: ${this.socketPath}`);
     }
-
-    // Connect with retry on ECONNREFUSED. The socket file appears after bb's bind() but
-    // before its listen(); a connect() landing in that window gets ECONNREFUSED. Retry
-    // briefly until bb is listening or we hit the 5s budget.
-    const socket = await this.connectWithRetry(startTime);
-    this.socket = socket;
-
-    // Clear connection timeout on successful connection
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
-    }
-
-    // Set up persistent handlers now that we're connected.
-    socket.on('data', (chunk: Buffer) => {
-      this.handleData(chunk);
+    const client = await UdsIpcClient.connect(this.socketPath, {
+      connectTimeoutMs: Math.max(0, 5000 - (Date.now() - start)),
     });
-
-    socket.on('error', err => {
-      const error = new Error(`Socket error: ${err.message}`);
-      for (const callback of this.pendingCallbacks) {
-        callback.reject(error);
-      }
-      this.pendingCallbacks = [];
-    });
-
-    socket.on('end', () => {
-      const error = new Error('Socket connection ended unexpectedly');
-      for (const callback of this.pendingCallbacks) {
-        callback.reject(error);
-      }
-      this.pendingCallbacks = [];
-    });
-  }
-
-  private async connectWithRetry(startTime: number): Promise<net.Socket> {
-    let attempt = 0;
-    let lastErr: Error | undefined;
-    while (Date.now() - startTime < 5000) {
-      try {
-        return await this.attemptConnect();
-      } catch (err) {
-        lastErr = err as Error;
-        const code = (err as NodeJS.ErrnoException).code;
-        if (code !== 'ECONNREFUSED') {
-          throw new Error(`Failed to connect to bb socket: ${lastErr.message}`);
-        }
-        // bb has bound the path but not yet called listen(); back off and retry.
-        const delay = Math.min(50, 5 * 2 ** attempt++);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    throw new Error(`Timeout connecting to bb socket: ${lastErr?.message ?? 'unknown'}`);
-  }
-
-  private attemptConnect(): Promise<net.Socket> {
-    return new Promise<net.Socket>((resolve, reject) => {
-      const socket = net.connect(this.socketPath);
-      socket.setNoDelay(true);
-      const onConnect = () => {
-        socket.removeListener('error', onError);
-        resolve(socket);
-      };
-      const onError = (err: Error) => {
-        socket.removeListener('connect', onConnect);
-        socket.destroy();
-        reject(err);
-      };
-      socket.once('connect', onConnect);
-      socket.once('error', onError);
-    });
-  }
-
-  private handleData(chunk: Buffer): void {
-    let offset = 0;
-
-    while (offset < chunk.length) {
-      if (this.readingLength) {
-        // Reading 4-byte length prefix
-        const bytesToCopy = Math.min(4 - this.lengthBytesRead, chunk.length - offset);
-        chunk.copy(this.lengthBuffer, this.lengthBytesRead, offset, offset + bytesToCopy);
-        this.lengthBytesRead += bytesToCopy;
-        offset += bytesToCopy;
-
-        if (this.lengthBytesRead === 4) {
-          // Length is complete, switch to reading data
-          this.responseLength = this.lengthBuffer.readUInt32LE(0);
-          this.responseBuffer = Buffer.alloc(this.responseLength);
-          this.responseBytesRead = 0;
-          this.readingLength = false;
-        }
-      } else {
-        // Reading response data
-        const bytesToCopy = Math.min(this.responseLength - this.responseBytesRead, chunk.length - offset);
-        chunk.copy(this.responseBuffer!, this.responseBytesRead, offset, offset + bytesToCopy);
-        this.responseBytesRead += bytesToCopy;
-        offset += bytesToCopy;
-
-        if (this.responseBytesRead === this.responseLength) {
-          // Response is complete - dequeue the next pending callback (FIFO)
-          const callback = this.pendingCallbacks.shift();
-          if (callback) {
-            callback.resolve(new Uint8Array(this.responseBuffer!));
-          } else {
-            // This shouldn't happen - response without a pending request
-            console.warn('Received response but no pending callback');
-          }
-
-          // If no more pending callbacks, unref socket to allow process to exit
-          if (this.pendingCallbacks.length === 0 && this.socket) {
-            this.socket.unref();
-          }
-
-          // Reset state for next message
-          this.readingLength = true;
-          this.lengthBytesRead = 0;
-          this.responseLength = 0;
-          this.responseBuffer = null;
-          this.responseBytesRead = 0;
-        }
-      }
-    }
+    this.client = client;
+    return client;
   }
 
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
-    // Wait for connection to be established
-    await this.connectionPromise;
-
-    if (!this.socket) {
-      throw new Error('Socket not connected');
+    const client = await this.clientPromise;
+    if (this.destroyed) throw new Error('Backend destroyed');
+    // Hold the event loop open only while we have outstanding work; unref
+    // again as soon as the queue drains so an idle bb client doesn't keep
+    // the host process alive.
+    if (client.inflight === 0) client.socket.ref();
+    try {
+      return await client.call(inputBuffer);
+    } finally {
+      if (client.inflight === 0) client.socket.unref();
     }
-
-    return new Promise((resolve, reject) => {
-      // If this is the first pending callback, ref the socket to keep event loop alive
-      if (this.pendingCallbacks.length === 0) {
-        this.socket!.ref();
-      }
-
-      // Enqueue this promise's callbacks (FIFO order)
-      this.pendingCallbacks.push({ resolve, reject });
-
-      // Write request: 4-byte little-endian length + msgpack data
-      // Socket will buffer these if needed, maintaining order
-      const lengthBuf = Buffer.alloc(4);
-      lengthBuf.writeUInt32LE(inputBuffer.length, 0);
-      this.socket!.write(lengthBuf);
-      this.socket!.write(inputBuffer);
-    });
   }
 
-  private cleanup(): void {
-    // Reject any remaining pending callbacks
-    const error = new Error('Backend connection closed');
-    for (const callback of this.pendingCallbacks) {
-      callback.reject(error);
+  private abortPending(err: Error): void {
+    if (this.client) {
+      this.client.destroy().catch(() => {});
+      this.client = null;
     }
-    this.pendingCallbacks = [];
-
-    try {
-      // Remove all event listeners to prevent hanging
-      if (this.socket) {
-        this.socket.removeAllListeners();
-        // Unref so socket doesn't keep event loop alive
-        // this.socket.unref();
-        this.socket.destroy();
-        this.socket = null;
-      }
-    } catch (e) {
-      // Ignore errors during cleanup
-    }
-
-    // Clear connection timeout if still pending
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
-    }
-
-    // Remove process event listeners and unref to not block event loop
-    this.process.removeAllListeners();
-    // this.process.unref();
-
-    // Don't try to unlink socket - bb owns it and will clean it up
   }
 
   async destroy(): Promise<void> {
-    this.cleanup();
-    this.process.kill('SIGTERM');
+    this.destroyed = true;
+    if (this.client) {
+      await this.client.destroy();
+      this.client = null;
+    }
     this.process.removeAllListeners();
+    this.process.kill('SIGTERM');
   }
 }
