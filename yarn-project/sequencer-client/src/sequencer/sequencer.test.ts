@@ -213,7 +213,6 @@ describe('sequencer', () => {
       ts: 1000n,
       nowSeconds: 1000n,
     }));
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
     epochCache.getCommittee.mockResolvedValue({
       committee,
       seed: 1n,
@@ -434,8 +433,10 @@ describe('sequencer', () => {
     it('does not build a block if it does not have enough time left in the slot', async () => {
       await setupSingleTxBlock();
 
-      // Deadline for initializing proposal is 1s, so we go 2s past it
-      expect(sequencer.getTimeTable().initializeDeadline).toEqual(1);
+      // Deadline for initializing proposal is 5.5s into the slot; the build slot starts at
+      // l1GenesisTime + slotDuration - ethereumSlotDuration, so setting the clock to
+      // l1GenesisTime + slotDuration + 2 puts us at 6s into the slot, past the deadline.
+      expect(sequencer.getTimeTable().initializeDeadline).toEqual(5.5);
       const l1TsForL2Slot1 = Number(l1Constants.l1GenesisTime) + slotDuration;
       dateProvider.setTime((l1TsForL2Slot1 + 2) * 1000);
       await expect(sequencer.work()).rejects.toThrow(
@@ -508,8 +509,9 @@ describe('sequencer', () => {
       await sequencer.work();
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
 
-      // Archiver reports synced to slot 0, which satisfies syncedL2Slot + 1 >= slot (slot=1)
-      l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(0));
+      // Archiver reports synced to the build slot, satisfying both the pre-build sync gate
+      // (syncedL2Slot + 1 >= slot) and the pipelined parent-checkpoint wait (synced >= slotNow).
+      l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(1));
       await sequencer.work();
       await sequencer.awaitLastProposalSubmission();
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
@@ -739,12 +741,12 @@ describe('sequencer', () => {
     const mockSlashActions = [{ type: 'vote-offenses' as const, round: 1n, votes: [], committees: [] }];
 
     it('should vote on slashing and governance when sync fails and past initialize deadline', async () => {
-      // Set time to be past the initializeDeadline (which is 1s based on test config)
+      // Set time to be past the initializeDeadline (5.5s for this test config)
       // Build start is: l1GenesisTime + slotNumber * slotDuration - ethereumSlotDuration
       // For slot 1: l1GenesisTime + 1 * 8 - 4 = l1GenesisTime + 4
-      expect(sequencer.getTimeTable().initializeDeadline).toEqual(1);
+      expect(sequencer.getTimeTable().initializeDeadline).toEqual(5.5);
       const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
-      dateProvider.setTime((buildStartTime + 2) * 1000); // 2 seconds after build start, past the 1s deadline
+      dateProvider.setTime((buildStartTime + 6) * 1000); // 6 seconds after build start, past the 5.5s deadline
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
@@ -801,7 +803,7 @@ describe('sequencer', () => {
     it('should not vote when sync fails but not a proposer', async () => {
       // Set time to be past the max allowed time
       const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
-      dateProvider.setTime((buildStartTime + 2) * 1000); // 2s after build start, past 1s deadline
+      dateProvider.setTime((buildStartTime + 6) * 1000); // 6s after build start, past 5.5s deadline
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
@@ -819,7 +821,7 @@ describe('sequencer', () => {
     it('should not attempt to vote twice in the same slot', async () => {
       // Set time to be past the max allowed time
       const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
-      dateProvider.setTime((buildStartTime + 2) * 1000); // 2s after build start, past 1s deadline
+      dateProvider.setTime((buildStartTime + 6) * 1000); // 6s after build start, past 5.5s deadline
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
@@ -1039,7 +1041,6 @@ describe('sequencer', () => {
       sequencer.skipExecute = true;
 
       // Set up a pipelining scenario: slot.now=1, slot.pipeline=2
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
       epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
         epoch: EpochNumber(1),
         slot: SlotNumber(1),
@@ -1229,31 +1230,6 @@ describe('sequencer', () => {
       await sequencer.work();
 
       // The default `getL2Tips` mock has checkpointed.checkpoint.number == CheckpointNumber.ZERO.
-      const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
-      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber.ZERO);
-      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber.ZERO);
-      expect(plan?.pendingCheckpointState).toBeUndefined();
-    });
-
-    it('pins both chain tips to the on-chain pending snapshot when not pipelining', async () => {
-      await setupSingleTxBlock();
-
-      // Override back to non-pipelining
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
-      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(1),
-        ts: 1000n,
-        nowSeconds: 1000n,
-      });
-      publisher.canProposeAt.mockResolvedValue({
-        slot: SlotNumber(1),
-        checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
-        timeOfNextL1Slot: 1000n,
-      });
-
-      await sequencer.work();
-
       const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
       expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber.ZERO);
       expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber.ZERO);
@@ -1461,23 +1437,6 @@ describe('sequencer', () => {
       const proposer = signer.address;
       validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
-
-      await sequencer.checkCanProposeForTest(SlotNumber(2));
-
-      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(2));
-    });
-
-    it('when pipelining enabled, checkCanPropose receives target slot with pipeline offset', async () => {
-      const proposer = signer.address;
-      validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
-      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(2),
-        ts: 1000n,
-        nowSeconds: 1000n,
-      });
 
       await sequencer.checkCanProposeForTest(SlotNumber(2));
 

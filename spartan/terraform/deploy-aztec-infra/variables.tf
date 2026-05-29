@@ -423,12 +423,6 @@ variable "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" {
   default     = null
 }
 
-variable "SEQ_ENABLE_PROPOSER_PIPELINING" {
-  description = "Whether to enable build-ahead proposer pipelining"
-  type        = string
-  default     = "false"
-}
-
 variable "AZTEC_EPOCHS_LAG" {
   description = "Epoch lag override for validator nodes"
   type        = string

@@ -182,7 +182,6 @@ export async function createArchiver(
     initialHeader,
     initialBlockHash,
     l2TipsCache,
-    epochCache,
     deps.dateProvider ?? new DateProvider(),
   );
 

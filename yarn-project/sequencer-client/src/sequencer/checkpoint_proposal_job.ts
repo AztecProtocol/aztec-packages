@@ -244,7 +244,6 @@ export class CheckpointProposalJob implements Traceable {
     votesPromises: Promise<unknown>[],
   ): Promise<void> {
     const { checkpoint } = broadcast;
-    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
 
     try {
       // Wait for all votes actions, enqueued at the beginning, to resolve
@@ -253,15 +252,14 @@ export class CheckpointProposalJob implements Traceable {
       // Try to collect attestations from the committee
       const signedAttestations = await this.getSignedCommitteeAttestations(broadcast);
 
-      // If pipelining, wait for the previous checkpoint to land on L1 before submitting,
-      // so we can check it matches the proposed checkpoint we used as parent, and has valid attestations.
-      if (signedAttestations && (!isPipelining || (await this.waitForValidParentCheckpointOnL1()))) {
+      // Wait for the previous checkpoint to land on L1 before submitting, so we can check it
+      // matches the proposed checkpoint we used as parent, and has valid attestations.
+      if (signedAttestations && (await this.waitForValidParentCheckpointOnL1())) {
         await this.enqueueCheckpointForSubmission({ checkpoint, ...signedAttestations });
       }
 
       // If we failed to collect attestations, at least check if we need to issue an invalidation
-      // Note that if we are not pipelining, we enqueued the invalidation at the beginning
-      if (!signedAttestations && isPipelining && (await this.waitForSyncedL2SlotNumber(this.slotNow))) {
+      if (!signedAttestations && (await this.waitForSyncedL2SlotNumber(this.slotNow))) {
         const validationStatus = await this.l2BlockSource.getPendingChainValidationStatus();
         if (!validationStatus.valid) {
           this.log.warn(
@@ -305,9 +303,7 @@ export class CheckpointProposalJob implements Traceable {
           reason: 'propose_action_not_successful',
         });
         this.eventEmitter.emit('checkpoint-publish-failed', { ...l1Response, slot: this.targetSlot });
-        if (isPipelining) {
-          this.metrics.recordPipelineDiscard();
-        }
+        this.metrics.recordPipelineDiscard();
       }
     } catch (err) {
       if (err instanceof SequencerInterruptedError) {
@@ -324,9 +320,7 @@ export class CheckpointProposalJob implements Traceable {
         reason: err instanceof Error ? err.message : String(err),
       });
       this.eventEmitter.emit('checkpoint-publish-failed', { slot: this.targetSlot });
-      if (isPipelining) {
-        this.metrics.recordPipelineDiscard();
-      }
+      this.metrics.recordPipelineDiscard();
     }
   }
 
@@ -510,7 +504,7 @@ export class CheckpointProposalJob implements Traceable {
   private async proposeCheckpoint(): Promise<CheckpointProposalBroadcast | undefined> {
     try {
       const now = this.dateProvider.now();
-      if (this.epochCache.isProposerPipeliningEnabled() && this.proposedCheckpointData) {
+      if (this.proposedCheckpointData) {
         // Measure against the wall-clock slot whose build window we are currently using.
         // In pipelining mode `targetSlot` is intentionally one slot ahead, which makes the
         // target-slot boundary a full slot away from the actual build start time.
@@ -530,7 +524,6 @@ export class CheckpointProposalJob implements Traceable {
         submissionSlot: this.targetSlot,
         slot: this.targetSlot,
         checkpointNumber: this.checkpointNumber,
-        pipelining: this.epochCache.isProposerPipeliningEnabled(),
         proposer: this.proposer?.toString(),
         attestorAddress: this.attestorAddress.toString(),
         publisherAddress: this.publisher.getSenderAddress().toString(),
@@ -547,10 +540,9 @@ export class CheckpointProposalJob implements Traceable {
       // pending/archive/fee-header to "as if the proposed parent had landed", so both the
       // mana-min-fee simulation (in the globals builder) and the pre-broadcast
       // validateBlockHeader see the chain tip the eventual L1 send will see.
-      const isPipelining = this.epochCache.isProposerPipeliningEnabled();
       this.checkpointSimulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: this.checkpointNumber,
-        proposedCheckpointData: isPipelining ? this.proposedCheckpointData : undefined,
+        proposedCheckpointData: this.proposedCheckpointData,
         invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
         checkpointedCheckpointNumber: this.checkpointedCheckpointNumber,
         rollup: this.publisher.rollupContract,
@@ -579,7 +571,7 @@ export class CheckpointProposalJob implements Traceable {
         epoch: this.targetEpoch,
         checkpointNumber: this.checkpointNumber,
         l1Constants: this.epochCache.getL1Constants(),
-        pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
+        pipeliningEnabled: true,
         proposedCheckpointData: this.proposedCheckpointData,
         log: this.log,
       });

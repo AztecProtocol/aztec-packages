@@ -1,6 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
@@ -56,9 +55,6 @@ describe('Archiver misc', () => {
     const publicClient = mock<ViemPublicClient>();
     const blobClient = mock<BlobClientInterface>();
     const rollupContract = mock<RollupContract>();
-    const epochCache = mock<EpochCache>();
-    epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
-    epochCache.pipeliningOffset.mockReturnValue(0);
 
     const tracer = getTelemetryClient().getTracer('');
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
@@ -94,7 +90,6 @@ describe('Archiver misc', () => {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
-      epochCache,
       new DateProvider(),
     );
   });

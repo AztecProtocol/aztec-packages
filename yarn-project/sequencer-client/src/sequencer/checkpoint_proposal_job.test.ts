@@ -244,6 +244,31 @@ describe('CheckpointProposalJob', () => {
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+    // The (always-on) pipelined submission path waits for the archiver to confirm the parent
+    // checkpoint on L1 before enqueuing the proposal. For the default job (checkpoint 1, no
+    // proposed parent), the parent is genesis (cp 0), so a synced archiver reporting a
+    // checkpointed tip of cp 0 lets the wait pass. Tests with a proposed parent override these.
+    l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(newSlotNumber));
+    l2BlockSource.getPendingChainValidationStatus.mockResolvedValue({ valid: true });
+    l2BlockSource.getL2Tips.mockResolvedValue({
+      proposed: { number: BlockNumber(1), hash: 'proposed-hash' },
+      checkpointed: {
+        block: { number: BlockNumber.ZERO, hash: 'block-hash' },
+        checkpoint: { number: CheckpointNumber.ZERO, hash: 'checkpointed-ckpt-hash' },
+      },
+      proposedCheckpoint: {
+        block: { number: BlockNumber.ZERO, hash: 'block-hash' },
+        checkpoint: { number: CheckpointNumber.ZERO, hash: 'proposed-ckpt-hash' },
+      },
+      proven: {
+        block: { number: BlockNumber.ZERO, hash: 'proven-hash' },
+        checkpoint: { number: CheckpointNumber.ZERO, hash: 'proven-ckpt-hash' },
+      },
+      finalized: {
+        block: { number: BlockNumber.ZERO, hash: 'finalized-hash' },
+        checkpoint: { number: CheckpointNumber.ZERO, hash: 'finalized-ckpt-hash' },
+      },
+    });
 
     blockSink = mock<L2BlockSink & ProposedCheckpointSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
@@ -374,7 +399,6 @@ describe('CheckpointProposalJob', () => {
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 2, chainId);
       checkpointBuilder.seedBlocks([block], [txs]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
       // We build checkpoint 2 on top of proposed parent at checkpoint 1.
       checkpointNumber = CheckpointNumber(2);
 
@@ -566,7 +590,6 @@ describe('CheckpointProposalJob', () => {
 
     it('splices the parent checkpointOutHash from proposedCheckpointData when pipelining and parent not yet on L1', async () => {
       // Build checkpoint 2, where the parent (checkpoint 1) is in the same epoch but not yet checkpointed on L1.
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
       checkpointNumber = CheckpointNumber(2);
 
       // L1 archiver knows nothing yet — checkpoint 1's L1 tx is still in flight.
@@ -610,47 +633,9 @@ describe('CheckpointProposalJob', () => {
       expect(call.previousCheckpointOutHashes).toEqual([parentCheckpointOutHash]);
     });
 
-    it('does not splice the parent outHash when pipelining is disabled', async () => {
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
-      checkpointNumber = CheckpointNumber(2);
-
-      l2BlockSource.getCheckpointsData.mockResolvedValue([]);
-
-      const proposedCheckpointData: ProposedCheckpointData = {
-        checkpointNumber: CheckpointNumber(1),
-        header: CheckpointHeader.empty(),
-        archive: AppendOnlyTreeSnapshot.empty(),
-        checkpointOutHash: Fr.random(),
-        startBlock: BlockNumber(1),
-        blockCount: 1,
-        totalManaUsed: 5000n,
-        feeAssetPriceModifier: 100n,
-      };
-
-      job = createCheckpointProposalJob({ proposedCheckpointData });
-      job.setTimetable(
-        new SequencerTimetable({
-          ethereumSlotDuration,
-          aztecSlotDuration: slotDuration,
-          l1PublishingTime: ethereumSlotDuration,
-          enforce: config.enforceTimeTable,
-        }),
-      );
-
-      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
-      checkpointBuilder.seedBlocks([block], [txs]);
-      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
-
-      await job.executeAndAwait();
-
-      expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
-      expect(checkpointsBuilder.startCheckpointCalls[0].previousCheckpointOutHashes).toEqual([]);
-    });
-
     it('does not splice the parent outHash when the parent is in a different epoch', async () => {
       // Parent checkpoint sits at the last slot of the previous epoch; we are building the first
       // checkpoint of the new epoch, so the parent's outHash must NOT contribute to our epochOutHash.
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
       const targetEpoch = EpochNumber(1);
       const targetSlot = SlotNumber(l1Constants.epochDuration);
       const slotNow = SlotNumber(l1Constants.epochDuration - 1);
@@ -1047,7 +1032,6 @@ describe('CheckpointProposalJob', () => {
       proposedCheckpointData?: ProposedCheckpointData,
     ): Promise<TestCheckpointProposalJob> {
       checkpointNumber = CheckpointNumber(2);
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
 
       const pipelinedJob = createCheckpointProposalJob({
         targetSlot: SlotNumber(newSlotNumber + 1),
@@ -1341,8 +1325,8 @@ describe('CheckpointProposalJob', () => {
 
   describe('multiple block mode', () => {
     beforeEach(() => {
-      // Keep the real L1 publish budget and use the largest valid non-pipelined
-      // block duration for a 24s slot under the stricter timing guards.
+      // Keep the real L1 publish budget and use the largest block duration that fits a 24s slot
+      // under the stricter timing guards.
       job.setTimetable(
         new SequencerTimetable({
           ethereumSlotDuration,

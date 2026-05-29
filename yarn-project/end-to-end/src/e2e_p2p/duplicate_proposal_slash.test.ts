@@ -80,7 +80,6 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
         blockDurationMs: BLOCK_DURATION * 1000,
         slashDuplicateProposalPenalty: slashingUnit,
         slashingOffsetInRounds: 1,
-        enableProposerPipelining: true,
         inboxLag: 2,
       },
     });

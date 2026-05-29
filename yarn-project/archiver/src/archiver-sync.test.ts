@@ -93,10 +93,6 @@ describe('Archiver Sync', () => {
     // Create epoch cache mock (separate from fake)
     epochCache = mock<EpochCache>();
     epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
-    // Default to no pipelining offset; the orphan-prune tests below override this. Keeps the prune
-    // deadline well ahead of wall-clock time for the other tests so it never fires spuriously.
-    epochCache.pipeliningOffset.mockReturnValue(0);
-
     // Create instrumentation mock
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
@@ -167,7 +163,6 @@ describe('Archiver Sync', () => {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
-      epochCache,
       dateProvider,
     );
   });
@@ -2150,9 +2145,6 @@ describe('Archiver Sync', () => {
     beforeEach(() => {
       pruneSpy = jest.fn();
       archiver.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, pruneSpy);
-      // Normal proposer pipelining: a block targeting slot S is built during slot S-1, so its proposed
-      // checkpoint is expected by the start of slot S.
-      epochCache.pipeliningOffset.mockReturnValue(1);
     });
 
     afterEach(() => {

@@ -39,6 +39,16 @@ When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied def
 + MessageDelivery::onchain_constrained()
 ```
 
+### [Node] `SEQ_ENABLE_PROPOSER_PIPELINING` removed — proposer pipelining is always on
+
+The `SEQ_ENABLE_PROPOSER_PIPELINING` environment variable (config `enableProposerPipelining`) has been removed. Proposer pipelining — where the proposer builds for `slot + 1` while in `slot` — is now the only behavior of the production sequencer. The non-pipelined code path has been removed.
+
+**Migration:** Remove `SEQ_ENABLE_PROPOSER_PIPELINING` from any node configuration (env files, Helm values, docker-compose, terraform). The variable is now ignored.
+
+**Impact:** Node operators who relied on the non-pipelined mode (`SEQ_ENABLE_PROPOSER_PIPELINING=false`, the previous default) will now run with pipelining enabled. The deterministic single-sequencer test path is unaffected (selected via `useAutomineSequencer`).
+
+For consumers of `@aztec/stdlib/timetable`, the `pipelining` option has been removed from `createCheckpointTimingModel` and `calculateMaxBlocksPerSlot`; both now always use the pipelined timing model.
+
 ### [Aztec.js] `ExtendedDirectionalAppTaggingSecret` renamed to `AppTaggingSecret`
 
 `ExtendedDirectionalAppTaggingSecret` has been renamed to `AppTaggingSecret`.

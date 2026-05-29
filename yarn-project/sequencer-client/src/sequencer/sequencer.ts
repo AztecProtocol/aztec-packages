@@ -153,7 +153,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         p2pPropagationTime,
         blockDurationMs: this.config.blockDurationMs,
         enforce: this.config.enforceTimeTable,
-        pipelining: this.epochCache.isProposerPipeliningEnabled(),
       },
       this.metrics,
       this.log,
@@ -398,13 +397,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerForPublisher);
     this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
 
-    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need).
     // Only simulate invalidation when there's no proposed parent, since we assume the proposed parent
     // will invalidate the currently invalid checkpoint on L1.
     const invalidateCheckpoint =
-      (isPipelining && syncedTo.hasProposedCheckpoint) || syncedTo.pendingChainValidationStatus.valid
+      syncedTo.hasProposedCheckpoint || syncedTo.pendingChainValidationStatus.valid
         ? undefined
         : await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
 
@@ -413,7 +410,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // When invalidating or pipelining, the local archive may differ from L1's, so we adjust accordingly.
     let archiveForCheck = syncedTo.archive;
 
-    if (isPipelining && syncedTo.hasProposedCheckpoint) {
+    if (syncedTo.hasProposedCheckpoint) {
       this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
       this.log.verbose(
         `Building on top of proposed checkpoint (pending=${syncedTo.proposedCheckpointData?.checkpointNumber}) for target slot ${targetSlot}`,
@@ -439,8 +436,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // plus the parent checkpoint cell and fee header when pipelining.
     const simulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
       checkpointNumber,
-      proposedCheckpointData:
-        isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
+      proposedCheckpointData: syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
       invalidateToPendingCheckpointNumber: invalidateCheckpoint?.forcePendingCheckpointNumber,
       checkpointedCheckpointNumber: syncedTo.checkpointedCheckpointNumber,
       rollup: this.rollupContract,
@@ -464,7 +460,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.emit('preparing-checkpoint', {
       targetSlot,
       checkpointNumber,
-      hadProposedParent: this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint,
+      hadProposedParent: syncedTo.hasProposedCheckpoint,
       provenOverride,
       simulatedPending: simulationOverridesPlan?.chainTipsOverride?.pending,
     });
@@ -526,7 +522,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         ...logCtx,
         ...proposeContext,
         proposer,
-        pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
       },
     );
 
@@ -956,8 +951,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Under proposer pipelining, the multicall is expected to mine in `targetSlot` (slot + 1).
     // Governance and slashing votes are EIP-712-signed against the slot they will mine in, and the
     // L1 contract checks `msg.sender == getCurrentProposer()` using the mining slot. So we must
-    // sign for `targetSlot` and delay submission to the start of `targetSlot`. When pipelining is
-    // disabled `targetSlot == slot` and `sendRequestsAt` resolves with no extra sleep.
+    // sign for `targetSlot` and delay submission to the start of `targetSlot`.
     const voter = new CheckpointVoter(
       targetSlot,
       publisher,
