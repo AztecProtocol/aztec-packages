@@ -673,4 +673,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   public getDebugFunctionName() {
     return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
+
+  protected override get callerContext() {
+    return this.callContext.isStaticCall ? 'private view' : 'private';
+  }
 }
