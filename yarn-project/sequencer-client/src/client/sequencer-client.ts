@@ -145,7 +145,13 @@ export class SequencerClient {
 
     const { maxL2BlockGas, maxDABlockGas, maxTxsPerBlock } = capPerBlockLimits(config, rollupManaLimit, log);
 
-    const l1Constants = { l1GenesisTime, slotDuration: Number(slotDuration), ethereumSlotDuration, rollupManaLimit };
+    const l1Constants = {
+      l1GenesisTime,
+      slotDuration: Number(slotDuration),
+      ethereumSlotDuration,
+      rollupManaLimit,
+      epochDuration: config.aztecEpochDuration,
+    };
 
     const sequencer = new Sequencer(
       publisherFactory,

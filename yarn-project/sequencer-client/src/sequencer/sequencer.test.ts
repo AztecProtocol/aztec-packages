@@ -85,13 +85,14 @@ describe('sequencer', () => {
   let globalVariables: GlobalVariables;
   let l1Constants: Pick<
     L1RollupConstants,
-    'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration' | 'rollupManaLimit'
+    'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration' | 'rollupManaLimit' | 'epochDuration'
   >;
 
   let sequencer: TestSequencer;
 
   const slotDuration = 8;
   const ethereumSlotDuration = 4;
+  const epochDuration = 16;
 
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
@@ -188,7 +189,13 @@ describe('sequencer', () => {
     );
 
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
-    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration, rollupManaLimit: Number.MAX_SAFE_INTEGER };
+    l1Constants = {
+      l1GenesisTime,
+      slotDuration,
+      ethereumSlotDuration,
+      epochDuration,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
+    };
 
     epochCache = mockDeep<EpochCache>();
     epochCache.isEscapeHatchOpen.mockResolvedValue(false);
@@ -1062,6 +1069,34 @@ describe('sequencer', () => {
       sequencer.skipExecute = false;
     });
 
+    it('derives the pipelined target slot from the same next-L1-slot snapshot', async () => {
+      await setupSingleTxBlock();
+
+      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(6),
+        ts: 1780066804n,
+        nowSeconds: 1780066811n,
+      });
+      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(8),
+        ts: 1780066816n,
+        nowSeconds: 1780066812n,
+      });
+      publisher.canProposeAt.mockResolvedValue({
+        slot: SlotNumber(7),
+        checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
+        timeOfNextL1Slot: 1780066816n,
+      });
+
+      await sequencer.work();
+
+      expect(epochCache.getTargetEpochAndSlotInNextL1Slot).not.toHaveBeenCalled();
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(7));
+      expect(p2p.prepareForSlot).toHaveBeenCalledWith(SlotNumber(7));
+    });
+
     it('skips L1 check when proposed checkpoint exists', async () => {
       await setupSingleTxBlock();
 
@@ -1467,8 +1502,7 @@ class TestSequencer extends Sequencer {
     this.setState(SequencerState.IDLE, undefined, { force: true });
     if (this.skipExecute) {
       this.setState(SequencerState.SYNCHRONIZING, undefined);
-      const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
-      const { slot: targetSlot, epoch: targetEpoch } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
+      const { slot, targetSlot, epoch, targetEpoch, ts, nowSeconds } = this.getSlotContextInNextL1Slot();
       await this.prepareCheckpointProposal(slot, targetSlot, epoch, targetEpoch, ts, nowSeconds);
       return;
     }
