@@ -19,19 +19,39 @@ contract RewardDistributor is IRewardDistributor {
   IERC20 public immutable ASSET;
   IRegistry public immutable REGISTRY;
 
+  mapping(address => uint256) public specificOld;
+  uint256 public aggregateDebt;
+
   constructor(IERC20 _asset, IRegistry _registry) {
     ASSET = _asset;
     REGISTRY = _registry;
   }
 
+  function subsidizeOld(address _rollup, uint256 _amount) external {
+    ASSET.safeTransferFrom(msg.sender, address(this), _amount);
+    specificOld[_rollup] += _amount;
+    aggregateDebt += _amount;
+  }
+
+  function availableTo(address _rollup) public view returns (uint256) {
+    return _rollup != canonicalRollup() ? specificOld[_rollup] : ASSET.balanceOf(address(this)) - aggregateDebt;
+  }
+
   function claim(address _to, uint256 _amount) external override(IRewardDistributor) {
-    require(msg.sender == canonicalRollup(), Errors.RewardDistributor__InvalidCaller(msg.sender, canonicalRollup()));
+    require(_amount <= availableTo(msg.sender), Errors.RewardDistributor__InvalidCaller(msg.sender, canonicalRollup()));
+    if (msg.sender != canonicalRollup()) {
+      specificOld[msg.sender] -= _amount;
+      aggregateDebt -= _amount;
+    }
     ASSET.safeTransfer(_to, _amount);
   }
 
   function recover(address _asset, address _to, uint256 _amount) external override(IRewardDistributor) {
     address owner = Ownable(address(REGISTRY)).owner();
     require(msg.sender == owner, Errors.RewardDistributor__InvalidCaller(msg.sender, owner));
+    if (_asset == address(ASSET)) {
+      require(_amount <= availableTo(canonicalRollup()), "Amount exceeds canonical subsidy");
+    }
     IERC20(_asset).safeTransfer(_to, _amount);
   }
 

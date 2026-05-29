@@ -5,4 +5,6 @@ interface IRewardDistributor {
   function claim(address _to, uint256 _amount) external;
   function recover(address _asset, address _to, uint256 _amount) external;
   function canonicalRollup() external view returns (address);
+  function availableTo(address _rollup) external view returns (uint256);
+  function subsidizeOld(address _rollup, uint256 _amount) external;
 }
