@@ -295,23 +295,15 @@ template <typename Flavor> class SumcheckProverRound {
         size_t size;
     };
 
+    // ECCVM exposes a static row-skip manifest: a contiguous active-trace prefix that the prover can use directly
+    // instead of scanning every row. Translator deliberately does not (its trace over-covered when expressed as a
+    // static manifest); it falls back to the dynamic skip_entire_row scan below.
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    static constexpr bool HAS_ECCVM_STATIC_ROW_SKIP_MANIFEST =
+    static constexpr bool HAS_STATIC_ROW_SKIP_MANIFEST =
         IsAnyOf<Flavor, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor> &&
         requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials) {
             Flavor::row_skip_active_prefix_end(polynomials);
         };
-
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    static constexpr bool HAS_TRANSLATOR_STATIC_ROW_SKIP_MANIFEST =
-        IsTranslatorFlavor<Flavor> && requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials) {
-            polynomials.row_skip_ranges;
-        };
-
-    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    static constexpr bool HAS_STATIC_ROW_SKIP_MANIFEST =
-        HAS_ECCVM_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates> ||
-        HAS_TRANSLATOR_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>;
 
     static size_t round_up_to_even(const size_t value) { return value + (value & 1U); }
 
@@ -366,7 +358,7 @@ template <typename Flavor> class SumcheckProverRound {
             return ranges;
         }
 
-        if constexpr (HAS_ECCVM_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>) {
+        if constexpr (HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>) {
             const size_t row_skip_active_prefix_end = Flavor::row_skip_active_prefix_end(polynomials);
             if (row_skip_active_prefix_end == 0) {
                 append_scan_range(ranges, scan_start, effective_round_size);
@@ -381,15 +373,6 @@ template <typename Flavor> class SumcheckProverRound {
             // edge-pair is known to be relation-trivial, so do not spend scan work proving it row-by-row.
             if (effective_round_size >= scan_start + 2) {
                 append_scan_range(ranges, effective_round_size - 2, effective_round_size);
-            }
-        } else if constexpr (HAS_TRANSLATOR_STATIC_ROW_SKIP_MANIFEST<
-                                 ProverPolynomialsOrPartiallyEvaluatedMultivariates>) {
-            if (polynomials.row_skip_ranges.empty()) {
-                append_scan_range(ranges, scan_start, effective_round_size);
-                return ranges;
-            }
-            for (const auto& [start, end] : polynomials.row_skip_ranges) {
-                append_scan_range(ranges, std::max(start, scan_start), std::min(end, effective_round_size));
             }
         } else {
             append_scan_range(ranges, scan_start, effective_round_size);

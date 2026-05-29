@@ -1122,7 +1122,6 @@ class TranslatorFlavor {
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
-        std::vector<RowSkipRange> row_skip_ranges;
         [[nodiscard]] static size_t get_polynomial_size() { return 1UL << CONST_TRANSLATOR_LOG_N; }
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean

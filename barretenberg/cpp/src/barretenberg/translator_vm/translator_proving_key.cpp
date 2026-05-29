@@ -358,68 +358,6 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_extra_ran
     parallel_for(NUM_FACTORS_IN_NUMERATOR, fill_with_shift);
 }
 
-template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_row_skip_ranges(const size_t num_active_op_rows)
-{
-    auto& polynomials = proving_key->polynomials;
-    auto& ranges = polynomials.row_skip_ranges;
-    ranges.clear();
-
-    const size_t circuit_size = polynomials.get_polynomial_size();
-    const size_t mini = Flavor::MINI_CIRCUIT_SIZE;
-    auto append_unsorted_range = [&](size_t start, size_t end) {
-        start = std::min(start, circuit_size);
-        end = std::min(end, circuit_size);
-        start &= ~static_cast<size_t>(1);
-        end = row_skip_round_up_to_even(end);
-        if (end > start) {
-            ranges.emplace_back(start, end);
-        }
-    };
-
-    // The fixed extra numerator contributes at the front of the full concatenated trace.
-    append_unsorted_range(0, polynomials.ordered_extra_range_constraints_numerator.end_index());
-
-    // Op-queue data is written densely into the front [0, num_active_op_rows) of the minicircuit (the constructor's
-    // wire-fill loop populates rows [0, num_gates) and asserts the rest are zero), and every concatenation block
-    // shares that layout. Mark the contiguous active prefix of each block directly from the gate count rather than
-    // scanning every op row to rediscover it.
-    for (size_t block_idx = 0; block_idx < Flavor::CONCATENATION_GROUP_SIZE; ++block_idx) {
-        const size_t block_start = block_idx * mini;
-        append_unsorted_range(block_start, block_start + num_active_op_rows);
-    }
-
-    // Masking selectors are active in the last NUM_MASKED_ROWS_END rows of every concatenation block.
-    for (size_t block_idx = 0; block_idx < Flavor::CONCATENATION_GROUP_SIZE; ++block_idx) {
-        const size_t block_start = block_idx * mini;
-        append_unsorted_range(block_start + dyadic_mini_circuit_size_without_masking, block_start + mini);
-    }
-
-    // Ordered polynomials are sorted, so after their first nonzero row the shifted ordered columns can make rows
-    // nontrivial through the range and permutation relations.
-    size_t first_ordered_nonzero = circuit_size;
-    for (const auto& ordered_poly : polynomials.get_ordered_range_constraints()) {
-        for (size_t idx = ordered_poly.start_index(); idx < ordered_poly.end_index(); ++idx) {
-            if (ordered_poly[idx] != FF(0)) {
-                first_ordered_nonzero = std::min(first_ordered_nonzero, idx);
-                break;
-            }
-        }
-    }
-    if (first_ordered_nonzero < circuit_size) {
-        append_unsorted_range(first_ordered_nonzero == 0 ? 0 : first_ordered_nonzero - 1, circuit_size);
-    }
-
-    // Always keep the final lagrange-last edge pair.
-    append_unsorted_range(circuit_size - 2, circuit_size);
-
-    std::sort(ranges.begin(), ranges.end());
-    std::vector<RowSkipRange> merged_ranges;
-    for (const auto& [start, end] : ranges) {
-        append_row_skip_range(merged_ranges, start, end);
-    }
-    ranges = std::move(merged_ranges);
-}
-
 template class TranslatorProvingKey_<TranslatorFlavor>;
 template class TranslatorProvingKey_<TranslatorShortMonomialFlavor>;
 } // namespace bb
