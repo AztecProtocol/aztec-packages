@@ -633,10 +633,10 @@ describe('e2e_synching', () => {
           );
           for (let i = 0; i < contracts.length; i++) {
             expect(contractInstances[i]).not.toBeUndefined();
-            expect(contractClassIds.includes(contractInstances[i].currentContractClassId)).toBeTrue;
+            expect(contractClassIds.some(id => id.equals(contractInstances[i].currentContractClassId))).toBeTrue();
           }
 
-          expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
+          expect(await archiver.getTxEffect(txHash)).not.toBeUndefined();
           expect(
             await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
           ).not.toEqual([]);
@@ -649,18 +649,18 @@ describe('e2e_synching', () => {
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
-          expect(contractClassIdsAfter.includes(contractInstances[0].currentContractClassId)).toBeTrue;
-          expect(contractClassIdsAfter.includes(contractInstances[1].currentContractClassId)).toBeFalse;
-          expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined;
-          expect(await archiver.getContract(contracts[1].address)).toBeUndefined;
-          expect(await archiver.getContract(contracts[2].address)).toBeUndefined;
+          expect(contractClassIdsAfter.some(id => id.equals(contractInstances[0].currentContractClassId))).toBeTrue();
+          expect(contractClassIdsAfter.some(id => id.equals(contractInstances[1].currentContractClassId))).toBeFalse();
+          expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined();
+          expect(await archiver.getContract(contracts[1].address)).toBeUndefined();
+          expect(await archiver.getContract(contracts[2].address)).toBeUndefined();
 
           // Only the hardcoded schnorr is pruned since the contract class also existed before prune.
           expect(contractClassIdsAfter).toEqual(
             contractClassIds.filter(c => !c.equals(contractInstances[1].currentContractClassId)),
           );
 
-          expect(await archiver.getTxEffect(txHash)).toBeUndefined;
+          expect(await archiver.getTxEffect(txHash)).toBeUndefined();
           expect(await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 })).toEqual(
             [],
           );

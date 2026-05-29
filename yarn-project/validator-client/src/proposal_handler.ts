@@ -777,7 +777,7 @@ export class ProposalHandler {
     // If we do not have all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
       const foundTxHashes = txs.map(tx => tx.getTxHash());
-      const missingTxHashes = txHashes.filter(txHash => !foundTxHashes.includes(txHash));
+      const missingTxHashes = txHashes.filter(txHash => !foundTxHashes.some(h => h.equals(txHash)));
       throw new TransactionsNotAvailableError(missingTxHashes);
     }
 

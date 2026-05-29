@@ -1,5 +1,5 @@
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import type { AppTaggingSecret } from '@aztec/stdlib/logs';
+import { type AppTaggingSecret, AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 
 import { RecipientTaggingStore } from './recipient_tagging_store.js';
@@ -11,8 +11,8 @@ describe('RecipientTaggingStore', () => {
 
   beforeEach(async () => {
     taggingStore = new RecipientTaggingStore(await openTmpStore('test'));
-    secret1 = await randomAppTaggingSecret();
-    secret2 = await randomAppTaggingSecret();
+    secret1 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
+    secret2 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
   });
 
   describe('staged writes', () => {

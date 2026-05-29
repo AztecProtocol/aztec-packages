@@ -20,25 +20,15 @@ unconstrained fn get_pending_tagged_logs_oracle(scope: AztecAddress) -> Ephemera
 pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(
     note_validation_requests: EphemeralArray<NoteValidationRequest>,
     event_validation_requests: EphemeralArray<EventValidationRequest>,
-    max_note_packed_len: Field,
-    max_event_serialized_len: Field,
     scope: AztecAddress,
 ) {
-    validate_and_store_enqueued_notes_and_events_oracle(
-        note_validation_requests,
-        event_validation_requests,
-        max_note_packed_len,
-        max_event_serialized_len,
-        scope,
-    );
+    validate_and_store_enqueued_notes_and_events_oracle(note_validation_requests, event_validation_requests, scope);
 }
 
 #[oracle(aztec_utl_validateAndStoreEnqueuedNotesAndEvents)]
 unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
     note_validation_requests: EphemeralArray<NoteValidationRequest>,
     event_validation_requests: EphemeralArray<EventValidationRequest>,
-    max_note_packed_len: Field,
-    max_event_serialized_len: Field,
     scope: AztecAddress,
 ) {}
 

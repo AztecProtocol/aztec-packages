@@ -1,3 +1,4 @@
+export * from './app_tagging_secret_kind.js';
 export * from './app_tagging_secret.js';
 export * from './pre_tag.js';
 export * from './tagging_index_range.js';

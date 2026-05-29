@@ -21,7 +21,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { Tx, TxStatus } from '@aztec/aztec.js/tx';
 import { asyncPool } from '@aztec/foundation/async-pool';
-import { times } from '@aztec/foundation/collection';
+import { times, timesAsync } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -199,11 +199,12 @@ describe('mempool limiter test', () => {
 
   it('evicts txs to keep mempool under specified limit', async () => {
     if (!config.REAL_VERIFIER) {
-      const txs = times(TX_FLOOD_SIZE, () => {
+      const txs = await timesAsync(TX_FLOOD_SIZE, async () => {
         const tx = Tx.fromBuffer(sampleTx.toBuffer());
         // this only works on unproven networks, otherwise this will fail verification
         tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] = Fr.random();
-        tx.txHash;
+        // The nullifier mutation means the hash is outdated
+        await tx.recomputeHash();
         return tx;
       });
 

@@ -95,7 +95,7 @@ pub contract PodRacing {
             .at(game_id)
             .at(player)
             .insert(GameRoundNote::new(track1, track2, track3, track4, track5, round, player))
-            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+            .deliver(MessageDelivery::onchain_constrained());
 
         self.enqueue(PodRacing::at(self.context.this_address()).validate_and_play_round(
             player,

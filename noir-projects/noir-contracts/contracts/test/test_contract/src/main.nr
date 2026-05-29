@@ -132,7 +132,7 @@ pub contract Test {
     #[external("private")]
     fn call_create_note(value: u128, owner: AztecAddress, storage_slot: Field, make_tx_hybrid: bool) {
         let note = UintNote { value };
-        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery::onchain_constrained());
 
         if make_tx_hybrid {
             self.enqueue_self.dummy_public_call();
@@ -307,7 +307,7 @@ pub contract Test {
             value4: fields[4],
         };
 
-        self.emit(event).deliver_to(owner, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.emit(event).deliver_to(owner, MessageDelivery::onchain_unconstrained());
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs

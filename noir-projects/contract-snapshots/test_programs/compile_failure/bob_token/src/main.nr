@@ -70,7 +70,7 @@ contract BobToken {
         let sender = self.msg_sender();
         self.enqueue_self._deduct_public_balance(sender, amount);
         self.storage.private_balances.at(sender).add(amount).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
 
@@ -86,10 +86,10 @@ contract BobToken {
     pub fn transfer_private(to: AztecAddress, amount: u128) {
         let sender = self.msg_sender();
         self.storage.private_balances.at(sender).sub(amount).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
         self.storage.private_balances.at(to).add(amount).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
 
@@ -114,7 +114,7 @@ contract BobToken {
     unconstrained fn mint_private(employee: AztecAddress, amount: u128) {
         self.enqueue_self._assert_is_owner(self.msg_sender());
         self.storage.private_balances.at(employee).add(amount).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
 
@@ -122,7 +122,7 @@ contract BobToken {
     fn private_to_public(amount: u128) {
         let sender = self.msg_sender();
         self.storage.private_balances.at(sender).sub(amount).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
         self.enqueue_self._credit_public_balance(sender, amount);
     }

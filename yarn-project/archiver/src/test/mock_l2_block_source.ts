@@ -367,7 +367,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       data: txEffect,
       l2BlockNumber: block.number,
       l2BlockHash: await block.hash(),
-      txIndexInBlock: block.body.txEffects.indexOf(txEffect),
+      txIndexInBlock: block.body.txEffects.findIndex(t => t.txHash.equals(txHash)),
     };
   }
 

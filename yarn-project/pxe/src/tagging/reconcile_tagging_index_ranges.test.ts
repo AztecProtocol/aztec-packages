@@ -1,4 +1,4 @@
-import { type AppTaggingSecret, SiloedTag } from '@aztec/stdlib/logs';
+import { type AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 
 import { reconcileTaggingIndexRangesAgainstSurvivingTags } from './reconcile_tagging_index_ranges.js';
@@ -8,8 +8,8 @@ describe('reconcileTaggingIndexRangesAgainstSurvivingTags', () => {
   let secret2: AppTaggingSecret;
 
   beforeAll(async () => {
-    secret1 = await randomAppTaggingSecret();
-    secret2 = await randomAppTaggingSecret();
+    secret1 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
+    secret2 = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
   });
 
   /** Builds a set of surviving siloed tag values from a list of `(secret, index)` pairs. */
