@@ -142,17 +142,18 @@ export type ExecuteUtilityOpts = {
 };
 
 /**
- * Supplies the standard multi-call entrypoint that every PXE must know about regardless of which
- * wallet drives it: the SDK's self-paid account deploy flow ({@link DeployAccountMethod} with
- * `from = NO_FROM`) routes its payload through it, so a PXE that did not register it would fail
- * contract sync with an opaque "no contract instance" error.
+ * Supplies the set of "nice to have" contracts that every PXE preloads regardless of which wallet
+ * drives it. Today this is just the standard multi-call entrypoint: the SDK's self-paid account
+ * deploy flow ({@link DeployAccountMethod} with `from = NO_FROM`) routes its payload through it, so a
+ * PXE that did not register it would fail contract sync with an opaque "no contract instance" error.
  *
- * Injected the same way as {@link ProtocolContractsProvider} so the PXE never statically imports the
- * bundled artifacts, keeping the bundle/lazy split intact.
+ * Returning a list keeps this extensible: a wallet may supply its own provider that preloads
+ * additional contracts. Injected the same way as {@link ProtocolContractsProvider} so the PXE never
+ * statically imports the bundled artifacts, keeping the bundle/lazy split intact.
  */
-export type MultiCallEntrypointProvider = {
-  /** Returns the canonical multi-call entrypoint instance and artifact to preload. */
-  getStandardMultiCallEntrypoint: () => Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }>;
+export type PreloadedContractsProvider = {
+  /** Returns the contract instances and artifacts the PXE should preload on startup. */
+  getPreloadedContracts: () => Promise<Array<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }>>;
 };
 
 /** Args for PXE.create. */
@@ -167,8 +168,8 @@ export type PXECreateArgs = {
   simulator: CircuitSimulator;
   /** Provider for protocol contract artifacts and instances. */
   protocolContractsProvider: ProtocolContractsProvider;
-  /** Provider for the standard multi-call entrypoint the PXE preloads. */
-  multiCallEntrypointProvider: MultiCallEntrypointProvider;
+  /** Provider for the "nice to have" contracts the PXE preloads. */
+  preloadedContractsProvider: PreloadedContractsProvider;
   /** PXE configuration options. */
   config: PXEConfig;
   /** Optional logger instance or string suffix for the logger name. */
@@ -204,7 +205,7 @@ export class PXE {
     private autoSync: boolean,
     private proofCreator: PrivateKernelProver,
     private protocolContractsProvider: ProtocolContractsProvider,
-    private multiCallEntrypointProvider: MultiCallEntrypointProvider,
+    private preloadedContractsProvider: PreloadedContractsProvider,
     private log: Logger,
     private jobQueue: SerialQueue,
     private jobCoordinator: JobCoordinator,
@@ -225,7 +226,7 @@ export class PXE {
     proofCreator,
     simulator,
     protocolContractsProvider,
-    multiCallEntrypointProvider,
+    preloadedContractsProvider,
     config,
     loggerOrSuffix,
     hooks,
@@ -319,7 +320,7 @@ export class PXE {
       config.autoSync,
       proofCreator,
       protocolContractsProvider,
-      multiCallEntrypointProvider,
+      preloadedContractsProvider,
       log,
       jobQueue,
       jobCoordinator,
@@ -335,8 +336,7 @@ export class PXE {
 
     pxe.jobQueue.start();
 
-    await pxe.#registerProtocolContracts();
-    await pxe.#registerMultiCallEntrypoint();
+    await Promise.all([pxe.#registerProtocolContracts(), pxe.#registerPreloadedContracts()]);
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxe;
   }
@@ -412,21 +412,25 @@ export class PXE {
   }
 
   async #registerProtocolContracts() {
-    const registered: Record<string, string> = {};
-    for (const name of protocolContractNames) {
-      const { address, instance, artifact } = await this.protocolContractsProvider.getProtocolContractArtifact(name);
-      await this.contractStore.addContractArtifact(artifact);
-      await this.contractStore.addContractInstance(instance);
-      registered[name] = address.toString();
-    }
+    const registered = Object.fromEntries(
+      await Promise.all(
+        protocolContractNames.map(async name => {
+          const { address, instance, artifact } =
+            await this.protocolContractsProvider.getProtocolContractArtifact(name);
+          await this.contractStore.addContractArtifact(artifact);
+          await this.contractStore.addContractInstance(instance);
+          return [name, address.toString()] as const;
+        }),
+      ),
+    );
     this.log.verbose(`Registered protocol contracts in pxe`, registered);
   }
 
-  async #registerMultiCallEntrypoint() {
-    const { instance, artifact } = await this.multiCallEntrypointProvider.getStandardMultiCallEntrypoint();
-    await this.registerContract({ instance, artifact });
-    this.log.verbose(`Registered standard multi-call entrypoint in pxe`, {
-      MultiCallEntrypoint: instance.address.toString(),
+  async #registerPreloadedContracts() {
+    const contracts = await this.preloadedContractsProvider.getPreloadedContracts();
+    await Promise.all(contracts.map(({ instance, artifact }) => this.registerContract({ instance, artifact })));
+    this.log.verbose(`Registered preloaded contracts in pxe`, {
+      contracts: contracts.map(({ instance }) => instance.address.toString()),
     });
   }
 

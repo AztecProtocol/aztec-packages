@@ -60,7 +60,7 @@ export async function createPXE(
   }
 
   const protocolContractsProvider = new BundledProtocolContractsProvider();
-  const multiCallEntrypointProvider = { getStandardMultiCallEntrypoint };
+  const preloadedContractsProvider = { getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()] };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create({
@@ -69,7 +69,7 @@ export async function createPXE(
     proofCreator: prover,
     simulator,
     protocolContractsProvider,
-    multiCallEntrypointProvider,
+    preloadedContractsProvider,
     config: configWithContracts,
     loggerOrSuffix: pxeLogger,
     hooks: options.hooks,

@@ -50,7 +50,7 @@ export async function createPXE(
     prover = new BBLazyPrivateKernelProver(simulator, { ...options.proverOrOptions, logger: proverLogger });
   }
   const protocolContractsProvider = new LazyProtocolContractsProvider();
-  const multiCallEntrypointProvider = { getStandardMultiCallEntrypoint };
+  const preloadedContractsProvider = { getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()] };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create({
@@ -59,7 +59,7 @@ export async function createPXE(
     proofCreator: prover,
     simulator,
     protocolContractsProvider,
-    multiCallEntrypointProvider,
+    preloadedContractsProvider,
     config,
     loggerOrSuffix: pxeLogger,
     hooks: options.hooks,

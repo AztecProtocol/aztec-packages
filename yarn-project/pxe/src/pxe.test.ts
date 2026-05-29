@@ -49,7 +49,7 @@ describe('PXE', () => {
     const simulator = new WASMSimulator();
     const kernelProver = new BBBundlePrivateKernelProver(simulator);
     const protocolContractsProvider = new BundledProtocolContractsProvider();
-    const multiCallEntrypointProvider = { getStandardMultiCallEntrypoint };
+    const preloadedContractsProvider = { getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()] };
     const config: PXEConfig = {
       ...emptyChainConfig,
       l2BlockBatchSize: 50,
@@ -96,7 +96,7 @@ describe('PXE', () => {
       proofCreator: kernelProver,
       simulator,
       protocolContractsProvider,
-      multiCallEntrypointProvider,
+      preloadedContractsProvider,
       config,
     });
   }, 120_000);
