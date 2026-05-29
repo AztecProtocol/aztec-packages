@@ -3,7 +3,7 @@ import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import { type AnchorBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
+import { type CanonicalBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
 import { MessageContextService } from '@aztec/pxe/simulator';
 import { L2Block, type L2TipsProvider } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -27,14 +27,14 @@ export class TXEStateMachine {
     public node: AztecNode,
     public synchronizer: TXESynchronizer,
     public archiver: TXEArchiver,
-    public anchorBlockStore: AnchorBlockStore,
+    public canonicalBlockStore: CanonicalBlockStore,
     public contractSyncService: ContractSyncService,
     public messageContextService: MessageContextService,
   ) {}
 
   public static async create(
     archiver: TXEArchiver,
-    anchorBlockStore: AnchorBlockStore,
+    canonicalBlockStore: CanonicalBlockStore,
     contractStore: ContractStore,
     noteStore: NoteStore,
   ) {
@@ -76,7 +76,7 @@ export class TXEStateMachine {
 
     const messageContextService = new MessageContextService(node);
 
-    return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService, messageContextService);
+    return new this(node, synchronizer, archiver, canonicalBlockStore, contractSyncService, messageContextService);
   }
 
   /** Returns an {@link L2TipsProvider} backed by this node's chain tips. */
@@ -129,7 +129,7 @@ export class TXEStateMachine {
     await Promise.all([
       this.synchronizer.handleL2Block(block),
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
-      this.anchorBlockStore.setHeader(block.header),
+      this.canonicalBlockStore.setHeader(block.header),
     ]);
   }
 }

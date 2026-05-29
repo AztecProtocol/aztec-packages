@@ -14,7 +14,7 @@ describe('PrivateEventFilterValidator', () => {
   let lastKnownBlock: BlockHeader;
   let lastKnownBlockNumber: BlockNumber;
   let scope: AztecAddress;
-  let anchorBlockStore: MockProxy<CanonicalBlockStore>;
+  let canonicalBlockStore: MockProxy<CanonicalBlockStore>;
   let validator: PrivateEventFilterValidator;
 
   beforeEach(async () => {
@@ -22,9 +22,9 @@ describe('PrivateEventFilterValidator', () => {
     lastKnownBlockNumber = lastKnownBlock.getBlockNumber();
     contractAddress = await AztecAddress.random();
     scope = await AztecAddress.random();
-    anchorBlockStore = mock<CanonicalBlockStore>();
+    canonicalBlockStore = mock<CanonicalBlockStore>();
 
-    anchorBlockStore.getBlockHeader.mockResolvedValue(lastKnownBlock);
+    canonicalBlockStore.getBlockHeader.mockResolvedValue(lastKnownBlock);
     validator = new PrivateEventFilterValidator(lastKnownBlockNumber);
   });
 
