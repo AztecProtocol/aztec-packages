@@ -8,8 +8,3 @@ import type { Origin } from './origin.js';
 export interface CanonicalityCheck {
   isCanonical(origin: Origin): boolean;
 }
-
-/** Drop non-canonical rows from a list, preserving input order. */
-export function filterCanonical<T extends { origin: Origin }>(check: CanonicalityCheck, rows: T[]): T[] {
-  return rows.filter(row => check.isCanonical(row.origin));
-}

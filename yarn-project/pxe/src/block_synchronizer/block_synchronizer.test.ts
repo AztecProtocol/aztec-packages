@@ -26,7 +26,7 @@ describe('BlockSynchronizer', () => {
   let synchronizer: BlockSynchronizer;
   let store: AztecAsyncKVStore;
   let tipsStore: L2TipsKVStore;
-  let anchorBlockStore: CanonicalBlockStore;
+  let canonicalBlockStore: CanonicalBlockStore;
   let aztecNode: MockProxy<AztecNode>;
   let blockStream: MockProxy<L2BlockStream>;
   let contractSyncService: MockProxy<ContractSyncService>;
@@ -38,7 +38,7 @@ describe('BlockSynchronizer', () => {
   };
 
   const createSynchronizer = (config: Partial<BlockSynchronizerConfig> = {}) => {
-    return new TestSynchronizer(aztecNode, store, anchorBlockStore, tipsStore, contractSyncService, config);
+    return new TestSynchronizer(aztecNode, store, canonicalBlockStore, tipsStore, contractSyncService, config);
   };
 
   beforeEach(async () => {
@@ -46,8 +46,8 @@ describe('BlockSynchronizer', () => {
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
     tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
-    anchorBlockStore = new CanonicalBlockStore(store);
-    await anchorBlockStore.load();
+    canonicalBlockStore = new CanonicalBlockStore(store);
+    await canonicalBlockStore.load();
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });
@@ -56,7 +56,7 @@ describe('BlockSynchronizer', () => {
     const block = await L2Block.random(BlockNumber(1));
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
-    const obtainedHeader = await anchorBlockStore.getBlockHeader();
+    const obtainedHeader = await canonicalBlockStore.getBlockHeader();
     expect(obtainedHeader.equals(block.header)).toBe(true);
   });
 
@@ -89,7 +89,7 @@ describe('BlockSynchronizer', () => {
     });
 
     // The anchor block should be updated to the reorg block header.
-    const obtainedHeader = await anchorBlockStore.getBlockHeader();
+    const obtainedHeader = await canonicalBlockStore.getBlockHeader();
     expect(obtainedHeader.equals(reorgBlock!.header)).toBe(true);
   });
 
@@ -188,16 +188,16 @@ describe('BlockSynchronizer', () => {
 
       await synchronizer.sync();
 
-      expect(anchorBlockStore.getFloor()).toBe(2);
-      expect(anchorBlockStore.getHighestFinalized()).toBe(2);
+      expect(canonicalBlockStore.getFloor()).toBe(2);
+      expect(canonicalBlockStore.getHighestFinalized()).toBe(2);
 
       // All three hydrated heights must be canonical with the hashes doSync stored.
       for (const [n, entry] of blocksByNumber) {
-        expect(anchorBlockStore.isCanonical({ blockNumber: n, blockHash: entry.hash.toString() })).toBe(true);
+        expect(canonicalBlockStore.isCanonical({ blockNumber: n, blockHash: entry.hash.toString() })).toBe(true);
       }
 
       // A competing hash at a hydrated height is NOT canonical.
-      expect(anchorBlockStore.isCanonical({ blockNumber: 3, blockHash: '0xdeadbeef' })).toBe(false);
+      expect(canonicalBlockStore.isCanonical({ blockNumber: 3, blockHash: '0xdeadbeef' })).toBe(false);
     });
 
     it('records canonical hashes for all blocks in a blocks-added event', async () => {
@@ -205,7 +205,7 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });
 
       for (const b of blocks) {
-        expect(anchorBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
+        expect(canonicalBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
           true,
         );
       }
@@ -244,31 +244,31 @@ describe('BlockSynchronizer', () => {
 
       // Heights above 3 should no longer be canonical
       for (const b of blocks.filter(b => b.number > 3)) {
-        expect(anchorBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
+        expect(canonicalBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
           false,
         );
       }
       // Heights at or below 3 should still be canonical
       for (const b of blocks.filter(b => b.number <= 3)) {
-        expect(anchorBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
+        expect(canonicalBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
           true,
         );
       }
       // The new anchor header should be the common ancestor block
-      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      const obtainedHeader = await canonicalBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(commonAncestorBlock.header)).toBe(true);
     });
 
     it('chain-finalized advances the finality tracker without changing the floor', async () => {
-      const initialFloor = anchorBlockStore.getFloor();
+      const initialFloor = canonicalBlockStore.getFloor();
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',
         block: { number: BlockNumber(7), hash: '0xfin' },
       });
 
-      expect(anchorBlockStore.getHighestFinalized()).toBe(7);
-      expect(anchorBlockStore.getFloor()).toBe(initialFloor);
+      expect(canonicalBlockStore.getHighestFinalized()).toBe(7);
+      expect(canonicalBlockStore.getFloor()).toBe(initialFloor);
     });
   });
 
@@ -278,7 +278,7 @@ describe('BlockSynchronizer', () => {
       const block = await L2Block.random(BlockNumber(1));
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
-      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      const obtainedHeader = await canonicalBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(block.header)).toBe(true);
     });
 
@@ -287,13 +287,13 @@ describe('BlockSynchronizer', () => {
 
       // First set a known anchor
       const initialBlock = await L2Block.random(BlockNumber(0));
-      await anchorBlockStore.setHeader(initialBlock.header);
+      await canonicalBlockStore.setHeader(initialBlock.header);
 
       // blocks-added should NOT update the anchor
       const newBlock = await L2Block.random(BlockNumber(1));
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [newBlock] });
 
-      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      const obtainedHeader = await canonicalBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(initialBlock.header)).toBe(true);
     });
 
@@ -302,7 +302,7 @@ describe('BlockSynchronizer', () => {
 
       // Set initial anchor
       const initialBlock = await L2Block.random(BlockNumber(0));
-      await anchorBlockStore.setHeader(initialBlock.header);
+      await canonicalBlockStore.setHeader(initialBlock.header);
 
       // Create a checkpoint with a block
       const checkpointBlock = await L2Block.random(BlockNumber(1));
@@ -318,7 +318,7 @@ describe('BlockSynchronizer', () => {
         block: { number: BlockNumber(1), hash: '0x456' },
       });
 
-      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      const obtainedHeader = await canonicalBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(checkpointBlock.header)).toBe(true);
     });
 
@@ -340,7 +340,7 @@ describe('BlockSynchronizer', () => {
       });
 
       // Anchor should still be the initial block, not the checkpoint block
-      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      const obtainedHeader = await canonicalBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(initialBlock.header)).toBe(true);
     });
 
@@ -349,7 +349,7 @@ describe('BlockSynchronizer', () => {
 
       // Set initial anchor
       const initialBlock = await L2Block.random(BlockNumber(0));
-      await anchorBlockStore.setHeader(initialBlock.header);
+      await canonicalBlockStore.setHeader(initialBlock.header);
 
       // Mock node to return block
       const provenBlock = await L2Block.random(BlockNumber(5));
@@ -360,7 +360,7 @@ describe('BlockSynchronizer', () => {
         block: { number: BlockNumber(5), hash: '0x789' },
       });
 
-      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      const obtainedHeader = await canonicalBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(provenBlock.header)).toBe(true);
     });
 
@@ -369,7 +369,7 @@ describe('BlockSynchronizer', () => {
 
       // Set initial anchor
       const initialBlock = await L2Block.random(BlockNumber(0));
-      await anchorBlockStore.setHeader(initialBlock.header);
+      await canonicalBlockStore.setHeader(initialBlock.header);
 
       // Mock node to return block
       const finalizedBlock = await L2Block.random(BlockNumber(10));
@@ -380,7 +380,7 @@ describe('BlockSynchronizer', () => {
         block: { number: BlockNumber(10), hash: '0xabc' },
       });
 
-      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      const obtainedHeader = await canonicalBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(finalizedBlock.header)).toBe(true);
     });
 
@@ -389,7 +389,7 @@ describe('BlockSynchronizer', () => {
 
       // Set anchor to block 2
       const anchorBlock = await L2Block.random(BlockNumber(2));
-      await anchorBlockStore.setHeader(anchorBlock.header);
+      await canonicalBlockStore.setHeader(anchorBlock.header);
 
       // Prune to block 3 (above anchor) - should be ignored
       await synchronizer.handleBlockStreamEvent({
@@ -399,7 +399,7 @@ describe('BlockSynchronizer', () => {
       });
 
       // Anchor should be unchanged
-      const obtainedHeader = await anchorBlockStore.getBlockHeader();
+      const obtainedHeader = await canonicalBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(anchorBlock.header)).toBe(true);
     });
   });

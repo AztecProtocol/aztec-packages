@@ -1,2 +1,2 @@
-export { type Origin, type WithOrigin, withOrigin, withoutOrigin } from './origin.js';
-export { type CanonicalityCheck, filterCanonical } from './canonicality_check.js';
+export { type Origin } from './origin.js';
+export { type CanonicalityCheck } from './canonicality_check.js';
