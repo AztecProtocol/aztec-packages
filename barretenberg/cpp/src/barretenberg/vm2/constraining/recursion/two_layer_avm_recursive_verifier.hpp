@@ -23,7 +23,7 @@
 
 namespace bb::avm2 {
 
-static constexpr size_t NUM_AVM_ULTRA_OPS = 3110;
+static constexpr size_t NUM_AVM_ULTRA_OPS = 3114;
 static_assert(2 * NUM_AVM_ULTRA_OPS < (1 << CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE) - NUM_DISABLED_ROWS_IN_SUMCHECK,
               "AVM ultra ops land in the range reserved for randomness in the Translator mini circuit. If this "
               "assertion fails, we need to increase CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE.");
