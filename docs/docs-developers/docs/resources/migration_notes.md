@@ -55,6 +55,10 @@ When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied def
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
 
+### [Protocol] Remaining protocol-contract addresses compacted to 1-3
+
+After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
+
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
 `multi_call_entrypoint` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. PXE no longer auto-registers it; `EmbeddedWallet` registers it on creation via `registerMultiCallEntrypoint`. Other PXE consumers using `DefaultMultiCallEntrypoint` (including `DeployAccountMethod`'s `NO_FROM` self-deploy path) must register the contract themselves with `pxe.registerContract({ instance, artifact })` from `getStandardMultiCallEntrypoint()`.
