@@ -5,7 +5,6 @@ import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { ContractStore } from '@aztec/pxe/client/lazy';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
-import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { existsSync } from 'node:fs';
@@ -37,7 +36,7 @@ export async function buildSharedContractStore(): Promise<{ dataDir: string; sch
   const provider = new LazyProtocolContractsProvider();
   const [protocolContracts, standardContracts, schnorrArtifact] = await Promise.all([
     Promise.all(TXE_REQUIRED_PROTOCOL_CONTRACTS.map(name => provider.getProtocolContractArtifact(name))),
-    Promise.all([getStandardAuthRegistry(), getStandardPublicChecks()]),
+    Promise.all([getStandardAuthRegistry()]),
     getSchnorrAccountContractArtifact(),
   ]);
   const schnorrClass = await getContractClassFromArtifact(schnorrArtifact);

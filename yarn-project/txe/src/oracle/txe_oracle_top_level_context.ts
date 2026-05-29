@@ -256,10 +256,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   /**
-   * Mines a single block containing only the deployment nullifiers for the contracts at the given canonical addresses.
-   * Used at session init to publish the standard contracts (auth registry, public checks) — whose artifacts and
-   * instances are already registered in the shared contract store every worker clones — into the same baseline block
-   * TXE mines on startup, so they are available to every test without advancing the test-visible block counter.
+   * Mines a single block containing only the deployment nullifiers for the contracts at the given addresses.
    */
   async mineDeploymentNullifiers(addresses: AztecAddress[]) {
     await this.mineBlock({
