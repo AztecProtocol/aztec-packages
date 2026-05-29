@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `set_sender_for_tags` oracle removed
+
+The `set_sender_for_tags` oracle has been removed. Contracts that used it to override the sender for discovery tag derivation should now use the `with_sender` builder method on `MessageDelivery`:
+
+```diff
+- use aztec::oracle::notes::set_sender_for_tags;
++ use aztec::messages::message_delivery::MessageDelivery;
+
+- unsafe { set_sender_for_tags(some_address) };
+- note.deliver(MessageDelivery::onchain_constrained());
++ note.deliver(MessageDelivery::onchain_constrained().with_sender(some_address));
+```
+
+When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender.
+
 ### [Aztec.nr] `MessageDelivery` API syntax change
 
 `MessageDelivery` variants are now accessed via constructor functions instead of dot notation:

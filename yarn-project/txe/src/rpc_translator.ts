@@ -1424,15 +1424,6 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_setSenderForTags(foreignSenderForTags: ForeignCallSingle) {
-    const senderForTags = AztecAddress.fromField(fromSingle(foreignSenderForTags));
-
-    await this.handlerAsPrivate().setSenderForTags(senderForTags);
-
-    return toForeignCallResult([]);
-  }
-
-  // eslint-disable-next-line camelcase
   async aztec_prv_getNextAppTagAsSender(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
     const sender = AztecAddress.fromField(fromSingle(foreignSender));
     const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
