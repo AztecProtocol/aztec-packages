@@ -559,44 +559,61 @@ template <typename Flavor> class SumcheckProverRound {
 
         // Row-skipping flavors (ECCVM, Translator) iterate only over contiguous blocks of non-skippable
         // rows; work within each block is statically divided among threads via ThreadChunk ranges.
-        std::vector<BlockOfContiguousRows> round_manifest = compute_contiguous_round_size(polynomials);
+        std::vector<BlockOfContiguousRows> round_manifest;
+        if constexpr (IsTranslatorFlavor<Flavor>) {
+            BB_BENCH_NAME("compute_univariate_with_row_skipping/translator_compute_manifest");
+            round_manifest = compute_contiguous_round_size(polynomials);
+        } else {
+            BB_BENCH_NAME("compute_univariate_with_row_skipping/compute_manifest");
+            round_manifest = compute_contiguous_round_size(polynomials);
+        }
 
         // Construct univariate accumulator containers; one per thread
         // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(get_num_cpus());
 
         parallel_for([&](ThreadChunk chunk) {
-            BB_BENCH_NAME("compute_univariate_with_row_skipping/chunk");
-            // Construct extended univariates containers; one per thread
-            ExtendedEdges extended_edges;
+            auto accumulate_blocks = [&]() {
+                // Construct extended univariates containers; one per thread
+                ExtendedEdges extended_edges;
 
-            // Process each block, dividing work within each block
-            for (const BlockOfContiguousRows& block : round_manifest) {
-                size_t block_iterations = block.size / 2;
+                // Process each block, dividing work within each block
+                for (const BlockOfContiguousRows& block : round_manifest) {
+                    size_t block_iterations = block.size / 2;
 
-                // Get the range of iterations this thread should process for this block
-                auto iteration_range = chunk.range(block_iterations);
+                    // Get the range of iterations this thread should process for this block
+                    auto iteration_range = chunk.range(block_iterations);
 
-                for (size_t i : iteration_range) {
-                    size_t edge_idx = block.starting_edge_idx + (i * 2);
-                    extend_edges(extended_edges, polynomials, edge_idx);
-                    // Compute the \f$ \ell \f$-th edge's univariate contribution,
-                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
-                    // \f$
-                    // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
-                    // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots
-                    // \cdot
-                    // \beta_{d-1}^{\ell_{d-1}}\f$.
+                    for (size_t i : iteration_range) {
+                        size_t edge_idx = block.starting_edge_idx + (i * 2);
+                        extend_edges(extended_edges, polynomials, edge_idx);
+                        // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                        // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators
+                        // for \f$
+                        // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
+                        // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
+                        // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots
+                        // \cdot
+                        // \beta_{d-1}^{\ell_{d-1}}\f$.
 
-                    FF scaling_factor{ 1 };
-                    if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
-                        scaling_factor = gate_separators[edge_idx];
+                        FF scaling_factor{ 1 };
+                        if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
+                            scaling_factor = gate_separators[edge_idx];
+                        }
+                        accumulate_relation_univariates(thread_univariate_accumulators[chunk.thread_index],
+                                                        extended_edges,
+                                                        relation_parameters,
+                                                        scaling_factor);
                     }
-                    accumulate_relation_univariates(thread_univariate_accumulators[chunk.thread_index],
-                                                    extended_edges,
-                                                    relation_parameters,
-                                                    scaling_factor);
                 }
+            };
+
+            if constexpr (IsTranslatorFlavor<Flavor>) {
+                BB_BENCH_NAME("compute_univariate_with_row_skipping/translator_accumulate_blocks");
+                accumulate_blocks();
+            } else {
+                BB_BENCH_NAME("compute_univariate_with_row_skipping/accumulate_blocks");
+                accumulate_blocks();
             }
         });
 
