@@ -13,7 +13,7 @@ describe('CanonicalBlockStore', () => {
     await store.load();
   });
 
-  describe('header passthrough (AnchorBlockStore parity)', () => {
+  describe('header storage', () => {
     it('round-trips the synchronized header', async () => {
       const header = BlockHeader.empty();
       await store.setHeader(header);

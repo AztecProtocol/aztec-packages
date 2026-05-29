@@ -29,7 +29,13 @@ export class CanonicalBlockStore implements CanonicalityCheck {
     this.#meta = store.openSingleton('canonical_meta');
   }
 
-  /** Load the in-memory map, floor and finalized tracker from KV. Call once at construction time. */
+  /**
+   * Load the in-memory map, floor and finalized tracker from KV. Call once at construction time.
+   *
+   * Not wrapped in transactionAsync because load() runs once at construction, before any concurrent writers exist, so
+   * the meta read and map scan need no wrapping transaction. (The kv-store's transactionAsync type rejects an
+   * async-iteration callback.)
+   */
   async load(): Promise<void> {
     const metaBuffer = await this.#meta.getAsync();
     if (metaBuffer) {
@@ -67,10 +73,14 @@ export class CanonicalBlockStore implements CanonicalityCheck {
     await this.#canonicalHashes.set(blockNumber, blockHash);
   }
 
+  /** Record canonical hashes for a batch of blocks (e.g. cold-start hydration or a run of added blocks). */
   async setManyCanonical(origins: Origin[]): Promise<void> {
     for (const { blockNumber, blockHash } of origins) {
-      await this.setCanonical(blockNumber, blockHash);
+      this.#memHashes.set(blockNumber, blockHash);
     }
+    await this.#canonicalHashes.setMany(
+      origins.map(({ blockNumber, blockHash }) => ({ key: blockNumber, value: blockHash })),
+    );
   }
 
   /** Retract canonical entries strictly above `blockNumber` (the reorg common ancestor). */
@@ -116,7 +126,13 @@ export class CanonicalBlockStore implements CanonicalityCheck {
   }
 
   tipHeight(): number {
-    return this.#memHashes.size === 0 ? 0 : Math.max(...this.#memHashes.keys());
+    let max = 0;
+    for (const height of this.#memHashes.keys()) {
+      if (height > max) {
+        max = height;
+      }
+    }
+    return max;
   }
 
   async #persistMeta(): Promise<void> {
