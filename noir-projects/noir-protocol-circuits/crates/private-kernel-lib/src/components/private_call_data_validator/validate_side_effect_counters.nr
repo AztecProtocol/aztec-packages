@@ -536,7 +536,7 @@ unconstrained fn build_side_effect_counter_hints_for_private_call_request(
 unconstrained fn build_uniqueness_hints(
     public_inputs: PrivateCircuitPublicInputs,
 ) -> SideEffectUniquenessHints {
-    let mut side_effect_counters = BoundedVec::from_parts_unchecked(
+    let mut side_effect_counters = BoundedVec::from_parts(
         [SideEffectCounter::null(); TOTAL_COUNTED_SIDE_EFFECTS_PER_CALL],
         0,
     );

@@ -56,11 +56,11 @@ fn previous_private_logs_beyond_claimed_length() {
 
     builder.previous_kernel.append_private_logs(2);
     let private_logs = builder.previous_kernel.private_logs.storage();
-    builder.previous_kernel.private_logs = BoundedVec::from_parts_unchecked(private_logs, 1);
+    builder.previous_kernel.private_logs = BoundedVec::from_parts(private_logs, 1);
 
     builder.output.append_siloed_private_logs(2);
     let output_private_logs = builder.output.private_logs.storage();
-    builder.output.private_logs = BoundedVec::from_parts_unchecked(output_private_logs, 1);
+    builder.output.private_logs = BoundedVec::from_parts(output_private_logs, 1);
 
     let mut output_hints = builder.get_output_hints();
     // Add the extra private log beyond the claimed length to the kept private logs array.

@@ -19,17 +19,17 @@ fn squashing_and_siloing_and_ordering() {
     let nullifiers = builder.previous_kernel.nullifiers.storage();
     let private_logs = builder.previous_kernel.private_logs.storage();
     // Shuffle.
-    builder.previous_kernel.note_hashes = BoundedVec::from_parts_unchecked(
+    builder.previous_kernel.note_hashes = BoundedVec::from_parts(
         pad_end(
             [note_hashes[2], note_hashes[0], note_hashes[3], note_hashes[1]],
         ),
         4,
     );
-    builder.previous_kernel.nullifiers = BoundedVec::from_parts_unchecked(
+    builder.previous_kernel.nullifiers = BoundedVec::from_parts(
         pad_end([nullifiers[1], nullifiers[2], nullifiers[0], nullifiers[3]]),
         4,
     );
-    builder.previous_kernel.private_logs = BoundedVec::from_parts_unchecked(
+    builder.previous_kernel.private_logs = BoundedVec::from_parts(
         pad_end([
             private_logs[4],
             private_logs[0],
@@ -204,7 +204,7 @@ fn extra_note_hash_beyond_claimed_length() {
     // 1 extra note hash beyond the claimed length.
     builder.previous_kernel.append_note_hashes(2);
     let note_hashes = builder.previous_kernel.note_hashes.storage();
-    builder.previous_kernel.note_hashes = BoundedVec::from_parts_unchecked(note_hashes, 1);
+    builder.previous_kernel.note_hashes = BoundedVec::from_parts(note_hashes, 1);
 
     let _ = builder.execute_with_siloing();
 
@@ -221,7 +221,7 @@ fn extra_nullifiers_beyond_claimed_length() {
     // 1 extra nullifier beyond the claimed length.
     builder.previous_kernel.append_nullifiers(2);
     let nullifiers = builder.previous_kernel.nullifiers.storage();
-    builder.previous_kernel.nullifiers = BoundedVec::from_parts_unchecked(nullifiers, 1);
+    builder.previous_kernel.nullifiers = BoundedVec::from_parts(nullifiers, 1);
 
     let _ = builder.execute_with_siloing();
 
@@ -238,7 +238,7 @@ fn extra_private_logs_beyond_claimed_length() {
     // 1 extra private log beyond the claimed length.
     builder.previous_kernel.append_private_logs(2);
     let private_logs = builder.previous_kernel.private_logs.storage();
-    builder.previous_kernel.private_logs = BoundedVec::from_parts_unchecked(private_logs, 1);
+    builder.previous_kernel.private_logs = BoundedVec::from_parts(private_logs, 1);
 
     let _ = builder.execute_with_siloing();
 
