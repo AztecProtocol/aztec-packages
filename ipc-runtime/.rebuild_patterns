@@ -1,0 +1,7 @@
+^ipc-runtime/cpp/.*\.(cpp|hpp)$
+^ipc-runtime/cpp/CMakeLists\.txt$
+^ipc-runtime/bootstrap\.sh$
+^ipc-runtime/ts/src/.*$
+^ipc-runtime/ts/package\.json$
+^ipc-runtime/ts/tsconfig\.json$
+^ipc-runtime/ts/scripts/.*$

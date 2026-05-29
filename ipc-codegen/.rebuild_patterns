@@ -1,0 +1,9 @@
+^ipc-codegen/src/.*\.ts$
+^ipc-codegen/templates/
+^ipc-codegen/examples/
+^ipc-codegen/package\.json$
+^ipc-codegen/bootstrap\.sh$
+^ipc-runtime/cpp/
+^ipc-runtime/ts/
+^ipc-runtime/zig/
+^ipc-runtime/rust/

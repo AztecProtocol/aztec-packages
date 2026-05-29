@@ -1,8 +1,8 @@
 #pragma once
 
 #include "barretenberg/common/log.hpp"
+#include "ipc_codegen/msgpack_adaptor.hpp"
 #include "msgpack.hpp"
-#include "msgpack_impl/drop_keys.hpp"
 #include <cstddef>
 #include <string_view>
 
