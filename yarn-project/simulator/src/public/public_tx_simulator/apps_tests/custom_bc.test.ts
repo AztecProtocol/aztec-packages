@@ -14,6 +14,7 @@ import {
   invalidTagValueAndInstructionTruncatedTest,
   invalidTagValueTest,
   pcOutOfRangeTest,
+  setFieldOverflowTest,
   setTruncationTest,
 } from '../../fixtures/custom_bytecode_tests.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
@@ -145,6 +146,11 @@ describe.each([
 
   it('CAST truncation to narrower target tags', async () => {
     const result = await castTruncationTest(tester);
+    expect(result.revertCode.isOK()).toBe(true);
+  });
+
+  it('SET_FF immediate overflowing the field modulus is reduced mod p', async () => {
+    const result = await setFieldOverflowTest(tester);
     expect(result.revertCode.isOK()).toBe(true);
   });
 });
