@@ -36,7 +36,7 @@ import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
-import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
+import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
