@@ -4,6 +4,9 @@
 # Nothing should cause a failure, because that would annoy everyone if all they're trying to do is commit.
 set -euo pipefail
 
+# we have to unset this env var set by git hooks so that this relative paths work correctly when used inside worktrees
+unset GIT_DIR
+
 cd $(dirname $0)
 
 export FORCE_COLOR=true

@@ -48,5 +48,6 @@ pub mod utils;
 pub mod authwit;
 pub mod public_checks;
 pub mod macros;
+pub mod standard_addresses;
 
 pub mod test;

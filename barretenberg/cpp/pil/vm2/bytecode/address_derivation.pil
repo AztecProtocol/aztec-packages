@@ -13,7 +13,8 @@ include "../scalar_mul.pil";
  *   2. partial_address           = H(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
  *   3. incoming_viewing_key_hash = H(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, incoming_viewing_key_x, incoming_viewing_key_y)
  *   4. public_keys_hash          = H(DOM_SEP__PUBLIC_KEYS_HASH,
- *                                    nullifier_key_hash, incoming_viewing_key_hash, outgoing_viewing_key_hash, tagging_key_hash)
+ *                                    nullifier_key_hash, incoming_viewing_key_hash, outgoing_viewing_key_hash, tagging_key_hash,
+ *                                    message_signing_key_hash, fallback_key_hash)
  *   5. preaddress                = H(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
  *   6. preaddress_public_key     = preaddress * G1
  *   7. address                   = (preaddress_public_key + incoming_viewing_key).x
@@ -22,10 +23,10 @@ include "../scalar_mul.pil";
  * curve. See the 'Hash Computations', 'Elliptic Curve Operations', and 'INTERACTIONS' sections
  * for details on how we enforce each step. This process follows Noir's AztecAddress::compute().
  *
- * Per AZIP-8: only `incoming_viewing_key` is exposed to the circuit as a Grumpkin point (since
- * address derivation needs the curve point). The other three master public keys (nullifier,
- * outgoing viewing, tagging) are exposed only as their hash digests under
- * DOM_SEP__SINGLE_PUBLIC_KEY_HASH; the PXE computes those hashes off-circuit and the circuit
+ * Only `incoming_viewing_key` is exposed to the circuit as a Grumpkin point (since
+ * address derivation needs the curve point). The other five master public keys (nullifier,
+ * outgoing viewing, tagging, message-signing, fallback) are exposed only as their hash digests
+ * under DOM_SEP__SINGLE_PUBLIC_KEY_HASH; the PXE computes those hashes off-circuit and the circuit
  * trusts them.
  *
  * PRECONDITIONS: The correctness of the preimage members is not constrained here and must be
@@ -43,14 +44,18 @@ include "../scalar_mul.pil";
  *     nullifier_key_hash,
  *     incoming_viewing_key_x, incoming_viewing_key_y,
  *     outgoing_viewing_key_hash,
- *     tagging_key_hash
+ *     tagging_key_hash,
+ *     message_signing_key_hash,
+ *     fallback_key_hash
  *   } in address_derivation.sel {
  *     address_derivation.address, address_derivation.salt, address_derivation.deployer_addr,
  *     address_derivation.class_id, address_derivation.init_hash,
  *     address_derivation.nullifier_key_hash,
  *     address_derivation.incoming_viewing_key_x, address_derivation.incoming_viewing_key_y,
  *     address_derivation.outgoing_viewing_key_hash,
- *     address_derivation.tagging_key_hash
+ *     address_derivation.tagging_key_hash,
+ *     address_derivation.message_signing_key_hash,
+ *     address_derivation.fallback_key_hash
  *   };
  *
  * TRACE SHAPE: 1 row per address derivation computation. Note that simulation deduplicates addresses
@@ -67,11 +72,11 @@ include "../scalar_mul.pil";
  *                                    the retrieved contract instance and public keys (#[ADDRESS_DERIVATION]).
  *
  * This subtrace looks up:
- * - poseidon2_hash.pil: To constrain five Poseidon2 hashes across a total of 7 lookups/rounds:
+ * - poseidon2_hash.pil: To constrain five Poseidon2 hashes across a total of 8 lookups/rounds:
  *                       - salted_init_hash:          #[SALTED_INITIALIZATION_HASH_POSEIDON2_0..1]
  *                       - partial_address:           #[PARTIAL_ADDRESS_POSEIDON2]
  *                       - incoming_viewing_key_hash: #[IVPK_M_HASH_POSEIDON2]
- *                       - public_keys_hash:          #[PUBLIC_KEYS_HASH_POSEIDON2_0..1]
+ *                       - public_keys_hash:          #[PUBLIC_KEYS_HASH_POSEIDON2_0..2]
  *                       - preaddress:                #[PREADDRESS_POSEIDON2]
  * - scalar_mul.pil: To constrain that preaddress_public_key = preaddress * G1 on Grumpkin: #[PREADDRESS_SCALAR_MUL]
  * - ecc.pil: To constrain that address = (preaddress_public_key + incoming_viewing_key).x on Grumpkin: #[ADDRESS_ECADD]
@@ -100,13 +105,15 @@ namespace address_derivation;
     pol commit immutables_hash;
 
     // Public keys (see PublicKeys in barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp).
-    // Per AZIP-8, only incoming_viewing_key is held as a Grumpkin point; the other three keys
+    // Only incoming_viewing_key is held as a Grumpkin point; the other five keys
     // are held as their (off-circuit) hashes.
     pol commit nullifier_key_hash;
     pol commit incoming_viewing_key_x;
     pol commit incoming_viewing_key_y;
     pol commit outgoing_viewing_key_hash;
     pol commit tagging_key_hash;
+    pol commit message_signing_key_hash;
+    pol commit fallback_key_hash;
 
 
     ///////////////////////////////
@@ -118,15 +125,20 @@ namespace address_derivation;
     //   2. partial_address           = H(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
     //   3. incoming_viewing_key_hash = H(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, incoming_viewing_key_x, incoming_viewing_key_y)
     //   4. public_keys_hash          = H(DOM_SEP__PUBLIC_KEYS_HASH,
-    //                                    nullifier_key_hash, incoming_viewing_key_hash, outgoing_viewing_key_hash, tagging_key_hash)
+    //                                    nullifier_key_hash, incoming_viewing_key_hash, outgoing_viewing_key_hash,
+    //                                    tagging_key_hash, message_signing_key_hash, fallback_key_hash)
     //   5. preaddress                = H(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
     //
 
     // Lookup constant support: Can be removed when we support constants in lookups.
+    pol commit const_two;
+    sel * (const_two - 2) = 0;
     pol commit const_three;
     sel * (const_three - 3) = 0;
     pol commit const_five;
     sel * (const_five - 5) = 0;
+    pol commit const_seven;
+    sel * (const_seven - 7) = 0;
     pol commit salted_init_hash_domain_separator;
     sel * (salted_init_hash_domain_separator - constants.DOM_SEP__SALTED_INITIALIZATION_HASH) = 0;
     pol commit partial_address_domain_separator;
@@ -184,23 +196,30 @@ namespace address_derivation;
     sel { single_public_key_hash_domain_separator, incoming_viewing_key_x, incoming_viewing_key_y, incoming_viewing_key_hash, const_three }
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
 
-    // 4. Computation of public keys hash from the four single-key hashes.
+    // 4. Computation of public keys hash from the six single-key hashes.
     pol commit public_keys_hash;
 
-    // We have 5 inputs (DOM_SEP + 4 hashes), hence 2 permutation rounds:
-    //  public_keys_hash = H(DOM_SEP__PUBLIC_KEYS_HASH, npk_m_hash, incoming_viewing_key_hash, ovpk_m_hash, tpk_m_hash)
-    //   Round 1 (start, input_len=5): (DOM_SEP__PUBLIC_KEYS_HASH, npk_m_hash, incoming_viewing_key_hash)
-    //   Round 2 (end):                (ovpk_m_hash, tpk_m_hash, 0)
+    // We have 7 inputs (DOM_SEP + 6 hashes), hence 3 permutation rounds:
+    //  public_keys_hash = H(DOM_SEP__PUBLIC_KEYS_HASH, npk_m_hash, incoming_viewing_key_hash,
+    //                       ovpk_m_hash, tpk_m_hash, mspk_m_hash, fbpk_m_hash)
+    //   Round 1 (start, input_len=7): (DOM_SEP__PUBLIC_KEYS_HASH, npk_m_hash, incoming_viewing_key_hash)
+    //   Round 2 (middle, num_perm_rounds_rem=2): (ovpk_m_hash, tpk_m_hash, mspk_m_hash)
+    //   Round 3 (end, num_perm_rounds_rem=1): (fbpk_m_hash, 0, 0)
 
-    // Enforces the first poseidon round of public_keys_hash. Note that we must lookup poseidon2_hash.input_len == 5
+    // Enforces the first poseidon round of public_keys_hash. Note that we must lookup poseidon2_hash.input_len == 7
     // here since it is constrained in the poseidon trace on the start row.
     #[PUBLIC_KEYS_HASH_POSEIDON2_0]
-    sel { public_keys_hash_domain_separator, nullifier_key_hash, incoming_viewing_key_hash, public_keys_hash, const_five }
+    sel { public_keys_hash_domain_separator, nullifier_key_hash, incoming_viewing_key_hash, public_keys_hash, const_seven }
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
 
-    // Enforces the second and final round of public_keys_hash. Note that we must enforce the padded value is zero here.
+    // Enforces the middle (second) round of public_keys_hash via the multi-row recipe.
     #[PUBLIC_KEYS_HASH_POSEIDON2_1]
-    sel { outgoing_viewing_key_hash, tagging_key_hash, precomputed.zero, public_keys_hash }
+    sel { outgoing_viewing_key_hash, tagging_key_hash, message_signing_key_hash, public_keys_hash, const_two }
+    in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
+
+    // Enforces the third and final round of public_keys_hash. Note that we must enforce the padded values are zero here.
+    #[PUBLIC_KEYS_HASH_POSEIDON2_2]
+    sel { fallback_key_hash, precomputed.zero, precomputed.zero, public_keys_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     // 5. Computation of preaddress

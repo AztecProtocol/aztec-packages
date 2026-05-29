@@ -27,6 +27,7 @@
     "bot",
     "builder",
     "cli-wallet",
+    "standard-contracts",
     "cli",
     "constants",
     "docs",

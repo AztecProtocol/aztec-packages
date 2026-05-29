@@ -177,7 +177,7 @@ pub contract Token {
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn transfer_to_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         self.enqueue_self._increase_public_balance(to, amount);
     }
 
@@ -203,7 +203,7 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) -> PartialUintNote {
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         self.enqueue_self._increase_public_balance(to, amount);
 
         // We prepare the private balance increase (the partial note for the change).
@@ -221,15 +221,15 @@ pub contract Token {
         // note for `from` with the change amount, e.g. if `amount` is 10 and two notes are nullified with amounts 8 and
         // 5, then the change will be 3 (since 8 + 5 - 10 = 3).
         let change = self.internal.subtract_balance(from, amount, INITIAL_TRANSFER_CALL_MAX_NOTES);
-        self.storage.balances.at(from).add(change).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.balances.at(from).add(change).deliver(MessageDelivery::onchain_unconstrained());
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_unconstrained());
 
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_in_private`) because the
         // transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
-        self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery::onchain_unconstrained());
     }
 
     #[internal("private")]
@@ -284,8 +284,8 @@ pub contract Token {
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_constrained());
     }
     // docs:end:transfer_in_private
 
@@ -305,17 +305,17 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.OFFCHAIN);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.OFFCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::offchain());
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::offchain());
 
-        self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery.OFFCHAIN);
+        self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery::offchain());
     }
     // docs:end:transfer_in_private_with_offchain_delivery
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         self.enqueue_self._reduce_total_supply(amount);
     }
 
@@ -385,7 +385,7 @@ pub contract Token {
         authwit_nonce: Field,
     ) {
         // First we subtract the `amount` from the private balance of `from`
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
 
         partial_note.complete_from_private(
             self.context,

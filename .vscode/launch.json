@@ -32,13 +32,13 @@
       ],
     },
     {
-      // Debug chonk using msgpack inputs for a particular transaction (e.g. one in yarn-project/end-to-end/example-app-ivc-inputs-out)
+      // Debug chonk using msgpack inputs for a particular transaction (e.g. one in barretenberg/cpp/chonk-pinned-flows)
       "name": "Debug chonk transaction",
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
       "args": ["prove", "--scheme", "chonk", "--output_path", ".", "--ivc_inputs_path", "ivc-inputs.msgpack", "--print_bench"],
-      "cwd": "${workspaceFolder}/yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc",
+      "cwd": "${workspaceFolder}/barretenberg/cpp/chonk-pinned-flows/ecdsar1+transfer_0_recursions+sponsored_fpc",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],

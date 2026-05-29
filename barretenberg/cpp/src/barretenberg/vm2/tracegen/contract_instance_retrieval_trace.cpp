@@ -76,6 +76,10 @@ void ContractInstanceRetrievalTraceBuilder::process(
                   event.contract_instance.public_keys.outgoing_viewing_key_hash },
                 { C::contract_instance_retrieval_tagging_key_hash,
                   event.contract_instance.public_keys.tagging_key_hash },
+                { C::contract_instance_retrieval_message_signing_key_hash,
+                  event.contract_instance.public_keys.message_signing_key_hash },
+                { C::contract_instance_retrieval_fallback_key_hash,
+                  event.contract_instance.public_keys.fallback_key_hash },
 
                 // Tree context
                 { C::contract_instance_retrieval_public_data_tree_root, event.public_data_tree_root },

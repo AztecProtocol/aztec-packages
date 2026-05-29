@@ -2,13 +2,11 @@ use crate::context::{gas::GasOpts, PrivateContext, PublicContext};
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::{
-        CANONICAL_AUTH_REGISTRY_ADDRESS, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER,
-        DOM_SEP__AUTHWIT_OUTER,
-    },
+    constants::{DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER, DOM_SEP__AUTHWIT_OUTER},
     hash::poseidon2_hash_with_separator,
     traits::ToField,
 };
+use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
 
 /// Success indicator for authwit - 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
 pub global IS_VALID_SELECTOR: Field = 0x47dacd73;
@@ -78,7 +76,7 @@ pub unconstrained fn assert_inner_hash_valid_authwit_public(
     inner_hash: Field,
 ) {
     let results: [Field] = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        STANDARD_AUTH_REGISTRY_ADDRESS,
         comptime { FunctionSelector::from_signature("consume((Field),Field)") },
         [on_behalf_of.to_field(), inner_hash],
         GasOpts::default(),
@@ -129,7 +127,7 @@ pub fn compute_authwit_message_hash(
 /// @param authorize True if the message should be authorized, false if it should be revoked
 pub unconstrained fn set_authorized(context: PublicContext, message_hash: Field, authorize: bool) {
     let res = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        STANDARD_AUTH_REGISTRY_ADDRESS,
         comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
         [message_hash, authorize as Field],
         GasOpts::default(),
@@ -142,7 +140,7 @@ pub unconstrained fn set_authorized(context: PublicContext, message_hash: Field,
 /// @param reject True if all authwits should be rejected, false otherwise
 pub unconstrained fn set_reject_all(context: PublicContext, reject: bool) {
     let res = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        STANDARD_AUTH_REGISTRY_ADDRESS,
         comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
         [reject as Field],
         GasOpts::default(),

@@ -24,7 +24,7 @@ export class Committable<T> {
    * Rolls back the uncommitted value.
    */
   public rollback() {
-    this.nextValue === undefined;
+    this.nextValue = undefined;
   }
 
   /**

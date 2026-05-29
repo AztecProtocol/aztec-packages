@@ -28,7 +28,7 @@ contract Updated {
         let owner = self.msg_sender();
 
         self.storage.private_value.at(owner).replace(|_old| FieldNote { value: 27 }).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
 

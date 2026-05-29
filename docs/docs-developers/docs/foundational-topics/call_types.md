@@ -150,7 +150,7 @@ An example of how a deadline can be checked using the `PublicChecks` contract fo
 
 This is what the implementation of the check timestamp functionality looks like:
 
-#include_code check_timestamp /noir-projects/noir-contracts/contracts/protocol/public_checks_contract/src/main.nr rust
+#include_code check_timestamp /noir-projects/noir-contracts/contracts/standard/public_checks_contract/src/main.nr rust
 
 :::note
 The `PublicChecks` contract is not part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
@@ -158,7 +158,7 @@ To add it as a dependency, point to the aztec-packages repository:
 
 ```toml
 [dependencies]
-public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/protocol/public_checks_contract" }
+public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/standard/public_checks_contract" }
 ```
 
 :::

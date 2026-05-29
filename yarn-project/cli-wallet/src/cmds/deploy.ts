@@ -1,5 +1,5 @@
 import { NO_FROM } from '@aztec/aztec.js/account';
-import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { DeployOptions } from '@aztec/aztec.js/contracts';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { ContractDeployer } from '@aztec/aztec.js/deployment';
@@ -36,6 +36,7 @@ export async function deploy(
   timeout: number = DEFAULT_TX_TIMEOUT_S,
   debugLogger: Logger,
   log: LogFn,
+  universal?: boolean,
 ) {
   const out: Record<string, any> = {};
   salt ??= Fr.random();
@@ -57,7 +58,11 @@ export async function deploy(
     debugLogger.debug(`Encoded arguments: ${args.join(', ')}`);
   }
 
-  const deployInteraction = contractDeployer.deploy(args, { salt, publicKeys: publicKeys ?? PublicKeys.default() });
+  const deployInteraction = contractDeployer.deploy(args, {
+    salt,
+    publicKeys: publicKeys ?? PublicKeys.default(),
+    ...(universal ? { universalDeploy: true as const } : {}),
+  });
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, deployer);
   const deployOpts: DeployOptions = {
     fee: { gasSettings, paymentMethod },

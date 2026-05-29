@@ -1,4 +1,4 @@
-import { DomainSeparator } from '@aztec/constants';
+import { DEFAULT_FBPK_M_HASH, DEFAULT_MSPK_M_HASH, DomainSeparator } from '@aztec/constants';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { sha512ToGrumpkinScalar } from '@aztec/foundation/crypto/sha512';
@@ -107,15 +107,20 @@ export async function deriveKeys(secretKey: Fr) {
   const masterOutgoingViewingPublicKey = await derivePublicKeyFromSecretKey(masterOutgoingViewingSecretKey);
   const masterTaggingPublicKey = await derivePublicKeyFromSecretKey(masterTaggingSecretKey);
 
-  // The non-owner-visible PublicKeys carries hashes for npk/ovpk/tpk and the raw
+  // The non-owner-visible PublicKeys carries hashes for npk/ovpk/tpk/mspk/fbpk and the raw
   // point only for ivpk_m. The npk/ovpk/tpk raw points are also returned alongside so the key
   // store can persist them under `${account}-{n|ov|t}pk_m` (only their hashes live in publicKeys).
   // The ivpk_m point isn't returned separately because it already lives in publicKeys.ivpkM.
+  //
+  // TODO: There isn't a derivation path for the message signing(msk) and fallback(fbk) keys yet. So we just use the the
+  // default values for now.
   const publicKeys = new PublicKeys(
     await hashPublicKey(masterNullifierPublicKey),
     masterIncomingViewingPublicKey,
     await hashPublicKey(masterOutgoingViewingPublicKey),
     await hashPublicKey(masterTaggingPublicKey),
+    new Fr(DEFAULT_MSPK_M_HASH),
+    new Fr(DEFAULT_FBPK_M_HASH),
   );
 
   return {

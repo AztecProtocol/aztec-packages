@@ -169,6 +169,8 @@ ContractInstance random_contract_instance()
                                       .incoming_viewing_key = AffinePoint::random_element(),
                                       .outgoing_viewing_key_hash = FF::random_element(),
                                       .tagging_key_hash = FF::random_element(),
+                                      .message_signing_key_hash = FF::random_element(),
+                                      .fallback_key_hash = FF::random_element(),
                                   } };
     return instance;
 }

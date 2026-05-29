@@ -41,6 +41,7 @@ import { DefaultMnemonic } from '../mnemonic.js';
 import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
 import { EpochTestSettler } from '../testing/epoch_test_settler.js';
 import { getTokenAllowedSetupFunctions } from '../testing/token_allowed_setup.js';
+import { publishStandardAuthRegistry } from './auth_registry.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
@@ -245,6 +246,9 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     const accountManagers = await deployFundedSchnorrAccounts(wallet, initialAccounts);
     const accLogs = await createAccountLogs(accountManagers, wallet);
     userLog(accLogs.join(''));
+
+    userLog('Publishing standard AuthRegistry contract...');
+    await publishStandardAuthRegistry(wallet, initialAccounts[0].address);
 
     await setupBananaFPC(initialAccounts, wallet, userLog);
 

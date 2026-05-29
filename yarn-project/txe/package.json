@@ -74,6 +74,7 @@
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/pxe": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "zod": "^4"
