@@ -91,44 +91,31 @@ describe('standard_contract_data drift', () => {
     }
   });
 
-  describe('committed file content', () => {
-    // Render every target once and assert per-target so an individual stale file (e.g. only one of
-    // the two `standard_addresses.nr` twins drifted) shows up as its own failure rather than being
-    // hidden behind another.
-    let targets: { path: string; content: string }[];
+  // The per-field block above already covers every TS-side value, so we don't re-check the rendered
+  // `standard_contract_data.ts` here. The Noir `standard_addresses.nr` twins are not covered there
+  // (the per-field block reads only the TS exports), so verify those circuit-facing address files
+  // match what the generator would render right now.
+  it('committed standard_addresses.nr twins match re-rendered output', async () => {
+    if (!(await allArtifactsExist())) {
+      throw new Error(
+        `One or more standard-contract artifacts are missing under ${NOIR_ARTIFACTS_SRC_PATH}. ` +
+          `Run \`./bootstrap.sh\` from the repo root to build noir-contracts first.`,
+      );
+    }
 
-    beforeAll(async () => {
-      if (!(await allArtifactsExist())) {
-        throw new Error(
-          `One or more standard-contract artifacts are missing under ${NOIR_ARTIFACTS_SRC_PATH}. ` +
-            `Run \`./bootstrap.sh\` from the repo root to build noir-contracts first.`,
-        );
-      }
+    const names = standardContracts.map(c => c.name);
+    const contractDataList: ContractData[] = [];
+    for (const { src } of standardContracts) {
+      contractDataList.push(await computeContractData(await loadArtifact(src)));
+    }
+    const targets = await renderAllTargets(names, contractDataList);
 
-      const names = standardContracts.map(c => c.name);
-      const contractDataList: ContractData[] = [];
-      for (const { src } of standardContracts) {
-        contractDataList.push(await computeContractData(await loadArtifact(src)));
-      }
-      targets = await renderAllTargets(names, contractDataList);
-    });
-
-    it('committed standard_contract_data.ts matches re-rendered output', async () => {
-      const tsTarget = targets.find(t => t.path.endsWith('standard_contract_data.ts'));
-      expect(tsTarget).toBeDefined();
-      const committed = await readIfExists(tsTarget!.path);
+    const noirTargets = targets.filter(t => t.path.endsWith('.nr'));
+    expect(noirTargets.length).toBeGreaterThan(0);
+    for (const target of noirTargets) {
+      const committed = await readIfExists(target.path);
       expect(committed).not.toBeNull();
-      expect(committed).toEqual(tsTarget!.content);
-    });
-
-    it('committed standard_addresses.nr twins match re-rendered output', async () => {
-      const noirTargets = targets.filter(t => t.path.endsWith('.nr'));
-      expect(noirTargets.length).toBeGreaterThan(0);
-      for (const target of noirTargets) {
-        const committed = await readIfExists(target.path);
-        expect(committed).not.toBeNull();
-        expect(committed).toEqual(target.content);
-      }
-    });
+      expect(committed).toEqual(target.content);
+    }
   });
 });
