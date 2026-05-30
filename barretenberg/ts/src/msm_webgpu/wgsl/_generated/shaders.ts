@@ -3437,6 +3437,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let bucket_id = partial_dest[slot];
     if (bucket_id == NO_BUCKET) { return; }
+    // partial_dest is prepared with clearBuffer (writes 0), but NO_BUCKET is
+    // 0xffffffff. The walker is indirect-dispatched over only the active
+    // threads (nwg*256 <= NUM_THREADS), so any slot owned by a non-dispatched
+    // thread is never initialised and still reads 0 — i.e. bucket_id 0. Linking
+    // those into bucket 0's combine list injects off-curve (0,0) partials
+    // (walkerPartials is likewise zero-cleared) and makes ba_walker_combine hit
+    // dx==0. bucket_id 0 is the Booth zero-digit and is dropped by the
+    // reduction (ba_reduce_init: column 0, weight 0), so skipping it here is
+    // safe and removes the garbage at the source.
+    if (bucket_id == 0u) { return; }
 
     let node_array_idx = atomicAdd(&node_counter, 1u);
     if (node_array_idx >= max_nodes) { return; }
