@@ -9,8 +9,8 @@
 #include <string_view>
 
 namespace {
-Fr test_hash(uint8_t base) {
-  Fr hash{};
+echo::Fr test_hash(uint8_t base) {
+  echo::Fr hash{};
   for (size_t i = 0; i < hash.size(); ++i) {
     hash[i] = static_cast<uint8_t>(base + i);
   }
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
     assert(resp.treeId == 7);
     assert(resp.hash == hash);
     assert(resp.maybeHash == second);
-    assert((resp.hashes == std::vector<Fr>{hash, second}));
+    assert((resp.hashes == std::vector<echo::Fr>{hash, second}));
     std::cerr << "echo_client(cpp): EchoAliases OK\n";
   }
 
