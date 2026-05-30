@@ -1,28 +1,11 @@
 #include "barretenberg/cdb/cli.hpp"
-#include "barretenberg/cdb/cdb_execute.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/cdb/generated/cdb_ipc_server.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
 #include <iostream>
 #include <string>
 
 namespace bb::cdb {
-
-namespace {
-
-struct CdbApi {
-    CdbCommand commands;
-    CdbCommandResponse responses;
-    SERIALIZATION_FIELDS(commands, responses);
-};
-
-std::string get_cdb_schema_as_json()
-{
-    return msgpack_schema_to_string(CdbApi{});
-}
-
-} // namespace
 
 int parse_and_run_cdb(int argc, char* argv[])
 {

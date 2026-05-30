@@ -6,7 +6,7 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
-import * as net from 'net';
+import { UdsIpcClient } from '@aztec/ipc-runtime';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -28,30 +28,15 @@ export interface AvmOptions {
 
 /**
  * IPC backend that communicates with the aztec-avm binary via Unix Domain Socket.
- *
- * Protocol: 4-byte little-endian length prefix + msgpack buffer.
  */
 export class AvmBackend implements IMsgpackBackendAsync {
   private process: ChildProcess;
-  private socket: net.Socket | null = null;
+  private client: UdsIpcClient | null = null;
   private socketPath: string;
   private connectionPromise: Promise<void>;
   private connectionTimeout: NodeJS.Timeout | null = null;
   /** Resolves when the child process exits (for clean destroy). */
   private processExitPromise: Promise<void>;
-
-  private pendingCallbacks: Array<{
-    resolve: (data: Uint8Array) => void;
-    reject: (error: Error) => void;
-  }> = [];
-
-  // State machine for reading responses
-  private readingLength: boolean = true;
-  private lengthBuffer: Buffer = Buffer.alloc(4);
-  private lengthBytesRead: number = 0;
-  private responseLength: number = 0;
-  private responseBuffer: Buffer | null = null;
-  private responseBytesRead: number = 0;
 
   constructor(options: AvmOptions) {
     this.socketPath = path.join(os.tmpdir(), `avm-${process.pid}-${threadId}-${instanceCounter++}.sock`);
@@ -101,20 +86,14 @@ export class AvmBackend implements IMsgpackBackendAsync {
 
     this.process.on('error', (err: Error) => {
       const msg = `aztec-avm process error: ${err.message}\nstderr: ${stderrOutput}`;
-      for (const cb of this.pendingCallbacks) {
-        cb.reject(new Error(msg));
-      }
-      this.pendingCallbacks = [];
+      this.client?.destroy().catch(() => {});
       connectionReject?.(new Error(msg));
     });
 
     this.processExitPromise = new Promise<void>(resolve => {
       this.process.on('exit', (code: number | null) => {
         const msg = `aztec-avm process exited with code ${code}\nstderr: ${stderrOutput}`;
-        for (const cb of this.pendingCallbacks) {
-          cb.reject(new Error(msg));
-        }
-        this.pendingCallbacks = [];
+        this.client?.destroy().catch(() => {});
         connectionReject?.(new Error(msg));
         resolve();
       });
@@ -149,89 +128,17 @@ export class AvmBackend implements IMsgpackBackendAsync {
   }
 
   private connect(resolve: () => void, reject: (error: Error) => void) {
-    this.socket = net.createConnection(this.socketPath);
-
-    this.socket.on('connect', () => {
-      resolve();
-    });
-
-    this.socket.on('error', (err: Error) => {
-      reject(err);
-      for (const cb of this.pendingCallbacks) {
-        cb.reject(err);
-      }
-      this.pendingCallbacks = [];
-    });
-
-    this.socket.on('data', (chunk: Buffer) => {
-      this.handleData(chunk);
-    });
-
-    this.socket.on('close', () => {
-      const error = new Error('aztec-avm socket closed');
-      for (const cb of this.pendingCallbacks) {
-        cb.reject(error);
-      }
-      this.pendingCallbacks = [];
-    });
-  }
-
-  private handleData(chunk: Buffer) {
-    let offset = 0;
-
-    while (offset < chunk.length) {
-      if (this.readingLength) {
-        const bytesNeeded = 4 - this.lengthBytesRead;
-        const bytesAvailable = chunk.length - offset;
-        const bytesToCopy = Math.min(bytesNeeded, bytesAvailable);
-
-        chunk.copy(this.lengthBuffer, this.lengthBytesRead, offset, offset + bytesToCopy);
-        this.lengthBytesRead += bytesToCopy;
-        offset += bytesToCopy;
-
-        if (this.lengthBytesRead === 4) {
-          this.responseLength = this.lengthBuffer.readUInt32LE(0);
-          this.responseBuffer = Buffer.alloc(this.responseLength);
-          this.responseBytesRead = 0;
-          this.readingLength = false;
-        }
-      } else {
-        const bytesNeeded = this.responseLength - this.responseBytesRead;
-        const bytesAvailable = chunk.length - offset;
-        const bytesToCopy = Math.min(bytesNeeded, bytesAvailable);
-
-        chunk.copy(this.responseBuffer!, this.responseBytesRead, offset, offset + bytesToCopy);
-        this.responseBytesRead += bytesToCopy;
-        offset += bytesToCopy;
-
-        if (this.responseBytesRead === this.responseLength) {
-          const callback = this.pendingCallbacks.shift();
-          if (callback) {
-            callback.resolve(new Uint8Array(this.responseBuffer!));
-          }
-
-          // Reset state for next message
-          this.readingLength = true;
-          this.lengthBytesRead = 0;
-          this.responseBuffer = null;
-        }
-      }
-    }
+    UdsIpcClient.connect(this.socketPath)
+      .then(client => {
+        this.client = client;
+        resolve();
+      })
+      .catch(reject);
   }
 
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
     await this.connectionPromise;
-
-    return new Promise<Uint8Array>((resolve, reject) => {
-      this.pendingCallbacks.push({ resolve, reject });
-
-      // Write length prefix (4 bytes, little-endian) + data
-      const lengthBuf = Buffer.alloc(4);
-      lengthBuf.writeUInt32LE(inputBuffer.length, 0);
-
-      this.socket!.write(lengthBuf);
-      this.socket!.write(Buffer.from(inputBuffer));
-    });
+    return await this.client!.call(inputBuffer);
   }
 
   /**
@@ -256,9 +163,9 @@ export class AvmBackend implements IMsgpackBackendAsync {
       this.connectionTimeout = null;
     }
 
-    if (this.socket) {
-      this.socket.destroy();
-      this.socket = null;
+    if (this.client) {
+      await this.client.destroy();
+      this.client = null;
     }
 
     if (this.process && this.process.exitCode === null) {

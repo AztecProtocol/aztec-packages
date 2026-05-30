@@ -2,29 +2,12 @@
 #include "barretenberg/avm/avm_execute.hpp"
 #include "barretenberg/avm/avm_ipc_server.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
 #include <iostream>
 #include <string>
 
 namespace bb::avm {
-
-namespace {
-
-struct AvmApi {
-    AvmCommand commands;
-    AvmCommandResponse responses;
-    SERIALIZATION_FIELDS(commands, responses);
-};
-
-std::string get_avm_schema_as_json()
-{
-    return msgpack_schema_to_string(AvmApi{});
-}
-
-} // namespace
 
 int parse_and_run_avm(int argc, char* argv[])
 {
@@ -44,7 +27,7 @@ int parse_and_run_avm(int argc, char* argv[])
     CLI::App* msgpack_run_command = msgpack_command->add_subcommand("run", "Start the AVM simulator IPC server.");
 
     std::string input_path;
-    msgpack_run_command->add_option("-i,--input", input_path, "IPC socket path (.sock)")->required();
+    msgpack_run_command->add_option("-i,--input", input_path, "IPC socket/shm path (.sock or .shm)")->required();
 
     std::string wsdb_path;
     msgpack_run_command->add_option("--wsdb", wsdb_path, "WSDB server socket path")->required();

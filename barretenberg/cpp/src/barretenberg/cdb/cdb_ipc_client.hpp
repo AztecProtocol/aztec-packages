@@ -7,7 +7,7 @@
  * auto-generated client.
  */
 
-#include "barretenberg/cdb/cdb_ipc_client_generated.hpp"
+#include "barretenberg/cdb/generated/cdb_ipc_client.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 
 #include <memory>

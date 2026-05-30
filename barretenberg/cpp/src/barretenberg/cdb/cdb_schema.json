@@ -1,0 +1,145 @@
+{
+  "commands": [
+    "named_union",
+    [
+      [
+        "CdbGetContractInstance",
+        {
+          "__typename": "CdbGetContractInstance",
+          "address": ["alias", ["AztecAddress", "bin32"]],
+          "forkId": "unsigned long"
+        }
+      ],
+      [
+        "CdbGetContractClass",
+        {
+          "__typename": "CdbGetContractClass",
+          "classId": ["alias", ["ContractClassId", "bin32"]],
+          "forkId": "unsigned long"
+        }
+      ],
+      [
+        "CdbGetBytecodeCommitment",
+        {
+          "__typename": "CdbGetBytecodeCommitment",
+          "classId": ["alias", ["ContractClassId", "bin32"]],
+          "forkId": "unsigned long"
+        }
+      ],
+      [
+        "CdbGetDebugFunctionName",
+        {
+          "__typename": "CdbGetDebugFunctionName",
+          "address": ["alias", ["AztecAddress", "bin32"]],
+          "selector": ["alias", ["FunctionSelector", "bin32"]],
+          "forkId": "unsigned long"
+        }
+      ],
+      [
+        "CdbAddContracts",
+        {
+          "__typename": "CdbAddContracts",
+          "contractDeploymentData": ["vector", ["unsigned char"]],
+          "forkId": "unsigned long"
+        }
+      ],
+      [
+        "CdbCreateCheckpoint",
+        {
+          "__typename": "CdbCreateCheckpoint",
+          "forkId": "unsigned long"
+        }
+      ],
+      [
+        "CdbCommitCheckpoint",
+        {
+          "__typename": "CdbCommitCheckpoint",
+          "forkId": "unsigned long"
+        }
+      ],
+      [
+        "CdbRevertCheckpoint",
+        {
+          "__typename": "CdbRevertCheckpoint",
+          "forkId": "unsigned long"
+        }
+      ],
+      [
+        "CdbShutdown",
+        {
+          "__typename": "CdbShutdown"
+        }
+      ]
+    ]
+  ],
+  "responses": [
+    "named_union",
+    [
+      [
+        "CdbErrorResponse",
+        {
+          "__typename": "CdbErrorResponse",
+          "message": "string"
+        }
+      ],
+      [
+        "CdbGetContractInstanceResponse",
+        {
+          "__typename": "CdbGetContractInstanceResponse",
+          "instance": ["optional", [["vector", ["unsigned char"]]]]
+        }
+      ],
+      [
+        "CdbGetContractClassResponse",
+        {
+          "__typename": "CdbGetContractClassResponse",
+          "contractClass": ["optional", [["vector", ["unsigned char"]]]]
+        }
+      ],
+      [
+        "CdbGetBytecodeCommitmentResponse",
+        {
+          "__typename": "CdbGetBytecodeCommitmentResponse",
+          "commitment": ["optional", [["alias", ["Fr", "bin32"]]]]
+        }
+      ],
+      [
+        "CdbGetDebugFunctionNameResponse",
+        {
+          "__typename": "CdbGetDebugFunctionNameResponse",
+          "name": ["optional", ["string"]]
+        }
+      ],
+      [
+        "CdbAddContractsResponse",
+        {
+          "__typename": "CdbAddContractsResponse"
+        }
+      ],
+      [
+        "CdbCreateCheckpointResponse",
+        {
+          "__typename": "CdbCreateCheckpointResponse"
+        }
+      ],
+      [
+        "CdbCommitCheckpointResponse",
+        {
+          "__typename": "CdbCommitCheckpointResponse"
+        }
+      ],
+      [
+        "CdbRevertCheckpointResponse",
+        {
+          "__typename": "CdbRevertCheckpointResponse"
+        }
+      ],
+      [
+        "CdbShutdownResponse",
+        {
+          "__typename": "CdbShutdownResponse"
+        }
+      ]
+    ]
+  ]
+}

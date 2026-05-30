@@ -42,3 +42,17 @@ gen \
   --out "$TS_SRC/aztec-wsdb/generated" \
   --client \
   --prefix Wsdb
+
+gen \
+  --schema ../cpp/src/barretenberg/avm/avm_schema.json \
+  --lang ts \
+  --out "$TS_SRC/aztec-avm/generated" \
+  --client \
+  --prefix Avm
+
+gen \
+  --schema ../cpp/src/barretenberg/cdb/cdb_schema.json \
+  --lang ts \
+  --out "$TS_SRC/aztec-cdb/generated" \
+  --client \
+  --prefix Cdb

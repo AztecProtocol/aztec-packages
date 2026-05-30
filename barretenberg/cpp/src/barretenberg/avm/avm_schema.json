@@ -1,0 +1,59 @@
+{
+  "commands": [
+    "named_union",
+    [
+      [
+        "AvmSimulate",
+        {
+          "__typename": "AvmSimulate",
+          "inputs": ["vector", ["unsigned char"]]
+        }
+      ],
+      [
+        "AvmSimulateWithHints",
+        {
+          "__typename": "AvmSimulateWithHints",
+          "inputs": ["vector", ["unsigned char"]]
+        }
+      ],
+      [
+        "AvmShutdown",
+        {
+          "__typename": "AvmShutdown"
+        }
+      ]
+    ]
+  ],
+  "responses": [
+    "named_union",
+    [
+      [
+        "AvmErrorResponse",
+        {
+          "__typename": "AvmErrorResponse",
+          "message": "string"
+        }
+      ],
+      [
+        "AvmSimulateResponse",
+        {
+          "__typename": "AvmSimulateResponse",
+          "result": ["vector", ["unsigned char"]]
+        }
+      ],
+      [
+        "AvmSimulateWithHintsResponse",
+        {
+          "__typename": "AvmSimulateWithHintsResponse",
+          "result": ["vector", ["unsigned char"]]
+        }
+      ],
+      [
+        "AvmShutdownResponse",
+        {
+          "__typename": "AvmShutdownResponse"
+        }
+      ]
+    ]
+  ]
+}
