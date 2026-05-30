@@ -125,57 +125,63 @@ cross-checked vs `@noble/curves` at nb=1 — **passed**):
 
 Both devices show the same shape — **peak memory falls monotonically, GPU wall
 rises monotonically and accelerating, with badly diminishing returns past
-nb≈2–3**. Even if it were correct, raising the **default** budget would regress
-the common path materially, so the no-op default is right. But it is **not**
-correct: see the critical finding below — `nb>1` returns the wrong MSM, so these
-timings are the cost of a path that does not yet produce the right answer.
+nb≈2–3**. Raising the **default** budget would regress the common path
+materially, so the no-op default is right. (These timings predate the
+correctness fix below; the path now returns the right answer, and the
+buffer-size / nb mapping is unchanged, so the memory column still holds. The
+real-hardware A/B will be re-timed post-fix.)
 
-**Conclusion: the host-buffer-management memory lever is exhausted *and* the one
-mechanism it drives (batching) is currently broken.** There is no free
-over-provisioning to reclaim (every live buffer is algorithm-necessary and
-tightly sized; the dead pair-tree buffers are already 4-byte stubs); the only
-host-level cut is batching, which is both a steep time trade *and* presently
-incorrect for nb>1. A real, safe peak-memory reduction therefore needs (a) the
-multi-batch correctness bug fixed, and/or (b) the WGSL-level levers above
-(in-place reduction, on-GPU SRS y-recovery, per-batch scalar slicing) — each a
-separate verified change.
+**Conclusion: the host-buffer-management memory lever is a correct but steep
+memory/time trade.** There is no free over-provisioning to reclaim (every live
+buffer is algorithm-necessary and tightly sized; the dead pair-tree buffers are
+already 4-byte stubs); the only host-level cut is batching, now correct for
+nb>1 but a real time cost. Pushing the peak **below the batching floor** needs
+the WGSL-level levers above (in-place reduction, on-GPU SRS y-recovery,
+per-batch scalar slicing) — each a separate verified change.
 
-## ⚠️ Critical finding: the multi-batch path (`numBatches > 1`) is incorrect
+## ✅ Fixed: the multi-batch path (`numBatches > 1`) is now correct
 
-The per-nb cross-check (every budget verified vs `@noble/curves`, **real macOS
-Sequoia · Chrome 148**, logn16) shows the batched path returns **wrong** results:
+The batched path previously returned the **wrong** MSM — every forced
+`nb=2..10` disagreed with `@noble/curves` while `nb=1` matched. Two host/shader
+bugs caused it, both now fixed (commit on this branch):
 
-| numBatches | GPU wall | matches noble? |
-|:--:|---:|:--:|
-| 1 | 50.6 ms | ✅ **yes** |
-| 2 | 60.2 ms | ❌ no |
-| 3 | 64.7 ms | ❌ no |
-| 4 | 77.8 ms | ❌ no |
-| 5 | 89.3 ms | ❌ no |
-| 10 | 159.8 ms | ❌ no |
+1. **Missing global bucket offset.** Each batch's CSR is built in the LOCAL
+   window space `[0, batchWindows)` → LOCAL bucket space `[0, batchBuckets)`,
+   but the three kernels that write the full-`bTotal` `bucketResult`
+   (`ba_size1`, `ba_stream_walker`, `ba_walker_combine`) indexed it by the
+   local bucket, so every batch overwrote the low `[0, batchBuckets)` region
+   instead of filling its disjoint global slice. Fix: thread a per-batch
+   `bucket_base = bi*batchBuckets` into those kernels' destination index
+   (`ba_size1` params.y, `ba_stream_walker` params.w — `M_partials` is now
+   derived in-shader to free the slot — `ba_walker_combine` params.z), with one
+   bind group per batch. The CSR / partials / linked-list spaces stay LOCAL;
+   only the final write adds the base.
+2. **Stale per-batch walker scratch.** `bucketHead` (atomic linked-list heads),
+   `walkerNodeCounter` (atomic node allocator), `taskCuts`, and `threadCuts`
+   were cleared **once before** the batch loop, so at nb>1 batch `bi` either
+   walked batch `bi-1`'s stale heads or overflowed `max_nodes` and silently
+   dropped its partials. Fix: clear them at the start of **each** batch;
+   `bucketResult` and the 8 MB `walkerPartials` stay cleared once (disjoint
+   accumulation / only fresh linked slots are read).
 
-So nb=1 is correct and **every** `nb>1` disagrees — on hardware with a known-good
-WebGPU implementation. This **refutes the premise** that raising `numBatches` is
-"no correctness change … the same path already default at logn20." The budget
-lever therefore does **not** safely trade memory for time today: engaging it
-returns an incorrect MSM.
+At nb=1, `bucket_base=0` and the loop runs once, so the default path is
+byte-identical to before.
 
-**Root cause (pinned):** `decompose_scalars_booth` applies the per-batch global
-window base **only to the scalar-bit read** — `w_global = w + batch.x`,
-`read_bits(p, …, w_global * c, c)` — but writes its output **local-window
-indexed**: `idx = w * input_size + p` (`w` ∈ `[0, batchWindows)`). Every batch
-therefore produces a CSR in the *same* local `[0, batchBuckets)` space, and the
-shaders that finally write the full-`bTotal` `bucketResult` (`ba_size1`,
-`ba_stream_walker`, `ba_walker_combine`) never re-apply a
-`batch_window_base * BW` offset — their bind groups/params are built once in
-`prepare()` and not updated per batch. So at nb>1 each batch **overwrites the low
-`batchBuckets` region** of `bucketResult` instead of filling its disjoint slice;
-windows above `batchWindows` stay zero, and the once-over `reduce` sums a buffer
-where only the last batch's windows are populated. At nb=1
-`batchBuckets == bTotal`, local == global, and it works. Fix direction: thread a
-per-batch `bucket_base = batch_window_base * BW` into the three `bucketResult`-
-writing kernels' destination index (and verify the `batchBuckets`-sized CSR
-`counts`/`offsets` vs the `bTotal`-sized lists are indexed consistently).
+**Cross-check (headless SwiftShader, software — correctness is
+hardware-independent; vs `@noble/curves`, forced nb via `MsmConfig.forceNumBatches`):**
+
+| logn | nb=1 | nb=2 | nb=3 | nb=4 |
+|:--:|:--:|:--:|:--:|:--:|
+| 10 | ✅ | ✅ | ✅ | ✅ |
+| 14 | ✅ | ✅ | ✅ | — |
+
+(`generateInputs` supports logn≥10, so the small-n checks use logn10/14 rather
+than 8. Real-hardware per-nb cross-check + timings to follow on BrowserStack.)
+
+**Blast radius now closed:** the same multi-batch code is the `wgFits`-forced
+**default** at logn19 (nb=2) / logn20 (nb=3), so MsmV2 was very likely
+**incorrect by default at logn≥19**. With this fix the default path at those
+sizes is now correct (the lever and the forced default share one code path).
 
 **Blast radius beyond the lever:** the same multi-batch code is the
 `wgFits`-forced **default** at **logn19 (nb=2)** and **logn20 (nb=3)** — so
