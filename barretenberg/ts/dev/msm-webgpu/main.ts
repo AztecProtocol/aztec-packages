@@ -1374,7 +1374,16 @@ function hideProgress(): void {
 (async () => {
   setBusy(true, 'loading SRS…');
   try {
-    srsBuf = await loadSrsPoints(SRS_NUM_POINTS, event => {
+    // Optional ?srsmax=N (log2) caps the boot SRS download to 2^N points. The
+    // default 2^20 is a 64 MB fetch+decompress that is too slow on mobile;
+    // a logn=L sweep only needs 2^L points, so `?srsmax=17` cuts it 8×.
+    const srsMaxLog = (() => {
+      const raw = new URLSearchParams(window.location.search).get('srsmax');
+      const v = raw === null ? LOGN_MAX : parseInt(raw, 10);
+      return Number.isInteger(v) && v >= LOGN_MIN && v <= LOGN_MAX ? v : LOGN_MAX;
+    })();
+    const srsBootPoints = 1 << srsMaxLog;
+    srsBuf = await loadSrsPoints(srsBootPoints, event => {
       if (event.kind === 'info') {
         log('info', event.msg);
       } else if (event.kind === 'phase') {
@@ -1383,7 +1392,7 @@ function hideProgress(): void {
         hideProgress();
       }
     });
-    log('ok', `SRS loaded: ${SRS_NUM_POINTS.toLocaleString()} points available.`);
+    log('ok', `SRS loaded: ${srsBootPoints.toLocaleString()} points available.`);
     log(
       'info',
       `WASM not booted yet (lazy). Click Run / Sweep — it'll spin up ` +

@@ -51,6 +51,7 @@ const { values: argv } = parseArgs({
     skew: { type: "string" },
     ss: { type: "string" },
     slist: { type: "string" },
+    srsmax: { type: "string" },
     wgi: { type: "string" },
     port: { type: "string", default: "5198" },
     "first-progress-ms": { type: "string" },
@@ -427,6 +428,9 @@ async function main() {
   // S list for the single-session msm-s-sweep autorun (one worker maps the
   // whole curve), e.g. --slist 8,12,16,20,24,32.
   if (argv.slist) qp.set("slist", String(argv.slist));
+  // Cap the boot SRS download (log2 points) — mobile can't afford the 64 MB
+  // 2^20 default; a logn=17 sweep only needs 2^17.
+  if (argv.srsmax) qp.set("srsmax", String(argv.srsmax));
   if (argv.wgi) qp.set("wgi", String(argv.wgi));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
