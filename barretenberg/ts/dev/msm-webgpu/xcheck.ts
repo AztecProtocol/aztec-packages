@@ -16,6 +16,7 @@ import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { MsmV2, MsmV2Pool } from '../../src/msm_webgpu/msm_v2.js';
+import { buildGlvInputs } from '../../src/msm_webgpu/cuzk/glv.js';
 
 const $status = document.getElementById('status')!;
 const $log = document.getElementById('log')!;
@@ -31,6 +32,7 @@ function setStatus(t: string) {
 
 const q = new URLSearchParams(location.search);
 const LOGNS = (q.get('logns') ?? '8,10').split(',').map(s => parseInt(s, 10));
+const GLV = q.get('glv') === '1';
 
 function biToLe32(v: bigint): Uint8Array {
   const out = new Uint8Array(32);
@@ -108,9 +110,26 @@ function reference(inp: Inputs): { x: bigint; y: bigint } {
       const ref = reference(inp);
       log(`  noble ref x=0x${ref.x.toString(16).slice(0, 16)}...`);
 
-      const pool = await MsmV2Pool.create(device, inp.pointsBuf);
-      const msm = await MsmV2.create(device, n, pool, {});
-      msm.prepare(inp.scalarsBuf);
+      // In GLV mode, transform the n-pair 254-bit MSM into a 2n-pair 128-bit
+      // MSM (Σ k1ᵢ Pᵢ + Σ k2ᵢ φPᵢ) and run with scalarBits=128. The expected
+      // result is unchanged — still Σ kᵢ Pᵢ — so we compare to the same noble
+      // reference.
+      let runN = n;
+      let pts = inp.pointsBuf;
+      let scs = inp.scalarsBuf;
+      const cfg: { scalarBits?: number } = {};
+      if (GLV) {
+        const g = buildGlvInputs(inp.pointsBuf, inp.scalarsBuf, n);
+        runN = 2 * n;
+        pts = g.pointsBuf;
+        scs = g.scalarsBuf;
+        cfg.scalarBits = 128;
+        log(`  GLV: ${runN} pairs, scalarBits=128, max |kᵢ|=${g.maxBits} bits`);
+      }
+
+      const pool = await MsmV2Pool.create(device, pts);
+      const msm = await MsmV2.create(device, runN, pool, cfg);
+      msm.prepare(scs);
       await msm.run(); // first-use warm
       const got = await msm.run();
       log(`  webgpu   x=0x${got.x.toString(16).slice(0, 16)}... (c=${got.c})`);

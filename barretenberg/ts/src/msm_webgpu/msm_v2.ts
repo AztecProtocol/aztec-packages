@@ -65,6 +65,18 @@ export interface MsmConfig {
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
   /**
+   * Scalar bit length λ used to size the window count: `numWindows =
+   * ceil(λ / c)`. Default 254 (full BN254 Fr). Set to ~128 when the caller has
+   * GLV-decomposed each 254-bit scalar into two ≈127-bit half-scalars (and
+   * doubled the point set with the φ endomorphism): halving λ halves
+   * `numWindows`, which halves the bucket-reduction (BPR) work and the
+   * `bucket_sums` buffer. The decompose shader reads exactly `numWindows · c`
+   * bits per scalar, so callers MUST ensure every scalar magnitude is
+   * `< 2^(numWindows · c)`. Reduced-bit MSMs (e.g. 32-bit scalars) can set this
+   * directly.
+   */
+  scalarBits?: number;
+  /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
    * Default 5 (benchmark harness); the production bridge passes 0 so the first
@@ -1148,9 +1160,11 @@ export class MsmV2 {
   /** Pippenger window bit width, picked by `pickC(n)`. Public so the
    *  bridge can ship it back to the C++ Horner combine. */
   c!: number;
-  /** Number of Pippenger windows = ceil(NUMBITS / c). Public — the bridge
+  /** Number of Pippenger windows = ceil(scalarBits / c). Public — the bridge
    *  reads it when packing per-MSM staging buffers. */
   numWindows!: number;
+  /** Scalar bit length λ used to size `numWindows`. Default 254; ~128 under GLV. */
+  scalarBits!: number;
   private BW!: number;
   private bTotal!: number;
   private R!: bigint;
@@ -1392,7 +1406,8 @@ export class MsmV2 {
     }
     // Pull the knobs into the local names the rest of create() uses.
     const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT, addsub: ADDSUB } = m;
-    m.numWindows = Math.ceil(NUMBITS / m.c);
+    m.scalarBits = config?.scalarBits ?? NUMBITS;
+    m.numWindows = Math.ceil(m.scalarBits / m.c);
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
     m.bTotal = m.numWindows * m.BW;
     m.stride = 2 ** (m.c - 1);

@@ -15,6 +15,7 @@ const { values: argv } = parseArgs({
   options: {
     port: { type: 'string', default: '5173' },
     logns: { type: 'string', default: '8,10' },
+    glv: { type: 'boolean', default: false },
     timeout: { type: 'string', default: '300000' },
   },
 });
@@ -26,7 +27,8 @@ if (!exe) {
   process.exit(2);
 }
 
-const url = `http://localhost:${argv.port}/dev/msm-webgpu/xcheck.html?logns=${argv.logns}`;
+const url =
+  `http://localhost:${argv.port}/dev/msm-webgpu/xcheck.html?logns=${argv.logns}` + (argv.glv ? '&glv=1' : '');
 const timeoutMs = parseInt(argv.timeout, 10);
 
 const browser = await chromium.launch({
