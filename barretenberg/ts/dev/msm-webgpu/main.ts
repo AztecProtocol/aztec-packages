@@ -75,6 +75,12 @@ const NOBLE_REFERENCE_LOGN = 16;
 // skips the WASM-MT path. Used for SwiftShader validation when the threaded
 // WASM oracle is unavailable (no cross-origin isolation / placeholder wasm).
 const refNobleAny = new URLSearchParams(window.location.search).get('ref') === 'noble';
+// GPU-only timing: skip both the WASM-MT and noble paths so a bench run does
+// not depend on the (unavailable) threaded WASM oracle. Set automatically for
+// the msm-bench autorun.
+const gpuOnly =
+  new URLSearchParams(window.location.search).get('gpu_only') === '1' ||
+  new URLSearchParams(window.location.search).get('autorun') === 'msm-bench';
 const SWEEP_REPS = 5;
 
 // GPU pipeline knobs from the URL — forwarded to every MsmV2 (unset = defaults).
@@ -222,8 +228,10 @@ function setBusy(busy: boolean, text = ''): void {
   // — disable them when COI is off (the threaded WASM can't load without
   // SharedArrayBuffer). The user can still hit Quick Sanity Check to run
   // WebGPU on its own.
-  $run.disabled = busy || !ready || !WASM_AVAILABLE;
-  $runBench.disabled = busy || !ready || !WASM_AVAILABLE;
+  // In GPU-only mode (?gpu_only=1 or the msm-bench autorun) Run/Run×5 skip the
+  // WASM path entirely, so they only need the SRS — gate them on `ready` alone.
+  $run.disabled = busy || !ready || (!WASM_AVAILABLE && !gpuOnly);
+  $runBench.disabled = busy || !ready || (!WASM_AVAILABLE && !gpuOnly);
   $runSweep.disabled = busy || !ready || !WASM_AVAILABLE;
   // Stop is only meaningful while something is in flight, WASM is booted,
   // or a GPU context is alive (so the user can free GPU memory on demand).
@@ -502,6 +510,21 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     msmV2LogN = logN;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
+  // Peak GPU-buffer accounting (deterministic in n,c,S,TPB). `algo` is the
+  // per-MSM working set that the ≤100MB budget applies to: shared scratch +
+  // per-instance buffers, excluding the SRS point pool (poolX+poolY = n·64 B).
+  const mib = (b: number): string => (b / 1048576).toFixed(2);
+  const instBytes = msmV2.statsBytes();
+  const poolBytes = msmV2Pool!.statsBytes();
+  const srsBytes = inputs.n * 64;
+  const scratchBytes = poolBytes - srsBytes;
+  const algoBytes = scratchBytes + instBytes;
+  (window as unknown as { __msmMem?: unknown }).__msmMem = {
+    n: inputs.n, logN, instBytes, scratchBytes, srsBytes, algoBytes, poolBytes,
+  };
+  log('info', `[mem] logN=${logN} algo=${mib(algoBytes)}MiB ` +
+    `(scratch=${mib(scratchBytes)} + inst=${mib(instBytes)}) ` +
+    `srs=${mib(srsBytes)}MiB total=${mib(poolBytes)}MiB`);
   return msmV2;
 }
 
@@ -966,16 +989,18 @@ $run.addEventListener('click', async () => {
     log('info', `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
     await yieldToBrowser();
 
-    if (refNobleAny) {
-      if (inputs.points && inputs.scalars) {
-        const noble = referenceMsm(inputs.points, inputs.scalars);
-        if (pointsEqual(noble, gpu.xy)) {
-          log('ok', `[cross-check] WebGPU and noble agree at log₂(n) = ${logN}`);
+    if (refNobleAny || gpuOnly) {
+      if (refNobleAny) {
+        if (inputs.points && inputs.scalars) {
+          const noble = referenceMsm(inputs.points, inputs.scalars);
+          if (pointsEqual(noble, gpu.xy)) {
+            log('ok', `[cross-check] WebGPU and noble agree at log₂(n) = ${logN}`);
+          } else {
+            log('err', `[cross-check] disagreement: gpu=${gpu.xy.x}, noble=${noble.x}`);
+          }
         } else {
-          log('err', `[cross-check] disagreement: gpu=${gpu.xy.x}, noble=${noble.x}`);
+          log('err', `[cross-check] ref=noble set but reference inputs missing`);
         }
-      } else {
-        log('err', `[cross-check] ref=noble set but reference inputs missing`);
       }
       return;
     }
@@ -1487,10 +1512,11 @@ function hideProgress(): void {
         `wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ${avgPhaseStr}`);
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      const mem = (window as unknown as { __msmMem?: unknown }).__msmMem ?? null;
       await client.postResults({
         state: 'done',
         params: { logN: autorunLogN, reps, page: 'msm-bench' },
-        results: { samples, averages: { wallMs: avgWall, gpuMs: avgGpu, ...avgPhases } },
+        results: { samples, averages: { wallMs: avgWall, gpuMs: avgGpu, ...avgPhases }, mem },
         error: null,
         log: allLines.slice(-100),
         userAgent: navigator.userAgent,
