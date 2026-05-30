@@ -72,16 +72,22 @@ export interface MsmConfig {
    * inv_dx round-trip through `pref_scratch`, the `dx_cache` registers, and the
    * separate peel pass all disappear — fewer registers (higher occupancy),
    * less workgroup traffic, shorter dependent chain. Numerically identical to
-   * the 3-pass path. When `true`, `walkerCacheDx` is irrelevant. Default `true`.
+   * the 3-pass path. When `true`, `walkerCacheDx` is irrelevant.
+   *
+   * Default `false`: on Apple M2 (PR #23724 A/B) fusion measured ~2% *slower*
+   * than the 3-pass walker at every occupancy point — merging the passes raises
+   * peak live-register pressure, and this kernel is occupancy-bound, so fewer
+   * registers (more resident workgroups) beats fewer passes. Kept as a knob.
    */
   walkerFused?: boolean;
   /**
    * Stream-walker prefix scratch location. `'workgroup'` (default) keeps the
    * per-thread prefix products in `var<workgroup>` (`TPB·S·32 B`, capped by the
    * device's `maxComputeWorkgroupStorageSize` — 16 KB on Mali Bifrost).
-   * `'private'` moves them to per-invocation storage, freeing the workgroup
-   * memory cap so `walkerTpb` can rise (the #23726 occupancy lever), at a cost
-   * of `S·8` u32 of per-thread state. Numerically identical either way.
+   * `'private'` (default) moves them to per-invocation storage, freeing the
+   * workgroup memory cap so `walkerTpb` can rise (the #23726 occupancy lever),
+   * at a cost of `S·8` u32 of per-thread state. Numerically identical either
+   * way; `'private'` + TPB 96 is the Apple-M2 measured optimum (PR #23724).
    */
   walkerPrefMem?: 'workgroup' | 'private';
   /**
@@ -95,7 +101,9 @@ export interface MsmConfig {
   /**
    * Stream-walker workgroup size (TPB). `pref_scratch = TPB·S·32 B` must fit
    * the device's `maxComputeWorkgroupStorageSize` (16 KB on Mali Bifrost →
-   * TPB·S ≤ 512; 32 KB on Apple/Adreno → TPB·S ≤ 1024). Default 64.
+   * TPB·S ≤ 512; 32 KB on Apple/Adreno → TPB·S ≤ 1024) — but with the default
+   * `walkerPrefMem: 'private'` there is no workgroup-memory cap. Default 96
+   * (Apple-M2 occupancy optimum; TPB 64 and 128 are both slightly slower).
    */
   walkerTpb?: number;
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
@@ -1656,16 +1664,25 @@ export class MsmV2 {
     m.splitRecomputePipe = await compile(
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
-    // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB=64 per KNOB 1
-    // (16 KB pref_scratch fits Mali Bifrost). NUM_THREADS = nwg*256 still
-    // (partition_thread's grain), walker dispatches ceil(num_active/TPB) wgs.
-    const WALKER_TPB = config?.walkerTpb ?? 64;
+    // Stream-walker (Plan §6 + C's KNOB 2 variant). Defaults are the Apple-M2
+    // measured optimum (PR #23724 A/B): the prefix scratch lives in
+    // var<private> (no workgroup-memory cap → no Mali 16 KB ceiling on TPB) and
+    // TPB=96 is the occupancy sweet spot — together −9% on the stream_walker
+    // phase, −7% GPU total vs the workgroup-pref TPB=64 walker. NUM_THREADS =
+    // nwg*256 (partition_thread's grain); walker dispatches ceil(num_active/TPB)
+    // wgs. NB: with prefMem='workgroup', pref_scratch = TPB·S·32 B must fit
+    // maxComputeWorkgroupStorageSize (TPB·S ≤ 512 on Mali Bifrost's 16 KB).
+    const WALKER_TPB = config?.walkerTpb ?? 96;
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     const walkerCacheDx = config?.walkerCacheDx ?? true;
-    const walkerFused = config?.walkerFused ?? true;
-    const walkerPrefMem = config?.walkerPrefMem ?? 'workgroup';
+    // Fusing the inverse+peel passes was measured slower on Apple M2 (it raises
+    // peak live-register pressure, which lowers occupancy on this
+    // occupancy-bound kernel), so it is off by default; kept as a knob for
+    // architectures with different register/occupancy trade-offs.
+    const walkerFused = config?.walkerFused ?? false;
+    const walkerPrefMem = config?.walkerPrefMem ?? 'private';
     m.streamWalkerPipe = await compile(
       sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, walkerCacheDx, walkerFused, walkerPrefMem),
       `stream-walker`, m.streamWalkerLayout);

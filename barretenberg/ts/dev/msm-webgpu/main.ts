@@ -1716,12 +1716,16 @@ function hideProgress(): void {
       //   baseline  — legacy 3-pass dx-cache walker, wg pref, TPB 64
       //   fused     — fused inverse+peel, wg pref, TPB 64   (fusion lever)
       //   fused+occ — fused + private pref, TPB 128         (+occupancy lever)
-      type Variant = { tag: string; fused?: boolean; prefMem?: 'workgroup' | 'private'; tpb?: number };
+      type Variant = { tag: string; fused?: boolean; prefMem?: 'workgroup' | 'private'; tpb?: number; cacheDx?: boolean };
       const ladder: Variant[] = qp.get('fusedab') === '1'
         ? [
-            { tag: 'baseline', fused: false, prefMem: 'workgroup', tpb: 64 },
-            { tag: 'fused', fused: true, prefMem: 'workgroup', tpb: 64 },
-            { tag: 'fused+occ', fused: true, prefMem: 'private', tpb: 128 },
+            { tag: 'baseline', fused: false, prefMem: 'workgroup', tpb: 64, cacheDx: true },
+            { tag: 'dx+t96', fused: false, prefMem: 'private', tpb: 96, cacheDx: true },
+            { tag: 'dx+t128', fused: false, prefMem: 'private', tpb: 128, cacheDx: true },
+            { tag: 'dx+t160', fused: false, prefMem: 'private', tpb: 160, cacheDx: true },
+            { tag: 'nodx+t96', fused: false, prefMem: 'private', tpb: 96, cacheDx: false },
+            { tag: 'nodx+t128', fused: false, prefMem: 'private', tpb: 128, cacheDx: false },
+            { tag: 'nodx+t160', fused: false, prefMem: 'private', tpb: 160, cacheDx: false },
           ]
         : [{ tag: 'default', fused: gpuKnobs.walkerFused, prefMem: gpuKnobs.walkerPrefMem, tpb: gpuKnobs.walkerTpb }];
       for (const S of sweepS) {
@@ -1731,6 +1735,7 @@ function hideProgress(): void {
           const pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
           const cfg: MsmConfig = {
             ...gpuKnobs, walkerS: S, walkerFused: v.fused, walkerPrefMem: v.prefMem, walkerTpb: v.tpb,
+            ...(v.cacheDx === undefined ? {} : { walkerCacheDx: v.cacheDx }),
             profile: true, warmupRuns: 3,
           };
           const msm = await MsmV2.create(gpuDevice, inputs.n, pool, cfg);
