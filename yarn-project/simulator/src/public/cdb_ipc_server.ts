@@ -9,7 +9,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ContractDeploymentData } from '@aztec/stdlib/contract';
+import { ContractDeploymentData, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { Decoder, Encoder } from 'msgpackr';
 import * as fs from 'node:fs';
@@ -34,42 +34,22 @@ function toFieldBuffer(field: Fr | AztecAddress): Buffer {
  * Serialize a ContractInstanceWithAddress to the format expected by the C++ CDB client.
  * Matches the avm2::ContractInstance msgpack schema.
  */
-function serializeContractInstance(instance: {
-  salt: Fr;
-  deployer: AztecAddress;
-  currentContractClassId: Fr;
-  originalContractClassId: Fr;
-  initializationHash: Fr;
-  publicKeys: {
-    masterNullifierPublicKey: { x: Fr; y: Fr };
-    masterIncomingViewingPublicKey: { x: Fr; y: Fr };
-    masterOutgoingViewingPublicKey: { x: Fr; y: Fr };
-    masterTaggingPublicKey: { x: Fr; y: Fr };
-  };
-}): Record<string, unknown> {
+function serializeContractInstance(instance: ContractInstanceWithAddress): Record<string, unknown> {
   return {
     salt: toFieldBuffer(instance.salt),
     deployer: toFieldBuffer(instance.deployer),
     currentContractClassId: toFieldBuffer(instance.currentContractClassId),
     originalContractClassId: toFieldBuffer(instance.originalContractClassId),
     initializationHash: toFieldBuffer(instance.initializationHash),
+    immutablesHash: toFieldBuffer(instance.immutablesHash),
     publicKeys: {
-      masterNullifierPublicKey: {
-        x: toFieldBuffer(instance.publicKeys.masterNullifierPublicKey.x),
-        y: toFieldBuffer(instance.publicKeys.masterNullifierPublicKey.y),
+      npkMHash: toFieldBuffer(instance.publicKeys.npkMHash),
+      ivpkM: {
+        x: toFieldBuffer(instance.publicKeys.ivpkM.x),
+        y: toFieldBuffer(instance.publicKeys.ivpkM.y),
       },
-      masterIncomingViewingPublicKey: {
-        x: toFieldBuffer(instance.publicKeys.masterIncomingViewingPublicKey.x),
-        y: toFieldBuffer(instance.publicKeys.masterIncomingViewingPublicKey.y),
-      },
-      masterOutgoingViewingPublicKey: {
-        x: toFieldBuffer(instance.publicKeys.masterOutgoingViewingPublicKey.x),
-        y: toFieldBuffer(instance.publicKeys.masterOutgoingViewingPublicKey.y),
-      },
-      masterTaggingPublicKey: {
-        x: toFieldBuffer(instance.publicKeys.masterTaggingPublicKey.x),
-        y: toFieldBuffer(instance.publicKeys.masterTaggingPublicKey.y),
-      },
+      ovpkMHash: toFieldBuffer(instance.publicKeys.ovpkMHash),
+      tpkMHash: toFieldBuffer(instance.publicKeys.tpkMHash),
     },
   };
 }

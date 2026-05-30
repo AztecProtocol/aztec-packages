@@ -436,7 +436,7 @@ ${methods}
         const fieldNames = s.fields.map((f) => f.name).join(", ");
         const schemaName = `    static constexpr const char MSGPACK_SCHEMA_NAME[] = "${s.name}";`;
         const serialization = fieldNames
-          ? `    SERIALIZATION_FIELDS(${fieldNames})`
+          ? `    IPC_CODEGEN_SERIALIZATION_FIELDS(${fieldNames})`
           : `    template <typename _PackFn> void msgpack(_PackFn&& pack_fn) { pack_fn(); }`;
         return `struct ${s.name} {\n${schemaName}\n${fields}\n${serialization}\n    bool operator==(const ${s.name}&) const = default;\n};`;
       })
@@ -462,13 +462,11 @@ ${methods}
 #include <msgpack.hpp>
 
 // ---------------------------------------------------------------------------
-// Self-contained serialization macro.
+// Self-contained serialization macro for generated wire types.
 // Defines a msgpack() method that enumerates field name/value pairs.
 // Works with msgpack packers (serialization) and schema reflectors.
-// Skipped if the consumer already defines SERIALIZATION_FIELDS (which then
-// wins, so wire and domain types share the same enumeration semantics).
 // ---------------------------------------------------------------------------
-#ifndef SERIALIZATION_FIELDS
+#ifndef IPC_CODEGEN_SERIALIZATION_FIELDS
 #define _SF_E1(x) #x, x
 #define _SF_E2(x, ...) #x, x, _SF_E1(__VA_ARGS__)
 #define _SF_E3(x, ...) #x, x, _SF_E2(__VA_ARGS__)
@@ -494,7 +492,7 @@ ${methods}
 #define _SF_CAT(a, b) a##b
 #define _SF_SEL(n) _SF_CAT(_SF_E, n)
 #define _SF_NVP(...) _SF_SEL(_SF_NUM(__VA_ARGS__))(__VA_ARGS__)
-#define SERIALIZATION_FIELDS(...) \\
+#define IPC_CODEGEN_SERIALIZATION_FIELDS(...) \\
     template <typename _PackFn> void msgpack(_PackFn pack_fn) { pack_fn(_SF_NVP(__VA_ARGS__)); }
 #endif
 
@@ -936,7 +934,7 @@ namespace detail {
 struct ${prefix}Api {
     ${prefix}Command commands;
     ${prefix}CommandResponse responses;
-    SERIALIZATION_FIELDS(commands, responses);
+    IPC_CODEGEN_SERIALIZATION_FIELDS(commands, responses);
 };
 } // namespace detail
 

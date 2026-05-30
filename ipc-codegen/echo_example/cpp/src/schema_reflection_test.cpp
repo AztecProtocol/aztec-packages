@@ -27,13 +27,13 @@ struct EchoInner {
   static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoInner";
   std::vector<std::vector<uint8_t>> values;
   std::optional<bool> flag;
-  SERIALIZATION_FIELDS(values, flag)
+  IPC_CODEGEN_SERIALIZATION_FIELDS(values, flag)
 };
 
 struct EchoBytes {
   static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoBytes";
   std::vector<uint8_t> data;
-  SERIALIZATION_FIELDS(data)
+  IPC_CODEGEN_SERIALIZATION_FIELDS(data)
 };
 
 struct EchoFields {
@@ -41,13 +41,13 @@ struct EchoFields {
   uint32_t a;
   uint64_t b;
   std::string name;
-  SERIALIZATION_FIELDS(a, b, name)
+  IPC_CODEGEN_SERIALIZATION_FIELDS(a, b, name)
 };
 
 struct EchoNested {
   static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoNested";
   EchoInner inner;
-  SERIALIZATION_FIELDS(inner)
+  IPC_CODEGEN_SERIALIZATION_FIELDS(inner)
 };
 
 struct EchoAliases {
@@ -56,7 +56,7 @@ struct EchoAliases {
   Fr hash;
   std::optional<Fr> maybeHash;
   std::vector<Fr> hashes;
-  SERIALIZATION_FIELDS(treeId, hash, maybeHash, hashes)
+  IPC_CODEGEN_SERIALIZATION_FIELDS(treeId, hash, maybeHash, hashes)
 };
 
 struct EchoShutdown {
@@ -67,7 +67,7 @@ struct EchoShutdown {
 struct EchoBytesResponse {
   static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoBytesResponse";
   std::vector<uint8_t> data;
-  SERIALIZATION_FIELDS(data)
+  IPC_CODEGEN_SERIALIZATION_FIELDS(data)
 };
 
 struct EchoFieldsResponse {
@@ -75,13 +75,13 @@ struct EchoFieldsResponse {
   uint32_t a;
   uint64_t b;
   std::string name;
-  SERIALIZATION_FIELDS(a, b, name)
+  IPC_CODEGEN_SERIALIZATION_FIELDS(a, b, name)
 };
 
 struct EchoNestedResponse {
   static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoNestedResponse";
   EchoInner inner;
-  SERIALIZATION_FIELDS(inner)
+  IPC_CODEGEN_SERIALIZATION_FIELDS(inner)
 };
 
 struct EchoAliasesResponse {
@@ -90,7 +90,7 @@ struct EchoAliasesResponse {
   Fr hash;
   std::optional<Fr> maybeHash;
   std::vector<Fr> hashes;
-  SERIALIZATION_FIELDS(treeId, hash, maybeHash, hashes)
+  IPC_CODEGEN_SERIALIZATION_FIELDS(treeId, hash, maybeHash, hashes)
 };
 
 struct EchoShutdownResponse {
@@ -101,7 +101,7 @@ struct EchoShutdownResponse {
 struct EchoErrorResponse {
   static constexpr const char MSGPACK_SCHEMA_NAME[] = "EchoErrorResponse";
   std::string message;
-  SERIALIZATION_FIELDS(message)
+  IPC_CODEGEN_SERIALIZATION_FIELDS(message)
 };
 
 using Command = ipc::NamedUnion<EchoBytes, EchoFields, EchoNested, EchoAliases,
