@@ -255,21 +255,24 @@ describe('public_processor', () => {
         finishSimulation = resolve;
       });
 
-      publicTxSimulator.simulate.mockImplementation(async () => {
-        controller.abort();
-        await simulationFinished;
-        return mockedEnqueuedCallsResult;
-      });
-      publicTxSimulator.cancel.mockImplementation(() => {
+      const cancel = jest.fn(() => {
         finishSimulation();
         return Promise.resolve();
       });
+      publicTxSimulator.simulate.mockImplementation(() => ({
+        result: (async () => {
+          controller.abort();
+          await simulationFinished;
+          return mockedEnqueuedCallsResult;
+        })(),
+        cancel,
+      }));
 
       const [processed, failed] = await processor.process([tx], { signal: controller.signal });
 
       expect(processed).toEqual([]);
       expect(failed).toEqual([]);
-      expect(publicTxSimulator.cancel).toHaveBeenCalled();
+      expect(cancel).toHaveBeenCalled();
     });
 
     // Flakey timing test that's totally dependent on system load/architecture etc.

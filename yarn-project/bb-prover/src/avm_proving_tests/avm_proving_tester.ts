@@ -1,6 +1,7 @@
 import type { AvmStat } from '@aztec/bb.js';
 import { Timer } from '@aztec/foundation/timer';
 import {
+  type MeasuredSimulatorFactory,
   PublicTxSimulationTester,
   SimpleContractDataSource,
   type TestEnqueuedCall,
@@ -46,9 +47,9 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     merkleTrees: MerkleTreeWriteOperations,
     globals?: GlobalVariables,
     metrics?: TestExecutorMetrics,
+    simulatorFactory?: MeasuredSimulatorFactory,
   ) {
-    // simulator factory is undefined because for proving, we use the default C++ simulator
-    super(merkleTrees, contractDataSource, globals, metrics, /*simulatorFactory=*/ undefined, provingConfig);
+    super(merkleTrees, contractDataSource, globals, metrics, simulatorFactory, provingConfig);
   }
 
   static async new(
