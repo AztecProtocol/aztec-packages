@@ -1,7 +1,7 @@
 use crate::NestedUtility;
 use aztec::{
     protocol::address::AztecAddress,
-    test::helpers::test_environment::{CallPrivateOptions, ExecuteUtilityOptions, TestEnvironment},
+    test::helpers::test_environment::{CallPrivateOptions, ExecuteUtilityOptions, TestEnvironment, ViewPrivateOptions},
 };
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
@@ -61,6 +61,29 @@ unconstrained fn cross_contract_utility_call_from_private_succeeds_with_authoriz
         account,
         CallPrivateOptions::new().with_authorized_utility_call_targets([addr_b]),
         NestedUtility::at(addr_a).delegate_pow_private(addr_b, 2, 3),
+    );
+    assert_eq(result, 8);
+}
+
+#[test(should_fail_with = "Cross-contract utility call denied")]
+unconstrained fn cross_contract_utility_call_from_private_view_denied_by_default() {
+    let (env, account, addr_a, addr_b) = setup();
+
+    let _: Field = env.view_private_opts(
+        account,
+        ViewPrivateOptions::new(),
+        NestedUtility::at(addr_a).delegate_pow_view(addr_b, 2, 3),
+    );
+}
+
+#[test]
+unconstrained fn cross_contract_utility_call_from_private_view_succeeds_with_authorization() {
+    let (env, account, addr_a, addr_b) = setup();
+
+    let result: Field = env.view_private_opts(
+        account,
+        ViewPrivateOptions::new().with_authorized_utility_call_targets([addr_b]),
+        NestedUtility::at(addr_a).delegate_pow_view(addr_b, 2, 3),
     );
     assert_eq(result, 8);
 }

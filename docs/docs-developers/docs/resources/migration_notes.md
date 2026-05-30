@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `set_sender_for_tags` oracle removed
+
+The `set_sender_for_tags` oracle has been removed. Contracts that used it to override the sender for discovery tag derivation should now use the `with_sender` builder method on `MessageDelivery`:
+
+```diff
+- use aztec::oracle::notes::set_sender_for_tags;
++ use aztec::messages::message_delivery::MessageDelivery;
+
+- unsafe { set_sender_for_tags(some_address) };
+- note.deliver(MessageDelivery::onchain_constrained());
++ note.deliver(MessageDelivery::onchain_constrained().with_sender(some_address));
+```
+
+When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender.
+
 ### [Aztec.nr] `MessageDelivery` API syntax change
 
 `MessageDelivery` variants are now accessed via constructor functions instead of dot notation:
@@ -40,6 +55,35 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
 
+### [Protocol] Remaining protocol-contract addresses compacted to 1-3
+
+After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
+
+### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
+
+`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE *preloads*: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
+
+To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
+
+```ts
+const wallet = await EmbeddedWallet.create(node, {
+  pxe: {
+    preloadedContractsProvider: {
+      // EmbeddedWallet's built-in default preloads only MultiCallEntrypoint + AuthRegistry.
+      // A custom provider REPLACES that default (it is not additive), so re-list the ones you
+      // still want and add the extras — here, PublicChecks.
+      getPreloadedContracts: async () => [
+        await getStandardMultiCallEntrypoint(),
+        await getStandardAuthRegistry(),
+        await getStandardPublicChecks(),
+      ],
+    },
+  },
+});
+```
+
+The provider *replaces* the default list (it is not additive), so include every standard contract you want available.
+
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
 `public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. The aztec-nr constant has moved and been renamed:
@@ -49,7 +93,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 + use crate::standard_addresses::STANDARD_PUBLIC_CHECKS_ADDRESS;
 ```
 
-If your contract uses `privately_check_timestamp` or `privately_check_block_number`, you must deploy `PublicChecks` on your network and register it with PXE:
+Unlike MultiCallEntrypoint and AuthRegistry, `PublicChecks` is **not** preloaded by `createPXE` or `EmbeddedWallet`. If your contract uses `privately_check_timestamp` or `privately_check_block_number`, `PublicChecks` must be deployed and made available to your PXE — either include it in a custom `preloadedContractsProvider` (see the `multi_call_entrypoint` note above) or register it directly:
 
 ```ts
 import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
@@ -71,7 +115,7 @@ Deploy `PublicChecks` once per fresh rollup: `aztec-wallet deploy public_checks_
 + use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
 ```
 
-PXE no longer auto-registers `AuthRegistry` on startup. If your wallet needs it, register it explicitly (as the `EmbeddedWallet` entrypoints do):
+PXE no longer auto-registers `AuthRegistry` on startup. `EmbeddedWallet` preloads it automatically (alongside the MultiCallEntrypoint — see the `multi_call_entrypoint` note above), so apps using the standard wallet need no changes. If you use a PXE setup that doesn't preload it, add it to a custom `preloadedContractsProvider` or register it explicitly:
 
 ```ts
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
@@ -911,6 +955,8 @@ The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
 - `aztec new <NAME>` — still scaffolds a blank contract, either as a new standalone project or as a new crate added to an existing workspace.
 
 **Impact**: any scripts, CI jobs, or onboarding docs that ran `aztec init` expecting an empty contract starting point now get the Counter example. Use `aztec new <NAME>` for the blank scaffold. The existing Counter tutorial under [`docs/tutorials/contract_tutorials`](../tutorials/contract_tutorials/counter_contract.md) is unaffected because it uses `aztec new`.
+
+## 4.3.0
 
 ### `aztec new` and `aztec init` now create a 2-crate workspace
 

@@ -80,13 +80,13 @@ import {
   collectNested,
 } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
-import { ForkCheckpoint } from '@aztec/world-state';
+import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { DEFAULT_ADDRESS } from '../constants.js';
 import type { TXEStateMachine } from '../state_machine/index.js';
-import type { TXEAccountStore } from '../util/txe_account_store.js';
-import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
+import type { TXEAccountStore } from '../utils/txe_account_store.js';
+import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
 
 export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
@@ -236,17 +236,14 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.nextBlockTimestamp += duration;
   }
 
-  private deploymentNullifier(instance: ContractInstanceWithAddress): Promise<Fr> {
-    return siloNullifier(
-      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
-      instance.address.toField(),
-    );
+  private deploymentNullifier(address: AztecAddress): Promise<Fr> {
+    return siloNullifier(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address.toField());
   }
 
   async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
     // Emit deployment nullifier
     await this.mineBlock({
-      nullifiers: [await this.deploymentNullifier(instance)],
+      nullifiers: [await this.deploymentNullifier(instance.address)],
     });
 
     if (!secret.equals(Fr.ZERO)) {
@@ -259,21 +256,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   /**
-   * Deploys several contracts within a single mined block: all of their deployment nullifiers are inserted into one
-   * block's tx effects, and their instances/artifacts are registered in the contract store. Used at session init to
-   * publish the standard contracts (auth registry, public checks) into the same baseline block TXE already mines on
-   * startup, so they are available to every test without advancing the test-visible block counter.
+   * Mines a single block containing only the deployment nullifiers for the contracts at the given addresses.
    */
-  async deployManyInSingleBlock(contracts: { artifact: ContractArtifact; instance: ContractInstanceWithAddress }[]) {
+  async mineDeploymentNullifiers(addresses: AztecAddress[]) {
     await this.mineBlock({
-      nullifiers: await Promise.all(contracts.map(({ instance }) => this.deploymentNullifier(instance))),
+      nullifiers: await Promise.all(addresses.map(address => this.deploymentNullifier(address))),
     });
-
-    for (const { artifact, instance } of contracts) {
-      await this.contractStore.addContractInstance(instance);
-      await this.contractStore.addContractArtifact(artifact);
-      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
-    }
   }
 
   async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
@@ -431,7 +419,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       messageContextService: this.stateMachine.messageContextService,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       hooks: composeHooks({
-        authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('private', authorizedUtilityCallTargets),
+        authorizeUtilityCall: this.buildAuthorizeUtilityCallHook(
+          isStaticCall ? 'private view' : 'private',
+          authorizedUtilityCallTargets,
+        ),
       }),
     });
 
@@ -844,7 +835,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   private buildAuthorizeUtilityCallHook(
-    callerContext: 'private' | 'utility',
+    callerContext: 'private' | 'private view' | 'utility',
     authorizedTargets: AztecAddress[],
   ): ExecutionHooks['authorizeUtilityCall'] | undefined {
     if (authorizedTargets.length === 0) {

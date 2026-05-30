@@ -39,7 +39,7 @@ import {
   toArray,
   toForeignCallResult,
   toSingle,
-} from './util/encoding.js';
+} from './utils/encoding.js';
 
 const MAX_EVENT_LEN = 10; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN
 const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
@@ -1421,15 +1421,6 @@ export class RPCTranslator {
       // No sender found, return Option with some=0 and value=0
       return toForeignCallResult([toSingle(0), toSingle(0)]);
     }
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_prv_setSenderForTags(foreignSenderForTags: ForeignCallSingle) {
-    const senderForTags = AztecAddress.fromField(fromSingle(foreignSenderForTags));
-
-    await this.handlerAsPrivate().setSenderForTags(senderForTags);
-
-    return toForeignCallResult([]);
   }
 
   // eslint-disable-next-line camelcase

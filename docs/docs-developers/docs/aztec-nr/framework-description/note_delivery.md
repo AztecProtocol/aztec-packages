@@ -169,7 +169,7 @@ When a note is delivered, recipients need to discover it among all the encrypted
 
 The "sender" for note discovery is **not the contract calling `.deliver()`**. Instead, it's the **account contract** that initiated the transaction.
 
-When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). This sender address is then used along with the recipient address to compute a shared secret (via [Diffie-Hellman key exchange](https://www.geeksforgeeks.org/computer-networks/diffie-hellman-key-exchange-and-perfect-forward-secrecy/)), which generates the tag that allows recipients to efficiently find their notes. Contracts can call `set_sender_for_tags(addr)` to override this for their own call, but the override does not propagate to nested calls, siblings, or parents.
+When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). This sender address is then used along with the recipient address to compute a shared secret (via [Diffie-Hellman key exchange](https://www.geeksforgeeks.org/computer-networks/diffie-hellman-key-exchange-and-perfect-forward-secrecy/)), which generates the tag that allows recipients to efficiently find their notes. Contracts can override the sender at message delivery via the `with_sender` builder method, e.g. `MessageDelivery::onchain_unconstrained().with_sender(address)`.
 
 **Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob, the "sender for tags" is Alice's account contract address, not the token contract address.
 

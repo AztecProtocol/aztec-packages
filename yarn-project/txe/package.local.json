@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "build": "yarn clean && ../scripts/tsc.sh && node ./esbuild.config.mjs"
+  }
+}
