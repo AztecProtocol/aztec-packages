@@ -1426,15 +1426,44 @@ function hideProgress(): void {
     const sList = (qp.get('slist') ?? '8,12,16,20,24,32')
       .split(',').map(x => parseInt(x, 10)).filter(x => Number.isInteger(x) && x > 0);
     const client = makeResultsClient({ page: 'msm-s-sweep' });
+    // ?synth=1 skips the SRS download and uses pseudo-random points+scalars.
+    // GPU timing is input-independent here (safegcd is fixed-iteration; the
+    // walker's loop counts depend on the scalar/bucket structure, not on
+    // coordinate values), so this yields valid perf data on devices where the
+    // SRS CDN fetch is unavailable (BrowserStack Android). Results are not
+    // curve-correct, so combineOnHost is disabled for the synth path.
+    const synth = qp.get('synth') === '1';
     const med = (arr: number[]): number | null =>
       arr.length ? [...arr].sort((a, b) => a - b)[Math.floor(arr.length / 2)] : null;
-    log('info', `[s-sweep] logN=${logN} reps=${reps} S=[${sList.join(',')}]`);
+    log('info', `[s-sweep] logN=${logN} reps=${reps} S=[${sList.join(',')}] synth=${synth}`);
     try {
-      for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
-      if (srsBuf === null) throw new Error('SRS not loaded within 10 min');
-      const inputs = await generateInputs(logN, false);
+      let inputs: TestInputs;
+      if (synth) {
+        const n = 1 << logN;
+        const pointsBuf = new Uint8Array(n * 64);
+        const scalarsBuf = new Uint8Array(n * 32);
+        let s = (0x9e3779b9 ^ Math.imul(logN, 2654435761)) >>> 0;
+        const fill = (buf: Uint8Array): void => {
+          for (let i = 0; i < buf.length; i += 4) {
+            s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+            buf[i] = s & 0xff; buf[i + 1] = (s >>> 8) & 0xff;
+            buf[i + 2] = (s >>> 16) & 0xff; buf[i + 3] = (s >>> 24) & 0xff;
+          }
+        };
+        fill(pointsBuf); fill(scalarsBuf);
+        // Keep each 32-byte limb's top byte below the field's leading byte so
+        // coords/scalars are valid field elements (the convert/decompose
+        // kernels expect reduced inputs).
+        for (let i = 0; i < 2 * n; i++) pointsBuf[i * 32 + 31] &= 0x1f;
+        for (let i = 0; i < n; i++) scalarsBuf[i * 32 + 31] &= 0x1f;
+        inputs = { n, points: null, scalars: null, pointsBuf, scalarsBuf };
+      } else {
+        for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+        if (srsBuf === null) throw new Error('SRS not loaded within 10 min');
+        inputs = await generateInputs(logN, false);
+      }
       const nLog = Math.log2(inputs.n);
-      client.postProgress({ kind: 'srs-ready', logN, sList });
+      client.postProgress({ kind: synth ? 'synth-ready' : 'srs-ready', logN, sList });
       const curve: Record<string, unknown>[] = [];
       // Build in DESCENDING S order so the shared pool allocates its
       // S-proportional scratch (walkerPref etc.) once at the largest S and
@@ -1447,7 +1476,7 @@ function hideProgress(): void {
         if (msmV2Pool === null) msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
         // Rebuild pipelines with the new streamS. Explicit config (don't mutate
         // the shared gpuKnobs); fewer warm-ups keep each S short.
-        const cfg = { ...gpuKnobs, streamS: S, warmupRuns: 2 } as MsmConfig;
+        const cfg = { ...gpuKnobs, streamS: S, warmupRuns: 2, ...(synth ? { combineOnHost: false } : {}) } as MsmConfig;
         msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, cfg);
         msmV2LogN = nLog;
         await runWebGpuOnce(inputs); // extra warm — first-touch on fresh pipelines
