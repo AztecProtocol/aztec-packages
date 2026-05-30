@@ -97,7 +97,11 @@ const gpuKnobs: MsmConfig = (() => {
     walkerTpb: optInt('walkertpb'),
     walkerNumThreads: optInt('walkert'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
-    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    profile:
+      q.get('profile') === '1' ||
+      q.get('autorun') === 'msm-bench' ||
+      q.get('autorun') === 'msm-walker-bench' ||
+      undefined,
   };
 })();
 
@@ -1595,6 +1599,93 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'msm-walker-bench') {
+    // GPU-only stream-walker benchmark + @noble/curves correctness. Unlike
+    // msm-bench / msm-cross-check it never boots the bb.js WASM (the shipped
+    // bb.wasm is a stub, so those modes can't run on a clean device). Honours
+    // the walker knobs already parsed into gpuKnobs (?walkers=, ?walkertpb=,
+    // ?walkert=), so one worker per (S,TPB,NumThreads) point maps the
+    // inversion-amortization curve. Reports median GPU wall time (works on
+    // every arch) plus per-phase GPU times where timestamp-query exists
+    // (Apple; Android Chrome lacks it), and a noble pass/fail at a small size.
+    const logN = parseInt(qp.get('logn') ?? '16', 10);
+    const reps = parseInt(qp.get('reps') ?? '7', 10);
+    const nobleLogN = parseInt(qp.get('noblelogn') ?? '12', 10);
+    const client = makeResultsClient({ page: 'msm-walker-bench' });
+    const wS = gpuKnobs.walkerS ?? 8;
+    const wTpb = gpuKnobs.walkerTpb ?? 64;
+    const wT = gpuKnobs.walkerNumThreads ?? 8192;
+    log('info', `[walker-bench] logN=${logN} reps=${reps} nobleLogN=${nobleLogN} walkers=${wS} walkertpb=${wTpb} walkert=${wT}`);
+    const med = (a: number[]): number => {
+      if (a.length === 0) return NaN;
+      const s = a.slice().sort((x, y) => x - y);
+      return s[Math.floor(s.length / 2)];
+    };
+    try {
+      // Wait for the SRS to finish loading (Quick Sanity enables when ready).
+      for (let i = 0; i < 2400; i++) {
+        if (!$runSanity.disabled) break;
+        await yieldToBrowser(500);
+      }
+      if ($runSanity.disabled) throw new Error('SRS not ready within 20 minutes');
+
+      // 1) Correctness: GPU walker vs noble at a small size (same gpuKnobs).
+      let nobleOk: boolean | null = null;
+      try {
+        const ci = await generateInputs(nobleLogN, true);
+        const cg = await runWebGpuOnce(ci);
+        const noble = referenceMsm(ci.points!, ci.scalars!);
+        nobleOk = pointsEqual(noble, cg.xy);
+        log(nobleOk ? 'ok' : 'err', `[walker-bench] noble logN=${nobleLogN}: ${nobleOk ? 'MATCH' : 'MISMATCH'}`);
+      } catch (e) {
+        nobleOk = false;
+        log('err', `[walker-bench] noble check threw: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
+      // 2) Timed GPU-only reps at the bench size.
+      const inputs = await generateInputs(logN, false);
+      await runWebGpuOnce(inputs); // warm (shader JIT + first-touch)
+      const samples: { wallMs: number; phases: Record<string, number> }[] = [];
+      for (let r = 0; r < reps; r++) {
+        const x = await runWebGpuOnce(inputs);
+        const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+        samples.push({ wallMs: x.ms, phases: { ...phases } });
+        const ps = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
+        log('info', `[walker-bench] rep ${r + 1}/${reps}: wall=${x.ms.toFixed(1)}ms ${ps}`);
+      }
+      const medWall = med(samples.map(s => s.wallMs));
+      const phaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+      const medPhases: Record<string, number> = {};
+      for (const k of phaseKeys) medPhases[k] = med(samples.map(s => s.phases[k] ?? 0));
+      const state = nobleOk === false ? 'error' : 'done';
+      log(
+        state === 'done' ? 'ok' : 'err',
+        `[walker-bench] DONE median wall=${medWall.toFixed(1)}ms ` +
+          `walker_phase=${(medPhases['stream_walker'] ?? 0).toFixed(1)}ms nobleOk=${nobleOk}`,
+      );
+      await client.postResults({
+        state,
+        params: { logN, reps, nobleLogN, walkerS: wS, walkerTpb: wTpb, walkerNumThreads: wT, page: 'msm-walker-bench' },
+        results: { nobleOk, medianWallMs: medWall, medianPhases: medPhases, samples },
+        error: nobleOk === false ? 'noble correctness check failed' : null,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      // drive-index.mjs / the BS harness watch for this exact line.
+      log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[walker-bench] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN, reps, walkerS: wS, walkerTpb: wTpb, walkerNumThreads: wT, page: 'msm-walker-bench' },
+        results: null,
+        error: msg,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
     }
   }
 })();
