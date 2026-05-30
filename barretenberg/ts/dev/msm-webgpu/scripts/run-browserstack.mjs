@@ -49,6 +49,8 @@ const { values: argv } = parseArgs({
     buckets: { type: "string" },
     seed: { type: "string" },
     skew: { type: "string" },
+    ss: { type: "string" },
+    wgi: { type: "string" },
     port: { type: "string", default: "5198" },
     "first-progress-ms": { type: "string" },
     "stall-ms": { type: "string", default: "180000" },
@@ -417,6 +419,11 @@ async function main() {
   qp.set("autorun", argv.autorun);
   qp.set("logn", String(argv.n ?? "16"));
   if (argv.reps) qp.set("reps", String(argv.reps));
+  // Stream-walker batched-inversion slot count (S). Forwarded to the MsmV2
+  // `streamS` knob so a single device session can sweep the inversion-
+  // amortization curve (S = 8,12,16,…) without a rebuild.
+  if (argv.ss) qp.set("ss", String(argv.ss));
+  if (argv.wgi) qp.set("wgi", String(argv.wgi));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 
