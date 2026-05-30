@@ -25,7 +25,7 @@ export class BarretenbergWasmSyncBackend implements IMsgpackBackendSync {
   }
 
   call(inputBuffer: Uint8Array): Uint8Array {
-    return this.wasm.cbindCall('bbapi', inputBuffer);
+    return this.wasm.cbindCall('ipc_ffi_entry', inputBuffer);
   }
 
   destroy(): void {
@@ -95,7 +95,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
   }
 
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
-    return this.wasm.cbindCall('bbapi', inputBuffer);
+    return this.wasm.cbindCall('ipc_ffi_entry', inputBuffer);
   }
 
   async destroy(): Promise<void> {

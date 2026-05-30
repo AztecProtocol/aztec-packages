@@ -17,12 +17,15 @@ BBApiRequest global_request;
 
 } // namespace bb::bbapi
 
-// WASM-exported bbapi entry point. Takes msgpack-encoded `[ [name, payload] ]`
+// WASM-exported FFI entry point. Takes msgpack-encoded `[ [name, payload] ]`
 // (tuple-wrapped command in NamedUnion shape), returns msgpack-encoded
 // `[name, payload]` (response in NamedUnion shape). The codegen-emitted
 // dispatcher owns the command-name → handle_<method> table and runs the
 // per-call deserialize / serialize / exception → ErrorResponse plumbing.
-WASM_EXPORT void bbapi(const uint8_t* input_in, size_t input_len_in, uint8_t** output_out, size_t* output_len_out)
+WASM_EXPORT void ipc_ffi_entry(const uint8_t* input_in,
+                               size_t input_len_in,
+                               uint8_t** output_out,
+                               size_t* output_len_out)
 {
     auto handler = bb::bbapi::make_bb_handler(bb::bbapi::global_request);
     std::vector<uint8_t> input(input_in, input_in + input_len_in);
