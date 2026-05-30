@@ -2968,10 +2968,21 @@ const NO_BUCKET: u32 = 0xffffffffu;
 @group(0) @binding(9) var<storage, read_write> partial_dest:       array<u32>;
 @group(0) @binding(10) var<uniform>            params:             vec4<u32>;
 
+{{#pref_device}}
+// pref_scratch in DEVICE storage (occupancy lever). Holding the batched-
+// inversion prefix scratch in a storage buffer instead of var<workgroup>
+// removes the per-workgroup shared-memory allocation, so the scheduler can
+// keep more workgroups resident per core on shared-memory-starved tiled GPUs.
+// Each thread owns its own [t*S*2 .. +S*2) global slice — no cross-thread
+// aliasing, no barrier — so this is correctness-neutral vs the workgroup path.
+@group(0) @binding(11) var<storage, read_write> pref_scratch: array<vec4<u32>>;
+{{/pref_device}}
+{{^pref_device}}
 // KNOB 1: workgroup-shared prefix scratch. Each thread uses its own
 // [local_id*S .. local_id*S + S) region (2 vec4 per slot), so there is no
 // cross-thread aliasing and no barrier is needed. 16 KB at TPB=64.
 var<workgroup> pref_scratch: array<vec4<u32>, TPB * S * 2u>;
+{{/pref_device}}
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
@@ -3034,7 +3045,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     if (t >= NUM_THREADS) { return; }
 
+{{#pref_device}}
+    let pref_base = t * S * 2u;
+{{/pref_device}}
+{{^pref_device}}
     let pref_base = l * S * 2u;
+{{/pref_device}}
     let cut_base = t * CUTS * 2u;
 
     // Per-slot state (private). acc lives in registers (plan §7.1). The task
@@ -3053,6 +3069,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     var split_start:    array<u32, {{ s }}>;   // current bucket shared with a prior task
     var acc_x:          array<array<u32, 8>, {{ s }}>;
     var acc_y:          array<array<u32, 8>, {{ s }}>;
+    // dx-cache: the forward pass computes each slot's dx = p_rx - p_lx to build
+    // the inversion prefix product. The inverse pass needs the same dx values
+    // to peel the prefix product back apart. Caching them here (private
+    // registers, no device/workgroup memory) lets the inverse pass skip its
+    // redundant point_x reloads + subtractions — cutting ~1/3 of the walker's
+    // uncoalesced SRS x-coordinate reads.
+    var dx_cache:       array<array<u32, 8>, {{ s }}>;
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -3174,6 +3197,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 p_rx = load_pt_x(cursor[k]);
             }
             let dx = fr_sub_f8(p_rx, p_lx);
+            dx_cache[k] = dx;
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
             store_pref(pref_base + k * 2u, acc);
         }
@@ -3191,20 +3215,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 let pp = load_pref(pref_base + (k - 1u) * 2u);
                 inv_dx = montgomery_product_f8(inv, pp);
-                var p_lx_b: array<u32, 8>;
-                var p_rx_b: array<u32, 8>;
-                if (slot_done[k] == 1u) {
-                    p_lx_b = load_pt_x(IDLE_ANCHOR);
-                    p_rx_b = load_pt_x(IDLE_ANCHOR + 1u);
-                } else if (is_first[k] == 1u) {
-                    p_lx_b = load_pt_x(cursor[k]);
-                    p_rx_b = load_pt_x(cursor[k] + 1u);
-                } else {
-                    p_lx_b = acc_x[k];
-                    p_rx_b = load_pt_x(cursor[k]);
-                }
-                let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
-                inv = montgomery_product_f8(inv, dx_b);
+                // dx-cache: reuse the forward pass's dx instead of reloading
+                // p_lx/p_rx from point_x and re-subtracting.
+                inv = montgomery_product_f8(inv, dx_cache[k]);
             }
             store_pref(pref_base + k * 2u, inv_dx);
         }

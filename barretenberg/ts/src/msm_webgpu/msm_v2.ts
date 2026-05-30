@@ -58,6 +58,14 @@ export interface MsmConfig {
    * benchmarking; the fit against workgroup storage is still validated.
    */
   walkerTpb?: number;
+  /**
+   * Place the stream-walker's `pref_scratch` (the batched-inversion prefix-
+   * product scratch) in a device storage buffer instead of `var<workgroup>`
+   * shared memory. Frees the per-workgroup shared-memory allocation that
+   * starves occupancy on TBDR/tiled mobile GPUs, at the cost of higher-latency
+   * device reads. Default false (workgroup placement). Set to A/B the lever.
+   */
+  walkerPrefDevice?: boolean;
   /** Generic kernel workgroup size. Default 128. */
   wgi?: number;
   /** Bucket-reduction workgroup size. Default: `pickReduceWg(c)`. */
@@ -1154,6 +1162,12 @@ export class MsmV2 {
   /** Stream-walker config the autotuner chose for this device. Public so the
    *  bench harness / bridge can report it alongside timings. */
   walkerConfig!: WalkerConfig;
+  /** True when the stream-walker holds `pref_scratch` in a device storage
+   *  buffer (occupancy lever) rather than `var<workgroup>` shared memory. */
+  walkerPrefDevice = false;
+  /** Device-storage pref_scratch buffer; only allocated when
+   *  {@link walkerPrefDevice}. Sized NUM_THREADS × S × 2 vec4<u32>. */
+  private streamPrefBuf?: GPUBuffer;
   // The pool that owns the SRS, the pipeline cache, and the shared scratch
   // buffers this instance binds against. Held by reference; not destroyed
   // by MsmV2.destroy() (the pool outlives any individual instance).
@@ -1454,6 +1468,24 @@ export class MsmV2 {
     // --- Layouts (pool-cached: same `types` shape → same GPUBindGroupLayout
     // across every MsmV2 instance bound to this pool) ---
     const lt = (types: GPUBufferBindingType[]): GPUBindGroupLayout => pool.cache.getLayout(types);
+    // Stream-walker pref_scratch placement (occupancy lever): device storage
+    // adds a 12th binding (the 11th storage buffer) to the walker layout. The
+    // walker already binds 10 storage buffers, so device placement is only
+    // possible when the device exposes maxStorageBuffersPerShaderStage >= 11.
+    // When requested on a device capped at 10 (SwiftShader, many mobile GPUs),
+    // fall back to workgroup placement so the walker still launches.
+    const storageBufCap =
+      (device.limits as unknown as Record<string, number>)['maxStorageBuffersPerShaderStage'] ?? 8;
+    let walkerPrefDevice = config?.walkerPrefDevice ?? false;
+    if (walkerPrefDevice && storageBufCap < 11) {
+      console.warn(
+        `[autotune] stream-walker: device pref_scratch requested but ` +
+          `maxStorageBuffersPerShaderStage=${storageBufCap} < 11 (walker already binds ` +
+          `10 storage buffers) — falling back to var<workgroup> placement.`,
+      );
+      walkerPrefDevice = false;
+    }
+    m.walkerPrefDevice = walkerPrefDevice;
     m.plannerALayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     m.plannerBLayout = lt([
       'read-only-storage',
@@ -1535,7 +1567,12 @@ export class MsmV2 {
     //   partition_task: sorted_count_list, cumulative_adds, thread_cuts, planner_meta(rw), task_cuts(rw), params(uniform)
     m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   stream_walker: sorted_bucket_list, sorted_count_list, offsets, task_cuts, l0_index, point_x, point_y, bucket_sums(rw), partials(rw), partial_dest(rw), params(uniform)
-    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
+    m.streamWalkerLayout = lt([
+      'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage',
+      'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage',
+      'storage', 'uniform',
+      ...(walkerPrefDevice ? ['storage' as GPUBufferBindingType] : []),
+    ]);
     //   walker_partials_index: partial_dest, bucket_head(rw), nodes_slot(rw), nodes_next(rw), node_counter(rw), params(uniform)
     m.walkerPartialsIndexLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     //   walker_combine: sorted_bucket_list, bucket_head(rw — atomic-typed),
@@ -1659,8 +1696,14 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, walkerPrefDevice),
       `stream-walker`, m.streamWalkerLayout);
+    if (walkerPrefDevice) {
+      // One [t*S*2 .. +S*2) vec4 slice per logical thread (NUM_THREADS = STREAM_T).
+      const prefBytes = STREAM_T * STREAM_S * 2 * 16;
+      m.streamPrefBuf = device.createBuffer({ size: prefBytes, usage: GPUBufferUsage.STORAGE });
+      console.log(`[autotune] stream-walker: pref_scratch in DEVICE storage (${prefBytes} B)`);
+    }
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
       `walker-combine`, m.walkerCombineLayout);
@@ -2175,6 +2218,7 @@ export class MsmV2 {
       this.streamWalkerBind = mkBind(this.streamWalkerLayout, [
         sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
         bucketResult, wp, pdest, walkerParams,
+        ...(this.walkerPrefDevice ? [this.streamPrefBuf!] : []),
       ]);
       // Walker partials indexer (Task #19): one thread per partial slot,
       // builds the per-bucket linked-list head/nodes that walker_combine
@@ -2735,5 +2779,7 @@ export class MsmV2 {
     this.preparedFor = null;
     this.querySet?.destroy();
     this.querySet = null;
+    this.streamPrefBuf?.destroy();
+    this.streamPrefBuf = undefined;
   }
 }

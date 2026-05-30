@@ -82,6 +82,12 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
   const qp = new URLSearchParams(window.location.search);
   const logN = parseInt(qp.get('logn') ?? '10', 10);
   const reps = parseInt(qp.get('reps') ?? '5', 10);
+  // A/B knobs: ?tpb=64|128 forces the stream-walker threads-per-block (else the
+  // autotuner picks); ?prefdev=1 places pref_scratch in device storage instead
+  // of workgroup memory (occupancy lever).
+  const tpbParam = qp.get('tpb');
+  const forcedTpb = tpbParam !== null ? parseInt(tpbParam, 10) : undefined;
+  const prefDevice = qp.get('prefdev') === '1';
   const n = 1 << logN;
   // Unique run id so the BrowserStack orchestrator (run-browserstack.mjs) can
   // detect this run in the shared JSONL and apply its watchdogs.
@@ -129,8 +135,12 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
     log('ok', 'device ready');
 
     const pool = await MsmV2Pool.create(device, pointsBuf);
-    const msm = await MsmV2.create(device, n, pool, { profile: true });
-    log('ok', 'MsmV2 ready');
+    const msm = await MsmV2.create(device, n, pool, {
+      profile: true,
+      walkerTpb: forcedTpb,
+      walkerPrefDevice: prefDevice,
+    });
+    log('ok', `MsmV2 ready (forcedTpb=${forcedTpb ?? 'auto'} prefDevice=${prefDevice})`);
 
     // Per-architecture autotuner decision for this device.
     const wgStorage = (device.limits as unknown as Record<string, number>)['maxComputeWorkgroupStorageSize'];

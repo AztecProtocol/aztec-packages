@@ -13,7 +13,10 @@ import { chromium } from 'playwright-core';
 
 const logn = process.argv[2] ?? '10';
 const timeoutMs = parseInt(process.argv[3] ?? '240000', 10);
-const target = `http://localhost:5173/dev/msm-webgpu/xcheck.html?logn=${logn}`;
+// Optional 3rd arg: extra query string for A/B knobs, e.g. "tpb=64" or
+// "tpb=128&prefdev=1". Forwarded verbatim to the xcheck page.
+const extra = process.argv[4] ? `&${process.argv[4]}` : '';
+const target = `http://localhost:5173/dev/msm-webgpu/xcheck.html?logn=${logn}${extra}`;
 
 const CHROME = '/opt/ms-playwright/chromium-1148/chrome-linux/chrome';
 const ICD = '/opt/ms-playwright/chromium-1148/chrome-linux/vk_swiftshader_icd.json';
