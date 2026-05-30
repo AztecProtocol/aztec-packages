@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# we have to unset this env var set by git hooks so that the relative paths below work correctly when used inside worktrees
+unset GIT_DIR
+
 function format_files {
   if [ -n "$1" ]; then
     echo "$1" | parallel -j+0 'clang-format-20 -i {} && sed -i.bak "s/\r$//" {} && rm {}.bak'
