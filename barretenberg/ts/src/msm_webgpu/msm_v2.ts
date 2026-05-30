@@ -58,6 +58,22 @@ export interface MsmConfig {
   l0Log?: number;
   /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
   invVariant?: 'loop' | 'pk';
+  /**
+   * Stream-walker batched-inversion slots per thread (the `S` in the walker
+   * inner loop). One safegcd inversion is amortised over `S` affine adds, so
+   * raising `S` proportionally cuts the dominant per-add inversion cost — at
+   * the price of `walkerTpb × S × 32` bytes of workgroup scratch and a 2×
+   * larger device-side partials buffer. Default: device-autotuned to the
+   * largest `S ∈ {8,16}` that fits `maxComputeWorkgroupStorageSize`
+   * (8 on 16 KB Mali Bifrost; 16 on 32 KB Apple/Adreno).
+   */
+  streamS?: number;
+  /**
+   * Stream-walker threads-per-block (workgroup size). Default 64 — the largest
+   * value that keeps `walkerTpb × S × 32` ≤ 16 KB at S=8 (Mali Bifrost limit),
+   * and that every supported mobile GPU can launch.
+   */
+  walkerTpb?: number;
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
@@ -1574,7 +1590,22 @@ export class MsmV2 {
 
     // --- Streaming planner + accumulator pipelines ---
     const STREAM_T = 8192; // NUM_THREADS = max_workgroups × workgroup_size
-    const STREAM_S = 8;
+    // Stream-walker workgroup size. 64 keeps pref_scratch ≤ 16 KB at S=8
+    // (Mali Bifrost limit) and launches on every supported mobile GPU.
+    const WALKER_TPB = config?.walkerTpb ?? 64;
+    // Batched-inversion slots S. One safegcd inversion (~332 muls) is shared
+    // across S affine adds, so the dominant per-add inversion term is |I|/S.
+    // Autotune S to the largest value in {8,16} whose workgroup scratch
+    // (WALKER_TPB × S × 32 bytes) fits the device's compute-storage limit:
+    // 8 on 16 KB Mali Bifrost, 16 on 32 KB Apple/Adreno — roughly halving the
+    // inversion cost on the larger-shared-memory mobile/laptop GPUs.
+    const STREAM_S = (() => {
+      if (config?.streamS) return config.streamS;
+      const dl = device.limits as unknown as Record<string, number>;
+      const budget = dl['maxComputeWorkgroupStorageSize'] ?? 16384;
+      const perSlotBytes = WALKER_TPB * 2 * 16; // 2 vec4<u32> per slot
+      return Math.max(8, Math.min(16, Math.floor(budget / perSlotBytes)));
+    })();
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;
     m.streamS = STREAM_S;
@@ -1616,10 +1647,10 @@ export class MsmV2 {
     m.splitRecomputePipe = await compile(
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
-    // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB=64 per KNOB 1
-    // (16 KB pref_scratch fits Mali Bifrost). NUM_THREADS = nwg*256 still
-    // (partition_thread's grain), walker dispatches ceil(num_active/TPB) wgs.
-    const WALKER_TPB = 64;
+    // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB/STREAM_S are
+    // resolved above (KNOB 1: pref_scratch fits the device's workgroup-storage
+    // budget). NUM_THREADS = nwg*256 still (partition_thread's grain); the
+    // walker dispatches ceil(num_active/TPB) workgroups.
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
