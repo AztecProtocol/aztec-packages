@@ -25,6 +25,7 @@ import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js';
+import { buildGlvInputs, GLV_HALF_SCALAR_BITS } from '../../src/msm_webgpu/cuzk/glv_bn254.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
@@ -1640,6 +1641,90 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'gpu-vs-noble-glv') {
+    // GLV endomorphism MSM: split the n-point / 254-bit problem into a
+    // 2n-point / 127-bit one (T halves, 17 -> 9 at c=15), run it through the
+    // MsmV2 pipeline with scalarBitLength=128, and cross-check the result
+    // against the noble CPU reference on the ORIGINAL problem. Builds its own
+    // pool/MsmV2 (signs of the GLV half-scalars are folded into the per-MSM
+    // point set), independent of the standard non-GLV warm path.
+    const autorunLogN = parseInt(qp.get('logn') ?? '10', 10);
+    const client = makeResultsClient({ page: 'msm-autorun' });
+    log('info', `[autorun] gpu-vs-noble-glv logN=${autorunLogN}`);
+    const waitForRun = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('Run button never enabled within 10 minutes');
+    };
+    let pool: MsmV2Pool | null = null;
+    let msm: MsmV2 | null = null;
+    try {
+      await waitForRun();
+      const inputs = await generateInputs(autorunLogN, true);
+      if (!inputs.points || !inputs.scalars) throw new Error('noble mirror inputs missing');
+
+      const tPrep = performance.now();
+      const glv = buildGlvInputs(inputs.points, inputs.scalars);
+      const prepMs = performance.now() - tPrep;
+      log('info', `[glv] split ${inputs.n.toLocaleString()} -> ${glv.n2.toLocaleString()} points in ${prepMs.toFixed(1)} ms (CPU front-end)`);
+
+      const device = await get_device();
+      pool = await MsmV2Pool.create(device, glv.pointsBuf);
+      // `?c=15` forces the n>=2^16 window size so the small-logN correctness
+      // gate exercises the exact T=9 config that runs at scale on real GPUs.
+      const cParam = qp.get('c');
+      const glvConfig: MsmConfig = { scalarBitLength: GLV_HALF_SCALAR_BITS };
+      if (cParam) glvConfig.c = parseInt(cParam, 10);
+      msm = await MsmV2.create(device, glv.n2, pool, glvConfig);
+      log('info', `[glv] MsmV2 ready: n=${glv.n2}, numWindows=${msm.numWindows} (vs 17 for the 254-bit path)`);
+
+      msm.prepare(glv.scalarsBuf);
+      await msm.run();
+      const t0 = performance.now();
+      const xy = await msm.run();
+      const gpuMs = performance.now() - t0;
+      log('info', `[glv] GPU dispatch ${gpuMs.toFixed(1)} ms; x=0x${xy.x.toString(16).slice(0, 16)}…`);
+
+      const noble = referenceMsm(inputs.points, inputs.scalars);
+      const ok = pointsEqual(noble, xy);
+      if (ok) {
+        log('ok', `[cross-check] GLV WebGPU and Noble agree`);
+      } else {
+        log('err', `[cross-check] disagreement: glv=0x${xy.x.toString(16)}, noble=0x${noble.x.toString(16)}`);
+      }
+      await client.postResults({
+        state: ok ? 'done' : 'error',
+        params: { logN: autorunLogN, page: 'msm-autorun', ref: 'noble', algo: 'glv' },
+        results: {
+          cross_ok: ok,
+          num_windows: msm.numWindows,
+          glv_prep_ms: prepMs,
+          gpu_ms: gpuMs,
+          gpu_x: `0x${xy.x.toString(16)}`,
+          noble_x: `0x${noble.x.toString(16)}`,
+        },
+        error: ok ? null : 'glv/noble disagreement',
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(ok ? 'ok' : 'err', `[autorun] state=${ok ? 'done' : 'error'}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'msm-autorun', ref: 'noble', algo: 'glv' },
+        results: null,
+        error: msg,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    } finally {
+      msm?.destroy();
+      pool?.destroy();
     }
   }
 })();

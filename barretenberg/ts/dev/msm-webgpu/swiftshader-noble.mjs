@@ -6,7 +6,10 @@ import { chromium } from 'playwright-core';
 
 const logns = process.argv.slice(2).filter(a => /^\d+$/.test(a));
 if (logns.length === 0) logns.push('10');
-const extra = process.argv.slice(2).filter(a => a.startsWith('--'));
+const extra = process.argv.slice(2).filter(a => a.startsWith('--') && a !== '--glv');
+// `--glv` cross-checks the GLV-decomposed pipeline; default checks the plain V2.
+const autorunMode = process.argv.includes('--glv') ? 'gpu-vs-noble-glv' : 'gpu-vs-noble';
+const agreeRe = autorunMode === 'gpu-vs-noble-glv' ? /GLV WebGPU and Noble agree/ : /WebGPU and Noble agree/;
 
 const browser = await chromium.launch({
   headless: true,
@@ -29,7 +32,8 @@ for (const logn of logns) {
   page.on('console', m => console.log(`  · ${m.text()}`));
   page.on('pageerror', e => console.log(`  ! pageerror: ${e.message}`));
   page.on('crash', () => console.log('  !! PAGE CRASHED'));
-  const url = `http://localhost:5173/dev/msm-webgpu/index.html?coi=1&autorun=gpu-vs-noble&logn=${logn}`;
+  const cQ = process.env.GLV_C ? `&c=${process.env.GLV_C}` : '';
+  const url = `http://localhost:5173/dev/msm-webgpu/index.html?coi=1&autorun=${autorunMode}&logn=${logn}${cQ}`;
   console.log(`\n=== logN=${logn} :: ${url} ===`);
   let runnerErr = null;
   try {
@@ -54,7 +58,7 @@ for (const logn of logns) {
   console.log('─'.repeat(60));
   if (runnerErr) console.log(`runner: ${runnerErr}`);
   for (const l of logText.split('\n').slice(-18)) console.log(l);
-  const ok = /\[autorun\] state=done/.test(logText) && /WebGPU and Noble agree/.test(logText);
+  const ok = /\[autorun\] state=done/.test(logText) && agreeRe.test(logText);
   console.log(`>>> logN=${logn}: ${ok ? 'PASS' : 'FAIL'}`);
   if (!ok) allOk = false;
   await page.close();

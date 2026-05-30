@@ -48,6 +48,13 @@ const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
 export interface MsmConfig {
   /** Pippenger window bits. Default: `pickC(n)`. */
   c?: number;
+  /**
+   * Scalar bit length driving the window count `T = ceil(scalarBitLength / c)`.
+   * Default 254 (BN254 `Fr`). GLV endomorphism decomposition feeds two ~127-bit
+   * half-scalars per base, so it builds the pipeline with `scalarBitLength = 128`
+   * to halve `T` (and with it the per-window bucket buffers and BPR/Horner work).
+   */
+  scalarBitLength?: number;
   /** Fused-kernel chunk size (pairs batched per thread). Default: `pickS(n)`. */
   s?: number;
   /** Generic kernel workgroup size. Default 128. */
@@ -1148,9 +1155,11 @@ export class MsmV2 {
   /** Pippenger window bit width, picked by `pickC(n)`. Public so the
    *  bridge can ship it back to the C++ Horner combine. */
   c!: number;
-  /** Number of Pippenger windows = ceil(NUMBITS / c). Public — the bridge
-   *  reads it when packing per-MSM staging buffers. */
+  /** Number of Pippenger windows = ceil(scalarBitLength / c). Public — the
+   *  bridge reads it when packing per-MSM staging buffers. */
   numWindows!: number;
+  /** Scalar bit length used for the window count (254 default; 128 for GLV). */
+  private scalarBitLength!: number;
   private BW!: number;
   private bTotal!: number;
   private R!: bigint;
@@ -1385,6 +1394,7 @@ export class MsmV2 {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
+    m.scalarBitLength = config?.scalarBitLength ?? NUMBITS;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -1392,7 +1402,7 @@ export class MsmV2 {
     }
     // Pull the knobs into the local names the rest of create() uses.
     const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT, addsub: ADDSUB } = m;
-    m.numWindows = Math.ceil(NUMBITS / m.c);
+    m.numWindows = Math.ceil(m.scalarBitLength / m.c);
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
     m.bTotal = m.numWindows * m.BW;
     m.stride = 2 ** (m.c - 1);
