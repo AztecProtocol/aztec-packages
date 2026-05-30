@@ -90,6 +90,10 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    // ?walkertpb=64 forces the walker TPB, bypassing the autotuner — used to
+    // A/B the autotuned value (e.g. 128 on 32 KB devices) against the old
+    // pinned 64 baseline on the same device.
+    walkerTpb: optInt('walkertpb'),
   };
 })();
 
@@ -495,6 +499,18 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
     msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
     msmV2LogN = logN;
+    // Surface the per-architecture autotuner decision into $log so headless /
+    // BrowserStack runs capture which (TPB, S) this device's workgroup-storage
+    // limit selected — the cross-device differentiation evidence.
+    const wgStorage = (gpuDevice.limits as unknown as Record<string, number>)['maxComputeWorkgroupStorageSize'];
+    const wc = msmV2.walkerConfig;
+    // Stash on a window global so it survives the per-Run $log clear and can be
+    // attached to the autorun results payload (the captured $log tail loses the
+    // warmup line where this is first emitted).
+    (window as unknown as { __autotune?: unknown }).__autotune = { ...wc, wgStorage };
+    log('ok',
+      `[autotune] arch=${wc.arch} wgStorage=${wgStorage}B → TPB=${wc.tpb} S=${wc.s} ` +
+      `pref_scratch=${wc.prefScratchBytes}B (${wc.prefScratchPlacement}); ${wc.reason}`);
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   return msmV2;
@@ -1471,7 +1487,11 @@ function hideProgress(): void {
       await client.postResults({
         state: 'done',
         params: { logN: autorunLogN, reps, page: 'msm-bench' },
-        results: { samples, averages: { wallMs: avgWall, gpuMs: avgGpu, ...avgPhases } },
+        results: {
+          samples,
+          averages: { wallMs: avgWall, gpuMs: avgGpu, ...avgPhases },
+          autotune: (window as unknown as { __autotune?: unknown }).__autotune ?? null,
+        },
         error: null,
         log: allLines.slice(-100),
         userAgent: navigator.userAgent,
@@ -1561,6 +1581,7 @@ function hideProgress(): void {
         debug_dump: dump ?? null,
         tree_dump: treeDump ?? null,
         ab_diag: abDiag,
+        autotune: (window as unknown as { __autotune?: unknown }).__autotune ?? null,
       };
       const state = (debugSmvp || debugTreeOut)
         ? ((dump !== undefined || treeDump !== undefined) ? 'done' : 'error')
