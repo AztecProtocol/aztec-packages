@@ -555,6 +555,11 @@ async function runWebGpuOnce(
   const t0 = performance.now();
   const gpu = await msm.run();
   const ms = performance.now() - t0;
+  // Expose the dispatch→readback wall via a global: the bench rep loop can't
+  // parse it from the log because the Run handler clears $log on each click.
+  // This wall is the trustworthy timing on GPUs whose timestamp-queries are
+  // unreliable (e.g. Adreno reports garbage per-pass deltas).
+  (window as unknown as { __lastGpuWallMs?: number }).__lastGpuWallMs = ms;
   log('info', `[gpu] returned in ${ms.toFixed(1)} ms`);
   // MsmV2 does not emit a per-pass GPU profile; the breakdown table skips
   // a null-profile capture, so the GPU column there simply renders empty.
@@ -1485,8 +1490,6 @@ function hideProgress(): void {
       const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
       const initLogLen = $log.children.length;
       for (let r = 0; r < reps; r++) {
-        // Snapshot log length
-        const startLen = $log.children.length;
         $run.click();
         for (let i = 0; i < 60; i++) {
           if ($run.disabled) break;
@@ -1496,13 +1499,9 @@ function hideProgress(): void {
           if (!$run.disabled) break;
           await new Promise(r => setTimeout(r, 500));
         }
-        // Parse the [gpu] returned in X ms line
-        const newLines: string[] = [];
-        for (let i = startLen; i < $log.children.length; i++) {
-          newLines.push($log.children[i].textContent ?? '');
-        }
-        const gpuLine = newLines.find(l => /\[gpu\] returned in/.test(l));
-        const wallMs = gpuLine ? parseFloat(gpuLine.match(/in\s+([\d.]+)\s+ms/)?.[1] ?? '0') : 0;
+        // The Run handler clears $log on click, so the [gpu] line can't be
+        // parsed from it — read the dispatch→readback wall from the global.
+        const wallMs = (window as unknown as { __lastGpuWallMs?: number }).__lastGpuWallMs ?? 0;
         const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
         const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
         samples.push({ wallMs, gpuMs, phases });
