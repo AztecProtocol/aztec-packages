@@ -1382,6 +1382,48 @@ const accumAbActive = new URLSearchParams(window.location.search).get('autorun')
 const accumAbClient = accumAbActive ? makeResultsClient({ page: 'msm-accum-ab' }) : null;
 
 (async () => {
+  // `?autorun=env-probe` — minimal device-capability probe. Posts UA +
+  // navigator.gpu presence + adapter info BEFORE any SRS download or WebGPU
+  // pipeline build, then exits. Isolates "can this BrowserStack browser load
+  // the page and POST back" from "does it expose WebGPU" from "can it pull the
+  // SRS over the tunnel" — the three confounded failure modes that made the
+  // earlier Android attempts ambiguous ("no heartbeat" told us nothing).
+  if (new URLSearchParams(window.location.search).get('autorun') === 'env-probe') {
+    const client = makeResultsClient({ page: 'env-probe' });
+    const hasGpu = 'gpu' in navigator && !!(navigator as unknown as { gpu?: unknown }).gpu;
+    client.postProgress({ phase: 'boot-start', ua: navigator.userAgent, webgpu: hasGpu });
+    const probe: Record<string, unknown> = { ua: navigator.userAgent, webgpu: hasGpu };
+    try {
+      if (hasGpu) {
+        const gpu = (navigator as unknown as { gpu: GPU }).gpu;
+        const adapter = await gpu.requestAdapter();
+        probe.adapterRequested = !!adapter;
+        if (adapter) {
+          const info = (adapter as unknown as { info?: GPUAdapterInfo }).info ?? {};
+          probe.adapterInfo = {
+            vendor: info.vendor,
+            architecture: info.architecture,
+            device: info.device,
+            description: info.description,
+          };
+          const lim = adapter.limits as unknown as Record<string, number>;
+          probe.limits = {
+            maxComputeWorkgroupStorageSize: lim?.maxComputeWorkgroupStorageSize,
+            maxStorageBuffersPerShaderStage: lim?.maxStorageBuffersPerShaderStage,
+            maxComputeInvocationsPerWorkgroup: lim?.maxComputeInvocationsPerWorkgroup,
+            maxComputeWorkgroupSizeX: lim?.maxComputeWorkgroupSizeX,
+          };
+        }
+      }
+    } catch (e) {
+      probe.error = e instanceof Error ? `${e.message}` : String(e);
+    }
+    client.postProgress({ phase: 'probe-done', ...probe });
+    await client.postResults({ state: 'done', params: { page: 'env-probe' }, results: probe });
+    setBusy(false);
+    return;
+  }
+
   setBusy(true, 'loading SRS…');
   try {
     accumAbClient?.postProgress({ phase: 'boot-start', ua: navigator.userAgent, webgpu: 'gpu' in navigator });
