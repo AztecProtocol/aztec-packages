@@ -41,7 +41,8 @@ class ECCVMShortMonomialFlavor : public ECCVMFlavor {
                                   ECCVMMSMShortRelation<FF_>,
                                   ECCVMSetShortRelation<FF_>,
                                   ECCVMLookupShortRelation<FF_>,
-                                  ECCVMBoolsShortRelation<FF_>>;
+                                  ECCVMBoolsTranscriptShortRelation<FF_>,
+                                  ECCVMBoolsMsmShortRelation<FF_>>;
     using Relations = Relations_<FF>;
     using LookupRelation = ECCVMLookupShortRelation<FF>;
 
