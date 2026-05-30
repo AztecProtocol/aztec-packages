@@ -91,7 +91,11 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
-    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    profile:
+      q.get('profile') === '1' ||
+      q.get('autorun') === 'msm-bench' ||
+      q.get('autorun') === 'gpu-bench' ||
+      undefined,
   };
 })();
 
@@ -1636,6 +1640,72 @@ function hideProgress(): void {
         results: null,
         error: msg,
         log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
+  } else if (autorun === 'gpu-bench') {
+    // WASM-free GPU-only bench: time the WebGPU MSM over `reps` runs and
+    // report the per-phase GPU breakdown (needs the `timestamp-query`
+    // feature — present on Chrome/Android + macOS, absent on SwiftShader).
+    // The `stream_s` URL knob selects the batched-inversion slot count so
+    // the accumulate (`stream_walker`) phase can be compared S=8 vs S=16 on
+    // the same device.
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const client = makeResultsClient({ page: 'gpu-bench' });
+    log('info', `[gpu-bench] logN=${autorunLogN} reps=${reps} s=${gpuKnobs.streamS ?? 'auto'}`);
+    try {
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (!srsBuf) throw new Error('SRS never loaded within 10 minutes');
+      const inputs = await generateInputs(autorunLogN, false);
+      // Warm-up run (build + JIT + first-touch) outside the timed loop.
+      await runWebGpuOnce(inputs);
+      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
+      for (let r = 0; r < reps; r++) {
+        const gpu = await runWebGpuOnce(inputs);
+        const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+        const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
+        samples.push({ wallMs: gpu.ms, gpuMs, phases: { ...phases } });
+        const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(' ');
+        log('info', `[gpu-bench] rep ${r + 1}/${reps}: wall=${gpu.ms.toFixed(1)}ms gpu=${gpuMs.toFixed(2)}ms ${phaseStr}`);
+      }
+      const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+      const avgWall = avg(samples.map(s => s.wallMs));
+      const avgGpu = avg(samples.map(s => s.gpuMs));
+      const phaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+      const avgPhases: Record<string, number> = {};
+      for (const k of phaseKeys) avgPhases[k] = avg(samples.map(s => s.phases[k] ?? 0));
+      const avgPhaseStr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(' ');
+      log('ok', `[gpu-bench] DONE logN=${autorunLogN} s=${gpuKnobs.streamS ?? 'auto'} reps=${reps}: ` +
+        `wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(2)}ms ${avgPhaseStr}`);
+      const lines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) lines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, streamS: gpuKnobs.streamS ?? null, page: 'gpu-bench' },
+        results: { samples, averages: { wallMs: avgWall, gpuMs: avgGpu, ...avgPhases } },
+        error: null,
+        log: lines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[gpu-bench] FATAL: ${msg}`);
+      const lines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) lines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, reps, page: 'gpu-bench' },
+        results: null,
+        error: msg,
+        log: lines.slice(-100),
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
