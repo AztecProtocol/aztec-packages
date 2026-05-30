@@ -13,10 +13,14 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright-core';
+// Allow an alternate playwright-core (e.g. a version whose pinned Chromium
+// revision is actually fetchable through the egress proxy) via PW_CORE.
+const pwCore = process.env.PW_CORE || 'playwright-core';
+const pwMod = await import(pwCore);
+const chromium = pwMod.chromium ?? pwMod.default?.chromium;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TS_ROOT = path.resolve(__dirname, '../../..');
+const TS_ROOT = path.resolve(__dirname, '../..');
 
 const { values: argv } = parseArgs({
   options: {
@@ -29,7 +33,8 @@ const { values: argv } = parseArgs({
 
 const port = parseInt(argv.port, 10);
 const timeoutMs = parseInt(argv.timeout, 10);
-const url = `http://127.0.0.1:${port}/dev/msm-webgpu/msm-correctness.html?logns=${encodeURIComponent(argv.logns)}`;
+const extraQ = process.env.EXTRA_Q ? `&${process.env.EXTRA_Q}` : '';
+const url = `http://127.0.0.1:${port}/dev/msm-webgpu/msm-correctness.html?logns=${encodeURIComponent(argv.logns)}${extraQ}`;
 
 function startVite() {
   const viteBin = path.join(TS_ROOT, 'node_modules/.bin/vite');
@@ -77,7 +82,15 @@ const SWIFTSHADER_ARGS = [
   await waitForVite();
   console.log(`[corr] vite up; launching chromium (swiftshader)…`);
 
-  const browser = await chromium.launch({ headless: !argv.headed, args: SWIFTSHADER_ARGS });
+  // PW_EXECUTABLE forces a specific Chromium binary (full chrome, not the
+  // headless_shell) so we get reliable WebGPU+SwiftShader; combined with our
+  // own --headless=new arg it still runs headless.
+  const exe = process.env.PW_EXECUTABLE;
+  const browser = await chromium.launch({
+    headless: exe ? false : !argv.headed,
+    ...(exe ? { executablePath: exe } : {}),
+    args: SWIFTSHADER_ARGS,
+  });
   const page = await browser.newPage();
   page.on('console', m => console.log(`  · ${m.text()}`));
   page.on('pageerror', e => console.log(`  ! pageerror: ${e.message}`));

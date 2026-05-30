@@ -493,13 +493,14 @@ class PipelineCache {
  * (buffer alloc) to ~2 ms (bind-group rebuild).
  */
 // KNOB 1 (stream-walker pref_scratch placement). When true the prefix scratch
-// lives in a coalesced device storage buffer so the walker is not workgroup-
-// memory occupancy-limited and TPB can be raised; the host adds binding 11 and
-// allocates `walkerPref`. When false the walker keeps its 16 KB var<workgroup>
-// scratch (TPB capped at 64) — the portable path for adapters exposing fewer
-// than 11 storage buffers per shader stage.
-const WALKER_PREF_DEVICE = true;
-const WALKER_TPB = WALKER_PREF_DEVICE ? 128 : 64;
+// lives in per-invocation private memory, freeing the 16 KB var<workgroup>
+// array so the walker is no longer threadgroup-occupancy-limited and TPB can
+// rise to 128. This adds no storage binding, keeping the walker within the
+// 10-storage-buffer-per-stage floor that SwiftShader, Mali and Adreno enforce
+// (an 11th device-buffer binding is rejected on those adapters). When false
+// the walker keeps the original 16 KB workgroup scratch with TPB capped at 64.
+const WALKER_PREF_PRIVATE = true;
+const WALKER_TPB = WALKER_PREF_PRIVATE ? 128 : 64;
 
 interface SharedScratch {
   bufA: GPUBuffer;
@@ -538,7 +539,6 @@ interface SharedScratch {
   streamPrefScratch: GPUBuffer;
   // Stream-walker buffers (Plan §3.1 + C's KNOB 2 variant).
   taskCuts: GPUBuffer;              // (S+1) cut points/thread × 2 u32
-  walkerPref: GPUBuffer;            // KNOB 1 device pref_scratch: 2*S*NUM_THREADS vec4, coalesced
   walkerPartials: GPUBuffer;        // 2*S partial slots/thread (split-start + task-end)
   walkerPartialDest: GPUBuffer;     // bucket_id per partial slot (NO_BUCKET if unused)
   // Task #19 — per-bucket linked-list index for the indexed walker_combine.
@@ -680,7 +680,7 @@ export class MsmV2Pool {
       total += s.wgCuts.size + s.threadCuts.size;
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
-      total += s.taskCuts.size + s.walkerPref.size + s.walkerPartials.size + s.walkerPartialDest.size;
+      total += s.taskCuts.size + s.walkerPartials.size + s.walkerPartialDest.size;
       total += s.bucketHead.size + s.walkerNodesSlot.size + s.walkerNodesNext.size + s.walkerNodeCounter.size;
     }
     return total;
@@ -871,7 +871,6 @@ export class MsmV2Pool {
     let streamPrefScratch = s?.streamPrefScratch;
     // Stream-walker buffers (Plan §3.1 + KNOB 2).
     let taskCuts = s?.taskCuts;
-    let walkerPref = s?.walkerPref;
     let walkerPartials = s?.walkerPartials;
     let walkerPartialDest = s?.walkerPartialDest;
     // Task #19: per-bucket linked-list index.
@@ -896,7 +895,6 @@ export class MsmV2Pool {
       accBuf?.destroy();
       streamPrefScratch?.destroy();
       taskCuts?.destroy();
-      walkerPref?.destroy();
       walkerPartials?.destroy();
       walkerPartialDest?.destroy();
       bucketHead?.destroy();
@@ -931,10 +929,6 @@ export class MsmV2Pool {
       //   walkerPartials: 2*S slots/thread × PG × 2 vec4 (split-start + task-end)
       //   walkerPartialDest: 2*S u32/thread (bucket_id per partial slot)
       taskCuts = sbuf(sT * (sS + 1) * 2 * 4);
-      // KNOB 1 device pref_scratch: 2*S vec4 pairs per thread, coalesced over
-      // NUM_THREADS (s*NUM_THREADS + t). 2*sS*sT vec4 × 16 B ≈ 2 MiB at the
-      // default 8192 threads. A 4 B stub when the workgroup fallback is used.
-      walkerPref = sbuf(WALKER_PREF_DEVICE ? 2 * sS * sT * 16 : 4);
       walkerPartials = soaBuf(2 * sT * sS);
       walkerPartialDest = sbuf(2 * sT * sS * 4);
       // Task #19 — per-bucket linked-list index for walker_combine.
@@ -989,7 +983,6 @@ export class MsmV2Pool {
       accBuf: accBuf!,
       streamPrefScratch: streamPrefScratch!,
       taskCuts: taskCuts!,
-      walkerPref: walkerPref!,
       walkerPartials: walkerPartials!,
       walkerPartialDest: walkerPartialDest!,
       bucketHead: bucketHead!,
@@ -1538,12 +1531,7 @@ export class MsmV2 {
     //   partition_task: sorted_count_list, cumulative_adds, thread_cuts, planner_meta(rw), task_cuts(rw), params(uniform)
     m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   stream_walker: sorted_bucket_list, sorted_count_list, offsets, task_cuts, l0_index, point_x, point_y, bucket_sums(rw), partials(rw), partial_dest(rw), params(uniform)
-    //   + binding 11 pref_scratch(rw) when WALKER_PREF_DEVICE (KNOB 1 device).
-    m.streamWalkerLayout = lt([
-      'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage',
-      'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform',
-      ...(WALKER_PREF_DEVICE ? (['storage'] as const) : []),
-    ]);
+    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
     //   walker_partials_index: partial_dest, bucket_head(rw), nodes_slot(rw), nodes_next(rw), node_counter(rw), params(uniform)
     m.walkerPartialsIndexLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     //   walker_combine: sorted_bucket_list, bucket_head(rw — atomic-typed),
@@ -1639,15 +1627,15 @@ export class MsmV2 {
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
     // Stream-walker (Plan §6 + C's KNOB 2 variant). KNOB 1 placement is set by
-    // WALKER_PREF_DEVICE: device pref_scratch frees workgroup memory so TPB can
-    // rise to 128; the workgroup fallback caps TPB at 64 (16 KB fits Mali
+    // WALKER_PREF_PRIVATE: private pref_scratch frees workgroup memory so TPB
+    // can rise to 128; the workgroup fallback caps TPB at 64 (16 KB fits Mali
     // Bifrost). NUM_THREADS = nwg*256 still (partition_thread's grain); the
     // walker dispatches ceil(num_active/TPB) workgroups.
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, WALKER_PREF_DEVICE),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, WALKER_PREF_PRIVATE),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
@@ -2163,7 +2151,6 @@ export class MsmV2 {
       this.streamWalkerBind = mkBind(this.streamWalkerLayout, [
         sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
         bucketResult, wp, pdest, walkerParams,
-        ...(WALKER_PREF_DEVICE ? [scratch.walkerPref] : []),
       ]);
       // Walker partials indexer (Task #19): one thread per partial slot,
       // builds the per-bucket linked-list head/nodes that walker_combine
