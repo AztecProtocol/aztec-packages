@@ -1,15 +1,15 @@
 //! FFI backend scaffold for direct library linking.
 //!
-//! Calls a C symbol with msgpack bytes — no IPC overhead. Copy this file into
-//! your crate, rename `ipc_ffi_entry` to the actual symbol exported by the
-//! native library you link against, and add the appropriate `-L` / `-l`
-//! directives to your `build.rs`.
+//! Calls a C symbol with msgpack bytes — no IPC overhead. Generate with
+//! `--ffi-symbol <name>` if the native library exports a service-specific
+//! entrypoint, and add the appropriate `-L` / `-l` directives to your
+//! `build.rs`.
 //!
 //! # Requirements
 //!
 //! 1. A native library exporting an extern-C function with this signature:
 //!    ```text
-//!    void ipc_ffi_entry(
+//!    void __IPC_FFI_SYMBOL__(
 //!        const uint8_t* input, size_t input_len,
 //!        uint8_t** output_out, size_t* output_len_out);
 //!    ```
@@ -34,13 +34,11 @@ use std::ptr;
 extern "C" {
     /// Execute a msgpack-encoded command and return msgpack-encoded response.
     ///
-    /// Rename `ipc_ffi_entry` to match the symbol your native library exports.
-    ///
     /// # Safety
     /// - `input_in` must point to valid memory of `input_len_in` bytes
     /// - `output_out` and `output_len_out` must be valid pointers
     /// - Caller must free `*output_out` using `libc::free`
-    fn ipc_ffi_entry(
+    fn __IPC_FFI_SYMBOL__(
         input_in: *const u8,
         input_len_in: usize,
         output_out: *mut *mut u8,
@@ -76,9 +74,9 @@ impl Backend for FfiBackend {
         // SAFETY:
         // - input.as_ptr() is valid for input.len() bytes
         // - output_ptr and output_len are valid stack pointers
-        // - ipc_ffi_entry allocates output using malloc, which we free below
+        // - the FFI entrypoint allocates output using malloc, which we free below
         unsafe {
-            ipc_ffi_entry(
+            __IPC_FFI_SYMBOL__(
                 input.as_ptr(),
                 input.len(),
                 &mut output_ptr,
@@ -104,7 +102,7 @@ impl Backend for FfiBackend {
         // SAFETY: output_ptr is valid for output_len bytes, allocated by malloc
         let output = unsafe { std::slice::from_raw_parts(output_ptr, output_len).to_vec() };
 
-        // SAFETY: output_ptr was allocated by ipc_ffi_entry using malloc
+        // SAFETY: output_ptr was allocated by the FFI entrypoint using malloc
         unsafe {
             libc::free(output_ptr as *mut libc::c_void);
         }
