@@ -1,15 +1,14 @@
 //! FFI backend scaffold for direct library linking.
 //!
-//! Calls a C symbol with msgpack bytes — no IPC overhead. Generate with
-//! `--ffi-symbol <name>` if the native library exports a service-specific
-//! entrypoint, and add the appropriate `-L` / `-l` directives to your
-//! `build.rs`.
+//! Calls a C symbol with msgpack bytes — no IPC overhead. Link against a
+//! native library that exports `ipc_ffi_entry`, and add the appropriate
+//! `-L` / `-l` directives to your `build.rs`.
 //!
 //! # Requirements
 //!
 //! 1. A native library exporting an extern-C function with this signature:
 //!    ```text
-//!    void __IPC_FFI_SYMBOL__(
+//!    void ipc_ffi_entry(
 //!        const uint8_t* input, size_t input_len,
 //!        uint8_t** output_out, size_t* output_len_out);
 //!    ```
@@ -38,7 +37,7 @@ extern "C" {
     /// - `input_in` must point to valid memory of `input_len_in` bytes
     /// - `output_out` and `output_len_out` must be valid pointers
     /// - Caller must free `*output_out` using `libc::free`
-    fn __IPC_FFI_SYMBOL__(
+    fn ipc_ffi_entry(
         input_in: *const u8,
         input_len_in: usize,
         output_out: *mut *mut u8,
@@ -76,7 +75,7 @@ impl Backend for FfiBackend {
         // - output_ptr and output_len are valid stack pointers
         // - the FFI entrypoint allocates output using malloc, which we free below
         unsafe {
-            __IPC_FFI_SYMBOL__(
+            ipc_ffi_entry(
                 input.as_ptr(),
                 input.len(),
                 &mut output_ptr,
