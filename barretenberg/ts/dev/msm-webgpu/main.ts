@@ -25,6 +25,7 @@ import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js';
+import { buildGlvInputs } from '../../src/msm_webgpu/cuzk/glv.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
@@ -121,6 +122,23 @@ const WASM_MEM_MAX_PAGES = 16384; // 1 GiB
 // We default to no-COI because adding COOP/COEP unconditionally was
 // observed to break the WebGPU MSM in this dev page (see the original
 // vite.config.ts comment); they're also unrelated to the WebGPU path.
+// `?glv=1` routes the WebGPU path through GLV endomorphism decomposition:
+// each 254-bit scalar splits into two ≈127-bit halves and the point set is
+// doubled with φ(P)=(βx,y), so MsmV2 runs a 2n-pair, 128-bit MSM
+// (scalarBits=128). The result is identical to the original Σ kᵢ Pᵢ, so the
+// WASM/noble cross-check still validates it — giving on-device GLV correctness
+// plus timing. Strictly additive: default runs are unaffected.
+const GLV = /[?&]glv=1\b/.test(window.location.search);
+// Cache the GLV-transformed buffers per logN so warm-up + timed reps reuse them.
+let glvCache: { n: number; pointsBuf: Uint8Array; scalarsBuf: Uint8Array } | null = null;
+function glvTransform(inputs: TestInputs): { pointsBuf: Uint8Array; scalarsBuf: Uint8Array } {
+  if (glvCache && glvCache.n === inputs.n) return glvCache;
+  const g = buildGlvInputs(inputs.pointsBuf, inputs.scalarsBuf, inputs.n);
+  log('info', `[glv] ${2 * inputs.n} pairs, scalarBits=128, max |kᵢ|=${g.maxBits} bits`);
+  glvCache = { n: inputs.n, pointsBuf: g.pointsBuf, scalarsBuf: g.scalarsBuf };
+  return glvCache;
+}
+
 const COI_REQUESTED = /[?&]coi=1\b/.test(window.location.search);
 const COI_ACTIVE = (self as any).crossOriginIsolated === true;
 const WASM_AVAILABLE = COI_ACTIVE;
@@ -492,8 +510,11 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
       .join(' ');
     log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
-    msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
-    msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
+    const poolPoints = GLV ? glvTransform(inputs).pointsBuf : inputs.pointsBuf;
+    const runN = GLV ? 2 * inputs.n : inputs.n;
+    const knobs: MsmConfig = GLV ? { ...gpuKnobs, scalarBits: 128 } : gpuKnobs;
+    msmV2Pool = await MsmV2Pool.create(gpuDevice, poolPoints);
+    msmV2 = await MsmV2.create(gpuDevice, runN, msmV2Pool, knobs);
     msmV2LogN = logN;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
@@ -509,8 +530,9 @@ async function runWebGpuOnce(
   const msm = await ensureWebGpuWarmed(inputs);
   log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
   // Plan the level tree for these scalars + (re)build the data-dependent
-  // buffers — untimed setup, outside the `t0` window.
-  msm.prepare(inputs.scalarsBuf);
+  // buffers — untimed setup, outside the `t0` window. Under GLV the prepared
+  // scalars are the 2n split half-scalars.
+  msm.prepare(GLV ? glvTransform(inputs).scalarsBuf : inputs.scalarsBuf);
   // prepare() reallocates every data-dependent buffer; the first run() on
   // those fresh buffers pays a one-time first-use cost (driver lazy
   // zero-init / first-touch). Warm it out of the timed window so the
