@@ -523,6 +523,11 @@ async function runWebGpuOnce(
   const t0 = performance.now();
   const gpu = await msm.run();
   const ms = performance.now() - t0;
+  // Expose the CPU-observed GPU wall (submit→readback) so the bench loop can
+  // read it directly. This is the only timing signal on adapters without the
+  // `timestamp-query` feature (e.g. Android Chrome / Adreno / Mali), where the
+  // per-pass __lastPhaseMs breakdown is unavailable.
+  (window as unknown as { __lastWallMs?: number }).__lastWallMs = ms;
   log('info', `[gpu] returned in ${ms.toFixed(1)} ms`);
   // MsmV2 does not emit a per-pass GPU profile; the breakdown table skips
   // a null-profile capture, so the GPU column there simply renders empty.
@@ -1444,6 +1449,8 @@ function hideProgress(): void {
       for (let r = 0; r < reps; r++) {
         // Snapshot log length
         const startLen = $log.children.length;
+        // Clear last-run markers so we read THIS rep's values, not a stale one.
+        (window as unknown as { __lastWallMs?: number }).__lastWallMs = undefined;
         $run.click();
         for (let i = 0; i < 60; i++) {
           if ($run.disabled) break;
@@ -1453,13 +1460,17 @@ function hideProgress(): void {
           if (!$run.disabled) break;
           await new Promise(r => setTimeout(r, 500));
         }
-        // Parse the [gpu] returned in X ms line
+        // Prefer the window-exposed GPU wall (set in runWebGpuOnce); it is the
+        // only timing on adapters without timestamp-query. Fall back to parsing
+        // the "[gpu] returned in X ms" log line.
         const newLines: string[] = [];
         for (let i = startLen; i < $log.children.length; i++) {
           newLines.push($log.children[i].textContent ?? '');
         }
         const gpuLine = newLines.find(l => /\[gpu\] returned in/.test(l));
-        const wallMs = gpuLine ? parseFloat(gpuLine.match(/in\s+([\d.]+)\s+ms/)?.[1] ?? '0') : 0;
+        const parsedWall = gpuLine ? parseFloat(gpuLine.match(/in\s+([\d.]+)\s+ms/)?.[1] ?? '0') : 0;
+        const exposedWall = (window as unknown as { __lastWallMs?: number }).__lastWallMs;
+        const wallMs = (typeof exposedWall === 'number' && exposedWall > 0) ? exposedWall : parsedWall;
         const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
         const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
         samples.push({ wallMs, gpuMs, phases });
