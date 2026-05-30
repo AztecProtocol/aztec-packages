@@ -148,6 +148,21 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return worldState;
   }
 
+  static async fromIpc(
+    wsdbBackend: ConstructorParameters<typeof IpcWorldState>[0],
+    instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
+    bindings?: LoggerBindings,
+    genesis: GenesisData = EMPTY_GENESIS_DATA,
+    cleanup = () => Promise.resolve(),
+    recreateInstance?: () => Promise<NativeWorldStateInstance>,
+  ): Promise<NativeWorldStateService> {
+    const log = createLogger('world-state:database', bindings);
+    const instance = new IpcWorldState(wsdbBackend, instrumentation, bindings);
+    const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
+    await worldState.init();
+    return worldState;
+  }
+
   protected async init() {
     const status = await this.getStatusSummary();
     if (!status.treesAreSynched) {

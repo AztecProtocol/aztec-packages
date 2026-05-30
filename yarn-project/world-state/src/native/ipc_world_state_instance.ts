@@ -61,20 +61,41 @@ function serializeLeafToBytes(leaf: SerializedLeafValue): Uint8Array {
 
 // ————— Request conversion helpers —————
 
-function toWsdbRevision(rev: WorldStateRevision): { forkid: number; blocknumber: number; includeuncommitted: boolean } {
+function toWsdbRevision(rev: WorldStateRevision): { forkId: number; blockNumber: number; includeUncommitted: boolean } {
   return {
-    forkid: rev.forkId,
-    blocknumber: Number(rev.blockNumber),
-    includeuncommitted: rev.includeUncommitted,
+    forkId: rev.forkId,
+    blockNumber: Number(rev.blockNumber),
+    includeUncommitted: rev.includeUncommitted,
   };
 }
 
-function blockStateRefToMap(ref: Map<number, readonly [Buffer, number | bigint]>): Map<number, [Uint8Array, number]> {
-  const result = new Map<number, [Uint8Array, number]>();
-  for (const [treeId, [root, size]] of ref.entries()) {
-    result.set(treeId, [new Uint8Array(root), Number(size)]);
+function blockStateRefToMap(ref: Map<number, readonly [Buffer, number | bigint]>) {
+  return [...ref.entries()].map(([treeId, [root, size]]) => ({
+    treeId,
+    root: new Uint8Array(root),
+    size: Number(size),
+  }));
+}
+
+function toPublicDataLeaf(leaf: SerializedLeafValue): { slot: Uint8Array; value: Uint8Array } {
+  if (leaf instanceof Buffer || !('slot' in leaf)) {
+    throw new Error('Expected public data leaf');
   }
-  return result;
+  return { slot: new Uint8Array(leaf.slot), value: new Uint8Array(leaf.value) };
+}
+
+function toNullifierLeaf(leaf: SerializedLeafValue): { nullifier: Uint8Array } {
+  if (leaf instanceof Buffer || !('nullifier' in leaf)) {
+    throw new Error('Expected nullifier leaf');
+  }
+  return { nullifier: new Uint8Array(leaf.nullifier) };
+}
+
+function toFrLeaf(leaf: SerializedLeafValue): Uint8Array {
+  if (!(leaf instanceof Buffer)) {
+    throw new Error('Expected field leaf');
+  }
+  return new Uint8Array(leaf);
 }
 
 // ————— Response conversion helpers —————
@@ -111,52 +132,52 @@ function decodeLeafPreimage(encoded: Uint8Array): SerializedIndexedLeaf {
 
 /** Convert Wsdb state reference (Record<number, [Uint8Array, number]>) to NAPI format. */
 function convertStateRef(
-  state: Record<number, [Uint8Array, number]>,
+  state: Array<{ treeId: number; root: Uint8Array; size: number }>,
 ): Record<number, readonly [Buffer, number | bigint]> {
   const result: Record<number, readonly [Buffer, number | bigint]> = {};
-  for (const [key, [root, size]] of Object.entries(state)) {
-    result[Number(key)] = [Buffer.from(root), BigInt(size)] as const;
+  for (const { treeId, root, size } of state) {
+    result[treeId] = [Buffer.from(root), BigInt(size)] as const;
   }
   return result;
 }
 
-/** Convert Wsdb WorldStateStatusSummary (lowercase) to NAPI format (camelCase). */
+/** Convert Wsdb WorldStateStatusSummary to the native world-state format. */
 function convertStatusSummary(s: WsdbStatusSummary): WorldStateStatusSummary {
   return {
-    unfinalizedBlockNumber: s.unfinalizedblocknumber,
-    finalizedBlockNumber: s.finalizedblocknumber,
-    oldestHistoricalBlock: s.oldesthistoricalblock,
-    treesAreSynched: s.treesaresynched,
+    unfinalizedBlockNumber: s.unfinalizedBlockNumber,
+    finalizedBlockNumber: s.finalizedBlockNumber,
+    oldestHistoricalBlock: s.oldestHistoricalBlock,
+    treesAreSynched: s.treesAreSynched,
   } as unknown as WorldStateStatusSummary;
 }
 
 function convertDBStats(s: WsdbDBStatsInner): DBStats {
   return {
     name: s.name,
-    numDataItems: s.numdataitems,
-    totalUsedSize: s.totalusedsize,
+    numDataItems: s.numDataItems,
+    totalUsedSize: s.totalUsedSize,
   } as unknown as DBStats;
 }
 
 function convertTreeDBStats(s: WsdbTreeDBStats): TreeDBStats {
   return {
-    mapSize: s.mapsize,
-    physicalFileSize: s.physicalfilesize,
-    blocksDBStats: convertDBStats(s.blocksdbstats),
-    nodesDBStats: convertDBStats(s.nodesdbstats),
-    leafPreimagesDBStats: convertDBStats(s.leafpreimagesdbstats),
-    leafIndicesDBStats: convertDBStats(s.leafindicesdbstats),
-    blockIndicesDBStats: convertDBStats(s.blockindicesdbstats),
+    mapSize: s.mapSize,
+    physicalFileSize: s.physicalFileSize,
+    blocksDBStats: convertDBStats(s.blocksDBStats),
+    nodesDBStats: convertDBStats(s.nodesDBStats),
+    leafPreimagesDBStats: convertDBStats(s.leafPreimagesDBStats),
+    leafIndicesDBStats: convertDBStats(s.leafIndicesDBStats),
+    blockIndicesDBStats: convertDBStats(s.blockIndicesDBStats),
   } as unknown as TreeDBStats;
 }
 
 function convertWorldStateDBStats(s: WsdbDBStats): WorldStateDBStats {
   return {
-    noteHashTreeStats: convertTreeDBStats(s.notehashtreestats),
-    messageTreeStats: convertTreeDBStats(s.messagetreestats),
-    archiveTreeStats: convertTreeDBStats(s.archivetreestats),
-    publicDataTreeStats: convertTreeDBStats(s.publicdatatreestats),
-    nullifierTreeStats: convertTreeDBStats(s.nullifiertreestats),
+    noteHashTreeStats: convertTreeDBStats(s.noteHashTreeStats),
+    messageTreeStats: convertTreeDBStats(s.messageTreeStats),
+    archiveTreeStats: convertTreeDBStats(s.archiveTreeStats),
+    publicDataTreeStats: convertTreeDBStats(s.publicDataTreeStats),
+    nullifierTreeStats: convertTreeDBStats(s.nullifierTreeStats),
   } as unknown as WorldStateDBStats;
 }
 
@@ -165,37 +186,37 @@ function convertTreeMeta(m: WsdbTreeMeta): TreeMeta {
     name: m.name,
     depth: m.depth,
     size: m.size,
-    committedSize: m.committedsize,
+    committedSize: m.committedSize,
     root: m.root,
-    initialSize: m.initialsize,
-    initialRoot: m.initialroot,
-    oldestHistoricBlock: m.oldesthistoricblock,
-    unfinalizedBlockHeight: m.unfinalizedblockheight,
-    finalizedBlockHeight: m.finalizedblockheight,
+    initialSize: m.initialSize,
+    initialRoot: m.initialRoot,
+    oldestHistoricBlock: m.oldestHistoricBlock,
+    unfinalizedBlockHeight: m.unfinalizedBlockHeight,
+    finalizedBlockHeight: m.finalizedBlockHeight,
   } as unknown as TreeMeta;
 }
 
 function convertWorldStateMeta(m: WsdbMeta): WorldStateMeta {
   return {
-    noteHashTreeMeta: convertTreeMeta(m.notehashtreemeta),
-    messageTreeMeta: convertTreeMeta(m.messagetreemeta),
-    archiveTreeMeta: convertTreeMeta(m.archivetreemeta),
-    publicDataTreeMeta: convertTreeMeta(m.publicdatatreemeta),
-    nullifierTreeMeta: convertTreeMeta(m.nullifiertreemeta),
+    noteHashTreeMeta: convertTreeMeta(m.noteHashTreeMeta),
+    messageTreeMeta: convertTreeMeta(m.messageTreeMeta),
+    archiveTreeMeta: convertTreeMeta(m.archiveTreeMeta),
+    publicDataTreeMeta: convertTreeMeta(m.publicDataTreeMeta),
+    nullifierTreeMeta: convertTreeMeta(m.nullifierTreeMeta),
   } as unknown as WorldStateMeta;
 }
 
 function convertStatusFull(s: WsdbStatusFull): WorldStateStatusFull {
   return {
     summary: convertStatusSummary(s.summary),
-    dbStats: convertWorldStateDBStats(s.dbstats),
+    dbStats: convertWorldStateDBStats(s.dbStats),
     meta: convertWorldStateMeta(s.meta),
   } as unknown as WorldStateStatusFull;
 }
 
 /** Convert Wsdb SiblingPathAndIndex to NAPI format. */
 function convertSiblingPathAndIndex(
-  s: WsdbSiblingPathAndIndex | undefined,
+  s: WsdbSiblingPathAndIndex | null | undefined,
 ): { index: bigint; path: Buffer[] } | undefined {
   if (!s) {
     return undefined;
@@ -383,11 +404,11 @@ export class IpcWorldState implements NativeWorldStateInstance {
       case WorldStateMessageType.GET_TREE_INFO: {
         const b = body as WorldStateRequest[WorldStateMessageType.GET_TREE_INFO];
         const resp = await this.api.wsdbGetTreeInfo({
-          treeid: b.treeId,
+          treeId: b.treeId,
           revision: toWsdbRevision(b.revision),
         });
         return {
-          treeId: resp.treeid,
+          treeId: resp.treeId,
           root: Buffer.from(resp.root),
           size: resp.size,
           depth: resp.depth,
@@ -412,9 +433,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
       case WorldStateMessageType.GET_LEAF_VALUE: {
         const b = body as WorldStateRequest[WorldStateMessageType.GET_LEAF_VALUE];
         const resp = await this.api.wsdbGetLeafValue({
-          treeid: b.treeId,
+          treeId: b.treeId,
           revision: toWsdbRevision(b.revision),
-          leafindex: Number(b.leafIndex),
+          leafIndex: Number(b.leafIndex),
         });
         if (!resp.value) {
           return undefined as WorldStateResponse[T];
@@ -424,23 +445,28 @@ export class IpcWorldState implements NativeWorldStateInstance {
 
       case WorldStateMessageType.GET_LEAF_PREIMAGE: {
         const b = body as WorldStateRequest[WorldStateMessageType.GET_LEAF_PREIMAGE];
-        const resp = await this.api.wsdbGetLeafPreimage({
-          treeid: b.treeId,
-          revision: toWsdbRevision(b.revision),
-          leafindex: Number(b.leafIndex),
-        });
+        const resp =
+          b.treeId === MerkleTreeId.PUBLIC_DATA_TREE
+            ? await this.api.wsdbGetPublicDataLeafPreimage({
+                revision: toWsdbRevision(b.revision),
+                leafIndex: Number(b.leafIndex),
+              })
+            : await this.api.wsdbGetNullifierLeafPreimage({
+                revision: toWsdbRevision(b.revision),
+                leafIndex: Number(b.leafIndex),
+              });
         if (!resp.preimage) {
           return undefined as WorldStateResponse[T];
         }
-        return decodeLeafPreimage(resp.preimage) as WorldStateResponse[T];
+        return convertUint8ArraysToBuffers(resp.preimage) as WorldStateResponse[T];
       }
 
       case WorldStateMessageType.GET_SIBLING_PATH: {
         const b = body as WorldStateRequest[WorldStateMessageType.GET_SIBLING_PATH];
         const resp = await this.api.wsdbGetSiblingPath({
-          treeid: b.treeId,
+          treeId: b.treeId,
           revision: toWsdbRevision(b.revision),
-          leafindex: Number(b.leafIndex),
+          leafIndex: Number(b.leafIndex),
         });
         return resp.path.map(p => Buffer.from(p)) as WorldStateResponse[T];
       }
@@ -448,12 +474,12 @@ export class IpcWorldState implements NativeWorldStateInstance {
       case WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES: {
         const b = body as WorldStateRequest[WorldStateMessageType.GET_BLOCK_NUMBERS_FOR_LEAF_INDICES];
         const resp = await this.api.wsdbGetBlockNumbersForLeafIndices({
-          treeid: b.treeId,
+          treeId: b.treeId,
           revision: toWsdbRevision(b.revision),
-          leafindices: b.leafIndices.map(Number),
+          leafIndices: b.leafIndices.map(Number),
         });
         return {
-          blockNumbers: resp.blocknumbers.map(n => (n != null ? BigInt(n) : undefined)),
+          blockNumbers: resp.blockNumbers.map(n => (n != null ? BigInt(n) : undefined)),
         } as WorldStateResponse[T];
       }
 
@@ -462,10 +488,10 @@ export class IpcWorldState implements NativeWorldStateInstance {
       case WorldStateMessageType.FIND_LEAF_INDICES: {
         const b = body as WorldStateRequest[WorldStateMessageType.FIND_LEAF_INDICES];
         const resp = await this.api.wsdbFindLeafIndices({
-          treeid: b.treeId,
+          treeId: b.treeId,
           revision: toWsdbRevision(b.revision),
-          leaves: b.leaves.map(serializeLeafToBytes),
-          startindex: Number(b.startIndex),
+          leaves: b.leaves.map(toFrLeaf),
+          startIndex: Number(b.startIndex),
         });
         return {
           indices: resp.indices.map(n => (n != null ? BigInt(n) : undefined)),
@@ -475,12 +501,12 @@ export class IpcWorldState implements NativeWorldStateInstance {
       case WorldStateMessageType.FIND_LOW_LEAF: {
         const b = body as WorldStateRequest[WorldStateMessageType.FIND_LOW_LEAF];
         const resp = await this.api.wsdbFindLowLeaf({
-          treeid: b.treeId,
+          treeId: b.treeId,
           revision: toWsdbRevision(b.revision),
           key: new Uint8Array(b.key.toBuffer()),
         });
         return {
-          alreadyPresent: resp.alreadypresent,
+          alreadyPresent: resp.alreadyPresent,
           index: BigInt(resp.index),
         } as WorldStateResponse[T];
       }
@@ -488,9 +514,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
       case WorldStateMessageType.FIND_SIBLING_PATHS: {
         const b = body as WorldStateRequest[WorldStateMessageType.FIND_SIBLING_PATHS];
         const resp = await this.api.wsdbFindSiblingPaths({
-          treeid: b.treeId,
+          treeId: b.treeId,
           revision: toWsdbRevision(b.revision),
-          leaves: b.leaves.map(serializeLeafToBytes),
+          leaves: b.leaves.map(toFrLeaf),
         });
         return {
           paths: resp.paths.map(convertSiblingPathAndIndex),
@@ -501,43 +527,54 @@ export class IpcWorldState implements NativeWorldStateInstance {
 
       case WorldStateMessageType.APPEND_LEAVES: {
         const b = body as WorldStateRequest[WorldStateMessageType.APPEND_LEAVES];
-        await this.api.wsdbAppendLeaves({
-          treeid: b.treeId,
-          leaves: b.leaves.map(serializeLeafToBytes),
-          forkid: b.forkId,
-        });
+        if (b.treeId === MerkleTreeId.PUBLIC_DATA_TREE) {
+          await this.api.wsdbAppendPublicDataLeaves({ leaves: b.leaves.map(toPublicDataLeaf), forkId: b.forkId });
+        } else if (b.treeId === MerkleTreeId.NULLIFIER_TREE) {
+          await this.api.wsdbAppendNullifierLeaves({ leaves: b.leaves.map(toNullifierLeaf), forkId: b.forkId });
+        } else {
+          await this.api.wsdbAppendLeaves({ treeId: b.treeId, leaves: b.leaves.map(toFrLeaf), forkId: b.forkId });
+        }
         return undefined as WorldStateResponse[T];
       }
 
       case WorldStateMessageType.BATCH_INSERT: {
         const b = body as WorldStateRequest[WorldStateMessageType.BATCH_INSERT];
-        const resp = await this.api.wsdbBatchInsert({
-          treeid: b.treeId,
-          leaves: b.leaves.map(serializeLeafToBytes),
-          subtreedepth: b.subtreeDepth,
-          forkid: b.forkId,
-        });
-        const decoded = msgpackDecoder.unpack(Buffer.from(resp.result));
-        return convertUint8ArraysToBuffers(decoded) as WorldStateResponse[T];
+        const resp =
+          b.treeId === MerkleTreeId.PUBLIC_DATA_TREE
+            ? await this.api.wsdbBatchInsertPublicData({
+                leaves: b.leaves.map(toPublicDataLeaf),
+                subtreeDepth: b.subtreeDepth,
+                forkId: b.forkId,
+              })
+            : await this.api.wsdbBatchInsertNullifier({
+                leaves: b.leaves.map(toNullifierLeaf),
+                subtreeDepth: b.subtreeDepth,
+                forkId: b.forkId,
+              });
+        return convertUint8ArraysToBuffers(resp.result) as WorldStateResponse[T];
       }
 
       case WorldStateMessageType.SEQUENTIAL_INSERT: {
         const b = body as WorldStateRequest[WorldStateMessageType.SEQUENTIAL_INSERT];
-        const resp = await this.api.wsdbSequentialInsert({
-          treeid: b.treeId,
-          leaves: b.leaves.map(serializeLeafToBytes),
-          forkid: b.forkId,
-        });
-        const decoded = msgpackDecoder.unpack(Buffer.from(resp.result));
-        return convertUint8ArraysToBuffers(decoded) as WorldStateResponse[T];
+        const resp =
+          b.treeId === MerkleTreeId.PUBLIC_DATA_TREE
+            ? await this.api.wsdbSequentialInsertPublicData({
+                leaves: b.leaves.map(toPublicDataLeaf),
+                forkId: b.forkId,
+              })
+            : await this.api.wsdbSequentialInsertNullifier({
+                leaves: b.leaves.map(toNullifierLeaf),
+                forkId: b.forkId,
+              });
+        return convertUint8ArraysToBuffers(resp.result) as WorldStateResponse[T];
       }
 
       case WorldStateMessageType.UPDATE_ARCHIVE: {
         const b = body as WorldStateRequest[WorldStateMessageType.UPDATE_ARCHIVE];
         await this.api.wsdbUpdateArchive({
-          blockstateref: blockStateRefToMap(b.blockStateRef as Map<number, readonly [Buffer, number | bigint]>) as any,
-          blockheaderhash: new Uint8Array(b.blockHeaderHash),
-          forkid: b.forkId,
+          blockStateRef: blockStateRefToMap(b.blockStateRef as Map<number, readonly [Buffer, number | bigint]>),
+          blockHeaderHash: new Uint8Array(b.blockHeaderHash),
+          forkId: b.forkId,
         });
         return undefined as WorldStateResponse[T];
       }
@@ -559,18 +596,13 @@ export class IpcWorldState implements NativeWorldStateInstance {
       case WorldStateMessageType.SYNC_BLOCK: {
         const b = body as WorldStateRequest[WorldStateMessageType.SYNC_BLOCK];
         const resp = await this.api.wsdbSyncBlock({
-          blocknumber: Number(b.blockNumber),
-          blockstateref: blockStateRefToMap(b.blockStateRef as Map<number, readonly [Buffer, number | bigint]>) as any,
-          blockheaderhash: new Uint8Array(b.blockHeaderHash),
-          paddednotehashes: b.paddedNoteHashes.map(l => new Uint8Array(l as Buffer)),
-          paddedl1tol2messages: b.paddedL1ToL2Messages.map(l => new Uint8Array(l as Buffer)),
-          paddednullifiers: b.paddedNullifiers.map(l => ({
-            nullifier: new Uint8Array((l as { nullifier: Buffer }).nullifier),
-          })),
-          publicdatawrites: b.publicDataWrites.map(l => ({
-            slot: new Uint8Array((l as { slot: Buffer; value: Buffer }).slot),
-            value: new Uint8Array((l as { slot: Buffer; value: Buffer }).value),
-          })),
+          blockNumber: Number(b.blockNumber),
+          blockStateRef: blockStateRefToMap(b.blockStateRef as Map<number, readonly [Buffer, number | bigint]>),
+          blockHeaderHash: new Uint8Array(b.blockHeaderHash),
+          paddedNoteHashes: b.paddedNoteHashes.map(toFrLeaf),
+          paddedL1ToL2Messages: b.paddedL1ToL2Messages.map(toFrLeaf),
+          paddedNullifiers: b.paddedNullifiers.map(toNullifierLeaf),
+          publicDataWrites: b.publicDataWrites.map(toPublicDataLeaf),
         });
         return convertStatusFull(resp.status) as WorldStateResponse[T];
       }
@@ -581,14 +613,14 @@ export class IpcWorldState implements NativeWorldStateInstance {
         const b = body as WorldStateRequest[WorldStateMessageType.CREATE_FORK];
         const resp = await this.api.wsdbCreateFork({
           latest: b.latest,
-          blocknumber: Number(b.blockNumber),
+          blockNumber: Number(b.blockNumber),
         });
-        return { forkId: resp.forkid } as WorldStateResponse[T];
+        return { forkId: resp.forkId } as WorldStateResponse[T];
       }
 
       case WorldStateMessageType.DELETE_FORK: {
         const b = body as WorldStateRequest[WorldStateMessageType.DELETE_FORK];
-        await this.api.wsdbDeleteFork({ forkid: b.forkId });
+        await this.api.wsdbDeleteFork({ forkId: b.forkId });
         return undefined as WorldStateResponse[T];
       }
 
@@ -596,19 +628,19 @@ export class IpcWorldState implements NativeWorldStateInstance {
 
       case WorldStateMessageType.FINALIZE_BLOCKS: {
         const b = body as WorldStateRequest[WorldStateMessageType.FINALIZE_BLOCKS];
-        const resp = await this.api.wsdbFinalizeBlocks({ toblocknumber: Number(b.toBlockNumber) });
+        const resp = await this.api.wsdbFinalizeBlocks({ toBlockNumber: Number(b.toBlockNumber) });
         return convertStatusSummary(resp.status) as WorldStateResponse[T];
       }
 
       case WorldStateMessageType.UNWIND_BLOCKS: {
         const b = body as WorldStateRequest[WorldStateMessageType.UNWIND_BLOCKS];
-        const resp = await this.api.wsdbUnwindBlocks({ toblocknumber: Number(b.toBlockNumber) });
+        const resp = await this.api.wsdbUnwindBlocks({ toBlockNumber: Number(b.toBlockNumber) });
         return convertStatusFull(resp.status) as WorldStateResponse[T];
       }
 
       case WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS: {
         const b = body as WorldStateRequest[WorldStateMessageType.REMOVE_HISTORICAL_BLOCKS];
-        const resp = await this.api.wsdbRemoveHistoricalBlocks({ toblocknumber: Number(b.toBlockNumber) });
+        const resp = await this.api.wsdbRemoveHistoricalBlocks({ toBlockNumber: Number(b.toBlockNumber) });
         return convertStatusFull(resp.status) as WorldStateResponse[T];
       }
 
@@ -623,7 +655,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
 
       case WorldStateMessageType.CREATE_CHECKPOINT: {
         const b = body as WorldStateRequest[WorldStateMessageType.CREATE_CHECKPOINT];
-        await this.api.wsdbCreateCheckpoint({ forkid: b.forkId });
+        await this.api.wsdbCreateCheckpoint({ forkId: b.forkId });
         const depth = (this.checkpointDepths.get(b.forkId) ?? 0) + 1;
         this.checkpointDepths.set(b.forkId, depth);
         return { depth } as WorldStateResponse[T];
@@ -631,7 +663,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
 
       case WorldStateMessageType.COMMIT_CHECKPOINT: {
         const b = body as WorldStateRequest[WorldStateMessageType.COMMIT_CHECKPOINT];
-        await this.api.wsdbCommitCheckpoint({ forkid: b.forkId });
+        await this.api.wsdbCommitCheckpoint({ forkId: b.forkId });
         const depth = Math.max(0, (this.checkpointDepths.get(b.forkId) ?? 0) - 1);
         this.checkpointDepths.set(b.forkId, depth);
         return undefined as WorldStateResponse[T];
@@ -639,7 +671,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
 
       case WorldStateMessageType.REVERT_CHECKPOINT: {
         const b = body as WorldStateRequest[WorldStateMessageType.REVERT_CHECKPOINT];
-        await this.api.wsdbRevertCheckpoint({ forkid: b.forkId });
+        await this.api.wsdbRevertCheckpoint({ forkId: b.forkId });
         const depth = Math.max(0, (this.checkpointDepths.get(b.forkId) ?? 0) - 1);
         this.checkpointDepths.set(b.forkId, depth);
         return undefined as WorldStateResponse[T];
@@ -651,11 +683,11 @@ export class IpcWorldState implements NativeWorldStateInstance {
         const currentDepth = this.checkpointDepths.get(b.forkId) ?? 0;
         if (targetDepth === 0) {
           // Commit everything — use the bulk operation
-          await this.api.wsdbCommitAllCheckpoints({ forkid: b.forkId });
+          await this.api.wsdbCommitAllCheckpoints({ forkId: b.forkId });
         } else {
           // Commit one level at a time down to target depth
           for (let d = currentDepth; d > targetDepth; d--) {
-            await this.api.wsdbCommitCheckpoint({ forkid: b.forkId });
+            await this.api.wsdbCommitCheckpoint({ forkId: b.forkId });
           }
         }
         this.checkpointDepths.set(b.forkId, targetDepth);
@@ -668,11 +700,11 @@ export class IpcWorldState implements NativeWorldStateInstance {
         const currentDepth = this.checkpointDepths.get(b.forkId) ?? 0;
         if (targetDepth === 0) {
           // Revert everything — use the bulk operation
-          await this.api.wsdbRevertAllCheckpoints({ forkid: b.forkId });
+          await this.api.wsdbRevertAllCheckpoints({ forkId: b.forkId });
         } else {
           // Revert one level at a time down to target depth
           for (let d = currentDepth; d > targetDepth; d--) {
-            await this.api.wsdbRevertCheckpoint({ forkid: b.forkId });
+            await this.api.wsdbRevertCheckpoint({ forkId: b.forkId });
           }
         }
         this.checkpointDepths.set(b.forkId, targetDepth);
@@ -683,7 +715,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
 
       case WorldStateMessageType.COPY_STORES: {
         const b = body as WorldStateRequest[WorldStateMessageType.COPY_STORES];
-        await this.api.wsdbCopyStores({ dstpath: b.dstPath, compact: b.compact });
+        await this.api.wsdbCopyStores({ dstPath: b.dstPath, compact: b.compact });
         return undefined as WorldStateResponse[T];
       }
 
