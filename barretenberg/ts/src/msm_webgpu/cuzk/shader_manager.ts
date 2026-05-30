@@ -20,6 +20,7 @@ import {
   ba_partial_sum as ba_partial_sum_shader,
   // Stream-walker (STREAM_WALKER_PLAN.md §6, plus C's KNOB 2 variant).
   ba_planner_partition_task as ba_planner_partition_task_shader,
+  ba_coop_walker as ba_coop_walker_shader,
   ba_stream_walker as ba_stream_walker_shader,
   ba_walker_combine as ba_walker_combine_shader,
   ba_walker_partials_index as ba_walker_partials_index_shader,
@@ -911,6 +912,39 @@ ${packLines.join('\n')}
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_walker_shader,
+      {
+        workgroup_size, s, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  // Cooperative-inversion bucket accumulator (coop-walker). Drop-in for the
+  // stream_walker dispatch (same bind group + indirect args): one task per
+  // thread, with the batched inversion shared across the workgroup via a
+  // prefix/suffix product scan + a single safegcd inversion per round.
+  public gen_ba_coop_walker_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_coop_walker_shader,
       {
         workgroup_size, s, inv_fn,
         p8_consts, r8_csv, f8_words,

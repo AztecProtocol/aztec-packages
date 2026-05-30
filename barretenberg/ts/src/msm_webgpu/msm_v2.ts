@@ -65,6 +65,13 @@ export interface MsmConfig {
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
   /**
+   * Bucket-accumulate kernel. 'walker' (default) = per-thread S-slot
+   * stream-walker; 'coop' = cooperative-inversion accumulator (one task per
+   * thread, batched inversion shared across the workgroup). Drop-in: both
+   * reuse the same bind group, indirect dispatch, and combine path.
+   */
+  accum?: 'walker' | 'coop';
+  /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
    * Default 5 (benchmark harness); the production bridge passes 0 so the first
@@ -1265,6 +1272,9 @@ export class MsmV2 {
   private streamWalkerPipe!: GPUComputePipeline;
   private streamWalkerLayout!: GPUBindGroupLayout;
   private streamWalkerBind!: GPUBindGroup;
+  // Cooperative-inversion accumulator (reuses streamWalkerLayout + bind).
+  private coopWalkerPipe!: GPUComputePipeline;
+  private accum: 'walker' | 'coop' = 'walker';
   private walkerCombinePipe!: GPUComputePipeline;
   private walkerCombineLayout!: GPUBindGroupLayout;
   private walkerCombineBind!: GPUBindGroup;
@@ -1384,6 +1394,7 @@ export class MsmV2 {
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
+    m.accum = config?.accum ?? 'walker';
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
@@ -1626,6 +1637,13 @@ export class MsmV2 {
     m.streamWalkerPipe = await compile(
       sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
       `stream-walker`, m.streamWalkerLayout);
+    // coop-walker shares the indirect-dispatch grain (ceil(num_active/TPB))
+    // and the stream-walker bind group; only compiled when selected.
+    if (m.accum === 'coop') {
+      m.coopWalkerPipe = await compile(
+        sm.gen_ba_coop_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
+        `coop-walker`, m.streamWalkerLayout);
+    }
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
       `walker-combine`, m.walkerCombineLayout);
@@ -2369,7 +2387,8 @@ export class MsmV2 {
       // partition_task wrote the walker's indirect args to planner_meta[15..17]
       // (= byte offset 60 = 15 * 4).
       setPhase('stream_walker');
-      indirectDispatch(this.streamWalkerPipe, this.streamWalkerBind, spMeta, 15 * 4);
+      const accumPipe = this.accum === 'coop' ? this.coopWalkerPipe : this.streamWalkerPipe;
+      indirectDispatch(accumPipe, this.streamWalkerBind, spMeta, 15 * 4);
       // Task #19: per-bucket linked-list index (atomic CAS pass over
       // partial_dest) replaces walker_combine's O(num_dense × M_partials)
       // scan with O(M_partials) indexing + O(num_partials_per_bucket) walks.
