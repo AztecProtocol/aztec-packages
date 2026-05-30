@@ -1588,5 +1588,58 @@ function hideProgress(): void {
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
     }
+  } else if (autorun === 'msm-ref-check') {
+    // WASM-free correctness gate: cross-check the GPU MSM against the pure-JS
+    // Noble pippenger reference. Used when the bb WASM oracle is unavailable
+    // (no cross-origin isolation / threads, e.g. SwiftShader CI). Runs the GPU
+    // path directly — it does NOT click Run (which gates on WASM availability).
+    const autorunLogN = parseInt(qp.get('logn') ?? '10', 10);
+    const client = makeResultsClient({ page: 'msm-ref-check' });
+    log('info', `[autorun] msm-ref-check logN=${autorunLogN}`);
+    const params = { logN: autorunLogN, page: 'msm-ref-check' };
+    try {
+      if (srsBuf === null) throw new Error('SRS not loaded');
+      const inputs = await generateInputs(autorunLogN, true);
+      const gpu = await runWebGpuOnce(inputs);
+      log('info', `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
+      const ref = referenceMsm(inputs.points!, inputs.scalars!);
+      const ok = pointsEqual(gpu.xy, ref);
+      if (ok) {
+        log('ok', `[ref-check] WebGPU and Noble reference agree`);
+      } else {
+        log('err', `[ref-check] disagreement: gpu.x=${gpu.xy.x}, ref.x=${ref.x}`);
+      }
+      const lines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) lines.push($log.children[i].textContent ?? '');
+      const errCount = $log.querySelectorAll('span.err').length;
+      const state = ok && errCount === 0 ? 'done' : 'error';
+      await client.postResults({
+        state,
+        params,
+        results: {
+          ref_ok: ok,
+          gpu_x: '0x' + gpu.xy.x.toString(16),
+          ref_x: '0x' + ref.x.toString(16),
+          err_count: errCount,
+        },
+        error: ok ? null : `gpu.x=${gpu.xy.x} ref.x=${ref.x}`,
+        log: lines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params,
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
   }
 })();

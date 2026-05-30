@@ -2992,6 +2992,29 @@ fn load_pt_y(cursor: u32) -> array<u32, 8> {
     return fr_sub_f8(zero, y);
 }
 
+// Packed-value loaders: the caller reads l0_index[cursor] once and reuses the
+// packed handle, so the same point is not re-fetched through l0_index three
+// times per iteration. point_x is gathered in the forward pass and the loaded
+// x-operands are kept in registers; point_y is gathered in the backward peel
+// from the same cached handle. This removes the redundant uncoalesced
+// l0_index/point_x gathers that dominated the inner loop on mobile GPUs.
+fn pt_x_from_packed(packed: u32) -> array<u32, 8> {
+    let pt = packed & L0_IDX_MASK;
+    let q0 = point_x[2u * pt];
+    let q1 = point_x[2u * pt + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+
+fn pt_y_from_packed(packed: u32) -> array<u32, 8> {
+    let pt = packed & L0_IDX_MASK;
+    let q0 = point_y[2u * pt];
+    let q1 = point_y[2u * pt + 1u];
+    let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    if ((packed & L0_SIGN_BIT) == 0u) { return y; }
+    let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+    return fr_sub_f8(zero, y);
+}
+
 fn store_pref(base: u32, val: array<u32, 8>) {
     pref_scratch[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
     pref_scratch[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
@@ -3053,6 +3076,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     var split_start:    array<u32, {{ s }}>;   // current bucket shared with a prior task
     var acc_x:          array<array<u32, 8>, {{ s }}>;
     var acc_y:          array<array<u32, 8>, {{ s }}>;
+    // Cached per-slot operands for the current iteration (KNOB 3 — load reuse).
+    // l0a/l0b hold the packed l0_index handles of this iteration's left/right
+    // points; plx/prx hold their x-coordinates. Populated in the forward pass,
+    // reused by the inverse pass (dx recompute) and the backward peel (affine
+    // add) so l0_index and point_x are gathered once per point, not 3-4 times.
+    var l0a:            array<u32, {{ s }}>;
+    var l0b:            array<u32, {{ s }}>;
+    var plx:            array<array<u32, 8>, {{ s }}>;
+    var prx:            array<array<u32, 8>, {{ s }}>;
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -3164,15 +3196,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var p_lx: array<u32, 8>;
             var p_rx: array<u32, 8>;
             if (slot_done[k] == 1u) {
-                p_lx = load_pt_x(IDLE_ANCHOR);
-                p_rx = load_pt_x(IDLE_ANCHOR + 1u);
+                l0a[k] = l0_index[IDLE_ANCHOR];
+                l0b[k] = l0_index[IDLE_ANCHOR + 1u];
+                p_lx = pt_x_from_packed(l0a[k]);
+                p_rx = pt_x_from_packed(l0b[k]);
             } else if (is_first[k] == 1u) {
-                p_lx = load_pt_x(cursor[k]);
-                p_rx = load_pt_x(cursor[k] + 1u);
+                l0a[k] = l0_index[cursor[k]];
+                l0b[k] = l0_index[cursor[k] + 1u];
+                p_lx = pt_x_from_packed(l0a[k]);
+                p_rx = pt_x_from_packed(l0b[k]);
             } else {
                 p_lx = acc_x[k];
-                p_rx = load_pt_x(cursor[k]);
+                l0b[k] = l0_index[cursor[k]];
+                p_rx = pt_x_from_packed(l0b[k]);
             }
+            plx[k] = p_lx;
+            prx[k] = p_rx;
             let dx = fr_sub_f8(p_rx, p_lx);
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
             store_pref(pref_base + k * 2u, acc);
@@ -3191,19 +3230,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 let pp = load_pref(pref_base + (k - 1u) * 2u);
                 inv_dx = montgomery_product_f8(inv, pp);
-                var p_lx_b: array<u32, 8>;
-                var p_rx_b: array<u32, 8>;
-                if (slot_done[k] == 1u) {
-                    p_lx_b = load_pt_x(IDLE_ANCHOR);
-                    p_rx_b = load_pt_x(IDLE_ANCHOR + 1u);
-                } else if (is_first[k] == 1u) {
-                    p_lx_b = load_pt_x(cursor[k]);
-                    p_rx_b = load_pt_x(cursor[k] + 1u);
-                } else {
-                    p_lx_b = acc_x[k];
-                    p_rx_b = load_pt_x(cursor[k]);
-                }
-                let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
+                // dx for this slot was computed in the forward pass; reuse the
+                // cached operands instead of re-gathering the point.
+                let dx_b = fr_sub_f8(prx[k], plx[k]);
                 inv = montgomery_product_f8(inv, dx_b);
             }
             store_pref(pref_base + k * 2u, inv_dx);
@@ -3219,16 +3248,18 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var p_rx: array<u32, 8>;
             var p_ry: array<u32, 8>;
             if (is_first[k] == 1u) {
-                p_lx = load_pt_x(cursor[k]);
-                p_ly = load_pt_y(cursor[k]);
-                p_rx = load_pt_x(cursor[k] + 1u);
-                p_ry = load_pt_y(cursor[k] + 1u);
+                // x-operands cached in the forward pass; y gathered here from
+                // the same l0 handles (point_y is needed only in this peel).
+                p_lx = plx[k];
+                p_ly = pt_y_from_packed(l0a[k]);
+                p_rx = prx[k];
+                p_ry = pt_y_from_packed(l0b[k]);
                 cursor[k] += 2u;
             } else {
-                p_lx = acc_x[k];
+                p_lx = plx[k];
                 p_ly = acc_y[k];
-                p_rx = load_pt_x(cursor[k]);
-                p_ry = load_pt_y(cursor[k]);
+                p_rx = prx[k];
+                p_ry = pt_y_from_packed(l0b[k]);
                 cursor[k] += 1u;
             }
 
