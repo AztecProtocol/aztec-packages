@@ -64,7 +64,7 @@ const $results = document.getElementById('results') as HTMLDivElement;
 
 // The sweep spans 2^10..2^20 — small sizes show where the GPU pipeline
 // overtakes the WASM Pippenger; the v2 pipeline has no size floor.
-const LOGN_MIN = 10;
+const LOGN_MIN = 8;
 const LOGN_MAX = 20;
 const SRS_NUM_POINTS = 1 << LOGN_MAX;
 
@@ -1587,6 +1587,54 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'msm-noble-check') {
+    // COI-free correctness gate: cross-check the WebGPU result against the
+    // in-process noble (JS bigint) reference MSM. Unlike msm-cross-check it
+    // does not require the bb WASM-MT oracle (which needs cross-origin
+    // isolation + a built barretenberg-threads.wasm), so it runs under a
+    // plain SwiftShader headless browser at small logN.
+    const autorunLogN = parseInt(qp.get('logn') ?? '10', 10);
+    const client = makeResultsClient({ page: 'msm-noble-autorun' });
+    log('info', `[autorun] msm-noble-check logN=${autorunLogN}`);
+    try {
+      for (let i = 0; i < 1200 && srsBuf === null; i++) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) throw new Error('SRS never loaded within 10 minutes');
+      const inputs = await generateInputs(autorunLogN, true);
+      const gpu = await runWebGpuOnce(inputs);
+      log('info', `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
+      if (!inputs.points || !inputs.scalars) throw new Error('noble inputs missing');
+      const noble = referenceMsm(inputs.points, inputs.scalars);
+      const nobleOk = pointsEqual(noble, gpu.xy);
+      if (nobleOk) {
+        log('ok', `[noble-check] WebGPU and noble agree at log₂(n)=${autorunLogN}`);
+      } else {
+        log('err', `[noble-check] disagreement: gpu=${gpu.xy.x}, noble=${noble.x}`);
+      }
+      const state = nobleOk ? 'done' : 'error';
+      await client.postResults({
+        state,
+        params: { logN: autorunLogN, page: 'msm-noble-autorun' },
+        results: { noble_ok: nobleOk, gpu_x: `0x${gpu.xy.x.toString(16)}`, noble_x: `0x${noble.x.toString(16)}` },
+        error: nobleOk ? null : 'noble mismatch',
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'msm-noble-autorun' },
+        results: null,
+        error: msg,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
     }
   }
 })();
