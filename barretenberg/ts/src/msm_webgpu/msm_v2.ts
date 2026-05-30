@@ -74,8 +74,19 @@ export interface MsmConfig {
    * merges the inverse pass and the backward peel into one backward walk, so
    * each slot's `point_x` is gathered twice (forward product + fused peel)
    * instead of three times (forward + inverse + peel), and the per-slot
-   * `inv_dx` scratch round-trip is removed. Implies `reuseLoads`. Default false
-   * so it can be A/B'd against the plain reuse path on one device.
+   * `inv_dx` scratch round-trip is removed. Implies `reuseLoads`.
+   *
+   * Default false, and NOT register-safe on Adreno. The merged loop holds
+   * `inv_dx` plus both points' x/y plus `lambda` and the result point live at
+   * once (~8 field elements ≈ 64 registers/thread), which overshoots Adreno's
+   * per-thread register budget: measured on a real Galaxy S25 (Adreno 830) the
+   * fused walker is ~9.5× slower than plain `reuseLoads` at logn14 (occupancy
+   * collapse / register spill) and loses the GPU device outright at logn16.
+   * Mali (Pixel 9 Pro XL / Tensor G4) tolerates it — there it is marginally the
+   * best variant (~1% under `reuseLoads`) — but the win does not justify the
+   * Adreno regression, so `reuseLoads` (handle-only cache, no added live
+   * per-thread state) is the maximum register-safe reuse on Adreno. Keep this
+   * off on Adreno; it exists as an A/B knob and a Mali-only option.
    */
   fusePeel?: boolean;
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
