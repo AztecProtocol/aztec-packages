@@ -100,12 +100,29 @@ exposure to the known `walker_combine` `dx==0` incomplete-affine-add bug.
 ## Status
 
 - [x] Headless-SwiftShader GPU-vs-noble cross-check harness
-      (`autorun=msm-noble`, `test-msm-xcheck.mjs`), GREEN on the baseline at
-      logn=8 and logn=10.
-- [ ] coop-walker kernel + host wiring (selectable via `accum` knob).
-- [ ] cross-check coop at logn 8/10, multiple seeds.
-- [ ] BrowserStack real-hardware time vs stream-walker and MsmV2 baselines
-      (≥1 Apple, ≥1 Adreno, ≥1 Mali), memory not worse than the walker.
+      (`autorun=msm-noble`), GREEN at logn=8 and logn=10 for walker and coop.
+- [x] coop-walker kernel + host wiring (selectable via `accum` knob, with the
+      inversion-granularity knob `G`).
+- [x] cross-check coop at logn 8/10, multiple configs incl. `accum:'auto'`.
+- [x] BrowserStack real-hardware A/B vs the stream-walker on real Apple M2,
+      Adreno (S25 Ultra), and Mali (Pixel 9 Pro XL). See PR #23739 for the
+      tables.
+
+### Measured outcome (the design's prediction was half-right)
+
+The occupancy thesis holds **on Adreno**: coop at **G=1** (each thread inverts
+its own dx — no workgroup memory, no in-loop barriers, one accumulator/thread,
+maximal occupancy) is **1.67–2.05× faster than the stream-walker** on a Galaxy
+S25 Ultra across logN 12/14/16. The win comes purely from occupancy hiding
+memory latency — and it does so *despite* G=1 doing ~S× MORE safegcd inversions
+than the walker's S-wide batch (the design's "fewer inversions" via the
+workgroup scan is irrelevant; the scan, G=TPB, is in fact the slowest coop mode
+and triggers a device-lost on Adreno at logN≥14).
+
+It does **not** generalise: on Mali (Pixel 9 Pro XL) coop G=1 wins only at logN
+12 and regresses at 14/16, and on Apple M2 it loses above logN 12 — neither
+hides G=1's extra inversions the way Adreno does. So `accum:'auto'` selects
+coop G=1 **only on Adreno/Qualcomm** and keeps the walker everywhere else.
 
 ## Alternatives considered (documented, not pursued first)
 
