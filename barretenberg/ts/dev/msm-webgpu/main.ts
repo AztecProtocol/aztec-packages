@@ -1372,19 +1372,44 @@ function hideProgress(): void {
 // Sweep — ensureWasmBooted() takes care of the first-click boot. The SRS
 // fetch is just a download + JS-side decompression (no native workers),
 // so it's safe to run unconditionally at page load.
+// For the msm-accum-ab BrowserStack sweep the SRS download runs in this boot
+// block — before the autorun branch — and on mobile it dominates the wall. We
+// emit progress from here (and reuse this client in the autorun branch) so the
+// runner's first-progress/stall watchdog sees the SRS phase and both phases
+// share ONE runId. A boot-start ping also distinguishes "device never reached
+// the page / can't POST" from "device is busy loading SRS".
+const accumAbActive = new URLSearchParams(window.location.search).get('autorun') === 'msm-accum-ab';
+const accumAbClient = accumAbActive ? makeResultsClient({ page: 'msm-accum-ab' }) : null;
+
 (async () => {
   setBusy(true, 'loading SRS…');
   try {
-    srsBuf = await loadSrsPoints(SRS_NUM_POINTS, event => {
+    accumAbClient?.postProgress({ phase: 'boot-start', ua: navigator.userAgent, webgpu: 'gpu' in navigator });
+    let lastSrsPost = 0;
+    // Optional `?srs_logn=N` caps the SRS download to 2^N points instead of
+    // the full 2^LOGN_MAX. A mobile BrowserStack run that only sweeps up to
+    // logn 16 has no reason to pull 16× the data (2^20) over the tunnel — the
+    // oversized download was overrunning the first-progress watchdog.
+    const srsLognCap = parseInt(new URLSearchParams(window.location.search).get('srs_logn') ?? '', 10);
+    const srsNumPoints =
+      Number.isFinite(srsLognCap) && srsLognCap >= LOGN_MIN && srsLognCap <= LOGN_MAX
+        ? 1 << srsLognCap
+        : SRS_NUM_POINTS;
+    srsBuf = await loadSrsPoints(srsNumPoints, event => {
       if (event.kind === 'info') {
         log('info', event.msg);
       } else if (event.kind === 'phase') {
         renderProgress(event);
+        // Heartbeat at most every 5 s so the watchdog sees the SRS download.
+        if (accumAbClient && performance.now() - lastSrsPost > 5000) {
+          lastSrsPost = performance.now();
+          accumAbClient.postProgress({ phase: 'srs', srsPhase: event.phase, current: event.current, total: event.total });
+        }
       } else if (event.kind === 'done') {
         hideProgress();
       }
     });
-    log('ok', `SRS loaded: ${SRS_NUM_POINTS.toLocaleString()} points available.`);
+    log('ok', `SRS loaded: ${srsNumPoints.toLocaleString()} points available.`);
     log(
       'info',
       `WASM not booted yet (lazy). Click Run / Sweep — it'll spin up ` +
@@ -1459,11 +1484,15 @@ function hideProgress(): void {
       .split(',').map(x => parseInt(x, 10)).filter(x => Number.isFinite(x));
     const reps = parseInt(qp.get('reps') ?? '12', 10);
     const order = (qp.get('order') ?? 'walker,coop').split(',') as ('walker' | 'coop')[];
-    const client = makeResultsClient({ page: 'msm-accum-ab' });
+    const client = accumAbClient ?? makeResultsClient({ page: 'msm-accum-ab' });
     log('info', `[ab] logns=${logns.join(',')} reps=${reps} order=${order.join(',')}`);
     try {
+      // Heartbeat into the JSONL while waiting for the SRS load (the only
+      // thing gating $run) so the BrowserStack first-progress/stall watchdog
+      // sees life during the (mobile, over-the-tunnel) download.
       for (let i = 0; i < 1200; i++) {
         if (!$run.disabled) break;
+        if (i % 20 === 0) client.postProgress({ phase: 'waiting-srs', i });
         await new Promise(r => setTimeout(r, 500));
       }
       const device = await get_device();
@@ -1480,12 +1509,17 @@ function hideProgress(): void {
         wmsm.destroy();
         wpool.destroy();
       }
+      // Heartbeat so the BrowserStack watchdog sees first-progress before the
+      // (slow on mobile) per-(logN,accum) pipeline builds + reps run. The
+      // msm-accum-ab sweep otherwise only posts once at the very end.
+      client.postProgress({ phase: 'warmup-done', logns: logns.join(',') });
       const sweep: Record<string, unknown>[] = [];
       for (const logN of logns) {
         const inputs = await generateInputs(logN, /*mirrorForNoble=*/ false);
         const pool = await MsmV2Pool.create(device, inputs.pointsBuf);
         const out: Record<string, { min: number; median: number; avg: number; samples: number[] }> = {};
         for (const accum of order) {
+          client.postProgress({ phase: 'build', logN, accum });
           const msm = await MsmV2.create(device, inputs.n, pool, { ...gpuKnobs, accum });
           msm.prepare(inputs.scalarsBuf);
           await msm.run(); // warmup (untimed)
@@ -1494,6 +1528,7 @@ function hideProgress(): void {
             const t0 = performance.now();
             await msm.run();
             samples.push(performance.now() - t0);
+            client.postProgress({ phase: 'rep', logN, accum, rep: r, ms: samples[r] });
           }
           msm.destroy();
           const sorted = [...samples].sort((a, b) => a - b);

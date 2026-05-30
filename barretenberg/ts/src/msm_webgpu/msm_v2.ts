@@ -65,12 +65,17 @@ export interface MsmConfig {
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
   /**
-   * Bucket-accumulate kernel. 'walker' (default) = per-thread S-slot
-   * stream-walker; 'coop' = cooperative-inversion accumulator (one task per
-   * thread, batched inversion shared across the workgroup). Drop-in: both
-   * reuse the same bind group, indirect dispatch, and combine path.
+   * Bucket-accumulate kernel.
+   * - 'walker' = per-thread S-slot stream-walker (each thread inverts its own
+   *   S-wide batch in parallel with every other thread).
+   * - 'coop' = cooperative-inversion accumulator (one task per thread, a single
+   *   safegcd inversion shared across the workgroup via a prefix/suffix scan).
+   * - 'auto' (default) = pick per device: 'coop' on memory-/register-starved
+   *   mobile GPUs (Adreno/Mali), 'walker' on cache-rich desktop GPUs. See
+   *   {@link resolveAccum}.
+   * Drop-in: all reuse the same bind group, indirect dispatch, and combine path.
    */
-  accum?: 'walker' | 'coop';
+  accum?: 'walker' | 'coop' | 'auto';
   /**
    * Cooperative-inversion granularity for `accum: 'coop'`: number of threads
    * that share ONE batched inversion. `WALKER_TPB` (default) = workgroup-wide
@@ -419,6 +424,43 @@ function pickS(n: number): number {
 // its wide phases. bench-msm-v2 (c=8 -> 32, c=10 -> 64, c=13 -> 128).
 function pickReduceWg(c: number): number {
   return c <= 9 ? 32 : c <= 12 ? 64 : 128;
+}
+
+// When true, `accum: 'auto'` selects the cooperative-inversion kernel on
+// memory-/register-starved mobile GPUs (Adreno/Mali). Kept OFF until a
+// WebGPU-capable Android A/B proves coop is actually faster there.
+//
+// Why off by default. The two kernels differ only in how the safegcd batch
+// inversion is parallelised: 'walker' inverts each thread's S-wide batch in
+// parallel with every other thread; 'coop' shares ONE workgroup-wide inversion
+// via a prefix/suffix scan. The safegcd is near-fixed-iteration (jumpy
+// Bernstein–Yang, data-dependent only by ~±1 outer step for 254-bit inputs),
+// so the walker's per-thread inversions run essentially in lockstep on a SIMD
+// warp at the cost of one — the cooperative single-inversion saves no wall time
+// and idles the other lanes, while adding 2·log2(TPB) scan barriers/round and
+// (at slots-per-thread=1) ~S× more rounds. On Apple M2 this regresses sharply
+// (measured 0.55× at logN=14, 0.46× at logN=16). coop's only structural upside
+// — lower per-thread registers + smaller workgroup memory → higher occupancy on
+// starved mobile GPUs — is captured more completely by #23726's `var<private>`
+// pref_scratch (0 KB workgroup, keeps S amortisation, TPB→128, no scan
+// barriers). So coop is, by analysis, dominated; whether a register-pressure
+// niche survives on a real Adreno/Mali is unproven (BrowserStack's /5 real-
+// Android serves the stock Android Browser, which never reached the WebGPU dev
+// page across repeated attempts). Until that A/B exists, 'auto' picks the
+// kernel proven fastest on measurable hardware: the walker.
+const COOP_AUTO_ON_STARVED_MOBILE = false;
+
+// Resolve the bucket-accumulate kernel for this device. Explicit 'walker' /
+// 'coop' are honoured; 'auto' (the default) chooses per device.
+function resolveAccum(requested: 'walker' | 'coop' | 'auto' | undefined, device: GPUDevice): 'walker' | 'coop' {
+  if (requested === 'walker' || requested === 'coop') return requested;
+  if (!COOP_AUTO_ON_STARVED_MOBILE) return 'walker';
+  const info = ((device as unknown as { adapterInfo?: GPUAdapterInfo }).adapterInfo ?? {}) as Partial<GPUAdapterInfo>;
+  const hay = `${info.vendor ?? ''} ${info.architecture ?? ''} ${info.device ?? ''} ${info.description ?? ''}`.toLowerCase();
+  const starvedMobile = /adreno|mali|immortalis|powervr|qualcomm|\barm\b/.test(hay);
+  const accum: 'walker' | 'coop' = starvedMobile ? 'coop' : 'walker';
+  console.log(`[MsmV2] accum=auto resolved to '${accum}' (adapter: "${hay.trim()}")`);
+  return accum;
 }
 
 // Per-level GPU dispatch wiring for one prepared scalar set.
@@ -1403,7 +1445,7 @@ export class MsmV2 {
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
-    m.accum = config?.accum ?? 'walker';
+    m.accum = resolveAccum(config?.accum, device);
     m.coopG = config?.coopG ?? 64;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
