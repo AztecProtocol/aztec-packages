@@ -426,48 +426,53 @@ function pickReduceWg(c: number): number {
   return c <= 9 ? 32 : c <= 12 ? 64 : 128;
 }
 
-// Default inversion granularity for `accum: 'coop'`.
-//   - On memory-/register-starved mobile GPUs (Adreno/Mali) the measured win is
-//     G=1: each thread inverts its own dx — no workgroup memory, no in-loop
-//     barriers, one accumulator/thread (max occupancy). On a Galaxy S25 Ultra
-//     (Adreno) coop G=1 runs 1.67–2.05× faster than the stream-walker across
-//     logN 12/14/16, with speedup decaying monotonically as G grows (g8≈1.5×,
-//     g16≈1.2–1.3×, g32≈parity). The workgroup-scan default (G=TPB) is the
-//     WORST coop mode there and even triggered a device-lost on logN≥14.
-//   - On cache-rich desktop GPUs the walker wins outright (Apple M2 measured
-//     coop regressing), so `auto` never selects coop there; the desktop coop
-//     default stays at the workgroup scan only for explicit `accum:'coop'` use.
-const COOP_G_MOBILE = 1;
-const COOP_G_DESKTOP = 64;
+// `auto` selects the cooperative-inversion accumulator with G=1 only on Adreno
+// (Qualcomm) GPUs, where it is measured fastest; everything else uses the
+// walker. The choice is data-driven, not a blanket "mobile → coop":
+//   - Adreno (Galaxy S25 Ultra, Chrome 145): coop G=1 runs 1.67–2.05× faster
+//     than the stream-walker across logN 12/14/16, speedup decaying monotonically
+//     with G (g8≈1.5×, g16≈1.2–1.3×, g32≈parity). G=1 = each thread inverts its
+//     own dx: no workgroup memory, no in-loop barriers, one accumulator/thread,
+//     so occupancy is maximal — which on Adreno hides the cost of doing ~S× more
+//     safegcd inversions than the walker's S-wide batch. The workgroup-scan
+//     default (G=TPB) is the WORST coop mode there and triggered a device-lost
+//     at logN≥14.
+//   - Mali (Pixel 9 Pro XL, Chrome 145): coop G=1 wins only at logN 12 (1.31×)
+//     and REGRESSES at logN 14/16 (0.87×, 0.79×) — Mali does not hide G=1's ~S×
+//     extra inversions. So Mali stays on the walker.
+//   - Cache-rich desktop GPUs (Apple M2): the walker wins outright. Walker is
+//     never selected against here.
+// G=1 is the only coop granularity `auto` ever ships; the workgroup-scan default
+// (G=TPB=64) is kept only for explicit `accum:'coop'` benchmarking.
+const COOP_G_AUTO = 1;
+const COOP_G_DEFAULT = 64;
 
-// Match memory-/register-starved mobile GPUs (Adreno/Mali/etc.) from the
-// adapter info. Newer Chrome exposes a read-only `device.adapterInfo` getter;
-// engines without it get the copy stashed by `get_device` under `__adapterInfo`.
-function isStarvedMobile(device: GPUDevice): { starved: boolean; hay: string } {
+// True for the GPU family where coop G=1 is measured fastest (Adreno/Qualcomm).
+// Newer Chrome exposes a read-only `device.adapterInfo` getter; engines without
+// it get the copy stashed by `get_device` under `__adapterInfo`.
+function coopWinsHere(device: GPUDevice): { coopWins: boolean; hay: string } {
   const info = ((device as unknown as { adapterInfo?: GPUAdapterInfo }).adapterInfo ??
     (device as unknown as { __adapterInfo?: GPUAdapterInfo }).__adapterInfo ??
     {}) as Partial<GPUAdapterInfo>;
   const hay = `${info.vendor ?? ''} ${info.architecture ?? ''} ${info.device ?? ''} ${info.description ?? ''}`.toLowerCase();
-  return { starved: /adreno|mali|immortalis|powervr|qualcomm|\barm\b/.test(hay), hay };
+  return { coopWins: /adreno|qualcomm|snapdragon/.test(hay), hay };
 }
 
 // Resolve the bucket-accumulate kernel + inversion granularity for this device.
-// Explicit `accum` is honoured (its G defaults per device); `auto` (the default)
-// picks coop G=1 on starved mobile GPUs (measured 1.67–2.05× over the walker on
-// Adreno) and the walker on cache-rich desktop GPUs (where coop regresses). An
-// explicit `coopG` always overrides the per-device default.
+// Explicit `accum` is honoured (G defaults to the scan unless overridden); `auto`
+// (the default) picks coop G=1 on Adreno (measured 1.67–2.05× over the walker)
+// and the walker everywhere else. An explicit `coopG` always wins.
 function resolveAccum(
   requestedAccum: 'walker' | 'coop' | 'auto' | undefined,
   requestedG: number | undefined,
   device: GPUDevice,
 ): { accum: 'walker' | 'coop'; coopG: number } {
-  const { starved, hay } = isStarvedMobile(device);
-  const defaultG = starved ? COOP_G_MOBILE : COOP_G_DESKTOP;
-  if (requestedAccum === 'walker') return { accum: 'walker', coopG: requestedG ?? defaultG };
-  if (requestedAccum === 'coop') return { accum: 'coop', coopG: requestedG ?? defaultG };
-  const accum: 'walker' | 'coop' = starved ? 'coop' : 'walker';
-  console.log(`[MsmV2] accum=auto -> '${accum}'${accum === 'coop' ? ` G=${requestedG ?? defaultG}` : ''} (adapter: "${hay.trim()}")`);
-  return { accum, coopG: requestedG ?? defaultG };
+  if (requestedAccum === 'walker') return { accum: 'walker', coopG: requestedG ?? COOP_G_DEFAULT };
+  if (requestedAccum === 'coop') return { accum: 'coop', coopG: requestedG ?? COOP_G_DEFAULT };
+  const { coopWins, hay } = coopWinsHere(device);
+  const accum: 'walker' | 'coop' = coopWins ? 'coop' : 'walker';
+  console.log(`[MsmV2] accum=auto -> '${accum}'${accum === 'coop' ? ` G=${requestedG ?? COOP_G_AUTO}` : ''} (adapter: "${hay.trim()}")`);
+  return { accum, coopG: requestedG ?? COOP_G_AUTO };
 }
 
 // Per-level GPU dispatch wiring for one prepared scalar set.
