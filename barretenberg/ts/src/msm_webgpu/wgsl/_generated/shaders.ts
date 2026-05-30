@@ -3053,6 +3053,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     var split_start:    array<u32, {{ s }}>;   // current bucket shared with a prior task
     var acc_x:          array<array<u32, 8>, {{ s }}>;
     var acc_y:          array<array<u32, 8>, {{ s }}>;
+    // Per-slot dx = (p_rx - p_lx) cached by the forward prefix pass and
+    // reused by the inverse pass, so the inverse pass does not re-load the
+    // two x-coordinates (l0_index + point_x double-indirection) and re-run
+    // fr_sub for every slot just to advance the running inverse.
+    var dx_slot:        array<array<u32, 8>, {{ s }}>;
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -3174,6 +3179,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 p_rx = load_pt_x(cursor[k]);
             }
             let dx = fr_sub_f8(p_rx, p_lx);
+            dx_slot[k] = dx;
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
             store_pref(pref_base + k * 2u, acc);
         }
@@ -3191,20 +3197,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 let pp = load_pref(pref_base + (k - 1u) * 2u);
                 inv_dx = montgomery_product_f8(inv, pp);
-                var p_lx_b: array<u32, 8>;
-                var p_rx_b: array<u32, 8>;
-                if (slot_done[k] == 1u) {
-                    p_lx_b = load_pt_x(IDLE_ANCHOR);
-                    p_rx_b = load_pt_x(IDLE_ANCHOR + 1u);
-                } else if (is_first[k] == 1u) {
-                    p_lx_b = load_pt_x(cursor[k]);
-                    p_rx_b = load_pt_x(cursor[k] + 1u);
-                } else {
-                    p_lx_b = acc_x[k];
-                    p_rx_b = load_pt_x(cursor[k]);
-                }
-                let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
-                inv = montgomery_product_f8(inv, dx_b);
+                inv = montgomery_product_f8(inv, dx_slot[k]);
             }
             store_pref(pref_base + k * 2u, inv_dx);
         }
