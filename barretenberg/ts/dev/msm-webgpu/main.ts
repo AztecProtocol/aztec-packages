@@ -1883,7 +1883,15 @@ function hideProgress(): void {
       const p = cfg.glvPrecomputed
         ? await MsmV2Pool.createGlvPrecomputed(device, pointsBuf)
         : await MsmV2Pool.create(device, pointsBuf);
-      const m = await MsmV2.create(device, n, p, { ...cfg, profile: profilePhases || cfg.profile });
+      // `?warmup=N` overrides warm-up dispatches. For memory-only runs
+      // (`time=0`) set warmup=1 so the shared scratch is allocated once
+      // (statsBytes reads 0 scratch if no dispatch has ever run).
+      const warmupOverride = qp.get('warmup');
+      const m = await MsmV2.create(device, n, p, {
+        ...cfg,
+        profile: profilePhases || cfg.profile,
+        ...(warmupOverride !== null ? { warmupRuns: parseInt(warmupOverride, 10) } : {}),
+      });
       m.prepare(scalarsBuf);
       let ms: number | null = null;
       if (doTime) {
