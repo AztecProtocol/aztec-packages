@@ -73,6 +73,7 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/ipc-runtime": "portal:../../ipc-runtime/ts",
     "comlink": "^4.4.1",
     "commander": "^12.1.0",
     "idb-keyval": "^6.2.1",

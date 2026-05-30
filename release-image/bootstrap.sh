@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(cache_content_hash ^release-image/Dockerfile ^build-images/src/Dockerfile ^yarn-project/yarn.lock)
+hash=$(cache_content_hash ^release-image/Dockerfile ^release-image/Dockerfile.base.dockerignore ^build-images/src/Dockerfile ^ipc-runtime/ts/package.json ^yarn-project/yarn.lock)
 
 function prepare_crs {
   echo_header "prepare crs for prover-agent image"

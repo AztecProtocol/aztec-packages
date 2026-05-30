@@ -28,9 +28,9 @@ using namespace bb::crypto::merkle_tree;
 // Parses "{0:1024,1:2048,...}" into unordered_map<uint32_t, uint64_t>
 // ---------------------------------------------------------------------------
 
-static std::unordered_map<MerkleTreeId, uint64_t> parse_tree_uint64_map(const std::string& json)
+static std::unordered_map<world_state::MerkleTreeId, uint64_t> parse_tree_uint64_map(const std::string& json)
 {
-    std::unordered_map<MerkleTreeId, uint64_t> result;
+    std::unordered_map<world_state::MerkleTreeId, uint64_t> result;
     if (json.empty()) {
         return result;
     }
@@ -45,7 +45,7 @@ static std::unordered_map<MerkleTreeId, uint64_t> parse_tree_uint64_map(const st
     while (std::getline(ss, pair, ',')) {
         auto colon_pos = pair.find(':');
         if (colon_pos != std::string::npos) {
-            auto key = static_cast<MerkleTreeId>(std::stoi(pair.substr(0, colon_pos)));
+            auto key = static_cast<world_state::MerkleTreeId>(std::stoi(pair.substr(0, colon_pos)));
             auto value = static_cast<uint64_t>(std::stoull(pair.substr(colon_pos + 1)));
             result[key] = value;
         }
@@ -53,9 +53,9 @@ static std::unordered_map<MerkleTreeId, uint64_t> parse_tree_uint64_map(const st
     return result;
 }
 
-static std::unordered_map<MerkleTreeId, uint32_t> parse_tree_uint32_map(const std::string& json)
+static std::unordered_map<world_state::MerkleTreeId, uint32_t> parse_tree_uint32_map(const std::string& json)
 {
-    std::unordered_map<MerkleTreeId, uint32_t> result;
+    std::unordered_map<world_state::MerkleTreeId, uint32_t> result;
     if (json.empty()) {
         return result;
     }
@@ -66,9 +66,9 @@ static std::unordered_map<MerkleTreeId, uint32_t> parse_tree_uint32_map(const st
     return result;
 }
 
-static std::unordered_map<MerkleTreeId, index_t> parse_tree_index_map(const std::string& json)
+static std::unordered_map<world_state::MerkleTreeId, index_t> parse_tree_index_map(const std::string& json)
 {
-    std::unordered_map<MerkleTreeId, index_t> result;
+    std::unordered_map<world_state::MerkleTreeId, index_t> result;
     if (json.empty()) {
         return result;
     }
@@ -148,12 +148,12 @@ int execute_wsdb_server(const std::string& input_path,
     auto tree_height = parse_tree_uint32_map(tree_heights_json);
     auto tree_prefill = parse_tree_index_map(tree_prefill_json);
 
-    std::unordered_map<MerkleTreeId, uint64_t> map_size{
-        { MerkleTreeId::ARCHIVE, DEFAULT_MAP_SIZE },
-        { MerkleTreeId::NULLIFIER_TREE, DEFAULT_MAP_SIZE },
-        { MerkleTreeId::NOTE_HASH_TREE, DEFAULT_MAP_SIZE },
-        { MerkleTreeId::PUBLIC_DATA_TREE, DEFAULT_MAP_SIZE },
-        { MerkleTreeId::L1_TO_L2_MESSAGE_TREE, DEFAULT_MAP_SIZE },
+    std::unordered_map<world_state::MerkleTreeId, uint64_t> map_size{
+        { world_state::MerkleTreeId::ARCHIVE, DEFAULT_MAP_SIZE },
+        { world_state::MerkleTreeId::NULLIFIER_TREE, DEFAULT_MAP_SIZE },
+        { world_state::MerkleTreeId::NOTE_HASH_TREE, DEFAULT_MAP_SIZE },
+        { world_state::MerkleTreeId::PUBLIC_DATA_TREE, DEFAULT_MAP_SIZE },
+        { world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE, DEFAULT_MAP_SIZE },
     };
     if (!map_sizes_json.empty()) {
         auto parsed = parse_tree_uint64_map(map_sizes_json);

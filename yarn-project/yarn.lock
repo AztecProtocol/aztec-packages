@@ -947,6 +947,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/bb.js@portal:../barretenberg/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
+    "@aztec/ipc-runtime": "portal:../../ipc-runtime/ts"
     comlink: "npm:^4.4.1"
     commander: "npm:^12.1.0"
     idb-keyval: "npm:^6.2.1"
@@ -1404,6 +1405,12 @@ __metadata:
     viem: "npm:@aztec/viem@2.38.2"
     zod: "npm:^4"
   languageName: unknown
+  linkType: soft
+
+"@aztec/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbb.js%40portal%3A..%2Fbarretenberg%2Fts%3A%3Alocator%3D%2540aztec%252Faztec3-packages%2540workspace%253A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/ipc-runtime@portal:../../ipc-runtime/ts::locator=%40aztec%2Fbb.js%40portal%3A..%2Fbarretenberg%2Fts%3A%3Alocator%3D%2540aztec%252Faztec3-packages%2540workspace%253A."
+  languageName: node
   linkType: soft
 
 "@aztec/ivc-integration@workspace:ivc-integration":

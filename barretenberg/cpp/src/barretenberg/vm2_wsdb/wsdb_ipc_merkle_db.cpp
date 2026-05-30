@@ -9,6 +9,7 @@ namespace bb::avm2::simulation {
 
 // Wire <-> domain conversion helpers are shared with the server handlers
 // (see wsdb_handlers.cpp) so both sides use the same encoding boundary.
+using bb::wsdb::Fr;
 using bb::wsdb::fr_from_wire;
 using bb::wsdb::fr_to_wire;
 using bb::wsdb::fr_vec_from_wire;

@@ -26,6 +26,18 @@ inline bb::fr fr_from_wire(const Fr& w)
     return bb::fr::serialize_from_buffer(w.data());
 }
 
+inline BlockHeaderHash block_header_hash_to_wire(const bb::fr& d)
+{
+    BlockHeaderHash r{};
+    bb::fr::serialize_to_buffer(d, r.data());
+    return r;
+}
+
+inline bb::fr block_header_hash_from_wire(const BlockHeaderHash& w)
+{
+    return bb::fr::serialize_from_buffer(w.data());
+}
+
 inline PublicDataSlot public_data_slot_to_wire(const bb::fr& d)
 {
     PublicDataSlot r{};
