@@ -1217,23 +1217,20 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         wstore(true, l, dx);
         wstore(false, l, dx);
 
-        // Inclusive prefix-product scan (Hillis-Steele) into wpre.
+        // Interleaved inclusive prefix- (wpre) and suffix- (wsuf) product
+        // scans (Hillis-Steele). Both share the same step schedule, so fusing
+        // them halves the workgroup-barrier count versus two sequential scans.
         for (var off: u32 = 1u; off < TPB; off = off << 1u) {
             workgroupBarrier();
-            var tmp: array<u32, 8>;
-            let act = l >= off;
-            if (act) { tmp = montgomery_product_f8(wload_pre(l - off), wload_pre(l)); }
+            var ptmp: array<u32, 8>;
+            var stmp: array<u32, 8>;
+            let pact = l >= off;
+            let sact = l + off < TPB;
+            if (pact) { ptmp = montgomery_product_f8(wload_pre(l - off), wload_pre(l)); }
+            if (sact) { stmp = montgomery_product_f8(wload_suf(l), wload_suf(l + off)); }
             workgroupBarrier();
-            if (act) { wstore(true, l, tmp); }
-        }
-        // Inclusive suffix-product scan into wsuf.
-        for (var off: u32 = 1u; off < TPB; off = off << 1u) {
-            workgroupBarrier();
-            var tmp: array<u32, 8>;
-            let act = l + off < TPB;
-            if (act) { tmp = montgomery_product_f8(wload_suf(l), wload_suf(l + off)); }
-            workgroupBarrier();
-            if (act) { wstore(false, l, tmp); }
+            if (pact) { wstore(true, l, ptmp); }
+            if (sact) { wstore(false, l, stmp); }
         }
         workgroupBarrier();
 

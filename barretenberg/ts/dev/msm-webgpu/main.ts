@@ -1450,6 +1450,72 @@ function hideProgress(): void {
       });
       log('err', `[autorun] state=error`);
     }
+  } else if (autorun === 'msm-accum-ab') {
+    // Same-device A/B benchmark of both bucket-accumulate kernels in ONE page
+    // load (identical thermal state, one BrowserStack worker for the pair).
+    // GPU-only, no WASM, no noble. Posts {walker, coop} min/median ms.
+    const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
+    const reps = parseInt(qp.get('reps') ?? '12', 10);
+    const order = (qp.get('order') ?? 'walker,coop').split(',') as ('walker' | 'coop')[];
+    const client = makeResultsClient({ page: 'msm-accum-ab' });
+    log('info', `[ab] logN=${autorunLogN} reps=${reps} order=${order.join(',')}`);
+    try {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      const inputs = await generateInputs(autorunLogN, /*mirrorForNoble=*/ false);
+      const device = await get_device();
+      const pool = await MsmV2Pool.create(device, inputs.pointsBuf);
+      const out: Record<string, { min: number; median: number; avg: number; samples: number[] }> = {};
+      for (const accum of order) {
+        log('info', `[ab] building MsmV2 accum=${accum}`);
+        const msm = await MsmV2.create(device, inputs.n, pool, { ...gpuKnobs, accum });
+        msm.prepare(inputs.scalarsBuf);
+        await msm.run(); // warmup (untimed)
+        const samples: number[] = [];
+        for (let r = 0; r < reps; r++) {
+          const t0 = performance.now();
+          await msm.run();
+          samples.push(performance.now() - t0);
+        }
+        msm.destroy();
+        const sorted = [...samples].sort((a, b) => a - b);
+        const min = sorted[0];
+        const median = sorted[Math.floor(sorted.length / 2)];
+        const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
+        out[accum] = { min, median, avg, samples };
+        log('ok', `[ab] accum=${accum}: min=${min.toFixed(1)} median=${median.toFixed(1)} avg=${avg.toFixed(1)} ms`);
+      }
+      pool.destroy();
+      const speedup = out.walker && out.coop ? out.walker.min / out.coop.min : null;
+      if (speedup !== null) {
+        log('ok', `[ab] coop speedup vs walker (min): ${speedup.toFixed(3)}x`);
+      }
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, page: 'msm-accum-ab' },
+        results: { logN: autorunLogN, reps, ...out, speedup_min: speedup },
+        error: null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[ab] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, reps, page: 'msm-accum-ab' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
   } else if (autorun === 'msm-accum-bench') {
     // GPU-only timed-reps benchmark for the bucket-accumulate kernel
     // (selected via ?accum=walker|coop). Calls runWebGpuOnce directly — no
