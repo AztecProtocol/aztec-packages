@@ -1694,6 +1694,9 @@ function hideProgress(): void {
     const waitForSrs = async (): Promise<void> => {
       for (let i = 0; i < 1200; i++) {
         if (!$runSanity.disabled) return;
+        // Heartbeat every ~10s so the BrowserStack runner's stall watchdog
+        // stays fed while the (large) SRS downloads over the tunnel.
+        if (i > 0 && i % 20 === 0) client.postProgress({ stage: 'srs-wait', s: i / 2 });
         await new Promise(r => setTimeout(r, 500));
       }
       throw new Error('SRS never became ready within 10 minutes');
