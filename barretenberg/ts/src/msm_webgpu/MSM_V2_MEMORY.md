@@ -174,9 +174,14 @@ hardware-independent; vs `@noble/curves`, forced nb via `MsmConfig.forceNumBatch
 |:--:|:--:|:--:|:--:|:--:|
 | 10 | ✅ | ✅ | ✅ | ✅ |
 | 14 | ✅ | ✅ | ✅ | — |
+| 16 | ✅ | ✅ | — | — |
 
-(`generateInputs` supports logn≥10, so the small-n checks use logn10/14 rather
-than 8. Real-hardware per-nb cross-check + timings to follow on BrowserStack.)
+logn16 is the exact size of the old failure table above — `nb=2` there was ❌
+and is now ✅, at the same `statsBytes` peak (47.4 MB → 39.1 MB, **−17.5 %**),
+which also confirms the fix changes no buffer size. (`generateInputs` supports
+logn≥10, so the small-n checks use logn10/14/16 rather than 8. Real-hardware
+per-nb cross-check + timings to re-confirm on BrowserStack when a seat frees;
+both seats were saturated at write time.)
 
 **Blast radius now closed:** the same multi-batch code is the `wgFits`-forced
 **default** at logn19 (nb=2) / logn20 (nb=3), so MsmV2 was very likely
