@@ -23,6 +23,22 @@ import {
   ba_stream_walker as ba_stream_walker_shader,
   ba_walker_combine as ba_walker_combine_shader,
   ba_walker_partials_index as ba_walker_partials_index_shader,
+  // Optimal walker_combine — cross-bucket batched inversion pipeline.
+  ba_walker_combine_count as ba_walker_combine_count_shader,
+  ba_walker_combine_scan as ba_walker_combine_scan_shader,
+  ba_walker_combine_scatter as ba_walker_combine_scatter_shader,
+  ba_walker_combine_filter as ba_walker_combine_filter_shader,
+  ba_walker_combine_batched as ba_walker_combine_batched_shader,
+  ba_walker_combine_sort_count as ba_walker_combine_sort_count_shader,
+  ba_walker_combine_sort_scan as ba_walker_combine_sort_scan_shader,
+  ba_walker_combine_sort_scatter as ba_walker_combine_sort_scatter_shader,
+  ba_walker_combine_pairtree as ba_walker_combine_pairtree_shader,
+  ba_walker_pt_init_scan as ba_walker_pt_init_scan_shader,
+  ba_walker_pt_init_copy as ba_walker_pt_init_copy_shader,
+  ba_walker_pt_build as ba_walker_pt_build_shader,
+  ba_walker_pt_dispatch as ba_walker_pt_dispatch_shader,
+  ba_walker_pt_combine as ba_walker_pt_combine_shader,
+  ba_walker_pt_finalize as ba_walker_pt_finalize_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
@@ -733,14 +749,15 @@ ${packLines.join('\n')}
     s: number,
     min_iters_per_wg: number,
     max_workgroups: number,
+    planner_tpb: number,
   ): string {
     return mustache.render(ba_planner_cumsum_shader, {
-      num_threads, s, min_iters_per_wg, max_workgroups, recompile: this.recompile,
+      num_threads, s, min_iters_per_wg, max_workgroups, planner_tpb, recompile: this.recompile,
     });
   }
 
-  public gen_ba_planner_partition_wg_shader(): string {
-    return mustache.render(ba_planner_partition_wg_shader, { recompile: this.recompile });
+  public gen_ba_planner_partition_wg_shader(workgroup_size: number): string {
+    return mustache.render(ba_planner_partition_wg_shader, { workgroup_size, recompile: this.recompile });
   }
 
   public gen_ba_planner_partition_thread_shader(workgroup_size: number): string {
@@ -892,9 +909,9 @@ ${packLines.join('\n')}
   // KNOB 2 (stream-walker variant): hoists per-thread task partitioning into
   // a dedicated planner kernel. Pure u32 binary-search logic — same field-free
   // shape as partition_thread.
-  public gen_ba_planner_partition_task_shader(walker_tpb: number, s: number): string {
+  public gen_ba_planner_partition_task_shader(walker_tpb: number, s: number, thread_tpb: number): string {
     return mustache.render(ba_planner_partition_task_shader, {
-      walker_tpb, s, recompile: this.recompile,
+      walker_tpb, s, thread_tpb, recompile: this.recompile,
     });
   }
 
@@ -953,6 +970,164 @@ ${packLines.join('\n')}
       ba_walker_combine_shader,
       {
         s, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  // === Optimal walker_combine — cross-bucket batched-inversion pipeline. ===
+
+  public gen_ba_walker_combine_count_shader(workgroup_size: number): string {
+    return mustache.render(
+      ba_walker_combine_count_shader,
+      { workgroup_size, recompile: this.recompile },
+    );
+  }
+
+  public gen_ba_walker_combine_scan_shader(tpb: number): string {
+    return mustache.render(
+      ba_walker_combine_scan_shader,
+      { tpb, recompile: this.recompile },
+    );
+  }
+
+  public gen_ba_walker_combine_scatter_shader(workgroup_size: number): string {
+    return mustache.render(
+      ba_walker_combine_scatter_shader,
+      { workgroup_size, recompile: this.recompile },
+    );
+  }
+
+  public gen_ba_walker_combine_filter_shader(workgroup_size: number): string {
+    return mustache.render(
+      ba_walker_combine_filter_shader,
+      { workgroup_size, recompile: this.recompile },
+    );
+  }
+
+  public gen_ba_walker_combine_sort_count_shader(workgroup_size: number): string {
+    return mustache.render(
+      ba_walker_combine_sort_count_shader,
+      { workgroup_size, recompile: this.recompile },
+    );
+  }
+
+  public gen_ba_walker_combine_sort_scan_shader(): string {
+    return mustache.render(
+      ba_walker_combine_sort_scan_shader,
+      { recompile: this.recompile },
+    );
+  }
+
+  public gen_ba_walker_combine_sort_scatter_shader(workgroup_size: number): string {
+    return mustache.render(
+      ba_walker_combine_sort_scatter_shader,
+      { workgroup_size, recompile: this.recompile },
+    );
+  }
+
+  public gen_ba_walker_pt_init_scan_shader(): string {
+    return mustache.render(ba_walker_pt_init_scan_shader, { recompile: this.recompile });
+  }
+
+  public gen_ba_walker_pt_init_copy_shader(workgroup_size: number): string {
+    return mustache.render(ba_walker_pt_init_copy_shader, { workgroup_size, recompile: this.recompile });
+  }
+
+  public gen_ba_walker_pt_build_shader(workgroup_size: number): string {
+    return mustache.render(ba_walker_pt_build_shader, { workgroup_size, recompile: this.recompile });
+  }
+
+  public gen_ba_walker_pt_dispatch_shader(): string {
+    return mustache.render(ba_walker_pt_dispatch_shader, { recompile: this.recompile });
+  }
+
+  public gen_ba_walker_pt_finalize_shader(workgroup_size: number): string {
+    return mustache.render(ba_walker_pt_finalize_shader, { workgroup_size, recompile: this.recompile });
+  }
+
+  public gen_ba_walker_pt_combine_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_walker_pt_combine_shader,
+      {
+        workgroup_size, s, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  public gen_ba_walker_combine_pairtree_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_walker_combine_pairtree_shader,
+      {
+        workgroup_size, s, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  public gen_ba_walker_combine_batched_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_walker_combine_batched_shader,
+      {
+        workgroup_size, s, inv_fn,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,

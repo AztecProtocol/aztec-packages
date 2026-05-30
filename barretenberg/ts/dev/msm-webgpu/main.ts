@@ -436,11 +436,59 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
     for (let i = 0; i < n; i++) points![i] = readSrsPointAt(srsBuf, i);
   }
 
+  // Scalar distribution modes:
+  //   ?scalar_dist=uniform                  (default) — random Fr per input
+  //   ?scalar_dist=clustered&num_distinct=K — K distinct values, sampled
+  //                                          across n inputs (stresses high-N)
+  //   ?scalar_dist=profile&profile=[A-E]    — canonical msm_v2_ptr_bench
+  //                                          profiles A/B/C/D/E from
+  //                                          aztec-packages/.../msm_v2_ptr_bench.ts:
+  //     A: 100% random
+  //     B: 30% small (< 2^14) + 70% random
+  //     C: 80% small + 20% random
+  //     D: 50% random + 50% in {0,1,2,3}
+  //     E: 100% in [0, 16)
+  const distMode = new URLSearchParams(window.location.search).get('scalar_dist') ?? 'uniform';
   const scalarBytes = new Uint8Array(n * 32);
-  for (let i = 0; i < n; i++) {
-    const s = randomFr();
-    if (mirrorForNoble) scalars![i] = s;
-    scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+  const smallScalar = (maxExclusive: number): bigint => BigInt(Math.floor(Math.random() * maxExclusive));
+  if (distMode === 'clustered') {
+    const Kparam = new URLSearchParams(window.location.search).get('num_distinct');
+    const K = Math.max(1, Math.min(n, parseInt(Kparam ?? String(Math.max(1, n >> 8)), 10) || (n >> 8)));
+    log('info', `[gen] clustered scalars: ${K} distinct values sampled across ${n} inputs`);
+    const pool = new Array<bigint>(K);
+    for (let j = 0; j < K; j++) pool[j] = randomFr();
+    for (let i = 0; i < n; i++) {
+      const j = Math.floor(Math.random() * K);
+      const s = pool[j];
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else if (distMode === 'profile') {
+    const profile = (new URLSearchParams(window.location.search).get('profile') ?? 'A').toUpperCase();
+    log('info', `[gen] profile=${profile}`);
+    for (let i = 0; i < n; i++) {
+      const r = Math.random();
+      let s: bigint;
+      if (profile === 'A') {
+        s = randomFr();
+      } else if (profile === 'B') {
+        s = r < 0.3 ? smallScalar(1 << 14) : randomFr();
+      } else if (profile === 'C') {
+        s = r < 0.8 ? smallScalar(1 << 14) : randomFr();
+      } else if (profile === 'D') {
+        s = r < 0.5 ? smallScalar(4) : randomFr();
+      } else {
+        s = smallScalar(16);
+      }
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
+  } else {
+    for (let i = 0; i < n; i++) {
+      const s = randomFr();
+      if (mirrorForNoble) scalars![i] = s;
+      scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
+    }
   }
 
   log('info', `[gen] done in ${(performance.now() - t0).toFixed(0)} ms`);
@@ -1464,6 +1512,7 @@ function hideProgress(): void {
       const avgPhases: Record<string, number> = {};
       for (const key of allPhaseKeys) avgPhases[key] = avg(samples.map(s => s.phases[key] ?? 0));
       const avgPhaseStr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
+      (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
       log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
         `wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ${avgPhaseStr}`);
       const allLines: string[] = [];
