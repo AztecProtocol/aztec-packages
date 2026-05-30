@@ -550,13 +550,16 @@ template <typename Tag> struct Bin32Alias {
 } // namespace ipc
 #endif
 
+namespace ${ns} {
+
 ${aliasDecls}
 
-namespace ${ns}${this.opts.wireNamespace ? "::" + this.opts.wireNamespace : ""} {
+${this.opts.wireNamespace ? `namespace ${this.opts.wireNamespace} {` : ""}
 
 ${structs}
 
-} // namespace ${ns}${this.opts.wireNamespace ? "::" + this.opts.wireNamespace : ""}
+${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
+} // namespace ${ns}
 `;
   }
 
@@ -775,6 +778,13 @@ ${methods}
         return `            { "${cmd.name}", [](Ctx& ctx, [[maybe_unused]] const msgpack::object& payload) -> std::vector<uint8_t> {
                 ${deserialize}
                 auto wire_resp = handle_${method}(ctx, std::move(wire_cmd));
+                if constexpr (requires { ctx.error_message; }) {
+                    if (!ctx.error_message.empty()) {
+                        std::string msg = std::move(ctx.error_message);
+                        ctx.error_message.clear();
+                        return detail::make_error(msg);
+                    }
+                }
                 msgpack::sbuffer buf;
                 msgpack::packer<msgpack::sbuffer> pk(buf);
                 pk.pack_array(2); pk.pack(std::string("${cmd.responseType}")); pk.pack(wire_resp);
