@@ -35,9 +35,11 @@ const lines = [];
 page.on('console', m => { const t = m.text(); lines.push(t); if (process.env.VERBOSE) console.log(`  . ${t}`); });
 page.on('pageerror', e => { lines.push(`PAGEERR ${e.message}`); console.log(`  ! ${e.message}`); });
 
-let q = `coi=1&autorun=msm-noble&logn=${logn}&scalar_seed=${seed}`;
+const mode = process.env.AUTORUN || 'msm-noble';
+let q = `coi=1&autorun=${mode}&logn=${logn}&scalar_seed=${seed}`;
+if (process.env.REPS) q += `&reps=${process.env.REPS}`;
 if (extra) q += `&${extra}`;
-console.log(`MSM cross-check logn=${logn} seed=${seed} ${extra} on SwiftShader...`);
+console.log(`MSM ${mode} logn=${logn} seed=${seed} ${extra} on SwiftShader...`);
 let runnerErr = null;
 try {
   await page.goto(`http://localhost:5173/dev/msm-webgpu/index.html?${q}`, { waitUntil: 'load', timeout: 120000 });

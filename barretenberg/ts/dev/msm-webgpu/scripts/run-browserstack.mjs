@@ -60,6 +60,8 @@ const { values: argv } = parseArgs({
     "skip-tunnel": { type: "boolean", default: false },
     "list-targets": { type: "boolean", default: false },
     autorun: { type: "string", default: "msm-cross-check" },
+    accum: { type: "string" },
+    extra: { type: "string" },
     "emit-body-only": { type: "boolean", default: false },
     "external-worker-id-file": { type: "string" },
     help: { type: "boolean", default: false },
@@ -417,7 +419,13 @@ async function main() {
   qp.set("autorun", argv.autorun);
   qp.set("logn", String(argv.n ?? "16"));
   if (argv.reps) qp.set("reps", String(argv.reps));
-  const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
+  if (argv.accum) qp.set("accum", String(argv.accum));
+  let extraQs = "";
+  if (argv.extra) {
+    // Raw extra query params (e.g. "inv=loop&s=4"), appended verbatim.
+    extraQs = (argv.extra.startsWith("&") ? "" : "&") + String(argv.extra);
+  }
+  const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}${extraQs}`;
   err(`page URL: ${pageUrl}`);
 
   // Generate a runId on the client side (the page makes its own random

@@ -1450,6 +1450,59 @@ function hideProgress(): void {
       });
       log('err', `[autorun] state=error`);
     }
+  } else if (autorun === 'msm-accum-bench') {
+    // GPU-only timed-reps benchmark for the bucket-accumulate kernel
+    // (selected via ?accum=walker|coop). Calls runWebGpuOnce directly — no
+    // WASM boot (so the 213-byte stub is irrelevant) and no noble — so it runs
+    // on real BrowserStack devices that lack the bb wasm. Posts per-rep ms +
+    // min/median for the run() window.
+    const autorunLogN = parseInt(qp.get('logn') ?? '16', 10);
+    const reps = parseInt(qp.get('reps') ?? '10', 10);
+    const accum = gpuKnobs.accum ?? 'walker';
+    const client = makeResultsClient({ page: 'msm-accum-bench' });
+    log('info', `[accum-bench] logN=${autorunLogN} reps=${reps} accum=${accum}`);
+    try {
+      // Wait for SRS (Run button leaves the perpetually-disabled state).
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      const inputs = await generateInputs(autorunLogN, /*mirrorForNoble=*/ false);
+      const samples: number[] = [];
+      for (let r = 0; r < reps; r++) {
+        const { ms } = await runWebGpuOnce(inputs);
+        samples.push(ms);
+        log('info', `[accum-bench] rep ${r + 1}/${reps}: ${ms.toFixed(1)} ms`);
+      }
+      const sorted = [...samples].sort((a, b) => a - b);
+      const min = sorted[0];
+      const median = sorted[Math.floor(sorted.length / 2)];
+      const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
+      log('ok', `[accum-bench] DONE accum=${accum} logN=${autorunLogN}: min=${min.toFixed(1)} median=${median.toFixed(1)} avg=${avg.toFixed(1)} ms`);
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, accum, page: 'msm-accum-bench' },
+        results: { accum, logN: autorunLogN, samples, min, median, avg },
+        error: null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[accum-bench] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, reps, accum, page: 'msm-accum-bench' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
   } else if (autorun === 'msm-bench') {
     const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
     const reps = parseInt(qp.get('reps') ?? '5', 10);
