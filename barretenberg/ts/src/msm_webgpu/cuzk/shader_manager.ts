@@ -905,15 +905,19 @@ ${packLines.join('\n')}
     s: number,
     variant: 'loop' | 'pk' = 'pk',
     reuseLoads = true,
+    fusePeel = false,
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    // The fused inverse+peel path reuses the cached l0 handles (l0a/l0b), so it
+    // requires the load-reuse machinery to be compiled in.
+    const reuse = reuseLoads || fusePeel;
     return mustache.render(
       ba_stream_walker_shader,
       {
-        workgroup_size, s, inv_fn, reuse_loads: reuseLoads,
+        workgroup_size, s, inv_fn, reuse_loads: reuse, fuse_peel: fusePeel,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,

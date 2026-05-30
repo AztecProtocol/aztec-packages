@@ -122,6 +122,7 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     reuseLoads: q.get('reuse') === '0' ? false : q.get('reuse') === '1' ? true : undefined,
+    fusePeel: q.get('fuse') === '1' ? true : q.get('fuse') === '0' ? false : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || q.get('autorun') === 'msm-gpu-bench' || undefined,
   };
 })();
@@ -183,6 +184,11 @@ let msmV2LogN: number | null = null;
 // with reuse on/off on the same device/inputs without touching the URL knobs.
 let msmV2ReuseLoads: boolean | null = null;
 let gpuReuseLoadsOverride: boolean | undefined;
+// Same idea for the fused inverse+peel knob (KNOB 4): the A/B bench flips this
+// per variant so it can rebuild the pipeline with the fused walker on/off on
+// the same device/inputs.
+let msmV2FusePeel: boolean | null = null;
+let gpuFusePeelOverride: boolean | undefined;
 // Cooperative cancellation flag for in-flight sweeps. The actual MSM
 // call inside the WASM worker can't be preempted from JS, but we check
 // this between reps / sizes so Stop becomes effective at the next yield.
@@ -516,11 +522,14 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     log('ok', `[gpu-warm] device ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   const effReuseLoads = gpuReuseLoadsOverride ?? gpuKnobs.reuseLoads ?? true;
-  if (msmV2 === null || msmV2LogN !== logN || msmV2ReuseLoads !== effReuseLoads) {
+  const effFusePeel = gpuFusePeelOverride ?? gpuKnobs.fusePeel ?? false;
+  if (msmV2 === null || msmV2LogN !== logN || msmV2ReuseLoads !== effReuseLoads || msmV2FusePeel !== effFusePeel) {
     if (msmV2 !== null) {
       const why = msmV2LogN !== logN
         ? `logN changed (${msmV2LogN} → ${logN})`
-        : `reuseLoads changed (${msmV2ReuseLoads} → ${effReuseLoads})`;
+        : msmV2ReuseLoads !== effReuseLoads
+          ? `reuseLoads changed (${msmV2ReuseLoads} → ${effReuseLoads})`
+          : `fusePeel changed (${msmV2FusePeel} → ${effFusePeel})`;
       log('info', `[gpu-warm] ${why}; rebuilding MsmV2`);
       msmV2.destroy();
       msmV2Pool?.destroy();
@@ -528,7 +537,7 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
       msmV2Pool = null;
       msmV2LogN = null;
     }
-    const cfg: MsmConfig = { ...gpuKnobs, reuseLoads: effReuseLoads };
+    const cfg: MsmConfig = { ...gpuKnobs, reuseLoads: effReuseLoads, fusePeel: effFusePeel };
     const knobStr = Object.entries(cfg)
       .filter(([, v]) => v !== undefined)
       .map(([k, v]) => `${k}=${v}`)
@@ -539,6 +548,7 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, cfg);
     msmV2LogN = logN;
     msmV2ReuseLoads = effReuseLoads;
+    msmV2FusePeel = effFusePeel;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   return msmV2;
@@ -1711,16 +1721,23 @@ function hideProgress(): void {
       type Sample = { wallMs: number; gpuMs: number; phases: Record<string, number> };
       const perVariant: Record<string, Sample[]> = {};
       for (const v of variantParam) perVariant[v] = [];
+      // Variant name → walker knobs. 'base' = no reuse, 'reuse' = handle reuse
+      // (3-pass), 'fused' = handle reuse + fused inverse/peel (2-pass). Any
+      // other name defaults to plain reuse.
+      const applyVariant = (v: string) => {
+        gpuFusePeelOverride = v === 'fused';
+        gpuReuseLoadsOverride = v !== 'base';
+      };
       // Build + warm every variant pipeline once up front so the timed loop
       // never pays shader JIT / first-use cost and the GPU clock is already
       // ramped before the first measured round.
       for (const v of variantParam) {
-        gpuReuseLoadsOverride = v !== 'base';
+        applyVariant(v);
         await runWebGpuOnce(inputs);
       }
       for (let round = 0; round < rounds; round++) {
         for (const v of variantParam) {
-          gpuReuseLoadsOverride = v !== 'base';
+          applyVariant(v);
           // ensureWebGpuWarmed rebuilds the pipeline only when the variant
           // actually changes; the buffers/pool are reused across variants.
           await runWebGpuOnce(inputs);
@@ -1765,12 +1782,20 @@ function hideProgress(): void {
         const med = variants[v].medians;
         log('ok', `[gpu-bench] ${v}: wall avg=${a.wallMs.toFixed(2)} med=${med.wallMs.toFixed(2)}ms; stream_walker avg=${(a.stream_walker ?? 0).toFixed(2)} med=${(med.stream_walker ?? 0).toFixed(2)}ms (n=${perVariant[v].length})`);
       }
-      if (variants.reuse && variants.base) {
-        const dWall = variants.reuse.medians.wallMs - variants.base.medians.wallMs;
-        const dSw = (variants.reuse.medians.stream_walker ?? 0) - (variants.base.medians.stream_walker ?? 0);
-        const pctSw = variants.base.medians.stream_walker ? (100 * dSw / variants.base.medians.stream_walker) : 0;
-        log('ok', `[gpu-bench] Δ(reuse−base) median: wall=${dWall.toFixed(2)}ms stream_walker=${dSw.toFixed(2)}ms (${pctSw.toFixed(1)}%)`);
-      }
+      // Wall is the only trustworthy metric on Android Chrome (uncalibrated
+      // timestamp-query), so report the wall delta of every variant vs the
+      // baseline plus fused-vs-reuse on top.
+      const reportDelta = (label: string, a: string, b: string) => {
+        if (!variants[a] || !variants[b]) return;
+        const dWall = variants[a].medians.wallMs - variants[b].medians.wallMs;
+        const pctWall = variants[b].medians.wallMs ? (100 * dWall / variants[b].medians.wallMs) : 0;
+        const dSw = (variants[a].medians.stream_walker ?? 0) - (variants[b].medians.stream_walker ?? 0);
+        const pctSw = variants[b].medians.stream_walker ? (100 * dSw / variants[b].medians.stream_walker) : 0;
+        log('ok', `[gpu-bench] Δ(${label}) median: wall=${dWall.toFixed(2)}ms (${pctWall.toFixed(1)}%) stream_walker=${dSw.toFixed(2)}ms (${pctSw.toFixed(1)}%)`);
+      };
+      reportDelta('reuse−base', 'reuse', 'base');
+      reportDelta('fused−base', 'fused', 'base');
+      reportDelta('fused−reuse', 'fused', 'reuse');
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({

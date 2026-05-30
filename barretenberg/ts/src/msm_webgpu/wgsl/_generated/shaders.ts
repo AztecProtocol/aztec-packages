@@ -3240,6 +3240,104 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         var inv20 = {{ inv_fn }}(acc20);
         var inv = pack_limbs_to_256(&inv20);
 
+{{#fuse_peel}}
+        // Fused inverse + backward peel (reuse-only path). One backward walk
+        // derives inv_dx[k] = inv * prefix[k-1] and consumes it immediately for
+        // the affine add, so each slot's point_x is gathered ONCE here instead
+        // of once in a separate inverse pass and again in the peel — the
+        // redundant middle gather pass is gone (point_x: 3 reads → 2). inv_dx is
+        // used in registers, so the per-slot scratch round-trip (store inv_dx /
+        // load inv_dx) also disappears. No new per-thread private state, so this
+        // stays inside the register budget that the x-coord cache broke.
+        // Idle pad slots still peel their dx from the running \`inv\` (so the
+        // batched inverse stays correct) but produce no output.
+        for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
+            let k = S - 1u - jj;
+
+            var inv_dx: array<u32, 8>;
+            if (k == 0u) {
+                inv_dx = inv;
+            } else {
+                let pp = load_pref(pref_base + (k - 1u) * 2u);
+                inv_dx = montgomery_product_f8(inv, pp);
+            }
+
+            if (slot_done[k] == 1u) {
+                if (k != 0u) {
+                    let pad_lx = pt_x_from_packed(l0a[k]);
+                    let pad_rx = pt_x_from_packed(l0b[k]);
+                    inv = montgomery_product_f8(inv, fr_sub_f8(pad_rx, pad_lx));
+                }
+                continue;
+            }
+
+            var p_lx: array<u32, 8>;
+            var p_ly: array<u32, 8>;
+            var p_rx: array<u32, 8>;
+            var p_ry: array<u32, 8>;
+            if (is_first[k] == 1u) {
+                p_lx = pt_x_from_packed(l0a[k]);
+                p_ly = pt_y_from_packed(l0a[k]);
+                p_rx = pt_x_from_packed(l0b[k]);
+                p_ry = pt_y_from_packed(l0b[k]);
+                cursor[k] += 2u;
+            } else {
+                p_lx = acc_x[k];
+                p_ly = acc_y[k];
+                p_rx = pt_x_from_packed(l0b[k]);
+                p_ry = pt_y_from_packed(l0b[k]);
+                cursor[k] += 1u;
+            }
+
+            // Peel this slot's dx from the running inverse (prefix[-1] = 1, so
+            // k==0 has no further slot to expose and skips the multiply).
+            if (k != 0u) {
+                inv = montgomery_product_f8(inv, fr_sub_f8(p_rx, p_lx));
+            }
+
+            var lambda = fr_sub_f8(p_ry, p_ly);
+            lambda = montgomery_product_f8(lambda, inv_dx);
+            var r_x = montgomery_product_f8(lambda, lambda);
+            let x_sum = fr_add_f8(p_lx, p_rx);
+            r_x = fr_sub_f8(r_x, x_sum);
+            var r_y = fr_sub_f8(p_lx, r_x);
+            r_y = montgomery_product_f8(lambda, r_y);
+            r_y = fr_sub_f8(r_y, p_ly);
+
+            let task_done = (cur_sorted[k] == task_end_sort[k]) && (cursor[k] >= task_end_cur[k]);
+            let bucket_done = cursor[k] >= bucket_end[k];
+
+            if (task_done) {
+                let is_partial = (split_start[k] == 1u) || (cursor[k] < bucket_end[k]);
+                if (is_partial) {
+                    store_partial(2u * (t * S + k) + 1u, cur_bucket[k], M_partials, r_x, r_y);
+                } else {
+                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
+                }
+                slot_done[k] = 1u;
+            } else if (bucket_done) {
+                if (split_start[k] == 1u) {
+                    store_partial(2u * (t * S + k) + 0u, cur_bucket[k], M_partials, r_x, r_y);
+                } else {
+                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
+                }
+                let nxt = cur_sorted[k] + 1u;
+                let nxt_id = sorted_bucket_list[nxt];
+                let nxt_base = offsets[nxt_id];
+                cur_sorted[k] = nxt;
+                cur_bucket[k] = nxt_id;
+                bucket_end[k] = nxt_base + sorted_count_list[nxt];
+                cursor[k] = nxt_base;
+                is_first[k] = 1u;
+                split_start[k] = 0u;
+            } else {
+                acc_x[k] = r_x;
+                acc_y[k] = r_y;
+                is_first[k] = 0u;
+            }
+        }
+{{/fuse_peel}}
+{{^fuse_peel}}
         // Inverse pass: derive per-slot 1/dx.
         for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
             let k = S - 1u - jj;
@@ -3373,6 +3471,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 is_first[k] = 0u;
             }
         }
+{{/fuse_peel}}
     }
 
     {{{ recompile }}}

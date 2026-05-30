@@ -69,6 +69,15 @@ export interface MsmConfig {
    * as a knob so a single page load can A/B both variants on one device.
    */
   reuseLoads?: boolean;
+  /**
+   * Stream-walker fused inverse+peel (KNOB 4). When true the accumulate kernel
+   * merges the inverse pass and the backward peel into one backward walk, so
+   * each slot's `point_x` is gathered twice (forward product + fused peel)
+   * instead of three times (forward + inverse + peel), and the per-slot
+   * `inv_dx` scratch round-trip is removed. Implies `reuseLoads`. Default false
+   * so it can be A/B'd against the plain reuse path on one device.
+   */
+  fusePeel?: boolean;
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -1172,6 +1181,7 @@ export class MsmV2 {
   private invVariant!: 'loop' | 'pk';
   private addsub: 'native' | 'unpack' = 'native';
   private reuseLoads = true;
+  private fusePeel = false;
   private profile = false;
   private jacobianCrossover = 0;
   private combineOnHost = true;
@@ -1394,6 +1404,7 @@ export class MsmV2 {
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
     m.reuseLoads = config?.reuseLoads ?? true;
+    m.fusePeel = config?.fusePeel ?? false;
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
@@ -1635,7 +1646,7 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, m.reuseLoads),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, m.reuseLoads, m.fusePeel),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
