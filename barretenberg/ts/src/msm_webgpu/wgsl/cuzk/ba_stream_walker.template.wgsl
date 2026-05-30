@@ -34,7 +34,12 @@
 // params.x = NUM_THREADS
 // params.y = IDLE_ANCHOR (index into l0_index for the non-zero-dx pad trio)
 // params.z = M_buckets  (bucket_sums plane stride = B_TOTAL)
-// params.w = M_partials (partials_buf plane stride = 2 * NUM_THREADS * S)
+// params.w = bucket_base (global bucket offset for THIS batch = bi*batchBuckets;
+//            0 at nb=1). The CSR / partials / linked-list spaces stay LOCAL in
+//            [0, batchBuckets); only the final bucket_sums write adds this base
+//            so each batch fills its disjoint global slice. M_partials
+//            (partials_buf plane stride = 2*NUM_THREADS*S) is derived in-shader
+//            from NUM_THREADS and the S const, which frees params.w.
 
 const S: u32 = {{ s }}u;
 const CUTS: u32 = S + 1u;
@@ -118,7 +123,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     let NUM_THREADS = params.x;
     let IDLE_ANCHOR = params.y;
     let M_buckets = params.z;
-    let M_partials = params.w;
+    let M_partials = 2u * NUM_THREADS * S;
+    let bucket_base = params.w;
 
     if (t >= NUM_THREADS) { return; }
 
@@ -341,14 +347,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 if (is_partial) {
                     store_partial(2u * (t * S + k) + 1u, cur_bucket[k], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
+                    store_bucket_sum(cur_bucket[k] + bucket_base, M_buckets, r_x, r_y);
                 }
                 slot_done[k] = 1u;
             } else if (bucket_done) {
                 if (split_start[k] == 1u) {
                     store_partial(2u * (t * S + k) + 0u, cur_bucket[k], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
+                    store_bucket_sum(cur_bucket[k] + bucket_base, M_buckets, r_x, r_y);
                 }
                 // Advance to the next bucket within the task. Subsequent
                 // buckets always begin fresh (never split-start).

@@ -94,12 +94,17 @@ const gpuKnobs: MsmConfig = (() => {
     // ?membudget=MB forces the MsmV2 peak-scratch budget (megabytes) so a
     // sweep can drive numBatches on real hardware and measure the time cost.
     memBudgetBytes: memBudgetMb !== undefined ? memBudgetMb * 1024 * 1024 : undefined,
+    // ?nb=K pins numBatches exactly (test/cross-check of a specific batch count).
+    forceNumBatches: optInt('nb'),
   };
 })();
 
 // Mutable per-build override the budget sweep sets between rebuilds. When
 // non-null it wins over the URL membudget; ensureWebGpuWarmed folds it in.
 let budgetOverrideBytes: number | null = null;
+// Mutable per-build override the nb cross-check sweep sets between rebuilds.
+// When non-null it pins numBatches exactly (test of a specific batch count).
+let nbOverride: number | null = null;
 
 // Default to the machine's reported logical thread count, capped at
 // MT_THREADS_MAX. Falls back to 4 if `navigator.hardwareConcurrency`
@@ -500,8 +505,11 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
       .join(' ');
     log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
-    const knobs: MsmConfig =
-      budgetOverrideBytes !== null ? { ...gpuKnobs, memBudgetBytes: budgetOverrideBytes } : gpuKnobs;
+    const knobs: MsmConfig = {
+      ...gpuKnobs,
+      ...(budgetOverrideBytes !== null ? { memBudgetBytes: budgetOverrideBytes } : {}),
+      ...(nbOverride !== null ? { forceNumBatches: nbOverride } : {}),
+    };
     msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
     msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, knobs);
     msmV2LogN = logN;
@@ -1607,11 +1615,23 @@ function hideProgress(): void {
     // the result). budgets are comma-separated MB; 0 = "no budget" (default nb).
     const logN = parseInt(qp.get('logn') ?? '16', 10);
     const reps = parseInt(qp.get('reps') ?? '5', 10);
+    // Two sweep modes. `?nbs=1,2,3,..` pins numBatches EXACTLY per row (the
+    // correctness cross-check — deterministic at any logN, even small n where
+    // the budget→nb map is coarse). Otherwise `?budgets=MB,..` drives nb via the
+    // memory budget (the real-hardware memory/time-trade measurement). In nb
+    // mode each row carries `forceNb`; in budget mode `mb`.
+    const nbsRaw = qp.get('nbs');
+    const sweepNbs = nbsRaw
+      ? nbsRaw.split(',').map(s => parseInt(s.trim(), 10)).filter(x => Number.isFinite(x) && x >= 1)
+      : null;
     const budgetsMb = (qp.get('budgets') ?? '0,40,33,31,29,27')
       .split(',').map(s => parseInt(s.trim(), 10)).filter(x => Number.isFinite(x));
+    const sweep: { mb: number; forceNb: number | null }[] = sweepNbs
+      ? sweepNbs.map(nb => ({ mb: 0, forceNb: nb }))
+      : budgetsMb.map(mb => ({ mb, forceNb: null }));
     const client = makeResultsClient({ page: 'msm-membudget-sweep' });
     client.postProgress({ stage: 'start', logN, reps, budgetsMb });
-    log('info', `[memsweep] logN=${logN} reps=${reps} budgetsMb=[${budgetsMb.join(',')}]`);
+    log('info', `[memsweep] logN=${logN} reps=${reps} ${sweepNbs ? `nbs=[${sweepNbs.join(',')}]` : `budgetsMb=[${budgetsMb.join(',')}]`}`);
     try {
       for (let i = 0; i < 1200; i++) {
         if (!$run.disabled) break;
@@ -1626,8 +1646,9 @@ function hideProgress(): void {
       client.postProgress({ stage: 'noble-ready', haveNoble: noble !== null });
       const rows: Record<string, unknown>[] = [];
       let crossOk: boolean | null = null;
-      for (const mb of budgetsMb) {
+      for (const { mb, forceNb } of sweep) {
         budgetOverrideBytes = mb === 0 ? 4 * 1024 * 1024 * 1024 : mb * 1024 * 1024;
+        nbOverride = forceNb;
         // Force a rebuild at the new budget. Cast through the union so TS
         // doesn't narrow the globals (last seen assignment is `null`) to never.
         (msmV2 as MsmV2 | null)?.destroy();
@@ -1650,12 +1671,14 @@ function hideProgress(): void {
         if (rowOk === false) crossOk = false;
         else if (crossOk === null && rowOk === true) crossOk = true;
         const medWall = median(wall);
-        rows.push({ budgetMb: mb, numBatches: nb, peakBytes, peakMb: +(peakBytes / 1048576).toFixed(1), wallMs: +medWall.toFixed(1), crossOk: rowOk, wallSamples: wall.map(x => +x.toFixed(1)) });
-        log(rowOk === false ? 'err' : 'ok', `[memsweep] budget=${mb}MB nb=${nb} peak=${(peakBytes / 1048576).toFixed(1)}MB wall=${medWall.toFixed(1)}ms crossOk=${rowOk}`);
-        client.postProgress({ stage: 'budget-done', budgetMb: mb, numBatches: nb, peakMb: +(peakBytes / 1048576).toFixed(1), wallMs: +medWall.toFixed(1), crossOk: rowOk });
+        rows.push({ budgetMb: mb, forceNb, numBatches: nb, peakBytes, peakMb: +(peakBytes / 1048576).toFixed(1), wallMs: +medWall.toFixed(1), crossOk: rowOk, wallSamples: wall.map(x => +x.toFixed(1)) });
+        const tag = forceNb !== null ? `forceNb=${forceNb}` : `budget=${mb}MB`;
+        log(rowOk === false ? 'err' : 'ok', `[memsweep] ${tag} nb=${nb} peak=${(peakBytes / 1048576).toFixed(1)}MB wall=${medWall.toFixed(1)}ms crossOk=${rowOk}`);
+        client.postProgress({ stage: 'budget-done', budgetMb: mb, forceNb, numBatches: nb, peakMb: +(peakBytes / 1048576).toFixed(1), wallMs: +medWall.toFixed(1), crossOk: rowOk });
       }
       budgetOverrideBytes = null;
-      const base = rows.find(r => r.budgetMb === 0) ?? rows[0];
+      nbOverride = null;
+      const base = rows.find(r => (sweepNbs ? r.numBatches === 1 : r.budgetMb === 0)) ?? rows[0];
       for (const r of rows) r.timeVsBaseline = +(((r.wallMs as number) / (base.wallMs as number) - 1) * 100).toFixed(1);
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');

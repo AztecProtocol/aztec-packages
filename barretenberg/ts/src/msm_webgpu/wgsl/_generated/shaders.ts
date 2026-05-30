@@ -2414,6 +2414,12 @@ export const ba_size1 = `{{> structs }}
 // size1_bucket_list, loads the SRS point (with sign negation on y),
 // and writes directly to bucket_sums.
 //
+// params.x = M_buckets (bucket_sums plane stride = B_TOTAL)
+// params.y = bucket_base (global bucket offset for THIS batch = bi*batchBuckets;
+//            0 at nb=1). size1_bucket_list holds LOCAL bucket ids in
+//            [0, batchBuckets); adding the base writes each batch's disjoint
+//            global slice of the full-bTotal bucket_sums.
+//
 // Dispatch: indirect from planner_meta (ceil(num_size1 / 64), 1, 1).
 
 const PG: u32 = 2u;
@@ -2436,7 +2442,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     if (i >= num_size1) { return; }
 
-    let bucket_idx = size1_bucket_list[2u * i + 0u];
+    let bucket_idx = size1_bucket_list[2u * i + 0u] + params.y;
     let l0_slot = size1_bucket_list[2u * i + 1u];
 
     let packed = l0_index[l0_slot];
@@ -2946,7 +2952,12 @@ export const ba_stream_walker = `{{> structs }}
 // params.x = NUM_THREADS
 // params.y = IDLE_ANCHOR (index into l0_index for the non-zero-dx pad trio)
 // params.z = M_buckets  (bucket_sums plane stride = B_TOTAL)
-// params.w = M_partials (partials_buf plane stride = 2 * NUM_THREADS * S)
+// params.w = bucket_base (global bucket offset for THIS batch = bi*batchBuckets;
+//            0 at nb=1). The CSR / partials / linked-list spaces stay LOCAL in
+//            [0, batchBuckets); only the final bucket_sums write adds this base
+//            so each batch fills its disjoint global slice. M_partials
+//            (partials_buf plane stride = 2*NUM_THREADS*S) is derived in-shader
+//            from NUM_THREADS and the S const, which frees params.w.
 
 const S: u32 = {{ s }}u;
 const CUTS: u32 = S + 1u;
@@ -3030,7 +3041,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     let NUM_THREADS = params.x;
     let IDLE_ANCHOR = params.y;
     let M_buckets = params.z;
-    let M_partials = params.w;
+    let M_partials = 2u * NUM_THREADS * S;
+    let bucket_base = params.w;
 
     if (t >= NUM_THREADS) { return; }
 
@@ -3253,14 +3265,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 if (is_partial) {
                     store_partial(2u * (t * S + k) + 1u, cur_bucket[k], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
+                    store_bucket_sum(cur_bucket[k] + bucket_base, M_buckets, r_x, r_y);
                 }
                 slot_done[k] = 1u;
             } else if (bucket_done) {
                 if (split_start[k] == 1u) {
                     store_partial(2u * (t * S + k) + 0u, cur_bucket[k], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
+                    store_bucket_sum(cur_bucket[k] + bucket_base, M_buckets, r_x, r_y);
                 }
                 // Advance to the next bucket within the task. Subsequent
                 // buckets always begin fresh (never split-start).
@@ -3307,8 +3319,12 @@ export const ba_walker_combine = `{{> structs }}
 // affine-sums the pieces. Buckets with no partials short-circuit at the
 // first bucket_head load.
 //
-// params.x = M_buckets   (bucket_sums plane stride)
+// params.x = M_buckets   (bucket_sums plane stride = B_TOTAL)
 // params.y = M_partials  (partials_buf plane stride = 2 * NUM_THREADS * S)
+// params.z = bucket_base (global bucket offset for THIS batch = bi*batchBuckets;
+//            0 at nb=1). sorted_bucket_list / bucket_head stay LOCAL in
+//            [0, batchBuckets); only the bucket_sums write adds this base so
+//            each batch fills its disjoint global slice.
 
 const S: u32 = {{ s }}u;
 const PG: u32 = 2u;
@@ -3345,6 +3361,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let M_buckets = params.x;
     let M_partials = params.y;
+    let bucket_base = params.z;
     let bucket_id = sorted_bucket_list[t];
 
     var handle = atomicLoad(&bucket_head[bucket_id]);
@@ -3382,11 +3399,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         handle = nodes_next[node_idx];
     }
 
-    // Write the combined sum back to bucket_sums.
-    let bx = PG * bucket_id;
+    // Write the combined sum back to bucket_sums (global slice for this batch).
+    let g_bucket = bucket_id + bucket_base;
+    let bx = PG * g_bucket;
     bucket_sums[bx + 0u] = vec4<u32>(acc_x[0], acc_x[1], acc_x[2], acc_x[3]);
     bucket_sums[bx + 1u] = vec4<u32>(acc_x[4], acc_x[5], acc_x[6], acc_x[7]);
-    let by = PG * M_buckets + PG * bucket_id;
+    let by = PG * M_buckets + PG * g_bucket;
     bucket_sums[by + 0u] = vec4<u32>(acc_y[0], acc_y[1], acc_y[2], acc_y[3]);
     bucket_sums[by + 1u] = vec4<u32>(acc_y[4], acc_y[5], acc_y[6], acc_y[7]);
 

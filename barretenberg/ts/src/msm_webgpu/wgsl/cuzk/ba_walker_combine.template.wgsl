@@ -20,8 +20,12 @@
 // affine-sums the pieces. Buckets with no partials short-circuit at the
 // first bucket_head load.
 //
-// params.x = M_buckets   (bucket_sums plane stride)
+// params.x = M_buckets   (bucket_sums plane stride = B_TOTAL)
 // params.y = M_partials  (partials_buf plane stride = 2 * NUM_THREADS * S)
+// params.z = bucket_base (global bucket offset for THIS batch = bi*batchBuckets;
+//            0 at nb=1). sorted_bucket_list / bucket_head stay LOCAL in
+//            [0, batchBuckets); only the bucket_sums write adds this base so
+//            each batch fills its disjoint global slice.
 
 const S: u32 = {{ s }}u;
 const PG: u32 = 2u;
@@ -58,6 +62,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let M_buckets = params.x;
     let M_partials = params.y;
+    let bucket_base = params.z;
     let bucket_id = sorted_bucket_list[t];
 
     var handle = atomicLoad(&bucket_head[bucket_id]);
@@ -95,11 +100,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         handle = nodes_next[node_idx];
     }
 
-    // Write the combined sum back to bucket_sums.
-    let bx = PG * bucket_id;
+    // Write the combined sum back to bucket_sums (global slice for this batch).
+    let g_bucket = bucket_id + bucket_base;
+    let bx = PG * g_bucket;
     bucket_sums[bx + 0u] = vec4<u32>(acc_x[0], acc_x[1], acc_x[2], acc_x[3]);
     bucket_sums[bx + 1u] = vec4<u32>(acc_x[4], acc_x[5], acc_x[6], acc_x[7]);
-    let by = PG * M_buckets + PG * bucket_id;
+    let by = PG * M_buckets + PG * g_bucket;
     bucket_sums[by + 0u] = vec4<u32>(acc_y[0], acc_y[1], acc_y[2], acc_y[3]);
     bucket_sums[by + 1u] = vec4<u32>(acc_y[4], acc_y[5], acc_y[6], acc_y[7]);
 

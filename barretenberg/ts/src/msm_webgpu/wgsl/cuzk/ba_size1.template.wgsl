@@ -15,6 +15,12 @@
 // size1_bucket_list, loads the SRS point (with sign negation on y),
 // and writes directly to bucket_sums.
 //
+// params.x = M_buckets (bucket_sums plane stride = B_TOTAL)
+// params.y = bucket_base (global bucket offset for THIS batch = bi*batchBuckets;
+//            0 at nb=1). size1_bucket_list holds LOCAL bucket ids in
+//            [0, batchBuckets); adding the base writes each batch's disjoint
+//            global slice of the full-bTotal bucket_sums.
+//
 // Dispatch: indirect from planner_meta (ceil(num_size1 / 64), 1, 1).
 
 const PG: u32 = 2u;
@@ -37,7 +43,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     if (i >= num_size1) { return; }
 
-    let bucket_idx = size1_bucket_list[2u * i + 0u];
+    let bucket_idx = size1_bucket_list[2u * i + 0u] + params.y;
     let l0_slot = size1_bucket_list[2u * i + 1u];
 
     let packed = l0_index[l0_slot];

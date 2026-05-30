@@ -82,15 +82,24 @@ export interface MsmConfig {
    * (logn16): nb1→nb2 ≈ +18% wall for −17% peak, nb1→nb5 ≈ +78% for −28%. See
    * `MSM_V2_MEMORY.md` for the full curve.
    *
-   * ⚠️ **CORRECTNESS:** the multi-batch path (`numBatches > 1`) is currently
-   * **incorrect** — forced nb=2..10 disagree with the `@noble/curves` reference
-   * on real hardware while nb=1 matches (see `MSM_V2_MEMORY.md`). The planner /
-   * walker bind groups + params are built once with no per-batch bucket offset,
-   * so the `batchBuckets`-vs-`bTotal` index spaces only coincide at nb=1. Until
-   * that is fixed, do **not** set a budget tight enough to force `nb>1`. This
-   * also affects the `wgFits`-forced default at logn19 (nb=2) / logn20 (nb=3).
+   * The multi-batch path (`numBatches > 1`) writes each batch's LOCAL CSR into
+   * its disjoint global slice of `bucketResult` via a per-batch `bucket_base`
+   * threaded into the three bucket-writing kernels (`ba_size1`,
+   * `ba_stream_walker`, `ba_walker_combine`), and resets the per-batch walker
+   * scratch (`bucketHead`/`walkerNodeCounter`/`taskCuts`/`threadCuts`) each
+   * batch. Cross-checked correct vs `@noble/curves` for nb=2..N (see
+   * `MSM_V2_MEMORY.md`); at nb=1 `bucket_base=0` and the loop runs once, so the
+   * default path is byte-identical to before.
    */
   memBudgetBytes?: number;
+  /**
+   * Test/diagnostic override that pins `numBatches` to an exact value,
+   * bypassing the `memBudgetBytes`/`wgFits` search. Used by the cross-check
+   * harness to exercise a specific batch count deterministically (and to verify
+   * the `wgFits`-forced defaults at logn19/20). Still clamped to `[1,
+   * NUM_WINDOWS]` and never below the `wgFits` floor. Default: unset (search).
+   */
+  forceNumBatches?: number;
   /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
@@ -1247,7 +1256,7 @@ export class MsmV2 {
   private partitionThreadBind!: GPUBindGroup;
   private streamEmitBind!: GPUBindGroup;
   private emitFixupBind!: GPUBindGroup;
-  private size1Bind!: GPUBindGroup;
+  private size1Binds!: GPUBindGroup[]; // one per window-batch (bucket_base offset)
   private streamAccumBind!: GPUBindGroup;
   private partialSumBind!: GPUBindGroup;
   private streamNumThreads = 8192;
@@ -1291,10 +1300,10 @@ export class MsmV2 {
   private partitionTaskBind!: GPUBindGroup;
   private streamWalkerPipe!: GPUComputePipeline;
   private streamWalkerLayout!: GPUBindGroupLayout;
-  private streamWalkerBind!: GPUBindGroup;
+  private streamWalkerBinds!: GPUBindGroup[]; // one per window-batch (bucket_base offset)
   private walkerCombinePipe!: GPUComputePipeline;
   private walkerCombineLayout!: GPUBindGroupLayout;
-  private walkerCombineBind!: GPUBindGroup;
+  private walkerCombineBinds!: GPUBindGroup[]; // one per window-batch (bucket_base offset)
   // Task #19 — per-bucket linked-list index between walker and combine.
   private walkerPartialsIndexPipe!: GPUComputePipeline;
   private walkerPartialsIndexLayout!: GPUBindGroupLayout;
@@ -1330,6 +1339,8 @@ export class MsmV2 {
   private numBatches = 1;
   /** Peak per-MSM scratch budget (bytes) — drives `numBatches`. See MsmConfig.memBudgetBytes. */
   private memBudget = MEM_BUDGET;
+  /** Test override pinning `numBatches` exactly. See MsmConfig.forceNumBatches. */
+  private forceNumBatches = 0;
   private batchWindows = 0;
   private levels = 0;
   private nXposePts = 0;
@@ -1415,6 +1426,7 @@ export class MsmV2 {
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     m.memBudget = config?.memBudgetBytes ?? MEM_BUDGET;
+    m.forceNumBatches = config?.forceNumBatches ?? 0;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -1851,6 +1863,13 @@ export class MsmV2 {
     const memFits = (nb: number): boolean => estimateMem(nb) <= this.memBudget;
     let numBatches = 1;
     while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || !memFits(numBatches))) numBatches++;
+    // Test override: pin numBatches exactly, but never below the wgFits floor
+    // (a count that exceeds the workgroup-dispatch limit would be invalid).
+    if (this.forceNumBatches > 0) {
+      let forced = Math.max(1, Math.min(NUM_WINDOWS, Math.floor(this.forceNumBatches)));
+      while (forced < NUM_WINDOWS && !wgFits(forced)) forced++;
+      numBatches = forced;
+    }
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;
     const batchSlots = batchWindows * n;
@@ -2160,8 +2179,16 @@ export class MsmV2 {
       const emitParams = ubuf(new Uint32Array([batchSlots, 0, 0, 0]));
       this.streamEmitBind = mkBind(this.streamEmitLayout, [sb, sc, offsetsBufs[0], tc, qb, sp, emitParams]);
       this.emitFixupBind = mkBind(this.emitFixupLayout, [sp, pbl, tc, sb, sc]);
-      const size1Params = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
-      this.size1Bind = mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, size1Params]);
+      // One size1 bind per batch: params.y carries bucket_base = bi*batchBuckets
+      // so each batch's LOCAL size1 bucket ids land in their disjoint global
+      // slice of the full-bTotal bucket_sums. bucket_base is 0 at nb=1.
+      this.size1Binds = [];
+      for (let bi = 0; bi < numBatches; bi++) {
+        const p = ubuf(new Uint32Array([B_TOTAL, bi * batchBuckets, 0, 0]));
+        this.size1Binds.push(
+          mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, p]),
+        );
+      }
       const streamParams = ubuf(new Uint32Array([this.streamNumThreads, this.streamNumThreads * this.streamS, batchSlots, B_TOTAL]));
       this.streamAccumBind = mkBind(this.streamAccumLayout, [qb, this.pointXBuf, this.pointYBuf, l0IdxBuf, ab, sps, bucketResult, pb, streamParams]);
       const psParams = ubuf(new Uint32Array([2 * this.streamNumThreads, B_TOTAL, 0, 0]));
@@ -2176,13 +2203,20 @@ export class MsmV2 {
       const pdest = scratch.walkerPartialDest;
       const ptaskParams = ubuf(new Uint32Array([0, 0, 0, 0]));
       this.partitionTaskBind = mkBind(this.partitionTaskLayout, [sc, ca, tc, sp, taskc, ptaskParams]);
-      // Walker params: (NUM_THREADS, IDLE_ANCHOR, M_buckets, M_partials).
+      // Walker params: (NUM_THREADS, IDLE_ANCHOR, M_buckets, bucket_base).
+      // M_partials is derived in-shader (2*NUM_THREADS*S), freeing params.w for
+      // the per-batch bucket_base = bi*batchBuckets (0 at nb=1).
       const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
-      const walkerParams = ubuf(new Uint32Array([this.streamNumThreads, batchSlots, B_TOTAL, M_partials_walker]));
-      this.streamWalkerBind = mkBind(this.streamWalkerLayout, [
-        sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
-        bucketResult, wp, pdest, walkerParams,
-      ]);
+      this.streamWalkerBinds = [];
+      for (let bi = 0; bi < numBatches; bi++) {
+        const p = ubuf(new Uint32Array([this.streamNumThreads, batchSlots, B_TOTAL, bi * batchBuckets]));
+        this.streamWalkerBinds.push(
+          mkBind(this.streamWalkerLayout, [
+            sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
+            bucketResult, wp, pdest, p,
+          ]),
+        );
+      }
       // Walker partials indexer (Task #19): one thread per partial slot,
       // builds the per-bucket linked-list head/nodes that walker_combine
       // walks. params.x = num_partial_slots, params.y = max_nodes
@@ -2195,8 +2229,14 @@ export class MsmV2 {
       const idxParams = ubuf(new Uint32Array([numPartialSlots, numPartialSlots, 0, 0]));
       this.walkerPartialsIndexBind = mkBind(this.walkerPartialsIndexLayout, [pdest, bh, wns, wnn, wnc, idxParams]);
       // Walker combine: traverses each bucket's linked list of partials.
-      const combineParams = ubuf(new Uint32Array([B_TOTAL, M_partials_walker, 0, 0]));
-      this.walkerCombineBind = mkBind(this.walkerCombineLayout, [sb, bh, wns, wnn, wp, bucketResult, sp, combineParams]);
+      // params.z carries the per-batch bucket_base = bi*batchBuckets (0 at nb=1).
+      this.walkerCombineBinds = [];
+      for (let bi = 0; bi < numBatches; bi++) {
+        const p = ubuf(new Uint32Array([B_TOTAL, M_partials_walker, bi * batchBuckets, 0]));
+        this.walkerCombineBinds.push(
+          mkBind(this.walkerCombineLayout, [sb, bh, wns, wnn, wp, bucketResult, sp, p]),
+        );
+      }
     }
 
     this.redStaging = device.createBuffer({
@@ -2347,20 +2387,29 @@ export class MsmV2 {
     // would be out-of-range and invalidate the command buffer).
     // partialsBuf likewise no longer needs zeroing — walker writes its own
     // outputs to walkerPartials, which is cleared just below.
+    // bucketResultBuf and walkerPartials are cleared ONCE: each batch writes a
+    // DISJOINT global slice of bucketResultBuf (clearing per-batch would wipe
+    // prior batches), and walker_combine only ever reads partial slots written
+    // fresh this batch (linked via this batch's partial_dest), so stale
+    // walkerPartials entries are never read.
     enc.clearBuffer(this.bucketResultBuf);
-    // Stream-walker buffers (Plan §6 + C's KNOB 2 variant).
-    enc.clearBuffer(this.pool.scratch!.threadCuts);
     enc.clearBuffer(this.pool.scratch!.walkerPartials);
-    enc.clearBuffer(this.pool.scratch!.walkerPartialDest);
-    enc.clearBuffer(this.pool.scratch!.taskCuts);
-    // Task #19 — clear linked-list state so bucket_head=NO_NODE (0)
-    // and node_counter=0 at the start of each MSM.
-    enc.clearBuffer(this.pool.scratch!.bucketHead);
-    enc.clearBuffer(this.pool.scratch!.walkerNodeCounter);
 
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
       const tSlots = tbw * this.n;
+      // Per-batch scratch reset. These hold a SINGLE batch's working state in
+      // the local [0, batchBuckets) index space, so they MUST be cleared at the
+      // start of every batch — at nb>1 batch bi-1's stale linked-list heads
+      // (bucketHead) and atomic node allocator (walkerNodeCounter) would
+      // otherwise contaminate batch bi or overflow max_nodes and silently drop
+      // its partials. taskCuts/threadCuts/walkerPartialDest are reset for the
+      // same reason. At nb=1 this loops once — identical to clearing once.
+      enc.clearBuffer(this.pool.scratch!.threadCuts);
+      enc.clearBuffer(this.pool.scratch!.walkerPartialDest);
+      enc.clearBuffer(this.pool.scratch!.taskCuts);
+      enc.clearBuffer(this.pool.scratch!.bucketHead);
+      enc.clearBuffer(this.pool.scratch!.walkerNodeCounter);
       setPhase('preprocess');
       dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
       enc.clearBuffer(this.rowPtrBuf);
@@ -2406,12 +2455,12 @@ export class MsmV2 {
         pass.end();
       };
       setPhase('size1');
-      indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
+      indirectDispatch(this.size1Pipe, this.size1Binds[bi], spMeta, 8 * 4);
       // Stream-walker replaces stream_accum + partial_sum + emit + emit_fixup.
       // partition_task wrote the walker's indirect args to planner_meta[15..17]
       // (= byte offset 60 = 15 * 4).
       setPhase('stream_walker');
-      indirectDispatch(this.streamWalkerPipe, this.streamWalkerBind, spMeta, 15 * 4);
+      indirectDispatch(this.streamWalkerPipe, this.streamWalkerBinds[bi], spMeta, 15 * 4);
       // Task #19: per-bucket linked-list index (atomic CAS pass over
       // partial_dest) replaces walker_combine's O(num_dense × M_partials)
       // scan with O(M_partials) indexing + O(num_partials_per_bucket) walks.
@@ -2419,7 +2468,7 @@ export class MsmV2 {
       const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
       dispatch(this.walkerPartialsIndexPipe, this.walkerPartialsIndexBind, Math.ceil(M_partials_walker / 256), 1);
       setPhase('walker_combine');
-      dispatch(this.walkerCombinePipe, this.walkerCombineBind, Math.ceil(this.bTotal / 256), 1);
+      dispatch(this.walkerCombinePipe, this.walkerCombineBinds[bi], Math.ceil(this.bTotal / 256), 1);
     }
     setPhase('reduce');
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
@@ -2629,7 +2678,7 @@ export class MsmV2 {
       e2.clearBuffer(brb);
       { const p = e2.beginComputePass(); p.setPipeline(this.debugAccumPipe); p.setBindGroup(0, this.debugAccumBind); p.dispatchWorkgroups(Math.ceil(this.bTotal / 256), 1); p.end(); }
       // Also re-run size1 since clearing brb wiped those too
-      { const p = e2.beginComputePass(); p.setPipeline(this.size1Pipe); p.setBindGroup(0, this.size1Bind); p.dispatchWorkgroupsIndirect(this.pool.scratch!.streamPlannerMeta, 8 * 4); p.end(); }
+      { const p = e2.beginComputePass(); p.setPipeline(this.size1Pipe); p.setBindGroup(0, this.size1Binds[0]); p.dispatchWorkgroupsIndirect(this.pool.scratch!.streamPlannerMeta, 8 * 4); p.end(); }
       const debugStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
       e2.copyBufferToBuffer(brb, 0, debugStg, 0, readSz);
       device.queue.submit([e2.finish()]);
