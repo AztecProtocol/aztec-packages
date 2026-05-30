@@ -21,8 +21,9 @@ const page = await browser.newPage();
 page.on('console', m => console.log(`  . ${m.text()}`));
 page.on('pageerror', e => console.log(`  ! ${e.message}`));
 
-const target = `http://localhost:5173/dev/msm-webgpu/index.html?coi=1&autorun=msm-cross-check&ref=noble&logn=${logn}`;
-console.log(`SwiftShader cross-check logn=${logn}`);
+const extra = process.argv[3] ? `&${process.argv[3]}` : '';
+const target = `http://localhost:5173/dev/msm-webgpu/index.html?coi=1&autorun=msm-cross-check&ref=noble&logn=${logn}${extra}`;
+console.log(`SwiftShader cross-check logn=${logn}${extra}`);
 let runnerErr = null;
 try {
   await page.goto(target, { waitUntil: 'load', timeout: 120000 });

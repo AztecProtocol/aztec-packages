@@ -60,6 +60,22 @@ export interface MsmConfig {
   invVariant?: 'loop' | 'pk';
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
+  /** Stream-walker batched-inversion slots S (pairs per inversion). Default 8. */
+  streamS?: number;
+  /** Stream-walker workgroup size (threads per block). Default 64. */
+  walkerTpb?: number;
+  /**
+   * Stream-walker pref_scratch placement. 'workgroup' (default, KNOB 1, the
+   * 16 KB occupancy limiter), 'device' (storage buffer, frees workgroup
+   * memory), or 'private' (per-invocation registers/local).
+   */
+  walkerPref?: 'workgroup' | 'device' | 'private';
+  /**
+   * Override NUM_THREADS for the stream-walker planner/accumulator. Default
+   * 8192. Right-sizing this below 8192 at small n shrinks the STREAM_T-scaled
+   * scratch (walkerPartials, taskCuts, walkerNodes) without changing results.
+   */
+  streamThreads?: number;
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -404,6 +420,15 @@ function pickS(n: number): number {
 // its wide phases. bench-msm-v2 (c=8 -> 32, c=10 -> 64, c=13 -> 128).
 function pickReduceWg(c: number): number {
   return c <= 9 ? 32 : c <= 12 ? 64 : 128;
+}
+
+// Stream-walker NUM_THREADS. The default 8192 saturates a discrete/mobile GPU
+// at n≈2¹⁷. An override right-sizes the STREAM_T-scaled scratch at small n;
+// rounded to the 256-thread planner grain and clamped to [256, 8192].
+const DEFAULT_STREAM_THREADS = 8192;
+function clampStreamThreads(override: number | undefined): number {
+  if (!override) return DEFAULT_STREAM_THREADS;
+  return Math.min(DEFAULT_STREAM_THREADS, Math.max(256, Math.round(override / 256) * 256));
 }
 
 // Per-level GPU dispatch wiring for one prepared scalar set.
@@ -1303,6 +1328,8 @@ export class MsmV2 {
   private streamWalkerPipe!: GPUComputePipeline;
   private streamWalkerLayout!: GPUBindGroupLayout;
   private streamWalkerBind!: GPUBindGroup;
+  private walkerPref: 'workgroup' | 'device' | 'private' = 'workgroup';
+  private walkerPrefBuf: GPUBuffer | null = null; // device-mode pref_scratch (binding 11)
   private walkerCombinePipe!: GPUComputePipeline;
   private walkerCombineLayout!: GPUBindGroupLayout;
   private walkerCombineBind!: GPUBindGroup;
@@ -1559,7 +1586,11 @@ export class MsmV2 {
     //   partition_task: sorted_count_list, cumulative_adds, thread_cuts, planner_meta(rw), task_cuts(rw), params(uniform)
     m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   stream_walker: sorted_bucket_list, sorted_count_list, offsets, task_cuts, l0_index, point_x, point_y, bucket_sums(rw), partials(rw), partial_dest(rw), params(uniform)
-    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
+    //   + optional binding 11 = pref_scratch(rw storage) when walkerPref='device'.
+    m.walkerPref = config?.walkerPref ?? 'workgroup';
+    const walkerLayoutTypes: GPUBufferBindingType[] = ['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform'];
+    if (m.walkerPref === 'device') walkerLayoutTypes.push('storage');
+    m.streamWalkerLayout = lt(walkerLayoutTypes);
     //   walker_partials_index: partial_dest, bucket_head(rw), nodes_slot(rw), nodes_next(rw), node_counter(rw), params(uniform)
     m.walkerPartialsIndexLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     //   walker_combine: sorted_bucket_list, bucket_head(rw — atomic-typed),
@@ -1611,8 +1642,11 @@ export class MsmV2 {
     }
 
     // --- Streaming planner + accumulator pipelines ---
-    const STREAM_T = 8192; // NUM_THREADS = max_workgroups × workgroup_size
-    const STREAM_S = 8;
+    // NUM_THREADS = max_workgroups × workgroup_size. Right-sizeable at small n
+    // (config.streamThreads) to shrink the STREAM_T-scaled scratch; never below
+    // the work the planner needs, so we floor it well above any n it'd starve.
+    const STREAM_T = clampStreamThreads(config?.streamThreads);
+    const STREAM_S = config?.streamS ?? 8;
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;
     m.streamS = STREAM_S;
@@ -1654,15 +1688,18 @@ export class MsmV2 {
     m.splitRecomputePipe = await compile(
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
-    // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB=64 per KNOB 1
-    // (16 KB pref_scratch fits Mali Bifrost). NUM_THREADS = nwg*256 still
-    // (partition_thread's grain), walker dispatches ceil(num_active/TPB) wgs.
-    const WALKER_TPB = 64;
+    // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB default 64 per
+    // KNOB 1 (workgroup pref_scratch: 16 KB at S=8 fits Mali Bifrost). On 32 KB
+    // GPUs TPB=128 lifts occupancy; with pref='device'/'private' the workgroup
+    // budget no longer bounds TPB at all. NUM_THREADS = nwg*256 still
+    // (partition_thread's grain); walker dispatches ceil(num_active/TPB) wgs.
+    const WALKER_TPB = config?.walkerTpb ?? 64;
+    const WALKER_PREF = m.walkerPref;
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, WALKER_PREF),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
@@ -2175,10 +2212,24 @@ export class MsmV2 {
       // Walker params: (NUM_THREADS, IDLE_ANCHOR, M_buckets, M_partials).
       const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
       const walkerParams = ubuf(new Uint32Array([this.streamNumThreads, batchSlots, B_TOTAL, M_partials_walker]));
-      this.streamWalkerBind = mkBind(this.streamWalkerLayout, [
+      const walkerBuffers = [
         sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
         bucketResult, wp, pdest, walkerParams,
-      ]);
+      ];
+      if (this.walkerPref === 'device') {
+        // binding 11: device pref_scratch, one [S*2 vec4] region per global
+        // thread. 16 B/vec4 × 2 × S × NUM_THREADS. Instance-owned so it is
+        // counted in statsBytes() — device pref trades GPU memory for the
+        // freed workgroup budget.
+        const prefBytes = this.streamNumThreads * this.streamS * 2 * 16;
+        if (!this.walkerPrefBuf || this.walkerPrefBuf.size < prefBytes) {
+          this.walkerPrefBuf?.destroy();
+          this.walkerPrefBuf = device.createBuffer({ size: prefBytes, usage: GPUBufferUsage.STORAGE });
+          this.prepBuffers.push(this.walkerPrefBuf);
+        }
+        walkerBuffers.push(this.walkerPrefBuf);
+      }
+      this.streamWalkerBind = mkBind(this.streamWalkerLayout, walkerBuffers);
       // Walker partials indexer (Task #19): one thread per partial slot,
       // builds the per-bucket linked-list head/nodes that walker_combine
       // walks. params.x = num_partial_slots, params.y = max_nodes

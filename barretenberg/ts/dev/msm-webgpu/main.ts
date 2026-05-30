@@ -101,6 +101,13 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    // Stream-walker sweep knobs: ?swalk=4 (S), ?wtpb=128 (walker TPB),
+    // ?pref=device|private|workgroup (pref_scratch placement), ?sthreads=2048.
+    streamS: optInt('swalk'),
+    walkerTpb: optInt('wtpb'),
+    walkerPref:
+      q.get('pref') === 'device' ? 'device' : q.get('pref') === 'private' ? 'private' : q.get('pref') === 'workgroup' ? 'workgroup' : undefined,
+    streamThreads: optInt('sthreads'),
   };
 })();
 
