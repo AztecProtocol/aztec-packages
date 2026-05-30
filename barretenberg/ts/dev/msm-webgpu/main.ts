@@ -72,10 +72,23 @@ const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const NOBLE_REFERENCE_LOGN = 16;
 const SWEEP_REPS = 5;
 
+// BrowserStack launches the Android browser via an intent that truncates the
+// target URL at the first unescaped '&', so multi-param query strings arrive
+// with only the first param. The runner works around this by encoding '&' as
+// '%26'; the browser then delivers everything as one param whose value still
+// contains literal '&'. Re-expand that here so every param is visible again.
+// (Desktop is unaffected; this is a no-op there.)
+function getSearchParams(): URLSearchParams {
+  let qp = new URLSearchParams(window.location.search);
+  const ar = qp.get('autorun');
+  if (ar && ar.includes('&')) qp = new URLSearchParams('autorun=' + ar);
+  return qp;
+}
+
 // GPU pipeline knobs from the URL — forwarded to every MsmV2 (unset = defaults).
 // Lets index.html A/B-test a knob against the WASM Pippenger, e.g. ?s=4&wgi=128.
 const gpuKnobs: MsmConfig = (() => {
-  const q = new URLSearchParams(window.location.search);
+  const q = getSearchParams();
   const optInt = (k: string): number | undefined => {
     const raw = q.get(k);
     if (raw === null) return undefined;
@@ -1405,7 +1418,7 @@ function hideProgress(): void {
   //   ?use_tree_reduce=1          Route SMVP through tree-reduce pipeline
   // Results posted via the standard /results endpoint so the BS harness
   // can pick them up from JSONL.
-  const qp = new URLSearchParams(window.location.search);
+  const qp = getSearchParams();
   const autorun = qp.get('autorun');
   if (autorun === 'msm-bench') {
     const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
