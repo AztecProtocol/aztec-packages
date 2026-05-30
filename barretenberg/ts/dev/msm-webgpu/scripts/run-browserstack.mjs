@@ -52,6 +52,7 @@ const { values: argv } = parseArgs({
     ss: { type: "string" },
     slist: { type: "string" },
     srsmax: { type: "string" },
+    synth: { type: "boolean", default: false },
     wgi: { type: "string" },
     port: { type: "string", default: "5198" },
     "first-progress-ms": { type: "string" },
@@ -431,6 +432,9 @@ async function main() {
   // Cap the boot SRS download (log2 points) — mobile can't afford the 64 MB
   // 2^20 default; a logn=17 sweep only needs 2^17.
   if (argv.srsmax) qp.set("srsmax", String(argv.srsmax));
+  // Synthetic inputs (no SRS download) — required on devices where the SRS
+  // CDN fetch is unavailable (BrowserStack Android). Timing-valid for the sweep.
+  if (argv.synth) qp.set("synth", "1");
   if (argv.wgi) qp.set("wgi", String(argv.wgi));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
