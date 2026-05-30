@@ -955,6 +955,93 @@ describe('LibP2PService', () => {
       expect(storedBlock).toBeDefined();
     });
 
+    it('skipCheckpointProposalValidation: attests before (not gated by) slow last-block processing', async () => {
+      // Recreate the service in skip-validation mode and re-register the checkpoint/block callbacks on it.
+      service = createTestLibP2PServiceWithPools(
+        mockPeerManager,
+        reportMessageValidationResultSpy,
+        attestationPool,
+        mockTxPool,
+        mockEpochCache,
+        { skipCheckpointProposalValidation: true },
+      );
+      service.registerBlockReceivedCallback(blockReceivedCallback as any);
+      service.registerValidatorCheckpointReceivedCallback(validatorCheckpointReceivedCallback as any);
+      service.registerAllNodesCheckpointReceivedCallback(allNodesCheckpointReceivedCallback as any);
+
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeCheckpointProposal({ signer, checkpointHeader, lastBlock: { blockHeader } });
+
+      // Block processing hangs until released, simulating waiting for the parent block up to the
+      // re-execution deadline. In skip mode the attestation must not be blocked behind it.
+      let releaseBlock!: () => void;
+      blockReceivedCallback.mockReturnValue(
+        new Promise<boolean>(resolve => {
+          releaseBlock = () => resolve(true);
+        }),
+      );
+
+      // Resolves once the checkpoint attestation callback runs; if it were serialized behind the hung block
+      // processing this would never resolve and the test would time out.
+      let signalCheckpoint!: () => void;
+      const checkpointInvoked = new Promise<void>(resolve => {
+        signalCheckpoint = resolve;
+      });
+      validatorCheckpointReceivedCallback.mockImplementation(() => {
+        signalCheckpoint();
+        return Promise.resolve([]);
+      });
+
+      const handled = service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      await checkpointInvoked;
+      expect(validatorCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
+
+      releaseBlock();
+      await handled;
+      expect(blockReceivedCallback).toHaveBeenCalledTimes(1);
+    });
+
+    it('default: processes the last block before the checkpoint proposal', async () => {
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeCheckpointProposal({ signer, checkpointHeader, lastBlock: { blockHeader } });
+
+      // Block processing hangs until released and signals when it starts; with validation enabled the
+      // checkpoint callback must wait for the block to finish.
+      let releaseBlock!: () => void;
+      let signalBlockStarted!: () => void;
+      const blockStarted = new Promise<void>(resolve => {
+        signalBlockStarted = resolve;
+      });
+      blockReceivedCallback.mockImplementation(() => {
+        signalBlockStarted();
+        return new Promise<boolean>(resolve => {
+          releaseBlock = () => resolve(true);
+        });
+      });
+
+      let checkpointInvoked = false;
+      validatorCheckpointReceivedCallback.mockImplementation(() => {
+        checkpointInvoked = true;
+        return Promise.resolve([]);
+      });
+
+      const handled = service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      // Wait until block processing is in flight (hung), then flush microtasks. The checkpoint callback
+      // must not have run, since it is gated behind the block.
+      await blockStarted;
+      await new Promise(resolve => setImmediate(resolve));
+      expect(checkpointInvoked).toBe(false);
+
+      // Once the block completes, the checkpoint proposal is processed.
+      releaseBlock();
+      await handled;
+      expect(checkpointInvoked).toBe(true);
+    });
+
     it('lastBlock processed even when checkpoint cap exceeded', async () => {
       const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
       const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
@@ -1525,6 +1612,7 @@ function createTestLibP2PServiceWithPools(
   attestationPool: AttestationPool,
   mockTxPool: MockProxy<TxPoolV2>,
   mockEpochCache: MockProxy<EpochCacheInterface>,
+  configOverrides?: Partial<P2PConfig>,
 ): TestLibP2PService {
   const mockNode = mock<PubSubLibp2p>();
   mockNode.services = {
@@ -1539,5 +1627,6 @@ function createTestLibP2PServiceWithPools(
     attestationPool,
     txPool: mockTxPool,
     epochCache: mockEpochCache,
+    configOverrides,
   });
 }
