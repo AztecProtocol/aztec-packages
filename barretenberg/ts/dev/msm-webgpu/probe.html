@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>webgpu-probe</title></head>
+<body>
+<pre id="log">webgpu-probe booting...</pre>
+<!--
+  Dependency-free WebGPU capability probe. NO ES modules, NO top-level await,
+  ES5-only syntax + XMLHttpRequest, so it runs even on an old / non-Chrome
+  Android browser that cannot parse the main.ts ESM bundle. Posts a telemetry
+  row to /results at every stage so a BrowserStack run can NEVER come back with
+  "zero telemetry, no error row" — we always learn whether (a) the page loaded
+  at all, (b) navigator.gpu exists, (c) an adapter/device was obtained.
+-->
+<script>
+(function () {
+  var runId = "probe-" + (new Date().getTime().toString(16)) + "-" +
+              Math.floor(Math.random() * 1e9).toString(16);
+  var logEl = document.getElementById("log");
+  function show(s) { try { logEl.textContent += "\n" + s; } catch (e) {} }
+  function post(path, obj) {
+    try {
+      obj.page = "webgpu-probe";
+      obj.runId = runId;
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", path, true);
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.send(JSON.stringify(obj));
+    } catch (e) { show("post failed: " + e); }
+  }
+  function feat() {
+    return {
+      ua: navigator.userAgent,
+      hasGpu: (typeof navigator !== "undefined") && !!navigator.gpu,
+      hardwareConcurrency: navigator.hardwareConcurrency || null,
+      crossOriginIsolated: (typeof crossOriginIsolated !== "undefined") ? crossOriginIsolated : null,
+      hasWasm: (typeof WebAssembly !== "undefined"),
+      hasSAB: (typeof SharedArrayBuffer !== "undefined")
+    };
+  }
+  // Stage 1: page reached + static feature detection (fires immediately).
+  show("loaded; hasGpu=" + (!!navigator.gpu));
+  post("/progress", { event: { stage: "loaded", features: feat() } });
+
+  if (!navigator.gpu) {
+    show("navigator.gpu MISSING");
+    post("/results", { state: "done", probe: "no-webgpu", features: feat() });
+    return;
+  }
+  // Stage 2: exhaustively try every requestAdapter option so a null result
+  // cannot be blamed on asking for the wrong adapter. We report which (if any)
+  // of {default, high-performance, low-power, forceFallbackAdapter} yields a
+  // GPUAdapter. forceFallbackAdapter:true would surface a CPU fallback if Chrome
+  // had one wired up — if even that is null, WebGPU is genuinely unavailable.
+  var attempts = [
+    { label: "default", opt: {} },
+    { label: "high-performance", opt: { powerPreference: "high-performance" } },
+    { label: "low-power", opt: { powerPreference: "low-power" } },
+    { label: "fallback", opt: { forceFallbackAdapter: true } }
+  ];
+  function tryAdapters(i, tried) {
+    if (i >= attempts.length) {
+      show("all requestAdapter options -> null");
+      post("/results", { state: "done", probe: "no-adapter", adapterTries: tried, features: feat() });
+      return;
+    }
+    var a = attempts[i];
+    navigator.gpu.requestAdapter(a.opt).then(function (adapter) {
+      if (!adapter) {
+        tried.push({ option: a.label, result: "null" });
+        show(a.label + " -> null");
+        tryAdapters(i + 1, tried);
+        return;
+      }
+      tried.push({ option: a.label, result: "adapter" });
+      gotAdapter(adapter, a.label, tried);
+    }).catch(function (e) {
+      tried.push({ option: a.label, result: "throw: " + e });
+      show(a.label + " threw: " + e);
+      tryAdapters(i + 1, tried);
+    });
+  }
+  function gotAdapter(adapter, viaOption, tried) {
+    var info = {};
+    try { info = adapter.info || {}; } catch (e) {}
+    var limits = {};
+    try {
+      var L = adapter.limits;
+      limits = {
+        maxComputeWorkgroupStorageSize: L.maxComputeWorkgroupStorageSize,
+        maxComputeInvocationsPerWorkgroup: L.maxComputeInvocationsPerWorkgroup,
+        maxStorageBufferBindingSize: L.maxStorageBufferBindingSize,
+        maxBufferSize: L.maxBufferSize
+      };
+    } catch (e) {}
+    var adapterRow = {
+      vendor: info.vendor || null, architecture: info.architecture || null,
+      device: info.device || null, description: info.description || null
+    };
+    show("adapter ok via " + viaOption + ": " + JSON.stringify(adapterRow));
+    adapter.requestDevice().then(function (dev) {
+      show("device ok");
+      post("/results", {
+        state: "done", probe: "webgpu-ok", via: viaOption, adapterTries: tried,
+        adapter: adapterRow, limits: limits, hasDevice: !!dev, features: feat()
+      });
+    }).catch(function (e) {
+      show("requestDevice threw: " + e);
+      post("/results", { state: "done", probe: "device-throw", via: viaOption, adapterTries: tried,
+        adapter: adapterRow, limits: limits, error: String(e), features: feat() });
+    });
+  }
+  tryAdapters(0, []);
+})();
+</script>
+</body>
+</html>

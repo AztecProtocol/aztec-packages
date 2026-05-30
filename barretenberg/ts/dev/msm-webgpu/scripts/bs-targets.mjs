@@ -26,24 +26,45 @@ export const TARGETS = {
     notes: "Reference desktop. Apple M2 base.",
   },
   "s25-ultra": {
+    // For the /5/worker JS-testing API `browser` selects the browser; on real
+    // Android it must be "chrome" to launch Chrome. The earlier
+    // `browser:"android"` form launched the device default browser (BrowserStack
+    // labels the session "Android Browser" regardless of what runs), which is
+    // why prior runs produced no telemetry. `browserName` is a W3C/Selenium key
+    // and is ignored by /5/worker.
+    // NOTE (2026-05-30): real-Android Chrome on BrowserStack exposes
+    // `navigator.gpu` but `requestAdapter()` returns null (no WebGPU adapter in
+    // the device GPU sandbox), so the GPU MSM bench cannot run here. Re-confirm
+    // with `dev/msm-webgpu/probe.html` before spending a seat on a bench run.
     label: "Galaxy S25 Ultra · Android 15 · Chrome",
     worker: {
-      browser: "android",
-      browserName: "chrome",
+      browser: "chrome",
       os: "android",
       os_version: "15.0",
       device: "Samsung Galaxy S25 Ultra",
       real_mobile: "true",
     },
-    webgpu: "supported",
+    webgpu: "navigator.gpu present, requestAdapter null (no adapter on BS)",
     firstProgressMs: 150_000,
-    notes: "Snapdragon 8 Elite.",
+    notes: "Snapdragon 8 Elite · Adreno 830.",
+  },
+  s24: {
+    label: "Galaxy S24 · Android 14 · Chrome",
+    worker: {
+      browser: "chrome",
+      os: "android",
+      os_version: "14.0",
+      device: "Samsung Galaxy S24",
+      real_mobile: "true",
+    },
+    webgpu: "navigator.gpu present, requestAdapter null (no adapter on BS)",
+    firstProgressMs: 150_000,
+    notes: "Snapdragon 8 Gen 3 · Adreno 750. Less contended than S25.",
   },
   "pixel-9-pro-xl": {
     label: "Pixel 9 Pro XL · Android 15 · Chrome",
     worker: {
-      browser: "android",
-      browserName: "chrome",
+      browser: "chrome",
       os: "android",
       os_version: "15.0",
       device: "Google Pixel 9 Pro XL",
@@ -51,7 +72,7 @@ export const TARGETS = {
     },
     webgpu: "supported",
     firstProgressMs: 150_000,
-    notes: "Tensor G4.",
+    notes: "Tensor G4 · Mali.",
   },
   "iphone-15-pro": {
     label: "iPhone 15 Pro · iOS 26 · Safari",

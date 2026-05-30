@@ -3086,8 +3086,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     // cached (8 bytes/slot); the x-coordinate is re-read from the handle (a
     // cache hit) rather than held in private memory, so this adds negligible
     // per-thread state and does not erode the occupancy that limits the kernel.
+    // Compiled out in the pre-reuse baseline (reuse_loads off) so that variant
+    // carries zero extra per-thread state.
+{{#reuse_loads}}
     var l0a:            array<u32, {{ s }}>;
     var l0b:            array<u32, {{ s }}>;
+{{/reuse_loads}}
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -3198,6 +3202,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             var p_lx: array<u32, 8>;
             var p_rx: array<u32, 8>;
+{{#reuse_loads}}
             if (slot_done[k] == 1u) {
                 l0a[k] = l0_index[IDLE_ANCHOR];
                 l0b[k] = l0_index[IDLE_ANCHOR + 1u];
@@ -3213,6 +3218,19 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 l0b[k] = l0_index[cursor[k]];
                 p_rx = pt_x_from_packed(l0b[k]);
             }
+{{/reuse_loads}}
+{{^reuse_loads}}
+            if (slot_done[k] == 1u) {
+                p_lx = load_pt_x(IDLE_ANCHOR);
+                p_rx = load_pt_x(IDLE_ANCHOR + 1u);
+            } else if (is_first[k] == 1u) {
+                p_lx = load_pt_x(cursor[k]);
+                p_rx = load_pt_x(cursor[k] + 1u);
+            } else {
+                p_lx = acc_x[k];
+                p_rx = load_pt_x(cursor[k]);
+            }
+{{/reuse_loads}}
             let dx = fr_sub_f8(p_rx, p_lx);
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
             store_pref(pref_base + k * 2u, acc);
@@ -3231,6 +3249,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 let pp = load_pref(pref_base + (k - 1u) * 2u);
                 inv_dx = montgomery_product_f8(inv, pp);
+{{#reuse_loads}}
                 // Rebuild dx from the cached packed handles. point_x is re-read
                 // (a cache hit after the forward gather, with the point index
                 // already resolved), but the l0_index indirection is not. A
@@ -3244,6 +3263,23 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 }
                 let dx_b = fr_sub_f8(pt_x_from_packed(l0b[k]), p_lx_b);
                 inv = montgomery_product_f8(inv, dx_b);
+{{/reuse_loads}}
+{{^reuse_loads}}
+                var p_lx_b: array<u32, 8>;
+                var p_rx_b: array<u32, 8>;
+                if (slot_done[k] == 1u) {
+                    p_lx_b = load_pt_x(IDLE_ANCHOR);
+                    p_rx_b = load_pt_x(IDLE_ANCHOR + 1u);
+                } else if (is_first[k] == 1u) {
+                    p_lx_b = load_pt_x(cursor[k]);
+                    p_rx_b = load_pt_x(cursor[k] + 1u);
+                } else {
+                    p_lx_b = acc_x[k];
+                    p_rx_b = load_pt_x(cursor[k]);
+                }
+                let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
+                inv = montgomery_product_f8(inv, dx_b);
+{{/reuse_loads}}
             }
             store_pref(pref_base + k * 2u, inv_dx);
         }
@@ -3257,6 +3293,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var p_ly: array<u32, 8>;
             var p_rx: array<u32, 8>;
             var p_ry: array<u32, 8>;
+{{#reuse_loads}}
             if (is_first[k] == 1u) {
                 // Re-read x and gather y from the cached packed handles; the
                 // l0_index indirection was already resolved in the forward pass.
@@ -3272,6 +3309,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 p_ry = pt_y_from_packed(l0b[k]);
                 cursor[k] += 1u;
             }
+{{/reuse_loads}}
+{{^reuse_loads}}
+            if (is_first[k] == 1u) {
+                p_lx = load_pt_x(cursor[k]);
+                p_ly = load_pt_y(cursor[k]);
+                p_rx = load_pt_x(cursor[k] + 1u);
+                p_ry = load_pt_y(cursor[k] + 1u);
+                cursor[k] += 2u;
+            } else {
+                p_lx = acc_x[k];
+                p_ly = acc_y[k];
+                p_rx = load_pt_x(cursor[k]);
+                p_ry = load_pt_y(cursor[k]);
+                cursor[k] += 1u;
+            }
+{{/reuse_loads}}
 
             let inv_dx = load_pref(pref_base + k * 2u);
             var lambda = fr_sub_f8(p_ry, p_ly);

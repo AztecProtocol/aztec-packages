@@ -60,6 +60,15 @@ export interface MsmConfig {
   invVariant?: 'loop' | 'pk';
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
+  /**
+   * Stream-walker load-reuse (KNOB 3). When true (default) the accumulate
+   * kernel caches each slot's packed `l0_index` handle in the forward pass and
+   * reuses it in the inverse pass and backward peel, so the dependent
+   * `l0_index` gather is issued once per point instead of 3-4×. When false the
+   * kernel re-resolves the gather on every touch (pre-reuse baseline). Exposed
+   * as a knob so a single page load can A/B both variants on one device.
+   */
+  reuseLoads?: boolean;
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -1162,6 +1171,7 @@ export class MsmV2 {
   private reduceWg!: number;
   private invVariant!: 'loop' | 'pk';
   private addsub: 'native' | 'unpack' = 'native';
+  private reuseLoads = true;
   private profile = false;
   private jacobianCrossover = 0;
   private combineOnHost = true;
@@ -1383,6 +1393,7 @@ export class MsmV2 {
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
+    m.reuseLoads = config?.reuseLoads ?? true;
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
@@ -1624,7 +1635,7 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, m.reuseLoads),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),

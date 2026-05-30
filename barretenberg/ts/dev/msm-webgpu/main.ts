@@ -100,6 +100,7 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
+    reuseLoads: q.get('reuse') === '0' ? false : q.get('reuse') === '1' ? true : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || q.get('autorun') === 'msm-gpu-bench' || undefined,
   };
 })();
@@ -156,6 +157,11 @@ let gpuDevice: GPUDevice | null = null;
 let msmV2: MsmV2 | null = null;
 let msmV2Pool: MsmV2Pool | null = null;
 let msmV2LogN: number | null = null;
+// Stream-walker load-reuse variant the live MsmV2 was built with, and an
+// override the A/B bench sets before warming so it can rebuild the pipeline
+// with reuse on/off on the same device/inputs without touching the URL knobs.
+let msmV2ReuseLoads: boolean | null = null;
+let gpuReuseLoadsOverride: boolean | undefined;
 // Cooperative cancellation flag for in-flight sweeps. The actual MSM
 // call inside the WASM worker can't be preempted from JS, but we check
 // this between reps / sizes so Stop becomes effective at the next yield.
@@ -488,24 +494,30 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     gpuDevice = await get_device();
     log('ok', `[gpu-warm] device ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
-  if (msmV2 === null || msmV2LogN !== logN) {
+  const effReuseLoads = gpuReuseLoadsOverride ?? gpuKnobs.reuseLoads ?? true;
+  if (msmV2 === null || msmV2LogN !== logN || msmV2ReuseLoads !== effReuseLoads) {
     if (msmV2 !== null) {
-      log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding MsmV2`);
+      const why = msmV2LogN !== logN
+        ? `logN changed (${msmV2LogN} → ${logN})`
+        : `reuseLoads changed (${msmV2ReuseLoads} → ${effReuseLoads})`;
+      log('info', `[gpu-warm] ${why}; rebuilding MsmV2`);
       msmV2.destroy();
       msmV2Pool?.destroy();
       msmV2 = null;
       msmV2Pool = null;
       msmV2LogN = null;
     }
-    const knobStr = Object.entries(gpuKnobs)
+    const cfg: MsmConfig = { ...gpuKnobs, reuseLoads: effReuseLoads };
+    const knobStr = Object.entries(cfg)
       .filter(([, v]) => v !== undefined)
       .map(([k, v]) => `${k}=${v}`)
       .join(' ');
     log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
     msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
-    msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
+    msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, cfg);
     msmV2LogN = logN;
+    msmV2ReuseLoads = effReuseLoads;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   return msmV2;
@@ -1660,40 +1672,90 @@ function hideProgress(): void {
     // unavailable on many real devices, which stalls the Run-gated bench.
     const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
     const reps = parseInt(qp.get('reps') ?? '5', 10);
+    // A/B over the stream-walker load-reuse knob. `?variants=reuse,base` (the
+    // default) builds and times BOTH pipelines on the same device + inputs in
+    // one page load, so the comparison is controlled for hardware and thermal
+    // state — essential on mobile, where each BrowserStack session is a
+    // different physical device. `rounds` interleaves the variants (A,B,A,B…)
+    // so GPU-clock drift across the run averages out instead of biasing the
+    // variant that happens to run first.
+    const variantParam = (qp.get('variants') ?? 'reuse,base').split(',').map(s => s.trim()).filter(Boolean);
+    const rounds = parseInt(qp.get('rounds') ?? '1', 10);
     const client = makeResultsClient({ page: 'msm-gpu-bench' });
-    const params = { logN: autorunLogN, reps, page: 'msm-gpu-bench' };
-    log('info', `[autorun] msm-gpu-bench logN=${autorunLogN} reps=${reps}`);
+    const params = { logN: autorunLogN, reps, rounds, variants: variantParam, page: 'msm-gpu-bench' };
+    log('info', `[autorun] msm-gpu-bench logN=${autorunLogN} reps=${reps} rounds=${rounds} variants=${variantParam.join(',')}`);
     try {
       if (srsBuf === null) throw new Error('SRS not loaded');
       const inputs = await generateInputs(autorunLogN, false);
-      // First call builds + warms MsmV2 and pays first-use costs.
-      await runWebGpuOnce(inputs);
-      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
-      for (let r = 0; r < reps; r++) {
-        const gpu = await runWebGpuOnce(inputs);
-        const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
-        const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
-        samples.push({ wallMs: gpu.ms, gpuMs, phases: { ...phases } });
-        const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
-        log('info', `[gpu-bench] rep ${r + 1}/${reps}: wall=${gpu.ms.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
+      type Sample = { wallMs: number; gpuMs: number; phases: Record<string, number> };
+      const perVariant: Record<string, Sample[]> = {};
+      for (const v of variantParam) perVariant[v] = [];
+      // Build + warm every variant pipeline once up front so the timed loop
+      // never pays shader JIT / first-use cost and the GPU clock is already
+      // ramped before the first measured round.
+      for (const v of variantParam) {
+        gpuReuseLoadsOverride = v !== 'base';
+        await runWebGpuOnce(inputs);
       }
-      const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
-      const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
-      const avgPhases: Record<string, number> = {};
-      for (const key of allPhaseKeys) avgPhases[key] = avg(samples.map(s => s.phases[key] ?? 0));
+      for (let round = 0; round < rounds; round++) {
+        for (const v of variantParam) {
+          gpuReuseLoadsOverride = v !== 'base';
+          // ensureWebGpuWarmed rebuilds the pipeline only when the variant
+          // actually changes; the buffers/pool are reused across variants.
+          await runWebGpuOnce(inputs);
+          for (let r = 0; r < reps; r++) {
+            const gpu = await runWebGpuOnce(inputs);
+            const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+            const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
+            perVariant[v].push({ wallMs: gpu.ms, gpuMs, phases: { ...phases } });
+            const phaseStr = Object.entries(phases).map(([k, val]) => `${k}=${val.toFixed(1)}`).join(' ');
+            log('info', `[gpu-bench] ${v} round ${round + 1}/${rounds} rep ${r + 1}/${reps}: wall=${gpu.ms.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
+          }
+        }
+      }
+      const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+      const median = (arr: number[]) => {
+        if (!arr.length) return 0;
+        const s = [...arr].sort((a, b) => a - b);
+        const m = Math.floor(s.length / 2);
+        return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+      };
+      const summarize = (samples: Sample[]) => {
+        const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+        const avgPhases: Record<string, number> = {};
+        const medPhases: Record<string, number> = {};
+        for (const key of allPhaseKeys) {
+          avgPhases[key] = avg(samples.map(s => s.phases[key] ?? 0));
+          medPhases[key] = median(samples.map(s => s.phases[key] ?? 0));
+        }
+        return {
+          samples,
+          averages: { wallMs: avg(samples.map(s => s.wallMs)), gpuMs: avg(samples.map(s => s.gpuMs)), ...avgPhases },
+          medians: { wallMs: median(samples.map(s => s.wallMs)), gpuMs: median(samples.map(s => s.gpuMs)), ...medPhases },
+        };
+      };
+      const variants: Record<string, ReturnType<typeof summarize>> = {};
+      for (const v of variantParam) variants[v] = summarize(perVariant[v]);
       const algoBytes = msmV2?.statsBytes() ?? 0;
       const poolBytes = msmV2Pool?.statsBytes() ?? 0;
       const mem = { algoBytes, poolBytes, totalBytes: algoBytes + poolBytes };
-      const avgWall = avg(samples.map(s => s.wallMs));
-      const avgGpu = avg(samples.map(s => s.gpuMs));
-      log('ok', `[gpu-bench] DONE logN=${autorunLogN}: wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ` +
-        `mem=${(mem.totalBytes / 1048576).toFixed(1)}MB (algo ${(algoBytes / 1048576).toFixed(1)}MB)`);
+      for (const v of variantParam) {
+        const a = variants[v].averages;
+        const med = variants[v].medians;
+        log('ok', `[gpu-bench] ${v}: wall avg=${a.wallMs.toFixed(2)} med=${med.wallMs.toFixed(2)}ms; stream_walker avg=${(a.stream_walker ?? 0).toFixed(2)} med=${(med.stream_walker ?? 0).toFixed(2)}ms (n=${perVariant[v].length})`);
+      }
+      if (variants.reuse && variants.base) {
+        const dWall = variants.reuse.medians.wallMs - variants.base.medians.wallMs;
+        const dSw = (variants.reuse.medians.stream_walker ?? 0) - (variants.base.medians.stream_walker ?? 0);
+        const pctSw = variants.base.medians.stream_walker ? (100 * dSw / variants.base.medians.stream_walker) : 0;
+        log('ok', `[gpu-bench] Δ(reuse−base) median: wall=${dWall.toFixed(2)}ms stream_walker=${dSw.toFixed(2)}ms (${pctSw.toFixed(1)}%)`);
+      }
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({
         state: 'done',
         params,
-        results: { samples, averages: { wallMs: avgWall, gpuMs: avgGpu, ...avgPhases }, memory: mem },
+        results: { variants, memory: mem },
         error: null,
         log: allLines.slice(-100),
         userAgent: navigator.userAgent,
