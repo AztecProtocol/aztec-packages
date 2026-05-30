@@ -1647,12 +1647,17 @@ export class MsmV2 {
     // footprint can be shrunk for higher occupancy on memory-starved mobile.
     // partition_task is generated with the active accum's TPB so its emitted
     // indirect grain (planner_meta[15]) matches the kernel that consumes it.
-    const WALKER_TPB = m.accum === 'coop' ? m.coopTpb : 64;
+    const STREAM_WALKER_TPB = 64;
+    const WALKER_TPB = m.accum === 'coop' ? m.coopTpb : STREAM_WALKER_TPB;
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
+    // The stream-walker is always built at its pinned TPB=64 (its TPB*S*2 vec4
+    // pref_scratch = 16 KB there; at 128 it would be 32 KB and exceed the
+    // workgroup-storage limit at pipeline creation even though it is unused in
+    // coop mode). Only partition_task and the coop kernel take the tunable TPB.
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
+      sm.gen_ba_stream_walker_shader(STREAM_WALKER_TPB, STREAM_S, INV_VARIANT),
       `stream-walker`, m.streamWalkerLayout);
     // coop-walker shares the indirect-dispatch grain (ceil(num_active/TPB))
     // and the stream-walker bind group; only compiled when selected.
