@@ -47,16 +47,28 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let packed = l0_index[l0_slot];
     let raw = packed & L0_IDX_MASK;
     let is_phi = raw >= GLV_HALF;
-    let pt = select(raw, raw - GLV_HALF, is_phi);
+{{#glv_precomp}}
+    // Precomputed-phi: phi.x is prestored in the upper half of the 2n point_x
+    // pool (index = raw, no beta-multiply); phi.y reuses the original y at
+    // index raw - GLV_HALF (point_y is only n slots).
+    let pt_x = raw;
+    let pt_y = select(raw, raw - GLV_HALF, is_phi);
+{{/glv_precomp}}
+{{^glv_precomp}}
+    let pt_x = select(raw, raw - GLV_HALF, is_phi);
+    let pt_y = pt_x;
+{{/glv_precomp}}
     let sign = (packed & L0_SIGN_BIT) != 0u;
 
-    let q0x = point_x[2u * pt];
-    let q1x = point_x[2u * pt + 1u];
+    let q0x = point_x[2u * pt_x];
+    let q1x = point_x[2u * pt_x + 1u];
     var x_val: array<u32, 8> = array<u32, 8>(q0x.x, q0x.y, q0x.z, q0x.w, q1x.x, q1x.y, q1x.z, q1x.w);
+{{^glv_precomp}}
     if (is_phi) { x_val = montgomery_product_f8(beta_mont_f8(), x_val); }
+{{/glv_precomp}}
 
-    let q0y = point_y[2u * pt];
-    let q1y = point_y[2u * pt + 1u];
+    let q0y = point_y[2u * pt_y];
+    let q1y = point_y[2u * pt_y + 1u];
     var y_val: array<u32, 8> = array<u32, 8>(q0y.x, q0y.y, q0y.z, q0y.w, q1y.x, q1y.y, q1y.z, q1y.w);
 
     if (sign) {

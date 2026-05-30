@@ -70,6 +70,14 @@ var<workgroup> pref_scratch: array<vec4<u32>, TPB * S * 2u>;
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
     let raw = packed & L0_IDX_MASK;
+{{#glv_precomp}}
+    // Precomputed-phi: phi.x = beta*x is prestored in the upper half of the
+    // 2n point_x pool, so the index is `raw` directly with no beta-multiply.
+    let q0 = point_x[2u * raw];
+    let q1 = point_x[2u * raw + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+{{/glv_precomp}}
+{{^glv_precomp}}
     let is_phi = raw >= GLV_HALF;
     let pt = select(raw, raw - GLV_HALF, is_phi);
     let q0 = point_x[2u * pt];
@@ -77,6 +85,7 @@ fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let x = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
     if (is_phi) { return montgomery_product_f8(beta_mont_f8(), x); }
     return x;
+{{/glv_precomp}}
 }
 
 fn load_pt_y(cursor: u32) -> array<u32, 8> {

@@ -36,6 +36,7 @@ import {
   decompose_scalars_booth as decompose_scalars_booth_shader,
   decompress_g1_bn254 as decompress_g1_bn254_shader,
   extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
+  glv_phi_fill as glv_phi_fill_shader,
   field as field_funcs,
   field8 as field8_funcs,
   fr_pow as fr_pow_funcs,
@@ -308,6 +309,29 @@ ${packLines.join('\n')}
         montgomery_product_funcs: this.mont_product_src,
         extract_word_from_bytes_le_funcs,
       },
+    );
+  }
+
+  /**
+   * GLV precomputed-phi fill: writes phi(P).x = beta*x into the upper half of
+   * a 2n-slot point_x pool whose lower half holds the Montgomery base x's.
+   * Run once at pool-build time (see {@link gen_convert_points_only_shader}
+   * for the lower-half conversion).
+   */
+  public gen_glv_phi_fill_shader(workgroup_size: number): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const { beta8_csv } = this.f8Context();
+    return mustache.render(
+      glv_phi_fill_shader,
+      {
+        workgroup_size, beta8_csv,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs, field8_funcs },
     );
   }
 
@@ -774,13 +798,13 @@ ${packLines.join('\n')}
     return mustache.render(ba_planner_emit_fixup_shader, { num_threads, recompile: this.recompile });
   }
 
-  public gen_ba_size1_shader(glvHalf = 0xffffffff): string {
+  public gen_ba_size1_shader(glvHalf = 0xffffffff, glvPrecomp = false): string {
     const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, beta8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_size1_shader,
       {
-        glv_half: glvHalf >>> 0, beta8_csv,
+        glv_half: glvHalf >>> 0, beta8_csv, glv_precomp: glvPrecomp,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
@@ -917,6 +941,7 @@ ${packLines.join('\n')}
     s: number,
     variant: 'loop' | 'pk' = 'pk',
     glvHalf = 0xffffffff,
+    glvPrecomp = false,
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
@@ -926,7 +951,7 @@ ${packLines.join('\n')}
       ba_stream_walker_shader,
       {
         workgroup_size, s, inv_fn,
-        glv_half: glvHalf >>> 0, beta8_csv,
+        glv_half: glvHalf >>> 0, beta8_csv, glv_precomp: glvPrecomp,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,

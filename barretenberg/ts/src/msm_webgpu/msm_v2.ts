@@ -62,6 +62,18 @@ export interface MsmConfig {
    * the GLV 2n-point problem store only the original n points (no 2× pool).
    */
   glvOnTheFly?: boolean;
+  /**
+   * GLV precomputed-φ endomorphism. Like {@link glvOnTheFly} the pool serves
+   * `2·srsN` logical points and reuses each base's y for its φ-term, but φ(P).x
+   * = β·x is precomputed once into the upper half of a `2·srsN`-slot `point_x`
+   * (see {@link MsmV2Pool.createGlvPrecomputed}) instead of being recomputed in
+   * every gather. Removes the per-gather Montgomery β-multiply (each φ-point is
+   * gathered ~T/2 times) at the cost of `srsN` extra x-slots and **no extra
+   * binding** — so it keeps the on-the-fly time loss off while only halving the
+   * stored-φ point doubling (y is not duplicated). Requires a pool built by
+   * `createGlvPrecomputed`.
+   */
+  glvPrecomputed?: boolean;
   /** Fused-kernel chunk size (pairs batched per thread). Default: `pickS(n)`. */
   s?: number;
   /** Generic kernel workgroup size. Default 128. */
@@ -1112,6 +1124,111 @@ export class MsmV2Pool {
     return pool;
   }
 
+  /**
+   * Build a GLV precomputed-φ pool from the `n` original SRS points
+   * (`srsCanonicalBytes` = `n × 64` non-Montgomery affine, same layout as
+   * {@link create}). The returned pool has `srsN = n` but a `2n`-slot `poolX`:
+   * the lower `n` slots are the Montgomery base x's, the upper `n` are
+   * φ(P).x = β·x. `poolY` is only `n` slots — φ(P).y == P.y, so the gather
+   * reuses the base y. Pass `{ glvPrecomputed: true }` to `MsmV2.create` to
+   * serve the `2n`-point/127-bit GLV problem from this pool with no per-gather
+   * β-multiply and no duplicated y (vs the stored-φ `2n`-point pool).
+   */
+  static async createGlvPrecomputed(device: GPUDevice, srsCanonicalBytes: Uint8Array): Promise<MsmV2Pool> {
+    const srsN = srsCanonicalBytes.byteLength / 64;
+    if (!Number.isInteger(srsN) || srsN <= 0) {
+      throw new Error(
+        `MsmV2Pool.createGlvPrecomputed: byte length ${srsCanonicalBytes.byteLength} is not a positive multiple of 64`,
+      );
+    }
+
+    const halfBytes = (srsN >> 1) * 64;
+    const firstHalf = device.createBuffer({
+      size: Math.max(4, halfBytes),
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    const secondHalf = device.createBuffer({
+      size: Math.max(4, srsCanonicalBytes.byteLength - halfBytes),
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(firstHalf, 0, srsCanonicalBytes as BufferSource, 0, halfBytes);
+    device.queue.writeBuffer(
+      secondHalf,
+      0,
+      srsCanonicalBytes as BufferSource,
+      halfBytes,
+      srsCanonicalBytes.byteLength - halfBytes,
+    );
+
+    // poolX holds 2n slots (x in the lower half, β·x in the upper); poolY n.
+    const poolUsage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC;
+    const poolX = device.createBuffer({ size: 2 * srsN * 32, usage: poolUsage });
+    const poolY = device.createBuffer({ size: srsN * 32, usage: poolUsage });
+
+    let workgroupSize: number;
+    let numXWorkgroups: number;
+    if (srsN <= 256) {
+      workgroupSize = 256;
+      numXWorkgroups = 1;
+    } else if (srsN <= 32768) {
+      workgroupSize = 64;
+      numXWorkgroups = 4;
+    } else {
+      workgroupSize = 256;
+      numXWorkgroups = srsN <= 131072 ? 8 : 32;
+    }
+    const numYWorkgroups = Math.max(1, Math.ceil(srsN / (workgroupSize * numXWorkgroups)));
+
+    const pool = new MsmV2Pool(srsN, poolX, poolY, device);
+    const sm = new ShaderManager(4, srsN, BN254_CURVE_CONFIG, false);
+
+    // Stage 1: convert the n base points into the lower half of poolX + poolY.
+    const convCode = sm.gen_convert_points_only_shader(workgroupSize, numYWorkgroups, /* packed */ true);
+    const convLayout = pool.cache.getLayout(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
+    const convPipe = await pool.cache.getPipeline(convCode, convLayout, 'convert-points-pool-glv-pre');
+    const convParams = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    device.queue.writeBuffer(convParams, 0, new Uint32Array([srsN, 0, 0, 0]));
+    const convBind = device.createBindGroup({
+      layout: convLayout,
+      entries: [firstHalf, secondHalf, poolX, poolY, convParams].map((buffer, binding) => ({
+        binding,
+        resource: { buffer },
+      })),
+    });
+
+    // Stage 2: fill poolX[n + i] = β·poolX[i] (the φ x-coordinates).
+    const fillWg = 64;
+    const fillCode = sm.gen_glv_phi_fill_shader(fillWg);
+    const fillLayout = pool.cache.getLayout(['storage', 'uniform']);
+    const fillPipe = await pool.cache.getPipeline(fillCode, fillLayout, 'glv-phi-fill');
+    const fillParams = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    device.queue.writeBuffer(fillParams, 0, new Uint32Array([srsN, 0, 0, 0]));
+    const fillBind = device.createBindGroup({
+      layout: fillLayout,
+      entries: [poolX, fillParams].map((buffer, binding) => ({ binding, resource: { buffer } })),
+    });
+
+    const enc = device.createCommandEncoder();
+    const cp = enc.beginComputePass();
+    cp.setPipeline(convPipe);
+    cp.setBindGroup(0, convBind);
+    cp.dispatchWorkgroups(numXWorkgroups, numYWorkgroups, 1);
+    cp.end();
+    const fp = enc.beginComputePass();
+    fp.setPipeline(fillPipe);
+    fp.setBindGroup(0, fillBind);
+    fp.dispatchWorkgroups(Math.ceil(srsN / fillWg), 1, 1);
+    fp.end();
+    device.queue.submit([enc.finish()]);
+    await device.queue.onSubmittedWorkDone();
+
+    firstHalf.destroy();
+    secondHalf.destroy();
+    convParams.destroy();
+    fillParams.destroy();
+    return pool;
+  }
+
   /** Free the pool's GPU buffers — the SRS (poolX/Y) and the shared
    * scratch (every buffer in `_scratch`, if allocated). */
   destroy(): void {
@@ -1426,7 +1543,8 @@ export class MsmV2 {
     // GLV on-the-fly serves 2n logical points (the upper half are phi-terms
     // recomputed in the gather) from an n-point pool, so n may reach 2*srsN.
     const glvOnTheFly = config?.glvOnTheFly ?? false;
-    const maxN = glvOnTheFly ? 2 * pool.srsN : pool.srsN;
+    const glvPrecomputed = config?.glvPrecomputed ?? false;
+    const maxN = glvOnTheFly || glvPrecomputed ? 2 * pool.srsN : pool.srsN;
     if (n > maxN) {
       throw new Error(`MsmV2.create: n (${n}) exceeds the pool's capacity (${maxN}, srsN=${pool.srsN})`);
     }
@@ -1630,7 +1748,7 @@ export class MsmV2 {
     // value indices never reach srsN) never does.
     const GLV_HALF = pool.srsN;
     m.size1Pipe = await compile(
-      sm.gen_ba_size1_shader(GLV_HALF), `size1`, m.size1Layout);
+      sm.gen_ba_size1_shader(GLV_HALF, glvPrecomputed), `size1`, m.size1Layout);
     m.streamAccumPipe = await compile(
       sm.gen_ba_stream_accum_shader(256, STREAM_S, qHeaderLen, INV_VARIANT, GLV_HALF),
       `stream-accum`, m.streamAccumLayout);
@@ -1651,7 +1769,7 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, GLV_HALF),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, GLV_HALF, glvPrecomputed),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),

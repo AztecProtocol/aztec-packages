@@ -1667,19 +1667,25 @@ function hideProgress(): void {
       if (!inputs.points || !inputs.scalars) throw new Error('noble mirror inputs missing');
 
       const otf = qp.get('otf') === '1';
+      const pre = qp.get('pre') === '1';
+      const variant = pre ? '-pre' : otf ? '-otf' : '';
       const tPrep = performance.now();
-      const glv = otf
+      // Precomputed-φ uses the same sign-folded scalar layout as on-the-fly and
+      // builds its pool from the same n original points (glv.pointsBuf).
+      const glv = otf || pre
         ? buildGlvInputsOnTheFly(inputs.points, inputs.scalars)
         : buildGlvInputs(inputs.points, inputs.scalars);
       const prepMs = performance.now() - tPrep;
-      log('info', `[glv${otf ? '-otf' : ''}] split ${inputs.n.toLocaleString()} -> ${glv.n2.toLocaleString()} terms in ${prepMs.toFixed(1)} ms (CPU front-end)`);
+      log('info', `[glv${variant}] split ${inputs.n.toLocaleString()} -> ${glv.n2.toLocaleString()} terms in ${prepMs.toFixed(1)} ms (CPU front-end)`);
 
       const device = await get_device();
-      pool = await MsmV2Pool.create(device, glv.pointsBuf);
+      pool = pre
+        ? await MsmV2Pool.createGlvPrecomputed(device, glv.pointsBuf)
+        : await MsmV2Pool.create(device, glv.pointsBuf);
       // `?c=15` forces the n>=2^16 window size so the small-logN correctness
       // gate exercises the exact T=9 config that runs at scale on real GPUs.
       const cParam = qp.get('c');
-      const glvConfig: MsmConfig = { scalarBitLength: GLV_HALF_SCALAR_BITS, glvOnTheFly: otf };
+      const glvConfig: MsmConfig = { scalarBitLength: GLV_HALF_SCALAR_BITS, glvOnTheFly: otf, glvPrecomputed: pre };
       if (cParam) glvConfig.c = parseInt(cParam, 10);
       msm = await MsmV2.create(device, glv.n2, pool, glvConfig);
       log('info', `[glv] MsmV2 ready: n=${glv.n2}, numWindows=${msm.numWindows} (vs 17 for the 254-bit path)`);
@@ -1863,9 +1869,21 @@ function hideProgress(): void {
       scalarsBuf: Uint8Array,
       n: number,
       cfg: MsmConfig,
-    ): Promise<{ algoBytes: number; poolBytes: number; numWindows: number; c: number; ms: number | null }> => {
-      const p = await MsmV2Pool.create(device, pointsBuf);
-      const m = await MsmV2.create(device, n, p, cfg);
+      profilePhases = false,
+    ): Promise<{
+      algoBytes: number;
+      poolBytes: number;
+      numWindows: number;
+      c: number;
+      ms: number | null;
+      phaseMs: Record<string, number> | null;
+    }> => {
+      // Precomputed-φ builds a 2n-x / n-y pool (β·x prestored, no per-gather
+      // β-multiply); the other paths use the symmetric convert pool.
+      const p = cfg.glvPrecomputed
+        ? await MsmV2Pool.createGlvPrecomputed(device, pointsBuf)
+        : await MsmV2Pool.create(device, pointsBuf);
+      const m = await MsmV2.create(device, n, p, { ...cfg, profile: profilePhases || cfg.profile });
       m.prepare(scalarsBuf);
       let ms: number | null = null;
       if (doTime) {
@@ -1879,17 +1897,31 @@ function hideProgress(): void {
         }
         ms = best;
       }
+      let phaseMs: Record<string, number> | null = null;
+      if (profilePhases) {
+        await m.run();
+        phaseMs = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? null;
+      }
       const algoBytes = m.statsBytes();
       const poolBytes = p.statsBytes();
       const numWindows = m.numWindows;
       const c = m.c;
       m.destroy();
       p.destroy();
-      return { algoBytes, poolBytes, numWindows, c, ms };
+      return { algoBytes, poolBytes, numWindows, c, ms, phaseMs };
     };
-    type Kind = 'base' | 'glv' | 'glv-otf';
+    type Kind = 'base' | 'glv' | 'glv-otf' | 'glv-pre';
     type Row =
-      | { kind: Kind; c: number; numWindows: number; algoMiB: number; poolMiB: number; totalMiB: number; ms: number | null }
+      | {
+          kind: Kind;
+          c: number;
+          numWindows: number;
+          algoMiB: number;
+          poolMiB: number;
+          totalMiB: number;
+          ms: number | null;
+          phaseMs?: Record<string, number> | null;
+        }
       | { kind: Kind; c: number; error: string };
     const rows: Row[] = [];
     try {
@@ -1902,24 +1934,32 @@ function hideProgress(): void {
       const glvOtf = buildGlvInputsOnTheFly(inputs.points, inputs.scalars);
       client.postProgress({ phase: 'inputs-ready', n: inputs.n, n2: glv.n2 });
 
-      const run = async (kind: 'base' | 'glv' | 'glv-otf', cfg: MsmConfig, label: string): Promise<void> => {
+      const run = async (kind: Kind, cfg: MsmConfig, label: string, profilePhases = false): Promise<void> => {
         const src =
           kind === 'base'
             ? { pts: inputs.pointsBuf, scs: inputs.scalarsBuf, nn: inputs.n, extra: {} as MsmConfig }
             : kind === 'glv'
               ? { pts: glv.pointsBuf, scs: glv.scalarsBuf, nn: glv.n2, extra: { scalarBitLength: GLV_HALF_SCALAR_BITS } as MsmConfig }
-              : { pts: glvOtf.pointsBuf, scs: glvOtf.scalarsBuf, nn: glvOtf.n2, extra: { scalarBitLength: GLV_HALF_SCALAR_BITS, glvOnTheFly: true } as MsmConfig };
+              : kind === 'glv-otf'
+                ? { pts: glvOtf.pointsBuf, scs: glvOtf.scalarsBuf, nn: glvOtf.n2, extra: { scalarBitLength: GLV_HALF_SCALAR_BITS, glvOnTheFly: true } as MsmConfig }
+                : { pts: glvOtf.pointsBuf, scs: glvOtf.scalarsBuf, nn: glvOtf.n2, extra: { scalarBitLength: GLV_HALF_SCALAR_BITS, glvPrecomputed: true } as MsmConfig };
         const { pts, scs, nn } = src;
         cfg = { ...cfg, ...src.extra };
         try {
-          const r = await buildAndMeasure(device, pts, scs, nn, cfg);
+          const r = await buildAndMeasure(device, pts, scs, nn, cfg, profilePhases);
           const algoMiB = r.algoBytes / 2 ** 20;
           const poolMiB = r.poolBytes / 2 ** 20;
           const totalMiB = algoMiB + poolMiB;
-          rows.push({ kind, c: r.c, numWindows: r.numWindows, algoMiB, poolMiB, totalMiB, ms: r.ms });
+          rows.push({ kind, c: r.c, numWindows: r.numWindows, algoMiB, poolMiB, totalMiB, ms: r.ms, phaseMs: r.phaseMs });
+          const phaseStr =
+            r.phaseMs && Object.keys(r.phaseMs).length
+              ? ` phases={${Object.entries(r.phaseMs)
+                  .map(([k, v]) => `${k}:${v.toFixed(2)}`)
+                  .join(',')}}`
+              : '';
           log(
             'info',
-            `[${label}] c=${r.c} T=${r.numWindows} algo=${algoMiB.toFixed(1)} pool=${poolMiB.toFixed(1)} total=${totalMiB.toFixed(1)}MiB${r.ms !== null ? ` gpu=${r.ms.toFixed(1)}ms` : ''}`,
+            `[${label}] c=${r.c} T=${r.numWindows} algo=${algoMiB.toFixed(1)} pool=${poolMiB.toFixed(1)} total=${totalMiB.toFixed(1)}MiB${r.ms !== null ? ` gpu=${r.ms.toFixed(1)}ms` : ''}${phaseStr}`,
           );
           client.postProgress({ kind, c: r.c, numWindows: r.numWindows, totalMiB, ms: r.ms });
         } catch (e) {
@@ -1932,10 +1972,21 @@ function hideProgress(): void {
 
       // Production baseline: pickC, the config that actually ships.
       await run('base', {}, 'base-pickC');
-      // Matched-c baselines + the GLV c-sweep (stored phi and on-the-fly phi).
+      // Matched-c baselines + the GLV c-sweep (stored / on-the-fly / precomputed phi).
       for (const c of csList) await run('base', { c }, `base    c=${c}`);
       for (const c of csList) await run('glv', { c }, `glv     c=${c}`);
       for (const c of csList) await run('glv-otf', { c }, `glv-otf c=${c}`);
+      for (const c of csList) await run('glv-pre', { c }, `glv-pre c=${c}`);
+
+      // Per-phase GPU-timestamp breakdown (timestamp-query HW only — Apple, not
+      // Adreno) at the production window size, to re-derive the GLV time win
+      // from the reduce/planner fraction the halved window count actually cuts.
+      const profileC = parseInt(qp.get('profilec') ?? '13', 10);
+      if (doTime && qp.get('profile') !== '0') {
+        await run('base', { c: profileC }, `PROFILE base    c=${profileC}`, true);
+        await run('glv', { c: profileC }, `PROFILE glv     c=${profileC}`, true);
+        await run('glv-pre', { c: profileC }, `PROFILE glv-pre c=${profileC}`, true);
+      }
 
       // Summary: best baseline vs best GLV (on-the-fly) on time and on memory.
       const timed = rows.filter((r): r is Extract<Row, { ms: number | null }> => 'ms' in r && r.ms !== null);
@@ -1944,14 +1995,17 @@ function hideProgress(): void {
         return t.length ? t.reduce((a, b) => (b.ms! < a.ms! ? b : a)) : null;
       };
       const bestBase = bestOf('base');
-      const bestGlv = bestOf('glv-otf') ?? bestOf('glv');
-      if (bestBase && bestGlv) {
-        const dt = ((bestGlv.ms! - bestBase.ms!) / bestBase.ms!) * 100;
-        const dmem = ((bestGlv.totalMiB - bestBase.totalMiB) / bestBase.totalMiB) * 100;
-        log(
-          'ok',
-          `[glv-csweep] best base c=${bestBase.c} ${bestBase.ms!.toFixed(1)}ms/${bestBase.totalMiB.toFixed(1)}MiB · best ${bestGlv.kind} c=${bestGlv.c} ${bestGlv.ms!.toFixed(1)}ms/${bestGlv.totalMiB.toFixed(1)}MiB · Δtime ${dt >= 0 ? '+' : ''}${dt.toFixed(1)}% Δmem ${dmem >= 0 ? '+' : ''}${dmem.toFixed(1)}%`,
-        );
+      if (bestBase) {
+        for (const k of ['glv', 'glv-otf', 'glv-pre'] as Kind[]) {
+          const best = bestOf(k);
+          if (!best) continue;
+          const dt = ((best.ms! - bestBase.ms!) / bestBase.ms!) * 100;
+          const dmem = ((best.totalMiB - bestBase.totalMiB) / bestBase.totalMiB) * 100;
+          log(
+            'ok',
+            `[glv-csweep] base c=${bestBase.c} ${bestBase.ms!.toFixed(1)}ms/${bestBase.totalMiB.toFixed(1)}MiB · ${k} c=${best.c} ${best.ms!.toFixed(1)}ms/${best.totalMiB.toFixed(1)}MiB · Δtime ${dt >= 0 ? '+' : ''}${dt.toFixed(1)}% Δmem ${dmem >= 0 ? '+' : ''}${dmem.toFixed(1)}%`,
+          );
+        }
       }
       await client.postResults({
         state: 'done',
