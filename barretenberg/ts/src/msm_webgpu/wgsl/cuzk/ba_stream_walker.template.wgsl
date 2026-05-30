@@ -141,6 +141,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     var split_start:    array<u32, {{ s }}>;   // current bucket shared with a prior task
     var acc_x:          array<array<u32, 8>, {{ s }}>;
     var acc_y:          array<array<u32, 8>, {{ s }}>;
+{{^fused}}
 {{#cache_dx}}
     // KNOB 3 (dx-cache): the per-slot dx = x_r - x_l computed in the forward
     // prefix is identical to the value the inverse pass needs to chain the
@@ -150,6 +151,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     // a cost of S field elements of private state. Numerically identical.
     var dx_cache:       array<array<u32, 8>, {{ s }}>;
 {{/cache_dx}}
+{{/fused}}
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -247,6 +249,133 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         }
     }
 
+{{#fused}}
+    // Hoisted idle-pad dx. Done slots pad the batch with a fixed invertible
+    // trio so the running product stays invertible; that dx is constant for
+    // the whole loop, so it is computed once here instead of reloading the
+    // IDLE_ANCHOR points on every iteration for every retired slot.
+    let pad_lx = load_pt_x(IDLE_ANCHOR);
+    let pad_rx = load_pt_x(IDLE_ANCHOR + 1u);
+    let pad_dx = fr_sub_f8(pad_rx, pad_lx);
+
+    loop {
+        var any_active: bool = false;
+        for (var k: u32 = 0u; k < S; k = k + 1u) {
+            if (slot_done[k] == 0u) { any_active = true; }
+        }
+        if (!any_active) { break; }
+
+        // Forward prefix of dx across the S slots. Idle slots use the hoisted
+        // pad dx (no SRS load); the prefix products live in pref_scratch for
+        // the fused backward pass.
+        var acc: array<u32, 8> = get_r_f8();
+        for (var k: u32 = 0u; k < S; k = k + 1u) {
+            var dx: array<u32, 8>;
+            if (slot_done[k] == 1u) {
+                dx = pad_dx;
+            } else if (is_first[k] == 1u) {
+                let p_lx = load_pt_x(cursor[k]);
+                let p_rx = load_pt_x(cursor[k] + 1u);
+                dx = fr_sub_f8(p_rx, p_lx);
+            } else {
+                let p_rx = load_pt_x(cursor[k]);
+                dx = fr_sub_f8(p_rx, acc_x[k]);
+            }
+            if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
+            store_pref(pref_base + k * 2u, acc);
+        }
+
+        var acc20 = unpack256_to_limbs(acc);
+        var inv20 = {{ inv_fn }}(acc20);
+        var inv = pack_limbs_to_256(&inv20);
+
+        // Fused backward pass: derive 1/dx_k, advance the running inverse, and
+        // immediately apply the affine add. dx_k for the inverse chain is
+        // recovered from the affine add's own operand loads (active slots) or
+        // the hoisted pad (retired slots), so there is no inv_dx round-trip
+        // through pref_scratch, no dx_cache, and no separate peel pass.
+        for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
+            let k = S - 1u - jj;
+
+            var inv_dx: array<u32, 8>;
+            if (k == 0u) {
+                inv_dx = inv;
+            } else {
+                let pp = load_pref(pref_base + (k - 1u) * 2u);
+                inv_dx = montgomery_product_f8(inv, pp);
+            }
+
+            if (slot_done[k] == 1u) {
+                if (k != 0u) { inv = montgomery_product_f8(inv, pad_dx); }
+                continue;
+            }
+
+            var p_lx: array<u32, 8>;
+            var p_ly: array<u32, 8>;
+            var p_rx: array<u32, 8>;
+            var p_ry: array<u32, 8>;
+            if (is_first[k] == 1u) {
+                p_lx = load_pt_x(cursor[k]);
+                p_ly = load_pt_y(cursor[k]);
+                p_rx = load_pt_x(cursor[k] + 1u);
+                p_ry = load_pt_y(cursor[k] + 1u);
+                cursor[k] += 2u;
+            } else {
+                p_lx = acc_x[k];
+                p_ly = acc_y[k];
+                p_rx = load_pt_x(cursor[k]);
+                p_ry = load_pt_y(cursor[k]);
+                cursor[k] += 1u;
+            }
+
+            if (k != 0u) {
+                inv = montgomery_product_f8(inv, fr_sub_f8(p_rx, p_lx));
+            }
+
+            var lambda = fr_sub_f8(p_ry, p_ly);
+            lambda = montgomery_product_f8(lambda, inv_dx);
+            var r_x = montgomery_product_f8(lambda, lambda);
+            let x_sum = fr_add_f8(p_lx, p_rx);
+            r_x = fr_sub_f8(r_x, x_sum);
+            var r_y = fr_sub_f8(p_lx, r_x);
+            r_y = montgomery_product_f8(lambda, r_y);
+            r_y = fr_sub_f8(r_y, p_ly);
+
+            let task_done = (cur_sorted[k] == task_end_sort[k]) && (cursor[k] >= task_end_cur[k]);
+            let bucket_done = cursor[k] >= bucket_end[k];
+
+            if (task_done) {
+                let is_partial = (split_start[k] == 1u) || (cursor[k] < bucket_end[k]);
+                if (is_partial) {
+                    store_partial(2u * (t * S + k) + 1u, cur_bucket[k], M_partials, r_x, r_y);
+                } else {
+                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
+                }
+                slot_done[k] = 1u;
+            } else if (bucket_done) {
+                if (split_start[k] == 1u) {
+                    store_partial(2u * (t * S + k) + 0u, cur_bucket[k], M_partials, r_x, r_y);
+                } else {
+                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
+                }
+                let nxt = cur_sorted[k] + 1u;
+                let nxt_id = sorted_bucket_list[nxt];
+                let nxt_base = offsets[nxt_id];
+                cur_sorted[k] = nxt;
+                cur_bucket[k] = nxt_id;
+                bucket_end[k] = nxt_base + sorted_count_list[nxt];
+                cursor[k] = nxt_base;
+                is_first[k] = 1u;
+                split_start[k] = 0u;
+            } else {
+                acc_x[k] = r_x;
+                acc_y[k] = r_y;
+                is_first[k] = 0u;
+            }
+        }
+    }
+{{/fused}}
+{{^fused}}
     loop {
         var any_active: bool = false;
         for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -385,6 +514,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             }
         }
     }
+{{/fused}}
 
     {{{ recompile }}}
 }

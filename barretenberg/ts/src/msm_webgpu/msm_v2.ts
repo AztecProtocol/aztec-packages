@@ -66,6 +66,16 @@ export interface MsmConfig {
    */
   walkerCacheDx?: boolean;
   /**
+   * Stream-walker: fuse the inverse and backward-peel passes into one. The
+   * batched-inversion chain is advanced from the affine add's own operand
+   * loads (active slots) or a hoisted idle-pad dx (retired slots), so the
+   * inv_dx round-trip through `pref_scratch`, the `dx_cache` registers, and the
+   * separate peel pass all disappear — fewer registers (higher occupancy),
+   * less workgroup traffic, shorter dependent chain. Numerically identical to
+   * the 3-pass path. When `true`, `walkerCacheDx` is irrelevant. Default `true`.
+   */
+  walkerFused?: boolean;
+  /**
    * Stream-walker batched-inversion slots per thread (S). The primary
    * memory↔time Pareto knob: `pref_scratch` is `TPB·S·32 B` of workgroup
    * memory and per-thread register state scales with S, so smaller S lifts
@@ -1645,8 +1655,9 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     const walkerCacheDx = config?.walkerCacheDx ?? true;
+    const walkerFused = config?.walkerFused ?? true;
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, walkerCacheDx),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, walkerCacheDx, walkerFused),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),

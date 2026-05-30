@@ -95,6 +95,7 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     walkerCacheDx: q.get('cachedx') === '0' ? false : q.get('cachedx') === '1' ? true : undefined,
+    walkerFused: q.get('fused') === '0' ? false : q.get('fused') === '1' ? true : undefined,
     walkerS: optInt('ws'),
     walkerTpb: optInt('wtpb'),
     profile:
