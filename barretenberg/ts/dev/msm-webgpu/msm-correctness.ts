@@ -195,11 +195,16 @@ async function memProbe(device: GPUDevice, logN: number): Promise<number> {
     // walkerS*walkerMaxWg = 256 (default S=8,maxWg=32 product), holding the
     // partials_buf footprint flat across the sweep. Falls back to the single
     // (walkers,walkermaxwg) config from gpuKnobs when ssweep is absent.
+    // ?sweepmaxwg=M fixes walkerMaxWg for every S in the sweep (decoupled —
+    // keeps NUM_THREADS=M*256 constant so partials grow ∝ S; isolates the
+    // inversion-amortization effect from the parallelism loss of the default
+    // coupled mode where maxWg=256/S). Default: coupled (memory flat).
+    const fixedMaxWg = (() => { const v = parseInt(qp.get('sweepmaxwg') ?? '', 10); return Number.isFinite(v) && v > 0 ? v : 0; })();
     const sweep: { walkerS: number; walkerMaxWg: number }[] = (() => {
       const raw = qp.get('ssweep');
       if (raw) {
         return raw.split(',').map(s => parseInt(s.trim(), 10)).filter(v => Number.isFinite(v) && v > 0)
-          .map(S => ({ walkerS: S, walkerMaxWg: Math.max(1, Math.round(256 / S)) }));
+          .map(S => ({ walkerS: S, walkerMaxWg: fixedMaxWg || Math.max(1, Math.round(256 / S)) }));
       }
       return [{ walkerS: gpuKnobs.walkerS ?? 8, walkerMaxWg: gpuKnobs.walkerMaxWg ?? 32 }];
     })();
