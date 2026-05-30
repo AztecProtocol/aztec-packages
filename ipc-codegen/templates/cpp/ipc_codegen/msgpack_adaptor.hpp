@@ -30,6 +30,18 @@ struct DoNothing {
 template <typename T>
 concept HasMsgPack = requires(T t, DoNothing nop) { t.msgpack(nop); };
 
+template <typename T, typename... Args>
+concept MsgpackConstructible = requires(T object, Args... args) { T{args...}; };
+
+} // namespace msgpack_concepts
+
+#endif
+
+#ifndef IPC_CODEGEN_MSGPACK_BIN32_ALIAS_CONCEPT_DEFINED
+#define IPC_CODEGEN_MSGPACK_BIN32_ALIAS_CONCEPT_DEFINED
+
+namespace msgpack_concepts {
+
 template <typename T>
 concept Bin32Alias =
     requires(T t, const T ct) {
@@ -38,9 +50,6 @@ concept Bin32Alias =
       { ct.data() } -> std::same_as<const uint8_t *>;
       { ct.size() } -> std::convertible_to<std::size_t>;
     };
-
-template <typename T, typename... Args>
-concept MsgpackConstructible = requires(T object, Args... args) { T{args...}; };
 
 } // namespace msgpack_concepts
 
