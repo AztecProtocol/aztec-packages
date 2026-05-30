@@ -1,5 +1,5 @@
 import { getKzg } from '@aztec/blob-lib';
-import type { EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
@@ -20,7 +20,7 @@ import type {
 } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -51,6 +51,16 @@ import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
 
 export { SequencerState };
+
+/** Slot snapshot used to prepare a checkpoint proposal. */
+type SequencerSlotContext = {
+  slot: SlotNumber;
+  targetSlot: SlotNumber;
+  epoch: EpochNumber;
+  targetEpoch: EpochNumber;
+  ts: bigint;
+  nowSeconds: bigint;
+};
 
 /**
  * Sequencer client
@@ -220,8 +230,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   @trackSpan('Sequencer.work')
   protected async work() {
     this.setState(SequencerState.SYNCHRONIZING, undefined);
-    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const { slot: targetSlot, epoch: targetEpoch } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
+    const { slot, targetSlot, epoch, targetEpoch, ts, nowSeconds } = this.getSlotContextInNextL1Slot();
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
     const checkpointProposalJob = await this.prepareCheckpointProposal(
@@ -257,6 +266,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     return checkpoint;
+  }
+
+  /** Returns slot and target slot from a single clock snapshot. */
+  protected getSlotContextInNextL1Slot(): SequencerSlotContext {
+    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const targetSlot = SlotNumber(
+      slot + (this.epochCache.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0),
+    );
+    return { slot, targetSlot, epoch, targetEpoch: getEpochAtSlot(targetSlot, this.l1Constants), ts, nowSeconds };
   }
 
   /**
