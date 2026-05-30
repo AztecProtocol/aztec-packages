@@ -11,8 +11,8 @@
 #include "barretenberg/serialize/msgpack_impl/msgpack_impl.hpp"
 #include "barretenberg/vm2/avm_sim_api.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
-#include "barretenberg/vm2/simulation/dbs/wsdb_ipc_merkle_db.hpp"
 #include "barretenberg/vm2/simulation/lib/cancellation_token.hpp"
+#include "barretenberg/vm2_wsdb/wsdb_ipc_merkle_db.hpp"
 #include "barretenberg/wsdb/generated/wsdb_ipc_client.hpp"
 
 namespace bb::nodejs {
