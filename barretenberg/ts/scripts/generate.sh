@@ -56,3 +56,10 @@ gen \
   --out "$TS_SRC/aztec-cdb/generated" \
   --client \
   --prefix Cdb
+
+gen \
+  --schema ../cpp/src/barretenberg/kvdb/kvdb_schema.json \
+  --lang ts \
+  --out "$TS_SRC/aztec-kvdb/generated" \
+  --client \
+  --prefix Kvdb

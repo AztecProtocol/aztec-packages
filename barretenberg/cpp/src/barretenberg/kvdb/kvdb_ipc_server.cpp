@@ -1,69 +1,29 @@
 #include "barretenberg/kvdb/kvdb_ipc_server.hpp"
 
 #include "barretenberg/common/try_catch_shim.hpp"
-#include "ipc_runtime/ipc_server.hpp"
-#include "barretenberg/kvdb/kvdb_messages.hpp"
+// clang-format off
 #include "barretenberg/lmdblib/lmdb_store.hpp"
-#include "barretenberg/messaging/dispatcher.hpp"
-#include "barretenberg/messaging/header.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/kvdb/generated/kvdb_types.hpp"
+// clang-format on
+#include "ipc_runtime/ipc_server.hpp"
+#include "ipc_runtime/serve_helper.hpp"
+#include "ipc_runtime/signal_handlers.hpp"
 
 #include <chrono>
-#include <csignal>
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <span>
-#include <thread>
-#include <unistd.h>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
-#ifdef __linux__
-#include <sys/prctl.h>
-#elif defined(__APPLE__)
-#include <sys/event.h>
-#endif
 
 namespace bb::kvdb {
 
 namespace {
 
 constexpr uint32_t DEFAULT_CURSOR_PAGE_SIZE = 10;
-
-// Mirror wsdb's parent-death-monitoring: when the TS host dies, this child
-// gets SIGTERM (Linux prctl) / kqueue NOTE_EXIT (macOS) and exits.
-void setup_parent_death_monitoring()
-{
-#ifdef __linux__
-    if (prctl(PR_SET_PDEATHSIG, SIGTERM) == -1) {
-        std::cerr << "Warning: Could not set parent death signal" << '\n';
-    }
-#elif defined(__APPLE__)
-    pid_t parent_pid = getppid();
-    std::thread([parent_pid]() {
-        int kq = kqueue();
-        if (kq == -1) {
-            std::cerr << "Warning: Could not create kqueue for parent monitoring" << '\n';
-            return;
-        }
-        struct kevent change;
-        EV_SET(&change, parent_pid, EVFILT_PROC, EV_ADD | EV_ENABLE, NOTE_EXIT, 0, nullptr);
-        if (kevent(kq, &change, 1, nullptr, 0, nullptr) == -1) {
-            std::cerr << "Warning: Could not monitor parent process" << '\n';
-            close(kq);
-            return;
-        }
-        struct kevent event;
-        kevent(kq, nullptr, 0, &event, 1, nullptr);
-        std::cerr << "Parent process exited, shutting down..." << '\n';
-        close(kq);
-        std::exit(0);
-    }).detach();
-#endif
-}
 
 struct CursorState {
     lmdblib::LMDBCursor::SharedPtr cursor;
@@ -72,82 +32,17 @@ struct CursorState {
 
 class KvdbServer {
   public:
-    KvdbServer(lmdblib::LMDBStore& store)
+    explicit KvdbServer(lmdblib::LMDBStore& store)
         : store_(store)
-    {
-        register_handler<OpenDatabaseRequest, BoolResponse>(
-            OPEN_DATABASE, [this](const OpenDatabaseRequest& req) { return open_database(req); });
-        register_handler<GetRequest, GetResponse>(GET, [this](const GetRequest& req) { return get(req); });
-        register_handler<HasRequest, HasResponse>(HAS, [this](const HasRequest& req) { return has(req); });
-        register_handler<StartCursorRequest, StartCursorResponse>(
-            START_CURSOR, [this](const StartCursorRequest& req) { return start_cursor(req); });
-        register_handler<AdvanceCursorRequest, AdvanceCursorResponse>(
-            ADVANCE_CURSOR, [this](const AdvanceCursorRequest& req) { return advance_cursor(req); });
-        register_handler<AdvanceCursorCountRequest, AdvanceCursorCountResponse>(
-            ADVANCE_CURSOR_COUNT, [this](const AdvanceCursorCountRequest& req) { return advance_cursor_count(req); });
-        register_handler<CloseCursorRequest, BoolResponse>(
-            CLOSE_CURSOR, [this](const CloseCursorRequest& req) { return close_cursor(req); });
-        register_handler<BatchRequest, BatchResponse>(BATCH, [this](const BatchRequest& req) { return batch(req); });
-        register_no_arg_handler<StatsResponse>(STATS, [this]() { return get_stats(); });
-        register_no_arg_handler<BoolResponse>(CLOSE, [this]() { return close(); }, /*unique=*/true);
-        register_handler<CopyStoreRequest, BoolResponse>(
-            COPY_STORE, [this](const CopyStoreRequest& req) { return copy_store(req); }, /*unique=*/true);
-    }
+    {}
 
-    std::vector<uint8_t> dispatch(std::span<const uint8_t> raw_request)
-    {
-        auto unpacked = msgpack::unpack(reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
-        auto obj = unpacked.get();
-        msgpack::sbuffer response_buffer;
-        dispatcher_.on_new_data(obj, response_buffer);
-        return std::vector<uint8_t>(response_buffer.data(), response_buffer.data() + response_buffer.size());
-    }
-
-  private:
-    lmdblib::LMDBStore& store_;
-    bb::messaging::MessageDispatcher dispatcher_;
-    std::mutex cursor_mutex_;
-    std::unordered_map<uint64_t, CursorState> cursors_;
-
-    template <typename Req, typename Resp> void register_handler(uint32_t msg_type, auto handler, bool unique = false)
-    {
-        dispatcher_.register_target(
-            msg_type,
-            [msg_type, handler](msgpack::object& obj, msgpack::sbuffer& buffer) {
-                bb::messaging::TypedMessage<Req> req_msg;
-                obj.convert(req_msg);
-                Resp resp = handler(req_msg.value);
-                bb::messaging::MsgHeader header(req_msg.header.messageId);
-                bb::messaging::TypedMessage<Resp> resp_msg(msg_type, header, resp);
-                msgpack::pack(buffer, resp_msg);
-                return true;
-            },
-            unique);
-    }
-
-    template <typename Resp> void register_no_arg_handler(uint32_t msg_type, auto handler, bool unique = false)
-    {
-        dispatcher_.register_target(
-            msg_type,
-            [msg_type, handler](msgpack::object& obj, msgpack::sbuffer& buffer) {
-                bb::messaging::HeaderOnlyMessage req_msg;
-                obj.convert(req_msg);
-                Resp resp = handler();
-                bb::messaging::MsgHeader header(req_msg.header.messageId);
-                bb::messaging::TypedMessage<Resp> resp_msg(msg_type, header, resp);
-                msgpack::pack(buffer, resp_msg);
-                return true;
-            },
-            unique);
-    }
-
-    BoolResponse open_database(const OpenDatabaseRequest& req)
+    wire::KvdbOpenDatabaseResponse open_database(const wire::KvdbOpenDatabase& req)
     {
         store_.open_database(req.db, !req.uniqueKeys.value_or(true));
         return { true };
     }
 
-    GetResponse get(const GetRequest& req)
+    wire::KvdbGetResponse get(const wire::KvdbGet& req)
     {
         lmdblib::OptionalValuesVector vals;
         lmdblib::KeysVector keys = req.keys;
@@ -155,14 +50,14 @@ class KvdbServer {
         return { std::move(vals) };
     }
 
-    HasResponse has(const HasRequest& req)
+    wire::KvdbHasResponse has(const wire::KvdbHas& req)
     {
         std::vector<bool> exists;
-        store_.has(req.entries, exists, req.db);
+        store_.has(key_optional_values_from_wire(req.entries), exists, req.db);
         return { std::move(exists) };
     }
 
-    StartCursorResponse start_cursor(const StartCursorRequest& req)
+    wire::KvdbStartCursorResponse start_cursor(const wire::KvdbStartCursor& req)
     {
         bool reverse = req.reverse.value_or(false);
         uint32_t page_size = req.count.value_or(DEFAULT_CURSOR_PAGE_SIZE);
@@ -187,7 +82,7 @@ class KvdbServer {
 
         auto [done, first_page] = advance_page(*cursor, reverse, page_size);
         if (done || one_page) {
-            return { std::nullopt, std::move(first_page) };
+            return { std::nullopt, key_values_to_wire(first_page) };
         }
 
         auto cursor_id = cursor->id();
@@ -195,10 +90,10 @@ class KvdbServer {
             std::lock_guard<std::mutex> lock(cursor_mutex_);
             cursors_[cursor_id] = { cursor, reverse };
         }
-        return { cursor_id, std::move(first_page) };
+        return { cursor_id, key_values_to_wire(first_page) };
     }
 
-    AdvanceCursorResponse advance_cursor(const AdvanceCursorRequest& req)
+    wire::KvdbAdvanceCursorResponse advance_cursor(const wire::KvdbAdvanceCursor& req)
     {
         CursorState state;
         {
@@ -207,10 +102,10 @@ class KvdbServer {
         }
         uint32_t page_size = req.count.value_or(DEFAULT_CURSOR_PAGE_SIZE);
         auto [done, entries] = advance_page(*state.cursor, state.reverse, page_size);
-        return { std::move(entries), done };
+        return { key_values_to_wire(entries), done };
     }
 
-    AdvanceCursorCountResponse advance_cursor_count(const AdvanceCursorCountRequest& req)
+    wire::KvdbAdvanceCursorCountResponse advance_cursor_count(const wire::KvdbAdvanceCursorCount& req)
     {
         CursorState state;
         {
@@ -221,19 +116,20 @@ class KvdbServer {
         return { count, done };
     }
 
-    BoolResponse close_cursor(const CloseCursorRequest& req)
+    wire::KvdbCloseCursorResponse close_cursor(const wire::KvdbCloseCursor& req)
     {
         std::lock_guard<std::mutex> lock(cursor_mutex_);
         cursors_.erase(req.cursor);
         return { true };
     }
 
-    BatchResponse batch(const BatchRequest& req)
+    wire::KvdbBatchResponse batch(const wire::KvdbBatch& req)
     {
         std::vector<lmdblib::LMDBStore::PutData> put_batches;
         put_batches.reserve(req.batches.size());
-        for (const auto& [db_name, entry] : req.batches) {
-            put_batches.push_back(lmdblib::LMDBStore::PutData{ entry.addEntries, entry.removeEntries, db_name });
+        for (const auto& entry : req.batches) {
+            put_batches.push_back(lmdblib::LMDBStore::PutData{
+                key_values_from_wire(entry.addEntries), key_optional_values_from_wire(entry.removeEntries), entry.db });
         }
         auto start = std::chrono::high_resolution_clock::now();
         store_.put(put_batches);
@@ -242,14 +138,20 @@ class KvdbServer {
         return { duration_ns.count() };
     }
 
-    StatsResponse get_stats()
+    wire::KvdbStatsResponse get_stats()
     {
         std::vector<lmdblib::DBStats> stats;
         auto [map_size, physical_file_size] = store_.get_stats(stats);
-        return { std::move(stats), map_size, physical_file_size };
+        std::vector<wire::KvdbDbStats> wire_stats;
+        wire_stats.reserve(stats.size());
+        for (const auto& stat : stats) {
+            wire_stats.push_back(
+                { .name = stat.name, .numDataItems = stat.numDataItems, .totalUsedSize = stat.totalUsedSize });
+        }
+        return { std::move(wire_stats), map_size, physical_file_size };
     }
 
-    BoolResponse close()
+    wire::KvdbCloseResponse close()
     {
         // Drop all cursors so any in-flight reads release their transactions.
         std::lock_guard<std::mutex> lock(cursor_mutex_);
@@ -257,10 +159,41 @@ class KvdbServer {
         return { true };
     }
 
-    BoolResponse copy_store(const CopyStoreRequest& req)
+    wire::KvdbCopyStoreResponse copy_store(const wire::KvdbCopyStore& req)
     {
         store_.copy_store(req.dstPath, req.compact.value_or(false));
         return { true };
+    }
+
+    static lmdblib::KeyDupValuesVector key_values_from_wire(const std::vector<wire::KvdbKeyValues>& entries)
+    {
+        lmdblib::KeyDupValuesVector result;
+        result.reserve(entries.size());
+        for (const auto& entry : entries) {
+            result.emplace_back(entry.key, entry.values);
+        }
+        return result;
+    }
+
+    static std::vector<wire::KvdbKeyValues> key_values_to_wire(const lmdblib::KeyDupValuesVector& entries)
+    {
+        std::vector<wire::KvdbKeyValues> result;
+        result.reserve(entries.size());
+        for (const auto& [key, values] : entries) {
+            result.push_back({ .key = key, .values = values });
+        }
+        return result;
+    }
+
+    static lmdblib::KeyOptionalValuesVector key_optional_values_from_wire(
+        const std::vector<wire::KvdbKeyOptionalValues>& entries)
+    {
+        lmdblib::KeyOptionalValuesVector result;
+        result.reserve(entries.size());
+        for (const auto& entry : entries) {
+            result.emplace_back(entry.key, entry.values);
+        }
+        return result;
     }
 
     static std::pair<bool, lmdblib::KeyDupValuesVector> advance_page(const lmdblib::LMDBCursor& cursor,
@@ -280,9 +213,87 @@ class KvdbServer {
         bool done = reverse ? cursor.count_until_prev(end_key, count) : cursor.count_until_next(end_key, count);
         return std::make_pair(done, count);
     }
+
+  private:
+    lmdblib::LMDBStore& store_;
+    std::mutex cursor_mutex_;
+    std::unordered_map<uint64_t, CursorState> cursors_;
 };
 
 } // namespace
+
+wire::KvdbOpenDatabaseResponse handle_open_database(KvdbServer& ctx, wire::KvdbOpenDatabase&& cmd);
+wire::KvdbGetResponse handle_get(KvdbServer& ctx, wire::KvdbGet&& cmd);
+wire::KvdbHasResponse handle_has(KvdbServer& ctx, wire::KvdbHas&& cmd);
+wire::KvdbStartCursorResponse handle_start_cursor(KvdbServer& ctx, wire::KvdbStartCursor&& cmd);
+wire::KvdbAdvanceCursorResponse handle_advance_cursor(KvdbServer& ctx, wire::KvdbAdvanceCursor&& cmd);
+wire::KvdbAdvanceCursorCountResponse handle_advance_cursor_count(KvdbServer& ctx, wire::KvdbAdvanceCursorCount&& cmd);
+wire::KvdbCloseCursorResponse handle_close_cursor(KvdbServer& ctx, wire::KvdbCloseCursor&& cmd);
+wire::KvdbBatchResponse handle_batch(KvdbServer& ctx, wire::KvdbBatch&& cmd);
+wire::KvdbStatsResponse handle_stats(KvdbServer& ctx, wire::KvdbStats&&);
+wire::KvdbCloseResponse handle_close(KvdbServer& ctx, wire::KvdbClose&&);
+wire::KvdbCopyStoreResponse handle_copy_store(KvdbServer& ctx, wire::KvdbCopyStore&& cmd);
+
+} // namespace bb::kvdb
+
+#include "barretenberg/kvdb/generated/kvdb_ipc_server.hpp"
+
+namespace bb::kvdb {
+
+wire::KvdbOpenDatabaseResponse handle_open_database(KvdbServer& ctx, wire::KvdbOpenDatabase&& cmd)
+{
+    return ctx.open_database(cmd);
+}
+
+wire::KvdbGetResponse handle_get(KvdbServer& ctx, wire::KvdbGet&& cmd)
+{
+    return ctx.get(cmd);
+}
+
+wire::KvdbHasResponse handle_has(KvdbServer& ctx, wire::KvdbHas&& cmd)
+{
+    return ctx.has(cmd);
+}
+
+wire::KvdbStartCursorResponse handle_start_cursor(KvdbServer& ctx, wire::KvdbStartCursor&& cmd)
+{
+    return ctx.start_cursor(cmd);
+}
+
+wire::KvdbAdvanceCursorResponse handle_advance_cursor(KvdbServer& ctx, wire::KvdbAdvanceCursor&& cmd)
+{
+    return ctx.advance_cursor(cmd);
+}
+
+wire::KvdbAdvanceCursorCountResponse handle_advance_cursor_count(KvdbServer& ctx, wire::KvdbAdvanceCursorCount&& cmd)
+{
+    return ctx.advance_cursor_count(cmd);
+}
+
+wire::KvdbCloseCursorResponse handle_close_cursor(KvdbServer& ctx, wire::KvdbCloseCursor&& cmd)
+{
+    return ctx.close_cursor(cmd);
+}
+
+wire::KvdbBatchResponse handle_batch(KvdbServer& ctx, wire::KvdbBatch&& cmd)
+{
+    return ctx.batch(cmd);
+}
+
+wire::KvdbStatsResponse handle_stats(KvdbServer& ctx, wire::KvdbStats&&)
+{
+    return ctx.get_stats();
+}
+
+wire::KvdbCloseResponse handle_close(KvdbServer& ctx, wire::KvdbClose&&)
+{
+    return ctx.close();
+}
+
+wire::KvdbCopyStoreResponse handle_copy_store(KvdbServer& ctx, wire::KvdbCopyStore&& cmd)
+{
+    return ctx.copy_store(cmd);
+}
 
 int execute_kvdb_server(const std::string& input_path,
                         const std::string& data_dir,
@@ -295,43 +306,18 @@ int execute_kvdb_server(const std::string& input_path,
     auto store = std::make_unique<lmdblib::LMDBStore>(data_dir, map_size_bytes, max_readers, 2);
     KvdbServer kvdb_server(*store);
 
-    std::unique_ptr<ipc::IpcServer> server;
-    if (input_path.size() >= 4 && input_path.substr(input_path.size() - 4) == ".shm") {
-        std::string base_name = input_path.substr(0, input_path.size() - 4);
-        constexpr size_t MAX_SHM_CLIENTS = 1; // One TS client per kvdb subprocess.
-        server = ipc::IpcServer::create_mpsc_shm(base_name, MAX_SHM_CLIENTS, request_ring_size, response_ring_size);
-        std::cerr << "MPSC shared memory server at " << base_name << '\n';
-    } else if (input_path.size() >= 5 && input_path.substr(input_path.size() - 5) == ".sock") {
-        server = ipc::IpcServer::create_socket(input_path, 1);
-        std::cerr << "Socket server at " << input_path << '\n';
-    } else {
-        std::cerr << "Error: --input path must end with .sock or .shm" << '\n';
+    ipc::ServerOptions opts;
+    opts.max_shm_clients = 1;
+    opts.shm_request_ring_size = request_ring_size;
+    opts.shm_response_ring_size = response_ring_size;
+    auto server = ipc::make_server(input_path, opts);
+    if (!server) {
+        std::cerr << "Error: --input path must end with .sock or .shm: " << input_path << '\n';
         return 1;
     }
 
-    static ipc::IpcServer* global_server = server.get();
-
-    auto graceful_shutdown_handler = [](int signal) {
-        std::cerr << "\nReceived signal " << signal << ", shutting down gracefully..." << '\n';
-        if (global_server) {
-            global_server->request_shutdown();
-        }
-    };
-    auto fatal_error_handler = [](int signal) {
-        const char* signal_name = (signal == SIGBUS) ? "SIGBUS" : (signal == SIGSEGV) ? "SIGSEGV" : "UNKNOWN";
-        std::cerr << "\nFatal error: received " << signal_name << '\n';
-        if (global_server) {
-            global_server->close();
-        }
-        std::exit(1);
-    };
-
-    (void)std::signal(SIGTERM, graceful_shutdown_handler);
-    (void)std::signal(SIGINT, graceful_shutdown_handler);
-    (void)std::signal(SIGBUS, fatal_error_handler);
-    (void)std::signal(SIGSEGV, fatal_error_handler);
-
-    setup_parent_death_monitoring();
+    std::cerr << "aztec-kvdb listening on " << input_path << '\n';
+    ipc::install_default_signal_handlers(*server);
 
     if (!server->listen()) {
         std::cerr << "Error: Could not start IPC server" << '\n';
@@ -339,18 +325,9 @@ int execute_kvdb_server(const std::string& input_path,
     }
     std::cerr << "aztec-kvdb IPC server ready" << '\n';
 
-    server->run([&kvdb_server](int client_id, std::span<const uint8_t> raw_request) -> std::vector<uint8_t> {
-        try {
-            return kvdb_server.dispatch(raw_request);
-        } catch (const std::exception& e) {
-            // The msgpack-channel client expects a typed response. We don't have
-            // an error message type defined; surface the failure on stderr and
-            // return an empty buffer (the client will treat that as a protocol
-            // error). Matches the NAPI wrapper's exception-handling shape.
-            std::cerr << "Error processing request from client " << client_id << ": " << e.what() << '\n';
-            std::cerr.flush();
-            return {};
-        }
+    auto handler = make_kvdb_handler(kvdb_server);
+    server->run([&handler](int /*client_id*/, std::span<const uint8_t> raw_request) -> std::vector<uint8_t> {
+        return handler(std::vector<uint8_t>(raw_request.begin(), raw_request.end()));
     });
 
     server->close();

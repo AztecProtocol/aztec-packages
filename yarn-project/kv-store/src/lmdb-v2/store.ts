@@ -1,7 +1,6 @@
-import { KvdbBackend } from '@aztec/bb.js/aztec-kvdb';
+import { AsyncApi as KvdbApi, KvdbBackend } from '@aztec/bb.js/aztec-kvdb';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
-import { MsgpackChannel } from '@aztec/native';
 
 import { AsyncLocalStorage } from 'async_hooks';
 import { mkdir, rm } from 'fs/promises';
@@ -33,7 +32,7 @@ export { execInReadTx, execInWriteTx } from './tx-helpers.js';
 
 export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   private open = false;
-  private channel: MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponseBody>;
+  private api: KvdbApi;
   private writerCtx = new AsyncLocalStorage<WriteTransaction>();
   private writerQueue = new SerialQueue();
   private availableCursors: Semaphore;
@@ -46,7 +45,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     private cleanup?: () => Promise<void>,
   ) {
     this.log.info(`Starting data store with maxReaders ${maxReaders}`);
-    this.channel = new MsgpackChannel(kvdbBackend);
+    this.api = new KvdbApi(kvdbBackend);
     // leave one reader to always be available for regular, atomic, reads
     this.availableCursors = new Semaphore(maxReaders - 1);
   }
@@ -60,12 +59,12 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
     await this.kvdbBackend.waitUntilReady();
 
-    await this.channel.sendMessage(LMDBMessageType.OPEN_DATABASE, {
+    await this.api.kvdbOpenDatabase({
       db: Database.DATA,
       uniqueKeys: true,
     });
 
-    await this.channel.sendMessage(LMDBMessageType.OPEN_DATABASE, {
+    await this.api.kvdbOpenDatabase({
       db: Database.INDEX,
       uniqueKeys: false,
     });
@@ -112,7 +111,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   public async backupTo(dstPath: string, compact = true) {
     await mkdir(dstPath, { recursive: true });
-    await this.channel.sendMessage(LMDBMessageType.COPY_STORE, { dstPath, compact });
+    await this.api.kvdbCopyStore({ dstPath, compact });
   }
 
   public getReadTx(): ReadTransaction {
@@ -204,7 +203,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     await this.writerQueue.cancel();
     // Tell the server to flush + close cursors before the process exits.
     try {
-      await this.channel.sendMessage(LMDBMessageType.CLOSE, undefined);
+      await this.api.kvdbClose({});
     } catch {
       // Suppress: the child may have already exited.
     }
@@ -225,7 +224,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
     let response: LMDBResponseBody[T] | undefined = undefined;
     try {
-      ({ response } = await this.channel.sendMessage(msgType, body));
+      response = (await this.sendGeneratedMessage(msgType, body)) as LMDBResponseBody[T];
       return response;
     } finally {
       if (
@@ -247,6 +246,98 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
       physicalFileSize: Number(resp.dbPhysicalFileSizeBytes),
       actualSize: resp.stats.reduce((s, db) => Number(db.totalUsedSize) + s, 0),
       numItems: resp.stats.reduce((s, db) => Number(db.numDataItems) + s, 0),
+    };
+  }
+
+  private async sendGeneratedMessage<T extends LMDBMessageType>(
+    msgType: T,
+    body: LMDBRequestBody[T],
+  ): Promise<LMDBResponseBody[T]> {
+    switch (msgType) {
+      case LMDBMessageType.OPEN_DATABASE:
+        return this.api.kvdbOpenDatabase(
+          this.toGeneratedOpenDatabase(body as LMDBRequestBody[LMDBMessageType.OPEN_DATABASE]),
+        ) as Promise<LMDBResponseBody[T]>;
+      case LMDBMessageType.GET:
+        return this.api.kvdbGet(body as LMDBRequestBody[LMDBMessageType.GET]) as Promise<LMDBResponseBody[T]>;
+      case LMDBMessageType.HAS:
+        return this.api.kvdbHas(this.toGeneratedHas(body as LMDBRequestBody[LMDBMessageType.HAS])) as Promise<
+          LMDBResponseBody[T]
+        >;
+      case LMDBMessageType.START_CURSOR:
+        return this.api
+          .kvdbStartCursor(this.toGeneratedStartCursor(body as LMDBRequestBody[LMDBMessageType.START_CURSOR]))
+          .then(response => ({
+            ...response,
+            entries: response.entries.map(({ key, values }) => [key, values]),
+          })) as Promise<LMDBResponseBody[T]>;
+      case LMDBMessageType.ADVANCE_CURSOR:
+        return this.api
+          .kvdbAdvanceCursor(body as LMDBRequestBody[LMDBMessageType.ADVANCE_CURSOR])
+          .then(response => ({
+            ...response,
+            entries: response.entries.map(({ key, values }) => [key, values]),
+          })) as Promise<LMDBResponseBody[T]>;
+      case LMDBMessageType.ADVANCE_CURSOR_COUNT:
+        return this.api.kvdbAdvanceCursorCount(
+          body as LMDBRequestBody[LMDBMessageType.ADVANCE_CURSOR_COUNT],
+        ) as Promise<LMDBResponseBody[T]>;
+      case LMDBMessageType.CLOSE_CURSOR:
+        return this.api.kvdbCloseCursor(body as LMDBRequestBody[LMDBMessageType.CLOSE_CURSOR]) as Promise<
+          LMDBResponseBody[T]
+        >;
+      case LMDBMessageType.BATCH:
+        return this.api.kvdbBatch(this.toGeneratedBatch(body as LMDBRequestBody[LMDBMessageType.BATCH])) as Promise<
+          LMDBResponseBody[T]
+        >;
+      case LMDBMessageType.STATS:
+        return this.api.kvdbStats({}) as Promise<LMDBResponseBody[T]>;
+      case LMDBMessageType.CLOSE:
+        return this.api.kvdbClose({}) as Promise<LMDBResponseBody[T]>;
+      case LMDBMessageType.COPY_STORE:
+        return this.api.kvdbCopyStore(
+          this.toGeneratedCopyStore(body as LMDBRequestBody[LMDBMessageType.COPY_STORE]),
+        ) as Promise<LMDBResponseBody[T]>;
+    }
+  }
+
+  private toGeneratedStartCursor(body: LMDBRequestBody[LMDBMessageType.START_CURSOR]) {
+    return {
+      ...body,
+      reverse: body.reverse ?? null,
+      count: body.count ?? null,
+      onePage: body.onePage ?? null,
+    };
+  }
+
+  private toGeneratedOpenDatabase(body: LMDBRequestBody[LMDBMessageType.OPEN_DATABASE]) {
+    return {
+      ...body,
+      uniqueKeys: body.uniqueKeys ?? null,
+    };
+  }
+
+  private toGeneratedHas(body: LMDBRequestBody[LMDBMessageType.HAS]) {
+    return {
+      ...body,
+      entries: body.entries.map(([key, values]) => ({ key, values })),
+    };
+  }
+
+  private toGeneratedBatch(body: LMDBRequestBody[LMDBMessageType.BATCH]) {
+    return {
+      batches: [...body.batches.entries()].map(([db, batch]) => ({
+        db,
+        addEntries: batch.addEntries.map(([key, values]) => ({ key, values })),
+        removeEntries: batch.removeEntries.map(([key, values]) => ({ key, values })),
+      })),
+    };
+  }
+
+  private toGeneratedCopyStore(body: LMDBRequestBody[LMDBMessageType.COPY_STORE]) {
+    return {
+      ...body,
+      compact: body.compact ?? null,
     };
   }
 }

@@ -1,6 +1,7 @@
 #include "barretenberg/kvdb/cli.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
+#include "barretenberg/kvdb/generated/kvdb_ipc_server.hpp"
 #include "barretenberg/kvdb/kvdb_ipc_server.hpp"
 
 #include <cstdint>
@@ -15,6 +16,8 @@ int parse_and_run_kvdb(int argc, char* argv[])
     app.require_subcommand(1);
 
     CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
+    CLI::App* msgpack_schema_command =
+        msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
     CLI::App* msgpack_run_command = msgpack_command->add_subcommand("run", "Start the kvdb IPC server.");
 
     std::string input_path;
@@ -52,6 +55,11 @@ int parse_and_run_kvdb(int argc, char* argv[])
     }
 
     try {
+        if (msgpack_schema_command->parsed()) {
+            std::cout << get_kvdb_schema_as_json() << std::endl;
+            return 0;
+        }
+
         if (msgpack_run_command->parsed()) {
             return execute_kvdb_server(
                 input_path, data_dir, map_size_bytes, max_readers, request_ring_size, response_ring_size);

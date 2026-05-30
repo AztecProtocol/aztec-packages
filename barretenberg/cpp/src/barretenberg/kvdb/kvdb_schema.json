@@ -1,0 +1,236 @@
+{
+  "commands": [
+    "named_union",
+    [
+      [
+        "KvdbOpenDatabase",
+        {
+          "__typename": "KvdbOpenDatabase",
+          "db": "string",
+          "uniqueKeys": ["optional", ["bool"]]
+        }
+      ],
+      [
+        "KvdbGet",
+        {
+          "__typename": "KvdbGet",
+          "keys": ["vector", [["vector", ["unsigned char"]]]],
+          "db": "string"
+        }
+      ],
+      [
+        "KvdbHas",
+        {
+          "__typename": "KvdbHas",
+          "entries": [
+            "vector",
+            [
+              {
+                "__typename": "KvdbKeyOptionalValues",
+                "key": ["vector", ["unsigned char"]],
+                "values": ["optional", [["vector", [["vector", ["unsigned char"]]]]]]
+              }
+            ]
+          ],
+          "db": "string"
+        }
+      ],
+      [
+        "KvdbStartCursor",
+        {
+          "__typename": "KvdbStartCursor",
+          "key": ["vector", ["unsigned char"]],
+          "reverse": ["optional", ["bool"]],
+          "count": ["optional", ["unsigned int"]],
+          "onePage": ["optional", ["bool"]],
+          "db": "string"
+        }
+      ],
+      [
+        "KvdbAdvanceCursor",
+        {
+          "__typename": "KvdbAdvanceCursor",
+          "cursor": "unsigned long",
+          "count": ["optional", ["unsigned int"]]
+        }
+      ],
+      [
+        "KvdbAdvanceCursorCount",
+        {
+          "__typename": "KvdbAdvanceCursorCount",
+          "cursor": "unsigned long",
+          "endKey": ["vector", ["unsigned char"]]
+        }
+      ],
+      [
+        "KvdbCloseCursor",
+        {
+          "__typename": "KvdbCloseCursor",
+          "cursor": "unsigned long"
+        }
+      ],
+      [
+        "KvdbBatch",
+        {
+          "__typename": "KvdbBatch",
+          "batches": [
+            "vector",
+            [
+              {
+                "__typename": "KvdbNamedBatch",
+                "db": "string",
+                "addEntries": [
+                  "vector",
+                  [
+                    {
+                      "__typename": "KvdbKeyValues",
+                      "key": ["vector", ["unsigned char"]],
+                      "values": ["vector", [["vector", ["unsigned char"]]]]
+                    }
+                  ]
+                ],
+                "removeEntries": ["vector", ["KvdbKeyOptionalValues"]]
+              }
+            ]
+          ]
+        }
+      ],
+      [
+        "KvdbStats",
+        {
+          "__typename": "KvdbStats"
+        }
+      ],
+      [
+        "KvdbClose",
+        {
+          "__typename": "KvdbClose"
+        }
+      ],
+      [
+        "KvdbCopyStore",
+        {
+          "__typename": "KvdbCopyStore",
+          "dstPath": "string",
+          "compact": ["optional", ["bool"]]
+        }
+      ],
+      [
+        "KvdbShutdown",
+        {
+          "__typename": "KvdbShutdown"
+        }
+      ]
+    ]
+  ],
+  "responses": [
+    "named_union",
+    [
+      [
+        "KvdbErrorResponse",
+        {
+          "__typename": "KvdbErrorResponse",
+          "message": "string"
+        }
+      ],
+      [
+        "KvdbOpenDatabaseResponse",
+        {
+          "__typename": "KvdbOpenDatabaseResponse",
+          "ok": "bool"
+        }
+      ],
+      [
+        "KvdbGetResponse",
+        {
+          "__typename": "KvdbGetResponse",
+          "values": ["vector", [["optional", [["vector", [["vector", ["unsigned char"]]]]]]]]
+        }
+      ],
+      [
+        "KvdbHasResponse",
+        {
+          "__typename": "KvdbHasResponse",
+          "exists": ["vector", ["bool"]]
+        }
+      ],
+      [
+        "KvdbStartCursorResponse",
+        {
+          "__typename": "KvdbStartCursorResponse",
+          "cursor": ["optional", ["unsigned long"]],
+          "entries": ["vector", ["KvdbKeyValues"]]
+        }
+      ],
+      [
+        "KvdbAdvanceCursorResponse",
+        {
+          "__typename": "KvdbAdvanceCursorResponse",
+          "entries": ["vector", ["KvdbKeyValues"]],
+          "done": "bool"
+        }
+      ],
+      [
+        "KvdbAdvanceCursorCountResponse",
+        {
+          "__typename": "KvdbAdvanceCursorCountResponse",
+          "count": "unsigned long",
+          "done": "bool"
+        }
+      ],
+      [
+        "KvdbCloseCursorResponse",
+        {
+          "__typename": "KvdbCloseCursorResponse",
+          "ok": "bool"
+        }
+      ],
+      [
+        "KvdbBatchResponse",
+        {
+          "__typename": "KvdbBatchResponse",
+          "durationNs": "unsigned long"
+        }
+      ],
+      [
+        "KvdbStatsResponse",
+        {
+          "__typename": "KvdbStatsResponse",
+          "stats": [
+            "vector",
+            [
+              {
+                "__typename": "KvdbDbStats",
+                "name": "string",
+                "numDataItems": "unsigned long",
+                "totalUsedSize": "unsigned long"
+              }
+            ]
+          ],
+          "dbMapSizeBytes": "unsigned long",
+          "dbPhysicalFileSizeBytes": "unsigned long"
+        }
+      ],
+      [
+        "KvdbCloseResponse",
+        {
+          "__typename": "KvdbCloseResponse",
+          "ok": "bool"
+        }
+      ],
+      [
+        "KvdbCopyStoreResponse",
+        {
+          "__typename": "KvdbCopyStoreResponse",
+          "ok": "bool"
+        }
+      ],
+      [
+        "KvdbShutdownResponse",
+        {
+          "__typename": "KvdbShutdownResponse"
+        }
+      ]
+    ]
+  ]
+}
