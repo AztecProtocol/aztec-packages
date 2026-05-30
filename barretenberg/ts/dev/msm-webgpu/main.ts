@@ -1414,12 +1414,17 @@ function hideProgress(): void {
     const reps = parseInt(qp.get('reps') ?? '5', 10);
     const client = makeResultsClient({ page: 'msm-bench' });
     log('info', `[bench] logN=${autorunLogN} reps=${reps}`);
+    // Emit an early progress row so the BrowserStack runner can detect this
+    // run's id while the page is still downloading the SRS / building the
+    // pipeline (the final /results row only lands after all reps).
+    client.postProgress({ phase: 'init', logN: autorunLogN, reps });
     try {
       // Wait for SRS + WASM ready (Run button enables)
       for (let i = 0; i < 1200; i++) {
         if (!$run.disabled) break;
         await new Promise(r => setTimeout(r, 500));
       }
+      client.postProgress({ phase: 'warmup' });
       $logn.value = String(autorunLogN);
       $logn.dispatchEvent(new Event('input'));
       // Use the existing globals path — click Run once for warmup
@@ -1460,6 +1465,7 @@ function hideProgress(): void {
         samples.push({ wallMs, gpuMs, phases });
         const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
         log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
+        client.postProgress({ phase: 'rep', rep: r + 1, reps, wallMs, gpuMs, stream_walker: phases['stream_walker'] ?? null });
       }
       const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
       const avgWall = avg(samples.map(s => s.wallMs));
