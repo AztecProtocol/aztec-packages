@@ -64,7 +64,7 @@ const $results = document.getElementById('results') as HTMLDivElement;
 
 // The sweep spans 2^10..2^20 — small sizes show where the GPU pipeline
 // overtakes the WASM Pippenger; the v2 pipeline has no size floor.
-const LOGN_MIN = 10;
+const LOGN_MIN = 8;
 const LOGN_MAX = 20;
 const SRS_NUM_POINTS = 1 << LOGN_MAX;
 
@@ -1405,7 +1405,51 @@ function hideProgress(): void {
   // can pick them up from JSONL.
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
-  if (autorun === 'msm-bench') {
+  if (autorun === 'msm-noble') {
+    // Direct GPU-vs-noble cross-check at an arbitrary (small) logN. Unlike
+    // msm-cross-check (which compares GPU against the WASM Pippenger and only
+    // consults noble at logN=16), this generates the points/scalars with a
+    // noble mirror, runs the GPU MSM, and compares the affine result to
+    // noble's reference. Headless-SwiftShader friendly: no WASM boot.
+    const autorunLogN = parseInt(qp.get('logn') ?? '10', 10);
+    const client = makeResultsClient({ page: 'msm-noble' });
+    log('info', `[noble-xcheck] logN=${autorunLogN}`);
+    try {
+      const inputs = await generateInputs(autorunLogN, /*mirrorForNoble=*/ true);
+      const { xy } = await runWebGpuOnce(inputs);
+      const ref = referenceMsm(inputs.points!, inputs.scalars!);
+      const agree = pointsEqual(xy, ref);
+      if (agree) {
+        log('ok', `[noble-xcheck] cross-check agree (gpu == noble) at logN=${autorunLogN}`);
+      } else {
+        log('err', `[noble-xcheck] cross-check disagreement: gpu.x=0x${xy.x.toString(16)} noble.x=0x${ref.x.toString(16)}`);
+      }
+      const state = agree ? 'done' : 'error';
+      await client.postResults({
+        state,
+        params: { logN: autorunLogN, page: 'msm-noble' },
+        results: { cross_ok: agree, gpu_x: '0x' + xy.x.toString(16), noble_x: '0x' + ref.x.toString(16) },
+        error: agree ? null : 'gpu != noble',
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[noble-xcheck] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'msm-noble' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
+  } else if (autorun === 'msm-bench') {
     const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
     const reps = parseInt(qp.get('reps') ?? '5', 10);
     const client = makeResultsClient({ page: 'msm-bench' });
