@@ -58,6 +58,16 @@ export interface MsmConfig {
   l0Log?: number;
   /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
   invVariant?: 'loop' | 'pk';
+  /**
+   * Stream-walker batched-inversion slots per thread (S). One field inversion
+   * is amortised across S affine adds, so larger S cuts the inversion's share
+   * of the accumulate kernel (inversion-cost-per-add = |inversion|/S) at the
+   * cost of more per-invocation private state. Default 8. Need not be a power
+   * of two — sweep to find the per-arch knee.
+   */
+  walkerS?: number;
+  /** Stream-walker workgroup size (TPB). Default 128 (private pref_scratch). */
+  walkerTpb?: number;
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
@@ -1235,6 +1245,8 @@ export class MsmV2 {
   private partialSumBind!: GPUBindGroup;
   private streamNumThreads = 8192;
   private streamS = 8;
+  private walkerS = 8;
+  private walkerTpb = 128;
   private numRadixTiles = 1;
   // layouts (needed by prepare to build bind groups)
   private plannerALayout!: GPUBindGroupLayout;
@@ -1392,6 +1404,8 @@ export class MsmV2 {
     m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
+    m.walkerS = config?.walkerS ?? 8;
+    m.walkerTpb = config?.walkerTpb ?? (WALKER_PREF_PRIVATE ? 128 : 64);
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
@@ -1584,7 +1598,7 @@ export class MsmV2 {
 
     // --- Streaming planner + accumulator pipelines ---
     const STREAM_T = 8192; // NUM_THREADS = max_workgroups × workgroup_size
-    const STREAM_S = 8;
+    const STREAM_S = m.walkerS;
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;
     m.streamS = STREAM_S;
@@ -1631,11 +1645,12 @@ export class MsmV2 {
     // can rise to 128; the workgroup fallback caps TPB at 64 (16 KB fits Mali
     // Bifrost). NUM_THREADS = nwg*256 still (partition_thread's grain); the
     // walker dispatches ceil(num_active/TPB) workgroups.
+    const WALKER_TPB_EFF = m.walkerTpb;
     m.partitionTaskPipe = await compile(
-      sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
+      sm.gen_ba_planner_partition_task_shader(WALKER_TPB_EFF, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, WALKER_PREF_PRIVATE),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB_EFF, STREAM_S, INV_VARIANT, WALKER_PREF_PRIVATE),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),

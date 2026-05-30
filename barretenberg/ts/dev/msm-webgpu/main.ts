@@ -85,6 +85,8 @@ const gpuKnobs: MsmConfig = (() => {
   return {
     c: optInt('c'),
     s: optInt('s'),
+    walkerS: optInt('walker_s'),
+    walkerTpb: optInt('walker_tpb'),
     wgi: optInt('wgi'),
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
@@ -1484,6 +1486,94 @@ function hideProgress(): void {
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({ state: 'error', params: { logN: autorunLogN, reps, page: 'msm-bench' }, results: null, error: msg, log: allLines.slice(-100), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+    }
+  } else if (autorun === 'msm-walker-sweep') {
+    // Single-session stream-walker S sweep. Builds one MsmV2 per S value,
+    // times `reps` steady-state runs, and records median/min wall (ms),
+    // total GPU ms (Apple timestamp-query only), and the algorithm's peak
+    // GPU buffer footprint (statsBytes, the memory axis). Because S only
+    // affects the walker (planner/decompose/reduce are S-independent), the
+    // wall-time delta across S is the walker's cost delta — the
+    // inversion-amortisation curve — and it works on every device class
+    // (Apple/Adreno/Mali) without per-pass timestamps.
+    const sweepLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const reps = parseInt(qp.get('reps') ?? '8', 10);
+    const verify = qp.get('verify') === '1';
+    const sList = (qp.get('walker_s_list') ?? '8,12,16,20,24,32')
+      .split(',').map(x => parseInt(x.trim(), 10)).filter(v => Number.isInteger(v) && v > 0);
+    const client = makeResultsClient({ page: 'msm-walker-sweep' });
+    log('info', `[sweep] logN=${sweepLogN} reps=${reps} verify=${verify} walker_s=[${sList.join(',')}] runId=${client.runId}`);
+    const median = (a: number[]) => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+    try {
+      const device = await get_device();
+      const hasTs = device.features.has('timestamp-query');
+      log('info', `[sweep] device ready (timestamp-query=${hasTs})`);
+      const inputs = await generateInputs(sweepLogN, verify);
+      // Noble reference (computed once; inputs are identical across S). Only
+      // feasible at modest logn — noble Pippenger of 2^sweepLogN points.
+      const ref = verify ? referenceMsm(inputs.points!, inputs.scalars!) : null;
+      if (ref) log('ok', `[sweep] noble ref ready: x=0x${ref.x.toString(16).slice(0, 16)}…`);
+      const rows: Record<string, unknown>[] = [];
+      for (const S of sList) {
+        log('info', `[sweep] === walker_s=${S} ===`);
+        // Fresh pool per S: the pool's scratch realloc keys on bTotal /
+        // numThreads, not streamS, so reusing one pool across increasing S
+        // would leave the walker's S-scaled buffers undersized. A fresh pool
+        // also makes statsBytes() report this S's true peak footprint.
+        const pool = await MsmV2Pool.create(device, inputs.pointsBuf);
+        const msm = await MsmV2.create(device, inputs.n, pool, { ...gpuKnobs, walkerS: S, profile: hasTs });
+        msm.prepare(inputs.scalarsBuf);
+        const warmXy = await msm.run(); // warm (first-touch) — untimed
+        const pass = ref ? pointsEqual(warmXy, ref) : null;
+        if (ref) log(pass ? 'ok' : 'err', `[sweep] S=${S} verify: ${pass ? 'PASS' : 'FAIL'} gpu.x=0x${warmXy.x.toString(16).slice(0, 16)}…`);
+        const walls: number[] = [];
+        const gpus: number[] = [];
+        for (let r = 0; r < reps; r++) {
+          const t0 = performance.now();
+          await msm.run();
+          walls.push(performance.now() - t0);
+          if (hasTs) { const g = await msm.readProfileGpuMs(); if (g > 0) gpus.push(g); }
+        }
+        const bytes = pool.statsBytes();
+        const row = {
+          walkerS: S,
+          verifyPass: pass,
+          wallMedianMs: median(walls),
+          wallMinMs: Math.min(...walls),
+          gpuMedianMs: gpus.length ? median(gpus) : null,
+          peakBytes: bytes,
+          peakMiB: +(bytes / 1024 / 1024).toFixed(2),
+        };
+        rows.push(row);
+        client.postProgress(row);
+        log('ok', `[sweep] S=${S}: wall med=${row.wallMedianMs.toFixed(2)}ms min=${row.wallMinMs.toFixed(2)}ms` +
+          ` gpu=${row.gpuMedianMs ? row.gpuMedianMs.toFixed(2) + 'ms' : 'n/a'} mem=${row.peakMiB}MiB`);
+        msm.destroy();
+        pool.destroy();
+      }
+      const baseline = rows.find(r => r.walkerS === 8) ?? rows[0];
+      const summary = rows.map(r => ({
+        ...r,
+        speedupVsS8: baseline ? +((baseline.wallMedianMs as number) / (r.wallMedianMs as number)).toFixed(3) : null,
+      }));
+      log('ok', `[sweep] DONE: ${summary.map(r => `S${r.walkerS}=${(r.wallMedianMs as number).toFixed(1)}ms(${r.speedupVsS8}x,${r.peakMiB}MiB)`).join(' ')}`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'done',
+        params: { logN: sweepLogN, reps, walker_s_list: sList, page: 'msm-walker-sweep' },
+        results: summary,
+        error: null,
+        log: allLines.slice(-150),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[sweep] FATAL: ${msg}`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({ state: 'error', params: { logN: sweepLogN, reps, page: 'msm-walker-sweep' }, results: null, error: msg, log: allLines.slice(-150), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
     }
   } else if (autorun === 'msm-cross-check') {
     const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);

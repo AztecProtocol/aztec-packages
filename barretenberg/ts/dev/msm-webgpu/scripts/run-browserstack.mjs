@@ -45,6 +45,9 @@ const { values: argv } = parseArgs({
     total: { type: "string" },
     sizes: { type: "string" },
     n: { type: "string" },
+    "walker-s-list": { type: "string" },
+    verify: { type: "boolean", default: false },
+    "no-coi": { type: "boolean", default: false },
     entries: { type: "string" },
     buckets: { type: "string" },
     seed: { type: "string" },
@@ -413,10 +416,15 @@ async function main() {
   // isolation the threaded WASM needs; --autorun selects msm-cross-check
   // (default) or msm-bench (timed reps with per-phase GPU breakdown).
   const qp = new URLSearchParams();
-  qp.set("coi", "1");
+  // COI (COOP/COEP) is only needed by the threaded-WASM oracle. The walker
+  // sweep uses real SRS via a cross-origin CORS fetch, which COEP=require-corp
+  // would block (the CDN sends no CORP header), so skip COI there.
+  if (!argv["no-coi"] && argv.autorun !== "msm-walker-sweep") qp.set("coi", "1");
   qp.set("autorun", argv.autorun);
   qp.set("logn", String(argv.n ?? "16"));
   if (argv.reps) qp.set("reps", String(argv.reps));
+  if (argv["walker-s-list"]) qp.set("walker_s_list", String(argv["walker-s-list"]));
+  if (argv.verify) qp.set("verify", "1");
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 
