@@ -18,7 +18,6 @@
  *   --cpp-namespace <ns>     C++ namespace (e.g. my::service)
  *   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
  *   --curve-constants <path> Generate TS curve constants from JSON at <path>
- *   --ffi-symbol <str>       Rust/Zig FFI entry symbol (default: ipc_ffi_entry)
  *
  * Zero npm dependencies — runs with Node.js 22+ via --experimental-strip-types.
  */
@@ -63,7 +62,6 @@ interface Args {
   cppIncludeDir: string;
   uds: boolean;
   ffi: boolean;
-  ffiSymbol: string;
   curveConstants: string;
   stripMethodPrefix: boolean;
 }
@@ -82,7 +80,6 @@ function parseArgs(argv: string[]): Args {
     cppIncludeDir: "",
     uds: false,
     ffi: false,
-    ffiSymbol: "ipc_ffi_entry",
     curveConstants: "",
     stripMethodPrefix: false,
   };
@@ -125,9 +122,6 @@ function parseArgs(argv: string[]): Args {
       case "--ffi":
         args.ffi = true;
         break;
-      case "--ffi-symbol":
-        args.ffiSymbol = argv[++i];
-        break;
       case "--curve-constants":
         args.curveConstants = argv[++i];
         break;
@@ -157,7 +151,6 @@ Optional:
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
   --cpp-include-dir <path> Include path for generated dir (e.g. myservice/generated)
   --curve-constants <path> Generate TS curve constants from JSON at <path>
-  --ffi-symbol <str>       Rust/Zig FFI entry symbol (default: ipc_ffi_entry)
   --strip-method-prefix    Strip prefix from TS method names (e.g. BbCircuitProve -> circuitProve)`);
     process.exit(1);
   }
@@ -212,38 +205,24 @@ function detectPrefix(compiled: CompiledSchema): string {
 // Template copying
 // ---------------------------------------------------------------------------
 
-function copyTemplate(
-  lang: string,
-  filename: string,
-  outDir: string,
-  replacements: Record<string, string> = {},
-) {
+function copyTemplate(lang: string, filename: string, outDir: string) {
   const templatePath = join(__dirname, "..", "templates", lang, filename);
   const destPath = join(outDir, filename);
-  let content = readFileSync(templatePath, "utf-8");
-  for (const [key, value] of Object.entries(replacements)) {
-    content = content.replaceAll(key, value);
-  }
   // Atomic write — see writeFile() above for the race this guards.
   const tmpPath = `${destPath}.${process.pid}.tmp`;
-  writeFileSync(tmpPath, content);
+  writeFileSync(tmpPath, readFileSync(templatePath, "utf-8"));
   renameSync(tmpPath, destPath);
   console.log(`  ${destPath} (template)`);
 }
 
 /** Copy template only if destination doesn't exist (idempotent, one-time) */
-function copyTemplateOnce(
-  lang: string,
-  filename: string,
-  outDir: string,
-  replacements: Record<string, string> = {},
-) {
+function copyTemplateOnce(lang: string, filename: string, outDir: string) {
   const destPath = join(outDir, filename);
   if (existsSync(destPath)) {
     console.log(`  ${destPath} (exists, skipped)`);
     return;
   }
-  copyTemplate(lang, filename, outDir, replacements);
+  copyTemplate(lang, filename, outDir);
 }
 
 function copyTemplateDir(lang: string, dirname: string, outDir: string) {
@@ -382,9 +361,7 @@ function generate(args: Args) {
         copyTemplateOnce("rust", "error.rs", absOut);
       }
       if (args.ffi) {
-        copyTemplateOnce("rust", "ffi_backend.rs", absOut, {
-          __IPC_FFI_SYMBOL__: args.ffiSymbol,
-        });
+        copyTemplateOnce("rust", "ffi_backend.rs", absOut);
       }
       // Skeleton (one-time handler stubs + main + build files)
       if (args.skeleton) {
@@ -449,9 +426,7 @@ function generate(args: Args) {
         copyTemplateOnce("zig", "backend.zig", absOut);
       }
       if (args.ffi) {
-        copyTemplateOnce("zig", "ffi_backend.zig", absOut, {
-          __IPC_FFI_SYMBOL__: args.ffiSymbol,
-        });
+        copyTemplateOnce("zig", "ffi_backend.zig", absOut);
       }
       // Skeleton (one-time handler stubs + main + build files)
       if (args.skeleton) {
