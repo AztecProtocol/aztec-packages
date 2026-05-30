@@ -1726,5 +1726,102 @@ function hideProgress(): void {
       msm?.destroy();
       pool?.destroy();
     }
+  } else if (autorun === 'glv-compare') {
+    // Side-by-side baseline (V2, n-point, 254-bit, T=17) vs GLV (2n-point,
+    // 127-bit, c=15, T=9) at one logN. Reports the per-MSM algorithm working
+    // set (MsmV2.statsBytes(), excludes shared point pool) for both — a real
+    // allocated-GPU-byte figure, valid even under SwiftShader. With `?time=1`
+    // it also times a steady-state dispatch for each (only meaningful on real
+    // GPUs). No noble check, so it runs at scale.
+    const autorunLogN = parseInt(qp.get('logn') ?? '16', 10);
+    const doTime = qp.get('time') === '1';
+    // Optional fixed window size applied to BOTH baseline and GLV, so the only
+    // difference is the window count T (= ceil(bits/c)). Default: baseline uses
+    // pickC, GLV uses c=15 (the n>=2^16 production size). Set ?c=8 to measure a
+    // well-sized config at a SwiftShader-feasible logN.
+    const cParam = qp.get('c') ? parseInt(qp.get('c')!, 10) : null;
+    const client = makeResultsClient({ page: 'msm-autorun' });
+    log('info', `[autorun] glv-compare logN=${autorunLogN} time=${doTime} c=${cParam ?? 'default'}`);
+    const waitForRun = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('Run button never enabled within 10 minutes');
+    };
+    const buildAndMeasure = async (
+      device: GPUDevice,
+      pointsBuf: Uint8Array,
+      scalarsBuf: Uint8Array,
+      n: number,
+      cfg: MsmConfig,
+    ): Promise<{ algoBytes: number; poolBytes: number; numWindows: number; ms: number | null }> => {
+      const p = await MsmV2Pool.create(device, pointsBuf);
+      const m = await MsmV2.create(device, n, p, cfg);
+      m.prepare(scalarsBuf);
+      let ms: number | null = null;
+      if (doTime) {
+        await m.run();
+        const t0 = performance.now();
+        await m.run();
+        ms = performance.now() - t0;
+      }
+      const algoBytes = m.statsBytes();
+      const poolBytes = p.statsBytes();
+      const numWindows = m.numWindows;
+      m.destroy();
+      p.destroy();
+      return { algoBytes, poolBytes, numWindows, ms };
+    };
+    try {
+      await waitForRun();
+      const inputs = await generateInputs(autorunLogN, true);
+      if (!inputs.points || !inputs.scalars) throw new Error('mirror inputs missing');
+      const device = await get_device();
+
+      // Measure each side independently so a failure on one (e.g. a driver
+      // limit hit only by the larger 2n GLV point set) still reports the other.
+      type Side = { numWindows: number; algoBytes: number; poolBytes: number; ms: number | null } | { error: string };
+      const measure = async (label: string, pts: Uint8Array, scs: Uint8Array, nn: number, cfg: MsmConfig): Promise<Side> => {
+        try {
+          const r = await buildAndMeasure(device, pts, scs, nn, cfg);
+          log('info', `[${label}] T=${r.numWindows} algo=${(r.algoBytes / 2 ** 20).toFixed(2)}MiB pool=${(r.poolBytes / 2 ** 20).toFixed(2)}MiB${r.ms !== null ? ` gpu=${r.ms.toFixed(1)}ms` : ''}`);
+          return r;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          log('err', `[${label}] failed: ${msg}`);
+          return { error: msg };
+        }
+      };
+      const baseCfg: MsmConfig = cParam ? { c: cParam } : {};
+      const base = await measure('base', inputs.pointsBuf, inputs.scalarsBuf, inputs.n, baseCfg);
+      const glv = buildGlvInputs(inputs.points, inputs.scalars);
+      const g = await measure('glv ', glv.pointsBuf, glv.scalarsBuf, glv.n2, { scalarBitLength: GLV_HALF_SCALAR_BITS, c: cParam ?? 15 });
+
+      if ('numWindows' in base && 'numWindows' in g) {
+        const algoRatio = base.algoBytes / g.algoBytes;
+        const speedup = base.ms !== null && g.ms !== null && g.ms > 0 ? base.ms / g.ms : null;
+        log('ok', `[glv-compare] T ${base.numWindows}->${g.numWindows}; algo-buffer base/glv=${algoRatio.toFixed(2)}x${speedup !== null ? `; speedup base/glv=${speedup.toFixed(2)}x` : ''}`);
+      }
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, page: 'msm-autorun', algo: 'glv-compare', time: doTime },
+        results: { base, glv: g },
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'msm-autorun', algo: 'glv-compare' },
+        results: null,
+        error: msg,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
   }
 })();
