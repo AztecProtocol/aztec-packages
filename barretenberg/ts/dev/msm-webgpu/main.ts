@@ -96,6 +96,10 @@ const gpuKnobs: MsmConfig = (() => {
     walkerS: optInt('walkers'),
     walkerTpb: optInt('walkertpb'),
     walkerNumThreads: optInt('walkert'),
+    // ?warmup=N overrides MsmV2's create()-time warm-up MSM count (default 5).
+    // ?warmup=0 makes a SwiftShader correctness pass tractable (5 cold software
+    // MSMs would otherwise dominate); real-HW perf runs keep the default.
+    warmupRuns: (() => { const v = q.get('warmup'); if (v === null) return undefined; const n = Number(v); return Number.isInteger(n) && n >= 0 ? n : undefined; })(),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     profile:
       q.get('profile') === '1' ||
@@ -1659,10 +1663,11 @@ function hideProgress(): void {
       const medPhases: Record<string, number> = {};
       for (const k of phaseKeys) medPhases[k] = med(samples.map(s => s.phases[k] ?? 0));
       const state = nobleOk === false ? 'error' : 'done';
+      const fmt1 = (v: number): string => (Number.isFinite(v) ? v.toFixed(1) : 'n/a');
       log(
         state === 'done' ? 'ok' : 'err',
-        `[walker-bench] DONE median wall=${medWall.toFixed(1)}ms ` +
-          `walker_phase=${(medPhases['stream_walker'] ?? 0).toFixed(1)}ms nobleOk=${nobleOk}`,
+        `[walker-bench] DONE median wall=${fmt1(medWall)}ms ` +
+          `walker_phase=${fmt1(medPhases['stream_walker'])}ms nobleOk=${nobleOk}`,
       );
       await client.postResults({
         state,
