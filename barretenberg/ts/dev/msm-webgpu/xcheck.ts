@@ -79,11 +79,22 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
 }
 
 (async () => {
-  const logN = parseInt(new URLSearchParams(window.location.search).get('logn') ?? '10', 10);
+  const qp = new URLSearchParams(window.location.search);
+  const logN = parseInt(qp.get('logn') ?? '10', 10);
+  const reps = parseInt(qp.get('reps') ?? '5', 10);
   const n = 1 << logN;
+  // Unique run id so the BrowserStack orchestrator (run-browserstack.mjs) can
+  // detect this run in the shared JSONL and apply its watchdogs.
+  const runId = `xcheck-${logN}-${Math.random().toString(36).slice(2, 10)}`;
   try {
-    log('info', `xcheck start: logN=${logN} (n=${n})`);
+    log('info', `xcheck start: runId=${runId} logN=${logN} (n=${n}) reps=${reps}`);
     if (!('gpu' in navigator)) throw new Error('navigator.gpu is undefined — no WebGPU');
+    // Early progress ping so the orchestrator detects the runId quickly and the
+    // no-first-progress watchdog is satisfied before the (slower) noble run.
+    await fetch('/progress', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ runId, phase: 'start', logN }),
+    }).catch(() => {});
 
     // Generate n distinct on-curve BN254 G1 bases as deterministic scalar
     // multiples of the generator. We avoid the CRS-CDN SRS fetch because the
@@ -92,20 +103,15 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
     // the only requirement is that BOTH sides consume the identical valid G1
     // points; these noble-generated bases satisfy that. (No source edits to
     // srs.ts; this harness simply supplies its own bases.)
-    log('info', `generating ${n} on-curve G1 bases (generator multiples)…`);
+    log('info', `generating ${n} random on-curve G1 bases (r_i·G)…`);
     const G = bn254.G1.ProjectivePoint.BASE;
     const points = new Array<{ x: bigint; y: bigint }>(n);
     const pointsBuf = new Uint8Array(n * 64);
-    {
-      // P_0 = G, P_{i+1} = P_i + G  → distinct, non-identity, on-curve points.
-      let acc = G;
-      for (let i = 0; i < n; i++) {
-        const aff = acc.toAffine();
-        points[i] = { x: aff.x, y: aff.y };
-        writeLe32(pointsBuf, i * 64, aff.x);
-        writeLe32(pointsBuf, i * 64 + 32, aff.y);
-        acc = acc.add(G);
-      }
+    for (let i = 0; i < n; i++) {
+      const aff = G.multiply(randomFr() || 1n).toAffine();
+      points[i] = { x: aff.x, y: aff.y };
+      writeLe32(pointsBuf, i * 64, aff.x);
+      writeLe32(pointsBuf, i * 64 + 32, aff.y);
     }
     log('ok', `bases ready: ${n} points`);
 
@@ -123,13 +129,46 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
     log('ok', 'device ready');
 
     const pool = await MsmV2Pool.create(device, pointsBuf);
-    const msm = await MsmV2.create(device, n, pool, {});
+    const msm = await MsmV2.create(device, n, pool, { profile: true });
     log('ok', 'MsmV2 ready');
+
+    // Per-architecture autotuner decision for this device.
+    const wgStorage = (device.limits as unknown as Record<string, number>)['maxComputeWorkgroupStorageSize'];
+    const adapterInfo = (device as unknown as { adapterInfo?: GPUAdapterInfo }).adapterInfo;
+    const wc = msm.walkerConfig;
+    const autotune = {
+      arch: wc.arch, tpb: wc.tpb, s: wc.s,
+      prefScratchBytes: wc.prefScratchBytes, prefScratchPlacement: wc.prefScratchPlacement,
+      wgStorage, reason: wc.reason,
+      vendor: adapterInfo?.vendor, architecture: adapterInfo?.architecture,
+    };
+    log('ok',
+      `[autotune] vendor=${adapterInfo?.vendor ?? '?'} arch=${wc.arch}(${adapterInfo?.architecture ?? '?'}) ` +
+      `wgStorage=${wgStorage}B → TPB=${wc.tpb} S=${wc.s} pref_scratch=${wc.prefScratchBytes}B`);
 
     msm.prepare(scalarBytes);
     await msm.run(); // warm-up (first-touch)
     const gpuXy = await msm.run();
     log('ok', `[gpu] x=0x${gpuXy.x.toString(16).slice(0, 16)}…`);
+
+    // Timed reps: wall around run() + (when timestamp-query is available) the
+    // summed per-pass GPU breakdown, including the stream_walker accumulate.
+    const wallSamples: number[] = [];
+    let lastProfile: Record<string, number> | null = null;
+    for (let r = 0; r < reps; r++) {
+      const t0 = performance.now();
+      const out = await msm.run();
+      wallSamples.push(performance.now() - t0);
+      if (out.profile) lastProfile = out.profile as unknown as Record<string, number>;
+    }
+    wallSamples.sort((a, b) => a - b);
+    const medWall = wallSamples[Math.floor(wallSamples.length / 2)];
+    const gpuSum = lastProfile
+      ? Object.entries(lastProfile).filter(([k]) => k !== 'wall').reduce((a, [, v]) => a + (v ?? 0), 0)
+      : null;
+    log('ok',
+      `[timing] median wall=${medWall.toFixed(2)}ms over ${reps} reps` +
+      (gpuSum !== null ? `; gpu_sum=${gpuSum.toFixed(2)}ms walker=${(lastProfile?.fused ?? lastProfile?.stream_walker ?? 0).toFixed(2)}ms` : ' (no timestamp-query)'));
     log('info', `[gpu] full x=0x${gpuXy.x.toString(16)}`);
     log('info', `[gpu] full y=0x${gpuXy.y.toString(16)}`);
 
@@ -155,9 +194,12 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
     setStatus(ok ? 'PASS' : 'FAIL', ok ? 'ok' : 'err');
     await postResult({
       state: ok ? 'done' : 'error',
+      runId,
       logN,
       n,
       cross_ok: ok,
+      autotune,
+      timing: { medianWallMs: medWall, wallSamplesMs: wallSamples, gpuSumMs: gpuSum, profile: lastProfile },
       gpu_x: `0x${gpuXy.x.toString(16)}`,
       gpu_y: `0x${gpuXy.y.toString(16)}`,
       noble_x: `0x${nobleAff.x.toString(16)}`,
@@ -168,6 +210,6 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
     const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
     log('err', `top-level: ${msg}`);
     setStatus(`THROW: ${msg}`, 'err');
-    await postResult({ state: 'error', logN, n, error: msg, log: lines });
+    await postResult({ state: 'error', runId, logN, n, error: msg, log: lines });
   }
 })();

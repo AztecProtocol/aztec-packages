@@ -130,6 +130,10 @@ if (!TARGETS[argv.target]) {
 
 const pageMap = {
   index: "/dev/msm-webgpu/index.html",
+  // WebGPU-only cross-check + autotune/timing report. No WASM-MT, no COI, no
+  // SRS-CDN dependency — the path that actually completes on mobile devices
+  // where the threaded-WASM oracle never initializes.
+  xcheck: "/dev/msm-webgpu/xcheck.html",
 };
 if (!pageMap[argv.page]) {
   err(`unknown --page ${argv.page}; known: ${Object.keys(pageMap).join(", ")}`);
