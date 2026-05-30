@@ -65,6 +65,17 @@ export interface MsmConfig {
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
   /**
+   * Peak per-MSM scratch budget in bytes. `prepare()` raises the window-batch
+   * count (`numBatches`) until the batch-dependent scratch (the CSR index
+   * planes `l0Idx`/`bucketAndSign`/`valIdx`, the counts/offsets, and rowPtr —
+   * all sized `batchWindows·n`) fits under this cap. Higher `numBatches` =
+   * smaller peak footprint, more sub-passes. Independent of `wgFits`, which
+   * still floors `numBatches` for the workgroup-count limit. Default
+   * {@link MEM_BUDGET}; a no-op there for n ≤ 2^20. Tighten it on
+   * memory-constrained GPUs to trade batch passes for peak GPU memory.
+   */
+  memBudgetBytes?: number;
+  /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
    * Default 5 (benchmark harness); the production bridge passes 0 so the first
@@ -1301,6 +1312,8 @@ export class MsmV2 {
   // can skip dispatching tiles past the current plan's totalPairBlocks.
   private fusedTileSize: number = 0;
   private numBatches = 1;
+  /** Peak per-MSM scratch budget (bytes) — drives `numBatches`. See MsmConfig.memBudgetBytes. */
+  private memBudget = MEM_BUDGET;
   private batchWindows = 0;
   private levels = 0;
   private nXposePts = 0;
@@ -1385,6 +1398,7 @@ export class MsmV2 {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
+    m.memBudget = config?.memBudgetBytes ?? MEM_BUDGET;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -1777,33 +1791,40 @@ export class MsmV2 {
     const levels = levelPlans.length;
 
     // --- Lever G: budget-driven window-batch count.
-    const maxPairBlocksPerWindow = Math.max(1, ...levelPlans.map(p => p.pairBlocksPerWindow));
-    const maxCarriesPerWindow = Math.max(1, ...levelPlans.map(p => p.carriesPerWindow));
     const RED_M = this.redM;
+    // Peak per-MSM scratch for a given window-batch count, matching the walker
+    // path's live buffer set (the pair-tree bufA/bufB/ring/prefScratch are
+    // 4-byte stubs here, so they no longer appear). `batchDep` shrinks with
+    // `nb` (the CSR index planes + counts/offsets + rowPtr, all sized
+    // `batchWindows·n` or `·BW`); `fixed` is independent of `nb` (bucket sums,
+    // window reduction, scalars, the walker working set, the bucket lists).
+    // Pool SRS (poolX/poolY) is excluded — it is shared, not per-MSM scratch.
+    const Mp = 2 * this.streamNumThreads * this.streamS;
+    const fixedScratch =
+      64 * B_TOTAL + // bucketResultBuf
+      68 * RED_M + // redBuf (64·) + isPresentBuf (4·)
+      32 * n + // scalarsRawBuf
+      64 * Mp + // walkerPartials
+      3 * 4 * Mp + // walkerPartialDest + walkerNodesSlot + walkerNodesNext
+      this.streamNumThreads * (this.streamS + 1) * 2 * 4 + // taskCuts
+      this.streamNumThreads * 2 * 4 + // threadCuts
+      10 * B_TOTAL; // size1BucketList (8·) + dense/sorted/cumul lists (5×4·) + bucketHead (4·) ≈ rounded
     const estimateMem = (nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
-      const m1 = bw * wstride1 + 3;
       const bSlots = bw * n;
       const bBuckets = bw * BW;
-      const tc = bw * maxPairBlocksPerWindow;
-      const tile = Math.min(Math.ceil((1 << 16) / WGI) * WGI, Math.max(WGI, Math.ceil(tc / WGI) * WGI));
-      return (
-        2 * 64 * m1 +
-        64 * B_TOTAL +
-        4 * 4 * bBuckets +
-        4 * (bSlots + 3) +
-        2 * (3 * tc * S + 2 * bw * maxCarriesPerWindow) * 4 +
-        tile * S * 8 * 4 +
-        3 * 4 * bSlots +
-        4 * bw * (BW + 1) +
-        4 * bBuckets +
-        4 * 32 * n +
-        68 * RED_M
-      );
+      const batchDep =
+        4 * (bSlots + 3) + // l0IdxBuf
+        4 * bSlots + // bucketAndSignBuf
+        4 * bSlots + // valIdxBuf
+        4 * 4 * bBuckets + // countsBufs[2] + offsetsBufs[2]
+        4 * bw * (BW + 1); // rowPtrBuf
+      return batchDep + fixedScratch;
     };
     const wgFits = (nb: number): boolean => Math.ceil((Math.ceil(NUM_WINDOWS / nb) * n) / WGI) < 65000;
+    const memFits = (nb: number): boolean => estimateMem(nb) <= this.memBudget;
     let numBatches = 1;
-    while (numBatches < NUM_WINDOWS && !wgFits(numBatches)) numBatches++;
+    while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || !memFits(numBatches))) numBatches++;
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;
     const batchSlots = batchWindows * n;
