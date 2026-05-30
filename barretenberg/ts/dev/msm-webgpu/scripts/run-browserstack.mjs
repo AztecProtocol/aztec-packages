@@ -50,6 +50,7 @@ const { values: argv } = parseArgs({
     seed: { type: "string" },
     skew: { type: "string" },
     ss: { type: "string" },
+    slist: { type: "string" },
     wgi: { type: "string" },
     port: { type: "string", default: "5198" },
     "first-progress-ms": { type: "string" },
@@ -423,6 +424,9 @@ async function main() {
   // `streamS` knob so a single device session can sweep the inversion-
   // amortization curve (S = 8,12,16,…) without a rebuild.
   if (argv.ss) qp.set("ss", String(argv.ss));
+  // S list for the single-session msm-s-sweep autorun (one worker maps the
+  // whole curve), e.g. --slist 8,12,16,20,24,32.
+  if (argv.slist) qp.set("slist", String(argv.slist));
   if (argv.wgi) qp.set("wgi", String(argv.wgi));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
