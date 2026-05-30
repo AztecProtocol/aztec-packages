@@ -3078,6 +3078,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     var split_start:    array<u32, {{ s }}>;   // current bucket shared with a prior task
     var acc_x:          array<array<u32, 8>, {{ s }}>;
     var acc_y:          array<array<u32, 8>, {{ s }}>;
+{{#dx_cache}}
+    // dx-caching: the forward pass loads each slot's left/right x-coords and
+    // computes dx once; the inverse pass and backward peel reuse them instead
+    // of re-reading point_x (3× -> 1× per x-coord) and re-subtracting. The
+    // operands are invariant across the three passes of one loop iteration
+    // (cursor advances only at the end of the peel), so the cache is exact.
+    var slot_dx:        array<array<u32, 8>, {{ s }}>;
+    var slot_lx:        array<array<u32, 8>, {{ s }}>;
+    var slot_rx:        array<array<u32, 8>, {{ s }}>;
+{{/dx_cache}}
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -3199,6 +3209,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 p_rx = load_pt_x(cursor[k]);
             }
             let dx = fr_sub_f8(p_rx, p_lx);
+{{#dx_cache}}
+            slot_lx[k] = p_lx;
+            slot_rx[k] = p_rx;
+            slot_dx[k] = dx;
+{{/dx_cache}}
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
             store_pref(pref_base + k * 2u, acc);
         }
@@ -3216,6 +3231,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 let pp = load_pref(pref_base + (k - 1u) * 2u);
                 inv_dx = montgomery_product_f8(inv, pp);
+{{#dx_cache}}
+                inv = montgomery_product_f8(inv, slot_dx[k]);
+{{/dx_cache}}
+{{^dx_cache}}
                 var p_lx_b: array<u32, 8>;
                 var p_rx_b: array<u32, 8>;
                 if (slot_done[k] == 1u) {
@@ -3230,6 +3249,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 }
                 let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
                 inv = montgomery_product_f8(inv, dx_b);
+{{/dx_cache}}
             }
             store_pref(pref_base + k * 2u, inv_dx);
         }
@@ -3243,6 +3263,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var p_ly: array<u32, 8>;
             var p_rx: array<u32, 8>;
             var p_ry: array<u32, 8>;
+{{#dx_cache}}
+            // x-coords were cached in the forward pass; only the y-coords are
+            // read here (point_x is never re-read across the three passes).
+            p_lx = slot_lx[k];
+            p_rx = slot_rx[k];
+            if (is_first[k] == 1u) {
+                p_ly = load_pt_y(cursor[k]);
+                p_ry = load_pt_y(cursor[k] + 1u);
+                cursor[k] += 2u;
+            } else {
+                p_ly = acc_y[k];
+                p_ry = load_pt_y(cursor[k]);
+                cursor[k] += 1u;
+            }
+{{/dx_cache}}
+{{^dx_cache}}
             if (is_first[k] == 1u) {
                 p_lx = load_pt_x(cursor[k]);
                 p_ly = load_pt_y(cursor[k]);
@@ -3256,6 +3292,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 p_ry = load_pt_y(cursor[k]);
                 cursor[k] += 1u;
             }
+{{/dx_cache}}
 
             let inv_dx = load_pref(pref_base + k * 2u);
             var lambda = fr_sub_f8(p_ry, p_ly);

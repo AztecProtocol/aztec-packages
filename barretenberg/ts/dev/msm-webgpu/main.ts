@@ -108,6 +108,7 @@ const gpuKnobs: MsmConfig = (() => {
     walkerPref:
       q.get('pref') === 'device' ? 'device' : q.get('pref') === 'private' ? 'private' : q.get('pref') === 'workgroup' ? 'workgroup' : undefined,
     streamThreads: optInt('sthreads'),
+    walkerDxCache: q.get('dxcache') === '0' ? false : undefined,
   };
 })();
 

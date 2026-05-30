@@ -71,6 +71,12 @@ export interface MsmConfig {
    */
   walkerPref?: 'workgroup' | 'device' | 'private';
   /**
+   * Cache the forward-pass dx + x-operands in the stream-walker so the inverse
+   * pass and backward peel reuse them instead of re-reading point_x (3×→1× per
+   * x-coord). Default true; set false to A/B the un-cached path.
+   */
+  walkerDxCache?: boolean;
+  /**
    * Override NUM_THREADS for the stream-walker planner/accumulator. Default
    * 8192. Right-sizing this below 8192 at small n shrinks the STREAM_T-scaled
    * scratch (walkerPartials, taskCuts, walkerNodes) without changing results.
@@ -1695,11 +1701,12 @@ export class MsmV2 {
     // (partition_thread's grain); walker dispatches ceil(num_active/TPB) wgs.
     const WALKER_TPB = config?.walkerTpb ?? 64;
     const WALKER_PREF = m.walkerPref;
+    const WALKER_DXCACHE = config?.walkerDxCache ?? true;
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, WALKER_PREF),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, WALKER_PREF, WALKER_DXCACHE),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),

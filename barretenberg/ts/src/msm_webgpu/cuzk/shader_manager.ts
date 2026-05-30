@@ -905,6 +905,7 @@ ${packLines.join('\n')}
     s: number,
     variant: 'loop' | 'pk' = 'pk',
     pref: 'workgroup' | 'device' | 'private' = 'workgroup',
+    dxCache = true,
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
@@ -916,6 +917,7 @@ ${packLines.join('\n')}
         workgroup_size, s, inv_fn,
         pref_device: pref === 'device',
         pref_private: pref === 'private',
+        dx_cache: dxCache,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
