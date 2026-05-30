@@ -246,6 +246,13 @@ export interface P2PConfig
 
   /** Accept proposal gossip regardless of slot timing (for testing only). */
   skipProposalSlotValidation?: boolean;
+
+  /**
+   * Whether this node skips checkpoint proposal validation and always attests. When set, the checkpoint
+   * attestation is created and broadcast before the embedded last block is processed, so it is not delayed
+   * past the slot's attestation window by that block's re-execution. Mirrors the validator config flag.
+   */
+  skipCheckpointProposalValidation?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -578,6 +585,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   skipProposalSlotValidation: {
     description: 'Accept proposal gossip regardless of slot timing (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  skipCheckpointProposalValidation: {
+    description:
+      'Skip checkpoint proposal validation and always attest, broadcasting the attestation before processing the embedded last block',
     ...booleanConfigHelper(false),
   },
   minTxPoolAgeMs: {

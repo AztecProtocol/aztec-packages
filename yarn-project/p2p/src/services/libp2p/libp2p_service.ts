@@ -1342,17 +1342,33 @@ export class LibP2PService extends WithTracer implements P2PService {
       TopicType.checkpoint_proposal,
     );
 
+    // Process checkpoint proposal if valid and not equivocated.
+    const processCheckpointFn = () =>
+      result === TopicValidatorResult.Accept && checkpoint && !isEquivocated
+        ? this.processValidCheckpointProposal(checkpoint.toCore(), source)
+        : Promise.resolve();
+
     // If the checkpoint contained a valid last block, we process it even if the checkpoint itself is to be rejected
     // TODO(palla/mbps): Is this ok? Should we be considering a block from a checkpoint that was equivocated?
-    if (processBlock && checkpoint?.getBlockProposal()) {
-      await this.processValidBlockProposal(checkpoint.getBlockProposal()!, source);
-    }
+    const processBlockFn = () =>
+      processBlock && checkpoint && checkpoint.getBlockProposal()
+        ? this.processValidBlockProposal(checkpoint.getBlockProposal()!, source)
+        : Promise.resolve();
 
-    if (result !== TopicValidatorResult.Accept || !checkpoint || isEquivocated) {
+    // A node that skips checkpoint validation attests without re-executing the embedded last block, so run
+    // the checkpoint callback first: this creates and broadcasts the attestation before the block is
+    // processed. Otherwise the block's re-execution — which can stall until the re-execution deadline
+    // waiting for a parent that may never arrive — would delay the attestation past the slot's attestation
+    // window, after which peers reject it as stale.
+    if (this.config.skipCheckpointProposalValidation) {
+      await processCheckpointFn();
+      await processBlockFn();
       return;
     }
 
-    await this.processValidCheckpointProposal(checkpoint.toCore(), source);
+    // Process the block first, since it's required for the checkpoint proposal validation.
+    await processBlockFn();
+    await processCheckpointFn();
   }
 
   /**
