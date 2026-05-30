@@ -130,6 +130,9 @@ if (!TARGETS[argv.target]) {
 
 const pageMap = {
   index: "/dev/msm-webgpu/index.html",
+  // WASM/SRS-free MsmV2-vs-noble correctness + walker profiling harness.
+  // Uses ?logns=…&reps=…&indep=1 plus walker knobs (forwarded via EXTRA_Q).
+  correctness: "/dev/msm-webgpu/msm-correctness.html",
 };
 if (!pageMap[argv.page]) {
   err(`unknown --page ${argv.page}; known: ${Object.keys(pageMap).join(", ")}`);
@@ -414,9 +417,22 @@ async function main() {
   // (default) or msm-bench (timed reps with per-phase GPU breakdown).
   const qp = new URLSearchParams();
   qp.set("coi", "1");
-  qp.set("autorun", argv.autorun);
-  qp.set("logn", String(argv.n ?? "16"));
-  if (argv.reps) qp.set("reps", String(argv.reps));
+  if (argv.page === "correctness") {
+    // msm-correctness.html: ?logns=… (comma list), ?reps=…, indep points.
+    qp.set("logns", String(argv.n ?? "16"));
+    qp.set("indep", "1");
+    if (argv.reps) qp.set("reps", String(argv.reps));
+  } else {
+    qp.set("autorun", argv.autorun);
+    qp.set("logn", String(argv.n ?? "16"));
+    if (argv.reps) qp.set("reps", String(argv.reps));
+  }
+  // EXTRA_Q forwards arbitrary MsmConfig knobs (e.g. walkers=16&walkermaxwg=16)
+  // straight into the page query string, so one driver invocation can sweep a
+  // single parameter on a single BrowserStack seat.
+  if (process.env.EXTRA_Q) {
+    for (const [k, v] of new URLSearchParams(process.env.EXTRA_Q)) qp.set(k, v);
+  }
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 

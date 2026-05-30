@@ -40,6 +40,21 @@ async function postResult(payload: Record<string, unknown>) {
   }
 }
 
+// Heartbeat to /progress so the BrowserStack runner's stall/first-progress
+// watchdogs see liveness during long mobile runs (which only post /results at
+// the very end). ts is required by the runner's stall detector.
+async function postProgress(stage: string, extra: Record<string, unknown> = {}) {
+  try {
+    await fetch('/progress', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ runId: (window as any).__runId, ts: new Date().toISOString(), stage, ...extra }),
+    });
+  } catch {
+    // progress is best-effort
+  }
+}
+
 (window as any).__runId = `corr-${Math.random().toString(36).slice(2)}-${Date.now()}`;
 
 const FR_ORDER = bn254.fields.Fr.ORDER;
@@ -91,6 +106,18 @@ function randomFr(): bigint {
 function makePoints(n: number): { pointsBuf: Uint8Array; affine: { x: bigint; y: bigint }[] } {
   const pointsBuf = new Uint8Array(n * 64);
   const affine = new Array<{ x: bigint; y: bigint }>(n);
+  // ?indep=1 → each point an independent random multiple of G (n scalar-muls,
+  // slow but no AP linear relation); default → random arithmetic progression.
+  const indep = new URLSearchParams(window.location.search).get('indep') === '1';
+  if (indep) {
+    for (let i = 0; i < n; i++) {
+      const a = bn254.G1.ProjectivePoint.BASE.multiply(randomFr()).toAffine();
+      affine[i] = { x: a.x, y: a.y };
+      pointsBuf.set(biToLe32(a.x), i * 64);
+      pointsBuf.set(biToLe32(a.y), i * 64 + 32);
+    }
+    return { pointsBuf, affine };
+  }
   const start = randomFr();
   const stride = randomFr();
   let acc = bn254.G1.ProjectivePoint.BASE.multiply(start);
@@ -113,7 +140,10 @@ const gpuKnobs: MsmConfig = (() => {
     const v = Number(raw);
     return Number.isInteger(v) && v > 0 ? v : undefined;
   };
-  return { c: optInt('c'), s: optInt('s'), wgi: optInt('wgi'), reduceWg: optInt('reducewg') };
+  return {
+    c: optInt('c'), s: optInt('s'), wgi: optInt('wgi'), reduceWg: optInt('reducewg'),
+    walkerS: optInt('walkers'), walkerMaxWg: optInt('walkermaxwg'),
+  };
 })();
 
 // Build-only memory probe: statsBytes() is a pure function of n, so we can read
@@ -139,8 +169,10 @@ async function memProbe(device: GPUDevice, logN: number): Promise<number> {
       .filter(Number.isFinite);
 
     log('info', 'requesting WebGPU device...');
+    await postProgress('boot');
     const device = await get_device();
     log('ok', 'device ready');
+    await postProgress('device-ready');
 
     // Optional memory-footprint probe (?mem=17,20): build-only, no compute.
     const memLogns = (qp.get('mem') ?? '')
@@ -152,12 +184,19 @@ async function memProbe(device: GPUDevice, logN: number): Promise<number> {
       log('info', `[mem] logN=${logN} (n=${1 << logN}): algorithm buffers = ${(bytes / 1024 / 1024).toFixed(1)} MiB`);
     }
 
-    const results: { logN: number; n: number; pass: boolean; gpu: string; ref: string }[] = [];
+    // ?reps=N → after the correctness check, run N timed iterations and report
+    // per-phase GPU times (from window.__lastPhaseMs, needs timestamp-query) +
+    // wall time. The 'stream_walker' phase is the batched-inversion accumulate
+    // kernel under study. No WASM/SRS needed, so this profiles real devices too
+    // (Android lacks timestamp-query → phases empty, use wallMs).
+    const reps = (() => { const v = parseInt(qp.get('reps') ?? '0', 10); return Number.isFinite(v) && v > 0 ? v : 0; })();
+    const results: { logN: number; n: number; pass: boolean; gpu: string; ref: string; timing?: any }[] = [];
     let allPass = true;
 
     for (const logN of logns) {
       const n = 1 << logN;
       log('info', `=== logN=${logN} (n=${n}) ===`);
+      await postProgress('logn-start', { logN });
       const { pointsBuf, affine } = makePoints(n);
       // ?sc=N forces every scalar to N (diagnostic: sc=1 makes MSM = Σ Pᵢ).
       const forced = qp.get('sc');
@@ -184,12 +223,45 @@ async function memProbe(device: GPUDevice, logN: number): Promise<number> {
 
       log('info', 'building MsmV2 + running WebGPU pipeline...');
       const pool = await MsmV2Pool.create(device, pointsBuf);
-      const msm = await MsmV2.create(device, n, pool, gpuKnobs);
+      const msm = await MsmV2.create(device, n, pool, { ...gpuKnobs, profile: reps > 0 } as MsmConfig);
       msm.prepare(scalarsBuf);
       const warm = qp.get('warm') !== '0';
       if (warm) await msm.run(); // warm (first-touch) — untimed
       const xy = await msm.run();
       const bytes = pool.statsBytes();
+
+      // Timed reps with per-phase GPU profiling (?reps=N).
+      let timing: any = undefined;
+      if (reps > 0) {
+        const wallSamples: number[] = [];
+        const phaseSamples: Record<string, number>[] = [];
+        for (let r = 0; r < reps; r++) {
+          const t0 = performance.now();
+          await msm.run();
+          const wall = performance.now() - t0;
+          wallSamples.push(wall);
+          const ph = (window as any).__lastPhaseMs as Record<string, number> | undefined;
+          if (ph) phaseSamples.push({ ...ph });
+          await postProgress('rep', { logN, rep: r + 1, wallMs: wall });
+        }
+        const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+        const keys = Array.from(new Set(phaseSamples.flatMap(p => Object.keys(p))));
+        const avgPhases: Record<string, number> = {};
+        for (const k of keys) avgPhases[k] = avg(phaseSamples.map(p => p[k] ?? 0));
+        timing = {
+          reps,
+          walkerS: gpuKnobs.walkerS ?? 8,
+          walkerMaxWg: gpuKnobs.walkerMaxWg ?? 32,
+          wallMs: avg(wallSamples),
+          wallMin: Math.min(...wallSamples),
+          phases: avgPhases,
+          hasTimestamps: phaseSamples.length > 0,
+        };
+        const pstr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(' ');
+        log('ok', `[bench] logN=${logN} S=${timing.walkerS} maxWg=${timing.walkerMaxWg} reps=${reps}: ` +
+          `wall=${timing.wallMs.toFixed(2)}ms (min ${timing.wallMin.toFixed(2)}) stream_walker=${(avgPhases['stream_walker'] ?? 0).toFixed(2)}ms | ${pstr}`);
+      }
+
       msm.destroy();
       pool.destroy();
       log('info', `[mem] logN=${logN}: algorithm buffers = ${(bytes / 1024 / 1024).toFixed(2)} MiB`);
@@ -208,6 +280,7 @@ async function memProbe(device: GPUDevice, logN: number): Promise<number> {
         logN, n, pass,
         gpu: `${xy.x.toString(16)},${xy.y.toString(16)}`,
         ref: `${refAff.x.toString(16)},${refAff.y.toString(16)}`,
+        timing,
       });
     }
 
