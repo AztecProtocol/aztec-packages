@@ -7,6 +7,10 @@ import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
+import {
+  STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS,
+  getStandardMultiCallEntrypoint,
+} from '@aztec/standard-contracts/multi-call-entrypoint';
 import { EventSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -44,6 +48,7 @@ describe('PXE', () => {
     const simulator = new WASMSimulator();
     const kernelProver = new BBBundlePrivateKernelProver(simulator);
     const protocolContractsProvider = new BundledProtocolContractsProvider();
+    const preloadedContractsProvider = { getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()] };
     const config: PXEConfig = {
       ...emptyChainConfig,
       l2BlockBatchSize: 50,
@@ -90,6 +95,7 @@ describe('PXE', () => {
       proofCreator: kernelProver,
       simulator,
       protocolContractsProvider,
+      preloadedContractsProvider,
       config,
     });
   }, 120_000);
@@ -134,6 +140,15 @@ describe('PXE', () => {
     const expectedContractAddresses = contracts.map(contract => contract.instance.address);
     const contractAddresses = await pxe.getContracts();
     expect(contractAddresses).toEqual(expect.arrayContaining(expectedContractAddresses));
+  });
+
+  it('preloads the standard multi-call entrypoint on creation', async () => {
+    const { instance: expectedInstance, artifact: expectedArtifact } = await getStandardMultiCallEntrypoint();
+    const instance = await pxe.getContractInstance(STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS);
+    expect(instance).toEqual(expectedInstance);
+
+    const artifact = await pxe.getContractArtifact(expectedInstance.currentContractClassId);
+    expect(artifact).toEqual(expectedArtifact);
   });
 
   it('registers a class and adds a contract for it', async () => {

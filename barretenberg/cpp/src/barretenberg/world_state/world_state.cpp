@@ -40,7 +40,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
                        uint32_t initial_header_generator_point,
-                       uint64_t genesis_timestamp)
+                       uint64_t genesis_timestamp,
+                       bool ephemeral)
     : _workers(std::make_shared<ThreadPool>(thread_pool_size))
     , _tree_heights(tree_heights)
     , _initial_tree_size(tree_prefill)
@@ -50,7 +51,7 @@ WorldState::WorldState(uint64_t thread_pool_size,
 {
     // We set the max readers to be high, at least the number of given threads or the default if higher
     uint64_t maxReaders = std::max(thread_pool_size, DEFAULT_MIN_NUMBER_OF_READERS);
-    create_canonical_fork(data_dir, map_size, prefilled_public_data, maxReaders);
+    create_canonical_fork(data_dir, map_size, prefilled_public_data, maxReaders, ephemeral);
     try {
         attempt_tree_resync();
     } catch (std::exception& e) {
@@ -64,7 +65,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        uint32_t initial_header_generator_point,
-                       uint64_t genesis_timestamp)
+                       uint64_t genesis_timestamp,
+                       bool ephemeral)
     : WorldState::WorldState(thread_pool_size,
                              data_dir,
                              map_size,
@@ -72,7 +74,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
                              tree_prefill,
                              std::vector<PublicDataLeafValue>(),
                              initial_header_generator_point,
-                             genesis_timestamp)
+                             genesis_timestamp,
+                             ephemeral)
 {}
 
 WorldState::WorldState(uint64_t thread_pool_size,
@@ -82,7 +85,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
                        uint32_t initial_header_generator_point,
-                       uint64_t genesis_timestamp)
+                       uint64_t genesis_timestamp,
+                       bool ephemeral)
     : WorldState(thread_pool_size,
                  data_dir,
                  {
@@ -96,7 +100,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
                  tree_prefill,
                  prefilled_public_data,
                  initial_header_generator_point,
-                 genesis_timestamp)
+                 genesis_timestamp,
+                 ephemeral)
 {}
 
 WorldState::WorldState(uint64_t thread_pool_size,
@@ -105,7 +110,8 @@ WorldState::WorldState(uint64_t thread_pool_size,
                        const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
                        const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                        uint32_t initial_header_generator_point,
-                       uint64_t genesis_timestamp)
+                       uint64_t genesis_timestamp,
+                       bool ephemeral)
     : WorldState(thread_pool_size,
                  data_dir,
                  map_size,
@@ -113,13 +119,15 @@ WorldState::WorldState(uint64_t thread_pool_size,
                  tree_prefill,
                  std::vector<PublicDataLeafValue>(),
                  initial_header_generator_point,
-                 genesis_timestamp)
+                 genesis_timestamp,
+                 ephemeral)
 {}
 
 void WorldState::create_canonical_fork(const std::string& dataDir,
                                        const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
                                        const std::vector<PublicDataLeafValue>& prefilled_public_data,
-                                       uint64_t maxReaders)
+                                       uint64_t maxReaders,
+                                       bool ephemeral)
 {
     // create the underlying stores
     auto createStore = [&](MerkleTreeId id) {
@@ -127,7 +135,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
         std::filesystem::path directory = dataDir;
         directory /= name;
         std::filesystem::create_directories(directory);
-        return std::make_shared<LMDBTreeStore>(directory, name, dbSize.at(id), maxReaders);
+        return std::make_shared<LMDBTreeStore>(directory, name, dbSize.at(id), maxReaders, ephemeral);
     };
     _persistentStores = std::make_unique<WorldStateStores>(createStore(MerkleTreeId::NULLIFIER_TREE),
                                                            createStore(MerkleTreeId::PUBLIC_DATA_TREE),
