@@ -48,9 +48,28 @@ export const get_device = async (): Promise<GPUDevice> => {
 
   const device = await adapter.requestDevice({ requiredFeatures, requiredLimits });
   const grantedLimits = device.limits as unknown as Record<string, number>;
+  // Stash the adapter's info for the per-device kernel selection in
+  // `resolveAccum` (the bucket-accumulate kernel choice keys off
+  // vendor/architecture). Newer Chrome exposes a read-only `device.adapterInfo`
+  // getter (which resolveAccum reads first); on engines without it we keep a
+  // copy under a private key. Never assign to `adapterInfo` — it is getter-only
+  // where present and assignment throws.
+  const adapterInfo =
+    (adapter as unknown as { info?: GPUAdapterInfo }).info ??
+    (typeof (adapter as unknown as { requestAdapterInfo?: () => Promise<GPUAdapterInfo> }).requestAdapterInfo === 'function'
+      ? await (adapter as unknown as { requestAdapterInfo: () => Promise<GPUAdapterInfo> }).requestAdapterInfo()
+      : undefined);
+  if (adapterInfo) {
+    try {
+      (device as unknown as { __adapterInfo?: GPUAdapterInfo }).__adapterInfo = adapterInfo;
+    } catch {
+      // ignore — resolveAccum falls back to the native device.adapterInfo getter
+    }
+  }
   console.log(
     `[gpu] requested maxComputeWorkgroupStorageSize=${wgStorageMax}B,` +
-      ` granted=${grantedLimits['maxComputeWorkgroupStorageSize']}B`,
+      ` granted=${grantedLimits['maxComputeWorkgroupStorageSize']}B` +
+      ` adapter="${adapterInfo?.vendor ?? ''}/${adapterInfo?.architecture ?? ''}"`,
   );
   return device;
 };
