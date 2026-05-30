@@ -5,9 +5,10 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
   args: [
     '--enable-unsafe-webgpu',
-    '--enable-features=Vulkan,UseSkiaRenderer',
-    '--use-angle=swiftshader',
+    '--enable-features=Vulkan,WebGPU',
+    '--enable-unsafe-swiftshader',
     '--disable-gpu-sandbox',
+    '--no-sandbox',
     '--disable-http2',
     '--ignore-certificate-errors',
   ],
