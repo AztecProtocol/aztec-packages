@@ -1733,6 +1733,10 @@ function hideProgress(): void {
       // ramped before the first measured round.
       for (const v of variantParam) {
         applyVariant(v);
+        // Post a progress beacon before each (possibly slow) pipeline JIT so
+        // the BrowserStack runner sees liveness during warmup — on mobile the
+        // three shader compiles alone can exceed the first-progress watchdog.
+        client.postProgress({ phase: 'warm', variant: v });
         await runWebGpuOnce(inputs);
       }
       for (let round = 0; round < rounds; round++) {
@@ -1746,6 +1750,7 @@ function hideProgress(): void {
             const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
             const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
             perVariant[v].push({ wallMs: gpu.ms, gpuMs, phases: { ...phases } });
+            client.postProgress({ phase: 'rep', variant: v, round, rep: r, wallMs: gpu.ms });
             const phaseStr = Object.entries(phases).map(([k, val]) => `${k}=${val.toFixed(1)}`).join(' ');
             log('info', `[gpu-bench] ${v} round ${round + 1}/${rounds} rep ${r + 1}/${reps}: wall=${gpu.ms.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
           }

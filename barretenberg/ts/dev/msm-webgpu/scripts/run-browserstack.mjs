@@ -42,6 +42,8 @@ const { values: argv } = parseArgs({
     target: { type: "string", default: "macos" },
     page: { type: "string", default: "index" },
     reps: { type: "string", default: "3" },
+    rounds: { type: "string" },
+    variants: { type: "string" },
     total: { type: "string" },
     sizes: { type: "string" },
     n: { type: "string" },
@@ -417,7 +419,20 @@ async function main() {
   qp.set("autorun", argv.autorun);
   qp.set("logn", String(argv.n ?? "16"));
   if (argv.reps) qp.set("reps", String(argv.reps));
-  const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
+  if (argv.rounds) qp.set("rounds", String(argv.rounds));
+  if (argv.variants) qp.set("variants", String(argv.variants));
+  // BrowserStack's real-mobile intent launch drops everything after the first
+  // unescaped '&', so a multi-param query arrives truncated to the first param
+  // (silently reverting logn/variants/rounds to defaults). index.html's
+  // page-top shim expands a single percent-encoded `q=` back into
+  // location.search before any module reads it, so for real-mobile targets we
+  // collapse the whole query into one `q=` param. Desktop keeps the plain
+  // multi-param form so the server-side COOP/COEP (coi) middleware still fires.
+  const realMobile = String(TARGETS[argv.target].worker.real_mobile ?? "") === "true";
+  const queryStr = realMobile
+    ? `q=${encodeURIComponent(qp.toString())}`
+    : qp.toString();
+  const pageUrl = `${baseUrl}${pageMap[argv.page]}?${queryStr}`;
   err(`page URL: ${pageUrl}`);
 
   // Generate a runId on the client side (the page makes its own random
