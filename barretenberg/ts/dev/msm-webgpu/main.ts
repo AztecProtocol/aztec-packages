@@ -90,6 +90,10 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    // Stream-walker A/B knobs. ?walkerpriv=0|1 (pref_scratch placement),
+    // ?walkertpb=64|128 (threads per walker workgroup). Unset = defaults.
+    walkerPrefPrivate: q.get('walkerpriv') === '0' ? false : q.get('walkerpriv') === '1' ? true : undefined,
+    walkerTpb: optInt('walkertpb'),
   };
 })();
 

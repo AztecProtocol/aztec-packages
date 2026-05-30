@@ -62,6 +62,20 @@ export interface MsmConfig {
   addsub?: 'native' | 'unpack';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
+  /**
+   * Stream-walker KNOB 1: place the batched-inversion prefix scratch in
+   * per-invocation `var<private>` memory (frees the 16 KB `var<workgroup>`
+   * occupancy limiter, adds no storage binding). Default `true`. Set `false`
+   * for the original workgroup-scratch path (which forces `walkerTpb` ≤ 64,
+   * since 128 threads × 16 KB/64 = 32 KB workgroup memory exceeds the floor).
+   */
+  walkerPrefPrivate?: boolean;
+  /**
+   * Stream-walker threads-per-workgroup. Default 128 with private scratch, 64
+   * with workgroup scratch. Threads the same value into the walker dispatch and
+   * its partition-task planner so both agree on the workgroup grain.
+   */
+  walkerTpb?: number;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
   /**
@@ -1172,6 +1186,8 @@ export class MsmV2 {
   private reduceWg!: number;
   private invVariant!: 'loop' | 'pk';
   private addsub: 'native' | 'unpack' = 'native';
+  private walkerPrefPrivate = true;
+  private walkerTpb = 128;
   private profile = false;
   private jacobianCrossover = 0;
   private combineOnHost = true;
@@ -1393,6 +1409,13 @@ export class MsmV2 {
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
+    m.walkerPrefPrivate = config?.walkerPrefPrivate ?? WALKER_PREF_PRIVATE;
+    // Workgroup scratch can't fund 128 threads (32 KB > 16 KB floor); pin to 64.
+    m.walkerTpb = config?.walkerTpb ?? (m.walkerPrefPrivate ? 128 : 64);
+    if (!m.walkerPrefPrivate && m.walkerTpb > 64) {
+      console.warn(`[MsmV2] walkerTpb=${m.walkerTpb} needs private scratch; clamping to 64 for the workgroup path`);
+      m.walkerTpb = 64;
+    }
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
@@ -1627,15 +1650,16 @@ export class MsmV2 {
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
     // Stream-walker (Plan §6 + C's KNOB 2 variant). KNOB 1 placement is set by
-    // WALKER_PREF_PRIVATE: private pref_scratch frees workgroup memory so TPB
+    // m.walkerPrefPrivate: private pref_scratch frees workgroup memory so TPB
     // can rise to 128; the workgroup fallback caps TPB at 64 (16 KB fits Mali
     // Bifrost). NUM_THREADS = nwg*256 still (partition_thread's grain); the
     // walker dispatches ceil(num_active/TPB) workgroups.
+    const WALKER_TPB = m.walkerTpb;
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, WALKER_PREF_PRIVATE),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, m.walkerPrefPrivate),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),

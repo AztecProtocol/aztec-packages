@@ -60,6 +60,7 @@ const { values: argv } = parseArgs({
     "skip-tunnel": { type: "boolean", default: false },
     "list-targets": { type: "boolean", default: false },
     autorun: { type: "string", default: "msm-cross-check" },
+    query: { type: "string", multiple: true, default: [] },
     "emit-body-only": { type: "boolean", default: false },
     "external-worker-id-file": { type: "string" },
     help: { type: "boolean", default: false },
@@ -417,6 +418,15 @@ async function main() {
   qp.set("autorun", argv.autorun);
   qp.set("logn", String(argv.n ?? "16"));
   if (argv.reps) qp.set("reps", String(argv.reps));
+  // Arbitrary passthrough knobs, e.g. --query walkerpriv=1 --query walkertpb=128.
+  for (const kv of argv.query ?? []) {
+    const eq = kv.indexOf("=");
+    if (eq <= 0) {
+      err(`ignoring malformed --query ${kv} (expected k=v)`);
+      continue;
+    }
+    qp.set(kv.slice(0, eq), kv.slice(eq + 1));
+  }
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 
