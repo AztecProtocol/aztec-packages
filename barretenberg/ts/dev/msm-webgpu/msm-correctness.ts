@@ -190,7 +190,22 @@ async function memProbe(device: GPUDevice, logN: number): Promise<number> {
     // kernel under study. No WASM/SRS needed, so this profiles real devices too
     // (Android lacks timestamp-query → phases empty, use wallMs).
     const reps = (() => { const v = parseInt(qp.get('reps') ?? '0', 10); return Number.isFinite(v) && v > 0 ? v : 0; })();
-    const results: { logN: number; n: number; pass: boolean; gpu: string; ref: string; timing?: any }[] = [];
+    // ?ssweep=8,16,24,32 → benchmark each walkerS in one page load (one
+    // BrowserStack seat maps the whole curve). walkerMaxWg is coupled so
+    // walkerS*walkerMaxWg = 256 (default S=8,maxWg=32 product), holding the
+    // partials_buf footprint flat across the sweep. Falls back to the single
+    // (walkers,walkermaxwg) config from gpuKnobs when ssweep is absent.
+    const sweep: { walkerS: number; walkerMaxWg: number }[] = (() => {
+      const raw = qp.get('ssweep');
+      if (raw) {
+        return raw.split(',').map(s => parseInt(s.trim(), 10)).filter(v => Number.isFinite(v) && v > 0)
+          .map(S => ({ walkerS: S, walkerMaxWg: Math.max(1, Math.round(256 / S)) }));
+      }
+      return [{ walkerS: gpuKnobs.walkerS ?? 8, walkerMaxWg: gpuKnobs.walkerMaxWg ?? 32 }];
+    })();
+    const FP = bn254.fields.Fp.ORDER;
+    const onCurve = (p: { x: bigint; y: bigint }) => (p.y * p.y - (p.x * p.x * p.x + 3n)) % FP === 0n;
+    const results: { logN: number; n: number; walkerS: number; walkerMaxWg: number; pass: boolean; onCurve: boolean; gpu: string; ref: string; timing?: any }[] = [];
     let allPass = true;
 
     for (const logN of logns) {
@@ -211,8 +226,6 @@ async function memProbe(device: GPUDevice, logN: number): Promise<number> {
       log('info', 'computing noble reference MSM...');
       const proj = affine.map(p => bn254.G1.ProjectivePoint.fromAffine(p));
       const refAff = bn254.G1.ProjectivePoint.msm(proj, scalars).toAffine();
-      // Self-check the reference at tiny n: naive Σ sᵢ·Pᵢ must equal msm().
-      // Isolates a noble-API / scalar-encoding bug from an MsmV2 discrepancy.
       if (n <= 1024) {
         let acc = bn254.G1.ProjectivePoint.ZERO;
         for (let i = 0; i < n; i++) if (scalars[i] !== 0n) acc = acc.add(proj[i].multiply(scalars[i]));
@@ -221,67 +234,60 @@ async function memProbe(device: GPUDevice, logN: number): Promise<number> {
         log(refMatchesNaive ? 'ok' : 'err', `[ref-selfcheck] noble msm()==naive Σ: ${refMatchesNaive}`);
       }
 
-      log('info', 'building MsmV2 + running WebGPU pipeline...');
       const pool = await MsmV2Pool.create(device, pointsBuf);
-      const msm = await MsmV2.create(device, n, pool, { ...gpuKnobs, profile: reps > 0 } as MsmConfig);
-      msm.prepare(scalarsBuf);
-      const warm = qp.get('warm') !== '0';
-      if (warm) await msm.run(); // warm (first-touch) — untimed
-      const xy = await msm.run();
-      const bytes = pool.statsBytes();
+      for (const cfg of sweep) {
+        await postProgress('build', { logN, walkerS: cfg.walkerS });
+        log('info', `building MsmV2 S=${cfg.walkerS} maxWg=${cfg.walkerMaxWg}...`);
+        const msm = await MsmV2.create(device, n, pool,
+          { ...gpuKnobs, walkerS: cfg.walkerS, walkerMaxWg: cfg.walkerMaxWg, profile: reps > 0 } as MsmConfig);
+        msm.prepare(scalarsBuf);
+        const warm = qp.get('warm') !== '0';
+        if (warm) await msm.run();
+        const xy = await msm.run();
+        const bytes = pool.statsBytes();
 
-      // Timed reps with per-phase GPU profiling (?reps=N).
-      let timing: any = undefined;
-      if (reps > 0) {
-        const wallSamples: number[] = [];
-        const phaseSamples: Record<string, number>[] = [];
-        for (let r = 0; r < reps; r++) {
-          const t0 = performance.now();
-          await msm.run();
-          const wall = performance.now() - t0;
-          wallSamples.push(wall);
-          const ph = (window as any).__lastPhaseMs as Record<string, number> | undefined;
-          if (ph) phaseSamples.push({ ...ph });
-          await postProgress('rep', { logN, rep: r + 1, wallMs: wall });
+        let timing: any = undefined;
+        if (reps > 0) {
+          const wallSamples: number[] = [];
+          const phaseSamples: Record<string, number>[] = [];
+          for (let r = 0; r < reps; r++) {
+            const t0 = performance.now();
+            await msm.run();
+            const wall = performance.now() - t0;
+            wallSamples.push(wall);
+            const ph = (window as any).__lastPhaseMs as Record<string, number> | undefined;
+            if (ph) phaseSamples.push({ ...ph });
+            await postProgress('rep', { logN, walkerS: cfg.walkerS, rep: r + 1, wallMs: wall });
+          }
+          const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+          const keys = Array.from(new Set(phaseSamples.flatMap(p => Object.keys(p))));
+          const avgPhases: Record<string, number> = {};
+          for (const k of keys) avgPhases[k] = avg(phaseSamples.map(p => p[k] ?? 0));
+          timing = {
+            reps, walkerS: cfg.walkerS, walkerMaxWg: cfg.walkerMaxWg,
+            wallMs: avg(wallSamples), wallMin: Math.min(...wallSamples),
+            mib: bytes / 1024 / 1024, phases: avgPhases, hasTimestamps: phaseSamples.length > 0,
+          };
+          log('ok', `[bench] logN=${logN} S=${cfg.walkerS} maxWg=${cfg.walkerMaxWg} reps=${reps}: ` +
+            `wall=${timing.wallMs.toFixed(2)}ms (min ${timing.wallMin.toFixed(2)}) ` +
+            `stream_walker=${(avgPhases['stream_walker'] ?? 0).toFixed(2)}ms mem=${timing.mib.toFixed(2)}MiB ts=${timing.hasTimestamps}`);
         }
-        const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
-        const keys = Array.from(new Set(phaseSamples.flatMap(p => Object.keys(p))));
-        const avgPhases: Record<string, number> = {};
-        for (const k of keys) avgPhases[k] = avg(phaseSamples.map(p => p[k] ?? 0));
-        timing = {
-          reps,
-          walkerS: gpuKnobs.walkerS ?? 8,
-          walkerMaxWg: gpuKnobs.walkerMaxWg ?? 32,
-          wallMs: avg(wallSamples),
-          wallMin: Math.min(...wallSamples),
-          phases: avgPhases,
-          hasTimestamps: phaseSamples.length > 0,
-        };
-        const pstr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(' ');
-        log('ok', `[bench] logN=${logN} S=${timing.walkerS} maxWg=${timing.walkerMaxWg} reps=${reps}: ` +
-          `wall=${timing.wallMs.toFixed(2)}ms (min ${timing.wallMin.toFixed(2)}) stream_walker=${(avgPhases['stream_walker'] ?? 0).toFixed(2)}ms | ${pstr}`);
+        msm.destroy();
+
+        const oc = onCurve(xy);
+        const pass = xy.x === refAff.x && xy.y === refAff.y;
+        allPass = allPass && pass;
+        log(pass ? 'ok' : 'err',
+          `logN=${logN} S=${cfg.walkerS}: ${pass ? 'PASS' : 'FAIL'} on-curve=${oc} mem=${(bytes / 1024 / 1024).toFixed(2)}MiB`);
+        results.push({
+          logN, n, walkerS: cfg.walkerS, walkerMaxWg: cfg.walkerMaxWg, pass, onCurve: oc,
+          gpu: `${xy.x.toString(16)},${xy.y.toString(16)}`,
+          ref: `${refAff.x.toString(16)},${refAff.y.toString(16)}`,
+          timing,
+        });
+        await postProgress('config-done', { logN, walkerS: cfg.walkerS, pass });
       }
-
-      msm.destroy();
       pool.destroy();
-      log('info', `[mem] logN=${logN}: algorithm buffers = ${(bytes / 1024 / 1024).toFixed(2)} MiB`);
-
-      // Diagnostics: is the GPU point on-curve? is it the negation of noble?
-      const FP = bn254.fields.Fp.ORDER;
-      const onCurve = (p: { x: bigint; y: bigint }) => (p.y * p.y - (p.x * p.x * p.x + 3n)) % FP === 0n;
-      const negMatch = xy.x === refAff.x && (xy.y + refAff.y) % FP === 0n;
-      log('info', `[diag] gpu on-curve=${onCurve(xy)} negation-of-ref=${negMatch} gpu.y=0x${xy.y.toString(16).slice(0, 16)} ref.y=0x${refAff.y.toString(16).slice(0, 16)}`);
-
-      const pass = xy.x === refAff.x && xy.y === refAff.y;
-      allPass = allPass && pass;
-      log(pass ? 'ok' : 'err',
-        `logN=${logN}: ${pass ? 'PASS' : 'FAIL'}  gpu.x=0x${xy.x.toString(16).slice(0, 20)} ref.x=0x${refAff.x.toString(16).slice(0, 20)}`);
-      results.push({
-        logN, n, pass,
-        gpu: `${xy.x.toString(16)},${xy.y.toString(16)}`,
-        ref: `${refAff.x.toString(16)},${refAff.y.toString(16)}`,
-        timing,
-      });
     }
 
     device.destroy();
