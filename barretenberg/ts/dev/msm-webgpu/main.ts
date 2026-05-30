@@ -82,6 +82,7 @@ const gpuKnobs: MsmConfig = (() => {
     const v = Number(raw);
     return Number.isInteger(v) && v > 0 ? v : undefined;
   };
+  const memBudgetMb = optInt('membudget');
   return {
     c: optInt('c'),
     s: optInt('s'),
@@ -90,8 +91,15 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    // ?membudget=MB forces the MsmV2 peak-scratch budget (megabytes) so a
+    // sweep can drive numBatches on real hardware and measure the time cost.
+    memBudgetBytes: memBudgetMb !== undefined ? memBudgetMb * 1024 * 1024 : undefined,
   };
 })();
+
+// Mutable per-build override the budget sweep sets between rebuilds. When
+// non-null it wins over the URL membudget; ensureWebGpuWarmed folds it in.
+let budgetOverrideBytes: number | null = null;
 
 // Default to the machine's reported logical thread count, capped at
 // MT_THREADS_MAX. Falls back to 4 if `navigator.hardwareConcurrency`
@@ -492,8 +500,10 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
       .join(' ');
     log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
+    const knobs: MsmConfig =
+      budgetOverrideBytes !== null ? { ...gpuKnobs, memBudgetBytes: budgetOverrideBytes } : gpuKnobs;
     msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
-    msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
+    msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, knobs);
     msmV2LogN = logN;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
@@ -1587,6 +1597,80 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'msm-membudget-sweep') {
+    // Measure the peak-memory/time TRADE of MsmV2's numBatches budget lever on
+    // real hardware: for a fixed logN, rebuild at a series of memBudgetBytes
+    // values, time `reps` runs each (GPU wall ms — works on Android, which has
+    // no timestamp-query), and report the chosen numBatches + pool peak bytes.
+    // Correctness is cross-checked once against noble (numBatches never changes
+    // the result). budgets are comma-separated MB; 0 = "no budget" (default nb).
+    const logN = parseInt(qp.get('logn') ?? '16', 10);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const budgetsMb = (qp.get('budgets') ?? '0,40,33,31,29,27')
+      .split(',').map(s => parseInt(s.trim(), 10)).filter(x => Number.isFinite(x));
+    const client = makeResultsClient({ page: 'msm-membudget-sweep' });
+    client.postProgress({ stage: 'start', logN, reps, budgetsMb });
+    log('info', `[memsweep] logN=${logN} reps=${reps} budgetsMb=[${budgetsMb.join(',')}]`);
+    try {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      client.postProgress({ stage: 'srs-ready' });
+      const wantNoble = logN <= 16;
+      const inputs = await generateInputs(logN, wantNoble);
+      client.postProgress({ stage: 'inputs-ready' });
+      // noble's bigint pippenger is only fast enough to cross-check at logN<=16.
+      const noble = wantNoble && inputs.points && inputs.scalars ? referenceMsm(inputs.points, inputs.scalars) : null;
+      client.postProgress({ stage: 'noble-ready', haveNoble: noble !== null });
+      const rows: Record<string, unknown>[] = [];
+      let crossOk: boolean | null = null;
+      for (const mb of budgetsMb) {
+        budgetOverrideBytes = mb === 0 ? 4 * 1024 * 1024 * 1024 : mb * 1024 * 1024;
+        // Force a rebuild at the new budget. Cast through the union so TS
+        // doesn't narrow the globals (last seen assignment is `null`) to never.
+        (msmV2 as MsmV2 | null)?.destroy();
+        (msmV2Pool as MsmV2Pool | null)?.destroy();
+        msmV2 = null;
+        msmV2Pool = null;
+        msmV2LogN = null;
+        const wall: number[] = [];
+        let xy: { x: bigint; y: bigint } | null = null;
+        for (let r = 0; r < reps; r++) {
+          const res = await runWebGpuOnce(inputs);
+          wall.push(res.ms);
+          xy = res.xy;
+        }
+        const nb = msmV2 ? (msmV2 as MsmV2).batchCount : -1;
+        const peakBytes = msmV2Pool ? (msmV2Pool as MsmV2Pool).statsBytes() : 0;
+        if (crossOk === null && noble && xy) crossOk = pointsEqual(noble, xy);
+        const medWall = median(wall);
+        rows.push({ budgetMb: mb, numBatches: nb, peakBytes, peakMb: +(peakBytes / 1048576).toFixed(1), wallMs: +medWall.toFixed(1), wallSamples: wall.map(x => +x.toFixed(1)) });
+        log('ok', `[memsweep] budget=${mb}MB nb=${nb} peak=${(peakBytes / 1048576).toFixed(1)}MB wall=${medWall.toFixed(1)}ms`);
+        client.postProgress({ stage: 'budget-done', budgetMb: mb, numBatches: nb, peakMb: +(peakBytes / 1048576).toFixed(1), wallMs: +medWall.toFixed(1) });
+      }
+      budgetOverrideBytes = null;
+      const base = rows.find(r => r.budgetMb === 0) ?? rows[0];
+      for (const r of rows) r.timeVsBaseline = +(((r.wallMs as number) / (base.wallMs as number) - 1) * 100).toFixed(1);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: crossOk === false ? 'error' : 'done',
+        params: { logN, reps, page: 'msm-membudget-sweep' },
+        results: { crossOk, rows },
+        error: crossOk === false ? 'noble cross-check disagreement' : null,
+        log: allLines.slice(-120),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(crossOk === false ? 'err' : 'ok', `[memsweep] state=${crossOk === false ? 'error' : 'done'} crossOk=${crossOk}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[memsweep] FATAL: ${msg}`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({ state: 'error', params: { logN, reps, page: 'msm-membudget-sweep' }, results: null, error: msg, log: allLines.slice(-120), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
     }
   }
 })();

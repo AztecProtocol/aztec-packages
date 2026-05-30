@@ -2698,6 +2698,13 @@ export class MsmV2 {
     return total;
   }
 
+  /** Window-batch count chosen by the most recent `prepare()`. Driven by the
+   * workgroup-count limit and {@link MsmConfig.memBudgetBytes}. Instrumentation
+   * for the memory/time-trade sweep — higher = smaller peak scratch, more passes. */
+  get batchCount(): number {
+    return this.numBatches;
+  }
+
   /** Diagnostic: read back bucket_result. Element b's coords (Montgomery)
    * are at u32 offsets [PG*b*4] (x) and [PG*B_TOTAL*4 + PG*b*4] (y). */
   async debugBucketResult(): Promise<{
