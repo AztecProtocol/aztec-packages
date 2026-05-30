@@ -1644,11 +1644,15 @@ function hideProgress(): void {
         }
         const nb = msmV2 ? (msmV2 as MsmV2).batchCount : -1;
         const peakBytes = msmV2Pool ? (msmV2Pool as MsmV2Pool).statsBytes() : 0;
-        if (crossOk === null && noble && xy) crossOk = pointsEqual(noble, xy);
+        // Cross-check EVERY budget's result (not just nb=1) — the whole point of
+        // the lever is that nb>1 stays correct, so each nb must be verified.
+        const rowOk = noble && xy ? pointsEqual(noble, xy) : null;
+        if (rowOk === false) crossOk = false;
+        else if (crossOk === null && rowOk === true) crossOk = true;
         const medWall = median(wall);
-        rows.push({ budgetMb: mb, numBatches: nb, peakBytes, peakMb: +(peakBytes / 1048576).toFixed(1), wallMs: +medWall.toFixed(1), wallSamples: wall.map(x => +x.toFixed(1)) });
-        log('ok', `[memsweep] budget=${mb}MB nb=${nb} peak=${(peakBytes / 1048576).toFixed(1)}MB wall=${medWall.toFixed(1)}ms`);
-        client.postProgress({ stage: 'budget-done', budgetMb: mb, numBatches: nb, peakMb: +(peakBytes / 1048576).toFixed(1), wallMs: +medWall.toFixed(1) });
+        rows.push({ budgetMb: mb, numBatches: nb, peakBytes, peakMb: +(peakBytes / 1048576).toFixed(1), wallMs: +medWall.toFixed(1), crossOk: rowOk, wallSamples: wall.map(x => +x.toFixed(1)) });
+        log(rowOk === false ? 'err' : 'ok', `[memsweep] budget=${mb}MB nb=${nb} peak=${(peakBytes / 1048576).toFixed(1)}MB wall=${medWall.toFixed(1)}ms crossOk=${rowOk}`);
+        client.postProgress({ stage: 'budget-done', budgetMb: mb, numBatches: nb, peakMb: +(peakBytes / 1048576).toFixed(1), wallMs: +medWall.toFixed(1), crossOk: rowOk });
       }
       budgetOverrideBytes = null;
       const base = rows.find(r => r.budgetMb === 0) ?? rows[0];
