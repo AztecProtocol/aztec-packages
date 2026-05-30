@@ -70,18 +70,18 @@ template <typename Field, typename Wire> inline Field field_from_wire(const Wire
     return Field::serialize_from_buffer(wire_bytes(w).data());
 }
 
-inline ::Fr fr_to_wire(const bb::fr& d)
+inline Fr fr_to_wire(const bb::fr& d)
 {
-    return field_to_wire_as<::Fr>(d);
+    return field_to_wire_as<Fr>(d);
 }
-inline bb::fr fr_from_wire(const ::Fr& w)
+inline bb::fr fr_from_wire(const Fr& w)
 {
     return field_from_wire<bb::fr>(w);
 }
 
-inline std::vector<::Fr> fr_vec_to_wire(const std::vector<bb::fr>& d)
+inline std::vector<Fr> fr_vec_to_wire(const std::vector<bb::fr>& d)
 {
-    std::vector<::Fr> r;
+    std::vector<Fr> r;
     r.reserve(d.size());
     for (const auto& x : d) {
         r.push_back(fr_to_wire(x));
@@ -89,7 +89,7 @@ inline std::vector<::Fr> fr_vec_to_wire(const std::vector<bb::fr>& d)
     return r;
 }
 
-inline std::vector<bb::fr> fr_vec_from_wire(const std::vector<::Fr>& w)
+inline std::vector<bb::fr> fr_vec_from_wire(const std::vector<Fr>& w)
 {
     std::vector<bb::fr> r;
     r.reserve(w.size());
@@ -99,16 +99,16 @@ inline std::vector<bb::fr> fr_vec_from_wire(const std::vector<::Fr>& w)
     return r;
 }
 
-template <std::size_t N> inline std::array<::Fr, N> fr_array_to_wire(const std::array<bb::fr, N>& d)
+template <std::size_t N> inline std::array<Fr, N> fr_array_to_wire(const std::array<bb::fr, N>& d)
 {
-    std::array<::Fr, N> r{};
+    std::array<Fr, N> r{};
     for (std::size_t i = 0; i < N; ++i) {
         r[i] = fr_to_wire(d[i]);
     }
     return r;
 }
 
-template <std::size_t N> inline std::array<bb::fr, N> fr_array_from_wire(const std::array<::Fr, N>& w)
+template <std::size_t N> inline std::array<bb::fr, N> fr_array_from_wire(const std::array<Fr, N>& w)
 {
     std::array<bb::fr, N> r{};
     for (std::size_t i = 0; i < N; ++i) {
@@ -126,7 +126,7 @@ template <std::size_t N> inline std::array<bb::fr, N> fr_array_from_wire(const s
 
 inline wire::GrumpkinPoint grumpkin_point_to_wire(const grumpkin::g1::affine_element& d)
 {
-    return { .x = field_to_wire_as<::Fr>(d.x), .y = field_to_wire_as<::Fr>(d.y) };
+    return { .x = field_to_wire_as<Fr>(d.x), .y = field_to_wire_as<Fr>(d.y) };
 }
 
 inline grumpkin::g1::affine_element grumpkin_point_from_wire(const wire::GrumpkinPoint& w)
@@ -156,7 +156,7 @@ inline std::vector<grumpkin::g1::affine_element> grumpkin_point_vec_from_wire(co
 
 inline wire::Bn254G1Point bn254_g1_point_to_wire(const bb::g1::affine_element& d)
 {
-    return { .x = field_to_wire_as<::Fq>(d.x), .y = field_to_wire_as<::Fq>(d.y) };
+    return { .x = field_to_wire_as<Fq>(d.x), .y = field_to_wire_as<Fq>(d.y) };
 }
 
 inline bb::g1::affine_element bn254_g1_point_from_wire(const wire::Bn254G1Point& w)
@@ -165,12 +165,12 @@ inline bb::g1::affine_element bn254_g1_point_from_wire(const wire::Bn254G1Point&
 }
 
 // Fq2 = { c0: bb::fq, c1: bb::fq }; wire Fq2 is two fq bin32 aliases.
-inline std::array<::Fq, 2> fq2_to_wire(const bb::fq2& d)
+inline std::array<Fq, 2> fq2_to_wire(const bb::fq2& d)
 {
-    return { field_to_wire_as<::Fq>(d.c0), field_to_wire_as<::Fq>(d.c1) };
+    return { field_to_wire_as<Fq>(d.c0), field_to_wire_as<Fq>(d.c1) };
 }
 
-inline bb::fq2 fq2_from_wire(const std::array<::Fq, 2>& w)
+inline bb::fq2 fq2_from_wire(const std::array<Fq, 2>& w)
 {
     return { field_from_wire<bb::fq>(w[0]), field_from_wire<bb::fq>(w[1]) };
 }
@@ -187,7 +187,7 @@ inline bb::g2::affine_element bn254_g2_point_from_wire(const wire::Bn254G2Point&
 
 inline wire::Secp256k1Point secp256k1_point_to_wire(const secp256k1::g1::affine_element& d)
 {
-    return { .x = field_to_wire_as<::Secp256k1Fq>(d.x), .y = field_to_wire_as<::Secp256k1Fq>(d.y) };
+    return { .x = field_to_wire_as<Secp256k1Fq>(d.x), .y = field_to_wire_as<Secp256k1Fq>(d.y) };
 }
 
 inline secp256k1::g1::affine_element secp256k1_point_from_wire(const wire::Secp256k1Point& w)
@@ -197,7 +197,7 @@ inline secp256k1::g1::affine_element secp256k1_point_from_wire(const wire::Secp2
 
 inline wire::Secp256r1Point secp256r1_point_to_wire(const secp256r1::g1::affine_element& d)
 {
-    return { .x = field_to_wire_as<::Secp256r1Fq>(d.x), .y = field_to_wire_as<::Secp256r1Fq>(d.y) };
+    return { .x = field_to_wire_as<Secp256r1Fq>(d.x), .y = field_to_wire_as<Secp256r1Fq>(d.y) };
 }
 
 inline secp256r1::g1::affine_element secp256r1_point_from_wire(const wire::Secp256r1Point& w)
@@ -210,9 +210,9 @@ inline secp256r1::g1::affine_element secp256r1_point_from_wire(const wire::Secp2
 // Wire format is 32 bytes big-endian (matches uint256_t::msgpack_pack).
 // ---------------------------------------------------------------------------
 
-inline ::Uint256 uint256_to_wire(const bb::numeric::uint256_t& d)
+inline Uint256 uint256_to_wire(const bb::numeric::uint256_t& d)
 {
-    ::Uint256 r{};
+    Uint256 r{};
     for (std::size_t i = 0; i < 4; ++i) {
         const uint64_t v = d.data[3 - i];
         for (std::size_t j = 0; j < 8; ++j) {
@@ -222,7 +222,7 @@ inline ::Uint256 uint256_to_wire(const bb::numeric::uint256_t& d)
     return r;
 }
 
-inline bb::numeric::uint256_t uint256_from_wire(const ::Uint256& w)
+inline bb::numeric::uint256_t uint256_from_wire(const Uint256& w)
 {
     uint64_t parts[4]{};
     for (std::size_t i = 0; i < 4; ++i) {
@@ -235,9 +235,9 @@ inline bb::numeric::uint256_t uint256_from_wire(const ::Uint256& w)
     return bb::numeric::uint256_t(parts[3], parts[2], parts[1], parts[0]);
 }
 
-inline std::vector<::Uint256> uint256_vec_to_wire(const std::vector<bb::numeric::uint256_t>& d)
+inline std::vector<Uint256> uint256_vec_to_wire(const std::vector<bb::numeric::uint256_t>& d)
 {
-    std::vector<::Uint256> r;
+    std::vector<Uint256> r;
     r.reserve(d.size());
     for (const auto& x : d) {
         r.push_back(uint256_to_wire(x));
@@ -245,7 +245,7 @@ inline std::vector<::Uint256> uint256_vec_to_wire(const std::vector<bb::numeric:
     return r;
 }
 
-inline std::vector<bb::numeric::uint256_t> uint256_vec_from_wire(const std::vector<::Uint256>& w)
+inline std::vector<bb::numeric::uint256_t> uint256_vec_from_wire(const std::vector<Uint256>& w)
 {
     std::vector<bb::numeric::uint256_t> r;
     r.reserve(w.size());
