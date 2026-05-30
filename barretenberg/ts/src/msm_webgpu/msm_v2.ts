@@ -78,6 +78,25 @@ export interface MsmConfig {
    * the C++ hook does the combine in native `bb::g1`.
    */
   combineOnHost?: boolean;
+  /**
+   * Stream-walker batched-inversion slot count S (one field inversion per S
+   * affine adds). Default 8. Raising S amortizes the safegcd inversion — the
+   * dominant per-add cost — over more adds. The walker's `pref_scratch` is
+   * `TPB × S × 2` vec4 in workgroup memory, so a larger S must be paired with
+   * a smaller {@link walkerTpb} to stay within the 16 KB (Mali) / 32 KB
+   * (Apple/Adreno) workgroup-memory budget. Used for the cumsum / partition /
+   * walker / walker-combine pipelines (must stay consistent across them).
+   */
+  walkerS?: number;
+  /** Stream-walker workgroup size (threads per workgroup). Default 64. */
+  walkerTpb?: number;
+  /**
+   * Stream-walker total thread count (NUM_THREADS = tasks / S). Default 8192.
+   * Lowering it in proportion to a raised {@link walkerS} keeps the total task
+   * count (and the `walkerPartials` ∝ NUM_THREADS·S device buffer) constant, so
+   * amortizing the inversion via a larger S need not regress peak GPU memory.
+   */
+  walkerNumThreads?: number;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -1573,8 +1592,11 @@ export class MsmV2 {
     }
 
     // --- Streaming planner + accumulator pipelines ---
-    const STREAM_T = 8192; // NUM_THREADS = max_workgroups × workgroup_size
-    const STREAM_S = 8;
+    // NUM_THREADS = max_workgroups × workgroup_size. Walker knobs (walkerS /
+    // walkerTpb / walkerNumThreads) are overridable so the inversion-amortization
+    // curve can be swept per GPU arch; defaults reproduce prior behaviour.
+    const STREAM_T = config?.walkerNumThreads ?? 8192;
+    const STREAM_S = config?.walkerS ?? 8;
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;
     m.streamS = STREAM_S;
@@ -1619,7 +1641,7 @@ export class MsmV2 {
     // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB=64 per KNOB 1
     // (16 KB pref_scratch fits Mali Bifrost). NUM_THREADS = nwg*256 still
     // (partition_thread's grain), walker dispatches ceil(num_active/TPB) wgs.
-    const WALKER_TPB = 64;
+    const WALKER_TPB = config?.walkerTpb ?? 64;
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);

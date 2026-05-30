@@ -88,6 +88,14 @@ const gpuKnobs: MsmConfig = (() => {
     wgi: optInt('wgi'),
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
+    // Stream-walker inversion-amortization knobs (sweepable per GPU arch):
+    //   ?walkers=16  one inversion per 16 adds (default 8)
+    //   ?walkertpb=32  walker workgroup size (default 64; pref_scratch=tpb*S*2 vec4)
+    //   ?walkert=4096  walker NUM_THREADS (default 8192; lower it ∝ 1/walkers
+    //                  to hold walkerPartials memory flat)
+    walkerS: optInt('walkers'),
+    walkerTpb: optInt('walkertpb'),
+    walkerNumThreads: optInt('walkert'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
