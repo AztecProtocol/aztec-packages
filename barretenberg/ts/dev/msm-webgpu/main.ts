@@ -1466,6 +1466,19 @@ function hideProgress(): void {
         await new Promise(r => setTimeout(r, 500));
       }
       const device = await get_device();
+      // Global warmup so the first real sweep entry doesn't eat one-time
+      // driver JIT / cold GPU-clock cost (otherwise the first logN reads
+      // anomalously high — e.g. seconds instead of ms).
+      {
+        const wi = await generateInputs(logns[0], false);
+        const wpool = await MsmV2Pool.create(device, wi.pointsBuf);
+        const wmsm = await MsmV2.create(device, wi.n, wpool, { ...gpuKnobs, accum: 'walker' });
+        wmsm.prepare(wi.scalarsBuf);
+        await wmsm.run();
+        await wmsm.run();
+        wmsm.destroy();
+        wpool.destroy();
+      }
       const sweep: Record<string, unknown>[] = [];
       for (const logN of logns) {
         const inputs = await generateInputs(logN, /*mirrorForNoble=*/ false);
