@@ -583,6 +583,7 @@ interface SharedScratch {
   ptAlloc: GPUBuffer;               // 1 × atomic<u32> — legacy, kept to avoid bind churn
   ptDispatchArgs: GPUBuffer;        // 3 × u32 — sort_scan writes (ceil(hot_count/TPB),1,1); used by pt_init_copy/build/finalize
   ptCombineDispatchArgs: GPUBuffer; // 3 × u32 — pt_dispatch_compute writes per-level (ceil(total_tasks/S/TPB),1,1)
+  ptPersistentDispatchArgs: GPUBuffer; // 3 × u32 — sort_scan writes (1,1,1) iff persistent kernel should run
   // Pair-tree v2 (multi-dispatch). Per-bucket level state, task list, counters.
   ptOff: GPUBuffer;                 // sBTotal × u32 — bucket's current start in pt_buf
   ptCount: GPUBuffer;               // sBTotal × u32 — bucket's current level count
@@ -940,6 +941,7 @@ export class MsmV2Pool {
     let ptTasks = s?.ptTasks;
     let ptTotalTasks = s?.ptTotalTasks;
     let ptCombineDispatchArgs = s?.ptCombineDispatchArgs;
+    let ptPersistentDispatchArgs = s?.ptPersistentDispatchArgs;
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
       streamPlannerMeta?.destroy();
       size1BucketList?.destroy();
@@ -982,6 +984,7 @@ export class MsmV2Pool {
       ptTasks?.destroy();
       ptTotalTasks?.destroy();
       ptCombineDispatchArgs?.destroy();
+      ptPersistentDispatchArgs?.destroy();
       grow(dims.streamNumThreads > cur.streamNumThreads, 'streamNumThreads');
       grow(dims.streamS > cur.streamS, 'streamS');
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
@@ -1066,6 +1069,10 @@ export class MsmV2Pool {
         size: 12,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
+      ptPersistentDispatchArgs = device.createBuffer({
+        size: 12,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
       grew = true;
     }
 
@@ -1135,6 +1142,7 @@ export class MsmV2Pool {
       ptTasks: ptTasks!,
       ptTotalTasks: ptTotalTasks!,
       ptCombineDispatchArgs: ptCombineDispatchArgs!,
+      ptPersistentDispatchArgs: ptPersistentDispatchArgs!,
       planeBytes,
       padBytesPerPlane,
       padXOffset,
@@ -1474,6 +1482,9 @@ export class MsmV2 {
   private ptFinalizePipe!: GPUComputePipeline;
   private ptFinalizeLayout!: GPUBindGroupLayout;
   private ptFinalizeBind!: GPUBindGroup;
+  private ptPersistentPipe!: GPUComputePipeline;
+  private ptPersistentLayout!: GPUBindGroupLayout;
+  private ptPersistentBind!: GPUBindGroup;
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
@@ -1742,8 +1753,8 @@ export class MsmV2 {
     m.combineBatchedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   sort-count:   active_buckets, active_count, partial_count, count_histogram(rw)
     m.sortCountLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage']);
-    //   sort-scan:    count_histogram, bin_offsets(rw), bin_write_pos(rw), pt_dispatch_args(rw)
-    m.sortScanLayout = lt(['read-only-storage', 'storage', 'storage', 'storage']);
+    //   sort-scan:    count_histogram, bin_offsets(rw), bin_write_pos(rw), pt_dispatch_args(rw), pt_persistent_args(rw)
+    m.sortScanLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage']);
     //   sort-scatter: active_buckets, active_count, partial_count, bin_offsets, bin_write_pos(rw), sorted_active_buckets(rw)
     m.sortScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage']);
     //   pairtree:     sorted_active, bin_offsets, active_count, partial_count, partial_offset, partial_layout, partials_buf, pt_scratch(rw), pt_alloc(rw), bucket_sums(rw), params
@@ -1761,6 +1772,8 @@ export class MsmV2 {
     m.ptCombineLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     //   pt-finalize: sorted_active, bin_offsets, active_count, pt_off, pt_buf, bucket_sums(rw), params
     m.ptFinalizeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+    //   pt-persistent: sorted_active, bin_offsets, active_count, partial_count, partial_offset, partial_layout, partials_buf, bucket_sums(rw), pt_dispatch_args(rw), params
+    m.ptPersistentLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1920,6 +1933,9 @@ export class MsmV2 {
     m.ptFinalizePipe = await compile(
       sm.gen_ba_walker_pt_finalize_shader(64),
       `pt-finalize`, m.ptFinalizeLayout);
+    m.ptPersistentPipe = await compile(
+      sm.gen_ba_walker_pt_persistent_shader(256, INV_VARIANT),
+      `pt-persistent`, m.ptPersistentLayout);
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
@@ -2472,7 +2488,7 @@ export class MsmV2 {
       const bwpos = scratch.binWritePos;
       const sabkts = scratch.sortedActiveBuckets;
       this.sortCountBind = mkBind(this.sortCountLayout, [abkts, acnt, pcount, chist]);
-      this.sortScanBind = mkBind(this.sortScanLayout, [chist, boffs, bwpos, scratch.ptDispatchArgs]);
+      this.sortScanBind = mkBind(this.sortScanLayout, [chist, boffs, bwpos, scratch.ptDispatchArgs, scratch.ptPersistentDispatchArgs]);
       this.sortScatterBind = mkBind(this.sortScatterLayout, [abkts, acnt, pcount, boffs, bwpos, sabkts]);
       // Pair-tree: handles hot buckets (N > HOT_THRESHOLD=8). Reads sorted
       // active list + bin_offsets to locate the hot tail; allocates scratch
@@ -2515,6 +2531,11 @@ export class MsmV2 {
       this.ptDispatchBind = mkBind(this.ptDispatchLayout, [ptTotalBuf, scratch.ptCombineDispatchArgs]);
       this.ptCombineBind = mkBind(this.ptCombineLayout, [ptTasksBuf, ptTotalBuf, ptBuf, ptCombineParams]);
       this.ptFinalizeBind = mkBind(this.ptFinalizeLayout, [sabkts, boffs, acnt, ptOffBuf, ptBuf, bucketResult, ptFinalizeParams]);
+      // pt_persistent reads partials_buf directly (NOT pt_buf), so its
+      // params.x must be M_partials_walker (the walker output stride), and
+      // params.y is M_buckets = B_TOTAL.
+      const ptPersistentParams = ubuf(new Uint32Array([M_partials_walker, B_TOTAL, 0, 0]));
+      this.ptPersistentBind = mkBind(this.ptPersistentLayout, [sabkts, boffs, acnt, pcount, poffset, playout, wp, bucketResult, scratch.ptDispatchArgs, ptPersistentParams]);
       // combine_batched now reads sorted_active_buckets at binding 0 → zero
       // tail divergence per S=8 thread group.
       this.combineBatchedBind = mkBind(this.combineBatchedLayout, [sabkts, acnt, pcount, poffset, playout, l0IdxBuf, this.pointXBuf, this.pointYBuf, wp, bucketResult, walkerParams]);
@@ -2795,11 +2816,16 @@ export class MsmV2 {
       // MAX_LEVELS = 17 covers up to N = 2^17 (= every input collapsed
       // into one bucket at logn=17).
       const PT_LEVELS = 17;
-      // All hot-bucket dispatches (init_copy, build, finalize) indirect from
-      // sort_scan's args = (ceil(NUM_HOT/64), 1, 1). Each thread does real
-      // work — no over-dispatch.
       const ptHotArgs = this.pool.scratch!.ptDispatchArgs;
       const ptCombineArgs = this.pool.scratch!.ptCombineDispatchArgs;
+      // Persistent kernel (v3, per-thread safegcd, no batching) was a
+      // wash for profile A — 4.2 ms vs 2.3 ms multi-dispatch. Without
+      // S=8 per-thread amortization the safegcd cost dominates and there's
+      // no savings vs the multi-dispatch path. Kernel + sort_scan args
+      // left in place as scaffolding; not dispatched. A batched persistent
+      // (per-thread S=8 sequential pair-adds, replicating pt_combine's
+      // structure) is the next thing to try.
+      // indirectDispatch(this.ptPersistentPipe, this.ptPersistentBind, this.pool.scratch!.ptPersistentDispatchArgs, 0);
       dispatch(this.ptInitScanPipe, this.ptInitScanBind, 1, 1);
       indirectDispatch(this.ptInitCopyPipe, this.ptInitCopyBind, ptHotArgs, 0);
       for (let lvl = 0; lvl < PT_LEVELS; lvl++) {

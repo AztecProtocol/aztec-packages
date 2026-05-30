@@ -39,6 +39,7 @@ import {
   ba_walker_pt_dispatch as ba_walker_pt_dispatch_shader,
   ba_walker_pt_combine as ba_walker_pt_combine_shader,
   ba_walker_pt_finalize as ba_walker_pt_finalize_shader,
+  ba_walker_pt_persistent as ba_walker_pt_persistent_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
@@ -1055,6 +1056,34 @@ ${packLines.join('\n')}
 
   public gen_ba_walker_pt_finalize_shader(workgroup_size: number): string {
     return mustache.render(ba_walker_pt_finalize_shader, { workgroup_size, recompile: this.recompile });
+  }
+
+  public gen_ba_walker_pt_persistent_shader(
+    workgroup_size: number,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_walker_pt_persistent_shader,
+      {
+        workgroup_size, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
   }
 
   public gen_ba_walker_pt_combine_shader(

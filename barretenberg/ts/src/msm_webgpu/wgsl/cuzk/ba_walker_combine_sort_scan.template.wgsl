@@ -11,11 +11,13 @@
 const MAX_N: u32 = 64u;
 const HOT_THRESHOLD: u32 = 8u;
 const PT_TPB: u32 = 64u;
+const PERSISTENT_TPB: u32 = 256u;
 
-@group(0) @binding(0) var<storage, read>       count_histogram:   array<u32>;
-@group(0) @binding(1) var<storage, read_write> bin_offsets:       array<u32>;
-@group(0) @binding(2) var<storage, read_write> bin_write_pos:     array<atomic<u32>>;
-@group(0) @binding(3) var<storage, read_write> pt_dispatch_args:  array<u32>;
+@group(0) @binding(0) var<storage, read>       count_histogram:        array<u32>;
+@group(0) @binding(1) var<storage, read_write> bin_offsets:            array<u32>;
+@group(0) @binding(2) var<storage, read_write> bin_write_pos:          array<atomic<u32>>;
+@group(0) @binding(3) var<storage, read_write> pt_dispatch_args:       array<u32>;
+@group(0) @binding(4) var<storage, read_write> pt_persistent_args:     array<u32>;
 
 @compute @workgroup_size(1)
 fn main() {
@@ -27,10 +29,15 @@ fn main() {
         atomicStore(&bin_write_pos[i], 0u);
         if (i > HOT_THRESHOLD) { hot_count = hot_count + count_histogram[i]; }
     }
+    // Persistent kernel is currently NOT dispatched (kept as scaffolding).
+    // Always write multi-dispatch args so the multi-dispatch pipeline runs.
     let dx = (hot_count + PT_TPB - 1u) / PT_TPB;
     pt_dispatch_args[0] = dx;
     pt_dispatch_args[1] = 1u;
     pt_dispatch_args[2] = 1u;
+    pt_persistent_args[0] = 0u;
+    pt_persistent_args[1] = 1u;
+    pt_persistent_args[2] = 1u;
 
     {{{ recompile }}}
 }
