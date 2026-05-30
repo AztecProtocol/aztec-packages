@@ -95,7 +95,13 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     walkerCacheDx: q.get('cachedx') === '0' ? false : q.get('cachedx') === '1' ? true : undefined,
-    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    walkerS: optInt('ws'),
+    walkerTpb: optInt('wtpb'),
+    profile:
+      q.get('profile') === '1' ||
+      q.get('autorun') === 'msm-bench' ||
+      q.get('autorun') === 'msm-gpu-bench' ||
+      undefined,
   };
 })();
 
@@ -1661,6 +1667,90 @@ function hideProgress(): void {
         state: 'error',
         params: { logns, page: 'msm-noble-check' },
         results: { per_logn: perLogn },
+        error: msg,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
+  } else if (autorun === 'msm-gpu-bench') {
+    // WASM-free GPU-only benchmark: times the WebGPU MSM and reports the
+    // per-phase GPU breakdown (incl. stream_walker / walker_combine) without
+    // the WASM MT oracle. Gates on SRS only. Can sweep the walker S knob in
+    // ONE device session (?sweep=8,4,2) to map the memory↔time Pareto curve
+    // from a single BrowserStack seat.
+    //   ?autorun=msm-gpu-bench&logn=17&reps=5&sweep=8,4,2[&cachedx=0]
+    const benchLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const sweepRaw = qp.get('sweep');
+    const sweepS = sweepRaw
+      ? sweepRaw.split(',').map(s => parseInt(s.trim(), 10)).filter(v => Number.isInteger(v) && v > 0)
+      : [gpuKnobs.walkerS ?? 8];
+    const client = makeResultsClient({ page: 'msm-gpu-bench' });
+    // Emit an early progress row so the BrowserStack runner can detect this
+    // runId and arm its stall watchdog before the (slow) SRS load.
+    client.postProgress({ stage: 'boot', logN: benchLogN, sweepS });
+    log('info', `[gpu-bench] logN=${benchLogN} reps=${reps} sweepS=${sweepS.join(',')} cachedx=${gpuKnobs.walkerCacheDx ?? 'default'}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    const perS: Record<string, unknown>[] = [];
+    try {
+      await waitForSrs();
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const hasTimestamp = gpuDevice.features.has('timestamp-query');
+      log('info', `[gpu-bench] timestamp-query=${hasTimestamp} (per-phase GPU times ${hasTimestamp ? 'available' : 'unavailable — wall only'})`);
+      const inputs = await generateInputs(benchLogN, false);
+      for (const S of sweepS) {
+        client.postProgress({ stage: 'sweep', S });
+        // Build a fresh MsmV2 for this S with profiling on.
+        const pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+        const cfg: MsmConfig = { ...gpuKnobs, walkerS: S, profile: true, warmupRuns: 3 };
+        const msm = await MsmV2.create(gpuDevice, inputs.n, pool, cfg);
+        msm.prepare(inputs.scalarsBuf);
+        await msm.run(); // warm the data-dependent buffers out of the timed window
+        const wallSamples: number[] = [];
+        const phaseSamples: Record<string, number>[] = [];
+        for (let r = 0; r < reps; r++) {
+          const t0 = performance.now();
+          await msm.run();
+          wallSamples.push(performance.now() - t0);
+          const ph = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+          phaseSamples.push({ ...ph });
+        }
+        const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+        const avgWall = avg(wallSamples);
+        const phaseKeys = Array.from(new Set(phaseSamples.flatMap(p => Object.keys(p))));
+        const avgPhases: Record<string, number> = {};
+        for (const k of phaseKeys) avgPhases[k] = avg(phaseSamples.map(p => p[k] ?? 0));
+        const gpuTotal = Object.values(avgPhases).reduce((a, b) => a + b, 0);
+        const phaseStr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(' ');
+        log('ok', `[gpu-bench] S=${S}: wall=${avgWall.toFixed(2)}ms gpu=${gpuTotal.toFixed(2)}ms ${phaseStr}`);
+        client.postProgress({ stage: 'sweep-done', S, wallMs: avgWall, gpuMs: gpuTotal });
+        perS.push({ S, reps, wallMs: avgWall, gpuMs: gpuTotal, phases: avgPhases, prefScratchBytes: S * (gpuKnobs.walkerTpb ?? 64) * 32 });
+        msm.destroy();
+        pool.destroy();
+      }
+      await client.postResults({
+        state: 'done',
+        params: { logN: benchLogN, reps, sweepS, page: 'msm-gpu-bench', knobs: gpuKnobs },
+        results: { per_s: perS },
+        error: null,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[gpu-bench] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: benchLogN, reps, sweepS, page: 'msm-gpu-bench' },
+        results: { per_s: perS },
         error: msg,
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,

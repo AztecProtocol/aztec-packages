@@ -65,6 +65,20 @@ export interface MsmConfig {
    * cost of S field elements of private state. Default `true`.
    */
   walkerCacheDx?: boolean;
+  /**
+   * Stream-walker batched-inversion slots per thread (S). The primary
+   * memory↔time Pareto knob: `pref_scratch` is `TPB·S·32 B` of workgroup
+   * memory and per-thread register state scales with S, so smaller S lifts
+   * occupancy (more resident workgroups) at the cost of more field inversions
+   * (one per S adds). Default 8.
+   */
+  walkerS?: number;
+  /**
+   * Stream-walker workgroup size (TPB). `pref_scratch = TPB·S·32 B` must fit
+   * the device's `maxComputeWorkgroupStorageSize` (16 KB on Mali Bifrost →
+   * TPB·S ≤ 512; 32 KB on Apple/Adreno → TPB·S ≤ 1024). Default 64.
+   */
+  walkerTpb?: number;
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
@@ -1581,7 +1595,7 @@ export class MsmV2 {
 
     // --- Streaming planner + accumulator pipelines ---
     const STREAM_T = 8192; // NUM_THREADS = max_workgroups × workgroup_size
-    const STREAM_S = 8;
+    const STREAM_S = config?.walkerS ?? 8;
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;
     m.streamS = STREAM_S;
@@ -1626,7 +1640,7 @@ export class MsmV2 {
     // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB=64 per KNOB 1
     // (16 KB pref_scratch fits Mali Bifrost). NUM_THREADS = nwg*256 still
     // (partition_thread's grain), walker dispatches ceil(num_active/TPB) wgs.
-    const WALKER_TPB = 64;
+    const WALKER_TPB = config?.walkerTpb ?? 64;
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
