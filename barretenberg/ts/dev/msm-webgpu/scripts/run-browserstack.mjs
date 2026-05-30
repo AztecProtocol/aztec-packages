@@ -50,6 +50,7 @@ const { values: argv } = parseArgs({
     seed: { type: "string" },
     skew: { type: "string" },
     cs: { type: "string" },
+    profile: { type: "string" },
     port: { type: "string", default: "5198" },
     "first-progress-ms": { type: "string" },
     "stall-ms": { type: "string", default: "180000" },
@@ -419,6 +420,7 @@ async function main() {
   qp.set("logn", String(argv.n ?? "16"));
   if (argv.reps) qp.set("reps", String(argv.reps));
   if (argv.cs) qp.set("cs", String(argv.cs));
+  if (argv.profile !== undefined) qp.set("profile", String(argv.profile));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 
