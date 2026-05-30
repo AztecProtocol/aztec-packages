@@ -107,7 +107,12 @@ function boothWindows(le, c, numWindows) {
 
 // ---------------------------------------------------------------------------
 function pickC(logN) { const t = { 7: 4, 8: 4, 9: 5, 10: 8, 11: 8, 12: 8, 13: 8, 14: 8, 15: 10, 16: 13 }; return t[logN] ?? 13; }
-const PLANNER_TPB = 256, STREAM_S = 8, MIN_ITERS_PER_WG = 8, MAX_STREAM_WORKGROUPS = 64, THREAD_TPB = 256, NUMBITS = 254;
+// MAX_STREAM_WORKGROUPS is the value actually passed to the cumsum shader
+// (msm_v2.ts: gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 1, 32)) — 32,
+// NOT the 64 in ba_stream_plan.ts. It caps nwg, hence numActive = nwg*256 <=
+// 32*256 = 8192 = streamNumThreads, so every walker thread is always
+// dispatched at the largest sizes (no dropped-thread / NUM_THREADS-guard bug).
+const PLANNER_TPB = 256, STREAM_S = 8, MIN_ITERS_PER_WG = 8, MAX_STREAM_WORKGROUPS = 32, THREAD_TPB = 256, NUMBITS = 254;
 
 function run(logN, seed, fast) {
   const n = 1 << logN;

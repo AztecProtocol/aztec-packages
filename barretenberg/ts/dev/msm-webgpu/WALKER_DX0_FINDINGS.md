@@ -43,10 +43,21 @@ symptom patch. This investigation looks upstream.
      cross-check against the reference still passes even though bucket 0 is
      corrupt. That is consistent with the prior session detecting it via a
      per-bucket on-curve assertion rather than a result mismatch.
-   - It manifests only when `numActive < streamNumThreads` (smaller logn). At
-     larger logn the walker dispatches ≥ 8192 threads, every slot is
-     initialized, and there are no stale slots. `node_counter` never overflows
+   - It manifests only when `numActive < streamNumThreads` (smaller logn,
+     roughly logn 8..14). `numActive = nwg*256` and `nwg` is capped at
+     `max_workgroups = 32` (the value actually passed to the cumsum shader:
+     `gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 1, 32)` — not the 64 in
+     `ba_stream_plan.ts`), so `numActive ≤ 8192 = streamNumThreads`. At the
+     largest sizes `nwg = 32 ⇒ numActive = 8192`, every slot is initialized,
+     stale = 0, and the bug does not manifest. `node_counter` never overflows
      (`realPartials ≤ dispatched ⇒ realPartials + stale ≤ max_nodes`).
+   - Side check: because `nwg ≤ 32 ⇒ numActive ≤ streamNumThreads`, the
+     walker's `if (t >= NUM_THREADS=8192) return` guard never drops dispatched
+     threads, so there is **no** "upper half of the bucket stream goes
+     unaccumulated" bug — even though `numActive` and the fixed `NUM_THREADS`
+     are wired from different constants. (Had `max_workgroups` been 64,
+     `numActive` would reach 16384 > 8192 and that guard *would* drop half the
+     work — worth noting if either constant changes.)
 
 ## Reproduction
 
