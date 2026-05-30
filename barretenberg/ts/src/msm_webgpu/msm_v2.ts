@@ -60,6 +60,25 @@ export interface MsmConfig {
   invVariant?: 'loop' | 'pk';
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
+  /**
+   * Stream-walker batched-inversion slots S (tasks/thread processed in lockstep
+   * through one field inversion per S affine adds). The walker spends ~47 % of
+   * its time in the safegcd inversion (real Apple M2, PR #23732); since that is
+   * one inversion per batch of S, the inversion's cost-per-add is `|inv|/S`, so
+   * raising S directly amortizes it down. Default 8. Need not be a power of two.
+   * Pair with `walkerMaxWg` to hold peak memory flat (see below).
+   */
+  walkerS?: number;
+  /**
+   * Stream-walker thread-count cap, in workgroups of 256 (NUM_THREADS =
+   * walkerMaxWg × 256). The per-boundary `partials_buf` — which dominates the
+   * walker's device footprint — is `∝ NUM_THREADS × S`, so to raise `walkerS`
+   * without regressing memory, lower `walkerMaxWg` in lockstep keeping the
+   * product `walkerS × walkerMaxWg` constant (default 8 × 32 = 256). Fewer,
+   * fatter threads trade GPU parallelism for fewer total inversions; the knee
+   * is per-architecture. Default 32.
+   */
+  walkerMaxWg?: number;
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -492,6 +511,17 @@ class PipelineCache {
  * instance`, regardless of LRU size. Cold N-switch goes from ~150 ms
  * (buffer alloc) to ~2 ms (bind-group rebuild).
  */
+// KNOB 1 (stream-walker pref_scratch placement). When true the prefix scratch
+// lives in per-invocation private memory, freeing the 16 KB var<workgroup>
+// array so the walker is no longer threadgroup-occupancy-limited (TPB rises to
+// 128) and the workgroup-memory cap no longer pins S small. This adds no
+// storage binding, keeping the walker within the 10-storage-buffer-per-stage
+// floor that SwiftShader, Mali and Adreno enforce (an 11th device-buffer
+// binding is rejected on those adapters). When false the walker keeps the
+// original 16 KB workgroup scratch with TPB capped at 64.
+const WALKER_PREF_PRIVATE = true;
+const WALKER_TPB = WALKER_PREF_PRIVATE ? 128 : 64;
+
 interface SharedScratch {
   bufA: GPUBuffer;
   bufB: GPUBuffer;
@@ -1225,6 +1255,7 @@ export class MsmV2 {
   private partialSumBind!: GPUBindGroup;
   private streamNumThreads = 8192;
   private streamS = 8;
+  private walkerMaxWg = 32;
   private numRadixTiles = 1;
   // layouts (needed by prepare to build bind groups)
   private plannerALayout!: GPUBindGroupLayout;
@@ -1573,11 +1604,17 @@ export class MsmV2 {
     }
 
     // --- Streaming planner + accumulator pipelines ---
-    const STREAM_T = 8192; // NUM_THREADS = max_workgroups × workgroup_size
-    const STREAM_S = 8;
+    // Walker knobs (KNOB: inversion amortization). NUM_THREADS is capped at
+    // WALKER_MAX_WG × 256; the per-boundary partials_buf scales as
+    // NUM_THREADS × S, so holding STREAM_S × WALKER_MAX_WG constant keeps peak
+    // memory flat while a larger S amortizes the per-batch field inversion.
+    const STREAM_S = config?.walkerS ?? 8;
+    const WALKER_MAX_WG = config?.walkerMaxWg ?? 32;
+    const STREAM_T = WALKER_MAX_WG * 256; // NUM_THREADS cap = max_workgroups × 256
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;
     m.streamS = STREAM_S;
+    m.walkerMaxWg = WALKER_MAX_WG;
     m.numRadixTiles = Math.ceil(m.bTotal / RADIX_TILE);
     const qHeaderLen = 2 * STREAM_T;
     m.classifyPipe = await compile(
@@ -1591,7 +1628,7 @@ export class MsmV2 {
     m.radixScatterPipe = await compile(
       sm.gen_ba_planner_radix_scatter_shader(RADIX_TILE), `radix-scatter`, m.radixScatterLayout);
     m.cumsumPipe = await compile(
-      sm.gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 1, 32),
+      sm.gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 1, WALKER_MAX_WG),
       `cumsum`, m.cumsumLayout);
     m.partitionWgPipe = await compile(
       sm.gen_ba_planner_partition_wg_shader(), `partition-wg`, m.partitionWgLayout);
@@ -1616,15 +1653,17 @@ export class MsmV2 {
     m.splitRecomputePipe = await compile(
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
-    // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB=64 per KNOB 1
-    // (16 KB pref_scratch fits Mali Bifrost). NUM_THREADS = nwg*256 still
-    // (partition_thread's grain), walker dispatches ceil(num_active/TPB) wgs.
-    const WALKER_TPB = 64;
+    // Stream-walker (Plan §6 + C's KNOB 2 variant). KNOB 1 placement is set by
+    // WALKER_PREF_PRIVATE: private pref_scratch frees workgroup memory so TPB
+    // can rise to 128 and S is no longer pinned by the 16 KB budget; the
+    // workgroup fallback caps TPB at 64 (16 KB fits Mali Bifrost). NUM_THREADS =
+    // nwg*256 (partition_thread's grain); the walker dispatches
+    // ceil(num_active/TPB) workgroups.
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, WALKER_PREF_PRIVATE),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
@@ -2340,10 +2379,10 @@ export class MsmV2 {
       }
       dispatch(this.cumsumPipe, this.cumsumBind, 1, 1);
       dispatch(this.partitionWgPipe, this.partitionWgBind, 1, 1);
-      dispatch(this.partitionThreadPipe, this.partitionThreadBind, 32, 1);
+      dispatch(this.partitionThreadPipe, this.partitionThreadBind, this.walkerMaxWg, 1);
       // Stream-walker KNOB 2 planner: precompute per-thread task cuts +
       // emit walker's indirect dispatch args at planner_meta[15..17].
-      dispatch(this.partitionTaskPipe, this.partitionTaskBind, 32, 1);
+      dispatch(this.partitionTaskPipe, this.partitionTaskBind, this.walkerMaxWg, 1);
       setPhase('accumulate');
       // Indirect-dispatched accumulation kernels.
       const indirectDispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, buf: GPUBuffer, off: number): void => {

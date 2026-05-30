@@ -2931,9 +2931,20 @@ export const ba_stream_walker = `{{> structs }}
 // adds — the same batched-inversion inner loop as ba_stream_accum.
 //
 // DESIGN-KNOB VARIATION (thread C):
-//   KNOB 1: pref_scratch lives in var<workgroup> (16 KB at TPB=64), not a
-//           device storage buffer; accumulators live in private registers.
-//           No cross-thread sharing, so no workgroup barrier in the loop.
+//   KNOB 1: pref_scratch placement is selectable ({{ pref_private }}).
+//           - private:   var<private> (per-invocation, S*2 vec4 = 256 B/thread
+//                        at S=8). Frees workgroup memory so the kernel is no
+//                        longer threadgroup-occupancy-limited, letting TPB rise
+//                        (128 on 32 KB GPUs). Adds NO storage binding, so it
+//                        stays within the 10-storage-buffer-per-stage floor
+//                        that SwiftShader, Mali and Adreno enforce — unlike a
+//                        device-buffer slot, which would be an invalid 11th
+//                        storage binding here. It also removes the
+//                        workgroup-memory cap that pinned S small, so S can be
+//                        raised to amortize the per-batch field inversion
+//                        (one inversion per S affine adds → cost/add = |inv|/S).
+//           - workgroup: var<workgroup> (16 KB at TPB=64, S=8), the original.
+//           Either way slots are per-thread-private, so no barrier is needed.
 //   KNOB 2: task cut points are precomputed by ba_planner_partition_task and
 //           read from \`task_cuts\`; the walker does no binary search at init.
 //
@@ -2968,10 +2979,13 @@ const NO_BUCKET: u32 = 0xffffffffu;
 @group(0) @binding(9) var<storage, read_write> partial_dest:       array<u32>;
 @group(0) @binding(10) var<uniform>            params:             vec4<u32>;
 
-// KNOB 1: workgroup-shared prefix scratch. Each thread uses its own
-// [local_id*S .. local_id*S + S) region (2 vec4 per slot), so there is no
-// cross-thread aliasing and no barrier is needed. 16 KB at TPB=64.
+// KNOB 1: prefix scratch placement (see header).
+{{#pref_private}}
+var<private> pref_scratch: array<vec4<u32>, S * 2u>;
+{{/pref_private}}
+{{^pref_private}}
 var<workgroup> pref_scratch: array<vec4<u32>, TPB * S * 2u>;
+{{/pref_private}}
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
@@ -2992,16 +3006,37 @@ fn load_pt_y(cursor: u32) -> array<u32, 8> {
     return fr_sub_f8(zero, y);
 }
 
-fn store_pref(base: u32, val: array<u32, 8>) {
+// Prefix-scratch accessors. \`k\` is the per-thread pair slot in [0, S); a slot
+// holds a 256-bit field element as two consecutive vec4. The private layout
+// addresses by \`k\` alone (each invocation owns its array); the workgroup
+// layout offsets by \`l\` (local id). \`t\`/\`NT\` are unused but kept in the
+// signature so both layouts share one call site.
+{{#pref_private}}
+fn store_pref(k: u32, l: u32, t: u32, NT: u32, val: array<u32, 8>) {
+    pref_scratch[2u * k + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    pref_scratch[2u * k + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
+}
+
+fn load_pref(k: u32, l: u32, t: u32, NT: u32) -> array<u32, 8> {
+    let q0 = pref_scratch[2u * k + 0u];
+    let q1 = pref_scratch[2u * k + 1u];
+    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+}
+{{/pref_private}}
+{{^pref_private}}
+fn store_pref(k: u32, l: u32, t: u32, NT: u32, val: array<u32, 8>) {
+    let base = l * S * 2u + k * 2u;
     pref_scratch[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
     pref_scratch[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
 }
 
-fn load_pref(base: u32) -> array<u32, 8> {
+fn load_pref(k: u32, l: u32, t: u32, NT: u32) -> array<u32, 8> {
+    let base = l * S * 2u + k * 2u;
     let q0 = pref_scratch[base + 0u];
     let q1 = pref_scratch[base + 1u];
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
+{{/pref_private}}
 
 fn store_bucket_sum(bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
     let bx = PG * bucket_id;
@@ -3034,7 +3069,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     if (t >= NUM_THREADS) { return; }
 
-    let pref_base = l * S * 2u;
     let cut_base = t * CUTS * 2u;
 
     // Per-slot state (private). acc lives in registers (plan §7.1). The task
@@ -3175,7 +3209,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             }
             let dx = fr_sub_f8(p_rx, p_lx);
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
-            store_pref(pref_base + k * 2u, acc);
+            store_pref(k, l, t, NUM_THREADS, acc);
         }
 
         var acc20 = unpack256_to_limbs(acc);
@@ -3189,7 +3223,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             if (k == 0u) {
                 inv_dx = inv;
             } else {
-                let pp = load_pref(pref_base + (k - 1u) * 2u);
+                let pp = load_pref(k - 1u, l, t, NUM_THREADS);
                 inv_dx = montgomery_product_f8(inv, pp);
                 var p_lx_b: array<u32, 8>;
                 var p_rx_b: array<u32, 8>;
@@ -3206,7 +3240,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
                 inv = montgomery_product_f8(inv, dx_b);
             }
-            store_pref(pref_base + k * 2u, inv_dx);
+            store_pref(k, l, t, NUM_THREADS, inv_dx);
         }
 
         // Backward peel: affine add, then retire / advance.
@@ -3232,7 +3266,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 cursor[k] += 1u;
             }
 
-            let inv_dx = load_pref(pref_base + k * 2u);
+            let inv_dx = load_pref(k, l, t, NUM_THREADS);
             var lambda = fr_sub_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
             var r_x = montgomery_product_f8(lambda, lambda);

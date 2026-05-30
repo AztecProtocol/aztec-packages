@@ -898,12 +898,18 @@ ${packLines.join('\n')}
     });
   }
 
-  // Stream-walker accumulator (Plan §6, design-knob variant C). TPB=64 with
-  // workgroup pref_scratch (KNOB 1) and precomputed task_cuts (KNOB 2).
+  // Stream-walker accumulator (Plan §6, design-knob variant C) with precomputed
+  // task_cuts (KNOB 2). KNOB 1 (pref_scratch placement) is selected by
+  // `pref_private`: true puts the prefix scratch in per-invocation private
+  // memory so the kernel is not workgroup-memory occupancy-limited (TPB can
+  // rise to 128) and the workgroup-memory cap no longer pins S small, without
+  // adding a storage binding (the 11th would exceed the 10-per-stage floor
+  // SwiftShader/Mali/Adreno enforce); false keeps the 16 KB var<workgroup> path.
   public gen_ba_stream_walker_shader(
     workgroup_size: number,
     s: number,
     variant: 'loop' | 'pk' = 'pk',
+    pref_private = true,
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
@@ -912,7 +918,7 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_stream_walker_shader,
       {
-        workgroup_size, s, inv_fn,
+        workgroup_size, s, inv_fn, pref_private,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,

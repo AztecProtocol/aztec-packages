@@ -89,6 +89,8 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
+    walkerS: optInt('walkers'),
+    walkerMaxWg: optInt('walkermaxwg'),
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
 })();
