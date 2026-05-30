@@ -311,14 +311,6 @@ export class ProposalHandler {
           return undefined;
         }
 
-        if (this.config.skipCheckpointProposalValidation) {
-          this.log.warn(
-            `Skipping all-nodes checkpoint proposal validation for slot ${proposal.slotNumber}`,
-            proposalInfo,
-          );
-          return undefined;
-        }
-
         const result = await this.handleCheckpointProposal(proposal, proposalInfo);
         if (!result.isValid) {
           await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
