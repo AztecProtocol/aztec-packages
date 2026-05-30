@@ -64,12 +64,17 @@ const $results = document.getElementById('results') as HTMLDivElement;
 
 // The sweep spans 2^10..2^20 — small sizes show where the GPU pipeline
 // overtakes the WASM Pippenger; the v2 pipeline has no size floor.
-const LOGN_MIN = 10;
+const LOGN_MIN = 8;
 const LOGN_MAX = 20;
 const SRS_NUM_POINTS = 1 << LOGN_MAX;
 
 const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const NOBLE_REFERENCE_LOGN = 16;
+// GPU-less correctness mode: with `?ref=noble` the Run handler cross-checks
+// the WebGPU result against the noble JS reference at the actual logN and
+// skips the WASM-MT path. Used for SwiftShader validation when the threaded
+// WASM oracle is unavailable (no cross-origin isolation / placeholder wasm).
+const refNobleAny = new URLSearchParams(window.location.search).get('ref') === 'noble';
 const SWEEP_REPS = 5;
 
 // GPU pipeline knobs from the URL — forwarded to every MsmV2 (unset = defaults).
@@ -953,13 +958,27 @@ $run.addEventListener('click', async () => {
   setBusy(true, 'running…');
   try {
     const logN = readLogN();
-    const checkNoble = $noble.checked && logN === NOBLE_REFERENCE_LOGN;
+    const checkNoble = ($noble.checked && logN === NOBLE_REFERENCE_LOGN) || refNobleAny;
     const inputs = await generateInputs(logN, checkNoble);
     await yieldToBrowser();
 
     const gpu = await runWebGpuOnce(inputs);
     log('info', `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
     await yieldToBrowser();
+
+    if (refNobleAny) {
+      if (inputs.points && inputs.scalars) {
+        const noble = referenceMsm(inputs.points, inputs.scalars);
+        if (pointsEqual(noble, gpu.xy)) {
+          log('ok', `[cross-check] WebGPU and noble agree at log₂(n) = ${logN}`);
+        } else {
+          log('err', `[cross-check] disagreement: gpu=${gpu.xy.x}, noble=${noble.x}`);
+        }
+      } else {
+        log('err', `[cross-check] ref=noble set but reference inputs missing`);
+      }
+      return;
+    }
 
     throwIfAborted();
     await loadWasmInputs(inputs);
