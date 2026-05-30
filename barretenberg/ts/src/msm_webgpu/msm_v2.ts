@@ -677,6 +677,44 @@ export class MsmV2Pool {
   }
 
   /**
+   * Per-buffer GPU-byte breakdown of the shared scratch (plus the SRS pool),
+   * so a bench run can attribute the working-set total to individual buffers
+   * rather than reporting one opaque number. Sums match {@link statsBytes}.
+   */
+  statsBreakdown(): Record<string, number> {
+    const out: Record<string, number> = { srs: this.poolX.size + this.poolY.size };
+    const s = this._scratch;
+    if (s) {
+      out.bucketResult = s.bucketResultBuf.size;
+      out.bucketAndSign = s.bucketAndSignBuf.size;
+      out.valIdx = s.valIdxBuf.size;
+      out.l0Idx = s.l0IdxBuf.size;
+      out.rowPtr = s.rowPtrBuf.size;
+      out.scalarsRaw = s.scalarsRawBuf.size;
+      out.red = s.redBuf.size + s.isPresentBuf.size + s.reducePrefScratch.size;
+      out.counts = s.countsBufs[0].size + s.countsBufs[1].size;
+      out.offsets = s.offsetsBufs[0].size + s.offsetsBufs[1].size;
+      out.plannerLists =
+        s.size1BucketList.size + s.denseBucketList.size + s.denseCountList.size +
+        s.sortedBucketList.size + s.sortedCountList.size + s.radixHist.size +
+        s.cumulativeAdds.size + s.streamPlannerMeta.size;
+      out.cuts = s.wgCuts.size + s.threadCuts.size + s.taskCuts.size;
+      out.walkerPartials = s.walkerPartials.size + s.walkerPartialDest.size;
+      out.walkerNodes =
+        s.bucketHead.size + s.walkerNodesSlot.size + s.walkerNodesNext.size + s.walkerNodeCounter.size;
+      out.padTrio = s.bufA.size + s.bufB.size;
+      out.deadStubs =
+        s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size +
+        s.scatterPlanRing[0].size + s.scatterPlanRing[1].size +
+        s.carryPlanRing[0].size + s.carryPlanRing[1].size +
+        s.prefScratchBuf.size + s.queueBuf.size + s.partialsBuf.size +
+        s.partialBucketsList.size + s.accBuf.size + s.streamPrefScratch.size +
+        s.planMeta.size;
+    }
+    return out;
+  }
+
+  /**
    * Grow shared scratch buffers as needed to fit `dims`. Idempotent — if
    * every dimension already fits, no buffer is touched and `scratchEpoch`
    * stays put. If any dimension grows, the underlying buffers are destroyed

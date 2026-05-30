@@ -519,12 +519,20 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
   const srsBytes = inputs.n * 64;
   const scratchBytes = poolBytes - srsBytes;
   const algoBytes = scratchBytes + instBytes;
+  const breakdown = msmV2Pool!.statsBreakdown();
   (window as unknown as { __msmMem?: unknown }).__msmMem = {
-    n: inputs.n, logN, instBytes, scratchBytes, srsBytes, algoBytes, poolBytes,
+    n: inputs.n, logN, instBytes, scratchBytes, srsBytes, algoBytes, poolBytes, breakdown,
   };
   log('info', `[mem] logN=${logN} algo=${mib(algoBytes)}MiB ` +
     `(scratch=${mib(scratchBytes)} + inst=${mib(instBytes)}) ` +
     `srs=${mib(srsBytes)}MiB total=${mib(poolBytes)}MiB`);
+  const top = Object.entries(breakdown)
+    .filter(([k]) => k !== 'srs')
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([k, v]) => `${k}=${mib(v)}`)
+    .join(' ');
+  log('info', `[mem] top scratch buffers (MiB): ${top}`);
   return msmV2;
 }
 
