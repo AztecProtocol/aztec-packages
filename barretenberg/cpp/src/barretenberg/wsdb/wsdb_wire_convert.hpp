@@ -26,6 +26,42 @@ inline bb::fr fr_from_wire(const Fr& w)
     return bb::fr::serialize_from_buffer(w.data());
 }
 
+inline PublicDataSlot public_data_slot_to_wire(const bb::fr& d)
+{
+    PublicDataSlot r{};
+    bb::fr::serialize_to_buffer(d, r.data());
+    return r;
+}
+
+inline bb::fr public_data_slot_from_wire(const PublicDataSlot& w)
+{
+    return bb::fr::serialize_from_buffer(w.data());
+}
+
+inline PublicDataValue public_data_value_to_wire(const bb::fr& d)
+{
+    PublicDataValue r{};
+    bb::fr::serialize_to_buffer(d, r.data());
+    return r;
+}
+
+inline bb::fr public_data_value_from_wire(const PublicDataValue& w)
+{
+    return bb::fr::serialize_from_buffer(w.data());
+}
+
+inline Nullifier nullifier_to_wire(const bb::fr& d)
+{
+    Nullifier r{};
+    bb::fr::serialize_to_buffer(d, r.data());
+    return r;
+}
+
+inline bb::fr nullifier_from_wire(const Nullifier& w)
+{
+    return bb::fr::serialize_from_buffer(w.data());
+}
+
 inline std::vector<Fr> fr_vec_to_wire(const std::vector<bb::fr>& d)
 {
     std::vector<Fr> r;
@@ -76,12 +112,12 @@ inline world_state::MerkleTreeId tree_id_from_wire(MerkleTreeId w)
 
 inline wire::PublicDataLeafValue public_data_leaf_to_wire(const crypto::merkle_tree::PublicDataLeafValue& d)
 {
-    return { .slot = fr_to_wire(d.slot), .value = fr_to_wire(d.value) };
+    return { .slot = public_data_slot_to_wire(d.slot), .value = public_data_value_to_wire(d.value) };
 }
 
 inline crypto::merkle_tree::PublicDataLeafValue public_data_leaf_from_wire(const wire::PublicDataLeafValue& w)
 {
-    return { fr_from_wire(w.slot), fr_from_wire(w.value) };
+    return { public_data_slot_from_wire(w.slot), public_data_value_from_wire(w.value) };
 }
 
 inline std::vector<wire::PublicDataLeafValue> public_data_leaf_vec_to_wire(
@@ -108,12 +144,12 @@ inline std::vector<crypto::merkle_tree::PublicDataLeafValue> public_data_leaf_ve
 
 inline wire::NullifierLeafValue nullifier_leaf_to_wire(const crypto::merkle_tree::NullifierLeafValue& d)
 {
-    return { .nullifier = fr_to_wire(d.nullifier) };
+    return { .nullifier = nullifier_to_wire(d.nullifier) };
 }
 
 inline crypto::merkle_tree::NullifierLeafValue nullifier_leaf_from_wire(const wire::NullifierLeafValue& w)
 {
-    return { fr_from_wire(w.nullifier) };
+    return { nullifier_from_wire(w.nullifier) };
 }
 
 inline std::vector<wire::NullifierLeafValue> nullifier_leaf_vec_to_wire(

@@ -7,13 +7,12 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
-import { createRequire } from 'module';
-import * as net from 'net';
+import { NapiShmAsyncClient, UdsIpcClient, createNapiShmAsyncClient } from '@aztec/ipc-runtime';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { IMsgpackBackendAsync } from '../bb_backends/interface.js';
-import { findNapiBinary, findPackageRoot } from '../bb_backends/node/platform.js';
+import { findNapiBinary } from '../bb_backends/node/platform.js';
 import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
@@ -58,16 +57,7 @@ function formatMap(map: Record<number, number> | undefined): string | undefined 
 
 /** Build CLI args common to both UDS and SHM modes. */
 function buildWsdbArgs(inputPath: string, options: WsdbOptions, threads: number): string[] {
-  const args = [
-    'msgpack',
-    'run',
-    '--input',
-    inputPath,
-    '--data-dir',
-    options.dataDir,
-    '--threads',
-    threads.toString(),
-  ];
+  const args = ['msgpack', 'run', '--input', inputPath, '--data-dir', options.dataDir, '--threads', threads.toString()];
 
   if (options.initialHeaderGeneratorPoint !== undefined) {
     args.push('--initial-header-generator-point', options.initialHeaderGeneratorPoint.toString());
@@ -109,29 +99,13 @@ export * from './generated/api_types.js';
  */
 export class WsdbBackend implements IMsgpackBackendAsync {
   private process: ChildProcess;
-  /** For UDS mode */
-  private socket: net.Socket | null = null;
-  /** For SHM mode */
-  private shmClient: any = null;
+  private client: UdsIpcClient | NapiShmAsyncClient | null = null;
   private inputPath: string;
   private useShm: boolean;
   private connectionPromise: Promise<void>;
   private connectionTimeout: NodeJS.Timeout | null = null;
   /** Resolves when the child process exits (for clean destroy). */
   private processExitPromise: Promise<void>;
-
-  private pendingCallbacks: Array<{
-    resolve: (data: Uint8Array) => void;
-    reject: (error: Error) => void;
-  }> = [];
-
-  // State machine for reading UDS responses
-  private readingLength: boolean = true;
-  private lengthBuffer: Buffer = Buffer.alloc(4);
-  private lengthBytesRead: number = 0;
-  private responseLength: number = 0;
-  private responseBuffer: Buffer | null = null;
-  private responseBytesRead: number = 0;
 
   constructor(options: WsdbOptions) {
     this.useShm = options.useShm ?? false;
@@ -183,20 +157,13 @@ export class WsdbBackend implements IMsgpackBackendAsync {
     }
 
     this.process.on('error', (err: Error) => {
-      for (const cb of this.pendingCallbacks) {
-        cb.reject(new Error(`aztec-wsdb process error: ${err.message}`));
-      }
-      this.pendingCallbacks = [];
+      this.client?.destroy().catch(() => {});
       connectionReject?.(err);
     });
 
     this.processExitPromise = new Promise<void>(resolve => {
       this.process.on('exit', (code: number | null) => {
-        const error = new Error(`aztec-wsdb process exited with code ${code}`);
-        for (const cb of this.pendingCallbacks) {
-          cb.reject(error);
-        }
-        this.pendingCallbacks = [];
+        this.client?.destroy().catch(() => {});
         resolve();
       });
     });
@@ -220,24 +187,11 @@ export class WsdbBackend implements IMsgpackBackendAsync {
 
   // ——— SHM connection ———
 
-  private connectShm(
-    resolve: () => void,
-    reject: (error: Error) => void,
-    napiPath?: string,
-  ) {
+  private connectShm(resolve: () => void, reject: (error: Error) => void, napiPath?: string) {
     const shmName = this.inputPath.replace(/\.shm$/, '');
     const addonPath = findNapiBinary(napiPath);
     if (!addonPath) {
       reject(new Error('NAPI binary not found — required for shared memory mode'));
-      return;
-    }
-
-    let addon: any;
-    try {
-      const require = createRequire(findPackageRoot()!);
-      addon = require(addonPath);
-    } catch (err: any) {
-      reject(new Error(`Failed to load NAPI module for SHM: ${err.message}`));
       return;
     }
 
@@ -249,22 +203,15 @@ export class WsdbBackend implements IMsgpackBackendAsync {
     const tryConnect = () => {
       attempt++;
       try {
-        // TS backend is client 0 in the MPSC SHM system (AVM is client 1)
-        this.shmClient = new addon.MsgpackClientAsync(shmName, 0);
-        // Register response callback
-        this.shmClient.setResponseCallback((responseBuffer: Buffer) => {
-          const callback = this.pendingCallbacks.shift();
-          if (callback) {
-            callback.resolve(new Uint8Array(responseBuffer));
-          }
-          if (this.pendingCallbacks.length === 0) {
-            this.shmClient.release();
-          }
-        });
+        this.client = createNapiShmAsyncClient(shmName, { clientId: 0, customAddonPath: addonPath });
         resolve();
       } catch (e: any) {
         if (attempt >= maxAttempts) {
-          reject(new Error(`Timeout connecting to wsdb shared memory after ${maxAttempts * retryInterval}ms: ${e?.message ?? e}`));
+          reject(
+            new Error(
+              `Timeout connecting to wsdb shared memory after ${maxAttempts * retryInterval}ms: ${e?.message ?? e}`,
+            ),
+          );
         } else {
           this.connectionTimeout = setTimeout(tryConnect, retryInterval);
         }
@@ -296,109 +243,19 @@ export class WsdbBackend implements IMsgpackBackendAsync {
   }
 
   private connectUds(resolve: () => void, reject: (error: Error) => void) {
-    this.socket = net.createConnection(this.inputPath);
-
-    this.socket.on('connect', () => {
-      resolve();
-    });
-
-    this.socket.on('error', (err: Error) => {
-      reject(err);
-      for (const cb of this.pendingCallbacks) {
-        cb.reject(err);
-      }
-      this.pendingCallbacks = [];
-    });
-
-    this.socket.on('data', (chunk: Buffer) => {
-      this.handleData(chunk);
-    });
-
-    this.socket.on('close', () => {
-      const error = new Error('aztec-wsdb socket closed');
-      for (const cb of this.pendingCallbacks) {
-        cb.reject(error);
-      }
-      this.pendingCallbacks = [];
-    });
-  }
-
-  private handleData(chunk: Buffer) {
-    let offset = 0;
-
-    while (offset < chunk.length) {
-      if (this.readingLength) {
-        const bytesNeeded = 4 - this.lengthBytesRead;
-        const bytesAvailable = chunk.length - offset;
-        const bytesToCopy = Math.min(bytesNeeded, bytesAvailable);
-
-        chunk.copy(this.lengthBuffer, this.lengthBytesRead, offset, offset + bytesToCopy);
-        this.lengthBytesRead += bytesToCopy;
-        offset += bytesToCopy;
-
-        if (this.lengthBytesRead === 4) {
-          this.responseLength = this.lengthBuffer.readUInt32LE(0);
-          this.responseBuffer = Buffer.alloc(this.responseLength);
-          this.responseBytesRead = 0;
-          this.readingLength = false;
-        }
-      } else {
-        const bytesNeeded = this.responseLength - this.responseBytesRead;
-        const bytesAvailable = chunk.length - offset;
-        const bytesToCopy = Math.min(bytesNeeded, bytesAvailable);
-
-        chunk.copy(this.responseBuffer!, this.responseBytesRead, offset, offset + bytesToCopy);
-        this.responseBytesRead += bytesToCopy;
-        offset += bytesToCopy;
-
-        if (this.responseBytesRead === this.responseLength) {
-          const callback = this.pendingCallbacks.shift();
-          if (callback) {
-            callback.resolve(new Uint8Array(this.responseBuffer!));
-          }
-
-          // Reset state for next message
-          this.readingLength = true;
-          this.lengthBytesRead = 0;
-          this.responseBuffer = null;
-        }
-      }
-    }
+    UdsIpcClient.connect(this.inputPath)
+      .then(client => {
+        this.client = client;
+        resolve();
+      })
+      .catch(reject);
   }
 
   // ——— Unified call/destroy ———
 
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
     await this.connectionPromise;
-
-    if (this.useShm) {
-      return new Promise<Uint8Array>((resolve, reject) => {
-        if (this.pendingCallbacks.length === 0) {
-          this.shmClient.acquire();
-        }
-        this.pendingCallbacks.push({ resolve, reject });
-        try {
-          this.shmClient.call(Buffer.from(inputBuffer));
-        } catch (err: any) {
-          this.pendingCallbacks.pop();
-          if (this.pendingCallbacks.length === 0) {
-            this.shmClient.release();
-          }
-          reject(new Error(`SHM call failed: ${err.message}`));
-        }
-      });
-    }
-
-    // UDS mode
-    return new Promise<Uint8Array>((resolve, reject) => {
-      this.pendingCallbacks.push({ resolve, reject });
-
-      const lengthBuf = Buffer.alloc(4);
-      lengthBuf.writeUInt32LE(inputBuffer.length, 0);
-
-      this.socket!.write(lengthBuf);
-      this.socket!.write(Buffer.from(inputBuffer));
-    });
+    return await this.client!.call(inputBuffer);
   }
 
   async destroy(): Promise<void> {
@@ -411,9 +268,9 @@ export class WsdbBackend implements IMsgpackBackendAsync {
       this.connectionTimeout = null;
     }
 
-    if (this.socket) {
-      this.socket.destroy();
-      this.socket = null;
+    if (this.client) {
+      await this.client.destroy();
+      this.client = null;
     }
 
     if (this.process && this.process.exitCode === null) {
