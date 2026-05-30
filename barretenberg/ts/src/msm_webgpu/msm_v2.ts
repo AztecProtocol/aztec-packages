@@ -26,6 +26,7 @@ import { ShaderManager } from './cuzk/shader_manager.js';
 import { BN254_CURVE_CONFIG } from './cuzk/curve_config.js';
 import { compute_misc_params } from './cuzk/utils.js';
 import { BN254_BASE_FIELD, addBn254Points, type Bn254Point, modInverse } from './cuzk/bn254.js';
+import { STREAM_WALKER_TPB, STREAM_WALKER_TPB_MALI_FALLBACK } from './cuzk/ba_stream_plan.js';
 
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
@@ -54,6 +55,13 @@ export interface MsmConfig {
   wgi?: number;
   /** Bucket-reduction workgroup size. Default: `pickReduceWg(c)`. */
   reduceWg?: number;
+  /**
+   * Stream-walker workgroup size (threads per block). Default: 128 when the
+   * device grants ≥32 KB compute workgroup storage (Apple/Adreno), else 64
+   * (Mali Bifrost's 16 KB cap). Exposed so the bench can A/B the two
+   * geometries on a single device.
+   */
+  walkerTpb?: number;
   /** Reduction leaf-partition log2. Default 1. */
   l0Log?: number;
   /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
@@ -1616,10 +1624,22 @@ export class MsmV2 {
     m.splitRecomputePipe = await compile(
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
-    // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB=64 per KNOB 1
-    // (16 KB pref_scratch fits Mali Bifrost). NUM_THREADS = nwg*256 still
-    // (partition_thread's grain), walker dispatches ceil(num_active/TPB) wgs.
-    const WALKER_TPB = 64;
+    // Stream-walker (Plan §6 + C's KNOB 2 variant). The walker keeps
+    // pref_scratch (TPB × S × 2 vec4 = TPB × S × 32 B) in var<workgroup> and
+    // has no cross-thread sharing or workgroup barriers (KNOB 1), so its
+    // output is independent of TPB — TPB only sets the workgroup granularity
+    // and the per-workgroup pref_scratch footprint. Pick the largest TPB whose
+    // pref_scratch fits the device's granted workgroup-storage budget: 128
+    // (= 32 KB at S=8) on Apple/Adreno, dropping to 64 (= 16 KB) on Mali
+    // Bifrost's 16 KB cap. gpu.ts requests the adapter's max
+    // maxComputeWorkgroupStorageSize, so this reads the granted ceiling rather
+    // than WebGPU's 16 KB spec default. NUM_THREADS stays nwg*TPB; the walker
+    // dispatches ceil(num_active/TPB) workgroups.
+    const wgStorageLimit = device.limits.maxComputeWorkgroupStorageSize;
+    const walkerPrefBytes = (tpb: number): number => tpb * STREAM_S * 2 * 16;
+    const autoWalkerTpb =
+      walkerPrefBytes(STREAM_WALKER_TPB) <= wgStorageLimit ? STREAM_WALKER_TPB : STREAM_WALKER_TPB_MALI_FALLBACK;
+    const WALKER_TPB = config?.walkerTpb ?? autoWalkerTpb;
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
