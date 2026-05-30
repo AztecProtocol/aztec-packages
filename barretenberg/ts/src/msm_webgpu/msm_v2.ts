@@ -58,6 +58,13 @@ export interface MsmConfig {
   l0Log?: number;
   /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
   invVariant?: 'loop' | 'pk';
+  /**
+   * Stream-walker: cache the forward-pass per-slot `dx` and reuse it in the
+   * inverse pass instead of reloading + recomputing the slot points. Removes
+   * ~1/3 of the walker's x-coordinate SRS reads (numerically identical) at a
+   * cost of S field elements of private state. Default `true`.
+   */
+  walkerCacheDx?: boolean;
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
@@ -1623,8 +1630,9 @@ export class MsmV2 {
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
+    const walkerCacheDx = config?.walkerCacheDx ?? true;
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, walkerCacheDx),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
