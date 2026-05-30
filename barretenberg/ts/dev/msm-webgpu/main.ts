@@ -1425,14 +1425,21 @@ function hideProgress(): void {
       if (srsBuf === null) throw new Error('SRS not loaded within 10 min');
       const inputs = await generateInputs(logN, false);
       const nLog = Math.log2(inputs.n);
+      client.postProgress({ kind: 'srs-ready', logN, sList });
       const curve: Record<string, unknown>[] = [];
-      for (const S of sList) {
-        (gpuKnobs as unknown as { streamS?: number }).streamS = S;
+      // Build in DESCENDING S order so the shared pool allocates its
+      // S-proportional scratch (walkerPref etc.) once at the largest S and
+      // never reallocates mid-sweep — a grow-while-reused realloc between S
+      // values can wedge the device.
+      const buildOrder = [...sList].sort((a, b) => b - a);
+      for (const S of buildOrder) {
         if (gpuDevice === null) gpuDevice = await get_device();
         if (msmV2) { msmV2.destroy(); msmV2 = null; }
         if (msmV2Pool === null) msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
-        // Rebuild pipelines with the new streamS (MsmV2.create warms internally).
-        msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
+        // Rebuild pipelines with the new streamS. Explicit config (don't mutate
+        // the shared gpuKnobs); fewer warm-ups keep each S short.
+        const cfg = { ...gpuKnobs, streamS: S, warmupRuns: 2 } as MsmConfig;
+        msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, cfg);
         msmV2LogN = nLog;
         await runWebGpuOnce(inputs); // extra warm — first-touch on fresh pipelines
         const wall: number[] = [];
@@ -1456,6 +1463,7 @@ function hideProgress(): void {
           timestampOk: sw.length > 0,
         };
         curve.push(row);
+        client.postProgress({ kind: 's-done', S, wallMsMedian: row.wallMsMedian, streamWalkerMsMedian: row.streamWalkerMsMedian });
         const swStr = row.streamWalkerMsMedian != null ? `${row.streamWalkerMsMedian.toFixed(2)}ms` : 'n/a(no-ts)';
         log('ok', `[s-sweep] S=${S}: wall(med)=${(row.wallMsMedian ?? 0).toFixed(1)}ms stream_walker(med)=${swStr}`);
       }
@@ -1464,7 +1472,7 @@ function hideProgress(): void {
       await client.postResults({
         state: 'done',
         params: { logN, reps, sList, page: 'msm-s-sweep' },
-        results: { curve },
+        results: { curve: [...curve].sort((a, b) => (a.S as number) - (b.S as number)) },
         error: null,
         log: allLines.slice(-200),
         userAgent: navigator.userAgent,
