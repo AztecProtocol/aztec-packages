@@ -23,8 +23,9 @@ const page = await browser.newPage();
 page.on('console', m => console.log(`  . ${m.text()}`));
 page.on('pageerror', e => console.log(`  ! ${e.message}`));
 
-const target = `http://localhost:5173/dev/msm-webgpu/index.html?autorun=msm-bench&logn=${logn}&reps=${reps}`;
-console.log(`SwiftShader bench logn=${logn} reps=${reps}`);
+const extra = process.argv[4] ? `&${process.argv[4]}` : '';
+const target = `http://localhost:5173/dev/msm-webgpu/index.html?autorun=msm-bench&logn=${logn}&reps=${reps}${extra}`;
+console.log(`SwiftShader bench logn=${logn} reps=${reps}${extra}`);
 let runnerErr = null;
 try {
   await page.goto(target, { waitUntil: 'load', timeout: 120000 });

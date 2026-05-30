@@ -1475,10 +1475,15 @@ function hideProgress(): void {
     const reps = parseInt(qp.get('reps') ?? '5', 10);
     const client = makeResultsClient({ page: 'msm-bench' });
     log('info', `[bench] logN=${autorunLogN} reps=${reps}`);
+    // Emit an early /progress row so the BS runner detects the runId and keeps
+    // its stall watchdog fed through the (slow) SRS+warmup phase on real
+    // devices — msm-bench otherwise posts only a single terminal /results row.
+    client.postProgress({ phase: 'start', logN: autorunLogN, reps });
     try {
       // Wait for SRS + WASM ready (Run button enables)
       for (let i = 0; i < 1200; i++) {
         if (!$run.disabled) break;
+        if (i % 10 === 0) client.postProgress({ phase: 'srs-wait', i });
         await new Promise(r => setTimeout(r, 500));
       }
       $logn.value = String(autorunLogN);
@@ -1491,6 +1496,7 @@ function hideProgress(): void {
       }
       for (let i = 0; i < 1200; i++) {
         if (!$run.disabled) break;
+        if (i % 10 === 0) client.postProgress({ phase: 'warmup', i });
         await new Promise(r => setTimeout(r, 500));
       }
       // After warmup: msmV2 is built and ready. Run N timed iterations
@@ -1514,6 +1520,7 @@ function hideProgress(): void {
         const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
         samples.push({ wallMs, gpuMs, phases });
         const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
+        client.postProgress({ phase: 'rep', rep: r + 1, reps, wallMs });
         log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
       }
       const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
