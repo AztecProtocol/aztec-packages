@@ -160,13 +160,22 @@ WebGPU implementation. This **refutes the premise** that raising `numBatches` is
 lever therefore does **not** safely trade memory for time today: engaging it
 returns an incorrect MSM.
 
-**Likely root cause** (host side, `msm_v2.ts`): the planner/walker bind groups
-and params (`size1Bind`, `streamWalkerBind`, `walkerCombineBind`, …) are built
-**once** in `prepare()` with **no per-batch window/bucket offset**, while the CSR
-`counts`/`offsets` are sized `batchBuckets` and the lists / `bucketHead` /
-`bucketResult` are sized `bTotal`. At nb=1 `batchBuckets == bTotal` so the
-local and global bucket-index spaces coincide and everything works; at nb>1 they
-diverge and batches collide instead of filling disjoint `bucketResult` regions.
+**Root cause (pinned):** `decompose_scalars_booth` applies the per-batch global
+window base **only to the scalar-bit read** — `w_global = w + batch.x`,
+`read_bits(p, …, w_global * c, c)` — but writes its output **local-window
+indexed**: `idx = w * input_size + p` (`w` ∈ `[0, batchWindows)`). Every batch
+therefore produces a CSR in the *same* local `[0, batchBuckets)` space, and the
+shaders that finally write the full-`bTotal` `bucketResult` (`ba_size1`,
+`ba_stream_walker`, `ba_walker_combine`) never re-apply a
+`batch_window_base * BW` offset — their bind groups/params are built once in
+`prepare()` and not updated per batch. So at nb>1 each batch **overwrites the low
+`batchBuckets` region** of `bucketResult` instead of filling its disjoint slice;
+windows above `batchWindows` stay zero, and the once-over `reduce` sums a buffer
+where only the last batch's windows are populated. At nb=1
+`batchBuckets == bTotal`, local == global, and it works. Fix direction: thread a
+per-batch `bucket_base = batch_window_base * BW` into the three `bucketResult`-
+writing kernels' destination index (and verify the `batchBuckets`-sized CSR
+`counts`/`offsets` vs the `bTotal`-sized lists are indexed consistently).
 
 **Blast radius beyond the lever:** the same multi-batch code is the
 `wgFits`-forced **default** at **logn19 (nb=2)** and **logn20 (nb=3)** — so
