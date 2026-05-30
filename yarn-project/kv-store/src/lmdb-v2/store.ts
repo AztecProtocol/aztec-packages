@@ -272,12 +272,10 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
             entries: response.entries.map(({ key, values }) => [key, values]),
           })) as Promise<LMDBResponseBody[T]>;
       case LMDBMessageType.ADVANCE_CURSOR:
-        return this.api
-          .kvdbAdvanceCursor(body as LMDBRequestBody[LMDBMessageType.ADVANCE_CURSOR])
-          .then(response => ({
-            ...response,
-            entries: response.entries.map(({ key, values }) => [key, values]),
-          })) as Promise<LMDBResponseBody[T]>;
+        return this.api.kvdbAdvanceCursor(body as LMDBRequestBody[LMDBMessageType.ADVANCE_CURSOR]).then(response => ({
+          ...response,
+          entries: response.entries.map(({ key, values }) => [key, values]),
+        })) as Promise<LMDBResponseBody[T]>;
       case LMDBMessageType.ADVANCE_CURSOR_COUNT:
         return this.api.kvdbAdvanceCursorCount(
           body as LMDBRequestBody[LMDBMessageType.ADVANCE_CURSOR_COUNT],
