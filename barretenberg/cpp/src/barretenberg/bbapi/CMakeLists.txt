@@ -1,9 +1,10 @@
 # Generate BB IPC wire types and dispatchers from bb_schema.json. WASM builds
 # also consume the generated server header, so codegen must run outside
 # native-only blocks.
+set(BB_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/bb_schema.json)
+set(BB_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
+
 if(NOT FUZZING)
-    set(BB_SCHEMA ${CMAKE_CURRENT_SOURCE_DIR}/bb_schema.json)
-    set(BB_GEN_DIR ${CMAKE_CURRENT_SOURCE_DIR}/generated)
     set(BB_GEN_OUTPUTS
         ${BB_GEN_DIR}/bb_ipc_client.cpp
         ${BB_GEN_DIR}/bb_ipc_client.hpp
@@ -38,6 +39,9 @@ endif()
 
 barretenberg_module(bbapi common chonk dsl crypto_poseidon2 crypto_pedersen_commitment crypto_pedersen_hash crypto_blake2s crypto_aes128 crypto_schnorr crypto_ecdsa ecc srs)
 
+target_include_directories(bbapi_objects PRIVATE ${BB_GEN_DIR})
+target_include_directories(bbapi PUBLIC ${BB_GEN_DIR})
+
 if(NOT FUZZING)
     add_dependencies(bbapi_objects bb_codegen)
     # Codegen-emitted bb_ipc_{client,server}.hpp + bb_types.hpp include
@@ -50,8 +54,6 @@ if(NOT FUZZING)
     # never propagate to downstream users.
     target_link_libraries(bbapi_objects PUBLIC ipc_runtime)
     target_link_libraries(bbapi PUBLIC ipc_runtime)
-    target_include_directories(bbapi_objects PRIVATE ${BB_GEN_DIR})
-    target_include_directories(bbapi PUBLIC ${BB_GEN_DIR})
 endif()
 
 # bbapi_tests needs vm2_stub to resolve dsl's AVM recursion constraint references,
