@@ -30,6 +30,31 @@ import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
 
+// BrowserStack launches mobile Chrome on real Android devices via an
+// intent whose URL is truncated at the first shell/intent delimiter —
+// both `&` and `;` cut it short, so `?coi=1&autorun=…` (or the `;`-joined
+// form) arrives as just `?coi=1` and every later param is silently lost.
+// To survive that, callers bundle the whole query string into a single
+// base64url `q` param — base64url uses only `[A-Za-z0-9-_]`, none of which
+// are delimiters, so nothing truncates. Decode and expand it back into a
+// normal query string here — before any param is read — via
+// history.replaceState so the rest of the page is unchanged.
+(() => {
+  const raw = new URLSearchParams(window.location.search).get('q');
+  if (!raw) return;
+  let decoded;
+  try {
+    const b64 = raw.replace(/-/g, '+').replace(/_/g, '/');
+    decoded = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+  } catch {
+    return;
+  }
+  const sp = new URLSearchParams(window.location.search);
+  sp.delete('q');
+  for (const [k, v] of new URLSearchParams(decoded)) sp.set(k, v);
+  history.replaceState(null, '', `${window.location.pathname}?${sp.toString()}${window.location.hash}`);
+})();
+
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 
 // Per-rep profiling capture consumed by the sweep aggregator. `runWebGpuOnce`
@@ -1406,6 +1431,13 @@ function hideProgress(): void {
   // can pick them up from JSONL.
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
+  // Mobile JS-testing workers have no console capture, so echo the
+  // dispatch-entry state (resolved autorun param + the gates waitForRun
+  // depends on) to the on-page #log. It shows up in a device screenshot,
+  // which is the only post-boot visibility on a real Android device.
+  if (autorun) {
+    log('info', `[autorun] dispatch autorun=${autorun} coi=${COI_ACTIVE} ready=${srsBuf !== null} runDisabled=${$run.disabled}`);
+  }
   if (autorun === 'msm-bench') {
     const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
     const reps = parseInt(qp.get('reps') ?? '5', 10);
@@ -1876,6 +1908,8 @@ function hideProgress(): void {
       numWindows: number;
       c: number;
       ms: number | null;
+      msMin: number | null;
+      samples: number[] | null;
       phaseMs: Record<string, number> | null;
     }> => {
       // Precomputed-φ builds a 2n-x / n-y pool (β·x prestored, no per-gather
@@ -1894,16 +1928,27 @@ function hideProgress(): void {
       });
       m.prepare(scalarsBuf);
       let ms: number | null = null;
+      let msMin: number | null = null;
+      let samples: number[] | null = null;
       if (doTime) {
         await m.run();
         await m.run();
-        let best = Infinity;
+        const ts: number[] = [];
         for (let i = 0; i < reps; i++) {
           const t0 = performance.now();
           await m.run();
-          best = Math.min(best, performance.now() - t0);
+          ts.push(performance.now() - t0);
         }
-        ms = best;
+        // Report the MEDIAN, not the min. Min is robust to slow jitter (GC,
+        // scheduler) but on mobile GPUs it latches onto fast glitches — a
+        // dropped/early-returning dispatch whose mapAsync resolves in tens of
+        // ms — producing impossible sub-100ms readings. Median rejects both
+        // tails. Keep min + raw samples for transparency.
+        const sorted = [...ts].sort((a, b) => a - b);
+        const mid = sorted.length >> 1;
+        ms = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        msMin = sorted[0];
+        samples = ts;
       }
       let phaseMs: Record<string, number> | null = null;
       if (profilePhases) {
@@ -1916,7 +1961,7 @@ function hideProgress(): void {
       const c = m.c;
       m.destroy();
       p.destroy();
-      return { algoBytes, poolBytes, numWindows, c, ms, phaseMs };
+      return { algoBytes, poolBytes, numWindows, c, ms, msMin, samples, phaseMs };
     };
     type Kind = 'base' | 'glv' | 'glv-otf' | 'glv-pre';
     type Row =
@@ -1928,6 +1973,8 @@ function hideProgress(): void {
           poolMiB: number;
           totalMiB: number;
           ms: number | null;
+          msMin?: number | null;
+          samples?: number[] | null;
           phaseMs?: Record<string, number> | null;
         }
       | { kind: Kind; c: number; error: string };
@@ -1958,7 +2005,7 @@ function hideProgress(): void {
           const algoMiB = r.algoBytes / 2 ** 20;
           const poolMiB = r.poolBytes / 2 ** 20;
           const totalMiB = algoMiB + poolMiB;
-          rows.push({ kind, c: r.c, numWindows: r.numWindows, algoMiB, poolMiB, totalMiB, ms: r.ms, phaseMs: r.phaseMs });
+          rows.push({ kind, c: r.c, numWindows: r.numWindows, algoMiB, poolMiB, totalMiB, ms: r.ms, msMin: r.msMin, samples: r.samples, phaseMs: r.phaseMs });
           const phaseStr =
             r.phaseMs && Object.keys(r.phaseMs).length
               ? ` phases={${Object.entries(r.phaseMs)

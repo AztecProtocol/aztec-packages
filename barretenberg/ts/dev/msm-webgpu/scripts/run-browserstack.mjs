@@ -414,14 +414,25 @@ async function main() {
   // Build the index.html autorun URL: ?coi=1 gives the cross-origin
   // isolation the threaded WASM needs; --autorun selects msm-cross-check
   // (default) or msm-bench (timed reps with per-phase GPU breakdown).
-  const qp = new URLSearchParams();
-  qp.set("coi", "1");
-  qp.set("autorun", argv.autorun);
-  qp.set("logn", String(argv.n ?? "16"));
-  if (argv.reps) qp.set("reps", String(argv.reps));
-  if (argv.cs) qp.set("cs", String(argv.cs));
-  if (argv.profile !== undefined) qp.set("profile", String(argv.profile));
-  const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
+  const params = [
+    ["coi", "1"],
+    ["autorun", argv.autorun],
+    ["logn", String(argv.n ?? "16")],
+  ];
+  if (argv.reps) params.push(["reps", String(argv.reps)]);
+  if (argv.cs) params.push(["cs", String(argv.cs)]);
+  if (argv.profile !== undefined) params.push(["profile", String(argv.profile)]);
+  // BrowserStack launches mobile Chrome on real Android devices via an
+  // intent whose `&` separators truncate the URL at the first ampersand —
+  // only the first query param survives. Bundle everything into a single
+  // `;`-separated `q` param for Android targets; main.ts expands it back
+  // into a normal query string before any param is read. Desktop targets
+  // open the URL directly and keep the normal `&` form.
+  const isAndroid = (TARGETS[argv.target]?.worker?.os ?? "").toLowerCase() === "android";
+  const query = isAndroid
+    ? `q=${params.map(([k, v]) => `${k}=${v}`).join(";")}`
+    : params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+  const pageUrl = `${baseUrl}${pageMap[argv.page]}?${query}`;
   err(`page URL: ${pageUrl}`);
 
   // Generate a runId on the client side (the page makes its own random

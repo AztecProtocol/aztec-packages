@@ -83,7 +83,25 @@ function conditionalCoiHeaders(): PluginOption {
         ) {
           res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
         }
-        if (req.url && /[?&]coi=1\b/.test(req.url)) {
+        // Match `coi=1` as a normal query param (`?coi=1` / `&coi=1`) or
+        // inside the base64url `q` bundle that main.ts expands on Android
+        // (where the intent launcher truncates the URL at `&`/`;`). For the
+        // bundle we base64url-decode `q` and look for `coi=1` in the
+        // recovered query string.
+        let wantsCoi = /[?&]coi=1\b/.test(req.url ?? "");
+        if (!wantsCoi && req.url) {
+          const m = req.url.match(/[?&]q=([A-Za-z0-9\-_]+)/);
+          if (m) {
+            try {
+              const b64 = m[1].replace(/-/g, "+").replace(/_/g, "/");
+              const decoded = Buffer.from(b64, "base64").toString("utf8");
+              wantsCoi = /(^|[?&])coi=1\b/.test(decoded);
+            } catch {
+              /* not base64 — ignore */
+            }
+          }
+        }
+        if (wantsCoi) {
           res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
           res.setHeader("Cross-Origin-Embedder-Policy", "require-corp");
         }
