@@ -65,11 +65,21 @@ wall at n = 2¹⁶** on the measured desktop profile and a *larger* fraction on
 weaker GPUs at moderate n. Modelled wall (companion §6.4): **75 → 55 ms @ 2¹⁶**,
 **397 → 280 ms @ 2²⁰**.
 
-GLV is therefore a **win on the n-independent stages on both axes**: it halves
-their *time* (BPR + Horner) and, at the production c = 15, halves the T-scaled
-*memory* they consume (§4). It is composable with either accumulator. It does
-not change the O(T·n) accumulate inner loop — so it complements, rather than
-replaces, work on the stream-walker's accumulate bottleneck.
+GLV halves both the *time* and the *memory* of the n-independent stages
+(BPR + Horner). Whether that nets out to a faster **wall** depends on how big a
+fraction those stages are:
+
+- On the **V2 pair-tree** profile (companion §5.2), BPR alone is 37 % of the
+  wall at 2¹⁶ — there the modelled win is real (75 → 55 ms).
+- On **this stream-walker branch at 2¹⁷ on a fast M2**, the n-independent
+  stages are a smaller fraction and the 2n point set adds ~6 % more accumulate
+  digits plus extra scheduling, so the measured wall is ~7 % *slower*, not
+  faster, while memory drops ~12 % (§5). The time benefit concentrates at
+  smaller n, on weaker GPUs, and on the V2 accumulator — the regimes where the
+  flat BPR/Horner cost dominates.
+
+GLV does not change the O(T·n) accumulate inner loop, so it complements rather
+than replaces work on the stream-walker's accumulate bottleneck.
 
 ## 4. Memory
 
