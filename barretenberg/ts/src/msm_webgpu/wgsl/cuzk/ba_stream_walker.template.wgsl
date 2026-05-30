@@ -142,6 +142,21 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     var acc_x:          array<array<u32, 8>, {{ s }}>;
     var acc_y:          array<array<u32, 8>, {{ s }}>;
 
+    // Per-slot operand cache for one inner-loop iteration. The forward
+    // prefix pass loads each slot's left/right operands and computes dx
+    // exactly once; the inverse pass and the backward peel then reuse
+    // these instead of re-reading point_x / point_y / l0_index and
+    // re-running fr_sub_f8. y-coords are only needed by the peel, but the
+    // forward pass already knows the cursor, so loading them there folds
+    // all of a slot's global reads into one place (better coalescing) and
+    // removes the duplicate dx subtraction. Bit-identical: same operands,
+    // same dx, just computed once and stored.
+    var op_lx:          array<array<u32, 8>, {{ s }}>;
+    var op_ly:          array<array<u32, 8>, {{ s }}>;
+    var op_rx:          array<array<u32, 8>, {{ s }}>;
+    var op_ry:          array<array<u32, 8>, {{ s }}>;
+    var dx_cache:       array<array<u32, 8>, {{ s }}>;
+
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
         partial_dest[2u * (t * S + k) + 0u] = NO_BUCKET;
@@ -247,21 +262,36 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
         // Forward prefix of dx across the S slots (idle slots use the pad
         // trio so the product stays invertible), exactly as ba_stream_accum.
+        // Each slot's operands and dx are cached for reuse by the inverse
+        // pass and the backward peel (no re-reads / re-subtracts later).
         var acc: array<u32, 8> = get_r_f8();
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             var p_lx: array<u32, 8>;
+            var p_ly: array<u32, 8>;
             var p_rx: array<u32, 8>;
+            var p_ry: array<u32, 8>;
             if (slot_done[k] == 1u) {
                 p_lx = load_pt_x(IDLE_ANCHOR);
                 p_rx = load_pt_x(IDLE_ANCHOR + 1u);
             } else if (is_first[k] == 1u) {
-                p_lx = load_pt_x(cursor[k]);
-                p_rx = load_pt_x(cursor[k] + 1u);
+                let c = cursor[k];
+                p_lx = load_pt_x(c);
+                p_ly = load_pt_y(c);
+                p_rx = load_pt_x(c + 1u);
+                p_ry = load_pt_y(c + 1u);
             } else {
+                let c = cursor[k];
                 p_lx = acc_x[k];
-                p_rx = load_pt_x(cursor[k]);
+                p_ly = acc_y[k];
+                p_rx = load_pt_x(c);
+                p_ry = load_pt_y(c);
             }
             let dx = fr_sub_f8(p_rx, p_lx);
+            op_lx[k] = p_lx;
+            op_ly[k] = p_ly;
+            op_rx[k] = p_rx;
+            op_ry[k] = p_ry;
+            dx_cache[k] = dx;
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
             store_pref(pref_base + k * 2u, acc);
         }
@@ -279,20 +309,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 let pp = load_pref(pref_base + (k - 1u) * 2u);
                 inv_dx = montgomery_product_f8(inv, pp);
-                var p_lx_b: array<u32, 8>;
-                var p_rx_b: array<u32, 8>;
-                if (slot_done[k] == 1u) {
-                    p_lx_b = load_pt_x(IDLE_ANCHOR);
-                    p_rx_b = load_pt_x(IDLE_ANCHOR + 1u);
-                } else if (is_first[k] == 1u) {
-                    p_lx_b = load_pt_x(cursor[k]);
-                    p_rx_b = load_pt_x(cursor[k] + 1u);
-                } else {
-                    p_lx_b = acc_x[k];
-                    p_rx_b = load_pt_x(cursor[k]);
-                }
-                let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
-                inv = montgomery_product_f8(inv, dx_b);
+                // dx for this slot was computed in the forward pass; peel
+                // it off the running inverse rather than reloading the
+                // operands and re-subtracting.
+                inv = montgomery_product_f8(inv, dx_cache[k]);
             }
             store_pref(pref_base + k * 2u, inv_dx);
         }
@@ -302,21 +322,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             let k = S - 1u - jj;
             if (slot_done[k] == 1u) { continue; }
 
-            var p_lx: array<u32, 8>;
-            var p_ly: array<u32, 8>;
-            var p_rx: array<u32, 8>;
-            var p_ry: array<u32, 8>;
+            // Operands were cached in the forward pass (same cursor, same
+            // values); reuse them and only advance the cursor here.
+            let p_lx = op_lx[k];
+            let p_ly = op_ly[k];
+            let p_rx = op_rx[k];
+            let p_ry = op_ry[k];
             if (is_first[k] == 1u) {
-                p_lx = load_pt_x(cursor[k]);
-                p_ly = load_pt_y(cursor[k]);
-                p_rx = load_pt_x(cursor[k] + 1u);
-                p_ry = load_pt_y(cursor[k] + 1u);
                 cursor[k] += 2u;
             } else {
-                p_lx = acc_x[k];
-                p_ly = acc_y[k];
-                p_rx = load_pt_x(cursor[k]);
-                p_ry = load_pt_y(cursor[k]);
                 cursor[k] += 1u;
             }
 
