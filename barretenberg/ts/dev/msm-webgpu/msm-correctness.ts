@@ -54,10 +54,25 @@ function biToLe32(v: bigint): Uint8Array {
   return out;
 }
 
+// Optional deterministic PRNG (?seed=N) so two runs (e.g. baseline vs a knob
+// flip) see byte-identical points + scalars for an equivalence diff.
+let prng: number | null = (() => {
+  const s = new URLSearchParams(window.location.search).get('seed');
+  return s === null ? null : (parseInt(s, 10) >>> 0 || 1);
+})();
+function fillBytes(out: Uint8Array): void {
+  if (prng === null) { crypto.getRandomValues(out); return; }
+  let s = prng;
+  for (let i = 0; i < out.length; i += 4) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    out[i] = s & 0xff; out[i + 1] = (s >>> 8) & 0xff; out[i + 2] = (s >>> 16) & 0xff; out[i + 3] = (s >>> 24) & 0xff;
+  }
+  prng = s;
+}
 function randomFr(): bigint {
   for (;;) {
     const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
+    fillBytes(bytes);
     bytes[31] &= 0x3f;
     let v = 0n;
     for (let i = 31; i >= 0; i--) v = (v << 8n) | BigInt(bytes[i]);
@@ -65,20 +80,27 @@ function randomFr(): bigint {
   }
 }
 
-// Synthesise n distinct affine BN254 points as small multiples of the
-// generator, serialised in the marshalling layout MsmV2 expects:
-// pointsBuf[i] = x_i[32 LE] || y_i[32 LE], non-Montgomery.
+// Synthesise n pseudo-random affine BN254 points as a random arithmetic
+// progression on the curve: P_i = (start + i·stride)·G with random start and
+// a large random stride. Two cheap scalar-muls plus n point-adds. Crucially
+// the points must NOT be small/consecutive multiples of G — those let the
+// MSM's batched AFFINE addition hit x₁==x₂ collisions (partial sums and points
+// are all G-multiples, so P_i+P_j can equal ±P_k), dividing by zero. A random
+// stride makes such collisions negligible, matching real SRS point genericity.
+// Layout: pointsBuf[i] = x_i[32 LE] || y_i[32 LE], non-Montgomery.
 function makePoints(n: number): { pointsBuf: Uint8Array; affine: { x: bigint; y: bigint }[] } {
   const pointsBuf = new Uint8Array(n * 64);
   const affine = new Array<{ x: bigint; y: bigint }>(n);
-  let acc = bn254.G1.ProjectivePoint.BASE;
-  const base = bn254.G1.ProjectivePoint.BASE;
+  const start = randomFr();
+  const stride = randomFr();
+  let acc = bn254.G1.ProjectivePoint.BASE.multiply(start);
+  const step = bn254.G1.ProjectivePoint.BASE.multiply(stride);
   for (let i = 0; i < n; i++) {
     const a = acc.toAffine();
     affine[i] = { x: a.x, y: a.y };
     pointsBuf.set(biToLe32(a.x), i * 64);
     pointsBuf.set(biToLe32(a.y), i * 64 + 32);
-    acc = acc.add(base); // (i+2)*G — distinct, non-degenerate points
+    acc = acc.add(step);
   }
   return { pointsBuf, affine };
 }
@@ -137,10 +159,12 @@ async function memProbe(device: GPUDevice, logN: number): Promise<number> {
       const n = 1 << logN;
       log('info', `=== logN=${logN} (n=${n}) ===`);
       const { pointsBuf, affine } = makePoints(n);
+      // ?sc=N forces every scalar to N (diagnostic: sc=1 makes MSM = Σ Pᵢ).
+      const forced = qp.get('sc');
       const scalars = new Array<bigint>(n);
       const scalarsBuf = new Uint8Array(n * 32);
       for (let i = 0; i < n; i++) {
-        const s = randomFr();
+        const s = forced !== null ? BigInt(forced) : randomFr();
         scalars[i] = s;
         scalarsBuf.set(biToLe32(s), i * 32);
       }
@@ -148,17 +172,33 @@ async function memProbe(device: GPUDevice, logN: number): Promise<number> {
       log('info', 'computing noble reference MSM...');
       const proj = affine.map(p => bn254.G1.ProjectivePoint.fromAffine(p));
       const refAff = bn254.G1.ProjectivePoint.msm(proj, scalars).toAffine();
+      // Self-check the reference at tiny n: naive Σ sᵢ·Pᵢ must equal msm().
+      // Isolates a noble-API / scalar-encoding bug from an MsmV2 discrepancy.
+      if (n <= 1024) {
+        let acc = bn254.G1.ProjectivePoint.ZERO;
+        for (let i = 0; i < n; i++) if (scalars[i] !== 0n) acc = acc.add(proj[i].multiply(scalars[i]));
+        const naive = acc.toAffine();
+        const refMatchesNaive = naive.x === refAff.x && naive.y === refAff.y;
+        log(refMatchesNaive ? 'ok' : 'err', `[ref-selfcheck] noble msm()==naive Σ: ${refMatchesNaive}`);
+      }
 
       log('info', 'building MsmV2 + running WebGPU pipeline...');
       const pool = await MsmV2Pool.create(device, pointsBuf);
       const msm = await MsmV2.create(device, n, pool, gpuKnobs);
       msm.prepare(scalarsBuf);
-      await msm.run(); // warm (first-touch) — untimed
+      const warm = qp.get('warm') !== '0';
+      if (warm) await msm.run(); // warm (first-touch) — untimed
       const xy = await msm.run();
-      const bytes = msm.statsBytes();
+      const bytes = pool.statsBytes();
       msm.destroy();
       pool.destroy();
       log('info', `[mem] logN=${logN}: algorithm buffers = ${(bytes / 1024 / 1024).toFixed(2)} MiB`);
+
+      // Diagnostics: is the GPU point on-curve? is it the negation of noble?
+      const FP = bn254.fields.Fp.ORDER;
+      const onCurve = (p: { x: bigint; y: bigint }) => (p.y * p.y - (p.x * p.x * p.x + 3n)) % FP === 0n;
+      const negMatch = xy.x === refAff.x && (xy.y + refAff.y) % FP === 0n;
+      log('info', `[diag] gpu on-curve=${onCurve(xy)} negation-of-ref=${negMatch} gpu.y=0x${xy.y.toString(16).slice(0, 16)} ref.y=0x${refAff.y.toString(16).slice(0, 16)}`);
 
       const pass = xy.x === refAff.x && xy.y === refAff.y;
       allPass = allPass && pass;

@@ -2931,15 +2931,16 @@ export const ba_stream_walker = `{{> structs }}
 // adds — the same batched-inversion inner loop as ba_stream_accum.
 //
 // DESIGN-KNOB VARIATION (thread C):
-//   KNOB 1: pref_scratch placement is selectable ({{ pref_device }}).
-//           - device:    a storage buffer (binding 11) with a coalesced
-//                        layout (slot s of thread t at s*NUM_THREADS + t).
+//   KNOB 1: pref_scratch placement is selectable ({{ pref_private }}).
+//           - private:   var<private> (per-invocation, S*2 vec4 = 256 B/thread).
 //                        Frees workgroup memory entirely so the kernel is no
-//                        longer threadgroup-occupancy-limited, letting TPB
-//                        rise (128). Costs one extra storage binding.
-//           - workgroup: var<workgroup> (16 KB at TPB=64), the portable
-//                        fallback for adapters with <11 storage buffers.
-//           Either way slots are per-thread-disjoint, so no barrier is needed.
+//                        longer threadgroup-occupancy-limited, letting TPB rise
+//                        (128). Adds NO storage binding, so it stays within the
+//                        10-storage-buffer-per-stage floor that SwiftShader,
+//                        Mali and Adreno enforce — unlike a device-buffer slot,
+//                        which would be an invalid 11th storage binding here.
+//           - workgroup: var<workgroup> (16 KB at TPB=64), the original path.
+//           Either way slots are per-thread-private, so no barrier is needed.
 //   KNOB 2: task cut points are precomputed by ba_planner_partition_task and
 //           read from \`task_cuts\`; the walker does no binary search at init.
 //
@@ -2975,12 +2976,12 @@ const NO_BUCKET: u32 = 0xffffffffu;
 @group(0) @binding(10) var<uniform>            params:             vec4<u32>;
 
 // KNOB 1: prefix scratch placement (see header).
-{{#pref_device}}
-@group(0) @binding(11) var<storage, read_write> pref_scratch: array<vec4<u32>>;
-{{/pref_device}}
-{{^pref_device}}
+{{#pref_private}}
+var<private> pref_scratch: array<vec4<u32>, S * 2u>;
+{{/pref_private}}
+{{^pref_private}}
 var<workgroup> pref_scratch: array<vec4<u32>, TPB * S * 2u>;
-{{/pref_device}}
+{{/pref_private}}
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
@@ -3002,26 +3003,23 @@ fn load_pt_y(cursor: u32) -> array<u32, 8> {
 }
 
 // Prefix-scratch accessors. \`k\` is the per-thread pair slot in [0, S); a slot
-// holds a 256-bit field element as two consecutive vec4. \`l\` (local id) is
-// used by the workgroup layout, \`t\`/\`NT\` (global id / NUM_THREADS) by the
-// coalesced device layout. Each thread's slots are disjoint in both layouts.
-{{#pref_device}}
+// holds a 256-bit field element as two consecutive vec4. The private layout
+// addresses by \`k\` alone (each invocation owns its array); the workgroup
+// layout offsets by \`l\` (local id). \`t\`/\`NT\` are unused but kept in the
+// signature so both layouts share one call site.
+{{#pref_private}}
 fn store_pref(k: u32, l: u32, t: u32, NT: u32, val: array<u32, 8>) {
-    let a = (2u * k) * NT + t;
-    let b = (2u * k + 1u) * NT + t;
-    pref_scratch[a] = vec4<u32>(val[0], val[1], val[2], val[3]);
-    pref_scratch[b] = vec4<u32>(val[4], val[5], val[6], val[7]);
+    pref_scratch[2u * k + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    pref_scratch[2u * k + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
 }
 
 fn load_pref(k: u32, l: u32, t: u32, NT: u32) -> array<u32, 8> {
-    let a = (2u * k) * NT + t;
-    let b = (2u * k + 1u) * NT + t;
-    let q0 = pref_scratch[a];
-    let q1 = pref_scratch[b];
+    let q0 = pref_scratch[2u * k + 0u];
+    let q1 = pref_scratch[2u * k + 1u];
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
-{{/pref_device}}
-{{^pref_device}}
+{{/pref_private}}
+{{^pref_private}}
 fn store_pref(k: u32, l: u32, t: u32, NT: u32, val: array<u32, 8>) {
     let base = l * S * 2u + k * 2u;
     pref_scratch[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
@@ -3034,7 +3032,7 @@ fn load_pref(k: u32, l: u32, t: u32, NT: u32) -> array<u32, 8> {
     let q1 = pref_scratch[base + 1u];
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
-{{/pref_device}}
+{{/pref_private}}
 
 fn store_bucket_sum(bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
     let bx = PG * bucket_id;
