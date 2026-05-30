@@ -1636,5 +1636,81 @@ function hideProgress(): void {
       });
       log('err', `[autorun] state=error`);
     }
+  } else if (autorun === 'msm-bench-gpu') {
+    // COI-free GPU-only bench: times the WebGPU MSM and reports the
+    // per-pass GPU breakdown (incl. the `stream_walker` accumulate kernel)
+    // plus the pool's allocated GPU bytes. No WASM-MT oracle, so it runs on
+    // any WebGPU device behind BrowserStack without a built bb wasm. Pass
+    // &profile=1 to enable the timestamp-query per-pass timings.
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const client = makeResultsClient({ page: 'msm-bench-gpu' });
+    log('info', `[bench-gpu] logN=${autorunLogN} reps=${reps}`);
+    client.postProgress({ phase: 'boot', logN: autorunLogN });
+    try {
+      for (let i = 0; i < 1200 && srsBuf === null; i++) {
+        if (i % 4 === 0) client.postProgress({ phase: 'srs-wait', i });
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) throw new Error('SRS never loaded within 10 minutes');
+      client.postProgress({ phase: 'gen' });
+      const inputs = await generateInputs(autorunLogN, false);
+      // Warm-up: builds MsmV2 + pipelines and runs once (untimed).
+      client.postProgress({ phase: 'warmup' });
+      await runWebGpuOnce(inputs);
+      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
+      for (let r = 0; r < reps; r++) {
+        const gpu = await runWebGpuOnce(inputs);
+        const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+        const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
+        samples.push({ wallMs: gpu.ms, gpuMs, phases });
+        client.postProgress({ phase: 'rep', i: r, wallMs: gpu.ms, stream_walker: phases.stream_walker ?? 0 });
+        const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(' ');
+        log('info', `[bench-gpu] rep ${r + 1}/${reps}: wall=${gpu.ms.toFixed(2)}ms gpu=${gpuMs.toFixed(2)}ms ${phaseStr}`);
+      }
+      const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const med = (arr: number[]) => { const s = [...arr].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
+      const avgWall = avg(samples.map(s => s.wallMs));
+      const medWall = med(samples.map(s => s.wallMs));
+      const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+      const avgPhases: Record<string, number> = {};
+      const medPhases: Record<string, number> = {};
+      for (const key of allPhaseKeys) {
+        avgPhases[key] = avg(samples.map(s => s.phases[key] ?? 0));
+        medPhases[key] = med(samples.map(s => s.phases[key] ?? 0));
+      }
+      const poolBytes = msmV2Pool ? msmV2Pool.statsBytes() : 0;
+      const srsPointBytes = (1 << autorunLogN) * 32 * 2;
+      const scratchBytes = Math.max(0, poolBytes - srsPointBytes);
+      const phaseStr = Object.entries(medPhases).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(' ');
+      log('ok', `[bench-gpu] DONE logN=${autorunLogN}: medWall=${medWall.toFixed(2)}ms ${phaseStr} ` +
+        `| poolBytes=${poolBytes} scratchBytes=${scratchBytes} (${(scratchBytes / 1048576).toFixed(1)} MiB)`);
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, page: 'msm-bench-gpu' },
+        results: {
+          samples,
+          averages: { wallMs: avgWall, ...avgPhases },
+          medians: { wallMs: medWall, ...medPhases },
+          memory: { poolBytes, srsPointBytes, scratchBytes },
+        },
+        error: null,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[bench-gpu] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, reps, page: 'msm-bench-gpu' },
+        results: null,
+        error: msg,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
   }
 })();
