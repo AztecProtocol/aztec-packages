@@ -32,6 +32,27 @@ template <typename FF_> class TranslatorDeltaRangeConstraintShortRelationImpl {
     };
 
     /**
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
+     *
+     * @details The ordered_range_constraints wires are sorted ascending, so each is constant across long runs. On an
+     * edge where ordered_i is locally constant, delta_i = ordered_i_shift - ordered_i is the zero edge polynomial, so
+     * the degree-4 product P(delta_i) = delta_i(delta_i-1)(delta_i-2)(delta_i-3) vanishes identically and the delta-sort
+     * subrelation contributes nothing. The max-value subrelations carry a lagrange_real_last factor, so they vanish on
+     * any edge where lagrange_real_last is identically zero. We can therefore skip an edge only when all five deltas and
+     * lagrange_real_last are identically zero across it. This tests the actual edge values (not a selector), so it is
+     * sound in every sumcheck round with no masking-row subtlety.
+     */
+    template <typename AllEntities> static bool skip(const AllEntities& in)
+    {
+        return (in.ordered_range_constraints_0_shift - in.ordered_range_constraints_0).is_zero() &&
+               (in.ordered_range_constraints_1_shift - in.ordered_range_constraints_1).is_zero() &&
+               (in.ordered_range_constraints_2_shift - in.ordered_range_constraints_2).is_zero() &&
+               (in.ordered_range_constraints_3_shift - in.ordered_range_constraints_3).is_zero() &&
+               (in.ordered_range_constraints_4_shift - in.ordered_range_constraints_4).is_zero() &&
+               in.lagrange_real_last.is_zero();
+    }
+
+    /**
      * @brief Expression for the generalized permutation sort relation
      *
      * @details The relation enforces 2 constraints on each of the ordered_range_constraints wires:
