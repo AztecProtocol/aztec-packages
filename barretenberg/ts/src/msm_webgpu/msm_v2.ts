@@ -72,6 +72,14 @@ export interface MsmConfig {
    */
   accum?: 'walker' | 'coop';
   /**
+   * Cooperative-inversion granularity for `accum: 'coop'`: number of threads
+   * that share ONE batched inversion. `WALKER_TPB` (default) = workgroup-wide
+   * prefix/suffix scan; `1 < G < TPB` = per-group serial Montgomery batch
+   * inversion (TPB/G concurrent inversions); `1` = each thread inverts its own
+   * dx (no workgroup memory, no barriers). Must divide the workgroup size.
+   */
+  coopG?: number;
+  /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
    * Default 5 (benchmark harness); the production bridge passes 0 so the first
@@ -1275,6 +1283,7 @@ export class MsmV2 {
   // Cooperative-inversion accumulator (reuses streamWalkerLayout + bind).
   private coopWalkerPipe!: GPUComputePipeline;
   private accum: 'walker' | 'coop' = 'walker';
+  private coopG = 64;
   private walkerCombinePipe!: GPUComputePipeline;
   private walkerCombineLayout!: GPUBindGroupLayout;
   private walkerCombineBind!: GPUBindGroup;
@@ -1395,6 +1404,7 @@ export class MsmV2 {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.accum = config?.accum ?? 'walker';
+    m.coopG = config?.coopG ?? 64;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
@@ -1641,7 +1651,7 @@ export class MsmV2 {
     // and the stream-walker bind group; only compiled when selected.
     if (m.accum === 'coop') {
       m.coopWalkerPipe = await compile(
-        sm.gen_ba_coop_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
+        sm.gen_ba_coop_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, m.coopG),
         `coop-walker`, m.streamWalkerLayout);
     }
     m.walkerCombinePipe = await compile(

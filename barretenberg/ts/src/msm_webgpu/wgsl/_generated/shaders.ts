@@ -964,6 +964,12 @@ export const ba_coop_walker = `{{> structs }}
 const S: u32 = {{ s }}u;
 const CUTS: u32 = S + 1u;
 const TPB: u32 = {{ workgroup_size }}u;
+// Inversion granularity: number of threads that share ONE batched inversion.
+// G==TPB -> cooperative prefix/suffix scan (one inversion per workgroup).
+// 1<G<TPB -> per-group serial Montgomery batch inversion (TPB/G inversions,
+//            one per group leader, run concurrently across leaders).
+// G==1   -> each thread inverts its own dx (no workgroup memory, no barriers).
+const G: u32 = {{ g }}u;
 const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
@@ -981,17 +987,28 @@ const NO_BUCKET: u32 = 0xffffffffu;
 @group(0) @binding(9) var<storage, read_write> partial_dest:       array<u32>;
 @group(0) @binding(10) var<uniform>            params:             vec4<u32>;
 
+{{#coop_scan}}
 // Two TPB-wide 256-bit scratch planes for the cooperative batch inversion:
 // wpre becomes the inclusive prefix products, wsuf the inclusive suffix
 // products. 2 vec4 per slot. ~4 KB total at TPB=64 (vs the walker's 16 KB).
 var<workgroup> wpre: array<vec4<u32>, TPB * 2u>;
 var<workgroup> wsuf: array<vec4<u32>, TPB * 2u>;
 var<workgroup> w_inv_total: array<vec4<u32>, 2u>;
+{{/coop_scan}}
+{{#coop_group}}
+// Per-group serial batch inversion: wdx holds each thread's dx (then is
+// overwritten with its inv_dx); wpx holds the running prefix products the
+// group leader needs for the backward pass. 2 vec4 per slot, ~4 KB total.
+var<workgroup> wdx: array<vec4<u32>, TPB * 2u>;
+var<workgroup> wpx: array<vec4<u32>, TPB * 2u>;
+{{/coop_group}}
+{{^coop_local}}
 var<workgroup> w_any_active: atomic<u32>;
 // Mirror of the activity flag read through workgroupUniformLoad so the loop
 // break is a provably-uniform value (atomic loads are not, which would make
 // the in-loop barriers fail Tint's uniformity analysis).
 var<workgroup> w_active_flag: u32;
+{{/coop_local}}
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
@@ -1031,6 +1048,7 @@ fn store_partial(pslot: u32, bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val
     partial_dest[pslot] = bucket_id;
 }
 
+{{#coop_scan}}
 fn wstore(arr_pre: bool, l: u32, v: array<u32, 8>) {
     let a = vec4<u32>(v[0], v[1], v[2], v[3]);
     let b = vec4<u32>(v[4], v[5], v[6], v[7]);
@@ -1053,6 +1071,35 @@ fn wload_suf(l: u32) -> array<u32, 8> {
     let a = wsuf[2u * l + 0u];
     let b = wsuf[2u * l + 1u];
     return array<u32, 8>(a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w);
+}
+{{/coop_scan}}
+{{#coop_group}}
+fn wdx_store(l: u32, v: array<u32, 8>) {
+    wdx[2u * l + 0u] = vec4<u32>(v[0], v[1], v[2], v[3]);
+    wdx[2u * l + 1u] = vec4<u32>(v[4], v[5], v[6], v[7]);
+}
+fn wdx_load(l: u32) -> array<u32, 8> {
+    let a = wdx[2u * l + 0u];
+    let b = wdx[2u * l + 1u];
+    return array<u32, 8>(a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w);
+}
+fn wpx_store(l: u32, v: array<u32, 8>) {
+    wpx[2u * l + 0u] = vec4<u32>(v[0], v[1], v[2], v[3]);
+    wpx[2u * l + 1u] = vec4<u32>(v[4], v[5], v[6], v[7]);
+}
+fn wpx_load(l: u32) -> array<u32, 8> {
+    let a = wpx[2u * l + 0u];
+    let b = wpx[2u * l + 1u];
+    return array<u32, 8>(a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w);
+}
+{{/coop_group}}
+
+// Single field inversion in Montgomery form (unpack -> safegcd -> repack).
+fn finv8(v: array<u32, 8>) -> array<u32, 8> {
+    var lin = unpack256_to_limbs(v);
+    var lout = {{ inv_fn }}(lin);
+    let p = pack_limbs_to_256(&lout);
+    return array<u32, 8>(p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
 }
 
 fn coop_is_zero_f8(v: array<u32, 8>) -> bool {
@@ -1178,10 +1225,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         }
     }
 
-    // Cooperative main loop. Every iteration is uniform across the workgroup:
-    // the break is decided by a workgroup-shared activity flag, so all threads
-    // execute the same barriers/scans regardless of when their own task ends.
+    // Main loop. For the cooperative modes (scan / group) every iteration is
+    // uniform across the workgroup: the break is decided by a workgroup-shared
+    // activity flag, so all threads execute the same barriers regardless of
+    // when their own task ends. The local mode (G==1) has no in-loop barriers,
+    // so each thread simply runs until its own task is done.
     loop {
+{{^coop_local}}
         workgroupBarrier();
         if (l == 0u) { atomicStore(&w_any_active, 0u); }
         workgroupBarrier();
@@ -1191,9 +1241,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         // Uniform read (implicit barrier) so the break below is uniform.
         let any_active = workgroupUniformLoad(&w_active_flag);
         if (any_active == 0u) { break; }
+{{/coop_local}}
+{{#coop_local}}
+        if (slot_done == 1u) { break; }
+{{/coop_local}}
 
-        // Each active thread contributes its pending dx; idle threads
-        // contribute Montgomery one (inert in the batch product).
+        // Each active thread computes its pending dx; idle threads contribute
+        // Montgomery one (inert in the batch product).
         var dx: array<u32, 8>;
         if (slot_done == 1u) {
             dx = get_r_f8();
@@ -1208,12 +1262,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 p_rx = load_pt_x(cursor);
             }
             dx = fr_sub_f8(p_rx, p_lx);
-            // Guard the shared batch product: a zero dx (equal x-coords, a
-            // measure-zero doubling case for distinct SRS points) would zero
-            // the whole workgroup product. Substitute one so the failure stays
-            // isolated to this thread rather than corrupting the batch.
+            // Guard the batch product: a zero dx (equal x-coords, a measure-zero
+            // doubling case for distinct SRS points) would zero the whole group
+            // product. Substitute one so the failure stays isolated.
             if (coop_is_zero_f8(dx)) { dx = get_r_f8(); }
         }
+
+{{#coop_scan}}
         wstore(true, l, dx);
         wstore(false, l, dx);
 
@@ -1255,6 +1310,39 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         if (l + 1u >= TPB) { suf_excl = get_r_f8(); } else { suf_excl = wload_suf(l + 1u); }
         var inv_dx = montgomery_product_f8(inv_total, pre_excl);
         inv_dx = montgomery_product_f8(inv_dx, suf_excl);
+{{/coop_scan}}
+{{#coop_group}}
+        // Per-group serial Montgomery batch inversion. Each group of G threads
+        // shares ONE safegcd inversion; the TPB/G group leaders run their
+        // inversions concurrently (one per leader). Only 2 barriers per round
+        // regardless of G, versus the scan's 2*log2(TPB).
+        wdx_store(l, dx);
+        workgroupBarrier();
+        if ((l % G) == 0u) {
+            // Forward prefix products over the group's G dx values.
+            var run = wdx_load(l);
+            wpx_store(l, run);
+            for (var i: u32 = 1u; i < G; i = i + 1u) {
+                run = montgomery_product_f8(run, wdx_load(l + i));
+                wpx_store(l + i, run);
+            }
+            // One inversion of the group product, then the backward pass: each
+            // inv_dx overwrites its dx slot in wdx.
+            var inv = finv8(run);
+            for (var i: u32 = G - 1u; i >= 1u; i = i - 1u) {
+                let invi = montgomery_product_f8(inv, wpx_load(l + i - 1u));
+                inv = montgomery_product_f8(inv, wdx_load(l + i));
+                wdx_store(l + i, invi);
+            }
+            wdx_store(l, inv);
+        }
+        workgroupBarrier();
+        let inv_dx = wdx_load(l);
+{{/coop_group}}
+{{#coop_local}}
+        // Each thread inverts its own dx — no workgroup memory, no barriers.
+        let inv_dx = finv8(dx);
+{{/coop_local}}
 
         if (slot_done == 0u) {
             var p_lx: array<u32, 8>;

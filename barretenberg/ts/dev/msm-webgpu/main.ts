@@ -90,6 +90,7 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     accum: q.get('accum') === 'coop' ? 'coop' : q.get('accum') === 'walker' ? 'walker' : undefined,
+    coopG: optInt('coopg'),
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
 })();
@@ -1525,6 +1526,97 @@ function hideProgress(): void {
       await client.postResults({
         state: 'error',
         params: { logns: logns.join(','), reps, page: 'msm-accum-ab' },
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
+    }
+  } else if (autorun === 'msm-coop-gsweep') {
+    // Same-device granularity sweep of the coop-walker in ONE page load: a
+    // walker baseline plus coop at each inversion-granularity G (threads per
+    // shared batched inversion). One BrowserStack worker measures the whole
+    // curve under identical thermal state. GPU-only, no WASM, no noble.
+    const logns = (qp.get('logns') ?? qp.get('logn') ?? '14')
+      .split(',').map(x => parseInt(x, 10)).filter(x => Number.isFinite(x));
+    const reps = parseInt(qp.get('reps') ?? '12', 10);
+    const gs = (qp.get('gsweep') ?? '1,8,16,32,64')
+      .split(',').map(x => parseInt(x, 10)).filter(x => Number.isFinite(x) && x > 0);
+    const client = makeResultsClient({ page: 'msm-coop-gsweep' });
+    log('info', `[gsweep] logns=${logns.join(',')} reps=${reps} G=${gs.join(',')}`);
+    const benchOne = async (
+      device: GPUDevice, pool: MsmV2Pool, inputs: Awaited<ReturnType<typeof generateInputs>>,
+      cfg: Parameters<typeof MsmV2.create>[3],
+    ) => {
+      const msm = await MsmV2.create(device, inputs.n, pool, cfg);
+      msm.prepare(inputs.scalarsBuf);
+      await msm.run(); // warmup (untimed)
+      const samples: number[] = [];
+      for (let r = 0; r < reps; r++) {
+        const t0 = performance.now();
+        await msm.run();
+        samples.push(performance.now() - t0);
+      }
+      msm.destroy();
+      const sorted = [...samples].sort((a, b) => a - b);
+      return { min: sorted[0], median: sorted[Math.floor(sorted.length / 2)],
+        avg: samples.reduce((a, b) => a + b, 0) / samples.length, samples };
+    };
+    try {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      const device = await get_device();
+      {
+        // Global warmup so the first timed entry doesn't eat cold-clock cost.
+        const wi = await generateInputs(logns[0], false);
+        const wpool = await MsmV2Pool.create(device, wi.pointsBuf);
+        const wmsm = await MsmV2.create(device, wi.n, wpool, { ...gpuKnobs, accum: 'walker' });
+        wmsm.prepare(wi.scalarsBuf);
+        await wmsm.run();
+        await wmsm.run();
+        wmsm.destroy();
+        wpool.destroy();
+      }
+      const sweep: Record<string, unknown>[] = [];
+      for (const logN of logns) {
+        const inputs = await generateInputs(logN, /*mirrorForNoble=*/ false);
+        const pool = await MsmV2Pool.create(device, inputs.pointsBuf);
+        const walker = await benchOne(device, pool, inputs, { ...gpuKnobs, accum: 'walker' });
+        log('ok', `[gsweep] logN=${logN} walker: min=${walker.min.toFixed(1)} median=${walker.median.toFixed(1)} ms`);
+        client.postProgress({ logN, config: 'walker', min: walker.min, median: walker.median });
+        const coop: Record<string, { min: number; median: number; avg: number; samples: number[] }> = {};
+        for (const g of gs) {
+          const r = await benchOne(device, pool, inputs, { ...gpuKnobs, accum: 'coop', coopG: g });
+          coop[`g${g}`] = r;
+          log('ok', `[gsweep] logN=${logN} coop G=${g}: min=${r.min.toFixed(1)} median=${r.median.toFixed(1)} ms ` +
+            `(speedup vs walker ${(walker.min / r.min).toFixed(3)}x)`);
+          client.postProgress({ logN, config: `coop_g${g}`, min: r.min, median: r.median, speedup: walker.min / r.min });
+        }
+        pool.destroy();
+        const speedups: Record<string, number> = {};
+        for (const g of gs) speedups[`g${g}`] = walker.min / coop[`g${g}`].min;
+        sweep.push({ logN, walker, coop, speedup_min: speedups });
+      }
+      await client.postResults({
+        state: 'done',
+        params: { logns: logns.join(','), reps, gsweep: gs.join(','), page: 'msm-coop-gsweep' },
+        results: { reps, gs, sweep },
+        error: null,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[gsweep] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logns: logns.join(','), reps, gsweep: gs.join(','), page: 'msm-coop-gsweep' },
         results: null,
         error: msg,
         log: [],

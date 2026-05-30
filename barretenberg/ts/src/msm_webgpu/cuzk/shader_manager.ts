@@ -938,15 +938,24 @@ ${packLines.join('\n')}
     workgroup_size: number,
     s: number,
     variant: 'loop' | 'pk' = 'pk',
+    g: number = workgroup_size,
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    // Inversion granularity: G==TPB -> cooperative prefix/suffix scan;
+    // 1<G<TPB -> per-group serial Montgomery batch inversion; G==1 -> each
+    // thread inverts its own dx (no workgroup memory, no barriers).
+    const gClamped = Math.max(1, Math.min(g, workgroup_size));
+    const coop_local = gClamped === 1;
+    const coop_scan = gClamped >= workgroup_size;
+    const coop_group = !coop_local && !coop_scan;
     return mustache.render(
       ba_coop_walker_shader,
       {
-        workgroup_size, s, inv_fn,
+        workgroup_size, s, inv_fn, g: gClamped,
+        coop_local, coop_scan, coop_group,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
