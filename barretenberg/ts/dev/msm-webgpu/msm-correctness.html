@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>MsmV2 correctness (WebGPU vs noble)</title>
+  <style>
+    body { font-family: ui-monospace, monospace; padding: 16px; }
+    pre  { background: #f4f4f4; padding: 8px; white-space: pre-wrap; }
+    .ok  { color: #2a7; font-weight: bold; }
+    .err { color: #c33; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>MsmV2 correctness: WebGPU stream-walker vs noble reference</h1>
+  <div id="status">starting...</div>
+  <pre id="log"></pre>
+  <script type="module" src="/dev/msm-webgpu/msm-correctness.ts"></script>
+</body>
+</html>

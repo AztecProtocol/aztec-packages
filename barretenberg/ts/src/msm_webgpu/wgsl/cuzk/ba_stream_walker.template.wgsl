@@ -42,7 +42,12 @@ const TPB: u32 = {{ workgroup_size }}u;
 const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
-const NO_BUCKET: u32 = 0xffffffffu;
+// partial_dest is 1-indexed: 0 means "no partial in this slot". The host
+// clears the whole (over-allocated) partial_dest to 0, and only the threads
+// that are actually dispatched re-touch their own slots, so any slot beyond
+// the runtime-active thread count stays 0 = empty. A real partial stores
+// bucket_id + 1, so the cleared 0 can never be mistaken for bucket 0.
+const PD_EMPTY: u32 = 0u;
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
@@ -107,7 +112,7 @@ fn store_partial(pslot: u32, bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val
     let by = PG * M + PG * pslot;
     partials_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
     partials_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
-    partial_dest[pslot] = bucket_id;
+    partial_dest[pslot] = bucket_id + 1u;
 }
 
 @compute @workgroup_size({{ workgroup_size }})
@@ -144,8 +149,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
-        partial_dest[2u * (t * S + k) + 0u] = NO_BUCKET;
-        partial_dest[2u * (t * S + k) + 1u] = NO_BUCKET;
+        partial_dest[2u * (t * S + k) + 0u] = PD_EMPTY;
+        partial_dest[2u * (t * S + k) + 1u] = PD_EMPTY;
 
         let sb = task_cuts[cut_base + k * 2u + 0u];
         let so = task_cuts[cut_base + k * 2u + 1u];

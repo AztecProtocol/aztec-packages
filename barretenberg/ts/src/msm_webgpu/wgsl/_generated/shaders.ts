@@ -2954,7 +2954,12 @@ const TPB: u32 = {{ workgroup_size }}u;
 const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
-const NO_BUCKET: u32 = 0xffffffffu;
+// partial_dest is 1-indexed: 0 means "no partial in this slot". The host
+// clears the whole (over-allocated) partial_dest to 0, and only the threads
+// that are actually dispatched re-touch their own slots, so any slot beyond
+// the runtime-active thread count stays 0 = empty. A real partial stores
+// bucket_id + 1, so the cleared 0 can never be mistaken for bucket 0.
+const PD_EMPTY: u32 = 0u;
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
@@ -3019,7 +3024,7 @@ fn store_partial(pslot: u32, bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val
     let by = PG * M + PG * pslot;
     partials_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
     partials_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
-    partial_dest[pslot] = bucket_id;
+    partial_dest[pslot] = bucket_id + 1u;
 }
 
 @compute @workgroup_size({{ workgroup_size }})
@@ -3056,8 +3061,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
-        partial_dest[2u * (t * S + k) + 0u] = NO_BUCKET;
-        partial_dest[2u * (t * S + k) + 1u] = NO_BUCKET;
+        partial_dest[2u * (t * S + k) + 0u] = PD_EMPTY;
+        partial_dest[2u * (t * S + k) + 1u] = PD_EMPTY;
 
         let sb = task_cuts[cut_base + k * 2u + 0u];
         let so = task_cuts[cut_base + k * 2u + 1u];
@@ -3355,6 +3360,17 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let first_slot = nodes_slot[node_idx];
     var acc_x: array<u32, 8> = load_partial_x(first_slot);
     var acc_y: array<u32, 8> = load_partial_y(first_slot, M_partials);
+    // Exception-safe affine accumulation. The partials are summed in the
+    // linked list's CAS-insertion order, which is non-deterministic across
+    // GPU runs. Plain affine addition (\`dx = px - acc_x\`, then \`1/dx\`)
+    // divides by zero whenever a prefix sum equals ±(next partial) — i.e. a
+    // point-doubling (P == acc) or an intermediate point-at-infinity
+    // (P == -acc). Those cases DO occur for hot buckets (a bucket split into
+    // many partials), and in a generic order at least one prefix hits them,
+    // so the un-guarded formula produced off-curve garbage whose value varied
+    // run-to-run with the CAS order. Track an explicit identity flag and use
+    // the doubling slope when the operands coincide.
+    var acc_inf: bool = false;
     handle = nodes_next[node_idx];
 
     loop {
@@ -3363,13 +3379,40 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let slot = nodes_slot[node_idx];
         let px = load_partial_x(slot);
         let py = load_partial_y(slot, M_partials);
+        handle = nodes_next[node_idx];
+
+        if (acc_inf) {
+            // identity + P = P
+            acc_x = px;
+            acc_y = py;
+            acc_inf = false;
+            continue;
+        }
 
         let dx = fr_sub_f8(px, acc_x);
-        var dx20 = unpack256_to_limbs(dx);
-        var inv20 = {{ inv_fn }}(dx20);
-        let inv_dx = pack_limbs_to_256(&inv20);
-        var lambda = fr_sub_f8(py, acc_y);
-        lambda = montgomery_product_f8(lambda, inv_dx);
+        var lambda: array<u32, 8>;
+        if (is_zero_f8(dx)) {
+            if (is_zero_f8(fr_sub_f8(py, acc_y))) {
+                // P == acc: point doubling, lambda = 3x^2 / 2y (curve a = 0).
+                let xsq = montgomery_product_f8(acc_x, acc_x);
+                let three_xsq = fr_add_f8(fr_add_f8(xsq, xsq), xsq);
+                let two_y = fr_add_f8(acc_y, acc_y);
+                var dyi20 = unpack256_to_limbs(two_y);
+                var dinv20 = {{ inv_fn }}(dyi20);
+                let inv_2y = pack_limbs_to_256(&dinv20);
+                lambda = montgomery_product_f8(three_xsq, inv_2y);
+            } else {
+                // P == -acc: acc + P = identity.
+                acc_inf = true;
+                continue;
+            }
+        } else {
+            var dx20 = unpack256_to_limbs(dx);
+            var inv20 = {{ inv_fn }}(dx20);
+            let inv_dx = pack_limbs_to_256(&inv20);
+            lambda = fr_sub_f8(py, acc_y);
+            lambda = montgomery_product_f8(lambda, inv_dx);
+        }
         var r_x = montgomery_product_f8(lambda, lambda);
         let x_sum = fr_add_f8(acc_x, px);
         r_x = fr_sub_f8(r_x, x_sum);
@@ -3378,8 +3421,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         r_y = fr_sub_f8(r_y, acc_y);
         acc_x = r_x;
         acc_y = r_y;
+    }
 
-        handle = nodes_next[node_idx];
+    // A bucket whose partials sum to the identity has no affine
+    // representation; write (0, 0) so the reduce treats it as empty.
+    if (acc_inf) {
+        acc_x = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+        acc_y = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
     }
 
     // Write the combined sum back to bucket_sums.
@@ -3396,8 +3444,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
 export const ba_walker_partials_index = `// Stream-walker partials indexer.
 //
-// The walker writes a bucket_id per used partial slot in \`partial_dest\`
-// (slots without a partial hold NO_BUCKET = 0xffffffff). Without indexing,
+// The walker writes (bucket_id + 1) per used partial slot in \`partial_dest\`
+// (slots without a partial hold 0 = PD_EMPTY — the value the host clears the
+// whole buffer to, so over-allocated slots that no dispatched thread touches
+// are correctly treated as empty rather than as bucket 0). Without indexing,
 // ba_walker_combine has to scan every slot for every dense bucket — an
 // O(num_dense × M_partials) over-scan that dominates the GPU time at
 // logn ≥ 17 even though the real work is tiny (≤ 1e4 affine adds).
@@ -3416,7 +3466,7 @@ export const ba_walker_partials_index = `// Stream-walker partials indexer.
 // bucket from different threads. After the dispatch finishes, combine can
 // traverse each bucket's list with no further synchronisation.
 
-const NO_BUCKET: u32 = 0xffffffffu;
+const PD_EMPTY: u32 = 0u;
 const NO_NODE: u32 = 0u;
 
 @group(0) @binding(0) var<storage, read>            partial_dest:  array<u32>;
@@ -3435,8 +3485,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let max_nodes = params.y;
     if (slot >= num_slots) { return; }
 
-    let bucket_id = partial_dest[slot];
-    if (bucket_id == NO_BUCKET) { return; }
+    let raw = partial_dest[slot];
+    if (raw == PD_EMPTY) { return; }
+    let bucket_id = raw - 1u;
 
     let node_array_idx = atomicAdd(&node_counter, 1u);
     if (node_array_idx >= max_nodes) { return; }
