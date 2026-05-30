@@ -1,19 +1,16 @@
 # Hybrid stream-walker MSM accumulator
 
-A memory- and time-optimal BN254 WebGPU MSM accumulator for laptop and mobile
+A memory- and time-efficient BN254 WebGPU MSM accumulator for laptop and mobile
 GPUs (Apple TBDR, Qualcomm Adreno, ARM Mali). It keeps the stream-walker's low
-memory footprint while recovering the parallelism/occupancy that made the V2
-pair-tree fast, under the hard constraints:
-
-- workgroup-shared memory ≤ 16 KB on Mali Bifrost (forces TPB ≤ 64), 32 KB on
-  Apple/Adreno;
-- total memory budget ≤ 100 MB up to n = 2²⁰.
+memory footprint while recovering the occupancy that made the V2 pair-tree fast,
+under the constraints: total memory ≤ 100 MB to n = 2²⁰, and (originally)
+workgroup-shared memory ≤ 16 KB on Mali Bifrost.
 
 ## 1. Starting point: two accumulators on the Pareto extremes
 
 | Accumulator | Accumulation buffers @2¹⁷ | Time @2¹⁷ | Where it sits |
 |---|---:|---|---|
-| **V2 pair-tree** | ~62 MB (`bufA`/`bufB`/ring/`prefScratch`) | fast | time-good, memory-bad |
+| **V2 pair-tree** | ~62 MB | fast | time-good, memory-bad |
 | **stream-walker** | ~9–13 MB | ~25% slower overall | memory-good, time-bad |
 
 The stream-walker is a per-thread, bucket-monotonic walker: each of
@@ -22,115 +19,102 @@ splits it into `S` equal-work tasks, and runs `S` pair-pointer slots through
 **one field inversion per S adds** (Montgomery batched inversion). Its inner
 loop is forward-prefix → one inversion → inverse-pass → backward-peel.
 
-## 2. Why the stream-walker is slow — two bottlenecks
+## 2. The bottleneck is occupancy, not arithmetic and not raw traffic
 
-Reading `wgsl/cuzk/ba_stream_walker.template.wgsl`, the slowness is **not** the
-inversion math; it is occupancy and memory traffic.
+The slowness is **not** the inversion math, and (measured) not raw point-read
+bandwidth either. It is **occupancy** — the GPU cannot hide the long per-thread
+serial dependency chain (S muls → 1 inversion → S muls → S affine adds) because
+too few workgroups are resident.
 
-### 2.1 Occupancy cap from workgroup-shared `pref_scratch`
+Two things capped occupancy in the original walker:
 
-`pref_scratch` is declared `var<workgroup> array<vec4<u32>, TPB*S*2>` — 16 KB at
-TPB=64, S=8. But it is **per-thread with no cross-thread sharing** (the kernel
-runs with no `workgroupBarrier` in the loop). It only lives in workgroup memory
-to keep register pressure down. That 16 KB caps the number of resident
-workgroups:
+1. **Workgroup-shared `pref_scratch`.** Declared
+   `var<workgroup> array<vec4<u32>, TPB*S*2>` — 16 KB at TPB=64, S=8. It is
+   *per-thread with no cross-thread sharing* (the loop has no `workgroupBarrier`),
+   so it lives in workgroup memory only to keep registers down. That 16 KB caps
+   resident workgroups to ~2 on Apple (32 KB shared) and ~1 on Mali Bifrost.
+2. **Per-thread register pressure.** `acc_x`/`acc_y` (16·S u32), the prefix
+   scratch, `dx_cache`, and the control arrays. The more live registers, the
+   fewer resident warps.
 
-- Apple (32 KB shared): ~2 workgroups resident,
-- Mali Bifrost (16 KB shared): ~1 workgroup resident.
+These two interact: the design lever is to **minimise per-thread footprint**, by
+*both* axes, so more workgroups stay resident and the latency of the serial
+chain is hidden.
 
-With 1–2 resident workgroups (64–128 threads) the GPU cannot hide the long
-per-thread serial dependency chain (8 muls → 1 inversion → 8 muls → 8 affine
-adds). The kernel is occupancy-starved.
+## 3. What was measured (Apple M2, Chrome 148, logn=17, S=8, reps=8)
 
-### 2.2 Redundant SRS reads
+All numbers are the `stream_walker` GPU phase (the dominant phase; the full MSM
+also has preprocess ≈3.4, walker_combine ≈6, reduce ≈8.5 ms, stable across
+variants). Each ladder ran in **one** BrowserStack session, so the comparison is
+free of cross-session clock/thermal noise.
 
-Each point's x-coordinate is fetched from device memory **three times** per
-iteration:
+| variant | stream_walker (ms) | GPU total (ms) | Δ walker |
+|---|--:|--:|--:|
+| baseline: 3-pass, dx-cache, **workgroup** pref, TPB 64 | 66.8 | 85.3 | — |
+| 3-pass, dx-cache, **private** pref, TPB 64 → 128 | 61.3 | 79.6 | **−8.2%** |
+| **3-pass, dx-cache, private pref, TPB 96** | **60.8** | **79.2** | **−9.0%** |
+| 3-pass, no dx-cache, private pref, TPB 96 | 61.2 | 79.6 | −8.4% |
+| 3-pass, dx-cache, private pref, TPB 160 | 63.9 | 82.2 | −4.3% |
+| **fused** inverse+peel, private pref, TPB 128 | 63.1 | 81.2 | (−5.4%) |
+| fused inverse+peel, workgroup pref, TPB 64 | 68.6 | 87.0 | **+2.8% (worse)** |
 
-1. forward prefix — to compute `dx = x_r - x_l`;
-2. inverse pass — which *recomputes the same `dx`* to chain the running inverse
-   (it reloads the slot points);
-3. backward peel — to compute `λ`, `r_x`, `r_y`.
+### Reading
 
-On bandwidth/latency-bound mobile GPUs this triples the dominant memory cost.
+- **The lever is occupancy.** Moving `pref_scratch` to `var<private>` removes the
+  workgroup-memory cap, and TPB can then rise. The sweet spot is **TPB 96**
+  (TPB 64 leaves occupancy on the table; TPB ≥ 160 becomes register-bound and
+  regresses). This is the whole win: **−9% on the walker phase, −7% GPU total.**
+- **Fusing the inverse+peel passes is a net loss.** Merging them removes the
+  `inv_dx` round-trip through `pref_scratch` and the `dx_cache` registers, but it
+  *raises peak live-register pressure* inside the merged loop — and on an
+  occupancy-bound kernel that lowers resident-workgroup count and is slower at
+  every point. Kept as a knob (`walkerFused`, default off) for architectures with
+  different register/occupancy trade-offs, but it does not help Apple.
+- **`dx-cache` is a marginal positive** (~0.4 ms at TPB 96) and stays on by
+  default. It is register-cheap relative to the inversion's own working set.
+- **S is a dead-end for speed** (confirmed by prior threads: the walker is flat
+  across S=8…32 on real Apple — it is memory-/occupancy-bound, not
+  inversion-bound). S remains only a **memory** knob (see §4).
 
-## 3. The hybrid: two levers on the memory↔time front
+## 4. S as a memory knob (not a speed knob)
 
-### Lever A — dx-cache (memory-traffic reduction, time-positive, memory-neutral)
+`S` (slots per thread) still scales the device scratch
+(`walkerPartials`/nodes/`taskCuts` ∝ S) and, in the workgroup-pref mode, the
+shared memory. With the default `private` pref it scales per-thread registers
+instead. It does **not** move the time needle (the kernel is occupancy-bound),
+so it is left at the memory-friendly default 8 and used only when a smaller
+device-scratch footprint is wanted.
 
-The `dx` computed in the forward prefix is **identical** to the value the
-inverse pass needs (`cursor[k]` / `acc_x[k]` do not move between the two
-passes). We cache it in a per-slot private array and reuse it, deleting the
-inverse pass's reload+recompute entirely. This removes ≈ 1/3 of the kernel's
-x-coordinate SRS reads. It is **numerically identical** (verified) and costs
-only `S` field elements of *private* state — **zero extra device memory**.
+**Walker device scratch (NUM_THREADS=8192), excludes SRS/`l0_index`/`bucket_sums`:**
 
-`MsmConfig.walkerCacheDx` (URL `?cachedx=0/1`), default on.
-
-### Lever B — S / TPB as the Pareto knob (occupancy)
-
-`S` (batched-inversion slots per thread) is the single knob that moves the
-design along the memory↔time front, because **both** the occupancy-capping
-workgroup memory **and** the device scratch scale with it:
-
-- `pref_scratch = TPB·S·32 B` (workgroup) — halving S doubles resident
-  workgroups on Apple/Mali;
-- `walkerPartials`, `walkerNodes{Slot,Next}`, `walkerPartialDest`, `taskCuts`
-  (device) all scale ∝ S.
-
-The cost of smaller S is more inversions (one per S adds) — but Lever A makes
-each iteration cheaper, so the trade tilts toward smaller S more than it would
-for the unmodified walker. `MsmConfig.walkerS` / `walkerTpb` (URL `?ws=`/`?wtpb=`),
-default 8 / 64 (Mali-safe). On Mali Bifrost (16 KB) keep `TPB·S ≤ 512`; on
-Apple/Adreno (32 KB) `TPB·S ≤ 1024`.
-
-## 4. Memory Pareto front (computed from the buffer-size formulas)
-
-Device scratch specific to the walker accumulator (excludes SRS / `l0_index` /
-`bucket_sums`, which every algorithm pays identically). `NUM_THREADS = 8192`.
-
-**n = 2¹⁷ (c=13, bTotal=87 040):**
-
-| S | pref_scratch /WG (TPB=64) | walker device scratch | resident WGs (Apple 32 KB) |
-|--:|--:|--:|--:|
-| 8 | 16 KB | ~12.8 MB | 2 |
-| 4 | 8 KB  | ~7.8 MB  | 4 |
-| 2 | 4 KB  | ~5.3 MB  | 8 |
-
-**n = 2²⁰ (c=15, bTotal=282 880):**
-
-| S | pref_scratch /WG | walker device scratch |
+| S | @2¹⁷ | @2²⁰ |
 |--:|--:|--:|
-| 8 | 16 KB | ~18.9 MB |
-| 4 | 8 KB  | ~13.9 MB |
-| 2 | 4 KB  | ~11.4 MB |
+| 8 | ~12.8 MB | ~18.9 MB |
+| 4 | ~7.8 MB | ~13.9 MB |
+| 2 | ~5.3 MB | ~11.4 MB |
 
-At S=4 the walker accumulation column (~13.9 MB) is ~4.5× below the V2
-pair-tree's ~62 MB (and the gap widens further at 2²⁰, where V2 is infeasible).
-The dominant n=2²⁰ memory is SRS + `l0_index`, shared by every algorithm, so
-the walker keeps the whole MSM far below the 100 MB budget.
+The walker stays ~4.5× below the V2 pair-tree's ~62 MB accumulation buffers and
+keeps the whole MSM far under the 100 MB budget to n=2²⁰.
 
-The knee is **S=4**: it cuts the walker device scratch ~40% and halves
-`pref_scratch` (restoring 2×–4× occupancy on Apple/Mali) versus S=8, while only
-doubling the inversion count — much of which Lever A's traffic cut absorbs.
+## 5. Current configuration
 
-## 5. Why this is memory- and time-optimal
+Defaults (`MsmConfig`):
 
-- **Memory:** dx-cache is register-only (0 device bytes); S is the knob that
-  drives both workgroup and device memory down. The hybrid is therefore on or
-  **below** the stream-walker's memory at every design point, and ~8× below the
-  V2 pair-tree's accumulation buffers — comfortably inside 100 MB to n=2²⁰.
-- **Time:** the two dominant inefficiencies of the walker — low occupancy and
-  3× x-coordinate traffic — are exactly what Levers B and A attack. dx-cache is
-  an unconditional win; S restores the occupancy that gave the V2 pair-tree its
-  speed, without V2's memory.
+- `walkerPrefMem: 'private'` (URL `?prefmem=`) — frees the workgroup-memory cap.
+- `walkerTpb: 96` (URL `?wtpb=`) — occupancy sweet spot.
+- `walkerCacheDx: true` (URL `?cachedx=`) — marginal positive.
+- `walkerFused: false` (URL `?fused=`) — measured regression on Apple; knob only.
+- `walkerS: 8` (URL `?ws=`) — memory knob, time-neutral.
+
+With `prefMem: 'private'` there is no workgroup-memory ceiling, so the original
+Mali-Bifrost reason for TPB ≤ 64 no longer applies.
 
 ## 6. Correctness
 
 Validated GPU-vs-Noble (CPU pippenger reference) at logn=8 and logn=10 under
 **SwiftShader** (software Vulkan, no GPU) — the WASM MT oracle is unavailable in
-this environment. PASS across S ∈ {2,4,8,16}, TPB ∈ {32,64,128}, and
-dx-cache on/off.
+this environment. PASS across the full knob matrix: S ∈ {2,4,8}, TPB ∈
+{64,96,128,160,256}, dx-cache on/off, fused on/off, pref workgroup/private.
 
 ```
 [noble-check] logN=8  PASS (WebGPU matches Noble)
@@ -144,12 +128,11 @@ cd barretenberg/ts && yarn install && yarn generate:wgsl
 yarn dev:msm-webgpu --host 127.0.0.1 --port 5173   # terminal 1
 
 # Correctness (SwiftShader, no GPU):
-node dev/msm-webgpu/noble-check-swiftshader.mjs 8,10            # default hybrid
-node dev/msm-webgpu/noble-check-swiftshader.mjs 8,10 '&ws=4'    # S=4 knee
-node dev/msm-webgpu/noble-check-swiftshader.mjs 8,10 '&cachedx=0'
+node dev/msm-webgpu/noble-check-swiftshader.mjs 8,10                 # defaults
+node dev/msm-webgpu/noble-check-swiftshader.mjs 8 '&prefmem=workgroup&wtpb=64'
 
-# On-device timing (BrowserStack), one seat sweeps the whole S curve:
+# On-device A/B ladder (BrowserStack), one seat, isolates each lever:
 node dev/msm-webgpu/scripts/run-browserstack.mjs \
-  --target macos --autorun msm-gpu-bench --n 17 --reps 5 \
-  --query 'sweep=8,4,2'
+  --target macos --autorun msm-gpu-bench --n 17 --reps 8 \
+  --query 'fusedab=1&sweep=8'
 ```
