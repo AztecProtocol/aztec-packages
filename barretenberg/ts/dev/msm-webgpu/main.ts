@@ -80,7 +80,8 @@ const refNobleAny = new URLSearchParams(window.location.search).get('ref') === '
 // the msm-bench autorun.
 const gpuOnly =
   new URLSearchParams(window.location.search).get('gpu_only') === '1' ||
-  new URLSearchParams(window.location.search).get('autorun') === 'msm-bench';
+  new URLSearchParams(window.location.search).get('autorun') === 'msm-bench' ||
+  new URLSearchParams(window.location.search).get('autorun') === 'msm-sweep';
 const SWEEP_REPS = 5;
 
 // GPU pipeline knobs from the URL — forwarded to every MsmV2 (unset = defaults).
@@ -1560,6 +1561,67 @@ function hideProgress(): void {
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({ state: 'error', params: { logN: autorunLogN, reps, page: 'msm-bench' }, results: null, error: msg, log: allLines.slice(-100), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+    }
+  } else if (autorun === 'msm-sweep') {
+    // Sweep several walker configs in ONE page load (= one BrowserStack device
+    // allocation), so a baseline-vs-optimized A/B needs a single contended
+    // seat. ?sweep=pref-S-TPB-dx,... e.g.
+    //   ?sweep=workgroup-8-64-0,private-4-128-1
+    // Each config tears down + rebuilds MsmV2 + pool so its memory accounting
+    // is correct for that config (the pool grows but never shrinks otherwise).
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const configs = (qp.get('sweep') ?? 'workgroup-8-64-0,private-4-128-1').split(',').filter(Boolean);
+    const client = makeResultsClient({ page: 'msm-sweep' });
+    client.postProgress({ phase: 'start', logN: autorunLogN, reps, configs });
+    log('info', `[sweep] logN=${autorunLogN} reps=${reps} configs=${configs.join(' ')}`);
+    const waitRun = async (max = 1200) => { for (let i = 0; i < max; i++) { if (!$run.disabled) break; await new Promise(r => setTimeout(r, 500)); } };
+    const waitBusy = async () => { for (let i = 0; i < 60; i++) { if ($run.disabled) break; await new Promise(r => setTimeout(r, 100)); } };
+    const g = gpuKnobs as unknown as Record<string, unknown>;
+    try {
+      await waitRun();
+      $logn.value = String(autorunLogN);
+      $logn.dispatchEvent(new Event('input'));
+      const sweepResults: Record<string, unknown>[] = [];
+      for (const cfg of configs) {
+        const [pref, sS, tpb, dx] = cfg.split('-');
+        g.walkerPref = pref; g.streamS = parseInt(sS, 10); g.walkerTpb = parseInt(tpb, 10); g.walkerDxCache = dx !== '0';
+        // Force a full rebuild under the new knobs.
+        if (msmV2) { msmV2.destroy(); msmV2 = null; }
+        if (msmV2Pool) { msmV2Pool.destroy(); msmV2Pool = null; }
+        msmV2LogN = null;
+        client.postProgress({ phase: 'build', cfg });
+        $run.click(); await waitBusy(); await waitRun();   // warmup build + first dispatch
+        const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
+        for (let r = 0; r < reps; r++) {
+          $run.click(); await waitBusy(); await waitRun();
+          const wallMs = (window as unknown as { __lastGpuWallMs?: number }).__lastGpuWallMs ?? 0;
+          const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+          const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
+          samples.push({ wallMs, gpuMs, phases });
+          client.postProgress({ phase: 'rep', cfg, rep: r + 1, reps, wallMs });
+        }
+        const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+        const wallMs = avg(samples.map(s => s.wallMs));
+        const mem = (window as unknown as { __msmMem?: unknown }).__msmMem ?? null;
+        const phaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+        const phasesAvg: Record<string, number> = {};
+        for (const k of phaseKeys) phasesAvg[k] = avg(samples.map(s => s.phases[k] ?? 0));
+        sweepResults.push({ cfg, wallMs, gpuMs: avg(samples.map(s => s.gpuMs)), phases: phasesAvg, mem, samples });
+        log('ok', `[sweep] ${cfg}: wall=${wallMs.toFixed(1)}ms`);
+      }
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'done', params: { logN: autorunLogN, reps, page: 'msm-sweep' },
+        results: { sweep: sweepResults }, error: null, log: allLines.slice(-60),
+        userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[sweep] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[sweep] FATAL: ${msg}`);
+      await client.postResults({ state: 'error', params: { logN: autorunLogN, reps, page: 'msm-sweep' }, results: null, error: msg, log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
     }
   } else if (autorun === 'msm-cross-check') {
     const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
