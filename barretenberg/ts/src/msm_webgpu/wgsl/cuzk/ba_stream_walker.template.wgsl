@@ -43,6 +43,12 @@ const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const NO_BUCKET: u32 = 0xffffffffu;
+// GLV on-the-fly endomorphism: the pool stores only the original n points.
+// A value index >= GLV_HALF is a phi-term — gather point (idx - GLV_HALF) and
+// multiply its x by Montgomery(beta). For the non-GLV path GLV_HALF is set to
+// a sentinel no index can reach, so the branch is never taken.
+const GLV_HALF: u32 = {{ glv_half }}u;
+fn beta_mont_f8() -> array<u32, 8> { return array<u32, 8>({{ beta8_csv }}); }
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
@@ -63,15 +69,20 @@ var<workgroup> pref_scratch: array<vec4<u32>, TPB * S * 2u>;
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let is_phi = raw >= GLV_HALF;
+    let pt = select(raw, raw - GLV_HALF, is_phi);
     let q0 = point_x[2u * pt];
     let q1 = point_x[2u * pt + 1u];
-    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    let x = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    if (is_phi) { return montgomery_product_f8(beta_mont_f8(), x); }
+    return x;
 }
 
 fn load_pt_y(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let pt = select(raw, raw - GLV_HALF, raw >= GLV_HALF);
     let q0 = point_y[2u * pt];
     let q1 = point_y[2u * pt + 1u];
     let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);

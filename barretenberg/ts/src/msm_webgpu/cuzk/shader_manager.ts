@@ -61,6 +61,7 @@ import {
   gen_wgsl_limbs_code,
 } from './utils.js';
 import { BN254_CURVE_CONFIG, CurveConfig } from './curve_config.js';
+import { BN254_GLV_BETA } from './glv_bn254.js';
 
 // Modular inverse via extended Euclidean. Returns a^-1 mod m. Both inputs > 0.
 function modinv(a: bigint, m: bigint): bigint {
@@ -415,9 +416,17 @@ ${packLines.join('\n')}
       }
       return out;
     };
+    // GLV endomorphism phi(x,y)=(beta*x, y). On-the-fly phi in the point gather
+    // multiplies a Montgomery-form x by Montgomery(beta) = beta*R mod p, so the
+    // 2n-point GLV problem stores only the original n points. beta is the same
+    // primitive cube root of unity baked into the GLV lattice basis.
+    const betaMont = (BN254_GLV_BETA * this.r) % this.p;
     return {
       p8_consts: words8(this.p).map((val, idx) => ({ idx, val })),
       r8_csv: words8(this.r)
+        .map(v => `${v >>> 0}u`)
+        .join(', '),
+      beta8_csv: words8(betaMont)
         .map(v => `${v >>> 0}u`)
         .join(', '),
       f8_words: [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ i })),
@@ -765,12 +774,13 @@ ${packLines.join('\n')}
     return mustache.render(ba_planner_emit_fixup_shader, { num_threads, recompile: this.recompile });
   }
 
-  public gen_ba_size1_shader(): string {
+  public gen_ba_size1_shader(glvHalf = 0xffffffff): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    const { p8_consts, r8_csv, beta8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_size1_shader,
       {
+        glv_half: glvHalf >>> 0, beta8_csv,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
@@ -787,15 +797,17 @@ ${packLines.join('\n')}
     s: number,
     queue_header_len: number,
     variant: 'loop' | 'pk' = 'pk',
+    glvHalf = 0xffffffff,
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    const { p8_consts, r8_csv, beta8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_accum_shader,
       {
         workgroup_size, s, inv_fn, queue_header_len,
+        glv_half: glvHalf >>> 0, beta8_csv,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
@@ -841,15 +853,15 @@ ${packLines.join('\n')}
     );
   }
 
-  public gen_ba_stream_accum_debug_shader(variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_stream_accum_debug_shader(variant: 'loop' | 'pk' = 'pk', glvHalf = 0xffffffff): string {
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    const { p8_consts, r8_csv, beta8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_accum_debug_shader,
       {
-        inv_fn, p8_consts, r8_csv, f8_words,
+        inv_fn, glv_half: glvHalf >>> 0, beta8_csv, p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
@@ -865,15 +877,15 @@ ${packLines.join('\n')}
     );
   }
 
-  public gen_ba_recompute_split_shader(variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_recompute_split_shader(variant: 'loop' | 'pk' = 'pk', glvHalf = 0xffffffff): string {
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    const { p8_consts, r8_csv, beta8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_recompute_split_shader,
       {
-        inv_fn, p8_consts, r8_csv, f8_words,
+        inv_fn, glv_half: glvHalf >>> 0, beta8_csv, p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
@@ -904,15 +916,17 @@ ${packLines.join('\n')}
     workgroup_size: number,
     s: number,
     variant: 'loop' | 'pk' = 'pk',
+    glvHalf = 0xffffffff,
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    const { p8_consts, r8_csv, beta8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_walker_shader,
       {
         workgroup_size, s, inv_fn,
+        glv_half: glvHalf >>> 0, beta8_csv,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,

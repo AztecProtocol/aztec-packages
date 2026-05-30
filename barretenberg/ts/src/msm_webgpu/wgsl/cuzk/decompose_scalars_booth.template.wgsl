@@ -91,9 +91,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
     let idx = w * input_size + p;
-    // Pack: bucket in low bits, sign in bit 31. Constant shift — works on
-    // Adreno (see header).
-    bucket_and_sign[idx] = bucket | (neg << 31u);
+    // GLV on-the-fly: the host folds each half-scalar's sign into bit 255 of
+    // the (sub-2^127) scalar word. XOR it into the stored sign so every digit
+    // of a negative half-scalar negates its point — equivalent to [-|s|]P =
+    // [|s|](-P). The bucket magnitude above is unchanged (uses the Booth sign).
+    // For 254-bit scalars bit 255 is always 0, so this is a no-op off the GLV
+    // path. (signedWindowEncoding header: sign sits at bit 31, a constant.)
+    let glv_sign = read_bits(p, scalar_words, 255u, 1u) & 1u;
+    let stored_sign = neg ^ glv_sign;
+    bucket_and_sign[idx] = bucket | (stored_sign << 31u);
 
     {{{ recompile }}}
 }

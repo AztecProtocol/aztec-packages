@@ -19,6 +19,10 @@
 const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
+// GLV on-the-fly: value index >= GLV_HALF is a phi-term (gather idx - GLV_HALF,
+// x *= Montgomery(beta)). Sentinel GLV_HALF disables it on the non-GLV path.
+const GLV_HALF: u32 = {{ glv_half }}u;
+fn beta_mont_f8() -> array<u32, 8> { return array<u32, 8>({{ beta8_csv }}); }
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
@@ -34,15 +38,20 @@ const L0_IDX_MASK: u32 = 0x7fffffffu;
 
 fn ld_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let is_phi = raw >= GLV_HALF;
+    let pt = select(raw, raw - GLV_HALF, is_phi);
     let q0 = point_x[2u * pt];
     let q1 = point_x[2u * pt + 1u];
-    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    let x = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    if (is_phi) { return montgomery_product_f8(beta_mont_f8(), x); }
+    return x;
 }
 
 fn ld_y(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let pt = select(raw, raw - GLV_HALF, raw >= GLV_HALF);
     let q0 = point_y[2u * pt];
     let q1 = point_y[2u * pt + 1u];
     let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);

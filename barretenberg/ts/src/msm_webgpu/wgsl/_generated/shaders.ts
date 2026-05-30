@@ -1993,6 +1993,10 @@ export const ba_recompute_split = `{{> structs }}
 const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
+// GLV on-the-fly: value index >= GLV_HALF is a phi-term (gather idx - GLV_HALF,
+// x *= Montgomery(beta)). Sentinel GLV_HALF disables it on the non-GLV path.
+const GLV_HALF: u32 = {{ glv_half }}u;
+fn beta_mont_f8() -> array<u32, 8> { return array<u32, 8>({{ beta8_csv }}); }
 
 @group(0) @binding(0) var<storage, read>       partial_buckets_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       offsets:              array<u32>;
@@ -2008,15 +2012,20 @@ const L0_IDX_MASK: u32 = 0x7fffffffu;
 
 fn ld_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let is_phi = raw >= GLV_HALF;
+    let pt = select(raw, raw - GLV_HALF, is_phi);
     let q0 = point_x[2u * pt];
     let q1 = point_x[2u * pt + 1u];
-    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    let x = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    if (is_phi) { return montgomery_product_f8(beta_mont_f8(), x); }
+    return x;
 }
 
 fn ld_y(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let pt = select(raw, raw - GLV_HALF, raw >= GLV_HALF);
     let q0 = point_y[2u * pt];
     let q1 = point_y[2u * pt + 1u];
     let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
@@ -2419,6 +2428,10 @@ export const ba_size1 = `{{> structs }}
 const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
+// GLV on-the-fly: value index >= GLV_HALF is a phi-term (gather idx - GLV_HALF,
+// x *= Montgomery(beta)). Sentinel GLV_HALF disables it on the non-GLV path.
+const GLV_HALF: u32 = {{ glv_half }}u;
+fn beta_mont_f8() -> array<u32, 8> { return array<u32, 8>({{ beta8_csv }}); }
 
 @group(0) @binding(0) var<storage, read>       size1_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       l0_index:          array<u32>;
@@ -2440,12 +2453,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let l0_slot = size1_bucket_list[2u * i + 1u];
 
     let packed = l0_index[l0_slot];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let is_phi = raw >= GLV_HALF;
+    let pt = select(raw, raw - GLV_HALF, is_phi);
     let sign = (packed & L0_SIGN_BIT) != 0u;
 
     let q0x = point_x[2u * pt];
     let q1x = point_x[2u * pt + 1u];
-    let x_val: array<u32, 8> = array<u32, 8>(q0x.x, q0x.y, q0x.z, q0x.w, q1x.x, q1x.y, q1x.z, q1x.w);
+    var x_val: array<u32, 8> = array<u32, 8>(q0x.x, q0x.y, q0x.z, q0x.w, q1x.x, q1x.y, q1x.z, q1x.w);
+    if (is_phi) { x_val = montgomery_product_f8(beta_mont_f8(), x_val); }
 
     let q0y = point_y[2u * pt];
     let q1y = point_y[2u * pt + 1u];
@@ -2498,6 +2514,10 @@ const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const IDLE_DEST: u32 = 0x40000000u;
 const PARTIAL_BIT: u32 = 0x80000000u;
+// GLV on-the-fly: value index >= GLV_HALF is a phi-term (gather idx - GLV_HALF,
+// x *= Montgomery(beta)). Sentinel GLV_HALF disables it on the non-GLV path.
+const GLV_HALF: u32 = {{ glv_half }}u;
+fn beta_mont_f8() -> array<u32, 8> { return array<u32, 8>({{ beta8_csv }}); }
 
 @group(0) @binding(0) var<storage, read>       queue_buf:     array<u32>;
 @group(0) @binding(1) var<storage, read>       point_x:       array<vec4<u32>>;
@@ -2511,15 +2531,20 @@ const PARTIAL_BIT: u32 = 0x80000000u;
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let is_phi = raw >= GLV_HALF;
+    let pt = select(raw, raw - GLV_HALF, is_phi);
     let q0 = point_x[2u * pt];
     let q1 = point_x[2u * pt + 1u];
-    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    let x = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    if (is_phi) { return montgomery_product_f8(beta_mont_f8(), x); }
+    return x;
 }
 
 fn load_pt_y(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let pt = select(raw, raw - GLV_HALF, raw >= GLV_HALF);
     let q0 = point_y[2u * pt];
     let q1 = point_y[2u * pt + 1u];
     let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
@@ -2815,6 +2840,10 @@ export const ba_stream_accum_debug = `{{> structs }}
 const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
+// GLV on-the-fly: value index >= GLV_HALF is a phi-term (gather idx - GLV_HALF,
+// x *= Montgomery(beta)). Sentinel GLV_HALF disables it on the non-GLV path.
+const GLV_HALF: u32 = {{ glv_half }}u;
+fn beta_mont_f8() -> array<u32, 8> { return array<u32, 8>({{ beta8_csv }}); }
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
@@ -2830,15 +2859,20 @@ const L0_IDX_MASK: u32 = 0x7fffffffu;
 
 fn ld_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let is_phi = raw >= GLV_HALF;
+    let pt = select(raw, raw - GLV_HALF, is_phi);
     let q0 = point_x[2u * pt];
     let q1 = point_x[2u * pt + 1u];
-    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    let x = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    if (is_phi) { return montgomery_product_f8(beta_mont_f8(), x); }
+    return x;
 }
 
 fn ld_y(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let pt = select(raw, raw - GLV_HALF, raw >= GLV_HALF);
     let q0 = point_y[2u * pt];
     let q1 = point_y[2u * pt + 1u];
     let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
@@ -2955,6 +2989,12 @@ const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const NO_BUCKET: u32 = 0xffffffffu;
+// GLV on-the-fly endomorphism: the pool stores only the original n points.
+// A value index >= GLV_HALF is a phi-term — gather point (idx - GLV_HALF) and
+// multiply its x by Montgomery(beta). For the non-GLV path GLV_HALF is set to
+// a sentinel no index can reach, so the branch is never taken.
+const GLV_HALF: u32 = {{ glv_half }}u;
+fn beta_mont_f8() -> array<u32, 8> { return array<u32, 8>({{ beta8_csv }}); }
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
@@ -2975,15 +3015,20 @@ var<workgroup> pref_scratch: array<vec4<u32>, TPB * S * 2u>;
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let is_phi = raw >= GLV_HALF;
+    let pt = select(raw, raw - GLV_HALF, is_phi);
     let q0 = point_x[2u * pt];
     let q1 = point_x[2u * pt + 1u];
-    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    let x = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
+    if (is_phi) { return montgomery_product_f8(beta_mont_f8(), x); }
+    return x;
 }
 
 fn load_pt_y(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
+    let raw = packed & L0_IDX_MASK;
+    let pt = select(raw, raw - GLV_HALF, raw >= GLV_HALF);
     let q0 = point_y[2u * pt];
     let q1 = point_y[2u * pt + 1u];
     let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
@@ -3941,9 +3986,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
     let idx = w * input_size + p;
-    // Pack: bucket in low bits, sign in bit 31. Constant shift — works on
-    // Adreno (see header).
-    bucket_and_sign[idx] = bucket | (neg << 31u);
+    // GLV on-the-fly: the host folds each half-scalar's sign into bit 255 of
+    // the (sub-2^127) scalar word. XOR it into the stored sign so every digit
+    // of a negative half-scalar negates its point — equivalent to [-|s|]P =
+    // [|s|](-P). The bucket magnitude above is unchanged (uses the Booth sign).
+    // For 254-bit scalars bit 255 is always 0, so this is a no-op off the GLV
+    // path. (signedWindowEncoding header: sign sits at bit 31, a constant.)
+    let glv_sign = read_bits(p, scalar_words, 255u, 1u) & 1u;
+    let stored_sign = neg ^ glv_sign;
+    bucket_and_sign[idx] = bucket | (stored_sign << 31u);
 
     {{{ recompile }}}
 }

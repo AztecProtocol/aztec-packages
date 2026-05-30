@@ -55,6 +55,13 @@ export interface MsmConfig {
    * to halve `T` (and with it the per-window bucket buffers and BPR/Horner work).
    */
   scalarBitLength?: number;
+  /**
+   * GLV on-the-fly endomorphism. When set, the MSM serves `n` logical points
+   * from a pool of `n/2` physical points: value indices `>= pool.srsN` are
+   * φ-terms, gathered from `idx - srsN` with x scaled by Montgomery(β). Lets
+   * the GLV 2n-point problem store only the original n points (no 2× pool).
+   */
+  glvOnTheFly?: boolean;
   /** Fused-kernel chunk size (pairs batched per thread). Default: `pickS(n)`. */
   s?: number;
   /** Generic kernel workgroup size. Default 128. */
@@ -1416,8 +1423,12 @@ export class MsmV2 {
     // level-0 kernels index points by `val_idx < n`, so a pool with srsN >= n
     // entries is consumed as its first-n prefix — no per-instance upload or
     // Montgomery conversion.
-    if (n > pool.srsN) {
-      throw new Error(`MsmV2.create: n (${n}) exceeds the pool's srsN (${pool.srsN})`);
+    // GLV on-the-fly serves 2n logical points (the upper half are phi-terms
+    // recomputed in the gather) from an n-point pool, so n may reach 2*srsN.
+    const glvOnTheFly = config?.glvOnTheFly ?? false;
+    const maxN = glvOnTheFly ? 2 * pool.srsN : pool.srsN;
+    if (n > maxN) {
+      throw new Error(`MsmV2.create: n (${n}) exceeds the pool's capacity (${maxN}, srsN=${pool.srsN})`);
     }
     m.pointXBuf = pool.poolX;
     m.pointYBuf = pool.poolY;
@@ -1612,19 +1623,25 @@ export class MsmV2 {
       `stream-emit`, m.streamEmitLayout);
     m.emitFixupPipe = await compile(
       sm.gen_ba_planner_emit_fixup_shader(STREAM_T), `emit-fixup`, m.emitFixupLayout);
+    // GLV on-the-fly: a value index >= GLV_HALF is a phi-term gathered from
+    // point (idx - GLV_HALF) with x scaled by beta. GLV_HALF = the pool's
+    // physical point count, so a GLV pool of n points (serving 2n logical
+    // values) triggers phi for the upper half, while a baseline pool (whose
+    // value indices never reach srsN) never does.
+    const GLV_HALF = pool.srsN;
     m.size1Pipe = await compile(
-      sm.gen_ba_size1_shader(), `size1`, m.size1Layout);
+      sm.gen_ba_size1_shader(GLV_HALF), `size1`, m.size1Layout);
     m.streamAccumPipe = await compile(
-      sm.gen_ba_stream_accum_shader(256, STREAM_S, qHeaderLen, INV_VARIANT),
+      sm.gen_ba_stream_accum_shader(256, STREAM_S, qHeaderLen, INV_VARIANT, GLV_HALF),
       `stream-accum`, m.streamAccumLayout);
     m.partialSumPipe = await compile(
       sm.gen_ba_partial_sum_shader(256, STREAM_S, INV_VARIANT),
       `partial-sum`, m.partialSumLayout);
     m.debugAccumPipe = await compile(
-      sm.gen_ba_stream_accum_debug_shader(INV_VARIANT),
+      sm.gen_ba_stream_accum_debug_shader(INV_VARIANT, GLV_HALF),
       `debug-accum`, m.debugAccumLayout);
     m.splitRecomputePipe = await compile(
-      sm.gen_ba_recompute_split_shader(INV_VARIANT),
+      sm.gen_ba_recompute_split_shader(INV_VARIANT, GLV_HALF),
       `split-recompute`, m.splitRecomputeLayout);
     // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB=64 per KNOB 1
     // (16 KB pref_scratch fits Mali Bifrost). NUM_THREADS = nwg*256 still
@@ -1634,7 +1651,7 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, GLV_HALF),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),

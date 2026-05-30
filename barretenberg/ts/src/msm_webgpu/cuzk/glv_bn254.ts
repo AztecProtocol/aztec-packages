@@ -119,3 +119,42 @@ export function buildGlvInputs(
   }
   return { pointsBuf, scalarsBuf, n2 };
 }
+
+/**
+ * On-the-fly variant of {@link buildGlvInputs}: builds the 2n-point / 127-bit
+ * problem while storing **only the original n points**. The φ(P)=(βx,y) terms
+ * are not materialized — the GPU gather recomputes them (a single Montgomery
+ * multiply) for any value index in `[n, 2n)`, and each half-scalar's sign is
+ * folded into bit 255 of its (sub-2¹²⁷) scalar word so the decompose XORs it
+ * into the stored point sign. This removes the 2× point-pool doubling.
+ *
+ * Layout:
+ *   - `pointsBuf`:  n * 64 bytes (the originals; the pool serves both halves).
+ *   - `scalarsBuf`: 2n * 32 bytes. Element i in [0,n) is |s1_i| (+sign bit) for
+ *     point i; element n+i is |s2_i| (+sign bit) for the gather's φ(point i).
+ *
+ * The MSM is created with 2n logical points over this n-point pool; the gather
+ * maps index n+i → φ(point i) because `n+i ≥ pool.srsN (= n)`.
+ */
+export function buildGlvInputsOnTheFly(
+  points: Bn254Point[],
+  scalars: bigint[],
+): { pointsBuf: Uint8Array; scalarsBuf: Uint8Array; n: number; n2: number } {
+  const n = points.length;
+  const n2 = 2 * n;
+  const pointsBuf = new Uint8Array(n * 64);
+  const scalarsBuf = new Uint8Array(n2 * 32);
+  const GLV_SIGN_BYTE = 0x80; // bit 255 = byte 31, bit 7
+  for (let i = 0; i < n; i++) {
+    const p = points[i];
+    writeLe32(pointsBuf, i * 64, p.x % Q);
+    writeLe32(pointsBuf, i * 64 + 32, p.y % Q);
+
+    const { s1, s2 } = glvSplit(((scalars[i] % R) + R) % R);
+    writeLe32(scalarsBuf, i * 32, fabs(s1));
+    if (s1 < 0n) scalarsBuf[i * 32 + 31] |= GLV_SIGN_BYTE;
+    writeLe32(scalarsBuf, (n + i) * 32, fabs(s2));
+    if (s2 < 0n) scalarsBuf[(n + i) * 32 + 31] |= GLV_SIGN_BYTE;
+  }
+  return { pointsBuf, scalarsBuf, n, n2 };
+}

@@ -37,7 +37,8 @@ for (const logn of logns) {
   page.on('pageerror', e => console.log(`  ! pageerror: ${e.message}`));
   page.on('crash', () => console.log('  !! PAGE CRASHED'));
   const cQ = process.env.GLV_C ? `&c=${process.env.GLV_C}` : '';
-  const url = `http://localhost:5173/dev/msm-webgpu/index.html?coi=1&autorun=${autorunMode}&logn=${logn}${cQ}`;
+  const otfQ = process.env.GLV_OTF ? `&otf=1` : '';
+  const url = `http://localhost:5173/dev/msm-webgpu/index.html?coi=1&autorun=${autorunMode}&logn=${logn}${cQ}${otfQ}`;
   console.log(`\n=== logN=${logn} :: ${url} ===`);
   let runnerErr = null;
   try {
