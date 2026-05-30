@@ -256,6 +256,13 @@ function startCloudflared() {
   const args = [
     "tunnel",
     "--no-autoupdate",
+    // Force HTTP/2 (TCP 443) instead of the default QUIC (UDP 7844). BrowserStack
+    // real mobile devices sit behind proxies that block UDP/QUIC, so a QUIC
+    // tunnel is unreachable from them (desktop datacenters allow QUIC, which is
+    // why macOS works but Android never reaches the page). TCP is universally
+    // reachable.
+    "--protocol",
+    "http2",
     "--url",
     `http://127.0.0.1:${port}`,
   ];
