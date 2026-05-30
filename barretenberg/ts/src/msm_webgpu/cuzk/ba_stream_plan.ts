@@ -6,17 +6,37 @@ const PLANNER_TPB = 256;
 const STREAM_S = 8;
 const RADIX_TILE_SIZE = 2048;
 const MIN_ITERS_PER_WG = 8;
-// Bumped from 32 to 64 to give n=2^20 more parallelism. Existing kernels
-// gate on planner_meta[3] so the higher cap is backwards-compatible: at
-// n=2^17 cumsum still picks ~16 WGs.
-const MAX_STREAM_WORKGROUPS = 64;
 
-// Stream-walker kernel constants (new — see STREAM_WALKER_PLAN.md §4).
-// TPB=128 so pref_scratch (TPB × S × 2 planes × 16 B = 32 KB) fits in M2's
-// 32 KB workgroup-shared limit when held in var<workgroup>. Mali targets
-// that max at 16 KB workgroup memory must drop this to 64 at adapter init.
-const STREAM_WALKER_TPB = 128;
-const STREAM_WALKER_TPB_MALI_FALLBACK = 64;
+// === Single source of truth for stream-walker dispatch geometry ===
+//
+// MAX_PLANNER_WORKGROUPS  — hard cap on cumsum's `nwg` clamp, i.e. how many
+//                           partition_thread/partition_task workgroups run.
+//                           NOT the walker workgroup count: the walker
+//                           workgroup count is num_active_threads /
+//                           STREAM_WALKER_TPB which is larger (currently 4x)
+//                           because the walker uses a smaller WG size.
+//
+// STREAM_PLANNER_TPB      — workgroup size of partition_thread/partition_task.
+//                           Together with MAX_PLANNER_WORKGROUPS this fixes
+//                           STREAM_NUM_THREADS = MAX_PLANNER_WG * PLANNER_TPB.
+//
+// STREAM_NUM_THREADS      — the live walker thread count cap. Drives all
+//                           per-thread buffer sizing (threadCuts, taskCuts,
+//                           walkerPartials, walkerPartialDest, walkerNodes*).
+//                           = MAX_PLANNER_WORKGROUPS × STREAM_PLANNER_TPB.
+//
+// STREAM_WALKER_TPB       — workgroup size of the stream_walker kernel.
+//                           Bounded by `2 * STREAM_WALKER_TPB * STREAM_S *
+//                           16 B <= maxComputeWorkgroupStorageSize` for the
+//                           target GPU. M2 fits 32 KB at TPB=64.
+//                           Walker workgroup count = STREAM_NUM_THREADS /
+//                           STREAM_WALKER_TPB (derived, not a knob).
+const MAX_PLANNER_WORKGROUPS = 32;
+const STREAM_PLANNER_TPB = PLANNER_TPB;
+const STREAM_NUM_THREADS = MAX_PLANNER_WORKGROUPS * STREAM_PLANNER_TPB;
+const STREAM_WALKER_TPB = 64;
+// Back-compat alias for downstream code that hasn't been renamed yet.
+const MAX_STREAM_WORKGROUPS = MAX_PLANNER_WORKGROUPS;
 
 export interface StreamPlannerBuffers {
   plannerMeta: GPUBuffer;
@@ -101,9 +121,11 @@ export function computeStreamPlanSizes(cfg: StreamPlanConfig) {
 export {
   STREAM_S,
   MIN_ITERS_PER_WG,
-  MAX_STREAM_WORKGROUPS,
+  MAX_PLANNER_WORKGROUPS,
+  MAX_STREAM_WORKGROUPS, // back-compat alias = MAX_PLANNER_WORKGROUPS
+  STREAM_PLANNER_TPB,
+  STREAM_NUM_THREADS,
   STREAM_WALKER_TPB,
-  STREAM_WALKER_TPB_MALI_FALLBACK,
 };
 
 /**

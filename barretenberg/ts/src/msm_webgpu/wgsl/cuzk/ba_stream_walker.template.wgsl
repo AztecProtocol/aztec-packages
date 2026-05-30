@@ -55,11 +55,14 @@ const NO_BUCKET: u32 = 0xffffffffu;
 @group(0) @binding(8) var<storage, read_write> partials_buf:       array<vec4<u32>>;
 @group(0) @binding(9) var<storage, read_write> partial_dest:       array<u32>;
 @group(0) @binding(10) var<uniform>            params:             vec4<u32>;
-
-// KNOB 1: workgroup-shared prefix scratch. Each thread uses its own
-// [local_id*S .. local_id*S + S) region (2 vec4 per slot), so there is no
-// cross-thread aliasing and no barrier is needed. 16 KB at TPB=64.
-var<workgroup> pref_scratch: array<vec4<u32>, TPB * S * 2u>;
+// pref_scratch lives in the TAIL of partials_buf at PREF_OFFSET (= 4 *
+// M_partials vec4 units, the strictly disjoint tail of the partials
+// region). COALESCED layout: slot k vec4 j (j ∈ {0,1}) for thread t lives
+// at PREF_OFFSET + k * (2 * NUM_THREADS) + t * 2 + j.
+// Adjacent threads (t, t+1) at same slot k write addresses 32 bytes apart
+// → same 64-byte cache line. A SIMD group of 32 threads writing one slot
+// touches just 2-4 cache lines (vs 32 lines in the naive per-thread-stride
+// layout), letting the GPU coalesce the writes into a single transaction.
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
@@ -80,14 +83,16 @@ fn load_pt_y(cursor: u32) -> array<u32, 8> {
     return fr_sub_f8(zero, y);
 }
 
-fn store_pref(base: u32, val: array<u32, 8>) {
-    pref_scratch[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
-    pref_scratch[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
+fn store_pref(k: u32, t: u32, pref_off: u32, k_stride: u32, val: array<u32, 8>) {
+    let base = pref_off + k * k_stride + t * 2u;
+    partials_buf[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
+    partials_buf[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
 }
 
-fn load_pref(base: u32) -> array<u32, 8> {
-    let q0 = pref_scratch[base + 0u];
-    let q1 = pref_scratch[base + 1u];
+fn load_pref(k: u32, t: u32, pref_off: u32, k_stride: u32) -> array<u32, 8> {
+    let base = pref_off + k * k_stride + t * 2u;
+    let q0 = partials_buf[base + 0u];
+    let q1 = partials_buf[base + 1u];
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
@@ -122,8 +127,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     if (t >= NUM_THREADS) { return; }
 
-    let pref_base = l * S * 2u;
     let cut_base = t * CUTS * 2u;
+    // Coalesced pref_scratch addressing:
+    //   pref_off = 4 * M_partials (start of pref region in partials_buf)
+    //   k_stride = 2 * NUM_THREADS (per-slot stride; adjacent threads share cache line)
+    let pref_off = 4u * M_partials;
+    let k_stride = 2u * NUM_THREADS;
 
     // Per-slot state (private). acc lives in registers (plan §7.1). The task
     // end is tracked as (sorted index, l0 cursor within that bucket) — NOT a
@@ -263,64 +272,70 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             }
             let dx = fr_sub_f8(p_rx, p_lx);
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
-            store_pref(pref_base + k * 2u, acc);
+            // OPTIMIZATION (c): the final prefix (k = S-1) is consumed only
+            // by the inverter below, in-register. Skip its store_pref.
+            if (k + 1u < S) {
+                store_pref(k, t, pref_off, k_stride, acc);
+            }
         }
 
         var acc20 = unpack256_to_limbs(acc);
         var inv20 = {{ inv_fn }}(acc20);
         var inv = pack_limbs_to_256(&inv20);
 
-        // Inverse pass: derive per-slot 1/dx.
+        // OPTIMIZATION (c): fused inverse pass + backward peel.
+        // Original had two separate descending loops:
+        //   (1) compute inv_dx[k], store to pref_scratch
+        //   (2) reload inv_dx[k], do affine add
+        // Fused: compute inv_dx[k] in register, immediately use it for the
+        // affine add. Eliminates 8 stores + 8 loads of pref_scratch per
+        // outer iter (the largest device-storage savings available).
         for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
             let k = S - 1u - jj;
+
+            // X-coord loads (needed for both inv update and affine add).
+            var p_lx: array<u32, 8>;
+            var p_rx: array<u32, 8>;
+            if (slot_done[k] == 1u) {
+                p_lx = load_pt_x(IDLE_ANCHOR);
+                p_rx = load_pt_x(IDLE_ANCHOR + 1u);
+            } else if (is_first[k] == 1u) {
+                p_lx = load_pt_x(cursor[k]);
+                p_rx = load_pt_x(cursor[k] + 1u);
+            } else {
+                p_lx = acc_x[k];
+                p_rx = load_pt_x(cursor[k]);
+            }
+
+            // Derive inv_dx[k] in register, update running inv for next iter.
             var inv_dx: array<u32, 8>;
             if (k == 0u) {
                 inv_dx = inv;
             } else {
-                let pp = load_pref(pref_base + (k - 1u) * 2u);
+                let pp = load_pref(k - 1u, t, pref_off, k_stride);
                 inv_dx = montgomery_product_f8(inv, pp);
-                var p_lx_b: array<u32, 8>;
-                var p_rx_b: array<u32, 8>;
-                if (slot_done[k] == 1u) {
-                    p_lx_b = load_pt_x(IDLE_ANCHOR);
-                    p_rx_b = load_pt_x(IDLE_ANCHOR + 1u);
-                } else if (is_first[k] == 1u) {
-                    p_lx_b = load_pt_x(cursor[k]);
-                    p_rx_b = load_pt_x(cursor[k] + 1u);
-                } else {
-                    p_lx_b = acc_x[k];
-                    p_rx_b = load_pt_x(cursor[k]);
-                }
-                let dx_b = fr_sub_f8(p_rx_b, p_lx_b);
+                let dx_b = fr_sub_f8(p_rx, p_lx);
                 inv = montgomery_product_f8(inv, dx_b);
             }
-            store_pref(pref_base + k * 2u, inv_dx);
-        }
 
-        // Backward peel: affine add, then retire / advance.
-        for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
-            let k = S - 1u - jj;
+            // Idle slots exist only to feed dx_k into the inv chain. Skip
+            // the affine add.
             if (slot_done[k] == 1u) { continue; }
 
-            var p_lx: array<u32, 8>;
+            // Y-coord loads + cursor advance.
             var p_ly: array<u32, 8>;
-            var p_rx: array<u32, 8>;
             var p_ry: array<u32, 8>;
             if (is_first[k] == 1u) {
-                p_lx = load_pt_x(cursor[k]);
                 p_ly = load_pt_y(cursor[k]);
-                p_rx = load_pt_x(cursor[k] + 1u);
                 p_ry = load_pt_y(cursor[k] + 1u);
                 cursor[k] += 2u;
             } else {
-                p_lx = acc_x[k];
                 p_ly = acc_y[k];
-                p_rx = load_pt_x(cursor[k]);
                 p_ry = load_pt_y(cursor[k]);
                 cursor[k] += 1u;
             }
 
-            let inv_dx = load_pref(pref_base + k * 2u);
+            // Affine add using inv_dx (in register).
             var lambda = fr_sub_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
             var r_x = montgomery_product_f8(lambda, lambda);

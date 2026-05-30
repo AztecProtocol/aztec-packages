@@ -13,11 +13,12 @@
 // as the [start, end) of task k. The cut encoding matches thread_cuts:
 // adds_offset is measured in the (count-1) adds-prefix space of the bucket.
 
-// thread_cuts are produced by ba_planner_partition_thread at a fixed 256
-// granularity (nwg workgroups × 256), so NUM_THREADS = nwg * 256. WALKER_TPB
-// only governs the walker's own workgroup_size, hence the indirect dispatch
-// count below (nwg * 256 / WALKER_TPB workgroups).
-const THREAD_TPB: u32 = 256u;
+// thread_cuts are produced by ba_planner_partition_thread at THREAD_TPB
+// granularity, so NUM_THREADS = nwg * THREAD_TPB. WALKER_TPB only governs
+// the walker's own workgroup_size; the indirect dispatch count emitted
+// below is nwg * THREAD_TPB / WALKER_TPB workgroups. Both constants come
+// from ba_stream_plan.ts via the generator, NOT inlined.
+const THREAD_TPB: u32 = {{ thread_tpb }}u;
 const WALKER_TPB: u32 = {{ walker_tpb }}u;
 const S: u32 = {{ s }}u;              // tasks per thread
 const CUTS: u32 = S + 1u;             // cut points per thread
@@ -52,7 +53,7 @@ fn resolve_cut(cut_target: u32, lo_b: u32, hi_b: u32, num_dense: u32) -> vec2<u3
     return vec2<u32>(cut_bucket, cut_offset);
 }
 
-@compute @workgroup_size(256)
+@compute @workgroup_size({{ thread_tpb }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let t = gid.x;
     let nwg = planner_meta[3];

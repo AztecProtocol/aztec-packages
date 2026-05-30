@@ -11,7 +11,7 @@
 @group(0) @binding(3) var<storage, read_write> wg_cuts:           array<u32>;
 @group(0) @binding(4) var<uniform>             params:            vec4<u32>;
 
-@compute @workgroup_size(32)
+@compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     let w = lid.x;
     let num_workgroups = planner_meta[3];

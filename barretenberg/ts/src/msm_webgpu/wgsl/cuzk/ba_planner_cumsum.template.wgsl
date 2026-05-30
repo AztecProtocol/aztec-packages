@@ -12,7 +12,12 @@
 //   B — Hillis-Steele inclusive scan on wg_sums
 //   C — re-read chunk and write per-element exclusive prefix
 
-const TPB: u32 = 256u;
+// TPB = this cumsum kernel's own scan workgroup size. By convention it
+// equals STREAM_PLANNER_TPB (the walker's planner-thread grain) so the
+// target_work formula below correctly sizes work per walker WG. If you
+// change STREAM_PLANNER_TPB in ba_stream_plan.ts, change this together
+// — they are coupled, not coincidentally equal.
+const TPB: u32 = {{ planner_tpb }}u;
 const NUM_THREADS: u32 = {{ num_threads }}u;
 const MIN_ITERS_PER_WG: u32 = {{ min_iters_per_wg }}u;
 const MAX_WORKGROUPS: u32 = {{ max_workgroups }}u;
@@ -22,13 +27,13 @@ const MAX_WORKGROUPS: u32 = {{ max_workgroups }}u;
 @group(0) @binding(2) var<storage, read_write> planner_meta:      array<u32>;
 @group(0) @binding(3) var<uniform>             params:            vec4<u32>;
 
-var<workgroup> wg_sums: array<u32, 256>;
+var<workgroup> wg_sums: array<u32, {{ planner_tpb }}>;
 
 fn ceil_div(a: u32, b: u32) -> u32 {
     return (a + b - 1u) / b;
 }
 
-@compute @workgroup_size(256)
+@compute @workgroup_size({{ planner_tpb }})
 fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     let tid = lid.x;
     let num_dense = planner_meta[1];
