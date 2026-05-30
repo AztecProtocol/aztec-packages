@@ -29,6 +29,27 @@ import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
 
+// BrowserStack launches the page on real mobile via an Android intent that
+// drops everything after the first unescaped '&', so a normal multi-param
+// query (?autorun=…&logn=…&variants=…&rounds=…) arrives truncated to the first
+// param — which silently reverts logn/variants to defaults (e.g. SRS back to
+// 2^20 → mobile GPU device-loss). To pass several params, send a single
+// percent-encoded `q` (e.g. ?q=autorun%3Dmsm-gpu-bench%26logn%3D16%26rounds%3D3)
+// and expand it back into the real query string before any module-scope code
+// reads location.search.
+(() => {
+  try {
+    const u = new URL(window.location.href);
+    const q = u.searchParams.get('q');
+    if (q) {
+      u.search = q;
+      window.history.replaceState(null, '', u.toString());
+    }
+  } catch {
+    /* non-browser / malformed URL — leave search untouched */
+  }
+})();
+
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 
 // Per-rep profiling capture consumed by the sweep aggregator. `runWebGpuOnce`
