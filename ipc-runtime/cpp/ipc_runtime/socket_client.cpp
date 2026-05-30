@@ -28,7 +28,7 @@ bool SocketClient::connect()
         return true; // Already connected
     }
 
-    constexpr size_t max_attempts = 100;
+    constexpr size_t max_attempts = 500;
     constexpr auto retry_delay = std::chrono::milliseconds(10);
 
     for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
