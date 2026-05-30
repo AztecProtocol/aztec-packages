@@ -33,7 +33,6 @@ on:
         - staging-public
         - next-net
         - testnet
-        - devnet
         - tps-scenario
       low_watermark:
         description: 'Minimum ETH balance'

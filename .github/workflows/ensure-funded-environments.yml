@@ -1,6 +1,6 @@
 # Ensure multiple environments have all publisher keys and bot accounts funded
-# This workflow checks and funds publisher keys and bot accounts for all environments
-# including dynamically discovered devnet iterations.
+# This workflow checks and funds publisher keys and bot accounts for all
+# environments still running against sepolia.
 name: Ensure Funded Environments
 
 on:
@@ -25,49 +25,31 @@ concurrency:
   cancel-in-progress: false # Don't cancel funding operations
 
 jobs:
-  discover:
+  build-matrix:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 1
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Discover active devnets
-        id: discover
-        run: spartan/scripts/get_active_devnets.ts
-
       - name: Build funding matrix
         id: build-matrix
         run: |
-          # Static environments
+          # Environments still running against sepolia
           static='[
             {"environment":"staging-public"},
             {"environment":"next-net"},
             {"environment":"testnet"}
           ]'
 
-          # Convert devnet namespaces to matrix entries
-          devnets=$(echo '${{ steps.discover.outputs.devnets }}' \
-            | jq -c '[.[] | {environment: "devnet", namespace: .}]')
-
-          matrix=$(jq -c -n --argjson s "$static" --argjson d "$devnets" '{"include": ($s + $d)}')
+          matrix=$(jq -c -n --argjson s "$static" '{"include": $s}')
           echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
   fund:
-    needs: discover
+    needs: build-matrix
     strategy:
       # we can only run one funding operation at a time because all jobs fund from the same address
       max-parallel: 1
       fail-fast: false
-      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
     uses: ./.github/workflows/ensure-funded-environment.yml
     with:
       environment: ${{ matrix.environment }}
