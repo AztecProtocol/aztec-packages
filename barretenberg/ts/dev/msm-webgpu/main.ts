@@ -66,7 +66,18 @@ const $results = document.getElementById('results') as HTMLDivElement;
 // overtakes the WASM Pippenger; the v2 pipeline has no size floor.
 const LOGN_MIN = 10;
 const LOGN_MAX = 20;
-const SRS_NUM_POINTS = 1 << LOGN_MAX;
+// For autorun (CI / BrowserStack) runs we only need the SRS prefix the chosen
+// logn consumes; downloading the full 2^20 (64 MB) over a tunnel stalls page
+// load on real mobile devices. Interactive use still loads the full SRS so the
+// logn slider works up to LOGN_MAX.
+const SRS_NUM_POINTS = (() => {
+  const sp = new URLSearchParams(self.location.search);
+  const ln = parseInt(sp.get('logn') ?? '', 10);
+  if (sp.get('autorun') && Number.isFinite(ln)) {
+    return 1 << Math.min(LOGN_MAX, Math.max(LOGN_MIN, ln));
+  }
+  return 1 << LOGN_MAX;
+})();
 
 const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const NOBLE_REFERENCE_LOGN = 16;
@@ -89,7 +100,7 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
-    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || q.get('autorun') === 'msm-gpu-bench' || undefined,
   };
 })();
 
@@ -1628,6 +1639,67 @@ function hideProgress(): void {
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
       log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params,
+        results: null,
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
+  } else if (autorun === 'msm-gpu-bench') {
+    // WASM-free GPU timing + memory bench. Drives the GPU MSM directly (does
+    // NOT click Run, so it does not depend on WASM / cross-origin isolation),
+    // captures per-phase GPU timestamps (__lastPhaseMs) and allocated GPU
+    // bytes. This is the mobile-safe perf path: the threaded WASM oracle is
+    // unavailable on many real devices, which stalls the Run-gated bench.
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const client = makeResultsClient({ page: 'msm-gpu-bench' });
+    const params = { logN: autorunLogN, reps, page: 'msm-gpu-bench' };
+    log('info', `[autorun] msm-gpu-bench logN=${autorunLogN} reps=${reps}`);
+    try {
+      if (srsBuf === null) throw new Error('SRS not loaded');
+      const inputs = await generateInputs(autorunLogN, false);
+      // First call builds + warms MsmV2 and pays first-use costs.
+      await runWebGpuOnce(inputs);
+      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
+      for (let r = 0; r < reps; r++) {
+        const gpu = await runWebGpuOnce(inputs);
+        const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+        const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
+        samples.push({ wallMs: gpu.ms, gpuMs, phases: { ...phases } });
+        const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
+        log('info', `[gpu-bench] rep ${r + 1}/${reps}: wall=${gpu.ms.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
+      }
+      const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+      const avgPhases: Record<string, number> = {};
+      for (const key of allPhaseKeys) avgPhases[key] = avg(samples.map(s => s.phases[key] ?? 0));
+      const algoBytes = msmV2?.statsBytes() ?? 0;
+      const poolBytes = msmV2Pool?.statsBytes() ?? 0;
+      const mem = { algoBytes, poolBytes, totalBytes: algoBytes + poolBytes };
+      const avgWall = avg(samples.map(s => s.wallMs));
+      const avgGpu = avg(samples.map(s => s.gpuMs));
+      log('ok', `[gpu-bench] DONE logN=${autorunLogN}: wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ` +
+        `mem=${(mem.totalBytes / 1048576).toFixed(1)}MB (algo ${(algoBytes / 1048576).toFixed(1)}MB)`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'done',
+        params,
+        results: { samples, averages: { wallMs: avgWall, gpuMs: avgGpu, ...avgPhases }, memory: mem },
+        error: null,
+        log: allLines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[autorun] FATAL: ${msg}`);
