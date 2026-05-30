@@ -90,7 +90,7 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
-    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || q.get('autorun') === 'msm-s-sweep' || undefined,
   };
 })();
 
@@ -1406,7 +1406,79 @@ function hideProgress(): void {
   // can pick them up from JSONL.
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
-  if (autorun === 'msm-bench') {
+  if (autorun === 'msm-s-sweep') {
+    // Single-session stream-walker S sweep: load the SRS once, then rebuild
+    // only the MsmV2 pipelines (keeping the pool) for each S in `slist`,
+    // timing the accumulate kernel (`stream_walker` phase, where timestamp-
+    // query exists) and GPU wall per S. One BrowserStack worker maps the
+    // whole inversion-amortization curve. ?slist=8,12,16,20,24,32 ?logn ?reps
+    const logN = parseInt(qp.get('logn') ?? '17', 10);
+    const reps = parseInt(qp.get('reps') ?? '6', 10);
+    const sList = (qp.get('slist') ?? '8,12,16,20,24,32')
+      .split(',').map(x => parseInt(x, 10)).filter(x => Number.isInteger(x) && x > 0);
+    const client = makeResultsClient({ page: 'msm-s-sweep' });
+    const med = (arr: number[]): number | null =>
+      arr.length ? [...arr].sort((a, b) => a - b)[Math.floor(arr.length / 2)] : null;
+    log('info', `[s-sweep] logN=${logN} reps=${reps} S=[${sList.join(',')}]`);
+    try {
+      for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+      if (srsBuf === null) throw new Error('SRS not loaded within 10 min');
+      const inputs = await generateInputs(logN, false);
+      const nLog = Math.log2(inputs.n);
+      const curve: Record<string, unknown>[] = [];
+      for (const S of sList) {
+        (gpuKnobs as unknown as { streamS?: number }).streamS = S;
+        if (gpuDevice === null) gpuDevice = await get_device();
+        if (msmV2) { msmV2.destroy(); msmV2 = null; }
+        if (msmV2Pool === null) msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+        // Rebuild pipelines with the new streamS (MsmV2.create warms internally).
+        msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
+        msmV2LogN = nLog;
+        await runWebGpuOnce(inputs); // extra warm — first-touch on fresh pipelines
+        const wall: number[] = [];
+        const sw: number[] = [];
+        const gpuTot: number[] = [];
+        let lastPhases: Record<string, number> = {};
+        for (let r = 0; r < reps; r++) {
+          const { ms } = await runWebGpuOnce(inputs);
+          wall.push(ms);
+          const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+          lastPhases = phases;
+          if (typeof phases.stream_walker === 'number') sw.push(phases.stream_walker);
+          gpuTot.push(Object.values(phases).reduce((a, b) => a + (b ?? 0), 0));
+        }
+        const row = {
+          S,
+          wallMsMedian: med(wall),
+          streamWalkerMsMedian: med(sw),
+          gpuMsMedian: med(gpuTot),
+          wall, streamWalker: sw, phases: lastPhases,
+          timestampOk: sw.length > 0,
+        };
+        curve.push(row);
+        const swStr = row.streamWalkerMsMedian != null ? `${row.streamWalkerMsMedian.toFixed(2)}ms` : 'n/a(no-ts)';
+        log('ok', `[s-sweep] S=${S}: wall(med)=${(row.wallMsMedian ?? 0).toFixed(1)}ms stream_walker(med)=${swStr}`);
+      }
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'done',
+        params: { logN, reps, sList, page: 'msm-s-sweep' },
+        results: { curve },
+        error: null,
+        log: allLines.slice(-200),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[s-sweep] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[s-sweep] FATAL: ${msg}`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({ state: 'error', params: { logN, reps, sList, page: 'msm-s-sweep' }, results: { curve: [] }, error: msg, log: allLines.slice(-200), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+    }
+  } else if (autorun === 'msm-bench') {
     const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
     const reps = parseInt(qp.get('reps') ?? '5', 10);
     const client = makeResultsClient({ page: 'msm-bench' });
