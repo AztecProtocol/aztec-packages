@@ -29,6 +29,24 @@ import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
 
+// BrowserStack's /5/worker launcher truncates the device URL at the first
+// unescaped `&`, so only the first query param survives (every later param
+// silently falls back to its page default). To pass a full param set to a
+// BrowserStack run, base64-encode the intended query string and send it as a
+// single `?cfg=<base64>` param (no `&`, nothing to truncate). We decode it
+// here — before any URLSearchParams read — and rewrite location.search so the
+// rest of the page sees the expanded params unchanged.
+(() => {
+  try {
+    const cfg = new URLSearchParams(window.location.search).get('cfg');
+    if (cfg) {
+      history.replaceState(null, '', window.location.pathname + '?' + atob(cfg));
+    }
+  } catch {
+    // leave the URL as-is if cfg is malformed
+  }
+})();
+
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 
 // Per-rep profiling capture consumed by the sweep aggregator. `runWebGpuOnce`
