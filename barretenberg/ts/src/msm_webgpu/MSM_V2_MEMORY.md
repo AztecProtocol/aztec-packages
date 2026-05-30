@@ -123,31 +123,66 @@ cross-checked vs `@noble/curves` at nb=1 — **passed**):
 | 29 MB | 5 | 34.1 MB | 352.6 ms | +26.4 % |
 | 27 MB | 10 | 32.4 MB | 462.9 ms | **+66.0 %** |
 
-Both devices show the same shape — **memory falls monotonically, GPU wall rises
-monotonically and accelerating, with badly diminishing returns past nb≈2–3**. So
-the lever **works as a memory/time trade but is not a free cut**: raising the
-**default** budget would regress the common path materially, so the no-op default
-is correct.
+Both devices show the same shape — **peak memory falls monotonically, GPU wall
+rises monotonically and accelerating, with badly diminishing returns past
+nb≈2–3**. Even if it were correct, raising the **default** budget would regress
+the common path materially, so the no-op default is right. But it is **not**
+correct: see the critical finding below — `nb>1` returns the wrong MSM, so these
+timings are the cost of a path that does not yet produce the right answer.
 
-**Conclusion: the host-buffer-management memory lever is exhausted.** There is no
-free over-provisioning to reclaim (every live buffer is algorithm-necessary and
-tightly sized; the dead pair-tree buffers are already 4-byte stubs), and the only
-remaining host-level cut — batching — is a deliberate trade. Further
-*time-neutral* cuts require the WGSL-level levers above (in-place reduction,
-on-GPU SRS y-recovery, per-batch scalar slicing), each a separate verified change.
+**Conclusion: the host-buffer-management memory lever is exhausted *and* the one
+mechanism it drives (batching) is currently broken.** There is no free
+over-provisioning to reclaim (every live buffer is algorithm-necessary and
+tightly sized; the dead pair-tree buffers are already 4-byte stubs); the only
+host-level cut is batching, which is both a steep time trade *and* presently
+incorrect for nb>1. A real, safe peak-memory reduction therefore needs (a) the
+multi-batch correctness bug fixed, and/or (b) the WGSL-level levers above
+(in-place reduction, on-GPU SRS y-recovery, per-batch scalar slicing) — each a
+separate verified change.
 
-### Correctness caveats (honest scope)
+## ⚠️ Critical finding: the multi-batch path (`numBatches > 1`) is incorrect
 
-- macOS cross-check is at **nb=1** only; nb>1 runs the **same kernels** over
-  disjoint window slices into disjoint `bucketResultBuf` regions (the path
-  already default at logn20), so it is correctness-equivalent by construction. A
-  per-nb sweep (every budget cross-checked) is wired up and queued to confirm.
-- **Android baseline (nb=1) MSM disagreed with the noble reference on the S25
-  Ultra** (GPU-decompressed SRS self-verified OK, so the bases match — the
-  discrepancy is in the Adreno MSM compute, *not* the buffer sizing this PR
-  touches). This is a **pre-existing MsmV2-on-Adreno issue, independent of this
-  PR**; the Android timings above are still valid wall measurements but should
-  not be read as correctness-validated. Flagged for separate investigation.
+The per-nb cross-check (every budget verified vs `@noble/curves`, **real macOS
+Sequoia · Chrome 148**, logn16) shows the batched path returns **wrong** results:
+
+| numBatches | GPU wall | matches noble? |
+|:--:|---:|:--:|
+| 1 | 50.6 ms | ✅ **yes** |
+| 2 | 60.2 ms | ❌ no |
+| 3 | 64.7 ms | ❌ no |
+| 4 | 77.8 ms | ❌ no |
+| 5 | 89.3 ms | ❌ no |
+| 10 | 159.8 ms | ❌ no |
+
+So nb=1 is correct and **every** `nb>1` disagrees — on hardware with a known-good
+WebGPU implementation. This **refutes the premise** that raising `numBatches` is
+"no correctness change … the same path already default at logn20." The budget
+lever therefore does **not** safely trade memory for time today: engaging it
+returns an incorrect MSM.
+
+**Likely root cause** (host side, `msm_v2.ts`): the planner/walker bind groups
+and params (`size1Bind`, `streamWalkerBind`, `walkerCombineBind`, …) are built
+**once** in `prepare()` with **no per-batch window/bucket offset**, while the CSR
+`counts`/`offsets` are sized `batchBuckets` and the lists / `bucketHead` /
+`bucketResult` are sized `bTotal`. At nb=1 `batchBuckets == bTotal` so the
+local and global bucket-index spaces coincide and everything works; at nb>1 they
+diverge and batches collide instead of filling disjoint `bucketResult` regions.
+
+**Blast radius beyond the lever:** the same multi-batch code is the
+`wgFits`-forced **default** at **logn19 (nb=2)** and **logn20 (nb=3)** — so
+MsmV2 is very likely **incorrect by default at logn≥19** (these sizes were never
+cross-checked because the noble reference is too slow there). This needs direct
+verification and a fix before MsmV2 is trusted at 2^19–2^20. It is distinct from,
+and more serious than, the *invisible* bucket-0 issue noted in PR #23741.
+
+### Android note
+
+The Android Galaxy S25 Ultra run additionally showed **nb=1 disagreeing** with
+noble (the GPU-decompressed SRS self-verified OK, so the bases match — the
+discrepancy is in the Adreno MSM compute). That is a separate, **pre-existing
+MsmV2-on-Adreno** issue independent of batching and of this PR's buffer sizing.
+Android wall timings above are valid, but Android results are not
+correctness-validated.
 
 (Reproduce: `node dev/msm-webgpu/scripts/run-browserstack.mjs --target macos
 --n 16 --autorun msm-membudget-sweep`, or drive a BS worker at

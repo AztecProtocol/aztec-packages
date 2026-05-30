@@ -79,9 +79,16 @@ export interface MsmConfig {
    * This is a memory/**time** trade, not a free cut: every batch re-reads the
    * full scalar set and replays the planner, so on the memory-bandwidth-bound
    * walker each extra batch adds latency. Measured on real Apple hardware
-   * (logn16): nb1→nb2 ≈ +18% wall for −17% peak, nb1→nb5 ≈ +78% for −28%. Reach
-   * for it only on memory-constrained GPUs that would otherwise OOM. See
+   * (logn16): nb1→nb2 ≈ +18% wall for −17% peak, nb1→nb5 ≈ +78% for −28%. See
    * `MSM_V2_MEMORY.md` for the full curve.
+   *
+   * ⚠️ **CORRECTNESS:** the multi-batch path (`numBatches > 1`) is currently
+   * **incorrect** — forced nb=2..10 disagree with the `@noble/curves` reference
+   * on real hardware while nb=1 matches (see `MSM_V2_MEMORY.md`). The planner /
+   * walker bind groups + params are built once with no per-batch bucket offset,
+   * so the `batchBuckets`-vs-`bTotal` index spaces only coincide at nb=1. Until
+   * that is fixed, do **not** set a budget tight enough to force `nb>1`. This
+   * also affects the `wgFits`-forced default at logn19 (nb=2) / logn20 (nb=3).
    */
   memBudgetBytes?: number;
   /**
