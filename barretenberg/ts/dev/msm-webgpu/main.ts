@@ -1823,5 +1823,142 @@ function hideProgress(): void {
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
     }
+  } else if (autorun === 'glv-csweep') {
+    // GLV window-size (c) sweep on real hardware. The earlier glv-compare
+    // forced BOTH sides to c=15 — a config the production baseline never uses
+    // (pickC(2^17)=13) — so it measured GLV at a non-optimal c against a
+    // non-production baseline. pickC is empirically tuned for the memory-bound
+    // accumulate, so GLV's optimal c (its problem is 2n points / 127-bit, a
+    // different shape) must be MEASURED, not derived. This sweeps GLV across a
+    // c-list, times each (warm-up + min of `reps` steady-state dispatches), and
+    // reports it against the real production baseline (pickC) AND a matched-c
+    // baseline. Memory is reported as algo + pool + total so the 2n point-pool
+    // cost is visible, not hidden.
+    const autorunLogN = parseInt(qp.get('logn') ?? '16', 10);
+    const reps = parseInt(qp.get('reps') ?? '6', 10);
+    const doTime = qp.get('time') !== '0';
+    const csList = (qp.get('cs') ?? '12,13,14,15,16,17')
+      .split(',')
+      .map(s => parseInt(s, 10))
+      .filter(x => x > 0);
+    const client = makeResultsClient({ page: 'msm-autorun' });
+    log('info', `[autorun] glv-csweep logN=${autorunLogN} reps=${reps} cs=${csList.join(',')}`);
+    const waitForRun = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('Run button never enabled within 10 minutes');
+    };
+    // Build a pipeline and return its memory + (optionally) a robust steady-state
+    // dispatch time: 2 warm-up runs, then the MIN of `reps` timed runs (min is
+    // the cleanest steady-state estimate — least contaminated by GC/scheduler
+    // jitter on the shared BrowserStack hosts).
+    const buildAndMeasure = async (
+      device: GPUDevice,
+      pointsBuf: Uint8Array,
+      scalarsBuf: Uint8Array,
+      n: number,
+      cfg: MsmConfig,
+    ): Promise<{ algoBytes: number; poolBytes: number; numWindows: number; c: number; ms: number | null }> => {
+      const p = await MsmV2Pool.create(device, pointsBuf);
+      const m = await MsmV2.create(device, n, p, cfg);
+      m.prepare(scalarsBuf);
+      let ms: number | null = null;
+      if (doTime) {
+        await m.run();
+        await m.run();
+        let best = Infinity;
+        for (let i = 0; i < reps; i++) {
+          const t0 = performance.now();
+          await m.run();
+          best = Math.min(best, performance.now() - t0);
+        }
+        ms = best;
+      }
+      const algoBytes = m.statsBytes();
+      const poolBytes = p.statsBytes();
+      const numWindows = m.numWindows;
+      const c = m.c;
+      m.destroy();
+      p.destroy();
+      return { algoBytes, poolBytes, numWindows, c, ms };
+    };
+    type Row =
+      | { kind: 'base' | 'glv'; c: number; numWindows: number; algoMiB: number; poolMiB: number; totalMiB: number; ms: number | null }
+      | { kind: 'base' | 'glv'; c: number; error: string };
+    const rows: Row[] = [];
+    try {
+      await waitForRun();
+      client.postProgress({ phase: 'start', logN: autorunLogN });
+      const inputs = await generateInputs(autorunLogN, true);
+      if (!inputs.points || !inputs.scalars) throw new Error('mirror inputs missing');
+      const device = await get_device();
+      const glv = buildGlvInputs(inputs.points, inputs.scalars);
+      client.postProgress({ phase: 'inputs-ready', n: inputs.n, n2: glv.n2 });
+
+      const run = async (kind: 'base' | 'glv', cfg: MsmConfig, label: string): Promise<void> => {
+        const pts = kind === 'base' ? inputs.pointsBuf : glv.pointsBuf;
+        const scs = kind === 'base' ? inputs.scalarsBuf : glv.scalarsBuf;
+        const nn = kind === 'base' ? inputs.n : glv.n2;
+        try {
+          const r = await buildAndMeasure(device, pts, scs, nn, cfg);
+          const algoMiB = r.algoBytes / 2 ** 20;
+          const poolMiB = r.poolBytes / 2 ** 20;
+          const totalMiB = algoMiB + poolMiB;
+          rows.push({ kind, c: r.c, numWindows: r.numWindows, algoMiB, poolMiB, totalMiB, ms: r.ms });
+          log(
+            'info',
+            `[${label}] c=${r.c} T=${r.numWindows} algo=${algoMiB.toFixed(1)} pool=${poolMiB.toFixed(1)} total=${totalMiB.toFixed(1)}MiB${r.ms !== null ? ` gpu=${r.ms.toFixed(1)}ms` : ''}`,
+          );
+          client.postProgress({ kind, c: r.c, numWindows: r.numWindows, totalMiB, ms: r.ms });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          log('err', `[${label}] c=${cfg.c ?? 'pickC'} failed: ${msg}`);
+          rows.push({ kind, c: cfg.c ?? 0, error: msg });
+          client.postProgress({ kind, c: cfg.c ?? 0, error: msg });
+        }
+      };
+
+      // Production baseline: pickC, the config that actually ships.
+      await run('base', {}, 'base-pickC');
+      // Matched-c baselines + the full GLV c-sweep.
+      for (const c of csList) await run('base', { c }, `base c=${c}`);
+      for (const c of csList) await run('glv', { scalarBitLength: GLV_HALF_SCALAR_BITS, c }, `glv  c=${c}`);
+
+      // Summary: best baseline vs best GLV on time and on total memory.
+      const timed = rows.filter((r): r is Extract<Row, { ms: number | null }> => 'ms' in r && r.ms !== null);
+      const baseTimed = timed.filter(r => r.kind === 'base');
+      const glvTimed = timed.filter(r => r.kind === 'glv');
+      const bestBase = baseTimed.length ? baseTimed.reduce((a, b) => (b.ms! < a.ms! ? b : a)) : null;
+      const bestGlv = glvTimed.length ? glvTimed.reduce((a, b) => (b.ms! < a.ms! ? b : a)) : null;
+      if (bestBase && bestGlv) {
+        const dt = ((bestGlv.ms! - bestBase.ms!) / bestBase.ms!) * 100;
+        const dmem = ((bestGlv.totalMiB - bestBase.totalMiB) / bestBase.totalMiB) * 100;
+        log(
+          'ok',
+          `[glv-csweep] best base c=${bestBase.c} ${bestBase.ms!.toFixed(1)}ms/${bestBase.totalMiB.toFixed(1)}MiB · best glv c=${bestGlv.c} ${bestGlv.ms!.toFixed(1)}ms/${bestGlv.totalMiB.toFixed(1)}MiB · Δtime ${dt >= 0 ? '+' : ''}${dt.toFixed(1)}% Δmem ${dmem >= 0 ? '+' : ''}${dmem.toFixed(1)}%`,
+        );
+      }
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, page: 'msm-autorun', algo: 'glv-csweep', reps },
+        results: { rows },
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, page: 'msm-autorun', algo: 'glv-csweep' },
+        results: { rows },
+        error: msg,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
   }
 })();

@@ -18,6 +18,10 @@ const browser = await chromium.launch({
     '--enable-unsafe-webgpu',
     '--enable-features=Vulkan,WebGPU',
     '--enable-unsafe-swiftshader',
+    // `--use-vulkan=swiftshader` is required for the lavapipe-less dev box to
+    // expose a WebGPU adapter under headless Chromium — without it
+    // `requestAdapter()` returns null and the cross-check can't run.
+    '--use-vulkan=swiftshader',
     '--disable-gpu-sandbox',
     '--no-sandbox',
     '--disable-http2',
