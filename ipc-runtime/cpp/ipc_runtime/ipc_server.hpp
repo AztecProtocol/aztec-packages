@@ -107,13 +107,17 @@ public:
   /**
    * @brief Request graceful shutdown.
    *
-   * Sets shutdown flag and wakes all blocked threads. Safe to call from signal
-   * handlers. After this returns, the run() loop will exit on its next
-   * iteration. Call close() afterward to clean up resources.
+   * Sets shutdown flag and wakes all blocked threads. After this returns, the
+   * run() loop will exit on its next iteration. Call close() afterward to clean
+   * up resources.
    */
   virtual void request_shutdown() {
     shutdown_requested_.store(true, std::memory_order_release);
     wakeup_all();
+  }
+
+  void request_shutdown_from_signal() noexcept {
+    shutdown_requested_.store(true, std::memory_order_release);
   }
 
   /**

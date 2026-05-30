@@ -7,10 +7,15 @@
 
 #ifdef __linux__
 #include <sys/prctl.h>
-#elif defined(__APPLE__)
+#endif
+
+#if defined(__linux__) || defined(__APPLE__)
+#include <unistd.h>
+#endif
+
+#if defined(__APPLE__)
 #include <sys/event.h>
 #include <thread>
-#include <unistd.h>
 #endif
 
 namespace ipc {
@@ -21,23 +26,28 @@ namespace {
 // (which may interrupt main() at any point) observes a consistent value.
 std::atomic<IpcServer *> g_signal_server{nullptr};
 
-void graceful_shutdown_handler(int signal) {
-  std::cerr << "\nReceived signal " << signal << ", shutting down gracefully..."
-            << '\n';
+void write_stderr_signal_safe(const char *message, size_t len) {
+#if defined(__linux__) || defined(__APPLE__)
+  ssize_t written = ::write(STDERR_FILENO, message, len);
+  (void)written;
+#else
+  (void)message;
+  (void)len;
+#endif
+}
+
+void graceful_shutdown_handler([[maybe_unused]] int signal) {
+  constexpr char message[] = "\nReceived shutdown signal\n";
+  write_stderr_signal_safe(message, sizeof(message) - 1);
   if (auto *s = g_signal_server.load(std::memory_order_acquire); s != nullptr) {
-    s->request_shutdown();
+    s->request_shutdown_from_signal();
   }
 }
 
 void fatal_error_handler(int signal) {
-  const char *signal_name = (signal == SIGBUS)    ? "SIGBUS"
-                            : (signal == SIGSEGV) ? "SIGSEGV"
-                                                  : "UNKNOWN";
-  std::cerr << "\nFatal error: received " << signal_name << '\n';
-  if (auto *s = g_signal_server.load(std::memory_order_acquire); s != nullptr) {
-    s->close();
-  }
-  std::exit(1);
+  constexpr char message[] = "\nFatal IPC runtime signal\n";
+  write_stderr_signal_safe(message, sizeof(message) - 1);
+  std::_Exit(128 + signal);
 }
 
 void setup_parent_death_monitoring() {
