@@ -2968,10 +2968,19 @@ const NO_BUCKET: u32 = 0xffffffffu;
 @group(0) @binding(9) var<storage, read_write> partial_dest:       array<u32>;
 @group(0) @binding(10) var<uniform>            params:             vec4<u32>;
 
-// KNOB 1: workgroup-shared prefix scratch. Each thread uses its own
-// [local_id*S .. local_id*S + S) region (2 vec4 per slot), so there is no
-// cross-thread aliasing and no barrier is needed. 16 KB at TPB=64.
+// Prefix scratch (one f8 = 2 vec4 per slot). It is per-thread with no
+// cross-thread sharing either way.
+//   workgroup: TPB·S·32 B of shared memory — caps resident workgroups by the
+//              device's maxComputeWorkgroupStorageSize (16 KB on Mali Bifrost).
+//   private:   per-invocation registers/local — frees the workgroup-memory cap
+//              entirely so TPB can rise (#23726 occupancy lever), trading it
+//              for S·8 u32 of per-thread state.
+{{#pref_private}}
+var<private> pref_scratch: array<vec4<u32>, S * 2u>;
+{{/pref_private}}
+{{^pref_private}}
 var<workgroup> pref_scratch: array<vec4<u32>, TPB * S * 2u>;
+{{/pref_private}}
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
@@ -3034,7 +3043,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     if (t >= NUM_THREADS) { return; }
 
+{{#pref_private}}
+    let pref_base = 0u;
+{{/pref_private}}
+{{^pref_private}}
     let pref_base = l * S * 2u;
+{{/pref_private}}
     let cut_base = t * CUTS * 2u;
 
     // Per-slot state (private). acc lives in registers (plan §7.1). The task

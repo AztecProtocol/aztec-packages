@@ -96,6 +96,7 @@ const gpuKnobs: MsmConfig = (() => {
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     walkerCacheDx: q.get('cachedx') === '0' ? false : q.get('cachedx') === '1' ? true : undefined,
     walkerFused: q.get('fused') === '0' ? false : q.get('fused') === '1' ? true : undefined,
+    walkerPrefMem: q.get('prefmem') === 'private' ? 'private' : q.get('prefmem') === 'workgroup' ? 'workgroup' : undefined,
     walkerS: optInt('ws'),
     walkerTpb: optInt('wtpb'),
     profile:
@@ -1709,35 +1710,54 @@ function hideProgress(): void {
       const hasTimestamp = gpuDevice.features.has('timestamp-query');
       log('info', `[gpu-bench] timestamp-query=${hasTimestamp} (per-phase GPU times ${hasTimestamp ? 'available' : 'unavailable — wall only'})`);
       const inputs = await generateInputs(benchLogN, false);
+      // A/B ladder (?fusedab=1): time the walker variants in ONE device
+      // session, so the comparison is free of cross-session GPU-clock /
+      // thermal / seat noise. The ladder isolates each lever:
+      //   baseline  — legacy 3-pass dx-cache walker, wg pref, TPB 64
+      //   fused     — fused inverse+peel, wg pref, TPB 64   (fusion lever)
+      //   fused+occ — fused + private pref, TPB 128         (+occupancy lever)
+      type Variant = { tag: string; fused?: boolean; prefMem?: 'workgroup' | 'private'; tpb?: number };
+      const ladder: Variant[] = qp.get('fusedab') === '1'
+        ? [
+            { tag: 'baseline', fused: false, prefMem: 'workgroup', tpb: 64 },
+            { tag: 'fused', fused: true, prefMem: 'workgroup', tpb: 64 },
+            { tag: 'fused+occ', fused: true, prefMem: 'private', tpb: 128 },
+          ]
+        : [{ tag: 'default', fused: gpuKnobs.walkerFused, prefMem: gpuKnobs.walkerPrefMem, tpb: gpuKnobs.walkerTpb }];
       for (const S of sweepS) {
-        client.postProgress({ stage: 'sweep', S });
-        // Build a fresh MsmV2 for this S with profiling on.
-        const pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
-        const cfg: MsmConfig = { ...gpuKnobs, walkerS: S, profile: true, warmupRuns: 3 };
-        const msm = await MsmV2.create(gpuDevice, inputs.n, pool, cfg);
-        msm.prepare(inputs.scalarsBuf);
-        await msm.run(); // warm the data-dependent buffers out of the timed window
-        const wallSamples: number[] = [];
-        const phaseSamples: Record<string, number>[] = [];
-        for (let r = 0; r < reps; r++) {
-          const t0 = performance.now();
-          await msm.run();
-          wallSamples.push(performance.now() - t0);
-          const ph = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
-          phaseSamples.push({ ...ph });
+        for (const v of ladder) {
+          client.postProgress({ stage: 'sweep', S, variant: v.tag });
+          // Build a fresh MsmV2 for this (S, variant) with profiling on.
+          const pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+          const cfg: MsmConfig = {
+            ...gpuKnobs, walkerS: S, walkerFused: v.fused, walkerPrefMem: v.prefMem, walkerTpb: v.tpb,
+            profile: true, warmupRuns: 3,
+          };
+          const msm = await MsmV2.create(gpuDevice, inputs.n, pool, cfg);
+          msm.prepare(inputs.scalarsBuf);
+          await msm.run(); // warm the data-dependent buffers out of the timed window
+          const wallSamples: number[] = [];
+          const phaseSamples: Record<string, number>[] = [];
+          for (let r = 0; r < reps; r++) {
+            const t0 = performance.now();
+            await msm.run();
+            wallSamples.push(performance.now() - t0);
+            const ph = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+            phaseSamples.push({ ...ph });
+          }
+          const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+          const avgWall = avg(wallSamples);
+          const phaseKeys = Array.from(new Set(phaseSamples.flatMap(p => Object.keys(p))));
+          const avgPhases: Record<string, number> = {};
+          for (const k of phaseKeys) avgPhases[k] = avg(phaseSamples.map(p => p[k] ?? 0));
+          const gpuTotal = Object.values(avgPhases).reduce((a, b) => a + b, 0);
+          const phaseStr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(' ');
+          log('ok', `[gpu-bench] S=${S} ${v.tag}: wall=${avgWall.toFixed(2)}ms gpu=${gpuTotal.toFixed(2)}ms ${phaseStr}`);
+          client.postProgress({ stage: 'sweep-done', S, variant: v.tag, wallMs: avgWall, gpuMs: gpuTotal });
+          perS.push({ S, variant: v.tag, reps, wallMs: avgWall, gpuMs: gpuTotal, phases: avgPhases, prefScratchBytes: (v.prefMem === 'private' ? 0 : S * (v.tpb ?? 64) * 32) });
+          msm.destroy();
+          pool.destroy();
         }
-        const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
-        const avgWall = avg(wallSamples);
-        const phaseKeys = Array.from(new Set(phaseSamples.flatMap(p => Object.keys(p))));
-        const avgPhases: Record<string, number> = {};
-        for (const k of phaseKeys) avgPhases[k] = avg(phaseSamples.map(p => p[k] ?? 0));
-        const gpuTotal = Object.values(avgPhases).reduce((a, b) => a + b, 0);
-        const phaseStr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(2)}`).join(' ');
-        log('ok', `[gpu-bench] S=${S}: wall=${avgWall.toFixed(2)}ms gpu=${gpuTotal.toFixed(2)}ms ${phaseStr}`);
-        client.postProgress({ stage: 'sweep-done', S, wallMs: avgWall, gpuMs: gpuTotal });
-        perS.push({ S, reps, wallMs: avgWall, gpuMs: gpuTotal, phases: avgPhases, prefScratchBytes: S * (gpuKnobs.walkerTpb ?? 64) * 32 });
-        msm.destroy();
-        pool.destroy();
       }
       await client.postResults({
         state: 'done',

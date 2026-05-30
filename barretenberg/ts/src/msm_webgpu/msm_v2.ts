@@ -76,6 +76,15 @@ export interface MsmConfig {
    */
   walkerFused?: boolean;
   /**
+   * Stream-walker prefix scratch location. `'workgroup'` (default) keeps the
+   * per-thread prefix products in `var<workgroup>` (`TPB·S·32 B`, capped by the
+   * device's `maxComputeWorkgroupStorageSize` — 16 KB on Mali Bifrost).
+   * `'private'` moves them to per-invocation storage, freeing the workgroup
+   * memory cap so `walkerTpb` can rise (the #23726 occupancy lever), at a cost
+   * of `S·8` u32 of per-thread state. Numerically identical either way.
+   */
+  walkerPrefMem?: 'workgroup' | 'private';
+  /**
    * Stream-walker batched-inversion slots per thread (S). The primary
    * memory↔time Pareto knob: `pref_scratch` is `TPB·S·32 B` of workgroup
    * memory and per-thread register state scales with S, so smaller S lifts
@@ -1656,8 +1665,9 @@ export class MsmV2 {
       `partition-task`, m.partitionTaskLayout);
     const walkerCacheDx = config?.walkerCacheDx ?? true;
     const walkerFused = config?.walkerFused ?? true;
+    const walkerPrefMem = config?.walkerPrefMem ?? 'workgroup';
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, walkerCacheDx, walkerFused),
+      sm.gen_ba_stream_walker_shader(WALKER_TPB, STREAM_S, INV_VARIANT, walkerCacheDx, walkerFused, walkerPrefMem),
       `stream-walker`, m.streamWalkerLayout);
     m.walkerCombinePipe = await compile(
       sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
