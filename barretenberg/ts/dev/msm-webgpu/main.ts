@@ -1438,7 +1438,16 @@ function hideProgress(): void {
 (async () => {
   setBusy(true, 'loading SRS…');
   try {
-    srsBuf = await loadSrsPoints(SRS_NUM_POINTS, event => {
+    // Load only the SRS the requested run needs, not the full 2²⁰ (≈32 MB
+    // compressed). Downloading the whole CRS through a slow tunnel on a mobile
+    // device stalls boot and the autorun never starts. `?srsn=` overrides; the
+    // autorun's `?logn=` sets the size; otherwise fall back to the page default.
+    const bootQ = new URLSearchParams(window.location.search);
+    const bootLogN = parseInt(bootQ.get('srsn') ?? bootQ.get('logn') ?? '16', 10);
+    const bootSrsPoints = Number.isFinite(bootLogN)
+      ? 1 << Math.min(LOGN_MAX, Math.max(10, bootLogN))
+      : SRS_NUM_POINTS;
+    srsBuf = await loadSrsPoints(bootSrsPoints, event => {
       if (event.kind === 'info') {
         log('info', event.msg);
       } else if (event.kind === 'phase') {
