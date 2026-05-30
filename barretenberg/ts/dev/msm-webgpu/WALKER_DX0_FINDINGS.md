@@ -75,18 +75,28 @@ gets 102400 off-curve (0,0) nodes -> dx==0`.
 
 The `dx == 0` in the combine is not a property of the addition formula and not
 a logic bug in the walker; it is off-curve `(0,0)` garbage that should never
-have entered bucket 0's combine list. The fix is to stop the uninitialized
-slots from masquerading as `bucket_id 0`:
+have entered bucket 0's combine list. Two upstream changes (both implemented in
+this PR) fix it at the source:
 
-- **Primary (sentinel):** initialize `partial_dest` to `NO_BUCKET`
-  (`0xffffffff`) rather than `0`, or bound `ba_walker_partials_index`'s scan to
-  the dispatched slot range (`2 * numActive * S`, contiguous from 0). Either
-  makes the indexer skip every non-dispatched slot, so bucket 0 receives no
-  garbage and the `dx == 0` disappears at the source.
-- **Also correct (defense + perf):** zero-digit buckets (`id % BW == 0`)
-  contribute nothing and are already dropped by the reduction; excluding them
-  in `ba_planner_classify` means bucket 0 is never combined at all (and saves
-  accumulating every per-window zero bucket).
+1. **Exclude zero-digit buckets in `ba_planner_classify`** (primary). Buckets
+   with `id % BW == 0` are the Booth zero digit; they contribute nothing and
+   the reduction already drops column 0 (`ba_reduce_init`: `src = w*bw + i+1`).
+   Excluding them from the dense/size1 lists means global bucket 0 is never
+   combined at all, so the uninitialized slots that get mis-linked to it are
+   never read. The result is identical (those buckets were dropped anyway) and
+   it saves accumulating every per-window zero bucket. `classifyParams.y` now
+   carries `BW`.
+2. **Guard `ba_walker_partials_index` against `bucket_id == 0`** (defense in
+   depth). Even with (1), the zero-cleared slots still carry `bucket_id 0`;
+   skipping them in the indexer keeps the garbage out of the linked list
+   regardless of classification.
+
+The deeper sentinel hardening — initialize `partial_dest` to `NO_BUCKET`
+(`0xffffffff`) instead of `0`, or bound the indexer scan to the dispatched
+range `2*numActive*S` — would also let global bucket 0 hold its correct
+(on-curve) sum rather than the cleared `(0,0)`. It is unnecessary for
+correctness given (1) and is left as a follow-up to avoid an unvalidated buffer
+change.
 
 ## Validation status
 

@@ -2089,7 +2089,7 @@ export class MsmV2 {
       const pbl = scratch.partialBucketsList;
       const ab = scratch.accBuf;
       const sps = scratch.streamPrefScratch;
-      const classifyParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
+      const classifyParams = ubuf(new Uint32Array([B_TOTAL, BW, 0, 0]));
       this.classifyBind = mkBind(this.classifyLayout, [countsBufs[0], offsetsBufs[0], s1, db, dc, sp, classifyParams]);
       this.metaFixupBind = mkBind(this.metaFixupLayout, [sp]);
       const radixParams = [
