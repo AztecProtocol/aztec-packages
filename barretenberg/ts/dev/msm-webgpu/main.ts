@@ -65,6 +65,11 @@ const $results = document.getElementById('results') as HTMLDivElement;
 // The sweep spans 2^10..2^20 — small sizes show where the GPU pipeline
 // overtakes the WASM Pippenger; the v2 pipeline has no size floor.
 const LOGN_MIN = 10;
+// generateInputs accepts down to this floor so the Noble cross-check
+// (autorun=msm-noble-check) can validate the GPU MSM at the small sizes
+// SwiftShader can run locally (logn=8,10). The v2 pipeline has no size
+// floor — pickC/pickS cover logn 7..9.
+const LOGN_GEN_MIN = 8;
 const LOGN_MAX = 20;
 const SRS_NUM_POINTS = 1 << LOGN_MAX;
 
@@ -417,8 +422,8 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
   if (srsBuf === null) {
     throw new Error('[gen] SRS not loaded yet — wait for the [srs] ready line');
   }
-  if (logN < LOGN_MIN || logN > LOGN_MAX) {
-    throw new Error(`[gen] logN=${logN} outside the supported [${LOGN_MIN}, ${LOGN_MAX}] range`);
+  if (logN < LOGN_GEN_MIN || logN > LOGN_MAX) {
+    throw new Error(`[gen] logN=${logN} outside the supported [${LOGN_GEN_MIN}, ${LOGN_MAX}] range`);
   }
   const n = 1 << logN;
   if (n * 64 > srsBuf.length) {
@@ -1587,6 +1592,79 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'msm-noble-check') {
+    // GPU-vs-Noble correctness gate that does NOT use the WASM MT oracle
+    // (unavailable without cross-origin isolation). Validates the WebGPU
+    // MSM against noble's CPU pippenger at small sizes runnable under
+    // SwiftShader. Usage: ?autorun=msm-noble-check&logns=8,10
+    const lognsRaw = qp.get('logns') ?? qp.get('logn') ?? '8,10';
+    const logns = lognsRaw
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(v => Number.isInteger(v) && v >= LOGN_GEN_MIN && v <= LOGN_MAX);
+    const client = makeResultsClient({ page: 'msm-noble-check' });
+    const knobStr = Object.entries(gpuKnobs)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(' ');
+    log('info', `[noble-check] logns=${logns.join(',')} ${knobStr ? `[${knobStr}]` : ''}`);
+    // Gate on SRS readiness only — the Noble check needs no WASM, so wait
+    // on $runSanity (SRS) rather than $run (which also requires WASM).
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    const perLogn: { logN: number; ok: boolean; gpu?: { x: string; y: string }; noble?: { x: string; y: string } }[] = [];
+    try {
+      await waitForSrs();
+      let allOk = logns.length > 0;
+      for (const logN of logns) {
+        const inputs = await generateInputs(logN, true);
+        const gpu = await runWebGpuOnce(inputs);
+        if (!inputs.points || !inputs.scalars) {
+          throw new Error(`[noble-check] inputs missing mirror arrays at logN=${logN}`);
+        }
+        const noble = referenceMsm(inputs.points, inputs.scalars);
+        const ok = pointsEqual(noble, gpu.xy);
+        allOk = allOk && ok;
+        perLogn.push({
+          logN,
+          ok,
+          gpu: { x: '0x' + gpu.xy.x.toString(16), y: '0x' + gpu.xy.y.toString(16) },
+          noble: { x: '0x' + noble.x.toString(16), y: '0x' + noble.y.toString(16) },
+        });
+        if (ok) {
+          log('ok', `[noble-check] logN=${logN} PASS (WebGPU matches Noble)`);
+        } else {
+          log('err', `[noble-check] logN=${logN} FAIL: gpu.x=0x${gpu.xy.x.toString(16)} noble.x=0x${noble.x.toString(16)}`);
+        }
+      }
+      const state = allOk ? 'done' : 'error';
+      await client.postResults({
+        state,
+        params: { logns, page: 'msm-noble-check', knobs: gpuKnobs },
+        results: { all_ok: allOk, per_logn: perLogn },
+        error: allOk ? null : 'one or more logN sizes mismatched Noble',
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[noble-check] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { logns, page: 'msm-noble-check' },
+        results: { per_logn: perLogn },
+        error: msg,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[autorun] state=error`);
     }
   }
 })();
