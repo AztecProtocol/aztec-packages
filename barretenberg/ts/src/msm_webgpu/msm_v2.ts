@@ -72,6 +72,16 @@ export interface MsmConfig {
    */
   accum?: 'walker' | 'coop';
   /**
+   * coop-walker workgroup size = cooperative batch-inversion width. Only used
+   * when `accum === 'coop'`. Sets the coop kernel's `workgroup_size` and the
+   * matching indirect dispatch grain (`ceil(num_active / coopTpb)`); the
+   * per-thread slice partition is independent (fixed 256-grain). Lower TPB =
+   * smaller `4·TPB` vec4 workgroup footprint = more resident workgroups on
+   * memory-starved mobile GPUs. Must be a power of two (Hillis-Steele scan).
+   * Default 64.
+   */
+  coopTpb?: number;
+  /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
    * Default 5 (benchmark harness); the production bridge passes 0 so the first
@@ -1275,6 +1285,7 @@ export class MsmV2 {
   // Cooperative-inversion accumulator (reuses streamWalkerLayout + bind).
   private coopWalkerPipe!: GPUComputePipeline;
   private accum: 'walker' | 'coop' = 'walker';
+  private coopTpb = 64;
   private walkerCombinePipe!: GPUComputePipeline;
   private walkerCombineLayout!: GPUBindGroupLayout;
   private walkerCombineBind!: GPUBindGroup;
@@ -1395,6 +1406,7 @@ export class MsmV2 {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.accum = config?.accum ?? 'walker';
+    m.coopTpb = config?.coopTpb ?? 64;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
@@ -1627,10 +1639,15 @@ export class MsmV2 {
     m.splitRecomputePipe = await compile(
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
-    // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB=64 per KNOB 1
-    // (16 KB pref_scratch fits Mali Bifrost). NUM_THREADS = nwg*256 still
-    // (partition_thread's grain), walker dispatches ceil(num_active/TPB) wgs.
-    const WALKER_TPB = 64;
+    // Stream-walker (Plan §6 + C's KNOB 2 variant). NUM_THREADS = nwg*256
+    // (partition_thread's grain); the walker dispatches ceil(num_active/TPB)
+    // workgroups. The stream-walker is pinned at TPB=64 (16 KB pref_scratch
+    // fits Mali Bifrost). The coop-walker's TPB is the cooperative batch width
+    // and is tunable (config.coopTpb, default 64) so its 4·TPB vec4 workgroup
+    // footprint can be shrunk for higher occupancy on memory-starved mobile.
+    // partition_task is generated with the active accum's TPB so its emitted
+    // indirect grain (planner_meta[15]) matches the kernel that consumes it.
+    const WALKER_TPB = m.accum === 'coop' ? m.coopTpb : 64;
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);

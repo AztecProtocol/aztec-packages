@@ -90,6 +90,7 @@ const gpuKnobs: MsmConfig = (() => {
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     accum: q.get('accum') === 'coop' ? 'coop' : q.get('accum') === 'walker' ? 'walker' : undefined,
+    coopTpb: optInt('cooptpb'),
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
 })();
@@ -1457,9 +1458,17 @@ function hideProgress(): void {
     const logns = (qp.get('logns') ?? qp.get('logn') ?? '14')
       .split(',').map(x => parseInt(x, 10)).filter(x => Number.isFinite(x));
     const reps = parseInt(qp.get('reps') ?? '12', 10);
-    const order = (qp.get('order') ?? 'walker,coop').split(',') as ('walker' | 'coop')[];
+    // Each order entry is `accum[:tpb]`. `coop:32` benchmarks the coop-walker
+    // at workgroup size (cooperative batch width) 32; `walker`/`coop` keep the
+    // default TPB. All variants run in one page load = identical thermal state.
+    const variants = (qp.get('order') ?? 'walker,coop').split(',').map(tok => {
+      const [a, tpb] = tok.split(':');
+      const accum = (a === 'coop' ? 'coop' : 'walker') as 'walker' | 'coop';
+      const coopTpb = tpb ? parseInt(tpb, 10) : undefined;
+      return { label: tok, accum, coopTpb };
+    });
     const client = makeResultsClient({ page: 'msm-accum-ab' });
-    log('info', `[ab] logns=${logns.join(',')} reps=${reps} order=${order.join(',')}`);
+    log('info', `[ab] logns=${logns.join(',')} reps=${reps} order=${variants.map(v => v.label).join(',')}`);
     try {
       for (let i = 0; i < 1200; i++) {
         if (!$run.disabled) break;
@@ -1484,8 +1493,8 @@ function hideProgress(): void {
         const inputs = await generateInputs(logN, /*mirrorForNoble=*/ false);
         const pool = await MsmV2Pool.create(device, inputs.pointsBuf);
         const out: Record<string, { min: number; median: number; avg: number; samples: number[] }> = {};
-        for (const accum of order) {
-          const msm = await MsmV2.create(device, inputs.n, pool, { ...gpuKnobs, accum });
+        for (const v of variants) {
+          const msm = await MsmV2.create(device, inputs.n, pool, { ...gpuKnobs, accum: v.accum, coopTpb: v.coopTpb });
           msm.prepare(inputs.scalarsBuf);
           await msm.run(); // warmup (untimed)
           const samples: number[] = [];
@@ -1499,14 +1508,19 @@ function hideProgress(): void {
           const min = sorted[0];
           const median = sorted[Math.floor(sorted.length / 2)];
           const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
-          out[accum] = { min, median, avg, samples };
-          log('ok', `[ab] logN=${logN} accum=${accum}: min=${min.toFixed(1)} median=${median.toFixed(1)} ms`);
+          out[v.label] = { min, median, avg, samples };
+          log('ok', `[ab] logN=${logN} ${v.label}: min=${min.toFixed(1)} median=${median.toFixed(1)} ms`);
         }
         pool.destroy();
-        const speedup = out.walker && out.coop ? out.walker.min / out.coop.min : null;
-        if (speedup !== null) {
-          log('ok', `[ab] logN=${logN} coop speedup vs walker (min): ${speedup.toFixed(3)}x`);
+        // Speedup of every variant vs the first (baseline) entry, by min ms.
+        const baseLabel = variants[0].label;
+        const base = out[baseLabel];
+        for (const v of variants.slice(1)) {
+          if (base && out[v.label]) {
+            log('ok', `[ab] logN=${logN} ${v.label} speedup vs ${baseLabel} (min): ${(base.min / out[v.label].min).toFixed(3)}x`);
+          }
         }
+        const speedup = out.walker && out.coop ? out.walker.min / out.coop.min : null;
         sweep.push({ logN, ...out, speedup_min: speedup });
       }
       await client.postResults({
