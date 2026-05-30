@@ -113,7 +113,7 @@ const gpuKnobs: MsmConfig = (() => {
     const v = Number(raw);
     return Number.isInteger(v) && v > 0 ? v : undefined;
   };
-  return { c: optInt('c'), s: optInt('s'), wgi: optInt('wgi'), reduceWg: optInt('reducewg') };
+  return { c: optInt('c'), s: optInt('s'), streamS: optInt('ss'), wgi: optInt('wgi'), reduceWg: optInt('reducewg') };
 })();
 
 // Build-only memory probe: statsBytes() is a pure function of n, so we can read

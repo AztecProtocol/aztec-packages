@@ -50,6 +50,14 @@ export interface MsmConfig {
   c?: number;
   /** Fused-kernel chunk size (pairs batched per thread). Default: `pickS(n)`. */
   s?: number;
+  /**
+   * Stream-walker batched-inversion slot count: affine adds amortised per
+   * field inversion. One inversion serves S adds, so inversion-cost-per-add
+   * scales as 1/S — raising S directly amortises the safegcd inversion that
+   * dominates the accumulate kernel. Capped in practice by per-slot register
+   * pressure (acc_x/acc_y + private pref_scratch, both ∝ S). Default 8.
+   */
+  streamS?: number;
   /** Generic kernel workgroup size. Default 128. */
   wgi?: number;
   /** Bucket-reduction workgroup size. Default: `pickReduceWg(c)`. */
@@ -1584,7 +1592,10 @@ export class MsmV2 {
 
     // --- Streaming planner + accumulator pipelines ---
     const STREAM_T = 8192; // NUM_THREADS = max_workgroups × workgroup_size
-    const STREAM_S = 8;
+    // Stream-walker batched-inversion slots. Raising S amortises the dominant
+    // safegcd inversion (1 per S adds) at the cost of register/pref footprint;
+    // the `streamS` knob lets a sweep map the per-arch knee. Default 8.
+    const STREAM_S = config?.streamS ?? 8;
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;
     m.streamS = STREAM_S;

@@ -85,6 +85,7 @@ const gpuKnobs: MsmConfig = (() => {
   return {
     c: optInt('c'),
     s: optInt('s'),
+    streamS: optInt('ss'),
     wgi: optInt('wgi'),
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
