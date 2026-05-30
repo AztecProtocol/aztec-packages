@@ -4,6 +4,16 @@
 > the implementation + correctness results landed in this PR. Companion to
 > [`MSM_DESIGN_ANALYSIS.md`](./MSM_DESIGN_ANALYSIS.md), whose profile and stage
 > taxonomy this builds on.
+>
+> **Measured results (these supersede the projections below).** Real-hardware
+> Apple M2 c-sweeps (two runs) show: at the production window size c=13
+> (`pickC(2¹⁷)`), **stored-φ GLV is ~5% faster** than the baseline on time —
+> the earlier "+7%" was measured at c=15, a config production never uses. The
+> 2n-point set is then either *stored* (+8 MiB pool) or recomputed *on-the-fly*
+> in the gather (−6 MiB memory but +11% time — the per-φ-gather Montgomery
+> β-multiply is not hidden by memory latency). So GLV here is a **time↔memory
+> tradeoff knob, not a free both-axis win**. See the PR description for the
+> full tables and raw data.
 
 ## 1. Problem and constraints
 
