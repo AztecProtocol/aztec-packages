@@ -1594,17 +1594,28 @@ export class MsmV2 {
     // (Mali Bifrost limit) and launches on every supported mobile GPU.
     const WALKER_TPB = config?.walkerTpb ?? 64;
     // Batched-inversion slots S. One safegcd inversion (~332 muls) is shared
-    // across S affine adds, so the dominant per-add inversion term is |I|/S.
-    // Autotune S to the largest value in {8,16} whose workgroup scratch
-    // (WALKER_TPB × S × 32 bytes) fits the device's compute-storage limit:
-    // 8 on 16 KB Mali Bifrost, 16 on 32 KB Apple/Adreno — roughly halving the
-    // inversion cost on the larger-shared-memory mobile/laptop GPUs.
+    // across S affine adds, so the per-add inversion term is |I|/S. Raising S
+    // therefore *looks* like the dominant lever — but the accumulate kernel is
+    // occupancy/register-bound, not inversion-bound, on real GPUs: each slot
+    // carries an affine accumulator + cursor state in private registers and a
+    // 2-vec4 prefix slot in workgroup scratch (WALKER_TPB × S × 32 bytes), so
+    // a larger S costs occupancy faster than it saves inversions.
+    //
+    // Measured on BrowserStack (macOS Sequoia / Apple M2, Chrome 148,
+    // n=2^17): the accumulate phase is 67.5 ms at S=8 vs 82.5 ms at S=16
+    // (+24% wall, and 2× the partials buffer) — i.e. raising S regresses both
+    // time and memory. S=8 is the time-and-memory optimum and also the only
+    // value that fits 16 KB Mali Bifrost at TPB=64, so it is the default
+    // everywhere. `config.streamS` still overrides it (clamped to what the
+    // device's workgroup-storage limit allows) for per-architecture
+    // autotuning experiments via the gpu-bench harness.
     const STREAM_S = (() => {
-      if (config?.streamS) return config.streamS;
       const dl = device.limits as unknown as Record<string, number>;
       const budget = dl['maxComputeWorkgroupStorageSize'] ?? 16384;
       const perSlotBytes = WALKER_TPB * 2 * 16; // 2 vec4<u32> per slot
-      return Math.max(8, Math.min(16, Math.floor(budget / perSlotBytes)));
+      const maxFits = Math.max(1, Math.floor(budget / perSlotBytes));
+      if (config?.streamS) return Math.min(config.streamS, maxFits);
+      return 8;
     })();
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;

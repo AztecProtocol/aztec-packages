@@ -45,6 +45,7 @@ const { values: argv } = parseArgs({
     total: { type: "string" },
     sizes: { type: "string" },
     n: { type: "string" },
+    "stream-s": { type: "string" },
     entries: { type: "string" },
     buckets: { type: "string" },
     seed: { type: "string" },
@@ -417,6 +418,7 @@ async function main() {
   qp.set("autorun", argv.autorun);
   qp.set("logn", String(argv.n ?? "16"));
   if (argv.reps) qp.set("reps", String(argv.reps));
+  if (argv["stream-s"]) qp.set("stream_s", String(argv["stream-s"]));
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 
@@ -447,8 +449,9 @@ async function main() {
     if (!idFile) {
       throw new Error(`--emit-body-only requires --external-worker-id-file`);
     }
-    err(`waiting for external worker_id at ${idFile} (up to 300s)`);
-    const idDeadline = Date.now() + 300_000;
+    const idWaitMs = parseInt(String(process.env.MSM_EXTERNAL_ID_WAIT_MS ?? "300000"), 10);
+    err(`waiting for external worker_id at ${idFile} (up to ${Math.round(idWaitMs / 1000)}s)`);
+    const idDeadline = Date.now() + idWaitMs;
     while (Date.now() < idDeadline) {
       if (existsSync(idFile)) {
         const txt = readFileSync(idFile, "utf8").trim();
