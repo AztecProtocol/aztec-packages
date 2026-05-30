@@ -65,14 +65,23 @@ export interface MsmConfig {
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
   /**
-   * Peak per-MSM scratch budget in bytes. `prepare()` raises the window-batch
-   * count (`numBatches`) until the batch-dependent scratch (the CSR index
-   * planes `l0Idx`/`bucketAndSign`/`valIdx`, the counts/offsets, and rowPtr —
-   * all sized `batchWindows·n`) fits under this cap. Higher `numBatches` =
-   * smaller peak footprint, more sub-passes. Independent of `wgFits`, which
-   * still floors `numBatches` for the workgroup-count limit. Default
-   * {@link MEM_BUDGET}; a no-op there for n ≤ 2^20. Tighten it on
-   * memory-constrained GPUs to trade batch passes for peak GPU memory.
+   * Peak per-MSM scratch budget in bytes (SRS pool excluded — it is shared).
+   * `prepare()` raises the window-batch count (`numBatches`) until the
+   * estimated peak scratch fits under this cap. Only the batch-dependent part
+   * shrinks (the CSR index planes `l0Idx`/`bucketAndSign`/`valIdx`, the
+   * counts/offsets, and rowPtr — all sized `batchWindows·n`); the fixed part
+   * (`scalarsRaw`, `bucketResult`, `redBuf`, `walkerPartials`, reduce scratch,
+   * bucket lists) is a floor the budget cannot go below. Higher `numBatches` =
+   * smaller peak, more sub-passes. Independent of `wgFits`, which still floors
+   * `numBatches` for the workgroup-count limit. Default {@link MEM_BUDGET}; a
+   * no-op there for n ≤ 2^20.
+   *
+   * This is a memory/**time** trade, not a free cut: every batch re-reads the
+   * full scalar set and replays the planner, so on the memory-bandwidth-bound
+   * walker each extra batch adds latency. Measured on real Apple hardware
+   * (logn16): nb1→nb2 ≈ +18% wall for −17% peak, nb1→nb5 ≈ +78% for −28%. Reach
+   * for it only on memory-constrained GPUs that would otherwise OOM. See
+   * `MSM_V2_MEMORY.md` for the full curve.
    */
   memBudgetBytes?: number;
   /**
@@ -1792,13 +1801,20 @@ export class MsmV2 {
 
     // --- Lever G: budget-driven window-batch count.
     const RED_M = this.redM;
+    // Reduction MAXC — needed by both the reducePrefScratch term below and the
+    // capMAXC/uniform writes further down. The schedule is data-independent.
+    let MAXC = 1;
+    for (const p of this.reducePasses) {
+      MAXC = Math.max(MAXC, Math.ceil(p.ppw / REDUCE_WG));
+    }
     // Peak per-MSM scratch for a given window-batch count, matching the walker
     // path's live buffer set (the pair-tree bufA/bufB/ring/prefScratch are
     // 4-byte stubs here, so they no longer appear). `batchDep` shrinks with
     // `nb` (the CSR index planes + counts/offsets + rowPtr, all sized
     // `batchWindows·n` or `·BW`); `fixed` is independent of `nb` (bucket sums,
-    // window reduction, scalars, the walker working set, the bucket lists).
-    // Pool SRS (poolX/poolY) is excluded — it is shared, not per-MSM scratch.
+    // window reduction, scalars, the walker working set, the bucket lists, the
+    // reduction prefix scratch, and the planner meta). Pool SRS (poolX/poolY)
+    // is excluded — it is shared, not per-MSM scratch.
     const Mp = 2 * this.streamNumThreads * this.streamS;
     const fixedScratch =
       64 * B_TOTAL + // bucketResultBuf
@@ -1808,6 +1824,9 @@ export class MsmV2 {
       3 * 4 * Mp + // walkerPartialDest + walkerNodesSlot + walkerNodesNext
       this.streamNumThreads * (this.streamS + 1) * 2 * 4 + // taskCuts
       this.streamNumThreads * 2 * 4 + // threadCuts
+      NUM_WINDOWS * REDUCE_WG * Math.ceil(MAXC * 1.3) * 2 * 16 + // reducePrefScratch (capMAXC = ceil(MAXC·OVERSIZE))
+      (3 * NUM_WINDOWS + 6) * 4 + // planMeta
+      Math.max((20 + this.streamNumThreads) * 4, 256) + // streamPlannerMeta
       10 * B_TOTAL; // size1BucketList (8·) + dense/sorted/cumul lists (5×4·) + bucketHead (4·) ≈ rounded
     const estimateMem = (nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
@@ -1837,12 +1856,7 @@ export class MsmV2 {
     let M1 = batchWindows * wstride1 + 3;
     let maxTotalPairBlocks = Math.max(...levelPlans.map(p => p.totalPairBlocks));
     let maxTotalCarries = Math.max(1, ...levelPlans.map(p => p.totalCarries));
-
-    // Reduction: compute MAXC up-front (needed for fit-check and uniform write).
-    let MAXC = 1;
-    for (const p of this.reducePasses) {
-      MAXC = Math.max(MAXC, Math.ceil(p.ppw / REDUCE_WG));
-    }
+    // MAXC computed above (before the budget fit-check); reused here for capMAXC.
 
     // --- Fast path: subsequent prepare() with a plan that fits in the
     // already-allocated buffers + bind groups. Skips the destroy+realloc of
