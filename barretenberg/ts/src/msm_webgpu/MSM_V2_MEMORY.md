@@ -96,32 +96,59 @@ replays per batch, and the walker is memory-bandwidth-bound on real hardware,
 so each extra batch adds roughly a full pass of scalar + index traffic. The
 budget default is a **no-op** precisely so the common path pays no extra passes.
 
-Measured on **real Apple hardware** (BrowserStack macOS Sequoia · Chrome 148 ·
-8 logical cores · `msm-membudget-sweep` autorun, logn16, median of 5 GPU-wall
-runs; correctness cross-checked vs `@noble/curves` — **passed at every nb**):
+Measured via the `msm-membudget-sweep` autorun (logn16, median of 5 GPU-wall
+runs per budget) on two real devices:
+
+**Apple — BrowserStack macOS Sequoia · Chrome 148 · 8 cores** (GPU result
+cross-checked vs `@noble/curves` at nb=1 — **passed**):
 
 | budget | numBatches | peak (pool `statsBytes`) | GPU wall | Δ time |
 |---:|:--:|---:|---:|---:|
 | none | 1 | 47.4 MB | 50.7 ms | baseline |
 | 40 MB | 2 | 39.1 MB | 60.1 ms | **+18.5 %** |
-| 33 MB | 2 | 39.1 MB | 60.8 ms | +19.9 % |
 | 31 MB | 3 | 36.6 MB | 64.7 ms | +27.6 % |
 | 29 MB | 4 | 34.9 MB | 77.9 ms | +53.6 % |
 | 27 MB | 5 | 34.1 MB | 90.0 ms | **+77.5 %** |
 
-So the lever **works** (memory falls monotonically, results stay correct) but it
-is a **steep trade, not a free cut**: ~+18 % wall for the first split, and badly
-diminishing returns past nb=2–3 (nb2→nb5 buys only 5 MB more for +30 ms). Raising
-the **default** budget would regress the common path's time materially, so the
-no-op default is correct. **Conclusion: the host-buffer-management memory lever
-is exhausted** — there is no free over-provisioning to reclaim (every live
-buffer is algorithm-necessary and tightly sized; the dead pair-tree buffers are
-already 4-byte stubs), and the only remaining cut, batching, is a deliberate
-memory/time trade for memory-constrained GPUs. Further *time-neutral* cuts
-require the WGSL-level levers listed above (in-place reduction, on-GPU SRS
-y-recovery, per-batch scalar slicing), each a separate change with its own
-verification.
+**Android — BrowserStack Galaxy S25 Ultra · Android 15 · Chrome** (Snapdragon
+8 Elite / Adreno; budget→nb differs because this run used the tightened
+`estimateMem`):
+
+| budget | numBatches | peak | GPU wall | Δ time |
+|---:|:--:|---:|---:|---:|
+| none | 1 | 47.4 MB | 278.9 ms | baseline |
+| 40 MB | 2 | 39.1 MB | 283.5 ms | +1.6 % |
+| 33 MB | 3 | 36.6 MB | 301.8 ms | +8.2 % |
+| 31 MB | 4 | 34.9 MB | 327.1 ms | +17.3 % |
+| 29 MB | 5 | 34.1 MB | 352.6 ms | +26.4 % |
+| 27 MB | 10 | 32.4 MB | 462.9 ms | **+66.0 %** |
+
+Both devices show the same shape — **memory falls monotonically, GPU wall rises
+monotonically and accelerating, with badly diminishing returns past nb≈2–3**. So
+the lever **works as a memory/time trade but is not a free cut**: raising the
+**default** budget would regress the common path materially, so the no-op default
+is correct.
+
+**Conclusion: the host-buffer-management memory lever is exhausted.** There is no
+free over-provisioning to reclaim (every live buffer is algorithm-necessary and
+tightly sized; the dead pair-tree buffers are already 4-byte stubs), and the only
+remaining host-level cut — batching — is a deliberate trade. Further
+*time-neutral* cuts require the WGSL-level levers above (in-place reduction,
+on-GPU SRS y-recovery, per-batch scalar slicing), each a separate verified change.
+
+### Correctness caveats (honest scope)
+
+- macOS cross-check is at **nb=1** only; nb>1 runs the **same kernels** over
+  disjoint window slices into disjoint `bucketResultBuf` regions (the path
+  already default at logn20), so it is correctness-equivalent by construction. A
+  per-nb sweep (every budget cross-checked) is wired up and queued to confirm.
+- **Android baseline (nb=1) MSM disagreed with the noble reference on the S25
+  Ultra** (GPU-decompressed SRS self-verified OK, so the bases match — the
+  discrepancy is in the Adreno MSM compute, *not* the buffer sizing this PR
+  touches). This is a **pre-existing MsmV2-on-Adreno issue, independent of this
+  PR**; the Android timings above are still valid wall measurements but should
+  not be read as correctness-validated. Flagged for separate investigation.
 
 (Reproduce: `node dev/msm-webgpu/scripts/run-browserstack.mjs --target macos
---n 16 --autorun msm-membudget-sweep`, or drive the BS worker at
+--n 16 --autorun msm-membudget-sweep`, or drive a BS worker at
 `index.html?autorun=msm-membudget-sweep&logn=16`.)
