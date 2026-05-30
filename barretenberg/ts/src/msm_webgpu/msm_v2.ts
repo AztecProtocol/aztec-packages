@@ -26,6 +26,7 @@ import { ShaderManager } from './cuzk/shader_manager.js';
 import { BN254_CURVE_CONFIG } from './cuzk/curve_config.js';
 import { compute_misc_params } from './cuzk/utils.js';
 import { BN254_BASE_FIELD, addBn254Points, type Bn254Point, modInverse } from './cuzk/bn254.js';
+import { selectWalkerConfig, gpuProfileFromDevice, type WalkerConfig } from './cuzk/autotune.js';
 
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
@@ -50,6 +51,13 @@ export interface MsmConfig {
   c?: number;
   /** Fused-kernel chunk size (pairs batched per thread). Default: `pickS(n)`. */
   s?: number;
+  /**
+   * Stream-walker workgroup size (threads-per-block). Default: chosen by the
+   * per-architecture autotuner from `maxComputeWorkgroupStorageSize` (TPB=128
+   * on 32 KB Apple/Adreno, 64 on 16 KB Mali). Set to force a value for A/B
+   * benchmarking; the fit against workgroup storage is still validated.
+   */
+  walkerTpb?: number;
   /** Generic kernel workgroup size. Default 128. */
   wgi?: number;
   /** Bucket-reduction workgroup size. Default: `pickReduceWg(c)`. */
@@ -1140,6 +1148,12 @@ export class MsmV2Pool {
 export class MsmV2 {
   // --- create-time (data-independent) state ---
   private device!: GPUDevice;
+  /** Adapter identity for the autotuner. Optional override; falls back to
+   *  `device.adapterInfo` when the browser exposes it. */
+  adapterInfo?: { vendor?: string; architecture?: string };
+  /** Stream-walker config the autotuner chose for this device. Public so the
+   *  bench harness / bridge can report it alongside timings. */
+  walkerConfig!: WalkerConfig;
   // The pool that owns the SRS, the pipeline cache, and the shared scratch
   // buffers this instance binds against. Held by reference; not destroyed
   // by MsmV2.destroy() (the pool outlives any individual instance).
@@ -1616,10 +1630,31 @@ export class MsmV2 {
     m.splitRecomputePipe = await compile(
       sm.gen_ba_recompute_split_shader(INV_VARIANT),
       `split-recompute`, m.splitRecomputeLayout);
-    // Stream-walker (Plan §6 + C's KNOB 2 variant). WALKER_TPB=64 per KNOB 1
-    // (16 KB pref_scratch fits Mali Bifrost). NUM_THREADS = nwg*256 still
-    // (partition_thread's grain), walker dispatches ceil(num_active/TPB) wgs.
-    const WALKER_TPB = 64;
+    // Stream-walker (Plan §6 + C's KNOB 2 variant). KNOB 1: pref_scratch lives
+    // in var<workgroup> sized TPB×S×32 B. WALKER_TPB and S are chosen by the
+    // per-architecture autotuner from the device's workgroup-storage limit
+    // (TPB=128/32 KB on Apple/Adreno, 64/16 KB on Mali Bifrost), overridable
+    // via config.walkerTpb / config.walkerS. NUM_THREADS = nwg*256 is fixed by
+    // partition_thread's grain; the walker dispatches ceil(num_active/TPB) wgs,
+    // so TPB only repacks the same logical threads (correctness-neutral).
+    // S is pipeline-wide (STREAM_S sizes accBuf / pref_scratch / partials and
+    // walker_combine), so the autotuner only moves TPB and validates the fit
+    // at the fixed S.
+    const walkerCfg = selectWalkerConfig(gpuProfileFromDevice(device, m.adapterInfo), {
+      tpb: config?.walkerTpb,
+      s: STREAM_S,
+    });
+    m.walkerConfig = walkerCfg;
+    const WALKER_TPB = walkerCfg.tpb;
+    console.log(`[autotune] stream-walker: ${walkerCfg.reason}`);
+    if (walkerCfg.prefScratchPlacement === 'device') {
+      console.warn(
+        `[autotune] pref_scratch (TPB=${WALKER_TPB}, S=${STREAM_S} → ` +
+          `${walkerCfg.prefScratchBytes}B) does not fit this device's ` +
+          `${walkerCfg.arch} workgroup storage; the walker WGSL only supports ` +
+          `var<workgroup> placement — expect a compile/validation failure.`,
+      );
+    }
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(WALKER_TPB, STREAM_S),
       `partition-task`, m.partitionTaskLayout);
