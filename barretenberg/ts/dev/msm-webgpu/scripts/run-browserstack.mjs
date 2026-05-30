@@ -60,6 +60,7 @@ const { values: argv } = parseArgs({
     "skip-tunnel": { type: "boolean", default: false },
     "list-targets": { type: "boolean", default: false },
     autorun: { type: "string", default: "msm-cross-check" },
+    qp: { type: "string" },
     "emit-body-only": { type: "boolean", default: false },
     "external-worker-id-file": { type: "string" },
     help: { type: "boolean", default: false },
@@ -421,6 +422,11 @@ async function main() {
   qp.set("autorun", argv.autorun);
   qp.set("logn", String(argv.n ?? "16"));
   if (argv.reps) qp.set("reps", String(argv.reps));
+  // A/B passthrough: --qp "tpb=64" or --qp "tpb=128&prefdev=1" forwards extra
+  // query params (forced walker TPB / device pref_scratch) to the xcheck page.
+  if (argv.qp) {
+    for (const [k, v] of new URLSearchParams(argv.qp)) qp.set(k, v);
+  }
   const pageUrl = `${baseUrl}${pageMap[argv.page]}?${qp.toString()}`;
   err(`page URL: ${pageUrl}`);
 
