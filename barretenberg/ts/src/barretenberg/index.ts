@@ -4,6 +4,7 @@ import { SyncApi } from '../cbind/generated/sync.js';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../bb_backends/interface.js';
 import { BackendOptions, BackendType } from '../bb_backends/index.js';
 import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
+import { BBApiException } from '../bbapi_exception.js';
 
 export {
   UltraHonkBackend,
@@ -31,7 +32,7 @@ export class Barretenberg extends AsyncApi {
   private options: BackendOptions;
 
   constructor(backend: IMsgpackBackendAsync, options: BackendOptions) {
-    super(backend);
+    super(backend, message => new BBApiException(message));
     this.options = options;
   }
 
@@ -174,7 +175,7 @@ let barretenbergSyncSingleton: BarretenbergSync;
 
 export class BarretenbergSync extends SyncApi {
   constructor(backend: IMsgpackBackendSync) {
-    super(backend);
+    super(backend, message => new BBApiException(message));
   }
 
   /**
