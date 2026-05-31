@@ -176,15 +176,27 @@ template <typename FF_> class UltraPermutationRelationImpl {
         auto t8 = sigma_4_m * beta_m;
         t8 += w_4_plus_gamma;
 
-        Accumulator numerator(t1);
-        numerator *= Accumulator(t2);
-        numerator *= Accumulator(t3);
-        numerator *= Accumulator(t4);
+        // numerator/denominator are products of four degree-1 factors (degree 4).
+        Accumulator numerator;
+        Accumulator denominator;
+        if constexpr (std::is_same_v<Accumulator, FF>) {
+            // Verifier path: the relation is evaluated at a single point, so everything is scalar.
+            numerator = (t1 * t2) * (t3 * t4);
+            denominator = (t5 * t6) * (t7 * t8);
+        } else {
+            // Prover path: in the evaluation (Lagrange) basis a degree-d product needs only d+1 points, and a
+            // pointwise multiply at d+1 points is the minimum number of field muls. Build each product via a
+            // balanced subproduct tree, doing the degree-1 x degree-1 sub-products at the minimal length (3)
+            // before extending to the accumulator length, instead of carrying every multiply out at the full
+            // length: 3 + 3 + 6 muls per product versus 3 * 6 for the left-deep full-length chain.
+            auto n_12 = Univariate<FF, 3>(t1) * Univariate<FF, 3>(t2); // deg 2
+            auto n_34 = Univariate<FF, 3>(t3) * Univariate<FF, 3>(t4); // deg 2
+            numerator = n_12.template extend_to<6>() * n_34.template extend_to<6>();
 
-        Accumulator denominator(t5);
-        denominator *= Accumulator(t6);
-        denominator *= Accumulator(t7);
-        denominator *= Accumulator(t8);
+            auto d_56 = Univariate<FF, 3>(t5) * Univariate<FF, 3>(t6); // deg 2
+            auto d_78 = Univariate<FF, 3>(t7) * Univariate<FF, 3>(t8); // deg 2
+            denominator = d_56.template extend_to<6>() * d_78.template extend_to<6>();
+        }
 
         const ParameterCoefficientAccumulator public_input_delta_m(params.public_input_delta);
         const auto z_perm_m = CoefficientAccumulator(in.z_perm);
@@ -199,16 +211,27 @@ template <typename FF_> class UltraPermutationRelationImpl {
         std::get<0>(accumulators) +=
             ((Accumulator(z_perm_m + lagrange_first_m) * numerator) - (public_input_term * denominator));
 
-        // Contribution (2)
+        // Contribution (2): lagrange_last is nonzero only on the final row, so on the prover this contribution is
+        // identically zero on every edge that does not touch it; skip the per-edge product there. The verifier
+        // evaluates a single point (the recursive verifier does so in-circuit, where branching on witness values
+        // is not permitted), so it must always compute.
         using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
-
-        std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
+        if constexpr (std::is_same_v<Accumulator, FF>) {
+            std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
+        } else if (!in.lagrange_last.is_zero()) {
+            std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
+        }
 
         // Contribution (3): Enforce z_perm starts at 0. The grand product initialization relies on
         // z_perm[0] = 0 so that (z_perm + L_first) evaluates to 1 at the first row.
         // Without this constraint, a cheating prover could set z_perm[0] to a non-zero value.
+        // lagrange_first is nonzero only on the first row; the prover skips it elsewhere, the verifier always computes.
         using InitAccumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
-        std::get<2>(accumulators) += InitAccumulator((lagrange_first_m * z_perm_m) * scaling_factor);
+        if constexpr (std::is_same_v<Accumulator, FF>) {
+            std::get<2>(accumulators) += InitAccumulator((lagrange_first_m * z_perm_m) * scaling_factor);
+        } else if (!in.lagrange_first.is_zero()) {
+            std::get<2>(accumulators) += InitAccumulator((lagrange_first_m * z_perm_m) * scaling_factor);
+        }
     };
 };
 
