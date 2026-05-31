@@ -70,8 +70,14 @@ void TranslatorPermutationShortRelationImpl<FF>::accumulate(ContainerOverSubrela
         const auto lagrange_last = View(in.lagrange_last);
         const auto lagrange_last_scaled = lagrange_last * scaling_factor;
 
-        // Contribution (2)
-        std::get<1>(accumulators) += Accumulator(lagrange_last_scaled * z_perm_shift);
+        // Contribution (2): lagrange_last is nonzero only on the last row, so on the prover this contribution
+        // vanishes on every edge that does not touch it; skip the product there. The verifier (incl. the
+        // in-circuit recursive verifier) evaluates a single point and must compute unconditionally.
+        if constexpr (std::is_same_v<Accumulator, FF>) {
+            std::get<1>(accumulators) += Accumulator(lagrange_last_scaled * z_perm_shift);
+        } else if (!in.lagrange_last.is_zero()) {
+            std::get<1>(accumulators) += Accumulator(lagrange_last_scaled * z_perm_shift);
+        }
     }();
 
     [&]() {
@@ -84,7 +90,13 @@ void TranslatorPermutationShortRelationImpl<FF>::accumulate(ContainerOverSubrela
 
         // Contribution (3): Enforce z_perm starts at 0. The grand product initialization relies on
         // z_perm[0] = 0 so that (z_perm + lagrange_first) evaluates to 1 at the first row.
-        std::get<2>(accumulators) += Accumulator(lagrange_first_scaled * z_perm);
+        // lagrange_first is nonzero only on the first row; the prover skips it elsewhere, the verifier computes
+        // unconditionally.
+        if constexpr (std::is_same_v<Accumulator, FF>) {
+            std::get<2>(accumulators) += Accumulator(lagrange_first_scaled * z_perm);
+        } else if (!in.lagrange_first.is_zero()) {
+            std::get<2>(accumulators) += Accumulator(lagrange_first_scaled * z_perm);
+        }
     }();
 };
 } // namespace bb
