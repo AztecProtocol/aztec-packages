@@ -24,13 +24,12 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { GenesisData, WorldStateRevision } from '@aztec/stdlib/world-state';
 
 import assert from 'assert';
-import { Decoder, Encoder } from 'msgpackr';
+import { Decoder } from 'msgpackr';
 
 import type { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import {
   type DBStats,
-  type SerializedIndexedLeaf,
   type SerializedLeafValue,
   type TreeDBStats,
   type TreeMeta,
@@ -51,13 +50,7 @@ import { WorldStateOpsQueue } from './world_state_ops_queue.js';
 
 // ————— Msgpack helpers —————
 
-const msgpackEncoder = new Encoder({ useRecords: false });
 const msgpackDecoder = new Decoder({ useRecords: false });
-
-/** Msgpack-encode a SerializedLeafValue into bytes for IPC transport. */
-function serializeLeafToBytes(leaf: SerializedLeafValue): Uint8Array {
-  return Buffer.from(msgpackEncoder.pack(leaf));
-}
 
 // ————— Request conversion helpers —————
 
@@ -122,12 +115,6 @@ function convertUint8ArraysToBuffers(obj: unknown): unknown {
 function decodeLeafValue(encoded: Uint8Array): SerializedLeafValue {
   const decoded = msgpackDecoder.unpack(Buffer.from(encoded));
   return convertUint8ArraysToBuffers(decoded) as SerializedLeafValue;
-}
-
-/** Decode a msgpack-encoded indexed leaf preimage blob. */
-function decodeLeafPreimage(encoded: Uint8Array): SerializedIndexedLeaf {
-  const decoded = msgpackDecoder.unpack(Buffer.from(encoded));
-  return convertUint8ArraysToBuffers(decoded) as SerializedIndexedLeaf;
 }
 
 /** Convert Wsdb state reference (Record<number, [Uint8Array, number]>) to NAPI format. */
