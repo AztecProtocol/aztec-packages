@@ -47,7 +47,10 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
 
     // Phase A: sum (count - 1) across this thread's chunk.
     var local_sum: u32 = 0u;
+    var _phaseA_iter: u32 = 0u;
     for (var i: u32 = my_start; i < my_end; i = i + 1u) {
+        if (_phaseA_iter >= 65536u) { break; }
+        _phaseA_iter = _phaseA_iter + 1u;
         let c = sorted_count_list[i];
         local_sum += c - 1u;
     }
@@ -70,7 +73,10 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
     // Phase C: per-element exclusive prefix within each chunk.
     let block_prefix = select(0u, wg_sums[tid - 1u], tid > 0u);
     var running: u32 = block_prefix;
+    var _phaseC_iter: u32 = 0u;
     for (var i: u32 = my_start; i < my_end; i = i + 1u) {
+        if (_phaseC_iter >= 65536u) { break; }
+        _phaseC_iter = _phaseC_iter + 1u;
         cumulative_adds[i] = running;
         let c = sorted_count_list[i];
         running += c - 1u;

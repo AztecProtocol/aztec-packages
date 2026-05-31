@@ -12,22 +12,24 @@
 
 {{> field8_funcs }}
 
-// Pair-tree v2: per-level pair-combine kernel.
+// Unified combine kernel for the walker pair-tree. One generic
+// batched-affine pair-tree reducer driven by a flat task list.
 //
-// Indirect-dispatched. Each thread handles S=8 pair-tasks from the flat
-// pt_tasks list. For each thread: load 8 (L, R) pairs → forward prefix
-// of 8 dx → ONE safegcd → backward fused affine-add → 8 outputs to O.
+// Each thread t handles S task slots from pt_tasks. Per outer iteration:
+// forward prefix of S "dx" values → ONE safegcd inversion → fused backward
+// pass dispatching per-slot output based on task kind.
 //
-// Cross-thread fan-out: pair-tasks from a SINGLE giant bucket spread
-// across all threads in the dispatch. The bucket no longer serializes
-// inside one thread — it parallelizes over all hot threads.
+// Task kinds (encoded in task.w):
+//   KIND_PAIR = 0  affine add: O = pt_buf[L] + pt_buf[R]
+//                  dx contribution = x_R - x_L
+//   KIND_COPY = 1  copy: O = pt_buf[L]
+//                  dx contribution = mont-1 (identity, no effect on inverse)
 //
-// Task kinds:
-//   0 (PAIR) — combine partials at L,R → output at O
-//   1 (COPY) — move partial at L → output at O (odd survivor)
-// Copy tasks still participate in batched inversion (dx = mont-1, safe).
+// (The reduce stage uses its own doubling kernel, ba_reduce_level_bench,
+// because its dispatch shape — one WG per window, per-thread C candidates
+// — is different from this pair-task-list-driven kernel.)
 //
-// params.x = M_pt (pt_buf plane stride)
+// params.x = M (pt_buf plane stride: y-plane lives at offset PG*M from x-plane)
 
 const S: u32 = {{ s }}u;
 const PG: u32 = 2u;
@@ -67,21 +69,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let M_pt = params.x;
 
-    // REGISTER-LEAN: don't pre-stage all 8 (L_x, L_y, R_x, R_y) operands in
-    // private memory — at 4 × 32 B per slot × 8 slots = 1 KB per thread of
-    // private-array state, the prior version was spilling out of M2's
-    // ~256 B register budget per thread and tanking occupancy. Instead,
-    // load the X coordinates in forward (need them for dx), and reload
-    // everything (X+Y) on demand in backward. Doubles the device-memory
-    // reads but pt_buf is small/hot — and ~4× fewer registers per thread
-    // means ~4× more SIMD groups in flight.
-    var L_idx: array<u32, {{ s }}>;
-    var R_idx: array<u32, {{ s }}>;
-    var O_idx: array<u32, {{ s }}>;
-    var kind:  array<u32, {{ s }}>;
+    var L_idx:   array<u32, {{ s }}>;
+    var R_idx:   array<u32, {{ s }}>;
+    var O_idx:   array<u32, {{ s }}>;
+    var kind:    array<u32, {{ s }}>;
     var slot_on: array<u32, {{ s }}>;
 
-    // Phase 1: read task tuples (cheap — 32 B per slot × 8 = 256 B).
+    // Phase 1: read task tuples.
     for (var k: u32 = 0u; k < S; k = k + 1u) {
         let id = task_base + k;
         var task: vec4<u32>;
@@ -95,11 +89,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         L_idx[k] = task.x;
         R_idx[k] = task.y;
         O_idx[k] = task.z;
-        kind[k] = task.w;
+        kind[k]  = task.w;
     }
 
-    // Phase 2: forward prefix on dx. Load (L_x, R_x) per slot, compute dx,
-    // accumulate. Discard L_x/R_x after this loop — backward reloads them.
+    // Phase 2: forward prefix on dx.  dx per slot:
+    //   PAIR -> x_R - x_L
+    //   COPY -> identity (mont-1)
     var prefix: array<u32, 8> = get_r_f8();
     var pref: array<array<u32, 8>, {{ s }}>;
     for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -119,16 +114,19 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (k + 1u < S) { pref[k] = prefix; }
     }
 
-    // Phase 3: ONE safegcd amortised across the 8 pair-tasks.
+    // Phase 3: ONE safegcd amortised across the S tasks.
     var acc20 = unpack256_to_limbs(prefix);
     var inv20 = {{ inv_fn }}(acc20);
     var inv = pack_limbs_to_256(&inv20);
 
-    // Phase 4: backward fused inverse + per-slot affine add (or copy).
-    // Operands reloaded on demand — no pre-stored l/r arrays.
+    // Phase 4: backward fused inverse + per-slot output dispatch.
+    // Operands reloaded on demand per the register-lean policy.
     for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
         let k = S - 1u - jj;
-        // Load this slot's operands once for the whole iteration body.
+
+        // Load operands ONCE per iteration. lxk/lyk always; rxk/ryk only for
+        // PAIR.  Mirrors ba_walker_pt_combine's load pattern so the M2
+        // compiler emits the same memory schedule.
         var lxk: array<u32, 8>;
         var lyk: array<u32, 8>;
         var rxk: array<u32, 8>;
@@ -160,6 +158,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             store_y(O_idx[k], lyk, M_pt);
             continue;
         }
+
+        // KIND_PAIR
         var lambda = fr_sub_f8(ryk, lyk);
         lambda = montgomery_product_f8(lambda, inv_dx);
         var new_x = montgomery_product_f8(lambda, lambda);

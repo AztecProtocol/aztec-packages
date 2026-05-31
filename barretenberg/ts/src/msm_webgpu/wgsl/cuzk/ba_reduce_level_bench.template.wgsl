@@ -14,26 +14,27 @@
 
 // One level of the recursive affine bucket reduction. The host issues one
 // dispatch per schedule level; WebGPU's between-pass ordering provides the
-// cross-level memory ordering. The kind (phase-A suffix add, phase-B/D tree-add,
-// phase-C double) is selected at template-generation time, so each of the
-// three compiled variants is straight-line code for exactly one phase.
+// cross-level memory ordering. ALL THREE kinds (phase-A suffix add,
+// phase-B/D tree-add, phase-C double) share this single kernel and select
+// behaviour via `lparams.w` — uniform across the workgroup, so the compiler
+// specialises per-dispatch with zero SIMT divergence cost. Phase 5 of
+// UNIFIED_COMBINE_PLAN.md collapses three kind-specialised pipelines into
+// one.
 //
-// Branchless: every data-dependent decision (bucket presence, the
-// add-vs-copy-vs-skip cases, the per-candidate denominator) is a `select`,
-// not an `if`. Point-equality (P = +/-Q) handling is omitted — the algorithm
-// assumes uniformly-random inputs with no point collisions, so the affine
-// add denominator x_s - x_d is never zero. Removing those branches keeps a
-// single straight-line path live, which the Adreno register allocator can
-// schedule without spilling. The only surviving `if` is the workgroup-tail
-// store guard: tail lanes (j2 >= ppw) have out-of-window targets, so their
-// red_buf / is_present writes must be suppressed to avoid corrupting
-// neighbouring windows.
+// Branchless within a thread: every data-dependent decision (bucket
+// presence, the add-vs-copy-vs-skip cases, the per-candidate denominator)
+// is a `select`, not an `if`. Point-equality (P = +/-Q) handling is
+// omitted — the algorithm assumes uniformly-random inputs with no point
+// collisions, so the affine add denominator x_s - x_d is never zero.
 //
 // One workgroup per window. Field elements are 8x u32 (Lever 2); see
 // field8_funcs.
 
 const PG: u32 = 2u;
 const WG: u32 = {{ workgroup_size }}u;
+const KIND_SUFFIX:  u32 = 0u;   // dst += src,  dst = src - 1
+const KIND_TREE:    u32 = 1u;   // dst += src,  dst = 2*j2*pa, src = (2*j2+1)*pa
+const KIND_DOUBLE:  u32 = 2u;   // slot = 2*slot, slot = base + (j2+1)*pa
 
 @group(0) @binding(0) var<storage, read_write> red_buf:      array<vec4<u32>>;
 @group(0) @binding(1) var<storage, read_write> is_present:   array<u32>;
@@ -42,7 +43,7 @@ const WG: u32 = {{ workgroup_size }}u;
 @group(0) @binding(4) var<uniform>             lparams:      vec4<u32>;
 // cparams = (M (red_buf element stride), maxc (pref slots/thread), STRIDE, _)
 //   — constant across all levels.
-// lparams = (pa, pb, ppw, _) — this level's flattened schedule entry.
+// lparams = (pa, pb, ppw, kind) — this level's flattened schedule entry.
 
 fn load_x(idx: u32, M: u32) -> array<u32, 8> {
     let base = PG * idx;
@@ -104,56 +105,52 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
     let pa = lparams.x;
     let pb = lparams.y;
     let ppw = lparams.z;
+    let kind = lparams.w;
     let base = w * stride;
     let scratch_base = (w * WG + tid) * maxc;
     // Candidates per thread this level — uniform across the workgroup.
     let C = (ppw + WG - 1u) / WG;
 
-    // Lanes whose entire candidate range is past ppw do no useful work (no
-    // red_buf / is_present writes; pref_scratch is private per thread). Return
-    // before the safegcd inversion so they issue no instructions and, on a
-    // register-starved GPU, generate no register-spill traffic. This is a
-    // workgroup-uniform whole-lane skip, distinct from the per-candidate
-    // divergent branches removed throughout the rest of the kernel.
     if (tid * C >= ppw) {
         return;
     }
     let R: array<u32, 8> = get_r_f8();
 
     // ---- forward: prefix product of per-candidate denominators ----
-    // Absent / out-of-range candidates contribute the identity R, so the
-    // product (and its single inverse) is unaffected.
     var acc: array<u32, 8> = R;
     for (var k: u32 = 0u; k < C; k = k + 1u) {
         let j2 = tid * C + k;
         let in_range = j2 < ppw;
-{{#kind2}}
-        let slot = base + (j2 + 1u) * pa;
-        let present = in_range && (is_present[slot] != 0u);
-        let yv: array<u32, 8> = load_y(slot, M);
-        let real_denom: array<u32, 8> = fr_add_f8(yv, yv); // 2y
-{{/kind2}}
-{{^kind2}}
-{{#kind0}}
-        let src = base + j2 * pa + pb;
-        let dst = base + j2 * pa + pb - 1u;
-{{/kind0}}
-{{#kind1}}
-        let dst = base + 2u * j2 * pa;
-        let src = base + (2u * j2 + 1u) * pa;
-{{/kind1}}
-        let present = in_range && (is_present[src] != 0u) && (is_present[dst] != 0u);
-        let x_s: array<u32, 8> = load_x(src, M);
-        let x_d: array<u32, 8> = load_x(dst, M);
-        let real_denom: array<u32, 8> = fr_sub_f8(x_s, x_d); // x_s - x_d (nonzero: no collisions)
-{{/kind2}}
+
+        var real_denom: array<u32, 8>;
+        var present: bool;
+        if (kind == KIND_DOUBLE) {
+            let slot = base + (j2 + 1u) * pa;
+            present = in_range && (is_present[slot] != 0u);
+            let yv = load_y(slot, M);
+            real_denom = fr_add_f8(yv, yv); // 2y
+        } else {
+            var src: u32;
+            var dst: u32;
+            if (kind == KIND_SUFFIX) {
+                src = base + j2 * pa + pb;
+                dst = src - 1u;
+            } else {
+                // KIND_TREE
+                dst = base + 2u * j2 * pa;
+                src = base + (2u * j2 + 1u) * pa;
+            }
+            present = in_range && (is_present[src] != 0u) && (is_present[dst] != 0u);
+            let x_s = load_x(src, M);
+            let x_d = load_x(dst, M);
+            real_denom = fr_sub_f8(x_s, x_d); // x_s - x_d (nonzero: no collisions)
+        }
         let denom: array<u32, 8> = fr_select_f8(R, real_denom, present);
         acc = montgomery_product_f8(acc, denom);
         store_pref(scratch_base + k, acc);
     }
 
-    // Single inversion per chunk. The safegcd inverse is 20x13-limb; the
-    // reduction is 8x u32, so expand on the way in and contract the result.
+    // Single inversion per chunk.
     var acc20: BigInt = unpack256_to_limbs(acc);
     var inv20: BigInt = {{ inv_fn }}(acc20);
     var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
@@ -163,75 +160,74 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
         let k = C - 1u - kk;
         let j2 = tid * C + k;
         let in_range = j2 < ppw;
-        // inv_denom = 1 / denom_k = inv * prefix[k-1]; prefix[-1] is the
-        // identity R (clamp the load index to 0 and select R when k == 0).
         let km1 = max(k, 1u) - 1u;
         let pp: array<u32, 8> = fr_select_f8(load_pref(scratch_base + km1), R, k == 0u);
         let inv_denom: array<u32, 8> = montgomery_product_f8(inv, pp);
-{{#kind2}}
-        let slot = base + (j2 + 1u) * pa;
-        let present = in_range && (is_present[slot] != 0u);
-        let xv: array<u32, 8> = load_x(slot, M);
-        let yv: array<u32, 8> = load_y(slot, M);
-        let real_denom: array<u32, 8> = fr_add_f8(yv, yv); // 2y
-        let x2: array<u32, 8> = montgomery_product_f8(xv, xv);
-        var num: array<u32, 8> = fr_add_f8(x2, x2);
-        num = fr_add_f8(num, x2); // 3x^2
-        let lambda: array<u32, 8> = montgomery_product_f8(num, inv_denom);
-        let two_x: array<u32, 8> = fr_add_f8(xv, xv);
-        var r_x: array<u32, 8> = montgomery_product_f8(lambda, lambda);
-        r_x = fr_sub_f8(r_x, two_x);
-        var r_y: array<u32, 8> = fr_sub_f8(xv, r_x);
-        r_y = montgomery_product_f8(lambda, r_y);
-        r_y = fr_sub_f8(r_y, yv);
-        let out_x: array<u32, 8> = fr_select_f8(xv, r_x, present);
-        let out_y: array<u32, 8> = fr_select_f8(yv, r_y, present);
-        let denom_k: array<u32, 8> = fr_select_f8(R, real_denom, present);
-        inv = montgomery_product_f8(inv, denom_k);
-        if (in_range) {
-            store_x(slot, M, out_x);
-            store_y(slot, M, out_y);
+
+        if (kind == KIND_DOUBLE) {
+            let slot = base + (j2 + 1u) * pa;
+            let present = in_range && (is_present[slot] != 0u);
+            let xv: array<u32, 8> = load_x(slot, M);
+            let yv: array<u32, 8> = load_y(slot, M);
+            let real_denom: array<u32, 8> = fr_add_f8(yv, yv); // 2y
+            let x2: array<u32, 8> = montgomery_product_f8(xv, xv);
+            var num: array<u32, 8> = fr_add_f8(x2, x2);
+            num = fr_add_f8(num, x2); // 3x^2
+            let lambda: array<u32, 8> = montgomery_product_f8(num, inv_denom);
+            let two_x: array<u32, 8> = fr_add_f8(xv, xv);
+            var r_x: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+            r_x = fr_sub_f8(r_x, two_x);
+            var r_y: array<u32, 8> = fr_sub_f8(xv, r_x);
+            r_y = montgomery_product_f8(lambda, r_y);
+            r_y = fr_sub_f8(r_y, yv);
+            let out_x: array<u32, 8> = fr_select_f8(xv, r_x, present);
+            let out_y: array<u32, 8> = fr_select_f8(yv, r_y, present);
+            let denom_k: array<u32, 8> = fr_select_f8(R, real_denom, present);
+            inv = montgomery_product_f8(inv, denom_k);
+            if (in_range) {
+                store_x(slot, M, out_x);
+                store_y(slot, M, out_y);
+            }
+        } else {
+            var src: u32;
+            var dst: u32;
+            if (kind == KIND_SUFFIX) {
+                src = base + j2 * pa + pb;
+                dst = src - 1u;
+            } else {
+                dst = base + 2u * j2 * pa;
+                src = base + (2u * j2 + 1u) * pa;
+            }
+            let ps = is_present[src] != 0u;
+            let pl = is_present[dst] != 0u;
+            let both = in_range && ps && pl;       // dst += src (affine add)
+            let copy = in_range && ps && (!pl);    // dst = src (occupy empty slot)
+            let x_d: array<u32, 8> = load_x(dst, M);
+            let x_s: array<u32, 8> = load_x(src, M);
+            let y_d: array<u32, 8> = load_y(dst, M);
+            let y_s: array<u32, 8> = load_y(src, M);
+            let dx: array<u32, 8> = fr_sub_f8(x_s, x_d);
+            var lambda: array<u32, 8> = fr_sub_f8(y_s, y_d);
+            lambda = montgomery_product_f8(lambda, inv_denom);
+            var add_rx: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+            let x_sum: array<u32, 8> = fr_add_f8(x_d, x_s);
+            add_rx = fr_sub_f8(add_rx, x_sum);
+            var add_ry: array<u32, 8> = fr_sub_f8(x_d, add_rx);
+            add_ry = montgomery_product_f8(lambda, add_ry);
+            add_ry = fr_sub_f8(add_ry, y_d);
+            var out_x: array<u32, 8> = fr_select_f8(x_d, x_s, copy);
+            out_x = fr_select_f8(out_x, add_rx, both);
+            var out_y: array<u32, 8> = fr_select_f8(y_d, y_s, copy);
+            out_y = fr_select_f8(out_y, add_ry, both);
+            let denom_k: array<u32, 8> = fr_select_f8(R, dx, both);
+            inv = montgomery_product_f8(inv, denom_k);
+            let new_present: u32 = select(u32(pl), 1u, copy);
+            if (in_range) {
+                store_x(dst, M, out_x);
+                store_y(dst, M, out_y);
+                is_present[dst] = new_present;
+            }
         }
-{{/kind2}}
-{{^kind2}}
-{{#kind0}}
-        let src = base + j2 * pa + pb;
-        let dst = base + j2 * pa + pb - 1u;
-{{/kind0}}
-{{#kind1}}
-        let dst = base + 2u * j2 * pa;
-        let src = base + (2u * j2 + 1u) * pa;
-{{/kind1}}
-        let ps = is_present[src] != 0u;
-        let pl = is_present[dst] != 0u;
-        let both = in_range && ps && pl;       // dst += src (affine add)
-        let copy = in_range && ps && (!pl);    // dst = src (occupy empty slot)
-        let x_d: array<u32, 8> = load_x(dst, M);
-        let x_s: array<u32, 8> = load_x(src, M);
-        let y_d: array<u32, 8> = load_y(dst, M);
-        let y_s: array<u32, 8> = load_y(src, M);
-        let dx: array<u32, 8> = fr_sub_f8(x_s, x_d);
-        var lambda: array<u32, 8> = fr_sub_f8(y_s, y_d);
-        lambda = montgomery_product_f8(lambda, inv_denom);
-        var add_rx: array<u32, 8> = montgomery_product_f8(lambda, lambda);
-        let x_sum: array<u32, 8> = fr_add_f8(x_d, x_s);
-        add_rx = fr_sub_f8(add_rx, x_sum);
-        var add_ry: array<u32, 8> = fr_sub_f8(x_d, add_rx);
-        add_ry = montgomery_product_f8(lambda, add_ry);
-        add_ry = fr_sub_f8(add_ry, y_d);
-        var out_x: array<u32, 8> = fr_select_f8(x_d, x_s, copy);
-        out_x = fr_select_f8(out_x, add_rx, both);
-        var out_y: array<u32, 8> = fr_select_f8(y_d, y_s, copy);
-        out_y = fr_select_f8(out_y, add_ry, both);
-        let denom_k: array<u32, 8> = fr_select_f8(R, dx, both);
-        inv = montgomery_product_f8(inv, denom_k);
-        let new_present: u32 = select(u32(pl), 1u, copy);
-        if (in_range) {
-            store_x(dst, M, out_x);
-            store_y(dst, M, out_y);
-            is_present[dst] = new_present;
-        }
-{{/kind2}}
     }
 
     {{{ recompile }}}

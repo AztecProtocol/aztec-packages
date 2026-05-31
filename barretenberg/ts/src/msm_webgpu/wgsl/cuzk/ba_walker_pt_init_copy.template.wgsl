@@ -39,7 +39,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let M_partials = params.x;
     let M_pt = params.y;
 
+    // Defensive cap. N = partial_count[bid] is bounded by total partial
+    // slots across all batches (~786K worst case). 1M is a safety ceiling
+    // that completes within ~10ms per thread even in pathological cases.
     for (var i: u32 = 0u; i < N; i = i + 1u) {
+        if (i >= 1048576u) { break; }
         let slot = partial_layout[p_off + i];
         let x0 = partials_buf[PG * slot + 0u];
         let x1 = partials_buf[PG * slot + 1u];

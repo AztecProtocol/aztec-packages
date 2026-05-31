@@ -28,7 +28,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let num_slots = params.x;
     if (slot >= num_slots) { return; }
     let bid = partial_dest[slot];
-    if (bid == NO_BUCKET) { return; }
+    // See ba_walker_combine_count for the dual-sentinel rationale.
+    if (bid == 0u || bid == NO_BUCKET) { return; }
     let local_idx = atomicAdd(&partial_write_pos[bid], 1u);
     partial_layout[partial_offset[bid] + local_idx] = slot;
 

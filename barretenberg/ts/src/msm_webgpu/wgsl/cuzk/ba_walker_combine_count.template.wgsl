@@ -18,7 +18,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let num_slots = params.x;
     if (slot >= num_slots) { return; }
     let bid = partial_dest[slot];
-    if (bid == NO_BUCKET) { return; }
+    // bid == 0 means "cleared slot" (per-batch clearBuffer writes zeros).
+    // bid == NO_BUCKET (0xFFFFFFFF) means walker init explicitly cleared.
+    // bid == 0 can never be a real walker output: ba_planner_classify drops
+    // magnitude==0 buckets, so the only bid the walker ever stores has
+    // magnitude in [1, STRIDE], i.e. bid >= 1.
+    if (bid == 0u || bid == NO_BUCKET) { return; }
     atomicAdd(&partial_count[bid], 1u);
 
     {{{ recompile }}}

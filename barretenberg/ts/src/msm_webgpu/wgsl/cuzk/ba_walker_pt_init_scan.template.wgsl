@@ -36,7 +36,11 @@ fn main() {
 
     var running: u32 = 0u;
     var total_orig: u32 = 0u;
+    // Defensive caps: NUM_HOT comes from cumulative active_count which can
+    // inflate across batches. 65536 outer iters caps walk over hot buckets.
+    // Inner halving loop is log2(cnt) ≤ ~32 in legit operation; 64 caps it.
     for (var hot_idx: u32 = 0u; hot_idx < NUM_HOT; hot_idx = hot_idx + 1u) {
+        if (hot_idx >= 65536u) { break; }
         let bid = sorted_active[cool_end + hot_idx];
         let cnt = partial_count[bid];
         pt_off[hot_idx] = running;
@@ -47,7 +51,10 @@ fn main() {
         // copy-survivor adds 1 above the geometric series).
         var n: u32 = cnt;
         var slots: u32 = 0u;
+        var _halve_iter: u32 = 0u;
         loop {
+            if (_halve_iter >= 64u) { break; }
+            _halve_iter = _halve_iter + 1u;
             slots = slots + n;
             if (n <= 1u) { break; }
             n = (n + 1u) / 2u;

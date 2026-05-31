@@ -79,7 +79,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         let out_base_pt = in_base + cur;          // next-level region in pt_buf
         let task_base = wg_base + wg_local_offsets[l];
 
+        // Defensive cap: n_pairs is bounded by cur/2 where cur = pt_count,
+        // derived from partial_count. Worst-case ~393K; 1M is safety ceiling.
         for (var j: u32 = 0u; j < n_pairs; j = j + 1u) {
+            if (j >= 1048576u) { break; }
             pt_tasks[task_base + j] = vec4<u32>(
                 in_base + 2u * j,
                 in_base + 2u * j + 1u,

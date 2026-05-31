@@ -43,6 +43,9 @@ const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const NO_BUCKET: u32 = 0xffffffffu;
+const BW:     u32 = {{ bw }}u;
+const STRIDE: u32 = {{ stride }}u;
+const M_RED:  u32 = {{ m_red }}u;
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
@@ -51,10 +54,18 @@ const NO_BUCKET: u32 = 0xffffffffu;
 @group(0) @binding(4) var<storage, read>       l0_index:           array<u32>;
 @group(0) @binding(5) var<storage, read>       point_x:            array<vec4<u32>>;
 @group(0) @binding(6) var<storage, read>       point_y:            array<vec4<u32>>;
-@group(0) @binding(7) var<storage, read_write> bucket_sums:        array<vec4<u32>>;
+@group(0) @binding(7) var<storage, read_write> red_buf:            array<vec4<u32>>;
 @group(0) @binding(8) var<storage, read_write> partials_buf:       array<vec4<u32>>;
 @group(0) @binding(9) var<storage, read_write> partial_dest:       array<u32>;
 @group(0) @binding(10) var<uniform>            params:             vec4<u32>;
+// batch_offset.x = bi * batchWindows — added to local window index when
+// computing red_slot so each batch's red_buf writes land in its globally
+// correct window range. red_buf is no longer cleared per batch (only once
+// per encode) so batches accumulate side-by-side.
+@group(0) @binding(11) var<uniform>            batch_offset:       vec4<u32>;
+// is_present marking is hoisted into combine_filter; stream_walker stays
+// at 10 storage bindings (M2 cap). combine_filter sees every bucket with
+// count >= 1, including those stream_walker whole-retired.
 // pref_scratch lives in the TAIL of partials_buf at PREF_OFFSET (= 4 *
 // M_partials vec4 units, the strictly disjoint tail of the partials
 // region). COALESCED layout: slot k vec4 j (j ∈ {0,1}) for thread t lives
@@ -96,13 +107,18 @@ fn load_pref(k: u32, t: u32, pref_off: u32, k_stride: u32) -> array<u32, 8> {
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
-fn store_bucket_sum(bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
-    let bx = PG * bucket_id;
-    bucket_sums[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
-    bucket_sums[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
-    let by = PG * M + PG * bucket_id;
-    bucket_sums[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
-    bucket_sums[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
+fn store_bucket_sum(bucket_id: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
+    // Magnitude is guaranteed in [1, STRIDE] — ba_planner_classify filters
+    // out invalid bids before they reach sorted_bucket_list (the only source
+    // stream_walker reads bucket_ids from).
+    // Global window index = (batch-local window) + batch_offset (= bi * batchWindows).
+    let red_slot = ((bucket_id / BW) + batch_offset.x) * STRIDE + (bucket_id % BW - 1u);
+    let bx = PG * red_slot;
+    red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
+    red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
+    let by = PG * M_RED + PG * red_slot;
+    red_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
+    red_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
 }
 
 fn store_partial(pslot: u32, bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
@@ -247,7 +263,18 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         }
     }
 
+    // Defensive iteration cap. The legitimate max per-slot iteration count
+    // is bounded by the task's total adds, which at logn<=25 stays well
+    // under a few thousand. 32768 gives a large safety margin while
+    // guaranteeing the dispatch terminates if any upstream corruption (stale
+    // task_cuts, wraparound in partition_task arithmetic, etc.) drives
+    // cur_sorted past task_end_sort so task_done can never fire. Without
+    // this, a corrupted task descriptor can hang the GPU indefinitely.
+    const MAX_WALKER_ITERS: u32 = 32768u;
+    var walker_iter: u32 = 0u;
     loop {
+        if (walker_iter >= MAX_WALKER_ITERS) { break; }
+        walker_iter = walker_iter + 1u;
         var any_active: bool = false;
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             if (slot_done[k] == 0u) { any_active = true; }
@@ -356,14 +383,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 if (is_partial) {
                     store_partial(2u * (t * S + k) + 1u, cur_bucket[k], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
+                    store_bucket_sum(cur_bucket[k], r_x, r_y);
                 }
                 slot_done[k] = 1u;
             } else if (bucket_done) {
                 if (split_start[k] == 1u) {
                     store_partial(2u * (t * S + k) + 0u, cur_bucket[k], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
+                    store_bucket_sum(cur_bucket[k], r_x, r_y);
                 }
                 // Advance to the next bucket within the task. Subsequent
                 // buckets always begin fresh (never split-start).

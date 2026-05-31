@@ -520,7 +520,6 @@ class PipelineCache {
 interface SharedScratch {
   bufA: GPUBuffer;
   bufB: GPUBuffer;
-  bucketResultBuf: GPUBuffer;
   l0IdxBuf: GPUBuffer;
   bucketAndSignBuf: GPUBuffer;
   valIdxBuf: GPUBuffer;
@@ -716,7 +715,7 @@ export class MsmV2Pool {
     let total = this.poolX.size + this.poolY.size;
     if (this._scratch) {
       const s = this._scratch;
-      total += s.bufA.size + s.bufB.size + s.bucketResultBuf.size;
+      total += s.bufA.size + s.bufB.size;
       total += s.l0IdxBuf.size + s.bucketAndSignBuf.size + s.valIdxBuf.size;
       total += s.rowPtrBuf.size + s.planMeta.size;
       total += s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size;
@@ -772,7 +771,6 @@ export class MsmV2Pool {
     const s = this._scratch;
     let bufA = s?.bufA;
     let bufB = s?.bufB;
-    let bucketResultBuf = s?.bucketResultBuf;
     let l0IdxBuf = s?.l0IdxBuf;
     let bucketAndSignBuf = s?.bucketAndSignBuf;
     let valIdxBuf = s?.valIdxBuf;
@@ -801,12 +799,6 @@ export class MsmV2Pool {
       // none of those pipelines run on the walker path.
       bufA = sbuf(4);
       bufB = sbuf(4);
-      grew = true;
-    }
-    if (!bucketResultBuf || dims.bTotal > cur.bTotal) {
-      bucketResultBuf?.destroy();
-      grow(true, 'bTotal');
-      bucketResultBuf = soaBuf(cur.bTotal);
       grew = true;
     }
     // l0IdxBuf must hold both the L0 input (l0Slots × 4) AND the transpose
@@ -1128,7 +1120,6 @@ export class MsmV2Pool {
     const newScratch: SharedScratch = {
       bufA: bufA!,
       bufB: bufB!,
-      bucketResultBuf: bucketResultBuf!,
       l0IdxBuf: l0IdxBuf!,
       bucketAndSignBuf: bucketAndSignBuf!,
       valIdxBuf: valIdxBuf!,
@@ -1322,7 +1313,6 @@ export class MsmV2Pool {
       const s = this._scratch;
       s.bufA.destroy();
       s.bufB.destroy();
-      s.bucketResultBuf.destroy();
       s.l0IdxBuf.destroy();
       s.bucketAndSignBuf.destroy();
       s.valIdxBuf.destroy();
@@ -1402,7 +1392,6 @@ export class MsmV2 {
   private xposeScatterPipe!: GPUComputePipeline;
   private convActivePipe!: GPUComputePipeline;
   private convMetaPipe!: GPUComputePipeline;
-  private reduceInitPipe!: GPUComputePipeline;
   private reduceLevelPipes: GPUComputePipeline[] = [];
   // Streaming planner + accumulator pipelines
   private classifyPipe!: GPUComputePipeline;
@@ -1413,17 +1402,7 @@ export class MsmV2 {
   private cumsumPipe!: GPUComputePipeline;
   private partitionWgPipe!: GPUComputePipeline;
   private partitionThreadPipe!: GPUComputePipeline;
-  private streamEmitPipe!: GPUComputePipeline;
-  private emitFixupPipe!: GPUComputePipeline;
   private size1Pipe!: GPUComputePipeline;
-  private streamAccumPipe!: GPUComputePipeline;
-  private partialSumPipe!: GPUComputePipeline;
-  private debugAccumPipe!: GPUComputePipeline;
-  private debugAccumBind!: GPUBindGroup;
-  private debugAccumLayout!: GPUBindGroupLayout;
-  private splitRecomputePipe!: GPUComputePipeline;
-  private splitRecomputeBind!: GPUBindGroup;
-  private splitRecomputeLayout!: GPUBindGroupLayout;
   // Streaming bind groups (built in prepare, rebuilt on epoch change)
   private classifyBind!: GPUBindGroup;
   private metaFixupBind!: GPUBindGroup;
@@ -1433,11 +1412,7 @@ export class MsmV2 {
   private cumsumBind!: GPUBindGroup;
   private partitionWgBind!: GPUBindGroup;
   private partitionThreadBind!: GPUBindGroup;
-  private streamEmitBind!: GPUBindGroup;
-  private emitFixupBind!: GPUBindGroup;
   private size1Bind!: GPUBindGroup;
-  private streamAccumBind!: GPUBindGroup;
-  private partialSumBind!: GPUBindGroup;
   private streamNumThreads = STREAM_NUM_THREADS;
   private streamS = 8;
   private numRadixTiles = 1;
@@ -1457,7 +1432,6 @@ export class MsmV2 {
   private xposeScatterLayout!: GPUBindGroupLayout;
   private convActiveLayout!: GPUBindGroupLayout;
   private convMetaLayout!: GPUBindGroupLayout;
-  private reduceInitLayout!: GPUBindGroupLayout;
   private reduceLevelLayout!: GPUBindGroupLayout;
   // Streaming layouts
   private classifyLayout!: GPUBindGroupLayout;
@@ -1468,25 +1442,14 @@ export class MsmV2 {
   private cumsumLayout!: GPUBindGroupLayout;
   private partitionWgLayout!: GPUBindGroupLayout;
   private partitionThreadLayout!: GPUBindGroupLayout;
-  private streamEmitLayout!: GPUBindGroupLayout;
-  private emitFixupLayout!: GPUBindGroupLayout;
   private size1Layout!: GPUBindGroupLayout;
-  private streamAccumLayout!: GPUBindGroupLayout;
-  private partialSumLayout!: GPUBindGroupLayout;
   // Stream-walker (Plan §6 + C's KNOB 2 variant).
   private partitionTaskPipe!: GPUComputePipeline;
   private partitionTaskLayout!: GPUBindGroupLayout;
   private partitionTaskBind!: GPUBindGroup;
   private streamWalkerPipe!: GPUComputePipeline;
   private streamWalkerLayout!: GPUBindGroupLayout;
-  private streamWalkerBind!: GPUBindGroup;
-  private walkerCombinePipe!: GPUComputePipeline;
-  private walkerCombineLayout!: GPUBindGroupLayout;
-  private walkerCombineBind!: GPUBindGroup;
-  // Task #19 — per-bucket linked-list index between walker and combine.
-  private walkerPartialsIndexPipe!: GPUComputePipeline;
-  private walkerPartialsIndexLayout!: GPUBindGroupLayout;
-  private walkerPartialsIndexBind!: GPUBindGroup;
+  private streamWalkerBinds: GPUBindGroup[] = [];
   // Optimal walker_combine pipeline (5 kernels).
   private combineCountPipe!: GPUComputePipeline;
   private combineCountLayout!: GPUBindGroupLayout;
@@ -1499,10 +1462,10 @@ export class MsmV2 {
   private combineScatterBind!: GPUBindGroup;
   private combineFilterPipe!: GPUComputePipeline;
   private combineFilterLayout!: GPUBindGroupLayout;
-  private combineFilterBind!: GPUBindGroup;
+  private combineFilterBinds: GPUBindGroup[] = [];
   private combineBatchedPipe!: GPUComputePipeline;
   private combineBatchedLayout!: GPUBindGroupLayout;
-  private combineBatchedBind!: GPUBindGroup;
+  private combineBatchedBinds: GPUBindGroup[] = [];
   private sortCountPipe!: GPUComputePipeline;
   private sortCountLayout!: GPUBindGroupLayout;
   private sortCountBind!: GPUBindGroup;
@@ -1512,9 +1475,6 @@ export class MsmV2 {
   private sortScatterPipe!: GPUComputePipeline;
   private sortScatterLayout!: GPUBindGroupLayout;
   private sortScatterBind!: GPUBindGroup;
-  private pairTreePipe!: GPUComputePipeline;
-  private pairTreeLayout!: GPUBindGroupLayout;
-  private pairTreeBind!: GPUBindGroup;
   private ptInitScanPipe!: GPUComputePipeline;
   private ptInitScanLayout!: GPUBindGroupLayout;
   private ptInitScanBind!: GPUBindGroup;
@@ -1524,9 +1484,6 @@ export class MsmV2 {
   private ptBuildPipe!: GPUComputePipeline;
   private ptBuildLayout!: GPUBindGroupLayout;
   private ptBuildBind!: GPUBindGroup;
-  private ptDispatchPipe!: GPUComputePipeline;
-  private ptDispatchLayout!: GPUBindGroupLayout;
-  private ptDispatchBind!: GPUBindGroup;
   private ptDispatchChainPipe!: GPUComputePipeline;
   private ptDispatchChainLayout!: GPUBindGroupLayout;
   private ptDispatchChainBind!: GPUBindGroup;
@@ -1535,20 +1492,7 @@ export class MsmV2 {
   private ptCombineBind!: GPUBindGroup;
   private ptFinalizePipe!: GPUComputePipeline;
   private ptFinalizeLayout!: GPUBindGroupLayout;
-  private ptFinalizeBind!: GPUBindGroup;
-  private ptPersistentPipe!: GPUComputePipeline;
-  private ptPersistentLayout!: GPUBindGroupLayout;
-  private ptPersistentBind!: GPUBindGroup;
-  private ptPackerPipe!: GPUComputePipeline;
-  private ptPackerLayout!: GPUBindGroupLayout;
-  private ptPackerBind!: GPUBindGroup;
-  private ptChunkBuildPipe!: GPUComputePipeline;
-  private ptChunkBuildLayout!: GPUBindGroupLayout;
-  private ptChunkBuildBind!: GPUBindGroup;
-  private ptChunkCombinePipe!: GPUComputePipeline;
-  private ptChunkCombineLayout!: GPUBindGroupLayout;
-  private ptChunkCombineBind!: GPUBindGroup;
-  private ptChunkDispatchBind!: GPUBindGroup;
+  private ptFinalizeBinds: GPUBindGroup[] = [];
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
@@ -1593,7 +1537,6 @@ export class MsmV2 {
   private rowPtrBuf!: GPUBuffer; // cleared each batch by run()
   private redBuf!: GPUBuffer; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
-  private bucketResultBuf!: GPUBuffer; // diagnostic readback
   // profiling (created in prepare when this.profile)
   private querySet: GPUQuerySet | null = null;
   private tsResolveBuf: GPUBuffer | null = null;
@@ -1637,7 +1580,6 @@ export class MsmV2 {
   private convMetaBind!: GPUBindGroup;
   private reduceInitBind!: GPUBindGroup;
   private reduceLevelBinds: GPUBindGroup[] = [];
-  private reduceLevelKinds: number[] = [];
   private levelBinds: LevelBind[] = [];
 
   private constructor() {}
@@ -1710,10 +1652,6 @@ export class MsmV2 {
     for (let L1 = 2 * L0; L1 < STRIDE; L1 *= 2) push(true, 2, L1, 0, STRIDE / L1 - 1);
     for (let mm = 1; mm < STRIDE; mm *= 2) push(false, 2, L0, mm, STRIDE / (2 * mm));
     if (m.reducePasses.length > 64) throw new Error(`reduction schedule too long: ${m.reducePasses.length} > 64`);
-    // Per-level kind (0 phase-A add / 1 phase-B/D tree-add / 2 phase-C
-    // double) — picks the kind-specialized pipeline for the unfused path.
-    m.reduceLevelKinds = m.reducePasses.map(p => (p.isDouble ? 2 : p.shaderPhase === 0 ? 0 : 1));
-
     // --- Layouts (pool-cached: same `types` shape → same GPUBindGroupLayout
     // across every MsmV2 instance bound to this pool) ---
     const lt = (types: GPUBufferBindingType[]): GPUBindGroupLayout => pool.cache.getLayout(types);
@@ -1776,7 +1714,6 @@ export class MsmV2 {
     m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
-    m.reduceInitLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform']);
     // Streaming planner + accumulator layouts
     m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
@@ -1787,23 +1724,12 @@ export class MsmV2 {
     m.cumsumLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.partitionWgLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.partitionThreadLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-    m.streamEmitLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
-    m.emitFixupLayout = lt(['storage', 'storage', 'read-only-storage', 'read-only-storage', 'read-only-storage']);
-    m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
-    m.streamAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
-    m.partialSumLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage', 'storage', 'uniform']);
-    m.debugAccumLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
-    m.splitRecomputeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
+    m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform', 'storage']);
     // Stream-walker layouts (C's KNOB 2 variant).
     //   partition_task: sorted_count_list, cumulative_adds, thread_cuts, planner_meta(rw), task_cuts(rw), params(uniform)
     m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   stream_walker: sorted_bucket_list, sorted_count_list, offsets, task_cuts, l0_index, point_x, point_y, bucket_sums(rw), partials(rw), partial_dest(rw), params(uniform)
-    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
-    //   walker_partials_index: partial_dest, bucket_head(rw), nodes_slot(rw), nodes_next(rw), node_counter(rw), params(uniform)
-    m.walkerPartialsIndexLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
-    //   walker_combine: sorted_bucket_list, bucket_head(rw — atomic-typed),
-    //   nodes_slot, nodes_next, partials, bucket_sums(rw), planner_meta, params(uniform)
-    m.walkerCombineLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform']);
+    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'uniform']);
     // === Optimal walker_combine pipeline layouts ===
     //   count: partial_dest, partial_count(rw), params
     m.combineCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
@@ -1812,17 +1738,15 @@ export class MsmV2 {
     //   scatter: partial_dest, partial_offset, partial_write_pos(rw), partial_layout(rw), params
     m.combineScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   filter: sorted_bucket_list, partial_count, partial_offset, partial_layout, partials_buf, bucket_sums(rw), active_buckets(rw), active_count(rw), params, planner_meta
-    m.combineFilterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage']);
+    m.combineFilterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'storage', 'uniform']);
     //   batched: active_buckets, active_count, partial_count, partial_offset, partial_layout, l0_index, point_x, point_y, partials_buf(rw), bucket_sums(rw), params
-    m.combineBatchedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
+    m.combineBatchedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform', 'uniform']);
     //   sort-count:   active_buckets, active_count, partial_count, count_histogram(rw)
     m.sortCountLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage']);
     //   sort-scan:    count_histogram, bin_offsets(rw), bin_write_pos(rw), pt_dispatch_args(rw), pt_persistent_args(rw)
     m.sortScanLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'storage']);
     //   sort-scatter: active_buckets, active_count, partial_count, bin_offsets, bin_write_pos(rw), sorted_active_buckets(rw)
     m.sortScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage']);
-    //   pairtree:     sorted_active, bin_offsets, active_count, partial_count, partial_offset, partial_layout, partials_buf, pt_scratch(rw), pt_alloc(rw), bucket_sums(rw), params
-    m.pairTreeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
     // === Pair-tree v2 (multi-dispatch). ===
     //   pt-init-scan: sorted_active, bin_offsets, active_count, partial_count, pt_off(rw), pt_count(rw), pt_meta(rw)
     m.ptInitScanLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage']);
@@ -1830,28 +1754,12 @@ export class MsmV2 {
     m.ptInitCopyLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     //   pt-build: bin_offsets, active_count, pt_off(rw), pt_count(rw), pt_tasks(rw), pt_total_tasks(rw)
     m.ptBuildLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage']);
-    //   pt-dispatch: pt_total_tasks(rw), pt_dispatch_args(rw)
-    m.ptDispatchLayout = lt(['storage', 'storage']);
     //   pt-dispatch-chain: pt_total_tasks(ro), pt_combine_args(rw), pt_build_args(rw), pt_hot_args(ro)
     m.ptDispatchChainLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage']);
     //   pt-combine: pt_tasks, pt_total_tasks, pt_buf(rw), params
     m.ptCombineLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     //   pt-finalize: sorted_active, bin_offsets, active_count, pt_off, pt_buf, bucket_sums(rw), params
-    m.ptFinalizeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-    //   pt-persistent v6: partial_count, partial_offset, partial_layout,
-    //     partials_buf, pt_wg_meta, pt_wg_bucket_list, pt_wg_bucket_starts,
-    //     pt_buf(rw), bucket_sums(rw), params
-    m.ptPersistentLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
-    //   pt-packer: sorted_active, bin_offsets, active_count, partial_count,
-    //     pt_bucket_wg(rw), pt_wg_meta(rw), pt_wg_bucket_list(rw),
-    //     pt_wg_bucket_starts(rw), pt_persistent_args(rw), pt_dispatch_args(rw)
-    m.ptPackerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'storage', 'storage']);
-    // === Chunk-pass walker_combine. ===
-    //   pt-chunk-build: sorted_active, bin_offsets, active_count, pt_off(rw),
-    //                   pt_count(rw), pt_chunks(rw), pt_chunks_total(rw)
-    m.ptChunkBuildLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage']);
-    //   pt-chunk-combine: pt_chunks, pt_chunks_total, pt_buf(rw), params(uniform)
-    m.ptChunkCombineLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+    m.ptFinalizeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage', 'uniform']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1886,16 +1794,15 @@ export class MsmV2 {
       m.convActiveLayout,
     );
     m.convMetaPipe = await compile(sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
-    m.reduceInitPipe = await compile(sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init`, m.reduceInitLayout);
-    // Three kind-specialized per-level reduction pipelines (one dispatch per
-    // schedule level); binding 4 is a per-level uniform.
-    for (const kind of [0, 1, 2]) {
-      m.reduceLevelPipes[kind] = await compile(
-        sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, kind, INV_VARIANT, ADDSUB),
-        `reduce-level-k${kind}`,
-        m.reduceLevelLayout,
-      );
-    }
+    // Phase 5: ONE reduction pipeline drives every schedule level. The
+    // `kind` (0 suffix / 1 tree / 2 double) lives in lparams.w — uniform
+    // across the workgroup, so the compiler specialises per-dispatch with
+    // no SIMT divergence. Replaces the three kind-specialised pipelines.
+    m.reduceLevelPipes[0] = await compile(
+      sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, INV_VARIANT, ADDSUB),
+      `reduce-level`,
+      m.reduceLevelLayout,
+    );
 
     // --- Streaming planner + accumulator pipelines ---
     // All walker dispatch geometry derives from constants in ba_stream_plan.ts.
@@ -1910,7 +1817,7 @@ export class MsmV2 {
     m.numRadixTiles = Math.ceil(m.bTotal / RADIX_TILE);
     const qHeaderLen = 2 * STREAM_T;
     m.classifyPipe = await compile(
-      sm.gen_ba_planner_classify_shader(256, m.bTotal), `classify`, m.classifyLayout);
+      sm.gen_ba_planner_classify_shader(256, m.bTotal, m.BW, m.stride), `classify`, m.classifyLayout);
     m.metaFixupPipe = await compile(
       sm.gen_ba_planner_meta_fixup_shader(), `meta-fixup`, m.metaFixupLayout);
     m.radixCountPipe = await compile(
@@ -1926,25 +1833,8 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_wg_shader(MAX_STREAM_WORKGROUPS), `partition-wg`, m.partitionWgLayout);
     m.partitionThreadPipe = await compile(
       sm.gen_ba_planner_partition_thread_shader(STREAM_PLANNER_TPB), `partition-thread`, m.partitionThreadLayout);
-    m.streamEmitPipe = await compile(
-      sm.gen_ba_planner_emit_shader(256, STREAM_S, STREAM_T, qHeaderLen),
-      `stream-emit`, m.streamEmitLayout);
-    m.emitFixupPipe = await compile(
-      sm.gen_ba_planner_emit_fixup_shader(STREAM_T), `emit-fixup`, m.emitFixupLayout);
     m.size1Pipe = await compile(
-      sm.gen_ba_size1_shader(), `size1`, m.size1Layout);
-    m.streamAccumPipe = await compile(
-      sm.gen_ba_stream_accum_shader(256, STREAM_S, qHeaderLen, INV_VARIANT),
-      `stream-accum`, m.streamAccumLayout);
-    m.partialSumPipe = await compile(
-      sm.gen_ba_partial_sum_shader(256, STREAM_S, INV_VARIANT),
-      `partial-sum`, m.partialSumLayout);
-    m.debugAccumPipe = await compile(
-      sm.gen_ba_stream_accum_debug_shader(INV_VARIANT),
-      `debug-accum`, m.debugAccumLayout);
-    m.splitRecomputePipe = await compile(
-      sm.gen_ba_recompute_split_shader(INV_VARIANT),
-      `split-recompute`, m.splitRecomputeLayout);
+      sm.gen_ba_size1_shader(m.BW, m.stride, m.redM), `size1`, m.size1Layout);
     // Stream-walker (Plan §6 + C's KNOB 2 variant). STREAM_WALKER_TPB per
     // KNOB 1 (16 KB pref_scratch fits Mali Bifrost at TPB=64). NUM_THREADS =
     // nwg * STREAM_PLANNER_TPB (partition_thread's grain); the walker
@@ -1954,14 +1844,8 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_task_shader(STREAM_WALKER_TPB, STREAM_S, STREAM_PLANNER_TPB),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(STREAM_WALKER_TPB, STREAM_S, INV_VARIANT),
+      sm.gen_ba_stream_walker_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
       `stream-walker`, m.streamWalkerLayout);
-    m.walkerCombinePipe = await compile(
-      sm.gen_ba_walker_combine_shader(STREAM_S, INV_VARIANT),
-      `walker-combine`, m.walkerCombineLayout);
-    m.walkerPartialsIndexPipe = await compile(
-      sm.gen_ba_walker_partials_index_shader(256),
-      `walker-partials-index`, m.walkerPartialsIndexLayout);
     // === Optimal walker_combine pipeline. ===
     m.combineCountPipe = await compile(
       sm.gen_ba_walker_combine_count_shader(256),
@@ -1973,10 +1857,10 @@ export class MsmV2 {
       sm.gen_ba_walker_combine_scatter_shader(256),
       `combine-scatter`, m.combineScatterLayout);
     m.combineFilterPipe = await compile(
-      sm.gen_ba_walker_combine_filter_shader(256),
+      sm.gen_ba_walker_combine_filter_shader(256, m.BW, m.stride, m.redM),
       `combine-filter`, m.combineFilterLayout);
     m.combineBatchedPipe = await compile(
-      sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, INV_VARIANT),
+      sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
       `combine-batched`, m.combineBatchedLayout);
     m.sortCountPipe = await compile(
       sm.gen_ba_walker_combine_sort_count_shader(256),
@@ -1987,9 +1871,6 @@ export class MsmV2 {
     m.sortScatterPipe = await compile(
       sm.gen_ba_walker_combine_sort_scatter_shader(256),
       `sort-scatter`, m.sortScatterLayout);
-    m.pairTreePipe = await compile(
-      sm.gen_ba_walker_combine_pairtree_shader(64, STREAM_S, INV_VARIANT),
-      `pairtree`, m.pairTreeLayout);
     m.ptInitScanPipe = await compile(
       sm.gen_ba_walker_pt_init_scan_shader(),
       `pt-init-scan`, m.ptInitScanLayout);
@@ -2002,32 +1883,15 @@ export class MsmV2 {
     m.ptBuildPipe = await compile(
       sm.gen_ba_walker_pt_build_shader(64),
       `pt-build`, m.ptBuildLayout);
-    m.ptDispatchPipe = await compile(
-      sm.gen_ba_walker_pt_dispatch_shader(),
-      `pt-dispatch`, m.ptDispatchLayout);
     m.ptDispatchChainPipe = await compile(
       sm.gen_ba_walker_pt_dispatch_chain_shader(),
       `pt-dispatch-chain`, m.ptDispatchChainLayout);
     m.ptCombinePipe = await compile(
-      sm.gen_ba_walker_pt_combine_shader(64, STREAM_S, INV_VARIANT),
+      sm.gen_ba_unified_combine_shader(64, STREAM_S, INV_VARIANT),
       `pt-combine`, m.ptCombineLayout);
     m.ptFinalizePipe = await compile(
-      sm.gen_ba_walker_pt_finalize_shader(64),
+      sm.gen_ba_walker_pt_finalize_shader(64, m.BW, m.stride, m.redM),
       `pt-finalize`, m.ptFinalizeLayout);
-    // PER_WG_MAX_PARTIALS = TPB × S = 128 × 8 = 1024. MAX_M = 128 (max
-    // buckets per WG; bounded by min N=9 → ≤ 1024/9 ≈ 113). MAX_WGS = 64.
-    m.ptPersistentPipe = await compile(
-      sm.gen_ba_walker_pt_persistent_shader(128, STREAM_S, 128, INV_VARIANT),
-      `pt-persistent`, m.ptPersistentLayout);
-    m.ptPackerPipe = await compile(
-      sm.gen_ba_walker_pt_packer_shader(1024, 64, 16),
-      `pt-packer`, m.ptPackerLayout);
-    m.ptChunkBuildPipe = await compile(
-      sm.gen_ba_walker_pt_chunk_build_shader(64),
-      `pt-chunk-build`, m.ptChunkBuildLayout);
-    m.ptChunkCombinePipe = await compile(
-      sm.gen_ba_walker_pt_chunk_combine_shader(64, STREAM_S, INV_VARIANT),
-      `pt-chunk-combine`, m.ptChunkCombineLayout);
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
@@ -2370,8 +2234,6 @@ export class MsmV2 {
     const bufB = scratch.bufB;
     this.bufA = bufA;
     this.bufB = bufB;
-    this.bucketResultBuf = scratch.bucketResultBuf;
-    const bucketResult = scratch.bucketResultBuf;
     const l0IdxBuf = scratch.l0IdxBuf;
     // L0 seed pad-trio — three index slots at [batchSlots, batchSlots+1,
     // batchSlots+2] that l0-mode shaders use as a "self-pad anchor". The
@@ -2457,13 +2319,16 @@ export class MsmV2 {
     const redBuf = scratch.redBuf;
     const isPresentBuf = scratch.isPresentBuf;
     const reducePrefScratch = scratch.reducePrefScratch;
-    const reduceInitParams = ubuf(new Uint32Array([RED_M, this.stride, BW, B_TOTAL]));
-    this.reduceInitBind = mkBind(this.reduceInitLayout, [bucketResult, redBuf, isPresentBuf, reduceInitParams]);
-    // One kind-specialized dispatch per level: the schedule's (a, b, ppw)
-    // ride a per-level uniform, the (M, maxc, stride) constants a shared one.
+    // Phase 5: lparams now carries the kind as the 4th slot so the unified
+    // reduce kernel can branch on it at runtime. cparams are level-invariant.
     const cparams = ubuf(new Uint32Array([RED_M, this.capMAXC, this.stride, 0]));
     this.reduceLevelBinds = this.reducePasses.map((_, i) => {
-      const lparams = ubuf(new Uint32Array([schedule[i * 4 + 1], schedule[i * 4 + 2], schedule[i * 4 + 3], 0]));
+      const lparams = ubuf(new Uint32Array([
+        schedule[i * 4 + 1], // pa
+        schedule[i * 4 + 2], // pb
+        schedule[i * 4 + 3], // ppw
+        schedule[i * 4 + 0], // kind (was 0/unused before Phase 5)
+      ]));
       return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams]);
     });
     this.redBuf = redBuf;
@@ -2511,19 +2376,8 @@ export class MsmV2 {
       this.partitionWgBind = mkBind(this.partitionWgLayout, [sc, ca, sp, wc, pwgParams]);
       const ptParams = ubuf(new Uint32Array([0, 0, 0, 0]));
       this.partitionThreadBind = mkBind(this.partitionThreadLayout, [sc, ca, wc, sp, tc, ptParams]);
-      const emitParams = ubuf(new Uint32Array([batchSlots, 0, 0, 0]));
-      this.streamEmitBind = mkBind(this.streamEmitLayout, [sb, sc, offsetsBufs[0], tc, qb, sp, emitParams]);
-      this.emitFixupBind = mkBind(this.emitFixupLayout, [sp, pbl, tc, sb, sc]);
       const size1Params = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
-      this.size1Bind = mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, size1Params]);
-      const streamParams = ubuf(new Uint32Array([this.streamNumThreads, this.streamNumThreads * this.streamS, batchSlots, B_TOTAL]));
-      this.streamAccumBind = mkBind(this.streamAccumLayout, [qb, this.pointXBuf, this.pointYBuf, l0IdxBuf, ab, sps, bucketResult, pb, streamParams]);
-      const psParams = ubuf(new Uint32Array([2 * this.streamNumThreads, B_TOTAL, 0, 0]));
-      this.partialSumBind = mkBind(this.partialSumLayout, [pbl, pb, bucketResult, sp, sps, psParams]);
-      const debugParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
-      this.debugAccumBind = mkBind(this.debugAccumLayout, [sb, sc, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, debugParams]);
-      const splitParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, 0, 0]));
-      this.splitRecomputeBind = mkBind(this.splitRecomputeLayout, [pbl, offsetsBufs[0], l0IdxBuf, this.pointXBuf, this.pointYBuf, bucketResult, sp, splitParams]);
+      this.size1Bind = mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, scratch.redBuf, sp, size1Params, scratch.isPresentBuf]);
       // Stream-walker bind groups (Plan §6 + C's KNOB 2 variant).
       const taskc = scratch.taskCuts;
       const wp = scratch.walkerPartials;
@@ -2533,10 +2387,12 @@ export class MsmV2 {
       // Walker params: (NUM_THREADS, IDLE_ANCHOR, M_buckets, M_partials).
       const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
       const walkerParams = ubuf(new Uint32Array([this.streamNumThreads, batchSlots, B_TOTAL, M_partials_walker]));
-      this.streamWalkerBind = mkBind(this.streamWalkerLayout, [
-        sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
-        bucketResult, wp, pdest, walkerParams,
-      ]);
+      this.streamWalkerBinds = batchWindowBaseBufs.map(bwb =>
+        mkBind(this.streamWalkerLayout, [
+          sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
+          scratch.redBuf, wp, pdest, walkerParams, bwb,
+        ]),
+      );
       // Walker partials indexer (Task #19): one thread per partial slot,
       // builds the per-bucket linked-list head/nodes that walker_combine
       // walks. params.x = num_partial_slots, params.y = max_nodes
@@ -2547,10 +2403,6 @@ export class MsmV2 {
       const wnc = scratch.walkerNodeCounter;
       const numPartialSlots = M_partials_walker;
       const idxParams = ubuf(new Uint32Array([numPartialSlots, numPartialSlots, 0, 0]));
-      this.walkerPartialsIndexBind = mkBind(this.walkerPartialsIndexLayout, [pdest, bh, wns, wnn, wnc, idxParams]);
-      // Walker combine: traverses each bucket's linked list of partials.
-      const combineParams = ubuf(new Uint32Array([B_TOTAL, M_partials_walker, 0, 0]));
-      this.walkerCombineBind = mkBind(this.walkerCombineLayout, [sb, bh, wns, wnn, wp, bucketResult, sp, combineParams]);
       // === Optimal walker_combine bind groups. ===
       const pcount = scratch.partialCount;
       const poffset = scratch.partialOffset;
@@ -2568,7 +2420,9 @@ export class MsmV2 {
       this.combineScatterBind = mkBind(this.combineScatterLayout, [pdest, poffset, pwpos, playout, countParams]);
       // filter: params = (num_dense, M_buckets, M_partials, _)
       const filterParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, M_partials_walker, 0]));
-      this.combineFilterBind = mkBind(this.combineFilterLayout, [sb, pcount, poffset, playout, wp, bucketResult, abkts, acnt, filterParams, scratch.streamPlannerMeta]);
+      this.combineFilterBinds = batchWindowBaseBufs.map(bwb =>
+        mkBind(this.combineFilterLayout, [sb, pcount, poffset, playout, wp, scratch.redBuf, abkts, acnt, filterParams, scratch.streamPlannerMeta, scratch.isPresentBuf, bwb]),
+      );
       // batched: params = (NUM_ACTIVE — dynamic, set at runtime, IDLE_ANCHOR, M_buckets, M_partials)
       // For now, we'll use 0 for NUM_ACTIVE here and update before dispatch (or dispatch ceil(B_TOTAL/S) and gate internally).
       // Walker params include IDLE_ANCHOR at param.y of the walker uniform — reuse the same value (batchSlots).
@@ -2586,13 +2440,6 @@ export class MsmV2 {
       // active list + bin_offsets to locate the hot tail; allocates scratch
       // slices via atomicAdd on pt_alloc; writes directly to bucket_sums.
       //   params.x = M_partials, .y = M_buckets, .z = M_scratch, .w = HOT_THRESHOLD
-      const M_scratch = 2 * M_partials_walker;
-      // params.y = M_buckets (the bucket_sums plane stride). MUST match what
-      // combine_batched and reduce_init use — that's B_TOTAL, not batchSlots.
-      const pairTreeParams = ubuf(new Uint32Array([M_partials_walker, B_TOTAL, M_scratch, 8]));
-      const ptScratchBuf = scratch.ptScratch;
-      const ptAllocBuf = scratch.ptAlloc;
-      this.pairTreeBind = mkBind(this.pairTreeLayout, [sabkts, boffs, acnt, pcount, poffset, playout, wp, ptScratchBuf, ptAllocBuf, bucketResult, pairTreeParams]);
       // === Pair-tree v2 (multi-dispatch). pt_buf reuses ptScratch (32 MB
       // after the bump to 4× M_partials_walker). M_pt is the plane stride
       // for pt_buf; must equal exactly the per-plane slot capacity.
@@ -2618,37 +2465,20 @@ export class MsmV2 {
       this.ptInitScanBind = mkBind(this.ptInitScanLayout, [sabkts, boffs, acnt, pcount, ptOffBuf, ptCountBuf, ptMetaBuf]);
       this.ptInitCopyBind = mkBind(this.ptInitCopyLayout, [sabkts, boffs, acnt, pcount, poffset, playout, wp, ptOffBuf, ptBuf, ptInitCopyParams]);
       this.ptBuildBind = mkBind(this.ptBuildLayout, [boffs, acnt, ptOffBuf, ptCountBuf, ptTasksBuf, ptTotalBuf]);
-      // pt_dispatch_compute writes pt_combine's per-level indirect args to
-      // ptCombineDispatchArgs (separate from sort_scan's hot-bucket args).
-      this.ptDispatchBind = mkBind(this.ptDispatchLayout, [ptTotalBuf, scratch.ptCombineDispatchArgs]);
       // chain dispatch reads previous level's total and the hot_wgs source,
       // writes combine + build args. Build's level-loop indirect dispatch
       // turns into a no-op once total hits zero, so dead late levels cost
       // ~1 µs (dispatch_compute alone) instead of ~150 µs.
       this.ptDispatchChainBind = mkBind(this.ptDispatchChainLayout, [ptTotalBuf, scratch.ptCombineDispatchArgs, scratch.ptBuildLoopArgs, scratch.ptDispatchArgs]);
       this.ptCombineBind = mkBind(this.ptCombineLayout, [ptTasksBuf, ptTotalBuf, ptBuf, ptCombineParams]);
-      this.ptFinalizeBind = mkBind(this.ptFinalizeLayout, [sabkts, boffs, acnt, ptOffBuf, ptBuf, bucketResult, ptFinalizeParams]);
-      // pt_persistent v6: 1 WG per bucket-chunk. params.x = M_partials,
-      // params.y = M_buckets, params.z = M_pt.
-      const ptPersistentParams = ubuf(new Uint32Array([M_partials_walker, B_TOTAL, M_pt, 0]));
-      const ptWgMetaBuf = scratch.ptWgMeta;
-      const ptWgBucketListBuf = scratch.ptWgBucketList;
-      const ptWgBucketStartsBuf = scratch.ptWgBucketStarts;
-      this.ptPersistentBind = mkBind(this.ptPersistentLayout, [pcount, poffset, playout, wp, ptWgMetaBuf, ptWgBucketListBuf, ptWgBucketStartsBuf, ptBuf, bucketResult, ptPersistentParams]);
-      // pt_packer reads sort_scan-produced state, writes per-WG metadata.
-      this.ptPackerBind = mkBind(this.ptPackerLayout, [sabkts, boffs, acnt, pcount, scratch.ptBucketWg, ptWgMetaBuf, ptWgBucketListBuf, ptWgBucketStartsBuf, scratch.ptPersistentDispatchArgs, scratch.ptDispatchArgs]);
-      // Chunk-pass binds.
-      const ptChunksBuf = scratch.ptChunks;
-      const ptChunksTotalBuf = scratch.ptChunksTotal;
-      const ptChunkCombineParams = ubuf(new Uint32Array([M_pt, 0, 0, 0]));
-      this.ptChunkBuildBind = mkBind(this.ptChunkBuildLayout, [sabkts, boffs, acnt, ptOffBuf, ptCountBuf, ptChunksBuf, ptChunksTotalBuf]);
-      this.ptChunkCombineBind = mkBind(this.ptChunkCombineLayout, [ptChunksBuf, ptChunksTotalBuf, ptBuf, ptChunkCombineParams]);
-      // Reuse pt_dispatch_compute (input layout = [u32_in, u32_out_args]) to
-      // size chunk_combine's indirect dispatch from pt_chunks_total each pass.
-      this.ptChunkDispatchBind = mkBind(this.ptDispatchLayout, [ptChunksTotalBuf, scratch.ptCombineDispatchArgs]);
+      this.ptFinalizeBinds = batchWindowBaseBufs.map(bwb =>
+        mkBind(this.ptFinalizeLayout, [sabkts, boffs, acnt, ptOffBuf, ptBuf, scratch.redBuf, ptFinalizeParams, scratch.isPresentBuf, bwb]),
+      );
       // combine_batched now reads sorted_active_buckets at binding 0 → zero
       // tail divergence per S=8 thread group.
-      this.combineBatchedBind = mkBind(this.combineBatchedLayout, [sabkts, acnt, pcount, poffset, playout, l0IdxBuf, this.pointXBuf, this.pointYBuf, wp, bucketResult, walkerParams]);
+      this.combineBatchedBinds = batchWindowBaseBufs.map(bwb =>
+        mkBind(this.combineBatchedLayout, [sabkts, acnt, pcount, poffset, playout, l0IdxBuf, this.pointXBuf, this.pointYBuf, wp, scratch.redBuf, walkerParams, bwb]),
+      );
     }
 
     this.redStaging = device.createBuffer({
@@ -2798,33 +2628,35 @@ export class MsmV2 {
       enc.copyBufferToBuffer(scalarsSrcBuf, scalarsSrcByteOff, this.scalarsRawBuf, 0, this.n * 32);
     }
 
-    // Reset bucket-result buffer. bufA/bufB clears removed in step 9 (those
-    // buffers are 4-byte stubs now; the old clearBuffer's `size = padXOffset`
-    // would be out-of-range and invalidate the command buffer).
-    // partialsBuf likewise no longer needs zeroing — walker writes its own
-    // outputs to walkerPartials, which is cleared just below.
-    enc.clearBuffer(this.bucketResultBuf);
     // Stream-walker buffers (Plan §6 + C's KNOB 2 variant).
+    // walkerPartialDest is cleared INSIDE the batch loop instead — see note
+    // there. Cleared once here too would just be redundant.
     enc.clearBuffer(this.pool.scratch!.threadCuts);
     enc.clearBuffer(this.pool.scratch!.walkerPartials);
-    enc.clearBuffer(this.pool.scratch!.walkerPartialDest);
     enc.clearBuffer(this.pool.scratch!.taskCuts);
     // Task #19 — clear linked-list state so bucket_head=NO_NODE (0)
     // and node_counter=0 at the start of each MSM.
     enc.clearBuffer(this.pool.scratch!.bucketHead);
     enc.clearBuffer(this.pool.scratch!.walkerNodeCounter);
-    // Optimal walker_combine: clear count/write_pos/active_count per MSM.
-    enc.clearBuffer(this.pool.scratch!.partialCount);
-    enc.clearBuffer(this.pool.scratch!.partialWritePos);
-    enc.clearBuffer(this.pool.scratch!.activeCount);
-    // Counting-sort scratch — histogram must start at 0 per MSM.
-    // (bin_write_pos is reset by sortScan, so no clear needed here.)
-    enc.clearBuffer(this.pool.scratch!.countHistogram);
     // Pair-tree alloc counter — claims start from 0 each MSM (legacy v1 buf).
     enc.clearBuffer(this.pool.scratch!.ptAlloc);
     // Pair-tree v2 task counter — pt_dispatch_compute resets it each level,
     // but the very first level needs it zeroed too.
     enc.clearBuffer(this.pool.scratch!.ptTotalTasks);
+    // red_buf / is_present span ALL windows globally — each batch writes its
+    // own [bi*batchWindows*STRIDE, (bi+1)*batchWindows*STRIDE) slice via the
+    // batch_offset uniform. Clearing once per encode (not per batch) lets
+    // batches accumulate side-by-side without overwriting one another.
+    enc.clearBuffer(this.pool.scratch!.redBuf);
+    enc.clearBuffer(this.pool.scratch!.isPresentBuf);
+    // NOTE: partialCount, partialWritePos, activeCount, countHistogram are
+    // cleared INSIDE the batch loop (below) — they are all atomicAdd'd per
+    // batch, so leaving them cumulative across batches makes sortScatter
+    // place batch-N bids using a histogram that double-counts batch-N-1's
+    // entries. The mismatch leaves stale zeros in sortedActiveBuckets that
+    // combine_batched then reads as bid=0, partial_count[0]=0, cnt=0, and
+    // the pos >= cnt-1 termination underflows. (Capped at 1024 iters now,
+    // but the underlying state is wrong.)
 
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
@@ -2841,6 +2673,30 @@ export class MsmV2 {
       setPhase('planner');
       const spMeta = this.pool.scratch!.streamPlannerMeta;
       enc.clearBuffer(spMeta);
+      // cumulative_adds is read by partition_thread / partition_task at
+      // index 0 (and via OOB-returns-0 at num_dense-1u when num_dense==0).
+      // It is written by ba_planner_cumsum only over [0, num_dense). For a
+      // batch whose every covered window has zero scalars (profile D/E at
+      // logn>=20), num_dense==0, cumsum writes nothing, and the prior
+      // batch's value at index 0 leaks into partition_task's start_adds.
+      // The resulting wraparound in (end_adds - start_adds) produces HUGE
+      // task_cuts cut_offsets, which drive ba_stream_walker into an
+      // infinite loop (cur_sorted advances past task_end_sort and never
+      // returns; task_done never fires).
+      enc.clearBuffer(this.pool.scratch!.cumulativeAdds);
+      // walker_combine atomic counters — must be per-batch, not per-MSM.
+      // See note above the batch loop for the failure mode if cumulative.
+      enc.clearBuffer(this.pool.scratch!.partialCount);
+      enc.clearBuffer(this.pool.scratch!.partialWritePos);
+      enc.clearBuffer(this.pool.scratch!.activeCount);
+      enc.clearBuffer(this.pool.scratch!.countHistogram);
+      // walkerPartialDest must also be per-batch. Walker only initializes its
+      // own dispatched slots to NO_BUCKET (=0xFFFFFFFF); slots beyond that
+      // would otherwise leak the previous batch's partial mapping into
+      // combine_count/scatter. clearBuffer writes zeros — combine_count and
+      // combine_scatter accept both 0 and NO_BUCKET as "no partial here"
+      // since the classifier's magnitude filter guarantees no real bid is 0.
+      enc.clearBuffer(this.pool.scratch!.walkerPartialDest);
       dispatch(this.classifyPipe, this.classifyBind, Math.ceil(this.bTotal / 256), 1);
       dispatch(this.metaFixupPipe, this.metaFixupBind, 1, 1);
       for (let rpass = 0; rpass < 3; rpass++) {
@@ -2855,6 +2711,10 @@ export class MsmV2 {
       // emit walker's indirect dispatch args at planner_meta[15..17].
       dispatch(this.partitionTaskPipe, this.partitionTaskBind, MAX_STREAM_WORKGROUPS, 1);
       setPhase('accumulate');
+      // NOTE: redBuf and isPresentBuf are cleared ONCE per encode (above
+      // the batch loop), not per batch. Each batch writes its own global
+      // window range — red_slot now includes batch_offset.x = bi * batchWindows
+      // — so batches accumulate side-by-side without overwriting one another.
       // Indirect-dispatched accumulation kernels.
       const indirectDispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, buf: GPUBuffer, off: number): void => {
         const desc: GPUComputePassDescriptor = {};
@@ -2879,7 +2739,7 @@ export class MsmV2 {
       // partition_task wrote the walker's indirect args to planner_meta[15..17]
       // (= byte offset 60 = 15 * 4).
       setPhase('stream_walker');
-      indirectDispatch(this.streamWalkerPipe, this.streamWalkerBind, spMeta, 15 * 4);
+      indirectDispatch(this.streamWalkerPipe, this.streamWalkerBinds[bi], spMeta, 15 * 4);
       // === Optimal walker_combine: cross-bucket batched-inversion pipeline. ===
       // Phase A: count partials per bucket.
       // Phase B: prefix-sum partial_count → partial_offset; scatter dense layout.
@@ -2890,16 +2750,16 @@ export class MsmV2 {
       dispatch(this.combineCountPipe, this.combineCountBind, Math.ceil(M_partials_walker / 256), 1);
       dispatch(this.combineScanPipe, this.combineScanBind, 1, 1);
       dispatch(this.combineScatterPipe, this.combineScatterBind, Math.ceil(M_partials_walker / 256), 1);
-      dispatch(this.combineFilterPipe, this.combineFilterBind, Math.ceil(this.bTotal / 256), 1);
+      dispatch(this.combineFilterPipe, this.combineFilterBinds[bi], Math.ceil(this.bTotal / 256), 1);
       // Counting-sort prepass: group active_buckets by partial_count so each
       // combine_batched thread's S=8 slots have matching N (zero tail
       // divergence). Validated to claw back ~6.5 ms at logn=17 / M2.
       dispatch(this.sortCountPipe, this.sortCountBind, Math.ceil(this.bTotal / 256), 1);
       dispatch(this.sortScanPipe, this.sortScanBind, 1, 1);
       dispatch(this.sortScatterPipe, this.sortScatterBind, Math.ceil(this.bTotal / 256), 1);
-      setPhase('walker_combine');
+      setPhase('combine_batched');
       // combine_batched handles cool (N≤8) buckets. Pair-tree handles hot.
-      indirectDispatch(this.combineBatchedPipe, this.combineBatchedBind, this.pool.scratch!.cbDispatchArgs, 0);
+      indirectDispatch(this.combineBatchedPipe, this.combineBatchedBinds[bi], this.pool.scratch!.cbDispatchArgs, 0);
       // === Pair-tree v2: multi-dispatch with cross-thread fan-out. ===
       // Each level is its own dispatch over a flat pair-task list spanning
       // ALL hot buckets, so a single giant bucket (e.g. profile E's N=131K
@@ -2926,6 +2786,7 @@ export class MsmV2 {
       // MAX_LEVELS = 17 covers up to N = 2^17 (= every input collapsed
       // into one bucket at logn=17).
       // Multi-dispatch pair-tree with skip-dead-levels chaining.
+      setPhase('pt_init');
       const PT_LEVELS = 17;
       const ptHotArgs = this.pool.scratch!.ptDispatchArgs;
       const ptCombineArgs = this.pool.scratch!.ptCombineDispatchArgs;
@@ -2933,19 +2794,24 @@ export class MsmV2 {
       dispatch(this.ptInitScanPipe, this.ptInitScanBind, 1, 1);
       indirectDispatch(this.ptInitCopyPipe, this.ptInitCopyBind, ptHotArgs, 0);
       enc.copyBufferToBuffer(ptHotArgs, 0, ptBuildArgs, 0, 12);
+      setPhase('pt_loop');
       for (let lvl = 0; lvl < PT_LEVELS; lvl++) {
         enc.clearBuffer(this.pool.scratch!.ptTotalTasks);
         indirectDispatch(this.ptBuildPipe, this.ptBuildBind, ptBuildArgs, 0);
         dispatch(this.ptDispatchChainPipe, this.ptDispatchChainBind, 1, 1);
         indirectDispatch(this.ptCombinePipe, this.ptCombineBind, ptCombineArgs, 0);
       }
-      indirectDispatch(this.ptFinalizePipe, this.ptFinalizeBind, ptHotArgs, 0);
+      setPhase('pt_finalize');
+      indirectDispatch(this.ptFinalizePipe, this.ptFinalizeBinds[bi], ptHotArgs, 0);
     }
     setPhase('reduce');
-    dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
+    // Phase 2: reduce_init is gone — walker kernels write red_buf + is_present
+    // directly via the bid → red_slot mapping. See UNIFIED_COMBINE_PLAN.md.
+    // Phase 5: ONE pipeline drives every level (kind branched at runtime
+    // off lparams.w). reduceLevelKinds is no longer consulted.
+    const reducePipe = this.reduceLevelPipes[0];
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
-      const pipe = this.reduceLevelPipes[this.reduceLevelKinds[lv]];
-      dispatch(pipe, this.reduceLevelBinds[lv], this.numWindows, 1);
+      dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
     }
     // Per-window weighted sum gather. Same SoA stride math as run(), just
     // targeting an external staging buffer at an external offset.
@@ -3025,159 +2891,6 @@ export class MsmV2 {
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
 
-    // Step 9: legacy queueBuf / streamPlannerMeta / debugAccum diagnostic
-    // readbacks gated off. They issued 1024-byte copyBufferToBuffers from
-    // the now-shrunk queueBuf (4 B), invalidating the encoder. Re-enable
-    // by changing to `if (true as boolean)` if you need the introspection
-    // back while debugging the legacy stream path (which is dead anyway).
-    if (false as boolean) {
-      const qb = this.pool.scratch!.queueBuf;
-      const headerBytes = Math.min(2 * this.streamNumThreads * 4, 1024);
-      const qStg = device.createBuffer({ size: headerBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const eq = device.createCommandEncoder();
-      eq.copyBufferToBuffer(qb, 0, qStg, 0, headerBytes);
-      device.queue.submit([eq.finish()]);
-      await qStg.mapAsync(GPUMapMode.READ);
-      const qHdr = new Uint32Array(qStg.getMappedRange().slice(0));
-      qStg.unmap(); qStg.destroy();
-      let totalEntries = 0;
-      let threadsWithWork = 0;
-      for (let t = 0; t < Math.min(this.streamNumThreads, headerBytes / 8); t++) {
-        const qs = qHdr[2 * t], qc = qHdr[2 * t + 1];
-        totalEntries += qc;
-        if (qc > 0) threadsWithWork++;
-      }
-      const numT = Math.min(this.streamNumThreads, headerBytes / 8);
-      console.log(`[QUEUE] ${numT} threads: ${threadsWithWork} with work, total entries=${totalEntries}`);
-      // Show first 10 threads with entries
-      // Read queue entries for thread 0
-      const QUEUE_HEADER_LEN = 2 * this.streamNumThreads;
-      const t0_start = qHdr[0];
-      const t0_count = qHdr[1];
-      const entryBytes = t0_count * 3 * 4;
-      const entryOff = (QUEUE_HEADER_LEN + t0_start) * 4;
-      const eStg = device.createBuffer({ size: entryBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const ee = device.createCommandEncoder();
-      ee.copyBufferToBuffer(qb, entryOff, eStg, 0, entryBytes);
-      device.queue.submit([ee.finish()]);
-      await eStg.mapAsync(GPUMapMode.READ);
-      const entries = new Uint32Array(eStg.getMappedRange().slice(0));
-      eStg.unmap(); eStg.destroy();
-      let realEntries = 0, idleEntries = 0, partialEntries = 0;
-      for (let i = 0; i < t0_count; i++) {
-        const sc = entries[i * 3], ec = entries[i * 3 + 1], dp = entries[i * 3 + 2];
-        const isIdle = (dp & 0x40000000) !== 0;
-        const isPartial = (dp & 0x80000000) !== 0;
-        if (isIdle) idleEntries++;
-        else if (isPartial) partialEntries++;
-        else realEntries++;
-      }
-      console.log(`[T0 QUEUE] ${t0_count} entries: ${realEntries} real, ${partialEntries} partial, ${idleEntries} idle`);
-      // Read ALL queue data in one batch to count real entries
-      const totalQBytes = Math.min(qb.size, 4 * 1024 * 1024);
-      const qDataStg = device.createBuffer({ size: totalQBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const eqd = device.createCommandEncoder();
-      eqd.copyBufferToBuffer(qb, 0, qDataStg, 0, totalQBytes);
-      device.queue.submit([eqd.finish()]);
-      await qDataStg.mapAsync(GPUMapMode.READ);
-      const allQ = new Uint32Array(qDataStg.getMappedRange().slice(0));
-      qDataStg.unmap(); qDataStg.destroy();
-      let totalReal2 = 0, totalPartial2 = 0, totalIdle2 = 0;
-      for (let t = 0; t < 256; t++) {
-        const qs = allQ[2 * t], qc = allQ[2 * t + 1];
-        for (let i = 0; i < qc; i++) {
-          const dp = allQ[QUEUE_HEADER_LEN + qs + i * 3 + 2];
-          if (dp === undefined) break;
-          if ((dp & 0x40000000) !== 0) totalIdle2++;
-          else if ((dp & 0x80000000) !== 0) totalPartial2++;
-          else totalReal2++;
-        }
-      }
-      console.log(`[ALL Q] real=${totalReal2} partial=${totalPartial2} idle=${totalIdle2} expected≈3407`);
-      // Readback thread_cuts for first 5 threads
-      const tcBuf = this.pool.scratch!.threadCuts;
-      const tcBytes = 5 * 2 * 4;
-      const tcStg = device.createBuffer({ size: tcBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const etc = device.createCommandEncoder();
-      etc.copyBufferToBuffer(tcBuf, 0, tcStg, 0, tcBytes);
-      device.queue.submit([etc.finish()]);
-      await tcStg.mapAsync(GPUMapMode.READ);
-      const tc = new Uint32Array(tcStg.getMappedRange().slice(0));
-      tcStg.unmap(); tcStg.destroy();
-      for (let t = 0; t < 5; t++) {
-        console.log(`  thread_cuts[${t}]: bucket=${tc[2*t]} offset=${tc[2*t+1]}`);
-      }
-      // Show first 5 real entries
-      let rShown = 0;
-      for (let i = 0; i < t0_count && rShown < 5; i++) {
-        const sc = entries[i * 3], ec = entries[i * 3 + 1], dp = entries[i * 3 + 2];
-        if ((dp & 0x40000000) === 0 && (dp & 0x80000000) === 0) {
-          console.log(`  entry ${i}: cursor=[${sc},${ec}) bucket=${dp} adds=${ec - sc - 1}`);
-          rShown++;
-        }
-      }
-    }
-    // Step 9: META + A/B diagnostic blocks gated off.
-    // A/B specifically dispatches debugAccumPipe whose bind group still
-    // references shrunk legacy buffers — would invalidate the encoder.
-    if (false as boolean) {
-      const sp = this.pool.scratch!.streamPlannerMeta;
-      const metaStg = device.createBuffer({ size: 80, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const em = device.createCommandEncoder();
-      em.copyBufferToBuffer(sp, 0, metaStg, 0, 80);
-      device.queue.submit([em.finish()]);
-      await metaStg.mapAsync(GPUMapMode.READ);
-      const meta = new Uint32Array(metaStg.getMappedRange().slice(0));
-      metaStg.unmap(); metaStg.destroy();
-      console.log(`[META] size1=${meta[0]} dense=${meta[1]} total_adds=${meta[2]} nwg=${meta[3]} split=${meta[4]} slab_used=${meta[6]}`);
-    }
-    // A/B: read streaming bucket_sums, clear, re-run debug accum, compare
-    if (false as boolean) {
-      const brb = this.pool.scratch!.bucketResultBuf;
-      const readSz = Math.min(this.bTotal * 2 * 16, 131072);
-      // 1) Read streaming result
-      const streamStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      const e1 = device.createCommandEncoder();
-      e1.copyBufferToBuffer(brb, 0, streamStg, 0, readSz);
-      device.queue.submit([e1.finish()]);
-      await streamStg.mapAsync(GPUMapMode.READ);
-      const streamData = new Uint32Array(streamStg.getMappedRange().slice(0));
-      streamStg.unmap(); streamStg.destroy();
-      // 2) Clear bucket_sums and dispatch debug accumulator (planner state still valid)
-      const e2 = device.createCommandEncoder();
-      e2.clearBuffer(brb);
-      { const p = e2.beginComputePass(); p.setPipeline(this.debugAccumPipe); p.setBindGroup(0, this.debugAccumBind); p.dispatchWorkgroups(Math.ceil(this.bTotal / 256), 1); p.end(); }
-      // Also re-run size1 since clearing brb wiped those too
-      { const p = e2.beginComputePass(); p.setPipeline(this.size1Pipe); p.setBindGroup(0, this.size1Bind); p.dispatchWorkgroupsIndirect(this.pool.scratch!.streamPlannerMeta, 8 * 4); p.end(); }
-      const debugStg = device.createBuffer({ size: readSz, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
-      e2.copyBufferToBuffer(brb, 0, debugStg, 0, readSz);
-      device.queue.submit([e2.finish()]);
-      await debugStg.mapAsync(GPUMapMode.READ);
-      const debugData = new Uint32Array(debugStg.getMappedRange().slice(0));
-      debugStg.unmap(); debugStg.destroy();
-      // 3) Compare
-      const PGU = 8;
-      const numB = Math.floor(Math.min(streamData.length, debugData.length) / PGU);
-      const mmBuckets: number[] = [];
-      for (let b = 0; b < numB; b++) {
-        let match = true;
-        for (let j = 0; j < PGU; j++) { if (streamData[b * PGU + j] !== debugData[b * PGU + j]) { match = false; break; } }
-        if (!match) mmBuckets.push(b);
-      }
-      const streamZero = mmBuckets.filter(b => streamData[b * PGU] === 0).length;
-      const debugZero = mmBuckets.filter(b => debugData[b * PGU] === 0).length;
-      const sample = mmBuckets.slice(0, 20).map(b => ({
-        b,
-        s0: streamData[b * PGU],
-        d0: debugData[b * PGU],
-        sz: streamData[b * PGU] === 0,
-      }));
-      const diag = { numB, mm: mmBuckets.length, streamZero, debugZero, firstMm: mmBuckets.slice(0, 30), sample };
-      console.log(`[A/B] ${numB} x-buckets: ${mmBuckets.length} mismatches streamZero=${streamZero} debugZero=${debugZero}`);
-      if (typeof window !== 'undefined') {
-        (window as unknown as { __abDiag?: typeof diag }).__abDiag = diag;
-      }
-    }
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new
     // encodeIntoBatch path doesn't capture category labels (the dev page's
@@ -3236,19 +2949,6 @@ export class MsmV2 {
     let total = 0;
     for (const b of this.prepBuffers) total += b.size;
     return total;
-  }
-
-  /** Diagnostic: read back bucket_result. Element b's coords (Montgomery)
-   * are at u32 offsets [PG*b*4] (x) and [PG*B_TOTAL*4 + PG*b*4] (y). */
-  async debugBucketResult(): Promise<{
-    buf: Uint32Array;
-    BW: number;
-    numWindows: number;
-    stride: number;
-    rinv: bigint;
-  }> {
-    const buf = await readbackU32(this.device, this.bucketResultBuf, 2 * PG * this.bTotal * 4 * 4);
-    return { buf, BW: this.BW, numWindows: this.numWindows, stride: this.stride, rinv: this.rinv };
   }
 
   /**

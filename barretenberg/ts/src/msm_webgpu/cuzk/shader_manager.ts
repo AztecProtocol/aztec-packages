@@ -1,10 +1,7 @@
 import mustache from 'mustache';
 import {
   barrett as barrett_funcs,
-  ba_reduce_init_bench as ba_reduce_init_bench_shader,
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
-  ba_stream_accum_debug as ba_stream_accum_debug_shader,
-  ba_recompute_split as ba_recompute_split_shader,
   ba_planner_classify as ba_planner_classify_shader,
   ba_planner_meta_fixup as ba_planner_meta_fixup_shader,
   ba_planner_radix_count as ba_planner_radix_count_shader,
@@ -13,17 +10,9 @@ import {
   ba_planner_cumsum as ba_planner_cumsum_shader,
   ba_planner_partition_wg as ba_planner_partition_wg_shader,
   ba_planner_partition_thread as ba_planner_partition_thread_shader,
-  ba_planner_emit as ba_planner_emit_shader,
-  ba_planner_emit_fixup as ba_planner_emit_fixup_shader,
   ba_size1 as ba_size1_shader,
-  ba_stream_accum as ba_stream_accum_shader,
-  ba_partial_sum as ba_partial_sum_shader,
-  // Stream-walker (STREAM_WALKER_PLAN.md §6, plus C's KNOB 2 variant).
   ba_planner_partition_task as ba_planner_partition_task_shader,
   ba_stream_walker as ba_stream_walker_shader,
-  ba_walker_combine as ba_walker_combine_shader,
-  ba_walker_partials_index as ba_walker_partials_index_shader,
-  // Optimal walker_combine — cross-bucket batched inversion pipeline.
   ba_walker_combine_count as ba_walker_combine_count_shader,
   ba_walker_combine_scan as ba_walker_combine_scan_shader,
   ba_walker_combine_scatter as ba_walker_combine_scatter_shader,
@@ -32,18 +21,12 @@ import {
   ba_walker_combine_sort_count as ba_walker_combine_sort_count_shader,
   ba_walker_combine_sort_scan as ba_walker_combine_sort_scan_shader,
   ba_walker_combine_sort_scatter as ba_walker_combine_sort_scatter_shader,
-  ba_walker_combine_pairtree as ba_walker_combine_pairtree_shader,
   ba_walker_pt_init_scan as ba_walker_pt_init_scan_shader,
   ba_walker_pt_init_copy as ba_walker_pt_init_copy_shader,
   ba_walker_pt_build as ba_walker_pt_build_shader,
-  ba_walker_pt_dispatch as ba_walker_pt_dispatch_shader,
   ba_walker_pt_dispatch_chain as ba_walker_pt_dispatch_chain_shader,
-  ba_walker_pt_combine as ba_walker_pt_combine_shader,
+  ba_unified_combine as ba_unified_combine_shader,
   ba_walker_pt_finalize as ba_walker_pt_finalize_shader,
-  ba_walker_pt_persistent as ba_walker_pt_persistent_shader,
-  ba_walker_pt_packer as ba_walker_pt_packer_shader,
-  ba_walker_pt_chunk_build as ba_walker_pt_chunk_build_shader,
-  ba_walker_pt_chunk_combine as ba_walker_pt_chunk_combine_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
@@ -479,35 +462,18 @@ ${packLines.join('\n')}
   }
 
   /**
-   * Reduction-stage init: repacks the bucket-accumulate output into the
-   * reduction's STRIDE-column working buffer and seeds the present-mask.
-   * Pure vec4 copy — no field arithmetic.
-   */
-  public gen_ba_reduce_init_bench_shader(workgroup_size: number): string {
-    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
-      throw new Error(`gen_ba_reduce_init_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
-    }
-    return mustache.render(ba_reduce_init_bench_shader, { workgroup_size, recompile: this.recompile }, {});
-  }
-
-  /**
-   * One level of the recursive affine bucket reduction. `kind` (0 = phase-A
-   * suffix add, 1 = phase-B/D tree-add, 2 = phase-C double) is baked in as
-   * a compile-time constant so each variant const-folds away the other
-   * kinds' branches. The host dispatches the kind-matching variant once
-   * per schedule level — branchless, watchdog-bounded, register-light.
+   * Reduction-stage level kernel. ONE kernel handles all three kinds
+   * (0 = phase-A suffix add, 1 = phase-B/D tree-add, 2 = phase-C double)
+   * via runtime branch on `lparams.w` — uniform across the workgroup, so
+   * the compiler specialises per-dispatch with no SIMT divergence.
    */
   public gen_ba_reduce_level_bench_shader(
     workgroup_size: number,
-    kind: number,
     variant: 'loop' | 'pk' = 'pk',
     addsub: 'native' | 'unpack' = 'native',
   ): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
-    }
-    if (kind !== 0 && kind !== 1 && kind !== 2) {
-      throw new Error(`gen_ba_reduce_level_bench_shader: kind (${kind}) must be 0, 1 or 2`);
     }
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
@@ -516,8 +482,7 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_reduce_level_bench_shader,
       {
-        workgroup_size, kind, inv_fn,
-        kind0: kind === 0, kind1: kind === 1, kind2: kind === 2,
+        workgroup_size, inv_fn,
         addsub_unpack: addsub === 'unpack',
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
@@ -729,8 +694,8 @@ ${packLines.join('\n')}
 
   // --- Streaming planner + accumulator generators ---
 
-  public gen_ba_planner_classify_shader(workgroup_size: number, b_total: number): string {
-    return mustache.render(ba_planner_classify_shader, { workgroup_size, b_total, recompile: this.recompile });
+  public gen_ba_planner_classify_shader(workgroup_size: number, b_total: number, bw: number, stride: number): string {
+    return mustache.render(ba_planner_classify_shader, { workgroup_size, b_total, bw, stride, recompile: this.recompile });
   }
 
   public gen_ba_planner_meta_fixup_shader(): string {
@@ -769,30 +734,13 @@ ${packLines.join('\n')}
     return mustache.render(ba_planner_partition_thread_shader, { workgroup_size, recompile: this.recompile });
   }
 
-  public gen_ba_planner_emit_shader(
-    workgroup_size: number,
-    s: number,
-    num_threads: number,
-    queue_header_len: number,
-  ): string {
-    return mustache.render(ba_planner_emit_shader, {
-      workgroup_size, s, num_threads,
-      queue_header_len,
-      num_threads_plus_1: num_threads + 1,
-      recompile: this.recompile,
-    });
-  }
-
-  public gen_ba_planner_emit_fixup_shader(num_threads: number): string {
-    return mustache.render(ba_planner_emit_fixup_shader, { num_threads, recompile: this.recompile });
-  }
-
-  public gen_ba_size1_shader(): string {
+  public gen_ba_size1_shader(bw: number, stride: number, m_red: number): string {
     const dec = this.decoupledPackUnpackWgsl();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_size1_shader,
       {
+        bw, stride, m_red,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
@@ -801,113 +749,6 @@ ${packLines.join('\n')}
         recompile: this.recompile,
       },
       { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs, field8_funcs },
-    );
-  }
-
-  public gen_ba_stream_accum_shader(
-    workgroup_size: number,
-    s: number,
-    queue_header_len: number,
-    variant: 'loop' | 'pk' = 'pk',
-  ): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_stream_accum_shader,
-      {
-        workgroup_size, s, inv_fn, queue_header_len,
-        p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
-    );
-  }
-
-  public gen_ba_partial_sum_shader(
-    workgroup_size: number,
-    s: number,
-    variant: 'loop' | 'pk' = 'pk',
-  ): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_partial_sum_shader,
-      {
-        workgroup_size, s, inv_fn,
-        p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
-    );
-  }
-
-  public gen_ba_stream_accum_debug_shader(variant: 'loop' | 'pk' = 'pk'): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_stream_accum_debug_shader,
-      {
-        inv_fn, p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
-    );
-  }
-
-  public gen_ba_recompute_split_shader(variant: 'loop' | 'pk' = 'pk'): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_recompute_split_shader,
-      {
-        inv_fn, p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
     );
   }
 
@@ -925,6 +766,9 @@ ${packLines.join('\n')}
   public gen_ba_stream_walker_shader(
     workgroup_size: number,
     s: number,
+    bw: number,
+    stride: number,
+    m_red: number,
     variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
@@ -935,46 +779,7 @@ ${packLines.join('\n')}
       ba_stream_walker_shader,
       {
         workgroup_size, s, inv_fn,
-        p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
-    );
-  }
-
-  // Stream-walker partials indexer (task #19): one thread per partial slot.
-  // Builds a per-bucket linked list in (bucket_head, nodes_slot, nodes_next)
-  // using atomicCompareExchange — replaces walker_combine's O(num_dense ×
-  // M_partials) scan with O(M_partials) indexing + O(num_partials_per_bucket)
-  // walks. No field arithmetic; purely u32 pointer chase.
-  public gen_ba_walker_partials_index_shader(workgroup_size: number): string {
-    return mustache.render(
-      ba_walker_partials_index_shader,
-      { workgroup_size, recompile: this.recompile },
-    );
-  }
-
-  // Stream-walker split-bucket combine (indexed). One thread per dense
-  // bucket walks the bucket's linked list of partials (built by
-  // ba_walker_partials_index) and affine-sums them into bucket_sums.
-  public gen_ba_walker_combine_shader(s: number, variant: 'loop' | 'pk' = 'pk'): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_walker_combine_shader,
-      {
-        s, inv_fn,
+        bw, stride, m_red,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
@@ -1014,10 +819,10 @@ ${packLines.join('\n')}
     );
   }
 
-  public gen_ba_walker_combine_filter_shader(workgroup_size: number): string {
+  public gen_ba_walker_combine_filter_shader(workgroup_size: number, bw: number, stride: number, m_red: number): string {
     return mustache.render(
       ba_walker_combine_filter_shader,
-      { workgroup_size, recompile: this.recompile },
+      { workgroup_size, bw, stride, m_red, recompile: this.recompile },
     );
   }
 
@@ -1054,26 +859,15 @@ ${packLines.join('\n')}
     return mustache.render(ba_walker_pt_build_shader, { workgroup_size, recompile: this.recompile });
   }
 
-  public gen_ba_walker_pt_dispatch_shader(): string {
-    return mustache.render(ba_walker_pt_dispatch_shader, { recompile: this.recompile });
-  }
-
   public gen_ba_walker_pt_dispatch_chain_shader(): string {
     return mustache.render(ba_walker_pt_dispatch_chain_shader, { recompile: this.recompile });
   }
 
-  public gen_ba_walker_pt_finalize_shader(workgroup_size: number): string {
-    return mustache.render(ba_walker_pt_finalize_shader, { workgroup_size, recompile: this.recompile });
+  public gen_ba_walker_pt_finalize_shader(workgroup_size: number, bw: number, stride: number, m_red: number): string {
+    return mustache.render(ba_walker_pt_finalize_shader, { workgroup_size, bw, stride, m_red, recompile: this.recompile });
   }
 
-  public gen_ba_walker_pt_chunk_build_shader(workgroup_size: number): string {
-    return mustache.render(
-      ba_walker_pt_chunk_build_shader,
-      { workgroup_size, recompile: this.recompile },
-    );
-  }
-
-  public gen_ba_walker_pt_chunk_combine_shader(
+  public gen_ba_unified_combine_shader(
     workgroup_size: number,
     s: number,
     variant: 'loop' | 'pk' = 'pk',
@@ -1083,107 +877,7 @@ ${packLines.join('\n')}
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
-      ba_walker_pt_chunk_combine_shader,
-      {
-        workgroup_size, s, inv_fn,
-        p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
-    );
-  }
-
-  public gen_ba_walker_pt_packer_shader(
-    per_wg_max_partials: number,
-    max_wgs: number,
-    min_wgs: number,
-  ): string {
-    return mustache.render(
-      ba_walker_pt_packer_shader,
-      { per_wg_max_partials, max_wgs, min_wgs, recompile: this.recompile },
-    );
-  }
-
-  public gen_ba_walker_pt_persistent_shader(
-    workgroup_size: number,
-    s: number,
-    max_m: number,
-    variant: 'loop' | 'pk' = 'pk',
-  ): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_walker_pt_persistent_shader,
-      {
-        workgroup_size, s, inv_fn, max_m,
-        max_m_plus_1: max_m + 1,
-        p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
-    );
-  }
-
-  public gen_ba_walker_pt_combine_shader(
-    workgroup_size: number,
-    s: number,
-    variant: 'loop' | 'pk' = 'pk',
-  ): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_walker_pt_combine_shader,
-      {
-        workgroup_size, s, inv_fn,
-        p8_consts, r8_csv, f8_words,
-        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
-        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
-        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
-      },
-      {
-        structs, bigint_funcs,
-        montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
-      },
-    );
-  }
-
-  public gen_ba_walker_combine_pairtree_shader(
-    workgroup_size: number,
-    s: number,
-    variant: 'loop' | 'pk' = 'pk',
-  ): string {
-    const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
-    const { p8_consts, r8_csv, f8_words } = this.f8Context();
-    return mustache.render(
-      ba_walker_combine_pairtree_shader,
+      ba_unified_combine_shader,
       {
         workgroup_size, s, inv_fn,
         p8_consts, r8_csv, f8_words,
@@ -1205,6 +899,9 @@ ${packLines.join('\n')}
   public gen_ba_walker_combine_batched_shader(
     workgroup_size: number,
     s: number,
+    bw: number,
+    stride: number,
+    m_red: number,
     variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
@@ -1215,6 +912,7 @@ ${packLines.join('\n')}
       ba_walker_combine_batched_shader,
       {
         workgroup_size, s, inv_fn,
+        bw, stride, m_red,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,

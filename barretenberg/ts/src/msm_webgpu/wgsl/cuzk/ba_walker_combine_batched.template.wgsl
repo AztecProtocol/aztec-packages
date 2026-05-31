@@ -29,14 +29,20 @@
 //
 // params.x = unused (NUM_ACTIVE read from active_count buffer)
 // params.y = IDLE_ANCHOR (l0_index entry for pad point pair)
-// params.z = M_buckets   (bucket_sums plane stride)
+// params.z = unused (kept for binding/uniform stability across MSM sizes)
 // params.w = M_partials  (partials_buf plane stride; pref tail starts at 4*M_partials)
+//
+// Final per-bucket sum lands in red_buf at red_slot(bid) = (bid / BW) * STRIDE + (bid % BW - 1).
+// See UNIFIED_COMBINE_PLAN.md §Phase 2.
 
 const S: u32 = {{ s }}u;
 const TPB: u32 = {{ workgroup_size }}u;
 const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
+const BW:     u32 = {{ bw }}u;
+const STRIDE: u32 = {{ stride }}u;
+const M_RED:  u32 = {{ m_red }}u;
 
 @group(0) @binding(0) var<storage, read>       active_buckets:  array<u32>;
 @group(0) @binding(1) var<storage, read>       active_count:    array<u32>;
@@ -47,8 +53,12 @@ const L0_IDX_MASK: u32 = 0x7fffffffu;
 @group(0) @binding(6) var<storage, read>       point_x:         array<vec4<u32>>;
 @group(0) @binding(7) var<storage, read>       point_y:         array<vec4<u32>>;
 @group(0) @binding(8) var<storage, read_write> partials_buf:    array<vec4<u32>>;
-@group(0) @binding(9) var<storage, read_write> bucket_sums:     array<vec4<u32>>;
+@group(0) @binding(9) var<storage, read_write> red_buf:         array<vec4<u32>>;
 @group(0) @binding(10) var<uniform>            params:          vec4<u32>;
+// batch_offset.x = bi * batchWindows — added to local window index for red_slot.
+@group(0) @binding(11) var<uniform>            batch_offset:    vec4<u32>;
+// is_present marking is hoisted into combine_filter to keep this kernel
+// at 10 storage bindings (M2's maxStorageBuffersPerShaderStage = 10).
 
 fn load_partial_x(slot: u32) -> array<u32, 8> {
     let q0 = partials_buf[PG * slot + 0u];
@@ -70,13 +80,15 @@ fn load_pt_x(cursor: u32) -> array<u32, 8> {
     return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
 }
 
-fn store_bucket_sum(bid: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
-    let bx = PG * bid;
-    bucket_sums[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
-    bucket_sums[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
-    let by = PG * M + PG * bid;
-    bucket_sums[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
-    bucket_sums[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
+fn store_bucket_sum(bid: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
+    let red_slot = ((bid / BW) + batch_offset.x) * STRIDE + (bid % BW - 1u);
+    let bx = PG * red_slot;
+    red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
+    red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
+    let by = PG * M_RED + PG * red_slot;
+    red_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
+    red_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
+    // is_present is pre-marked by combine_filter for all active buckets.
 }
 
 @compute @workgroup_size({{ workgroup_size }})
@@ -89,7 +101,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (task_base >= NUM_ACTIVE) { return; }
 
     let IDLE_ANCHOR = params.y;
-    let M_buckets = params.z;
     let M_partials = params.w;
 
     // Per-slot state.
@@ -127,8 +138,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         slot_done[k] = 0u;
     }
 
-    // Main loop.
+    // Main loop. Defensive iteration cap — cnt[k] is bounded to <= 8 by the
+    // filter (HOT_THRESHOLD), so legitimate iterations max at ~7. 1024 is a
+    // huge safety margin in case partial_count gets corrupted.
+    const MAX_CB_ITERS: u32 = 1024u;
+    var _cb_iter: u32 = 0u;
     loop {
+        if (_cb_iter >= MAX_CB_ITERS) { break; }
+        _cb_iter = _cb_iter + 1u;
         var any_active: bool = false;
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             if (slot_done[k] == 0u) { any_active = true; }
@@ -214,7 +231,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             pos[k] = pos[k] + 1u;
             if (pos[k] >= cnt[k] - 1u) {
                 slot_done[k] = 1u;
-                store_bucket_sum(bid[k], M_buckets, r_x, r_y);
+                store_bucket_sum(bid[k], r_x, r_y);
             }
         }
     }

@@ -9,6 +9,8 @@
 // (num_dense) track list lengths.
 
 const B_TOTAL: u32 = {{ b_total }}u;
+const BW:      u32 = {{ bw }}u;
+const STRIDE:  u32 = {{ stride }}u;
 
 @group(0) @binding(0) var<storage, read>       counts:             array<u32>;
 @group(0) @binding(1) var<storage, read>       offsets:            array<u32>;
@@ -25,6 +27,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let n = counts[b];
     if (n == 0u) { return; }
+
+    // Drop buckets whose magnitude is outside the reduce-valid range
+    // [1, STRIDE]. Magnitude 0 is the zero-digit (no contribution after
+    // weighting); magnitude > STRIDE is BW-padding (booth never produces
+    // it, but guard defensively). Hoisting the filter here means walker
+    // output kernels never need to check magnitude per-store.
+    let magnitude = b % BW;
+    if (magnitude == 0u || magnitude > STRIDE) { return; }
 
     if (n == 1u) {
         let slot = atomicAdd(&planner_meta[0], 1u);

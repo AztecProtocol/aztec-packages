@@ -41,7 +41,10 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     // Binary search for the bucket containing this thread's cut_target.
     var lo: u32 = wg_lo_bucket;
     var hi: u32 = wg_hi_bucket;
+    var _bs_iter: u32 = 0u;
     while (lo < hi) {
+        if (_bs_iter >= 64u) { break; }
+        _bs_iter = _bs_iter + 1u;
         let mid = (lo + hi) / 2u;
         let cum_end = cumulative_adds[mid] + sorted_count_list[mid] - 1u;
         if (cum_end < cut_target) {
