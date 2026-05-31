@@ -43,6 +43,7 @@ import {
   field as field_funcs,
   field8 as field8_funcs,
   fr_pow as fr_pow_funcs,
+  mont_pro_product_cios_unrolled as montgomery_product_cios_unrolled_funcs,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
@@ -82,6 +83,12 @@ function modinv(a: bigint, m: bigint): bigint {
 // pipeline. Pre-computes Montgomery / Barrett constants for the
 // configured word size on construction so the per-shader render
 // calls just pull from instance fields.
+// Base-field Montgomery-multiply body selector for ShaderManager.
+//  - 'karat'         : generic grouped-Karatsuba + Yuval reduction (default).
+//  - 'cios_unrolled' : register-resident fully-unrolled CIOS; device-validated
+//                      −26% on Mali-G715 at logn=17. BN254 @ 20×13-bit only.
+export type MontMulVariant = 'karat' | 'cios_unrolled';
+
 export class ShaderManager {
   public p: bigint;
   public word_size: number;
@@ -148,6 +155,11 @@ export class ShaderManager {
     input_size: number,
     curveConfig: CurveConfig = BN254_CURVE_CONFIG,
     force_recompile = false,
+    // Base-field multiply body shared by every MSM shader. 'karat' (default)
+    // is the generic Karatsuba+Yuval body; 'cios_unrolled' is the
+    // device-validated register-resident CIOS variant (BN254 @ 20×13 only,
+    // −26% on Mali-G715). See `renderCiosUnrolledMont`.
+    montmul: MontMulVariant = 'karat',
   ) {
     this.curveConfig = curveConfig;
     this.p = curveConfig.baseFieldModulus;
@@ -202,7 +214,8 @@ export class ShaderManager {
     // Render the Karatsuba+Yuval Mont body once. This is the default
     // u32 multiplier used by every MSM shader that includes the
     // `montgomery_product_funcs` mustache partial.
-    this.mont_product_src = this.renderKaratYuvalMont();
+    this.mont_product_src =
+      montmul === 'cios_unrolled' ? this.renderCiosUnrolledMont() : this.renderKaratYuvalMont();
 
     if (force_recompile) {
       const rand = Math.round(Math.random() * 100000000000000000) % 2 ** 32;
@@ -641,6 +654,42 @@ ${packLines.join('\n')}
       final_drain,
       extract,
     });
+  }
+
+  // Device-validated CIOS variant of the base-field multiply. Reuses the
+  // Karatsuba scaffold (get_p / conditional_reduce / NUM_WORDS / WORD_SIZE /
+  // MASK / N0) and brace-match-replaces ONLY the `fn montgomery_product` body
+  // with the fully-unrolled, register-resident CIOS form. This is the exact
+  // splice that benched −26% on Pixel 9a / Mali-G715 (488.4 → 360.6 ms, logn=17
+  // profile A, cross-check agree, bit-exact over 120000+16 cases). The CIOS
+  // body bakes BN254 p-limb immediates, so it is only valid at 20×13-bit limbs.
+  private renderCiosUnrolledMont(): string {
+    if (this.num_words !== 20 || this.word_size !== 13) {
+      throw new Error(
+        `montmul='cios_unrolled' is only valid for BN254 (20×13-bit limbs); ` +
+          `got num_words=${this.num_words}, word_size=${this.word_size}`,
+      );
+    }
+    const scaffold = this.renderKaratYuvalMont();
+    // Brace-match the Karatsuba `fn montgomery_product(...) { ... }` and swap
+    // its body for the CIOS one (identical signature + helper dependencies).
+    const start = scaffold.indexOf('fn montgomery_product(');
+    if (start < 0) throw new Error('renderCiosUnrolledMont: fn montgomery_product not found in scaffold');
+    let depth = 0;
+    let end = -1;
+    for (let i = scaffold.indexOf('{', start); i < scaffold.length; i++) {
+      const ch = scaffold[i];
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+    if (end < 0) throw new Error('renderCiosUnrolledMont: brace-match failed');
+    return scaffold.slice(0, start) + montgomery_product_cios_unrolled_funcs.trim() + '\n' + scaffold.slice(end);
   }
 
   // Renders mont_pro_product_f32_22_sos3uv3.template.wgsl. The .wgsl owns

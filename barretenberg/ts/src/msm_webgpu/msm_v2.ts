@@ -22,7 +22,7 @@
 // within a bucket) — both hold for an SRS basis. The C++ webgpu_msm hook enforces
 // this by delegating only when handle_edge_cases is false.
 
-import { ShaderManager } from './cuzk/shader_manager.js';
+import { ShaderManager, type MontMulVariant } from './cuzk/shader_manager.js';
 import { BN254_CURVE_CONFIG } from './cuzk/curve_config.js';
 import { compute_misc_params } from './cuzk/utils.js';
 import { BN254_BASE_FIELD, addBn254Points, type Bn254Point, modInverse } from './cuzk/bn254.js';
@@ -65,6 +65,9 @@ export interface MsmConfig {
   l0Log?: number;
   /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
   invVariant?: 'loop' | 'pk';
+  /** Base-field Montgomery-multiply body. Default 'karat'; 'cios_unrolled' is the
+   *  device-validated register-resident CIOS variant (−26% on Mali-G715, BN254 only). */
+  montmul?: MontMulVariant;
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
@@ -1366,6 +1369,7 @@ export class MsmV2 {
   private l0Log!: number;
   private reduceWg!: number;
   private invVariant!: 'loop' | 'pk';
+  private montmul!: MontMulVariant;
   private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
   private jacobianCrossover = 0;
@@ -1601,6 +1605,7 @@ export class MsmV2 {
     m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
+    m.montmul = config?.montmul ?? 'karat';
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
@@ -1619,7 +1624,7 @@ export class MsmV2 {
     const misc = compute_misc_params(FP, 13);
     m.R = misc.r;
     m.rinv = misc.rinv;
-    const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false);
+    const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false, m.montmul);
 
     // Bind a prefix of the shared, already-Montgomery-converted SRS pool. The
     // level-0 kernels index points by `val_idx < n`, so a pool with srsN >= n
