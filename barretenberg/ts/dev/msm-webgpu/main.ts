@@ -89,6 +89,7 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
+    montmul: q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
 })();
@@ -1453,7 +1454,70 @@ function hideProgress(): void {
   // can pick them up from JSONL.
   const qp = new URLSearchParams(window.location.search);
   const autorun = qp.get('autorun');
-  if (autorun === 'msm-bench') {
+  if (autorun === 'msm-bench' && qp.get('no_wasm') === '1') {
+    // FAST GPU-ONLY BENCH (fastbench harness).
+    // ONE page load → generateInputs once → `reps` timed GPU runs via
+    // runWebGpuOnce directly. No WASM boot, no cross-check, no per-rep
+    // page reload. Per-rep wall-time is read straight from runWebGpuOnce's
+    // return value (the same `[gpu] returned in N ms` number), so the
+    // capture is reliable — no log-scraping race. Gates on SRS only
+    // (srsBuf !== null), so it runs without COI/SharedArrayBuffer.
+    // Fully additive: leaves the existing msm-bench (cross-check) path
+    // and the msm-cross-check path untouched.
+    const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const client = makeResultsClient({ page: 'msm-bench' });
+    log('info', `[bench] GPU-ONLY (no_wasm=1) logN=${autorunLogN} reps=${reps}`);
+    try {
+      // Wait for SRS ready (no WASM/COI dependency).
+      for (let i = 0; i < 1200; i++) {
+        if (srsBuf !== null) break;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      $logn.value = String(autorunLogN);
+      $logn.dispatchEvent(new Event('input'));
+      // Generate inputs ONCE (honours ?scalar_dist / ?profile).
+      const inputs = await generateInputs(autorunLogN, false);
+      // One warm-up run (builds + warms MsmV2 — outside the timed loop).
+      log('info', `[bench] warmup run`);
+      await runWebGpuOnce(inputs);
+      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
+      for (let r = 0; r < reps; r++) {
+        const gpu = await runWebGpuOnce(inputs);
+        const wallMs = gpu.ms;
+        samples.push({ wallMs, gpuMs: 0, phases: {} });
+        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms`);
+      }
+      const walls = samples.map(s => s.wallMs);
+      const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const med = (arr: number[]) => { const s = [...arr].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
+      const avgWall = avg(walls);
+      const medWall = med(walls);
+      (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
+      log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
+        `wall median=${medWall.toFixed(1)}ms avg=${avgWall.toFixed(1)}ms ` +
+        `samples=[${walls.map(w => w.toFixed(1)).join(', ')}]`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true },
+        results: { samples, averages: { wallMs: avgWall, gpuMs: 0 }, medianWallMs: medWall },
+        error: null,
+        log: allLines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[bench] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[bench] FATAL: ${msg}`);
+      const allLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
+      await client.postResults({ state: 'error', params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true }, results: null, error: msg, log: allLines.slice(-100), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+    }
+  } else if (autorun === 'msm-bench') {
     const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
     const reps = parseInt(qp.get('reps') ?? '5', 10);
     const client = makeResultsClient({ page: 'msm-bench' });
