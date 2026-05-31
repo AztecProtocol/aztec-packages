@@ -700,7 +700,24 @@ ${packLines.join('\n')}
   public gen_montgomery_product_f32_22_sos3uv3_shader(): string {
     const N = this.num_limbs_f32_22;
     const W_INV_VAL = 2.384185791015625e-7;
-    const n0Num = Number(this.n0_f32_22);
+    // PER-LIMB Montgomery n0 = -p^-1 mod 2^22 (= 418697 for BN254). The 22-bit
+    // CIOS reduction needs the per-limb n0, NOT compute_misc_params(p,22).n0
+    // (which is the full-width -p^-1 mod R, a 256-bit value — using it here
+    // produced a garbage f32 and a non-bit-exact multiply). Host-validated in
+    // fp22work/native22_host.mjs (montmul_native22_R264, 320k+ trials).
+    const modinvPow2 = (a: bigint, k: bigint): bigint => {
+      const m = 1n << k;
+      let [oldR, r] = [((a % m) + m) % m, m];
+      let [oldS, s] = [1n, 0n];
+      while (r) {
+        const q = oldR / r;
+        [oldR, r] = [r, oldR - q * r];
+        [oldS, s] = [s, oldS - q * s];
+      }
+      return ((oldS % m) + m) % m;
+    };
+    const n0PerLimb = ((1n << 22n) - modinvPow2(this.p, 22n)) % (1n << 22n);
+    const n0Num = Number(n0PerLimb);
     const n0Scaled = n0Num * W_INV_VAL;
 
     // Slot init for iter 0: tlo[0] = init_slot0, everything else 0.
