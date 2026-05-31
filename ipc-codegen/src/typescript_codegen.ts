@@ -397,7 +397,7 @@ ${syncApiMethods}
     const msgpackCommand = from${cmdType}(command);
     return msgpackCall(this.backend, [["${command.name}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
       if (variantName === '${this.errorTypeName}') {
-        throw new Error(result.message || 'Unknown error from server');
+        throw this.createError(result.message || 'Unknown error from server');
       }
       if (variantName !== '${command.responseType}') {
         throw new Error(\`Expected variant name '${command.responseType}' but got '\${variantName}'\`);
@@ -416,7 +416,7 @@ ${syncApiMethods}
     const msgpackCommand = from${cmdType}(command);
     const [variantName, result] = msgpackCall(this.backend, [["${command.name}", msgpackCommand]]);
     if (variantName === '${this.errorTypeName}') {
-      throw new Error(result.message || 'Unknown error from server');
+      throw this.createError(result.message || 'Unknown error from server');
     }
     if (variantName !== '${command.responseType}') {
       throw new Error(\`Expected variant name '${command.responseType}' but got '\${variantName}'\`);
@@ -443,6 +443,8 @@ export interface IpcClientAsync {
   destroy(): Promise<void>;
 }
 
+export type IpcErrorFactory = (message: string) => Error;
+
 async function msgpackCall(backend: IpcClientAsync, input: any[]) {
   const inputBuffer = new Encoder({ useRecords: false, variableMapSize: true }).pack(input);
   const encodedResult = await backend.call(inputBuffer);
@@ -450,7 +452,10 @@ async function msgpackCall(backend: IpcClientAsync, input: any[]) {
 }
 
 export class AsyncApi implements AsyncApiBase {
-  constructor(protected backend: IpcClientAsync) {}
+  constructor(
+    protected backend: IpcClientAsync,
+    protected createError: IpcErrorFactory = message => new Error(message),
+  ) {}
 
 ${methods}
 
@@ -479,6 +484,8 @@ export interface IpcClientSync {
   destroy(): void;
 }
 
+export type IpcErrorFactory = (message: string) => Error;
+
 function msgpackCall(backend: IpcClientSync, input: any[]) {
   const inputBuffer = new Encoder({ useRecords: false, variableMapSize: true }).pack(input);
   const encodedResult = backend.call(inputBuffer);
@@ -486,7 +493,10 @@ function msgpackCall(backend: IpcClientSync, input: any[]) {
 }
 
 export class SyncApi implements SyncApiBase {
-  constructor(protected backend: IpcClientSync) {}
+  constructor(
+    protected backend: IpcClientSync,
+    protected createError: IpcErrorFactory = message => new Error(message),
+  ) {}
 
 ${methods}
 
