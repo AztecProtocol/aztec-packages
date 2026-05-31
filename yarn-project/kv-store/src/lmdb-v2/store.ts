@@ -249,7 +249,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     };
   }
 
-  private async sendGeneratedMessage<T extends LMDBMessageType>(
+  private sendGeneratedMessage<T extends LMDBMessageType>(
     msgType: T,
     body: LMDBRequestBody[T],
   ): Promise<LMDBResponseBody[T]> {
