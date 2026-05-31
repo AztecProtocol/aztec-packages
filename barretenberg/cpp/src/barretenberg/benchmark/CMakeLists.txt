@@ -1,6 +1,7 @@
 add_subdirectory(basics_bench)
 add_subdirectory(decrypt_bench)
 add_subdirectory(goblin_bench)
+add_subdirectory(mega_sumcheck_bench)
 add_subdirectory(ipa_bench)
 add_subdirectory(ipc_bench)
 add_subdirectory(pippenger_bench)
