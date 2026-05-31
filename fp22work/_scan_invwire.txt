@@ -1,0 +1,24 @@
+cuzk/shader_manager.ts:35: // byl_reduce_to_canonical chain, and the fr_inv_by_loop driver.
+cuzk/shader_manager.ts:36: by_inverse_loop as by_inverse_loop_funcs,
+cuzk/shader_manager.ts:492: const inverse_funcs = by_inverse_loop_funcs;
+cuzk/shader_manager.ts:493: const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+cuzk/shader_manager.ts:511: field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+cuzk/shader_manager.ts:841: const inverse_funcs = by_inverse_loop_funcs;
+cuzk/shader_manager.ts:842: const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+cuzk/shader_manager.ts:860: field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+cuzk/shader_manager.ts:942: const inverse_funcs = by_inverse_loop_funcs;
+cuzk/shader_manager.ts:943: const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+cuzk/shader_manager.ts:960: field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+cuzk/shader_manager.ts:974: const inverse_funcs = by_inverse_loop_funcs;
+cuzk/shader_manager.ts:975: const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+cuzk/shader_manager.ts:993: field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+wgsl/cuzk/ba_reduce_level_bench.template.wgsl:7: {{> inverse_funcs }}
+wgsl/cuzk/ba_stream_walker.template.wgsl:7: {{> inverse_funcs }}
+wgsl/cuzk/ba_unified_combine.template.wgsl:7: {{> inverse_funcs }}
+wgsl/cuzk/ba_walker_combine_batched.template.wgsl:7: {{> inverse_funcs }}
+wgsl/field/by_inverse_loop.template.wgsl:5: //   fr_inv_by_loop(a: BigInt) -> BigInt  — Montgomery-form inverse of `a`.
+wgsl/field/by_inverse_loop.template.wgsl:334: // fr_inv_by_loop: Bernstein-Yang safegcd inverse driver. BATCH=26,
+wgsl/field/by_inverse_loop.template.wgsl:339: fn fr_inv_by_loop(a: BigInt) -> BigInt {
+wgsl/field/by_inverse_loop.template.wgsl:382: // PACKED safegcd inverse (fr_inv_by_loop_pk). Same Bernstein-Yang algorithm
+wgsl/field/by_inverse_loop.template.wgsl:383: // and arithmetic as fr_inv_by_loop, but f,g,d,e,p are stored 2x13-bit limbs
+wgsl/field/by_inverse_loop.template.wgsl:638: fn fr_inv_by_loop_pk(a: BigInt) -> BigInt {

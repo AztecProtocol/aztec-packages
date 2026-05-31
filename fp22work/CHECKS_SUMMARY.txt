@@ -1,0 +1,12 @@
+=== fp22-native full check run Sun 31 May 2026 16:35:57 PDT ===
+[1] inline-wgsl rc=0 : Wrote /Users/zac/localclaudebox/wt-fp22n/barretenberg/ts/src/msm_webgpu/wgsl/_generated/shaders.ts with 49 shaders.
+[3] render-probe rc=0 :
+    SERVED_NATIVE=false
+    HAS_FP22_MADD=true
+    RBODY_LEN=101943
+[4] native_montmul_host = PASS
+[4] ec_affine_264_bridge = PASS
+[4] inverse_R3_264 = PASS
+[4] full_pipeline_domain = PASS
+[5] tsc = PASS (no errors)
+=== DONE ===

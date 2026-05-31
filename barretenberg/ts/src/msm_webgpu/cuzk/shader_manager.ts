@@ -66,6 +66,7 @@ import {
   gen_wgsl_limbs_code,
 } from './utils.js';
 import { BN254_CURVE_CONFIG, CurveConfig } from './curve_config.js';
+import { genFp22NativeMontgomeryProductBody } from './fp22_native_montmul.js';
 
 // Modular inverse via extended Euclidean. Returns a^-1 mod m. Both inputs > 0.
 function modinv(a: bigint, m: bigint): bigint {
@@ -87,7 +88,12 @@ function modinv(a: bigint, m: bigint): bigint {
 //  - 'karat'         : generic grouped-Karatsuba + Yuval reduction (default).
 //  - 'cios_unrolled' : register-resident fully-unrolled CIOS; device-validated
 //                      −26% on Mali-G715 at logn=17. BN254 @ 20×13-bit only.
-export type MontMulVariant = 'karat' | 'cios_unrolled';
+//  - 'fp22native'    : native 12×22-bit limb CIOS, R=2^264 throughout (NO 13-bit
+//                      arithmetic, NO 2^260, NO domain correction). The walker's
+//                      multiplies AND the safegcd inverse's internal multiplies
+//                      both become native-264; only the inverse R³ fold constant
+//                      flips to (2^264)³ mod p. BN254 @ 20×13-bit BigInt storage.
+export type MontMulVariant = 'karat' | 'cios_unrolled' | 'fp22native';
 
 export class ShaderManager {
   public p: bigint;
@@ -171,6 +177,18 @@ export class ShaderManager {
     this.num_words = params.num_words;
     this.r = params.r;
     this.rinv = params.rinv;
+    // fp22native runs the WHOLE pipeline in the R = 2^264 Montgomery domain (the
+    // native 12×22 multiply computes a·b·2^-264). The default 20×13 pipeline uses
+    // R = 2^(20·13) mod p = 2^260; mixing a 2^260 entry with a 2^-264 multiply is
+    // a domain mismatch (proven in fp22work/verify_full_pipeline_domain.mjs:
+    // R260-entry + native-264-mul FAILs, R264-entry + native-264-mul PASSes).
+    // Overriding this.r here makes EVERY R-derived constant below — the to-Mont
+    // entry scale (r_limbs), the inverse R³ fold (r_cubed_limbs), and decompress's
+    // 3·R (b3_mont_limbs) — coherently 2^264. ONE radix end-to-end; no per-op fixup.
+    if (montmul === 'fp22native') {
+      this.r = (1n << 264n) % this.p;
+      this.rinv = modinv(this.r, this.p);
+    }
     this.mask = 2 ** this.word_size - 1;
     this.index_shift = 2 ** (chunk_size - 1);
     this.two_pow_word_size = 2 ** this.word_size;
@@ -215,7 +233,15 @@ export class ShaderManager {
     // u32 multiplier used by every MSM shader that includes the
     // `montgomery_product_funcs` mustache partial.
     this.mont_product_src =
-      montmul === 'cios_unrolled' ? this.renderCiosUnrolledMont() : this.renderKaratYuvalMont();
+      montmul === 'cios_unrolled'
+        ? this.renderCiosUnrolledMont()
+        : montmul === 'fp22native'
+          ? this.renderFp22NativeMont()
+          : this.renderKaratYuvalMont();
+    // NOTE: for fp22native the R³ inverse fold (r_cubed_limbs), the to-Mont entry
+    // scale (r_limbs), and decompress's 3·R (b3_mont_limbs) are ALL already the
+    // coherent 2^264 values, because this.r was overridden to 2^264 mod p above
+    // before those constants were derived. No additional per-constant patch here.
 
     if (force_recompile) {
       const rand = Math.round(Math.random() * 100000000000000000) % 2 ** 32;
@@ -690,6 +716,43 @@ ${packLines.join('\n')}
     }
     if (end < 0) throw new Error('renderCiosUnrolledMont: brace-match failed');
     return scaffold.slice(0, start) + montgomery_product_cios_unrolled_funcs.trim() + '\n' + scaffold.slice(end);
+  }
+
+  // Native 12×22-bit (R=2^264) variant of the base-field multiply. Reuses the
+  // Karatsuba scaffold (get_p / conditional_reduce / NUM_WORDS / WORD_SIZE / MASK
+  // / N0) and brace-match-replaces ONLY the `fn montgomery_product` body with the
+  // native 12×22 R=2^264 multiply (exposed via a pure-bit-shuffle BigInt wrapper).
+  // Because the walker's `montgomery_product_f8` AND the safegcd inverse's final
+  // R³ fold both call `montgomery_product`, this swap makes the ENTIRE hot path
+  // native-264. No 13-bit arithmetic, no 2^260, no per-op correction. The BigInt
+  // storage stays 20×13-bit (the repack is just limb-format windowing on the same
+  // integer), so this is BN254 @ 20×13 only.
+  private renderFp22NativeMont(): string {
+    if (this.num_words !== 20 || this.word_size !== 13) {
+      throw new Error(
+        `montmul='fp22native' assumes BN254 20×13-bit BigInt storage; ` +
+          `got num_words=${this.num_words}, word_size=${this.word_size}`,
+      );
+    }
+    const scaffold = this.renderKaratYuvalMont();
+    const start = scaffold.indexOf('fn montgomery_product(');
+    if (start < 0) throw new Error('renderFp22NativeMont: fn montgomery_product not found in scaffold');
+    let depth = 0;
+    let end = -1;
+    for (let i = scaffold.indexOf('{', start); i < scaffold.length; i++) {
+      const ch = scaffold[i];
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+    if (end < 0) throw new Error('renderFp22NativeMont: brace-match failed');
+    const nativeBody = genFp22NativeMontgomeryProductBody(this.p).trim();
+    return scaffold.slice(0, start) + nativeBody + '\n' + scaffold.slice(end);
   }
 
   // Renders mont_pro_product_f32_22_sos3uv3.template.wgsl. The .wgsl owns

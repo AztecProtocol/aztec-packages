@@ -1,0 +1,5 @@
+Case CURRENT-WIRING (entry R260 + native-264 mul):  fails=20000  FAIL <-- domain mismatch
+Case COHERENT-NATIVE (entry R264 + native-264 mul): fails=0  PASS
+Case ORIGINAL        (entry R260 + R260 mul):       fails=0  PASS
+
+VERDICT: native-264 needs R264 ENTRY too. convert/decompress must scale by 2^264, not 2^260.

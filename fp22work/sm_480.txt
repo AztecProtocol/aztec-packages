@@ -1,0 +1,63 @@
+   * Reduction-stage level kernel. ONE kernel handles all three kinds
+   * (0 = phase-A suffix add, 1 = phase-B/D tree-add, 2 = phase-C double)
+   * via runtime branch on `lparams.w` — uniform across the workgroup, so
+   * the compiler specialises per-dispatch with no SIMT divergence.
+   */
+  public gen_ba_reduce_level_bench_shader(
+    workgroup_size: number,
+    variant: 'loop' | 'pk' = 'pk',
+    addsub: 'native' | 'unpack' = 'native',
+  ): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_level_bench_shader,
+      {
+        workgroup_size, inv_fn,
+        addsub_unpack: addsub === 'unpack',
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  // Renders mont_pro_product_karat_yuval.template.wgsl. The .wgsl file
+  // owns the algorithm structure (chunks → sums → 9 schoolbook
+  // sub-sub-products → inner combines → outer combine → Yuval reduce →
+  // final canonicalize) via mustache `{{#each}}` sections. The TS here
+  // just provides the index arrays + r_inv limb constants.
+  private renderKaratYuvalMont(): string {
+    const N = this.num_words; // 20
+    const WS = this.word_size; // 13
+    const W = 1n << BigInt(WS);
+
+    const r_inv = modinv(W, this.p);
+    const mask = W - 1n;
+    const limbs: number[] = [];
+    let v = r_inv;
+    for (let i = 0; i < N; i++) {
+      limbs.push(Number(v & mask));
+      v >>= BigInt(WS);
+    }
+    const r_inv_consts = limbs.map((val, idx) => ({ idx, val }));
+
+    // p limbs as individual constants — montgomery_product references them
+    // at compile-time positions so the compiler emits immediates instead of
+    // a 20-register live `p`. Same limb decomposition as `gen_p_limbs`.
+    const p_limb_vals: number[] = [];
+    let pv = this.p;

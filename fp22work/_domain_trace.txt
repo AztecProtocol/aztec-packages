@@ -1,0 +1,29 @@
+===== convert/decompress generators + r_limbs context =====
+37:  convert_points_only as convert_points_only_shader,
+41:  decompress_g1_bn254 as decompress_g1_bn254_shader,
+115:  public r_limbs: string;
+312:  public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number, packed = false): string {
+317:      convert_points_only_shader,
+330:        r_limbs: this.r_limbs,
+352:  public gen_decompress_g1_bn254_shader(workgroup_size: number): string {
+354:      decompress_g1_bn254_shader,
+364:        r_limbs: this.r_limbs,
+524:        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+871:        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+910:        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+1010:        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+1043:        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+
+===== which generators feed r_limbs (the to-Mont scale) =====
+[312]   public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number, packed = false): string {
+[316]     return mustache.render(
+[317]       convert_points_only_shader,
+[330]         r_limbs: this.r_limbs,
+[352]   public gen_decompress_g1_bn254_shader(workgroup_size: number): string {
+[353]     return mustache.render(
+[354]       decompress_g1_bn254_shader,
+[364]         r_limbs: this.r_limbs,
+[385]   public gen_decompose_scalars_booth_shader(workgroup_size: number): string {
+[386]     return mustache.render(decompose_scalars_booth_shader, { workgroup_size, recompile: this.recompile }, {});
+[389]   public gen_transpose_scan_shader(workgroup_size: number): string {
+[390]     return mustache.render(transpose_parallel_scan_shader, {

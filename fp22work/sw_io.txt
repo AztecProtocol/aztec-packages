@@ -1,0 +1,38 @@
+34: // params.x = NUM_THREADS
+35: // params.y = IDLE_ANCHOR (index into l0_index for the non-zero-dx pad trio)
+57: @group(0) @binding(7) var<storage, read_write> red_buf:            array<vec4<u32>>;
+58: @group(0) @binding(8) var<storage, read_write> partials_buf:       array<vec4<u32>>;
+59: @group(0) @binding(9) var<storage, read_write> partial_dest:       array<u32>;
+61: // batch_offset.x = bi * batchWindows — added to local window index when
+62: // computing red_slot so each batch's red_buf writes land in its globally
+73: // Adjacent threads (t, t+1) at same slot k write addresses 32 bytes apart
+76: // layout), letting the GPU coalesce the writes into a single transaction.
+78: fn load_pt_x(cursor: u32) -> array<u32, 8> {
+86: fn load_pt_y(cursor: u32) -> array<u32, 8> {
+97: fn store_pref(k: u32, t: u32, pref_off: u32, k_stride: u32, val: array<u32, 8>) {
+103: fn load_pref(k: u32, t: u32, pref_off: u32, k_stride: u32) -> array<u32, 8> {
+110: fn store_bucket_sum(bucket_id: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
+124: fn store_partial(pslot: u32, bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
+245: let px = load_pt_x(start_cursor);
+246: let py = load_pt_y(start_cursor);
+248: store_partial(2u * (t * S + k) + 1u, eff_id, M_partials, px, py);
+251: store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
+292: p_rx = load_pt_x(rx_addr);
+294: p_lx = load_pt_x(select(cursor[k], IDLE_ANCHOR, sd_b == 1u));
+301: // by the inverter below, in-register. Skip its store_pref.
+303: store_pref(k, t, pref_off, k_stride, acc);
+313: //   (1) compute inv_dx[k], store to pref_scratch
+314: //   (2) reload inv_dx[k], do affine add
+316: // affine add. Eliminates 8 stores + 8 loads of pref_scratch per
+321: // X-coord loads (needed for both inv update and affine add).
+327: p_rx = load_pt_x(rx_addr);
+329: p_lx = load_pt_x(select(cursor[k], IDLE_ANCHOR, sd_b == 1u));
+336: // derived inv_dx mul, the Y-loads, and the lambda/r_x chain). This
+347: let pp = load_pref(k - 1u, t, pref_off, k_stride);
+357: // Y-coord loads + cursor advance.
+361: p_ry = load_pt_y(ry_addr);
+363: p_ly = load_pt_y(cursor[k]);
+387: store_partial(2u * (t * S + k) + 1u, sorted_bucket_list[cur_sorted[k]], M_partials, r_x, r_y);
+389: store_bucket_sum(sorted_bucket_list[cur_sorted[k]], r_x, r_y);
+394: store_partial(2u * (t * S + k) + 0u, sorted_bucket_list[cur_sorted[k]], M_partials, r_x, r_y);
+396: store_bucket_sum(sorted_bucket_list[cur_sorted[k]], r_x, r_y);

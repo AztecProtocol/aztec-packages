@@ -1,0 +1,3 @@
+R^3 = 4ff6950288432a11...
+native-264 inverse fold mp(d,R^3) == a^-1*R: trials=50000 fails=0
+RESULT: PASS — inverse bridges to 2^264 with ONLY the R^3 constant flipped

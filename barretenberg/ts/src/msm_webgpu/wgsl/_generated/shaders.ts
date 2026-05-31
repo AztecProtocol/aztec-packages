@@ -4117,426 +4117,6 @@ fn extract_word_from_bytes_le(
 }
 `;
 
-export const foo = `{{> structs }}
-{{> bigint_funcs }}
-{{> montgomery_product_funcs }}
-{{> field_funcs }}
-{{> fr_pow_funcs }}
-{{> bigint_by_funcs }}
-{{> inverse_funcs }}
-
-{{{ dec_unpack }}}
-
-{{{ dec_pack }}}
-
-{{> field8_funcs }}
-
-// Per-thread bucket-monotonic stream-walker (replaces ba_stream_accum's
-// queue model). Each of NUM_THREADS threads owns a contiguous slice of the
-// sorted bucket stream (from thread_cuts), splits it into S equal-work
-// tasks, and runs S pair-pointer slots through one field inversion per S
-// adds — the same batched-inversion inner loop as ba_stream_accum.
-//
-// DESIGN-KNOB VARIATION (thread C):
-//   KNOB 1: pref_scratch lives in var<workgroup> (16 KB at TPB=64), not a
-//           device storage buffer; accumulators live in private registers.
-//           No cross-thread sharing, so no workgroup barrier in the loop.
-//   KNOB 2: task cut points are precomputed by ba_planner_partition_task and
-//           read from \`task_cuts\`; the walker does no binary search at init.
-//
-// Retirement: a bucket fully consumed within one task retires to
-// bucket_sums; a bucket spanning a task/thread boundary retires its piece to
-// partials_buf at a deterministic slot and records its bucket id in
-// partial_dest. A thread's slot k owns partial slots 2*(t*S+k)+{0,1}
-// (split-start completion, task-end). The host sums partials per bucket.
-//
-// params.x = NUM_THREADS
-// params.y = IDLE_ANCHOR (index into l0_index for the non-zero-dx pad trio)
-// params.z = M_buckets  (bucket_sums plane stride = B_TOTAL)
-// params.w = M_partials (partials_buf plane stride = 2 * NUM_THREADS * S)
-
-const S: u32 = {{ s }}u;
-const CUTS: u32 = S + 1u;
-const TPB: u32 = {{ workgroup_size }}u;
-const PG: u32 = 2u;
-const L0_SIGN_BIT: u32 = 0x80000000u;
-const L0_IDX_MASK: u32 = 0x7fffffffu;
-const NO_BUCKET: u32 = 0xffffffffu;
-
-@group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
-@group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
-@group(0) @binding(2) var<storage, read>       offsets:            array<u32>;
-@group(0) @binding(3) var<storage, read>       task_cuts:          array<u32>;
-@group(0) @binding(4) var<storage, read>       l0_index:           array<u32>;
-@group(0) @binding(5) var<storage, read>       point_x:            array<vec4<u32>>;
-@group(0) @binding(6) var<storage, read>       point_y:            array<vec4<u32>>;
-@group(0) @binding(7) var<storage, read_write> bucket_sums:        array<vec4<u32>>;
-@group(0) @binding(8) var<storage, read_write> partials_buf:       array<vec4<u32>>;
-@group(0) @binding(9) var<storage, read_write> partial_dest:       array<u32>;
-@group(0) @binding(10) var<uniform>            params:             vec4<u32>;
-
-// KNOB 1: workgroup-shared prefix scratch. Each thread uses its own
-// [local_id*S .. local_id*S + S) region (2 vec4 per slot), so there is no
-// cross-thread aliasing and no barrier is needed. 16 KB at TPB=64.
-var<workgroup> pref_scratch: array<vec4<u32>, TPB * S * 2u>;
-
-// PATH B: per-slot acc_y in workgroup memory (16 KB at TPB=64, S=8),
-// same per-thread layout as pref_scratch. Drops ~64 u32 of carried
-// per-thread state vs the private \`array<array<u32,8>, S>\` layout.
-// Combined with pref_scratch this brings workgroup-mem usage to
-// exactly 32 KB — the M2 budget at TPB=64.
-var<workgroup> acc_y_scratch: array<vec4<u32>, TPB * S * 2u>;
-
-fn load_acc_y(slot_base: u32) -> array<u32, 8> {
-    let q0 = acc_y_scratch[slot_base + 0u];
-    let q1 = acc_y_scratch[slot_base + 1u];
-    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
-}
-
-fn store_acc_y(slot_base: u32, val: array<u32, 8>) {
-    acc_y_scratch[slot_base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
-    acc_y_scratch[slot_base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
-}
-
-fn load_pt_x(cursor: u32) -> array<u32, 8> {
-    let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
-    let q0 = point_x[2u * pt];
-    let q1 = point_x[2u * pt + 1u];
-    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
-}
-
-fn load_pt_y(cursor: u32) -> array<u32, 8> {
-    let packed = l0_index[cursor];
-    let pt = packed & L0_IDX_MASK;
-    let q0 = point_y[2u * pt];
-    let q1 = point_y[2u * pt + 1u];
-    let y = array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
-    if ((packed & L0_SIGN_BIT) == 0u) { return y; }
-    let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
-    return fr_sub_f8(zero, y);
-}
-
-fn store_pref(base: u32, val: array<u32, 8>) {
-    pref_scratch[base + 0u] = vec4<u32>(val[0], val[1], val[2], val[3]);
-    pref_scratch[base + 1u] = vec4<u32>(val[4], val[5], val[6], val[7]);
-}
-
-fn load_pref(base: u32) -> array<u32, 8> {
-    let q0 = pref_scratch[base + 0u];
-    let q1 = pref_scratch[base + 1u];
-    return array<u32, 8>(q0.x, q0.y, q0.z, q0.w, q1.x, q1.y, q1.z, q1.w);
-}
-
-fn store_bucket_sum(bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
-    let bx = PG * bucket_id;
-    bucket_sums[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
-    bucket_sums[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
-    let by = PG * M + PG * bucket_id;
-    bucket_sums[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
-    bucket_sums[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
-}
-
-fn store_partial(pslot: u32, bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
-    let bx = PG * pslot;
-    partials_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
-    partials_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
-    let by = PG * M + PG * pslot;
-    partials_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
-    partials_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
-    partial_dest[pslot] = bucket_id;
-}
-
-@compute @workgroup_size({{ workgroup_size }})
-fn main(@builtin(global_invocation_id) gid: vec3<u32>,
-        @builtin(local_invocation_id) lid: vec3<u32>) {
-    let t = gid.x;
-    let l = lid.x;
-    let NUM_THREADS = params.x;
-    let IDLE_ANCHOR = params.y;
-    let M_buckets = params.z;
-    let M_partials = params.w;
-
-    if (t >= NUM_THREADS) { return; }
-
-    let pref_base = l * S * 2u;
-    let cut_base = t * CUTS * 2u;
-
-    // Per-slot state (private). acc lives in registers (plan §7.1). The task
-    // end is tracked as (sorted index, l0 cursor within that bucket) — NOT a
-    // bare l0 cursor — because l0 positions are not monotonic across sorted
-    // buckets, so a raw cursor>=task_end test would be meaningless once a
-    // multi-bucket task walks into a bucket whose l0 region precedes the end.
-    var cursor:         array<u32, {{ s }}>;   // l0_index point position
-    var bucket_end:     array<u32, {{ s }}>;   // l0 position past current bucket
-    var task_end_sort:  array<u32, {{ s }}>;   // sorted index of the task's last bucket
-    var task_end_cur:   array<u32, {{ s }}>;   // l0 position past the task within that bucket
-    var cur_sorted:     array<u32, {{ s }}>;   // index into sorted_bucket_list
-    var cur_bucket:     array<u32, {{ s }}>;   // bucket id (for bucket_sums)
-    // Bit k of each mask is the per-slot flag for slot k. Packing the three
-    // S-wide flag arrays into single u32s drops 3*(S-1)=21 u32 of carried
-    // per-thread state at S=8, the register-pressure relief that lets the
-    // compiler keep the loop register-resident instead of spilling.
-    var is_first_mask:    u32 = 0u;
-    var slot_done_mask:   u32 = 0u;
-    var split_start_mask: u32 = 0u;
-    var acc_x:          array<array<u32, 8>, {{ s }}>;
-    // acc_y lives in workgroup memory (acc_y_scratch); see load_acc_y/store_acc_y.
-
-    // Initialise slots from precomputed task cuts (KNOB 2).
-    for (var k: u32 = 0u; k < S; k = k + 1u) {
-        partial_dest[2u * (t * S + k) + 0u] = NO_BUCKET;
-        partial_dest[2u * (t * S + k) + 1u] = NO_BUCKET;
-
-        let sb = task_cuts[cut_base + k * 2u + 0u];
-        let so = task_cuts[cut_base + k * 2u + 1u];
-        let eb = task_cuts[cut_base + (k + 1u) * 2u + 0u];
-        let eo = task_cuts[cut_base + (k + 1u) * 2u + 1u];
-
-        let sb_id = sorted_bucket_list[sb];
-        let sb_base = offsets[sb_id];
-        let sb_count = sorted_count_list[sb];
-
-        // Start cursor. so==0 → fresh at the bucket's first point. so in
-        // (0,count-1) → continuation beginning at point so+1. so==count-1 →
-        // bucket sb is wholly the prior piece's, so this begins fresh at the
-        // next bucket.
-        var eff_sorted = sb;
-        var eff_id = sb_id;
-        var eff_base = sb_base;
-        var eff_count = sb_count;
-        var start_cursor: u32;
-        if (so == 0u) {
-            start_cursor = sb_base;
-        } else if (so + 1u < sb_count) {
-            start_cursor = sb_base + so + 1u;
-            split_start_mask |= (1u << k);
-        } else {
-            eff_sorted = sb + 1u;
-            eff_id = sorted_bucket_list[eff_sorted];
-            eff_base = offsets[eff_id];
-            eff_count = sorted_count_list[eff_sorted];
-            start_cursor = eff_base;
-        }
-
-        // Task end. eo>0 → last bucket is eb, ending past point eo. eo==0 →
-        // the task stops at the end of bucket eb-1 (it does not touch eb).
-        var te_sort: u32;
-        var te_cur: u32;
-        if (eo > 0u) {
-            te_sort = eb;
-            te_cur = offsets[sorted_bucket_list[eb]] + eo + 1u;
-        } else if (eb > 0u) {
-            te_sort = eb - 1u;
-            let pid = sorted_bucket_list[te_sort];
-            te_cur = offsets[pid] + sorted_count_list[te_sort];
-        } else {
-            te_sort = 0u;
-            te_cur = 0u;
-        }
-
-        cursor[k] = start_cursor;
-        bucket_end[k] = eff_base + eff_count;
-        task_end_sort[k] = te_sort;
-        task_end_cur[k] = te_cur;
-        cur_sorted[k] = eff_sorted;
-        cur_bucket[k] = eff_id;
-        is_first_mask |= (1u << k);
-
-        // Empty task (region-aware): the start is at or past the task end.
-        if (eff_sorted > te_sort || (eff_sorted == te_sort && start_cursor >= te_cur)) {
-            slot_done_mask |= (1u << k);
-            continue;
-        }
-
-        // Single-point leading segment. The is_first step consumes two points,
-        // so a piece with one point before its first boundary can't go through
-        // it. Dense buckets have count>=2, so this only arises for a split
-        // continuation landing on a bucket's last point.
-        var seg_end = bucket_end[k];
-        if (eff_sorted == te_sort) { seg_end = te_cur; }
-        if (((split_start_mask >> k) & 1u) == 1u && seg_end - start_cursor == 1u) {
-            let px = load_pt_x(start_cursor);
-            let py = load_pt_y(start_cursor);
-            if (eff_sorted == te_sort) {
-                store_partial(2u * (t * S + k) + 1u, eff_id, M_partials, px, py);
-                slot_done_mask |= (1u << k);
-            } else {
-                store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
-                let nxt = eff_sorted + 1u;
-                let nxt_id = sorted_bucket_list[nxt];
-                let nxt_base = offsets[nxt_id];
-                cur_sorted[k] = nxt;
-                cur_bucket[k] = nxt_id;
-                bucket_end[k] = nxt_base + sorted_count_list[nxt];
-                cursor[k] = nxt_base;
-                split_start_mask &= ~(1u << k);
-                if (nxt > te_sort) { slot_done_mask |= (1u << k); }
-            }
-        }
-    }
-
-    let ALL_DONE_MASK: u32 = (1u << S) - 1u;
-    loop {
-        if (slot_done_mask == ALL_DONE_MASK) { break; }
-
-        // Forward prefix of dx across the S slots (idle slots use the pad
-        // trio so the product stays invertible), exactly as ba_stream_accum.
-        var acc: array<u32, 8> = get_r_f8();
-        for (var k: u32 = 0u; k < S; k = k + 1u) {
-            let kbit: u32 = 1u << k;
-            let is_idle = (slot_done_mask & kbit) != 0u;
-            let is_lead = (is_first_mask & kbit) != 0u;
-            var p_lx: array<u32, 8>;
-            var p_rx: array<u32, 8>;
-            if (is_idle) {
-                p_lx = load_pt_x(IDLE_ANCHOR);
-                p_rx = load_pt_x(IDLE_ANCHOR + 1u);
-            } else if (is_lead) {
-                p_lx = load_pt_x(cursor[k]);
-                p_rx = load_pt_x(cursor[k] + 1u);
-            } else {
-                p_lx = acc_x[k];
-                p_rx = load_pt_x(cursor[k]);
-            }
-            let dx = fr_sub_f8(p_rx, p_lx);
-            if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
-            // prefix[S-1] (== \`acc\`) is only consumed in-register by the
-            // inverter below; the merged inverse/peel pass reads
-            // prefix[0..S-2]. Skip the final wg-mem store.
-            if (k + 1u < S) { store_pref(pref_base + k * 2u, acc); }
-        }
-
-        var acc20 = unpack256_to_limbs(acc);
-        var inv20 = {{ inv_fn }}(acc20);
-        var inv = pack_limbs_to_256(&inv20);
-
-        // Fused inverse + backward peel. The two loops both iterate
-        // k = S-1 ... 0, so we merge them and stage the work so each
-        // variable's live range is as short as possible — Apple's GPU
-        // compiler doesn't always shorten ranges by itself.
-        //
-        // Phase order per k:
-        //   1. Load operand X coords (needed by inv-chain dx_k).
-        //   2. Update the running inverse (consumes p_lx/p_rx, dies).
-        //   3. Idle slots exit here — they exist only to contribute
-        //      dx_k to the inv chain, no affine add.
-        //   4. Load operand Y coords (only now do we need them).
-        //   5. Affine add → r_x, r_y.
-        //   6. Bookkeeping: retire / advance bucket / carry acc.
-        for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
-            let k = S - 1u - jj;
-            let kbit: u32 = 1u << k;
-            let is_idle = (slot_done_mask & kbit) != 0u;
-            let is_lead = (is_first_mask & kbit) != 0u;
-
-            // Phase 1: X-coord loads. Cursor unchanged here.
-            var p_lx: array<u32, 8>;
-            var p_rx: array<u32, 8>;
-            if (is_idle) {
-                p_lx = load_pt_x(IDLE_ANCHOR);
-                p_rx = load_pt_x(IDLE_ANCHOR + 1u);
-            } else if (is_lead) {
-                p_lx = load_pt_x(cursor[k]);
-                p_rx = load_pt_x(cursor[k] + 1u);
-            } else {
-                p_lx = acc_x[k];
-                p_rx = load_pt_x(cursor[k]);
-            }
-
-            // Phase 2: inv_dx[k] = inv * prefix[k-1]; running inverse
-            // *= dx_k for the next iter. At k=0 there is no next iter
-            // so we skip the advance. After this, dx (the temporary)
-            // is dead; for idle slots p_lx/p_rx are also dead.
-            var inv_dx: array<u32, 8>;
-            if (k == 0u) {
-                inv_dx = inv;
-            } else {
-                let pp = load_pref(pref_base + (k - 1u) * 2u);
-                inv_dx = montgomery_product_f8(inv, pp);
-                let dx = fr_sub_f8(p_rx, p_lx);
-                inv = montgomery_product_f8(inv, dx);
-            }
-
-            // Phase 3: idle slots' job is done — no affine add for them.
-            if (is_idle) { continue; }
-
-            // Phase 4: Y-coord loads + cursor advance. Deferred to here
-            // so p_ly/p_ry aren't sitting live across phase 2's mul.
-            var p_ly: array<u32, 8>;
-            var p_ry: array<u32, 8>;
-            if (is_lead) {
-                p_ly = load_pt_y(cursor[k]);
-                p_ry = load_pt_y(cursor[k] + 1u);
-                cursor[k] += 2u;
-            } else {
-                p_ly = load_acc_y(pref_base + k * 2u);
-                p_ry = load_pt_y(cursor[k]);
-                cursor[k] += 1u;
-            }
-
-            // Phase 5: affine add. Reuses p_lx/p_rx loaded in Phase 1.
-            var lambda = fr_sub_f8(p_ry, p_ly);
-            lambda = montgomery_product_f8(lambda, inv_dx);
-            // inv_dx + p_ry dead.
-            var r_x = montgomery_product_f8(lambda, lambda);
-            let x_sum = fr_add_f8(p_lx, p_rx);
-            r_x = fr_sub_f8(r_x, x_sum);
-            // x_sum + p_rx dead.
-            var r_y = fr_sub_f8(p_lx, r_x);
-            r_y = montgomery_product_f8(lambda, r_y);
-            // lambda dead.
-            r_y = fr_sub_f8(r_y, p_ly);
-            // p_lx + p_ly dead.
-
-            // Task end is region-aware: only the task's designated last bucket
-            // can trigger it (cursor is meaningful only within the current
-            // bucket's l0 region).
-            let task_done = (cur_sorted[k] == task_end_sort[k]) && (cursor[k] >= task_end_cur[k]);
-            let bucket_done = cursor[k] >= bucket_end[k];
-            let was_split_start = (split_start_mask & kbit) != 0u;
-
-   
-            let write_partial_and_buckets = (task_done | bucket_done);
-            let partial_idx = write_partial_and_buckets ? 2u * (t * S + k) + task_done : PARTIAL_UNUSED_IDX;
-            let bucket_idx = cur_bucket[k];
-            if (task_done) {
-                let is_partial = was_split_start || (cursor[k] < bucket_end[k]);
-                if (is_partial) {
-                    store_partial(2u * (t * S + k) + 1u, cur_bucket[k], M_partials, r_x, r_y);
-                } else {
-                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
-                }
-                slot_done_mask |= kbit;
-            } else if (bucket_done) {
-                if (was_split_start) {
-                    store_partial(2u * (t * S + k) + 0u, cur_bucket[k], M_partials, r_x, r_y);
-                } else {
-                    store_bucket_sum(cur_bucket[k], M_buckets, r_x, r_y);
-                }
-                // Advance to the next bucket within the task. Subsequent
-                // buckets always begin fresh (never split-start).
-                let nxt = cur_sorted[k] + 1u;
-                let nxt_id = sorted_bucket_list[nxt];
-                let nxt_base = offsets[nxt_id];
-                cur_sorted[k] = nxt;
-                cur_bucket[k] = nxt_id;
-                bucket_end[k] = nxt_base + sorted_count_list[nxt];
-                cursor[k] = nxt_base;
-                is_first_mask |= kbit;
-                split_start_mask &= ~kbit;
-            } else {
-                acc_x[k] = r_x;
-                store_acc_y(pref_base + k * 2u, r_y);
-                is_first_mask &= ~kbit;
-            }
-        }
-    }
-
-    {{{ recompile }}}
-}
-`;
-
 export const transpose_count_tiled = `// Parallel transpose — Phase 1 of 4: per-point-tile bucket histogram.
 //
 // Tiled counting-sort count. Dispatch (num_point_tiles, num_windows):
@@ -6122,223 +5702,6 @@ fn fr_inv_bgcd(a: BigInt) -> BigInt {
 }
 `;
 
-export const mont_pro_product_f32_22_sos3uv3 = `// 22-bit-limb f32 Montgomery product, sos3uv3 — chain breaking via
-// SEPARATE per-slot f32 accumulators (lo and hi).
-//
-// Inside the inner-j loop:
-//   - sos3uv2 had a single chain c_hi/c_lo flowing j → j+1 (serial).
-//   - sos3u32 used i32 accumulators (broken chain but slow int ops).
-//   - sos3uv3 uses TWO per-slot f32 accumulators (tlo[k], thi[k]).
-//     Each j writes UNIQUE tlo[j-1] and thi[j] — no overlap across j's,
-//     no carry chain. Stays in f32 throughout (no int conversions).
-//
-// Per-slot bound: tlo[k] = s_old[k+1] + 1 lo (≤ 2.5W). thi[k] = 1 hi
-// (≤ W). Combined at drain: 3.5W < 2²³·⁸ < 2²⁴ — fits f32 exactly.
-//
-// Drain at end of each outer iter: combine tlo[k] + thi[k] + carry,
-// floor-based bias_split, write canonical s[k]. Serial across cols.
-//
-// === Structure ===
-// Outer iter i=0 is unrolled (no shifted-in s values to read). Iters
-// 1..N-1 are in a runtime \`for\` loop with a separate slot_init that pulls
-// in s1..s11. Inner-j pairs and drain cols are mustache-expanded — keeps
-// the named locals (tlo0..tlo11, thi0..thi11) which Metal can register-
-// allocate instead of spilling to thread-private memory.
-
-const NUM_LIMBS: u32 = {{ num_limbs }}u;
-const N0: f32        = {{ n0 }};
-const N0_SCALED: f32 = {{ n0_scaled }};
-const TWO_W: f32     = 8388608.0;          // 2 * 2^22
-
-fn get_p_f32() -> BigIntF32 {
-    var p: BigIntF32;
-{{{ p_limbs_f32 }}}
-    return p;
-}
-
-fn bias_split_f32_le2w(x: f32) -> vec2<f32> {
-    let hi = step(W, x);
-    let lo = fma(-hi, W, x);
-    return vec2<f32>(hi, lo);
-}
-
-fn bias_split_f32_le4w(x: f32) -> vec2<f32> {
-    let hi = floor(x * W_INV);
-    let lo = fma(-hi, W, x);
-    return vec2<f32>(hi, lo);
-}
-
-fn mulhilo_sos3_corr(a: f32, a_scaled: f32, b: f32) -> vec2<f32> {
-    let hi_off_inner = fma(a_scaled, b, W);
-    let hi_off       = floor(hi_off_inner);
-    let neg_hi_w     = fma(-W, hi_off, BIAS);
-    let lo0          = fma(a, b, neg_hi_w);
-    let hi_pre       = hi_off - W;
-    let underflow    = step(lo0, -0.5);
-    let hi           = hi_pre - underflow;
-    let lo           = fma(underflow, W, lo0);
-    return vec2<f32>(hi, lo);
-}
-
-fn mulhilo_sos3_qi_lo(a: f32, b_scaled: f32, b: f32) -> f32 {
-    let hi_off_inner = fma(a, b_scaled, W);
-    let hi_off       = floor(hi_off_inner);
-    let neg_hi_w     = fma(-W, hi_off, BIAS);
-    let lo0          = fma(a, b, neg_hi_w);
-    let underflow    = step(lo0, -0.5);
-    let lo           = fma(underflow, W, lo0);
-    return lo;
-}
-
-fn mulhilo_sos3_2_v2(a: vec2<f32>, a_scaled: vec2<f32>, b: vec2<f32>) -> vec4<f32> {
-    let hi_off_inner = fma(a_scaled, b, vec2<f32>(W, W));
-    let hi_off       = floor(hi_off_inner);
-    let neg_hi_w     = fma(vec2<f32>(-W, -W), hi_off, vec2<f32>(BIAS, BIAS));
-    let lo           = fma(a, b, neg_hi_w);
-    return vec4<f32>(hi_off.x, lo.x, hi_off.y, lo.y);
-}
-
-fn montgomery_product_f32_unreduced(x: ptr<function, BigIntF32>, y: ptr<function, BigIntF32>) -> BigIntF32 {
-    var s0: f32  = 0.0;
-    var s1: f32  = 0.0;
-    var s2: f32  = 0.0;
-    var s3: f32  = 0.0;
-    var s4: f32  = 0.0;
-    var s5: f32  = 0.0;
-    var s6: f32  = 0.0;
-    var s7: f32  = 0.0;
-    var s8: f32  = 0.0;
-    var s9: f32  = 0.0;
-    var s10: f32 = 0.0;
-    var s11: f32 = 0.0;
-
-    var p = get_p_f32();
-
-    // ===== Outer iter i=0 (unrolled — s[*] all zero, no shift-in). =====
-    {
-        let x_i        = (*x).limbs[0];
-        let x_i_scaled = x_i * W_INV;
-        let xy0        = mulhilo_sos3_corr(x_i, x_i_scaled, (*y).limbs[0]);
-        let qi         = mulhilo_sos3_qi_lo(xy0.y, N0_SCALED, N0);
-        let qi_scaled  = qi * W_INV;
-
-        let c_cancel = step(0.5, xy0.y);
-        let qp0_lo   = c_cancel * (W - xy0.y);
-        let qp0_hi   = fma(qi, p.limbs[0], -qp0_lo) * W_INV;
-
-        // j=0's contribution to slot 0 (= position 1 unshifted).
-        let init_slot0 = xy0.x + qp0_hi + c_cancel;
-
-        // Slot init for iter 0: tlo[0] gets init_slot0; everything else 0.
-{{#slot_inits_i0}}
-        var {{name}}: f32 = {{init_expr}};
-{{/slot_inits_i0}}
-
-        let xq_scaled = vec2<f32>(x_i_scaled, qi_scaled);
-        let xq        = vec2<f32>(x_i, qi);
-
-        // Inner-j writes: pair (y[j], p[j]) mulhilo, lo to tlo[j-1], hi to thi[j].
-{{#inner_pairs}}
-        {
-            let mh = mulhilo_sos3_2_v2(xq, xq_scaled, vec2<f32>((*y).limbs[{{j}}u], p.limbs[{{j}}u]));
-            let lo_sum = mh.y + mh.w;
-            let hi_sum = mh.x + mh.z - TWO_W;
-            tlo{{km1}} = tlo{{km1}} + lo_sum;
-            thi{{k}}   = thi{{k}}   + hi_sum;
-        }
-{{/inner_pairs}}
-
-        // Drain: combine tlo[k]+thi[k]+carry, split. Serial across cols.
-        var carry: f32 = 0.0;
-{{#drain_cols}}
-        {
-            let sum = tlo{{k}} + thi{{k}} + carry;
-            let split = bias_split_f32_le4w(sum);
-            s{{k}} = split.y;
-            carry = split.x;
-        }
-{{/drain_cols}}
-    }
-
-    // ===== Outer iter i=1..NUM_LIMBS-1 (runtime loop). =====
-    for (var i = 1u; i < NUM_LIMBS; i = i + 1u) {
-        let x_i        = (*x).limbs[i];
-        let x_i_scaled = x_i * W_INV;
-
-        let xy0       = mulhilo_sos3_corr(x_i, x_i_scaled, (*y).limbs[0]);
-        let sum0      = s0 + xy0.y;
-        let sum0_s    = bias_split_f32_le2w(sum0);
-        let qi        = mulhilo_sos3_qi_lo(sum0_s.y, N0_SCALED, N0);
-        let qi_scaled = qi * W_INV;
-
-        let c_cancel = step(0.5, sum0_s.y);
-        let qp0_lo   = c_cancel * (W - sum0_s.y);
-        let qp0_hi   = fma(qi, p.limbs[0], -qp0_lo) * W_INV;
-
-        // j=0's contribution to slot 0 + s_old[1] shifted in.
-        let init_slot0 = xy0.x + qp0_hi + c_cancel + sum0_s.x;
-
-        // Slot init for i>=1: tlo[k] pulls in s[k+1] as the shifted carry.
-{{#slot_inits_general}}
-        var {{name}}: f32 = {{init_expr}};
-{{/slot_inits_general}}
-
-        let xq_scaled = vec2<f32>(x_i_scaled, qi_scaled);
-        let xq        = vec2<f32>(x_i, qi);
-
-{{#inner_pairs}}
-        {
-            let mh = mulhilo_sos3_2_v2(xq, xq_scaled, vec2<f32>((*y).limbs[{{j}}u], p.limbs[{{j}}u]));
-            let lo_sum = mh.y + mh.w;
-            let hi_sum = mh.x + mh.z - TWO_W;
-            tlo{{km1}} = tlo{{km1}} + lo_sum;
-            thi{{k}}   = thi{{k}}   + hi_sum;
-        }
-{{/inner_pairs}}
-
-        var carry: f32 = 0.0;
-{{#drain_cols}}
-        {
-            let sum = tlo{{k}} + thi{{k}} + carry;
-            let split = bias_split_f32_le4w(sum);
-            s{{k}} = split.y;
-            carry = split.x;
-        }
-{{/drain_cols}}
-    }
-
-    var s: BigIntF32;
-    s.limbs[0]  = s0;
-    s.limbs[1]  = s1;
-    s.limbs[2]  = s2;
-    s.limbs[3]  = s3;
-    s.limbs[4]  = s4;
-    s.limbs[5]  = s5;
-    s.limbs[6]  = s6;
-    s.limbs[7]  = s7;
-    s.limbs[8]  = s8;
-    s.limbs[9]  = s9;
-    s.limbs[10] = s10;
-    s.limbs[11] = s11;
-    return s;
-}
-
-fn montgomery_product_f32(x: ptr<function, BigIntF32>, y: ptr<function, BigIntF32>) -> BigIntF32 {
-    var s = montgomery_product_f32_unreduced(x, y);
-    var p = get_p_f32();
-    return conditional_reduce_f32(&s, &p);
-}
-
-fn conditional_reduce_f32(x: ptr<function, BigIntF32>, y: ptr<function, BigIntF32>) -> BigIntF32 {
-    if (bigint_f32_gt(x, y) || bigint_f32_eq(x, y)) {
-        var res: BigIntF32;
-        let _borrow = bigint_f32_sub(x, y, &res);
-        return res;
-    }
-    return *x;
-}
-`;
-
 export const mont_pro_product_cios_unrolled = `// === FULLY-UNROLLED CIOS Montgomery multiply — flagged variant (montmul=cios_unrolled) ===
 //
 // Device-validated alternative body for \`fn montgomery_product\` in the
@@ -6965,6 +6328,223 @@ fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>
     s.limbs[18u] = s18;
     s.limbs[19u] = s19;
     return conditional_reduce(&s);
+}
+`;
+
+export const mont_pro_product_f32_22_sos3uv3 = `// 22-bit-limb f32 Montgomery product, sos3uv3 — chain breaking via
+// SEPARATE per-slot f32 accumulators (lo and hi).
+//
+// Inside the inner-j loop:
+//   - sos3uv2 had a single chain c_hi/c_lo flowing j → j+1 (serial).
+//   - sos3u32 used i32 accumulators (broken chain but slow int ops).
+//   - sos3uv3 uses TWO per-slot f32 accumulators (tlo[k], thi[k]).
+//     Each j writes UNIQUE tlo[j-1] and thi[j] — no overlap across j's,
+//     no carry chain. Stays in f32 throughout (no int conversions).
+//
+// Per-slot bound: tlo[k] = s_old[k+1] + 1 lo (≤ 2.5W). thi[k] = 1 hi
+// (≤ W). Combined at drain: 3.5W < 2²³·⁸ < 2²⁴ — fits f32 exactly.
+//
+// Drain at end of each outer iter: combine tlo[k] + thi[k] + carry,
+// floor-based bias_split, write canonical s[k]. Serial across cols.
+//
+// === Structure ===
+// Outer iter i=0 is unrolled (no shifted-in s values to read). Iters
+// 1..N-1 are in a runtime \`for\` loop with a separate slot_init that pulls
+// in s1..s11. Inner-j pairs and drain cols are mustache-expanded — keeps
+// the named locals (tlo0..tlo11, thi0..thi11) which Metal can register-
+// allocate instead of spilling to thread-private memory.
+
+const NUM_LIMBS: u32 = {{ num_limbs }}u;
+const N0: f32        = {{ n0 }};
+const N0_SCALED: f32 = {{ n0_scaled }};
+const TWO_W: f32     = 8388608.0;          // 2 * 2^22
+
+fn get_p_f32() -> BigIntF32 {
+    var p: BigIntF32;
+{{{ p_limbs_f32 }}}
+    return p;
+}
+
+fn bias_split_f32_le2w(x: f32) -> vec2<f32> {
+    let hi = step(W, x);
+    let lo = fma(-hi, W, x);
+    return vec2<f32>(hi, lo);
+}
+
+fn bias_split_f32_le4w(x: f32) -> vec2<f32> {
+    let hi = floor(x * W_INV);
+    let lo = fma(-hi, W, x);
+    return vec2<f32>(hi, lo);
+}
+
+fn mulhilo_sos3_corr(a: f32, a_scaled: f32, b: f32) -> vec2<f32> {
+    let hi_off_inner = fma(a_scaled, b, W);
+    let hi_off       = floor(hi_off_inner);
+    let neg_hi_w     = fma(-W, hi_off, BIAS);
+    let lo0          = fma(a, b, neg_hi_w);
+    let hi_pre       = hi_off - W;
+    let underflow    = step(lo0, -0.5);
+    let hi           = hi_pre - underflow;
+    let lo           = fma(underflow, W, lo0);
+    return vec2<f32>(hi, lo);
+}
+
+fn mulhilo_sos3_qi_lo(a: f32, b_scaled: f32, b: f32) -> f32 {
+    let hi_off_inner = fma(a, b_scaled, W);
+    let hi_off       = floor(hi_off_inner);
+    let neg_hi_w     = fma(-W, hi_off, BIAS);
+    let lo0          = fma(a, b, neg_hi_w);
+    let underflow    = step(lo0, -0.5);
+    let lo           = fma(underflow, W, lo0);
+    return lo;
+}
+
+fn mulhilo_sos3_2_v2(a: vec2<f32>, a_scaled: vec2<f32>, b: vec2<f32>) -> vec4<f32> {
+    let hi_off_inner = fma(a_scaled, b, vec2<f32>(W, W));
+    let hi_off       = floor(hi_off_inner);
+    let neg_hi_w     = fma(vec2<f32>(-W, -W), hi_off, vec2<f32>(BIAS, BIAS));
+    let lo           = fma(a, b, neg_hi_w);
+    return vec4<f32>(hi_off.x, lo.x, hi_off.y, lo.y);
+}
+
+fn montgomery_product_f32_unreduced(x: ptr<function, BigIntF32>, y: ptr<function, BigIntF32>) -> BigIntF32 {
+    var s0: f32  = 0.0;
+    var s1: f32  = 0.0;
+    var s2: f32  = 0.0;
+    var s3: f32  = 0.0;
+    var s4: f32  = 0.0;
+    var s5: f32  = 0.0;
+    var s6: f32  = 0.0;
+    var s7: f32  = 0.0;
+    var s8: f32  = 0.0;
+    var s9: f32  = 0.0;
+    var s10: f32 = 0.0;
+    var s11: f32 = 0.0;
+
+    var p = get_p_f32();
+
+    // ===== Outer iter i=0 (unrolled — s[*] all zero, no shift-in). =====
+    {
+        let x_i        = (*x).limbs[0];
+        let x_i_scaled = x_i * W_INV;
+        let xy0        = mulhilo_sos3_corr(x_i, x_i_scaled, (*y).limbs[0]);
+        let qi         = mulhilo_sos3_qi_lo(xy0.y, N0_SCALED, N0);
+        let qi_scaled  = qi * W_INV;
+
+        let c_cancel = step(0.5, xy0.y);
+        let qp0_lo   = c_cancel * (W - xy0.y);
+        let qp0_hi   = fma(qi, p.limbs[0], -qp0_lo) * W_INV;
+
+        // j=0's contribution to slot 0 (= position 1 unshifted).
+        let init_slot0 = xy0.x + qp0_hi + c_cancel;
+
+        // Slot init for iter 0: tlo[0] gets init_slot0; everything else 0.
+{{#slot_inits_i0}}
+        var {{name}}: f32 = {{init_expr}};
+{{/slot_inits_i0}}
+
+        let xq_scaled = vec2<f32>(x_i_scaled, qi_scaled);
+        let xq        = vec2<f32>(x_i, qi);
+
+        // Inner-j writes: pair (y[j], p[j]) mulhilo, lo to tlo[j-1], hi to thi[j].
+{{#inner_pairs}}
+        {
+            let mh = mulhilo_sos3_2_v2(xq, xq_scaled, vec2<f32>((*y).limbs[{{j}}u], p.limbs[{{j}}u]));
+            let lo_sum = mh.y + mh.w;
+            let hi_sum = mh.x + mh.z - TWO_W;
+            tlo{{km1}} = tlo{{km1}} + lo_sum;
+            thi{{k}}   = thi{{k}}   + hi_sum;
+        }
+{{/inner_pairs}}
+
+        // Drain: combine tlo[k]+thi[k]+carry, split. Serial across cols.
+        var carry: f32 = 0.0;
+{{#drain_cols}}
+        {
+            let sum = tlo{{k}} + thi{{k}} + carry;
+            let split = bias_split_f32_le4w(sum);
+            s{{k}} = split.y;
+            carry = split.x;
+        }
+{{/drain_cols}}
+    }
+
+    // ===== Outer iter i=1..NUM_LIMBS-1 (runtime loop). =====
+    for (var i = 1u; i < NUM_LIMBS; i = i + 1u) {
+        let x_i        = (*x).limbs[i];
+        let x_i_scaled = x_i * W_INV;
+
+        let xy0       = mulhilo_sos3_corr(x_i, x_i_scaled, (*y).limbs[0]);
+        let sum0      = s0 + xy0.y;
+        let sum0_s    = bias_split_f32_le2w(sum0);
+        let qi        = mulhilo_sos3_qi_lo(sum0_s.y, N0_SCALED, N0);
+        let qi_scaled = qi * W_INV;
+
+        let c_cancel = step(0.5, sum0_s.y);
+        let qp0_lo   = c_cancel * (W - sum0_s.y);
+        let qp0_hi   = fma(qi, p.limbs[0], -qp0_lo) * W_INV;
+
+        // j=0's contribution to slot 0 + s_old[1] shifted in.
+        let init_slot0 = xy0.x + qp0_hi + c_cancel + sum0_s.x;
+
+        // Slot init for i>=1: tlo[k] pulls in s[k+1] as the shifted carry.
+{{#slot_inits_general}}
+        var {{name}}: f32 = {{init_expr}};
+{{/slot_inits_general}}
+
+        let xq_scaled = vec2<f32>(x_i_scaled, qi_scaled);
+        let xq        = vec2<f32>(x_i, qi);
+
+{{#inner_pairs}}
+        {
+            let mh = mulhilo_sos3_2_v2(xq, xq_scaled, vec2<f32>((*y).limbs[{{j}}u], p.limbs[{{j}}u]));
+            let lo_sum = mh.y + mh.w;
+            let hi_sum = mh.x + mh.z - TWO_W;
+            tlo{{km1}} = tlo{{km1}} + lo_sum;
+            thi{{k}}   = thi{{k}}   + hi_sum;
+        }
+{{/inner_pairs}}
+
+        var carry: f32 = 0.0;
+{{#drain_cols}}
+        {
+            let sum = tlo{{k}} + thi{{k}} + carry;
+            let split = bias_split_f32_le4w(sum);
+            s{{k}} = split.y;
+            carry = split.x;
+        }
+{{/drain_cols}}
+    }
+
+    var s: BigIntF32;
+    s.limbs[0]  = s0;
+    s.limbs[1]  = s1;
+    s.limbs[2]  = s2;
+    s.limbs[3]  = s3;
+    s.limbs[4]  = s4;
+    s.limbs[5]  = s5;
+    s.limbs[6]  = s6;
+    s.limbs[7]  = s7;
+    s.limbs[8]  = s8;
+    s.limbs[9]  = s9;
+    s.limbs[10] = s10;
+    s.limbs[11] = s11;
+    return s;
+}
+
+fn montgomery_product_f32(x: ptr<function, BigIntF32>, y: ptr<function, BigIntF32>) -> BigIntF32 {
+    var s = montgomery_product_f32_unreduced(x, y);
+    var p = get_p_f32();
+    return conditional_reduce_f32(&s, &p);
+}
+
+fn conditional_reduce_f32(x: ptr<function, BigIntF32>, y: ptr<function, BigIntF32>) -> BigIntF32 {
+    if (bigint_f32_gt(x, y) || bigint_f32_eq(x, y)) {
+        var res: BigIntF32;
+        let _borrow = bigint_f32_sub(x, y, &res);
+        return res;
+    }
+    return *x;
 }
 `;
 
