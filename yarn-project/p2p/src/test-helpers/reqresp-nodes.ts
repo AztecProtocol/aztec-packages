@@ -36,6 +36,7 @@ import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { APP_SPECIFIC_WEIGHT } from '../services/gossipsub/scoring.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import { P2PMessageProcessor } from '../services/libp2p/p2p_message_processor.js';
 import { PeerManager } from '../services/peer-manager/peer_manager.js';
 import { PeerScoring } from '../services/peer-manager/peer_scoring.js';
 import type { P2PReqRespConfig } from '../services/reqresp/config.js';
@@ -162,18 +163,24 @@ export async function createTestLibP2PService(
   p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
     peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
 
-  return new LibP2PService(
+  const processor = new P2PMessageProcessor(
     config,
-    p2pNode as PubSubLibp2p,
-    discoveryService,
-    reqresp,
-    peerManager,
     mempools,
     archiver,
     epochCache,
     proofVerifier,
     worldStateSynchronizer,
     { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
+    telemetry,
+  );
+
+  return new LibP2PService(
+    config,
+    p2pNode as PubSubLibp2p,
+    discoveryService,
+    reqresp,
+    peerManager,
+    processor,
     telemetry,
   );
 }

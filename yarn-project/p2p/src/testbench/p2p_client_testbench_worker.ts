@@ -4,7 +4,6 @@
  * Used when running testbench commands.
  */
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -15,10 +14,8 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { L2BlockSource } from '@aztec/stdlib/block';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
-import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type BlockProposal, P2PMessage } from '@aztec/stdlib/p2p';
 import { ChonkProof } from '@aztec/stdlib/proofs';
@@ -35,6 +32,7 @@ import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
 import type { MemPools } from '../mem_pools/index.js';
 import { LibP2PService } from '../services/index.js';
+import type { P2PMessageProcessor } from '../services/libp2p/p2p_message_processor.js';
 import type { PeerManager } from '../services/peer-manager/peer_manager.js';
 import { BatchTxRequester } from '../services/reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterLibP2PService } from '../services/reqresp/batch-tx-requester/interface.js';
@@ -94,30 +92,13 @@ class TestLibP2PService extends LibP2PService {
     peerDiscoveryService: PeerDiscoveryService,
     reqresp: ReqResp,
     peerManager: PeerManager,
-    mempools: MemPools,
-    archiver: L2BlockSource & ContractDataSource,
-    epochCache: EpochCacheInterface,
-    proofVerifier: ClientProtocolCircuitVerifier,
-    worldStateSynchronizer: WorldStateSynchronizer,
+    processor: P2PMessageProcessor,
+    private readonly mempools: MemPools,
     telemetry: TelemetryClient,
     logger = createLogger('p2p:test:libp2p_service'),
     disableTxValidation = true,
   ) {
-    super(
-      config,
-      node,
-      peerDiscoveryService,
-      reqresp,
-      peerManager,
-      mempools,
-      archiver,
-      epochCache,
-      proofVerifier,
-      worldStateSynchronizer,
-      { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
-      telemetry,
-      logger,
-    );
+    super(config, node, peerDiscoveryService, reqresp, peerManager, processor, telemetry, logger);
     this.disableTxValidation = disableTxValidation;
   }
 
@@ -407,11 +388,8 @@ process.on('message', async msg => {
         (client as any).p2pService.peerDiscoveryService,
         (client as any).p2pService.reqresp,
         (client as any).p2pService.peerManager,
-        (client as any).p2pService.mempools,
-        (client as any).p2pService.archiver,
-        epochCache,
-        proofVerifier,
-        worldState,
+        (client as any).p2pService.processor,
+        (client as any).p2pService.processor.mempools,
         telemetry as TelemetryClient,
         workerLogger,
         true,

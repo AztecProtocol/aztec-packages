@@ -22,23 +22,12 @@ import type {
 } from './reqresp/interface.js';
 import type { GoodByeReason } from './reqresp/protocols/goodbye.js';
 import { ReqRespStatus } from './reqresp/status.js';
-import {
-  type P2PBlockReceivedCallback,
-  type P2PCheckpointAttestationCallback,
-  type P2PCheckpointReceivedCallback,
-  type P2PDuplicateAttestationCallback,
-  type P2PDuplicateProposalCallback,
-  type P2PService,
-  type PeerDiscoveryService,
-  PeerDiscoveryState,
-} from './service.js';
+import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
 
 /**
  * A dummy implementation of the P2P Service.
  */
 export class DummyP2PService implements P2PService {
-  private allNodesCheckpointReceivedCallback?: P2PCheckpointReceivedCallback;
-
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
 
   /** Returns an empty array for peers. */
@@ -79,31 +68,6 @@ export class DummyP2PService implements P2PService {
    * @param _ - The hashes of the settled transactions.
    */
   public settledTxs(_: TxHash[]) {}
-
-  /**
-   * Register a callback into the validator client for when a block proposal is received
-   */
-  public registerBlockReceivedCallback(_callback: P2PBlockReceivedCallback) {}
-
-  /**
-   * Register a callback into the validator client for when a checkpoint proposal is received
-   */
-  public registerValidatorCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
-  public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
-    this.allNodesCheckpointReceivedCallback = callback;
-  }
-
-  /**
-   * Register a callback for when a duplicate proposal is detected
-   */
-  public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {}
-
-  /**
-   * Register a callback for when a duplicate attestation is detected
-   */
-  public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {}
-
-  public registerCheckpointAttestationCallback(_callback: P2PCheckpointAttestationCallback): void {}
 
   /**
    * Sends a request to a peer.

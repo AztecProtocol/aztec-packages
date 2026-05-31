@@ -451,7 +451,7 @@ describe('p2p client integration block txs protocol ', () => {
 
     // Run the response through client1's real validation — this is what BatchTxRequester does in
     // production. The peer must not be penalized.
-    await (client1.p2pService as any).validateRequestedBlockTxsConsistency(
+    await (client1.p2pService as any).processor.validateRequestedBlockTxsConsistency(
       request,
       decoded,
       client2.p2pService.node.peerId,

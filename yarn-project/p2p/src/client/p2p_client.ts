@@ -39,6 +39,7 @@ import type { AttestationPoolApi, ProposalsForSlot } from '../mem_pools/attestat
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
+import type { P2PMessageProcessor } from '../services/libp2p/p2p_message_processor.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../services/reqresp/interface.js';
 import type {
   DuplicateAttestationInfo,
@@ -91,6 +92,7 @@ export class P2PClient extends WithTracer implements P2P {
     private l2BlockSource: L2BlockSource & ContractDataSource,
     mempools: MemPools,
     private p2pService: P2PService,
+    private processor: P2PMessageProcessor,
     private txCollection: TxCollection,
     private txFileStore: TxFileStore | undefined,
     private epochCache: EpochCacheInterface,
@@ -406,30 +408,30 @@ export class P2PClient extends WithTracer implements P2P {
     return this.attestationPool.hasBlockProposalsForSlot(slot);
   }
 
-  // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
-  // ^ This pattern is not my favorite (md)
+  // Consensus callbacks are registered directly on the message processor (the main-thread component
+  // that owns received-message handling), not on the libp2p networking service.
   public registerBlockProposalHandler(handler: P2PBlockReceivedCallback): void {
-    this.p2pService.registerBlockReceivedCallback(handler);
+    this.processor.registerBlockReceivedCallback(handler);
   }
 
   public registerValidatorCheckpointProposalHandler(handler: P2PCheckpointReceivedCallback): void {
-    this.p2pService.registerValidatorCheckpointReceivedCallback(handler);
+    this.processor.registerValidatorCheckpointReceivedCallback(handler);
   }
 
   public registerAllNodesCheckpointProposalHandler(handler: P2PCheckpointReceivedCallback): void {
-    this.p2pService.registerAllNodesCheckpointReceivedCallback(handler);
+    this.processor.registerAllNodesCheckpointReceivedCallback(handler);
   }
 
   public registerDuplicateProposalCallback(callback: (info: DuplicateProposalInfo) => void): void {
-    this.p2pService.registerDuplicateProposalCallback(callback);
+    this.processor.registerDuplicateProposalCallback(callback);
   }
 
   public registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void {
-    this.p2pService.registerDuplicateAttestationCallback(callback);
+    this.processor.registerDuplicateAttestationCallback(callback);
   }
 
   public registerCheckpointAttestationCallback(callback: (attestation: CheckpointAttestation) => void): void {
-    this.p2pService.registerCheckpointAttestationCallback(callback);
+    this.processor.registerCheckpointAttestationCallback(callback);
   }
 
   public async getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {

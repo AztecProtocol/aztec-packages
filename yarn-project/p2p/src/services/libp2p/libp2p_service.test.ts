@@ -46,6 +46,7 @@ import { BitVector } from '../reqresp/protocols/block_txs/bitvector.js';
 import { BlockTxsRequest, BlockTxsResponse } from '../reqresp/protocols/block_txs/block_txs_reqresp.js';
 import type { PeerDiscoveryService } from '../service.js';
 import { LibP2PService } from './libp2p_service.js';
+import { P2PMessageProcessor } from './p2p_message_processor.js';
 
 describe('LibP2PService', () => {
   const MOCK_PEER_ID = 'peer-id-123';
@@ -1433,6 +1434,40 @@ interface CreateTestLibP2PServiceOptions {
  * Test subclass of LibP2PService that exposes protected methods for testing
  * and allows construction with mocked dependencies.
  */
+/**
+ * Test message processor that lets tests control validator outcomes via flags on the owning service.
+ * The validator factories live on the processor, so the test flags are read through a back-reference.
+ */
+class TestP2PMessageProcessor extends P2PMessageProcessor {
+  public testService!: TestLibP2PService;
+
+  /** Override to use test flag for first-stage validators. Returns a failing validator when firstStageValidationPasses is false. */
+  protected override createFirstStageMessageValidators(): Promise<Record<string, TransactionValidator>> {
+    if (this.testService.firstStageValidationPasses) {
+      return Promise.resolve({});
+    }
+    return Promise.resolve({
+      [this.testService.firstStageFailingValidatorName]: {
+        validator: { validateTx: () => Promise.resolve({ result: 'invalid' as const, reason: ['Test failure'] }) },
+        severity: this.testService.firstStageSeverity,
+      },
+    });
+  }
+
+  /** Override to use test flag for second-stage validators. Returns a failing validator when secondStageValidationPasses is false. */
+  protected override createSecondStageMessageValidators(): Record<string, TransactionValidator> {
+    if (this.testService.secondStageValidationPasses) {
+      return {};
+    }
+    return {
+      proofValidator: {
+        validator: { validateTx: () => Promise.resolve({ result: 'invalid' as const, reason: ['Proof failure'] }) },
+        severity: PeerErrorSeverity.LowToleranceError,
+      },
+    };
+  }
+}
+
 class TestLibP2PService extends LibP2PService {
   /** Controls whether first-stage gossip validation passes. Set to false to simulate first-stage failure. */
   public firstStageValidationPasses = true;
@@ -1481,12 +1516,8 @@ class TestLibP2PService extends LibP2PService {
       verifyProof: () => Promise.resolve({ valid: true, durationMs: 1000, totalDurationMs: 1000 }),
     });
 
-    super(
+    const processor = new TestP2PMessageProcessor(
       mockConfig,
-      node,
-      resolvedPeerDiscoveryService,
-      mockReqResp,
-      peerManager,
       mempools,
       archiver,
       epochCache,
@@ -1496,6 +1527,12 @@ class TestLibP2PService extends LibP2PService {
       telemetry,
       logger,
     );
+
+    super(mockConfig, node, resolvedPeerDiscoveryService, mockReqResp, peerManager, processor, telemetry, logger);
+
+    // The processor reads validator-control flags off this service; wire the back-reference now that
+    // super() has run and `this` is available.
+    processor.testService = this;
 
     this.mockPeerDiscoveryService = resolvedPeerDiscoveryService;
 
@@ -1512,39 +1549,13 @@ class TestLibP2PService extends LibP2PService {
     return super.handleGossipedTx(payloadData, msgId, source);
   }
 
-  /** Override to use test flag for first-stage validators. Returns a failing validator when firstStageValidationPasses is false. */
-  protected override createFirstStageMessageValidators(): Promise<Record<string, TransactionValidator>> {
-    if (this.firstStageValidationPasses) {
-      return Promise.resolve({});
-    }
-    return Promise.resolve({
-      [this.firstStageFailingValidatorName]: {
-        validator: { validateTx: () => Promise.resolve({ result: 'invalid' as const, reason: ['Test failure'] }) },
-        severity: this.firstStageSeverity,
-      },
-    });
-  }
-
-  /** Override to use test flag for second-stage validators. Returns a failing validator when secondStageValidationPasses is false. */
-  protected override createSecondStageMessageValidators(): Record<string, TransactionValidator> {
-    if (this.secondStageValidationPasses) {
-      return {};
-    }
-    return {
-      proofValidator: {
-        validator: { validateTx: () => Promise.resolve({ result: 'invalid' as const, reason: ['Proof failure'] }) },
-        severity: PeerErrorSeverity.LowToleranceError,
-      },
-    };
-  }
-
-  /** Exposes the protected validateRequestedBlockTxsConsistency for testing. */
-  public override validateRequestedBlockTxsConsistency(
+  /** Exposes the processor's validateRequestedBlockTxsConsistency for testing. */
+  public validateRequestedBlockTxsConsistency(
     request: BlockTxsRequest,
     response: BlockTxsResponse,
     peerId: PeerId,
   ): Promise<boolean> {
-    return super.validateRequestedBlockTxsConsistency(request, response, peerId);
+    return this.processor.validateRequestedBlockTxsConsistency(request, response, peerId);
   }
 
   /** Exposes the protected processBlockFromPeer for testing. */
@@ -1557,14 +1568,50 @@ class TestLibP2PService extends LibP2PService {
     return super.handleGossipedCheckpointProposal(payloadData, msgId, source);
   }
 
-  /** Exposes the protected validateAndStoreCheckpointAttestation for testing. */
-  public override validateAndStoreCheckpointAttestation(peerId: PeerId, attestation: CheckpointAttestation) {
-    return super.validateAndStoreCheckpointAttestation(peerId, attestation);
+  /** Exposes the processor's validateAndStoreCheckpointAttestation for testing. */
+  public validateAndStoreCheckpointAttestation(peerId: PeerId, attestation: CheckpointAttestation) {
+    return this.processor.validateAndStoreCheckpointAttestation(peerId, attestation);
+  }
+
+  // Consensus callbacks now live on the processor; expose registration through the service for the tests
+  // that drive the gossip dispatchers directly.
+  public registerBlockReceivedCallback(cb: Parameters<P2PMessageProcessor['registerBlockReceivedCallback']>[0]): void {
+    this.processor.registerBlockReceivedCallback(cb);
+  }
+
+  public registerValidatorCheckpointReceivedCallback(
+    cb: Parameters<P2PMessageProcessor['registerValidatorCheckpointReceivedCallback']>[0],
+  ): void {
+    this.processor.registerValidatorCheckpointReceivedCallback(cb);
+  }
+
+  public registerAllNodesCheckpointReceivedCallback(
+    cb: Parameters<P2PMessageProcessor['registerAllNodesCheckpointReceivedCallback']>[0],
+  ): void {
+    this.processor.registerAllNodesCheckpointReceivedCallback(cb);
+  }
+
+  public registerDuplicateProposalCallback(
+    cb: Parameters<P2PMessageProcessor['registerDuplicateProposalCallback']>[0],
+  ): void {
+    this.processor.registerDuplicateProposalCallback(cb);
+  }
+
+  public registerDuplicateAttestationCallback(
+    cb: Parameters<P2PMessageProcessor['registerDuplicateAttestationCallback']>[0],
+  ): void {
+    this.processor.registerDuplicateAttestationCallback(cb);
+  }
+
+  public registerCheckpointAttestationCallback(
+    cb: Parameters<P2PMessageProcessor['registerCheckpointAttestationCallback']>[0],
+  ): void {
+    this.processor.registerCheckpointAttestationCallback(cb);
   }
 
   /** Sets the attestation pool on the mempools for test setup. */
   public setAttestationPool(attestationPool: MockAttestationPoolForTests): void {
-    (this.mempools as any).attestationPool = attestationPool;
+    (this.processor as any).mempools.attestationPool = attestationPool;
   }
 }
 

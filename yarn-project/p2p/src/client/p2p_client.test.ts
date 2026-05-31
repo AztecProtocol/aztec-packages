@@ -18,6 +18,7 @@ import type { P2PService } from '../index.js';
 import { type AttestationPool, createTestAttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
+import type { P2PMessageProcessor } from '../services/libp2p/p2p_message_processor.js';
 import type { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { P2PClient } from './p2p_client.js';
 
@@ -68,6 +69,7 @@ describe('P2P Client', () => {
       blockSource,
       mempools,
       p2pService,
+      mock<P2PMessageProcessor>(),
       txCollection,
       undefined,
       epochCache,

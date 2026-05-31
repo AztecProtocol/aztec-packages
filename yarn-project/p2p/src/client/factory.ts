@@ -27,6 +27,7 @@ import {
 import { TxValidationCache } from '../msg_validators/tx_validator/tx_validation_cache.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
+import { P2PMessageProcessor } from '../services/libp2p/p2p_message_processor.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { NodeRpcTxSource, type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
@@ -141,21 +142,33 @@ export async function createP2PClient(
   const txValidationCache =
     config.txValidationCacheSize > 0 ? new TxValidationCache(config.txValidationCacheSize) : undefined;
 
-  const p2pService = await createP2PService(
+  // The message processor owns received-message handling (validation, persistence, consensus callbacks).
+  // It is shared between the P2PClient (which registers callbacks on it) and the libp2p service (which
+  // invokes it when messages arrive), so it is built here and injected into both.
+  const processor = new P2PMessageProcessor(
     config,
+    mempools,
     archiver,
+    epochCache,
     proofVerifier,
     worldStateSynchronizer,
-    epochCache,
     blockMinFeesProvider,
+    telemetry,
+    logger.createChild('libp2p_service'),
+    txValidationCache,
+  );
+
+  const p2pService = await createP2PService(
+    config,
+    worldStateSynchronizer,
+    epochCache,
     store,
     peerStore,
-    mempools,
+    processor,
     deps.p2pServiceFactory,
     packageVersion,
     logger.createChild('libp2p_service'),
     telemetry,
-    txValidationCache,
   );
 
   const txValidatorForTxCollection = createTxValidatorForOnDemandReceivedTxs(
@@ -215,6 +228,7 @@ export async function createP2PClient(
     archiver,
     mempools,
     p2pService,
+    processor,
     txCollection,
     txFileStore,
     epochCache,
@@ -228,19 +242,15 @@ export async function createP2PClient(
 
 async function createP2PService(
   config: P2PConfig & DataStoreConfig,
-  archiver: L2BlockSource & ContractDataSource,
-  proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,
-  blockMinFeesProvider: BlockMinFeesProvider,
   store: AztecAsyncKVStore,
   peerStore: AztecLMDBStoreV2,
-  mempools: MemPools,
+  processor: P2PMessageProcessor,
   p2pServiceFactory: P2PClientDeps['p2pServiceFactory'],
   packageVersion: string,
   logger: Logger,
   telemetry: TelemetryClient,
-  txValidationCache?: TxValidationCache,
 ) {
   if (!config.p2pEnabled) {
     logger.verbose('P2P is disabled. Using dummy P2P service.');
@@ -255,16 +265,12 @@ async function createP2PService(
 
   const p2pService = await (p2pServiceFactory ?? LibP2PService.new)(config, peerId, {
     packageVersion,
-    mempools,
-    l2BlockSource: archiver,
+    processor,
     epochCache,
-    proofVerifier,
     worldStateSynchronizer,
     peerStore,
-    blockMinFeesProvider,
     telemetry,
     logger: logger.createChild(`libp2p_service`),
-    txValidationCache,
   });
 
   return p2pService;

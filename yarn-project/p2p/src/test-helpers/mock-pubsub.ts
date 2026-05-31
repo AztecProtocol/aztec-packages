@@ -1,12 +1,5 @@
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import type { L2BlockSource } from '@aztec/stdlib/block';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { BlockMinFeesProvider } from '@aztec/stdlib/gas';
-import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import type { GossipsubEvents, GossipsubMessage } from '@chainsafe/libp2p-gossipsub';
 import type { MsgIdStr, PeerIdStr, PublishOpts, TopicStr } from '@chainsafe/libp2p-gossipsub/types';
@@ -18,8 +11,6 @@ import {
   TypedEventEmitter,
 } from '@libp2p/interface';
 
-import type { P2PConfig } from '../config.js';
-import type { MemPools } from '../mem_pools/interface.js';
 import { DummyPeerDiscoveryService, DummyPeerManager, LibP2PService } from '../services/index.js';
 import type { P2PReqRespConfig } from '../services/reqresp/config.js';
 import type { ConnectionSampler } from '../services/reqresp/connection-sampler/connection_sampler.js';
@@ -43,22 +34,7 @@ type GossipSubService = PubSubLibp2p['services']['pubsub'];
 export function getMockPubSubP2PServiceFactory(
   network: MockGossipSubNetwork,
 ): (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService> {
-  return (
-    config: P2PConfig,
-    peerId: PeerId,
-    deps: {
-      packageVersion: string;
-      mempools: MemPools;
-      l2BlockSource: L2BlockSource & ContractDataSource;
-      epochCache: EpochCacheInterface;
-      proofVerifier: ClientProtocolCircuitVerifier;
-      worldStateSynchronizer: WorldStateSynchronizer;
-      peerStore: AztecAsyncKVStore;
-      blockMinFeesProvider: BlockMinFeesProvider;
-      telemetry: TelemetryClient;
-      logger: Logger;
-    },
-  ) => {
+  return (...[config, peerId, deps]: Parameters<(typeof LibP2PService)['new']>) => {
     deps.logger.verbose('Creating mock PubSub service');
     const libp2p = new MockPubSub(peerId, network);
     const peerManager = new DummyPeerManager(peerId, network);
@@ -70,12 +46,7 @@ export function getMockPubSubP2PServiceFactory(
       peerDiscoveryService,
       reqresp,
       peerManager,
-      deps.mempools,
-      deps.l2BlockSource,
-      deps.epochCache,
-      deps.proofVerifier,
-      deps.worldStateSynchronizer,
-      deps.blockMinFeesProvider,
+      deps.processor,
       deps.telemetry,
       deps.logger,
     );

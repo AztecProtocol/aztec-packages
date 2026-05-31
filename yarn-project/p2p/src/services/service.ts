@@ -95,28 +95,6 @@ export interface P2PService {
    */
   propagate<T extends Gossipable>(message: T): Promise<void>;
 
-  // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
-  registerBlockReceivedCallback(callback: P2PBlockReceivedCallback): void;
-
-  registerValidatorCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
-
-  registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
-
-  /**
-   * Registers a callback invoked when a duplicate proposal is detected (equivocation).
-   * The callback is triggered on the first duplicate (when count goes from 1 to 2).
-   */
-  registerDuplicateProposalCallback(callback: P2PDuplicateProposalCallback): void;
-
-  /**
-   * Registers a callback invoked when a duplicate attestation is detected (equivocation).
-   * A validator signing attestations for different proposals at the same slot.
-   * The callback is triggered on the first duplicate (when count goes from 1 to 2).
-   */
-  registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void;
-
-  registerCheckpointAttestationCallback(callback: P2PCheckpointAttestationCallback): void;
-
   getEnr(): ENR | undefined;
 
   getPeers(includePending?: boolean): PeerInfo[];
