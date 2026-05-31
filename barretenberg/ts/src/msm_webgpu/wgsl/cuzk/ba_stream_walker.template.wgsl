@@ -160,10 +160,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     var task_end_sort:  array<u32, {{ s }}>;   // sorted index of the task's last bucket
     var task_end_cur:   array<u32, {{ s }}>;   // l0 position past the task within that bucket
     var cur_sorted:     array<u32, {{ s }}>;   // index into sorted_bucket_list
-    var cur_bucket:     array<u32, {{ s }}>;   // bucket id (for bucket_sums)
-    var is_first:       array<u32, {{ s }}>;
-    var slot_done:      array<u32, {{ s }}>;
-    var split_start:    array<u32, {{ s }}>;   // current bucket shared with a prior task
+    var is_first_m: u32 = 0u;
+    var slot_done_m: u32 = 0u;
+    var split_start_m: u32 = 0u;
     var acc_x:          array<array<u32, 8>, {{ s }}>;
     var acc_y:          array<array<u32, 8>, {{ s }}>;
 
@@ -192,17 +191,17 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         var start_cursor: u32;
         if (so == 0u) {
             start_cursor = sb_base;
-            split_start[k] = 0u;
+            split_start_m = split_start_m & ~(1u << k);
         } else if (so + 1u < sb_count) {
             start_cursor = sb_base + so + 1u;
-            split_start[k] = 1u;
+            split_start_m = split_start_m | (1u << k);
         } else {
             eff_sorted = sb + 1u;
             eff_id = sorted_bucket_list[eff_sorted];
             eff_base = offsets[eff_id];
             eff_count = sorted_count_list[eff_sorted];
             start_cursor = eff_base;
-            split_start[k] = 0u;
+            split_start_m = split_start_m & ~(1u << k);
         }
 
         // Task end. eo>0 → last bucket is eb, ending past point eo. eo==0 →
@@ -226,13 +225,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         task_end_sort[k] = te_sort;
         task_end_cur[k] = te_cur;
         cur_sorted[k] = eff_sorted;
-        cur_bucket[k] = eff_id;
-        is_first[k] = 1u;
-        slot_done[k] = 0u;
+
+        is_first_m = is_first_m | (1u << k);
+        slot_done_m = slot_done_m & ~(1u << k);
 
         // Empty task (region-aware): the start is at or past the task end.
         if (eff_sorted > te_sort || (eff_sorted == te_sort && start_cursor >= te_cur)) {
-            slot_done[k] = 1u;
+            slot_done_m = slot_done_m | (1u << k);
             continue;
         }
 
@@ -242,23 +241,23 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         // continuation landing on a bucket's last point.
         var seg_end = bucket_end[k];
         if (eff_sorted == te_sort) { seg_end = te_cur; }
-        if (split_start[k] == 1u && seg_end - start_cursor == 1u) {
+        if ((((split_start_m >> k) & 1u) == 1u) && seg_end - start_cursor == 1u) {
             let px = load_pt_x(start_cursor);
             let py = load_pt_y(start_cursor);
             if (eff_sorted == te_sort) {
                 store_partial(2u * (t * S + k) + 1u, eff_id, M_partials, px, py);
-                slot_done[k] = 1u;
+                slot_done_m = slot_done_m | (1u << k);
             } else {
                 store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
                 let nxt = eff_sorted + 1u;
                 let nxt_id = sorted_bucket_list[nxt];
                 let nxt_base = offsets[nxt_id];
                 cur_sorted[k] = nxt;
-                cur_bucket[k] = nxt_id;
+
                 bucket_end[k] = nxt_base + sorted_count_list[nxt];
                 cursor[k] = nxt_base;
-                split_start[k] = 0u;
-                if (nxt > te_sort) { slot_done[k] = 1u; }
+                split_start_m = split_start_m & ~(1u << k);
+                if (nxt > te_sort) { slot_done_m = slot_done_m | (1u << k); }
             }
         }
     }
@@ -277,7 +276,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         walker_iter = walker_iter + 1u;
         var any_active: bool = false;
         for (var k: u32 = 0u; k < S; k = k + 1u) {
-            if (slot_done[k] == 0u) { any_active = true; }
+            if ((((slot_done_m >> k) & 1u) == 0u)) { any_active = true; }
         }
         if (!any_active) { break; }
 
@@ -287,15 +286,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         for (var k: u32 = 0u; k < S; k = k + 1u) {
             var p_lx: array<u32, 8>;
             var p_rx: array<u32, 8>;
-            if (slot_done[k] == 1u) {
-                p_lx = load_pt_x(IDLE_ANCHOR);
-                p_rx = load_pt_x(IDLE_ANCHOR + 1u);
-            } else if (is_first[k] == 1u) {
-                p_lx = load_pt_x(cursor[k]);
-                p_rx = load_pt_x(cursor[k] + 1u);
+            let sd_b = (slot_done_m >> k) & 1u;
+            let isf_b = (is_first_m >> k) & 1u;
+            let rx_addr = select(select(cursor[k], cursor[k] + 1u, isf_b == 1u), IDLE_ANCHOR + 1u, sd_b == 1u);
+            p_rx = load_pt_x(rx_addr);
+            if (sd_b == 1u || isf_b == 1u) {
+                p_lx = load_pt_x(select(cursor[k], IDLE_ANCHOR, sd_b == 1u));
             } else {
                 p_lx = acc_x[k];
-                p_rx = load_pt_x(cursor[k]);
             }
             let dx = fr_sub_f8(p_rx, p_lx);
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
@@ -323,16 +321,23 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             // X-coord loads (needed for both inv update and affine add).
             var p_lx: array<u32, 8>;
             var p_rx: array<u32, 8>;
-            if (slot_done[k] == 1u) {
-                p_lx = load_pt_x(IDLE_ANCHOR);
-                p_rx = load_pt_x(IDLE_ANCHOR + 1u);
-            } else if (is_first[k] == 1u) {
-                p_lx = load_pt_x(cursor[k]);
-                p_rx = load_pt_x(cursor[k] + 1u);
+            let sd_b = (slot_done_m >> k) & 1u;
+            let isf_b = (is_first_m >> k) & 1u;
+            let rx_addr = select(select(cursor[k], cursor[k] + 1u, isf_b == 1u), IDLE_ANCHOR + 1u, sd_b == 1u);
+            p_rx = load_pt_x(rx_addr);
+            if (sd_b == 1u || isf_b == 1u) {
+                p_lx = load_pt_x(select(cursor[k], IDLE_ANCHOR, sd_b == 1u));
             } else {
                 p_lx = acc_x[k];
-                p_rx = load_pt_x(cursor[k]);
             }
+
+            // Lever V1: compute x_sum = p_lx + p_rx immediately, so p_rx's
+            // live range ends here (before the inv-update mul, the inversion-
+            // derived inv_dx mul, the Y-loads, and the lambda/r_x chain). This
+            // removes one 256-bit value (8 regs) from the peak-pressure affine
+            // window. dx_b for the inv chain is also derived here from the same
+            // two operands, so p_rx is fully dead afterwards.
+            let x_sum = fr_add_f8(p_lx, p_rx);
 
             // Derive inv_dx[k] in register, update running inv for next iter.
             var inv_dx: array<u32, 8>;
@@ -347,26 +352,24 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
             // Idle slots exist only to feed dx_k into the inv chain. Skip
             // the affine add.
-            if (slot_done[k] == 1u) { continue; }
+            if ((((slot_done_m >> k) & 1u) == 1u)) { continue; }
 
             // Y-coord loads + cursor advance.
             var p_ly: array<u32, 8>;
             var p_ry: array<u32, 8>;
-            if (is_first[k] == 1u) {
+            let ry_addr = select(cursor[k], cursor[k] + 1u, isf_b == 1u);
+            p_ry = load_pt_y(ry_addr);
+            if (isf_b == 1u) {
                 p_ly = load_pt_y(cursor[k]);
-                p_ry = load_pt_y(cursor[k] + 1u);
-                cursor[k] += 2u;
             } else {
                 p_ly = acc_y[k];
-                p_ry = load_pt_y(cursor[k]);
-                cursor[k] += 1u;
             }
+            cursor[k] = cursor[k] + select(1u, 2u, isf_b == 1u);
 
-            // Affine add using inv_dx (in register).
+            // Affine add using inv_dx (in register). p_rx already consumed.
             var lambda = fr_sub_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
             var r_x = montgomery_product_f8(lambda, lambda);
-            let x_sum = fr_add_f8(p_lx, p_rx);
             r_x = fr_sub_f8(r_x, x_sum);
             var r_y = fr_sub_f8(p_lx, r_x);
             r_y = montgomery_product_f8(lambda, r_y);
@@ -379,18 +382,18 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             let bucket_done = cursor[k] >= bucket_end[k];
 
             if (task_done) {
-                let is_partial = (split_start[k] == 1u) || (cursor[k] < bucket_end[k]);
+                let is_partial = ((((split_start_m >> k) & 1u) == 1u)) || (cursor[k] < bucket_end[k]);
                 if (is_partial) {
-                    store_partial(2u * (t * S + k) + 1u, cur_bucket[k], M_partials, r_x, r_y);
+                    store_partial(2u * (t * S + k) + 1u, sorted_bucket_list[cur_sorted[k]], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(cur_bucket[k], r_x, r_y);
+                    store_bucket_sum(sorted_bucket_list[cur_sorted[k]], r_x, r_y);
                 }
-                slot_done[k] = 1u;
+                slot_done_m = slot_done_m | (1u << k);
             } else if (bucket_done) {
-                if (split_start[k] == 1u) {
-                    store_partial(2u * (t * S + k) + 0u, cur_bucket[k], M_partials, r_x, r_y);
+                if ((((split_start_m >> k) & 1u) == 1u)) {
+                    store_partial(2u * (t * S + k) + 0u, sorted_bucket_list[cur_sorted[k]], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(cur_bucket[k], r_x, r_y);
+                    store_bucket_sum(sorted_bucket_list[cur_sorted[k]], r_x, r_y);
                 }
                 // Advance to the next bucket within the task. Subsequent
                 // buckets always begin fresh (never split-start).
@@ -398,15 +401,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 let nxt_id = sorted_bucket_list[nxt];
                 let nxt_base = offsets[nxt_id];
                 cur_sorted[k] = nxt;
-                cur_bucket[k] = nxt_id;
+
                 bucket_end[k] = nxt_base + sorted_count_list[nxt];
                 cursor[k] = nxt_base;
-                is_first[k] = 1u;
-                split_start[k] = 0u;
+                is_first_m = is_first_m | (1u << k);
+                split_start_m = split_start_m & ~(1u << k);
             } else {
                 acc_x[k] = r_x;
                 acc_y[k] = r_y;
-                is_first[k] = 0u;
+                is_first_m = is_first_m & ~(1u << k);
             }
         }
     }
