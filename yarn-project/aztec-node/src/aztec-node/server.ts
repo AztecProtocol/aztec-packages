@@ -115,7 +115,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
-import { InboxLeaf, type L1ToL2MessageSource, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
+import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { Offense } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';

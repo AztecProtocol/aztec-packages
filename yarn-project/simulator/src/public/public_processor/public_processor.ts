@@ -152,10 +152,6 @@ class PublicProcessorAbortError extends Error {
   }
 }
 
-function isPublicProcessorInterruptError(err: any) {
-  return err?.name === 'PublicProcessorTimeoutError' || err?.name === 'PublicProcessorAbortError';
-}
-
 /**
  * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
  * any public function calls in them. Txs with private calls only are unaffected.
