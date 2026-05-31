@@ -1,4 +1,21 @@
-# fp22-native MSM — session handoff (GPU wiring + domain reconciliation landed)
+# fp22-native MSM — session handoff (GPU wiring + domain reconciliation + DEVICE-VALIDATED on M-series)
+
+## TOP-LINE RESULT
+`?montmul=fp22native` is wired end-to-end and **DEVICE-VALIDATED on the M-series
+GPU**: the GPU MSM output is byte-identical to the WASM oracle (`agree=true`,
+gpu=0x2a3f...==wasm=0x2a3f...) at BOTH logn=14 AND logn=17. karat agrees too
+(reference sanity). This is STRONGER than the requested fp22native-vs-karat
+byte-identical check — it validates against the canonical MSM, not just another GPU
+path. (Reproduce: fp22work/device_check.sh -> fp22work/DEVICE_CHECK.txt.)
+
+NOT done — tooling absent in THIS environment (a prior session had it; this machine
+state does not): malioc/naga (ARM offline compiler) and adb/Pixel are MISSING from
+PATH and unfindable on disk, so the malioc table (step 3) and the Pixel cross_ok +
+median fp22native-vs-karat (step 4) could not run here. Native 22-bit safegcd
+inversion (step 5) is intentionally deferred per the task ("get a device number on
+the multiply first, keeping inversion 13-bit at one documented boundary") — the
+interim with the radix-agnostic 13-bit BY divstep core is what's validated above.
+Commit SHAs: 3173a9c0e2 (wiring) + 4d9f8c2e1b (domain-coherence + served-native proof).
 
 ## THE PRINCIPLE (upheld)
 ONE representation end-to-end: 12×22-bit limbs, R = 2^264, native 22-bit

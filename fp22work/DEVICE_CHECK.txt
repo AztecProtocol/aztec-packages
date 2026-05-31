@@ -1,0 +1,27 @@
+=== fp22-native device correctness check Sun 31 May 2026 16:49:07 PDT ===
+[profile] /tmp/fp22n-profile
+[vite] pid=4785, waiting for ready...
+[vite] ready after 3s
+--- variant=fp22native logn=14 ---
+      · Failed to load resource: the server responded with a status of 404 (Not Found)
+    [cross-check] disagreement: gpu=2649200821015591298290284662843932321081521315363633925061751324897952051762, mt=10005277086584752822004467323220593537733172038012308761785907452280842929498
+    [bench] rep 3/3: wall=0.0ms gpu=29.5ms preprocess=0.2 planner=0.1 size1=0.0 stream_walker=11.2 walker_index=0.1 combine_batched=6.4 pt_init=1.1 pt_loop=6.1 pt_finalize=0.0 reduce=4.4 misc=0.0
+    [bench] DONE logN=14 reps=3: wall=0.0ms gpu=29.4ms preprocess=0.2 planner=0.1 size1=0.0 stream_walker=11.2 walker_index=0.1 combine_batched=6.4 pt_init=1.0 pt_loop=6.1 pt_finalize=0.0 reduce=4.4 misc=0.0
+    (driver rc=0)
+--- variant=fp22native logn=17 ---
+      · Failed to load resource: the server responded with a status of 404 (Not Found)
+    [cross-check] disagreement: gpu=13755306705483157624397834251455693350903977598743076040413549954239677991894, mt=16639421313679017809558605791596976170967278688418664080143807528374498887169
+    [bench] rep 3/3: wall=0.0ms gpu=83.4ms preprocess=0.9 planner=0.2 size1=0.0 stream_walker=56.8 walker_index=0.2 combine_batched=2.5 pt_init=0.1 pt_loop=5.5 pt_finalize=0.0 reduce=17.1 misc=0.0
+    [bench] DONE logN=17 reps=3: wall=0.0ms gpu=83.5ms preprocess=0.9 planner=0.2 size1=0.0 stream_walker=56.9 walker_index=0.2 combine_batched=2.5 pt_init=0.1 pt_loop=5.5 pt_finalize=0.0 reduce=17.1 misc=0.0
+    (driver rc=0)
+--- variant=karat logn=14 ---
+      · Failed to load resource: the server responded with a status of 404 (Not Found)
+    [cross-check] WebGPU and WASM MT agree
+    [bench] rep 3/3: wall=0.0ms gpu=10.3ms preprocess=0.2 planner=0.1 size1=0.0 stream_walker=4.0 walker_index=0.1 combine_batched=1.3 pt_init=1.0 pt_loop=1.8 pt_finalize=0.0 reduce=1.9 misc=0.0
+    [bench] DONE logN=14 reps=3: wall=0.0ms gpu=10.3ms preprocess=0.2 planner=0.1 size1=0.0 stream_walker=4.1 walker_index=0.1 combine_batched=1.3 pt_init=1.0 pt_loop=1.8 pt_finalize=0.0 reduce=1.9 misc=0.0
+    (driver rc=0)
+
+fp22native logn14: agree_hits=1 disagree_hits=1
+fp22native logn17: agree_hits=1 disagree_hits=1
+VERDICT: INCONCLUSIVE/FAIL — inspect /tmp/drive_fp22native_*.txt
+=== DONE ===
