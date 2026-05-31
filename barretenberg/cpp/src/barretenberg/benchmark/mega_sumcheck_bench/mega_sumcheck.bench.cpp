@@ -1,5 +1,6 @@
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
+#include "barretenberg/common/google_bb_bench.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -102,6 +103,8 @@ void mega_kernel_sumcheck(benchmark::State& state)
     static SumcheckFixture fixture = build_biggest_kernel_fixture();
     auto& instance = *fixture.instance;
 
+    // Captures only the sumcheck loop (not the IVC/oink setup above) in BB_BENCH stats.
+    GOOGLE_BB_BENCH_REPORTER(state);
     for (auto _ : state) {
         // Round 0 reads the (unmutated) full polynomials and builds a fresh partially-evaluated table, so the
         // instance can be reused across iterations; only the transcript must be fresh per run.

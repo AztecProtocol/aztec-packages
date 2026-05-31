@@ -876,30 +876,7 @@ template <typename Flavor> class SumcheckProverRound {
                 }
             };
 
-            if constexpr (!IsTranslatorFlavor<Flavor>) {
-                accumulate_relation();
-            } else if constexpr (relation_idx == 0) {
-                BB_BENCH_NAME("translator_relation/permutation");
-                accumulate_relation();
-            } else if constexpr (relation_idx == 1) {
-                BB_BENCH_NAME("translator_relation/delta_range");
-                accumulate_relation();
-            } else if constexpr (relation_idx == 2) {
-                BB_BENCH_NAME("translator_relation/opcode");
-                accumulate_relation();
-            } else if constexpr (relation_idx == 3) {
-                BB_BENCH_NAME("translator_relation/accumulator_transfer");
-                accumulate_relation();
-            } else if constexpr (relation_idx == 4) {
-                BB_BENCH_NAME("translator_relation/decomposition");
-                accumulate_relation();
-            } else if constexpr (relation_idx == 5) {
-                BB_BENCH_NAME("translator_relation/non_native_field");
-                accumulate_relation();
-            } else {
-                BB_BENCH_NAME("translator_relation/zero_constraints");
-                accumulate_relation();
-            }
+            accumulate_relation();
         });
     }
 };
