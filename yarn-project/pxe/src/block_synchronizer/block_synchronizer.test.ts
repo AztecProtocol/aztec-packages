@@ -133,8 +133,6 @@ describe('BlockSynchronizer', () => {
         indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
       };
       aztecNode.getBlockData.mockResolvedValue(genesisBlockData);
-      aztecNode.getBlockNumber.mockResolvedValue(BlockNumber(0));
-      aztecNode.getBlocks.mockResolvedValue([]);
 
       // Start a sync (don't await)
       const syncPromise = synchronizer.sync();
