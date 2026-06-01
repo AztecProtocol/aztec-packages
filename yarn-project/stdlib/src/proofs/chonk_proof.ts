@@ -4,7 +4,7 @@ import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, numToUInt32BE, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink } from '@aztec/foundation/serialize';
 
 /**
  * Serialization format detection for ChonkProof is value-based on the leading uint32:
@@ -143,17 +143,24 @@ export class ChonkProof {
    * If compressed bytes are available, uses the compressed format (~1.7x smaller).
    * Otherwise falls back to legacy field element format.
    */
-  public toBuffer() {
+  public toBuffer(): Buffer;
+  public toBuffer(sink: BufferSink): void;
+  public toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
     if (this.compressedProof) {
       // Compressed format: [compressed_byte_count: uint32] [compressed_bytes]
-      return Buffer.concat([numToUInt32BE(this.compressedProof.length), this.compressedProof]);
+      sink.writeNumber(this.compressedProof.length);
+      sink.writeBytes(this.compressedProof);
+      return;
     }
-    if (this.fields.length === 0) {
-      // Empty format: a single zero length, no fields.
-      return numToUInt32BE(0);
-    }
-    // Legacy format: [field_count=1632: uint32] [fields...]
-    return serializeToBuffer(this.fields.length, this.fields);
+    // Legacy / empty format: [field_count: uint32] [fields...]. fields.length === 0 emits the empty
+    // sentinel (a lone zero uint32) that ChonkProof.fromBuffer detects; fields.length === CHONK_PROOF_LENGTH
+    // is the full legacy form. The writeFields fast path skips per-element sinkable dispatch on the 1632
+    // leaves and is a no-op when the array is empty.
+    sink.writeNumber(this.fields.length);
+    sink.writeFields(this.fields);
   }
 }
 
@@ -217,8 +224,14 @@ export class ChonkProofWithPublicInputs {
     return new ChonkProofWithPublicInputs(proof);
   }
 
-  public toBuffer() {
-    return serializeToBuffer(this.fieldsWithPublicInputs.length, this.fieldsWithPublicInputs);
+  public toBuffer(): Buffer;
+  public toBuffer(sink: BufferSink): void;
+  public toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    sink.writeNumber(this.fieldsWithPublicInputs.length);
+    sink.writeFields(this.fieldsWithPublicInputs);
   }
 
   // Called when constructing from bb proving results.
