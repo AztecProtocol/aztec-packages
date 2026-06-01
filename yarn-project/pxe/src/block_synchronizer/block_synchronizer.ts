@@ -1,3 +1,4 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -201,10 +202,15 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
       await this.canonicalBlockStore.setFloor(finalized);
       await this.canonicalBlockStore.setFinalized(finalized);
       const tip = await this.node.getBlockNumber();
-      const blocks = await this.node.getBlocks(BlockNumber(finalized), tip - finalized + 1);
-      await this.canonicalBlockStore.setManyCanonical(
-        blocks.map(b => ({ blockNumber: b.number, blockHash: b.hash.toString() })),
-      );
+      // getBlocks rejects `from < INITIAL_L2_BLOCK_NUM`, so clamp the floor up past genesis and only hydrate when
+      // there is at least one real block in range. Genesis (block 0) is immutable-canonical and needs no hash.
+      const from = BlockNumber(Math.max(finalized, INITIAL_L2_BLOCK_NUM));
+      if (tip >= from) {
+        const blocks = await this.node.getBlocks(from, tip - from + 1);
+        await this.canonicalBlockStore.setManyCanonical(
+          blocks.map(b => ({ blockNumber: b.number, blockHash: b.hash.toString() })),
+        );
+      }
     }
     await this.blockStream.sync();
   }

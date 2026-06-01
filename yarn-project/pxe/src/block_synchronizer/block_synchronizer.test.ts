@@ -200,6 +200,29 @@ describe('BlockSynchronizer', () => {
       expect(canonicalBlockStore.isCanonical({ blockNumber: 3, blockHash: '0xdeadbeef' })).toBe(false);
     });
 
+    it('does not request blocks below genesis when cold-starting an empty chain', async () => {
+      const genesisBlock = await L2Block.random(BlockNumber(0));
+      const genesisBlockData: BlockData = {
+        header: genesisBlock.header,
+        archive: genesisBlock.archive,
+        blockHash: await genesisBlock.hash(),
+        checkpointNumber: genesisBlock.checkpointNumber,
+        indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
+      };
+      aztecNode.getBlockData.mockResolvedValue(genesisBlockData);
+      // Fresh chain: both the latest and finalized tips are at genesis (block 0).
+      aztecNode.getBlockNumber.mockResolvedValue(BlockNumber(0));
+      aztecNode.getBlocks.mockResolvedValue([]);
+      blockStream.sync.mockResolvedValue(undefined);
+
+      await synchronizer.sync();
+
+      // getBlocks rejects `from < INITIAL_L2_BLOCK_NUM`, so it must not be called when there are no real blocks.
+      expect(aztecNode.getBlocks).not.toHaveBeenCalled();
+      expect(canonicalBlockStore.getFloor()).toBe(0);
+      expect(canonicalBlockStore.getHighestFinalized()).toBe(0);
+    });
+
     it('records canonical hashes for all blocks in a blocks-added event', async () => {
       const blocks = await timesParallel(3, i => L2Block.random(BlockNumber(i + 1)));
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });
