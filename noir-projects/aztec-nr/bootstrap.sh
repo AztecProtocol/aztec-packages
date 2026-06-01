@@ -31,7 +31,7 @@ function test_cmds {
   done
 
   # Oracle roundtrip tests run against a dedicated resolver instead of TXE
-  local resolver_port=$1
+  local resolver_port=${1:-14830}
   $NARGO test --list-tests --silence-warnings | grep __oracle_test__ | sort | while read -r package test; do
     echo "$hash noir-projects/scripts/run_test.sh aztec-nr $package $test $resolver_port"
   done
