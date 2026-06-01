@@ -349,6 +349,20 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     };
 
     /**
+     * @brief Lightweight per-proof data for batch verification.
+     * @details Stores round_challenges_inv (log_poly_length values) instead of the full s_vec
+     * (poly_length elements), deferring s_vec construction to a fused butterfly that builds
+     * combined_s directly. Saves ~32KB per claim and enables parallel accumulation.
+     */
+    struct TranscriptDataLight {
+        GroupElement C_zero;
+        Fr b_zero;
+        std::vector<Fr> round_challenges_inv;
+        Fr gen_challenge;
+        Fr a_zero;
+    };
+
+    /**
      * @brief Process a single IPA proof's transcript, extracting all per-proof verification data.
      *
      * @param opening_claim Contains the commitment \f$C\f$ and opening pair \f$(\beta, f(\beta))\f$
@@ -436,6 +450,62 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         Fr a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
 
         return { C_zero, b_zero, std::move(s_vec), generator_challenge, G_zero_from_prover, a_zero };
+    }
+
+    /**
+     * @brief Lightweight transcript processing for batch verification.
+     * @details Same as read_transcript_data but stores round_challenges_inv instead of building s_vec.
+     * The s_vec construction is deferred to a fused butterfly in batch_reduce_verify.
+     */
+    template <typename Transcript>
+    static TranscriptDataLight read_transcript_data_light(const OpeningClaim<Curve>& opening_claim,
+                                                          const std::shared_ptr<Transcript>& transcript)
+        requires(!Curve::is_stdlib_type)
+    {
+        const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
+        if (generator_challenge.is_zero()) {
+            throw_or_abort("The generator challenge can't be zero");
+        }
+        const Commitment aux_generator = Commitment::one() * generator_challenge;
+        const GroupElement C_prime = opening_claim.commitment + (aux_generator * opening_claim.opening_pair.evaluation);
+
+        const auto pippenger_size = 2 * log_poly_length;
+        std::vector<Fr> round_challenges(log_poly_length);
+        std::vector<Commitment> msm_elements(pippenger_size);
+        std::vector<Fr> msm_scalars(pippenger_size);
+
+        for (size_t i = 0; i < log_poly_length; i++) {
+            std::string index = std::to_string(log_poly_length - i - 1);
+            const auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
+            const auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
+            round_challenges[i] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            if (round_challenges[i].is_zero()) {
+                throw_or_abort("Round challenges can't be zero");
+            }
+            msm_elements[2 * i] = element_L;
+            msm_elements[2 * i + 1] = element_R;
+        }
+
+        std::vector<Fr> round_challenges_inv = round_challenges;
+        Fr::batch_invert(round_challenges_inv);
+
+        for (size_t i = 0; i < log_poly_length; i++) {
+            msm_scalars[2 * i] = round_challenges_inv[i];
+            msm_scalars[2 * i + 1] = round_challenges[i];
+        }
+
+        GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>(
+            { 0, { &msm_scalars[0], pippenger_size } }, { &msm_elements[0], pippenger_size });
+        GroupElement C_zero = C_prime + LR_sums;
+
+        const Fr b_zero = evaluate_challenge_poly(round_challenges_inv, opening_claim.opening_pair.challenge);
+
+        // Advance transcript by receiving G_0 and a_0 (not used for recomputation)
+        [[maybe_unused]] Commitment G_zero_from_prover =
+            transcript->template receive_from_prover<Commitment>("IPA:G_0");
+        Fr a_zero = transcript->template receive_from_prover<Fr>("IPA:a_0");
+
+        return { C_zero, b_zero, std::move(round_challenges_inv), generator_challenge, a_zero };
     }
 
     /**
@@ -688,21 +758,43 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             return false;
         }
 
-        // Phase 1: Per-proof transcript processing (sequential, each proof is cheap)
+        // Phase 1: Per-proof transcript processing using lightweight variant.
+        // Stores round_challenges_inv (log_poly_length values per claim) instead of full s_vecs
+        // (poly_length elements each), saving ~32KB per claim.
         std::vector<GroupElement> C_zeros(num_claims);
         std::vector<Fr> a_zeros(num_claims);
         std::vector<Fr> b_zeros(num_claims);
         std::vector<Fr> gen_challenges(num_claims);
-        std::vector<Polynomial<Fr>> s_vecs(num_claims);
+        std::vector<std::vector<Fr>> all_round_challenges_inv(num_claims);
 
-        for (size_t i = 0; i < num_claims; i++) {
-            add_claim_to_hash_buffer(opening_claims[i], transcripts[i]);
-            auto data = read_transcript_data(opening_claims[i], transcripts[i]);
-            C_zeros[i] = std::move(data.C_zero);
-            b_zeros[i] = data.b_zero;
-            s_vecs[i] = std::move(data.s_vec);
-            gen_challenges[i] = data.gen_challenge;
-            a_zeros[i] = data.a_zero;
+        {
+            const size_t num_workers = std::min(num_claims, get_num_cpus());
+            const size_t saved_concurrency = get_num_cpus();
+            std::atomic<size_t> work_index{ 0 };
+            std::vector<std::thread> workers;
+            workers.reserve(num_workers);
+            for (size_t w = 0; w < num_workers; ++w) {
+                workers.emplace_back([&]() {
+                    set_parallel_for_concurrency(1);
+                    while (true) {
+                        size_t i = work_index.fetch_add(1, std::memory_order_relaxed);
+                        if (i >= num_claims) {
+                            break;
+                        }
+                        add_claim_to_hash_buffer(opening_claims[i], transcripts[i]);
+                        auto data = read_transcript_data_light(opening_claims[i], transcripts[i]);
+                        C_zeros[i] = std::move(data.C_zero);
+                        b_zeros[i] = data.b_zero;
+                        all_round_challenges_inv[i] = std::move(data.round_challenges_inv);
+                        gen_challenges[i] = data.gen_challenge;
+                        a_zeros[i] = data.a_zero;
+                    }
+                });
+            }
+            for (auto& w : workers) {
+                w.join();
+            }
+            set_parallel_for_concurrency(saved_concurrency);
         }
 
         // Phase 2: Batched computation using random challenge alpha
@@ -713,12 +805,79 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             alpha_pows[i] = alpha_pows[i - 1] * alpha;
         }
 
-        // Combined s_vec: combined_s[j] = \sum \alpha^i * a_zero_i * s_vec_i[j]
-        Polynomial<Fr> combined_s(poly_length);
-        for (size_t i = 0; i < num_claims; i++) {
-            Fr scalar = alpha_pows[i] * a_zeros[i];
-            combined_s.add_scaled(s_vecs[i], scalar);
+        // Fused butterfly + accumulation: each thread processes a subset of claims through
+        // the s_vec butterfly expansion fused with weighted accumulation. Pre-scales the initial
+        // seed by alpha^i * a_zero_i so the final accumulation uses pure additions.
+        // This avoids storing N simultaneous s_vecs (saves ~N * 32K * 32B of peak memory).
+        const size_t num_threads = get_num_cpus();
+        const size_t claims_per_thread = (num_claims + num_threads - 1) / num_threads;
+        std::vector<std::vector<Fr>> thread_combined(num_threads);
+        for (size_t t = 0; t < num_threads && t * claims_per_thread < num_claims; ++t) {
+            thread_combined[t].resize(poly_length, Fr::zero());
         }
+
+        auto process_chunk = [&](size_t thread_idx) {
+            const size_t claim_start = thread_idx * claims_per_thread;
+            const size_t claim_end = std::min(claim_start + claims_per_thread, num_claims);
+            if (claim_start >= claim_end) {
+                return;
+            }
+            auto& local = thread_combined[thread_idx];
+            std::vector<Fr> buf_main(poly_length);
+            std::vector<Fr> buf_half(poly_length / 2);
+
+            for (size_t i = claim_start; i < claim_end; i++) {
+                const Fr weight = alpha_pows[i] * a_zeros[i];
+                const auto& u_inv = all_round_challenges_inv[i];
+
+                Fr* prev = buf_half.data();
+                Fr* curr = buf_main.data();
+                if ((log_poly_length & 1) == 0) {
+                    std::swap(prev, curr);
+                }
+                // Pre-scale: start butterfly with weight instead of 1
+                prev[0] = weight;
+                for (size_t k = 0; k < log_poly_length; ++k) {
+                    const size_t half_round = static_cast<size_t>(1) << k;
+                    const Fr& challenge = u_inv[k];
+                    for (size_t j = 0; j < half_round; ++j) {
+                        curr[j * 2] = prev[j];
+                        curr[j * 2 + 1] = prev[j] * challenge;
+                    }
+                    std::swap(prev, curr);
+                }
+                // prev now points to weight * s_vec; accumulate with additions only
+                for (size_t j = 0; j < poly_length; ++j) {
+                    local[j] += prev[j];
+                }
+            }
+        };
+
+        {
+            std::vector<std::thread> workers;
+            for (size_t t = 1; t < num_threads; ++t) {
+                if (t * claims_per_thread >= num_claims) {
+                    break;
+                }
+                workers.emplace_back(process_chunk, t);
+            }
+            process_chunk(0);
+            for (auto& w : workers) {
+                w.join();
+            }
+        }
+
+        // Merge thread-local buffers
+        auto& base = thread_combined[0];
+        const size_t active_threads = std::min(num_threads, (num_claims + claims_per_thread - 1) / claims_per_thread);
+        for (size_t t = 1; t < active_threads; ++t) {
+            const auto& other = thread_combined[t];
+            for (size_t j = 0; j < poly_length; ++j) {
+                base[j] += other[j];
+            }
+        }
+
+        Polynomial<Fr> combined_s(std::span<const Fr>(base.data(), poly_length), poly_length);
 
         // Single MSM over combined scalars
         std::span<const Commitment> srs_elements = vk.get_monomial_points();
