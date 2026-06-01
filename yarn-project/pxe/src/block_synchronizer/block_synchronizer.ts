@@ -3,13 +3,21 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundatio
 import { SerialQueue } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
-import { BlockHash, L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
+import {
+  BlockHash,
+  type L2BlockId,
+  L2BlockStream,
+  type L2BlockStreamEvent,
+  type L2BlockStreamEventHandler,
+} from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { CanonicalBlockStore } from '../storage/canonical_block_store/index.js';
+import type { NoteStore } from '../storage/note_store/index.js';
+import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
 
 /**
@@ -27,6 +35,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private node: AztecNode,
     private store: AztecAsyncKVStore,
     private canonicalBlockStore: CanonicalBlockStore,
+    private noteStore: NoteStore,
+    private privateEventStore: PrivateEventStore,
     private l2TipsStore: L2TipsKVStore,
     private contractSyncService: ContractSyncService,
     private config: Partial<BlockSynchronizerConfig> = {},
@@ -92,7 +102,21 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         break;
       }
       case 'chain-finalized': {
-        await this.canonicalBlockStore.setFinalized(event.block.number);
+        const prevFloor = this.canonicalBlockStore.getFinalizedFloor();
+        const newFloor = event.block.number;
+        if (newFloor > prevFloor) {
+          // Reap orphaned rows in the newly-finalized range and raise the floor atomically: either both happen or
+          // neither, so a crash mid-way can never leave non-canonical rows below a raised floor (where they'd become
+          // permanently visible, since blocks at or below the floor are canonical with no hash to disqualify them).
+          await this.store.transactionAsync(async () => {
+            const isCanonical = (id: L2BlockId) => this.canonicalBlockStore.isCanonical(id);
+            // Reap BEFORE advancing the floor: advanceFinalized prunes the (prevFloor, newFloor] hashes, so isCanonical
+            // would no longer be able to distinguish the canonical fork from orphans at those heights afterwards.
+            await this.noteStore.reapNonCanonicalInRange(prevFloor + 1, newFloor, isCanonical);
+            await this.privateEventStore.reapNonCanonicalInRange(prevFloor + 1, newFloor, isCanonical);
+            await this.canonicalBlockStore.advanceFinalized(newFloor);
+          });
+        }
         if (this.config.syncChainTip === 'finalized') {
           const block = await this.node.getBlock(BlockNumber(event.block.number));
           if (block) {
@@ -193,16 +217,6 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
       await this.canonicalBlockStore.setHeader((await this.node.getBlockData(BlockNumber.ZERO))!.header);
-    }
-    // Empty map means this is the first sync since the store was created (or wiped); hydrate the canonical chain
-    // from the finality floor forward. Blocks below the floor are immutable-canonical and need no hash.
-    if (this.canonicalBlockStore.isEmpty()) {
-      const finalized = await this.node.getBlockNumber('finalized');
-      await this.canonicalBlockStore.setFloor(finalized);
-      await this.canonicalBlockStore.setFinalized(finalized);
-      const tip = await this.node.getBlockNumber();
-      const blocks = await this.node.getBlocks(BlockNumber(finalized), tip - finalized + 1);
-      await this.canonicalBlockStore.setManyCanonical(blocks.map(b => ({ number: b.number, hash: b.hash.toString() })));
     }
     await this.blockStream.sync();
   }

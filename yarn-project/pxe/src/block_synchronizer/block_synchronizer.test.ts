@@ -4,6 +4,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
+import { EventSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
   BlockHash,
@@ -14,12 +16,16 @@ import {
 } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { CanonicalBlockStore } from '../storage/canonical_block_store/index.js';
+import { NoteStore } from '../storage/note_store/index.js';
+import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
 
 describe('BlockSynchronizer', () => {
@@ -27,6 +33,8 @@ describe('BlockSynchronizer', () => {
   let store: AztecAsyncKVStore;
   let tipsStore: L2TipsKVStore;
   let canonicalBlockStore: CanonicalBlockStore;
+  let noteStore: NoteStore;
+  let privateEventStore: PrivateEventStore;
   let aztecNode: MockProxy<AztecNode>;
   let blockStream: MockProxy<L2BlockStream>;
   let contractSyncService: MockProxy<ContractSyncService>;
@@ -38,7 +46,16 @@ describe('BlockSynchronizer', () => {
   };
 
   const createSynchronizer = (config: Partial<BlockSynchronizerConfig> = {}) => {
-    return new TestSynchronizer(aztecNode, store, canonicalBlockStore, tipsStore, contractSyncService, config);
+    return new TestSynchronizer(
+      aztecNode,
+      store,
+      canonicalBlockStore,
+      noteStore,
+      privateEventStore,
+      tipsStore,
+      contractSyncService,
+      config,
+    );
   };
 
   beforeEach(async () => {
@@ -46,8 +63,10 @@ describe('BlockSynchronizer', () => {
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
     tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
-    canonicalBlockStore = new CanonicalBlockStore(store);
+    canonicalBlockStore = new CanonicalBlockStore(store, tipsStore);
     await canonicalBlockStore.load();
+    noteStore = new NoteStore(store, canonicalBlockStore);
+    privateEventStore = new PrivateEventStore(store, canonicalBlockStore);
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });
@@ -141,65 +160,6 @@ describe('BlockSynchronizer', () => {
   });
 
   describe('canonical map', () => {
-    it('hydrates the canonical map from finality on cold start', async () => {
-      // Provide the genesis header so doSync can set the initial anchor.
-      const genesisBlock = await L2Block.random(BlockNumber(0));
-      const genesisBlockData: BlockData = {
-        header: genesisBlock.header,
-        archive: genesisBlock.archive,
-        blockHash: await genesisBlock.hash(),
-        checkpointNumber: genesisBlock.checkpointNumber,
-        indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
-      };
-      aztecNode.getBlockData.mockResolvedValue(genesisBlockData);
-
-      // finalized tip = 2, latest tip = 4.
-      aztecNode.getBlockNumber.mockImplementation((tip?: string) =>
-        Promise.resolve(BlockNumber(tip === 'finalized' ? 2 : 4)),
-      );
-
-      // Build blocks 2..4 with deterministic hashes (L2Block.random gives each a unique archive root).
-      const blocksByNumber = new Map<number, { hash: BlockHash; header: any; archive: any; number: number }>();
-      for (let h = 2; h <= 4; h++) {
-        const b = await L2Block.random(BlockNumber(h));
-        blocksByNumber.set(h, { hash: await b.hash(), header: b.header, archive: b.archive, number: h });
-      }
-
-      // Mock getBlocks(from, limit) — doSync calls node.getBlocks and reads `.hash` and `.number` as properties.
-      aztecNode.getBlocks.mockImplementation((from: any, limit: number) => {
-        const start = Number(from);
-        const result = [];
-        for (let n = start; n < start + limit; n++) {
-          const entry = blocksByNumber.get(n);
-          if (entry) {
-            result.push({
-              hash: entry.hash,
-              header: entry.header,
-              archive: entry.archive,
-              number: entry.number,
-            } as any);
-          }
-        }
-        return Promise.resolve(result);
-      });
-
-      // blockStream.sync() resolves immediately (no events).
-      blockStream.sync.mockResolvedValue(undefined);
-
-      await synchronizer.sync();
-
-      expect(canonicalBlockStore.getFloor()).toBe(2);
-      expect(canonicalBlockStore.getHighestFinalized()).toBe(2);
-
-      // All three hydrated heights must be canonical with the hashes doSync stored.
-      for (const [n, entry] of blocksByNumber) {
-        expect(canonicalBlockStore.isCanonical({ number: BlockNumber(n), hash: entry.hash.toString() })).toBe(true);
-      }
-
-      // A competing hash at a hydrated height is NOT canonical.
-      expect(canonicalBlockStore.isCanonical({ number: BlockNumber(3), hash: '0xdeadbeef' })).toBe(false);
-    });
-
     it('records canonical hashes for all blocks in a blocks-added event', async () => {
       const blocks = await timesParallel(3, i => L2Block.random(BlockNumber(i + 1)));
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });
@@ -253,16 +213,104 @@ describe('BlockSynchronizer', () => {
       expect(obtainedHeader.equals(commonAncestorBlock.header)).toBe(true);
     });
 
-    it('chain-finalized advances the finality tracker without changing the floor', async () => {
-      const initialFloor = canonicalBlockStore.getFloor();
+    // Two distinct, valid block-hash Fr values for the orphan/canonical forks at the same finalized height. The note
+    // and event stores serialize l2BlockHash as a field element, so the hashes must be real field elements.
+    const CANONICAL_HASH = Fr.fromString('0x0c').toString();
+    const ORPHAN_HASH = Fr.fromString('0x0a').toString();
+
+    it('chain-finalized reaps non-canonical rows in the newly-finalized range and advances the floor', async () => {
+      const contract = await AztecAddress.random();
+      const scope = await AztecAddress.random();
+
+      // The canonical fork at block 9 (a prior blocks-added would have recorded this).
+      await canonicalBlockStore.setManyCanonical([{ number: BlockNumber(9), hash: CANONICAL_HASH }]);
+
+      // A note on the canonical fork and a competing note on an orphaned fork, both created at block 9.
+      const canonicalNote = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(9),
+        l2BlockHash: CANONICAL_HASH,
+      });
+      const orphanNote = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(9),
+        l2BlockHash: ORPHAN_HASH,
+      });
+      await noteStore.addNotes([canonicalNote, orphanNote], scope, 'note-job');
+      await noteStore.commit('note-job');
+
+      // Likewise a canonical and an orphan private event at block 9, sharing contract + selector.
+      const eventSelector = EventSelector.random();
+      const randomness = Fr.random();
+      const msgContent = [Fr.random(), Fr.random()];
+      const canonicalEventId = Fr.random();
+      const orphanEventId = Fr.random();
+      const storeEvent = (eventId: Fr, hash: string) =>
+        privateEventStore.storePrivateEventLog(
+          eventSelector,
+          randomness,
+          msgContent,
+          eventId,
+          {
+            contractAddress: contract,
+            scope,
+            txHash: TxHash.random(),
+            l2BlockNumber: BlockNumber(9),
+            l2BlockHash: BlockHash.fromString(hash),
+            txIndexInBlock: 0,
+            eventIndexInTx: 0,
+          },
+          'event-job',
+        );
+      await storeEvent(canonicalEventId, CANONICAL_HASH);
+      await storeEvent(orphanEventId, ORPHAN_HASH);
+      await privateEventStore.commit('event-job');
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',
-        block: { number: BlockNumber(7), hash: '0xfin' },
+        block: { number: BlockNumber(9), hash: CANONICAL_HASH },
       });
 
-      expect(canonicalBlockStore.getHighestFinalized()).toBe(7);
-      expect(canonicalBlockStore.getFloor()).toBe(initialFloor);
+      // The orphan rows are reaped; only the canonical fork survives the finalization.
+      expect(await noteStore.nullifiersAtBlock(9)).toEqual([canonicalNote.siloedNullifier.toString()]);
+      expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([canonicalEventId.toString()]);
+
+      // The floor is raised to the finalized height and the height's hashes are pruned from the reorg-able window.
+      expect(canonicalBlockStore.getFinalizedFloor()).toBe(9);
+      expect(canonicalBlockStore.getCanonicalHash(BlockNumber(9))).toBeUndefined();
+
+      // With the hash pruned, every block at or below the floor is canonical: finalized ⇒ canonical.
+      expect(canonicalBlockStore.isCanonical({ number: BlockNumber(9), hash: ORPHAN_HASH })).toBe(true);
+    });
+
+    it('keeps a canonical row at a finalized height visible after finalization', async () => {
+      const contract = await AztecAddress.random();
+      const scope = await AztecAddress.random();
+
+      await canonicalBlockStore.setManyCanonical([{ number: BlockNumber(9), hash: CANONICAL_HASH }]);
+      const canonicalNote = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(9),
+        l2BlockHash: CANONICAL_HASH,
+      });
+      await noteStore.addNotes([canonicalNote], scope, 'note-job');
+      await noteStore.commit('note-job');
+
+      await synchronizer.handleBlockStreamEvent({
+        type: 'chain-finalized',
+        block: { number: BlockNumber(9), hash: CANONICAL_HASH },
+      });
+
+      // The canonical note survives the reap, and stays visible via finalized ⇒ canonical even though its hash is gone.
+      expect(await noteStore.nullifiersAtBlock(9)).toEqual([canonicalNote.siloedNullifier.toString()]);
+      expect(canonicalBlockStore.getCanonicalHash(BlockNumber(9))).toBeUndefined();
+      expect(canonicalBlockStore.isCanonical({ number: BlockNumber(9), hash: CANONICAL_HASH })).toBe(true);
+      const found = await noteStore.getNotes(
+        { contractAddress: contract, scopes: [scope], status: NoteStatus.ACTIVE },
+        'read-job',
+      );
+      expect(found).toHaveLength(1);
+      expect(found[0].siloedNullifier.equals(canonicalNote.siloedNullifier)).toBe(true);
     });
   });
 
