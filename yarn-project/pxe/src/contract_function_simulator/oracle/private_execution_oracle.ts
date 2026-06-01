@@ -84,10 +84,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly senderTaggingStore: SenderTaggingStore;
   private totalPublicCalldataCount: number;
   private readonly initialSideEffectCounter: number;
-  /** Sender for tags passed in at oracle construction time. Returned by `getSenderForTags` unless overridden. */
+  /** Sender for tags passed in at oracle construction time. Returned by `getSenderForTags`. */
   private readonly defaultSenderForTags: AztecAddress | undefined;
-  /** Per-call sender-for-tags override, set by `setSenderForTags`. Takes precedence over `defaultSenderForTags`. */
-  private currentSenderForTags: AztecAddress | undefined;
 
   constructor(args: PrivateExecutionOracleArgs) {
     super({
@@ -180,29 +178,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * Returns `currentSenderForTags` if set (via `setSenderForTags`), otherwise `defaultSenderForTags`.
+   * Returns the wallet-supplied default sender for tags, or `None` if no default was provided.
    */
   public getSenderForTags(): Promise<Option<AztecAddress>> {
-    const sender = this.currentSenderForTags ?? this.defaultSenderForTags;
-    return Promise.resolve(sender ? Option.some(sender) : Option.none(AztecAddress.ZERO));
-  }
-
-  /**
-   * Set the sender for tags.
-   *
-   * This unconstrained value is used as the sender when computing an unconstrained shared secret
-   * for a tag in order to emit a log. Constrained tagging should not use this as there is no
-   * guarantee that the recipient knows about the sender, and hence about the shared secret.
-   *
-   * Overrides `defaultSenderForTags` for the remainder of this call. Each oracle instance is
-   * independent, so this has no effect on any other call in the execution.
-   */
-  public setSenderForTags(senderForTags: AztecAddress): Promise<void> {
-    this.logger.debug(
-      `Sender for tags switched to ${senderForTags} by contract ${this.contractAddress} (default was ${this.defaultSenderForTags})`,
+    return Promise.resolve(
+      this.defaultSenderForTags ? Option.some(this.defaultSenderForTags) : Option.none(AztecAddress.ZERO),
     );
-    this.currentSenderForTags = senderForTags;
-    return Promise.resolve();
   }
 
   /**
@@ -691,5 +672,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   public getDebugFunctionName() {
     return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+  }
+
+  protected override get callerContext() {
+    return this.callContext.isStaticCall ? 'private view' : 'private';
   }
 }

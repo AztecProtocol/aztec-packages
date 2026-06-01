@@ -62,27 +62,6 @@ describe('PrivateExecutionOracle', () => {
       const result = await oracle.getSenderForTags();
       expect(result.isNone()).toBe(true);
     });
-
-    it('setSenderForTags overrides the value visible from this call', async () => {
-      const wallet = await AztecAddress.random();
-      const override = await AztecAddress.random();
-      const oracle = makeOracle({ senderForTags: wallet });
-
-      await oracle.setSenderForTags(override);
-
-      const result = await oracle.getSenderForTags();
-      expect(result.value).toEqual(override);
-    });
-
-    it('setSenderForTags works when no default was provided', async () => {
-      const override = await AztecAddress.random();
-      const oracle = makeOracle();
-
-      await oracle.setSenderForTags(override);
-
-      const result = await oracle.getSenderForTags();
-      expect(result.value).toEqual(override);
-    });
   });
 
   const makeOracle = (overrides: Partial<PrivateExecutionOracleArgs> = {}): PrivateExecutionOracle => {

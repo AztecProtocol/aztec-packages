@@ -20,7 +20,7 @@ import type { P2P, PeerId } from '@aztec/p2p';
 import { TestTxProvider } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { CommitteeAttestation, GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
 import { CheckpointReexecutionTracker, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
@@ -98,11 +98,14 @@ describe('ValidatorClient Integration', () => {
   /** Creates a new validator and dependencies */
   const createValidatorContext = async (privateKey: Hex<32>): Promise<ValidatorContext> => {
     // Create archiver store and NoopL1Archiver
-    const archiverStore = await createArchiverStore({
-      archiverStoreMapSizeKb: 1024 * 1024,
-      dataDirectory: undefined,
-      dataStoreMapSizeKb: 1024 * 1024,
-    });
+    const archiverStore = await createArchiverStore(
+      {
+        archiverStoreMapSizeKb: 1024 * 1024,
+        dataDirectory: undefined,
+        dataStoreMapSizeKb: 1024 * 1024,
+      },
+      GENESIS_BLOCK_HEADER_HASH,
+    );
     await registerProtocolContracts(archiverStore);
 
     // Construct world-state first so we can pass its initial header to the archiver, mirroring

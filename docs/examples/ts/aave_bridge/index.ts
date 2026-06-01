@@ -4,6 +4,7 @@ import { SetPublicAuthwitContractInteraction } from "@aztec/aztec.js/authorizati
 import { Fr } from "@aztec/aztec.js/fields";
 import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
+import { OutboxContract } from "@aztec/ethereum/contracts";
 import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
 import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import {
@@ -278,13 +279,20 @@ while (provenBlockNumber < exitBlockNumber) {
 }
 console.log("Block proven!\n");
 
-// Compute the membership witness using the message hash and the L2 tx hash
+// Compute the membership witness using the message hash and the L2 tx hash.
+// The Outbox is queried to pick the smallest partial-proof root that covers the tx's checkpoint.
+const outbox = new OutboxContract(
+  l1Client,
+  nodeInfo.l1ContractAddresses.outboxAddress,
+);
 const witness = await computeL2ToL1MembershipWitness(
   node,
+  outbox,
   msgLeaf,
   exitReceipt.txHash,
 );
 const epoch = witness!.epochNumber;
+const numCheckpointsInEpoch = witness!.numCheckpointsInEpoch;
 
 const siblingPathHex = witness!.siblingPath
   .toBufferArray()
@@ -304,6 +312,7 @@ const depositToAaveHash = await l1Client.writeContract({
     amountToDeposit,
     false, // withCaller = false (matches caller_on_l1 = address(0))
     BigInt(epoch),
+    BigInt(numCheckpointsInEpoch),
     BigInt(witness!.leafIndex),
     siblingPathHex,
   ],

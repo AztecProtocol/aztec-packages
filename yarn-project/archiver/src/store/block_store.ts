@@ -1152,8 +1152,41 @@ export class BlockStore {
     if (!txEffect) {
       return undefined;
     }
-    const { l2BlockNumber, txIndexInBlock } = deserializeIndexedTxEffect(txEffect);
+    // Read only the IndexedTxEffect header (`blockHash(32) + l2BlockNumber(4) + txIndexInBlock(4)`); the
+    // large tail (the full TxEffect with logs etc.) is irrelevant here.
+    const view = Buffer.from(txEffect.buffer, txEffect.byteOffset, txEffect.byteLength);
+    const l2BlockNumber = view.readUInt32BE(32);
+    const txIndexInBlock = view.readUInt32BE(36);
     return [l2BlockNumber, txIndexInBlock];
+  }
+
+  /**
+   * Batched, partial deserializer that fetches `noteHashes` and `nullifiers` (all of them) for the given
+   * txs. For each input txHash, returns a `[noteHashes, nullifiers]` tuple. Returns `[[], []]` for any
+   * unknown txHash. Preserves input order. Used by the log read path when `includeEffects` is set to
+   * attach effect data on demand without paying for a full {@link TxEffect} deserialization.
+   *
+   * The on-disk `IndexedTxEffect` layout starts with a fixed-length header
+   * (`blockHash(32) + l2BlockNumber(4) + txIndexInBlock(4) + revertCode(1) + txHash(32) + transactionFee(32)` =
+   * 105 bytes), followed by `noteHashes` and `nullifiers` (both u8-length-prefixed `Fr` vectors). We
+   * skip the header, then read the two vectors, and stop — the large tail (`l2ToL1Msgs`,
+   * `publicDataWrites`, `privateLogs`, `publicLogs`, `contractClassLogs`) is never touched.
+   */
+  public getNoteHashesAndNullifiers(txHashes: TxHash[]): Promise<[Fr[], Fr[]][]> {
+    return Promise.all(
+      txHashes.map(async (txHash): Promise<[Fr[], Fr[]]> => {
+        const buffer = await this.#txEffects.getAsync(txHash.toString());
+        if (!buffer) {
+          return [[], []];
+        }
+        const reader = BufferReader.asReader(buffer);
+        // Skip the fixed-length header: blockHash + l2BlockNumber + txIndexInBlock + revertCode + txHash + transactionFee.
+        reader.readBytes(32 + 4 + 4 + 1 + 32 + 32);
+        const noteHashes = reader.readVectorUint8Prefix(Fr);
+        const nullifiers = reader.readVectorUint8Prefix(Fr);
+        return [noteHashes, nullifiers];
+      }),
+    );
   }
 
   /**

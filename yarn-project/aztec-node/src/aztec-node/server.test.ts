@@ -622,6 +622,27 @@ describe('aztec node', () => {
         expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber(3));
       });
 
+      it('drives a reorg-aware sync to the requested block hash', async () => {
+        // A hash-anchored query resolves the hash against the archiver and then syncs world state to that
+        // exact (number, hash) so the synchronizer barriers on the archive-tree commit and detects reorgs,
+        // rather than syncing to bare latest height and racing the snapshot read.
+        const blockHash = BlockHash.random();
+        l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) =>
+          Promise.resolve(
+            query && 'hash' in query ? BlockNumber(3) : lastBlockNumber,
+          )) as L2BlockSource['getBlockNumber']);
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash);
+
+        await node.getWorldState(blockHash);
+
+        expect(worldState.syncImmediate).toHaveBeenCalledWith(BlockNumber(3), blockHash);
+      });
+
+      it('syncs to latest height without a hash when querying by block number', async () => {
+        await node.getWorldState(BlockNumber(3));
+        expect(worldState.syncImmediate).toHaveBeenCalledWith(lastBlockNumber, undefined);
+      });
+
       it('throws when block hash is not found in archiver', async () => {
         const blockHash = BlockHash.random();
 

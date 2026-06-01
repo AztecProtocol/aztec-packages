@@ -5,6 +5,7 @@ import type { CircuitSimulator } from '@aztec/simulator/client';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 
 import type { ExecutionHooks } from '../hooks/index.js';
+import type { PreloadedContractsProvider } from '../pxe.js';
 
 export type PXECreationOptions = {
   loggers?: { store?: Logger; pxe?: Logger; prover?: Logger };
@@ -15,6 +16,8 @@ export type PXECreationOptions = {
   simulator?: CircuitSimulator;
   /** Optional hooks to observe and influence contract execution. */
   hooks?: ExecutionHooks;
+  /** Contracts to preload; used directly in place of the PXE's default (the standard multi-call entrypoint). */
+  preloadedContractsProvider?: PreloadedContractsProvider;
 };
 
 /** Checks if the given value implements the PrivateKernelProver interface via duck-typing. */

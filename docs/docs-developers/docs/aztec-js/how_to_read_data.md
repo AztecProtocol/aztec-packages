@@ -65,18 +65,18 @@ Contracts emit data in two forms you can read:
 | ------------------ | --------------------------- | -------------------------------------------------- |
 | **What**           | Raw field arrays (untyped)  | Decoded domain objects with type info              |
 | **Storage**        | Archiver (node-level)       | PXE (client-level) for private events              |
-| **API**            | `aztecNode.getPublicLogs()` | `wallet.getPrivateEvents()` or `getPublicEvents()` |
+| **API**            | `aztecNode.getBlock()` tx effects | `wallet.getPrivateEvents()` or `getPublicEvents()` |
 | **Type awareness** | None - raw `Fr[]` data      | Requires ABI metadata to decode                    |
 
 **Logs** are the low-level transport layer, while **events** are the semantic application layer decoded using ABI metadata from your contract.
 
 ## Reading raw public logs
 
-Use `aztecNode.getPublicLogs()` to retrieve raw log data:
+Raw public logs are carried on each block's transaction effects. Fetch a block with `includeTransactions: true` and read `body.txEffects[*].publicLogs`:
 
 #include_code read_public_logs /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
-You can also filter by transaction hash or block range:
+You can scope this to a single transaction (by locating its block and matching its tx hash) or to a block range (by reading each block's tx effects):
 
 #include_code read_logs_by_filter /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
