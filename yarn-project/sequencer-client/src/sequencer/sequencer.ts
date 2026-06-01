@@ -270,9 +270,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** Returns slot and target slot from a single clock snapshot. */
   protected getSlotContextInNextL1Slot(): SequencerSlotContext {
     const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const targetSlot = SlotNumber(
-      slot + (this.epochCache.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0),
-    );
+    const targetSlot = SlotNumber(slot + PROPOSER_PIPELINING_SLOT_OFFSET);
     return { slot, targetSlot, epoch, targetEpoch: getEpochAtSlot(targetSlot, this.l1Constants), ts, nowSeconds };
   }
 
