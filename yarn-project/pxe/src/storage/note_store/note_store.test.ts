@@ -766,6 +766,14 @@ describe('NoteStore (canonicality)', () => {
     );
   });
 
+  it('indexes note nullifiers by creation block number', async () => {
+    const { note } = await makeCanonicalNote(BlockNumber(9));
+    await store.addNotes([note], scope, JOB);
+    await store.commit(JOB);
+    const nullifiers = await store.nullifiersAtBlock(9);
+    expect(nullifiers).toEqual([note.siloedNullifier.toString()]);
+  });
+
   afterEach(async () => {
     await kv.close();
   });

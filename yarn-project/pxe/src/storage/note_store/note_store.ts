@@ -37,6 +37,9 @@ export class NoteStore implements StagedStore {
   // contract address => nullifier
   #nullifiersByContractAddress: AztecAsyncMultiMap<string, string>;
 
+  // block number => nullifier
+  #nullifiersByBlockNumber: AztecAsyncMultiMap<number, string>;
+
   // Stores all nullification origins for each nullifier. Multiple origins arise when competing forks nullify the same
   // note at different block hashes; the canonical one is selected at read time via #check.
   // nullifier => originStr ("<number>:<hash>")
@@ -61,6 +64,7 @@ export class NoteStore implements StagedStore {
     this.#notes = store.openMap('notes');
     this.#nullifiersByContractAddress = store.openMultiMap('note_nullifiers_by_contract');
     this.#nullificationsByNullifier = store.openMultiMap('note_nullifications_by_nullifier');
+    this.#nullifiersByBlockNumber = store.openMultiMap('note_nullifiers_by_block');
 
     this.#jobLocks = new Map();
     this.#notesForJob = new Map();
@@ -295,6 +299,7 @@ export class NoteStore implements StagedStore {
     for (const [nullifier, storedNote] of this.#getNotesForJob(jobId)) {
       await this.#notes.set(nullifier, storedNote.toBuffer());
       await this.#nullifiersByContractAddress.set(storedNote.noteDao.contractAddress.toString(), nullifier);
+      await this.#nullifiersByBlockNumber.set(storedNote.noteDao.l2BlockNumber, nullifier);
     }
 
     for (const [nullifier, originSet] of this.#getNullificationsForJob(jobId)) {
@@ -380,5 +385,14 @@ export class NoteStore implements StagedStore {
       origins.push(origin);
     }
     return origins;
+  }
+
+  /** Returns the nullifiers (note ids) of all notes created at the given block number. Used by the reorg reap. */
+  public async nullifiersAtBlock(blockNumber: number): Promise<string[]> {
+    const nullifiers: string[] = [];
+    for await (const nullifier of this.#nullifiersByBlockNumber.getValuesAsync(blockNumber)) {
+      nullifiers.push(nullifier);
+    }
+    return nullifiers;
   }
 }
