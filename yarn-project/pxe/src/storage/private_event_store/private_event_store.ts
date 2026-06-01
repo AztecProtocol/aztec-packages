@@ -41,6 +41,8 @@ export class PrivateEventStore implements StagedStore {
   #events: AztecAsyncMap<string, Buffer>;
   /** Multi-map from contractAddress_eventSelector to siloedEventCommitment for efficient lookup */
   #eventsByContractAndEventSelector: AztecAsyncMultiMap<string, string>;
+  /** Multi-map from block number to siloedEventCommitment, for the reorg reap. */
+  #eventsByBlockNumber: AztecAsyncMultiMap<number, string>;
 
   #check: CanonicalityCheck;
 
@@ -57,6 +59,7 @@ export class PrivateEventStore implements StagedStore {
     this.#check = check;
     this.#events = this.#store.openMap('private_event_logs');
     this.#eventsByContractAndEventSelector = this.#store.openMultiMap('events_by_contract_selector');
+    this.#eventsByBlockNumber = this.#store.openMultiMap('events_by_block_number');
 
     this.#eventsForJob = new Map();
     this.#jobLocks = new Map();
@@ -223,6 +226,15 @@ export class PrivateEventStore implements StagedStore {
     });
   }
 
+  /** Returns the ids (siloed event commitments) of all events emitted at the given block number. Used by the reorg reap. */
+  async eventIdsAtBlock(blockNumber: number): Promise<string[]> {
+    const eventIds: string[] = [];
+    for await (const eventId of this.#eventsByBlockNumber.getValuesAsync(blockNumber)) {
+      eventIds.push(eventId);
+    }
+    return eventIds;
+  }
+
   /**
    * Commits in memory job data to persistent storage.
    *
@@ -244,6 +256,7 @@ export class PrivateEventStore implements StagedStore {
       await Promise.all([
         this.#events.set(eventId, entry.toBuffer()),
         this.#eventsByContractAndEventSelector.set(lookupKey, eventId),
+        this.#eventsByBlockNumber.set(entry.l2BlockNumber, eventId),
       ]);
     }
 

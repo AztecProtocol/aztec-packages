@@ -588,6 +588,72 @@ describe('PrivateEventStore', () => {
     });
   });
 
+  describe('eventIdsAtBlock', () => {
+    it('returns the event id of an event stored at a given block', async () => {
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        msgContent,
+        siloedEventCommitment,
+        {
+          contractAddress,
+          scope,
+          txHash,
+          l2BlockNumber,
+          l2BlockHash,
+          txIndexInBlock: 0,
+          eventIndexInTx: 0,
+        },
+        'test',
+      );
+      await privateEventStore.commit('test');
+
+      const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
+      expect(ids).toContain(siloedEventCommitment.toString());
+    });
+
+    it('returns all event ids when multiple events are stored at the same block', async () => {
+      const siloedEventCommitment2 = Fr.random();
+
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        msgContent,
+        siloedEventCommitment,
+        {
+          contractAddress,
+          scope,
+          txHash,
+          l2BlockNumber,
+          l2BlockHash,
+          txIndexInBlock: 0,
+          eventIndexInTx: 0,
+        },
+        'test',
+      );
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        getRandomMsgContent(),
+        siloedEventCommitment2,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber,
+          l2BlockHash,
+          txIndexInBlock: 0,
+          eventIndexInTx: 1,
+        },
+        'test',
+      );
+      await privateEventStore.commit('test');
+
+      const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
+      expect(new Set(ids)).toEqual(new Set([siloedEventCommitment.toString(), siloedEventCommitment2.toString()]));
+    });
+  });
+
   describe('staging', () => {
     it('stages events without affecting committed storage', async () => {
       const commitJobId: string = 'commit-job';
