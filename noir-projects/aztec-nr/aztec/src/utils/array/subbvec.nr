@@ -19,11 +19,9 @@ pub fn subbvec<T, let SrcMaxLen: u32, let DstMaxLen: u32>(
     bvec: BoundedVec<T, SrcMaxLen>,
     offset: u32,
 ) -> BoundedVec<T, DstMaxLen> {
-    // from_parts_unchecked does not verify that the elements past len are zeroed, but that is not an issue in our case
-    // because we're constructing the new storage array as a subarray of the original one (which should have zeroed
-    // storage past len), guaranteeing correctness. This is because `subarray` does not allow extending arrays past
-    // their original length.
-    BoundedVec::from_parts_unchecked(array::subarray(bvec.storage(), offset), bvec.len() - offset)
+    // The new storage array is a subarray of the original one (which has zeroed storage past len), so elements past
+    // the new len remain zeroed: `subarray` does not allow extending arrays past their original length.
+    BoundedVec::from_parts(array::subarray(bvec.storage(), offset), bvec.len() - offset)
 }
 
 mod test {
