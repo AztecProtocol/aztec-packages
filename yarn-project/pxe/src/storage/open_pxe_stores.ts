@@ -4,6 +4,7 @@ import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import type { BlockHash } from '@aztec/stdlib/block';
 
 import { AddressStore } from './address_store/address_store.js';
+import { AnchorHeaderStore } from './anchor_header_store/index.js';
 import { CanonicalBlockStore } from './canonical_block_store/index.js';
 import { CapsuleStore } from './capsule_store/capsule_store.js';
 import { ContractStore } from './contract_store/contract_store.js';
@@ -20,6 +21,7 @@ export type PxeStores = {
   contractStore: ContractStore;
   noteStore: NoteStore;
   canonicalBlockStore: CanonicalBlockStore;
+  anchorHeaderStore: AnchorHeaderStore;
   senderTaggingStore: SenderTaggingStore;
   senderAddressBookStore: SenderAddressBookStore;
   recipientTaggingStore: RecipientTaggingStore;
@@ -36,12 +38,14 @@ export async function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: 
   const l2TipsStore = new L2TipsKVStore(store, 'pxe', initialBlockHash);
   const canonicalBlockStore = new CanonicalBlockStore(store, l2TipsStore);
   await canonicalBlockStore.load();
+  const anchorHeaderStore = new AnchorHeaderStore(store);
   return {
     addressStore: new AddressStore(store),
     privateEventStore: new PrivateEventStore(store, canonicalBlockStore),
     contractStore: new ContractStore(store),
     noteStore: new NoteStore(store, canonicalBlockStore),
     canonicalBlockStore,
+    anchorHeaderStore,
     senderTaggingStore: new SenderTaggingStore(store),
     senderAddressBookStore: new SenderAddressBookStore(store),
     recipientTaggingStore: new RecipientTaggingStore(store),

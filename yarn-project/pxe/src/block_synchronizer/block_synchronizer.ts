@@ -15,6 +15,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
+import type { AnchorHeaderStore } from '../storage/anchor_header_store/index.js';
 import type { CanonicalBlockStore } from '../storage/canonical_block_store/index.js';
 import type { NoteStore } from '../storage/note_store/index.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
@@ -35,6 +36,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     private node: AztecNode,
     private store: AztecAsyncKVStore,
     private canonicalBlockStore: CanonicalBlockStore,
+    private anchorHeaderStore: AnchorHeaderStore,
     private noteStore: NoteStore,
     private privateEventStore: PrivateEventStore,
     private l2TipsStore: L2TipsKVStore,
@@ -128,7 +130,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         break;
       }
       case 'chain-pruned': {
-        const currentAnchorBlockHeader = await this.canonicalBlockStore.getBlockHeader();
+        const currentAnchorBlockHeader = await this.anchorHeaderStore.getBlockHeader();
         const currentAnchorBlockNumber = currentAnchorBlockHeader.getBlockNumber();
         if (currentAnchorBlockNumber <= event.block.number) {
           this.log.verbose(
@@ -168,7 +170,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     // execution.
     this.contractSyncService.wipe();
     this.log.verbose(`Updated pxe last block to ${blockHeader.getBlockNumber()}`, blockHeader.toInspect());
-    await this.canonicalBlockStore.setHeader(blockHeader);
+    await this.anchorHeaderStore.setHeader(blockHeader);
   }
 
   /**
@@ -210,13 +212,13 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     let currentHeader;
 
     try {
-      currentHeader = await this.canonicalBlockStore.getBlockHeader();
+      currentHeader = await this.anchorHeaderStore.getBlockHeader();
     } catch {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.canonicalBlockStore.setHeader((await this.node.getBlockData(BlockNumber.ZERO))!.header);
+      await this.anchorHeaderStore.setHeader((await this.node.getBlockData(BlockNumber.ZERO))!.header);
     }
     await this.blockStream.sync();
   }

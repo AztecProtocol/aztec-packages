@@ -1,7 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2Tips, L2TipsProvider } from '@aztec/stdlib/block';
-import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { CanonicalBlockStore } from './canonical_block_store.js';
 
@@ -29,18 +28,6 @@ describe('CanonicalBlockStore', () => {
     kv = await openTmpStore('canonical-block-store-test');
     store = new CanonicalBlockStore(kv, l2TipsProvider);
     await store.load();
-  });
-
-  describe('header storage', () => {
-    it('round-trips the synchronized header', async () => {
-      const header = BlockHeader.empty();
-      await store.setHeader(header);
-      expect((await store.getBlockHeader()).toBuffer()).toEqual(header.toBuffer());
-    });
-
-    it('throws when reading before a header is set', async () => {
-      await expect(store.getBlockHeader()).rejects.toThrow(/not-yet-synchronized/);
-    });
   });
 
   describe('canonicality', () => {

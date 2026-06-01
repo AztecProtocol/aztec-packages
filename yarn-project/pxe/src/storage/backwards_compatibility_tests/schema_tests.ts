@@ -36,6 +36,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { AddressStore } from '../address_store/address_store.js';
+import { AnchorHeaderStore } from '../anchor_header_store/index.js';
 import { CanonicalBlockStore } from '../canonical_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
@@ -89,9 +90,28 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       );
       await canonicalBlockStore.load();
 
+      // Populate the canonical map + finalized floor so canonical_hashes / canonical_meta are fingerprinted.
+      await canonicalBlockStore.setManyCanonical([
+        { number: BlockNumber(101), hash: '0x6f' },
+        { number: BlockNumber(103), hash: '0x83' },
+      ]);
+      // 89 is below the recorded hashes at 101/103, so this prunes nothing and only sets the floor + persists meta.
+      await canonicalBlockStore.advanceFinalized(BlockNumber(89));
+    },
+    snapshotStore: async kvStore => ({
+      canonical_hashes: await snapshotMap(kvStore.openMap<number, string>('canonical_hashes')),
+      canonical_meta: await snapshotSingleton(kvStore.openSingleton<Buffer>('canonical_meta')),
+    }),
+  },
+
+  {
+    name: 'AnchorHeaderStore',
+    writeToStore: async kvStore => {
+      const anchorHeaderStore = new AnchorHeaderStore(kvStore);
+
       // Each primitive field gets a distinct prime so any reorder shows up in the snapshot diff. An all-zero
       // `BlockHeader.empty()` would silently pass through same-width field swaps.
-      await canonicalBlockStore.setHeader(
+      await anchorHeaderStore.setHeader(
         new BlockHeader(
           new AppendOnlyTreeSnapshot(new Fr(2n), 3),
           new StateReference(
@@ -117,19 +137,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           new Fr(79n),
         ),
       );
-
-      // Populate the canonical map + finalized floor so canonical_hashes / canonical_meta are fingerprinted.
-      await canonicalBlockStore.setManyCanonical([
-        { number: BlockNumber(101), hash: '0x6f' },
-        { number: BlockNumber(103), hash: '0x83' },
-      ]);
-      // 89 is below the recorded hashes at 101/103, so this prunes nothing and only sets the floor + persists meta.
-      await canonicalBlockStore.advanceFinalized(BlockNumber(89));
     },
     snapshotStore: async kvStore => ({
       header: await snapshotSingleton(kvStore.openSingleton<Buffer>('header')),
-      canonical_hashes: await snapshotMap(kvStore.openMap<number, string>('canonical_hashes')),
-      canonical_meta: await snapshotSingleton(kvStore.openSingleton<Buffer>('canonical_meta')),
     }),
   },
 

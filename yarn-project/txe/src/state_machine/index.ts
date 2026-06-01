@@ -3,7 +3,13 @@ import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import { type CanonicalBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
+import {
+  type AnchorHeaderStore,
+  type CanonicalBlockStore,
+  type ContractStore,
+  ContractSyncService,
+  type NoteStore,
+} from '@aztec/pxe/server';
 import { MessageContextService } from '@aztec/pxe/simulator';
 import { L2Block, type L2TipsProvider } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -28,6 +34,7 @@ export class TXEStateMachine {
     public synchronizer: TXESynchronizer,
     public archiver: TXEArchiver,
     public canonicalBlockStore: CanonicalBlockStore,
+    public anchorHeaderStore: AnchorHeaderStore,
     public contractSyncService: ContractSyncService,
     public messageContextService: MessageContextService,
   ) {}
@@ -35,6 +42,7 @@ export class TXEStateMachine {
   public static async create(
     archiver: TXEArchiver,
     canonicalBlockStore: CanonicalBlockStore,
+    anchorHeaderStore: AnchorHeaderStore,
     contractStore: ContractStore,
     noteStore: NoteStore,
   ) {
@@ -76,7 +84,15 @@ export class TXEStateMachine {
 
     const messageContextService = new MessageContextService(node);
 
-    return new this(node, synchronizer, archiver, canonicalBlockStore, contractSyncService, messageContextService);
+    return new this(
+      node,
+      synchronizer,
+      archiver,
+      canonicalBlockStore,
+      anchorHeaderStore,
+      contractSyncService,
+      messageContextService,
+    );
   }
 
   /** Returns an {@link L2TipsProvider} backed by this node's chain tips. */
@@ -129,7 +145,7 @@ export class TXEStateMachine {
     await Promise.all([
       this.synchronizer.handleL2Block(block),
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
-      this.canonicalBlockStore.setHeader(block.header),
+      this.anchorHeaderStore.setHeader(block.header),
     ]);
   }
 }

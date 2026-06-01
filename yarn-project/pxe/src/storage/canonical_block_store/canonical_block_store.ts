@@ -2,14 +2,13 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
-import { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { CanonicalityCheck, L2BlockId } from '../foundation/index.js';
 
 /**
- * Holds the PXE's view of the canonical L2 chain: the synced tip header (used as the execution anchor block) and a
- * bounded `height -> blockHash` map covering the reorg-able window `(finalizedFloor, proposed]`. Reorgs are applied by
- * writing to this map (`clearAbove`), never by mutating other stores.
+ * Holds the PXE's view of the canonical L2 chain: a bounded `height -> blockHash` map covering the reorg-able window
+ * `(finalizedFloor, proposed]`. Reorgs are applied by writing to this map (`clearAbove`), never by mutating other
+ * stores.
  *
  * Canonicality follows `finalized ⇒ canonical`: a block at or below the finalized floor is canonical regardless of
  * hash (it can no longer be reorged), and a block above the floor is canonical only if its recorded hash matches. The
@@ -17,9 +16,7 @@ import type { CanonicalityCheck, L2BlockId } from '../foundation/index.js';
  * cold-start cache. Replaces the former `AnchorBlockStore`.
  */
 export class CanonicalBlockStore implements CanonicalityCheck {
-  #store: AztecAsyncKVStore;
   #finalizedTipProvider: Pick<L2TipsProvider, 'getL2Tips'>;
-  #synchronizedHeader: AztecAsyncSingleton<Buffer>;
   #canonicalHashes: AztecAsyncMap<number, string>;
   #meta: AztecAsyncSingleton<Buffer>;
 
@@ -27,9 +24,7 @@ export class CanonicalBlockStore implements CanonicalityCheck {
   #finalizedFloor: BlockNumber = BlockNumber.ZERO;
 
   constructor(store: AztecAsyncKVStore, finalizedTipProvider: Pick<L2TipsProvider, 'getL2Tips'>) {
-    this.#store = store;
     this.#finalizedTipProvider = finalizedTipProvider;
-    this.#synchronizedHeader = store.openSingleton('header');
     this.#canonicalHashes = store.openMap('canonical_hashes');
     this.#meta = store.openSingleton('canonical_meta');
   }
@@ -53,24 +48,6 @@ export class CanonicalBlockStore implements CanonicalityCheck {
     for await (const [height, hash] of this.#canonicalHashes.entriesAsync()) {
       this.#memHashes.set(height, hash);
     }
-  }
-
-  /**
-   * Sets the currently synchronized block header.
-   *
-   * Important: only called from BlockSynchronizer, and since it must run atomically with other stores in a reorg, it
-   * MUST NOT be wrapped in `transactionAsync` — doing so deadlocks IndexedDB (no reentrancy).
-   */
-  async setHeader(header: BlockHeader): Promise<void> {
-    await this.#synchronizedHeader.set(header.toBuffer());
-  }
-
-  async getBlockHeader(): Promise<BlockHeader> {
-    const headerBuffer = await this.#store.transactionAsync(() => this.#synchronizedHeader.getAsync());
-    if (!headerBuffer) {
-      throw new Error(`Trying to get block header with a not-yet-synchronized PXE - this should never happen`);
-    }
-    return BlockHeader.fromBuffer(headerBuffer);
   }
 
   /** Record the canonical hash at a height. Not wrapped in its own transaction (callers may wrap a reorg batch). */
