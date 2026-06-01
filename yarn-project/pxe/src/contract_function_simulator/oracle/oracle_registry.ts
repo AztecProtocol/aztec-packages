@@ -928,8 +928,12 @@ function BUFFER(bitSize: number): TypeMapping<Buffer> {
 
 export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<EphemeralArray<T>> {
   return {
-    serialization: { fn: ea => [ea.materializeSlot(v => element.serialization!.fn(v).flat() as Fr[])] },
-    deserialization: { fn: ([reader]) => EphemeralArray.fromSlot(reader.readField(), element), slots: 1 },
+    serialization: element.serialization
+      ? { fn: ea => [ea.materializeSlot(v => element.serialization!.fn(v).flat() as Fr[])] }
+      : undefined,
+    deserialization: element.deserialization
+      ? { fn: ([reader]) => EphemeralArray.fromSlot(reader.readField(), element), slots: 1 }
+      : undefined,
   };
 }
 
