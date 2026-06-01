@@ -1566,14 +1566,18 @@ export class LibP2PService extends WithTracer implements P2PService {
         return false;
       }
 
-      // Verify that the returned tx hashes are a subset of (block tx hashes) U (requested tx hashes).
+      // Verify that the returned tx hashes are a subset of (tx hashes by index) U (explicitly requested tx hashes).
       const uniqueRequestedHashes = new Set([
-        ...blockTxHashes.map(h => h.toString()),
+        // tx hashes requested by index.
+        ...request.txIndices.getTrueIndices().map(i => blockTxHashes[i].toString()),
+        // explicitly requested tx hashes.
         ...request.txHashes.map(h => h.toString()),
       ]);
       if (!returnedHashes.every(h => uniqueRequestedHashes.has(h))) {
         this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-        throw new ValidationError('Returned txs do not match expected subset of requested tx hashes');
+        throw new ValidationError(
+          'Returned txs should be a subset of (tx hashes by index) U (explicitly requested tx hashes)',
+        );
       }
 
       // Tx indices information is optional, but if present, we need to verify a few things.

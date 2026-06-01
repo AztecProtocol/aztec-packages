@@ -1,5 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -319,7 +320,7 @@ describe('LibP2PService', () => {
   describe('validateRequestedBlockTxsConsistency', () => {
     function makeRequest(archiveRoot: Fr, length: number, indices: number[], txHashes: string[] = []): BlockTxsRequest {
       const hashes = txHashes.map(h => ({ toString: () => h })) as unknown as TxHashArray;
-      return new BlockTxsRequest(archiveRoot, hashes, BitVector.init(length, indices));
+      return new BlockTxsRequest(archiveRoot, BitVector.init(length, indices), Buffer32.random(), hashes);
     }
 
     function makeResponse(length: number, indices: number[], txHashes: string[]): BlockTxsResponse {
@@ -365,6 +366,21 @@ describe('LibP2PService', () => {
       const response = makeResponse(5, [0, 2, 4], ['0xgood0', '0xbad']); // 0xbad is not in the block
 
       setProposalTxHashes(service, ['0xgood0', '0xgood2', '0xgood4', '0xother', '0xother2']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(false);
+      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
+    });
+
+    it('should penalize and reject when a returned tx is in the block but at an index we did not request', async () => {
+      const hash = Fr.random();
+      // We only request indices [0, 2], so the allowed set is {0xgood0, 0xgood2}. The peer returns
+      // 0xgood1, which IS part of the block (index 1) but was never requested — neither by index nor
+      // by explicit hash — so it must be rejected.
+      const request = makeRequest(hash, 5, [0, 2]);
+      const response = makeResponse(5, [0, 1], ['0xgood0', '0xgood1']);
+
+      setProposalTxHashes(service, ['0xgood0', '0xgood1', '0xgood2', '0xgood3', '0xgood4']);
 
       const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
