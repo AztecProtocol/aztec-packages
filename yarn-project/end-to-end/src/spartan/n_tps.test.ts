@@ -666,7 +666,7 @@ describe('sustained N TPS test', () => {
     logger.info(`Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed`);
     logger.info('Inclusion time stats', inclusionStats);
 
-    if (totalHighValueSent === 0) {
+    if (totalHighValueSent === 0 && highValueTps > 0) {
       throw new Error('No high-value txs were sent; check earlier submission errors');
     }
     if (successCount !== totalHighValueSent) {
