@@ -10,11 +10,12 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
-// The proving key uses no relations (only flavor entity/constant definitions, which the short-monomial flavor
-// inherits unchanged), so it stays bound to the base TranslatorFlavor and is shared by the prover and all tests.
+// Bound to the short-monomial flavor to match TranslatorProver. The proving key uses no relations (only flavor
+// entity/constant definitions, which the short-monomial flavor inherits unchanged from TranslatorFlavor), so the
+// choice is functionally immaterial -- it just keeps the prover and proving key on a single flavor.
 class TranslatorProvingKey {
   public:
-    using Flavor = TranslatorFlavor;
+    using Flavor = TranslatorShortMonomialFlavor;
     using Circuit = typename Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;

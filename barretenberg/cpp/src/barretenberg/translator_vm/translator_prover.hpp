@@ -14,8 +14,7 @@
 
 namespace bb {
 // The prover always runs sumcheck with the short-monomial flavor (faster sumcheck); it produces a proof and VK
-// identical to the legacy TranslatorFlavor, which the native and recursive verifiers consume. The proving key is
-// flavor-agnostic (it uses no relations), so it stays bound to the base TranslatorFlavor.
+// identical to the legacy TranslatorFlavor, which the native and recursive verifiers consume.
 class TranslatorProver {
   public:
     using Flavor = TranslatorShortMonomialFlavor;
