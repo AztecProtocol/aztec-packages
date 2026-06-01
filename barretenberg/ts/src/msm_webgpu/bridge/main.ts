@@ -37,10 +37,13 @@ const MSM_LRU_CAP = 16;
 const MAX_SAME_N_SLOTS = 10;
 
 // Production routing rule for the Tier 2 BatchMsmV2 path. See
-// BATCH_MSM_DESIGN.md (table "Production deployment recommendation"):
-//   - B=3 W_L/W_R/W_O at n=2^17 — solo wins (batch 0.82× of solo).
-//   - B≥4 at n ≤ 2^17 — batch wins 1.07×-1.17× over solo.
-//   - B≥4 at n=2^18 — known MEM_BUDGET regression (batch 0.74× of solo).
+// BATCH_MSM_DESIGN.md "Production deployment recommendation":
+//   - B=3 W_L/W_R/W_O at n ≤ 2^17 — solo wins (batch 0.67×-0.82× of solo).
+//     Confirmed empirically on the chonk e2e flow: B=3 batch slows the GPU
+//     MSM phase by ~130 ms vs solo (3.37 s → 3.50 s).
+//   - B ≥ 4 at n ≤ 2^17 — batch wins 1.07×-1.17× over solo. The translator's
+//     B=10 range-constraint commit (n=131072) is the main target.
+//   - B ≥ 4 at n=2^18 — known MEM_BUDGET regression (batch 0.74× of solo).
 // Activated only when the chonk page sets `__bridge_batch_enabled = true`
 // for the duration of one prove.
 const BATCH_MSM_V2_MIN_B = 4;
@@ -775,11 +778,32 @@ export class WebGpuMsmHost {
     const batchEnabled = (globalThis as any).__bridge_batch_enabled === true;
     const uniformN = nCounts.size === 1;
     const n0 = descs[0];
-    let allZeroSrsOff = true;
+    const srsOff0 = descs[1];
+    let allEqualSrsOff = true;
     for (let i = 0; i < batchCount; i++) {
-      if (descs[i * 5 + 1] !== 0) {
-        allZeroSrsOff = false;
+      if (descs[i * 5 + 1] !== srsOff0) {
+        allEqualSrsOff = false;
         break;
+      }
+    }
+    // Loud diagnostic so we can see exactly which condition rejected when
+    // the chonk page's "Run WebGPU (batch)" run doesn't show `route=batch-v2`
+    // lines. Only fires when the user has explicitly opted in to batch
+    // routing (the flag); silent otherwise.
+    if (batchEnabled && hasSameNCollision) {
+      const reasons: string[] = [];
+      if (!uniformN) reasons.push(`mixed-n (sizes=${[...nCounts.keys()].join(',')})`);
+      if (batchCount < BATCH_MSM_V2_MIN_B) reasons.push(`B=${batchCount} < ${BATCH_MSM_V2_MIN_B}`);
+      if (n0 > BATCH_MSM_V2_MAX_N) reasons.push(`n=${n0} > ${BATCH_MSM_V2_MAX_N}`);
+      if (!allEqualSrsOff)
+        reasons.push(
+          `srsOff mismatch (offsets=${Array.from({ length: batchCount }, (_, i) => descs[i * 5 + 1]).join(',')})`,
+        );
+      if (this.srsBytes === null) reasons.push('srsBytes null');
+      if (reasons.length === 0) {
+        console.log(`[batch-v2] routing accepted n=${n0} B=${batchCount} srsOffset=${srsOff0}`);
+      } else {
+        console.log(`[batch-v2] routing rejected n=${n0} B=${batchCount} reasons=[${reasons.join('; ')}]`);
       }
     }
     if (
@@ -787,10 +811,10 @@ export class WebGpuMsmHost {
       uniformN &&
       batchCount >= BATCH_MSM_V2_MIN_B &&
       n0 <= BATCH_MSM_V2_MAX_N &&
-      allZeroSrsOff &&
+      allEqualSrsOff &&
       this.srsBytes !== null
     ) {
-      await this.runBatchMsmV2Path(batchCount, n0, descs, labels, scalarsBase, resultsBase, metaBase, tBatch0);
+      await this.runBatchMsmV2Path(batchCount, n0, srsOff0, descs, labels, scalarsBase, resultsBase, metaBase, tBatch0);
       return;
     }
 
@@ -992,6 +1016,7 @@ export class WebGpuMsmHost {
   private async runBatchMsmV2Path(
     B: number,
     n: number,
+    srsOffset: number,
     descs: Uint32Array,
     labels: string[],
     scalarsBase: number,
@@ -1029,7 +1054,7 @@ export class WebGpuMsmHost {
     }
 
     const tPrep0 = performance.now();
-    await batch.prepareAll(scalarsList);
+    await batch.prepareAll(scalarsList, srsOffset);
     const tPrep1 = performance.now();
     const { results, gpuMs, wallMs } = await batch.runAll();
     const tRun1 = performance.now();

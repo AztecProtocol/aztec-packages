@@ -127,9 +127,15 @@ export class BatchMsmV2 {
   /**
    * Concatenate the B scalar buffers and prepare the underlying MsmV2 for
    * a virtualised B·W-window dispatch. `scalarsList[b]` must be `n × 32`
-   * LE Fr bytes for slot `b`.
+   * LE Fr bytes for slot `b`. `srsOffset` is the *common* point-index
+   * offset into the SRS pool shared by every slot — Tier 2's single
+   * MsmV2 instance binds one pool prefix [srsOffset, srsOffset + n), so
+   * all B same-N MSMs must agree on this. Defaults to 0 (the original
+   * caller contract). The chonk bridge passes through the per-batch
+   * srs_offset from the C++ side here so common-offset same-N batches
+   * (e.g. W_L/W_R/W_O at srs_offset=1) can route through this path.
    */
-  async prepareAll(scalarsList: Uint8Array[]): Promise<void> {
+  async prepareAll(scalarsList: Uint8Array[], srsOffset: number = 0): Promise<void> {
     if (scalarsList.length !== this.B) {
       throw new Error(`BatchMsmV2.prepareAll: expected ${this.B} scalar buffers, got ${scalarsList.length}`);
     }
@@ -146,7 +152,7 @@ export class BatchMsmV2 {
     // real prepare runs. The underlying ArrayBuffer is the same;
     // `this.concat` reuses storage across calls.
     const view = new Uint8Array(this.concat.buffer, this.concat.byteOffset, this.concat.byteLength);
-    await this.msm.prepare(view);
+    await this.msm.prepare(view, srsOffset);
   }
 
   /**

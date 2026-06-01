@@ -273,6 +273,25 @@ async function runChonkWebGpuBench(
  *      /tmp/zac-webgpu/chonk-msm-cpu-vs-gpu-report.md. The win at other sizes
  *      of the same label is real, so we can't blanket-block the label.
  */
+// The 10 translator range-constraint labels at n=131071. Solo path blocks
+// them (the serial WebGPU `prepare` cost — ~396 ms for ~37 ms of compute
+// — loses ~310 ms to CPU). BatchMsmV2's concatenated `prepareAll` upload
+// invalidates that rationale, so the batch-mode blocklist below omits
+// them. Dev-sweep B=10 n=2^17: batch wins 1.78×-2.32× wall vs WASM batch
+// and 1.17× vs serial-WebGPU solo.
+const TRANSLATOR_RANGE_CONSTRAINT_BLOCK_ENTRIES = [
+  'CONCATENATED_RANGE_CONSTRAINTS_0@131071',
+  'CONCATENATED_RANGE_CONSTRAINTS_1@131071',
+  'CONCATENATED_RANGE_CONSTRAINTS_2@131071',
+  'CONCATENATED_RANGE_CONSTRAINTS_3@131071',
+  'CONCATENATED_NON_RANGE@131071',
+  'ORDERED_RANGE_CONSTRAINTS_0@131071',
+  'ORDERED_RANGE_CONSTRAINTS_1@131071',
+  'ORDERED_RANGE_CONSTRAINTS_2@131071',
+  'ORDERED_RANGE_CONSTRAINTS_3@131071',
+  'ORDERED_RANGE_CONSTRAINTS_4@131071',
+] as const;
+
 const DEFAULT_WEBGPU_BLOCKLIST: readonly string[] = [
   // Pair-tree-hostile distributions (block all sizes).
   'LOOKUP_READ_COUNTS',
@@ -302,17 +321,19 @@ const DEFAULT_WEBGPU_BLOCKLIST: readonly string[] = [
   // serial `prepare` for ~37 ms of compute — a net ~310 ms loss vs CPU.
   // CSV cpu_solo overstates batched CPU because it runs each MSM alone on
   // a fresh 16-thread Pippenger, missing the bucket-setup amortization.
-  'CONCATENATED_RANGE_CONSTRAINTS_0@131071',
-  'CONCATENATED_RANGE_CONSTRAINTS_1@131071',
-  'CONCATENATED_RANGE_CONSTRAINTS_2@131071',
-  'CONCATENATED_RANGE_CONSTRAINTS_3@131071',
-  'CONCATENATED_NON_RANGE@131071',
-  'ORDERED_RANGE_CONSTRAINTS_0@131071',
-  'ORDERED_RANGE_CONSTRAINTS_1@131071',
-  'ORDERED_RANGE_CONSTRAINTS_2@131071',
-  'ORDERED_RANGE_CONSTRAINTS_3@131071',
-  'ORDERED_RANGE_CONSTRAINTS_4@131071',
+  ...TRANSLATOR_RANGE_CONSTRAINT_BLOCK_ENTRIES,
 ];
+
+// Blocklist used by the "Run WebGPU (batch)" button: the solo list with
+// the 10 translator @131071 entries removed so the B=10 batch reaches the
+// bridge and routes through BatchMsmV2. Keeps every other entry — the
+// label-only blocks (LOOKUP_READ_*, VK_PRECOMPUTED_POLY) and the B=3
+// W_L/W_R/W_O `@N` blocks are independent of BatchMsmV2 and still apply
+// (B=3 doesn't qualify for the BatchMsmV2 route at chonk sizes anyway).
+const TRANSLATOR_BLOCK_SET: ReadonlySet<string> = new Set<string>(TRANSLATOR_RANGE_CONSTRAINT_BLOCK_ENTRIES);
+const DEFAULT_WEBGPU_BLOCKLIST_BATCH: readonly string[] = DEFAULT_WEBGPU_BLOCKLIST.filter(
+  e => !TRANSLATOR_BLOCK_SET.has(e),
+);
 
 interface ChonkWebGpuBenchPartialResult {
   flow: string;
@@ -533,6 +554,7 @@ async function runChonkSingleMode(
   mode: 'wasm' | 'webgpu',
   flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
   trace = false,
+  blocklistOverride?: readonly string[],
 ): Promise<{
   flow: string;
   mode: 'wasm' | 'webgpu';
@@ -564,7 +586,7 @@ async function runChonkSingleMode(
       }
     }
   }
-  const blocklist = useWebgpu ? DEFAULT_WEBGPU_BLOCKLIST : [];
+  const blocklist = useWebgpu ? (blocklistOverride ?? DEFAULT_WEBGPU_BLOCKLIST) : [];
 
   const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
   logger.info(
@@ -1498,7 +1520,9 @@ function setupChonkWebGpuPage(): void {
     try {
       const flow = flowSel.value;
       append(
-        `▶ Run WebGPU (batch) on flow=${flow} — same-N B≥4 batches at n≤2^17 route through BatchMsmV2`,
+        `▶ Run WebGPU (batch) on flow=${flow} — same-N B≥4 batches at n≤2^17 route through BatchMsmV2. ` +
+          `Blocklist drops the 10 translator @131071 entries (re-enabled vs solo) so the B=10 ` +
+          `range-constraint batch reaches the bridge.`,
         'info',
       );
       setText('webgpu-batch-prove-big', '…');
@@ -1506,7 +1530,7 @@ function setupChonkWebGpuPage(): void {
       win.__bridge_batch_enabled = true;
       let runOut: any;
       try {
-        runOut = await win.runChonkSingleMode('webgpu', flow);
+        runOut = await win.runChonkSingleMode('webgpu', flow, /*trace=*/ false, DEFAULT_WEBGPU_BLOCKLIST_BATCH);
       } finally {
         win.__bridge_batch_enabled = false;
       }
