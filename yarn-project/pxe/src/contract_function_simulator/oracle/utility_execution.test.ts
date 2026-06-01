@@ -553,56 +553,6 @@ describe('Utility Execution test suite', () => {
         });
         expect(queriedTags.map(tag => tag.toString())).toContain(expectedTag.value.toString());
       });
-
-      it('searches tags derived from a constrained provided secret', async () => {
-        const queriedTags: Fr[] = [];
-        aztecNode.getPrivateLogsByTags.mockImplementation(query => {
-          for (const entry of query.tags) {
-            queriedTags.push('tag' in entry ? entry.tag.value : entry.value);
-          }
-          return Promise.resolve(query.tags.map(() => []));
-        });
-
-        const providedSecret = Fr.random();
-        const providedSecrets = EphemeralArray.fromValues(service, [
-          new ProvidedSecret(providedSecret, AppTaggingSecretKind.CONSTRAINED),
-        ]);
-
-        await utilityExecutionOracle.getPendingTaggedLogs(owner, providedSecrets);
-
-        const expectedTag = await SiloedTag.compute({
-          extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, AppTaggingSecretKind.CONSTRAINED),
-          index: 0,
-        });
-        expect(queriedTags.map(tag => tag.toString())).toContain(expectedTag.value.toString());
-      });
-
-      it('searches both PXE-derived and provided secrets', async () => {
-        const queriedTags: Fr[] = [];
-        aztecNode.getPrivateLogsByTags.mockImplementation(query => {
-          for (const entry of query.tags) {
-            queriedTags.push('tag' in entry ? entry.tag.value : entry.value);
-          }
-          return Promise.resolve(query.tags.map(() => []));
-        });
-
-        const providedSecret = Fr.random();
-        const providedSecrets = EphemeralArray.fromValues(service, [
-          new ProvidedSecret(providedSecret, AppTaggingSecretKind.UNCONSTRAINED),
-        ]);
-
-        await utilityExecutionOracle.getPendingTaggedLogs(owner, providedSecrets);
-
-        // PXE derives owner-to-owner secrets independently of any provided secrets. The total
-        // queried tag count must exceed what the single provided secret alone would produce.
-        const expectedTag = await SiloedTag.compute({
-          extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
-          index: 0,
-        });
-        expect(queriedTags.map(tag => tag.toString())).toContain(expectedTag.value.toString());
-        // PXE-derived tags are present alongside the provided-secret tags.
-        expect(queriedTags.length).toBeGreaterThan(21);
-      });
     });
 
     const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs>) => {

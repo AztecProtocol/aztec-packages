@@ -20,3 +20,18 @@ pub(crate) struct ProvidedSecret {
     pub secret: Field,
     pub mode: Field,
 }
+
+mod test {
+    use super::{ProvidedSecret, ProvidedSecretKind};
+
+    #[test]
+    fn kind_values_match_typescript() {
+        // The numeric values must match the TS `AppTaggingSecretKind` ordering so that contracts and PXE agree on
+        // the wire encoding for `mode`.
+        assert_eq(ProvidedSecretKind.UNCONSTRAINED, 0);
+        assert_eq(ProvidedSecretKind.CONSTRAINED, 1);
+
+        let _ = ProvidedSecret { secret: 1, mode: ProvidedSecretKind.UNCONSTRAINED };
+        let _ = ProvidedSecret { secret: 2, mode: ProvidedSecretKind.CONSTRAINED };
+    }
+}
