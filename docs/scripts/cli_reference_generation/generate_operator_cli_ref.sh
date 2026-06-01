@@ -8,9 +8,10 @@
 # preamble file; this script concatenates the preamble with a fenced
 # `aztec start --help` capture.
 #
-# NOTE: `aztec start --help` runs through the dockerized aztec wrapper which
-# can drop trailing stdout when captured via `$(...)` subshell (container
-# stdout closes before the parent flushes). Redirect to a file instead.
+# NOTE: `aztec start --help` runs through the dockerized aztec wrapper, which
+# occasionally drops trailing stdout (the container exits before the parent
+# drains the pipe) or exits non-zero. The retry loop below is the real
+# safeguard: it re-runs until the captured output contains the final help line.
 #
 # Usage:
 #   ./generate_operator_cli_ref.sh                          # default target, no version check
@@ -119,16 +120,24 @@ if [[ -n "$TARGET_VERSION" ]]; then
 fi
 
 HELP_FILE="$(mktemp)"
+ERR_FILE="$(mktemp)"
 TMP="$(mktemp)"
-trap 'rm -f "$HELP_FILE" "$TMP"' EXIT INT TERM
+trap 'rm -f "$HELP_FILE" "$ERR_FILE" "$TMP"' EXIT INT TERM
 
-# Capture into a file (not a shell variable) to avoid mid-line truncation when
-# the dockerized CLI's stdout closes before the parent flushes. Detect a
-# successful capture by looking for the actual last help line ("Starts Aztec
-# TXE with options"), not just the "TXE" section header — truncation can
-# drop the trailing flag and its description while still emitting the header.
+# Capture into a file (not a shell variable) and validate completeness by the
+# presence of the final help line ("Starts Aztec TXE with options"), not just
+# the "TXE" section header — a dropped tail can omit the trailing flag and its
+# description while still emitting the header. This sentinel tracks the last
+# entry in yarn-project/aztec/src/cli/aztec_start_options.ts; update it if that
+# block is reworded or reordered.
+#
+# `|| true` keeps a non-zero exit (which the same flush race can produce) from
+# aborting the loop under `set -e`, so the retry actually covers that failure
+# mode; the sentinel check below is the real success signal. stderr is captured
+# rather than discarded so a genuine failure (missing image, daemon down) is
+# surfaced instead of masquerading as truncation.
 for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-  COLUMNS=200 aztec start --help >"$HELP_FILE" 2>/dev/null
+  COLUMNS=200 aztec start --help >"$HELP_FILE" 2>"$ERR_FILE" || true
 
   if grep -qF 'Starts Aztec TXE with options' "$HELP_FILE"; then
     break
@@ -136,11 +145,15 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
 
   LINES="$(wc -l < "$HELP_FILE")"
   if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
-    echo "WARN: 'aztec start --help' output truncated, trailing TXE description missing (attempt $attempt/$MAX_ATTEMPTS, $LINES lines), retrying..." >&2
+    echo "WARN: 'aztec start --help' output incomplete, trailing TXE description missing (attempt $attempt/$MAX_ATTEMPTS, $LINES lines), retrying..." >&2
     sleep 1
   else
-    echo "ERROR: 'aztec start --help' kept producing truncated output after $MAX_ATTEMPTS attempts ($LINES lines)." >&2
+    echo "ERROR: 'aztec start --help' kept producing incomplete output after $MAX_ATTEMPTS attempts ($LINES lines)." >&2
     echo "       Last line: '$(tail -1 "$HELP_FILE" | cut -c1-80)...'" >&2
+    if [[ -s "$ERR_FILE" ]]; then
+      echo "       stderr from the final attempt:" >&2
+      sed 's/^/         /' "$ERR_FILE" >&2
+    fi
     exit 1
   fi
 done
@@ -150,6 +163,9 @@ echo '```bash' >> "$TMP"
 cat "$HELP_FILE" >> "$TMP"
 echo '```' >> "$TMP"
 
+# mktemp creates the temp file 0600; normalize before moving so the generated
+# doc doesn't land owner-only (mv preserves the source mode).
+chmod 644 "$TMP"
 mv "$TMP" "$TARGET"
 
 echo "Wrote $TARGET ($(wc -l < "$TARGET") lines)"
