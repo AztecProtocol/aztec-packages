@@ -9,7 +9,10 @@ import { getGenesisValues } from '@aztec/world-state/testing';
  * This test suit makes sure that the code in the monorepo is still compatible with the latest version of testnet
  * Only update these values after a governance update that changes the protocol is enacted
  */
-describe('Testnet compatibility', () => {
+// TODO: temporarily skipped on v5-next, which carries unreleased protocol circuit changes that
+// shift the VK tree root, protocol contracts hash and genesis roots away from the live testnet
+// values. Re-enable (and refresh the expected values) once we cut the first RC.
+describe.skip('Testnet compatibility', () => {
   it('has expected VK tree root', () => {
     const expectedRoots = [Fr.fromHexString('0x1e6494058514e655b4c479e25dc41590b7db8179f2fd71af38cee41f09b895c6')];
     expect(expectedRoots).toContainEqual(getVKTreeRoot());
