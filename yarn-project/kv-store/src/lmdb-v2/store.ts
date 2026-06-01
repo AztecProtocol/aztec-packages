@@ -89,17 +89,11 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     if (!Number.isFinite(dbMapSizeKb) || dbMapSizeKb <= 0) {
       throw new TypeError('Map size must be a positive number');
     }
-    const { findKvdbBinary } = await import('@aztec/bb.js/platform');
-    const binaryPath = findKvdbBinary();
-    if (!binaryPath) {
-      throw new Error('aztec-kvdb binary not found; rebuild bb.js with copy_native.sh');
-    }
     await mkdir(dataDir, { recursive: true });
     // dbMapSizeKb is the legacy parameter name from the NAPI LMDBStore; it is
     // actually a byte count (see callers and the lmdb-v2 NAPI tests).
     const mapSizeBytes = dbMapSizeKb;
-    const kvdbBackend = new KvdbBackend({
-      binaryPath,
+    const kvdbBackend = await KvdbBackend.new({
       dataDir,
       mapSizeBytes,
       maxReaders,
