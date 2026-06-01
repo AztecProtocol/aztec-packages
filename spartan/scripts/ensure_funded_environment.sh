@@ -14,12 +14,12 @@ if [ "$#" -lt 2 ]; then
     echo "Usage: $0 ENVIRONMENT_NAME FUNDING_PRIVATE_KEY [LOW_WATERMARK] [HIGH_WATERMARK]"
     echo ""
     echo "Arguments:"
-    echo "  ENVIRONMENT_NAME     - Name of the environment (e.g., staging-public, next-net)"
+    echo "  ENVIRONMENT_NAME     - Name of the environment (e.g., staging, next-net)"
     echo "  FUNDING_PRIVATE_KEY  - Private key with funds to distribute"
     echo "  LOW_WATERMARK        - Minimum ETH balance (default: 0.5)"
     echo "  HIGH_WATERMARK       - Target ETH balance when funding (default: 1.0)"
     echo ""
-    echo "Example: $0 staging-public 0x1234... 0.5 1.0"
+    echo "Example: $0 staging 0x1234... 0.5 1.0"
     exit 1
 fi
 

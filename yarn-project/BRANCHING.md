@@ -57,7 +57,7 @@ Functionally, it is `v1`.
 
 It deploys the following networks:
 
-- staging-public, which is used to test changes before releasing to testnet
+- staging, which is used to test changes before releasing to testnet
 
 Release-please has been configured on `v2`. When the release-please PR is merged, it creates a clean tag at the next minor version.
 
