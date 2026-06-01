@@ -69,9 +69,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
           aws-region: us-east-2
           role-session-name: ci3-${{ github.run_id }}
-          # 2h covers max AWS_SHUTDOWN_TIME (90 min ARM) + buffer for standard runs. Release tags run
-          # the full build + backwards-compat e2e + publish flow in this job, so give them 6h.
-          role-duration-seconds: ${{ startsWith(github.ref, 'refs/tags/v') && 21600 || 7200 }}
+          role-duration-seconds: 7200 # 2h – covers max AWS_SHUTDOWN_TIME (90 min ARM) + 30 min buffer
 
       - name: Determine CI Mode
         env:
