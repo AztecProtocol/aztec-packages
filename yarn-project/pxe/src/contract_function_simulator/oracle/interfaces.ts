@@ -120,8 +120,6 @@ export interface IUtilityExecutionOracle {
   validateAndStoreEnqueuedNotesAndEvents(
     noteValidationRequestsArrayBaseSlot: Fr,
     eventValidationRequestsArrayBaseSlot: Fr,
-    maxNotePackedLen: number,
-    maxEventSerializedLen: number,
     scope: AztecAddress,
   ): Promise<void>;
   getLogsByTag(requestArrayBaseSlot: Fr): Promise<Fr>;
@@ -197,4 +195,5 @@ export interface IPrivateExecutionOracle {
   getSenderForTags(): Promise<Option<AztecAddress>>;
   setSenderForTags(senderForTags: AztecAddress): Promise<void>;
   getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
+  getNextConstrainedTaggingIndex(appSiloedSecret: Fr): Promise<number>;
 }

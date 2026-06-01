@@ -1,7 +1,7 @@
 use crate::context::calls::PublicStaticCall;
 use crate::context::PrivateContext;
 use crate::protocol::abis::function_selector::FunctionSelector;
-use crate::protocol::constants::PUBLIC_CHECKS_ADDRESS;
+use crate::standard_addresses::STANDARD_PUBLIC_CHECKS_ADDRESS;
 
 // docs:start:helper_public_checks_functions
 /// Asserts that the current timestamp in the enqueued public call enqueued by `check_timestamp` satisfies
@@ -12,7 +12,7 @@ use crate::protocol::constants::PUBLIC_CHECKS_ADDRESS;
 pub fn privately_check_timestamp(operation: u8, value: u64, context: &mut PrivateContext) {
     let selector = comptime { FunctionSelector::from_signature("check_timestamp(u8,u64)") };
     PublicStaticCall::<15, 2, ()>::new(
-        PUBLIC_CHECKS_ADDRESS,
+        STANDARD_PUBLIC_CHECKS_ADDRESS,
         selector,
         "check_timestamp",
         [operation as Field, value as Field],
@@ -29,7 +29,7 @@ pub fn privately_check_block_number(operation: u8, value: u32, context: &mut Pri
     // docs:start:enqueueing
     let selector = comptime { FunctionSelector::from_signature("check_block_number(u8,u32)") };
     PublicStaticCall::<18, 2, ()>::new(
-        PUBLIC_CHECKS_ADDRESS,
+        STANDARD_PUBLIC_CHECKS_ADDRESS,
         selector,
         "check_block_number",
         [operation as Field, value as Field],

@@ -488,6 +488,8 @@ export function mapPublicKeysToNoir(publicKeys: PublicKeys): PublicKeysNoir {
     },
     ovpk_m_hash: mapFieldToNoir(publicKeys.ovpkMHash),
     tpk_m_hash: mapFieldToNoir(publicKeys.tpkMHash),
+    mspk_m_hash: mapFieldToNoir(publicKeys.mspkMHash),
+    fbpk_m_hash: mapFieldToNoir(publicKeys.fbpkMHash),
   };
 }
 

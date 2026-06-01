@@ -236,20 +236,40 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.nextBlockTimestamp += duration;
   }
 
+  private deploymentNullifier(instance: ContractInstanceWithAddress): Promise<Fr> {
+    return siloNullifier(
+      AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
+      instance.address.toField(),
+    );
+  }
+
   async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
     // Emit deployment nullifier
     await this.mineBlock({
-      nullifiers: [
-        await siloNullifier(
-          AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
-          instance.address.toField(),
-        ),
-      ],
+      nullifiers: [await this.deploymentNullifier(instance)],
     });
 
     if (!secret.equals(Fr.ZERO)) {
       await this.addAccount(artifact, instance, secret);
     } else {
+      await this.contractStore.addContractInstance(instance);
+      await this.contractStore.addContractArtifact(artifact);
+      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    }
+  }
+
+  /**
+   * Deploys several contracts within a single mined block: all of their deployment nullifiers are inserted into one
+   * block's tx effects, and their instances/artifacts are registered in the contract store. Used at session init to
+   * publish the standard contracts (auth registry, public checks) into the same baseline block TXE already mines on
+   * startup, so they are available to every test without advancing the test-visible block counter.
+   */
+  async deployManyInSingleBlock(contracts: { artifact: ContractArtifact; instance: ContractInstanceWithAddress }[]) {
+    await this.mineBlock({
+      nullifiers: await Promise.all(contracts.map(({ instance }) => this.deploymentNullifier(instance))),
+    });
+
+    for (const { artifact, instance } of contracts) {
       await this.contractStore.addContractInstance(instance);
       await this.contractStore.addContractArtifact(artifact);
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);

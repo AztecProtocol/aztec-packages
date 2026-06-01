@@ -160,8 +160,8 @@ export class LogService {
     }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
-    // (recipient = us, sender = us)
+    // We implicitly add all PXE accounts as senders, this helps us find tagged logs with messages that are sent to a
+    // local account (recipient = us, sender = us)
     const allSenders = [...(await this.senderAddressBookStore.getSenders()), ...(await this.keyStore.getAccounts())];
 
     // We deduplicate the senders by adding them to a set and then converting the set back to an array
@@ -171,7 +171,7 @@ export class LogService {
 
     return Promise.all(
       deduplicatedSenders.map(async sender => {
-        const secret = await AppTaggingSecret.compute(
+        const secret = await AppTaggingSecret.computeUnconstrained(
           recipientCompleteAddress,
           recipientIvsk,
           sender,

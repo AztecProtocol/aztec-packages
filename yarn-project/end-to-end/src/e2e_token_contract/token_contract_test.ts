@@ -11,6 +11,7 @@ import {
   type EndToEndContext,
   type SetupOptions,
   deployAccounts,
+  ensureAuthRegistryPublished,
   publicDeployAccounts,
   setup,
   teardown,
@@ -84,6 +85,7 @@ export class TokenContractTest {
     [this.adminAddress, this.account1Address, this.account2Address] = deployedAccounts.map(acc => acc.address);
 
     this.logger.info('Applying base setup - deploying token contract');
+    await ensureAuthRegistryPublished(this.wallet, this.adminAddress);
     this.logger.verbose(`Public deploy accounts...`);
     await publicDeployAccounts(this.wallet, [this.adminAddress, this.account1Address]);
 

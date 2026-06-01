@@ -86,9 +86,11 @@ describe('CheckpointEquivocationWatcher', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it('does not emit when the penalty is zero', async () => {
+  it('emits a zero-amount offense when the penalty is zero', async () => {
     await watcher.stop();
+    const proposer = EthAddress.random();
     config = { ...config, slashDuplicateProposalPenalty: 0n };
+    epochCache.getProposerAttesterAddressInSlot.mockResolvedValueOnce(proposer);
     watcher = new CheckpointEquivocationWatcher(l2BlockSource, epochCache, config);
     handler = jest.fn();
     watcher.on(WANT_TO_SLASH_EVENT, handler);
@@ -96,7 +98,14 @@ describe('CheckpointEquivocationWatcher', () => {
 
     await emitAndFlush(makeEvent());
 
-    expect(handler).not.toHaveBeenCalled();
+    expect(handler).toHaveBeenCalledWith([
+      {
+        validator: proposer,
+        amount: 0n,
+        offenseType: OffenseType.DUPLICATE_PROPOSAL,
+        epochOrSlot: 10n,
+      },
+    ]);
   });
 
   it('emits separately for distinct slots', async () => {

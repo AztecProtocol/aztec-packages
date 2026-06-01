@@ -20,6 +20,7 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   MAX_TX_LIFETIME,
   PRIVATE_TX_L2_GAS_OVERHEAD,
+  PUBLIC_DATA_WRITE_LENGTH,
   PUBLIC_TX_L2_GAS_OVERHEAD,
   TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
@@ -872,6 +873,11 @@ function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccu
     0,
   );
   meteredL2Gas += numContractClassLogs * L2_GAS_PER_CONTRACT_CLASS_LOG;
+
+  if (isPrivateOnlyTx) {
+    // The public data write that the private tx base rollup always performs to update the fee payer's balance.
+    meteredDAFields += PUBLIC_DATA_WRITE_LENGTH;
+  }
 
   const meteredDAGas = meteredDAFields * DA_GAS_PER_FIELD;
 

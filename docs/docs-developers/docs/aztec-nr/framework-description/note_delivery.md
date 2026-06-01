@@ -28,7 +28,7 @@ pub contract PrivateToken {
     fn mint(amount: u128, recipient: AztecAddress) {
         // Adding to the balance returns a MaybeNoteMessage
         self.storage.balances.at(recipient).add(amount)
-            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+            .deliver(MessageDelivery::onchain_constrained());
     }
 }
 ```
@@ -37,7 +37,7 @@ pub contract PrivateToken {
 
 Aztec provides three delivery modes that offer different tradeoffs between cost, proving time, and guarantees:
 
-### `MessageDelivery.OFFCHAIN`
+### `MessageDelivery::offchain()`
 
 **Fully offchain delivery with no guarantees.**
 
@@ -76,7 +76,7 @@ This is expected to be the most common delivery method when you don't need const
 ```rust
 // Change note - sender is motivated to deliver to themselves
 self.storage.balances.at(sender).add(change_amount)
-    .deliver(MessageDelivery.OFFCHAIN);
+    .deliver(MessageDelivery::offchain());
 ```
 
 :::info TODO
@@ -119,7 +119,7 @@ await contract.methods.process_message(ciphertext, messageContext.toNoirStruct()
 
 See the [aztec.js documentation](../../aztec-js/index.md) for more details on accessing transaction effects.
 
-### `MessageDelivery.ONCHAIN_UNCONSTRAINED`
+### `MessageDelivery::onchain_unconstrained()`
 
 **Onchain delivery with no content guarantees.**
 
@@ -133,10 +133,10 @@ This mode provides the same low proving time as `OFFCHAIN` while avoiding the ne
 ```rust
 // Minting to an admin who controls the contract
 self.storage.balances.at(admin).add(amount)
-    .deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+    .deliver(MessageDelivery::onchain_unconstrained());
 ```
 
-### `MessageDelivery.ONCHAIN_CONSTRAINED`
+### `MessageDelivery::onchain_constrained()`
 
 **Onchain delivery with guaranteed correct content.**
 
@@ -150,7 +150,7 @@ self.storage.balances.at(admin).add(amount)
 ```rust
 // Minting to an arbitrary recipient - must guarantee delivery
 self.storage.balances.at(recipient).add(amount)
-    .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+    .deliver(MessageDelivery::onchain_constrained());
 ```
 
 ## Choosing a Delivery Mode
@@ -199,7 +199,7 @@ You can deliver a note to an address other than the note's owner using `.deliver
 ```rust
 // Create a note owned by `owner` but deliver it to `auditor`
 self.storage.balances.at(owner).add(amount)
-    .deliver_to(auditor, MessageDelivery.ONCHAIN_CONSTRAINED);
+    .deliver_to(auditor, MessageDelivery::onchain_constrained());
 ```
 
 **Important:** The recipient (e.g. an `auditor`) can see the note was created but **cannot use it** - only the owner can spend the note (this is authorized by the contract logic). The recipient also cannot see when/if the note is nullified.
@@ -219,12 +219,12 @@ fn transfer(amount: u128, sender: AztecAddress, recipient: AztecAddress) {
     // Subtract from sender - unconstrained since sender is the caller
     self.storage.balances.at(sender)
         .sub(amount)
-        .deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        .deliver(MessageDelivery::onchain_unconstrained());
 
     // Add to recipient - constrained delivery for untrusted sender
     self.storage.balances.at(recipient)
         .add(amount)
-        .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        .deliver(MessageDelivery::onchain_constrained());
 }
 ```
 
@@ -238,6 +238,6 @@ fn constructor(admin: AztecAddress) {
     // Use unconstrained delivery since we don't know if deployer is incentivized
     self.storage.admin
         .initialize(AddressNote { address: admin }, admin)
-        .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        .deliver(MessageDelivery::onchain_constrained());
 }
 ```

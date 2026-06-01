@@ -125,6 +125,7 @@ import {
 } from '../kernel/public_call_request.js';
 import { PublicKey, PublicKeys, computeAddress, hashPublicKey } from '../keys/index.js';
 import { AppTaggingSecret } from '../logs/app_tagging_secret.js';
+import { AppTaggingSecretKind } from '../logs/app_tagging_secret_kind.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
@@ -1222,6 +1223,8 @@ export async function makePublicKeys(seed = 0): Promise<PublicKeys> {
     ivpkM,
     await hashPublicKey(await f(2)),
     await hashPublicKey(await f(3)),
+    await hashPublicKey(await f(4)),
+    await hashPublicKey(await f(5)),
   );
 }
 
@@ -1441,6 +1444,8 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
       new PublicKey(new Fr(seed + 0x9), new Fr(seed + 0x10)),
       new Fr(seed + 0x11),
       new Fr(seed + 0x13),
+      new Fr(seed + 0x15),
+      new Fr(seed + 0x17),
     ),
   );
 }
@@ -1720,10 +1725,7 @@ export function makeL2Tips(
   };
 }
 
-export async function randomAppTaggingSecret(): Promise<AppTaggingSecret> {
+export async function randomAppTaggingSecret(kind: AppTaggingSecretKind): Promise<AppTaggingSecret> {
   const resolvedApp = await AztecAddress.random();
-  // Using the fromString method like this is messy as it leaks the underlying serialization format but I don't want to
-  // expose the type's constructor just for tests since in prod the secret is always constructed via compute. Also this
-  // method is tested in app_tagging_secret.test.ts hence all should be fine.
-  return AppTaggingSecret.fromString(`${Fr.random().toString()}:${resolvedApp.toString()}`);
+  return new AppTaggingSecret(Fr.random(), resolvedApp, kind);
 }

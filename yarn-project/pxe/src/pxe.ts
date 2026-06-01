@@ -604,7 +604,7 @@ export class PXE {
   public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const accounts = await this.keyStore.getAccounts();
     const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);
-    if (accounts.includes(accountCompleteAddress.address)) {
+    if (accounts.some(a => a.equals(accountCompleteAddress.address))) {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
     } else {
@@ -634,7 +634,7 @@ export class PXE {
     }
 
     const accounts = await this.keyStore.getAccounts();
-    if (accounts.includes(sender)) {
+    if (accounts.some(a => a.equals(sender))) {
       this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
       return sender;
     }
