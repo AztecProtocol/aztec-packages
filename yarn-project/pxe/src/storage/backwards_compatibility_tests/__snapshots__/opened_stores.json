@@ -1,17 +1,9 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 6,
   "stores": [
     {
       "name": "address_book",
       "kind": "map"
-    },
-    {
-      "name": "canonical_hashes",
-      "kind": "map"
-    },
-    {
-      "name": "canonical_meta",
-      "kind": "singleton"
     },
     {
       "name": "capsules",
@@ -38,6 +30,10 @@
       "kind": "map"
     },
     {
+      "name": "events_by_block_number",
+      "kind": "multimap"
+    },
+    {
       "name": "events_by_contract_selector",
       "kind": "multimap"
     },
@@ -62,7 +58,7 @@
       "kind": "map"
     },
     {
-      "name": "note_nullifications_by_nullifier",
+      "name": "note_block_number_to_nullifier",
       "kind": "multimap"
     },
     {

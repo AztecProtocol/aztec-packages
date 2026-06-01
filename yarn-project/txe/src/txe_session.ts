@@ -6,7 +6,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
-  CanonicalBlockStore,
+  AnchorBlockStore,
   CapsuleService,
   CapsuleStore,
   ContractStore,
@@ -255,9 +255,8 @@ export class TXESession implements TXESessionStateHandler {
     const store = await openEphemeralStore('txe-session', undefined, 2);
 
     const addressStore = new AddressStore(store);
-    // TXE sessions are ephemeral and have no reorg concept; all events are always canonical.
-    const privateEventStore = new PrivateEventStore(store, { isCanonical: () => true });
-    const noteStore = new NoteStore(store, { isCanonical: () => true });
+    const privateEventStore = new PrivateEventStore(store);
+    const noteStore = new NoteStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);
@@ -275,9 +274,8 @@ export class TXESession implements TXESessionStateHandler {
     ]);
 
     const archiver = new TXEArchiver(store);
-    const canonicalBlockStore = new CanonicalBlockStore(store);
-    await canonicalBlockStore.load();
-    const stateMachine = await TXEStateMachine.create(archiver, canonicalBlockStore, contractStore, noteStore);
+    const anchorBlockStore = new AnchorBlockStore(store);
+    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());
@@ -617,7 +615,7 @@ export class TXESession implements TXESessionStateHandler {
     this.exitTopLevelState();
     this.resetLastCall();
 
-    const anchorBlockHeader = await this.stateMachine.canonicalBlockStore.getBlockHeader();
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
     // There is no automatic message discovery and contract-driven syncing process in inlined private or utility
     // contexts, which means that known nullifiers are also not searched for, since it is during the tagging sync that

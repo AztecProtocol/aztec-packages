@@ -9,7 +9,6 @@ import type { InTx, TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { PackedPrivateEvent } from '../../pxe.js';
-import type { CanonicalityCheck } from '../foundation/index.js';
 import { StoredPrivateEvent } from './stored_private_event.js';
 
 export type PrivateEventStoreFilter = {
@@ -30,8 +29,7 @@ type PrivateEventMetadata = InTx & {
 };
 
 /**
- * Stores decrypted private event logs. Append-only: events are never deleted; reorgs are handled
- * transparently by filtering reads through the provided `CanonicalityCheck`.
+ * Stores decrypted private event logs.
  */
 export class PrivateEventStore implements StagedStore {
   readonly storeName: string = 'private_event';
@@ -41,8 +39,8 @@ export class PrivateEventStore implements StagedStore {
   #events: AztecAsyncMap<string, Buffer>;
   /** Multi-map from contractAddress_eventSelector to siloedEventCommitment for efficient lookup */
   #eventsByContractAndEventSelector: AztecAsyncMultiMap<string, string>;
-
-  #check: CanonicalityCheck;
+  /** Multi-map from block number to siloedEventCommitment for rollback support */
+  #eventsByBlockNumber: AztecAsyncMultiMap<number, string>;
 
   /** jobId => eventId (event siloed nullifier) => StoredPrivateEvent */
   #eventsForJob: Map<string, Map<string, StoredPrivateEvent>>;
@@ -52,11 +50,11 @@ export class PrivateEventStore implements StagedStore {
 
   logger = createLogger('private_event_store');
 
-  constructor(store: AztecAsyncKVStore, check: CanonicalityCheck) {
+  constructor(store: AztecAsyncKVStore) {
     this.#store = store;
-    this.#check = check;
     this.#events = this.#store.openMap('private_event_logs');
     this.#eventsByContractAndEventSelector = this.#store.openMultiMap('events_by_contract_selector');
+    this.#eventsByBlockNumber = this.#store.openMultiMap('events_by_block_number');
 
     this.#eventsForJob = new Map();
     this.#jobLocks = new Map();
@@ -174,11 +172,6 @@ export class PrivateEventStore implements StagedStore {
 
         const storedPrivateEvent = StoredPrivateEvent.fromBuffer(eventBuffer);
 
-        // Filter out events whose origin block is not on the canonical chain.
-        if (!this.#check.isCanonical(storedPrivateEvent.creationOrigin)) {
-          continue;
-        }
-
         // Filter by block range
         if (storedPrivateEvent.l2BlockNumber < filter.fromBlock || storedPrivateEvent.l2BlockNumber >= filter.toBlock) {
           continue;
@@ -224,6 +217,67 @@ export class PrivateEventStore implements StagedStore {
   }
 
   /**
+   * Rolls back private events that were stored after a given `blockNumber` and up to `synchedBlockNumber` (the block
+   * number up to which PXE managed to sync before the reorg happened).
+   *
+   * We don't need staged writes for a rollback since it's handled in the context of a blockchain rewind.
+   *
+   * Rollbacks are handled by the BlockSynchronizer, which runs a DB transaction across stores when it detects a
+   * re-org, including setting the new anchor block after rolling back.
+   *
+   * So if anything fails in the process of rolling back any store, all DB changes occurring during rollbacks will be
+   * lost and the anchor block will not be updated; which means this code will eventually need to run again
+   * (i.e.: PXE will detect it's basing it work on an invalid block hash, then which re-triggers rewind).
+   *
+   * For further details, refer to `BlockSynchronizer#handleBlockStreamEvent`.
+   *
+   * IMPORTANT: This method must be called within a transaction to ensure atomicity.
+   */
+  public async rollback(blockNumber: number, synchedBlockNumber: number): Promise<void> {
+    if (this.#eventsForJob.size > 0) {
+      throw new Error('PXE private event store rollback is not allowed while jobs are running');
+    }
+
+    // First pass: collect all event IDs for all blocks, starting reads during iteration to keep tx alive.
+    const eventsByBlock: Map<number, { eventId: string; eventReadPromise: Promise<Buffer | undefined> }[]> = new Map();
+
+    for (let block = blockNumber + 1; block <= synchedBlockNumber; block++) {
+      const blockEvents: { eventId: string; eventReadPromise: Promise<Buffer | undefined> }[] = [];
+      for await (const eventId of this.#eventsByBlockNumber.getValuesAsync(block)) {
+        // Start read immediately during iteration to keep IndexedDB transaction alive
+        blockEvents.push({ eventId, eventReadPromise: this.#events.getAsync(eventId) });
+      }
+      if (blockEvents.length > 0) {
+        eventsByBlock.set(block, blockEvents);
+      }
+    }
+
+    // Second pass: await reads and perform deletes
+    let removedCount = 0;
+    for (const [block, events] of eventsByBlock) {
+      await this.#eventsByBlockNumber.delete(block);
+
+      for (const { eventId, eventReadPromise } of events) {
+        const buffer = await eventReadPromise;
+        if (!buffer) {
+          throw new Error(`Event not found for eventId ${eventId}`);
+        }
+
+        const entry = StoredPrivateEvent.fromBuffer(buffer);
+        await this.#events.delete(eventId);
+        await this.#eventsByContractAndEventSelector.deleteValue(
+          this.#keyFor(entry.contractAddress, entry.eventSelector),
+          eventId,
+        );
+
+        removedCount++;
+      }
+    }
+
+    this.logger.verbose(`Rolled back ${removedCount} private events after block ${blockNumber}`);
+  }
+
+  /**
    * Commits in memory job data to persistent storage.
    *
    * Called by JobCoordinator when a job completes successfully.
@@ -244,6 +298,7 @@ export class PrivateEventStore implements StagedStore {
       await Promise.all([
         this.#events.set(eventId, entry.toBuffer()),
         this.#eventsByContractAndEventSelector.set(lookupKey, eventId),
+        this.#eventsByBlockNumber.set(entry.l2BlockNumber, eventId),
       ]);
     }
 

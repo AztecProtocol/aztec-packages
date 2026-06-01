@@ -301,19 +301,11 @@ describe('PXE', () => {
 
       contractAddress = contractInstance.address;
       eventSelector = EventSelector.random();
-      // Deterministic so the canonical hash hydrated for `lastKnownBlockNumber` during the one-time cold-start
-      // sync (the kvStore and PXE are shared across these tests) stays valid for events stored in later tests.
-      l2BlockHash = new BlockHash(new Fr(lastKnownBlockNumber));
-
-      // Cold-start sync reads the finalized tip from the node and hydrates the canonical map. Block
-      // `lastKnownBlockNumber` is the finalized tip; recording its canonical hash as `l2BlockHash` makes the
-      // events stored at that block read back as canonical (events in later blocks stay non-canonical, filtered).
-      node.getBlockNumber.mockResolvedValue(lastKnownBlockNumber);
-      node.getBlocks.mockResolvedValue([{ ...blockResponse, hash: l2BlockHash }]);
+      l2BlockHash = BlockHash.random();
 
       scope = await AztecAddress.random();
 
-      privateEventStore = new PrivateEventStore(kvStore, { isCanonical: () => true });
+      privateEventStore = new PrivateEventStore(kvStore);
     });
 
     let eventCounter = 0;

@@ -9,7 +9,9 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
-import type { CanonicalBlockStore } from '../storage/canonical_block_store/index.js';
+import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import type { NoteStore } from '../storage/note_store/note_store.js';
+import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
 
 /**
@@ -26,7 +28,9 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   constructor(
     private node: AztecNode,
     private store: AztecAsyncKVStore,
-    private canonicalBlockStore: CanonicalBlockStore,
+    private anchorBlockStore: AnchorBlockStore,
+    private noteStore: NoteStore,
+    private privateEventStore: PrivateEventStore,
     private l2TipsStore: L2TipsKVStore,
     private contractSyncService: ContractSyncService,
     private config: Partial<BlockSynchronizerConfig> = {},
@@ -62,10 +66,6 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
     switch (event.type) {
       case 'blocks-added': {
-        const origins = await Promise.all(
-          event.blocks.map(async b => ({ blockNumber: b.number, blockHash: (await b.hash()).toString() })),
-        );
-        await this.canonicalBlockStore.setManyCanonical(origins);
         if (this.config.syncChainTip === undefined || this.config.syncChainTip === 'proposed') {
           const lastBlock = event.blocks.at(-1)!;
           await this.updateAnchorBlockHeader(lastBlock.header);
@@ -92,7 +92,6 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         break;
       }
       case 'chain-finalized': {
-        await this.canonicalBlockStore.setFinalized(event.block.number);
         if (this.config.syncChainTip === 'finalized') {
           const block = await this.node.getBlock(BlockNumber(event.block.number));
           if (block) {
@@ -104,7 +103,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         break;
       }
       case 'chain-pruned': {
-        const currentAnchorBlockHeader = await this.canonicalBlockStore.getBlockHeader();
+        const currentAnchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const currentAnchorBlockNumber = currentAnchorBlockHeader.getBlockNumber();
         if (currentAnchorBlockNumber <= event.block.number) {
           this.log.verbose(
@@ -114,7 +113,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           return;
         }
 
-        this.log.warn(`Pruning data after block ${event.block.number} due to reorg`, { pruneBlock: event.block });
+        this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
 
         // Note that the following is not necessarily the anchor block that will be used in the transaction - if
         // the chain has already moved past the reorg, we'll also see blocks-added events that will push the anchor
@@ -128,8 +127,10 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           );
         }
 
+        // Operations are wrapped in a single transaction to ensure atomicity.
         await this.store.transactionAsync(async () => {
-          await this.canonicalBlockStore.clearAbove(event.block.number);
+          await this.noteStore.rollback(event.block.number, currentAnchorBlockNumber);
+          await this.privateEventStore.rollback(event.block.number, currentAnchorBlockNumber);
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;
@@ -144,7 +145,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     // execution.
     this.contractSyncService.wipe();
     this.log.verbose(`Updated pxe last block to ${blockHeader.getBlockNumber()}`, blockHeader.toInspect());
-    await this.canonicalBlockStore.setHeader(blockHeader);
+    await this.anchorBlockStore.setHeader(blockHeader);
   }
 
   /**
@@ -186,25 +187,13 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     let currentHeader;
 
     try {
-      currentHeader = await this.canonicalBlockStore.getBlockHeader();
+      currentHeader = await this.anchorBlockStore.getBlockHeader();
     } catch {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.canonicalBlockStore.setHeader((await this.node.getBlockData(BlockNumber.ZERO))!.header);
-    }
-    // Empty map means this is the first sync since the store was created (or wiped); hydrate the canonical chain
-    // from the finality floor forward. Blocks below the floor are immutable-canonical and need no hash.
-    if (this.canonicalBlockStore.isEmpty()) {
-      const finalized = await this.node.getBlockNumber('finalized');
-      await this.canonicalBlockStore.setFloor(finalized);
-      await this.canonicalBlockStore.setFinalized(finalized);
-      const tip = await this.node.getBlockNumber();
-      const blocks = await this.node.getBlocks(BlockNumber(finalized), tip - finalized + 1);
-      await this.canonicalBlockStore.setManyCanonical(
-        blocks.map(b => ({ blockNumber: b.number, blockHash: b.hash.toString() })),
-      );
+      await this.anchorBlockStore.setHeader((await this.node.getBlockData(BlockNumber.ZERO))!.header);
     }
     await this.blockStream.sync();
   }

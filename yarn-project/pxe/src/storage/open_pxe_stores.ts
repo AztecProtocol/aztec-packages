@@ -4,7 +4,7 @@ import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import type { BlockHash } from '@aztec/stdlib/block';
 
 import { AddressStore } from './address_store/address_store.js';
-import { CanonicalBlockStore } from './canonical_block_store/index.js';
+import { AnchorBlockStore } from './anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './capsule_store/capsule_store.js';
 import { ContractStore } from './contract_store/contract_store.js';
 import { NoteStore } from './note_store/note_store.js';
@@ -19,7 +19,7 @@ export type PxeStores = {
   privateEventStore: PrivateEventStore;
   contractStore: ContractStore;
   noteStore: NoteStore;
-  canonicalBlockStore: CanonicalBlockStore;
+  anchorBlockStore: AnchorBlockStore;
   senderTaggingStore: SenderTaggingStore;
   senderAddressBookStore: SenderAddressBookStore;
   recipientTaggingStore: RecipientTaggingStore;
@@ -32,15 +32,13 @@ export type PxeStores = {
  * Opens every PXE sub-store against the given backing store. The `initialBlockHash` seeds the
  * `L2TipsKVStore` so it agrees with the node's archiver on the dynamic genesis header hash.
  */
-export async function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: BlockHash): Promise<PxeStores> {
-  const canonicalBlockStore = new CanonicalBlockStore(store);
-  await canonicalBlockStore.load();
+export function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: BlockHash): PxeStores {
   return {
     addressStore: new AddressStore(store),
-    privateEventStore: new PrivateEventStore(store, canonicalBlockStore),
+    privateEventStore: new PrivateEventStore(store),
     contractStore: new ContractStore(store),
-    noteStore: new NoteStore(store, canonicalBlockStore),
-    canonicalBlockStore,
+    noteStore: new NoteStore(store),
+    anchorBlockStore: new AnchorBlockStore(store),
     senderTaggingStore: new SenderTaggingStore(store),
     senderAddressBookStore: new SenderAddressBookStore(store),
     recipientTaggingStore: new RecipientTaggingStore(store),

@@ -36,7 +36,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { AddressStore } from '../address_store/address_store.js';
-import { CanonicalBlockStore } from '../canonical_block_store/index.js';
+import { AnchorBlockStore } from '../anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
 import { NoteStore } from '../note_store/note_store.js';
@@ -81,14 +81,13 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   },
 
   {
-    name: 'CanonicalBlockStore',
+    name: 'AnchorBlockStore',
     writeToStore: async kvStore => {
-      const canonicalBlockStore = new CanonicalBlockStore(kvStore);
-      await canonicalBlockStore.load();
+      const anchorBlockStore = new AnchorBlockStore(kvStore);
 
       // Each primitive field gets a distinct prime so any reorder shows up in the snapshot diff. An all-zero
       // `BlockHeader.empty()` would silently pass through same-width field swaps.
-      await canonicalBlockStore.setHeader(
+      await anchorBlockStore.setHeader(
         new BlockHeader(
           new AppendOnlyTreeSnapshot(new Fr(2n), 3),
           new StateReference(
@@ -114,19 +113,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           new Fr(79n),
         ),
       );
-
-      // Populate the canonical map + finality meta so canonical_hashes / canonical_meta are fingerprinted.
-      await canonicalBlockStore.setManyCanonical([
-        { blockNumber: 101, blockHash: '0x6f' },
-        { blockNumber: 103, blockHash: '0x83' },
-      ]);
-      await canonicalBlockStore.setFloor(97);
-      await canonicalBlockStore.setFinalized(89);
     },
     snapshotStore: async kvStore => ({
       header: await snapshotSingleton(kvStore.openSingleton<Buffer>('header')),
-      canonical_hashes: await snapshotMap(kvStore.openMap<number, string>('canonical_hashes')),
-      canonical_meta: await snapshotSingleton(kvStore.openSingleton<Buffer>('canonical_meta')),
     }),
   },
 
@@ -295,9 +284,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   {
     name: 'NoteStore',
     writeToStore: async kvStore => {
-      // Always-canonical check: schema tests exercise what gets written to disk, not read-time visibility.
-      const alwaysCanonical = { isCanonical: () => true };
-      const noteStore = new NoteStore(kvStore, alwaysCanonical);
+      const noteStore = new NoteStore(kvStore);
 
       const jobId = 'fixture-job';
 
@@ -343,8 +330,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         137,
       );
 
-      // note3: different contract; will be nullified to populate `note_nullifications_by_nullifier` and exercise the
-      // append-only nullification record written by `applyNullifiers`.
+      // note3: different contract; will be nullified to populate `note_block_number_to_nullifier` and exercise the
+      // populated `_nullifiedAt` trailer of `StoredNote.toBuffer`.
       const note3 = new NoteDao(
         new Note([new Fr(139n), new Fr(149n), new Fr(151n)]),
         contractB,
@@ -368,8 +355,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       await noteStore.addNotes([note2], scopeX, jobId);
       await noteStore.addNotes([note3], scopeX, jobId);
 
-      // Nullify note3 within the same job. `applyNullifiers` stages a nullification origin for the note; `commit`
-      // then flushes it to disk into `note_nullifications_by_nullifier`.
+      // Nullify note3 within the same job. `applyNullifiers` reads the staged StoredNote, sets `_nullifiedAt`, and
+      // writes back to the staged map; `commit` then flushes it to disk with the populated trailer and adds the
+      // corresponding `note_block_number_to_nullifier` entry.
       await noteStore.applyNullifiers(
         [{ data: note3.siloedNullifier, l2BlockNumber: BlockNumber(223), l2BlockHash: BlockHash.ZERO }],
         jobId,
@@ -382,8 +370,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       note_nullifiers_by_contract: await snapshotMap(
         kvStore.openMultiMap<string, string>('note_nullifiers_by_contract'),
       ),
-      note_nullifications_by_nullifier: await snapshotMap(
-        kvStore.openMultiMap<string, string>('note_nullifications_by_nullifier'),
+      note_block_number_to_nullifier: await snapshotMap(
+        kvStore.openMultiMap<number, string>('note_block_number_to_nullifier'),
       ),
     }),
   },
@@ -391,7 +379,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   {
     name: 'PrivateEventStore',
     writeToStore: async kvStore => {
-      const privateEventStore = new PrivateEventStore(kvStore, { isCanonical: () => true });
+      const privateEventStore = new PrivateEventStore(kvStore);
 
       const jobId = 'fixture-job';
 
@@ -487,6 +475,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       events_by_contract_selector: await snapshotMap(
         kvStore.openMultiMap<string, string>('events_by_contract_selector'),
       ),
+      events_by_block_number: await snapshotMap(kvStore.openMultiMap<number, string>('events_by_block_number')),
     }),
   },
 
