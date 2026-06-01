@@ -27,8 +27,8 @@ pub struct HandshakeNote {
     /// Stored so contracts can constrain the kind of handshake they accept (e.g. an app may want to require interactive
     /// handshakes only).
     handshake_type: u8,
-    /// The delivery mode of messages tagged with this handshake (the note itself is always stored onchain).
-    /// This is used by the recipient to know how to scan for tags for a given handshake.
+    /// The delivery mode of messages tagged with this handshake.
+    /// This is used by the recipient to know how to scan for tags for a given onchain handshake.
     mode: u8,
     /// The recipient this handshake authorizes. Part of the note preimage so a contract proving note
     /// existence can bind the proof to the intended recipient.
