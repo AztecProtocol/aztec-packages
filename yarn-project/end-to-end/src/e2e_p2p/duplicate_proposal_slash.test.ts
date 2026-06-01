@@ -212,7 +212,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     // Find an epoch where the malicious proposer is selected, stopping one epoch before
     // so we have time to start sequencers before the target epoch arrives
     const epochCache = (honestNode1 as TestAztecNodeService).epochCache;
-    const { targetEpoch } = await advanceToEpochBeforeProposer({
+    const { targetEpoch, targetSlot } = await advanceToEpochBeforeProposer({
       epochCache,
       cheatCodes: t.ctx.cheatCodes.rollup,
       targetProposer: maliciousValidatorAddress,
@@ -224,11 +224,12 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
 
     // Now warp to one slot before the target epoch — sequencers are already running.
-    // Under proposer pipelining, the malicious proposers begin building for the first
-    // slot of the target epoch one slot earlier; warping to the start of the epoch
-    // would force both AVM-heavy duplicate proposals to serialize past the slot
-    // boundary, after which honest receivers reject them as late.
-    t.logger.warn(`Advancing to one slot before target epoch ${targetEpoch}`);
+    // Under proposer pipelining, the malicious proposers begin building for their slot one slot
+    // earlier; warping to the start of the epoch would force both AVM-heavy duplicate proposals to
+    // serialize past the slot boundary, after which honest receivers reject them as late. The helper
+    // picks a target slot at least one slot into the epoch, so warping here leaves a full warm-up
+    // slot before the build begins rather than starting it at the exact instant of the warp.
+    t.logger.warn(`Advancing to one slot before target epoch ${targetEpoch} (target slot ${targetSlot})`);
     await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch, { offset: -AZTEC_SLOT_DURATION });
 
     // Wait for offense to be detected. Under proposer pipelining, checkpoint proposals are broadcast
