@@ -1,0 +1,67 @@
+name: Notify Slack on Release
+# When a release is published on aztec-packages — including pre-releases /
+# release candidates (rc.*) — announce it in #ecosystem via the Aztec
+# Foundation CI Slack bot (ci3/slack_notify uses secrets.SLACK_BOT_TOKEN).
+#
+# No AI involved: this is a plain release -> Slack notifier. It fires once per
+# published release (GitHub emits `published` for both releases and
+# pre-releases), so there is no polling and no duplicate posts.
+#
+# release-please publishes releases via secrets.AZTEC_BOT_GITHUB_TOKEN, so the
+# `release: published` event fires here the same way it does for the existing
+# copy-bb-release-artifacts.yml workflow. workflow_dispatch is provided for
+# manual testing / backfilling a specific tag.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to announce (e.g. v4.3.0 or v4.4.0-rc.1)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  notify-ecosystem:
+    name: Announce release in #ecosystem
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine release metadata
+        id: rel
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+            url=$(gh release view "$tag" --repo "${{ github.repository }}" --json url --jq '.url' 2>/dev/null || echo "")
+            prerelease=$(gh release view "$tag" --repo "${{ github.repository }}" --json isPrerelease --jq '.isPrerelease' 2>/dev/null || echo "false")
+          else
+            tag="${{ github.event.release.tag_name }}"
+            url="${{ github.event.release.html_url }}"
+            prerelease="${{ github.event.release.prerelease }}"
+          fi
+          [ -n "$tag" ] || { echo "::error::could not resolve a release tag"; exit 1; }
+          [ -n "$url" ] || url="https://github.com/${{ github.repository }}/releases/tag/$tag"
+          {
+            echo "tag=$tag"
+            echo "url=$url"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Announce in #ecosystem
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          REL_TAG: ${{ steps.rel.outputs.tag }}
+          REL_URL: ${{ steps.rel.outputs.url }}
+          REL_PRERELEASE: ${{ steps.rel.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          label="released"
+          [ "$REL_PRERELEASE" = "true" ] && label="release candidate"
+          text=":rocket: *Aztec ${REL_TAG}* ${label} — <${REL_URL}|Release notes>"
+          ./ci3/slack_notify "$text" "#ecosystem"
