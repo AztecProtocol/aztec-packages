@@ -513,6 +513,18 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+    static void test_batch_mul_randomized_matches_naive()
+    {
+        for (size_t trial = 0; trial < 24; ++trial) {
+            const size_t num_points = 1 + (trial % 19);
+            Fr scalar = Fr::random_element();
+            if ((trial % 8) == 0) {
+                scalar = Fr(static_cast<uint64_t>(trial + 1));
+            }
+            check_batch_mul_against_naive(num_points, scalar);
+        }
+    }
+
     static void test_frc_codec_round_trip()
     {
         using FrField = FrCodec::DataType;
@@ -618,8 +630,7 @@ class TestElementPrivate {
 };
 } // namespace bb::group_elements
 
-// Our endomorphism-specialized multiplication should match our generic multiplication.
-// Previously only tested on Grumpkin; now runs on every curve that has USE_ENDOMORPHISM.
+// Endomorphism-specialized multiplication should match generic multiplication on every curve that supports it.
 TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
 {
     if constexpr (!TypeParam::USE_ENDOMORPHISM) {
@@ -633,6 +644,40 @@ TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
             element_t r1 = bb::group_elements::TestElementPrivate::mul_without_endomorphism(x1, f1);
             element_t r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, f1);
             EXPECT_EQ(r1, r2);
+        }
+    }
+}
+
+TYPED_TEST(TestAffineElement, MulWithEndomorphismEdgeCasesMatchMulWithoutEndomorphism)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        using element_t = typename TypeParam::element;
+        using Fr = typename TypeParam::Fr;
+
+        const element_t point(element_t::random_element());
+        std::vector<Fr> scalars;
+        scalars.reserve(96);
+        for (uint64_t i = 0; i <= 64; ++i) {
+            scalars.emplace_back(i);
+        }
+        scalars.push_back(-Fr::one());
+        for (const size_t bit : { 125UL, 126UL, 127UL }) {
+            const uint256_t power = uint256_t(1) << bit;
+            for (const uint64_t delta : { 0UL, 1UL, 2UL, 7UL, 8UL, 15UL, 16UL }) {
+                scalars.emplace_back(power + delta);
+                if (delta != 0) {
+                    scalars.emplace_back(power - delta);
+                }
+            }
+        }
+
+        for (const Fr& scalar : scalars) {
+            const element_t expected = bb::group_elements::TestElementPrivate::mul_without_endomorphism(point, scalar);
+            EXPECT_EQ(bb::group_elements::TestElementPrivate::mul_with_endomorphism(point, scalar), expected);
+            EXPECT_EQ(point * scalar, expected);
+            EXPECT_EQ(point.mul_const_time(scalar), expected);
         }
     }
 }
@@ -666,11 +711,8 @@ TYPED_TEST(TestAffineElement, FrCodecRoundTrip)
     }
 }
 
-// Verify that batch_mul_with_endomorphism gives correct results for even scalars (where k1 or k2 in the
-// GLV decomposition is even), exercising the skew-correction path that uses affine_element::operator+.
-// Scalar 0 gives k1 = k2 = 0 (both skews), and even scalars like 2 and 4 trigger the k1-skew path.
-// These are regression tests for the operator+ fix: reverting to add_chunked would abort when the
-// accumulated result happens to equal ±P during the skew correction.
+// Even scalars exercise zero and low-magnitude Booth digits in batch_mul_with_endomorphism.
+// The results should match ordinary point multiplication for every point in the batch.
 TYPED_TEST(TestAffineElement, BatchMulEndomorphismEvenScalars)
 {
     if constexpr (!TypeParam::USE_ENDOMORPHISM) {
@@ -805,6 +847,15 @@ TYPED_TEST(TestAffineElement, BatchMulSizeLessThanNumThreads)
         GTEST_SKIP();
     } else {
         TestFixture::test_batch_mul_size_less_than_num_threads();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulRandomizedMatchesNaive)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_randomized_matches_naive();
     }
 }
 

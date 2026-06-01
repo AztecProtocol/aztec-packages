@@ -32,8 +32,7 @@
  *                                this records which of the N input points the entry belongs to, since the
  *                                schedule is later sorted by bucket and the original point ordering is lost.
  *
- * The template `wnaf_round` / `fixed_wnaf` variants shift point_index into bits 32+ internally.
- * The runtime `fixed_wnaf` variant expects the caller to pass point_index pre-shifted.
+ * The `wnaf_round` / `fixed_wnaf` template variants shift point_index into bits 32+ internally.
  */
 namespace bb::wnaf {
 constexpr size_t SCALAR_BITS = 127;

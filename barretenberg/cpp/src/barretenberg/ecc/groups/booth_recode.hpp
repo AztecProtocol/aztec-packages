@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include <cstddef>
 #include <cstdint>
 
@@ -52,11 +53,11 @@ struct BoothSliceParams {
  *        `constexpr` so callers with compile-time window schedules
  *        (`element_impl`'s GLV-endo 32-window table) can materialise the param
  *        array at compile time, while runtime-schedule callers (Pippenger) use
- *        the same function at runtime.
+ *        the checked wrapper at runtime.
  */
-[[nodiscard]] constexpr BoothSliceParams compute_booth_slice_params(size_t bit_offset,
-                                                                    size_t window_bits,
-                                                                    size_t num_uint64_limbs) noexcept
+[[nodiscard]] constexpr BoothSliceParams compute_booth_slice_params_unchecked(size_t bit_offset,
+                                                                              size_t window_bits,
+                                                                              size_t num_uint64_limbs) noexcept
 {
     constexpr size_t LIMB_BITS = 64;
     BoothSliceParams sp{};
@@ -101,6 +102,15 @@ struct BoothSliceParams {
         sp.slice_localised_to_one_u64 = (hi_bits == 0);
     }
     return sp;
+}
+
+[[nodiscard]] inline BoothSliceParams compute_booth_slice_params(size_t bit_offset,
+                                                                 size_t window_bits,
+                                                                 size_t num_uint64_limbs) noexcept
+{
+    BB_ASSERT(window_bits + 1 <= 32, "Booth window_bits must fit in uint32_t masks");
+    BB_ASSERT(num_uint64_limbs > 0, "Booth scalar limb count must be non-zero");
+    return compute_booth_slice_params_unchecked(bit_offset, window_bits, num_uint64_limbs);
 }
 
 /**

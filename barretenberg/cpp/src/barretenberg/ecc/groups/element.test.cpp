@@ -346,6 +346,21 @@ template <typename G_> class TestElement : public testing::Test {
         }
     }
 
+    static void test_straus_msm_truncates_to_shorter_input()
+    {
+        std::vector<affine_element> points = { affine_element(element::random_element()),
+                                               affine_element(element::random_element()),
+                                               affine_element(element::random_element()) };
+        std::vector<Fr> scalars = { Fr::random_element(), Fr::random_element() };
+
+        element expected = (points[0] * scalars[0]) + (points[1] * scalars[1]);
+        EXPECT_EQ(element::straus_msm(points, scalars) == expected, true);
+
+        std::vector<Fr> extra_scalars = { scalars[0], scalars[1], Fr::random_element() };
+        std::vector<affine_element> fewer_points = { points[0], points[1] };
+        EXPECT_EQ(element::straus_msm(fewer_points, extra_scalars) == expected, true);
+    }
+
     static void test_straus_msm_edge_cases()
     {
         // Empty input → infinity
@@ -497,6 +512,13 @@ TYPED_TEST(TestElement, StrausMsmMatchesNaiveSum)
 {
     if constexpr (!std::is_same_v<typename TestFixture::G, bb::g2>) {
         TestFixture::test_straus_msm_matches_naive_sum();
+    }
+}
+
+TYPED_TEST(TestElement, StrausMsmTruncatesToShorterInput)
+{
+    if constexpr (!std::is_same_v<typename TestFixture::G, bb::g2>) {
+        TestFixture::test_straus_msm_truncates_to_shorter_input();
     }
 }
 

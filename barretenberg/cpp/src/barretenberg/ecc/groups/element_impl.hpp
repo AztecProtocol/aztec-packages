@@ -640,11 +640,12 @@ using EndoScalars = std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>>;
 // The GLV-endo window *schedule* below is element-specific and stays here.
 using bb::ecc::booth::booth_packed_digit;
 using bb::ecc::booth::BoothSliceParams;
-using bb::ecc::booth::compute_booth_slice_params;
+using bb::ecc::booth::compute_booth_slice_params_unchecked;
 
-// Booth window size for the GLV endomorphism path. With c=4 over 128-bit halves we
-// have 32 windows per half (matches the prior WNAF's NUM_ROUNDS).
+// Booth window size for the GLV endomorphism path: c=4 over each 128-bit endomorphism
+// half gives ceil(128/4) = 32 windows per half.
 inline constexpr size_t BOOTH_ENDO_WINDOW_BITS = 4;
+static_assert(BOOTH_ENDO_WINDOW_BITS + 1 <= 32);
 inline constexpr size_t BOOTH_ENDO_NUM_WINDOWS = 32;
 // Lookup table holds [1·P, 2·P, ..., 8·P] (= 2^(c-1) entries). Magnitude m ∈ [1, 8]
 // indexes the table at m-1; magnitude 0 skips the window.
@@ -656,8 +657,8 @@ inline constexpr size_t BOOTH_ENDO_NUM_LIMBS_U64 = 2;
 {
     std::array<BoothSliceParams, BOOTH_ENDO_NUM_WINDOWS> sp{};
     for (size_t w = 0; w < BOOTH_ENDO_NUM_WINDOWS; ++w) {
-        sp[w] =
-            compute_booth_slice_params(w * BOOTH_ENDO_WINDOW_BITS, BOOTH_ENDO_WINDOW_BITS, BOOTH_ENDO_NUM_LIMBS_U64);
+        sp[w] = compute_booth_slice_params_unchecked(
+            w * BOOTH_ENDO_WINDOW_BITS, BOOTH_ENDO_WINDOW_BITS, BOOTH_ENDO_NUM_LIMBS_U64);
     }
     return sp;
 }
@@ -671,16 +672,17 @@ inline constexpr size_t BOOTH_ENDO_NUM_LIMBS_U64 = 2;
 // — see Fr/Fq.hpp endomorphism comments), the top 4-bit window covers only bit 126,
 // so its magnitude is in {0, 1, 2} and is empty ~50% of the time.
 inline constexpr size_t BOOTH_ENDO_K2_LOW_WINDOW_BITS = 2;
+static_assert(BOOTH_ENDO_K2_LOW_WINDOW_BITS + 1 <= 32);
 inline constexpr size_t BOOTH_ENDO_K2_NUM_WINDOWS = BOOTH_ENDO_NUM_WINDOWS + 1; // 33
 
 [[nodiscard]] constexpr std::array<BoothSliceParams, BOOTH_ENDO_K2_NUM_WINDOWS>
 make_endo_booth_k2_slice_params() noexcept
 {
     std::array<BoothSliceParams, BOOTH_ENDO_K2_NUM_WINDOWS> sp{};
-    sp[0] = compute_booth_slice_params(0, BOOTH_ENDO_K2_LOW_WINDOW_BITS, BOOTH_ENDO_NUM_LIMBS_U64);
+    sp[0] = compute_booth_slice_params_unchecked(0, BOOTH_ENDO_K2_LOW_WINDOW_BITS, BOOTH_ENDO_NUM_LIMBS_U64);
     for (size_t w = 1; w < BOOTH_ENDO_K2_NUM_WINDOWS; ++w) {
         const size_t bit_offset = (w - 1) * BOOTH_ENDO_WINDOW_BITS + BOOTH_ENDO_K2_LOW_WINDOW_BITS;
-        sp[w] = compute_booth_slice_params(bit_offset, BOOTH_ENDO_WINDOW_BITS, BOOTH_ENDO_NUM_LIMBS_U64);
+        sp[w] = compute_booth_slice_params_unchecked(bit_offset, BOOTH_ENDO_WINDOW_BITS, BOOTH_ENDO_NUM_LIMBS_U64);
     }
     return sp;
 }
@@ -761,9 +763,9 @@ element<Fq, Fr, T> element<Fq, Fr, T>::straus_msm(std::span<const affine_element
         // per-point lookup tables. For each active scalar/point we build a [1·P, 2·P,
         // ..., 8·P] lookup and store the 4 uint32 endo-split-half limbs for fast
         // window decoding. Main loop walks 32 windows × 2 halves high-to-low,
-        // accumulating into a single shared point with 4 doublings between windows.
-        // ~128 doublings + (up to 64)×N adds — same window count as the prior WNAF
-        // but without the post-pass skew correction.
+        // accumulating into a single shared point with 4 doublings between windows:
+        // ~128 doublings + (up to 64)×N adds. The signed-Booth digits span the full
+        // c-bit range, so no post-pass skew correction is needed.
         constexpr size_t LOOKUP_SIZE = detail::BOOTH_ENDO_LOOKUP_SIZE;
         constexpr size_t NUM_WINDOWS = detail::BOOTH_ENDO_NUM_WINDOWS;
         constexpr size_t WINDOW_BITS = detail::BOOTH_ENDO_WINDOW_BITS;
@@ -1122,7 +1124,7 @@ __attribute__((always_inline)) inline void batch_affine_combined_double_add_impl
  *        for each pair `(dst_idx, src_idx)`, mutates `buckets[dst_idx] += buckets[src_idx]` in place.
  *
  * @details Variant of `batch_affine_add_impl` that gathers operands by index from a shared bucket
- *          array. Used by mitschabaude's bucket-reduction in `round_parallel_msm.cpp`, where the
+ *          array. Used by the bucket-reduction path in `round_parallel_msm.cpp`, where the
  *          dst and src positions are scattered across a dense bucket array but the operation count
  *          is large enough to amortize one Montgomery batch inversion over the whole call.
  *
@@ -1343,8 +1345,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
 
     // p−1 still produces an "infinity" path at the end of the sum under any
     // signed-digit encoding (the partial sums hit a doubling edge), so short-circuit
-    // it here for the same reason the WNAF code did: we don't want edge-case
-    // handling in the hot loop.
+    // it here to keep edge-case handling out of the hot loop.
     if (scalar == -Fr::one()) {
         std::vector<affine_element> results(num_points);
         parallel_for_heuristic(num_points, [&](size_t i) { results[i] = -points[i]; }, thread_heuristics::FF_COPY_COST);
@@ -1373,18 +1374,18 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     // so the main loop visits each position once with 2 doublings between
     // adjacent positions — every (2·dbl + add) pair fuses with combined_chunked.
     const detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars(converted_scalar);
+    const uint64_t* k1 = endo_scalars.first.data();
+    const uint64_t* k2 = endo_scalars.second.data();
+    BB_ASSERT((k2[1] >> 63) == 0, "GLV K2 split must fit below 2^127 for the offset Booth window schedule");
+
     std::array<uint32_t, NUM_WINDOWS> k1_digits{};
     std::array<uint32_t, K2_NUM_WINDOWS> k2_digits{};
-    {
-        const uint64_t* k1 = endo_scalars.first.data();
-        const uint64_t* k2 = endo_scalars.second.data();
-        for (size_t w = 0; w < NUM_WINDOWS; ++w) {
-            k1_digits[w] = detail::booth_packed_digit(k1, slice_params[w], WINDOW_BITS);
-        }
-        k2_digits[0] = detail::booth_packed_digit(k2, k2_slice_params[0], K2_LOW_WINDOW_BITS);
-        for (size_t w = 1; w < K2_NUM_WINDOWS; ++w) {
-            k2_digits[w] = detail::booth_packed_digit(k2, k2_slice_params[w], WINDOW_BITS);
-        }
+    for (size_t w = 0; w < NUM_WINDOWS; ++w) {
+        k1_digits[w] = detail::booth_packed_digit(k1, slice_params[w], WINDOW_BITS);
+    }
+    k2_digits[0] = detail::booth_packed_digit(k2, k2_slice_params[0], K2_LOW_WINDOW_BITS);
+    for (size_t w = 1; w < K2_NUM_WINDOWS; ++w) {
+        k2_digits[w] = detail::booth_packed_digit(k2, k2_slice_params[w], WINDOW_BITS);
     }
 
     // Precompute, for every chunked-combined/add call below, whether
@@ -1394,13 +1395,11 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     // accumulator's coefficients in that basis as int64s and set one mask bit per call site.
     //
     // Layout:
-    //   bits 0..61: main loop, step s ↔ pos 124 - 2·s (set ⇒ that step's combined_chunked
-    //               must take the safe path).
-    //   bit 62: pos-0 "combined_chunked" (Site B at line ~1535 below).
-    //   bit 63: pos-0 second "add_chunked" stacking K2 after the combined fired
-    //           (Site C at line ~1547 below).
-    // The pos-0 "add_chunked" on the !initialised seed path (Site A near line ~1516)
-    // is omitted: there the accumulator is d0·P and to_add is d1·φP with both digits
+    //   bits 0..61: main loop, step s ↔ pos 124 - 2·s.
+    //   bit 62: pos-0 combined_chunked.
+    //   bit 63: pos-0 trailing add_chunked when both pos-0 digits are non-zero.
+    // The pos-0 add_chunked on the !initialised seed path is omitted: there the accumulator
+    // is d0·P and to_add is d1·φP with both digits
     // non-zero, so the two affine points cannot share an x-coordinate (P and φP are
     // independent generators of the prime-order subgroup), so its check is always false.
     auto compute_safe_mask = [&]() -> uint64_t {
@@ -1459,9 +1458,10 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
 
         // === Positions 124, 122, ..., 2 (62 iterations). ===
         for (size_t step = 0; step < 62; ++step) {
-            // Once |a|>4 AND |b|>4, the recurrence (4·|·| − 8 ≥ 5) keeps both magnitudes
-            // bounded away from {0, ±1..±4} forever, so neither edge can fire again.
-            if (std::abs(a) > 4 && std::abs(b) > 4) {
+            // Once either basis coordinate is non-zero and outside ±4, no later edge predicate can fire:
+            // same-basis additions are too small to collide, and opposite-basis additions see a non-zero
+            // orthogonal coordinate. Stop before the coefficient simulation can overflow int64_t.
+            if (((a != 0) && (std::abs(a) > 4)) || ((b != 0) && (std::abs(b) > 4))) {
                 break;
             }
             const size_t pos = 124 - 2 * step;
@@ -1499,7 +1499,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
         }
 
         // === Pos 0: K1 window 0 (4-bit) + K2 window 0 (2-bit). ===
-        // Mirrors the runtime branch structure at lines ~1497-1551 below.
+        // Mirrors the runtime pos-0 branch structure below.
         {
             const uint32_t d0 = k1_digits[0];
             const uint32_t d1 = k2_digits[0];
@@ -1512,9 +1512,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                 if (m0 != 0) {
                     a = s0;
                     initialised = true;
-                    if (m1 != 0) {
-                        // Site A (add_chunked at line ~1516): accum=d0·P, to_add=d1·φP.
-                        // Linear independence ⇒ x-coords cannot collide; no mask bit.
+                    if (m1 != 0) { // accum=d0·P, to_add=d1·φP. Linear independence ⇒ no x-coordinate collision.
                         b += s1;
                     }
                 } else if (m1 != 0) {
@@ -1527,7 +1525,6 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             } else {
                 const bool fuse_with_h1 = (m0 == 0);
                 const int64_t fused_d = fuse_with_h1 ? s1 : s0;
-                // Site B: combined_chunked at line ~1535.
                 if (edge_for_combined(fused_d, /*is_k1=*/!fuse_with_h1)) {
                     mask |= (uint64_t{ 1 } << 62);
                 }
@@ -1541,12 +1538,11 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                 if (m0 != 0 && m1 != 0) {
                     // Combined consumed d0 (the K1 contribution); the trailing add_chunked
                     // stacks d1 (the K2 contribution) on top.
-                    // Site C: add_chunked at line ~1547.
                     if (edge_for_add(s1, /*is_k1=*/false)) {
                         mask |= (uint64_t{ 1 } << 63);
                     }
-                    b += s1;
                 }
+                b += s1;
             }
         }
 
@@ -1744,18 +1740,13 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             }
         }
 
-        if (!initialised) {
-            // All digits zero across every window — only reachable for scalar 0,
-            // which we already short-circuited above. Defensive: emit identity.
-            for (size_t i = start; i < end; ++i) {
-                work_elements[i] = affine_element::one();
-                work_elements[i].self_set_infinity();
-            }
-        }
+        BB_ASSERT(initialised, "non-zero scalar must produce at least one non-zero Booth digit");
 
         // Restore infinity for slots where the input was at infinity.
         for (size_t i = start; i < end; ++i) {
-            work_elements[i] = points[i].is_point_at_infinity() ? work_elements[i].set_infinity() : work_elements[i];
+            if (points[i].is_point_at_infinity()) {
+                work_elements[i].self_set_infinity();
+            }
         }
     };
     parallel_for_range(num_points, execute_range);
