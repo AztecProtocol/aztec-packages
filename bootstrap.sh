@@ -962,7 +962,7 @@ case "$cmd" in
     if [[ "$(semver prerelease $REF_NAME)" == private* ]]; then
       echo_header "Private fork release: $REF_NAME"
       echo "Creating GitHub release from public repo context (COMMIT_HASH=$COMMIT_HASH)..."
-      release_github
+      release_bb_github
       echo "Fetching private source from aztec-packages-private..."
       git remote add private "https://x-access-token:${GITHUB_TOKEN}@github.com/AztecProtocol/aztec-packages-private.git"
       git fetch --depth 1 private "refs/tags/$REF_NAME"
