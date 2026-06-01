@@ -1,44 +1,45 @@
-# fp22-native MSM — session handoff (GPU wiring done; on-device DISAGREES — root cause found)
+# fp22-native MSM — session handoff (GPU wiring DONE; M-series byte-identical to karat + oracle)
 
-## TOP-LINE STATUS (honest)
-`?montmul=fp22native` is wired end-to-end, the native multiply is host-bit-exact and
-PROVEN served at runtime, and the EC/inverse math is host-proven correct under R=2^264.
-BUT the on-device M-series cross-check **DISAGREES with the WASM oracle** at logn=14 and
-17 (DEVICE_CHECK.txt). karat agrees (reference sane). So fp22native is NOT yet correct
-end-to-end on GPU. Do NOT ship it.
+## TOP-LINE STATUS
+`?montmul=fp22native` is wired end-to-end and **DEVICE-VALIDATED on the M-series GPU**:
+at a fixed scalar_seed the full-MSM X-coordinate is **byte-identical to ?montmul=karat
+AND to the WASM oracle** at logn=14 and 17.
+  fp22native seed=42 logn=14: gpu == mt == 15074699469706385520542366462138444182329044873786057180385973980787059398789
+  karat      seed=42 logn=14: gpu == mt == (same value)  → fp22native == karat, byte-identical
+The autorun cross-check ([cross-check] WebGPU and WASM MT agree) is green for fp22native
+at logn=14 AND 17 (fp22work/DEVICE_CHECK.txt, the PASS run).
 
-### ROOT CAUSE (identified, host-confirmed — /tmp/_barrett_diag.ts)
-The to-Montgomery point entry uses Barrett `field_mul(&x, &get_r())`. Barrett reduces at
-the 20×13 = **260-bit** limb width, i.e. field_mul(x,b) = x·b·2^-260. My fp22native
-override set get_r() = 2^264 mod p, so the entry computes x·2^264·2^-260 = **x·2^4**, NOT
-x·2^264. Meanwhile the hot-loop montmul is native a·b·2^-264 and the inverse fold is
-2^264-based. => MIXED/garbage domain at entry → disagreement. (decompress has the same
-issue: it uses field_mul for x AND native montgomery_product for x²/x³/y, mixing 260- and
-264-reduce.)
+### The bug that was found and FIXED this session (entry-domain)
+First device run DISAGREED. Root cause (host-confirmed, fp22work/barrett_entry_diag.ts):
+the to-Montgomery point entry uses Barrett `field_mul(&x,&get_r())`, which reduces at the
+20×13 = 260-bit limb width (field_mul(x,b)=x·b·2^-260). The hot loop is the R=2^264
+domain, so the entry must land x·2^264; that needs the entry constant b = 2^(260+264) =
+**2^524 mod p**, NOT 2^264 (which gave x·2^4 → garbage). FIX: for fp22native, r_limbs
+(consumed ONLY by field_mul in convert_points_only/decompress) is now
+gen_r_limbs(2^524 mod p, 20, 13). this.r stays 2^264 mod p for the OTHER constants
+(get_r_f8 the walker Montgomery-one, r_cubed inverse fold, b3_mont = 3·R) which are
+multiplied via the native-264 montgomery_product and are correct at 2^264. This is the
+ONE place the Barrett radix (limb width 260) and the Montgomery radix (2^264) differ.
+LESSON: a host pipeline model (verify_full_pipeline_domain.mjs) that assumed an exact-2^E
+Montgomery entry MISSED this — the real GPU entry is Barrett-at-260. Device cross-check
+is the authority; the host model is necessary but not sufficient.
 
-### THE FIX (next session — small, mechanical)
-The entry "to-Montgomery" constant fed to field_mul must satisfy x·b·2^-260 = x·2^264,
-i.e. **b = 2^(260+264) mod p = 2^524 mod p** (host-confirmed: field_mul(x, 2^524 mod p)
-== x·2^264). So for fp22native, override the r_limbs that convert_points_only/decompress
-consume to gen_wgsl_limbs_code(2^524 mod p, 'r', 20, 13) — WITHOUT changing this.r used
-elsewhere, OR cleaner: give convert/decompress their own "to-mont" constant. Note the
-inverse R³ fold + the in-loop montmul are ALREADY correct (they use native
-montgomery_product / R³=(2^264)³); only the Barrett-based ENTRY scale is wrong. Also
-audit decompress: its montgomery_product(x_mont,x_mont) etc. are native-264 (good), but
-x_mont itself comes from the broken field_mul, so fixing the entry constant fixes the
-chain. After the fix, RE-RUN fp22work/device_check.sh; expect agree=true.
-WARNING: my earlier in-session reasoning that "override this.r to 2^264" sufficed was
-WRONG precisely because Barrett's radix is the limb width (260), not this.r. The host
-model verify_full_pipeline_domain.mjs assumed an exact-2^E Montgomery entry; the real GPU
-entry is Barrett-at-260, which that model did not capture. Fix the model too.
+### Native vs boundary (final)
+- NATIVE R=2^264: every multiply (walker montgomery_product_f8, decompress x²/x³/y,
+  fr_pow, the inverse's internal + R³-fold multiplies) — all route through the spliced
+  native `montgomery_product`. Entry to-Mont is now coherent 2^264 (via the 2^524 Barrett
+  constant). Walker Montgomery-one, R³ fold, 3·R are coherent 2^264.
+- BOUNDARY (limb width only): the safegcd inverse DIVSTEP CORE is still the 13-bit BY
+  transliteration (byl_divsteps/byl_apply_matrix over 20×13 limbs). It is integer-only /
+  radix-agnostic (inverts the integer fed in, independent of R), so correct under 2^264;
+  only its LIMB WIDTH is 13. Replacing it with a native 22-bit divstep core (BATCH=44,
+  NUM_OUTER=17, base-2^22 apply_matrix) is the last "fully native" step (item 6).
 
-### Tooling present (corrected): adb + Pixel ARE here
-adb=/opt/homebrew/bin/adb, device 58131JEBF16217 attached; naga=~/.cargo/bin/naga.
-Only the malioc BINARY isn't on PATH, but prior runs used
-/Applications/Arm_Performance_Studio_2026.2/mali_offline_compiler/malioc (see the
-project-msm-phone-mali-profiling memory). So steps 3 (malioc) and 4 (Pixel cross_ok +
-median) ARE runnable next session — but ONLY after the entry-domain fix makes the M-series
-cross-check pass (no point benching a wrong kernel; cross_ok would be false anyway).
+### Tooling present (corrected): malioc + adb + Pixel ARE here
+malioc=/Applications/Arm_Performance_Studio_2026.2/mali_offline_compiler/malioc,
+naga=~/.cargo/bin/naga, adb=/opt/homebrew/bin/adb (device 58131JEBF16217 attached).
+So the malioc table (step 3) and Pixel cross_ok+median (step 4) are runnable. See the
+end of this file for what was completed this session vs deferred.
 
 Commit SHAs this session (on branch fp22-native):
   ddb64881ef wiring (native body + variant + main flag + this.r override)

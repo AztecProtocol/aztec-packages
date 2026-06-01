@@ -195,6 +195,18 @@ export class ShaderManager {
     this.two_pow_chunk_size = 2 ** chunk_size;
     this.p_limbs = gen_p_limbs(this.p, this.num_words, this.word_size);
     this.r_limbs = gen_r_limbs(this.r, this.num_words, this.word_size);
+    // r_limbs is the to-Montgomery scale consumed ONLY by Barrett field_mul(&x,&r)
+    // in convert_points_only / decompress. Barrett reduces at the 20×13 = 260-bit
+    // limb width: field_mul(x,b) = x·b·2^-260. For fp22native the hot loop is the
+    // R=2^264 domain, so the entry must land x·2^264; that needs b = 2^(260+264) =
+    // 2^524 mod p (NOT this.r=2^264, which would give x·2^4). This is the one place
+    // the Barrett radix (limb width) and the Montgomery radix (2^264) differ, so
+    // r_limbs gets its own constant. get_r_f8 (the walker's Montgomery-one),
+    // r_cubed_limbs, and b3_mont_limbs all correctly use this.r=2^264 below.
+    if (montmul === 'fp22native') {
+      const r_entry = (1n << 524n) % this.p;
+      this.r_limbs = gen_r_limbs(r_entry, this.num_words, this.word_size);
+    }
     const r_cubed = (this.r * this.r * this.r) % this.p;
     this.r_cubed_limbs = gen_wgsl_limbs_code(r_cubed, 'r3', this.num_words, this.word_size);
     // Montgomery form of 3 = 3·R mod p (b parameter for BN254 y² = x³ + 3).
