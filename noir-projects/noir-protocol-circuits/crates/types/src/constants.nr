@@ -516,6 +516,7 @@ pub global PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_L
     + PRIVATE_ACCUMULATED_DATA_LENGTH
     + PUBLIC_CALL_REQUEST_LENGTH
     + AZTEC_ADDRESS_LENGTH
+    + 1 /* expiration_timestamp */
     + 1 /* is private only */
     + 1 /* claimed_first_nullifier */
     + 1 /* claimed_revertible_counter */;

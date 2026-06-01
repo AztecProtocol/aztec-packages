@@ -91,7 +91,7 @@ pub fn array_length_until<T, let N: u32, Env>(array: [T; N], predicate: fn[Env](
         } else {
             assert(
                 stop == false,
-                "matching element found after already encountering a non-matching element",
+                "non-matching element found after already encountering a matching element",
             );
             length += 1;
         }
@@ -251,13 +251,13 @@ fn test_array_length_until() {
     assert_eq(array_length_until(array, |x| x > 10), 0);
 }
 
-#[test(should_fail_with = "matching element found after already encountering a non-matching element")]
+#[test(should_fail_with = "non-matching element found after already encountering a matching element")]
 fn test_array_length_until_non_consecutive_fails() {
     let array = [1, 1, 0, 1, 0];
     let _ = array_length_until(array, |x| x == 0);
 }
 
-#[test(should_fail_with = "matching element found after already encountering a non-matching element")]
+#[test(should_fail_with = "non-matching element found after already encountering a matching element")]
 fn test_array_length_until_first_non_matching_fails() {
     let array = [1, 0, 0, 0, 0];
     let _ = array_length_until(array, |x| x == 1);

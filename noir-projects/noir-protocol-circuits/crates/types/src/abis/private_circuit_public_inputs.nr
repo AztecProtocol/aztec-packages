@@ -43,7 +43,7 @@ pub struct PrivateCircuitPublicInputs {
     // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
     pub tx_context: TxContext,
 
-    // The counter after which all side effects are non-revertible.
+    // The counter after which all side effects are revertible.
     // @dev: This can only be set at most once during the private execution.
     pub min_revertible_side_effect_counter: u32,
 

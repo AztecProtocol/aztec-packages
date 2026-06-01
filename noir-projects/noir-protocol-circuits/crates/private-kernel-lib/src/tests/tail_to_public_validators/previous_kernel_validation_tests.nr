@@ -167,6 +167,22 @@ fn nullifiers_for_note_hashes_not_found() {
     let _ = builder.execute();
 }
 
+#[test(should_fail_with = "Contract address of hinted note hash does not match nullifier")]
+fn nullifier_links_to_note_hash_from_different_contract() {
+    let mut builder = TestBuilder::new();
+
+    builder.previous_kernel.add_siloed_note_hash(123);
+    let note_hash = builder.previous_kernel.note_hashes.get(0);
+    builder.previous_kernel.add_siloed_nullifier_for_note_hash(456, note_hash.innermost());
+    builder.previous_kernel.add_siloed_nullifier(789);
+
+    let mut nullifier = builder.previous_kernel.nullifiers.get(1);
+    nullifier.contract_address.inner += 1;
+    builder.previous_kernel.nullifiers.set(1, nullifier);
+
+    let _ = builder.execute();
+}
+
 #[test(should_fail_with = "call to assert_max_bit_size")]
 fn invalid_l2_to_l1_msg_recipient() {
     let mut builder = TestBuilder::new();
