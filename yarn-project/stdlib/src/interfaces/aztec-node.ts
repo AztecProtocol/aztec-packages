@@ -49,12 +49,15 @@ import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import {
+  type GetTxReceiptOptions,
+  GetTxReceiptOptionsSchema,
   type IndexedTxEffect,
   PublicSimulationOutput,
   SimulationOverrides,
   Tx,
   TxHash,
-  TxReceipt,
+  type TxReceipt,
+  TxReceiptSchema,
   type TxValidationResult,
   TxValidationResultSchema,
   indexedTxSchema,
@@ -362,19 +365,26 @@ export interface AztecNode {
   sendTx(tx: Tx): Promise<void>;
 
   /**
-   * Fetches a transaction receipt for a given transaction hash. Returns a mined receipt if it was added
-   * to the chain, a pending receipt if it's still in the mempool of the connected Aztec node, or a dropped
-   * receipt if not found in the connected Aztec node.
+   * Fetches a transaction receipt for a given transaction hash. Always resolves to one of the lifecycle variants of
+   * the {@link TxReceipt} union: a {@link MinedTxReceipt} if the tx was included in a block, a {@link PendingTxReceipt}
+   * if it's still in the mempool of the connected Aztec node, or a {@link DroppedTxReceipt} if not found.
    *
    * @param txHash - The transaction hash.
+   * @param options - Optional flags controlling which extra data is attached: `includeTxEffect` attaches the full
+   * {@link TxEffect} to a mined receipt, `includePendingTx` attaches the pending {@link Tx} to a pending receipt, and
+   * `includeProof` keeps the proof on that attached pending tx (only meaningful with `includePendingTx`).
    * @returns A receipt of the transaction.
    */
-  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
+  getTxReceipt<TGetTxReceiptOptions extends GetTxReceiptOptions = {}>(
+    txHash: TxHash,
+    options?: TGetTxReceiptOptions,
+  ): Promise<TxReceipt<TGetTxReceiptOptions>>;
 
   /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect with block info (or undefined if not found).
+   * @deprecated Use `getTxReceipt(txHash, { includeTxEffect: true })` and read the `.txEffect` field instead.
    */
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
@@ -601,7 +611,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   sendTx: z.function({ input: z.tuple([Tx.schema]), output: z.void() }),
 
-  getTxReceipt: z.function({ input: z.tuple([TxHash.schema]), output: TxReceipt.schema }),
+  getTxReceipt: z.function({
+    input: z.tuple([TxHash.schema, optional(GetTxReceiptOptionsSchema)]),
+    output: TxReceiptSchema,
+  }),
 
   getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
 

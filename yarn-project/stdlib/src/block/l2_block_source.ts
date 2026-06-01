@@ -22,7 +22,6 @@ import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
-import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { BlockData } from './block_data.js';
 import { BlockHash } from './block_hash.js';
 import { BlockTagWithoutLatestSchema, type NormalizedBlockParameter } from './block_parameter.js';
@@ -160,13 +159,6 @@ export interface L2BlockSource {
    * @returns The requested tx effect with block info (or undefined if not found).
    */
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
-
-  /**
-   * Gets a receipt of a settled tx.
-   * @param txHash - The hash of a tx we try to get the receipt for.
-   * @returns The requested tx receipt (or undefined if not found).
-   */
-  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
 
   /**
    * Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint.

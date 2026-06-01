@@ -650,12 +650,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
     }
 
-    const txEffect = await this.aztecNode.getTxEffect(txHash);
-    if (!txEffect || txEffect.l2BlockNumber > this.anchorBlockHeader.getBlockNumber()) {
+    const receipt = await this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
+    if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
       return Option.none(TxEffect.empty());
     }
 
-    return Option.some(txEffect.data);
+    return Option.some(receipt.txEffect);
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
@@ -897,10 +897,27 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   async #fetchTxEffects(txHashes: TxHash[]): Promise<Map<string, IndexedTxEffect>> {
     const uniqueTxHashes = uniqueBy(txHashes, h => h.toString());
-    const fetched = await Promise.all(uniqueTxHashes.map(h => this.aztecNode.getTxEffect(h)));
+    const fetched = await Promise.all(
+      uniqueTxHashes.map(h => this.aztecNode.getTxReceipt(h, { includeTxEffect: true })),
+    );
     return new Map(
       uniqueTxHashes
-        .map((h, i): [string, IndexedTxEffect | undefined] => [h.toString(), fetched[i]])
+        .map((h, i): [string, IndexedTxEffect | undefined] => {
+          const receipt = fetched[i];
+          if (!receipt.isMined() || !receipt.txEffect) {
+            return [h.toString(), undefined];
+          }
+          return [
+            h.toString(),
+            {
+              data: receipt.txEffect,
+              l2BlockNumber: receipt.blockNumber,
+              l2BlockHash: receipt.blockHash,
+              txIndexInBlock: receipt.txIndexInBlock,
+              slotNumber: receipt.slotNumber,
+            },
+          ];
+        })
         .filter((entry): entry is [string, IndexedTxEffect] => entry[1] !== undefined),
     );
   }

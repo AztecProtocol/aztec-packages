@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -63,6 +63,7 @@ describe('validateAndStoreEvents', () => {
       l2BlockHash: BlockHash.random(),
       data: txEffect,
       txIndexInBlock: 0,
+      slotNumber: SlotNumber(Number(blockNumber)),
     };
 
     /* Happy path context conditions:

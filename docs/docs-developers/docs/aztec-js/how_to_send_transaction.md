@@ -68,12 +68,35 @@ After sending a transaction without waiting, you can query its receipt using the
 
 #include_code query_tx_status /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
-The receipt includes:
+`getTxReceipt` always resolves to one of three lifecycle variants of the `TxReceipt` union, depending on where the transaction is in its lifecycle:
 
-- `status` - Transaction status (`pending`, `proposed`, `checkpointed`, `proven`, `finalized`, or `dropped`)
-- `blockNumber` - Block where the transaction was included
-- `transactionFee` - Fee paid for the transaction
-- `error` - Error message if the transaction reverted
+- `PendingTxReceipt` - still in the mempool. Exposes `status` (`pending`) and, when requested, the pending `tx`.
+- `DroppedTxReceipt` - dropped by the node. Exposes `status` (`dropped`) and an optional `error` message.
+- `MinedTxReceipt` - included in a block. Exposes `status` (`proposed`, `checkpointed`, `proven`, or `finalized`), `blockNumber`, `blockHash`, `txIndexInBlock`, `transactionFee`, and the execution result.
+
+The `status`, `blockNumber`, and `transactionFee` fields are readable on the bare union, but block and fee details are only populated once the transaction is mined. Use the `isMined()`, `isPending()`, and `isDropped()` type guards to narrow to a specific variant before reading its fields:
+
+```typescript
+const receipt = await node.getTxReceipt(txHash);
+if (receipt.isMined()) {
+  console.log(`Mined in block ${receipt.blockNumber}, fee ${receipt.transactionFee}`);
+}
+```
+
+You can pass a second `options` argument to attach extra data to the receipt:
+
+- `includeTxEffect` - attaches the full `TxEffect` (note hashes, nullifiers, logs, and messages) to a mined receipt, available as `receipt.txEffect`.
+- `includePendingTx` - attaches the pending `Tx` to a pending receipt, available as `receipt.tx`.
+- `includeProof` - keeps the proof on that attached pending tx (only meaningful together with `includePendingTx`; the proof is stripped by default to avoid shipping large payloads over RPC).
+
+For example, to read a mined transaction's effects, request them with `includeTxEffect` and read `receipt.txEffect` after narrowing with `isMined()`:
+
+```typescript
+const receipt = await node.getTxReceipt(txHash, { includeTxEffect: true });
+if (receipt.isMined() && receipt.txEffect) {
+  console.log(`Nullifiers: ${receipt.txEffect.nullifiers.length}`);
+}
+```
 
 ## Next steps
 

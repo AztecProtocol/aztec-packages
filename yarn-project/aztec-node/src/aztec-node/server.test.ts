@@ -21,6 +21,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { GlobalVariableBuilder, Sequencer, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
+import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
@@ -33,7 +34,7 @@ import {
 } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
@@ -46,11 +47,14 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
-import type { FeeProvider } from '@aztec/stdlib/tx';
+import type { FeeProvider, IndexedTxEffect } from '@aztec/stdlib/tx';
 import {
   BlockHeader,
+  DroppedTxReceipt,
   GlobalVariables,
   HashedValues,
+  MinedTxReceipt,
+  PendingTxReceipt,
   TX_ERROR_CALLDATA_COUNT_MISMATCH,
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
@@ -59,6 +63,9 @@ import {
   TX_ERROR_SIZE_ABOVE_LIMIT,
   Tx,
   TxEffect,
+  TxExecutionResult,
+  TxHash,
+  TxStatus,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -1432,6 +1439,226 @@ describe('aztec node', () => {
 
       const result = await node.getL1ToL2MessageCheckpoint(msg);
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getTxReceipt', () => {
+    // epochDuration of 4 means getEpochAtSlot(slot) === floor(slot / 4).
+    const EPOCH_DURATION = 4;
+    const l1Constants: L1RollupConstants = { ...EmptyL1RollupConstants, epochDuration: EPOCH_DURATION };
+
+    /** Builds an L2Tips stub whose tip block numbers drive #deriveMinedStatus. */
+    const makeTipsWithBlockNumbers = (args: {
+      proposed: number;
+      checkpointed: number;
+      proven: number;
+      finalized: number;
+    }): L2Tips => {
+      const blockId = (n: number) => ({ number: BlockNumber(n), hash: '0x01' });
+      const tipId = (n: number) => ({ block: blockId(n), checkpoint: { number: CheckpointNumber(1), hash: '0x01' } });
+      return {
+        proposed: blockId(args.proposed),
+        checkpointed: tipId(args.checkpointed),
+        proposedCheckpoint: tipId(args.checkpointed),
+        proven: tipId(args.proven),
+        finalized: tipId(args.finalized),
+      };
+    };
+
+    /** Builds an IndexedTxEffect for a tx mined in the given block at the given index. */
+    const makeIndexedTxEffect = (
+      txHash: TxHash,
+      blockNumber: number,
+      slotNumber: number,
+      txIndexInBlock: number,
+      revertCode: RevertCode,
+      transactionFee: bigint,
+    ): IndexedTxEffect => {
+      const data = new TxEffect(revertCode, txHash, new Fr(transactionFee), [], [Fr.random()], [], [], [], [], []);
+      return {
+        data,
+        l2BlockNumber: BlockNumber(blockNumber),
+        l2BlockHash: BlockHash.random(),
+        txIndexInBlock,
+        slotNumber: SlotNumber(slotNumber),
+      };
+    };
+
+    /** Wires the block source so the tx is mined in `blockNumber` at slot `slotNumber`, with the given tips. */
+    const setUpMined = (opts: {
+      txHash: TxHash;
+      blockNumber: number;
+      slotNumber: number;
+      txIndexInBlock?: number;
+      revertCode?: RevertCode;
+      transactionFee?: bigint;
+      tips: L2Tips;
+    }) => {
+      const indexed = makeIndexedTxEffect(
+        opts.txHash,
+        opts.blockNumber,
+        opts.slotNumber,
+        opts.txIndexInBlock ?? 0,
+        opts.revertCode ?? RevertCode.OK,
+        opts.transactionFee ?? 7n,
+      );
+      l2BlockSource.getTxEffect.mockResolvedValue(indexed);
+      l2BlockSource.getL2Tips.mockResolvedValue(opts.tips);
+      l2BlockSource.getL1Constants.mockResolvedValue(l1Constants);
+      l2BlockSource.getBlockData.mockResolvedValue({
+        header: BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({
+            blockNumber: BlockNumber(opts.blockNumber),
+            slotNumber: SlotNumber(opts.slotNumber),
+          }),
+        }),
+        archive: L2Block.empty().archive,
+        blockHash: indexed.l2BlockHash,
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+      return indexed;
+    };
+
+    it('derives PROPOSED when the tx block is above all confirmed tips', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      setUpMined({
+        txHash,
+        blockNumber: 10,
+        slotNumber: 40,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 3, finalized: 1 }),
+      });
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt).toBeInstanceOf(MinedTxReceipt);
+      expect(receipt.status).toEqual(TxStatus.PROPOSED);
+    });
+
+    it('derives CHECKPOINTED at the checkpointed tip boundary', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      setUpMined({
+        txHash,
+        blockNumber: 5,
+        slotNumber: 20,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 3, finalized: 1 }),
+      });
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt.status).toEqual(TxStatus.CHECKPOINTED);
+    });
+
+    it('derives PROVEN at the proven tip boundary', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      setUpMined({
+        txHash,
+        blockNumber: 3,
+        slotNumber: 12,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 3, finalized: 1 }),
+      });
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt.status).toEqual(TxStatus.PROVEN);
+    });
+
+    it('derives FINALIZED at the finalized tip boundary', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      setUpMined({
+        txHash,
+        blockNumber: 1,
+        slotNumber: 4,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 3, finalized: 1 }),
+      });
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt.status).toEqual(TxStatus.FINALIZED);
+    });
+
+    it('populates fee, block coordinates, execution result, and epoch from the indexed effect', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      const indexed = setUpMined({
+        txHash,
+        blockNumber: 4,
+        slotNumber: 17, // floor(17 / 4) === 4
+        txIndexInBlock: 2,
+        revertCode: RevertCode.REVERTED,
+        transactionFee: 123n,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 4, finalized: 1 }),
+      });
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt).toBeInstanceOf(MinedTxReceipt);
+      const mined = receipt as MinedTxReceipt;
+      expect(mined.status).toEqual(TxStatus.PROVEN);
+      expect(mined.transactionFee).toEqual(123n);
+      expect(mined.blockNumber).toEqual(BlockNumber(4));
+      expect(mined.blockHash).toEqual(indexed.l2BlockHash);
+      expect(mined.txIndexInBlock).toEqual(2);
+      expect(mined.executionResult).toEqual(TxExecutionResult.REVERTED);
+      expect(mined.hasExecutionReverted()).toBe(true);
+      expect(mined.epochNumber).toEqual(EpochNumber(4));
+    });
+
+    it('attaches the txEffect only when includeTxEffect is set', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      const indexed = setUpMined({
+        txHash,
+        blockNumber: 4,
+        slotNumber: 16,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 4, finalized: 1 }),
+      });
+
+      const withoutEffect = await node.getTxReceipt(txHash);
+      expect(withoutEffect.txEffect).toBeUndefined();
+
+      const withEffect = await node.getTxReceipt(txHash, { includeTxEffect: true });
+      expect(withEffect.txEffect).toEqual(indexed.data);
+    });
+
+    it('returns a pending receipt when the tx is known to the pool but not mined', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('pending');
+      l2BlockSource.getTxEffect.mockResolvedValue(undefined);
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt).toBeInstanceOf(PendingTxReceipt);
+      if (!receipt.isPending()) {
+        throw new Error('expected a pending receipt');
+      }
+      expect(receipt.status).toEqual(TxStatus.PENDING);
+      expect(receipt.tx).toBeUndefined();
+    });
+
+    it('attaches the stripped pending tx when includePendingTx is set without includeProof', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('pending');
+      l2BlockSource.getTxEffect.mockResolvedValue(undefined);
+      const pendingTx = await mockTx();
+      p2p.getTxByHashFromPool.mockResolvedValue(pendingTx);
+
+      const receipt = await node.getTxReceipt(txHash, { includePendingTx: true });
+      expect(receipt).toBeInstanceOf(PendingTxReceipt);
+      if (!receipt.isPending()) {
+        throw new Error('expected a pending receipt');
+      }
+      expect(receipt.tx).toBeDefined();
+      expect(receipt.tx!.chonkProof).toEqual(pendingTx.withoutProof().chonkProof);
+    });
+
+    it('returns a dropped receipt when the tx is unknown to the pool and not mined', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue(undefined);
+      l2BlockSource.getTxEffect.mockResolvedValue(undefined);
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt).toBeInstanceOf(DroppedTxReceipt);
+      expect(receipt.status).toEqual(TxStatus.DROPPED);
+      expect(receipt.error).toEqual('Tx dropped by P2P node');
     });
   });
 });

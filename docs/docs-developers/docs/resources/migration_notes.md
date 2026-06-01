@@ -39,6 +39,32 @@ When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied def
 + MessageDelivery::onchain_constrained()
 ```
 
+### [Aztec.js] `getTxReceipt` returns a lifecycle union and takes `GetTxReceiptOptions`
+
+`AztecNode.getTxReceipt` now takes an optional `GetTxReceiptOptions` argument and returns a `PendingTxReceipt | DroppedTxReceipt | MinedTxReceipt` union instead of a single `TxReceipt` class. Mined-only fields (`transactionFee`, `blockHash`, `blockNumber`, `txIndexInBlock`, and the execution result) are only guaranteed once the transaction is mined, so narrow with `isMined()`, `isPending()`, or `isDropped()` before reading variant-specific fields. The full `TxEffect` is attached only when you request it via `{ includeTxEffect: true }`.
+
+`AztecNode.getTxEffect` is deprecated. Replace direct calls with `getTxReceipt(txHash, { includeTxEffect: true })` and read the `.txEffect` field.
+
+`TxReceipt.empty()` and `TxReceipt.schema` no longer exist, since `TxReceipt` is now a union type rather than a class. Use `DroppedTxReceipt.empty()` and `TxReceiptSchema` instead.
+
+```diff
+- const effect = await node.getTxEffect(txHash);
+- if (effect) {
+-   console.log(effect.data.nullifiers.length);
+- }
++ const receipt = await node.getTxReceipt(txHash, { includeTxEffect: true });
++ if (receipt.isMined() && receipt.txEffect) {
++   console.log(receipt.txEffect.nullifiers.length);
++ }
+
+- const empty = TxReceipt.empty();
+- const schema = TxReceipt.schema;
++ const empty = DroppedTxReceipt.empty();
++ const schema = TxReceiptSchema;
+```
+
+**Impact**: This is a breaking change to the public node RPC with no wire back-compat. Callers that read mined fields off a bare receipt must narrow with the `is*` guards first, callers of `getTxEffect` should migrate to `getTxReceipt`, and references to `TxReceipt.empty()` / `TxReceipt.schema` must move to `DroppedTxReceipt.empty()` / `TxReceiptSchema`.
+
 ### [Aztec.js] `ExtendedDirectionalAppTaggingSecret` renamed to `AppTaggingSecret`
 
 `ExtendedDirectionalAppTaggingSecret` has been renamed to `AppTaggingSecret`.
@@ -96,7 +122,7 @@ The provider *replaces* the default list (it is not additive), so include every 
 Unlike MultiCallEntrypoint and AuthRegistry, `PublicChecks` is **not** preloaded by `createPXE` or `EmbeddedWallet`. If your contract uses `privately_check_timestamp` or `privately_check_block_number`, `PublicChecks` must be deployed and made available to your PXE — either include it in a custom `preloadedContractsProvider` (see the `multi_call_entrypoint` note above) or register it directly:
 
 ```ts
-import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
+import { getStandardPublicChecks } from "@aztec/standard-contracts/public-checks";
 
 const { instance, artifact } = await getStandardPublicChecks();
 await pxe.registerContract({ instance, artifact });
@@ -118,7 +144,7 @@ Deploy `PublicChecks` once per fresh rollup: `aztec-wallet deploy public_checks_
 PXE no longer auto-registers `AuthRegistry` on startup. `EmbeddedWallet` preloads it automatically (alongside the MultiCallEntrypoint — see the `multi_call_entrypoint` note above), so apps using the standard wallet need no changes. If you use a PXE setup that doesn't preload it, add it to a custom `preloadedContractsProvider` or register it explicitly:
 
 ```ts
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardAuthRegistry } from "@aztec/standard-contracts/auth-registry";
 
 const { instance, artifact } = await getStandardAuthRegistry();
 await pxe.registerContract({ instance, artifact });
@@ -143,12 +169,12 @@ The four log-retrieval methods on `AztecNode` have been collapsed into two. `get
 
 **Removed methods on `AztecNode`:**
 
-| Removed                                                                     | Replacement                                              |
-| --------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `getPublicLogs(filter: LogFilter)`                                          | `getPublicLogsByTags({ contractAddress, tags, ... })`    |
-| `getContractClassLogs(filter: LogFilter)`                                   | none — RPC removed; no production consumer existed       |
-| `getPrivateLogsByTags(tags, page?, referenceBlock?)`                        | `getPrivateLogsByTags({ tags, ... })`                    |
-| `getPublicLogsByTagsFromContract(contract, tags, page?, referenceBlock?)`   | `getPublicLogsByTags({ contractAddress, tags, ... })`    |
+| Removed                                                                   | Replacement                                           |
+| ------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `getPublicLogs(filter: LogFilter)`                                        | `getPublicLogsByTags({ contractAddress, tags, ... })` |
+| `getContractClassLogs(filter: LogFilter)`                                 | none — RPC removed; no production consumer existed    |
+| `getPrivateLogsByTags(tags, page?, referenceBlock?)`                      | `getPrivateLogsByTags({ tags, ... })`                 |
+| `getPublicLogsByTagsFromContract(contract, tags, page?, referenceBlock?)` | `getPublicLogsByTags({ contractAddress, tags, ... })` |
 
 **New query and response shapes:**
 
@@ -157,15 +183,18 @@ The four log-retrieval methods on `AztecNode` have been collapsed into two. `get
 type TagQuery<T> = T | { tag: T; afterLog?: LogCursor };
 
 type LogsQueryBase = {
-  fromBlock?: BlockNumber;        // inclusive
-  toBlock?: BlockNumber;          // exclusive
-  txHash?: TxHash;                // mutually exclusive with fromBlock/toBlock
-  referenceBlock?: BlockHash;     // reorg-safety anchor; throws if missing
-  includeEffects?: boolean;       // attach noteHashes + all nullifiers
+  fromBlock?: BlockNumber; // inclusive
+  toBlock?: BlockNumber; // exclusive
+  txHash?: TxHash; // mutually exclusive with fromBlock/toBlock
+  referenceBlock?: BlockHash; // reorg-safety anchor; throws if missing
+  includeEffects?: boolean; // attach noteHashes + all nullifiers
 };
 
 type PrivateLogsQuery = LogsQueryBase & { tags: TagQuery<SiloedTag>[] };
-type PublicLogsQuery  = LogsQueryBase & { contractAddress: AztecAddress; tags: TagQuery<Tag>[] };
+type PublicLogsQuery = LogsQueryBase & {
+  contractAddress: AztecAddress;
+  tags: TagQuery<Tag>[];
+};
 
 // Response (per log)
 type LogResult = {
@@ -175,8 +204,8 @@ type LogResult = {
   blockTimestamp: UInt64;
   txHash: TxHash;
   logIndexWithinTx: number;
-  noteHashes?: Fr[];   // present only when includeEffects is set
-  nullifiers?: Fr[];   // all nullifiers of the tx, not just the first
+  noteHashes?: Fr[]; // present only when includeEffects is set
+  nullifiers?: Fr[]; // all nullifiers of the tx, not just the first
 };
 ```
 
