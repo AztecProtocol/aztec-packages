@@ -61,7 +61,13 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
           fetch-depth: ${{ github.event.pull_request.commits || 1 }}
-          persist-credentials: true   # Required for bootstrap_ec2's git fetch
+          # Don't persist the workflow github.token. checkout v5+ injects it as an http.extraheader
+          # (via includeIf credential files) that overrides remote-URL auth, so on PR runs — where the
+          # token is contents: read — every git push from the runner goes out as github-actions[bot]
+          # and 403s (release-pr tag, squash-and-merge, chonk refresh). The push sites authenticate
+          # explicitly via tokenized remotes instead, and bootstrap_ec2's negotiate-only fetch works
+          # anonymously against this public repo.
+          persist-credentials: false
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
