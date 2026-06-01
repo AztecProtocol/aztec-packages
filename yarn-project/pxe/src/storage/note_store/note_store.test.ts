@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type DataInBlock } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
-import type { CanonicalityCheck } from '../foundation/index.js';
+import type { CanonicalityCheck, L2BlockId } from '../foundation/index.js';
 import { NoteStore } from './note_store.js';
 
 // -----------------------------------------------------------------------------
@@ -781,6 +781,54 @@ describe('NoteStore (canonicality)', () => {
     await store.commit(JOB);
     const nullifiers = await store.nullifiersAtBlock(9);
     expect(new Set(nullifiers)).toEqual(new Set([a.siloedNullifier.toString(), b.siloedNullifier.toString()]));
+  });
+
+  // Two distinct, valid block-hash Fr values for the orphan/canonical forks. NoteDao serializes l2BlockHash via
+  // Fr.fromHexString, so the hashes must be real field elements, not arbitrary labels.
+  const ORPHAN_HASH = Fr.fromString('0x0a').toString();
+  const CANONICAL_HASH = Fr.fromString('0x0c').toString();
+
+  it('reaps only non-canonical notes in the given block range, keeping the canonical one', async () => {
+    const orphan = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(9),
+      l2BlockHash: ORPHAN_HASH,
+    });
+    const live = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(9),
+      l2BlockHash: CANONICAL_HASH,
+    });
+    await store.addNotes([orphan, live], scope, JOB);
+    await store.commit(JOB);
+
+    // The reap predicate is independent of the store's #check; it selects the canonical fork by block hash.
+    const isCanonical = (id: L2BlockId) => id.hash === CANONICAL_HASH;
+    await kv.transactionAsync(() => store.reapNonCanonicalInRange(9, 9, isCanonical));
+
+    // Direct index read (independent of #check): only the canonical note's nullifier survives.
+    expect(await store.nullifiersAtBlock(9)).toEqual([live.siloedNullifier.toString()]);
+
+    // getNotes cross-check: mark the canonical fork canonical for the harness #check, then read it back.
+    canonical.add(originKey(BlockNumber(9), CANONICAL_HASH));
+    const found = await store.getNotes(activeFilter, 'read-job');
+    expect(found).toHaveLength(1);
+    expect(found[0].siloedNullifier.equals(live.siloedNullifier)).toBe(true);
+  });
+
+  it('leaves notes outside the [fromBlock, toBlock] range untouched even if non-canonical', async () => {
+    const outOfRange = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(20),
+      l2BlockHash: ORPHAN_HASH,
+    });
+    await store.addNotes([outOfRange], scope, JOB);
+    await store.commit(JOB);
+
+    // Predicate would call everything non-canonical, but block 20 is outside the reaped range [9, 9].
+    await kv.transactionAsync(() => store.reapNonCanonicalInRange(9, 9, () => false));
+
+    expect(await store.nullifiersAtBlock(20)).toEqual([outOfRange.siloedNullifier.toString()]);
   });
 
   afterEach(async () => {

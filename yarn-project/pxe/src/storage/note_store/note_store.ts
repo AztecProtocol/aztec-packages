@@ -395,4 +395,35 @@ export class NoteStore implements StagedStore {
     }
     return nullifiers;
   }
+
+  /**
+   * Deletes note rows whose creation origin is not canonical, for creation block numbers in [fromBlock, toBlock].
+   * Must be called inside a transaction owned by the caller (it issues no transactionAsync of its own, because
+   * IndexedDB does not support nested transactions and the reorg-finalize path wraps this together with the
+   * canonical-floor advance).
+   */
+  public async reapNonCanonicalInRange(
+    fromBlock: number,
+    toBlock: number,
+    isCanonical: (id: L2BlockId) => boolean,
+  ): Promise<void> {
+    for (let block = fromBlock; block <= toBlock; block++) {
+      // Snapshot the block's nullifiers BEFORE mutating, so we never delete from the multimap we are iterating.
+      const nullifiers = await this.nullifiersAtBlock(block);
+      for (const nullifier of nullifiers) {
+        const buf = await this.#notes.getAsync(nullifier);
+        if (!buf) {
+          continue;
+        }
+        const stored = StoredNote.fromBuffer(buf);
+        if (isCanonical(stored.creationOrigin)) {
+          continue;
+        }
+        await this.#notes.delete(nullifier);
+        await this.#nullifiersByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), nullifier);
+        await this.#nullifiersByBlockNumber.deleteValue(block, nullifier);
+        await this.#nullificationsByNullifier.delete(nullifier);
+      }
+    }
+  }
 }
