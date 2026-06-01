@@ -126,9 +126,9 @@ function fromBatchInsertionResult<
   },
 >(result: TResult, convertLeaf: (leaf: TLeaf) => Exclude<SerializedLeafValue, Buffer>) {
   return {
-    low_leaf_witness_data: result.lowLeafWitnessData.map(data => fromLeafUpdateWitnessData(data, convertLeaf)),
-    sorted_leaves: result.sortedLeaves.map(({ leaf, index }) => [convertLeaf(leaf), index] as const),
-    subtree_path: result.subtreePath.map(p => Buffer.from(p)),
+    lowLeafWitnessData: result.lowLeafWitnessData.map(data => fromLeafUpdateWitnessData(data, convertLeaf)),
+    sortedLeaves: result.sortedLeaves.map(({ leaf, index }) => [convertLeaf(leaf), index] as const),
+    subtreePath: result.subtreePath.map(p => Buffer.from(p)),
   };
 }
 
@@ -140,8 +140,8 @@ function fromSequentialInsertionResult<
   },
 >(result: TResult, convertLeaf: (leaf: TLeaf) => Exclude<SerializedLeafValue, Buffer>) {
   return {
-    low_leaf_witness_data: result.lowLeafWitnessData.map(data => fromLeafUpdateWitnessData(data, convertLeaf)),
-    insertion_witness_data: result.insertionWitnessData.map(data => fromLeafUpdateWitnessData(data, convertLeaf)),
+    lowLeafWitnessData: result.lowLeafWitnessData.map(data => fromLeafUpdateWitnessData(data, convertLeaf)),
+    insertionWitnessData: result.insertionWitnessData.map(data => fromLeafUpdateWitnessData(data, convertLeaf)),
   };
 }
 

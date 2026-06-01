@@ -390,24 +390,24 @@ interface BatchInsertRequest extends WithTreeId, WithForkId, WithLeaves {
 }
 
 interface BatchInsertResponse {
-  low_leaf_witness_data: ReadonlyArray<{
+  lowLeafWitnessData: ReadonlyArray<{
     leaf: SerializedIndexedLeaf;
     index: bigint | number;
     path: Tuple<Buffer, number>;
   }>;
-  sorted_leaves: ReadonlyArray<[SerializedLeafValue, UInt32]>;
-  subtree_path: Tuple<Buffer, number>;
+  sortedLeaves: ReadonlyArray<[SerializedLeafValue, UInt32]>;
+  subtreePath: Tuple<Buffer, number>;
 }
 
 interface SequentialInsertRequest extends WithTreeId, WithForkId, WithLeaves {}
 
 interface SequentialInsertResponse {
-  low_leaf_witness_data: ReadonlyArray<{
+  lowLeafWitnessData: ReadonlyArray<{
     leaf: SerializedIndexedLeaf;
     index: bigint | number;
     path: Tuple<Buffer, number>;
   }>;
-  insertion_witness_data: ReadonlyArray<{
+  insertionWitnessData: ReadonlyArray<{
     leaf: SerializedIndexedLeaf;
     index: bigint | number;
     path: Tuple<Buffer, number>;
