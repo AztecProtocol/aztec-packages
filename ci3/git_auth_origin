@@ -1,12 +1,7 @@
 #!/usr/bin/env bash
 # Re-authenticate the 'origin' remote to act as the given token (defaults to $GITHUB_TOKEN).
-#
-# actions/checkout with persist-credentials: true stores the workflow's default github.token as a
-# git http.extraheader. That header is an explicit Authorization and takes precedence over any token
-# in the remote URL, so pushes go out as github-actions[bot] (contents: read only) and 403. The exact
-# config key has varied across checkout versions (the v6 repin broke the previously-hardcoded
-# `git config --unset-all http.https://github.com/.extraheader`), so we strip every persisted
-# extraheader by pattern, then authenticate via a tokenized remote URL.
+# TEMPORARY DIAGNOSTIC VERSION — prints http config key names (no values) and the token identity to
+# pin down why the ci-release-pr tag push authenticates as github-actions[bot]. Revert once known.
 #
 # Usage: git_auth_origin <owner/repo> [token]
 set -euo pipefail
@@ -14,7 +9,14 @@ set -euo pipefail
 repo="${1:?usage: git_auth_origin <owner/repo> [token]}"
 token="${2:-${GITHUB_TOKEN:?GITHUB_TOKEN is required}}"
 
+echo "DIAG: http config keys before strip:"
+git config --name-only --get-regexp '^http\.' 2>/dev/null || echo "  (none)"
 for key in $(git config --name-only --get-regexp '^http\..*\.extraheader$' 2>/dev/null || true); do
+  echo "DIAG: unsetting $key"
   git config --unset-all "$key" || true
 done
+echo "DIAG: http config keys after strip:"
+git config --name-only --get-regexp '^http\.' 2>/dev/null || echo "  (none)"
+echo "DIAG: token authenticates as: $(GH_TOKEN="${token}" gh api user -q .login 2>&1 || echo '<gh api user failed>')"
+
 git remote set-url origin "https://x-access-token:${token}@github.com/${repo}.git"
