@@ -2,6 +2,7 @@
   { "pattern": "private_kernel_init", "kind": "kernel" },
   { "pattern": "private_kernel_inner", "kind": "kernel" },
   { "pattern": "private_kernel_reset.*", "kind": "kernel" },
+  { "pattern": "private_kernel_tail.*", "kind": "kernel" },
   { "pattern": "app_creator", "kind": "app" },
   { "pattern": "app_reader", "kind": "app" }
 ]
