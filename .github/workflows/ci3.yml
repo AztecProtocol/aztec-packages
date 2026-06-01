@@ -41,7 +41,11 @@ jobs:
     runs-on: ubuntu-latest
     # exclusive with ci3-external.yml: never run on forks
     # (github.event.pull_request.head.repo.fork resolves to nil if not a pull request)
-    if: github.event.pull_request.head.repo.fork != true && (github.event.pull_request.draft == false || contains(github.event.pull_request.labels.*.name, 'ci-draft'))
+    # ci-refresh-chonk is allowed on drafts: the auto-dispatched pinned-input
+    # refresh PRs are opened as drafts, and the refresh push-back runs inside
+    # this job (ci3_success.sh), so gating it on non-draft would never let the
+    # refresh complete.
+    if: github.event.pull_request.head.repo.fork != true && (github.event.pull_request.draft == false || contains(github.event.pull_request.labels.*.name, 'ci-draft') || contains(github.event.pull_request.labels.*.name, 'ci-refresh-chonk'))
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
     permissions:
       id-token: write   # required for OIDC assume-role with AWS
