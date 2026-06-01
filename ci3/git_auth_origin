@@ -8,12 +8,16 @@
 # clears it as of the checkout v6 repin.) We instead overwrite the extraheader with the supplied
 # token, so this process and any child processes inheriting the repo config authenticate as it.
 #
+# Auth goes in the extraheader only; the remote URL is kept clean (token-free). Putting credentials
+# in both the URL userinfo and the extraheader makes git send two Authorization values, which GitHub
+# rejects with a 400. This mirrors how actions/checkout itself authenticates.
+#
 # Usage: git_auth_origin <owner/repo> [token]
 set -euo pipefail
 
 repo="${1:?usage: git_auth_origin <owner/repo> [token]}"
 token="${2:-${GITHUB_TOKEN:?GITHUB_TOKEN is required}}"
 
-git remote set-url origin "https://x-access-token:${token}@github.com/${repo}.git"
+git remote set-url origin "https://github.com/${repo}.git"
 git config --replace-all http.https://github.com/.extraheader \
   "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$token" | base64 | tr -d '\n')"
