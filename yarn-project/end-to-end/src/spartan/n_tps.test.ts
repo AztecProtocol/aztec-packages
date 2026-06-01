@@ -15,7 +15,7 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import { type Gas, GasFees } from '@aztec/stdlib/gas';
+import { type Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -623,7 +623,8 @@ describe('sustained N TPS test', () => {
     };
 
     let index = 0;
-    logger.info('Waiting for high-value txs to be mined', { totalSent: sentTxHashes.length });
+    const totalHighValueSent = sentTxHashes.length;
+    logger.info('Waiting for high-value txs to be mined', { totalSent: totalHighValueSent });
     while (sentTxHashes.length > 0) {
       const chunk = sentTxHashes.splice(0, 10);
       await Promise.all(chunk.map((txHash, idx) => waitForTx(txHash, `highValueTx_${idx + 1 + index}`)));
@@ -664,6 +665,13 @@ describe('sustained N TPS test', () => {
     const inclusionStats = metrics.inclusionTimeInSeconds(txInclusionGroup);
     logger.info(`Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed`);
     logger.info('Inclusion time stats', inclusionStats);
+
+    if (totalHighValueSent === 0 && highValueTps > 0) {
+      throw new Error('No high-value txs were sent; check earlier submission errors');
+    }
+    if (successCount !== totalHighValueSent) {
+      logger.error(`Only ${successCount}/${totalHighValueSent} high-value txs were included; ${failureCount} failed`);
+    }
   });
 });
 
@@ -747,17 +755,15 @@ async function cloneTx(tx: ProvenTx, priorityFee: GasFees, logger: Logger): Prom
   const clonedTxData = Tx.clone(tx, false);
   const t1 = performance.now();
 
-  // effective_priority = min(maxPriorityFeesPerGas, maxFeesPerGas - baseFeePerGas).
-  // The prototype was built at simulate-time with maxFeesPerGas ≈ current baseFee + margin.
-  // As baseFee ratchets up under sustained load, the (maxFees - baseFee) term shrinks below
-  // our maxPriorityFees bid, so effective_priority collapses and we trip the mempool min
-  // priority-fee check. Override maxFeesPerGas with a huge static value — sponsor pays, so
-  // over-capping is free. 1000× the priority gives us >> any conceivable baseFee growth.
-  (clonedTxData.data.constants.txContext.gasSettings as any).maxPriorityFeesPerGas = priorityFee;
-  (clonedTxData.data.constants.txContext.gasSettings as any).maxFeesPerGas = new GasFees(
-    priorityFee.feePerDaGas * 1000n,
-    priorityFee.feePerL2Gas * 1000n,
-  );
+  // The tx pool orders txs by priority fee capped by maxFeesPerGas. Keep the cap at the bid:
+  // raising it further only increases the upfront fee limit reserved from the sponsored FPC.
+  const gasSettings = clonedTxData.data.constants.txContext.gasSettings;
+  clonedTxData.data.constants.txContext.gasSettings = GasSettings.from({
+    gasLimits: gasSettings.gasLimits,
+    teardownGasLimits: gasSettings.teardownGasLimits,
+    maxFeesPerGas: priorityFee,
+    maxPriorityFeesPerGas: priorityFee,
+  });
 
   if (clonedTxData.data.forRollup) {
     for (let i = 0; i < clonedTxData.data.forRollup?.end.nullifiers.length; i++) {
