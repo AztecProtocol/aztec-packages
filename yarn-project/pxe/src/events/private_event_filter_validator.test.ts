@@ -3,10 +3,6 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
-import { mock } from 'jest-mock-extended';
-import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
-
-import { AnchorHeaderStore } from '../storage/anchor_header_store/index.js';
 import { PrivateEventFilterValidator } from './private_event_filter_validator.js';
 
 describe('PrivateEventFilterValidator', () => {
@@ -14,7 +10,6 @@ describe('PrivateEventFilterValidator', () => {
   let lastKnownBlock: BlockHeader;
   let lastKnownBlockNumber: BlockNumber;
   let scope: AztecAddress;
-  let anchorHeaderStore: MockProxy<AnchorHeaderStore>;
   let validator: PrivateEventFilterValidator;
 
   beforeEach(async () => {
@@ -22,9 +17,6 @@ describe('PrivateEventFilterValidator', () => {
     lastKnownBlockNumber = lastKnownBlock.getBlockNumber();
     contractAddress = await AztecAddress.random();
     scope = await AztecAddress.random();
-    anchorHeaderStore = mock<AnchorHeaderStore>();
-
-    anchorHeaderStore.getBlockHeader.mockResolvedValue(lastKnownBlock);
     validator = new PrivateEventFilterValidator(lastKnownBlockNumber);
   });
 

@@ -76,7 +76,6 @@ import {
 import { PrivateKernelOracle } from './private_kernel/private_kernel_oracle.js';
 import { AddressStore } from './storage/address_store/address_store.js';
 import { AnchorHeaderStore } from './storage/anchor_header_store/index.js';
-import { CanonicalBlockStore } from './storage/canonical_block_store/index.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
 import { NoteStore } from './storage/note_store/note_store.js';
@@ -192,7 +191,6 @@ export class PXE {
     private contractStore: ContractStore,
     private noteStore: NoteStore,
     private capsuleStore: CapsuleStore,
-    private canonicalBlockStore: CanonicalBlockStore,
     private anchorHeaderStore: AnchorHeaderStore,
     private senderTaggingStore: SenderTaggingStore,
     private senderAddressBookStore: SenderAddressBookStore,
@@ -310,7 +308,6 @@ export class PXE {
       contractStore,
       noteStore,
       capsuleStore,
-      canonicalBlockStore,
       anchorHeaderStore,
       senderTaggingStore,
       senderAddressBookStore,
