@@ -79,8 +79,22 @@ function handle_release_pr {
   local github_repository
   github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
   local tag_name="v0.0.1-commit.$(git rev-parse --short HEAD)"
-  gh api --method POST "repos/${github_repository}/git/refs" \
-    -f "ref=refs/tags/${tag_name}" -f "sha=$(git rev-parse HEAD)"
+
+  echo "DIAG: config with origins (auth-relevant):"
+  git config --list --show-origin 2>/dev/null | grep -iE 'extraheader|credential|askpass|pushurl|url\.|remote\.|insteadof' | sed -E 's#basic [A-Za-z0-9+/=]+#basic ***#' || echo "  (none)"
+  echo "DIAG: GIT/GH env (names only):"
+  printenv | grep -iE '^(GIT_|GH_|GITHUB_)' | sed -E 's/=.*/=<set>/' | sort || true
+  echo "DIAG: remote.origin.pushurl: $(git config --get remote.origin.pushurl 2>/dev/null || echo '(none)')"
+
+  git tag -f "${tag_name}"
+  echo "DIAG: TEST METHOD A (-c extraheader reset + tokenized URL push):"
+  if git -c http.https://github.com/.extraheader= push "https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}.git" "refs/tags/${tag_name}" --force 2>&1; then
+    echo "DIAG: METHOD A SUCCESS"
+  else
+    echo "DIAG: METHOD A FAILED — creating tag via API instead"
+    gh api --method POST "repos/${github_repository}/git/refs" -f "ref=refs/tags/${tag_name}" -f "sha=$(git rev-parse HEAD)" 2>&1 \
+      || gh api --method PATCH "repos/${github_repository}/git/refs/tags/${tag_name}" -f "sha=$(git rev-parse HEAD)" -F force=true
+  fi
   echo "Created tag: ${tag_name}"
   gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
 }
