@@ -210,4 +210,4 @@ To maintain control over your votes:
 
 - [Learn about voting](/participate/token/voting) with your staked or delegated tokens
 - [Staking tokens](/participate/token/staking) to understand slashing risks
-- [Run your own validator](/operate/operators/setup/sequencer_management) if you prefer direct control
+- [Run your own sequencer](/operate/operators/setup/sequencer_management) if you prefer direct control

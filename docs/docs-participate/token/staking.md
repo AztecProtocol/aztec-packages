@@ -28,7 +28,7 @@ When you stake tokens on the Aztec network, your tokens are locked in a smart co
 
 ## Staking options
 
-### Option 1: run your own validator
+### Option 1: run your own sequencer
 
 If you have the technical expertise and infrastructure, you can run your own sequencer node and stake directly.
 
