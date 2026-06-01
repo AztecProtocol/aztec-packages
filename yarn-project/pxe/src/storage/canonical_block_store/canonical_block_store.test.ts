@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import type { L2Tips, L2TipsProvider } from '@aztec/stdlib/block';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { CanonicalBlockStore } from './canonical_block_store.js';
@@ -8,9 +9,17 @@ describe('CanonicalBlockStore', () => {
   let kv: Awaited<ReturnType<typeof openTmpStore>>;
   let store: CanonicalBlockStore;
 
+  // Seeds the finalized floor at 5 when load() is called on a fresh store.
+  const l2TipsProvider: Pick<L2TipsProvider, 'getL2Tips'> = {
+    getL2Tips: () =>
+      Promise.resolve({
+        finalized: { block: { number: BlockNumber(5), hash: '' }, checkpoint: { number: 0, hash: '' } },
+      } as L2Tips),
+  };
+
   beforeEach(async () => {
     kv = await openTmpStore('canonical-block-store-test');
-    store = new CanonicalBlockStore(kv);
+    store = new CanonicalBlockStore(kv, l2TipsProvider);
     await store.load();
   });
 
@@ -27,6 +36,16 @@ describe('CanonicalBlockStore', () => {
   });
 
   describe('canonicality', () => {
+    it('treats blocks at or below the finalized floor as canonical regardless of hash', () => {
+      expect(store.isCanonical({ number: BlockNumber(3), hash: 'anything' })).toBe(true);
+    });
+
+    it('checks the recorded hash for blocks above the finalized floor', async () => {
+      await store.setManyCanonical([{ number: BlockNumber(7), hash: '0xabc' }]);
+      expect(store.isCanonical({ number: BlockNumber(7), hash: '0xabc' })).toBe(true);
+      expect(store.isCanonical({ number: BlockNumber(7), hash: '0xdef' })).toBe(false);
+    });
+
     it('reports a recorded (number,hash) as canonical and a competing hash as not', async () => {
       await store.setCanonical(10, '0xaa');
       expect(store.isCanonical({ number: BlockNumber(10), hash: '0xaa' })).toBe(true);
@@ -36,67 +55,54 @@ describe('CanonicalBlockStore', () => {
 
     it('setManyCanonical records a batch', async () => {
       await store.setManyCanonical([
-        { number: BlockNumber(1), hash: '0x1' },
-        { number: BlockNumber(2), hash: '0x2' },
-      ]);
-      expect(store.isCanonical({ number: BlockNumber(1), hash: '0x1' })).toBe(true);
-      expect(store.isCanonical({ number: BlockNumber(2), hash: '0x2' })).toBe(true);
-    });
-
-    it('clearAbove retracts entries strictly above the given height', async () => {
-      await store.setManyCanonical([
-        { number: BlockNumber(5), hash: '0x5' },
         { number: BlockNumber(6), hash: '0x6' },
         { number: BlockNumber(7), hash: '0x7' },
       ]);
-      await store.clearAbove(5);
-      expect(store.isCanonical({ number: BlockNumber(5), hash: '0x5' })).toBe(true);
-      expect(store.isCanonical({ number: BlockNumber(6), hash: '0x6' })).toBe(false);
-      expect(store.isCanonical({ number: BlockNumber(7), hash: '0x7' })).toBe(false);
+      expect(store.isCanonical({ number: BlockNumber(6), hash: '0x6' })).toBe(true);
+      expect(store.isCanonical({ number: BlockNumber(7), hash: '0x7' })).toBe(true);
     });
   });
 
   describe('finality floor', () => {
-    it('treats any block strictly below the floor as canonical regardless of hash', async () => {
-      await store.setFloor(100);
-      expect(store.isCanonical({ number: BlockNumber(99), hash: '0xanything' })).toBe(true);
-      expect(store.isCanonical({ number: BlockNumber(100), hash: '0xmissing' })).toBe(false);
-    });
+    it('advanceFinalized prunes hashes at/below the new floor and raises the floor', async () => {
+      await store.setManyCanonical([
+        { number: BlockNumber(6), hash: '0x6' },
+        { number: BlockNumber(7), hash: '0x7' },
+      ]);
 
-    it('tracks the highest finalized block', async () => {
-      await store.setFinalized(42);
-      expect(store.getHighestFinalized()).toBe(42);
+      await store.advanceFinalized(BlockNumber(6));
+
+      expect(store.getCanonicalHash(BlockNumber(6))).toBeUndefined();
+      expect(store.isCanonical({ number: BlockNumber(6), hash: 'whatever' })).toBe(true);
+      expect(store.getCanonicalHash(BlockNumber(7))).toBe('0x7');
+      expect(store.getFinalizedFloor()).toBe(6);
+    });
+  });
+
+  describe('reorg retraction', () => {
+    it('clearAbove retracts the orphaned suffix', async () => {
+      await store.setManyCanonical([
+        { number: BlockNumber(7), hash: '0x7' },
+        { number: BlockNumber(8), hash: '0x8' },
+      ]);
+      await store.clearAbove(7);
+      expect(store.getCanonicalHash(BlockNumber(8))).toBeUndefined();
+      expect(store.isCanonical({ number: BlockNumber(7), hash: '0x7' })).toBe(true);
+      expect(store.isCanonical({ number: BlockNumber(8), hash: '0x8' })).toBe(false);
     });
   });
 
   describe('persistence (cold-start cache)', () => {
-    it('reloads the map, floor and finalized tracker from KV', async () => {
-      await store.setFloor(100);
-      await store.setFinalized(120);
-      await store.setCanonical(130, '0x130');
+    it('load rehydrates the bounded map and floor across restarts', async () => {
+      await store.setManyCanonical([{ number: BlockNumber(7), hash: '0x7' }]);
+      await store.advanceFinalized(BlockNumber(6));
 
-      const reopened = new CanonicalBlockStore(kv);
+      const reopened = new CanonicalBlockStore(kv, l2TipsProvider);
       await reopened.load();
 
-      expect(reopened.getFloor()).toBe(100);
-      expect(reopened.getHighestFinalized()).toBe(120);
-      expect(reopened.isCanonical({ number: BlockNumber(130), hash: '0x130' })).toBe(true);
-      expect(reopened.isCanonical({ number: BlockNumber(99), hash: '0xx' })).toBe(true);
-    });
-
-    it('reports emptiness for a fresh store and non-emptiness once a hash is recorded', async () => {
-      expect(store.isEmpty()).toBe(true);
-      await store.setCanonical(1, '0x1');
-      expect(store.isEmpty()).toBe(false);
-    });
-
-    it('tipHeight returns the highest recorded height (0 when empty)', async () => {
-      expect(store.tipHeight()).toBe(0);
-      await store.setManyCanonical([
-        { number: BlockNumber(7), hash: '0x7' },
-        { number: BlockNumber(9), hash: '0x9' },
-      ]);
-      expect(store.tipHeight()).toBe(9);
+      expect(reopened.getCanonicalHash(BlockNumber(7))).toBe('0x7');
+      expect(reopened.getFinalizedFloor()).toBe(6);
+      expect(reopened.isCanonical({ number: BlockNumber(5), hash: 'x' })).toBe(true);
     });
   });
 });
