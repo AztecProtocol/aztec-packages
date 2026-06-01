@@ -1,22 +1,19 @@
 #!/usr/bin/env bash
-# Re-authenticate the 'origin' remote to act as the given token (defaults to $GITHUB_TOKEN).
-# TEMPORARY DIAGNOSTIC VERSION — prints http config key names (no values) and the token identity to
-# pin down why the ci-release-pr tag push authenticates as github-actions[bot]. Revert once known.
-#
+# TEMPORARY DIAGNOSTIC VERSION — find what overrides the tokenized remote URL on the runner.
 # Usage: git_auth_origin <owner/repo> [token]
 set -euo pipefail
 
 repo="${1:?usage: git_auth_origin <owner/repo> [token]}"
 token="${2:-${GITHUB_TOKEN:?GITHUB_TOKEN is required}}"
 
-echo "DIAG: http config keys before strip:"
-git config --name-only --get-regexp '^http\.' 2>/dev/null || echo "  (none)"
 for key in $(git config --name-only --get-regexp '^http\..*\.extraheader$' 2>/dev/null || true); do
-  echo "DIAG: unsetting $key"
   git config --unset-all "$key" || true
 done
-echo "DIAG: http config keys after strip:"
-git config --name-only --get-regexp '^http\.' 2>/dev/null || echo "  (none)"
-echo "DIAG: token authenticates as: $(GH_TOKEN="${token}" gh api user -q .login 2>&1 || echo '<gh api user failed>')"
-
 git remote set-url origin "https://x-access-token:${token}@github.com/${repo}.git"
+
+echo "DIAG: credential.* config:"; git config --get-regexp '^credential\.' 2>/dev/null || echo "  (none)"
+echo "DIAG: url.* config:"; git config --get-regexp '^url\.' 2>/dev/null || echo "  (none)"
+echo "DIAG: remaining http.* keys:"; git config --name-only --get-regexp '^http\.' 2>/dev/null || echo "  (none)"
+echo "DIAG: origin url: $(git remote get-url origin | sed -E 's#://[^@]*@#://***@#')"
+echo "DIAG: git version: $(git --version)"
+echo "DIAG: gh auth git credential helper present? $(git config --get-regexp 'credential.*helper' 2>/dev/null || echo no)"
