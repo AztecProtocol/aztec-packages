@@ -40,10 +40,6 @@ std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> element<C, Fq, Fr, G>::create_g
     std::vector<std::array<field_ct, 2>> prime_limbs;
 
     for (size_t i = 0; i < num_elements; ++i) {
-        // ROM-backed reconstruction uses the unsafe limb constructor, so normalize lazy bigfield coordinates first.
-        rom_data[i]._x.self_reduce();
-        rom_data[i]._y.self_reduce();
-
         limb_max[0] = std::max(limb_max[0], rom_data[i]._x.get_limb(0).maximum_value);
         limb_max[1] = std::max(limb_max[1], rom_data[i]._x.get_limb(1).maximum_value);
         limb_max[2] = std::max(limb_max[2], rom_data[i]._x.get_limb(2).maximum_value);
