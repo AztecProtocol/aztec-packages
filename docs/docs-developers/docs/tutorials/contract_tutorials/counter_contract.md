@@ -41,9 +41,9 @@ Your structure should look like this:
 | | |-Nargo.toml            <-- test package config
 ```
 
-The `aztec new` command creates a contract project with `Nargo.toml` and `src/main.nr`. The file `src/main.nr` will soon turn into our smart contract!
+The `aztec new` command creates a two-crate workspace: a `counter_contract` crate for your contract and a `counter_test` crate for tests. The file `counter_contract/src/main.nr` will soon turn into our smart contract!
 
-Add the following dependency to `Nargo.toml` under the existing `aztec` dependency:
+Add the following dependency to `counter_contract/Nargo.toml` under the existing `aztec` dependency:
 
 ```toml
 [dependencies]

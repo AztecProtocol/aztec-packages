@@ -680,10 +680,6 @@ const ORACLE_REGISTRY = {
   }),
 
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
-
-  aztec_prv_setSenderForTags: makeEntry({
-    params: [{ name: 'senderForTags', type: AZTEC_ADDRESS }],
-  }),
 } satisfies Record<string, OracleRegistryEntry>;
 
 /**

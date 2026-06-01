@@ -47,7 +47,6 @@ pub contract AppSubscription {
         authwit::auth::assert_current_call_valid_authwit,
         macros::{functions::{allow_phase_change, external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        oracle::notes::set_sender_for_tags,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
@@ -69,19 +68,11 @@ pub contract AppSubscription {
     #[external("private")]
     #[allow_phase_change]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
-        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
-        // Since this value is only used for unconstrained tagging and not for any constrained logic,
-        // it is safe to set from a constrained context.
-        // We set the sender for tags to the user address because we don't want to force the user
-        // to add this contract as a sender to their PXE. By setting it to the user address, user's PXE
-        // will manage to find the notes even if this contract is not registered as a sender
-        unsafe { set_sender_for_tags(user_address) };
-
-        // This function takes a generic argument that corresponds to the number of params
-        // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
         assert_current_call_valid_authwit::<2>(self.context, user_address);
 
         let user_expiry_block_number = &mut 0;
+        // We use the user address as the sender for tags so the user's PXE can find the notes without
+        // having to register this contract as a sender.
         self
             .storage
             .subscriptions
@@ -95,7 +86,7 @@ pub contract AppSubscription {
                     remaining_txs: note.remaining_txs - 1,
                 }
             })
-            .deliver(MessageDelivery::onchain_constrained());
+            .deliver(MessageDelivery::onchain_constrained().with_sender(user_address));
 
         self.context.set_as_fee_payer();
 

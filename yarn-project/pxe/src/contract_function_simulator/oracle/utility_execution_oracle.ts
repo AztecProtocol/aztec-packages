@@ -40,6 +40,7 @@ import {
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { EventService } from '../../events/event_service.js';
+import type { UtilityCallAuthorizationRequest } from '../../hooks/authorize_utility_call.js';
 import type { ExecutionHooks } from '../../hooks/index.js';
 import { LogService } from '../../logs/log_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
@@ -798,13 +799,19 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     if (!targetContractAddress.equals(this.contractAddress)) {
-      const request = {
+      const [callerInstance, targetInstance] = await Promise.all([
+        this.getContractInstance(this.contractAddress),
+        this.getContractInstance(targetContractAddress),
+      ]);
+      const request: UtilityCallAuthorizationRequest = {
         caller: this.contractAddress,
+        callerClassId: callerInstance.currentContractClassId,
         target: targetContractAddress,
+        targetClassId: targetInstance.currentContractClassId,
         functionSelector,
         functionName: targetArtifact.name,
         args,
-        callerContext: ('isPrivate' in this ? 'private' : 'utility') as 'private' | 'utility',
+        callerContext: this.callerContext,
       };
 
       const response = this.hooks
@@ -920,5 +927,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       })(),
     ]);
     return response;
+  }
+
+  /** The execution context of the current call. */
+  protected get callerContext(): 'private' | 'private view' | 'utility' {
+    return 'utility';
   }
 }

@@ -20,7 +20,7 @@ describe('KeyStore', () => {
 
     const { address: accountAddress } = await keyStore.addAccount(sk, partialAddress);
     expect(accountAddress.toString()).toMatchInlineSnapshot(
-      `"0x1751d51775aece66a86f69085a9003ac539fc5c3b225d49bd4e3a58247ec5700"`,
+      `"0x25d24398ba1a027cf6879542e7ed726f2d05dfb441e3c564ce44c6cdd7414e16"`,
     );
 
     const { pkMHash: returnedNpkMHash } = await keyStore.getKeyValidationRequest(
@@ -61,7 +61,7 @@ describe('KeyStore', () => {
     // Returned accounts are as expected
     const accounts = await keyStore.getAccounts();
     expect(accounts.toString()).toMatchInlineSnapshot(
-      `"0x1751d51775aece66a86f69085a9003ac539fc5c3b225d49bd4e3a58247ec5700"`,
+      `"0x25d24398ba1a027cf6879542e7ed726f2d05dfb441e3c564ce44c6cdd7414e16"`,
     );
 
     // Manages to find master nullifier hiding key for the pk_m hash

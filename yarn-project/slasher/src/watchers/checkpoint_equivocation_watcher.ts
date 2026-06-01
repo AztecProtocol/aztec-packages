@@ -7,7 +7,7 @@ import {
   L2BlockSourceEvents,
 } from '@aztec/stdlib/block';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { OffenseType } from '@aztec/stdlib/slashing';
+import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
 
@@ -66,10 +66,6 @@ export class CheckpointEquivocationWatcher extends (EventEmitter as new () => Wa
 
   /** Public for tests. */
   public async onEquivocationDetected(event: CheckpointEquivocationDetectedEvent): Promise<void> {
-    if (this.config.slashDuplicateProposalPenalty <= 0n) {
-      return;
-    }
-
     const proposer = await this.epochCache.getProposerAttesterAddressInSlot(event.slotNumber);
     if (!proposer) {
       this.log.warn(`Cannot attribute checkpoint equivocation: no proposer for slot ${event.slotNumber}`, {
@@ -89,6 +85,8 @@ export class CheckpointEquivocationWatcher extends (EventEmitter as new () => Wa
     this.log.info(`Detected checkpoint equivocation offense`, {
       slotNumber: event.slotNumber,
       checkpointNumber: event.checkpointNumber,
+      amount: slashArgs.amount,
+      offenseType: getOffenseTypeName(slashArgs.offenseType),
       l1ArchiveRoot: event.l1ArchiveRoot.toString(),
       proposedArchiveRoot: event.proposedArchiveRoot.toString(),
       validator: proposer.toString(),

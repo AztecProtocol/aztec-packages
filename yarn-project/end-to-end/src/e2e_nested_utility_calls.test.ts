@@ -1,7 +1,9 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { NestedUtilityContract } from '@aztec/noir-test-contracts.js/NestedUtility';
 import type { UtilityCallAuthorizationRequest } from '@aztec/pxe/server';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
@@ -67,6 +69,7 @@ describe('authorizeUtilityCall hook', () => {
   let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
+  let contractClassId: Fr;
   jest.setTimeout(TIMEOUT);
 
   let hookAllows = false;
@@ -91,6 +94,7 @@ describe('authorizeUtilityCall hook', () => {
 
     ({ contract: contractA } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
     ({ contract: contractB } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
+    contractClassId = (await getContractClassFromArtifact(NestedUtilityContract.artifact)).id;
   });
 
   afterAll(() => teardown());
@@ -106,8 +110,10 @@ describe('authorizeUtilityCall hook', () => {
     ).rejects.toThrow('Cross-contract utility call denied');
     expect(lastRequest).toMatchObject({
       caller: contractA.address,
+      callerClassId: contractClassId,
       target: contractB.address,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      targetClassId: contractClassId,
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'utility',
     });
@@ -121,8 +127,10 @@ describe('authorizeUtilityCall hook', () => {
     expect(result).toEqual(8n); // 2^3
     expect(lastRequest).toMatchObject({
       caller: contractA.address,
+      callerClassId: contractClassId,
       target: contractB.address,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      targetClassId: contractClassId,
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'utility',
     });
@@ -134,8 +142,10 @@ describe('authorizeUtilityCall hook', () => {
     ).rejects.toThrow('Cross-contract utility call denied');
     expect(lastRequest).toMatchObject({
       caller: contractA.address,
+      callerClassId: contractClassId,
       target: contractB.address,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      targetClassId: contractClassId,
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'private',
     });
@@ -149,10 +159,44 @@ describe('authorizeUtilityCall hook', () => {
     expect(result).toEqual(8n); // 2^3
     expect(lastRequest).toMatchObject({
       caller: contractA.address,
+      callerClassId: contractClassId,
       target: contractB.address,
-      functionSelector: contractB.methods.pow_utility.selector(),
+      targetClassId: contractClassId,
+      functionSelector: await contractB.methods.pow_utility.selector(),
       functionName: 'pow_utility',
       callerContext: 'private',
+    });
+  });
+
+  it('denies cross-contract utility call from view function when hook returns false', async () => {
+    await expect(
+      contractA.methods.delegate_pow_view(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow('Cross-contract utility call denied');
+    expect(lastRequest).toMatchObject({
+      caller: contractA.address,
+      callerClassId: contractClassId,
+      target: contractB.address,
+      targetClassId: contractClassId,
+      functionSelector: await contractB.methods.pow_utility.selector(),
+      functionName: 'pow_utility',
+      callerContext: 'private view',
+    });
+  });
+
+  it('allows cross-contract utility call from view function when hook returns true', async () => {
+    hookAllows = true;
+    const { result } = await contractA.methods
+      .delegate_pow_view(contractB.address, 2n, 3n)
+      .simulate({ from: defaultAccountAddress });
+    expect(result).toEqual(8n);
+    expect(lastRequest).toMatchObject({
+      caller: contractA.address,
+      callerClassId: contractClassId,
+      target: contractB.address,
+      targetClassId: contractClassId,
+      functionSelector: await contractB.methods.pow_utility.selector(),
+      functionName: 'pow_utility',
+      callerContext: 'private view',
     });
   });
 

@@ -189,6 +189,9 @@ export interface P2PConfig
   /** The node's seen message ID cache size */
   seenMessageCacheSize: number;
 
+  /** Maximum number of (validator, tx) pairs to keep in the tx validation LRU cache. */
+  txValidationCacheSize: number;
+
   /** True to disable the status handshake on peer connected. */
   p2pDisableStatusHandshake?: boolean;
 
@@ -243,6 +246,13 @@ export interface P2PConfig
 
   /** Accept proposal gossip regardless of slot timing (for testing only). */
   skipProposalSlotValidation?: boolean;
+
+  /**
+   * Whether this node skips checkpoint proposal validation and always attests. When set, the checkpoint
+   * attestation is created and broadcast before the embedded last block is processed, so it is not delayed
+   * past the slot's attestation window by that block's re-execution. Mirrors the validator config flag.
+   */
+  skipCheckpointProposalValidation?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -512,6 +522,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The number of messages to keep in the seen message cache',
     ...numberConfigHelper(100_000), // 100K
   },
+  txValidationCacheSize: {
+    env: 'P2P_TX_VALIDATION_CACHE_SIZE',
+    description: 'Maximum number of items to keep in the tx validation LRU cache.',
+    ...numberConfigHelper(5_000),
+  },
   p2pDisableStatusHandshake: {
     env: 'P2P_DISABLE_STATUS_HANDSHAKE',
     description: 'True to disable the status handshake on peer connected.',
@@ -570,6 +585,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   skipProposalSlotValidation: {
     description: 'Accept proposal gossip regardless of slot timing (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  skipCheckpointProposalValidation: {
+    description:
+      'Skip checkpoint proposal validation and always attest, broadcasting the attestation before processing the embedded last block',
     ...booleanConfigHelper(false),
   },
   minTxPoolAgeMs: {

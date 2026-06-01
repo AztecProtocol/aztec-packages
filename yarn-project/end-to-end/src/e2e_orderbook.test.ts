@@ -85,7 +85,7 @@ describe('Orderbook', () => {
       const { events: orderCreatedEvents } = await getPublicEvents<OrderCreated>(
         aztecNode,
         OrderbookContract.events.OrderCreated,
-        {},
+        { contractAddress: orderbook.address },
       );
       expect(orderCreatedEvents.length).toBe(1);
 
@@ -141,7 +141,7 @@ describe('Orderbook', () => {
       const { events: orderFulfilledEvents } = await getPublicEvents<OrderFulfilled>(
         aztecNode,
         OrderbookContract.events.OrderFulfilled,
-        {},
+        { contractAddress: orderbook.address },
       );
       expect(orderFulfilledEvents.length).toBe(1);
       expect(orderFulfilledEvents[0].event.order_id).toEqual(orderId);

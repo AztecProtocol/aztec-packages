@@ -35,7 +35,9 @@ std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const 
             .public_keys = PublicKeysHint{ .npk_m_hash = instance->public_keys.nullifier_key_hash,
                                            .ivpk_m = instance->public_keys.incoming_viewing_key,
                                            .ovpk_m_hash = instance->public_keys.outgoing_viewing_key_hash,
-                                           .tpk_m_hash = instance->public_keys.tagging_key_hash }
+                                           .tpk_m_hash = instance->public_keys.tagging_key_hash,
+                                           .mspk_m_hash = instance->public_keys.message_signing_key_hash,
+                                           .fbpk_m_hash = instance->public_keys.fallback_key_hash }
 
         };
     }

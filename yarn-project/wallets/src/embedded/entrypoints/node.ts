@@ -4,6 +4,7 @@ import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { type PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { BundleAccountContractsProvider } from '../account-contract-providers/bundle.js';
@@ -46,6 +47,9 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
 
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
+      preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
+        getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint(), await getStandardAuthRegistry()],
+      },
       loggers: {
         store: rootLogger.createChild('pxe:data'),
         pxe: rootLogger.createChild('pxe:service'),
@@ -80,7 +84,6 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
 
     const wallet = new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
     await wallet.initStubClasses();
-    await wallet.registerAuthRegistry(getStandardAuthRegistry);
     return wallet;
   }
 }

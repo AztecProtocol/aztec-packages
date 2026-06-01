@@ -10,11 +10,12 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
+  BufferSink,
   FieldReader,
   type Tuple,
   assertLength,
-  serializeToBuffer,
   serializeToFields,
+  serializeToSink,
 } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -100,8 +101,13 @@ export class PrivateToAvmAccumulatedData {
     );
   }
 
-  toBuffer() {
-    return serializeToBuffer(...PrivateToAvmAccumulatedData.getFields(this));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, ...PrivateToAvmAccumulatedData.getFields(this));
   }
 
   static empty() {
@@ -200,8 +206,13 @@ export class PrivateToAvmAccumulatedDataArrayLengths {
     return new PrivateToAvmAccumulatedDataArrayLengths(reader.readNumber(), reader.readNumber(), reader.readNumber());
   }
 
-  toBuffer() {
-    return serializeToBuffer(...PrivateToAvmAccumulatedDataArrayLengths.getFields(this));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, ...PrivateToAvmAccumulatedDataArrayLengths.getFields(this));
   }
 
   static empty() {

@@ -133,8 +133,8 @@ export abstract class BaseWallet implements Wallet {
 
   /**
    * Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing
-   * account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx will fail
-   * the contract-side `Sender for tags is not set` assertion unless `set_sender_for_tags` is called first.
+   * account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx using
+   * the wallet-supplied default sender will fail the "Sender for tags is not set" assertion.
    * @param from - Tx sender, or `NO_FROM`.
    * @param sendMessagesAs - Explicit override.
    */
