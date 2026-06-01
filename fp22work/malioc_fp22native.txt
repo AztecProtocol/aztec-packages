@@ -1,0 +1,17 @@
+Mali Offline Compiler v8.8.1 (Build 73b41e)
+Copyright (c) 2007-2025 Arm Limited. All rights reserved.
+
+ERROR:  
+   Input file /tmp/c16d_fp22.spv does not exist.
+
+Usage: 
+
+   malioc  [--vertex|--tessellation_control|--tessellation_evaluation
+           |--geometry|--fragment|--compute|--kernel|--ray_generation
+           |--ray_any_hit|--ray_closest_hit|--ray_intersection|--ray_miss
+           |--ray_callable|--list|--info] [--opengles|--vulkan|--opencl
+           <VER>] [--format <text|json>] [-d] [-n <NAME>] [-c <CORE>] [-S
+           <LOC=VALUE>] ...  [-D <NAME[=VALUE]>] ...  [-o <FILE>] [--spirv]
+           [--] [--version] [-h] <input files> ...
+
+Run malioc --help for more detail.
