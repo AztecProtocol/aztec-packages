@@ -1,6 +1,6 @@
 import { TREE_SNAPSHOTS_LENGTH } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToSink } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 import { z } from 'zod';
@@ -51,9 +51,14 @@ export class TreeSnapshots {
     );
   }
 
-  toBuffer() {
-    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
-    return serializeToBuffer(this.l1ToL2MessageTree, this.noteHashTree, this.nullifierTree, this.publicDataTree);
+  // Note: The order here must match the order in the ProposedHeaderLib solidity library.
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.l1ToL2MessageTree, this.noteHashTree, this.nullifierTree, this.publicDataTree);
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
