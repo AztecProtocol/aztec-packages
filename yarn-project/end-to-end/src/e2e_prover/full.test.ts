@@ -1,8 +1,15 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, NO_WAIT, waitForProven } from '@aztec/aztec.js/contracts';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx, TxExecutionResult } from '@aztec/aztec.js/tx';
+import {
+  MAX_NOTE_HASHES_PER_CALL,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+} from '@aztec/constants';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
@@ -12,6 +19,7 @@ import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/fil
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
+import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { ChonkProof } from '@aztec/stdlib/proofs';
@@ -219,6 +227,34 @@ describe('full_prover', () => {
     await proveInteraction(provenWallet, new BatchCall(provenWallet, [nestedChain(), extraLeaf(), extraLeaf()]), {
       from: sender,
     });
+
+    // Populate `private-kernel-reset/Prover.toml`. A mid-tx (inner) reset only fires when a single
+    // tx accumulates more transient note-hash / nullifier reads than fit in one kernel iteration,
+    // forcing the planner to insert a reset between app calls. None of the txs above cross that
+    // threshold (they only produce a final tail reset), so we emit-and-nullify enough notes in one
+    // tx to overflow it — the same pattern as e2e_pending_note_hashes_contract. `simulateReset`
+    // then captures `pushTestData('private-kernel-reset', ...)` on the untrimmed inputs.
+    logger.info(`Proving overflowing-notes tx to populate private-kernel-reset test data`);
+    const { contract: pendingNoteHashes } = await PendingNoteHashesContract.deploy(provenWallet).send({ from: sender });
+    const notesPerIteration = Math.min(MAX_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
+    const minToNeedReset = Math.min(MAX_NOTE_HASHES_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX) + 1;
+    // 10 distinct recipients avoids exceeding UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN logs per
+    // sender-recipient pair.
+    const noteRecipients = (
+      await Promise.all(
+        Array.from({ length: 10 }, () =>
+          provenWallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random()),
+        ),
+      )
+    ).map(a => a.address);
+    await proveInteraction(
+      provenWallet,
+      pendingNoteHashes.methods.test_recursively_create_notes(
+        noteRecipients,
+        Math.ceil(minToNeedReset / notesPerIteration),
+      ),
+      { from: sender, additionalScopes: noteRecipients },
+    );
 
     // Create the two transactions
     const { result: privateBalance } = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
