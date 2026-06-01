@@ -83,7 +83,8 @@ test_hash=$(hash_str_orig "$test_cmd")
 
 # We can skip the test if it's already been successfully run.
 # We actually pre-filter tests in CI runs so this is rarely hit.
-if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
+# Commands marked 'disabled-cache' must never be served a cached result (mirrors filter_cached_test_cmd).
+if [ "${USE_TEST_CACHE:-0}" -eq 1 ] && [[ "$cmd" != *disabled-cache* ]]; then
   log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
     log_info=" ($(ci_term_link $log_key))"

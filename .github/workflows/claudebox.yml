@@ -16,9 +16,26 @@ on:
         required: false
         type: string
       target_ref:
-        description: 'Git ref to checkout in the container (e.g., origin/backport-to-v4-next-staging)'
+        description: 'Git ref the session should work against (e.g., origin/merge-train/barretenberg)'
         required: false
         type: string
+      slack_channel:
+        description: 'Slack channel ID to thread status into (set by the kickoff script)'
+        required: false
+        type: string
+      slack_thread_ts:
+        description: 'Slack thread timestamp to reply under (set by the kickoff script)'
+        required: false
+        type: string
+
+# ClaudeBox v2 runs as a public service at https://claudebox.work. CI hands a
+# job off by POSTing to its /run webhook (Bearer-authed with
+# CLAUDEBOX_API_SECRET) and returns immediately — the session reports progress
+# back to the bound Slack thread and to any GitHub comment IDs we pass through.
+# The old v1 server lived on a private build instance reached over an SSH
+# tunnel; that path is retired.
+env:
+  CLAUDEBOX_URL: ${{ vars.CLAUDEBOX_URL || 'https://claudebox.work' }}
 
 jobs:
   claudebox:
@@ -49,41 +66,13 @@ jobs:
             repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
             -f content='eyes' || true
 
-      - name: Setup SSH tunnel to ClaudeBox
-        env:
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-        run: |
-          set -eu
-          mkdir -p ~/.ssh
-          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-
-          # SSH tunnel: CI runner :4001 → bastion :3000 → (reverse tunnel) → claude-box :3001
-          ssh -f -N -L 4001:localhost:3000 \
-            -o StrictHostKeyChecking=no \
-            -o ServerAliveInterval=30 \
-            -o ServerAliveCountMax=3 \
-            -o ConnectTimeout=15 \
-            -i ~/.ssh/build_instance_key \
-            ubuntu@ci.aztec-labs.com
-
-          # Wait for tunnel
-          for i in $(seq 1 15); do
-            if curl -s -o /dev/null --max-time 2 http://localhost:4001/ 2>/dev/null; then
-              echo "SSH tunnel ready"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "ERROR: SSH tunnel failed to connect"
-          exit 1
-
       - name: Parse command
         id: parse
         env:
           COMMENT_BODY: ${{ github.event.comment.body || '' }}
           INPUT_PROMPT: ${{ inputs.prompt || '' }}
           INPUT_LINK: ${{ inputs.link || '' }}
+          INPUT_TARGET_REF: ${{ inputs.target_ref || '' }}
         run: |
           if [ -n "$INPUT_PROMPT" ]; then
             PROMPT="$INPUT_PROMPT"
@@ -91,6 +80,14 @@ jobs:
           else
             PROMPT=$(printf '%s' "$COMMENT_BODY" | sed 's|^/claudebox[[:space:]]*||')
             LINK=""
+          fi
+
+          # ClaudeBox v2 has no separate target_ref input; fold it into the
+          # prompt so the agent fetches and bases its branch on the right ref.
+          if [ -n "$INPUT_TARGET_REF" ]; then
+            PROMPT="$PROMPT
+
+          Work against git ref: $INPUT_TARGET_REF. Fetch it and base your branch on it."
           fi
 
           echo "link=$LINK" >> "$GITHUB_OUTPUT"
@@ -120,22 +117,28 @@ jobs:
           echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
           echo "Posted status comment: $COMMENT_ID"
 
-      - name: Run ClaudeBox
-        timeout-minutes: 120
+      - name: Dispatch ClaudeBox v2
         env:
-          CLAUDEBOX_URL: http://localhost:4001
           CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
           CLAUDEBOX_PROMPT: ${{ steps.parse.outputs.prompt }}
           CLAUDEBOX_LINK: ${{ steps.parse.outputs.link }}
-          CLAUDEBOX_TARGET_REF: ${{ inputs.target_ref || '' }}
           COMMENT_ID: ${{ github.event.comment.id || '' }}
           RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
           REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AUTHOR: ${{ github.event.comment.user.login || github.actor }}
+          SLACK_CHANNEL: ${{ inputs.slack_channel || '' }}
+          SLACK_THREAD_TS: ${{ inputs.slack_thread_ts || '' }}
+          # Public mode grants the session read-write access to public repos
+          # (aztec-packages). Without it the session only gets the group's
+          # unscoped repos and cannot open PRs against aztec-packages.
+          CLAUDEBOX_MODE: ${{ vars.CLAUDEBOX_MODE || 'public' }}
         run: |
-          AUTH="Authorization: Bearer ${CLAUDEBOX_API_SECRET}"
-          echo "Creating payload..."
+          if [ -z "${CLAUDEBOX_API_SECRET:-}" ]; then
+            echo "ERROR: CLAUDEBOX_API_SECRET is not set; cannot dispatch ClaudeBox v2"
+            exit 1
+          fi
+
           PAYLOAD=$(jq -n \
             --arg prompt "$CLAUDEBOX_PROMPT" \
             --arg user "$AUTHOR" \
@@ -144,41 +147,30 @@ jobs:
             --arg repo "$REPO" \
             --arg run_url "$RUN_URL" \
             --arg link "$CLAUDEBOX_LINK" \
-            --arg target_ref "$CLAUDEBOX_TARGET_REF" \
-            '{prompt: $prompt, user: $user, comment_id: $comment_id, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link, target_ref: $target_ref}')
+            --arg slack_channel "$SLACK_CHANNEL" \
+            --arg slack_thread_ts "$SLACK_THREAD_TS" \
+            --arg mode "$CLAUDEBOX_MODE" \
+            '{prompt: $prompt, user: $user, repo: $repo, run_url: $run_url, link: $link, slack_channel: $slack_channel, slack_thread_ts: $slack_thread_ts, mode: $mode}
+             + (if $comment_id != "" then {comment_id: ($comment_id | tonumber)} else {} end)
+             + (if $run_comment_id != "" then {run_comment_id: ($run_comment_id | tonumber)} else {} end)')
 
-          echo "Sending payload..."
-          # Start session — returns 202 with log URL
+          # Fire-and-forget: v2 reports progress to Slack / GitHub comments.
           RESPONSE=$(curl -sS -w "\n%{http_code}" \
-            -H "$AUTH" -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CLAUDEBOX_API_SECRET}" \
+            -H "Content-Type: application/json" \
             -d "$PAYLOAD" "${CLAUDEBOX_URL}/run")
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -n -1)
 
           if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
-            echo "ClaudeBox returned HTTP $HTTP_CODE: $BODY"
+            echo "ClaudeBox v2 returned HTTP $HTTP_CODE: $BODY"
             exit 1
           fi
 
-          LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
-          SESSION_ID=$(basename "$LOG_URL")
-          echo "Session started: $LOG_URL"
-
-          echo "Session received, polling..."
-          # Poll until completed
-          while true; do
-            sleep 30
-            STATUS_BODY=$(curl -sS -H "$AUTH" "${CLAUDEBOX_URL}/session/${SESSION_ID}" 2>/dev/null || echo '{}')
-            STATUS=$(echo "$STATUS_BODY" | jq -r '.status // "unknown"')
-            echo "$(date -u +%H:%M:%S) status=$STATUS"
-            if [ "$STATUS" != "running" ]; then
-              EXIT_CODE=$(echo "$STATUS_BODY" | jq -r '.exit_code // 1')
-              echo "Session finished: status=$STATUS exit_code=$EXIT_CODE"
-              echo "Log: $LOG_URL"
-              exit "$EXIT_CODE"
-            fi
-          done
+          SESSION_ID=$(echo "$BODY" | jq -r '.session_id // empty')
+          echo "ClaudeBox v2 session: ${CLAUDEBOX_URL}/v2/sessions/${SESSION_ID}"
+          echo "Status: $(echo "$BODY" | jq -r '.status // "unknown"')"
 
   claude-review:
     if: >-
@@ -189,33 +181,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Setup SSH tunnel to ClaudeBox
-        env:
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-        run: |
-          set -eu
-          mkdir -p ~/.ssh
-          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-
-          ssh -f -N -L 4001:localhost:3000 \
-            -o StrictHostKeyChecking=no \
-            -o ServerAliveInterval=30 \
-            -o ServerAliveCountMax=3 \
-            -o ConnectTimeout=15 \
-            -i ~/.ssh/build_instance_key \
-            ubuntu@ci.aztec-labs.com
-
-          for i in $(seq 1 15); do
-            if curl -s -o /dev/null --max-time 2 http://localhost:4001/ 2>/dev/null; then
-              echo "SSH tunnel ready"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "ERROR: SSH tunnel failed to connect"
-          exit 1
-
       - name: Post review status comment
         id: status_comment
         env:
@@ -232,10 +197,8 @@ jobs:
           echo "run_comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
           echo "Posted review status comment: $COMMENT_ID"
 
-      - name: Trigger ClaudeBox review
-        timeout-minutes: 120
+      - name: Dispatch ClaudeBox v2 review
         env:
-          CLAUDEBOX_URL: http://localhost:4001
           CLAUDEBOX_API_SECRET: ${{ secrets.CLAUDEBOX_API_SECRET }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
@@ -245,8 +208,12 @@ jobs:
           RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           REPO: ${{ github.repository }}
+          CLAUDEBOX_MODE: ${{ vars.CLAUDEBOX_MODE || 'public' }}
         run: |
-          AUTH="Authorization: Bearer ${CLAUDEBOX_API_SECRET}"
+          if [ -z "${CLAUDEBOX_API_SECRET:-}" ]; then
+            echo "ERROR: CLAUDEBOX_API_SECRET is not set; cannot dispatch ClaudeBox v2"
+            exit 1
+          fi
 
           PROMPT="Review PR #${PR_NUMBER}: ${PR_TITLE}
           ${PR_URL}
@@ -265,36 +232,23 @@ jobs:
             --arg repo "$REPO" \
             --arg run_url "$RUN_URL" \
             --arg link "$PR_URL" \
-            --arg profile "review" \
-            '{prompt: $prompt, user: $user, run_comment_id: $run_comment_id, repo: $repo, run_url: $run_url, link: $link, profile: $profile}')
+            --arg mode "$CLAUDEBOX_MODE" \
+            '{prompt: $prompt, user: $user, repo: $repo, run_url: $run_url, link: $link, mode: $mode}
+             + (if $run_comment_id != "" then {run_comment_id: ($run_comment_id | tonumber)} else {} end)')
 
           RESPONSE=$(curl -sS -w "\n%{http_code}" \
-            -H "$AUTH" -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CLAUDEBOX_API_SECRET}" \
+            -H "Content-Type: application/json" \
             -d "$PAYLOAD" "${CLAUDEBOX_URL}/run")
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -n -1)
 
           if [ "$HTTP_CODE" -ge 400 ] 2>/dev/null; then
-            echo "ClaudeBox returned HTTP $HTTP_CODE: $BODY"
-            exit 1
+            echo "ClaudeBox v2 returned HTTP $HTTP_CODE: $BODY"
+            # Review dispatch failures are informational — don't fail the workflow.
+            exit 0
           fi
 
-          LOG_URL=$(echo "$BODY" | jq -r '.log_url // empty')
-          SESSION_ID=$(basename "$LOG_URL")
-          echo "Review session started: $LOG_URL"
-
-          # Poll until completed
-          while true; do
-            sleep 30
-            STATUS_BODY=$(curl -sS -H "$AUTH" "${CLAUDEBOX_URL}/session/${SESSION_ID}" 2>/dev/null || echo '{}')
-            STATUS=$(echo "$STATUS_BODY" | jq -r '.status // "unknown"')
-            echo "$(date -u +%H:%M:%S) status=$STATUS"
-            if [ "$STATUS" != "running" ]; then
-              EXIT_CODE=$(echo "$STATUS_BODY" | jq -r '.exit_code // 1')
-              echo "Review finished: status=$STATUS exit_code=$EXIT_CODE"
-              echo "Log: $LOG_URL"
-              # Don't fail the workflow on review errors — the review itself is informational
-              exit 0
-            fi
-          done
+          SESSION_ID=$(echo "$BODY" | jq -r '.session_id // empty')
+          echo "ClaudeBox v2 review session: ${CLAUDEBOX_URL}/v2/sessions/${SESSION_ID}"

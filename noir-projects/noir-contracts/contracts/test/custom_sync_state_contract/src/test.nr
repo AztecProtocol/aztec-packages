@@ -29,14 +29,9 @@ unconstrained fn test_custom_sync_hook_is_called() {
     assert_eq(result, value);
 }
 
-unconstrained fn get_sync_count(
-    env: TestEnvironment,
-    contract_address: AztecAddress,
-    scope: AztecAddress,
-) -> Field {
+unconstrained fn get_sync_count(env: TestEnvironment, contract_address: AztecAddress, scope: AztecAddress) -> Field {
     env.utility_context_at(contract_address, |_| {
-        let count: Option<Field> =
-            capsules::load(contract_address, crate::SYNC_COUNTER_SLOT, scope);
+        let count: Option<Field> = capsules::load(contract_address, crate::SYNC_COUNTER_SLOT, scope);
         count.unwrap_or(0)
     })
 }

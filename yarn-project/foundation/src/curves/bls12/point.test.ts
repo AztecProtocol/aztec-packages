@@ -165,7 +165,7 @@ describe('BLS12Point', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching_public_inputs.nr',
+      'noir-projects/noir-protocol-circuits/crates/blob/src/utils/compress_to_blob_commitment.nr',
       'expected_compressed_point_greater',
       byteArrayString,
     );
@@ -188,7 +188,7 @@ describe('BLS12Point', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching_public_inputs.nr',
+      'noir-projects/noir-protocol-circuits/crates/blob/src/utils/compress_to_blob_commitment.nr',
       'expected_compressed_point_not_greater',
       byteArrayString,
     );

@@ -67,6 +67,9 @@
       "path": "../slasher"
     },
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../stdlib"
     },
     {

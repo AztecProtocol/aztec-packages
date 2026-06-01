@@ -15,6 +15,7 @@ import {
   getContract,
   hexToBigInt,
   http,
+  keccak256,
 } from 'viem';
 
 import { EthCheatCodes } from './eth_cheat_codes.js';
@@ -284,12 +285,14 @@ export class RollupCheatCodes {
     });
   }
 
-  public insertOutbox(epoch: EpochNumber, outHash: bigint) {
+  public insertOutbox(epoch: EpochNumber, numCheckpointsInEpoch: number, outHash: bigint) {
     return this.ethCheatCodes.execWithPausedAnvil(async () => {
       const outboxAddress = await this.rollup.read.getOutbox();
-      const epochRootSlot = OutboxContract.getEpochRootStorageSlot(epoch);
+      const epochRootSlot = OutboxContract.getEpochRootStorageSlot(epoch, numCheckpointsInEpoch);
       await this.ethCheatCodes.store(EthAddress.fromString(outboxAddress), epochRootSlot, outHash);
-      this.logger.warn(`Advanced outbox to epoch ${epoch} with out hash ${outHash}`);
+      this.logger.warn(
+        `Advanced outbox to epoch ${epoch} numCheckpointsInEpoch ${numCheckpointsInEpoch} with out hash ${outHash}`,
+      );
     });
   }
 
@@ -338,7 +341,8 @@ export class RollupCheatCodes {
   }
 
   /**
-   * Directly updates proving cost per mana.
+   * Directly updates proving cost per mana. Throws if the on-chain tx reverts
+   * (e.g. rate-limit cooldown, step cap, or floor) instead of silently succeeding.
    * @param ethValue - The new proving cost per mana in ETH
    */
   public async setProvingCostPerMana(ethValue: bigint) {
@@ -348,8 +352,37 @@ export class RollupCheatCodes {
         chain: this.client.chain,
         gasLimit: 1000000n,
       });
-      await this.client.waitForTransactionReceipt({ hash });
+      const receipt = await this.client.waitForTransactionReceipt({ hash });
+      if (receipt.status !== 'success') {
+        throw new Error(
+          `setProvingCostPerMana(${ethValue}) reverted on L1 (tx ${hash}). ` +
+            `Likely FeeLib rate-limit (30-day cooldown or 1.5x step cap); ` +
+            `use clearProvingCostCooldown() between successive updates.`,
+        );
+      }
       this.logger.warn(`Updated proving cost per mana to ${ethValue}`);
     });
+  }
+
+  /**
+   * Resets the 30-day proving-cost update cooldown enforced by FeeLib.updateProvingCostPerMana
+   * by zeroing `FeeStore.provingCostLastUpdate` directly in contract storage. Use between
+   * successive setProvingCostPerMana / bumpProvingCostPerMana calls so the later update can
+   * land instead of reverting. Does not touch L1 time, so PXE/tx-expiration state stays intact.
+   *
+   * @note This is tightly coupled to the `FeeStore` layout in
+   * l1-contracts/src/core/libraries/rollup/FeeLib.sol:
+   *   slot + 0: CompressedFeeConfig config          (uint256)
+   *   slot + 1: L1GasOracleValues l1GasOracleValues (14+14+4 bytes, packed)
+   *   slot + 2: uint64 provingCostLastUpdate        (only member — zeroing the slot is safe)
+   * If the struct layout changes, update the offset below.
+   */
+  public async clearProvingCostCooldown() {
+    const feeStoreBaseSlot = hexToBigInt(keccak256(Buffer.from('aztec.fee.storage', 'utf-8')));
+    const provingCostLastUpdateSlot = feeStoreBaseSlot + 2n;
+    await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provingCostLastUpdateSlot, 0n, {
+      silent: true,
+    });
+    this.logger.warn(`Cleared proving-cost update cooldown`);
   }
 }

@@ -2,24 +2,21 @@
 // sync_state is called and then forwards to do_sync_state.
 mod test;
 
+use ::aztec::macros::aztec;
 use ::aztec::{
-    messages::discovery::{
-        ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state,
+    messages::{
+        discovery::{ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state},
+        processing::offchain::OffchainInboxSync,
     },
-    messages::processing::offchain::OffchainInboxSync,
     oracle::capsules,
     protocol::{address::AztecAddress, hash::sha256_to_field},
 };
-use ::aztec::macros::aztec;
 
 global SYNC_COUNTER_SLOT: Field = sha256_to_field("SYNC_COUNTER".as_bytes());
 
 #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::my_custom_sync))]
 contract CustomSyncState {
-    use aztec::macros::{
-        functions::{external, initializer},
-        storage::storage,
-    };
+    use aztec::macros::{functions::{external, initializer}, storage::storage};
     use aztec::messages::message_delivery::MessageDelivery;
     use aztec::protocol::address::AztecAddress;
     use aztec::state_vars::{Owned, PrivateImmutable};
@@ -34,9 +31,7 @@ contract CustomSyncState {
     #[initializer]
     fn constructor(owner: AztecAddress, value: Field) {
         let note = FieldNote { value };
-        self.storage.value.at(owner).initialize(note).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
-        );
+        self.storage.value.at(owner).initialize(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("utility")]
@@ -55,8 +50,7 @@ unconstrained fn my_custom_sync(
     offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
-    let current: Option<Field> =
-        capsules::load(contract_address, crate::SYNC_COUNTER_SLOT, scope);
+    let current: Option<Field> = capsules::load(contract_address, crate::SYNC_COUNTER_SLOT, scope);
     let new_count = current.map(|c| c + 1).unwrap_or(1);
     capsules::store(contract_address, crate::SYNC_COUNTER_SLOT, new_count, scope);
     do_sync_state(

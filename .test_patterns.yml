@@ -91,6 +91,13 @@ tests:
     owners:
       - *nico
 
+  # Fails in CI: "No execution steps in ivc-inputs.msgpack" — pinned Chonk IVC
+  # inputs missing/stale. http://ci.aztec-labs.com/d7647a841ee811a0
+  - regex: "bbapi/chonk_pinned_inputs.test"
+    skip: true
+    owners:
+      - *palla
+
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"
     skip: true
@@ -178,15 +185,7 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
-  # Under proposer pipelining each validator votes in its own slot and the votes
-  # don't aggregate into the same round, so the slashing quorum (3) is never
-  # reached within the 414s budget; the test consistently times out at the docker
-  # outer 600s (exit 124). The publisher refactor lands all vote-offenses tx's
-  # on L1 successfully — voteCount on the slasher proposer simply stays at 1
-  # per round. This is a slashing-payload aggregation issue independent of
-  # publisher work; skip until the slashing team addresses it separately.
   - regex: "e2e_p2p/valid_epoch_pruned_slash.test.ts"
-    skip: true
     owners:
       - *mitch
       - *palla
@@ -269,14 +268,10 @@ tests:
       - *adam
 
   - regex: "src/e2e_epochs/epochs_l1_reorgs.parallel.test.ts"
-    skip: true
     owners:
       - *phil
 
-  # Consistently times out — prune detection timing too tight for CI resources
-  # See https://github.com/AztecProtocol/aztec-packages/pull/22392
   - regex: "epochs_mbps.pipeline.parallel.test.ts.*prunes uncheckpointed"
-    skip: true
     owners:
       - *sean
 
@@ -342,6 +337,15 @@ tests:
     owners:
       - *adam
 
+  # http://ci.aztec-labs.com/93754bdf832ef9bd
+  # P2P receipt race in the compose CLI-wallet flow: the account deployment tx
+  # can be reported as dropped after the 5s grace window before inclusion is
+  # visible to the queried node.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose ../cli-wallet/test/flows/public_authwit_transfer.sh"
+    error_regex: "Transaction .* was dropped\\. Reason: Tx dropped by P2P node"
+    owners:
+      - *palla
+
   - regex: "cd l1-contracts && forge test"
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
     owners:
@@ -367,31 +371,9 @@ tests:
     owners:
       - *palla
 
-  # HA full suite is unstable under HA pipelining: multiple distinct failure
-  # modes (governance vote coord, work distribution, afterAll teardown hook
-  # timeouts, peer races on checkpoint proposals — see #23344, #23541,
-  # ci.aztec-labs.com/136431da99834194). Flagging individual error_regex
-  # entries and even the whole-suite flake match still let it dequeue PRs
-  # because ci3 retries once and the suite fails both attempts. Skip
-  # outright on merge-train/spartan until HA pipelining stabilises.
   - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
-    skip: true
     owners:
       - *spyros
-
-  # Multi-validator web3signer suite is unstable under proposer pipelining:
-  # two distinct failure modes have been seen in the same "should build blocks
-  # & attest with multiple validator keys" case — Promise.all index-0
-  # waitForTx aborting with "Tx dropped by P2P node"
-  # (ci.aztec-labs.com/9a5fa90aa18f62e7), and the proposer missing the slot's
-  # 5-attestation deadline ("AttestationTimeoutError" / "Block .* not found .*
-  # reorg") on PR #23344 run 26370196367 (ci.aztec-labs.com/b91d3218b5e88ae4).
-  # Error-regex flake matches still let ci3 retry-and-fail both attempts. Skip
-  # outright on merge-train/spartan until proposer pipelining stabilises.
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh web3signer src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts"
-    skip: true
-    owners:
-      - *palla
 
   # http://ci.aztec-labs.com/98d59d04f85223f8
   # Build-cache flake: module not found during Jest startup

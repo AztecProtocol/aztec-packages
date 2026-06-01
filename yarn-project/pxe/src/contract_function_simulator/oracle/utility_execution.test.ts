@@ -35,6 +35,7 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
@@ -86,7 +87,7 @@ describe('Utility Execution test suite', () => {
     senderAddressBookStore.getSenders.mockResolvedValue([]);
 
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: any[]) => Promise.resolve(tags.map(() => [])));
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
 
     capsuleStore.setCapsuleArray.mockImplementation((address, slot, content) => {
       capsuleArrays.set(`${address.toString()}:${slot.toString()}`, content);
@@ -351,7 +352,7 @@ describe('Utility Execution test suite', () => {
         capsuleStore.getCapsule.mockResolvedValueOnce(capsule);
 
         utilityExecutionOracle.setCapsule(contractAddress, slot, capsule, scope);
-        await utilityExecutionOracle.getCapsule(contractAddress, slot, scope);
+        await utilityExecutionOracle.getCapsule(contractAddress, slot, capsule.length, scope);
         utilityExecutionOracle.deleteCapsule(contractAddress, slot, scope);
         await utilityExecutionOracle.copyCapsule(contractAddress, srcSlot, dstSlot, 1, scope);
 
@@ -386,13 +387,14 @@ describe('Utility Execution test suite', () => {
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
 
-        expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
-          transientGlobal,
-        );
-        expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, AztecAddress.ZERO)).toEqual(
-          transientGlobal,
-        );
-        expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, scope)).toEqual(transientScoped);
+        const globalResult = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, AztecAddress.ZERO);
+        expect(globalResult.value!).toEqual(transientGlobal);
+
+        const globalAgain = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, AztecAddress.ZERO);
+        expect(globalAgain.value!).toEqual(transientGlobal);
+
+        const scopedResult = await utilityExecutionOracle.getCapsule(contractAddress, slot, 1, scope);
+        expect(scopedResult.value!).toEqual(transientScoped);
       });
     });
 
@@ -400,16 +402,22 @@ describe('Utility Execution test suite', () => {
       it('throws when contract address does not match', async () => {
         const otherAddress = await AztecAddress.random();
         const scope = await AztecAddress.random();
-        expect(() => utilityExecutionOracle.setContractSyncCacheInvalid(otherAddress, [scope])).toThrow(
-          `Contract ${contractAddress} cannot invalidate sync cache of ${otherAddress}`,
-        );
+        expect(() =>
+          utilityExecutionOracle.setContractSyncCacheInvalid(
+            otherAddress,
+            BoundedVec.from({ data: [scope], maxLength: 1 }),
+          ),
+        ).toThrow(`Contract ${contractAddress} cannot invalidate sync cache of ${otherAddress}`);
         expect(contractSyncService.invalidateContractForScopes).not.toHaveBeenCalled();
       });
 
       it('invalidates cache for the given scopes', async () => {
         const scopeA = await AztecAddress.random();
         const scopeB = await AztecAddress.random();
-        utilityExecutionOracle.setContractSyncCacheInvalid(contractAddress, [scopeA, scopeB]);
+        utilityExecutionOracle.setContractSyncCacheInvalid(
+          contractAddress,
+          BoundedVec.from({ data: [scopeA, scopeB], maxLength: 2 }),
+        );
         expect(contractSyncService.invalidateContractForScopes).toHaveBeenCalledWith(contractAddress, [scopeA, scopeB]);
       });
     });

@@ -130,6 +130,90 @@
     to = "/developers/getting_started_on_local_network"
 
 # =============================================================================
+# ACTIVE REDIRECTS: High-volume legacy 404s
+# These paths appear in Netlify "resources not found" reports.
+# =============================================================================
+[[redirects]]
+    from = "/favicon.ico"
+    to = "/img/Aztec_Symbol_Dark.png"
+    status = 301
+
+[[redirects]]
+    from = "/developers/guides/smart_contracts/testing"
+    to = "/developers/docs/aztec-nr/testing_contracts"
+    status = 301
+
+[[redirects]]
+    from = "/aztec/glossary"
+    to = "/developers/docs/resources/glossary"
+    status = 301
+
+[[redirects]]
+    from = "/aztec/smart_contracts/contract_creation"
+    to = "/developers/docs/foundational-topics/contract_creation"
+    status = 301
+
+[[redirects]]
+    from = "/aztec/concepts_overview"
+    to = "/developers/docs/foundational-topics"
+    status = 301
+
+[[redirects]]
+    from = "/dev/aztec"
+    to = "/developers/overview"
+    status = 301
+
+[[redirects]]
+    from = "/vision"
+    to = "/"
+    status = 301
+
+[[redirects]]
+    from = "/ip"
+    to = "/"
+    status = 301
+
+[[redirects]]
+    from = "/developers/testnet/getting_started_on_local_network"
+    to = "/developers/getting_started_on_local_network"
+    status = 301
+
+[[redirects]]
+    from = "/developers/nightly/overview"
+    to = "/developers/overview"
+    status = 301
+
+[[redirects]]
+    from = "/developers/nightly/docs/tutorials/contract_tutorials/counter_contract"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
+    status = 301
+
+[[redirects]]
+    from = "/developers/nightly/*"
+    to = "/developers/:splat"
+    status = 301
+
+[[redirects]]
+    from = "/operate/testnet/operators/sequencer-management/useful-commands"
+    to = "/operate/operators/sequencer-management/useful-commands"
+    status = 301
+
+[[redirects]]
+    from = "/operate/testnet/operators/reference/cli-reference"
+    to = "/operate/operators/reference/cli-reference"
+    status = 301
+
+[[redirects]]
+    from = "/operate/testnet/operators/keystore/troubleshooting"
+    to = "/operate/operators/keystore/troubleshooting"
+    status = 301
+
+[[redirects]]
+    from = "/operate/testnet/*"
+    to = "/operate/:splat"
+    status = 301
+
+# =============================================================================
 # ACTIVE REDIRECTS: Concept Path Restructures
 # Redirects from old /aztec/concepts/* paths to new structure
 # =============================================================================
@@ -160,6 +244,27 @@
 [[redirects]]
     from = "/reference/developer_references/limitations"
     to = "/developers/docs/resources/considerations/limitations"
+
+# Specific concept wildcards must precede the broad /aztec/concepts/* catch-all.
+[[redirects]]
+    from = "/aztec/concepts/storage/*"
+    to = "/developers/docs/foundational-topics/state_management"
+    status = 301
+
+[[redirects]]
+    from = "/aztec/concepts/pxe/*"
+    to = "/developers/docs/foundational-topics/pxe/:splat"
+    status = 301
+
+[[redirects]]
+    from = "/aztec/concepts/accounts/*"
+    to = "/developers/docs/foundational-topics/accounts/:splat"
+    status = 301
+
+[[redirects]]
+    from = "/aztec/concepts/advanced/*"
+    to = "/developers/docs/foundational-topics/advanced/:splat"
+    status = 301
 
 # =============================================================================
 # ACTIVE REDIRECTS: Section Renames
@@ -301,26 +406,6 @@
     from = "/aztec/smart_contracts/oracles"
     to = "/developers/docs/aztec-nr/framework-description/advanced/protocol_oracles"
 
-# Handle storage redirects
-[[redirects]]
-    from = "/aztec/concepts/storage/*"
-    to = "/developers/docs/foundational-topics/state_management"
-
-# Handle PXE redirects
-[[redirects]]
-    from = "/aztec/concepts/pxe/*"
-    to = "/developers/docs/foundational-topics/pxe/:splat"
-
-# Handle accounts redirects
-[[redirects]]
-    from = "/aztec/concepts/accounts/*"
-    to = "/developers/docs/foundational-topics/accounts/:splat"
-
-# Handle advanced concepts redirects
-[[redirects]]
-    from = "/aztec/concepts/advanced/*"
-    to = "/developers/docs/foundational-topics/advanced/:splat"
-
 # Getting started on testnet redirect
 [[redirects]]
     from = "/developers/guides/getting_started_on_testnet"
@@ -368,7 +453,7 @@
 
 [[redirects]]
     from = "/the_aztec_network/operation/sequencer_management/running_delegated_stake"
-    to = "/operate/operators/setup/staking-provider"
+    to = "/operate/operators/setup/become_a_staking_provider"
 
 # Network docs wildcard redirect - catches remaining /the_aztec_network paths
 # This MUST come AFTER specific path redirects above

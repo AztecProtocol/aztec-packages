@@ -1,35 +1,8 @@
-import {
-  ARCHIVE_HEIGHT,
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-} from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
-import { MembershipWitness } from '@aztec/foundation/trees';
-import {
-  type ACIRCallback,
-  type ACVMField,
-  arrayOfArraysToBoundedVecOfArrays,
-  bufferToBoundedVec,
-  fromUintArray,
-  fromUintBoundedVec,
-  toACVMField,
-} from '@aztec/simulator/client';
-import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
-import { PublicDataWrite } from '@aztec/stdlib/avm';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
-import { ContractClassLog, ContractClassLogFields, FlatPublicLogs, PrivateLog } from '@aztec/stdlib/logs';
-import { TxEffect, TxHash } from '@aztec/stdlib/tx';
+import type { ACIRCallback, ACVMField } from '@aztec/simulator/client';
 
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
-import { packAsHintedNote } from './note_packing_utils.js';
+import { callHandler } from './oracle_registry.js';
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -177,656 +150,562 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion([major]: ACVMField[], [minor]: ACVMField[]) {
-    this.handlerAsMisc().assertCompatibleOracleVersion(
-      Fr.fromString(major).toNumber(),
-      Fr.fromString(minor).toNumber(),
-    );
-    return Promise.resolve([]);
+  aztec_utl_assertCompatibleOracleVersion(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_assertCompatibleOracleVersion',
+      inputs,
+      handler: ([major, minor]) => {
+        this.handlerAsMisc().assertCompatibleOracleVersion(major, minor);
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getRandomField(): Promise<ACVMField[]> {
-    const val = this.handlerAsMisc().getRandomField();
-    return Promise.resolve([toACVMField(val)]);
+  aztec_utl_getRandomField(): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getRandomField',
+      inputs: [],
+      handler: () => this.handlerAsMisc().getRandomField(),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_setHashPreimage(values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
-    this.handlerAsPrivate().setHashPreimage(values.map(Fr.fromString), Fr.fromString(hash));
-    return Promise.resolve([]);
+  aztec_prv_setHashPreimage(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_setHashPreimage',
+      inputs,
+      handler: ([values, hash]) => {
+        this.handlerAsPrivate().setHashPreimage(values, hash);
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_getHashPreimage([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
-    const values = await this.handlerAsPrivate().getHashPreimage(Fr.fromString(returnsHash));
-    return [values.map(toACVMField)];
+  aztec_prv_getHashPreimage(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_getHashPreimage',
+      inputs,
+      handler: ([returnsHash]) => this.handlerAsPrivate().getHashPreimage(returnsHash),
+    });
   }
 
   // eslint-disable-next-line camelcase
   aztec_utl_getUtilityContext(): Promise<(ACVMField | ACVMField[])[]> {
-    const context = this.handlerAsUtility().getUtilityContext();
-    return Promise.resolve(context.toNoirRepresentation());
+    return callHandler({
+      oracle: 'aztec_utl_getUtilityContext',
+      inputs: [],
+      handler: () => this.handlerAsUtility().getUtilityContext(),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getKeyValidationRequest([pkMHash]: ACVMField[]): Promise<ACVMField[]> {
-    const keyValidationRequest = await this.handlerAsUtility().getKeyValidationRequest(Fr.fromString(pkMHash));
-
-    return keyValidationRequest.toFields().map(toACVMField);
+  aztec_utl_getKeyValidationRequest(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getKeyValidationRequest',
+      inputs,
+      handler: ([pkMHash]) => this.handlerAsUtility().getKeyValidationRequest(pkMHash),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getContractInstance([address]: ACVMField[]): Promise<ACVMField[]> {
-    const instance = await this.handlerAsUtility().getContractInstance(AztecAddress.fromField(Fr.fromString(address)));
-
-    return [
-      instance.salt,
-      instance.deployer,
-      instance.currentContractClassId,
-      instance.initializationHash,
-      instance.immutablesHash,
-      ...instance.publicKeys.toFields(),
-    ].map(toACVMField);
+  aztec_utl_getContractInstance(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getContractInstance',
+      inputs,
+      handler: ([address]) => this.handlerAsUtility().getContractInstance(address),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getNoteHashMembershipWitness(
-    [anchorBlockHash]: ACVMField[],
-    [noteHash]: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
-    const parsedNoteHash = Fr.fromString(noteHash);
-
-    const witness = await this.handlerAsUtility().getNoteHashMembershipWitness(parsedAnchorBlockHash, parsedNoteHash);
-    return witness.toNoirRepresentation();
+  aztec_utl_getNoteHashMembershipWitness(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getNoteHashMembershipWitness',
+      inputs,
+      handler: ([anchorBlockHash, noteHash]) =>
+        this.handlerAsUtility().getNoteHashMembershipWitness(anchorBlockHash, noteHash),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getBlockHashMembershipWitness(
-    [anchorBlockHash]: ACVMField[],
-    [blockHash]: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
-    const parsedBlockHash = BlockHash.fromString(blockHash);
-
-    const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(parsedAnchorBlockHash, parsedBlockHash);
-    const effective = witness ?? MembershipWitness.empty(ARCHIVE_HEIGHT);
-    return [toACVMField(witness !== undefined ? 1 : 0), ...effective.toNoirRepresentation()];
+  aztec_utl_getBlockHashMembershipWitness(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getBlockHashMembershipWitness',
+      inputs,
+      handler: ([anchorBlockHash, blockHash]) =>
+        this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getNullifierMembershipWitness(
-    [blockHash]: ACVMField[],
-    [nullifier]: ACVMField[], // nullifier, we try to find the witness for (to prove inclusion)
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockHash = BlockHash.fromString(blockHash);
-    const parsedNullifier = Fr.fromString(nullifier);
-
-    const witness = await this.handlerAsUtility().getNullifierMembershipWitness(parsedBlockHash, parsedNullifier);
-    return witness.toNoirRepresentation();
+  aztec_utl_getNullifierMembershipWitness(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getNullifierMembershipWitness',
+      inputs,
+      handler: ([blockHash, nullifier]) => this.handlerAsUtility().getNullifierMembershipWitness(blockHash, nullifier),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getLowNullifierMembershipWitness(
-    [blockHash]: ACVMField[],
-    [nullifier]: ACVMField[], // nullifier, we try to find the low nullifier witness for (to prove non-inclusion)
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockHash = BlockHash.fromString(blockHash);
-    const parsedNullifier = Fr.fromString(nullifier);
-
-    const witness = await this.handlerAsUtility().getLowNullifierMembershipWitness(parsedBlockHash, parsedNullifier);
-    return witness.toNoirRepresentation();
+  aztec_utl_getLowNullifierMembershipWitness(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getLowNullifierMembershipWitness',
+      inputs,
+      handler: ([blockHash, nullifier]) =>
+        this.handlerAsUtility().getLowNullifierMembershipWitness(blockHash, nullifier),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getPublicDataWitness(
-    [blockHash]: ACVMField[],
-    [leafSlot]: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedBlockHash = BlockHash.fromString(blockHash);
-    const parsedLeafSlot = Fr.fromString(leafSlot);
-
-    const witness = await this.handlerAsUtility().getPublicDataWitness(parsedBlockHash, parsedLeafSlot);
-    return witness.toNoirRepresentation();
+  aztec_utl_getPublicDataWitness(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getPublicDataWitness',
+      inputs,
+      handler: ([blockHash, leafSlot]) => this.handlerAsUtility().getPublicDataWitness(blockHash, leafSlot),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getBlockHeader([blockNumber]: ACVMField[]): Promise<ACVMField[]> {
-    const parsedBlockNumber = Fr.fromString(blockNumber).toNumber();
-
-    const header = await this.handlerAsUtility().getBlockHeader(BlockNumber(parsedBlockNumber));
-    return header.toFields().map(toACVMField);
+  aztec_utl_getBlockHeader(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getBlockHeader',
+      inputs,
+      handler: ([blockNumber]) => this.handlerAsUtility().getBlockHeader(blockNumber),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getAuthWitness([messageHash]: ACVMField[]): Promise<ACVMField[][]> {
-    const messageHashField = Fr.fromString(messageHash);
-    const witness = await this.handlerAsUtility().getAuthWitness(messageHashField);
-    return [witness.map(toACVMField)];
+  aztec_utl_getAuthWitness(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getAuthWitness',
+      inputs,
+      handler: ([messageHash]) => this.handlerAsUtility().getAuthWitness(messageHash),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
-    const parsedAddress = AztecAddress.fromField(Fr.fromString(address));
-    const result = await this.handlerAsUtility().getPublicKeysAndPartialAddress(parsedAddress);
-
-    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
-    // with two fields: `some` (a boolean) and `value` (a field array in this case).
-    if (result === undefined) {
-      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      // Wire shape: [npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash, partial_address] = 6 fields.
-      return [toACVMField(0), Array(6).fill(toACVMField(0))];
-    } else {
-      // Data was found so we set `some` to 1 and return it along with `value`.
-      // The Noir side hand-decodes a `[Field; 6]` here (see aztec-nr/aztec/src/oracle/keys.nr), so we
-      // emit the 5-field PublicKeys shape + partial_address explicitly
-      // rather than going through `publicKeys.toFields()` (which is the struct-flattened 6-field
-      // wire for oracle returns that decode via struct shape).
-      const { publicKeys, partialAddress } = result;
-      return [
-        toACVMField(1),
-        [
-          publicKeys.npkMHash,
-          publicKeys.ivpkM.x,
-          publicKeys.ivpkM.y,
-          publicKeys.ovpkMHash,
-          publicKeys.tpkMHash,
-          partialAddress,
-        ].map(toACVMField),
-      ];
-    }
+  aztec_utl_getPublicKeysAndPartialAddress(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getPublicKeysAndPartialAddress',
+      inputs,
+      handler: ([address]) => this.handlerAsUtility().getPublicKeysAndPartialAddress(address),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getNotes(
-    [ownerSome]: ACVMField[],
-    [ownerValue]: ACVMField[],
-    [storageSlot]: ACVMField[],
-    [numSelects]: ACVMField[],
-    selectByIndexes: ACVMField[],
-    selectByOffsets: ACVMField[],
-    selectByLengths: ACVMField[],
-    selectValues: ACVMField[],
-    selectComparators: ACVMField[],
-    sortByIndexes: ACVMField[],
-    sortByOffsets: ACVMField[],
-    sortByLengths: ACVMField[],
-    sortOrder: ACVMField[],
-    [limit]: ACVMField[],
-    [offset]: ACVMField[],
-    [status]: ACVMField[],
-    [maxNotes]: ACVMField[],
-    [packedHintedNoteLength]: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    // Parse Option<AztecAddress>: ownerSome is 0 for None, 1 for Some
-    const owner = Fr.fromString(ownerSome).toNumber() === 1 ? AztecAddress.fromString(ownerValue) : undefined;
-    const noteDatas = await this.handlerAsUtility().getNotes(
-      owner,
-      Fr.fromString(storageSlot),
-      +numSelects,
-      selectByIndexes.map(s => +s),
-      selectByOffsets.map(s => +s),
-      selectByLengths.map(s => +s),
-      selectValues.map(Fr.fromString),
-      selectComparators.map(s => +s),
-      sortByIndexes.map(s => +s),
-      sortByOffsets.map(s => +s),
-      sortByLengths.map(s => +s),
-      sortOrder.map(s => +s),
-      +limit,
-      +offset,
-      +status,
-    );
-
-    const returnDataAsArrayOfPackedHintedNotes = noteDatas.map(noteData =>
-      packAsHintedNote({
-        contractAddress: noteData.contractAddress,
-        owner: noteData.owner,
-        randomness: noteData.randomness,
-        storageSlot: noteData.storageSlot,
-        noteNonce: noteData.noteNonce,
-        isPending: noteData.isPending,
-        note: noteData.note,
-      }),
-    );
-
-    // Now we convert each sub-array to an array of ACVMField
-    const returnDataAsArrayOfACVMFieldArrays = returnDataAsArrayOfPackedHintedNotes.map(subArray =>
-      subArray.map(toACVMField),
-    );
-
-    // At last we convert the array of arrays to a bounded vec of arrays
-    return arrayOfArraysToBoundedVecOfArrays(returnDataAsArrayOfACVMFieldArrays, +maxNotes, +packedHintedNoteLength);
+  aztec_utl_getNotes(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getNotes',
+      inputs,
+      handler: ([
+        owner,
+        storageSlot,
+        numSelects,
+        selectByIndexes,
+        selectByOffsets,
+        selectByLengths,
+        selectValues,
+        selectComparators,
+        sortByIndexes,
+        sortByOffsets,
+        sortByLengths,
+        sortOrder,
+        limit,
+        offset,
+        status,
+        maxNotes,
+        packedHintedNoteLength,
+      ]) =>
+        this.handlerAsUtility().getNotes(
+          owner,
+          storageSlot,
+          numSelects,
+          selectByIndexes,
+          selectByOffsets,
+          selectByLengths,
+          selectValues,
+          selectComparators,
+          sortByIndexes,
+          sortByOffsets,
+          sortByLengths,
+          sortOrder,
+          limit,
+          offset,
+          status,
+          maxNotes,
+          packedHintedNoteLength,
+        ),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_notifyCreatedNote(
-    [owner]: ACVMField[],
-    [storageSlot]: ACVMField[],
-    [randomness]: ACVMField[],
-    [noteTypeId]: ACVMField[],
-    note: ACVMField[],
-    [noteHash]: ACVMField[],
-    [counter]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    this.handlerAsPrivate().notifyCreatedNote(
-      AztecAddress.fromString(owner),
-      Fr.fromString(storageSlot),
-      Fr.fromString(randomness),
-      NoteSelector.fromField(Fr.fromString(noteTypeId)),
-      note.map(Fr.fromString),
-      Fr.fromString(noteHash),
-      +counter,
-    );
-    return Promise.resolve([]);
+  aztec_prv_notifyCreatedNote(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_notifyCreatedNote',
+      inputs,
+      handler: ([owner, storageSlot, randomness, noteTypeId, note, noteHash, counter]) => {
+        this.handlerAsPrivate().notifyCreatedNote(owner, storageSlot, randomness, noteTypeId, note, noteHash, counter);
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_notifyNullifiedNote(
-    [innerNullifier]: ACVMField[],
-    [noteHash]: ACVMField[],
-    [counter]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().notifyNullifiedNote(Fr.fromString(innerNullifier), Fr.fromString(noteHash), +counter);
-    return [];
+  aztec_prv_notifyNullifiedNote(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_notifyNullifiedNote',
+      inputs,
+      handler: ([innerNullifier, noteHash, counter]) =>
+        this.handlerAsPrivate().notifyNullifiedNote(innerNullifier, noteHash, counter),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_notifyCreatedNullifier([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().notifyCreatedNullifier(Fr.fromString(innerNullifier));
-    return [];
+  aztec_prv_notifyCreatedNullifier(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_notifyCreatedNullifier',
+      inputs,
+      handler: ([innerNullifier]) => this.handlerAsPrivate().notifyCreatedNullifier(innerNullifier),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_isNullifierPending(
-    [innerNullifier]: ACVMField[],
-    [contractAddress]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const isPending = await this.handlerAsPrivate().isNullifierPending(
-      Fr.fromString(innerNullifier),
-      AztecAddress.fromString(contractAddress),
-    );
-    return [toACVMField(isPending)];
+  aztec_prv_isNullifierPending(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_isNullifierPending',
+      inputs,
+      handler: ([innerNullifier, contractAddress]) =>
+        this.handlerAsPrivate().isNullifierPending(innerNullifier, contractAddress),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_doesNullifierExist([innerNullifier]: ACVMField[]): Promise<ACVMField[]> {
-    const exists = await this.handlerAsUtility().doesNullifierExist(Fr.fromString(innerNullifier));
-    return [toACVMField(exists)];
+  aztec_utl_doesNullifierExist(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_doesNullifierExist',
+      inputs,
+      handler: ([innerNullifier]) => this.handlerAsUtility().doesNullifierExist(innerNullifier),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getL1ToL2MembershipWitness(
-    [contractAddress]: ACVMField[],
-    [messageHash]: ACVMField[],
-    [secret]: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    const message = await this.handlerAsUtility().getL1ToL2MembershipWitness(
-      AztecAddress.fromString(contractAddress),
-      Fr.fromString(messageHash),
-      Fr.fromString(secret),
-    );
-    return message.toNoirRepresentation();
+  aztec_utl_getL1ToL2MembershipWitness(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getL1ToL2MembershipWitness',
+      inputs,
+      handler: ([contractAddress, messageHash, secret]) =>
+        this.handlerAsUtility().getL1ToL2MembershipWitness(contractAddress, messageHash, secret),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getFromPublicStorage(
-    [blockHash]: ACVMField[],
-    [contractAddress]: ACVMField[],
-    [startStorageSlot]: ACVMField[],
-    [numberOfElements]: ACVMField[],
-  ): Promise<ACVMField[][]> {
-    const values = await this.handlerAsUtility().getFromPublicStorage(
-      BlockHash.fromString(blockHash),
-      new AztecAddress(Fr.fromString(contractAddress)),
-      Fr.fromString(startStorageSlot),
-      +numberOfElements,
-    );
-    return [values.map(toACVMField)];
+  aztec_utl_getFromPublicStorage(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getFromPublicStorage',
+      inputs,
+      handler: ([blockHash, contractAddress, startStorageSlot, numberOfElements]) =>
+        this.handlerAsUtility().getFromPublicStorage(blockHash, contractAddress, startStorageSlot, numberOfElements),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_callUtilityFunction(
-    [contractAddress]: ACVMField[],
-    [functionSelector]: ACVMField[],
-    args: ACVMField[],
-  ): Promise<ACVMField[][]> {
-    const result = await this.handlerAsUtility().callUtilityFunction(
-      AztecAddress.fromField(Fr.fromString(contractAddress)),
-      FunctionSelector.fromField(Fr.fromString(functionSelector)),
-      args.map(Fr.fromString),
-    );
-    return [result.map(toACVMField)];
+  aztec_utl_callUtilityFunction(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_callUtilityFunction',
+      inputs,
+      handler: ([contractAddress, functionSelector, args]) =>
+        this.handlerAsUtility().callUtilityFunction(contractAddress, functionSelector, args),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_notifyCreatedContractClassLog(
-    [contractAddress]: ACVMField[],
-    message: ACVMField[],
-    [length]: ACVMField[],
-    [counter]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const logFields = new ContractClassLogFields(message.map(Fr.fromString));
-    const log = new ContractClassLog(new AztecAddress(Fr.fromString(contractAddress)), logFields, +length);
-
-    this.handlerAsPrivate().notifyCreatedContractClassLog(log, +counter);
-    return Promise.resolve([]);
+  aztec_prv_notifyCreatedContractClassLog(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_notifyCreatedContractClassLog',
+      inputs,
+      handler: ([log, counter]) => {
+        this.handlerAsPrivate().notifyCreatedContractClassLog(log, counter);
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_log(
-    level: ACVMField[],
-    message: ACVMField[],
-    _ignoredFieldsSize: ACVMField[],
-    fields: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const levelFr = Fr.fromString(level[0]);
-    const messageStr = message.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
-    const fieldsFr = fields.map(Fr.fromString);
-    await this.handlerAsMisc().log(levelFr.toNumber(), messageStr, fieldsFr);
-    return [];
+  aztec_utl_log(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_log',
+      inputs,
+      handler: ([level, message, _, fields]) => this.handlerAsMisc().log(level, message, fields),
+    });
   }
 
   // This function's name is directly hardcoded in `circuit_recorder.ts`. Don't forget to update it there if you
   // change the name here.
   // eslint-disable-next-line camelcase
-  async aztec_prv_callPrivateFunction(
-    [contractAddress]: ACVMField[],
-    [functionSelector]: ACVMField[],
-    [argsHash]: ACVMField[],
-    [sideEffectCounter]: ACVMField[],
-    [isStaticCall]: ACVMField[],
-  ): Promise<ACVMField[][]> {
-    const { endSideEffectCounter, returnsHash } = await this.handlerAsPrivate().callPrivateFunction(
-      AztecAddress.fromField(Fr.fromString(contractAddress)),
-      FunctionSelector.fromField(Fr.fromString(functionSelector)),
-      Fr.fromString(argsHash),
-      Fr.fromString(sideEffectCounter).toNumber(),
-      Fr.fromString(isStaticCall).toBool(),
-    );
-    return [[endSideEffectCounter, returnsHash].map(toACVMField)];
+  aztec_prv_callPrivateFunction(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_callPrivateFunction',
+      inputs,
+      handler: ([contractAddress, functionSelector, argsHash, sideEffectCounter, isStaticCall]) =>
+        this.handlerAsPrivate().callPrivateFunction(
+          contractAddress,
+          functionSelector,
+          argsHash,
+          sideEffectCounter,
+          isStaticCall,
+        ),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_assertValidPublicCalldata([calldataHash]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().assertValidPublicCalldata(Fr.fromString(calldataHash));
-    return [];
+  aztec_prv_assertValidPublicCalldata(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_assertValidPublicCalldata',
+      inputs,
+      handler: ([calldataHash]) => this.handlerAsPrivate().assertValidPublicCalldata(calldataHash),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_notifyRevertiblePhaseStart([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().notifyRevertiblePhaseStart(Fr.fromString(minRevertibleSideEffectCounter).toNumber());
-    return Promise.resolve([]);
+  aztec_prv_notifyRevertiblePhaseStart(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_notifyRevertiblePhaseStart',
+      inputs,
+      handler: ([minRevertibleSideEffectCounter]) =>
+        this.handlerAsPrivate().notifyRevertiblePhaseStart(minRevertibleSideEffectCounter),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_isExecutionInRevertiblePhase([sideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
-    const isRevertible = await this.handlerAsPrivate().isExecutionInRevertiblePhase(
-      Fr.fromString(sideEffectCounter).toNumber(),
-    );
-    return Promise.resolve([toACVMField(isRevertible)]);
+  aztec_prv_isExecutionInRevertiblePhase(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_isExecutionInRevertiblePhase',
+      inputs,
+      handler: ([sideEffectCounter]) => this.handlerAsPrivate().isExecutionInRevertiblePhase(sideEffectCounter),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_getNextAppTagAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const tag = await this.handlerAsPrivate().getNextAppTagAsSender(
-      AztecAddress.fromString(sender),
-      AztecAddress.fromString(recipient),
-    );
-    return [toACVMField(tag.value)];
+  aztec_prv_getNextAppTagAsSender(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_getNextAppTagAsSender',
+      inputs,
+      handler: ([sender, recipient]) => this.handlerAsPrivate().getNextAppTagAsSender(sender, recipient),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getPendingTaggedLogs([scope]: ACVMField[]): Promise<ACVMField[]> {
-    const slot = await this.handlerAsUtility().getPendingTaggedLogs(AztecAddress.fromString(scope));
-    return [toACVMField(slot)];
+  aztec_prv_getNextConstrainedTaggingIndex(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_getNextConstrainedTaggingIndex',
+      inputs,
+      handler: ([appSiloedSecret]) => this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
-    [noteValidationRequestsArrayBaseSlot]: ACVMField[],
-    [eventValidationRequestsArrayBaseSlot]: ACVMField[],
-    [maxNotePackedLen]: ACVMField[],
-    [maxEventSerializedLen]: ACVMField[],
-    [scope]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
-      Fr.fromString(noteValidationRequestsArrayBaseSlot),
-      Fr.fromString(eventValidationRequestsArrayBaseSlot),
-      Fr.fromString(maxNotePackedLen).toNumber(),
-      Fr.fromString(maxEventSerializedLen).toNumber(),
-      AztecAddress.fromString(scope),
-    );
-    return [];
+  aztec_utl_getPendingTaggedLogs(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getPendingTaggedLogs',
+      inputs,
+      handler: ([scope]) => this.handlerAsUtility().getPendingTaggedLogs(scope),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getLogsByTag([requestArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
-    const responseSlot = await this.handlerAsUtility().getLogsByTag(Fr.fromString(requestArrayBaseSlot));
-    return [toACVMField(responseSlot)];
+  aztec_utl_validateAndStoreEnqueuedNotesAndEvents(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents',
+      inputs,
+      handler: ([noteValidationRequestsArrayBaseSlot, eventValidationRequestsArrayBaseSlot, scope]) =>
+        this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
+          noteValidationRequestsArrayBaseSlot,
+          eventValidationRequestsArrayBaseSlot,
+          scope,
+        ),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getMessageContextsByTxHash([requestArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
-    const responseSlot = await this.handlerAsUtility().getMessageContextsByTxHash(Fr.fromString(requestArrayBaseSlot));
-    return [toACVMField(responseSlot)];
+  aztec_utl_getLogsByTag(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getLogsByTag',
+      inputs,
+      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getLogsByTag(requestArrayBaseSlot),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getTxEffect([txHash]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
-    const txEffect = await this.handlerAsUtility().getTxEffect(TxHash.fromField(Fr.fromString(txHash)));
-    // The Noir oracle returns `Option<TxEffect>`. ACVM expands this into 12 destination slots: the Option discriminant
-    // followed by the 11 leaf slots of `TxEffect` (each scalar is one slot, each top-level array is one slot, and
-    // the nested `PublicLogs { length, payload }` splits into two slots).
-    const effect = txEffect ?? TxEffect.empty();
-    const flatPublicLogs = FlatPublicLogs.fromLogs(effect.publicLogs);
-    return [
-      toACVMField(txEffect === null ? 0 : 1),
-      toACVMField(effect.revertCode.toField()),
-      toACVMField(effect.txHash.hash),
-      toACVMField(effect.transactionFee),
-      padArrayEnd(effect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX).map(toACVMField),
-      padArrayEnd(effect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(toACVMField),
-      padArrayEnd(effect.l2ToL1Msgs, Fr.ZERO, MAX_L2_TO_L1_MSGS_PER_TX).map(toACVMField),
-      padArrayEnd(effect.publicDataWrites, PublicDataWrite.empty(), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
-        .flatMap(w => w.toFields())
-        .map(toACVMField),
-      padArrayEnd(effect.privateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX)
-        .flatMap(l => l.toFields())
-        .map(toACVMField),
-      toACVMField(flatPublicLogs.length),
-      flatPublicLogs.payload.map(toACVMField),
-      padArrayEnd(effect.contractClassLogs, ContractClassLog.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX)
-        .flatMap(l => [...l.fields.toFields(), new Fr(l.emittedLength), l.contractAddress.toField()])
-        .map(toACVMField),
-    ];
+  aztec_utl_getMessageContextsByTxHash(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getMessageContextsByTxHash',
+      inputs,
+      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getMessageContextsByTxHash(requestArrayBaseSlot),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_setCapsule(
-    [contractAddress]: ACVMField[],
-    [slot]: ACVMField[],
-    capsule: ACVMField[],
-    [scope]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    this.handlerAsUtility().setCapsule(
-      AztecAddress.fromField(Fr.fromString(contractAddress)),
-      Fr.fromString(slot),
-      capsule.map(Fr.fromString),
-      AztecAddress.fromField(Fr.fromString(scope)),
-    );
-    return Promise.resolve([]);
+  aztec_utl_getTxEffect(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getTxEffect',
+      inputs,
+      handler: ([txHash]) => this.handlerAsUtility().getTxEffect(txHash),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getCapsule(
-    [contractAddress]: ACVMField[],
-    [slot]: ACVMField[],
-    [tSize]: ACVMField[],
-    [scope]: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    const values = await this.handlerAsUtility().getCapsule(
-      AztecAddress.fromField(Fr.fromString(contractAddress)),
-      Fr.fromString(slot),
-      AztecAddress.fromField(Fr.fromString(scope)),
-    );
-
-    // We are going to return a Noir Option struct to represent the possibility of null values. Options are a struct
-    // with two fields: `some` (a boolean) and `value` (a field array in this case).
-    if (values === null) {
-      // No data was found so we set `some` to 0 and pad `value` with zeros get the correct return size.
-      return [toACVMField(0), Array(Fr.fromString(tSize).toNumber()).fill(toACVMField(0))];
-    } else {
-      // Data was found so we set `some` to 1 and return it along with `value`.
-      return [toACVMField(1), values.map(toACVMField)];
-    }
+  aztec_utl_setCapsule(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_setCapsule',
+      inputs,
+      handler: ([contractAddress, slot, capsule, scope]) => {
+        this.handlerAsUtility().setCapsule(contractAddress, slot, capsule, scope);
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_deleteCapsule(
-    [contractAddress]: ACVMField[],
-    [slot]: ACVMField[],
-    [scope]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    this.handlerAsUtility().deleteCapsule(
-      AztecAddress.fromField(Fr.fromString(contractAddress)),
-      Fr.fromString(slot),
-      AztecAddress.fromField(Fr.fromString(scope)),
-    );
-    return Promise.resolve([]);
+  aztec_utl_getCapsule(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getCapsule',
+      inputs,
+      handler: ([contractAddress, slot, tSize, scope]) =>
+        this.handlerAsUtility().getCapsule(contractAddress, slot, tSize, scope),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_copyCapsule(
-    [contractAddress]: ACVMField[],
-    [srcSlot]: ACVMField[],
-    [dstSlot]: ACVMField[],
-    [numEntries]: ACVMField[],
-    [scope]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsUtility().copyCapsule(
-      AztecAddress.fromField(Fr.fromString(contractAddress)),
-      Fr.fromString(srcSlot),
-      Fr.fromString(dstSlot),
-      Fr.fromString(numEntries).toNumber(),
-      AztecAddress.fromField(Fr.fromString(scope)),
-    );
-    return [];
+  aztec_utl_deleteCapsule(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_deleteCapsule',
+      inputs,
+      handler: ([contractAddress, slot, scope]) => {
+        this.handlerAsUtility().deleteCapsule(contractAddress, slot, scope);
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_pushEphemeral([slot]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
-    const newLen = this.handlerAsUtility().pushEphemeral(Fr.fromString(slot), elements.map(Fr.fromString));
-    return Promise.resolve([toACVMField(newLen)]);
+  aztec_utl_copyCapsule(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_copyCapsule',
+      inputs,
+      handler: ([contractAddress, srcSlot, dstSlot, numEntries, scope]) =>
+        this.handlerAsUtility().copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, scope),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_popEphemeral([slot]: ACVMField[]): Promise<ACVMField[][]> {
-    const element = this.handlerAsUtility().popEphemeral(Fr.fromString(slot));
-    return Promise.resolve([element.map(toACVMField)]);
+  aztec_utl_pushEphemeral(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_pushEphemeral',
+      inputs,
+      handler: ([slot, elements]) => this.handlerAsUtility().pushEphemeral(slot, elements),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getEphemeral([slot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[][]> {
-    const element = this.handlerAsUtility().getEphemeral(Fr.fromString(slot), Fr.fromString(index).toNumber());
-    return Promise.resolve([element.map(toACVMField)]);
+  aztec_utl_popEphemeral(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_popEphemeral',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().popEphemeral(slot),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_setEphemeral([slot]: ACVMField[], [index]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
-    this.handlerAsUtility().setEphemeral(
-      Fr.fromString(slot),
-      Fr.fromString(index).toNumber(),
-      elements.map(Fr.fromString),
-    );
-    return Promise.resolve([]);
+  aztec_utl_getEphemeral(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getEphemeral',
+      inputs,
+      handler: ([slot, index]) => this.handlerAsUtility().getEphemeral(slot, index),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getEphemeralLen([slot]: ACVMField[]): Promise<ACVMField[]> {
-    const len = this.handlerAsUtility().getEphemeralLen(Fr.fromString(slot));
-    return Promise.resolve([toACVMField(len)]);
+  aztec_utl_setEphemeral(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_setEphemeral',
+      inputs,
+      handler: ([slot, index, elements]) => {
+        this.handlerAsUtility().setEphemeral(slot, index, elements);
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_removeEphemeral([slot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[]> {
-    this.handlerAsUtility().removeEphemeral(Fr.fromString(slot), Fr.fromString(index).toNumber());
-    return Promise.resolve([]);
+  aztec_utl_getEphemeralLen(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getEphemeralLen',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().getEphemeralLen(slot),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_clearEphemeral([slot]: ACVMField[]): Promise<ACVMField[]> {
-    this.handlerAsUtility().clearEphemeral(Fr.fromString(slot));
-    return Promise.resolve([]);
+  aztec_utl_removeEphemeral(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_removeEphemeral',
+      inputs,
+      handler: ([slot, index]) => {
+        this.handlerAsUtility().removeEphemeral(slot, index);
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_decryptAes128(
-    ciphertextBVecStorage: ACVMField[],
-    [ciphertextLength]: ACVMField[],
-    iv: ACVMField[],
-    symKey: ACVMField[],
-  ): Promise<(ACVMField | ACVMField[])[]> {
-    const ciphertext = fromUintBoundedVec(ciphertextBVecStorage, ciphertextLength, 8);
-    const ivBuffer = fromUintArray(iv, 8);
-    const symKeyBuffer = fromUintArray(symKey, 8);
-
-    // Noir Option<BoundedVec> is encoded as [is_some: Field, storage: Field[], length: Field].
-    const plaintext = await this.handlerAsUtility().decryptAes128(ciphertext, ivBuffer, symKeyBuffer);
-    if (plaintext) {
-      const [storage, length] = bufferToBoundedVec(plaintext, ciphertextBVecStorage.length);
-      return [toACVMField(1), storage, length];
-    } else {
-      const zeroStorage = Array(ciphertextBVecStorage.length).fill(toACVMField(0));
-      return [toACVMField(0), zeroStorage, toACVMField(0)];
-    }
+  aztec_utl_clearEphemeral(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_clearEphemeral',
+      inputs,
+      handler: ([slot]) => {
+        this.handlerAsUtility().clearEphemeral(slot);
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getSharedSecrets(
-    [address]: ACVMField[],
-    [ephPksSlot]: ACVMField[],
-    [contractAddress]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const responseSlot = await this.handlerAsUtility().getSharedSecrets(
-      AztecAddress.fromField(Fr.fromString(address)),
-      Fr.fromString(ephPksSlot),
-      AztecAddress.fromField(Fr.fromString(contractAddress)),
-    );
-    return [toACVMField(responseSlot)];
+  aztec_utl_decryptAes128(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_decryptAes128',
+      inputs,
+      handler: ([ciphertext, iv, symKey]) => this.handlerAsUtility().decryptAes128(ciphertext, iv, symKey),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_setContractSyncCacheInvalid(
-    [contractAddress]: ACVMField[],
-    scopes: ACVMField[],
-    [scopeCount]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const scopeAddresses = scopes.slice(0, +scopeCount).map(s => AztecAddress.fromField(Fr.fromString(s)));
-    this.handlerAsUtility().setContractSyncCacheInvalid(
-      AztecAddress.fromField(Fr.fromString(contractAddress)),
-      scopeAddresses,
-    );
-    return Promise.resolve([]);
+  aztec_utl_getSharedSecrets(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_getSharedSecrets',
+      inputs,
+      handler: ([address, ephPksSlot, contractAddress]) =>
+        this.handlerAsUtility().getSharedSecrets(address, ephPksSlot, contractAddress),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_emitOffchainEffect(data: ACVMField[]) {
-    await this.handlerAsUtility().emitOffchainEffect(data.map(Fr.fromString));
-    return [];
+  aztec_utl_setContractSyncCacheInvalid(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_setContractSyncCacheInvalid',
+      inputs,
+      handler: ([contractAddress, scopes]) => {
+        this.handlerAsUtility().setContractSyncCacheInvalid(contractAddress, scopes);
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_getSenderForTags(): Promise<ACVMField[]> {
-    const sender = await this.handlerAsPrivate().getSenderForTags();
-    // Return [1, address] for Some(address), [0, 0] for None
-    return sender ? [toACVMField(1n), toACVMField(sender)] : [toACVMField(0n), toACVMField(0n)];
+  aztec_utl_emitOffchainEffect(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_utl_emitOffchainEffect',
+      inputs,
+      handler: ([data]) => this.handlerAsUtility().emitOffchainEffect(data),
+    });
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_setSenderForTags([senderForTags]: ACVMField[]): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().setSenderForTags(AztecAddress.fromField(Fr.fromString(senderForTags)));
-    return [];
+  aztec_prv_getSenderForTags(): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_getSenderForTags',
+      inputs: [],
+      handler: () => this.handlerAsPrivate().getSenderForTags(),
+    });
   }
 }

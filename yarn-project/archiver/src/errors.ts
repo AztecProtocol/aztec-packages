@@ -31,13 +31,13 @@ export class InitialCheckpointNumberNotSequentialError extends Error {
 
 export class CheckpointNumberNotSequentialError extends Error {
   constructor(
-    newCheckpointNumber: CheckpointNumber,
-    previous: CheckpointNumber | undefined,
+    public readonly newCheckpointNumber: CheckpointNumber,
+    public readonly previousCheckpointNumber: CheckpointNumber | undefined,
     source?: 'proposed' | 'confirmed',
   ) {
     const qualifier = source ? `${source} ` : '';
     super(
-      `Cannot insert new checkpoint ${newCheckpointNumber} given previous ${qualifier}checkpoint number is ${previous ?? 'undefined'}`,
+      `Cannot insert new checkpoint ${newCheckpointNumber} given previous ${qualifier}checkpoint number is ${previousCheckpointNumber ?? 'undefined'}`,
     );
     this.name = 'CheckpointNumberNotSequentialError';
   }
@@ -99,22 +99,6 @@ export class BlockAlreadyCheckpointedError extends Error {
   constructor(public readonly blockNumber: number) {
     super(`Block ${blockNumber} has already been checkpointed with the same content`);
     this.name = 'BlockAlreadyCheckpointedError';
-  }
-}
-
-/** Thrown when logs are added for a tag whose last stored log has a higher block number than the new log. */
-export class OutOfOrderLogInsertionError extends Error {
-  constructor(
-    public readonly logType: 'private' | 'public',
-    public readonly tag: string,
-    public readonly lastBlockNumber: number,
-    public readonly newBlockNumber: number,
-  ) {
-    super(
-      `Out-of-order ${logType} log insertion for tag ${tag}: ` +
-        `last existing log is from block ${lastBlockNumber} but new log is from block ${newBlockNumber}`,
-    );
-    this.name = 'OutOfOrderLogInsertionError';
   }
 }
 

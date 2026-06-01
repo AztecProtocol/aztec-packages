@@ -140,6 +140,7 @@ describe('Logs', () => {
 
       // docs:start:get_public_events
       const publicEventFilter: PublicEventFilter = {
+        contractAddress: testLogContract.address,
         fromBlock: BlockNumber(firstTx.blockNumber!),
         toBlock: BlockNumber(lastTx.blockNumber! + 1),
       };
@@ -193,6 +194,7 @@ describe('Logs', () => {
         aztecNode,
         TestLogContract.events.ExampleNestedEvent,
         {
+          contractAddress: testLogContract.address,
           fromBlock: BlockNumber(tx.blockNumber!),
           toBlock: BlockNumber(tx.blockNumber! + 1),
         },

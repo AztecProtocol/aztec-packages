@@ -13,7 +13,7 @@ pub contract Crowdfunding {
         utils::{array, comparison::Comparator},
     };
     use aztec::note::{constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteStatus};
-    use public_checks::utils::privately_check_timestamp;
+    use aztec::public_checks::privately_check_timestamp;
     use token::Token;
     use uint_note::UintNote;
 
@@ -58,7 +58,7 @@ pub contract Crowdfunding {
 
         // We don't constrain encryption because the donor is sending the note to himself. And hence by performing
         // encryption incorrectly would harm himself only.
-        self.storage.donation_receipts.at(donor).insert(note).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.donation_receipts.at(donor).insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     // Withdraws balance to the operator. Requires that msg_sender() is the operator.

@@ -11,4 +11,6 @@ export { Oracle } from './oracle/oracle.js';
 export { executePrivateFunction, extractPrivateCircuitPublicInputs } from './oracle/private_execution.js';
 export { generateSimulatedProvingResult } from './contract_function_simulator.js';
 export { packAsHintedNote } from './oracle/note_packing_utils.js';
+export { BoundedVec } from './noir-structs/bounded_vec.js';
+export { Option } from './noir-structs/option.js';
 export { UtilityContext } from './noir-structs/utility_context.js';

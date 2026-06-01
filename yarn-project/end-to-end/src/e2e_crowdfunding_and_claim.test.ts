@@ -12,7 +12,7 @@ import { jest } from '@jest/globals';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { setup } from './fixtures/utils.js';
+import { ensurePublicChecksPublished, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
 jest.setTimeout(400_000);
@@ -62,6 +62,10 @@ describe('e2e_crowdfunding_and_claim', () => {
       aztecNode: _aztecNode,
       accounts: [operatorAddress, donor1Address, donor2Address],
     } = await setup(3, { ...AUTOMINE_E2E_OPTS }));
+
+    // Crowdfunding's `donate` calls `privately_check_timestamp`, which dispatches into the deployed
+    // PublicChecks contract. Publish PublicChecks before the test runs anything that uses it.
+    await ensurePublicChecksPublished(wallet, operatorAddress);
 
     // We set the deadline to a week from now
     deadline = (await cheatCodes.eth.lastBlockTimestamp()) + 7 * 24 * 60 * 60;

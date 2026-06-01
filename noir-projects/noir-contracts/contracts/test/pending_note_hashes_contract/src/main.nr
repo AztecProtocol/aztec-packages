@@ -45,7 +45,7 @@ pub contract PendingNoteHashes {
 
         // Insert note
         // docs:start:private_set_insert
-        owner_balance.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
         // docs:end:private_set_insert
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
@@ -91,7 +91,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote { value: amount };
 
         // Insert note
-        owner_balance.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
     }
 
     // Nested/inner function to create and insert a note
@@ -106,7 +106,7 @@ pub contract PendingNoteHashes {
         let note = FieldNote::unpack([amount.to_field()]);
 
         // Insert note
-        owner_balance.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        owner_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
     }
 
     // Nested/inner function to create and insert a note
@@ -120,10 +120,10 @@ pub contract PendingNoteHashes {
         // Insert note
         let message = owner_balance.insert(note);
 
-        message.deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        message.deliver(MessageDelivery::onchain_constrained());
 
         // Deliver note message again
-        message.deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        message.deliver(MessageDelivery::onchain_constrained());
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
@@ -315,7 +315,7 @@ pub contract PendingNoteHashes {
             let recipient_balance = self.storage.balances.at(recipient);
 
             let note = FieldNote { value: i as Field };
-            recipient_balance.insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+            recipient_balance.insert(note).deliver(MessageDelivery::onchain_constrained());
         }
     }
 

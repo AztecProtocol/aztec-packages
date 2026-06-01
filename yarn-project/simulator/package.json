@@ -72,6 +72,7 @@
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/noir-types": "portal:../../noir/packages/types",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",

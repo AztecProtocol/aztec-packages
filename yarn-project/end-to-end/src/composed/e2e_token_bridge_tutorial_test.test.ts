@@ -1,11 +1,13 @@
 // This test should only use packages that are published to npm
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
+import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
 import { L1TokenManager, L1TokenPortalManager } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { OutboxContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import {
   FeeAssetHandlerAbi,
@@ -17,6 +19,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
+import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
@@ -169,6 +172,18 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     const withdrawAmount = 9n;
     const authwitNonce = Fr.random();
 
+    // Ensure AuthRegistry contract class is registered and instance is published before using
+    // the public authwit path, which relies on the AVM's deployment-nullifier check.
+    {
+      const { instance, contractClass } = await getStandardAuthRegistry();
+      if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
+        await (await publishContractClass(wallet, AuthRegistryArtifact)).send({ from: ownerAztecAddress });
+      }
+      if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
+        await publishInstance(wallet, instance).send({ from: ownerAztecAddress });
+      }
+    }
+
     // Give approval to bridge to burn owner's funds:
     const authwit = await wallet.setPublicAuthWit(
       ownerAztecAddress,
@@ -196,7 +211,8 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       .simulate({ from: ownerAztecAddress });
     logger.info(`New L2 balance of ${ownerAztecAddress} is ${newL2Balance}`);
 
-    const result = await computeL2ToL1MembershipWitness(node, l2ToL1Message, l2TxReceipt.txHash);
+    const outboxContract = new OutboxContract(l1Client, l1ContractAddresses.outboxAddress);
+    const result = await computeL2ToL1MembershipWitness(node, outboxContract, l2ToL1Message, l2TxReceipt);
     if (!result) {
       throw new Error('L2 to L1 message not found');
     }
@@ -205,6 +221,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       withdrawAmount,
       EthAddress.fromString(ownerEthAddress),
       result.epochNumber,
+      result.numCheckpointsInEpoch,
       result.leafIndex,
       result.siblingPath,
     );

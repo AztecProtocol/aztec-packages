@@ -6,18 +6,47 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 /// `EphemeralArray`.
 #[derive(Serialize, Deserialize)]
 pub struct NoteValidationRequest {
-    pub contract_address: AztecAddress,
-    pub owner: AztecAddress,
-    pub storage_slot: Field,
-    pub randomness: Field,
-    pub note_nonce: Field,
-    pub packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
-    pub note_hash: Field,
-    pub nullifier: Field,
-    pub tx_hash: Field,
+    contract_address: AztecAddress,
+    owner: AztecAddress,
+    storage_slot: Field,
+    randomness: Field,
+    note_nonce: Field,
+    max_note_packed_len: Field,
+    packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+    note_hash: Field,
+    nullifier: Field,
+    tx_hash: Field,
+}
+
+impl NoteValidationRequest {
+    pub fn new(
+        contract_address: AztecAddress,
+        owner: AztecAddress,
+        storage_slot: Field,
+        randomness: Field,
+        note_nonce: Field,
+        packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+        note_hash: Field,
+        nullifier: Field,
+        tx_hash: Field,
+    ) -> Self {
+        Self {
+            contract_address,
+            owner,
+            storage_slot,
+            randomness,
+            note_nonce,
+            max_note_packed_len: MAX_NOTE_PACKED_LEN as Field,
+            packed_note,
+            note_hash,
+            nullifier,
+            tx_hash,
+        }
+    }
 }
 
 mod test {
+    use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
     use crate::protocol::{address::AztecAddress, traits::{FromField, Serialize}};
     use super::NoteValidationRequest;
 
@@ -29,6 +58,7 @@ mod test {
             storage_slot: 2,
             randomness: 42,
             note_nonce: 3,
+            max_note_packed_len: MAX_NOTE_PACKED_LEN as Field,
             packed_note: BoundedVec::from_array([4, 5]),
             note_hash: 6,
             nullifier: 7,
@@ -45,6 +75,7 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x000000000000000000000000000000000000000000000000000000000000002a,
             0x0000000000000000000000000000000000000000000000000000000000000003,
+            MAX_NOTE_PACKED_LEN as Field,
             0x0000000000000000000000000000000000000000000000000000000000000004,
             0x0000000000000000000000000000000000000000000000000000000000000005,
             0x0000000000000000000000000000000000000000000000000000000000000000,

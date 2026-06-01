@@ -62,6 +62,17 @@ contract RewardBooster is IBooster {
   }
 
   constructor(IValidatorSelection _rollup, RewardBoostConfig memory _config) {
+    // `_toShares` returns either `CONFIG_K` (top of the curve) or `CONFIG_MINIMUM` (anywhere
+    // else). If either is zero, an accepted prover submission can record zero shares, which
+    // RewardLib.handleRewardsAndFees uses as the duplicate-submission sentinel -- the same
+    // prover could then submit again and reward accounting would be silently dropped.
+    // `maxScore == 0` short-circuits every call to the K branch; require it positive so the
+    // curve has a real range. `minimum <= k` keeps the curve monotonic.
+    require(_config.k > 0, Errors.RewardBooster__InvalidConfig());
+    require(_config.minimum > 0, Errors.RewardBooster__InvalidConfig());
+    require(_config.maxScore > 0, Errors.RewardBooster__InvalidConfig());
+    require(_config.minimum <= _config.k, Errors.RewardBooster__InvalidConfig());
+
     ROLLUP = _rollup;
 
     CONFIG_INCREMENT = _config.increment;

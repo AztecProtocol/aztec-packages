@@ -20,18 +20,23 @@ const BRANDED_PRIMITIVE_TYPES = new Set([
   'IndexWithinCheckpoint',
 ]);
 
+const ARRAY_MEMBERSHIP_METHODS = new Set(['includes', 'indexOf', 'lastIndexOf']);
+
 /** @type {import('eslint').Rule.RuleModule} */
 export default {
   meta: {
     type: 'problem',
     docs: {
-      description: 'Disallow non-primitive types in Set<T> and Map<T, ...> collections',
+      description:
+        'Disallow non-primitive types in Set<T>, Map<T, ...>, and Array.prototype.{includes,indexOf,lastIndexOf} membership checks',
       category: 'Best Practices',
       recommended: true,
     },
     messages: {
       nonPrimitiveInSet: 'Set should only be used with primitive types. Found Set<{{type}}>',
       nonPrimitiveInMapKey: 'Map keys should only be primitive types. Found Map<{{type}}, ...>',
+      nonPrimitiveInArrayMembership:
+        'Array.prototype.{{method}} uses SameValueZero (reference equality for objects) and will silently miss equal-but-distinct class instances. Use .some(x => x.equals(target)) or project to a primitive (e.g. .map(x => x.toString())) first. Element type: {{type}}',
     },
     schema: [],
   },
@@ -229,6 +234,41 @@ export default {
     }
 
     /**
+     * Heuristic: does this type expose an `equals` method? Types that do are opting into value
+     * equality (Fr, AztecAddress, TxHash, ...) — and using SameValueZero membership checks on
+     * arrays of them is almost always a bug. Types without `equals` (callback function types,
+     * AbortController, plain objects) are typically used with reference equality intentionally.
+     */
+    function hasEqualsMethod(tsType) {
+      if (!tsType || !tsType.getProperty) return false;
+      const equalsSymbol = tsType.getProperty('equals');
+      if (!equalsSymbol) return false;
+      const decls = equalsSymbol.getDeclarations?.() ?? [];
+      return decls.some(d => ts.isMethodDeclaration(d) || ts.isMethodSignature(d));
+    }
+
+    /**
+     * Extract the element type of an Array<T> / ReadonlyArray<T> / T[] / readonly T[].
+     * Returns undefined for non-array receivers (e.g. `string`, which also has a `.includes` method).
+     */
+    function getArrayElementType(tsType) {
+      if (!tsType) return undefined;
+
+      if (typeof checker.getElementTypeOfArrayType === 'function') {
+        const elem = checker.getElementTypeOfArrayType(tsType);
+        if (elem) return elem;
+      }
+
+      const symbol = tsType.getSymbol ? tsType.getSymbol() : undefined;
+      const name = symbol?.getName?.();
+      if (name === 'Array' || name === 'ReadonlyArray') {
+        return tsType.typeArguments?.[0] ?? tsType.aliasTypeArguments?.[0];
+      }
+
+      return undefined;
+    }
+
+    /**
      * Get a readable type name from a type node
      */
     function getTypeName(typeNode) {
@@ -314,6 +354,55 @@ export default {
               },
             });
           }
+        }
+      },
+
+      CallExpression(node) {
+        // We need the type checker to know whether the receiver is an array of class instances.
+        // In AST-only fallback mode we can't reliably distinguish `addrs.includes(x)` (bug)
+        // from `["a","b"].includes(x)` (fine), so we skip rather than risk false positives.
+        if (!checker || !parserServices) {
+          return;
+        }
+
+        const callee = node.callee;
+        if (callee.type !== 'MemberExpression' || callee.computed) {
+          return;
+        }
+        if (callee.property.type !== 'Identifier' || !ARRAY_MEMBERSHIP_METHODS.has(callee.property.name)) {
+          return;
+        }
+        if (node.arguments.length === 0) {
+          return;
+        }
+
+        try {
+          const receiverTsNode = parserServices.esTreeNodeToTSNodeMap.get(callee.object);
+          const receiverType = checker.getTypeAtLocation(receiverTsNode);
+          const elementType = getArrayElementType(receiverType);
+          if (!elementType) {
+            // Not an array (e.g. `string.includes`, or an unknown receiver) — leave alone.
+            return;
+          }
+          if (isAllowedTypeWithChecker(elementType)) {
+            return;
+          }
+          // Only flag types that opted into value equality. Arrays of callbacks / DOM types /
+          // plain function types are commonly searched via reference identity on purpose.
+          if (!hasEqualsMethod(elementType)) {
+            return;
+          }
+
+          context.report({
+            node,
+            messageId: 'nonPrimitiveInArrayMembership',
+            data: {
+              method: callee.property.name,
+              type: checker.typeToString(elementType),
+            },
+          });
+        } catch (e) {
+          // Type information unavailable for this node — skip silently.
         }
       },
     };

@@ -5,7 +5,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
@@ -328,6 +328,13 @@ describe('LibP2PService', () => {
       return new BlockTxsResponse(archiveRoot, txs as TxArray, BitVector.init(length, indices));
     }
 
+    /** Builds a minimal archived block whose txEffects carry the given tx hashes, for archiver-fallback tests. */
+    function makeArchivedBlock(txHashes: string[]): L2Block {
+      return {
+        body: { txEffects: txHashes.map(h => ({ txHash: { toString: () => h } })) },
+      } as unknown as L2Block;
+    }
+
     /** Sets up the mempools with a mock attestation pool that returns a proposal with given tx hashes. */
     function setProposalTxHashes(svc: TestLibP2PService, txHashes: string[]): void {
       // Create a partial mock of the attestation pool that only implements getBlockProposalByArchive.
@@ -483,20 +490,58 @@ describe('LibP2PService', () => {
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
 
-    it('should reject without penalizing when proposal is missing', async () => {
+    it('should reject without penalizing when the block is unknown (no proposal and not in the archiver)', async () => {
       const hash = Fr.random();
       // Simple valid shape that should pass pre-checks
       const request = makeRequest(hash, 3, [0, 2]);
       const response = makeResponse(hash, 3, [0, 2], ['0xgood0']);
 
-      // No proposal available - mock attestationPool to return undefined
+      // Neither the attestation pool nor the archiver knows this block, so we cannot verify the
+      // membership/order of the returned txs. This is not a peer fault, so no penalty is applied.
       const mockAttestationPool: MockAttestationPoolForTests = {
         getBlockProposalByArchive: (_: string) => Promise.resolve(undefined),
       };
       service.setAttestationPool(mockAttestationPool);
+      mockArchiver.getBlock.mockResolvedValue(undefined);
 
       const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    // Regression test for the tx-collection ban-storm: a prover (or any node) collecting txs to
+    // prove an already-mined block has no block proposal in its attestation pool, but it does know
+    // the block via the archiver. The validator must fall back to the archiver (as the responder
+    // handler does) so it can accept valid responses instead of rejecting every one and storming peers.
+    it('should accept when the proposal is missing but the block is known via the archiver', async () => {
+      const hash = Fr.random();
+      const request = makeRequest(hash, 5, [0, 2, 4]);
+      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood0', '0xgood2', '0xgood4']);
+
+      // No proposal (the prover never received it), but the mined block is in the archiver.
+      service.setAttestationPool({ getBlockProposalByArchive: (_: string) => Promise.resolve(undefined) });
+      mockArchiver.getBlock.mockResolvedValue(
+        makeArchivedBlock(['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']),
+      );
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+      expect(mockArchiver.getBlock).toHaveBeenCalledWith({ archive: hash });
+    });
+
+    // The reqresp BLOCK_TXS responder (block_txs_handler.ts:54-58) returns archiveRoot=Fr.ZERO
+    // when it doesn't have the block in either the attestation pool or the archiver, but the
+    // request carried full tx hashes — it matches them against its pool and ships whatever it
+    // finds. This is a documented "I don't have the block" signal, not misbehavior, so the
+    // requester must not penalize the peer for it.
+    it('should not penalize a peer that signals lacking the block with Fr.ZERO archive root', async () => {
+      const hash = Fr.random();
+      const request = makeRequest(hash, 3, [0, 2]);
+      const response = makeResponse(Fr.ZERO, 0, [], ['0xfound0', '0xfound2']);
+
+      await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
     });
   });
@@ -910,6 +955,93 @@ describe('LibP2PService', () => {
       expect(storedBlock).toBeDefined();
     });
 
+    it('skipCheckpointProposalValidation: attests before (not gated by) slow last-block processing', async () => {
+      // Recreate the service in skip-validation mode and re-register the checkpoint/block callbacks on it.
+      service = createTestLibP2PServiceWithPools(
+        mockPeerManager,
+        reportMessageValidationResultSpy,
+        attestationPool,
+        mockTxPool,
+        mockEpochCache,
+        { skipCheckpointProposalValidation: true },
+      );
+      service.registerBlockReceivedCallback(blockReceivedCallback as any);
+      service.registerValidatorCheckpointReceivedCallback(validatorCheckpointReceivedCallback as any);
+      service.registerAllNodesCheckpointReceivedCallback(allNodesCheckpointReceivedCallback as any);
+
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeCheckpointProposal({ signer, checkpointHeader, lastBlock: { blockHeader } });
+
+      // Block processing hangs until released, simulating waiting for the parent block up to the
+      // re-execution deadline. In skip mode the attestation must not be blocked behind it.
+      let releaseBlock!: () => void;
+      blockReceivedCallback.mockReturnValue(
+        new Promise<boolean>(resolve => {
+          releaseBlock = () => resolve(true);
+        }),
+      );
+
+      // Resolves once the checkpoint attestation callback runs; if it were serialized behind the hung block
+      // processing this would never resolve and the test would time out.
+      let signalCheckpoint!: () => void;
+      const checkpointInvoked = new Promise<void>(resolve => {
+        signalCheckpoint = resolve;
+      });
+      validatorCheckpointReceivedCallback.mockImplementation(() => {
+        signalCheckpoint();
+        return Promise.resolve([]);
+      });
+
+      const handled = service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      await checkpointInvoked;
+      expect(validatorCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
+
+      releaseBlock();
+      await handled;
+      expect(blockReceivedCallback).toHaveBeenCalledTimes(1);
+    });
+
+    it('default: processes the last block before the checkpoint proposal', async () => {
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeCheckpointProposal({ signer, checkpointHeader, lastBlock: { blockHeader } });
+
+      // Block processing hangs until released and signals when it starts; with validation enabled the
+      // checkpoint callback must wait for the block to finish.
+      let releaseBlock!: () => void;
+      let signalBlockStarted!: () => void;
+      const blockStarted = new Promise<void>(resolve => {
+        signalBlockStarted = resolve;
+      });
+      blockReceivedCallback.mockImplementation(() => {
+        signalBlockStarted();
+        return new Promise<boolean>(resolve => {
+          releaseBlock = () => resolve(true);
+        });
+      });
+
+      let checkpointInvoked = false;
+      validatorCheckpointReceivedCallback.mockImplementation(() => {
+        checkpointInvoked = true;
+        return Promise.resolve([]);
+      });
+
+      const handled = service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      // Wait until block processing is in flight (hung), then flush microtasks. The checkpoint callback
+      // must not have run, since it is gated behind the block.
+      await blockStarted;
+      await new Promise(resolve => setImmediate(resolve));
+      expect(checkpointInvoked).toBe(false);
+
+      // Once the block completes, the checkpoint proposal is processed.
+      releaseBlock();
+      await handled;
+      expect(checkpointInvoked).toBe(true);
+    });
+
     it('lastBlock processed even when checkpoint cap exceeded', async () => {
       const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
       const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
@@ -1024,16 +1156,6 @@ describe('LibP2PService', () => {
 
       // Verify message was rejected
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
-    });
-
-    it('notifyOwnCheckpointProposal fires allNodesCheckpointReceivedCallback', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
-      const proposal = await makeCheckpointProposal({ signer, checkpointHeader });
-
-      await service.notifyOwnCheckpointProposal(proposal.toCore());
-
-      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
-      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledWith(expect.any(Object), expect.anything());
     });
 
     // Regression for A-1013: payloads sharing (slot, archive) but differing on feeAssetPriceModifier
@@ -1490,6 +1612,7 @@ function createTestLibP2PServiceWithPools(
   attestationPool: AttestationPool,
   mockTxPool: MockProxy<TxPoolV2>,
   mockEpochCache: MockProxy<EpochCacheInterface>,
+  configOverrides?: Partial<P2PConfig>,
 ): TestLibP2PService {
   const mockNode = mock<PubSubLibp2p>();
   mockNode.services = {
@@ -1504,5 +1627,6 @@ function createTestLibP2PServiceWithPools(
     attestationPool,
     txPool: mockTxPool,
     epochCache: mockEpochCache,
+    configOverrides,
   });
 }

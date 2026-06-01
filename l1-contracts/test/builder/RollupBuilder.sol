@@ -234,6 +234,11 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) public returns (RollupBuilder) {
+    config.rollupConfigInput.localEjectionThreshold = _localEjectionThreshold;
+    return this;
+  }
+
   function setStakingQueueConfig(StakingQueueConfig memory _stakingQueueConfig) public returns (RollupBuilder) {
     config.rollupConfigInput.stakingQueueConfig = _stakingQueueConfig;
     return this;

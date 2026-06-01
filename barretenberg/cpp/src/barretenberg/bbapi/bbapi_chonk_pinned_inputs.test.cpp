@@ -34,7 +34,7 @@ class ChonkPinnedIvcInputsTest : public ::testing::Test {
         if (const char* env = std::getenv("CHONK_PINNED_IVC_INPUTS_DIR"); env != nullptr && *env != '\0') {
             return std::filesystem::path{ env };
         }
-        return find_repo_root() / "yarn-project/end-to-end/example-app-ivc-inputs-out";
+        return find_repo_root() / "barretenberg/cpp/chonk-pinned-flows";
     }
 
     static std::vector<std::filesystem::path> find_flow_dirs(const std::filesystem::path& inputs_root)

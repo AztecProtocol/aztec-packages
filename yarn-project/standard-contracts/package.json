@@ -1,0 +1,102 @@
+{
+  "name": "@aztec/standard-contracts",
+  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/standard-contracts",
+  "description": "Standard non-protocol contracts for the Aztec Network",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./dest/index.js",
+    "./*": "./dest/*/index.js",
+    "./*/lazy": "./dest/*/lazy.js",
+    "./auth-registry/constants": "./dest/auth-registry/constants.js",
+    "./public-checks/constants": "./dest/public-checks/constants.js",
+    "./multi-call-entrypoint/constants": "./dest/multi-call-entrypoint/constants.js"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts",
+      "./src/auth-registry/index.ts"
+    ],
+    "name": "Standard Contracts",
+    "tsconfig": "./tsconfig.json"
+  },
+  "scripts": {
+    "build": "yarn clean && yarn generate && yarn generate:cleanup-artifacts && ../scripts/tsc.sh",
+    "build:keep-debug-symbols": "yarn clean && yarn generate && ../scripts/tsc.sh",
+    "generate": "yarn generate:data",
+    "generate:cleanup-artifacts": "node --no-warnings --loader @swc-node/register/esm src/scripts/cleanup_artifacts.ts",
+    "generate:data": "node --no-warnings --loader @swc-node/register/esm src/scripts/generate_data.ts",
+    "build:dev": "../scripts/tsc.sh --watch",
+    "build:ts": "../scripts/tsc.sh",
+    "clean": "rm -rf ./dest .tsbuildinfo ./artifacts",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+  },
+  "inherits": [
+    "../package.common.json",
+    "./package.local.json"
+  ],
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "reporters": [
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
+    ]
+  },
+  "dependencies": {
+    "@aztec/foundation": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
+    "tslib": "^2.4.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
+    "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
+    "prettier": "^3.5.3",
+    "ts-loader": "^9.5.4",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*",
+    "artifacts",
+    "!src/scripts/*"
+  ],
+  "engines": {
+    "node": ">=20.10"
+  }
+}

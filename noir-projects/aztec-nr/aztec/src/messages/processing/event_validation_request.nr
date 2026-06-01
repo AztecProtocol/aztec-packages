@@ -6,16 +6,39 @@ use crate::protocol::{address::AztecAddress, traits::Serialize};
 /// `EphemeralArray` at the given `base_slot`.
 #[derive(Serialize)]
 pub(crate) struct EventValidationRequest {
-    pub contract_address: AztecAddress,
-    pub event_type_id: EventSelector,
-    pub randomness: Field,
-    pub serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>,
-    pub event_commitment: Field,
-    pub tx_hash: Field,
+    contract_address: AztecAddress,
+    event_type_id: EventSelector,
+    randomness: Field,
+    max_event_serialized_len: Field,
+    serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>,
+    event_commitment: Field,
+    tx_hash: Field,
+}
+
+impl EventValidationRequest {
+    pub(crate) fn new(
+        contract_address: AztecAddress,
+        event_type_id: EventSelector,
+        randomness: Field,
+        serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>,
+        event_commitment: Field,
+        tx_hash: Field,
+    ) -> Self {
+        Self {
+            contract_address,
+            event_type_id,
+            randomness,
+            max_event_serialized_len: MAX_EVENT_SERIALIZED_LEN as Field,
+            serialized_event,
+            event_commitment,
+            tx_hash,
+        }
+    }
 }
 
 mod test {
     use crate::event::EventSelector;
+    use crate::messages::logs::event::MAX_EVENT_SERIALIZED_LEN;
     use crate::protocol::{address::AztecAddress, traits::{FromField, Serialize}};
     use super::EventValidationRequest;
 
@@ -25,6 +48,7 @@ mod test {
             contract_address: AztecAddress::from_field(1),
             event_type_id: EventSelector::from_field(2),
             randomness: 3,
+            max_event_serialized_len: MAX_EVENT_SERIALIZED_LEN as Field,
             serialized_event: BoundedVec::from_array([4, 5]),
             event_commitment: 6,
             tx_hash: 7,
@@ -38,9 +62,17 @@ mod test {
             1, // contract_address
             2, // event_type_id
             3, // randomness
+            MAX_EVENT_SERIALIZED_LEN as Field,
             4, // serialized_event[0]
             5, // serialized_event[1]
-            0, 0, 0, 0, 0, 0, 0, 0, // serialized_event padding
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0, // serialized_event padding
             2, // bounded_vec_len
             6, // event_commitment
             7, // tx_hash

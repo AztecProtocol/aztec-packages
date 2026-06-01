@@ -8,8 +8,6 @@ import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import type { GasSettings } from '../gas/gas_settings.js';
-import type { GetPublicLogsResponse } from '../interfaces/get_logs_response.js';
-import type { L2LogsSource } from '../interfaces/l2_logs_source.js';
 import type { PublicCallRequest } from '../kernel/index.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class_log.js';
@@ -178,15 +176,6 @@ export class Tx extends Gossipable {
   async validateTxHash(): Promise<boolean> {
     const expectedHash = await Tx.computeTxHash(this);
     return this.txHash.equals(expectedHash);
-  }
-
-  /**
-   * Gets public logs emitted by this tx.
-   * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
-   * @returns The requested logs.
-   */
-  public getPublicLogs(logsSource: L2LogsSource): Promise<GetPublicLogsResponse> {
-    return logsSource.getPublicLogs({ txHash: this.getTxHash() });
   }
 
   getContractClassLogs(): ContractClassLog[] {
