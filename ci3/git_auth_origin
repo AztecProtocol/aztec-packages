@@ -2,15 +2,11 @@
 # Re-authenticate the 'origin' remote to act as the given token (defaults to $GITHUB_TOKEN).
 #
 # actions/checkout with persist-credentials: true stores the workflow's default github.token as a
-# git http.extraheader. That header takes precedence over any token embedded in the remote URL, so a
-# plain `git remote set-url` is not enough — pushes still go out as github-actions[bot], which only
-# has contents: read, and get a 403. (`git config --unset-all ...extraheader` no longer reliably
-# clears it as of the checkout v6 repin.) We instead overwrite the extraheader with the supplied
-# token, so this process and any child processes inheriting the repo config authenticate as it.
-#
-# Auth goes in the extraheader only; the remote URL is kept clean (token-free). Putting credentials
-# in both the URL userinfo and the extraheader makes git send two Authorization values, which GitHub
-# rejects with a 400. This mirrors how actions/checkout itself authenticates.
+# git http.extraheader. That header is an explicit Authorization and takes precedence over any token
+# in the remote URL, so pushes go out as github-actions[bot] (contents: read only) and 403. The exact
+# config key has varied across checkout versions (the v6 repin broke the previously-hardcoded
+# `git config --unset-all http.https://github.com/.extraheader`), so we strip every persisted
+# extraheader by pattern, then authenticate via a tokenized remote URL.
 #
 # Usage: git_auth_origin <owner/repo> [token]
 set -euo pipefail
@@ -18,6 +14,7 @@ set -euo pipefail
 repo="${1:?usage: git_auth_origin <owner/repo> [token]}"
 token="${2:-${GITHUB_TOKEN:?GITHUB_TOKEN is required}}"
 
-git remote set-url origin "https://github.com/${repo}.git"
-git config --replace-all http.https://github.com/.extraheader \
-  "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$token" | base64 | tr -d '\n')"
+for key in $(git config --name-only --get-regexp '^http\..*\.extraheader$' 2>/dev/null || true); do
+  git config --unset-all "$key" || true
+done
+git remote set-url origin "https://x-access-token:${token}@github.com/${repo}.git"
