@@ -196,6 +196,14 @@ After registration, you can interact with it using `aztec-wallet send` and `azte
 
 The Sponsored FPC is convenient for getting started, but you can also pay fees directly by bridging Fee Juice from Ethereum Sepolia. See [Paying Fees](./docs/aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1) for details on bridging and other fee payment methods.
 
+## Getting testnet tokens
+
+If you want to pay fees directly rather than using the Sponsored FPC, you can request testnet tokens from the faucet:
+
+- [Aztec Testnet Faucet](https://aztec-faucet.nethermind.io/) - request testnet tokens for your account
+
+Bridging Fee Juice from Ethereum also requires Sepolia ETH to cover the L1 transaction, which you can obtain from any public Sepolia faucet.
+
 ## Testnet information
 
 For complete testnet technical details including contract addresses and network configuration, see the [Networks page](/networks#testnet).
