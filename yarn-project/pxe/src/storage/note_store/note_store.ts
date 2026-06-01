@@ -63,8 +63,8 @@ export class NoteStore implements StagedStore {
     this.#check = check;
     this.#notes = store.openMap('notes');
     this.#nullifiersByContractAddress = store.openMultiMap('note_nullifiers_by_contract');
-    this.#nullificationsByNullifier = store.openMultiMap('note_nullifications_by_nullifier');
     this.#nullifiersByBlockNumber = store.openMultiMap('note_nullifiers_by_block');
+    this.#nullificationsByNullifier = store.openMultiMap('note_nullifications_by_nullifier');
 
     this.#jobLocks = new Map();
     this.#notesForJob = new Map();
