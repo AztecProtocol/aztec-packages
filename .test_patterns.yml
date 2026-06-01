@@ -338,10 +338,12 @@ tests:
       - *adam
 
   # http://ci.aztec-labs.com/93754bdf832ef9bd
-  # P2P receipt race in the compose CLI-wallet flow: the account deployment tx
+  # http://ci.aztec-labs.com/d3c0aa04dcf67278
+  # P2P receipt race in the compose CLI-wallet flows: the account deployment tx
   # can be reported as dropped after the 5s grace window before inclusion is
-  # visible to the queried node.
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose ../cli-wallet/test/flows/public_authwit_transfer.sh"
+  # visible to the queried node. Affects any of the cli-wallet flows (seen in
+  # public_authwit_transfer.sh and sponsored_create_account_and_mint.sh).
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose ../cli-wallet/test/flows/"
     error_regex: "Transaction .* was dropped\\. Reason: Tx dropped by P2P node"
     owners:
       - *palla
