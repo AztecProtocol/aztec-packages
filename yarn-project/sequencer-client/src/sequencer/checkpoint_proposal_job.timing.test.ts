@@ -1,4 +1,4 @@
-import { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -188,6 +188,12 @@ describe('CheckpointProposalJob Timing Tests', () => {
   const BLOCK_DURATION = 8; // seconds per sub-slot
   const L1_PUBLISHING_TIME = 12; // seconds to publish to L1
   const P2P_PROPAGATION_TIME = 2; // seconds for p2p message propagation
+  const CHECKPOINT_ASSEMBLE_TIME = 1; // seconds to assemble+sign the checkpoint (stdlib default)
+
+  // End-of-build-slot reservation the timetable must keep free after the last block so the checkpoint
+  // can be assembled, propagated, re-executed by validators, and have attestations returned before the
+  // build-slot boundary. Mirrors `timeReservedAtEnd` in the pipelined timing model.
+  const TIME_RESERVED_AT_END = CHECKPOINT_ASSEMBLE_TIME + 2 * P2P_PROPAGATION_TIME + BLOCK_DURATION;
 
   // Calculated for the (always-pipelined) timing model:
   // timeReservedAtEnd = checkpointAssembleTime(1) + 2*p2pPropagation(2) + blockDuration(8) = 13
@@ -218,6 +224,10 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
   // Test state
   let slotNumber: SlotNumber;
+  // Always-pipelined production shape: the proposer builds during `slotNumber` (the build slot) for
+  // `targetSlot = slotNumber + PROPOSER_PIPELINING_SLOT_OFFSET`. Build timing (sub-slot scheduling,
+  // deadlines) is anchored to the build slot; the checkpoint/proposal commits to the target slot.
+  let targetSlot: SlotNumber;
   let checkpointNumber: CheckpointNumber;
   let epoch: EpochNumber;
   let globalVariables: GlobalVariables;
@@ -265,7 +275,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
         chainId,
         version,
         blockNumber,
-        slotNumber,
+        targetSlot,
         globalVariables.timestamp,
         coinbase,
         globalVariables.feeRecipient,
@@ -299,7 +309,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       dateProvider,
       getSecondsIntoSlot,
       slotNumber,
-      slotNumber,
+      targetSlot,
       epoch,
       checkpointNumber,
       BlockNumber.ZERO,
@@ -348,16 +358,19 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
     // Initialize test state
     slotNumber = SlotNumber(1);
+    targetSlot = SlotNumber(slotNumber + PROPOSER_PIPELINING_SLOT_OFFSET);
     checkpointNumber = CheckpointNumber(1);
     epoch = EpochNumber(0);
 
     const feeRecipient = await AztecAddress.random();
+    // The checkpoint commits to the target slot, so its globals (and the blocks built under them)
+    // carry `targetSlot`, even though building happens during the build slot.
     globalVariables = new GlobalVariables(
       chainId,
       version,
       BlockNumber(1),
-      slotNumber,
-      BigInt(getSlotStartTime(slotNumber)),
+      targetSlot,
+      BigInt(getSlotStartTime(targetSlot)),
       coinbase,
       feeRecipient,
       gasFees,
@@ -439,6 +452,31 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+    // The always-pipelined submission path calls `waitForValidParentCheckpointOnL1()` for every job
+    // that collects attestations. Without these mocks `getSyncedL2SlotNumber` returns undefined and
+    // the job spins in a real-clock `retryUntil` until its multi-slot timeout (~80s of wall time per
+    // test). Report the build slot as synced, and a checkpointed tip at the parent checkpoint so the
+    // "no unexpected parent appeared" check passes immediately.
+    l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(slotNumber);
+    l2BlockSource.getL2Tips.mockResolvedValue({
+      proposed: { number: BlockNumber.ZERO, hash: '' },
+      checkpointed: {
+        block: { number: BlockNumber.ZERO, hash: '' },
+        checkpoint: { number: CheckpointNumber(checkpointNumber - 1), hash: '' },
+      },
+      proposedCheckpoint: {
+        block: { number: BlockNumber.ZERO, hash: '' },
+        checkpoint: { number: CheckpointNumber(checkpointNumber - 1), hash: '' },
+      },
+      proven: {
+        block: { number: BlockNumber.ZERO, hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+      finalized: {
+        block: { number: BlockNumber.ZERO, hash: '' },
+        checkpoint: { number: CheckpointNumber(0), hash: '' },
+      },
+    });
 
     blockSink = mock<L2BlockSink & ProposedCheckpointSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
@@ -708,6 +746,14 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       // Must have at least blockDuration for validators to re-execute
       expect(validatorReexecutionBudget).toBeGreaterThanOrEqual(BLOCK_DURATION);
+
+      // The enforced attestation deadline above is permissive (it spills into the target slot), so it
+      // can't catch a build slot that is overfilled. Assert the README design guarantee directly: the
+      // last sub-slot's deadline, and the actual last-block completion, both leave the full
+      // end-of-build-slot reservation free before the build-slot boundary.
+      const lastSubSlotDeadline = timetable.initializationOffset + EXPECTED_MAX_BLOCKS * BLOCK_DURATION;
+      expect(lastSubSlotDeadline).toBeLessThanOrEqual(AZTEC_SLOT_DURATION - TIME_RESERVED_AT_END);
+      expect(AZTEC_SLOT_DURATION - lastBlockBuildTime.endTime).toBeGreaterThanOrEqual(TIME_RESERVED_AT_END);
     });
 
     it('enforces re-execution budget even when sequencer is slow', async () => {
@@ -746,7 +792,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   });
 
   describe('Block Execution Overflow Handling', () => {
-    it('handles block that finishes after its deadline by skipping next sub-slot', async () => {
+    it('continues in the next sub-slot when an overrun still leaves enough headroom', async () => {
       const { blocks, txs } = await createTestBlocksAndTxs(EXPECTED_MAX_BLOCKS);
       mockP2pWithTxs(txs);
       checkpointBuilder.seedBlocks(
@@ -1016,88 +1062,9 @@ describe('CheckpointProposalJob Timing Tests', () => {
   });
 
   describe('Pipelining Attestation Timing', () => {
-    const targetSlot = SlotNumber(2); // Target slot is one ahead of build slot
-
-    /** Create a pipelining-aware job where targetSlot = slotNumber + 1 */
-    function createPipeliningJob(): TimingTestCheckpointProposalJob {
-      const pipeliningTimetable = new SequencerTimetable(
-        {
-          ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-          aztecSlotDuration: AZTEC_SLOT_DURATION,
-          l1PublishingTime: L1_PUBLISHING_TIME,
-          p2pPropagationTime: P2P_PROPAGATION_TIME,
-          blockDurationMs: BLOCK_DURATION * 1000,
-          enforce: true,
-        },
-        undefined,
-        createLogger('test:timetable:pipelining'),
-      );
-
-      const setStateFn = jest.fn();
-      const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
-
-      const job = new TimingTestCheckpointProposalJob(
-        dateProvider,
-        getSecondsIntoSlot,
-        slotNumber,
-        targetSlot,
-        epoch,
-        checkpointNumber,
-        BlockNumber.ZERO,
-        CheckpointNumber(checkpointNumber - 1),
-        proposer,
-        publisher,
-        attestorAddress,
-        undefined, // invalidateCheckpoint
-        validatorClient,
-        globalVariableBuilder,
-        p2p,
-        worldState,
-        l1ToL2MessageSource,
-        l2BlockSource,
-        checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
-        blockSink,
-        l1Constants,
-        signatureContext,
-        config,
-        pipeliningTimetable,
-        slasherClient,
-        epochCache,
-        dateProvider,
-        metrics,
-        checkpointMetrics,
-        eventEmitter,
-        setStateFn,
-        getTelemetryClient().getTracer('timing-test-pipelining'),
-        { actor: 'timing-test-pipelining' },
-      );
-
-      return job;
-    }
-
-    beforeEach(() => {
-      // Mock l2BlockSource methods needed by waitForValidParentCheckpointOnL1
-      l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(slotNumber);
-      l2BlockSource.getL2Tips.mockResolvedValue({
-        proposed: { number: BlockNumber.ZERO, hash: '' },
-        checkpointed: {
-          block: { number: BlockNumber.ZERO, hash: '' },
-          checkpoint: { number: CheckpointNumber(0), hash: '' },
-        },
-        proposedCheckpoint: {
-          block: { number: BlockNumber.ZERO, hash: '' },
-          checkpoint: { number: CheckpointNumber(0), hash: '' },
-        },
-        proven: {
-          block: { number: BlockNumber.ZERO, hash: '' },
-          checkpoint: { number: CheckpointNumber(0), hash: '' },
-        },
-        finalized: {
-          block: { number: BlockNumber.ZERO, hash: '' },
-          checkpoint: { number: CheckpointNumber(0), hash: '' },
-        },
-      });
-    });
+    // `createJob` already builds a pipelined job (targetSlot = slotNumber + 1) and the top-level
+    // beforeEach mocks the parent-sync lookups, so these tests exercise the production shape directly
+    // and assert the target-slot invariants that distinguish the build slot from the submission slot.
 
     it('sets attestation deadline to the target-slot publish cutoff when pipelining', async () => {
       const { blocks, txs } = await createTestBlocksAndTxs(2);
@@ -1116,7 +1083,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       setTimeInSlot(1);
 
-      const job = createPipeliningJob();
+      const job = createJob();
       await job.execute();
       await job.awaitPendingSubmission();
 
@@ -1130,6 +1097,45 @@ describe('CheckpointProposalJob Timing Tests', () => {
       const actualDeadlineSeconds = collectAttestationsDeadline!.getTime() / 1000;
 
       expect(actualDeadlineSeconds).toBeCloseTo(expectedDeadlineSeconds, 0);
+    });
+
+    it('threads the target slot through checkpoint constants, attestation signing, and L1 submission', async () => {
+      const { blocks, txs } = await createTestBlocksAndTxs(2);
+      mockP2pWithTxs(txs);
+      checkpointBuilder.seedBlocks(
+        blocks,
+        blocks.map((_, i) => [txs[i]]),
+      );
+      checkpointBuilder.setExecutionDurations([5, 5]);
+
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(blocks[1]));
+
+      setTimeInSlot(1);
+
+      const job = createJob();
+      await job.execute();
+      await job.awaitPendingSubmission();
+
+      // The build slot and target slot must differ under pipelining.
+      expect(Number(targetSlot)).toBe(Number(slotNumber) + PROPOSER_PIPELINING_SLOT_OFFSET);
+
+      // The checkpoint is built for the target slot, so the globals handed to the builder carry it.
+      expect(checkpointsBuilder.startCheckpointCalls.length).toBeGreaterThan(0);
+      expect(Number(checkpointsBuilder.startCheckpointCalls[0].constants.slotNumber)).toBe(Number(targetSlot));
+
+      // The built blocks (and therefore the checkpoint proposal) commit to the target slot.
+      expect(Number(blocks[0].header.globalVariables.slotNumber)).toBe(Number(targetSlot));
+
+      // EIP-712 signatures are bound to the submission slot, so signing uses the target slot...
+      expect(validatorClient.signAttestationsAndSigners).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        targetSlot,
+        checkpointNumber,
+      );
+
+      // ...and the L1 submission is delayed to (and mines in) the target slot.
+      expect(publisher.sendRequestsAt).toHaveBeenCalledWith(targetSlot);
     });
   });
 });
