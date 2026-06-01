@@ -400,7 +400,16 @@ export class NoteStore implements StagedStore {
    * Deletes note rows whose creation origin is not canonical, for creation block numbers in [fromBlock, toBlock].
    * Must be called inside a transaction owned by the caller (it issues no transactionAsync of its own, because
    * IndexedDB does not support nested transactions and the reorg-finalize path wraps this together with the
-   * canonical-floor advance).
+   * finalized-floor advance).
+   *
+   * The reap is idempotent and resumable: re-running it over the same range re-reads the now-absent notes, hits the
+   * missing-buffer guard, and does nothing — so a partially-completed reap (e.g. an interrupted transaction) is safe to
+   * re-run.
+   *
+   * @param isCanonical - The truth-source for canonicality, supplied explicitly by the caller rather than read from
+   *   this store's own `#check`. This destructive reap is driven by the verdict the reorg-finalize path computes (so it
+   *   reaps against the freshly-advanced finalized floor), and passing it in keeps the method unit-testable in
+   *   isolation.
    */
   public async reapNonCanonicalInRange(
     fromBlock: number,

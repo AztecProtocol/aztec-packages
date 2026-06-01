@@ -816,6 +816,48 @@ describe('NoteStore (canonicality)', () => {
     expect(found[0].siloedNullifier.equals(live.siloedNullifier)).toBe(true);
   });
 
+  it('reaps a stale nullification origin so a note reusing the same nullifier reads back active', async () => {
+    // An orphan note created on a reorged-away fork, then nullified on a canonical block. The nullification origin is
+    // canonical, so absent cleanup it would survive the reap keyed by the shared siloedNullifier.
+    const sharedNullifier = Fr.random();
+    const nullBlockHash = Fr.random().toString();
+    const orphan = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(9),
+      l2BlockHash: ORPHAN_HASH,
+      siloedNullifier: sharedNullifier,
+    });
+    await store.addNotes([orphan], scope, JOB);
+    await store.applyNullifiers(
+      [{ data: sharedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash as any }],
+      JOB,
+    );
+    await store.commit(JOB);
+    // The nullification block IS canonical; the orphan's creation block is not.
+    canonical.add(originKey(BlockNumber(11), nullBlockHash));
+
+    // Reap orphans at block 9: the orphan and its nullification origin are deleted.
+    const isCanonical = (id: L2BlockId) => id.hash === CANONICAL_HASH;
+    await kv.transactionAsync(() => store.reapNonCanonicalInRange(9, 9, isCanonical));
+
+    // Re-add a fresh note reusing the same siloedNullifier on the canonical fork.
+    const reAdded = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(9),
+      l2BlockHash: CANONICAL_HASH,
+      siloedNullifier: sharedNullifier,
+    });
+    await store.addNotes([reAdded], scope, JOB);
+    await store.commit(JOB);
+    canonical.add(originKey(BlockNumber(9), CANONICAL_HASH));
+
+    // The stale nullification origin was cleaned, so the re-added note reads back active. Had it survived, the canonical
+    // 11:nullBlockHash origin would mark this note nullified.
+    const found = await store.getNotes(activeFilter, 'read-job');
+    expect(found).toHaveLength(1);
+    expect(found[0].siloedNullifier.equals(sharedNullifier)).toBe(true);
+  });
+
   it('leaves notes outside the [fromBlock, toBlock] range untouched even if non-canonical', async () => {
     const outOfRange = await NoteDao.random({
       contractAddress: contract,
