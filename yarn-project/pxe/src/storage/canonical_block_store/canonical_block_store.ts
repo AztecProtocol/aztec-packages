@@ -1,9 +1,8 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
-import type { L2BlockId } from '@aztec/stdlib/block';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { CanonicalityCheck } from '../foundation/index.js';
+import type { CanonicalityCheck, L2BlockId } from '../foundation/index.js';
 
 /**
  * Holds the PXE's view of the canonical L2 chain: the synced tip header (used as the execution anchor block) and a

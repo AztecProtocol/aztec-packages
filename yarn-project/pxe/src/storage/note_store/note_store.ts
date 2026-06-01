@@ -3,12 +3,12 @@ import { Semaphore } from '@aztec/foundation/queue';
 import type { Fr } from '@aztec/foundation/schemas';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { DataInBlock, L2BlockId } from '@aztec/stdlib/block';
+import type { DataInBlock } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { NotesFilter } from '../../notes_filter.js';
-import type { CanonicalityCheck } from '../foundation/index.js';
+import type { CanonicalityCheck, L2BlockId } from '../foundation/index.js';
 import { StoredNote } from './stored_note.js';
 
 /**
@@ -39,7 +39,7 @@ export class NoteStore implements StagedStore {
 
   // Stores all nullification origins for each nullifier. Multiple origins arise when competing forks nullify the same
   // note at different block hashes; the canonical one is selected at read time via #check.
-  // nullifier => originStr ("blockNumber:blockHash")
+  // nullifier => originStr ("<number>:<hash>")
   #nullificationsByNullifier: AztecAsyncMultiMap<string, string>;
 
   // In-memory changes performed during a not-yet committed job. When `commit` is called with said job's id, these
@@ -231,7 +231,7 @@ export class NoteStore implements StagedStore {
   /**
    * Records nullification origins for the given nullifiers without mutating note records.
    *
-   * Each nullifier gets an append-only origin entry `blockNumber:blockHash`. Nullifications are recorded only for
+   * Each nullifier gets an append-only origin entry `"<number>:<hash>"`. Nullifications are recorded only for
    * notes already present in this store; a nullifier with no matching note is ignored (the note may belong to another
    * account). Reorg safety comes from the CanonicalityCheck at read time — no physical deletion or mutation ever
    * occurs here.

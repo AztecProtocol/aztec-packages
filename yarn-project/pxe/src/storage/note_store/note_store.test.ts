@@ -653,7 +653,7 @@ describe('NoteStore (canonicality)', () => {
 
   // Build a canonical-origin key from a note's own fields. NoteDao serializes l2BlockHash as an Fr, so the value
   // returned by NoteDao.random is the canonical key — no manual hex padding needed.
-  function originKey(blockNumber: number, blockHash: string): string {
+  function originKey(blockNumber: BlockNumber, blockHash: string): string {
     return `${blockNumber}:${blockHash}`;
   }
 
@@ -697,7 +697,7 @@ describe('NoteStore (canonicality)', () => {
     );
     await store.commit(JOB);
 
-    canonical.add(originKey(11, nullBlockHash));
+    canonical.add(originKey(BlockNumber(11), nullBlockHash));
     expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
     expect(await store.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'read-job')).toHaveLength(
       1,
@@ -735,7 +735,7 @@ describe('NoteStore (canonicality)', () => {
     );
     await store.commit(JOB);
 
-    canonical.add(originKey(11, forkBHash));
+    canonical.add(originKey(BlockNumber(11), forkBHash));
     expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
   });
 
