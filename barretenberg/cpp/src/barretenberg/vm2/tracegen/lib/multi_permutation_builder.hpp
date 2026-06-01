@@ -46,8 +46,8 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
         // Set the destination selector for each permutation.
         (set_destination_selector<PermutationSettings_>(trace), ...);
 
-        // Set all the dummy inverses or whatever else is needed.
-        (PermutationBuilder<PermutationSettings_>().process(trace), ...);
+        // Standard permutation processing for each permutation should be done here if we were to
+        // support a strict mode or re-introduce a non-empty PermutationBuilder::process().
     }
 
     template <typename PermutationSettings> void set_destination_selector(TraceContainer& trace)

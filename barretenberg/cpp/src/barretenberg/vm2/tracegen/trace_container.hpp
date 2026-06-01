@@ -1,21 +1,18 @@
 #pragma once
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <shared_mutex>
 #include <span>
-#include <unordered_map>
 #include <utility>
 
 #include "barretenberg/common/tuple.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
-#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
 namespace bb::avm2::tracegen {
 
