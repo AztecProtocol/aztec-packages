@@ -237,7 +237,8 @@ void bench_sumcheck_loop_shape(benchmark::State& state, const Scheduler schedule
                     const auto& chunk = chunks[chunk_idx];
                     for (size_t edge_idx = chunk.start; edge_idx < chunk.start + chunk.size; edge_idx += 2) {
                         round.extend_edges(extended_edges, polynomials, edge_idx);
-                        accumulate_one_edge<Flavor>(round, thread_accumulators[slot_idx], extended_edges, params, FF(7));
+                        accumulate_one_edge<Flavor>(
+                            round, thread_accumulators[slot_idx], extended_edges, params, FF(7));
                     }
                 }
             });
@@ -355,8 +356,7 @@ template <typename Flavor> void bench_compute_univariate_round0(benchmark::State
 
     for (auto _ : state) {
         Round round(round_size);
-        auto result =
-            round.compute_univariate(synthetic_polynomials.polynomials, params, gate_separators, alphas);
+        auto result = round.compute_univariate(synthetic_polynomials.polynomials, params, gate_separators, alphas);
         benchmark::DoNotOptimize(result);
     }
 
@@ -365,13 +365,15 @@ template <typename Flavor> void bench_compute_univariate_round0(benchmark::State
     state.counters["threads"] = static_cast<double>(get_num_cpus());
 }
 
-template <typename Flavor>
-void register_flavor_benches(const std::string& name, const bool fragmented)
+template <typename Flavor> void register_flavor_benches(const std::string& name, const bool fragmented)
 {
-    benchmark::RegisterBenchmark((name + "/accumulate_relations_only").c_str(), &bench_accumulate_relations_only<Flavor>)
+    benchmark::RegisterBenchmark((name + "/accumulate_relations_only").c_str(),
+                                 &bench_accumulate_relations_only<Flavor>)
         ->UseRealTime();
-    benchmark::RegisterBenchmark(
-        (name + "/loop_static_blocks").c_str(), &bench_sumcheck_loop_shape<Flavor>, Scheduler::STATIC_BLOCKS, fragmented)
+    benchmark::RegisterBenchmark((name + "/loop_static_blocks").c_str(),
+                                 &bench_sumcheck_loop_shape<Flavor>,
+                                 Scheduler::STATIC_BLOCKS,
+                                 fragmented)
         ->Arg(17)
         ->UseRealTime()
         ->Unit(benchmark::kMillisecond);
@@ -382,7 +384,8 @@ void register_flavor_benches(const std::string& name, const bool fragmented)
         ->Arg(17)
         ->UseRealTime()
         ->Unit(benchmark::kMillisecond);
-    benchmark::RegisterBenchmark((name + "/compute_univariate_round0").c_str(), &bench_compute_univariate_round0<Flavor>)
+    benchmark::RegisterBenchmark((name + "/compute_univariate_round0").c_str(),
+                                 &bench_compute_univariate_round0<Flavor>)
         ->Arg(17)
         ->UseRealTime()
         ->Unit(benchmark::kMillisecond);

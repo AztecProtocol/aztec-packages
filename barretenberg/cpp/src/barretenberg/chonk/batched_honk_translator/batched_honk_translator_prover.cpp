@@ -183,7 +183,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
             SumcheckRoundUnivariate U_T;
             {
                 BB_BENCH_NAME("joint_sumcheck/translator/compute_univariate");
-                U_T = translator_round.compute_univariate(tpolys, translator_relation_parameters, gate_sep, translator_alphas);
+                U_T = translator_round.compute_univariate(
+                    tpolys, translator_relation_parameters, gate_sep, translator_alphas);
             }
             for (auto& eval : U_T.evaluations) {
                 eval *= alpha_power_KH;

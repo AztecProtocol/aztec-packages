@@ -72,11 +72,11 @@ void TranslatorDeltaRangeConstraintShortRelationImpl<FF>::accumulate(ContainerOv
             accumulator += tmp;
         };
 
-        // The ordered_range_constraints wires are sorted ascending, so each is constant over long runs. On an edge where
-        // ordered_i is locally constant, delta_i is the zero edge polynomial and P(delta_i) = delta(delta-1)(delta-2)
-        // (delta-3) vanishes identically, so this subrelation adds nothing. Skipping the degree-4 product there checks
-        // the actual delta value (not a selector), so it is sound in every sumcheck round. Test zero-ness on the raw
-        // length-2 edge entities, since the coefficient-basis view has no is_zero().
+        // The ordered_range_constraints wires are sorted ascending, so each is constant over long runs. On an edge
+        // where ordered_i is locally constant, delta_i is the zero edge polynomial and P(delta_i) =
+        // delta(delta-1)(delta-2) (delta-3) vanishes identically, so this subrelation adds nothing. Skipping the
+        // degree-4 product there checks the actual delta value (not a selector), so it is sound in every sumcheck
+        // round. Test zero-ness on the raw length-2 edge entities, since the coefficient-basis view has no is_zero().
         // Contributions (1-5) ensure that sequential values have a difference of {0,1,2,3}.
         if (!(in.ordered_range_constraints_0_shift - in.ordered_range_constraints_0).is_zero()) {
             accumulate_delta_check(std::get<0>(accumulators), delta_1);
