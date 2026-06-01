@@ -1,6 +1,6 @@
 import { Timer } from '@aztec/foundation/timer';
 
-import { webcrypto } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { type RecordableHistogram, createHistogram } from 'perf_hooks';
@@ -77,7 +77,7 @@ describe('Tx', () => {
     const tx = await mockTxForRollup(42);
     for (let i = 0; i < RUNS; i++) {
       const timer = new Timer();
-      await webcrypto.subtle.digest('SHA-256', tx.toBuffer());
+      createHash('sha256').update(tx.toBuffer()).digest();
       privateSha256Histogram.record(Math.max(1, Math.ceil(timer.ms())));
     }
   });
@@ -86,7 +86,7 @@ describe('Tx', () => {
     const tx = await mockTx(42);
     for (let i = 0; i < RUNS; i++) {
       const timer = new Timer();
-      await webcrypto.subtle.digest('SHA-256', tx.toBuffer());
+      createHash('sha256').update(tx.toBuffer()).digest();
       publicSha256Histogram.record(Math.max(1, Math.ceil(timer.ms())));
     }
   });
