@@ -33,7 +33,7 @@ describe('PrivateEventStore', () => {
   beforeEach(async () => {
     const store = await openTmpStore('private_event_store_test');
     canonical = new Set<string>();
-    check = { isCanonical: o => canonical.has(`${o.blockNumber}:${o.blockHash}`) };
+    check = { isCanonical: o => canonical.has(`${o.number}:${o.hash}`) };
     // Most tests don't exercise canonicality filtering; use an always-true check so stored events are always visible.
     privateEventStore = new PrivateEventStore(store, { isCanonical: () => true });
     contractAddress = await AztecAddress.random();

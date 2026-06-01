@@ -1,7 +1,7 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { NoteDao } from '@aztec/stdlib/note';
 
-import type { Origin } from '../foundation/index.js';
+import type { L2BlockId } from '../foundation/index.js';
 
 /** A note as stored by the PXE: the note DAO plus the scopes that observed it. Append-only — never mutated. */
 export class StoredNote {
@@ -23,8 +23,8 @@ export class StoredNote {
   }
 
   /** The chain location that created this note — used as its canonicality coordinate. */
-  get creationOrigin(): Origin {
-    return { blockNumber: this.noteDao.l2BlockNumber, blockHash: this.noteDao.l2BlockHash };
+  get creationOrigin(): L2BlockId {
+    return { number: this.noteDao.l2BlockNumber, hash: this.noteDao.l2BlockHash };
   }
 
   addScope(scope: string): void {

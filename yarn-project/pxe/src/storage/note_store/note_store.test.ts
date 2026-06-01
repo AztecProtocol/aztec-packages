@@ -649,7 +649,7 @@ describe('NoteStore (canonicality)', () => {
   let kv: Awaited<ReturnType<typeof openTmpStore>>;
   let store: NoteStore;
   let canonical: Set<string>;
-  const check: CanonicalityCheck = { isCanonical: o => canonical.has(`${o.blockNumber}:${o.blockHash}`) };
+  const check: CanonicalityCheck = { isCanonical: o => canonical.has(`${o.number}:${o.hash}`) };
 
   // Build a canonical-origin key from a note's own fields. NoteDao serializes l2BlockHash as an Fr, so the value
   // returned by NoteDao.random is the canonical key — no manual hex padding needed.

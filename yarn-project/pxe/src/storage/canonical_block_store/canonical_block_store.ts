@@ -1,8 +1,9 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
+import type { L2BlockId } from '@aztec/stdlib/block';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
-import type { CanonicalityCheck, Origin } from '../foundation/index.js';
+import type { CanonicalityCheck } from '../foundation/index.js';
 
 /**
  * Holds the PXE's view of the canonical L2 chain: the synced tip header (used as the execution anchor block) and a
@@ -74,13 +75,11 @@ export class CanonicalBlockStore implements CanonicalityCheck {
   }
 
   /** Record canonical hashes for a batch of blocks (e.g. cold-start hydration or a run of added blocks). */
-  async setManyCanonical(origins: Origin[]): Promise<void> {
-    for (const { blockNumber, blockHash } of origins) {
-      this.#memHashes.set(blockNumber, blockHash);
+  async setManyCanonical(origins: L2BlockId[]): Promise<void> {
+    for (const { number, hash } of origins) {
+      this.#memHashes.set(number, hash);
     }
-    await this.#canonicalHashes.setMany(
-      origins.map(({ blockNumber, blockHash }) => ({ key: blockNumber, value: blockHash })),
-    );
+    await this.#canonicalHashes.setMany(origins.map(({ number, hash }) => ({ key: number, value: hash })));
   }
 
   /** Retract canonical entries strictly above `blockNumber` (the reorg common ancestor). */
@@ -96,11 +95,11 @@ export class CanonicalBlockStore implements CanonicalityCheck {
    * The canonicality predicate. Synchronous and in-memory: blocks below the floor are immutable-canonical; otherwise
    * the recorded hash must match.
    */
-  isCanonical(origin: Origin): boolean {
-    if (origin.blockNumber < this.#floor) {
+  isCanonical(id: L2BlockId): boolean {
+    if (id.number < this.#floor) {
       return true;
     }
-    return this.#memHashes.get(origin.blockNumber) === origin.blockHash;
+    return this.#memHashes.get(id.number) === id.hash;
   }
 
   async setFloor(blockNumber: number): Promise<void> {

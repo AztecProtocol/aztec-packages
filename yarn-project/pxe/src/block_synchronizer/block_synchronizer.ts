@@ -63,7 +63,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     switch (event.type) {
       case 'blocks-added': {
         const origins = await Promise.all(
-          event.blocks.map(async b => ({ blockNumber: b.number, blockHash: (await b.hash()).toString() })),
+          event.blocks.map(async b => ({ number: b.number, hash: (await b.hash()).toString() })),
         );
         await this.canonicalBlockStore.setManyCanonical(origins);
         if (this.config.syncChainTip === undefined || this.config.syncChainTip === 'proposed') {
@@ -202,9 +202,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
       await this.canonicalBlockStore.setFinalized(finalized);
       const tip = await this.node.getBlockNumber();
       const blocks = await this.node.getBlocks(BlockNumber(finalized), tip - finalized + 1);
-      await this.canonicalBlockStore.setManyCanonical(
-        blocks.map(b => ({ blockNumber: b.number, blockHash: b.hash.toString() })),
-      );
+      await this.canonicalBlockStore.setManyCanonical(blocks.map(b => ({ number: b.number, hash: b.hash.toString() })));
     }
     await this.blockStream.sync();
   }

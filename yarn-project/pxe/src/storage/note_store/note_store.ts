@@ -1,13 +1,14 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { Fr } from '@aztec/foundation/schemas';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { DataInBlock } from '@aztec/stdlib/block';
+import type { DataInBlock, L2BlockId } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { NotesFilter } from '../../notes_filter.js';
-import type { CanonicalityCheck, Origin } from '../foundation/index.js';
+import type { CanonicalityCheck } from '../foundation/index.js';
 import { StoredNote } from './stored_note.js';
 
 /**
@@ -270,7 +271,7 @@ export class NoteStore implements StagedStore {
             continue;
           }
 
-          const originStr = this.#originStr({ blockNumber: n.l2BlockNumber, blockHash: n.l2BlockHash.toString() });
+          const originStr = this.#originStr({ number: n.l2BlockNumber, hash: n.l2BlockHash.toString() });
           this.#stageNullification(n.data.toString(), originStr, jobId);
           affected.push(storedNote.noteDao);
         }
@@ -363,13 +364,13 @@ export class NoteStore implements StagedStore {
     origins.add(originStr);
   }
 
-  #originStr(o: Origin): string {
-    return `${o.blockNumber}:${o.blockHash}`;
+  #originStr(o: L2BlockId): string {
+    return `${o.number}:${o.hash}`;
   }
 
-  #parseOrigin(s: string): Origin {
+  #parseOrigin(s: string): L2BlockId {
     const idx = s.indexOf(':');
-    return { blockNumber: Number(s.slice(0, idx)), blockHash: s.slice(idx + 1) };
+    return { number: BlockNumber(Number(s.slice(0, idx))), hash: s.slice(idx + 1) };
   }
 
   /** Collects all committed nullification origin strings for a nullifier into an array. */

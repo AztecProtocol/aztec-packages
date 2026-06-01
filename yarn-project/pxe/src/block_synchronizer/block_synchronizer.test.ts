@@ -193,11 +193,11 @@ describe('BlockSynchronizer', () => {
 
       // All three hydrated heights must be canonical with the hashes doSync stored.
       for (const [n, entry] of blocksByNumber) {
-        expect(canonicalBlockStore.isCanonical({ blockNumber: n, blockHash: entry.hash.toString() })).toBe(true);
+        expect(canonicalBlockStore.isCanonical({ number: BlockNumber(n), hash: entry.hash.toString() })).toBe(true);
       }
 
       // A competing hash at a hydrated height is NOT canonical.
-      expect(canonicalBlockStore.isCanonical({ blockNumber: 3, blockHash: '0xdeadbeef' })).toBe(false);
+      expect(canonicalBlockStore.isCanonical({ number: BlockNumber(3), hash: '0xdeadbeef' })).toBe(false);
     });
 
     it('records canonical hashes for all blocks in a blocks-added event', async () => {
@@ -205,9 +205,7 @@ describe('BlockSynchronizer', () => {
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });
 
       for (const b of blocks) {
-        expect(canonicalBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
-          true,
-        );
+        expect(canonicalBlockStore.isCanonical({ number: b.number, hash: (await b.hash()).toString() })).toBe(true);
       }
     });
 
@@ -244,15 +242,11 @@ describe('BlockSynchronizer', () => {
 
       // Heights above 3 should no longer be canonical
       for (const b of blocks.filter(b => b.number > 3)) {
-        expect(canonicalBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
-          false,
-        );
+        expect(canonicalBlockStore.isCanonical({ number: b.number, hash: (await b.hash()).toString() })).toBe(false);
       }
       // Heights at or below 3 should still be canonical
       for (const b of blocks.filter(b => b.number <= 3)) {
-        expect(canonicalBlockStore.isCanonical({ blockNumber: b.number, blockHash: (await b.hash()).toString() })).toBe(
-          true,
-        );
+        expect(canonicalBlockStore.isCanonical({ number: b.number, hash: (await b.hash()).toString() })).toBe(true);
       }
       // The new anchor header should be the common ancestor block
       const obtainedHeader = await canonicalBlockStore.getBlockHeader();

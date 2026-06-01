@@ -117,8 +117,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       // Populate the canonical map + finality meta so canonical_hashes / canonical_meta are fingerprinted.
       await canonicalBlockStore.setManyCanonical([
-        { blockNumber: 101, blockHash: '0x6f' },
-        { blockNumber: 103, blockHash: '0x83' },
+        { number: BlockNumber(101), hash: '0x6f' },
+        { number: BlockNumber(103), hash: '0x83' },
       ]);
       await canonicalBlockStore.setFloor(97);
       await canonicalBlockStore.setFinalized(89);

@@ -17,6 +17,6 @@ describe('StoredNote', () => {
   it('derives its creation origin from the note dao', async () => {
     const noteDao = await NoteDao.random({ l2BlockNumber: BlockNumber(7) });
     const stored = new StoredNote(noteDao, new Set());
-    expect(stored.creationOrigin).toEqual({ blockNumber: 7, blockHash: noteDao.l2BlockHash });
+    expect(stored.creationOrigin).toEqual({ number: BlockNumber(7), hash: noteDao.l2BlockHash });
   });
 });
