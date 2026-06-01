@@ -66,6 +66,10 @@
       "kind": "map"
     },
     {
+      "name": "note_nullifications_by_block",
+      "kind": "multimap"
+    },
+    {
       "name": "note_nullifications_by_nullifier",
       "kind": "multimap"
     },

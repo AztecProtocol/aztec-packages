@@ -45,6 +45,13 @@ export class NoteStore implements StagedStore {
   // nullifier => originStr ("<number>:<hash>")
   #nullificationsByNullifier: AztecAsyncMultiMap<string, string>;
 
+  // Locates nullification origins by the block that recorded them, so the reorg reap can find and delete orphan
+  // origins at a finalized height. The value packs both the nullifier (to locate the #nullificationsByNullifier key)
+  // and the originStr (the specific value to delete) as "<nullifier>|<originStr>"; '|' is a safe delimiter since
+  // nullifiers are hex "0x…" strings and originStr is "<decimal>:<0xhex>".
+  // nullification block number => "<nullifier>|<originStr>"
+  #nullificationsByBlockNumber: AztecAsyncMultiMap<number, string>;
+
   // In-memory changes performed during a not-yet committed job. When `commit` is called with said job's id, these
   // changes are persisted in the DB maps specified above and cleared.
   // jobId => nullifier => StoredNote
@@ -65,6 +72,7 @@ export class NoteStore implements StagedStore {
     this.#nullifiersByContractAddress = store.openMultiMap('note_nullifiers_by_contract');
     this.#nullifiersByBlockNumber = store.openMultiMap('note_nullifiers_by_block');
     this.#nullificationsByNullifier = store.openMultiMap('note_nullifications_by_nullifier');
+    this.#nullificationsByBlockNumber = store.openMultiMap('note_nullifications_by_block');
 
     this.#jobLocks = new Map();
     this.#notesForJob = new Map();
@@ -305,6 +313,8 @@ export class NoteStore implements StagedStore {
     for (const [nullifier, originSet] of this.#getNullificationsForJob(jobId)) {
       for (const originStr of originSet) {
         await this.#nullificationsByNullifier.set(nullifier, originStr);
+        const blockNumber = this.#parseOrigin(originStr).number;
+        await this.#nullificationsByBlockNumber.set(blockNumber, `${nullifier}|${originStr}`);
       }
     }
 
@@ -397,14 +407,17 @@ export class NoteStore implements StagedStore {
   }
 
   /**
-   * Deletes note rows whose creation origin is not canonical, for creation block numbers in [fromBlock, toBlock].
+   * Deletes orphaned rows for block numbers in [fromBlock, toBlock]: both note rows whose creation origin is not
+   * canonical AND nullification origins (recorded at a block in range) that are not canonical. Keeps canonical
+   * nullification origins so a note genuinely spent on the canonical chain stays nullified.
+   *
    * Must be called inside a transaction owned by the caller (it issues no transactionAsync of its own, because
    * IndexedDB does not support nested transactions and the reorg-finalize path wraps this together with the
    * finalized-floor advance).
    *
-   * The reap is idempotent and resumable: re-running it over the same range re-reads the now-absent notes, hits the
-   * missing-buffer guard, and does nothing — so a partially-completed reap (e.g. an interrupted transaction) is safe to
-   * re-run.
+   * The reap is idempotent and resumable: re-running it over the same range re-reads the now-absent notes/origins,
+   * hits the missing-row guards, and does nothing — so a partially-completed reap (e.g. an interrupted transaction)
+   * is safe to re-run.
    *
    * @param isCanonical - The truth-source for canonicality, supplied explicitly by the caller rather than read from
    *   this store's own `#check`. This destructive reap is driven by the verdict the reorg-finalize path computes (so it
@@ -432,6 +445,24 @@ export class NoteStore implements StagedStore {
         await this.#nullifiersByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), nullifier);
         await this.#nullifiersByBlockNumber.deleteValue(block, nullifier);
         await this.#nullificationsByNullifier.delete(nullifier);
+      }
+
+      // Reap orphan nullification origins recorded at this block. Snapshot before deleting, same discipline as above.
+      const composites: string[] = [];
+      for await (const composite of this.#nullificationsByBlockNumber.getValuesAsync(block)) {
+        composites.push(composite);
+      }
+      for (const composite of composites) {
+        const sep = composite.indexOf('|');
+        const nullifier = composite.slice(0, sep);
+        const originStr = composite.slice(sep + 1);
+        // Delete only orphan (non-canonical) origins. Deleting a canonical origin would wrongly un-nullify a
+        // genuinely-spent note.
+        if (isCanonical(this.#parseOrigin(originStr))) {
+          continue;
+        }
+        await this.#nullificationsByNullifier.deleteValue(nullifier, originStr);
+        await this.#nullificationsByBlockNumber.deleteValue(block, composite);
       }
     }
   }
