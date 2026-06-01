@@ -9,7 +9,7 @@ import type { InTx, TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { PackedPrivateEvent } from '../../pxe.js';
-import type { CanonicalityCheck } from '../foundation/index.js';
+import type { CanonicalityCheck, L2BlockId } from '../foundation/index.js';
 import { StoredPrivateEvent } from './stored_private_event.js';
 
 export type PrivateEventStoreFilter = {
@@ -233,6 +233,47 @@ export class PrivateEventStore implements StagedStore {
       eventIds.push(eventId);
     }
     return eventIds;
+  }
+
+  /**
+   * Deletes private-event rows whose creation origin is not canonical, for creation block numbers in
+   * [fromBlock, toBlock]. Must be called inside a transaction owned by the caller (it issues no transactionAsync of its
+   * own, because IndexedDB does not support nested transactions and the reorg-finalize path wraps this together with the
+   * finalized-floor advance).
+   *
+   * The reap is idempotent and resumable: re-running it over the same range re-reads now-absent events, hits the
+   * missing-buffer guard, and does nothing — so a partially-completed reap (e.g. an interrupted transaction) is safe to
+   * re-run.
+   *
+   * @param isCanonical - The canonicality truth-source, supplied explicitly by the caller (the reorg-finalize path)
+   *   rather than read from this store's own `#check`, so the destructive reap runs against the freshly-advanced
+   *   finalized floor and stays unit-testable in isolation.
+   */
+  async reapNonCanonicalInRange(
+    fromBlock: number,
+    toBlock: number,
+    isCanonical: (id: L2BlockId) => boolean,
+  ): Promise<void> {
+    for (let block = fromBlock; block <= toBlock; block++) {
+      // Snapshot the block's event ids BEFORE mutating, so we never delete from the multimap we are iterating.
+      const eventIds = await this.eventIdsAtBlock(block);
+      for (const eventId of eventIds) {
+        const buf = await this.#events.getAsync(eventId);
+        if (!buf) {
+          continue;
+        }
+        const stored = StoredPrivateEvent.fromBuffer(buf);
+        if (isCanonical(stored.creationOrigin)) {
+          continue;
+        }
+        await this.#events.delete(eventId);
+        await this.#eventsByContractAndEventSelector.deleteValue(
+          this.#keyFor(stored.contractAddress, stored.eventSelector),
+          eventId,
+        );
+        await this.#eventsByBlockNumber.deleteValue(block, eventId);
+      }
+    }
   }
 
   /**
