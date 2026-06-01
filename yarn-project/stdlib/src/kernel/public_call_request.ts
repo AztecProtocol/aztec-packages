@@ -1,7 +1,7 @@
 import { COUNTED_PUBLIC_CALL_REQUEST_LENGTH, PUBLIC_CALL_REQUEST_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -89,8 +89,13 @@ export class PublicCallRequest {
     );
   }
 
-  toBuffer() {
-    return serializeToBuffer(...PublicCallRequest.getFields(this));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, ...PublicCallRequest.getFields(this));
   }
 
   static empty() {
@@ -188,8 +193,13 @@ export class PublicCallRequestArrayLengths {
     return new PublicCallRequestArrayLengths(reader.readNumber(), reader.readNumber(), reader.readBoolean());
   }
 
-  toBuffer() {
-    return serializeToBuffer(...PublicCallRequestArrayLengths.getFields(this));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, ...PublicCallRequestArrayLengths.getFields(this));
   }
 
   static empty() {
@@ -250,8 +260,13 @@ export class CountedPublicCallRequest {
     return new CountedPublicCallRequest(reader.readObject(PublicCallRequest), reader.readNumber());
   }
 
-  toBuffer() {
-    return serializeToBuffer(...CountedPublicCallRequest.getFields(this));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, ...CountedPublicCallRequest.getFields(this));
   }
 
   static empty() {

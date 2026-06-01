@@ -2,7 +2,7 @@ import { CONTRACT_CLASS_LOG_LENGTH, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS } from '@a
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -56,8 +56,13 @@ export class ContractClassLogFields {
     );
   }
 
-  toBuffer() {
-    return serializeToBuffer(this.fields);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.fields);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -169,8 +174,13 @@ export class ContractClassLog {
     return new ContractClassLog(AztecAddress.ZERO, ContractClassLogFields.empty(), 0);
   }
 
-  toBuffer(): Buffer {
-    return serializeToBuffer([this.contractAddress, this.fields, this.emittedLength]);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.contractAddress, this.fields, this.emittedLength);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
