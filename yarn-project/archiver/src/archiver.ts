@@ -1,5 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { BlockTagTooOldError, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
@@ -118,7 +118,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param initialHeader - Genesis block header.
    * @param initialBlockHash - Precomputed hash of the genesis block header.
    * @param l2TipsCache - In-memory cache for L2 chain tips.
-   * @param epochCache - Cache used to compute the proposer pipelining offset.
    * @param dateProvider - Provider for current date/time, used for wall-clock orphan-block pruning.
    * @param log - A logger.
    */
@@ -141,6 +140,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       ethereumAllowNoDebugHosts?: boolean;
       skipHistoricalLogsCheck?: boolean;
       orphanProposedBlockPruneGraceSeconds: number;
+      enableOrphanProposedBlockPruning: boolean;
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
@@ -153,7 +153,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     initialHeader: BlockHeader,
     initialBlockHash: BlockHash,
     l2TipsCache: L2TipsCache,
-    private readonly epochCache: EpochCache,
     private readonly dateProvider: DateProvider,
     private readonly log: Logger = createLogger('archiver'),
   ) {
@@ -366,15 +365,17 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * place; the first block not covered by a proposed checkpoint starts the orphan suffix to prune.
    */
   private async pruneOrphanProposedBlocks(): Promise<void> {
-    const tips = await this.getL2Tips();
-    const now = BigInt(this.dateProvider.nowInSeconds());
-    const pipeliningOffset = this.epochCache.pipeliningOffset();
-
-    // This only applies under pipelining
-    if (pipeliningOffset === 0) {
-      this.log.trace(`Pipelining offset is 0, skipping orphan proposed block pruning`);
+    // Orphan pruning is a pipelining-only liveness mechanism: it cleans up block-only proposals
+    // whose enclosing checkpoint never arrived over gossip. The test-only automine sequencer is
+    // non-pipelined — it publishes each checkpoint synchronously in the slot it builds — so it
+    // never produces orphan proposed blocks. Running the prune there would race its two-step local
+    // push (addBlock then addProposedCheckpoint) and delete the block before its checkpoint attaches.
+    if (!this.config.enableOrphanProposedBlockPruning) {
       return;
     }
+    const tips = await this.getL2Tips();
+    const now = BigInt(this.dateProvider.nowInSeconds());
+    const pipeliningOffset = PROPOSER_PIPELINING_SLOT_OFFSET;
 
     // The proposed tip is a proposed-checkpointed block, so there are no orphan proposed blocks to prune
     if (tips.proposedCheckpoint.block.number === tips.proposed.number) {

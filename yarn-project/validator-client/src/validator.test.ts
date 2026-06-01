@@ -134,8 +134,6 @@ describe('ValidatorClient', () => {
       typeof getEpochAtSlot
     >[1] as any);
     epochCache.getSlotNow.mockReturnValue(SlotNumber(1));
-    epochCache.pipeliningOffset.mockReturnValue(0);
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(1),
@@ -646,8 +644,6 @@ describe('ValidatorClient', () => {
 
     it('uses the next wall-clock slot as the tx collection deadline for pipelined proposals', async () => {
       const pipelineOffsetInSlots = 1;
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
-      epochCache.pipeliningOffset.mockReturnValue(pipelineOffsetInSlots);
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
 
       const futureSlot = SlotNumber(proposal.slotNumber + 20);
@@ -850,6 +846,11 @@ describe('ValidatorClient', () => {
 
     it('should wait for previous block to sync', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+      // The proposal targets slot 100, which under pipelining is built during slot 99. Set the wall
+      // clock to the start of the build slot so the reexecution deadline (start of the target slot)
+      // is still in the future, leaving a retry window for the parent-block archive lookup.
+      const buildSlotTime = 1n + BigInt(proposal.slotNumber - 1) * BigInt(checkpointsBuilder.getConfig().slotDuration);
+      dateProvider.setTime(Number(buildSlotTime * 1000n));
       blockSource.getBlockData.mockResolvedValueOnce(undefined);
       blockSource.getBlockData.mockResolvedValueOnce(undefined);
       blockSource.getBlockData.mockResolvedValueOnce(undefined);
@@ -1342,6 +1343,9 @@ describe('ValidatorClient', () => {
         ts: 0n,
         nowMs: 0n,
       });
+      // Keep the wall-clock slot consistent with the "now" set above so the always-on pipelining
+      // acceptance window correctly treats the proposal's slot as stale (not the current slot).
+      epochCache.getSlotNow.mockReturnValue(SlotNumber(proposal.slotNumber + 20));
       epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
         epoch: EpochNumber(1),
         slot: SlotNumber(proposal.slotNumber + 20),

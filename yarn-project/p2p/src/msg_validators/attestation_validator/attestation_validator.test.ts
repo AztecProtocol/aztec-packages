@@ -110,7 +110,6 @@ describe('CheckpointAttestationValidator', () => {
       nextSlot: SlotNumber(100),
     });
     epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
     epochCache.getL1Constants.mockReturnValue({
       slotDuration: 72,
       ethereumSlotDuration: 12,
@@ -143,7 +142,6 @@ describe('CheckpointAttestationValidator', () => {
     });
     epochCache.getTargetSlot.mockReturnValue(SlotNumber(99));
     epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
     epochCache.getL1Constants.mockReturnValue({
       slotDuration: 72,
       ethereumSlotDuration: 12,

@@ -1,5 +1,4 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { EpochCache } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { SlotNumber } from '@aztec/foundation/branded-types';
@@ -58,6 +57,7 @@ export class NoopL1Archiver extends Archiver {
     initialHeader: BlockHeader,
     initialBlockHash: BlockHash,
     l2TipsCache: L2TipsCache,
+    dateProvider: DateProvider = new DateProvider(),
   ) {
     // Create mocks for L1 clients
     const publicClient = mock<ViemPublicClient>();
@@ -71,8 +71,6 @@ export class NoopL1Archiver extends Archiver {
 
     const events = new EventEmitter() as ArchiverEmitter;
     const synchronizer = new NoopL1Synchronizer(instrumentation.tracer);
-    const epochCache = mock<EpochCache>();
-    epochCache.pipeliningOffset.mockReturnValue(0);
 
     super(
       publicClient,
@@ -94,6 +92,7 @@ export class NoopL1Archiver extends Archiver {
         ethereumAllowNoDebugHosts: true, // Skip trace validation
         skipHistoricalLogsCheck: true, // Skip historical logs validation
         orphanProposedBlockPruneGraceSeconds: 2,
+        enableOrphanProposedBlockPruning: true,
       },
       blobClient,
       instrumentation,
@@ -103,8 +102,7 @@ export class NoopL1Archiver extends Archiver {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
-      epochCache,
-      new DateProvider(),
+      dateProvider,
     );
   }
 
@@ -127,6 +125,7 @@ export async function createNoopL1Archiver(
   l1Constants: L1RollupConstants & { genesisArchiveRoot: Fr },
   telemetry: TelemetryClient = getTelemetryClient(),
   initialHeader: BlockHeader,
+  dateProvider?: DateProvider,
 ): Promise<NoopL1Archiver> {
   const instrumentation = await ArchiverInstrumentation.new(telemetry, () => dataStores.db.estimateSize());
   // Mirror the production factory: precompute the dynamic genesis block hash from the injected
@@ -135,5 +134,13 @@ export async function createNoopL1Archiver(
   // with default empty genesis.
   const initialBlockHash = await initialHeader.hash();
   const l2TipsCache = new L2TipsCache(dataStores.blocks, initialBlockHash);
-  return new NoopL1Archiver(dataStores, l1Constants, instrumentation, initialHeader, initialBlockHash, l2TipsCache);
+  return new NoopL1Archiver(
+    dataStores,
+    l1Constants,
+    instrumentation,
+    initialHeader,
+    initialBlockHash,
+    l2TipsCache,
+    dateProvider,
+  );
 }

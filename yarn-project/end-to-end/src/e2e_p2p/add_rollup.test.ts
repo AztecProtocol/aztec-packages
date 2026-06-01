@@ -81,7 +81,6 @@ describe('e2e_p2p_add_rollup', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         governanceProposerRoundSize: 10,
-        enableProposerPipelining: true,
         // Allow validators to build empty checkpoints under pipelining so the chain keeps
         // advancing while we wait for L1->L2 messages to land in the next checkpoint's inbox tree.
         minTxsPerBlock: 0,

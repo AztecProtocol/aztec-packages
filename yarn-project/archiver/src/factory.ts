@@ -58,7 +58,7 @@ export async function createArchiverStore(
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
   deps: ArchiverDeps,
-  opts: { blockUntilSync: boolean } = { blockUntilSync: true },
+  opts: { blockUntilSync: boolean; enableOrphanProposedBlockPruning?: boolean } = { blockUntilSync: true },
   initialHeader: BlockHeader,
   initialBlockHash: BlockHash,
 ): Promise<Archiver> {
@@ -132,6 +132,7 @@ export async function createArchiver(
       ethereumAllowNoDebugHosts: false,
       skipHistoricalLogsCheck: false,
       orphanProposedBlockPruneGraceSeconds: MIN_EXECUTION_TIME,
+      enableOrphanProposedBlockPruning: opts.enableOrphanProposedBlockPruning ?? true,
     },
     mapArchiverConfig(config),
   );
@@ -182,7 +183,6 @@ export async function createArchiver(
     initialHeader,
     initialBlockHash,
     l2TipsCache,
-    epochCache,
     deps.dateProvider ?? new DateProvider(),
   );
 

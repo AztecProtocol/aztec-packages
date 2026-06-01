@@ -2,7 +2,7 @@
 
 This document covers how the sequencer schedules its work within a slot. See the [package README](../../README.md) for the high-level architecture; this one focuses on the timing math and the state-machine deadlines.
 
-The model described here is for **proposer pipelining**, the standard mode in production. Non-pipelined scheduling existed historically and is in the process of being removed.
+The model described here is for **proposer pipelining**, the only mode the production sequencer runs in (the proposer always builds for `slot + 1`). The deterministic single-sequencer `AutomineSequencer` used in some e2e tests publishes synchronously in-slot and does not use this timing model.
 
 ## Overview
 

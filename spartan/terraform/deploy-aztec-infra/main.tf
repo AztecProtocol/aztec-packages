@@ -216,7 +216,6 @@ locals {
     "validator.node.env.SEQ_BLOCK_DURATION_MS"                    = var.SEQ_BLOCK_DURATION_MS
     "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
-    "validator.node.env.SEQ_ENABLE_PROPOSER_PIPELINING"           = var.SEQ_ENABLE_PROPOSER_PIPELINING
     "validator.node.env.AZTEC_EPOCHS_LAG"                         = var.AZTEC_EPOCHS_LAG
     "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                   = var.SEQ_ENFORCE_TIME_TABLE
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"       = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
@@ -412,7 +411,6 @@ locals {
           "node.node.env.P2P_MAX_PENDING_TX_COUNT"              = var.P2P_MAX_PENDING_TX_COUNT
           "node.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
           "node.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
-          "node.node.env.SEQ_ENABLE_PROPOSER_PIPELINING"        = var.SEQ_ENABLE_PROPOSER_PIPELINING
           "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
           "node.service.p2p.announcePort"                       = local.p2p_port_prover
           "node.service.p2p.port"                               = local.p2p_port_prover
@@ -496,7 +494,6 @@ locals {
         "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
         "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
-        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"     = var.SEQ_ENABLE_PROPOSER_PIPELINING
       })
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -536,7 +533,6 @@ locals {
         "node.secret.mnemonicIndex"                   = var.FISHERMAN_MNEMONIC_START_INDEX
         "node.env.KEY_INDEX_START"                    = var.FISHERMAN_MNEMONIC_START_INDEX
         "node.env.VALIDATORS_PER_NODE"                = "1"
-        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"     = var.SEQ_ENABLE_PROPOSER_PIPELINING
         "node.preStartScript"                         = "source /scripts/get-private-key.sh"
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
@@ -581,7 +577,6 @@ locals {
         "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
-        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"     = var.SEQ_ENABLE_PROPOSER_PIPELINING
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
