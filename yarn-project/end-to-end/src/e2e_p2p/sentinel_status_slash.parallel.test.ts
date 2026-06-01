@@ -78,7 +78,6 @@ describe('e2e_p2p_sentinel_status_slash', () => {
         aztecEpochDuration: AZTEC_EPOCH_DURATION,
         aztecProofSubmissionEpochs: 1024,
         minTxsPerBlock: 0,
-        enableProposerPipelining: true,
         inboxLag: 2,
         mockGossipSubNetwork: true,
         sentinelEnabled: true,

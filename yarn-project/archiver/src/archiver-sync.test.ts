@@ -56,12 +56,82 @@ describe('Archiver Sync', () => {
   let archiverStore: ArchiverDataStores;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
   let archiver: Archiver;
-  let synchronizer: ArchiverL1Synchronizer;
   let logger: Logger;
   let syncLogger: Logger;
   let now: number;
 
   const GENESIS_ROOT = new Fr(GENESIS_ARCHIVE_ROOT);
+
+  // Builds a standalone archiver (with its own store) over the shared L1/fake mocks. Used by the
+  // beforeEach default instance and by tests that need a second archiver with a different config.
+  const buildArchiver = async (
+    storeName: string,
+    configOverrides: { enableOrphanProposedBlockPruning?: boolean } = {},
+  ): Promise<{ archiver: Archiver; synchronizer: ArchiverL1Synchronizer; archiverStore: ArchiverDataStores }> => {
+    const store = createArchiverDataStores(await openTmpStore(storeName), GENESIS_BLOCK_HEADER_HASH);
+
+    const contractAddresses = {
+      rollupAddress,
+      registryAddress,
+      inboxAddress,
+      governanceProposerAddress,
+      slashingProposerAddress,
+    };
+
+    const config = {
+      pollingIntervalMs: 1000,
+      batchSize: 1000,
+      maxAllowedEthClientDriftSeconds: 300,
+      ethereumAllowNoDebugHosts: true,
+      skipHistoricalLogsCheck: true,
+      orphanProposedBlockPruneGraceSeconds: 2,
+      enableOrphanProposedBlockPruning: true,
+      ...configOverrides,
+    };
+
+    const events = new EventEmitter() as ArchiverEmitter;
+    const initialHeader = BlockHeader.empty();
+    const initialBlockHash = await initialHeader.hash();
+    const l2TipsCache = new L2TipsCache(store.blocks, initialBlockHash);
+
+    const sync = new ArchiverL1Synchronizer(
+      publicClient,
+      publicClient,
+      rollupContract,
+      inboxContract,
+      store,
+      config,
+      blobClient,
+      epochCache,
+      dateProvider,
+      instrumentation,
+      l1Constants,
+      events,
+      instrumentation.tracer,
+      l2TipsCache,
+      syncLogger,
+    );
+
+    const newArchiver = new Archiver(
+      publicClient,
+      publicClient,
+      rollupContract,
+      contractAddresses,
+      store,
+      config,
+      blobClient,
+      instrumentation,
+      l1Constants,
+      sync,
+      events,
+      initialHeader,
+      initialBlockHash,
+      l2TipsCache,
+      dateProvider,
+    );
+
+    return { archiver: newArchiver, synchronizer: sync, archiverStore: store };
+  };
 
   beforeEach(async () => {
     logger = createLogger('archiver:sync:test');
@@ -93,83 +163,15 @@ describe('Archiver Sync', () => {
     // Create epoch cache mock (separate from fake)
     epochCache = mock<EpochCache>();
     epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
-    // Default to no pipelining offset; the orphan-prune tests below override this. Keeps the prune
-    // deadline well ahead of wall-clock time for the other tests so it never fires spuriously.
-    epochCache.pipeliningOffset.mockReturnValue(0);
-
     // Create instrumentation mock
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-
-    // Create archiver store
-    archiverStore = createArchiverDataStores(await openTmpStore('archiver_sync_test'), GENESIS_BLOCK_HEADER_HASH);
-
-    const contractAddresses = {
-      rollupAddress,
-      registryAddress,
-      inboxAddress,
-      governanceProposerAddress,
-      slashingProposerAddress,
-    };
 
     // Create mock contracts from the fake
     rollupContract = fake.createMockRollupContract(publicClient);
     inboxContract = fake.createMockInboxContract(publicClient);
 
-    const config = {
-      pollingIntervalMs: 1000,
-      batchSize: 1000,
-      maxAllowedEthClientDriftSeconds: 300,
-      ethereumAllowNoDebugHosts: true,
-      skipHistoricalLogsCheck: true,
-      orphanProposedBlockPruneGraceSeconds: 2,
-    };
-
-    // Create event emitter shared by archiver and synchronizer
-    const events = new EventEmitter() as ArchiverEmitter;
-
-    // Create L2 tips cache shared by archiver and synchronizer
-    const initialHeader = BlockHeader.empty();
-    const initialBlockHash = await initialHeader.hash();
-    const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);
-
-    // Create the L1 synchronizer
-    synchronizer = new ArchiverL1Synchronizer(
-      publicClient,
-      publicClient,
-      rollupContract,
-      inboxContract,
-      archiverStore,
-      config,
-      blobClient,
-      epochCache,
-      dateProvider,
-      instrumentation,
-      l1Constants,
-      events,
-      instrumentation.tracer,
-      l2TipsCache,
-      syncLogger,
-    );
-
-    archiver = new Archiver(
-      publicClient,
-      publicClient,
-      rollupContract,
-      contractAddresses,
-      archiverStore,
-      config,
-      blobClient,
-      instrumentation,
-      l1Constants,
-      synchronizer,
-      events,
-      initialHeader,
-      initialBlockHash,
-      l2TipsCache,
-      epochCache,
-      dateProvider,
-    );
+    ({ archiver, archiverStore } = await buildArchiver('archiver_sync_test'));
   });
 
   afterEach(async () => {
@@ -2150,9 +2152,6 @@ describe('Archiver Sync', () => {
     beforeEach(() => {
       pruneSpy = jest.fn();
       archiver.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, pruneSpy);
-      // Normal proposer pipelining: a block targeting slot S is built during slot S-1, so its proposed
-      // checkpoint is expected by the start of slot S.
-      epochCache.pipeliningOffset.mockReturnValue(1);
     });
 
     afterEach(() => {
@@ -2166,7 +2165,7 @@ describe('Archiver Sync', () => {
     // Syncs checkpoint 1 (slot 0), then writes uncheckpointed blocks for slot 1 (checkpoint 2) straight
     // into the store as a block-only tip with no matching proposed checkpoint. L1 is held at slot 1 so
     // the L1-sync prune (which only fires once the build slot has ended on L1) stays out of the way.
-    const setupOrphanTip = async () => {
+    const setupOrphanTip = async (targetArchiver: Archiver = archiver) => {
       const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
         l1BlockNumber: 1n,
         messagesL1BlockNumber: 1n,
@@ -2175,8 +2174,8 @@ describe('Archiver Sync', () => {
       });
       const cp1Archive = cp1.blocks.at(-1)!.archive;
       fake.setL1BlockNumber(1n);
-      await archiver.syncImmediate();
-      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      await targetArchiver.syncImmediate();
+      expect(await targetArchiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       const lastBlockInCp1 = cp1.blocks.at(-1)!.number;
       const provisionalBlocks = await fake.makeBlocks(CheckpointNumber(2), {
@@ -2185,7 +2184,7 @@ describe('Archiver Sync', () => {
         slotNumber: orphanSlot,
       });
       for (const block of provisionalBlocks) {
-        await archiver.addBlock(block);
+        await targetArchiver.addBlock(block);
       }
 
       // Hold L1 at slot 1 so the slot has not ended from L1's perspective.
@@ -2227,6 +2226,30 @@ describe('Archiver Sync', () => {
       );
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCp1);
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+    }, 15_000);
+
+    it('does not prune the orphan tip when pruning is disabled (automine)', async () => {
+      // The non-pipelined automine sequencer disables orphan pruning: it publishes each checkpoint
+      // in-slot, so an uncheckpointed tip is only the transient gap between its addBlock and
+      // addProposedCheckpoint, which pruning must not touch. The same scenario that prunes in the
+      // test above must be a no-op when pruning is off, even well past the grace window.
+      const { archiver: noPruneArchiver } = await buildArchiver('archiver_orphan_no_prune', {
+        enableOrphanProposedBlockPruning: false,
+      });
+      const noPruneSpy = jest.fn();
+      noPruneArchiver.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, noPruneSpy);
+      try {
+        const { lastProvisional } = await setupOrphanTip(noPruneArchiver);
+
+        dateProvider.setTime((pruneDeadline() + 100) * 1000);
+        await noPruneArchiver.syncImmediate();
+
+        expect(noPruneSpy).not.toHaveBeenCalled();
+        expect(await noPruneArchiver.getBlockNumber()).toEqual(lastProvisional);
+      } finally {
+        noPruneArchiver.events.off(L2BlockSourceEvents.L2PruneUncheckpointed, noPruneSpy);
+        await noPruneArchiver.stop();
+      }
     }, 15_000);
 
     it('does not prune when a matching proposed checkpoint exists', async () => {

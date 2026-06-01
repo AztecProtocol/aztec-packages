@@ -60,7 +60,11 @@ import {
   Signature,
 } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import {
+  type L1RollupConstants,
+  getNextL1SlotTimestamp,
+  getSlotStartBuildTimestamp,
+} from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import {
@@ -191,6 +195,11 @@ describe('L1Publisher integration', () => {
     // header with `HeaderLib__InvalidSlotNumber`.
     await ethCheatCodes.syncDateProvider();
   };
+
+  const getPipelinedProposalSlot = () =>
+    rollup.getSlotAt(
+      getNextL1SlotTimestamp(dateProvider.nowInSeconds(), l1Constants) + BigInt(config.aztecSlotDuration),
+    );
 
   let port = 8545; // We increase the port for each test to avoid anvil conflicts
   const setup = async (deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {}) => {
@@ -438,12 +447,14 @@ describe('L1Publisher integration', () => {
     return checkpoint;
   };
 
-  const buildSingleCheckpoint = async (opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber } = {}) => {
+  const buildSingleCheckpoint = async (
+    opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber; slot?: SlotNumber } = {},
+  ) => {
     const l1ToL2Messages = opts.l1ToL2Messages ?? new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO);
 
     const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
     const ts = (await l1Client.getBlock()).timestamp;
-    const slot = await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration));
+    const slot = opts.slot ?? (await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration)));
     const timestamp = await rollup.getTimestampForSlot(slot);
     const globalVariables = new GlobalVariables(
       new Fr(chainId),
@@ -458,6 +469,14 @@ describe('L1Publisher integration', () => {
     const checkpoint = await buildCheckpoint(globalVariables, txs, l1ToL2Messages);
     blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
     return { checkpoint, l1ToL2Messages };
+  };
+
+  const buildSingleCheckpointForPipelinedProposer = async (
+    opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber } = {},
+  ) => {
+    const slot = await getPipelinedProposalSlot();
+    proposer = await epochCache.getProposerAttesterAddressInSlot(slot);
+    return buildSingleCheckpoint({ ...opts, slot });
   };
 
   describe('block building', () => {
@@ -670,7 +689,7 @@ describe('L1Publisher integration', () => {
     };
 
     it('publishes a block with attestations', async () => {
-      const { checkpoint } = await buildSingleCheckpoint();
+      const { checkpoint } = await buildSingleCheckpointForPipelinedProposer();
       const block = checkpoint.blocks[0];
 
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
@@ -689,7 +708,7 @@ describe('L1Publisher integration', () => {
     });
 
     it('fails to publish a block without the proposer attestation', async () => {
-      const { checkpoint } = await buildSingleCheckpoint();
+      const { checkpoint } = await buildSingleCheckpointForPipelinedProposer();
       const block = checkpoint.blocks[0];
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
 
@@ -721,7 +740,7 @@ describe('L1Publisher integration', () => {
     });
 
     it('rejects flipped proposer signature', async () => {
-      const { checkpoint } = await buildSingleCheckpoint();
+      const { checkpoint } = await buildSingleCheckpointForPipelinedProposer();
       const block = checkpoint.blocks[0];
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
@@ -758,7 +777,7 @@ describe('L1Publisher integration', () => {
     });
 
     it('rejects signature with invalid recovery value', async () => {
-      const { checkpoint } = await buildSingleCheckpoint();
+      const { checkpoint } = await buildSingleCheckpointForPipelinedProposer();
       const block = checkpoint.blocks[0];
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
@@ -797,7 +816,7 @@ describe('L1Publisher integration', () => {
     });
 
     it('publishes a block invalidating the previous one', async () => {
-      const { checkpoint: badCheckpoint } = await buildSingleCheckpoint();
+      const { checkpoint: badCheckpoint } = await buildSingleCheckpointForPipelinedProposer();
       const badBlock = badCheckpoint.blocks[0];
 
       // Publish the first invalid block
@@ -817,12 +836,8 @@ describe('L1Publisher integration', () => {
 
       logger.warn(`Published bad block ${badBlock.number} with archive root ${badBlock.archive.root}`);
 
-      // Update the current proposer
-      const { currentSlot } = epochCache.getCurrentAndNextSlot();
-      proposer = await epochCache.getProposerAttesterAddressInSlot(currentSlot);
-
       // Prepare for invalidating the previous one and publish the same block with proper attestations
-      const { checkpoint } = await buildSingleCheckpoint({ blockNumber: BlockNumber(1) });
+      const { checkpoint } = await buildSingleCheckpointForPipelinedProposer({ blockNumber: BlockNumber(1) });
       const block = checkpoint.blocks[0];
       expect(block.number).toEqual(badBlock.number);
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
@@ -870,6 +885,7 @@ describe('L1Publisher integration', () => {
       logger.warn('Enqueuing requests to invalidate and propose the checkpoint');
       publisher.enqueueInvalidateCheckpoint(invalidateRequest);
       await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature);
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
       expect(result!.failedActions).toEqual([]);

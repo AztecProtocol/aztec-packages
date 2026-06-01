@@ -78,8 +78,6 @@ describe('ProposalHandler checkpoint validation', () => {
       slotDuration: 24,
       epochDuration: 8,
     } as L1RollupConstants);
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
-    epochCache.pipeliningOffset.mockReturnValue(1);
 
     dateProvider = new TestDateProvider();
     metrics = mock<ValidatorMetrics>();

@@ -1,30 +1,32 @@
 import { createCheckpointTimingModel, createPipelinedCheckpointTimingModel } from './index.js';
 
 describe('timetable validation', () => {
-  it('accepts a non-pipelined multi-block config that fits exactly one block', () => {
+  it('accepts a multi-block config that fits exactly one block', () => {
+    // timeReservedAtEnd = assemble(1) + 2*p2p(2) + blockDuration(4) = 9
+    // slotDuration(15) - init(1) - reserved(9) = 5 ≥ blockDuration(4)
     const timing = createCheckpointTimingModel({
-      aztecSlotDuration: 34,
-      blockDuration: 8,
+      aztecSlotDuration: 15,
+      blockDuration: 4,
       checkpointInitializationTime: 1,
       checkpointAssembleTime: 1,
       p2pPropagationTime: 2,
       l1PublishingTime: 12,
-      pipelining: false,
     });
 
     expect(timing.calculateMaxBlocksPerSlot()).toBe(1);
   });
 
-  it('rejects a non-pipelined multi-block config that cannot fit one block', () => {
+  it('rejects a multi-block config that cannot fit one block', () => {
+    // timeReservedAtEnd = assemble(1) + 2*p2p(2) + blockDuration(4) = 9
+    // slotDuration(13) - init(1) - reserved(9) = 3 < blockDuration(4) → reject
     expect(() =>
       createCheckpointTimingModel({
-        aztecSlotDuration: 33,
-        blockDuration: 8,
+        aztecSlotDuration: 13,
+        blockDuration: 4,
         checkpointInitializationTime: 1,
         checkpointAssembleTime: 1,
         p2pPropagationTime: 2,
         l1PublishingTime: 12,
-        pipelining: false,
       }),
     ).toThrow(/less than one blockDuration/i);
   });
@@ -87,7 +89,6 @@ describe('timetable validation', () => {
     const timing = createCheckpointTimingModel({
       aztecSlotDuration: 10,
       checkpointInitializationTime: 1,
-      pipelining: false,
     });
 
     expect(timing.calculateMaxBlocksPerSlot()).toBe(1);

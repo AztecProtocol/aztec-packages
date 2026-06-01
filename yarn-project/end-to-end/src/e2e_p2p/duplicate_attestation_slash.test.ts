@@ -89,7 +89,6 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
         slashDuplicateProposalPenalty: slashingUnit,
         slashDuplicateAttestationPenalty: slashingUnit,
         slashingOffsetInRounds: 1,
-        enableProposerPipelining: true,
         inboxLag: 2,
       },
     });

@@ -53,7 +53,6 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
       // submission window.
       aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
-      enableProposerPipelining: true,
       disableAnvilTestWatcher: true,
     });
     ({ logger } = test);

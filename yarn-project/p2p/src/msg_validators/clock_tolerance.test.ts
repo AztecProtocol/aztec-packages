@@ -216,7 +216,6 @@ describe('clock_tolerance', () => {
     beforeEach(() => {
       epochCache = mock<EpochCacheInterface>();
       epochCache.getSlotNow.mockReturnValue(SlotNumber(100));
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
       epochCache.getL1Constants.mockReturnValue({
         slotDuration: 72,
         ethereumSlotDuration: 12,
@@ -258,18 +257,6 @@ describe('clock_tolerance', () => {
       expect(pipeliningWindow.acceptsProposal(SlotNumber(101))).toBe(false);
       expect(pipeliningWindow.acceptsProposal(SlotNumber(102))).toBe(false);
     });
-
-    it('rejects when pipelining is disabled', () => {
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: SlotNumber(100),
-        ts: 1000n,
-        nowMs: 1000000n,
-      });
-
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(false);
-    });
   });
 
   describe('PipeliningWindow.acceptsAttestation', () => {
@@ -283,7 +270,6 @@ describe('clock_tolerance', () => {
     beforeEach(() => {
       epochCache = mock<EpochCacheInterface>();
       epochCache.getSlotNow.mockReturnValue(SlotNumber(100));
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
       epochCache.getL1Constants.mockReturnValue({
         slotDuration: 72,
         ethereumSlotDuration: 12,

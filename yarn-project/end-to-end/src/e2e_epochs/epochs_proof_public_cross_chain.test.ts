@@ -33,7 +33,6 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
       minTxsPerBlock: 1,
       disableAnvilTestWatcher: true,
       sequencerPublisherAllowInvalidStates: true,
-      enableProposerPipelining: true,
     });
     ({ context, logger } = test);
   });

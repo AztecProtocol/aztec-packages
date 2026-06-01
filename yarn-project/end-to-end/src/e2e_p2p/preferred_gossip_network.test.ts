@@ -143,7 +143,6 @@ describe('e2e_p2p_preferred_network', () => {
         // Just for testing be aggressive here, don't allow any auth handshake failures
         p2pMaxFailedAuthAttemptsAllowed: 0,
         minTxsPerBlock: 0,
-        enableProposerPipelining: true,
         inboxLag: 2,
       },
     });
