@@ -3,16 +3,14 @@
 #include <algorithm>
 #include <mutex>
 
-#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_vector.hpp"
-#include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
 namespace bb::avm2::tracegen {
 namespace {
 
 // We need a zero value to return (a reference to) when a value is not found.
-static const FF zero = FF::zero();
+const FF zero = FF::zero();
 
 } // namespace
 

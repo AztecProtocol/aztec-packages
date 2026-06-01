@@ -1,8 +1,11 @@
 #include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
+#include <array>
+#include <cstddef>
+#include <utility>
+
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/set.hpp"
-#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
@@ -51,7 +54,7 @@ AvmFullRow get_full_row(const TraceContainer& trace, uint32_t row)
 {
     AvmFullRow full_row;
     // Write unshifted columns.
-    for (size_t col = 0; col < trace.num_columns(); ++col) {
+    for (size_t col = 0; col < TraceContainer::num_columns(); ++col) {
         full_row.get(static_cast<ColumnAndShifts>(col)) = trace.get(static_cast<Column>(col), row);
     }
     // Write the shifted values.
