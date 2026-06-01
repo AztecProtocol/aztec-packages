@@ -28,6 +28,10 @@ function handle_squash_merge {
   # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
   echo "Processing squash and merge..."
   # Reauth the git repo with our GITHUB_TOKEN
+  # NOTE: actions/checkout v6 persists the github.token outside the local repo config, so this
+  # unset-all no longer clears it and the squash-pr.sh push goes out as github-actions[bot]
+  # (contents: read). This squash-and-merge path needs the same fix applied to the ci-release-pr
+  # tag (created via the REST API in ci3.sh:handle_release_pr). Tracked separately.
   git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}
   git config --unset-all http.https://github.com/.extraheader || true
   # Get the base commit (merge-base) for the PR

@@ -72,15 +72,16 @@ function check_cache {
 
 function handle_release_pr {
   echo_header "Release PR"
-  # Create and push a tag for release PR testing
+  # Create a v0.0.1-commit.<sha> tag to exercise the release flow from a PR. We create it via the API
+  # rather than `git push`: actions/checkout persists the workflow's github.token such that pushes go
+  # out as github-actions[bot] (contents: read) on the runner, and a ref created with the bot PAT —
+  # unlike a github-actions[bot] push — triggers the tag-push release workflow.
   local github_repository
   github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
-  git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}"
   local tag_name="v0.0.1-commit.$(git rev-parse --short HEAD)"
-  git config --unset-all http.https://github.com/.extraheader || true
-  git tag "${tag_name}"
-  git push origin "${tag_name}"
-  echo "Created and pushed tag: ${tag_name}"
+  gh api --method POST "repos/${github_repository}/git/refs" \
+    -f "ref=refs/tags/${tag_name}" -f "sha=$(git rev-parse HEAD)"
+  echo "Created tag: ${tag_name}"
   gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
 }
 
