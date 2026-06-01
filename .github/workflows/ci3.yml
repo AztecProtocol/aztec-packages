@@ -199,11 +199,10 @@ jobs:
       matrix:
         test_set: ["1", "2"]
     # We run on current nightly tags only, or when the ci-network-scenario label is present in a PR.
-    needs: [ci, validate-nightly-tag, ci-release-publish]
+    needs: [ci, validate-nightly-tag]
     if: |
       always()
       && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
-      && (needs.ci-release-publish.result == 'success' || needs.ci-release-publish.result == 'skipped')
       && github.event.pull_request.head.repo.fork != true
       && github.event.pull_request.draft == false
       && (
@@ -449,99 +448,3 @@ jobs:
           AWS_SHUTDOWN_TIME: 180
         run: |
           ./.github/ci3.sh network-tests-kind
-
-  # Backwards compatibility e2e tests.
-  # Runs e2e tests with contract artifacts from every prior stable release to validate
-  # that new client code works with old contract artifacts ("new pxe / old contracts").
-  # Blocking for stable/RC releases: ci-release-publish requires this job to pass before
-  # publishing. Observational for nightlies: runs, but continue-on-error keeps the workflow
-  # green and ci-release-publish's condition publishes nightlies regardless of the result.
-  # Escape hatch: ci-skip-compat-e2e label makes failures non-blocking on release PRs.
-  ci-compat-e2e:
-    runs-on: ubuntu-latest
-    needs: [ci]
-    if: |
-      always()
-      && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
-      && github.event.pull_request.head.repo.fork != true
-      && github.event.pull_request.draft == false
-      && (
-        (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-commit.'))
-        || contains(github.event.pull_request.labels.*.name, 'ci-compat-e2e')
-        || contains(github.event.pull_request.labels.*.name, 'ci-release-pr')
-      )
-    # Non-blocking for nightlies and when ci-skip-compat-e2e escape hatch is applied.
-    continue-on-error: ${{ contains(github.ref_name, '-nightly.') || contains(github.event.pull_request.labels.*.name, 'ci-skip-compat-e2e') }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Run Backwards Compatibility E2E Tests
-        timeout-minutes: 60
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
-          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
-          RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 60
-        run: ./.github/ci3.sh compat-e2e
-
-  # Publishes the release (npm, Docker, GitHub release, aztec-up scripts, etc.).
-  # Gated on ci-compat-e2e: a compat regression blocks stable/RC publishing. Nightlies
-  # publish regardless — compat-e2e runs there observationally. Dev `-commit.` tags from
-  # the ci-release-pr flow never reach this job (they are not real releases).
-  ci-release-publish:
-    runs-on: ubuntu-latest
-    environment: master
-    permissions:
-      id-token: write
-      contents: read
-    needs: [ci, ci-compat-e2e]
-    if: |
-      startsWith(github.ref, 'refs/tags/v')
-      && !contains(github.ref_name, '-commit.')
-      && needs.ci.result == 'success'
-      && (
-        contains(github.ref_name, '-nightly.')
-        || needs.ci-compat-e2e.result == 'success'
-      )
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-          aws-region: us-east-2
-          role-session-name: ci3-release-publish-${{ github.run_id }}
-          role-duration-seconds: 21600
-
-      - name: Run Release Publish
-        env:
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
-          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
-          RUN_ID: ${{ github.run_id }}
-        run: ./.github/ci3.sh release-publish
