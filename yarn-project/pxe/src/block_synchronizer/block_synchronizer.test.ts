@@ -200,6 +200,74 @@ describe('BlockSynchronizer', () => {
       expect(canonicalBlockStore.isCanonical({ blockNumber: 3, blockHash: '0xdeadbeef' })).toBe(false);
     });
 
+    it('hydrates genesis via the single-block API without range-querying block 0 on cold start', async () => {
+      // Fresh chain whose finality floor sits at genesis (block 0). getBlocks is a range query over physical
+      // blocks and rejects `from < INITIAL_L2_BLOCK_NUM`, so doSync must fetch block 0 via the genesis-aware
+      // single-block API and only range-query blocks 1..tip.
+      const genesisBlock = await L2Block.random(BlockNumber(0));
+      const genesisHash = await genesisBlock.hash();
+      aztecNode.getBlockData.mockResolvedValue({
+        header: genesisBlock.header,
+        archive: genesisBlock.archive,
+        blockHash: genesisHash,
+        checkpointNumber: genesisBlock.checkpointNumber,
+        indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
+      });
+
+      // finalized tip = 0 (genesis), latest tip = 3.
+      aztecNode.getBlockNumber.mockImplementation((tip?: string) =>
+        Promise.resolve(BlockNumber(tip === 'finalized' ? 0 : 3)),
+      );
+
+      // Genesis-aware single-block lookup returns block 0.
+      aztecNode.getBlock.mockResolvedValue({
+        hash: genesisHash,
+        header: genesisBlock.header,
+        archive: genesisBlock.archive,
+        checkpointNumber: genesisBlock.checkpointNumber,
+        indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
+        number: genesisBlock.number,
+      } as any);
+
+      const blocksByNumber = new Map<number, BlockHash>();
+      for (let h = 1; h <= 3; h++) {
+        const b = await L2Block.random(BlockNumber(h));
+        blocksByNumber.set(h, await b.hash());
+      }
+
+      // Mirror the archiver contract: range queries reject `from < INITIAL_L2_BLOCK_NUM` (the old code passed 0).
+      aztecNode.getBlocks.mockImplementation((from: any, limit: number) => {
+        const start = Number(from);
+        if (start < 1) {
+          return Promise.reject(new Error("getBlocks/getBlocksData: 'from' must be >= 1, got 0."));
+        }
+        const result = [];
+        for (let n = start; n < start + limit; n++) {
+          const hash = blocksByNumber.get(n);
+          if (hash) {
+            result.push({ hash, number: n } as any);
+          }
+        }
+        return Promise.resolve(result);
+      });
+
+      blockStream.sync.mockResolvedValue(undefined);
+
+      await synchronizer.sync();
+
+      // getBlocks must never be invoked with the genesis block number.
+      for (const call of aztecNode.getBlocks.mock.calls) {
+        expect(Number(call[0])).toBeGreaterThanOrEqual(1);
+      }
+
+      expect(canonicalBlockStore.getFloor()).toBe(0);
+      // Genesis and the physical blocks 1..3 are all recorded as canonical with their real hashes.
+      expect(canonicalBlockStore.isCanonical({ blockNumber: 0, blockHash: genesisHash.toString() })).toBe(true);
+      for (const [n, hash] of blocksByNumber) {
+        expect(canonicalBlockStore.isCanonical({ blockNumber: n, blockHash: hash.toString() })).toBe(true);
+      }
+    });
+
     it('records canonical hashes for all blocks in a blocks-added event', async () => {
       const blocks = await timesParallel(3, i => L2Block.random(BlockNumber(i + 1)));
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });

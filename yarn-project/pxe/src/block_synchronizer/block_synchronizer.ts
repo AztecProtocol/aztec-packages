@@ -1,3 +1,4 @@
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
@@ -10,6 +11,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { CanonicalBlockStore } from '../storage/canonical_block_store/index.js';
+import type { Origin } from '../storage/foundation/index.js';
 import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
 
 /**
@@ -201,10 +203,21 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
       await this.canonicalBlockStore.setFloor(finalized);
       await this.canonicalBlockStore.setFinalized(finalized);
       const tip = await this.node.getBlockNumber();
-      const blocks = await this.node.getBlocks(BlockNumber(finalized), tip - finalized + 1);
-      await this.canonicalBlockStore.setManyCanonical(
-        blocks.map(b => ({ blockNumber: b.number, blockHash: b.hash.toString() })),
-      );
+      const origins: Origin[] = [];
+      // getBlocks is a range query over physical blocks and rejects `from < INITIAL_L2_BLOCK_NUM`, so when the
+      // finality floor sits at genesis we hydrate block 0 via the genesis-aware single-block API instead.
+      if (finalized === BlockNumber.ZERO) {
+        const genesis = await this.node.getBlock(BlockNumber.ZERO);
+        if (genesis) {
+          origins.push({ blockNumber: genesis.number, blockHash: genesis.hash.toString() });
+        }
+      }
+      const from = BlockNumber(Math.max(finalized, INITIAL_L2_BLOCK_NUM));
+      if (tip >= from) {
+        const blocks = await this.node.getBlocks(from, tip - from + 1);
+        origins.push(...blocks.map(b => ({ blockNumber: b.number, blockHash: b.hash.toString() })));
+      }
+      await this.canonicalBlockStore.setManyCanonical(origins);
     }
     await this.blockStream.sync();
   }
