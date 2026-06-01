@@ -1,5 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -63,6 +63,7 @@ export class NoopL1Archiver extends Archiver {
     const publicClient = mock<ViemPublicClient>();
     const debugClient = mock<ViemPublicDebugClient>();
     const rollup = mock<RollupContract>();
+    const outbox = mock<OutboxContract>();
     const blobClient = mock<BlobClientInterface>();
 
     // Mock methods called during start()
@@ -76,6 +77,7 @@ export class NoopL1Archiver extends Archiver {
       publicClient,
       debugClient,
       rollup,
+      outbox,
       {
         rollupAddress: EthAddress.ZERO,
         registryAddress: EthAddress.ZERO,

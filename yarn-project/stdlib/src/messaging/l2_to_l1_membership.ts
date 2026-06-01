@@ -1,9 +1,12 @@
 import { MAX_CHECKPOINTS_PER_EPOCH, OUT_HASH_TREE_LEAF_COUNT } from '@aztec/constants';
-import type { EpochNumber } from '@aztec/foundation/branded-types';
+import { type EpochNumber, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
 
+import { z } from 'zod';
+
 import type { AztecNode } from '../interfaces/aztec-node.js';
+import { schemas } from '../schemas/schemas.js';
 import { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
 
@@ -122,6 +125,19 @@ export type L2ToL1MembershipWitness = {
   leafIndex: bigint;
   siblingPath: SiblingPath<number>;
 };
+
+/**
+ * Zod schema for {@link L2ToL1MembershipWitness}. The sibling-path length varies with the shape of
+ * the per-epoch tree, so we use the unsized `SiblingPath.schema` here rather than a fixed-height
+ * `schemaFor`.
+ */
+export const L2ToL1MembershipWitnessSchema = z.object({
+  epochNumber: EpochNumberSchema,
+  numCheckpointsInEpoch: schemas.Integer,
+  root: schemas.Fr,
+  leafIndex: schemas.BigInt,
+  siblingPath: SiblingPath.schema,
+}) as unknown as z.ZodType<L2ToL1MembershipWitness>;
 
 /**
  * Computes the L2 to L1 membership witness for a given message in a transaction.

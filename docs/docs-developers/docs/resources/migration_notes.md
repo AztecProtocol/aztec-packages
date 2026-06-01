@@ -1466,23 +1466,22 @@ This change requires no input from your side unless you were testing or relying 
 
 `TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
 
-### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
+### [Aztec.js] Use `getL2ToL1MembershipWitness` for L2-to-L1 message witnesses
 
-The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
+The node now computes L2-to-L1 membership witnesses directly, resolving the epoch and Outbox root internally from the transaction hash. Use `getL2ToL1MembershipWitness` instead of fetching raw epoch messages and computing the witness client-side.
 
 **Migration:**
 
 ```diff
-- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
-- // epoch was passed in by the caller
-+ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
-+ // epoch is now available on the returned witness
+- const messages = await aztecNode.getL2ToL1Messages(epochNumber);
+- // compute the witness client-side from the epoch messages
++ const witness = await aztecNode.getL2ToL1MembershipWitness(txHash, messageHash);
 + const epoch = witness.epochNumber;
 ```
 
-The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
+The return type `L2ToL1MembershipWitness` includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the third argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
 
-**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
+**Impact**: Call sites that compute L2-to-L1 membership witnesses should use the node method and extract `epochNumber` from the result.
 
 ### [Aztec.js] `getPublicEvents` now returns an object instead of an array
 
@@ -2835,31 +2834,17 @@ Note: current node softwares still produce exactly one L2 block per checkpoint, 
 
 ### [L1 Contracts] L2-to-L1 messages are now grouped by epoch.
 
-L2-to-L1 messages are now aggregated and organized per epoch rather than per block. This change affects how you compute membership witnesses for consuming messages on L1. You now need to know the epoch number in which the message was emitted to retrieve and consume the message.
+L2-to-L1 messages are aggregated and organized per epoch rather than per block, but callers should now ask the node to compute the membership witness directly from the emitting transaction hash. The node resolves the epoch and Outbox root internally.
 
 **Note**: This is only an API change. The protocol behavior remains the same - messages can still only be consumed once an epoch is proven as before.
 
 #### What changed
 
-Previously, you might have computed the membership witness without explicitly needing the epoch:
+Previously, callers fetched epoch messages and computed the witness client-side. Now, call `getL2ToL1MembershipWitness` on the node:
 
 ```typescript
-const witness = await computeL2ToL1MembershipWitness(
-  node,
-  l2TxReceipt.blockNumber,
-  l2ToL1Message,
-);
-```
-
-Now, you should provide the epoch number:
-
-```typescript
-const epoch = await rollup.getEpochNumberForCheckpoint(
-  CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber),
-);
-const witness = await computeL2ToL1MembershipWitness(
-  node,
-  epoch,
+const witness = await node.getL2ToL1MembershipWitness(
+  l2TxReceipt.txHash,
   l2ToL1Message,
 );
 ```

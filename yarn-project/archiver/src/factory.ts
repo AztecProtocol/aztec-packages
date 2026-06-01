@@ -1,7 +1,7 @@
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { makeL1HttpTransport } from '@aztec/ethereum/client';
-import { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
+import { InboxContract, OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import { pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -85,6 +85,7 @@ export async function createArchiver(
   // Create L1 contract instances
   const rollup = new RollupContract(publicClient, config.rollupAddress);
   const inbox = new InboxContract(publicClient, config.inboxAddress);
+  const outbox = new OutboxContract(publicClient, config.outboxAddress);
 
   // Fetch L1 constants from rollup contract
   const [
@@ -172,6 +173,7 @@ export async function createArchiver(
     publicClient,
     debugClient,
     rollup,
+    outbox,
     { ...pickL1ContractAddresses(config), slashingProposerAddress },
     archiverStore,
     archiverConfig,

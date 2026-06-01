@@ -1,7 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -68,6 +68,7 @@ describe('Archiver misc', () => {
       publicClient,
       publicClient,
       rollupContract,
+      mock<OutboxContract>(),
       {
         rollupAddress: EthAddress.random(),
         registryAddress: EthAddress.random(),

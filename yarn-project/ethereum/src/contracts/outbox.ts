@@ -89,9 +89,13 @@ export class OutboxContract {
    * Returns every root stored for `epoch`. Slot `i` of the returned array holds the root inserted
    * for `numCheckpointsInEpoch = i + 1`, or `Fr.ZERO` if no proof of that depth has been inserted
    * yet. The array length is always `MAX_CHECKPOINTS_PER_EPOCH`.
+   *
+   * @param opts - Optional viem read options. Pass `blockNumber` to pin the read to a specific L1
+   *   block, which is important for callers that want a consistent snapshot across multiple reads
+   *   (e.g. the archiver's outbox-trees resolver, which pins to the node's synced L1 block).
    */
-  public async getRoots(epoch: EpochNumber): Promise<Fr[]> {
-    const raw = await this.outbox.read.getRoots([BigInt(epoch)]);
+  public async getRoots(epoch: EpochNumber, opts?: { blockNumber?: bigint }): Promise<Fr[]> {
+    const raw = await this.outbox.read.getRoots([BigInt(epoch)], opts);
     return raw.map(hex => Fr.fromString(hex));
   }
 

@@ -134,6 +134,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response[0][0][0][0]).toBeInstanceOf(Fr);
   });
 
+  it('getL2ToL1MembershipWitness', async () => {
+    const response = await context.client.getL2ToL1MembershipWitness(TxHash.random(), Fr.random());
+    expect(response).toBeUndefined();
+  });
+
   it('getBlockHashMembershipWitness', async () => {
     const response = await context.client.getBlockHashMembershipWitness(BlockNumber(1), BlockHash.random());
     expect(response).toBeInstanceOf(MembershipWitness);
@@ -641,6 +646,11 @@ class MockAztecNode implements AztecNode {
         ),
       ),
     );
+  }
+  getL2ToL1MembershipWitness(txHash: TxHash, message: Fr, _messageIndexInTx?: number) {
+    expect(txHash).toBeInstanceOf(TxHash);
+    expect(message).toBeInstanceOf(Fr);
+    return Promise.resolve(undefined);
   }
   getNullifierMembershipWitness(
     referenceBlock: BlockParameter,
