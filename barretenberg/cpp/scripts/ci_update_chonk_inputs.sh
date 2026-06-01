@@ -170,8 +170,7 @@ fi
 
 git config user.name "AztecBot"
 git config user.email "tech@aztecprotocol.com"
-git remote set-url origin "https://x-access-token:${github_token}@github.com/${github_repository}.git"
-git config --unset-all http.https://github.com/.extraheader || true
+git_auth_origin "${github_repository}" "${github_token}"
 
 write_diff_file
 git commit -m "chore(bb): refresh pinned Chonk IVC inputs to ${new_hash}" \

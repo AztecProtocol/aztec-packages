@@ -27,9 +27,8 @@ function handle_squash_merge {
   # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
   # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
   echo "Processing squash and merge..."
-  # Reauth the git repo with our GITHUB_TOKEN
-  git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}
-  git config --unset-all http.https://github.com/.extraheader || true
+  # Reauth the git repo as our bot token (squash-pr.sh pushes and inherits this repo config).
+  git_auth_origin "${github_repository}"
   # Get the base commit (merge-base) for the PR
   ./scripts/merge-train/squash-pr.sh \
     "${PR_NUMBER}" \
