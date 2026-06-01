@@ -1,5 +1,5 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
+import { type EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -174,7 +174,11 @@ describe('sequencer', () => {
     feeRecipient = await AztecAddress.random();
     lastBlockNumber = BlockNumber.ZERO;
     newBlockNumber = BlockNumber(lastBlockNumber + 1);
-    newSlotNumber = newBlockNumber;
+    // Pipelining is always on: the proposer builds during the wall-clock (build) slot for the
+    // target slot one ahead. The mocked next-L1-slot lookup reports build slot 1 (see
+    // getEpochAndSlotInNextL1Slot below), so the checkpoint the sequencer builds — and the slot
+    // `canProposeAt` must report — is the target slot, build + PROPOSER_PIPELINING_SLOT_OFFSET.
+    newSlotNumber = newBlockNumber + PROPOSER_PIPELINING_SLOT_OFFSET;
     hash = Fr.ZERO.toString();
 
     globalVariables = new GlobalVariables(
@@ -205,11 +209,11 @@ describe('sequencer', () => {
       ts: 1000n,
       nowSeconds: 1000n,
     }));
-    epochCache.getTargetSlot.mockReturnValue(SlotNumber(1));
+    epochCache.getTargetSlot.mockReturnValue(SlotNumber(newSlotNumber));
     epochCache.getTargetEpoch.mockReturnValue(EpochNumber(1));
     epochCache.getTargetEpochAndSlotInNextL1Slot.mockImplementation(() => ({
       epoch: EpochNumber(1),
-      slot: SlotNumber(1),
+      slot: SlotNumber(newSlotNumber),
       ts: 1000n,
       nowSeconds: 1000n,
     }));
@@ -613,19 +617,20 @@ describe('sequencer', () => {
           ts: 1000n,
           nowSeconds: 1000n,
         });
-      epochCache.getTargetSlot.mockReset().mockReturnValueOnce(SlotNumber(1)).mockReturnValueOnce(SlotNumber(2));
+      // Target slots are one ahead of the build slots above (build 1 -> target 2, build 2 -> target 3).
+      epochCache.getTargetSlot.mockReset().mockReturnValueOnce(SlotNumber(2)).mockReturnValueOnce(SlotNumber(3));
       epochCache.getTargetEpoch.mockReturnValue(EpochNumber(1));
       epochCache.getTargetEpochAndSlotInNextL1Slot
         .mockReset()
         .mockReturnValueOnce({
           epoch: EpochNumber(1),
-          slot: SlotNumber(1),
+          slot: SlotNumber(2),
           ts: 1000n,
           nowSeconds: 1000n,
         })
         .mockReturnValueOnce({
           epoch: EpochNumber(1),
-          slot: SlotNumber(2),
+          slot: SlotNumber(3),
           ts: 1000n,
           nowSeconds: 1000n,
         });
@@ -683,7 +688,7 @@ describe('sequencer', () => {
       await sequencer.work();
 
       // Vote-only path should run
-      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(1));
+      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
       expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
       expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalled();
       // Submission goes through sendRequestsAt so the bundle simulate's block.timestamp
@@ -767,11 +772,11 @@ describe('sequencer', () => {
 
       // We're testing the new behavior - that we try to vote even when sync fails
       // when we're past the time we could build a block
-      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(1));
+      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
       expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
       expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalledWith(
         governancePayload,
-        SlotNumber(1),
+        SlotNumber(newSlotNumber),
         expect.any(EthAddress),
         expect.any(Function),
       );
