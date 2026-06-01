@@ -1,0 +1,4 @@
+field_mul(x, r=2^264) == x*2^264 (want)? false
+field_mul(x, r=2^264) == x*2^4? true
+=> entry needs b such that x*b*2^-260 = x*2^264, i.e. b = 2^(264+260) mod p = 2^524 mod p
+field_mul(x, 2^524 mod p) == x*2^264? true
