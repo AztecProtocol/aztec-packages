@@ -65,6 +65,7 @@ import {
   type CommitteeAttestation,
   type DataInBlock,
   type L2BlockSource,
+  type L2Tips,
   type NormalizedBlockParameter,
   inspectBlockParameter,
 } from '@aztec/stdlib/block';
@@ -81,6 +82,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, type ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
@@ -115,14 +117,19 @@ import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
+  DroppedTxReceipt,
   type FeeProvider,
+  type GetTxReceiptOptions,
   type GlobalVariableBuilder as GlobalVariableBuilderInterface,
   type IndexedTxEffect,
+  MinedTxReceipt,
+  type MinedTxStatus,
+  PendingTxReceipt,
   PublicSimulationOutput,
   type SimulationOverrides,
   Tx,
   type TxHash,
-  TxReceipt,
+  type TxReceipt,
   TxStatus,
   type TxValidationResult,
 } from '@aztec/stdlib/tx';
@@ -1176,36 +1183,79 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.log.info(`Received tx ${txHash} in ${duration}ms`, { txHash });
   }
 
-  public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+  public async getTxReceipt<TGetTxReceiptOptions extends GetTxReceiptOptions = {}>(
+    txHash: TxHash,
+    options?: TGetTxReceiptOptions,
+  ): Promise<TxReceipt<TGetTxReceiptOptions>> {
     // Check the tx pool status first. If the tx is known to the pool (pending or mined), we'll use that
-    // as a fallback if we don't find a settled receipt in the archiver.
+    // as a fallback if we don't find a mined tx effect in the archiver.
     const txPoolStatus = await this.p2pClient.getTxStatus(txHash);
     const isKnownToPool = txPoolStatus === 'pending' || txPoolStatus === 'mined';
 
-    // Then get the actual tx from the archiver, which tracks every tx in a mined block.
-    const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);
+    // Then get the raw tx effect from the archiver, which tracks every tx in a mined block.
+    const indexed = await this.blockSource.getTxEffect(txHash);
 
     let receipt: TxReceipt;
-    if (settledTxReceipt) {
-      receipt = settledTxReceipt;
+    if (indexed) {
+      receipt = await this.#assembleMinedReceipt(indexed, options);
     } else if (isKnownToPool) {
       // If the tx is in the pool but not in the archiver, it's pending.
       // This handles race conditions between archiver and p2p, where the archiver
       // has pruned the block in which a tx was mined, but p2p has not caught up yet.
-      receipt = new TxReceipt(txHash, TxStatus.PENDING, /*executionResult=*/ undefined, /*error=*/ undefined);
+      let tx: Tx | undefined;
+      if (options?.includePendingTx) {
+        // The tx may have left the pool since we checked its status (mined or dropped); in that case we
+        // leave `tx` unset and still return a pending receipt.
+        const pendingTx = await this.p2pClient.getTxByHashFromPool(txHash);
+        tx = pendingTx && !options.includeProof ? pendingTx.withoutProof() : pendingTx;
+      }
+      receipt = new PendingTxReceipt(txHash, tx);
     } else {
       // Otherwise, if we don't know the tx, we consider it dropped.
-      receipt = new TxReceipt(
-        txHash,
-        TxStatus.DROPPED,
-        /*executionResult=*/ undefined,
-        /*error=*/ 'Tx dropped by P2P node',
-      );
+      receipt = new DroppedTxReceipt(txHash, 'Tx dropped by P2P node');
     }
 
     this.debugLogStore.decorateReceiptWithLogs(txHash.toString(), receipt);
 
     return receipt;
+  }
+
+  /**
+   * Assembles a {@link MinedTxReceipt} from a raw {@link IndexedTxEffect}, deriving the finalization status from the
+   * cached L2 tips and the epoch from the block's slot number.
+   */
+  async #assembleMinedReceipt(indexed: IndexedTxEffect, options?: GetTxReceiptOptions): Promise<MinedTxReceipt> {
+    const blockNumber = indexed.l2BlockNumber;
+    const [tips, l1Constants] = await Promise.all([this.blockSource.getL2Tips(), this.blockSource.getL1Constants()]);
+
+    const status = this.#deriveMinedStatus(blockNumber, tips);
+    const epochNumber = getEpochAtSlot(indexed.slotNumber, l1Constants);
+
+    return new MinedTxReceipt(
+      indexed.data.txHash,
+      status,
+      MinedTxReceipt.executionResultFromRevertCode(indexed.data.revertCode),
+      indexed.data.transactionFee.toBigInt(),
+      indexed.l2BlockHash,
+      blockNumber,
+      indexed.slotNumber,
+      indexed.txIndexInBlock,
+      epochNumber,
+      options?.includeTxEffect ? indexed.data : undefined,
+      /*debugLogs=*/ undefined,
+    );
+  }
+
+  #deriveMinedStatus(blockNumber: BlockNumber, tips: L2Tips): MinedTxStatus {
+    if (blockNumber <= tips.finalized.block.number) {
+      return TxStatus.FINALIZED;
+    } else if (blockNumber <= tips.proven.block.number) {
+      return TxStatus.PROVEN;
+    } else if (blockNumber <= tips.checkpointed.block.number) {
+      return TxStatus.CHECKPOINTED;
+    } else {
+      return TxStatus.PROPOSED;
+    }
   }
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {

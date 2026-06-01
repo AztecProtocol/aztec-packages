@@ -41,7 +41,15 @@ import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { TxReceipt } from '../tx/tx_receipt.js';
+import {
+  DroppedTxReceipt,
+  type GetTxReceiptOptions,
+  MinedTxReceipt,
+  PendingTxReceipt,
+  TxExecutionResult,
+  type TxReceipt,
+  TxStatus,
+} from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import type { AllowedElement } from './allowed_element.js';
@@ -284,8 +292,23 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getTxReceipt', async () => {
+    // No options: the mock returns a plain mined receipt.
     const response = await context.client.getTxReceipt(TxHash.random());
-    expect(response).toBeInstanceOf(TxReceipt);
+    expect(response).toBeInstanceOf(MinedTxReceipt);
+
+    // The mock keys its returned variant off the options it receives, so each call below exercises both a distinct
+    // variant and the GetTxReceiptOptions wire encoding, round-tripping back to the correct class.
+    const mined = await context.client.getTxReceipt(TxHash.random(), { includeTxEffect: true });
+    expect(mined).toBeInstanceOf(MinedTxReceipt);
+    expect((mined as MinedTxReceipt).txEffect).toBeInstanceOf(TxEffect);
+
+    const pending = await context.client.getTxReceipt(TxHash.random(), { includePendingTx: true });
+    expect(pending).toBeInstanceOf(PendingTxReceipt);
+    expect((pending as PendingTxReceipt).tx).toBeInstanceOf(Tx);
+
+    const dropped = await context.client.getTxReceipt(TxHash.random(), { includeProof: true });
+    expect(dropped).toBeInstanceOf(DroppedTxReceipt);
+    expect((dropped as DroppedTxReceipt).error).toEqual('dropped');
   });
 
   it('getTxEffect', async () => {
@@ -718,9 +741,26 @@ class MockAztecNode implements AztecNode {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve();
   }
-  getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+  async getTxReceipt(txHash: TxHash, options?: GetTxReceiptOptions): Promise<TxReceipt> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve(TxReceipt.empty());
+    if (options?.includePendingTx) {
+      return new PendingTxReceipt(txHash, Tx.random());
+    }
+    if (options?.includeProof) {
+      return new DroppedTxReceipt(txHash, 'dropped');
+    }
+    return new MinedTxReceipt(
+      txHash,
+      TxStatus.PROVEN,
+      TxExecutionResult.SUCCESS,
+      1n,
+      new BlockHash(new Fr(0x12)),
+      BlockNumber(1),
+      SlotNumber(1),
+      0,
+      EpochNumber(1),
+      options?.includeTxEffect ? await TxEffect.random() : undefined,
+    );
   }
   async getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
@@ -729,6 +769,7 @@ class MockAztecNode implements AztecNode {
       l2BlockHash: new BlockHash(new Fr(0x12)),
       data: await TxEffect.random(),
       txIndexInBlock: randomInt(10),
+      slotNumber: SlotNumber(1),
     };
   }
   getPendingTxs(): Promise<Tx[]> {

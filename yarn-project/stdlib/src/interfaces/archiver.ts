@@ -29,7 +29,6 @@ import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.j
 import { optional, schemas } from '../schemas/schemas.js';
 import { indexedTxSchema } from '../tx/indexed_tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { TxReceipt } from '../tx/tx_receipt.js';
 import type { L2LogsSource } from './l2_logs_source.js';
 
 /**
@@ -100,7 +99,6 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getCheckpointData: z.function({ input: z.tuple([CheckpointQuerySchema]), output: CheckpointDataSchema.optional() }),
   getCheckpointsData: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(CheckpointDataSchema) }),
   getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
-  getSettledTxReceipt: z.function({ input: z.tuple([TxHash.schema]), output: TxReceipt.schema.optional() }),
   getSyncedL2SlotNumber: z.function({ input: z.tuple([]), output: schemas.SlotNumber.optional() }),
   getSyncedL2EpochNumber: z.function({ input: z.tuple([]), output: EpochNumberSchema.optional() }),
   getBlocksForSlot: z.function({ input: z.tuple([schemas.SlotNumber]), output: z.array(L2Block.schema) }),

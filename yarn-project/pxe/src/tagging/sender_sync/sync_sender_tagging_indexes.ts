@@ -93,17 +93,17 @@ export async function syncSenderTaggingIndexes(
     await taggingStore.finalizePendingIndexes(txHashesToFinalize, jobId);
 
     if (txHashesWithExecutionReverted.length > 0) {
-      const indexedTxEffects = await Promise.all(
-        txHashesWithExecutionReverted.map(txHash => aztecNode.getTxEffect(txHash)),
+      const receipts = await Promise.all(
+        txHashesWithExecutionReverted.map(txHash => aztecNode.getTxReceipt(txHash, { includeTxEffect: true })),
       );
-      for (const indexedTxEffect of indexedTxEffects) {
-        if (indexedTxEffect === undefined) {
+      for (const receipt of receipts) {
+        if (!receipt.isMined() || !receipt.txEffect) {
           throw new Error(
             'TxEffect not found for execution-reverted tx. This is either a bug or a reorg has occurred.',
           );
         }
 
-        await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(indexedTxEffect.data, jobId);
+        await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(receipt.txEffect, jobId);
       }
     }
 
