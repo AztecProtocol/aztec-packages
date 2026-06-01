@@ -21,6 +21,7 @@ import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import type { Option } from '../noir-structs/option.js';
+import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -122,7 +123,10 @@ export interface IUtilityExecutionOracle {
     startStorageSlot: Fr,
     numberOfElements: number,
   ): Promise<Fr[]>;
-  getPendingTaggedLogs(scope: AztecAddress): Promise<EphemeralArray<PendingTaggedLog>>;
+  getPendingTaggedLogs(
+    scope: AztecAddress,
+    providedSecrets: EphemeralArray<ProvidedSecret>,
+  ): Promise<EphemeralArray<PendingTaggedLog>>;
   validateAndStoreEnqueuedNotesAndEvents(
     noteValidationRequests: EphemeralArray<NoteValidationRequest>,
     eventValidationRequests: EphemeralArray<EventValidationRequest>,

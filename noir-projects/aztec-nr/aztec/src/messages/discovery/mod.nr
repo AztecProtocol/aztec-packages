@@ -1,5 +1,6 @@
 use crate::logging::{aztecnr_debug_log, aztecnr_debug_log_format, aztecnr_warn_log_format};
 use crate::protocol::address::AztecAddress;
+use crate::protocol::hash::sha256_to_field;
 
 pub(crate) mod nonce_discovery;
 pub(crate) mod partial_notes;
@@ -8,18 +9,23 @@ pub mod private_notes;
 pub mod process_message;
 
 use crate::{
+    ephemeral::EphemeralArray,
     messages::{
         discovery::process_message::process_message_ciphertext,
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
             MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
-            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
+            pending_tagged_log::PendingTaggedLog, provided_secret::ProvidedSecret,
+            validate_and_store_enqueued_notes_and_events,
         },
     },
     oracle::message_processing,
     utils::array,
 };
+
+global PROVIDED_SECRETS_ARRAY_BASE_SLOT: Field =
+    sha256_to_field("AZTEC_NR::PROVIDED_SECRETS_ARRAY_BASE_SLOT".as_bytes());
 
 pub struct NoteHashAndNullifier {
     /// The result of [`crate::note::note_interface::NoteHash::compute_note_hash`].
@@ -139,7 +145,8 @@ pub unconstrained fn do_sync_state(
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
-    let logs = message_processing::get_pending_tagged_logs(scope);
+    let provided_secrets = EphemeralArray::<ProvidedSecret>::at(PROVIDED_SECRETS_ARRAY_BASE_SLOT).clear();
+    let logs = message_processing::get_pending_tagged_logs(scope, provided_secrets);
     logs.for_each(|_i, pending_tagged_log: PendingTaggedLog| {
         if pending_tagged_log.log.len() == 0 {
             aztecnr_warn_log_format!("Skipping empty log from tx {0}")([pending_tagged_log.context.tx_hash]);

@@ -24,7 +24,12 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
-import { MessageContext, type PendingTaggedLog, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  MessageContext,
+  type PendingTaggedLog,
+  deriveAppSiloedSharedSecret,
+} from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -61,6 +66,7 @@ import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
+import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
@@ -552,9 +558,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /** Fetches pending tagged logs into a freshly allocated ephemeral array and returns it. */
-  public async getPendingTaggedLogs(scope: AztecAddress): Promise<EphemeralArray<PendingTaggedLog>> {
+  public async getPendingTaggedLogs(
+    scope: AztecAddress,
+    providedSecrets: EphemeralArray<ProvidedSecret>,
+  ): Promise<EphemeralArray<PendingTaggedLog>> {
+    const secrets = providedSecrets
+      .readAll(this.ephemeralArrayService)
+      .map(ps => new AppTaggingSecret(ps.secret, this.contractAddress, ps.mode));
+
     const logService = this.#createLogService();
-    const logs = await logService.fetchTaggedLogs(this.contractAddress, scope);
+    const logs = await logService.fetchTaggedLogs(this.contractAddress, scope, secrets);
     return EphemeralArray.fromValues(this.ephemeralArrayService, logs);
   }
 

@@ -26,6 +26,7 @@ import {
   Option,
   PENDING_TAGGED_LOG,
   POINT,
+  PROVIDED_SECRET,
   packAsHintedNote,
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
@@ -829,9 +830,10 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getPendingTaggedLogs(foreignScope: ForeignCallSingle) {
+  async aztec_utl_getPendingTaggedLogs(foreignScope: ForeignCallSingle, foreignProvidedSecretsSlot: ForeignCallSingle) {
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
-    const result = await this.handlerAsUtility().getPendingTaggedLogs(scope);
+    const providedSecrets = EphemeralArray.fromSlot(fromSingle(foreignProvidedSecretsSlot), PROVIDED_SECRET);
+    const result = await this.handlerAsUtility().getPendingTaggedLogs(scope, providedSecrets);
     const slot = EPHEMERAL_ARRAY(PENDING_TAGGED_LOG).serialization!.fn(result)[0] as Fr;
     return toForeignCallResult([toSingle(slot)]);
   }

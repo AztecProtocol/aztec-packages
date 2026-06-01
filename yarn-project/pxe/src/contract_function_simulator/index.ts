@@ -26,4 +26,5 @@ export {
   OPTION,
   PENDING_TAGGED_LOG,
   POINT,
+  PROVIDED_SECRET,
 } from './oracle/oracle_registry.js';

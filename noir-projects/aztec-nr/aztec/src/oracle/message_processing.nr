@@ -2,19 +2,28 @@ use crate::ephemeral::EphemeralArray;
 use crate::messages::processing::{
     event_validation_request::EventValidationRequest, log_retrieval_request::LogRetrievalRequest,
     log_retrieval_response::LogRetrievalResponse, MessageContext, NoteValidationRequest,
-    pending_tagged_log::PendingTaggedLog,
+    pending_tagged_log::PendingTaggedLog, provided_secret::ProvidedSecret,
 };
 use crate::protocol::address::AztecAddress;
 use crate::protocol::blob_data::TxEffect;
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and
 /// returns them in an ephemeral array with an oracle-allocated base slot.
-pub(crate) unconstrained fn get_pending_tagged_logs(scope: AztecAddress) -> EphemeralArray<PendingTaggedLog> {
-    get_pending_tagged_logs_oracle(scope)
+///
+/// `provided_secrets` are tagging secrets the app supplies explicitly. They are searched alongside the secrets PXE
+/// derives or stores internally, and exist for secrets PXE cannot enumerate on its own (e.g. handshake-derived ones).
+pub(crate) unconstrained fn get_pending_tagged_logs(
+    scope: AztecAddress,
+    provided_secrets: EphemeralArray<ProvidedSecret>,
+) -> EphemeralArray<PendingTaggedLog> {
+    get_pending_tagged_logs_oracle(scope, provided_secrets)
 }
 
 #[oracle(aztec_utl_getPendingTaggedLogs)]
-unconstrained fn get_pending_tagged_logs_oracle(scope: AztecAddress) -> EphemeralArray<PendingTaggedLog> {}
+unconstrained fn get_pending_tagged_logs_oracle(
+    scope: AztecAddress,
+    provided_secrets: EphemeralArray<ProvidedSecret>,
+) -> EphemeralArray<PendingTaggedLog> {}
 
 /// Validates note/event requests stored in ephemeral arrays.
 pub(crate) unconstrained fn validate_and_store_enqueued_notes_and_events(

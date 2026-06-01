@@ -45,6 +45,7 @@ import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
+import { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import type { NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -310,6 +311,13 @@ export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = {
   serialization: { fn: mc => [mc.toFields()] },
 };
 
+export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {
+  deserialization: {
+    fn: ([reader]) => ProvidedSecret.fromFields(reader),
+    slots: 1,
+  },
+};
+
 const ORACLE_REGISTRY = {
   aztec_utl_assertCompatibleOracleVersion: makeEntry({
     params: [
@@ -444,7 +452,10 @@ const ORACLE_REGISTRY = {
   }),
 
   aztec_utl_getPendingTaggedLogs: makeEntry({
-    params: [{ name: 'scope', type: AZTEC_ADDRESS }],
+    params: [
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'providedSecrets', type: EPHEMERAL_ARRAY(PROVIDED_SECRET) },
+    ],
     returnType: EPHEMERAL_ARRAY(PENDING_TAGGED_LOG),
   }),
 

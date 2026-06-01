@@ -9,6 +9,25 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `get_pending_tagged_logs` oracle interface updated (oracle version 28)
+
+The `aztec_utl_getPendingTaggedLogs` oracle now takes an additional `provided_secrets` parameter of type `EphemeralArray<ProvidedSecret>`. This lets apps pass tagging secrets that PXE cannot derive on its own (e.g. handshake-derived secrets) alongside the secrets PXE manages internally.
+
+**If you call `get_pending_tagged_logs` directly**, add the new parameter:
+
+```diff
++ use aztec::messages::processing::provided_secret::{ProvidedSecret, ProvidedSecretKind};
++ use aztec::oracle::ephemeral_array::{EphemeralArray, SOME_SLOT};
+
+- let logs = get_pending_tagged_logs(scope);
++ let provided_secrets = EphemeralArray::<ProvidedSecret>::at(SOME_SLOT).clear(); // empty = no extra secrets
++ let logs = get_pending_tagged_logs(scope, provided_secrets);
+```
+
+**If you rely on `do_sync_state`** (the standard message-discovery path), no change is needed — it handles the new parameter internally.
+
+All compiled contract artifacts must be **recompiled** against the updated aztec-nr to reflect the new oracle major version (27 → 28).
+
 ### [Aztec.nr] `set_sender_for_tags` oracle removed
 
 The `set_sender_for_tags` oracle has been removed. Contracts that used it to override the sender for discovery tag derivation should now use the `with_sender` builder method on `MessageDelivery`:
