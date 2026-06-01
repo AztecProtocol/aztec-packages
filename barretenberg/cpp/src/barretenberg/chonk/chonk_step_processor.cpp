@@ -53,8 +53,13 @@ void accumulate_next_chonk_circuit(Chonk& ivc,
                                    const std::vector<uint8_t>& precomputed_vk,
                                    ChonkPrecomputedVkPolicy policy)
 {
-    BB_ASSERT(kind == ivc.next_circuit_kind(),
-              "ChonkStepProcessor: supplied CircuitKind disagrees with IVC state machine");
+    // Not a BB_ASSERT: this guard must survive release/WASM builds. A step deserialized from an
+    // older or external ivc-inputs.msgpack that omits `kind` defaults to App; without this check a
+    // kernel circuit would silently select the MegaApp flavor and fail later with a confusing proof
+    // error instead of a clear one here.
+    if (kind != ivc.next_circuit_kind()) {
+        throw_or_abort("ChonkStepProcessor: supplied CircuitKind disagrees with IVC state machine");
+    }
 
     dispatch_kind(kind, [&]<Chonk::CircuitKind K>() {
         using FlavorT = flavor_for<K>;

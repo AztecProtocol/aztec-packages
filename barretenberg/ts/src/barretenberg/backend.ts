@@ -316,6 +316,13 @@ export class AztecClientBackend {
         `circuitKinds must have one entry per bytecode (got ${circuitKinds.length} kinds for ${acirBuf.length} circuits)`,
       );
     }
+    // Guard against sparse/undefined entries: an undefined kind serializes to the C++ App default
+    // and would silently select the wrong flavor for kernel circuits.
+    circuitKinds.forEach((kind, i) => {
+      if (!(kind in CircuitKind)) {
+        throw new AztecClientBackendError(`circuitKinds[${i}] is not a valid CircuitKind (got ${kind})`);
+      }
+    });
   }
 
   async prove(

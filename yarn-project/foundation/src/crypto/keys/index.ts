@@ -18,5 +18,9 @@ export async function vkAsFields(input: Buffer, kind: CircuitKind): Promise<Fr[]
       const response = api.megaZKVkAsFields({ verificationKey: input });
       return response.fields.map(field => Fr.fromBuffer(Buffer.from(field)));
     }
+    default: {
+      const _exhaustive: never = kind;
+      throw new Error(`vkAsFields: unhandled CircuitKind ${_exhaustive}`);
+    }
   }
 }
