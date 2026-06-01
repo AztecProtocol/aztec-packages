@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 7,
+  "schemaVersion": 8,
   "stores": [
     {
       "name": "address_book",
@@ -38,6 +38,10 @@
       "kind": "map"
     },
     {
+      "name": "events_by_block_number",
+      "kind": "multimap"
+    },
+    {
       "name": "events_by_contract_selector",
       "kind": "multimap"
     },
@@ -63,6 +67,10 @@
     },
     {
       "name": "note_nullifications_by_nullifier",
+      "kind": "multimap"
+    },
+    {
+      "name": "note_nullifiers_by_block",
       "kind": "multimap"
     },
     {
