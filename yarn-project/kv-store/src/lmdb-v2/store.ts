@@ -30,6 +30,10 @@ import { WriteTransaction } from './write_transaction.js';
 
 export { execInReadTx, execInWriteTx } from './tx-helpers.js';
 
+function toBuffer(value: Uint8Array): Buffer {
+  return Buffer.isBuffer(value) ? value : Buffer.from(value);
+}
+
 export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   private open = false;
   private api: KvdbApi;
@@ -259,7 +263,9 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
           this.toGeneratedOpenDatabase(body as LMDBRequestBody[LMDBMessageType.OPEN_DATABASE]),
         ) as Promise<LMDBResponseBody[T]>;
       case LMDBMessageType.GET:
-        return this.api.kvdbGet(body as LMDBRequestBody[LMDBMessageType.GET]) as Promise<LMDBResponseBody[T]>;
+        return this.api.kvdbGet(body as LMDBRequestBody[LMDBMessageType.GET]).then(response => ({
+          values: response.values.map(values => values?.map(toBuffer) ?? null),
+        })) as Promise<LMDBResponseBody[T]>;
       case LMDBMessageType.HAS:
         return this.api.kvdbHas(this.toGeneratedHas(body as LMDBRequestBody[LMDBMessageType.HAS])) as Promise<
           LMDBResponseBody[T]
@@ -269,12 +275,12 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
           .kvdbStartCursor(this.toGeneratedStartCursor(body as LMDBRequestBody[LMDBMessageType.START_CURSOR]))
           .then(response => ({
             ...response,
-            entries: response.entries.map(({ key, values }) => [key, values]),
+            entries: response.entries.map(({ key, values }) => [toBuffer(key), values.map(toBuffer)]),
           })) as Promise<LMDBResponseBody[T]>;
       case LMDBMessageType.ADVANCE_CURSOR:
         return this.api.kvdbAdvanceCursor(body as LMDBRequestBody[LMDBMessageType.ADVANCE_CURSOR]).then(response => ({
           ...response,
-          entries: response.entries.map(({ key, values }) => [key, values]),
+          entries: response.entries.map(({ key, values }) => [toBuffer(key), values.map(toBuffer)]),
         })) as Promise<LMDBResponseBody[T]>;
       case LMDBMessageType.ADVANCE_CURSOR_COUNT:
         return this.api.kvdbAdvanceCursorCount(

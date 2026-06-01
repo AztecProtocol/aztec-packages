@@ -14,7 +14,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { IMsgpackBackendAsync } from '../bb_backends/interface.js';
-import { findNapiBinary } from '../bb_backends/node/platform.js';
 import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
@@ -138,11 +137,7 @@ export class KvdbBackend implements IMsgpackBackendAsync {
 
   private connectShm(resolve: () => void, reject: (error: Error) => void, napiPath?: string) {
     const shmName = this.inputPath.replace(/\.shm$/, '');
-    const addonPath = findNapiBinary(napiPath);
-    if (!addonPath) {
-      reject(new Error('NAPI binary not found — required for shared memory mode'));
-      return;
-    }
+    const clientOptions = napiPath ? { clientId: 0, customAddonPath: napiPath } : { clientId: 0 };
 
     const retryInterval = 100;
     const maxAttempts = 100; // 10s total
@@ -151,7 +146,7 @@ export class KvdbBackend implements IMsgpackBackendAsync {
     const tryConnect = () => {
       attempt++;
       try {
-        this.client = createNapiShmAsyncClient(shmName, { clientId: 0, customAddonPath: addonPath });
+        this.client = createNapiShmAsyncClient(shmName, clientOptions);
         resolve();
       } catch (e: any) {
         if (attempt >= maxAttempts) {
