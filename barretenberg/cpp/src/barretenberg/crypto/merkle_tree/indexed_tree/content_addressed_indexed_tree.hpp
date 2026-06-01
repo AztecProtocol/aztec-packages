@@ -607,14 +607,14 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_int
 
     auto sibling_path_completion = [=, this](const TypedResponse<GetSiblingPathResponse>& response) {
         if (!response.success) {
-            results->status.set_failure(response.message);
-        } else {
-            if (capture_witness) {
-                results->subtree_path = std::move(response.inner.path);
-            }
-            ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
-                (*results->hashes_to_append), final_completion, false);
+            on_error(response.message);
+            return;
         }
+        if (capture_witness) {
+            results->subtree_path = std::move(response.inner.path);
+        }
+        ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
+            (*results->hashes_to_append), final_completion, false);
     };
 
     // This signals the completion of the appended hash generation

@@ -15,6 +15,8 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <future>
@@ -56,6 +58,26 @@ using SequentialCompletionCallback = TreeType::AddSequentiallyCompletionCallback
 
 using IndexedNullifierLeafType = IndexedLeaf<NullifierLeafValue>;
 using IndexedPublicDataLeafType = IndexedLeaf<PublicDataLeafValue>;
+
+// Throws on the Nth get_current_root call (fail_on_call). The tree dispatches on the concrete store type
+// at compile time, so this non-virtual override is what it actually calls.
+class FailingRootStore : public Store {
+  public:
+    using Store::Store;
+
+    mutable std::atomic<uint32_t> root_call_count{ 0 };
+    std::atomic<uint32_t> fail_on_call{ 0 }; // 0 disables injection
+
+    fr get_current_root(ReadTransaction& tx, bool includeUncommitted) const
+    {
+        uint32_t call = ++root_call_count;
+        if (fail_on_call != 0 && call >= fail_on_call) {
+            throw std::runtime_error("injected get_current_root failure");
+        }
+        return Store::get_current_root(tx, includeUncommitted);
+    }
+};
+using FailingRootTreeType = ContentAddressedIndexedTree<FailingRootStore, HashPolicy>;
 
 inline IndexedNullifierLeafType create_indexed_nullifier_leaf(const fr& value, index_t nextIndex, const fr& nextValue)
 {
@@ -432,6 +454,34 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_only_recreate_with_same_nam
 
     EXPECT_ANY_THROW(Store("Wrong name", depth, db));
     EXPECT_ANY_THROW(Store(name, depth + 1, db));
+}
+
+// A failing subtree sibling path read during a witnessed insertion must still invoke the completion
+// callback (with success=false) rather than dropping it and deadlocking the caller.
+TEST_F(PersistedContentAddressedIndexedTreeTest, reports_failure_when_subtree_sibling_path_read_fails)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    auto store = std::make_unique<FailingRootStore>(name, depth, db);
+    FailingRootStore* store_ptr = store.get();
+    ThreadPoolPtr workers = make_thread_pool(1);
+    FailingRootTreeType tree(std::move(store), workers, 2);
+
+    // Ignore genesis reads; pass generate_insertions (call 1) and fail get_subtree_sibling_path (call 2).
+    store_ptr->root_call_count = 0;
+    store_ptr->fail_on_call = 2;
+
+    std::promise<bool> completed;
+    std::future<bool> completed_future = completed.get_future();
+    auto completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) -> void {
+        completed.set_value(response.success);
+    };
+    tree.add_or_update_values(std::vector<NullifierLeafValue>{ NullifierLeafValue(get_value(1)) }, completion);
+
+    // Bounded wait so a regression fails the test
+    ASSERT_EQ(completed_future.wait_for(std::chrono::seconds(60)), std::future_status::ready);
+    EXPECT_FALSE(completed_future.get());
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_size)
