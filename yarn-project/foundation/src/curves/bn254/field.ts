@@ -6,6 +6,7 @@ import { toBigIntBE, toBufferBE } from '../../bigint-buffer/index.js';
 import { randomBytes } from '../../crypto/random/index.js';
 import { hexSchemaFor } from '../../schemas/utils.js';
 import { BufferReader } from '../../serialize/buffer_reader.js';
+import type { BufferSink } from '../../serialize/buffer_sink.js';
 
 /**
  * Represents a field derived from BaseField.
@@ -64,10 +65,16 @@ abstract class BaseField {
   protected abstract modulus(): bigint;
 
   /**
-   * Converts the bigint to a Buffer.
+   * Converts the bigint to a Buffer. With a sink, streams the 32 big-endian bytes straight in (no allocation)
+   * and returns undefined; without one, returns a freshly allocated buffer.
    */
-  toBuffer(): Buffer {
-    return toBufferBE(this.asBigInt, 32);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return toBufferBE(this.asBigInt, BaseField.SIZE_IN_BYTES);
+    }
+    sink.writeField(this.asBigInt);
   }
 
   toString(): `0x${string}` {
