@@ -15,6 +15,7 @@ import {
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { type ACVMField, fromUintArray, toACVMField } from '@aztec/simulator/client';
@@ -25,18 +26,31 @@ import { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { ContractClassLog, ContractClassLogFields, FlatPublicLogs, PrivateLog, Tag } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  ContractClassLogFields,
+  FlatPublicLogs,
+  MessageContext,
+  PendingTaggedLog,
+  PrivateLog,
+  Tag,
+} from '@aztec/stdlib/logs';
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
+import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import type { NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { packAsHintedNote } from './note_packing_utils.js';
 
-const FIELD: TypeMapping<Fr> = {
+export const FIELD: TypeMapping<Fr> = {
   serialization: { fn: v => [v] },
   deserialization: { fn: ([reader]) => reader.readField(), slots: 1 },
 };
@@ -254,6 +268,48 @@ const NOTE: TypeMapping<NoteData> = {
   },
 };
 
+export const POINT: TypeMapping<Point> = {
+  serialization: { fn: p => [p.toFields()] },
+  deserialization: {
+    fn: ([reader]) => Point.fromFields([reader.readField(), reader.readField()]),
+    slots: 1,
+  },
+};
+
+export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = {
+  serialization: { fn: log => [log.toFields()] },
+};
+
+export const NOTE_VALIDATION_REQUEST: TypeMapping<NoteValidationRequest> = {
+  deserialization: {
+    fn: ([reader]) => NoteValidationRequest.fromFields(reader),
+    slots: 1,
+  },
+};
+
+export const EVENT_VALIDATION_REQUEST: TypeMapping<EventValidationRequest> = {
+  deserialization: {
+    fn: ([reader]) => EventValidationRequest.fromFields(reader),
+    slots: 1,
+  },
+};
+
+export const LOG_RETRIEVAL_REQUEST: TypeMapping<LogRetrievalRequest> = {
+  serialization: { fn: req => [req.toFields()] },
+  deserialization: {
+    fn: ([reader]) => LogRetrievalRequest.fromFields(reader),
+    slots: 1,
+  },
+};
+
+export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = {
+  serialization: { fn: resp => [resp.toFields()] },
+};
+
+export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = {
+  serialization: { fn: mc => [mc.toFields()] },
+};
+
 const ORACLE_REGISTRY = {
   aztec_utl_assertCompatibleOracleVersion: makeEntry({
     params: [
@@ -389,25 +445,25 @@ const ORACLE_REGISTRY = {
 
   aztec_utl_getPendingTaggedLogs: makeEntry({
     params: [{ name: 'scope', type: AZTEC_ADDRESS }],
-    returnType: FIELD,
+    returnType: EPHEMERAL_ARRAY(PENDING_TAGGED_LOG),
   }),
 
   aztec_utl_validateAndStoreEnqueuedNotesAndEvents: makeEntry({
     params: [
-      { name: 'noteValidationRequestsArrayBaseSlot', type: FIELD },
-      { name: 'eventValidationRequestsArrayBaseSlot', type: FIELD },
+      { name: 'noteValidationRequests', type: EPHEMERAL_ARRAY(NOTE_VALIDATION_REQUEST) },
+      { name: 'eventValidationRequests', type: EPHEMERAL_ARRAY(EVENT_VALIDATION_REQUEST) },
       { name: 'scope', type: AZTEC_ADDRESS },
     ],
   }),
 
   aztec_utl_getLogsByTag: makeEntry({
-    params: [{ name: 'requestArrayBaseSlot', type: FIELD }],
-    returnType: FIELD,
+    params: [{ name: 'requests', type: EPHEMERAL_ARRAY(LOG_RETRIEVAL_REQUEST) }],
+    returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)),
   }),
 
   aztec_utl_getMessageContextsByTxHash: makeEntry({
-    params: [{ name: 'requestArrayBaseSlot', type: FIELD }],
-    returnType: FIELD,
+    params: [{ name: 'requests', type: EPHEMERAL_ARRAY(FIELD) }],
+    returnType: EPHEMERAL_ARRAY(OPTION(MESSAGE_CONTEXT)),
   }),
 
   aztec_utl_getTxEffect: makeEntry({
@@ -464,10 +520,10 @@ const ORACLE_REGISTRY = {
   aztec_utl_getSharedSecrets: makeEntry({
     params: [
       { name: 'address', type: AZTEC_ADDRESS },
-      { name: 'ephPksSlot', type: FIELD },
+      { name: 'ephPks', type: EPHEMERAL_ARRAY(POINT) },
       { name: 'contractAddress', type: AZTEC_ADDRESS },
     ],
-    returnType: FIELD,
+    returnType: EPHEMERAL_ARRAY(FIELD),
   }),
 
   aztec_utl_setContractSyncCacheInvalid: makeEntry({
@@ -820,7 +876,7 @@ function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
  * slot 1: Fr(0)    // zero-filled using shape
  * ```
  */
-function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> {
+export function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> {
   return {
     serialization: inner.serialization
       ? {
@@ -867,6 +923,17 @@ function BUFFER(bitSize: number): TypeMapping<Buffer> {
       },
       slots: 1,
     },
+  };
+}
+
+export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<EphemeralArray<T>> {
+  return {
+    serialization: element.serialization
+      ? { fn: ea => [ea.materializeSlot(v => element.serialization!.fn(v).flat() as Fr[])] }
+      : undefined,
+    deserialization: element.deserialization
+      ? { fn: ([reader]) => EphemeralArray.fromSlot(reader.readField(), element), slots: 1 }
+      : undefined,
   };
 }
 

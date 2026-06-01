@@ -5,10 +5,11 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import {
   BufferReader,
+  BufferSink,
   FieldReader,
   type Tuple,
-  serializeToBuffer,
   serializeToFields,
+  serializeToSink,
 } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -67,8 +68,13 @@ export class PrivateLog {
     return new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.zero), 0);
   }
 
-  toBuffer(): Buffer {
-    return serializeToBuffer(this.fields, this.emittedLength);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.fields, this.emittedLength);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
