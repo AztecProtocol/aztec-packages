@@ -275,7 +275,7 @@ export class TXESession implements TXESessionStateHandler {
     ]);
 
     const archiver = new TXEArchiver(store);
-    const canonicalBlockStore = new CanonicalBlockStore(store);
+    const canonicalBlockStore = new CanonicalBlockStore(store, archiver);
     await canonicalBlockStore.load();
     const stateMachine = await TXEStateMachine.create(archiver, canonicalBlockStore, contractStore, noteStore);
 

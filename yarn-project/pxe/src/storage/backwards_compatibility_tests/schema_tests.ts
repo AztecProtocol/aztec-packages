@@ -83,7 +83,10 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   {
     name: 'CanonicalBlockStore',
     writeToStore: async kvStore => {
-      const canonicalBlockStore = new CanonicalBlockStore(kvStore);
+      const canonicalBlockStore = new CanonicalBlockStore(
+        kvStore,
+        new L2TipsKVStore(kvStore, 'pxe', GENESIS_BLOCK_HEADER_HASH),
+      );
       await canonicalBlockStore.load();
 
       // Each primitive field gets a distinct prime so any reorder shows up in the snapshot diff. An all-zero
@@ -115,13 +118,13 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         ),
       );
 
-      // Populate the canonical map + finality meta so canonical_hashes / canonical_meta are fingerprinted.
+      // Populate the canonical map + finalized floor so canonical_hashes / canonical_meta are fingerprinted.
       await canonicalBlockStore.setManyCanonical([
         { number: BlockNumber(101), hash: '0x6f' },
         { number: BlockNumber(103), hash: '0x83' },
       ]);
-      await canonicalBlockStore.setFloor(97);
-      await canonicalBlockStore.setFinalized(89);
+      // 89 is below the recorded hashes at 101/103, so this prunes nothing and only sets the floor + persists meta.
+      await canonicalBlockStore.advanceFinalized(BlockNumber(89));
     },
     snapshotStore: async kvStore => ({
       header: await snapshotSingleton(kvStore.openSingleton<Buffer>('header')),
