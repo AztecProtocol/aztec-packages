@@ -3,7 +3,12 @@ import { makeRandomBlob } from '@aztec/blob-lib/testing';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import { BlockTagTooOldError, type InboxContract, type RollupContract } from '@aztec/ethereum/contracts';
+import {
+  BlockTagTooOldError,
+  type InboxContract,
+  type OutboxContract,
+  type RollupContract,
+} from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -116,6 +121,7 @@ describe('Archiver Sync', () => {
       publicClient,
       publicClient,
       rollupContract,
+      mock<OutboxContract>(),
       contractAddresses,
       store,
       config,

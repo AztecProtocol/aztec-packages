@@ -13,10 +13,10 @@ import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
+import { retryUntil } from '@aztec/foundation/retry';
 import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
-import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
@@ -269,11 +269,19 @@ export const uniswapL1L2TestSuite = (
       const daiL1BalanceOfPortalBeforeSwap = await daiCrossChainHarness.getL1BalanceOf(
         daiCrossChainHarness.tokenPortalAddress,
       );
-      // Fetch the outbox roots once and share them between the two witnesses in this epoch.
-      const epochRoots = await wethCrossChainHarness.outboxContract.getRoots(minedReceipt.epochNumber);
-      const swapResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, swapPrivateLeaf, minedReceipt))!;
+      const swapResult = await retryUntil(
+        () => aztecNode.getL2ToL1MembershipWitness(minedReceipt.txHash, swapPrivateLeaf),
+        'swap private l2 to l1 witness',
+        60,
+        1,
+      );
       const { epochNumber: epoch, numCheckpointsInEpoch } = swapResult;
-      const withdrawResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, withdrawLeaf, minedReceipt))!;
+      const withdrawResult = await retryUntil(
+        () => aztecNode.getL2ToL1MembershipWitness(minedReceipt.txHash, withdrawLeaf),
+        'withdraw l2 to l1 witness',
+        60,
+        1,
+      );
 
       const swapPrivateL2MessageIndex = swapResult.leafIndex;
       const swapPrivateSiblingPath = swapResult.siblingPath;
@@ -861,11 +869,19 @@ export const uniswapL1L2TestSuite = (
       await cheatCodes.rollup.advanceToEpoch(EpochNumber(minedReceipt.epochNumber + 1));
       await waitForProven(aztecNode, withdrawReceipt, { provenTimeout: 300 });
 
-      // Fetch the outbox roots once and share them between the two witnesses in this epoch.
-      const epochRoots = await wethCrossChainHarness.outboxContract.getRoots(minedReceipt.epochNumber);
-      const swapResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, swapPrivateLeaf, minedReceipt))!;
+      const swapResult = await retryUntil(
+        () => aztecNode.getL2ToL1MembershipWitness(minedReceipt.txHash, swapPrivateLeaf),
+        'swap private l2 to l1 witness',
+        60,
+        1,
+      );
       const { epochNumber: epoch, numCheckpointsInEpoch } = swapResult;
-      const withdrawResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, withdrawLeaf, minedReceipt))!;
+      const withdrawResult = await retryUntil(
+        () => aztecNode.getL2ToL1MembershipWitness(minedReceipt.txHash, withdrawLeaf),
+        'withdraw l2 to l1 witness',
+        60,
+        1,
+      );
 
       const swapPrivateL2MessageIndex = swapResult.leafIndex;
       const swapPrivateSiblingPath = swapResult.siblingPath;
@@ -1002,11 +1018,19 @@ export const uniswapL1L2TestSuite = (
       await cheatCodes.rollup.advanceToEpoch(EpochNumber(minedReceipt.epochNumber + 1));
       await waitForProven(aztecNode, withdrawReceipt, { provenTimeout: 300 });
 
-      // Fetch the outbox roots once and share them between the two witnesses in this epoch.
-      const epochRoots = await wethCrossChainHarness.outboxContract.getRoots(minedReceipt.epochNumber);
-      const swapResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, swapPublicLeaf, minedReceipt))!;
+      const swapResult = await retryUntil(
+        () => aztecNode.getL2ToL1MembershipWitness(minedReceipt.txHash, swapPublicLeaf),
+        'swap public l2 to l1 witness',
+        60,
+        1,
+      );
       const { epochNumber: epoch, numCheckpointsInEpoch } = swapResult;
-      const withdrawResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, withdrawLeaf, minedReceipt))!;
+      const withdrawResult = await retryUntil(
+        () => aztecNode.getL2ToL1MembershipWitness(minedReceipt.txHash, withdrawLeaf),
+        'withdraw l2 to l1 witness',
+        60,
+        1,
+      );
 
       const swapPublicL2MessageIndex = swapResult.leafIndex;
       const swapPublicSiblingPath = swapResult.siblingPath;

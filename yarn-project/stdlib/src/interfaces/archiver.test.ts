@@ -119,6 +119,11 @@ describe('ArchiverApiSchema', () => {
     expect(result!.data).toBeInstanceOf(TxEffect);
   });
 
+  it('getL2ToL1MembershipWitness', async () => {
+    const result = await context.client.getL2ToL1MembershipWitness(TxHash.random(), Fr.random());
+    expect(result).toBeUndefined();
+  });
+
   it('getSyncedL2SlotNumber', async () => {
     const result = await context.client.getSyncedL2SlotNumber();
     expect(result).toBe(SlotNumber(1));
@@ -427,6 +432,9 @@ class MockArchiver implements ArchiverApi {
       txIndexInBlock: randomInt(10),
       slotNumber: SlotNumber(1),
     };
+  }
+  getL2ToL1MembershipWitness(): Promise<undefined> {
+    return Promise.resolve(undefined);
   }
   getSyncedL2SlotNumber(): Promise<SlotNumber> {
     return Promise.resolve(SlotNumber(1));

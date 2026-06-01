@@ -26,6 +26,7 @@ import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { LogResultSchema } from '../logs/log_result.js';
 import { PrivateLogsQuerySchema, PublicLogsQuerySchema } from '../logs/logs_query.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
+import { L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { optional, schemas } from '../schemas/schemas.js';
 import { indexedTxSchema } from '../tx/indexed_tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -99,6 +100,13 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getCheckpointData: z.function({ input: z.tuple([CheckpointQuerySchema]), output: CheckpointDataSchema.optional() }),
   getCheckpointsData: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(CheckpointDataSchema) }),
   getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
+  // Reads Outbox roots lazily, pinned to the node's synced L1 block. Caveat: cached roots that are
+  // sealed and L1-finalized are not re-validated, so a reorg deeper than L1 finality could leave the
+  // node serving a witness against a no-longer-canonical root.
+  getL2ToL1MembershipWitness: z.function({
+    input: z.tuple([TxHash.schema, schemas.Fr, optional(schemas.Integer)]),
+    output: L2ToL1MembershipWitnessSchema.optional(),
+  }),
   getSyncedL2SlotNumber: z.function({ input: z.tuple([]), output: schemas.SlotNumber.optional() }),
   getSyncedL2EpochNumber: z.function({ input: z.tuple([]), output: EpochNumberSchema.optional() }),
   getBlocksForSlot: z.function({ input: z.tuple([schemas.SlotNumber]), output: z.array(L2Block.schema) }),

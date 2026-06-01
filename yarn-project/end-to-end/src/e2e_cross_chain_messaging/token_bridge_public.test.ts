@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/aztec.js/fields';
-import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
@@ -88,12 +88,12 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
     await t.advanceToEpochProven(l2TxReceipt);
 
-    const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(
-      aztecNode,
-      crossChainTestHarness.outboxContract,
-      l2ToL1Message,
-      l2TxReceipt,
-    ))!;
+    const l2ToL1MessageResult = await retryUntil(
+      () => aztecNode.getL2ToL1MembershipWitness(l2TxReceipt.txHash, l2ToL1Message),
+      'l2 to l1 membership witness',
+      60,
+      1,
+    );
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);

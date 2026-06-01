@@ -44,6 +44,7 @@ import {
   type PublicLogsQuery,
   PublicLogsQuerySchema,
 } from '../logs/logs_query.js';
+import { type L2ToL1MembershipWitness, L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -189,11 +190,37 @@ export interface AztecNode {
 
   /**
    * Returns all the L2 to L1 messages in an epoch.
+   *
+   * @deprecated Use {@link getL2ToL1MembershipWitness} to get an L2-to-L1 message witness directly.
+   *
    * @param epoch - The epoch at which to get the data.
    * @returns A nested array of the L2 to L1 messages in each tx of each block in each checkpoint in the epoch (empty
    * array if the epoch is not found).
    */
   getL2ToL1Messages(epoch: EpochNumber): Promise<Fr[][][][]>;
+
+  /**
+   * Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`. The node selects
+   * the smallest partial-proof root on the Outbox that covers the tx's checkpoint and builds the
+   * witness against it.
+   *
+   * The node reads the Outbox roots lazily, pinned to its synced L1 block, so the witness reflects
+   * the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering
+   * root has landed on L1 as of the synced block.
+   *
+   * Caveat: cached roots that are sealed and L1-finalized are not re-validated. A reorg deeper than
+   * L1 finality could leave the node serving a witness against a no-longer-canonical root.
+   *
+   * @param txHash - The tx whose L2-to-L1 message we want a witness for.
+   * @param message - The message hash to prove inclusion of.
+   * @param messageIndexInTx - Optional index of the message within the tx's L2-to-L1 messages; pass
+   *   this when the same message hash appears multiple times in the tx.
+   */
+  getL2ToL1MembershipWitness(
+    txHash: TxHash,
+    message: Fr,
+    messageIndexInTx?: number,
+  ): Promise<L2ToL1MembershipWitness | undefined>;
 
   /**
    * Returns the block number at a given chain tip, or the latest proposed block number when
@@ -531,6 +558,14 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getL2ToL1Messages: z.function({
     input: z.tuple([EpochNumberSchema]),
     output: z.array(z.array(z.array(z.array(schemas.Fr)))),
+  }),
+
+  // Reads Outbox roots lazily, pinned to the node's synced L1 block. Caveat: cached roots that are
+  // sealed and L1-finalized are not re-validated, so a reorg deeper than L1 finality could leave the
+  // node serving a witness against a no-longer-canonical root.
+  getL2ToL1MembershipWitness: z.function({
+    input: z.tuple([TxHash.schema, schemas.Fr, optional(schemas.Integer)]),
+    output: L2ToL1MembershipWitnessSchema.optional(),
   }),
 
   getBlockNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: BlockNumberSchema }),
