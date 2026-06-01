@@ -111,7 +111,12 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { DebugLogStore, LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
-import { InboxLeaf, type L1ToL2MessageSource, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
+import {
+  InboxLeaf,
+  type L1ToL2MessageSource,
+  type L2ToL1MembershipWitness,
+  appendL1ToL2MessagesToTree,
+} from '@aztec/stdlib/messaging';
 import type { Offense } from '@aztec/stdlib/slashing';
 import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
@@ -1449,6 +1454,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
   /**
    * Returns all the L2 to L1 messages in an epoch.
+   *
+   * @deprecated Use {@link getL2ToL1MembershipWitness} to get an L2-to-L1 message witness directly.
+   *
    * @param epoch - The epoch at which to get the data.
    * @returns The L2 to L1 messages (empty array if the epoch is not found).
    */
@@ -1458,6 +1466,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return blocksInCheckpoints.map(slotBlocks =>
       slotBlocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs)),
     );
+  }
+
+  /**
+   * Returns the L2-to-L1 membership witness for a message in `txHash`. Passthrough to the
+   * archiver's locally-cached resolver — see {@link Archiver.getL2ToL1MembershipWitness}.
+   */
+  public getL2ToL1MembershipWitness(
+    txHash: TxHash,
+    message: Fr,
+    messageIndexInTx?: number,
+  ): Promise<L2ToL1MembershipWitness | undefined> {
+    return this.blockSource.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx);
   }
 
   public async getNullifierMembershipWitness(

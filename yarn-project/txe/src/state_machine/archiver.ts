@@ -111,4 +111,9 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   public syncImmediate(): Promise<void> {
     throw new Error('TXE Archiver does not implement "syncImmediate"');
   }
+
+  public getL2ToL1MembershipWitness(): Promise<undefined> {
+    // TXE doesn't drive the L2-to-L1 message flow through this archiver.
+    return Promise.resolve(undefined);
+  }
 }

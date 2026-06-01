@@ -1,5 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { RollupContract } from '@aztec/ethereum/contracts';
+import { type OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import {
   BlockNumber,
@@ -108,6 +108,7 @@ describe('Archiver Store', () => {
       publicClient,
       debugClient,
       rollupContract,
+      mock<OutboxContract>(),
       contractAddresses,
       archiverStore,
       config,
