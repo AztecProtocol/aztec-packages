@@ -28,6 +28,9 @@ import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
+import { ShaderManager, type MontMulVariant } from '../../src/msm_webgpu/cuzk/shader_manager.js';
+import { BN254_CURVE_CONFIG } from '../../src/msm_webgpu/cuzk/curve_config.js';
+import { bigint as bigint_funcs } from '../../src/msm_webgpu/wgsl/_generated/shaders.js';
 
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 
@@ -153,6 +156,7 @@ let gpuDevice: GPUDevice | null = null;
 let msmV2: MsmV2 | null = null;
 let msmV2Pool: MsmV2Pool | null = null;
 let msmV2LogN: number | null = null;
+let msmV2Montmul: MsmConfig['montmul'] = undefined;
 // Cooperative cancellation flag for in-flight sweeps. The actual MSM
 // call inside the WASM worker can't be preempted from JS, but we check
 // this between reps / sizes so Stop becomes effective at the next yield.
@@ -533,9 +537,9 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
     gpuDevice = await get_device();
     log('ok', `[gpu-warm] device ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
-  if (msmV2 === null || msmV2LogN !== logN) {
+  if (msmV2 === null || msmV2LogN !== logN || msmV2Montmul !== gpuKnobs.montmul) {
     if (msmV2 !== null) {
-      log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding MsmV2`);
+      log('info', `[gpu-warm] logN ${msmV2LogN}→${logN} / montmul ${msmV2Montmul}→${gpuKnobs.montmul}; rebuilding MsmV2`);
       msmV2.destroy();
       msmV2Pool?.destroy();
       msmV2 = null;
@@ -548,9 +552,10 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
       .join(' ');
     log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
-    msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+    msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf, gpuKnobs.montmul);
     msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
     msmV2LogN = logN;
+    msmV2Montmul = gpuKnobs.montmul;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   return msmV2;
@@ -1421,6 +1426,210 @@ function hideProgress(): void {
   $progress.classList.remove('visible');
 }
 
+// ── Montgomery-multiply chain correctness bench ────────────────────────────
+// Loads NVEC (a, b) field-element pairs, runs r = montmul(r, b) K times on the
+// GPU with the selected montmul variant's representation, reads r back, and
+// checks each against a BigInt oracle (montmul(x,y) = x·y·R⁻¹ mod p, R per
+// variant). montmul='fp22native' exercises the 12×22 sos3uv3 multiply end-to-end
+// on the GPU; 'karat' sanity-checks the harness against the trusted 20×13 path.
+// Self-contained — no SRS, no WASM, no MSM pipeline.
+async function runMontmulChain(
+  cm: MontMulVariant,
+  K: number,
+  NVEC: number,
+  seed: bigint,
+): Promise<{ cross_ok: boolean; total: number; fail: number; first_mismatch: string | null; compile_errors: string[] }> {
+  const sm = new ShaderManager(4, 1 << 14, BN254_CURVE_CONFIG, false, cm);
+  const p = sm.p;
+  const rinv = sm.rinv; // R⁻¹ mod p for this variant's R (2^260 karat / 2^264 fp22native)
+  const NW = sm.num_words;
+  const WS = BigInt(sm.word_size);
+  const limbMask = (1n << WS) - 1n;
+  const montmul = (x: bigint, y: bigint): bigint => (x * y * rinv) % p;
+
+  const packLimbs = (x: bigint): number[] => {
+    const o: number[] = [];
+    let t = x;
+    for (let i = 0; i < NW; i++) { o.push(Number(t & limbMask)); t >>= WS; }
+    return o;
+  };
+  const unpackLimbs = (limbs: Uint32Array, base: number): bigint => {
+    let x = 0n;
+    for (let i = NW - 1; i >= 0; i--) x = (x << WS) | BigInt(limbs[base + i]);
+    return x;
+  };
+
+  // Deterministic vectors: edge cases + xorshift64*-seeded residues in [0, p).
+  let s = seed & ((1n << 64n) - 1n);
+  if (s === 0n) s = 0x9e3779b97f4a7c15n;
+  const next64 = (): bigint => {
+    s ^= s >> 12n; s = (s ^ ((s << 25n) & ((1n << 64n) - 1n))) & ((1n << 64n) - 1n); s ^= s >> 27n;
+    return (s * 0x2545f4914f6cdd1dn) & ((1n << 64n) - 1n);
+  };
+  const randResidue = (): bigint => {
+    let x = 0n;
+    for (let i = 0; i < 4; i++) x = (x << 64n) | next64();
+    return x % p;
+  };
+  const edge = [0n, 1n, sm.r % p, p - 1n];
+  const vecsA: bigint[] = [];
+  const vecsB: bigint[] = [];
+  for (let i = 0; i < NVEC; i++) {
+    vecsA.push(i < edge.length ? edge[i] : randResidue());
+    vecsB.push(i < edge.length ? edge[edge.length - 1 - i] : randResidue());
+  }
+
+  const input = new Uint32Array(NVEC * 2 * NW);
+  for (let v = 0; v < NVEC; v++) {
+    const al = packLimbs(vecsA[v]);
+    const bl = packLimbs(vecsB[v]);
+    for (let i = 0; i < NW; i++) {
+      input[v * 2 * NW + i] = al[i];
+      input[v * 2 * NW + NW + i] = bl[i];
+    }
+  }
+
+  // struct BigInt + the variant's self-contained montmul module + chain kernel.
+  const kernel = `
+@group(0) @binding(0) var<storage, read> inbuf: array<u32>;
+@group(0) @binding(1) var<storage, read_write> outbuf: array<u32>;
+const NVEC: u32 = ${NVEC}u;
+const CHAIN_K: u32 = ${K}u;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let v: u32 = gid.x;
+    if (v >= NVEC) { return; }
+    let ibase: u32 = v * 2u * NUM_WORDS;
+    var a: BigInt;
+    var b: BigInt;
+    for (var i: u32 = 0u; i < NUM_WORDS; i = i + 1u) {
+        a.limbs[i] = inbuf[ibase + i];
+        b.limbs[i] = inbuf[ibase + NUM_WORDS + i];
+    }
+    var r: BigInt = a;
+    for (var k: u32 = 0u; k < CHAIN_K; k = k + 1u) {
+        r = montgomery_product(&r, &b);
+    }
+    let obase: u32 = v * NUM_WORDS;
+    for (var i: u32 = 0u; i < NUM_WORDS; i = i + 1u) {
+        outbuf[obase + i] = r.limbs[i];
+    }
+}`;
+  // Order mirrors the real shaders (structs → bigint → montmul); WGSL resolves
+  // module-scope decls regardless of order, so bigint_funcs (which uses the
+  // NUM_WORDS/MASK consts the montmul module defines) and karat's
+  // conditional_reduce (which calls bigint_gt) both resolve. bigint_funcs has no
+  // mustache vars, so it concatenates raw; unused by the self-contained sos3uv3.
+  const src = `struct BigInt {\n    limbs: array<u32, ${NW}>\n}\n${bigint_funcs}\n${sm.mont_product_src}\n${kernel}`;
+
+  const device = await get_device();
+  const module = device.createShaderModule({ code: src, label: 'montmul-chain' });
+  const info = await module.getCompilationInfo();
+  const compile_errors = info.messages
+    .filter(m => m.type === 'error')
+    .map(m => `L${m.lineNum}:${m.linePos} ${m.message}`);
+  if (compile_errors.length) return { cross_ok: false, total: NVEC, fail: NVEC, first_mismatch: null, compile_errors };
+
+  const pipeline = await device.createComputePipelineAsync({ layout: 'auto', compute: { module, entryPoint: 'main' } });
+  const outBytes = NVEC * NW * 4;
+  const inBuf = device.createBuffer({ size: input.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+  device.queue.writeBuffer(inBuf, 0, input);
+  const outBuf = device.createBuffer({ size: outBytes, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+  const stage = device.createBuffer({ size: outBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+  const bg = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [
+      { binding: 0, resource: { buffer: inBuf } },
+      { binding: 1, resource: { buffer: outBuf } },
+    ],
+  });
+  const enc = device.createCommandEncoder();
+  const pass = enc.beginComputePass();
+  pass.setPipeline(pipeline);
+  pass.setBindGroup(0, bg);
+  pass.dispatchWorkgroups(Math.ceil(NVEC / 64));
+  pass.end();
+  enc.copyBufferToBuffer(outBuf, 0, stage, 0, outBytes);
+  device.queue.submit([enc.finish()]);
+  await stage.mapAsync(GPUMapMode.READ);
+  const got = new Uint32Array(stage.getMappedRange().slice(0));
+  stage.unmap();
+
+  let fail = 0;
+  let first_mismatch: string | null = null;
+  for (let v = 0; v < NVEC; v++) {
+    let expected = vecsA[v];
+    for (let k = 0; k < K; k++) expected = montmul(expected, vecsB[v]);
+    const actual = unpackLimbs(got, v * NW);
+    if (actual !== expected) {
+      fail++;
+      if (first_mismatch === null) {
+        first_mismatch = `vec${v}: a=0x${vecsA[v].toString(16)} b=0x${vecsB[v].toString(16)} got=0x${actual.toString(16)} exp=0x${expected.toString(16)}`;
+      }
+    }
+  }
+  inBuf.destroy();
+  outBuf.destroy();
+  stage.destroy();
+  return { cross_ok: fail === 0, total: NVEC, fail, first_mismatch, compile_errors: [] };
+}
+
+// ── Field-op isolation check (13×21 debugging) ─────────────────────────────
+// Tests Barrett field_mul (a·b mod p) and the Fermat inverse invariant
+// (montmul(a, fr_pow_inv(a)) == get_r()) separately against a BigInt oracle, so a
+// full-MSM disagreement can be localized to a specific field op.
+async function runFieldCheck(NVEC: number, seed: bigint): Promise<{ field_mul_ok: boolean; inverse_ok: boolean; total: number; fm_fail: number; inv_fail: number; first: string | null; compile_errors: string[] }> {
+  const sm: { p: bigint; num_words: number; word_size: number; r: bigint; rinv: bigint; gen_field_check_shader: (n: number) => string } =
+    new ShaderManager(4, 1 << 14, BN254_CURVE_CONFIG, false, 'fp22native') as never;
+  const p = sm.p, NW = sm.num_words, WS = BigInt(sm.word_size), R = sm.r, rinv = sm.rinv;
+  const limbMask = (1n << WS) - 1n;
+  const pack = (x: bigint): number[] => { const o: number[] = []; let t = x; for (let i = 0; i < NW; i++) { o.push(Number(t & limbMask)); t >>= WS; } return o; };
+  const unpack = (l: Uint32Array, base: number): bigint => { let x = 0n; for (let i = NW - 1; i >= 0; i--) x = (x << WS) | BigInt(l[base + i]); return x; };
+  let s = seed & ((1n << 64n) - 1n); if (s === 0n) s = 0x9e3779b97f4a7c15n;
+  const M = (1n << 64n) - 1n;
+  const nx = () => { s ^= s >> 12n; s = (s ^ ((s << 25n) & M)) & M; s ^= s >> 27n; return (s * 0x2545f4914f6cdd1dn) & M; };
+  const rand = () => { let x = 0n; for (let i = 0; i < 4; i++) x = (x << 64n) | nx(); x %= p; return x === 0n ? 1n : x; };
+  const A: bigint[] = [], B: bigint[] = [];
+  for (let i = 0; i < NVEC; i++) { A.push(rand()); B.push(rand()); }
+  const input = new Uint32Array(NVEC * 2 * NW);
+  for (let v = 0; v < NVEC; v++) { const al = pack(A[v]), bl = pack(B[v]); for (let i = 0; i < NW; i++) { input[v * 2 * NW + i] = al[i]; input[v * 2 * NW + NW + i] = bl[i]; } }
+
+  const src = sm.gen_field_check_shader(NVEC);
+  const device = await get_device();
+  const module = device.createShaderModule({ code: src, label: 'field-check' });
+  const info = await module.getCompilationInfo();
+  const compile_errors = info.messages.filter(m => m.type === 'error').map(m => `L${m.lineNum}:${m.linePos} ${m.message}`);
+  if (compile_errors.length) return { field_mul_ok: false, inverse_ok: false, total: NVEC, fm_fail: NVEC, inv_fail: NVEC, first: null, compile_errors };
+  const pipeline = await device.createComputePipelineAsync({ layout: 'auto', compute: { module, entryPoint: 'main' } });
+  const outBytes = NVEC * 3 * NW * 4;
+  const inBuf = device.createBuffer({ size: input.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+  device.queue.writeBuffer(inBuf, 0, input);
+  const outBuf = device.createBuffer({ size: outBytes, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+  const stage = device.createBuffer({ size: outBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+  const bg = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: inBuf } }, { binding: 1, resource: { buffer: outBuf } }] });
+  const enc = device.createCommandEncoder();
+  const pass = enc.beginComputePass(); pass.setPipeline(pipeline); pass.setBindGroup(0, bg); pass.dispatchWorkgroups(Math.ceil(NVEC / 64)); pass.end();
+  enc.copyBufferToBuffer(outBuf, 0, stage, 0, outBytes);
+  device.queue.submit([enc.finish()]);
+  await stage.mapAsync(GPUMapMode.READ);
+  const got = new Uint32Array(stage.getMappedRange().slice(0));
+  stage.unmap(); inBuf.destroy(); outBuf.destroy(); stage.destroy();
+
+  let fm_fail = 0, mont_fail = 0, first: string | null = null;
+  for (let v = 0; v < NVEC; v++) {
+    const ssum = unpack(got, v * 3 * NW);         // fr_add_f8(a, b)
+    const invm = unpack(got, v * 3 * NW + NW);    // montmul(a, fr_inv_by_loop_pk(a)) — safegcd invariant
+    const sdiff = unpack(got, v * 3 * NW + 2 * NW); // fr_sub_f8(a, b)
+    const expSum = (A[v] + B[v]) % p;
+    const expDiff = ((A[v] - B[v]) % p + p) % p;
+    if (ssum !== expSum) { fm_fail++; if (first === null) first = `fr_add_f8 vec${v}: got=0x${ssum.toString(16)} exp=0x${expSum.toString(16)}`; }
+    if (invm !== R) { mont_fail++; if (first === null) first = `safegcd-inv vec${v}: montmul(a,inv)=0x${invm.toString(16)} exp R=0x${R.toString(16)}`; }
+    if (sdiff !== expDiff) { fm_fail++; if (first === null) first = `fr_sub_f8 vec${v}: got=0x${sdiff.toString(16)} exp=0x${expDiff.toString(16)}`; }
+  }
+  void rinv;
+  return { field_mul_ok: fm_fail === 0, inverse_ok: mont_fail === 0, total: NVEC, fm_fail, inv_fail: mont_fail, first, compile_errors: [] };
+}
+
 // Page-load boot: load the SRS only. The barretenberg WASM (which forks
 // `mt-threads` workers) stays cold until the user clicks Run / Run × 5 /
 // Sweep — ensureWasmBooted() takes care of the first-click boot. The SRS
@@ -1707,6 +1916,290 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'montmul-chain') {
+    const cm = (qp.get('montmul') ?? 'fp22native') as MontMulVariant;
+    const K = parseInt(qp.get('chain_k') ?? '16', 10) || 16;
+    const NVEC = parseInt(qp.get('nvec') ?? '64', 10) || 64;
+    let seed = 1n;
+    try { seed = BigInt(qp.get('scalar_seed') ?? '1'); } catch { seed = 1n; }
+    const client = makeResultsClient({ page: 'montmul-chain' });
+    log('info', `[montmul-chain] montmul=${cm} K=${K} nvec=${NVEC} seed=${seed}`);
+    try {
+      const res = await runMontmulChain(cm, K, NVEC, seed);
+      if (res.compile_errors.length) {
+        log('err', `[montmul-chain] COMPILE FAILED: ${res.compile_errors.slice(0, 3).join(' | ')}`);
+      } else if (res.cross_ok) {
+        log('ok', `[montmul-chain] cross-check agree (${res.total}/${res.total} vectors, K=${K}, ${cm})`);
+      } else {
+        log('err', `[montmul-chain] cross-check disagreement: ${res.fail}/${res.total} fail — ${res.first_mismatch}`);
+      }
+      const state = res.cross_ok ? 'done' : 'error';
+      await client.postResults({
+        state,
+        params: { page: 'montmul-chain', montmul: cm, chain_k: K, nvec: NVEC },
+        results: { cross_ok: res.cross_ok, total: res.total, fail: res.fail, first_mismatch: res.first_mismatch, compile_errors: res.compile_errors },
+        error: res.cross_ok ? null : (res.compile_errors[0] ?? res.first_mismatch),
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      // Terminal token drive-persist.mjs / the BrowserStack runner watch for.
+      log(state === 'done' ? 'ok' : 'err', `[montmul-chain] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[montmul-chain] FATAL: ${msg}`);
+      await client.postResults({
+        state: 'error',
+        params: { page: 'montmul-chain', montmul: cm },
+        results: { cross_ok: false },
+        error: msg,
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('err', `[montmul-chain] state=error`);
+    }
+  } else if (autorun === 'field-check') {
+    const NVEC = parseInt(qp.get('nvec') ?? '256', 10) || 256;
+    let seed = 1n;
+    try { seed = BigInt(qp.get('scalar_seed') ?? '1'); } catch { seed = 1n; }
+    const client = makeResultsClient({ page: 'field-check' });
+    log('info', `[field-check] nvec=${NVEC} seed=${seed}`);
+    try {
+      const res = await runFieldCheck(NVEC, seed);
+      if (res.compile_errors.length) {
+        log('err', `[field-check] COMPILE FAILED: ${res.compile_errors.slice(0, 3).join(' | ')}`);
+      } else {
+        log(res.field_mul_ok ? 'ok' : 'err', `[field-check] field_mul ${res.field_mul_ok ? 'OK' : `FAIL (${res.fm_fail}/${res.total})`}`);
+        log(res.inverse_ok ? 'ok' : 'err', `[field-check] inverse  ${res.inverse_ok ? 'OK' : `FAIL (${res.inv_fail}/${res.total})`}`);
+        if (res.first) log('err', `[field-check] first: ${res.first}`);
+      }
+      const ok = res.field_mul_ok && res.inverse_ok && res.compile_errors.length === 0;
+      const state = ok ? 'done' : 'error';
+      await client.postResults({
+        state,
+        params: { page: 'field-check', nvec: NVEC },
+        results: { cross_ok: ok, field_mul_ok: res.field_mul_ok, inverse_ok: res.inverse_ok, fm_fail: res.fm_fail, inv_fail: res.inv_fail, first: res.first, compile_errors: res.compile_errors },
+        error: ok ? null : (res.compile_errors[0] ?? res.first),
+        log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log(state === 'done' ? 'ok' : 'err', `[field-check] state=${state}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[field-check] FATAL: ${msg}`);
+      await client.postResults({ state: 'error', params: { page: 'field-check' }, results: { cross_ok: false }, error: msg, log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      log('err', `[field-check] state=error`);
+    }
+  } else if (autorun === 'convert-check') {
+    // Stage 1 localization: verify the convert step (native SRS coords ->
+    // Montgomery form) end-to-end. Reads poolX/poolY back, de-Montgomery's
+    // (·rinv), and compares to the host's native SRS coordinates.
+    const logN = parseInt(qp.get('logn') ?? '14', 10);
+    const count = Math.min(64, 1 << logN);
+    const client = makeResultsClient({ page: 'convert-check' });
+    log('info', `[convert-check] montmul=${gpuKnobs.montmul} logN=${logN} count=${count}`);
+    try {
+      const inputs = await generateInputs(logN, false);
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf, gpuKnobs.montmul);
+      const coords = await pool.debugReadCoords(count);
+      const sm = new ShaderManager(4, 1 << 14, BN254_CURVE_CONFIG, false, gpuKnobs.montmul);
+      const p = sm.p, rinv = sm.rinv;
+      const leBytesToBig = (off: number): bigint => {
+        let v = 0n;
+        for (let b = 31; b >= 0; b--) v = (v << 8n) | BigInt(inputs.pointsBuf[off + b]);
+        return v;
+      };
+      let fails = 0; let first: string | null = null;
+      for (let i = 0; i < count; i++) {
+        const hostX = leBytesToBig(i * 64) % p;
+        const hostY = leBytesToBig(i * 64 + 32) % p;
+        const gpuX = (coords[i].xMont * rinv) % p;
+        const gpuY = (coords[i].yMont * rinv) % p;
+        if (gpuX !== hostX || gpuY !== hostY) {
+          fails++;
+          if (first === null) first = `pt${i}: gpuX=0x${gpuX.toString(16)} hostX=0x${hostX.toString(16)}${gpuY !== hostY ? ` | gpuY=0x${gpuY.toString(16)} hostY=0x${hostY.toString(16)}` : ''}`;
+        }
+      }
+      pool.destroy();
+      const ok = fails === 0;
+      log(ok ? 'ok' : 'err', `[convert-check] ${ok ? 'OK (all converted SRS coords match host)' : `FAIL ${fails}/${count}`}`);
+      if (first) log('err', `[convert-check] first: ${first}`);
+      await client.postResults({ state: ok ? 'done' : 'error', params: { page: 'convert-check', logN }, results: { cross_ok: ok, fails, first }, error: ok ? null : first, log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      log(ok ? 'ok' : 'err', `[convert-check] state=${ok ? 'done' : 'error'}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[convert-check] FATAL: ${msg}`);
+      await client.postResults({ state: 'error', params: { page: 'convert-check' }, results: { cross_ok: false }, error: msg, log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      log('err', `[convert-check] state=error`);
+    }
+  } else if (autorun === 'window-dump') {
+    // Stage localization: run the full MSM and inspect the per-window bucket
+    // sums (returned de-Montgomery'd by run()). On-curve = EC arithmetic is
+    // sound; off-curve = the walker/smvp/bpr point math is broken.
+    const logN = parseInt(qp.get('logn') ?? '14', 10);
+    const client = makeResultsClient({ page: 'window-dump' });
+    log('info', `[window-dump] montmul=${gpuKnobs.montmul} logN=${logN}`);
+    try {
+      const inputs = await generateInputs(logN, false);
+      const gpu = await runWebGpuOnce(inputs);
+      const ws = (gpu.xy as unknown as { windowSums: { x: bigint; y: bigint }[] }).windowSums;
+      const sm = new ShaderManager(4, 1 << 14, BN254_CURVE_CONFIG, false, gpuKnobs.montmul);
+      const p = sm.p;
+      const onCurve = (pt: { x: bigint; y: bigint }): boolean => {
+        if (pt.x === 0n && pt.y === 0n) return true; // identity / empty
+        const lhs = (pt.y * pt.y) % p;
+        const rhs = (((pt.x * pt.x) % p) * pt.x % p + 3n) % p;
+        return lhs === rhs;
+      };
+      let off = 0; let firstOff = -1;
+      for (let w = 0; w < ws.length; w++) {
+        if (!onCurve(ws[w])) { off++; if (firstOff < 0) firstOff = w; }
+      }
+      const finalOnCurve = onCurve(gpu.xy as unknown as { x: bigint; y: bigint });
+      log(off === 0 ? 'ok' : 'err', `[window-dump] windows=${ws.length} off_curve=${off} (first=${firstOff}) final_on_curve=${finalOnCurve}`);
+      if (firstOff >= 0) log('err', `[window-dump] window[${firstOff}]: x=0x${ws[firstOff].x.toString(16)} y=0x${ws[firstOff].y.toString(16)}`);
+      const ok = off === 0 && finalOnCurve;
+      await client.postResults({ state: 'done', params: { page: 'window-dump', logN }, results: { cross_ok: ok, off_curve: off, first_off: firstOff, final_on_curve: finalOnCurve, num_windows: ws.length }, error: null, log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      log('ok', `[window-dump] state=done`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[window-dump] FATAL: ${msg}`);
+      await client.postResults({ state: 'error', params: { page: 'window-dump' }, results: { cross_ok: false }, error: msg, log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      log('err', `[window-dump] state=error`);
+    }
+  } else if (autorun === 'affine-add-check') {
+    // Bisect: run the exact walker affine-add formula on known curve points
+    // (from the validated convert pool) with a DIRECT inverse, compared to a
+    // host EC add. Off-curve/wrong => EC-formula composition bug; correct =>
+    // the bug is the walker's batched-inversion structure.
+    const logN = parseInt(qp.get('logn') ?? '14', 10);
+    const npairs = Math.min(32, (1 << logN) >> 1);
+    const client = makeResultsClient({ page: 'affine-add-check' });
+    log('info', `[affine-add-check] montmul=${gpuKnobs.montmul} npairs=${npairs}`);
+    try {
+      const inputs = await generateInputs(logN, false);
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf, gpuKnobs.montmul);
+      const coords = await pool.debugReadCoords(npairs * 2);
+      pool.destroy();
+      const sm = new ShaderManager(4, 1 << 14, BN254_CURVE_CONFIG, false, gpuKnobs.montmul);
+      const p = sm.p, rinv = sm.rinv;
+      const to8 = (x: bigint): number[] => { const o: number[] = []; let t = x; for (let i = 0; i < 8; i++) { o.push(Number(t & 0xffffffffn)); t >>= 32n; } return o; };
+      const from8 = (l: Uint32Array, b: number): bigint => { let x = 0n; for (let i = 7; i >= 0; i--) x = (x << 32n) | BigInt(l[b + i] >>> 0); return x; };
+      const input = new Uint32Array(npairs * 32);
+      for (let i = 0; i < npairs; i++) {
+        const w = [coords[2 * i].xMont, coords[2 * i].yMont, coords[2 * i + 1].xMont, coords[2 * i + 1].yMont];
+        for (let c = 0; c < 4; c++) { const u = to8(w[c]); for (let j = 0; j < 8; j++) input[i * 32 + c * 8 + j] = u[j]; }
+      }
+      const src = (sm as unknown as { gen_affine_add_check_shader: (n: number) => string }).gen_affine_add_check_shader(npairs);
+      const module = gpuDevice.createShaderModule({ code: src, label: 'affine-add-check' });
+      const info = await module.getCompilationInfo();
+      const cerr = info.messages.filter(m => m.type === 'error').map(m => `L${m.lineNum}:${m.linePos} ${m.message}`);
+      if (cerr.length) throw new Error('COMPILE: ' + cerr.slice(0, 3).join(' | '));
+      const pipeline = await gpuDevice.createComputePipelineAsync({ layout: 'auto', compute: { module, entryPoint: 'main' } });
+      const outBytes = npairs * 16 * 4;
+      const inBuf = gpuDevice.createBuffer({ size: input.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+      gpuDevice.queue.writeBuffer(inBuf, 0, input);
+      const outBuf = gpuDevice.createBuffer({ size: outBytes, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+      const stage = gpuDevice.createBuffer({ size: outBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const bg = gpuDevice.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: inBuf } }, { binding: 1, resource: { buffer: outBuf } }] });
+      const enc = gpuDevice.createCommandEncoder();
+      const pass = enc.beginComputePass(); pass.setPipeline(pipeline); pass.setBindGroup(0, bg); pass.dispatchWorkgroups(Math.ceil(npairs / 64)); pass.end();
+      enc.copyBufferToBuffer(outBuf, 0, stage, 0, outBytes);
+      gpuDevice.queue.submit([enc.finish()]);
+      await stage.mapAsync(GPUMapMode.READ);
+      const got = new Uint32Array(stage.getMappedRange().slice(0));
+      stage.unmap(); inBuf.destroy(); outBuf.destroy(); stage.destroy();
+      const modinv = (a: bigint, m: bigint): bigint => { let [or, r] = [((a % m) + m) % m, m], [os, s2] = [1n, 0n]; while (r !== 0n) { const q = or / r; [or, r] = [r, or - q * r]; [os, s2] = [s2, os - q * s2]; } return ((os % m) + m) % m; };
+      const onCurve = (x: bigint, y: bigint): boolean => ((y * y) % p) === ((((x * x) % p) * x % p) + 3n) % p;
+      let fails = 0, offc = 0; let first: string | null = null;
+      for (let i = 0; i < npairs; i++) {
+        const x1 = (coords[2 * i].xMont * rinv) % p, y1 = (coords[2 * i].yMont * rinv) % p;
+        const x2 = (coords[2 * i + 1].xMont * rinv) % p, y2 = (coords[2 * i + 1].yMont * rinv) % p;
+        const lam = (((y2 - y1 + p) % p) * modinv((x2 - x1 + p) % p, p)) % p;
+        const hx3 = ((((lam * lam) % p) - x1 - x2) % p + 2n * p) % p;
+        const hy3 = (((lam * ((x1 - hx3 + p) % p)) % p) - y1 + p) % p;
+        const gx3 = (from8(got, i * 16) * rinv) % p, gy3 = (from8(got, i * 16 + 8) * rinv) % p;
+        if (!onCurve(gx3, gy3)) offc++;
+        if (gx3 !== hx3 || gy3 !== hy3) { fails++; if (first === null) first = `pair${i}: gpu=(0x${gx3.toString(16)},0x${gy3.toString(16)}) host=(0x${hx3.toString(16)},0x${hy3.toString(16)}) on_curve=${onCurve(gx3, gy3)}`; }
+      }
+      const ok = fails === 0;
+      log(ok ? 'ok' : 'err', `[affine-add-check] ${ok ? 'OK (matches host EC add)' : `FAIL ${fails}/${npairs} off_curve=${offc}`}`);
+      if (first) log('err', `[affine-add-check] first: ${first}`);
+      await client.postResults({ state: ok ? 'done' : 'error', params: { page: 'affine-add-check', logN }, results: { cross_ok: ok, fails, off_curve: offc, first }, error: ok ? null : first, log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      log(ok ? 'ok' : 'err', `[affine-add-check] state=${ok ? 'done' : 'error'}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[affine-add-check] FATAL: ${msg}`);
+      await client.postResults({ state: 'error', params: { page: 'affine-add-check' }, results: { cross_ok: false }, error: msg, log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      log('err', `[affine-add-check] state=error`);
+    }
+  } else if (autorun === 'batch-inv-check') {
+    // Replicate the walker's exact batched inversion (forward product / single
+    // inverse / backward unwind) on K random Δx values; verify each inv_dx[k]
+    // == Mont(1/Δx[k]). Isolates the batched inversion from the walker.
+    const K = parseInt(qp.get('k') ?? '8', 10) || 8;
+    const nbatch = parseInt(qp.get('nbatch') ?? '32', 10) || 32;
+    const client = makeResultsClient({ page: 'batch-inv-check' });
+    log('info', `[batch-inv-check] montmul=${gpuKnobs.montmul} nbatch=${nbatch} K=${K}`);
+    try {
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const sm = new ShaderManager(4, 1 << 14, BN254_CURVE_CONFIG, false, gpuKnobs.montmul);
+      const p = sm.p, R = sm.r, rinv = sm.rinv;
+      let s = 0x1234567n; const Mm = (1n << 64n) - 1n;
+      const nx = () => { s ^= s >> 12n; s = (s ^ ((s << 25n) & Mm)) & Mm; s ^= s >> 27n; return (s * 0x2545f4914f6cdd1dn) & Mm; };
+      const rnd = () => { let x = 0n; for (let i = 0; i < 4; i++) x = (x << 64n) | nx(); x %= p; return x === 0n ? 1n : x; };
+      const to8 = (x: bigint): number[] => { const o: number[] = []; let t = x; for (let i = 0; i < 8; i++) { o.push(Number(t & 0xffffffffn)); t >>= 32n; } return o; };
+      const from8 = (l: Uint32Array, b: number): bigint => { let x = 0n; for (let i = 7; i >= 0; i--) x = (x << 32n) | BigInt(l[b + i] >>> 0); return x; };
+      const modinv = (a: bigint, m: bigint): bigint => { let [or, r] = [((a % m) + m) % m, m], [os, s2] = [1n, 0n]; while (r !== 0n) { const q = or / r; [or, r] = [r, or - q * r]; [os, s2] = [s2, os - q * s2]; } return ((os % m) + m) % m; };
+      const dxNative: bigint[] = [];
+      const input = new Uint32Array(nbatch * K * 8);
+      for (let v = 0; v < nbatch; v++) {
+        for (let k = 0; k < K; k++) {
+          const dn = rnd(); dxNative.push(dn);
+          const u = to8((dn * R) % p);
+          for (let i = 0; i < 8; i++) input[v * K * 8 + k * 8 + i] = u[i];
+        }
+      }
+      const src = (sm as unknown as { gen_batch_inv_check_shader: (nb: number, k: number) => string }).gen_batch_inv_check_shader(nbatch, K);
+      const module = gpuDevice.createShaderModule({ code: src, label: 'batch-inv-check' });
+      const info = await module.getCompilationInfo();
+      const cerr = info.messages.filter(m => m.type === 'error').map(m => `L${m.lineNum}:${m.linePos} ${m.message}`);
+      if (cerr.length) throw new Error('COMPILE: ' + cerr.slice(0, 3).join(' | '));
+      const pipeline = await gpuDevice.createComputePipelineAsync({ layout: 'auto', compute: { module, entryPoint: 'main' } });
+      const outBytes = nbatch * K * 8 * 4;
+      const inBuf = gpuDevice.createBuffer({ size: input.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+      gpuDevice.queue.writeBuffer(inBuf, 0, input);
+      const outBuf = gpuDevice.createBuffer({ size: outBytes, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+      const stage = gpuDevice.createBuffer({ size: outBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const bg = gpuDevice.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: inBuf } }, { binding: 1, resource: { buffer: outBuf } }] });
+      const enc = gpuDevice.createCommandEncoder();
+      const pass = enc.beginComputePass(); pass.setPipeline(pipeline); pass.setBindGroup(0, bg); pass.dispatchWorkgroups(Math.ceil(nbatch / 64)); pass.end();
+      enc.copyBufferToBuffer(outBuf, 0, stage, 0, outBytes);
+      gpuDevice.queue.submit([enc.finish()]);
+      await stage.mapAsync(GPUMapMode.READ);
+      const got = new Uint32Array(stage.getMappedRange().slice(0));
+      stage.unmap(); inBuf.destroy(); outBuf.destroy(); stage.destroy();
+      let fails = 0; let first: string | null = null;
+      for (let v = 0; v < nbatch; v++) {
+        for (let k = 0; k < K; k++) {
+          const gInv = (from8(got, v * K * 8 + k * 8) * rinv) % p;       // de-Mont GPU inv_dx[k]
+          const expInv = modinv(dxNative[v * K + k], p);
+          if (gInv !== expInv) { fails++; if (first === null) first = `batch${v} k${k}: gpu=0x${gInv.toString(16)} exp=0x${expInv.toString(16)}`; }
+        }
+      }
+      const ok = fails === 0;
+      log(ok ? 'ok' : 'err', `[batch-inv-check] ${ok ? 'OK (batched inversion correct)' : `FAIL ${fails}/${nbatch * K}`}`);
+      if (first) log('err', `[batch-inv-check] first: ${first}`);
+      await client.postResults({ state: ok ? 'done' : 'error', params: { page: 'batch-inv-check', K, nbatch }, results: { cross_ok: ok, fails, first }, error: ok ? null : first, log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      log(ok ? 'ok' : 'err', `[batch-inv-check] state=${ok ? 'done' : 'error'}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[batch-inv-check] FATAL: ${msg}`);
+      await client.postResults({ state: 'error', params: { page: 'batch-inv-check' }, results: { cross_ok: false }, error: msg, log: [], userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      log('err', `[batch-inv-check] state=error`);
     }
   }
 })();

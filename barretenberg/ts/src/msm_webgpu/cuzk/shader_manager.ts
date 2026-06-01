@@ -46,7 +46,6 @@ import {
   mont_pro_product_cios_unrolled as montgomery_product_cios_unrolled_funcs,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
-  mulhilo_22 as mulhilo_22_funcs,
   structs,
   transpose_parallel_scan as transpose_parallel_scan_shader,
   transpose_count_tiled as transpose_count_tiled_shader,
@@ -66,7 +65,6 @@ import {
   gen_wgsl_limbs_code,
 } from './utils.js';
 import { BN254_CURVE_CONFIG, CurveConfig } from './curve_config.js';
-import { genFp22NativeMontgomeryProductBody } from './fp22_native_montmul.js';
 
 // Modular inverse via extended Euclidean. Returns a^-1 mod m. Both inputs > 0.
 function modinv(a: bigint, m: bigint): bigint {
@@ -88,11 +86,18 @@ function modinv(a: bigint, m: bigint): bigint {
 //  - 'karat'         : generic grouped-Karatsuba + Yuval reduction (default).
 //  - 'cios_unrolled' : register-resident fully-unrolled CIOS; device-validated
 //                      −26% on Mali-G715 at logn=17. BN254 @ 20×13-bit only.
-//  - 'fp22native'    : native 12×22-bit limb CIOS, R=2^264 throughout (NO 13-bit
-//                      arithmetic, NO 2^260, NO domain correction). The walker's
-//                      multiplies AND the safegcd inverse's internal multiplies
-//                      both become native-264; only the inverse R³ fold constant
-//                      flips to (2^264)³ mod p. BN254 @ 20×13-bit BigInt storage.
+//  - 'fp22native'    : selects the 13×21-bit limb representation (R=2^273) for the
+//                      WHOLE pipeline and supplies the multiply via the sos3uv3 f32
+//                      algorithm. Flips word_size→21 (num_words→13) so every generic
+//                      limb-indexed op runs at 13×21; the 13-bit karat/cios bodies
+//                      are not rendered. NO 13-bit arithmetic, NO 2^260, no fixup.
+// f32 limb width for the sos3uv3 multiply. 21, not 22: with per-iteration draining
+// each column accumulator holds ~5 W-units, and 5·2^b must stay < 2^24 (f32's exact-
+// integer limit). 5·2^22 = 2^24.3 overflows (the documented bug); 5·2^21 = 2^23.3 is
+// safe. Host-validated 0 wrong / 1e6 with max accumulator 2^23.17 (fp22work/audit/
+// sos3_param.mjs). 254-bit field ⇒ ceil(254/21) = 13 limbs, R = 2^273.
+const F32_LIMB_BITS = 21;
+
 export type MontMulVariant = 'karat' | 'cios_unrolled' | 'fp22native';
 
 export class ShaderManager {
@@ -122,14 +127,17 @@ export class ShaderManager {
   public p_minus_2_limbs: string;
   public p_inv_mod_2w: number;
   public mu_limbs: string;
-  // 22-bit-limb f32 Montgomery params. Used by
-  // `gen_montgomery_product_f32_22_sos3uv3_shader` for the sos3uv3
-  // micro-benchmark. The 22-bit width buys a 4-way exact sum
-  // (4·2^22 = 2^24 fits in f32 mantissa), enabling the per-slot
-  // (tlo, thi) chain-break in sos3uv3.
-  public num_limbs_f32_22: number;
-  public n0_f32_22: bigint;
-  public p_limbs_f32_22_str: string;
+  // p re-chunked into ten 26-bit windows for the packed safegcd inverse's
+  // pk_p_word(): the switch-case body returning bits [26w, 26w+26) of p.
+  // Representation-independent — does not depend on word_size.
+  public pk_p_words_cases: string;
+  // F32_LIMB_BITS (21)-bit f32 limb params for the sos3uv3 multiply.
+  // 21, not 22: the per-slot (tlo, thi) drained accumulators reach ~5·W,
+  // and 5·2^21 = 2^23.3 stays inside f32's 2^24 exact-integer range
+  // (5·2^22 = 2^24.3 does not — that was the overflow bug).
+  public num_limbs_f32: number;
+  public n0_f32: bigint;
+  public p_limbs_f32_str: string;
   // 9 × 29-bit BY limb representation of `p` for the BY safegcd inverse
   // path. The initializer string is comma-separated limbs suitable for
   // `BigIntBY(array<i32, 9>({{{ p_limbs_by }}}))`.
@@ -169,44 +177,30 @@ export class ShaderManager {
   ) {
     this.curveConfig = curveConfig;
     this.p = curveConfig.baseFieldModulus;
-    const params = compute_misc_params(this.p, curveConfig.wordSize);
-    this.word_size = curveConfig.wordSize;
+    // The field/BigInt limb representation is selected by the montmul variant.
+    // Default 20×13 (R=2^260) is the integer-karat path. The f32 sos3uv3 multiply
+    // uses F32_LIMB_BITS (21)-bit limbs, so selecting 'fp22native' flips word_size to
+    // 21 here — and with it num_words (→13) and every R/Barrett constant derived
+    // below, plus every generic limb-indexed op (bigint_*, field_*, Barrett, field8
+    // pack/unpack) — to a coherent 13×21 radix (R=2^273) end-to-end. No per-op domain
+    // fixup, and the karat/cios 13-bit multiply bodies are not rendered in this mode
+    // (see the montmul selection below). word_size=21 ⇒ num_words=13, r=2^273 mod p,
+    // n0=-p^-1 mod 2^21=418697, Barrett mu at the 273-bit width.
+    const word_size = montmul === 'fp22native' ? F32_LIMB_BITS : curveConfig.wordSize;
+    const params = compute_misc_params(this.p, word_size);
+    this.word_size = word_size;
     this.chunk_size = chunk_size;
     this.input_size = input_size;
     this.n0 = params.n0;
     this.num_words = params.num_words;
     this.r = params.r;
     this.rinv = params.rinv;
-    // fp22native runs the WHOLE pipeline in the R = 2^264 Montgomery domain (the
-    // native 12×22 multiply computes a·b·2^-264). The default 20×13 pipeline uses
-    // R = 2^(20·13) mod p = 2^260; mixing a 2^260 entry with a 2^-264 multiply is
-    // a domain mismatch (proven in fp22work/verify_full_pipeline_domain.mjs:
-    // R260-entry + native-264-mul FAILs, R264-entry + native-264-mul PASSes).
-    // Overriding this.r here makes EVERY R-derived constant below — the to-Mont
-    // entry scale (r_limbs), the inverse R³ fold (r_cubed_limbs), and decompress's
-    // 3·R (b3_mont_limbs) — coherently 2^264. ONE radix end-to-end; no per-op fixup.
-    if (montmul === 'fp22native') {
-      this.r = (1n << 264n) % this.p;
-      this.rinv = modinv(this.r, this.p);
-    }
     this.mask = 2 ** this.word_size - 1;
     this.index_shift = 2 ** (chunk_size - 1);
     this.two_pow_word_size = 2 ** this.word_size;
     this.two_pow_chunk_size = 2 ** chunk_size;
     this.p_limbs = gen_p_limbs(this.p, this.num_words, this.word_size);
     this.r_limbs = gen_r_limbs(this.r, this.num_words, this.word_size);
-    // r_limbs is the to-Montgomery scale consumed ONLY by Barrett field_mul(&x,&r)
-    // in convert_points_only / decompress. Barrett reduces at the 20×13 = 260-bit
-    // limb width: field_mul(x,b) = x·b·2^-260. For fp22native the hot loop is the
-    // R=2^264 domain, so the entry must land x·2^264; that needs b = 2^(260+264) =
-    // 2^524 mod p (NOT this.r=2^264, which would give x·2^4). This is the one place
-    // the Barrett radix (limb width) and the Montgomery radix (2^264) differ, so
-    // r_limbs gets its own constant. get_r_f8 (the walker's Montgomery-one),
-    // r_cubed_limbs, and b3_mont_limbs all correctly use this.r=2^264 below.
-    if (montmul === 'fp22native') {
-      const r_entry = (1n << 524n) % this.p;
-      this.r_limbs = gen_r_limbs(r_entry, this.num_words, this.word_size);
-    }
     const r_cubed = (this.r * this.r * this.r) % this.p;
     this.r_cubed_limbs = gen_wgsl_limbs_code(r_cubed, 'r3', this.num_words, this.word_size);
     // Montgomery form of 3 = 3·R mod p (b parameter for BN254 y² = x³ + 3).
@@ -219,16 +213,28 @@ export class ShaderManager {
     this.p_minus_2_limbs = gen_wgsl_limbs_code(this.p - 2n, 'e', this.num_words, this.word_size);
     this.p_inv_mod_2w = compute_mod_inverse_pow2(this.p, this.word_size);
     this.mu_limbs = gen_mu_limbs(this.p, this.num_words, this.word_size);
+    // pk_p_word() body: p in ten 26-bit windows (bits [26w, 26w+26)), used by
+    // the packed safegcd inverse whose internal form is always 2×13-bit/word.
+    {
+      const w26 = (1n << 26n) - 1n;
+      const cases: string[] = [];
+      for (let w = 0; w < 10; w++) {
+        cases.push(`        case ${w}u: { return ${((this.p >> BigInt(26 * w)) & w26).toString()}u; }`);
+      }
+      this.pk_p_words_cases = cases.join('\n');
+    }
     this.p_bitlength = this.p.toString(2).length;
     this.slack = this.num_words * this.word_size - this.p_bitlength;
     this.w_mask = (1 << this.word_size) - 1;
 
-    // 22-bit-limb f32 path (bench only). compute_misc_params(p, 22)
-    // gives num_words = 12 for BN254 (12·22 = 264 ≥ 254).
-    const params_f32_22 = compute_misc_params(this.p, 22);
-    this.num_limbs_f32_22 = params_f32_22.num_words;
-    this.n0_f32_22 = params_f32_22.n0;
-    this.p_limbs_f32_22_str = gen_p_limbs_f32(this.p, this.num_limbs_f32_22, 22);
+    // F32_LIMB_BITS (21)-bit f32 limb params for the sos3uv3 multiply.
+    // compute_misc_params(p, 21) gives num_words = 13 for BN254 (13·21 = 273 ≥ 254),
+    // n0 = -p^-1 mod 2^21 = 418697. Computed unconditionally; consumed only by the
+    // fp22native (sos3uv3) render, where word_size is also F32_LIMB_BITS.
+    const params_f32 = compute_misc_params(this.p, F32_LIMB_BITS);
+    this.num_limbs_f32 = params_f32.num_words;
+    this.n0_f32 = params_f32.n0;
+    this.p_limbs_f32_str = gen_p_limbs_f32(this.p, this.num_limbs_f32, F32_LIMB_BITS);
 
     // BY safegcd 9 × 29-bit representation of p and 58-bit p_inv split.
     // The split is the WASM `p_inv` u64 broken into low-32 + high-26
@@ -248,12 +254,11 @@ export class ShaderManager {
       montmul === 'cios_unrolled'
         ? this.renderCiosUnrolledMont()
         : montmul === 'fp22native'
-          ? this.renderFp22NativeMont()
+          ? this.renderSos3uv3Mont()
           : this.renderKaratYuvalMont();
-    // NOTE: for fp22native the R³ inverse fold (r_cubed_limbs), the to-Mont entry
-    // scale (r_limbs), and decompress's 3·R (b3_mont_limbs) are ALL already the
-    // coherent 2^264 values, because this.r was overridden to 2^264 mod p above
-    // before those constants were derived. No additional per-constant patch here.
+    // For fp22native every R-derived constant (r_limbs, r_cubed_limbs, b3_mont_limbs)
+    // is the coherent 2^273 value, because word_size=21 was selected above before any
+    // constant was derived — no per-constant patch, and no 13-bit body is rendered.
 
     if (force_recompile) {
       const rand = Math.round(Math.random() * 100000000000000000) % 2 ** 32;
@@ -398,6 +403,193 @@ ${packLines.join('\n')}
     );
   }
 
+  // Field-op isolation check (representation debugging). For each input pair (a, b)
+  // it outputs field_mul(a, b) [Barrett a·b mod p] and montgomery_product(a,
+  // fr_pow_inv(a)) [the inverse invariant — must equal get_r() = Mont(1)]. The host
+  // compares against a BigInt oracle to localize which field op is wrong at 13×21.
+  public gen_field_check_shader(nvec: number): string {
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    const dec = this.decoupledPackUnpackWgsl();
+    const kernel = `
+@group(0) @binding(0) var<storage, read> inbuf: array<u32>;
+@group(0) @binding(1) var<storage, read_write> outbuf: array<u32>;
+const FC_NVEC: u32 = ${nvec}u;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let v: u32 = gid.x;
+    if (v >= FC_NVEC) { return; }
+    let ibase: u32 = v * 2u * NUM_WORDS;
+    var a: BigInt;
+    var b: BigInt;
+    for (var i: u32 = 0u; i < NUM_WORDS; i = i + 1u) {
+        a.limbs[i] = inbuf[ibase + i];
+        b.limbs[i] = inbuf[ibase + NUM_WORDS + i];
+    }
+    var a8: array<u32, 8> = pack_limbs_to_256(&a);
+    var b8: array<u32, 8> = pack_limbs_to_256(&b);
+    var s8: array<u32, 8> = fr_add_f8(a8, b8);       // walker's (a+b) mod p — native 8×32
+    var d8: array<u32, 8> = fr_sub_f8(a8, b8);       // walker's (a-b) mod p — native 8×32
+    var ssum: BigInt = unpack256_to_limbs(s8);
+    var sdiff: BigInt = unpack256_to_limbs(d8);
+    var inv: BigInt = fr_inv_by_loop_pk(a);          // safegcd inverse → Mont(a^-1)
+    var invm: BigInt = montgomery_product(&a, &inv); // == R = Mont(1)
+    let obase: u32 = v * 3u * NUM_WORDS;
+    for (var i: u32 = 0u; i < NUM_WORDS; i = i + 1u) {
+        outbuf[obase + i] = ssum.limbs[i];
+        outbuf[obase + NUM_WORDS + i] = invm.limbs[i];
+        outbuf[obase + 2u * NUM_WORDS + i] = sdiff.limbs[i];
+    }
+}`;
+    return mustache.render(
+      `{{> structs }}\n{{> montgomery_product_funcs }}\n{{> bigint_funcs }}\n{{{ dec_unpack }}}\n{{{ dec_pack }}}\n{{> field_funcs }}\n{{> field8_funcs }}\n{{> fr_pow_funcs }}\n{{> bigint_by_funcs }}\n{{> inverse_funcs }}\n${kernel}`,
+      {
+        num_words: this.num_words, word_size: this.word_size, n0: this.n0,
+        mask: this.mask, two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mu_limbs: this.mu_limbs,
+        w_mask: this.w_mask, slack: this.slack, num_words_mul_two: this.num_words * 2,
+        p_inv_by_a_lo: this.p_inv_by_a_lo, pk_p_words_cases: this.pk_p_words_cases,
+        p8_consts, r8_csv, f8_words, dec_unpack: dec.unpack, dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs, field_funcs, barrett_funcs,
+        montgomery_product_funcs: this.mont_product_src, field8_funcs, fr_pow_funcs,
+        bigint_by_funcs, inverse_funcs: by_inverse_loop_funcs,
+      },
+    );
+  }
+
+  // Affine point-addition isolation check. For each input pair of curve points
+  // P1=(x1,y1), P2=(x2,y2) in Montgomery 8×32 form, computes P1+P2 via the exact
+  // walker affine-add formula but with a DIRECT (non-batched) inverse. Bisects
+  // an EC-formula composition bug from the walker's batched-inversion structure.
+  public gen_affine_add_check_shader(npairs: number): string {
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    const dec = this.decoupledPackUnpackWgsl();
+    const kernel = `
+@group(0) @binding(0) var<storage, read> inbuf: array<u32>;
+@group(0) @binding(1) var<storage, read_write> outbuf: array<u32>;
+const AA_NPAIRS: u32 = ${npairs}u;
+fn aa_load8(base: u32) -> array<u32, 8> {
+    return array<u32, 8>(inbuf[base], inbuf[base + 1u], inbuf[base + 2u], inbuf[base + 3u],
+                         inbuf[base + 4u], inbuf[base + 5u], inbuf[base + 6u], inbuf[base + 7u]);
+}
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let v: u32 = gid.x;
+    if (v >= AA_NPAIRS) { return; }
+    let ib: u32 = v * 32u;
+    var x1: array<u32, 8> = aa_load8(ib);
+    var y1: array<u32, 8> = aa_load8(ib + 8u);
+    var x2: array<u32, 8> = aa_load8(ib + 16u);
+    var y2: array<u32, 8> = aa_load8(ib + 24u);
+    var dx: array<u32, 8> = fr_sub_f8(x2, x1);
+    var dy: array<u32, 8> = fr_sub_f8(y2, y1);
+    var dxb: BigInt = unpack256_to_limbs(dx);
+    var invb: BigInt = fr_inv_by_loop_pk(dxb);        // 1/dx, direct (not batched)
+    var inv_dx: array<u32, 8> = pack_limbs_to_256(&invb);
+    var lambda: array<u32, 8> = montgomery_product_f8(dy, inv_dx);
+    var x_sum: array<u32, 8> = fr_add_f8(x1, x2);
+    var l2: array<u32, 8> = montgomery_product_f8(lambda, lambda);
+    var x3: array<u32, 8> = fr_sub_f8(l2, x_sum);
+    var t: array<u32, 8> = fr_sub_f8(x1, x3);
+    var y3: array<u32, 8> = montgomery_product_f8(lambda, t);
+    y3 = fr_sub_f8(y3, y1);
+    let ob: u32 = v * 16u;
+    for (var i: u32 = 0u; i < 8u; i = i + 1u) {
+        outbuf[ob + i] = x3[i];
+        outbuf[ob + 8u + i] = y3[i];
+    }
+}`;
+    return mustache.render(
+      `{{> structs }}\n{{> montgomery_product_funcs }}\n{{> bigint_funcs }}\n{{{ dec_unpack }}}\n{{{ dec_pack }}}\n{{> field_funcs }}\n{{> field8_funcs }}\n{{> fr_pow_funcs }}\n{{> bigint_by_funcs }}\n{{> inverse_funcs }}\n${kernel}`,
+      {
+        num_words: this.num_words, word_size: this.word_size, n0: this.n0,
+        mask: this.mask, two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mu_limbs: this.mu_limbs,
+        w_mask: this.w_mask, slack: this.slack, num_words_mul_two: this.num_words * 2,
+        p_inv_by_a_lo: this.p_inv_by_a_lo, pk_p_words_cases: this.pk_p_words_cases,
+        p8_consts, r8_csv, f8_words, dec_unpack: dec.unpack, dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs, field_funcs, barrett_funcs,
+        montgomery_product_funcs: this.mont_product_src, field8_funcs, fr_pow_funcs,
+        bigint_by_funcs, inverse_funcs: by_inverse_loop_funcs,
+      },
+    );
+  }
+
+  // Batched-inversion isolation check — replicates the walker's exact forward-
+  // product / single-inverse / backward-unwind (ba_stream_walker lines ~285-351)
+  // on K input Δx values per batch. Outputs inv_dx[k]; the host verifies each
+  // equals Mont(1/Δx[k]). Bisects the batched inversion from the rest of the walker.
+  public gen_batch_inv_check_shader(nbatch: number, K: number): string {
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    const dec = this.decoupledPackUnpackWgsl();
+    const kernel = `
+@group(0) @binding(0) var<storage, read> inbuf: array<u32>;
+@group(0) @binding(1) var<storage, read_write> outbuf: array<u32>;
+const BI_NBATCH: u32 = ${nbatch}u;
+const BI_K: u32 = ${K}u;
+fn bi_load8(base: u32) -> array<u32, 8> {
+    return array<u32, 8>(inbuf[base], inbuf[base + 1u], inbuf[base + 2u], inbuf[base + 3u],
+                         inbuf[base + 4u], inbuf[base + 5u], inbuf[base + 6u], inbuf[base + 7u]);
+}
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let v: u32 = gid.x;
+    if (v >= BI_NBATCH) { return; }
+    let base: u32 = v * BI_K * 8u;
+    var dxs: array<array<u32, 8>, ${K}>;
+    for (var k: u32 = 0u; k < BI_K; k = k + 1u) { dxs[k] = bi_load8(base + k * 8u); }
+    // forward prefix product (acc seeded with Mont(1), overwritten at k=0)
+    var prefix: array<array<u32, 8>, ${K}>;
+    var acc: array<u32, 8> = get_r_f8();
+    for (var k: u32 = 0u; k < BI_K; k = k + 1u) {
+        if (k == 0u) { acc = dxs[k]; } else { acc = montgomery_product_f8(acc, dxs[k]); }
+        prefix[k] = acc;
+    }
+    // single inverse of the full product
+    var acc20: BigInt = unpack256_to_limbs(acc);
+    var inv20: BigInt = fr_inv_by_loop_pk(acc20);
+    var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
+    // backward unwind: inv_dx[k] = 1/dxs[k]
+    let ob: u32 = v * BI_K * 8u;
+    for (var jj: u32 = 0u; jj < BI_K; jj = jj + 1u) {
+        let k: u32 = BI_K - 1u - jj;
+        var inv_dx: array<u32, 8>;
+        if (k == 0u) {
+            inv_dx = inv;
+        } else {
+            inv_dx = montgomery_product_f8(inv, prefix[k - 1u]);
+            inv = montgomery_product_f8(inv, dxs[k]);
+        }
+        for (var i: u32 = 0u; i < 8u; i = i + 1u) { outbuf[ob + k * 8u + i] = inv_dx[i]; }
+    }
+}`;
+    return mustache.render(
+      `{{> structs }}\n{{> montgomery_product_funcs }}\n{{> bigint_funcs }}\n{{{ dec_unpack }}}\n{{{ dec_pack }}}\n{{> field_funcs }}\n{{> field8_funcs }}\n{{> fr_pow_funcs }}\n{{> bigint_by_funcs }}\n{{> inverse_funcs }}\n${kernel}`,
+      {
+        num_words: this.num_words, word_size: this.word_size, n0: this.n0,
+        mask: this.mask, two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mu_limbs: this.mu_limbs,
+        w_mask: this.w_mask, slack: this.slack, num_words_mul_two: this.num_words * 2,
+        p_inv_by_a_lo: this.p_inv_by_a_lo, pk_p_words_cases: this.pk_p_words_cases,
+        p8_consts, r8_csv, f8_words, dec_unpack: dec.unpack, dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs, field_funcs, barrett_funcs,
+        montgomery_product_funcs: this.mont_product_src, field8_funcs, fr_pow_funcs,
+        bigint_by_funcs, inverse_funcs: by_inverse_loop_funcs,
+      },
+    );
+  }
+
   public gen_decompose_scalars_booth_shader(workgroup_size: number): string {
     return mustache.render(decompose_scalars_booth_shader, { workgroup_size, recompile: this.recompile }, {});
   }
@@ -527,8 +719,17 @@ ${packLines.join('\n')}
       throw new Error(`gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     const dec = this.decoupledPackUnpackWgsl();
+    // The safegcd inverse (by_inverse_loop) is 13-bit-bound: 'pk' packs 2×13/u32,
+    // 'loop' uses BATCH=2×13 + i32 matrix products that overflow at 21-bit, and its
+    // pk_p_word references P_LIMB_* which the sos3uv3 module does not define. For the
+    // 13×21 representation use the Fermat inverse (fr_pow_inv = a^(p-2) via the
+    // validated montmul) — rep-independent — and drop the safegcd partial entirely.
+    // The packed safegcd inverse ('pk') stores state in fixed 2×13-bit words and
+    // bridges the source field element through the canonical 8×32 form, so it is
+    // representation-independent. The unpacked 'loop' variant is 13-bit-bound
+    // (BATCH = 2·WORD_SIZE), so the 21-bit f32 representation must use 'pk'.
     const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inv_fn = variant === 'pk' || this.word_size === F32_LIMB_BITS ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_level_bench_shader,
@@ -540,7 +741,7 @@ ${packLines.join('\n')}
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        p_inv_by_a_lo: this.p_inv_by_a_lo, pk_p_words_cases: this.pk_p_words_cases,
         dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
       },
       {
@@ -730,41 +931,50 @@ ${packLines.join('\n')}
     return scaffold.slice(0, start) + montgomery_product_cios_unrolled_funcs.trim() + '\n' + scaffold.slice(end);
   }
 
-  // Native 12×22-bit (R=2^264) variant of the base-field multiply. Reuses the
-  // Karatsuba scaffold (get_p / conditional_reduce / NUM_WORDS / WORD_SIZE / MASK
-  // / N0) and brace-match-replaces ONLY the `fn montgomery_product` body with the
-  // native 12×22 R=2^264 multiply (exposed via a pure-bit-shuffle BigInt wrapper).
-  // Because the walker's `montgomery_product_f8` AND the safegcd inverse's final
-  // R³ fold both call `montgomery_product`, this swap makes the ENTIRE hot path
-  // native-264. No 13-bit arithmetic, no 2^260, no per-op correction. The BigInt
-  // storage stays 20×13-bit (the repack is just limb-format windowing on the same
-  // integer), so this is BN254 @ 20×13 only.
-  private renderFp22NativeMont(): string {
-    if (this.num_words !== 20 || this.word_size !== 13) {
+  // Self-contained 13×21 f32 Montgomery-multiply module (sos3uv3). Emits the generic
+  // field consts and get_p() that the rest of the pipeline expects from the montmul
+  // partial — bigint_*, field_*, and decompress reference NUM_WORDS / WORD_SIZE /
+  // MASK / TWO_POW_WORD_SIZE / P_INV_MOD_2W and get_p — then the f32 sos3uv3 body,
+  // then a BigInt-signature wrapper. The 20×13 karat multiply is NOT reused: its 4×5
+  // grouped-Karatsuba layout assumes 20 limbs, so this module is generated
+  // independently for the 13-limb representation. The per-limb n0 (-p^-1 mod 2^21 =
+  // 418697) and the 13 f32 p-limbs come from the sos3uv3 render context.
+  private renderSos3uv3Mont(): string {
+    if (this.num_words !== 13 || this.word_size !== F32_LIMB_BITS) {
       throw new Error(
-        `montmul='fp22native' assumes BN254 20×13-bit BigInt storage; ` +
+        `montmul='fp22native' is the 13×21 f32 representation; ` +
           `got num_words=${this.num_words}, word_size=${this.word_size}`,
       );
     }
-    const scaffold = this.renderKaratYuvalMont();
-    const start = scaffold.indexOf('fn montgomery_product(');
-    if (start < 0) throw new Error('renderFp22NativeMont: fn montgomery_product not found in scaffold');
-    let depth = 0;
-    let end = -1;
-    for (let i = scaffold.indexOf('{', start); i < scaffold.length; i++) {
-      const ch = scaffold[i];
-      if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) {
-          end = i + 1;
-          break;
-        }
-      }
+    const consts = [
+      `const NUM_WORDS: u32 = ${this.num_words}u;`,
+      `const WORD_SIZE: u32 = ${this.word_size}u;`,
+      `const MASK: u32 = ${this.mask}u;`,
+      `const TWO_POW_WORD_SIZE: u32 = ${this.two_pow_word_size}u;`,
+      `const P_INV_MOD_2W: u32 = ${this.p_inv_mod_2w}u;`,
+    ].join('\n');
+    const get_p_fn = `fn get_p() -> BigInt {\n    var p: BigInt;\n${this.p_limbs}\n    return p;\n}`;
+    const f32_module = this.gen_montgomery_product_f32_22_sos3uv3_shader();
+    // BigInt(u32 13×21) drop-in over the pipeline's `fn montgomery_product`. Both
+    // representations are already 13×21, so the conversion is a per-limb cast: the
+    // input u32 limbs are < 2^21 (exact in f32), and montgomery_product_f32 returns
+    // a canonical-per-limb reduced result whose f32 limbs are exact integers < 2^21.
+    const wrapper = `
+fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>) -> BigInt {
+    var xf: BigIntF32;
+    var yf: BigIntF32;
+    for (var i: u32 = 0u; i < NUM_WORDS; i = i + 1u) {
+        xf.limbs[i] = f32((*x_ptr).limbs[i]);
+        yf.limbs[i] = f32((*y_ptr).limbs[i]);
     }
-    if (end < 0) throw new Error('renderFp22NativeMont: brace-match failed');
-    const nativeBody = genFp22NativeMontgomeryProductBody(this.p).trim();
-    return scaffold.slice(0, start) + nativeBody + '\n' + scaffold.slice(end);
+    var s: BigIntF32 = montgomery_product_f32(&xf, &yf);
+    var out: BigInt;
+    for (var i: u32 = 0u; i < NUM_WORDS; i = i + 1u) {
+        out.limbs[i] = u32(s.limbs[i]);
+    }
+    return out;
+}`;
+    return `${consts}\n${get_p_fn}\n${f32_module}\n${wrapper}`;
   }
 
   // Renders mont_pro_product_f32_22_sos3uv3.template.wgsl. The .wgsl owns
@@ -773,13 +983,14 @@ ${packLines.join('\n')}
   // bias_split_f32_le4w. This TS supplies index arrays for the mustache
   // slot-init / inner-pairs / drain-cols sections.
   public gen_montgomery_product_f32_22_sos3uv3_shader(): string {
-    const N = this.num_limbs_f32_22;
-    const W_INV_VAL = 2.384185791015625e-7;
-    // PER-LIMB Montgomery n0 = -p^-1 mod 2^22 (= 418697 for BN254). The 22-bit
-    // CIOS reduction needs the per-limb n0, NOT compute_misc_params(p,22).n0
-    // (which is the full-width -p^-1 mod R, a 256-bit value — using it here
-    // produced a garbage f32 and a non-bit-exact multiply). Host-validated in
-    // fp22work/native22_host.mjs (montmul_native22_R264, 320k+ trials).
+    const N = this.num_limbs_f32;
+    const FB = F32_LIMB_BITS;
+    const FBn = BigInt(FB);
+    const W_INV_VAL = 2 ** -FB; // 2^-21
+    // PER-LIMB Montgomery n0 = -p^-1 mod 2^21 (= 418697 for BN254). The CIOS
+    // reduction's quotient step uses the per-limb n0 (low FB bits of -p^-1), which
+    // equals compute_misc_params(p,21).n0 = this.n0_f32; recomputed here for the
+    // scaled form. Host-validated in fp22work/audit/sos3_param.mjs (1e6 trials).
     const modinvPow2 = (a: bigint, k: bigint): bigint => {
       const m = 1n << k;
       let [oldR, r] = [((a % m) + m) % m, m];
@@ -791,7 +1002,7 @@ ${packLines.join('\n')}
       }
       return ((oldS % m) + m) % m;
     };
-    const n0PerLimb = ((1n << 22n) - modinvPow2(this.p, 22n)) % (1n << 22n);
+    const n0PerLimb = ((1n << FBn) - modinvPow2(this.p, FBn)) % (1n << FBn);
     const n0Num = Number(n0PerLimb);
     const n0Scaled = n0Num * W_INV_VAL;
 
@@ -817,20 +1028,34 @@ ${packLines.join('\n')}
 
     // Drain cols: k=0..N-1.
     const drainCols = Array.from({ length: N }, (_, k) => ({ k }));
+    // s0..s{N-1} accumulator declarations and the final s.limbs[k]=sk writeback.
+    const sCols = Array.from({ length: N }, (_, k) => ({ idx: k }));
 
     const ctx = {
       num_limbs: N,
-      n0: `${this.n0_f32_22.toString()}.0`,
+      n0: `${this.n0_f32.toString()}.0`,
       n0_scaled: n0Scaled.toString(),
-      p_limbs_f32: this.p_limbs_f32_22_str,
+      p_limbs_f32: this.p_limbs_f32_str,
       slot_inits_i0: slotInitsI0,
       slot_inits_general: slotInitsGeneral,
       inner_pairs: innerPairs,
       drain_cols: drainCols,
+      s_decls: sCols,
+      s_finals: sCols,
     };
+    // The f32 bias-trick constants, derived from the limb width (not from the
+    // 22-bit mulhilo_22.wgsl, which is no longer used). W=2^b, W_INV=2^-b,
+    // BIAS=2^2b (the FMA bias that snaps a*b onto the high-bit grid), TWO_W=2^(b+1)
+    // (the hi-pair de-bias). All exact powers of two, so f32-exact.
+    const f32_consts = [
+      `const W: f32 = ${2 ** FB}.0;`,
+      `const W_INV: f32 = ${2 ** -FB};`,
+      `const BIAS: f32 = ${2 ** (2 * FB)}.0;`,
+      `const TWO_W: f32 = ${2 ** (FB + 1)}.0;`,
+    ].join('\n');
     const bigint_f32_src = mustache.render(bigint_f32_funcs, ctx);
     const mont_src = mustache.render(montgomery_product_f32_22_sos3uv3_funcs, ctx);
-    return `${mulhilo_22_funcs}\n${bigint_f32_src}\n${mont_src}`;
+    return `${f32_consts}\n${bigint_f32_src}\n${mont_src}`;
   }
 
   // --- Streaming planner + accumulator generators ---
@@ -913,8 +1138,17 @@ ${packLines.join('\n')}
     variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
+    // The safegcd inverse (by_inverse_loop) is 13-bit-bound: 'pk' packs 2×13/u32,
+    // 'loop' uses BATCH=2×13 + i32 matrix products that overflow at 21-bit, and its
+    // pk_p_word references P_LIMB_* which the sos3uv3 module does not define. For the
+    // 13×21 representation use the Fermat inverse (fr_pow_inv = a^(p-2) via the
+    // validated montmul) — rep-independent — and drop the safegcd partial entirely.
+    // The packed safegcd inverse ('pk') stores state in fixed 2×13-bit words and
+    // bridges the source field element through the canonical 8×32 form, so it is
+    // representation-independent. The unpacked 'loop' variant is 13-bit-bound
+    // (BATCH = 2·WORD_SIZE), so the 21-bit f32 representation must use 'pk'.
     const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inv_fn = variant === 'pk' || this.word_size === F32_LIMB_BITS ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_walker_shader,
@@ -926,7 +1160,7 @@ ${packLines.join('\n')}
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        p_inv_by_a_lo: this.p_inv_by_a_lo, pk_p_words_cases: this.pk_p_words_cases,
         dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
       },
       {
@@ -1014,8 +1248,17 @@ ${packLines.join('\n')}
     variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
+    // The safegcd inverse (by_inverse_loop) is 13-bit-bound: 'pk' packs 2×13/u32,
+    // 'loop' uses BATCH=2×13 + i32 matrix products that overflow at 21-bit, and its
+    // pk_p_word references P_LIMB_* which the sos3uv3 module does not define. For the
+    // 13×21 representation use the Fermat inverse (fr_pow_inv = a^(p-2) via the
+    // validated montmul) — rep-independent — and drop the safegcd partial entirely.
+    // The packed safegcd inverse ('pk') stores state in fixed 2×13-bit words and
+    // bridges the source field element through the canonical 8×32 form, so it is
+    // representation-independent. The unpacked 'loop' variant is 13-bit-bound
+    // (BATCH = 2·WORD_SIZE), so the 21-bit f32 representation must use 'pk'.
     const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inv_fn = variant === 'pk' || this.word_size === F32_LIMB_BITS ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_unified_combine_shader,
@@ -1026,7 +1269,7 @@ ${packLines.join('\n')}
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        p_inv_by_a_lo: this.p_inv_by_a_lo, pk_p_words_cases: this.pk_p_words_cases,
         dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
       },
       {
@@ -1046,8 +1289,17 @@ ${packLines.join('\n')}
     variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
+    // The safegcd inverse (by_inverse_loop) is 13-bit-bound: 'pk' packs 2×13/u32,
+    // 'loop' uses BATCH=2×13 + i32 matrix products that overflow at 21-bit, and its
+    // pk_p_word references P_LIMB_* which the sos3uv3 module does not define. For the
+    // 13×21 representation use the Fermat inverse (fr_pow_inv = a^(p-2) via the
+    // validated montmul) — rep-independent — and drop the safegcd partial entirely.
+    // The packed safegcd inverse ('pk') stores state in fixed 2×13-bit words and
+    // bridges the source field element through the canonical 8×32 form, so it is
+    // representation-independent. The unpacked 'loop' variant is 13-bit-bound
+    // (BATCH = 2·WORD_SIZE), so the 21-bit f32 representation must use 'pk'.
     const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inv_fn = variant === 'pk' || this.word_size === F32_LIMB_BITS ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_walker_combine_batched_shader,
@@ -1059,7 +1311,7 @@ ${packLines.join('\n')}
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
-        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        p_inv_by_a_lo: this.p_inv_by_a_lo, pk_p_words_cases: this.pk_p_words_cases,
         dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
       },
       {

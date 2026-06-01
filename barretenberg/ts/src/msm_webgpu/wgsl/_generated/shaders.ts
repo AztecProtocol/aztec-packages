@@ -3405,14 +3405,32 @@ fn get_p_wide() -> BigIntWide {
     return p;
 }
 
+// Full 32×32 → 64-bit unsigned product as vec2<u32>(.x = low 32, .y = high 32).
+// WGSL's \`*\` on u32 keeps only the low 32 bits, so a limb product overflows once
+// WORD_SIZE > 16 (21-bit limbs give a 42-bit product); compute it via a 16-bit split.
+fn mul_wide(a: u32, b: u32) -> vec2<u32> {
+    let aL = a & 0xffffu; let aH = a >> 16u;
+    let bL = b & 0xffffu; let bH = b >> 16u;
+    let ll = aL * bL;
+    let lh = aL * bH;
+    let hl = aH * bL;
+    let hh = aH * bH;
+    let cross = (ll >> 16u) + (lh & 0xffffu) + (hl & 0xffffu);
+    let lo = (ll & 0xffffu) | (cross << 16u);
+    let hi = hh + (lh >> 16u) + (hl >> 16u) + (cross >> 16u);
+    return vec2<u32>(lo, hi);
+}
+
 fn mul(a: ptr<function, BigInt>, b: ptr<function, BigInt>) -> BigIntWide {
     var res: BigIntWide;
     for (var i = 0u; i < NUM_WORDS; i = i + 1u) {
         for (var j = 0u; j < NUM_WORDS; j = j + 1u) {
-            let c = (*a).limbs[i] * (*b).limbs[j];
-            res.limbs[i+j] += c & W_MASK;
-            res.limbs[i+j+1] += c >> WORD_SIZE;
-        }   
+            // Full product limb_i · limb_j (up to 2·WORD_SIZE bits): split its low
+            // WORD_SIZE bits into res[i+j] and the high bits into res[i+j+1].
+            let c = mul_wide((*a).limbs[i], (*b).limbs[j]);
+            res.limbs[i+j] += c.x & W_MASK;
+            res.limbs[i+j+1] += (c.x >> WORD_SIZE) | (c.y << (32u - WORD_SIZE));
+        }
     }
 
     // start from 0 and carry the extra over to the next index
@@ -4064,30 +4082,31 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 `;
 
-export const extract_word_from_bytes_le = `fn extract_word_from_coord_bytes_le(
+export const extract_word_from_bytes_le = `// Extract the \`chunk_size\`-bit limb at \`word_idx\` from a coordinate stored as
+// big-endian 16-bit words (input[N-1] holds the least-significant 16 bits).
+// A limb of up to 21 bits can straddle THREE consecutive 16-bit words (e.g. a
+// 21-bit limb starting near the top of a word), so we assemble from words
+// w0, w0+1 and w0+2. The earlier two-word-only form silently dropped the middle
+// word for any chunk_size that produced a 3-word span (correct only for ≤16-bit
+// limbs such as the 13-bit karat representation).
+fn extract_word_from_coord_bytes_le(
     input: array<u32, {{ num_16_bit_words_per_coord }}>,
     word_idx: u32,
     chunk_size: u32
 ) -> u32 {
-    var word = 0u;
-    let start_byte_idx = {{ num_16_bit_words_per_coord }}u - 1u - ((word_idx * chunk_size + chunk_size) / 16u);
-    let end_byte_idx = {{ num_16_bit_words_per_coord }}u - 1u - ((word_idx * chunk_size) / 16u);
-
-    let start_byte_offset = (word_idx * chunk_size + chunk_size) % 16u;
-    let end_byte_offset = (word_idx * chunk_size) % 16u;
-
-    var mask = 0u;
-    if (start_byte_offset > 0u) {
-        mask = (2u << (start_byte_offset - 1u)) - 1u;
-    }
-    if (start_byte_idx == end_byte_idx) {
-        word = (input[start_byte_idx] & mask) >> end_byte_offset;
-    } else {
-        word = (input[start_byte_idx] & mask) << (16u - end_byte_offset);
-        word += input[end_byte_idx] >> end_byte_offset;
-    }
-
-    return word;
+    let n = {{ num_16_bit_words_per_coord }}u;
+    let s = word_idx * chunk_size;       // index of the limb's least-significant bit
+    let w0 = s / 16u;                    // first 16-bit word holding bit s
+    let off = s % 16u;                   // bit offset of s within word w0
+    var b0 = input[n - 1u - w0];
+    var b1 = 0u;
+    if (w0 + 1u < n) { b1 = input[n - 1u - (w0 + 1u)]; }
+    var b2 = 0u;
+    if (w0 + 2u < n) { b2 = input[n - 1u - (w0 + 2u)]; }
+    let lo = b0 | (b1 << 16u);           // bits [16*w0, 16*w0 + 32)
+    var word = lo >> off;
+    if (off > 0u) { word = word | (b2 << (32u - off)); }  // 3rd word, when off + chunk_size > 32
+    return word & ((1u << chunk_size) - 1u);
 }
 
 fn extract_word_from_bytes_le(
@@ -4095,25 +4114,18 @@ fn extract_word_from_bytes_le(
     word_idx: u32,
     chunk_size: u32
 ) -> u32 {
-    var word = 0u;
-    let start_byte_idx = 15u - ((word_idx * chunk_size + chunk_size) / 16u);
-    let end_byte_idx = 15u - ((word_idx * chunk_size) / 16u);
-
-    let start_byte_offset = (word_idx * chunk_size + chunk_size) % 16u;
-    let end_byte_offset = (word_idx * chunk_size) % 16u;
-
-    var mask = 0u;
-    if (start_byte_offset > 0u) {
-        mask = (2u << (start_byte_offset - 1u)) - 1u;
-    }
-    if (start_byte_idx == end_byte_idx) {
-        word = (input[start_byte_idx] & mask) >> end_byte_offset;
-    } else {
-        word = (input[start_byte_idx] & mask) << (16u - end_byte_offset);
-        word += input[end_byte_idx] >> end_byte_offset;
-    }
-
-    return word;
+    let s = word_idx * chunk_size;
+    let w0 = s / 16u;
+    let off = s % 16u;
+    var b0 = input[15u - w0];
+    var b1 = 0u;
+    if (w0 + 1u < 16u) { b1 = input[15u - (w0 + 1u)]; }
+    var b2 = 0u;
+    if (w0 + 2u < 16u) { b2 = input[15u - (w0 + 2u)]; }
+    let lo = b0 | (b1 << 16u);
+    var word = lo >> off;
+    if (off > 0u) { word = word | (b2 << (32u - off)); }
+    return word & ((1u << chunk_size) - 1u);
 }
 `;
 
@@ -4848,41 +4860,58 @@ fn fr_inv_by_loop(a: BigInt) -> BigInt {
 // ===========================================================================
 struct Pk { w: array<u32, 10> }
 
+// The packed safegcd state stores the value as ten 26-bit words (two 13-bit
+// sub-limbs each), INDEPENDENT of the source BigInt limb width — so PK_BITS/
+// PK_MASK are fixed at 13, not the global WORD_SIZE/MASK (21 for the f32
+// representation). The field element is bridged in/out through the canonical
+// 8×32 form (pack_limbs_to_256 / unpack256_to_limbs), so the divstep core is
+// the identical validated arithmetic at any source representation.
+const PK_BITS: u32 = 13u;
+const PK_MASK: u32 = (1u << 13u) - 1u;
+
+// 26-bit window k = bits [26k, 26k+26) of the 256-bit value held in \`w8\`.
+fn pk_window_get(w8: ptr<function, array<u32, 8>>, k: u32) -> u32 {
+    let s: u32 = 26u * k;
+    let wi: u32 = s / 32u;
+    let off: u32 = s % 32u;
+    var lo: u32 = (*w8)[wi] >> off;
+    if (off > 0u && wi + 1u < 8u) { lo = lo | ((*w8)[wi + 1u] << (32u - off)); }
+    return lo & ((1u << 26u) - 1u);
+}
+
+// Deposit 26-bit \`word\` into bits [26k, 26k+26) of the 8×32 accumulator \`w8\`.
+fn pk_window_set(w8: ptr<function, array<u32, 8>>, k: u32, word: u32) {
+    let s: u32 = 26u * k;
+    let wi: u32 = s / 32u;
+    let off: u32 = s % 32u;
+    (*w8)[wi] = (*w8)[wi] | (word << off);
+    if (off > 0u && wi + 1u < 8u) { (*w8)[wi + 1u] = (*w8)[wi + 1u] | (word >> (32u - off)); }
+}
+
 fn pk_from_bigint(x: BigInt) -> Pk {
+    var xx: BigInt = x;
+    var w8: array<u32, 8> = pack_limbs_to_256(&xx);
     var o: Pk;
-    for (var k: u32 = 0u; k < 10u; k = k + 1u) {
-        o.w[k] = (x.limbs[2u * k] & MASK) | ((x.limbs[2u * k + 1u] & MASK) << 13u);
-    }
+    for (var k: u32 = 0u; k < 10u; k = k + 1u) { o.w[k] = pk_window_get(&w8, k); }
     return o;
 }
 
 fn pk_to_bigint(x: ptr<function, Pk>) -> BigInt {
-    var o: BigInt;
-    for (var k: u32 = 0u; k < 10u; k = k + 1u) {
-        let word = (*x).w[k];
-        o.limbs[2u * k] = word & MASK;
-        o.limbs[2u * k + 1u] = (word >> 13u) & MASK;
-    }
-    return o;
+    var w8: array<u32, 8>;
+    for (var i: u32 = 0u; i < 8u; i = i + 1u) { w8[i] = 0u; }
+    for (var k: u32 = 0u; k < 10u; k = k + 1u) { pk_window_set(&w8, k, (*x).w[k] & ((1u << 26u) - 1u)); }
+    return unpack256_to_limbs(w8);
 }
 
 fn pk_get_p() -> Pk { return pk_from_bigint(get_p()); }
 
-// Packed modulus word w (limb 2w | limb(2w+1)<<13) as a compile-time
-// immediate, from the module-scope P_i consts (montmul partial, always
-// co-included). No per-thread modulus copy in scratch.
+// Packed modulus word w = bits [26w, 26w+26) of p, as a host-generated
+// compile-time immediate (re-chunked from p, independent of limb width). No
+// per-thread modulus copy in scratch.
 fn pk_p_word(w: u32) -> u32 {
     switch w {
-        case 0u: { return P_LIMB_0 | (P_LIMB_1 << 13u); }
-        case 1u: { return P_LIMB_2 | (P_LIMB_3 << 13u); }
-        case 2u: { return P_LIMB_4 | (P_LIMB_5 << 13u); }
-        case 3u: { return P_LIMB_6 | (P_LIMB_7 << 13u); }
-        case 4u: { return P_LIMB_8 | (P_LIMB_9 << 13u); }
-        case 5u: { return P_LIMB_10 | (P_LIMB_11 << 13u); }
-        case 6u: { return P_LIMB_12 | (P_LIMB_13 << 13u); }
-        case 7u: { return P_LIMB_14 | (P_LIMB_15 << 13u); }
-        case 8u: { return P_LIMB_16 | (P_LIMB_17 << 13u); }
-        default: { return P_LIMB_18 | (P_LIMB_19 << 13u); }
+{{{ pk_p_words_cases }}}
+        default: { return 0u; }
     }
 }
 
@@ -4890,11 +4919,11 @@ fn pk_p_word(w: u32) -> u32 {
 fn pk_low_u64(x: ptr<function, Pk>) -> vec2<u32> {
     let w0 = (*x).w[0];
     let w1 = (*x).w[1];
-    let l0: u32 = w0 & MASK;
-    let l1: u32 = (w0 >> 13u) & MASK;
-    let l2: u32 = w1 & MASK;
-    let l3: u32 = (w1 >> 13u) & MASK;
-    let l4: u32 = (*x).w[2] & MASK;
+    let l0: u32 = w0 & PK_MASK;
+    let l1: u32 = (w0 >> 13u) & PK_MASK;
+    let l2: u32 = w1 & PK_MASK;
+    let l3: u32 = (w1 >> 13u) & PK_MASK;
+    let l4: u32 = (*x).w[2] & PK_MASK;
     let lo32: u32 = l0 | (l1 << 13u) | (l2 << 26u);
     let hi32: u32 = (l2 >> 6u) | (l3 << 7u) | (l4 << 20u);
     return vec2<u32>(lo32, hi32);
@@ -4914,11 +4943,11 @@ fn pk_normalise(x: ptr<function, Pk>) {
     var c: i32 = 0;
     for (var w: u32 = 0u; w < 10u; w = w + 1u) {
         let word = (*x).w[w];
-        let lo: i32 = i32(word & MASK) + c;
-        let olo: u32 = u32(lo) & MASK;
+        let lo: i32 = i32(word & PK_MASK) + c;
+        let olo: u32 = u32(lo) & PK_MASK;
         c = lo >> 13u;
-        let hi: i32 = i32((word >> 13u) & MASK) + c;
-        let ohi: u32 = u32(hi) & MASK;
+        let hi: i32 = i32((word >> 13u) & PK_MASK) + c;
+        let ohi: u32 = u32(hi) & PK_MASK;
         if (w != 9u) { c = hi >> 13u; }
         (*x).w[w] = olo | (ohi << 13u);
     }
@@ -4930,11 +4959,11 @@ fn pk_add_p(x: ptr<function, Pk>) {
     for (var w: u32 = 0u; w < 10u; w = w + 1u) {
         let xw = (*x).w[w];
         let pw = pk_p_word(w);
-        let lo: i32 = i32(xw & MASK) + i32(pw & MASK) + c;
-        let olo: u32 = u32(lo) & MASK;
+        let lo: i32 = i32(xw & PK_MASK) + i32(pw & PK_MASK) + c;
+        let olo: u32 = u32(lo) & PK_MASK;
         c = lo >> 13u;
-        let hi: i32 = i32((xw >> 13u) & MASK) + i32((pw >> 13u) & MASK) + c;
-        let ohi: u32 = u32(hi) & MASK;
+        let hi: i32 = i32((xw >> 13u) & PK_MASK) + i32((pw >> 13u) & PK_MASK) + c;
+        let ohi: u32 = u32(hi) & PK_MASK;
         if (w != 9u) { c = hi >> 13u; }
         (*x).w[w] = olo | (ohi << 13u);
     }
@@ -4945,11 +4974,11 @@ fn pk_sub_p(x: ptr<function, Pk>) {
     for (var w: u32 = 0u; w < 10u; w = w + 1u) {
         let xw = (*x).w[w];
         let pw = pk_p_word(w);
-        let lo: i32 = i32(xw & MASK) - i32(pw & MASK) + c;
-        let olo: u32 = u32(lo) & MASK;
+        let lo: i32 = i32(xw & PK_MASK) - i32(pw & PK_MASK) + c;
+        let olo: u32 = u32(lo) & PK_MASK;
         c = lo >> 13u;
-        let hi: i32 = i32((xw >> 13u) & MASK) - i32((pw >> 13u) & MASK) + c;
-        let ohi: u32 = u32(hi) & MASK;
+        let hi: i32 = i32((xw >> 13u) & PK_MASK) - i32((pw >> 13u) & PK_MASK) + c;
+        let ohi: u32 = u32(hi) & PK_MASK;
         if (w != 9u) { c = hi >> 13u; }
         (*x).w[w] = olo | (ohi << 13u);
     }
@@ -4959,11 +4988,11 @@ fn pk_neg(x: ptr<function, Pk>) {
     var c: i32 = 0;
     for (var w: u32 = 0u; w < 10u; w = w + 1u) {
         let word = (*x).w[w];
-        let lo: i32 = -i32(word & MASK) + c;
-        let olo: u32 = u32(lo) & MASK;
+        let lo: i32 = -i32(word & PK_MASK) + c;
+        let olo: u32 = u32(lo) & PK_MASK;
         c = lo >> 13u;
-        let hi: i32 = -i32((word >> 13u) & MASK) + c;
-        let ohi: u32 = u32(hi) & MASK;
+        let hi: i32 = -i32((word >> 13u) & PK_MASK) + c;
+        let ohi: u32 = u32(hi) & PK_MASK;
         if (w != 9u) { c = hi >> 13u; }
         (*x).w[w] = olo | (ohi << 13u);
     }
@@ -4974,12 +5003,12 @@ fn pk_gte(x: ptr<function, Pk>) -> bool {
     for (var idx: u32 = 0u; idx < 10u; idx = idx + 1u) {
         let w = 9u - idx;
         let pw = pk_p_word(w);
-        let xhi = ((*x).w[w] >> 13u) & MASK;
-        let phi = (pw >> 13u) & MASK;
+        let xhi = ((*x).w[w] >> 13u) & PK_MASK;
+        let phi = (pw >> 13u) & PK_MASK;
         if (xhi > phi) { return true; }
         if (xhi < phi) { return false; }
-        let xlo = (*x).w[w] & MASK;
-        let plo = pw & MASK;
+        let xlo = (*x).w[w] & PK_MASK;
+        let plo = pw & PK_MASK;
         if (xlo > plo) { return true; }
         if (xlo < plo) { return false; }
     }
@@ -4999,62 +5028,62 @@ fn pk_reduce_to_canonical(x: ptr<function, Pk>) {
 
 // (f,g) <- ((u*f + v*g) >> 26, (q*f + r*g) >> 26). Rolling, 2 limbs/word.
 fn pk_apply_matrix_fg(m: BylMat, f: ptr<function, Pk>, g: ptr<function, Pk>) {
-    let u_lo: i32 = i32(u32(m.u) & MASK); let u_hi: i32 = m.u >> 13u;
-    let v_lo: i32 = i32(u32(m.v) & MASK); let v_hi: i32 = m.v >> 13u;
-    let q_lo: i32 = i32(u32(m.q) & MASK); let q_hi: i32 = m.q >> 13u;
-    let r_lo: i32 = i32(u32(m.r) & MASK); let r_hi: i32 = m.r >> 13u;
+    let u_lo: i32 = i32(u32(m.u) & PK_MASK); let u_hi: i32 = m.u >> 13u;
+    let v_lo: i32 = i32(u32(m.v) & PK_MASK); let v_hi: i32 = m.v >> 13u;
+    let q_lo: i32 = i32(u32(m.q) & PK_MASK); let q_hi: i32 = m.q >> 13u;
+    let r_lo: i32 = i32(u32(m.r) & PK_MASK); let r_hi: i32 = m.r >> 13u;
     var cf: i32 = 0; var cg: i32 = 0; var fp: i32 = 0; var gp: i32 = 0;
     for (var w: u32 = 0u; w < 10u; w = w + 1u) {
         let fw = (*f).w[w]; let gw = (*g).w[w];
-        let fe: i32 = i32(fw & MASK); let ge: i32 = i32(gw & MASK);
+        let fe: i32 = i32(fw & PK_MASK); let ge: i32 = i32(gw & PK_MASK);
         let nfe: i32 = u_lo * fe + v_lo * ge + u_hi * fp + v_hi * gp + cf;
         let nge: i32 = q_lo * fe + r_lo * ge + q_hi * fp + r_hi * gp + cg;
         cf = nfe >> 13u; cg = nge >> 13u;
         var fo: i32; var go: i32;
         if (w == 9u) {
-            fo = (i32((fw >> 13u) & MASK) << 19u) >> 19u;
-            go = (i32((gw >> 13u) & MASK) << 19u) >> 19u;
+            fo = (i32((fw >> 13u) & PK_MASK) << 19u) >> 19u;
+            go = (i32((gw >> 13u) & PK_MASK) << 19u) >> 19u;
         } else {
-            fo = i32((fw >> 13u) & MASK); go = i32((gw >> 13u) & MASK);
+            fo = i32((fw >> 13u) & PK_MASK); go = i32((gw >> 13u) & PK_MASK);
         }
         let nfo: i32 = u_lo * fo + v_lo * go + u_hi * fe + v_hi * ge + cf;
         let ngo: i32 = q_lo * fo + r_lo * go + q_hi * fe + r_hi * ge + cg;
         cf = nfo >> 13u; cg = ngo >> 13u;
         if (w >= 1u) {
-            (*f).w[w - 1u] = (u32(nfe) & MASK) | ((u32(nfo) & MASK) << 13u);
-            (*g).w[w - 1u] = (u32(nge) & MASK) | ((u32(ngo) & MASK) << 13u);
+            (*f).w[w - 1u] = (u32(nfe) & PK_MASK) | ((u32(nfo) & PK_MASK) << 13u);
+            (*g).w[w - 1u] = (u32(nge) & PK_MASK) | ((u32(ngo) & PK_MASK) << 13u);
         }
         fp = fo; gp = go;
     }
     let nft: i32 = u_hi * fp + v_hi * gp + cf;
     let ngt: i32 = q_hi * fp + r_hi * gp + cg;
-    (*f).w[9] = (u32(nft) & MASK) | (u32(nft >> 13u) << 13u);
-    (*g).w[9] = (u32(ngt) & MASK) | (u32(ngt >> 13u) << 13u);
+    (*f).w[9] = (u32(nft) & PK_MASK) | (u32(nft >> 13u) << 13u);
+    (*g).w[9] = (u32(ngt) & PK_MASK) | (u32(ngt >> 13u) << 13u);
 }
 
 // (d,e) <- ((u*d+v*e+k_d*p)>>26, (q*d+r*e+k_e*p)>>26). k*p cancels low 26 bits.
 fn pk_apply_matrix_de(m: BylMat, d: ptr<function, Pk>, e: ptr<function, Pk>) {
-    let u_lo: i32 = i32(u32(m.u) & MASK); let u_hi: i32 = m.u >> 13u;
-    let v_lo: i32 = i32(u32(m.v) & MASK); let v_hi: i32 = m.v >> 13u;
-    let q_lo: i32 = i32(u32(m.q) & MASK); let q_hi: i32 = m.q >> 13u;
-    let r_lo: i32 = i32(u32(m.r) & MASK); let r_hi: i32 = m.r >> 13u;
+    let u_lo: i32 = i32(u32(m.u) & PK_MASK); let u_hi: i32 = m.u >> 13u;
+    let v_lo: i32 = i32(u32(m.v) & PK_MASK); let v_hi: i32 = m.v >> 13u;
+    let q_lo: i32 = i32(u32(m.q) & PK_MASK); let q_hi: i32 = m.q >> 13u;
+    let r_lo: i32 = i32(u32(m.r) & PK_MASK); let r_hi: i32 = m.r >> 13u;
 
     let dw0 = (*d).w[0]; let ew0 = (*e).w[0]; let pw0 = pk_p_word(0u);
-    let d0: i32 = i32(dw0 & MASK); let d1: i32 = i32((dw0 >> 13u) & MASK);
-    let e0: i32 = i32(ew0 & MASK); let e1: i32 = i32((ew0 >> 13u) & MASK);
-    let p0: i32 = i32(pw0 & MASK); let p1: i32 = i32((pw0 >> 13u) & MASK);
+    let d0: i32 = i32(dw0 & PK_MASK); let d1: i32 = i32((dw0 >> 13u) & PK_MASK);
+    let e0: i32 = i32(ew0 & PK_MASK); let e1: i32 = i32((ew0 >> 13u) & PK_MASK);
+    let p0: i32 = i32(pw0 & PK_MASK); let p1: i32 = i32((pw0 >> 13u) & PK_MASK);
 
     let nd0: i32 = u_lo * d0 + v_lo * e0; let ne0: i32 = q_lo * d0 + r_lo * e0;
     let nd1: i32 = u_lo * d1 + v_lo * e1 + u_hi * d0 + v_hi * e0;
     let ne1: i32 = q_lo * d1 + r_lo * e1 + q_hi * d0 + r_hi * e0;
-    let nd0_low: u32 = u32(nd0) & MASK; let nd1_carry: u32 = u32(nd1 + (nd0 >> 13u)) & MASK;
+    let nd0_low: u32 = u32(nd0) & PK_MASK; let nd1_carry: u32 = u32(nd1 + (nd0 >> 13u)) & PK_MASK;
     let t_d: u32 = (nd0_low | (nd1_carry << 13u)) & BYL_MASK_BATCH;
-    let ne0_low: u32 = u32(ne0) & MASK; let ne1_carry: u32 = u32(ne1 + (ne0 >> 13u)) & MASK;
+    let ne0_low: u32 = u32(ne0) & PK_MASK; let ne1_carry: u32 = u32(ne1 + (ne0 >> 13u)) & PK_MASK;
     let t_e: u32 = (ne0_low | (ne1_carry << 13u)) & BYL_MASK_BATCH;
     let k_d: u32 = (((~t_d + 1u) & BYL_MASK_BATCH) * BYL_P_INV_LO) & BYL_MASK_BATCH;
     let k_e: u32 = (((~t_e + 1u) & BYL_MASK_BATCH) * BYL_P_INV_LO) & BYL_MASK_BATCH;
-    let kd_lo: i32 = i32(k_d & MASK); let kd_hi: i32 = i32(k_d >> 13u);
-    let ke_lo: i32 = i32(k_e & MASK); let ke_hi: i32 = i32(k_e >> 13u);
+    let kd_lo: i32 = i32(k_d & PK_MASK); let kd_hi: i32 = i32(k_d >> 13u);
+    let ke_lo: i32 = i32(k_e & PK_MASK); let ke_hi: i32 = i32(k_e >> 13u);
 
     var cd: i32 = (nd1 + kd_lo * p1 + kd_hi * p0 + ((nd0 + kd_lo * p0) >> 13u)) >> 13u;
     var ce: i32 = (ne1 + ke_lo * p1 + ke_hi * p0 + ((ne0 + ke_lo * p0) >> 13u)) >> 13u;
@@ -5063,34 +5092,34 @@ fn pk_apply_matrix_de(m: BylMat, d: ptr<function, Pk>, e: ptr<function, Pk>) {
     for (var w: u32 = 1u; w < 10u; w = w + 1u) {
         let dw = (*d).w[w]; let ew = (*e).w[w]; let pw = pk_p_word(w);
         // even limb i = 2w
-        let di_e: i32 = i32(dw & MASK); let ei_e: i32 = i32(ew & MASK);
-        let pi_e: i32 = i32(pw & MASK);
-        let pim1_e: i32 = i32((pk_p_word(w - 1u) >> 13u) & MASK);
+        let di_e: i32 = i32(dw & PK_MASK); let ei_e: i32 = i32(ew & PK_MASK);
+        let pi_e: i32 = i32(pw & PK_MASK);
+        let pim1_e: i32 = i32((pk_p_word(w - 1u) >> 13u) & PK_MASK);
         let nd_e: i32 = u_lo * di_e + v_lo * ei_e + u_hi * dp + v_hi * ep + kd_lo * pi_e + kd_hi * pim1_e + cd;
         let ne_e: i32 = q_lo * di_e + r_lo * ei_e + q_hi * dp + r_hi * ep + ke_lo * pi_e + ke_hi * pim1_e + ce;
         cd = nd_e >> 13u; ce = ne_e >> 13u;
         // odd limb i = 2w+1
         var di_o: i32; var ei_o: i32;
         if (w == 9u) {
-            di_o = (i32((dw >> 13u) & MASK) << 19u) >> 19u;
-            ei_o = (i32((ew >> 13u) & MASK) << 19u) >> 19u;
+            di_o = (i32((dw >> 13u) & PK_MASK) << 19u) >> 19u;
+            ei_o = (i32((ew >> 13u) & PK_MASK) << 19u) >> 19u;
         } else {
-            di_o = i32((dw >> 13u) & MASK); ei_o = i32((ew >> 13u) & MASK);
+            di_o = i32((dw >> 13u) & PK_MASK); ei_o = i32((ew >> 13u) & PK_MASK);
         }
-        let pi_o: i32 = i32((pw >> 13u) & MASK);
-        let pim1_o: i32 = i32(pw & MASK);
+        let pi_o: i32 = i32((pw >> 13u) & PK_MASK);
+        let pim1_o: i32 = i32(pw & PK_MASK);
         let nd_o: i32 = u_lo * di_o + v_lo * ei_o + u_hi * di_e + v_hi * ei_e + kd_lo * pi_o + kd_hi * pim1_o + cd;
         let ne_o: i32 = q_lo * di_o + r_lo * ei_o + q_hi * di_e + r_hi * ei_e + ke_lo * pi_o + ke_hi * pim1_o + ce;
         cd = nd_o >> 13u; ce = ne_o >> 13u;
-        (*d).w[w - 1u] = (u32(nd_e) & MASK) | ((u32(nd_o) & MASK) << 13u);
-        (*e).w[w - 1u] = (u32(ne_e) & MASK) | ((u32(ne_o) & MASK) << 13u);
+        (*d).w[w - 1u] = (u32(nd_e) & PK_MASK) | ((u32(nd_o) & PK_MASK) << 13u);
+        (*e).w[w - 1u] = (u32(ne_e) & PK_MASK) | ((u32(ne_o) & PK_MASK) << 13u);
         dp = di_o; ep = ei_o;
     }
-    let p_top: i32 = i32((pk_p_word(9u) >> 13u) & MASK);
+    let p_top: i32 = i32((pk_p_word(9u) >> 13u) & PK_MASK);
     let nd_top: i32 = u_hi * dp + v_hi * ep + kd_hi * p_top + cd;
     let ne_top: i32 = q_hi * dp + r_hi * ep + ke_hi * p_top + ce;
-    (*d).w[9] = (u32(nd_top) & MASK) | (u32(nd_top >> 13u) << 13u);
-    (*e).w[9] = (u32(ne_top) & MASK) | (u32(ne_top >> 13u) << 13u);
+    (*d).w[9] = (u32(nd_top) & PK_MASK) | (u32(nd_top >> 13u) << 13u);
+    (*e).w[9] = (u32(ne_top) & PK_MASK) | (u32(ne_top >> 13u) << 13u);
 }
 
 fn fr_inv_by_loop_pk(a: BigInt) -> BigInt {
@@ -5323,27 +5352,11 @@ fn fr_pow(base: BigInt, exp: BigInt) -> BigInt {
     return result;
 }
 
-// (p - 2) as a plain (non-Montgomery) BigInt. Used by fr_pow_inv as the
-// exponent in Fermat's little theorem: a^(p-2) ≡ a^(-1) (mod p).
-fn get_p_minus_2() -> BigInt {
-    var e: BigInt;
-{{{ p_minus_2_limbs }}}
-    return e;
-}
-
-// Field inversion via Fermat's little theorem: a^(-1) ≡ a^(p-2) (mod p).
-// Both input and output are in Montgomery form. Since \`fr_pow\` preserves
-// Montgomery form (Mont(base)^exp -> Mont(base^exp)), the result of
-// \`fr_pow(Mont(a), p-2)\` is directly Mont(a^(-1)). No extra correction.
-//
-// Cost: ~254 squarings + ~127 expected multiplies (half the bits of p-2
-// are set), ≈ 381 montgomery_products per call. Compare to fr_inv's
-// jumpy K=12 safegcd which converges in ~62 outer iters with ~10
-// BigInt-ops each plus ONE montgomery_product at the end.
-fn fr_pow_inv(a: BigInt) -> BigInt {
-    var exp: BigInt = get_p_minus_2();
-    return fr_pow(a, exp);
-}
+// The Fermat inverse (fr_pow_inv = a^(p-2), ~381 montgomery_products per call)
+// has been removed: field inversion goes exclusively through the safegcd path
+// (fr_inv_by_loop_pk in by_inverse_loop), which is hundreds× cheaper and
+// representation-independent. \`fr_pow\` above is retained only for the
+// decompress square-root.
 
 // R^3 mod p. Used by \`fr_inv\` to convert the binary-GCD output (which is
 // in native form, pre-multiplied by R^(-1) because the input was in
@@ -6357,7 +6370,8 @@ export const mont_pro_product_f32_22_sos3uv3 = `// 22-bit-limb f32 Montgomery pr
 const NUM_LIMBS: u32 = {{ num_limbs }}u;
 const N0: f32        = {{ n0 }};
 const N0_SCALED: f32 = {{ n0_scaled }};
-const TWO_W: f32     = 8388608.0;          // 2 * 2^22
+// W (2^b), W_INV (2^-b), BIAS (2^2b), TWO_W (2^(b+1)) are emitted by the generator
+// (shader_manager renderSos3uv3Mont) from the f32 limb width, ahead of this body.
 
 fn get_p_f32() -> BigIntF32 {
     var p: BigIntF32;
@@ -6408,18 +6422,9 @@ fn mulhilo_sos3_2_v2(a: vec2<f32>, a_scaled: vec2<f32>, b: vec2<f32>) -> vec4<f3
 }
 
 fn montgomery_product_f32_unreduced(x: ptr<function, BigIntF32>, y: ptr<function, BigIntF32>) -> BigIntF32 {
-    var s0: f32  = 0.0;
-    var s1: f32  = 0.0;
-    var s2: f32  = 0.0;
-    var s3: f32  = 0.0;
-    var s4: f32  = 0.0;
-    var s5: f32  = 0.0;
-    var s6: f32  = 0.0;
-    var s7: f32  = 0.0;
-    var s8: f32  = 0.0;
-    var s9: f32  = 0.0;
-    var s10: f32 = 0.0;
-    var s11: f32 = 0.0;
+{{#s_decls}}
+    var s{{idx}}: f32 = 0.0;
+{{/s_decls}}
 
     var p = get_p_f32();
 
@@ -6517,18 +6522,9 @@ fn montgomery_product_f32_unreduced(x: ptr<function, BigIntF32>, y: ptr<function
     }
 
     var s: BigIntF32;
-    s.limbs[0]  = s0;
-    s.limbs[1]  = s1;
-    s.limbs[2]  = s2;
-    s.limbs[3]  = s3;
-    s.limbs[4]  = s4;
-    s.limbs[5]  = s5;
-    s.limbs[6]  = s6;
-    s.limbs[7]  = s7;
-    s.limbs[8]  = s8;
-    s.limbs[9]  = s9;
-    s.limbs[10] = s10;
-    s.limbs[11] = s11;
+{{#s_finals}}
+    s.limbs[{{idx}}] = s{{idx}};
+{{/s_finals}}
     return s;
 }
 

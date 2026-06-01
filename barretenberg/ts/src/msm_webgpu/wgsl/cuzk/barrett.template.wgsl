@@ -17,14 +17,32 @@ fn get_p_wide() -> BigIntWide {
     return p;
 }
 
+// Full 32×32 → 64-bit unsigned product as vec2<u32>(.x = low 32, .y = high 32).
+// WGSL's `*` on u32 keeps only the low 32 bits, so a limb product overflows once
+// WORD_SIZE > 16 (21-bit limbs give a 42-bit product); compute it via a 16-bit split.
+fn mul_wide(a: u32, b: u32) -> vec2<u32> {
+    let aL = a & 0xffffu; let aH = a >> 16u;
+    let bL = b & 0xffffu; let bH = b >> 16u;
+    let ll = aL * bL;
+    let lh = aL * bH;
+    let hl = aH * bL;
+    let hh = aH * bH;
+    let cross = (ll >> 16u) + (lh & 0xffffu) + (hl & 0xffffu);
+    let lo = (ll & 0xffffu) | (cross << 16u);
+    let hi = hh + (lh >> 16u) + (hl >> 16u) + (cross >> 16u);
+    return vec2<u32>(lo, hi);
+}
+
 fn mul(a: ptr<function, BigInt>, b: ptr<function, BigInt>) -> BigIntWide {
     var res: BigIntWide;
     for (var i = 0u; i < NUM_WORDS; i = i + 1u) {
         for (var j = 0u; j < NUM_WORDS; j = j + 1u) {
-            let c = (*a).limbs[i] * (*b).limbs[j];
-            res.limbs[i+j] += c & W_MASK;
-            res.limbs[i+j+1] += c >> WORD_SIZE;
-        }   
+            // Full product limb_i · limb_j (up to 2·WORD_SIZE bits): split its low
+            // WORD_SIZE bits into res[i+j] and the high bits into res[i+j+1].
+            let c = mul_wide((*a).limbs[i], (*b).limbs[j]);
+            res.limbs[i+j] += c.x & W_MASK;
+            res.limbs[i+j+1] += (c.x >> WORD_SIZE) | (c.y << (32u - WORD_SIZE));
+        }
     }
 
     // start from 0 and carry the extra over to the next index

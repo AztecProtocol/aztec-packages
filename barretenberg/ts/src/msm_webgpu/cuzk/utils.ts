@@ -394,8 +394,11 @@ export const to_words_le = (
   val: bigint,
   num_words: number,
   word_size: number,
-): Uint16Array => {
-  const words = new Uint16Array(num_words);
+): Uint32Array => {
+  // Uint32Array, not Uint16Array: a limb holds word_size bits, and word_size can
+  // exceed 16 (the 13×21 representation uses 21-bit limbs). Uint16Array silently
+  // truncated bits [16, word_size), corrupting every generated BigInt constant.
+  const words = new Uint32Array(num_words);
   const mask = BigInt(2 ** word_size - 1);
   for (let i = 0; i < num_words; i++) {
     const idx = num_words - 1 - i;

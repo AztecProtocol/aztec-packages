@@ -708,6 +708,22 @@ export class MsmV2Pool {
   }
 
   /**
+   * DEBUG: read the first `count` converted (Montgomery-form) coordinates from
+   * the pool as raw bigints. Used to verify the convert stage against a host
+   * oracle independent of the rest of the pipeline.
+   */
+  async debugReadCoords(count: number): Promise<{ xMont: bigint; yMont: bigint }[]> {
+    const n = Math.min(count, this.srsN);
+    const xs = await readbackU32(this._device, this.poolX, n * 32);
+    const ys = await readbackU32(this._device, this.poolY, n * 32);
+    const out: { xMont: bigint; yMont: bigint }[] = [];
+    for (let i = 0; i < n; i++) {
+      out.push({ xMont: packedU32x8ToBigint(xs, i * 8), yMont: packedU32x8ToBigint(ys, i * 8) });
+    }
+    return out;
+  }
+
+  /**
    * GPU bytes the pool itself owns — the SRS point coordinates `poolX` +
    * `poolY` (the user's "points memory" line item) PLUS the shared scratch
    * buffers (the per-MSM working set, shared across all MsmV2 instances).
@@ -1219,7 +1235,11 @@ export class MsmV2Pool {
    * once for the whole SRS), and its bounds guard discards threads whose
    * `id >= srsN`.
    */
-  static async create(device: GPUDevice, srsCanonicalBytes: Uint8Array): Promise<MsmV2Pool> {
+  static async create(
+    device: GPUDevice,
+    srsCanonicalBytes: Uint8Array,
+    montmul?: MontMulVariant,
+  ): Promise<MsmV2Pool> {
     const srsN = srsCanonicalBytes.byteLength / 64;
     if (!Number.isInteger(srsN) || srsN <= 0) {
       throw new Error(`MsmV2Pool.create: byte length ${srsCanonicalBytes.byteLength} is not a positive multiple of 64`);
@@ -1277,7 +1297,12 @@ export class MsmV2Pool {
     // (workgroup_size / numYWorkgroups), so caching wouldn't help.
     const pool = new MsmV2Pool(srsN, poolX, poolY, device);
 
-    const sm = new ShaderManager(4, srsN, BN254_CURVE_CONFIG, false);
+    // The convert step puts each SRS coordinate into the Montgomery domain
+    // (x·R mod q) that the rest of the pipeline operates in. R is montmul-
+    // dependent (karat: 2²⁶⁰, fp22native: 2²⁷³), so the pool MUST be built with
+    // the same montmul as the MsmV2 that consumes it — otherwise every EC add
+    // mixes mismatched domains and the result is garbage.
+    const sm = new ShaderManager(4, srsN, BN254_CURVE_CONFIG, false, montmul);
     const code = sm.gen_convert_points_only_shader(workgroupSize, numYWorkgroups, /* packed */ true);
     const layout = pool.cache.getLayout(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     const pipeline = await pool.cache.getPipeline(code, layout, 'convert-points-pool');
@@ -1621,10 +1646,13 @@ export class MsmV2 {
     m.bTotal = m.numWindows * m.BW;
     m.stride = 2 ** (m.c - 1);
     m.redM = m.numWindows * m.stride;
-    const misc = compute_misc_params(FP, 13);
-    m.R = misc.r;
-    m.rinv = misc.rinv;
+    // R / rinv MUST match the montmul's Montgomery radix (karat: 2²⁶⁰ at 13-bit
+    // limbs; fp22native: 2²⁷³ at 21-bit limbs). run()'s readback de-Monts with
+    // m.rinv, so a hardcoded 13-bit radix here silently corrupts every result in
+    // any non-13-bit representation. Take both from the montmul-aware ShaderManager.
     const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false, m.montmul);
+    m.R = sm.r;
+    m.rinv = sm.rinv;
 
     // Bind a prefix of the shared, already-Montgomery-converted SRS pool. The
     // level-0 kernels index points by `val_idx < n`, so a pool with srsN >= n

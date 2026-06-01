@@ -24,7 +24,8 @@
 const NUM_LIMBS: u32 = {{ num_limbs }}u;
 const N0: f32        = {{ n0 }};
 const N0_SCALED: f32 = {{ n0_scaled }};
-const TWO_W: f32     = 8388608.0;          // 2 * 2^22
+// W (2^b), W_INV (2^-b), BIAS (2^2b), TWO_W (2^(b+1)) are emitted by the generator
+// (shader_manager renderSos3uv3Mont) from the f32 limb width, ahead of this body.
 
 fn get_p_f32() -> BigIntF32 {
     var p: BigIntF32;
@@ -75,18 +76,9 @@ fn mulhilo_sos3_2_v2(a: vec2<f32>, a_scaled: vec2<f32>, b: vec2<f32>) -> vec4<f3
 }
 
 fn montgomery_product_f32_unreduced(x: ptr<function, BigIntF32>, y: ptr<function, BigIntF32>) -> BigIntF32 {
-    var s0: f32  = 0.0;
-    var s1: f32  = 0.0;
-    var s2: f32  = 0.0;
-    var s3: f32  = 0.0;
-    var s4: f32  = 0.0;
-    var s5: f32  = 0.0;
-    var s6: f32  = 0.0;
-    var s7: f32  = 0.0;
-    var s8: f32  = 0.0;
-    var s9: f32  = 0.0;
-    var s10: f32 = 0.0;
-    var s11: f32 = 0.0;
+{{#s_decls}}
+    var s{{idx}}: f32 = 0.0;
+{{/s_decls}}
 
     var p = get_p_f32();
 
@@ -184,18 +176,9 @@ fn montgomery_product_f32_unreduced(x: ptr<function, BigIntF32>, y: ptr<function
     }
 
     var s: BigIntF32;
-    s.limbs[0]  = s0;
-    s.limbs[1]  = s1;
-    s.limbs[2]  = s2;
-    s.limbs[3]  = s3;
-    s.limbs[4]  = s4;
-    s.limbs[5]  = s5;
-    s.limbs[6]  = s6;
-    s.limbs[7]  = s7;
-    s.limbs[8]  = s8;
-    s.limbs[9]  = s9;
-    s.limbs[10] = s10;
-    s.limbs[11] = s11;
+{{#s_finals}}
+    s.limbs[{{idx}}] = s{{idx}};
+{{/s_finals}}
     return s;
 }
 

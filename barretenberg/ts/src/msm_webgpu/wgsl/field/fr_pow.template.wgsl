@@ -34,27 +34,11 @@ fn fr_pow(base: BigInt, exp: BigInt) -> BigInt {
     return result;
 }
 
-// (p - 2) as a plain (non-Montgomery) BigInt. Used by fr_pow_inv as the
-// exponent in Fermat's little theorem: a^(p-2) ≡ a^(-1) (mod p).
-fn get_p_minus_2() -> BigInt {
-    var e: BigInt;
-{{{ p_minus_2_limbs }}}
-    return e;
-}
-
-// Field inversion via Fermat's little theorem: a^(-1) ≡ a^(p-2) (mod p).
-// Both input and output are in Montgomery form. Since `fr_pow` preserves
-// Montgomery form (Mont(base)^exp -> Mont(base^exp)), the result of
-// `fr_pow(Mont(a), p-2)` is directly Mont(a^(-1)). No extra correction.
-//
-// Cost: ~254 squarings + ~127 expected multiplies (half the bits of p-2
-// are set), ≈ 381 montgomery_products per call. Compare to fr_inv's
-// jumpy K=12 safegcd which converges in ~62 outer iters with ~10
-// BigInt-ops each plus ONE montgomery_product at the end.
-fn fr_pow_inv(a: BigInt) -> BigInt {
-    var exp: BigInt = get_p_minus_2();
-    return fr_pow(a, exp);
-}
+// The Fermat inverse (fr_pow_inv = a^(p-2), ~381 montgomery_products per call)
+// has been removed: field inversion goes exclusively through the safegcd path
+// (fr_inv_by_loop_pk in by_inverse_loop), which is hundreds× cheaper and
+// representation-independent. `fr_pow` above is retained only for the
+// decompress square-root.
 
 // R^3 mod p. Used by `fr_inv` to convert the binary-GCD output (which is
 // in native form, pre-multiplied by R^(-1) because the input was in
