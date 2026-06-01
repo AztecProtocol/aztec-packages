@@ -1,4 +1,4 @@
-// Shared carry-less signed-Booth window slice parameters.
+// Carry-less signed-Booth window recoding helpers.
 //
 // Each window is a c-bit signed digit in [-2^(c-1), 2^(c-1)], read as a (c+1)-bit
 // slice that overlaps its lower neighbour by one bit; the shared boundary bit
@@ -6,19 +6,10 @@
 // `signedWindowEncoding` / `getSignedFullWindowAt`
 // (constantine/math/arithmetic/bigints.nim).
 //
-// The struct + `compute_booth_slice_params` live here so they can be shared
-// between:
-//   * `ecc/groups/element_impl.hpp` — the GLV-endo straus path uses a small
-//     fixed-window (c=4, 32 windows) Booth recoding;
-//   * `ecc/scalar_multiplication/pippenger_constantine.hpp` — the round-parallel
-//     Pippenger MSM uses the same recoding at runtime-chosen window sizes.
-// The two callers diverge on the packed-digit reader (perf-tuned multi-path +
-// SIMD x4 in MSM; simple branchless in element_impl) — only the slice-param
-// computation is shared.
-
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -113,20 +104,44 @@ struct BoothSliceParams {
     return compute_booth_slice_params_unchecked(bit_offset, window_bits, num_uint64_limbs);
 }
 
+template <size_t NUM_WINDOWS, size_t WINDOW_BITS, size_t NUM_UINT64_LIMBS>
+[[nodiscard]] constexpr std::array<BoothSliceParams, NUM_WINDOWS> make_booth_slice_params() noexcept
+{
+    static_assert(WINDOW_BITS + 1 <= 32);
+    static_assert(NUM_UINT64_LIMBS > 0);
+
+    std::array<BoothSliceParams, NUM_WINDOWS> sp{};
+    for (size_t w = 0; w < NUM_WINDOWS; ++w) {
+        sp[w] = compute_booth_slice_params_unchecked(w * WINDOW_BITS, WINDOW_BITS, NUM_UINT64_LIMBS);
+    }
+    return sp;
+}
+
+template <size_t NUM_WINDOWS, size_t WINDOW_BITS, size_t LOW_WINDOW_BITS, size_t NUM_UINT64_LIMBS>
+[[nodiscard]] constexpr std::array<BoothSliceParams, NUM_WINDOWS> make_offset_booth_slice_params() noexcept
+{
+    static_assert(NUM_WINDOWS > 0);
+    static_assert(WINDOW_BITS + 1 <= 32);
+    static_assert(LOW_WINDOW_BITS + 1 <= 32);
+    static_assert(NUM_UINT64_LIMBS > 0);
+
+    std::array<BoothSliceParams, NUM_WINDOWS> sp{};
+    sp[0] = compute_booth_slice_params_unchecked(0, LOW_WINDOW_BITS, NUM_UINT64_LIMBS);
+    for (size_t w = 1; w < NUM_WINDOWS; ++w) {
+        const size_t bit_offset = (w - 1) * WINDOW_BITS + LOW_WINDOW_BITS;
+        sp[w] = compute_booth_slice_params_unchecked(bit_offset, WINDOW_BITS, NUM_UINT64_LIMBS);
+    }
+    return sp;
+}
+
 /**
  * @brief Read a (window_bits+1)-bit window from `s[]` (uint64 limbs) and apply Constantine's
  *        signedWindowEncoding to produce a `(sign | magnitude)` packed digit: bit 31 = sign
  *        (1 = negative), bits 0..30 = magnitude in [0, 2^(window_bits-1)]. Magnitude 0 means
  *        the window contributes nothing.
  *
- * @details The simple branchless reader: two unconditional limb loads, no fast-path branching.
- *          Suited to callers with a small fixed window schedule where the reader is not the
- *          hot loop (e.g. the GLV-endo straus path in `element_impl.hpp`). The Pippenger MSM
- *          inner loop uses its own register-passed, multi-path reader instead — see
- *          `get_constantine_packed_digit` in `pippenger_constantine.hpp`.
- *
- *          Windows entirely inside one uint64 still work here: `hi_mask == 0`, so `hi_part`
- *          vanishes without a branch.
+ * @details Two unconditional limb loads; windows entirely inside one uint64 still work because
+ *          `hi_mask == 0`, so `hi_part` vanishes without a branch.
  */
 [[nodiscard]] [[gnu::always_inline]] inline uint32_t booth_packed_digit(const uint64_t* s,
                                                                         const BoothSliceParams& sp,

@@ -634,13 +634,11 @@ namespace detail {
 // (k1, k2) such that `k = k1 - k2·λ (mod r)`, where λ = endomorphism scalar.
 using EndoScalars = std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>>;
 
-// Carry-less signed-Booth window recoding is shared with the Pippenger MSM path; see
-// `ecc/groups/booth_recode.hpp`. element_impl uses the slice-param computation plus the
-// simple branchless `booth_packed_digit` reader (the MSM path has its own perf-tuned one).
-// The GLV-endo window *schedule* below is element-specific and stays here.
+// GLV endomorphism multiplication recodes each 128-bit split scalar with signed Booth windows.
+// K1 uses a standard 4-bit grid; batch_mul gives K2 a separate offset grid below.
 using bb::ecc::booth::booth_packed_digit;
-using bb::ecc::booth::BoothSliceParams;
-using bb::ecc::booth::compute_booth_slice_params_unchecked;
+using bb::ecc::booth::make_booth_slice_params;
+using bb::ecc::booth::make_offset_booth_slice_params;
 
 // Booth window size for the GLV endomorphism path: c=4 over each 128-bit endomorphism
 // half gives ceil(128/4) = 32 windows per half.
@@ -653,16 +651,6 @@ inline constexpr size_t BOOTH_ENDO_LOOKUP_SIZE = 1U << (BOOTH_ENDO_WINDOW_BITS -
 // 128 bits / 64 = 2 uint64 limbs per endomorphism half.
 inline constexpr size_t BOOTH_ENDO_NUM_LIMBS_U64 = 2;
 
-[[nodiscard]] constexpr std::array<BoothSliceParams, BOOTH_ENDO_NUM_WINDOWS> make_endo_booth_slice_params() noexcept
-{
-    std::array<BoothSliceParams, BOOTH_ENDO_NUM_WINDOWS> sp{};
-    for (size_t w = 0; w < BOOTH_ENDO_NUM_WINDOWS; ++w) {
-        sp[w] = compute_booth_slice_params_unchecked(
-            w * BOOTH_ENDO_WINDOW_BITS, BOOTH_ENDO_WINDOW_BITS, BOOTH_ENDO_NUM_LIMBS_U64);
-    }
-    return sp;
-}
-
 // K2's offset window decomposition: a 2-bit bottom window at bit 0, then 32 × 4-bit
 // windows starting at bit 2. Pairing with K1's standard 4-bit grid at bit 0 yields
 // a union of bit positions {0, 2, 4, ..., 124, 126}, so every transition between
@@ -674,18 +662,6 @@ inline constexpr size_t BOOTH_ENDO_NUM_LIMBS_U64 = 2;
 inline constexpr size_t BOOTH_ENDO_K2_LOW_WINDOW_BITS = 2;
 static_assert(BOOTH_ENDO_K2_LOW_WINDOW_BITS + 1 <= 32);
 inline constexpr size_t BOOTH_ENDO_K2_NUM_WINDOWS = BOOTH_ENDO_NUM_WINDOWS + 1; // 33
-
-[[nodiscard]] constexpr std::array<BoothSliceParams, BOOTH_ENDO_K2_NUM_WINDOWS>
-make_endo_booth_k2_slice_params() noexcept
-{
-    std::array<BoothSliceParams, BOOTH_ENDO_K2_NUM_WINDOWS> sp{};
-    sp[0] = compute_booth_slice_params_unchecked(0, BOOTH_ENDO_K2_LOW_WINDOW_BITS, BOOTH_ENDO_NUM_LIMBS_U64);
-    for (size_t w = 1; w < BOOTH_ENDO_K2_NUM_WINDOWS; ++w) {
-        const size_t bit_offset = (w - 1) * BOOTH_ENDO_WINDOW_BITS + BOOTH_ENDO_K2_LOW_WINDOW_BITS;
-        sp[w] = compute_booth_slice_params_unchecked(bit_offset, BOOTH_ENDO_WINDOW_BITS, BOOTH_ENDO_NUM_LIMBS_U64);
-    }
-    return sp;
-}
 
 } // namespace detail
 
@@ -710,7 +686,9 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& scalar) c
     }
 
     const detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars(converted_scalar);
-    constexpr auto slice_params = detail::make_endo_booth_slice_params();
+    constexpr auto slice_params = detail::make_booth_slice_params<detail::BOOTH_ENDO_NUM_WINDOWS,
+                                                                  detail::BOOTH_ENDO_WINDOW_BITS,
+                                                                  detail::BOOTH_ENDO_NUM_LIMBS_U64>();
     const uint64_t* k1 = endo_scalars.first.data();
     const uint64_t* k2 = endo_scalars.second.data();
 
@@ -759,17 +737,15 @@ element<Fq, Fr, T> element<Fq, Fr, T>::straus_msm(std::span<const affine_element
     }
 
     if constexpr (T::USE_ENDOMORPHISM) {
-        // Endomorphism-Booth path — same shape as `mul_with_endomorphism` but with
-        // per-point lookup tables. For each active scalar/point we build a [1·P, 2·P,
-        // ..., 8·P] lookup and store the 4 uint32 endo-split-half limbs for fast
-        // window decoding. Main loop walks 32 windows × 2 halves high-to-low,
-        // accumulating into a single shared point with 4 doublings between windows:
-        // ~128 doublings + (up to 64)×N adds. The signed-Booth digits span the full
+        // Endomorphism-Booth path: build a small lookup table per active point and walk
+        // the split-scalar windows high-to-low. The signed-Booth digits span the full
         // c-bit range, so no post-pass skew correction is needed.
         constexpr size_t LOOKUP_SIZE = detail::BOOTH_ENDO_LOOKUP_SIZE;
         constexpr size_t NUM_WINDOWS = detail::BOOTH_ENDO_NUM_WINDOWS;
         constexpr size_t WINDOW_BITS = detail::BOOTH_ENDO_WINDOW_BITS;
-        constexpr auto slice_params = detail::make_endo_booth_slice_params();
+        constexpr auto slice_params = detail::make_booth_slice_params<detail::BOOTH_ENDO_NUM_WINDOWS,
+                                                                      detail::BOOTH_ENDO_WINDOW_BITS,
+                                                                      detail::BOOTH_ENDO_NUM_LIMBS_U64>();
 
         struct ActiveScalar {
             std::array<element, LOOKUP_SIZE> lookup;
@@ -920,10 +896,8 @@ __attribute__((always_inline)) inline void batch_affine_add_impl(const AffineEle
 
 /**
  * @brief Batch affine addition for interleaved arrays: pairs (points[2i], points[2i+1]) → points[num_points/2 + i]
- * @details Optimized for the pippenger interleaved memory layout where lhs and rhs live in the same contiguous array.
- *          Uses direct address arithmetic and hardcoded prefetch to avoid aliasing penalties that arise when the
- *          generic batch_affine_add_impl is called with lhs_base == rhs_base (the compiler cannot prove that writes
- *          to `output` don't alias reads from `lhs`, forcing unnecessary reloads).
+ * @details Specialized for Pippenger's interleaved memory layout, where lhs and rhs live in
+ *          the same contiguous array and results are written into the upper half.
  *
  * @param points     Interleaved array: [lhs0, rhs0, lhs1, rhs1, ...]. Results written to top half.
  * @param num_points Total number of points (must be even). Number of pairs = num_points / 2.
@@ -1154,14 +1128,8 @@ __attribute__((always_inline)) inline void batch_affine_add_indexed_impl(AffineE
         return;
     }
 
-    // Lookahead distance for software prefetching. Each AffineElement is one cache line
-    // (64B) and `pairs[i].first/second` are random indices into a working buffer that's
-    // routinely hundreds of KB. Without prefetching, the forward and backward passes serve
-    // each pair from L2 (~25–50 cycles miss latency native, more in WASM). With per-iter
-    // compute around 5–10 muls (~30–60 native cycles), a lookahead of 4 covers one round
-    // trip. `__builtin_prefetch(addr, rw, 3)`: rw=1 for the dst slot (we write it),
-    // rw=0 for the src slot (read-only); locality=3 (high — bucket data is reused across
-    // phases, keep it in L1/L2).
+    // Sparse indexed bucket accesses are hard for hardware prefetchers. A small fixed
+    // lookahead overlaps the next bucket load with the current pair's field arithmetic.
     constexpr size_t PREFETCH_AHEAD = 4;
 
     Fq batch_inversion_accumulator = Fq::one();
@@ -1170,8 +1138,8 @@ __attribute__((always_inline)) inline void batch_affine_add_indexed_impl(AffineE
     // Treats the dst slot as `rhs` (mutated in place) and src slot as `lhs` (read-only).
     for (size_t i = 0; i < num_pairs; ++i) {
         if (i + PREFETCH_AHEAD < num_pairs) {
-            __builtin_prefetch(buckets + pairs[i + PREFETCH_AHEAD].first, 1, 3);
-            __builtin_prefetch(buckets + pairs[i + PREFETCH_AHEAD].second, 0, 3);
+            __builtin_prefetch(buckets + pairs[i + PREFETCH_AHEAD].first, 1, 3);  // dst: write
+            __builtin_prefetch(buckets + pairs[i + PREFETCH_AHEAD].second, 0, 3); // src: read
         }
         AffineElement& dst = buckets[pairs[i].first];
         const AffineElement& src = buckets[pairs[i].second];
@@ -1191,8 +1159,8 @@ __attribute__((always_inline)) inline void batch_affine_add_indexed_impl(AffineE
     for (size_t j = num_pairs; j > 0; --j) {
         const size_t i = j - 1;
         if (i >= PREFETCH_AHEAD) {
-            __builtin_prefetch(buckets + pairs[i - PREFETCH_AHEAD].first, 1, 3);
-            __builtin_prefetch(buckets + pairs[i - PREFETCH_AHEAD].second, 0, 3);
+            __builtin_prefetch(buckets + pairs[i - PREFETCH_AHEAD].first, 1, 3);  // dst: write
+            __builtin_prefetch(buckets + pairs[i - PREFETCH_AHEAD].second, 0, 3); // src: read
             __builtin_prefetch(scratch_space + (i - PREFETCH_AHEAD), 0, 3);
         }
         AffineElement& dst = buckets[pairs[i].first];
@@ -1365,8 +1333,13 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     constexpr size_t K2_NUM_WINDOWS = detail::BOOTH_ENDO_K2_NUM_WINDOWS;
     constexpr size_t WINDOW_BITS = detail::BOOTH_ENDO_WINDOW_BITS;
     constexpr size_t K2_LOW_WINDOW_BITS = detail::BOOTH_ENDO_K2_LOW_WINDOW_BITS;
-    constexpr auto slice_params = detail::make_endo_booth_slice_params();
-    constexpr auto k2_slice_params = detail::make_endo_booth_k2_slice_params();
+    constexpr auto slice_params = detail::make_booth_slice_params<detail::BOOTH_ENDO_NUM_WINDOWS,
+                                                                  detail::BOOTH_ENDO_WINDOW_BITS,
+                                                                  detail::BOOTH_ENDO_NUM_LIMBS_U64>();
+    constexpr auto k2_slice_params = detail::make_offset_booth_slice_params<detail::BOOTH_ENDO_K2_NUM_WINDOWS,
+                                                                            detail::BOOTH_ENDO_WINDOW_BITS,
+                                                                            detail::BOOTH_ENDO_K2_LOW_WINDOW_BITS,
+                                                                            detail::BOOTH_ENDO_NUM_LIMBS_U64>();
 
     // K1 keeps the standard 4-bit Booth grid at bit positions {0, 4, ..., 124}.
     // K2 uses the offset grid: a 2-bit window at bit 0, then 4-bit windows at
