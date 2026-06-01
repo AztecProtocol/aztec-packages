@@ -214,7 +214,7 @@ struct ChonkComputeVk {
     };
 
     CircuitInputNoVK circuit;
-    /** @brief CircuitKind tag selecting the per-kind slim flavor (App / Kernel / HidingKernel). */
+    // @brief CircuitKind tag selecting the per-kind slim flavor (App / Kernel / HidingKernel).
     CircuitKind kind = CircuitKind::App;
     Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
     SERIALIZATION_FIELDS(circuit, kind);
