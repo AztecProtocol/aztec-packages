@@ -319,23 +319,16 @@ export class IpcWorldState implements NativeWorldStateInstance {
     bindings?: LoggerBindings,
   ): Promise<IpcWorldState> {
     const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
-    const { findWsdbBinary } = await import('@aztec/bb.js/platform');
-    const wsdbBinaryPath = findWsdbBinary();
-    if (!wsdbBinaryPath) {
-      throw new Error('aztec-wsdb binary not found');
-    }
     const wsdbOpts = getWsdbOptions(dataDir, wsTreeMapSizes);
     const prefilledPublicData = genesis.prefilledPublicData.map(
       d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
     );
-    const backend = new WsdbBackend({
-      binaryPath: wsdbBinaryPath,
+    const backend = await WsdbBackend.new({
       dataDir,
       ...wsdbOpts,
       prefilledPublicData,
       genesisTimestamp: Number(genesis.genesisTimestamp),
     });
-    await backend.waitUntilReady();
     return new IpcWorldState(backend, instrumentation, bindings);
   }
 
