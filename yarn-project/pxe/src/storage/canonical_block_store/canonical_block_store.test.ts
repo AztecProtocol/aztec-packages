@@ -17,6 +17,14 @@ describe('CanonicalBlockStore', () => {
       } as L2Tips),
   };
 
+  // Seeds the finalized floor at 0, modelling a first-boot PXE with no finalized blocks yet.
+  const genesisL2TipsProvider: Pick<L2TipsProvider, 'getL2Tips'> = {
+    getL2Tips: () =>
+      Promise.resolve({
+        finalized: { block: { number: BlockNumber(0), hash: '' }, checkpoint: { number: 0, hash: '' } },
+      } as L2Tips),
+  };
+
   beforeEach(async () => {
     kv = await openTmpStore('canonical-block-store-test');
     store = new CanonicalBlockStore(kv, l2TipsProvider);
@@ -89,6 +97,18 @@ describe('CanonicalBlockStore', () => {
       expect(store.getCanonicalHash(BlockNumber(8))).toBeUndefined();
       expect(store.isCanonical({ number: BlockNumber(7), hash: '0x7' })).toBe(true);
       expect(store.isCanonical({ number: BlockNumber(8), hash: '0x8' })).toBe(false);
+    });
+  });
+
+  describe('genesis cold start', () => {
+    it('seeds a zero floor and treats only the genesis height as canonical', async () => {
+      const genesisKv = await openTmpStore('canonical-block-store-genesis-test');
+      const genesisStore = new CanonicalBlockStore(genesisKv, genesisL2TipsProvider);
+      await genesisStore.load();
+
+      expect(genesisStore.getFinalizedFloor()).toBe(0);
+      expect(genesisStore.isCanonical({ number: BlockNumber(0), hash: 'anything' })).toBe(true);
+      expect(genesisStore.isCanonical({ number: BlockNumber(1), hash: 'x' })).toBe(false);
     });
   });
 

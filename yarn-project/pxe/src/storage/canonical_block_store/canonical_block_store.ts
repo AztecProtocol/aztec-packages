@@ -1,4 +1,4 @@
-import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
@@ -24,7 +24,7 @@ export class CanonicalBlockStore implements CanonicalityCheck {
   #meta: AztecAsyncSingleton<Buffer>;
 
   #memHashes: Map<number, string> = new Map();
-  #finalizedFloor = 0;
+  #finalizedFloor: BlockNumber = BlockNumber.ZERO;
 
   constructor(store: AztecAsyncKVStore, finalizedTipProvider: Pick<L2TipsProvider, 'getL2Tips'>) {
     this.#store = store;
@@ -45,7 +45,7 @@ export class CanonicalBlockStore implements CanonicalityCheck {
   async load(): Promise<void> {
     const metaBuffer = await this.#meta.getAsync();
     if (metaBuffer) {
-      this.#finalizedFloor = BufferReader.asReader(metaBuffer).readNumber();
+      this.#finalizedFloor = BlockNumber(BufferReader.asReader(metaBuffer).readNumber());
     } else {
       this.#finalizedFloor = (await this.#finalizedTipProvider.getL2Tips()).finalized.block.number;
     }
@@ -121,6 +121,10 @@ export class CanonicalBlockStore implements CanonicalityCheck {
    * Implemented with raw map/singleton writes rather than its own `transactionAsync`: Task 7's synchronizer wraps this
    * call in an outer transaction together with a row reap, and `transactionAsync` is not reentrant (nesting deadlocks
    * IndexedDB). When called standalone (e.g. unit tests) each raw op auto-commits, which is fine.
+   *
+   * Callers MUST pass a monotonically non-decreasing `finalized` height (the block synchronizer enforces this by only
+   * advancing when the new finalized tip exceeds the current floor); passing a lower value would incorrectly lower the
+   * floor.
    */
   async advanceFinalized(finalized: BlockNumber): Promise<void> {
     const toPrune = [...this.#memHashes.keys()].filter(h => h <= finalized);
@@ -132,7 +136,7 @@ export class CanonicalBlockStore implements CanonicalityCheck {
     await this.#meta.set(serializeToBuffer(this.#finalizedFloor));
   }
 
-  getFinalizedFloor(): number {
+  getFinalizedFloor(): BlockNumber {
     return this.#finalizedFloor;
   }
 }
