@@ -72,14 +72,16 @@ function check_cache {
 
 function handle_release_pr {
   echo_header "Release PR"
-  # Create and push a tag for release PR testing
   local github_repository
   github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
-  git_auth_origin "${github_repository}"
   local tag_name="v0.0.1-commit.$(git rev-parse --short HEAD)"
-  git tag "${tag_name}"
-  git push origin "${tag_name}"
-  echo "Created and pushed tag: ${tag_name}"
+  echo "DIAG remote -v:"; git remote -v | sed -E 's#://[^@]*@#://***@#'
+  echo "DIAG remote.* config:"; git config --get-regexp '^remote\.' 2>/dev/null | sed -E 's#://[^@]*@#://***@#' || echo "  (none)"
+  # Create the tag ref via the API as the bot. The runner's git push resolves to github-actions[bot]
+  # (contents: read) regardless of the remote URL token, so a REST call is the reliable path.
+  gh api --method POST "repos/${github_repository}/git/refs" \
+    -f "ref=refs/tags/${tag_name}" -f "sha=$(git rev-parse HEAD)"
+  echo "Created tag: ${tag_name}"
   gh pr edit $PR_NUMBER --remove-label ci-release-pr || true
 }
 
