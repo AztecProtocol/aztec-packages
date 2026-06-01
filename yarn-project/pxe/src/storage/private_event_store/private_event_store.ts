@@ -227,7 +227,7 @@ export class PrivateEventStore implements StagedStore {
   }
 
   /** Returns the ids (siloed event commitments) of all events emitted at the given block number. Used by the reorg reap. */
-  async eventIdsAtBlock(blockNumber: number): Promise<string[]> {
+  public async eventIdsAtBlock(blockNumber: number): Promise<string[]> {
     const eventIds: string[] = [];
     for await (const eventId of this.#eventsByBlockNumber.getValuesAsync(blockNumber)) {
       eventIds.push(eventId);
@@ -241,15 +241,16 @@ export class PrivateEventStore implements StagedStore {
    * own, because IndexedDB does not support nested transactions and the reorg-finalize path wraps this together with the
    * finalized-floor advance).
    *
-   * The reap is idempotent and resumable: re-running it over the same range re-reads now-absent events, hits the
+   * The reap is idempotent and resumable: re-running it over the same range re-reads the now-absent events, hits the
    * missing-buffer guard, and does nothing — so a partially-completed reap (e.g. an interrupted transaction) is safe to
    * re-run.
    *
-   * @param isCanonical - The canonicality truth-source, supplied explicitly by the caller (the reorg-finalize path)
-   *   rather than read from this store's own `#check`, so the destructive reap runs against the freshly-advanced
-   *   finalized floor and stays unit-testable in isolation.
+   * @param isCanonical - The truth-source for canonicality, supplied explicitly by the caller rather than read from
+   *   this store's own `#check`. This destructive reap is driven by the verdict the reorg-finalize path computes (so it
+   *   reaps against the freshly-advanced finalized floor), and passing it in keeps the method unit-testable in
+   *   isolation.
    */
-  async reapNonCanonicalInRange(
+  public async reapNonCanonicalInRange(
     fromBlock: number,
     toBlock: number,
     isCanonical: (id: L2BlockId) => boolean,
