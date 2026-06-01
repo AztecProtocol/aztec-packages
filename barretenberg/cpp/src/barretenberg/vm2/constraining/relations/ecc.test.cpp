@@ -1330,13 +1330,11 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
               { { // Execution
                   { C::execution_sel, 1 },
                   { C::execution_sel_exec_dispatch_ecc_add, 1 },
-                  { C::execution_rop_6_, dst_address + 3 },
+                  { C::execution_rop_4_, dst_address + 1 },
                   { C::execution_register_0_, inf.x() },
                   { C::execution_register_1_, inf.y() },
-                  { C::execution_register_2_, inf.is_infinity() ? 1 : 0 },
-                  { C::execution_register_3_, inf_bb.x() },
-                  { C::execution_register_4_, inf_bb.y() },
-                  { C::execution_register_5_, inf_bb.is_infinity() ? 1 : 0 },
+                  { C::execution_register_2_, inf_bb.x() },
+                  { C::execution_register_3_, inf_bb.y() },
                   // GT - dst out of range check
                   { C::gt_sel, 1 },
                   { C::gt_input_a, dst_address + 2 },

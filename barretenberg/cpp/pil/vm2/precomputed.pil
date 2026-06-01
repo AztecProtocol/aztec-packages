@@ -243,7 +243,6 @@ pol constant sel_op_dc_12;
 pol constant sel_op_dc_13;
 pol constant sel_op_dc_14;
 pol constant sel_op_dc_15;
-pol constant sel_op_dc_16;
 
 pol constant exec_opcode;
 pol constant instr_size; // Instruction size in bytes
@@ -328,7 +327,7 @@ pol constant subtrace_id;
 pol constant subtrace_operation_id;
 // Whether an operand is an address
 // NOTE: this could be encoded in bits in 1 column and reconstructed.
-pol constant sel_op_is_address[7];
+pol constant sel_op_is_address[5];
 
 // ===== Section 10: Addressing gas table =====
 // Maps an addressing-mode bitmask (encoded in idx) to the total addressing gas cost.

@@ -140,11 +140,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 120;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2940;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 117;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2914;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 364;
-    static constexpr size_t NUM_WIRES = 2499;
-    static constexpr size_t NUM_ALL_ENTITIES = 3424;
+    static constexpr size_t NUM_WIRES = 2478;
+    static constexpr size_t NUM_ALL_ENTITIES = 3395;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -229,8 +229,6 @@ struct AvmFlavorVariables {
         lookup_addressing_relative_overflow_result_2_relation<FF_>,
         lookup_addressing_relative_overflow_result_3_relation<FF_>,
         lookup_addressing_relative_overflow_result_4_relation<FF_>,
-        lookup_addressing_relative_overflow_result_5_relation<FF_>,
-        lookup_addressing_relative_overflow_result_6_relation<FF_>,
         lookup_alu_ff_gt_relation<FF_>,
         lookup_alu_int_gt_relation<FF_>,
         lookup_alu_large_trunc_canonical_dec_relation<FF_>,
@@ -598,8 +596,6 @@ struct AvmFlavorVariables {
         perm_addressing_indirect_from_memory_2_relation<FF_>,
         perm_addressing_indirect_from_memory_3_relation<FF_>,
         perm_addressing_indirect_from_memory_4_relation<FF_>,
-        perm_addressing_indirect_from_memory_5_relation<FF_>,
-        perm_addressing_indirect_from_memory_6_relation<FF_>,
         perm_bc_hashing_bytecode_length_bytes_relation<FF_>,
         perm_bc_hashing_get_packed_field_0_relation<FF_>,
         perm_bc_hashing_get_packed_field_1_relation<FF_>,
@@ -640,7 +636,6 @@ struct AvmFlavorVariables {
         perm_registers_mem_op_2_relation<FF_>,
         perm_registers_mem_op_3_relation<FF_>,
         perm_registers_mem_op_4_relation<FF_>,
-        perm_registers_mem_op_5_relation<FF_>,
         perm_sha256_mem_mem_input_read_relation<FF_>,
         perm_sha256_mem_mem_op_0_relation<FF_>,
         perm_sha256_mem_mem_op_1_relation<FF_>,

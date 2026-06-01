@@ -14,8 +14,8 @@ template <typename FF_> class instr_fetchingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 2, 3, 4, 3, 3,
-                                                                            3, 3, 4, 4, 4, 4, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 2, 3, 4, 3,
+                                                                            3, 3, 3, 4, 4, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -45,8 +45,6 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
     static constexpr size_t SR_OP3_BYTES_DECOMPOSITION = 15;
     static constexpr size_t SR_OP4_BYTES_DECOMPOSITION = 16;
     static constexpr size_t SR_OP5_BYTES_DECOMPOSITION = 17;
-    static constexpr size_t SR_OP6_BYTES_DECOMPOSITION = 18;
-    static constexpr size_t SR_OP7_BYTES_DECOMPOSITION = 19;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -69,10 +67,6 @@ template <typename FF> class instr_fetching : public Relation<instr_fetchingImpl
             return "OP4_BYTES_DECOMPOSITION";
         case SR_OP5_BYTES_DECOMPOSITION:
             return "OP5_BYTES_DECOMPOSITION";
-        case SR_OP6_BYTES_DECOMPOSITION:
-            return "OP6_BYTES_DECOMPOSITION";
-        case SR_OP7_BYTES_DECOMPOSITION:
-            return "OP7_BYTES_DECOMPOSITION";
         }
         return std::to_string(index);
     }

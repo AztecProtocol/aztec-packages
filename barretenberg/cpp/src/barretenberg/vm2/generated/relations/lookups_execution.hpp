@@ -84,7 +84,7 @@ using lookup_execution_instruction_fetching_result_relation =
 struct lookup_execution_instruction_fetching_body_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_INSTRUCTION_FETCHING_BODY";
     static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 10;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_instruction_fetching_success;
     static constexpr Column DST_SELECTOR = Column::instr_fetching_sel;
     static constexpr Column COUNTS = Column::lookup_execution_instruction_fetching_body_counts;
@@ -99,9 +99,7 @@ struct lookup_execution_instruction_fetching_body_settings_ {
         ColumnAndShifts::execution_op_1_,
         ColumnAndShifts::execution_op_2_,
         ColumnAndShifts::execution_op_3_,
-        ColumnAndShifts::execution_op_4_,
-        ColumnAndShifts::execution_op_5_,
-        ColumnAndShifts::execution_op_6_
+        ColumnAndShifts::execution_op_4_
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::instr_fetching_pc,
@@ -113,9 +111,7 @@ struct lookup_execution_instruction_fetching_body_settings_ {
         ColumnAndShifts::instr_fetching_op2,
         ColumnAndShifts::instr_fetching_op3,
         ColumnAndShifts::instr_fetching_op4,
-        ColumnAndShifts::instr_fetching_op5,
-        ColumnAndShifts::instr_fetching_op6,
-        ColumnAndShifts::instr_fetching_op7
+        ColumnAndShifts::instr_fetching_op5
     };
 };
 
@@ -130,7 +126,7 @@ using lookup_execution_instruction_fetching_body_relation =
 struct lookup_execution_exec_spec_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_EXEC_SPEC_READ";
     static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 39;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 37;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_instruction_fetching_success;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_exec_spec;
     static constexpr Column COUNTS = Column::lookup_execution_exec_spec_read_counts;
@@ -146,8 +142,6 @@ struct lookup_execution_exec_spec_read_settings_ {
         ColumnAndShifts::execution_sel_op_is_address_2_,
         ColumnAndShifts::execution_sel_op_is_address_3_,
         ColumnAndShifts::execution_sel_op_is_address_4_,
-        ColumnAndShifts::execution_sel_op_is_address_5_,
-        ColumnAndShifts::execution_sel_op_is_address_6_,
         ColumnAndShifts::execution_subtrace_id,
         ColumnAndShifts::execution_subtrace_operation_id,
         ColumnAndShifts::execution_dyn_gas_id,
@@ -187,8 +181,6 @@ struct lookup_execution_exec_spec_read_settings_ {
         ColumnAndShifts::precomputed_sel_op_is_address_2_,
         ColumnAndShifts::precomputed_sel_op_is_address_3_,
         ColumnAndShifts::precomputed_sel_op_is_address_4_,
-        ColumnAndShifts::precomputed_sel_op_is_address_5_,
-        ColumnAndShifts::precomputed_sel_op_is_address_6_,
         ColumnAndShifts::precomputed_subtrace_id,
         ColumnAndShifts::precomputed_subtrace_operation_id,
         ColumnAndShifts::precomputed_dyn_gas_id,

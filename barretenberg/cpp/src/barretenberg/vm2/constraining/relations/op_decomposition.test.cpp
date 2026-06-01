@@ -82,7 +82,7 @@ constexpr std::string BYTE_PREFIX = "bd";
 constexpr std::string SELECTOR_PREFIX = "sel_op_dc_";
 
 // TODO(#AVM-264): Change this hardcoded value if we reduce AVM_MAX_OPERANDS.
-constexpr size_t NUM_OF_OPERANDS = 8; // Need 7 = AVM_MAX_OPERANDS to cover ECADD, +1 for addressing_mode
+constexpr size_t NUM_OF_OPERANDS = 6; // Need 5 = AVM_MAX_OPERANDS to cover ECADD, +1 for addressing_mode
 
 struct OperandLayout {
     uint8_t offset = 0;
@@ -203,7 +203,7 @@ std::unordered_map<WireOpCode, std::array<OperandLayout, NUM_OF_OPERANDS>> gen_o
     const auto& wire_formats = simulation::testonly::get_instruction_wire_formats();
 
     for (const auto& [opcode, format] : wire_formats) {
-        std::array<OperandLayout, 8> operands_layout_array;
+        std::array<OperandLayout, NUM_OF_OPERANDS> operands_layout_array;
         uint8_t op_idx = 1; // We start at index 1 because the index zero is reserved for addressing mode.
         uint8_t byte_offset = 0;
 
