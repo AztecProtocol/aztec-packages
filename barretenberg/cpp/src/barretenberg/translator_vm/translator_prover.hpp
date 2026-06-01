@@ -13,9 +13,12 @@
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 
 namespace bb {
-template <typename Flavor_ = TranslatorFlavor> class TranslatorProver_ {
+// The prover always runs sumcheck with the short-monomial flavor (faster sumcheck); it produces a proof and VK
+// identical to the legacy TranslatorFlavor, which the native and recursive verifiers consume. The proving key is
+// flavor-agnostic (it uses no relations), so it stays bound to the base TranslatorFlavor.
+class TranslatorProver {
   public:
-    using Flavor = Flavor_;
+    using Flavor = TranslatorShortMonomialFlavor;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
@@ -27,10 +30,9 @@ template <typename Flavor_ = TranslatorFlavor> class TranslatorProver_ {
     using PCS = typename Flavor::PCS;
     using Transcript = typename Flavor::Transcript;
     using ZKData = ZKSumcheckData<Flavor>;
-    using TranslatorProvingKey = TranslatorProvingKey_<Flavor>;
 
-    explicit TranslatorProver_(const std::shared_ptr<TranslatorProvingKey>& key,
-                               const std::shared_ptr<Transcript>& transcript);
+    explicit TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& key,
+                              const std::shared_ptr<Transcript>& transcript);
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_and_sorted_constraints_commitments_round();
@@ -56,8 +58,5 @@ template <typename Flavor_ = TranslatorFlavor> class TranslatorProver_ {
 
     SumcheckOutput<Flavor> sumcheck_output;
 };
-
-using TranslatorProver = TranslatorProver_<TranslatorFlavor>;
-using TranslatorShortMonomialProver = TranslatorProver_<TranslatorShortMonomialFlavor>;
 
 } // namespace bb

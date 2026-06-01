@@ -250,7 +250,7 @@ TEST_F(ECCVMTests, ShortMonomialProverVerifies)
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
-    ECCVMShortMonomialProver prover(builder, prover_transcript);
+    ECCVMProver prover(builder, prover_transcript);
     auto [proof, opening_claim] = prover.construct_proof();
 
     EXPECT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH);

@@ -18,11 +18,11 @@
 
 namespace bb {
 
-// We won't compile this class with Standard, but we will like want to compile it (at least for testing)
-// with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
-template <typename Flavor_ = ECCVMFlavor> class ECCVMProver_ {
+// The prover always runs sumcheck with the short-monomial flavor (faster sumcheck); it produces a proof and VK
+// identical to the legacy ECCVMFlavor, which the native and recursive verifiers consume.
+class ECCVMProver {
   public:
-    using Flavor = Flavor_;
+    using Flavor = ECCVMShortMonomialFlavor;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
     using Commitment = typename Flavor::Commitment;
@@ -38,7 +38,7 @@ template <typename Flavor_ = ECCVMFlavor> class ECCVMProver_ {
     using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
     using Proof = HonkProof;
 
-    explicit ECCVMProver_(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript);
+    explicit ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript);
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
@@ -77,8 +77,5 @@ template <typename Flavor_ = ECCVMFlavor> class ECCVMProver_ {
 
     SumcheckOutput<Flavor> sumcheck_output;
 };
-
-using ECCVMProver = ECCVMProver_<ECCVMFlavor>;
-using ECCVMShortMonomialProver = ECCVMProver_<ECCVMShortMonomialFlavor>;
 
 } // namespace bb

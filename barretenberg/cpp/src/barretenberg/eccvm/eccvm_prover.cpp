@@ -19,8 +19,7 @@
 
 namespace bb {
 
-template <typename Flavor>
-ECCVMProver_<Flavor>::ECCVMProver_(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
+ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {
     BB_BENCH_NAME("ECCVMProver(CircuitBuilder&)");
@@ -38,7 +37,7 @@ ECCVMProver_<Flavor>::ECCVMProver_(CircuitBuilder& builder, const std::shared_pt
  * @brief Fiat-Shamir the VK
  *
  */
-template <typename Flavor> void ECCVMProver_<Flavor>::execute_preamble_round()
+void ECCVMProver::execute_preamble_round()
 {
     using VerificationKey = typename Flavor::VerificationKey;
 
@@ -53,7 +52,7 @@ template <typename Flavor> void ECCVMProver_<Flavor>::execute_preamble_round()
  * @brief Compute commitments to the first three wires
  *
  */
-template <typename Flavor> void ECCVMProver_<Flavor>::execute_wire_commitments_round()
+void ECCVMProver::execute_wire_commitments_round()
 {
     BB_BENCH_NAME("ECCVMProver::execute_wire_commitments_round");
 
@@ -75,7 +74,7 @@ template <typename Flavor> void ECCVMProver_<Flavor>::execute_wire_commitments_r
  * @brief Compute sorted witness-table accumulator
  *
  */
-template <typename Flavor> void ECCVMProver_<Flavor>::execute_log_derivative_commitments_round()
+void ECCVMProver::execute_log_derivative_commitments_round()
 {
     BB_BENCH_NAME("ECCVMProver::execute_log_derivative_commitments_round");
 
@@ -115,7 +114,7 @@ template <typename Flavor> void ECCVMProver_<Flavor>::execute_log_derivative_com
  * @brief Compute permutation and lookup grand product polynomials and commitments
  *
  */
-template <typename Flavor> void ECCVMProver_<Flavor>::execute_grand_product_computation_round()
+void ECCVMProver::execute_grand_product_computation_round()
 {
     BB_BENCH_NAME("ECCVMProver::execute_grand_product_computation_round");
     // Compute permutation grand product (starts after disabled head region via gp_start)
@@ -128,7 +127,7 @@ template <typename Flavor> void ECCVMProver_<Flavor>::execute_grand_product_comp
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
  *
  */
-template <typename Flavor> void ECCVMProver_<Flavor>::execute_relation_check_rounds()
+void ECCVMProver::execute_relation_check_rounds()
 {
     BB_BENCH_NAME("ECCVMProver::execute_relation_check_rounds");
     using Sumcheck = SumcheckProver<Flavor>;
@@ -159,7 +158,7 @@ template <typename Flavor> void ECCVMProver_<Flavor>::execute_relation_check_rou
  * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  *
  */
-template <typename Flavor> void ECCVMProver_<Flavor>::execute_pcs_rounds()
+void ECCVMProver::execute_pcs_rounds()
 {
     BB_BENCH_NAME("ECCVMProver::execute_pcs_rounds");
     using Curve = typename Flavor::Curve;
@@ -191,7 +190,7 @@ template <typename Flavor> void ECCVMProver_<Flavor>::execute_pcs_rounds()
                          sumcheck_output.round_univariates,
                          sumcheck_output.round_univariate_evaluations);
 
-    ECCVMProver_<Flavor>::compute_translation_opening_claims();
+    ECCVMProver::compute_translation_opening_claims();
 
     opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
@@ -200,14 +199,12 @@ template <typename Flavor> void ECCVMProver_<Flavor>::execute_pcs_rounds()
     batch_opening_claim = Shplonk::prove(key->commitment_key, opening_claims, transcript);
 }
 
-template <typename Flavor> typename ECCVMProver_<Flavor>::Proof ECCVMProver_<Flavor>::export_proof()
+ECCVMProver::Proof ECCVMProver::export_proof()
 {
     return { transcript->export_proof() };
 }
 
-template <typename Flavor>
-std::pair<typename ECCVMProver_<Flavor>::Proof, typename ECCVMProver_<Flavor>::OpeningClaim> ECCVMProver_<
-    Flavor>::construct_proof()
+std::pair<ECCVMProver::Proof, ECCVMProver::OpeningClaim> ECCVMProver::construct_proof()
 {
     BB_BENCH_NAME("ECCVMProver::construct_proof");
 
@@ -250,7 +247,7 @@ std::pair<typename ECCVMProver_<Flavor>::Proof, typename ECCVMProver_<Flavor>::O
  * @return Populate `opening_claims`.
  *
  */
-template <typename Flavor> void ECCVMProver_<Flavor>::compute_translation_opening_claims()
+void ECCVMProver::compute_translation_opening_claims()
 {
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
     using SmallIPA = SmallSubgroupIPAProver<Flavor>;
@@ -325,6 +322,4 @@ template <typename Flavor> void ECCVMProver_<Flavor>::compute_translation_openin
  * @param polynomial
  * @param label
  */
-template class ECCVMProver_<ECCVMFlavor>;
-template class ECCVMProver_<ECCVMShortMonomialFlavor>;
 } // namespace bb

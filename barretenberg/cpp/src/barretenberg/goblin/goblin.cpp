@@ -35,11 +35,10 @@ Goblin::MergeProof Goblin::prove_merge(const std::shared_ptr<Transcript>& transc
 void Goblin::prove_eccvm()
 {
     BB_BENCH_NAME("Goblin::prove_eccvm");
-    // Short-monomial prover: produces an identical proof + VK to ECCVMProver, with a faster sumcheck.
     // Scope the builder so it (and any circuit data) is freed before proving
-    ECCVMShortMonomialProver eccvm_prover = [&]() {
+    ECCVMProver eccvm_prover = [&]() {
         ECCVMBuilder eccvm_builder(op_queue);
-        return ECCVMShortMonomialProver(eccvm_builder, transcript);
+        return ECCVMProver(eccvm_builder, transcript);
     }();
     auto [eccvm_proof, opening_claim] = eccvm_prover.construct_proof();
     goblin_proof.eccvm_proof = std::move(eccvm_proof);
@@ -62,9 +61,8 @@ void Goblin::prove_translator()
 {
     BB_BENCH_NAME("Goblin::prove_translator");
     TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue, avm_mode);
-    // Short-monomial prover: identical proof + VK to TranslatorProver, faster sumcheck.
-    auto translator_key = std::make_shared<TranslatorShortMonomialProvingKey>(translator_builder);
-    TranslatorShortMonomialProver translator_prover(translator_key, transcript);
+    auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder);
+    TranslatorProver translator_prover(translator_key, transcript);
     goblin_proof.translator_proof = translator_prover.construct_proof();
 }
 

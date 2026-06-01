@@ -269,8 +269,8 @@ class TranslatorTests : public ::testing::Test {
         auto verifier_transcript = std::make_shared<Transcript>(initial_transcript);
         verifier_transcript->template receive_from_prover<Fq>("init");
 
-        auto proving_key = std::make_shared<TranslatorShortMonomialProvingKey>(circuit_builder);
-        TranslatorShortMonomialProver prover{ proving_key, prover_transcript };
+        auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+        TranslatorProver prover{ proving_key, prover_transcript };
         auto proof = prover.construct_proof();
         EXPECT_EQ(proof.size(), TranslatorFlavor::PROOF_LENGTH);
 

@@ -20,7 +20,7 @@ namespace bb {
  * This ensures that the verifier can reconstruct concatenated evaluations from individual wire evaluations
  * using Lagrange decomposition over the top 4 sumcheck challenges.
  */
-template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_concatenated_polynomials()
+void TranslatorProvingKey::compute_concatenated_polynomials()
 {
     // The vector of groups of polynomials to be concatenated
     auto groups = proving_key->polynomials.get_groups_to_be_concatenated();
@@ -72,7 +72,7 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_concatena
  * With concatenation, masking rows are scattered: the last NUM_MASKED_ROWS_END rows of each block. Sorted values
  * occupy non-masking positions; masking values sit in the holes.
  */
-template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_translator_range_constraint_ordered_polynomials()
+void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomials()
 {
     RefArray ordered_constraint_polynomials{ proving_key->polynomials.ordered_range_constraints_0,
                                              proving_key->polynomials.ordered_range_constraints_1,
@@ -195,7 +195,7 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_translato
  * We extract these random values from the concatenated polynomials and distribute them to the ordered
  * polynomials at the same scattered masking positions.
  */
-template <typename Flavor> void TranslatorProvingKey_<Flavor>::split_concatenated_random_coefficients_to_ordered()
+void TranslatorProvingKey::split_concatenated_random_coefficients_to_ordered()
 {
     auto concatenated = proving_key->polynomials.get_concatenated();
     auto ordered = proving_key->polynomials.get_ordered_range_constraints();
@@ -281,7 +281,7 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::split_concatenate
  *       indices to 1 to create the desired selector behavior.
  * @note The masking regions contain random values used for zero-knowledge properties.
  */
-template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_lagrange_polynomials()
+void TranslatorProvingKey::compute_lagrange_polynomials()
 {
     const size_t MINI = Flavor::MINI_CIRCUIT_SIZE;
     const size_t circuit_size = proving_key->polynomials.get_polynomial_size();
@@ -340,7 +340,7 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_lagrange_
  * To make up for the added steps in the numerator, an additional polynomial needs to be generated which contains 5
  * MAX_VALUE, 5 (MAX_VALUE-STEP),... values.
  */
-template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_extra_range_constraint_numerator()
+void TranslatorProvingKey::compute_extra_range_constraint_numerator()
 {
 
     const auto sorted_elements = get_sorted_steps();
@@ -358,6 +358,4 @@ template <typename Flavor> void TranslatorProvingKey_<Flavor>::compute_extra_ran
     parallel_for(NUM_FACTORS_IN_NUMERATOR, fill_with_shift);
 }
 
-template class TranslatorProvingKey_<TranslatorFlavor>;
-template class TranslatorProvingKey_<TranslatorShortMonomialFlavor>;
 } // namespace bb

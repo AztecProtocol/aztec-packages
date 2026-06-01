@@ -19,10 +19,8 @@
 
 namespace bb {
 
-template <typename Flavor>
-TranslatorProver_<Flavor>::TranslatorProver_(
-    const std::shared_ptr<typename TranslatorProver_<Flavor>::TranslatorProvingKey>& key,
-    const std::shared_ptr<typename TranslatorProver_<Flavor>::Transcript>& transcript)
+TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& key,
+                                   const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
     , key(key)
 {
@@ -34,7 +32,7 @@ TranslatorProver_<Flavor>::TranslatorProver_(
  * @brief Add circuit size and values used in the relations to the transcript
  *
  */
-template <typename Flavor> void TranslatorProver_<Flavor>::execute_preamble_round()
+void TranslatorProver::execute_preamble_round()
 {
     // Fiat-Shamir the vk hash
     typename Flavor::VerificationKey vk;
@@ -58,8 +56,7 @@ template <typename Flavor> void TranslatorProver_<Flavor>::execute_preamble_roun
  * @param polynomial
  * @param label
  */
-template <typename Flavor>
-void TranslatorProver_<Flavor>::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
+void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
 {
     transcript->send_to_verifier(label, key->proving_key->commitment_key.commit(polynomial));
 }
@@ -68,7 +65,7 @@ void TranslatorProver_<Flavor>::commit_to_witness_polynomial(Polynomial& polynom
  * @brief Compute commitments to wires and ordered range constraints.
  *
  */
-template <typename Flavor> void TranslatorProver_<Flavor>::execute_wire_and_sorted_constraints_commitments_round()
+void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 {
     BB_BENCH_NAME("TranslatorProver::execute_wire_and_sorted_constraints_commitments_round");
 
@@ -95,7 +92,7 @@ template <typename Flavor> void TranslatorProver_<Flavor>::execute_wire_and_sort
  * @brief Compute permutation product polynomial and commitments
  *
  */
-template <typename Flavor> void TranslatorProver_<Flavor>::execute_grand_product_computation_round()
+void TranslatorProver::execute_grand_product_computation_round()
 {
     // Compute and store parameters required by relations in Sumcheck
     FF beta = transcript->template get_challenge<FF>("beta");
@@ -139,7 +136,7 @@ template <typename Flavor> void TranslatorProver_<Flavor>::execute_grand_product
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
  *
  */
-template <typename Flavor> void TranslatorProver_<Flavor>::execute_relation_check_rounds()
+void TranslatorProver::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
 
@@ -177,7 +174,7 @@ template <typename Flavor> void TranslatorProver_<Flavor>::execute_relation_chec
  * via Shplonk and produce an opening proof with the univariate PCS of choice (IPA when operating on Grumpkin).
  *
  */
-template <typename Flavor> void TranslatorProver_<Flavor>::execute_pcs_rounds()
+void TranslatorProver::execute_pcs_rounds()
 {
     using Curve = typename Flavor::Curve;
     using OpeningClaim = ProverOpeningClaim<Curve>;
@@ -208,12 +205,12 @@ template <typename Flavor> void TranslatorProver_<Flavor>::execute_pcs_rounds()
     PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
 }
 
-template <typename Flavor> HonkProof TranslatorProver_<Flavor>::export_proof()
+HonkProof TranslatorProver::export_proof()
 {
     return transcript->export_proof();
 }
 
-template <typename Flavor> HonkProof TranslatorProver_<Flavor>::construct_proof()
+HonkProof TranslatorProver::construct_proof()
 {
     BB_BENCH_NAME("TranslatorProver::construct_proof");
 
@@ -243,7 +240,7 @@ template <typename Flavor> HonkProof TranslatorProver_<Flavor>::construct_proof(
  * @details The accumulated result is the final accumulator value that the ECCVM verifier will check.
  * It is stored in the RESULT_ROW of the accumulator limb polynomials.
  */
-template <typename Flavor> uint256_t TranslatorProver_<Flavor>::get_accumulated_result() const
+uint256_t TranslatorProver::get_accumulated_result() const
 {
     const size_t RESULT_ROW = Flavor::RESULT_ROW;
     return uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_0[RESULT_ROW]) +
@@ -252,6 +249,4 @@ template <typename Flavor> uint256_t TranslatorProver_<Flavor>::get_accumulated_
            (uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW]) << 204);
 }
 
-template class TranslatorProver_<TranslatorFlavor>;
-template class TranslatorProver_<TranslatorShortMonomialFlavor>;
 } // namespace bb

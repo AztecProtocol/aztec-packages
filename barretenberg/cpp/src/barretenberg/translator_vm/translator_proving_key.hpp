@@ -10,9 +10,11 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
-template <typename Flavor_ = TranslatorFlavor> class TranslatorProvingKey_ {
+// The proving key uses no relations (only flavor entity/constant definitions, which the short-monomial flavor
+// inherits unchanged), so it stays bound to the base TranslatorFlavor and is shared by the prover and all tests.
+class TranslatorProvingKey {
   public:
-    using Flavor = Flavor_;
+    using Flavor = TranslatorFlavor;
     using Circuit = typename Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;
@@ -37,9 +39,9 @@ template <typename Flavor_ = TranslatorFlavor> class TranslatorProvingKey_ {
     BF batching_challenge_v = { 0 };
     BF evaluation_input_x = { 0 };
 
-    TranslatorProvingKey_() = default;
+    TranslatorProvingKey() = default;
 
-    TranslatorProvingKey_(const Circuit& circuit)
+    TranslatorProvingKey(const Circuit& circuit)
         : batching_challenge_v(circuit.batching_challenge_v)
         , evaluation_input_x(circuit.evaluation_input_x)
     {
@@ -130,7 +132,4 @@ template <typename Flavor_ = TranslatorFlavor> class TranslatorProvingKey_ {
 
     void split_concatenated_random_coefficients_to_ordered();
 };
-
-using TranslatorProvingKey = TranslatorProvingKey_<TranslatorFlavor>;
-using TranslatorShortMonomialProvingKey = TranslatorProvingKey_<TranslatorShortMonomialFlavor>;
 } // namespace bb

@@ -113,19 +113,9 @@ void eccvm_full_prove(State& state) noexcept
     construct_proof<ECCVMProver>(state);
 }
 
-void eccvm_short_monomial_prove(State& state) noexcept
-{
-    construct_proof<ECCVMShortMonomialProver>(state);
-}
-
 void eccvm_full_sumcheck(State& state) noexcept
 {
     execute_sumcheck<ECCVMProver>(state);
-}
-
-void eccvm_short_monomial_sumcheck(State& state) noexcept
-{
-    execute_sumcheck<ECCVMShortMonomialProver>(state);
 }
 
 void eccvm_ipa(State& state) noexcept
@@ -145,9 +135,7 @@ BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM
 BENCHMARK(eccvm_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 BENCHMARK(eccvm_ipa)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 BENCHMARK(eccvm_full_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
-BENCHMARK(eccvm_short_monomial_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 BENCHMARK(eccvm_full_sumcheck)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
-BENCHMARK(eccvm_short_monomial_sumcheck)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 } // namespace
 
 int main(int argc, char** argv)

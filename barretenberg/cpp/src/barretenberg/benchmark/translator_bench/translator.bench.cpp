@@ -88,25 +88,13 @@ void translator_full_prove(State& state)
     construct_proof<TranslatorProver, TranslatorProvingKey>(state);
 }
 
-void translator_short_monomial_prove(State& state)
-{
-    construct_proof<TranslatorShortMonomialProver, TranslatorShortMonomialProvingKey>(state);
-}
-
 void translator_full_sumcheck(State& state)
 {
     execute_sumcheck<TranslatorProver, TranslatorProvingKey>(state);
 }
 
-void translator_short_monomial_sumcheck(State& state)
-{
-    execute_sumcheck<TranslatorShortMonomialProver, TranslatorShortMonomialProvingKey>(state);
-}
-
 BENCHMARK(translator_full_prove)->Unit(kMillisecond)->Arg(25)->Arg(50)->Arg(75);
-BENCHMARK(translator_short_monomial_prove)->Unit(kMillisecond)->Arg(25)->Arg(50)->Arg(75);
 BENCHMARK(translator_full_sumcheck)->Unit(kMillisecond)->Arg(25)->Arg(50)->Arg(75);
-BENCHMARK(translator_short_monomial_sumcheck)->Unit(kMillisecond)->Arg(25)->Arg(50)->Arg(75);
 
 } // namespace
 
