@@ -16,6 +16,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
   BlockHash,
+  Body,
   GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
 } from '@aztec/stdlib/block';
@@ -264,7 +265,27 @@ describe('PXE', () => {
         checkpointNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
       };
-      node.getBlock.mockResolvedValue(blockResponse);
+
+      // The block synchronizer's real L2BlockStream walks back from the source tip to find the first block where its
+      // local L2TipsKVStore agrees with the source. That store was seeded at PXE creation with the genesis header hash
+      // (`node.getBlock(0)` was undefined then, so it fell back to `GENESIS_BLOCK_HEADER_HASH`), and the stream computes
+      // the source-side genesis hash from `getBlock(0).header.hash()`. We therefore answer block 0 with a header that
+      // hashes to that same genesis constant so the walk agrees at genesis; every other height returns the block-42
+      // response the events are anchored to.
+      const genesisHeader = { hash: () => Promise.resolve(GENESIS_BLOCK_HEADER_HASH) } as unknown as BlockHeader;
+      const genesisBlockResponse: BlockResponse = {
+        header: genesisHeader,
+        archive,
+        hash: GENESIS_BLOCK_HEADER_HASH,
+        checkpointNumber: CheckpointNumber.ZERO,
+        indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
+        number: BlockNumber.ZERO,
+      };
+      const isBlockZeroQuery = (query: Parameters<AztecNode['getBlock']>[0]) =>
+        query === 0 || (typeof query === 'object' && 'number' in query && query.number === 0);
+      node.getBlock.mockImplementation((query => {
+        return Promise.resolve(isBlockZeroQuery(query) ? genesisBlockResponse : blockResponse);
+      }) as AztecNode['getBlock']);
       node.getBlockData.mockResolvedValue(blockData);
 
       // Mock getChainTips which is needed for syncing tagged logs
@@ -301,15 +322,23 @@ describe('PXE', () => {
 
       contractAddress = contractInstance.address;
       eventSelector = EventSelector.random();
-      // Deterministic so the canonical hash hydrated for `lastKnownBlockNumber` during the one-time cold-start
-      // sync (the kvStore and PXE are shared across these tests) stays valid for events stored in later tests.
-      l2BlockHash = new BlockHash(new Fr(lastKnownBlockNumber));
+      // Events are anchored to the canonical hash the synchronizer records for `lastKnownBlockNumber`. That hash is the
+      // block header hash the `blocks-added` handler derives from the block the node serves below, so we use the same
+      // value here; otherwise the recorded hash would disqualify these events from `isCanonical`.
+      l2BlockHash = await blockHeader.hash();
 
-      // Cold-start sync reads the finalized tip from the node and hydrates the canonical map. Block
-      // `lastKnownBlockNumber` is the finalized tip; recording its canonical hash as `l2BlockHash` makes the
-      // events stored at that block read back as canonical (events in later blocks stay non-canonical, filtered).
-      node.getBlockNumber.mockResolvedValue(lastKnownBlockNumber);
-      node.getBlocks.mockResolvedValue([{ ...blockResponse, hash: l2BlockHash }]);
+      // Canonicality is established the same way it is in production, by driving the real L2BlockStream to completion.
+      // Once genesis agrees (see the getBlock mock above) the stream ingests `lastKnownBlockNumber` as a `blocks-added`
+      // event, which the block synchronizer records in `CanonicalBlockStore` with the block header hash and adopts as
+      // the anchor header. It then emits `chain-finalized` (the node reports a finalized tip there while the local store
+      // is still at genesis), raising the finalized floor to `lastKnownBlockNumber`. So events at that block read back
+      // as canonical (recorded hash matches), and events in later, not-yet-synced blocks stay above the floor with no
+      // recorded hash and are filtered out.
+      //
+      // getBlocks must yield a body-bearing response so the stream source can build a real L2Block; getCheckpoints has
+      // nothing to serve (the single block is uncheckpointed here) and returns empty.
+      node.getBlocks.mockResolvedValue([{ ...blockResponse, body: Body.empty() }]);
+      node.getCheckpoints.mockResolvedValue([]);
 
       scope = await AztecAddress.random();
 
