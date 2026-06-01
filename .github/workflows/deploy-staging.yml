@@ -1,15 +1,22 @@
-name: Deploy to staging-public
+name: Deploy to staging
 
 on:
+  schedule:
+    - cron: "0 7 * * *"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Nightly tag to deploy (e.g., v4.2.0-nightly.20260330). Leave empty to use latest nightly tag."
+        description: "Tag to deploy (v5.0.0 or any v5.0.0 prerelease). Leave empty to use today's 5.0.0 nightly tag."
         required: false
         type: string
+      deploy_contracts:
+        description: "Redeploy rollup contracts before deploying infra."
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
-  group: deploy-staging-public
+  group: deploy-staging
   cancel-in-progress: true
 
 env:
@@ -20,35 +27,24 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      github.event_name == 'schedule'
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
       semver: ${{ steps.resolve.outputs.semver }}
     steps:
-      - name: Checkout v4-next
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          ref: v4-next
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Resolve nightly tag
+      - name: Resolve deployment tag
         id: resolve
         run: |
-          git fetch --tags --force
-
           if [[ -n "${{ inputs.tag }}" ]]; then
             TAG="${{ inputs.tag }}"
             echo "Using manually specified tag: $TAG"
           else
-            current_version=$(jq -r '."."' .release-please-manifest.json)
-            TAG="v${current_version}-nightly.$(date -u +%Y%m%d)"
-            echo "Nightly tag: $TAG"
+            TAG="v5.0.0-nightly.$(date -u +%Y%m%d)"
+            echo "Using today's nightly tag: $TAG"
           fi
 
-          # Validate tag exists
-          if ! git rev-parse "$TAG" &>/dev/null; then
-            echo "Error: Tag $TAG does not exist"
+          if [[ ! "$TAG" =~ ^v5\.0\.0($|-.*) ]]; then
+            echo "Error: Staging deploys require a v5.0.0 tag or prerelease, got '$TAG'"
             exit 1
           fi
 
@@ -77,7 +73,8 @@ jobs:
     needs: [determine-tag, wait-for-ci3]
     uses: ./.github/workflows/deploy-network.yml
     with:
-      network: staging-public
+      network: staging
       semver: ${{ needs.determine-tag.outputs.semver }}
       source_tag: ${{ needs.determine-tag.outputs.tag }}
+      deploy_contracts: ${{ inputs.deploy_contracts == true }}
     secrets: inherit
