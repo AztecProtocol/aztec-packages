@@ -84,6 +84,67 @@ function toNullifierLeaf(leaf: SerializedLeafValue): { nullifier: Uint8Array } {
   return { nullifier: new Uint8Array(leaf.nullifier) };
 }
 
+function fromPublicDataLeaf(leaf: { slot: Uint8Array; value: Uint8Array }): Exclude<SerializedLeafValue, Buffer> {
+  return { slot: Buffer.from(leaf.slot), value: Buffer.from(leaf.value) };
+}
+
+function fromNullifierLeaf(leaf: { nullifier: Uint8Array }): Exclude<SerializedLeafValue, Buffer> {
+  return { nullifier: Buffer.from(leaf.nullifier) };
+}
+
+type WireIndexedLeaf<TLeaf> = { leaf: TLeaf; nextIndex: number; nextKey: Uint8Array };
+type WireLeafUpdateWitnessData<TLeaf> = { leaf: WireIndexedLeaf<TLeaf>; index: number; path: Uint8Array[] };
+
+function fromIndexedLeaf<TLeaf>(
+  leaf: WireIndexedLeaf<TLeaf>,
+  convertLeaf: (leaf: TLeaf) => Exclude<SerializedLeafValue, Buffer>,
+) {
+  return {
+    leaf: convertLeaf(leaf.leaf),
+    nextIndex: leaf.nextIndex,
+    nextKey: Buffer.from(leaf.nextKey),
+  };
+}
+
+function fromLeafUpdateWitnessData<TLeaf>(
+  data: WireLeafUpdateWitnessData<TLeaf>,
+  convertLeaf: (leaf: TLeaf) => Exclude<SerializedLeafValue, Buffer>,
+) {
+  return {
+    leaf: fromIndexedLeaf(data.leaf, convertLeaf),
+    index: data.index,
+    path: data.path.map(p => Buffer.from(p)),
+  };
+}
+
+function fromBatchInsertionResult<
+  TLeaf,
+  TResult extends {
+    lowLeafWitnessData: Array<WireLeafUpdateWitnessData<TLeaf>>;
+    sortedLeaves: Array<{ leaf: TLeaf; index: number }>;
+    subtreePath: Uint8Array[];
+  },
+>(result: TResult, convertLeaf: (leaf: TLeaf) => Exclude<SerializedLeafValue, Buffer>) {
+  return {
+    low_leaf_witness_data: result.lowLeafWitnessData.map(data => fromLeafUpdateWitnessData(data, convertLeaf)),
+    sorted_leaves: result.sortedLeaves.map(({ leaf, index }) => [convertLeaf(leaf), index] as const),
+    subtree_path: result.subtreePath.map(p => Buffer.from(p)),
+  };
+}
+
+function fromSequentialInsertionResult<
+  TLeaf,
+  TResult extends {
+    lowLeafWitnessData: Array<WireLeafUpdateWitnessData<TLeaf>>;
+    insertionWitnessData: Array<WireLeafUpdateWitnessData<TLeaf>>;
+  },
+>(result: TResult, convertLeaf: (leaf: TLeaf) => Exclude<SerializedLeafValue, Buffer>) {
+  return {
+    low_leaf_witness_data: result.lowLeafWitnessData.map(data => fromLeafUpdateWitnessData(data, convertLeaf)),
+    insertion_witness_data: result.insertionWitnessData.map(data => fromLeafUpdateWitnessData(data, convertLeaf)),
+  };
+}
+
 function toFrLeaf(leaf: SerializedLeafValue): Uint8Array {
   if (!(leaf instanceof Buffer)) {
     throw new Error('Expected field leaf');
@@ -474,12 +535,27 @@ export class IpcWorldState implements NativeWorldStateInstance {
 
       case WorldStateMessageType.FIND_LEAF_INDICES: {
         const b = body as WorldStateRequest[WorldStateMessageType.FIND_LEAF_INDICES];
-        const resp = await this.api.wsdbFindLeafIndices({
-          treeId: b.treeId,
-          revision: toWsdbRevision(b.revision),
-          leaves: b.leaves.map(toFrLeaf),
-          startIndex: Number(b.startIndex),
-        });
+        const revision = toWsdbRevision(b.revision);
+        const startIndex = Number(b.startIndex);
+        const resp =
+          b.treeId === MerkleTreeId.PUBLIC_DATA_TREE
+            ? await this.api.wsdbFindPublicDataLeafIndices({
+                revision,
+                leaves: b.leaves.map(toPublicDataLeaf),
+                startIndex,
+              })
+            : b.treeId === MerkleTreeId.NULLIFIER_TREE
+              ? await this.api.wsdbFindNullifierLeafIndices({
+                  revision,
+                  leaves: b.leaves.map(toNullifierLeaf),
+                  startIndex,
+                })
+              : await this.api.wsdbFindLeafIndices({
+                  treeId: b.treeId,
+                  revision,
+                  leaves: b.leaves.map(toFrLeaf),
+                  startIndex,
+                });
         return {
           indices: resp.indices.map(n => (n != null ? BigInt(n) : undefined)),
         } as WorldStateResponse[T];
@@ -500,11 +576,23 @@ export class IpcWorldState implements NativeWorldStateInstance {
 
       case WorldStateMessageType.FIND_SIBLING_PATHS: {
         const b = body as WorldStateRequest[WorldStateMessageType.FIND_SIBLING_PATHS];
-        const resp = await this.api.wsdbFindSiblingPaths({
-          treeId: b.treeId,
-          revision: toWsdbRevision(b.revision),
-          leaves: b.leaves.map(toFrLeaf),
-        });
+        const revision = toWsdbRevision(b.revision);
+        const resp =
+          b.treeId === MerkleTreeId.PUBLIC_DATA_TREE
+            ? await this.api.wsdbFindPublicDataSiblingPaths({
+                revision,
+                leaves: b.leaves.map(toPublicDataLeaf),
+              })
+            : b.treeId === MerkleTreeId.NULLIFIER_TREE
+              ? await this.api.wsdbFindNullifierSiblingPaths({
+                  revision,
+                  leaves: b.leaves.map(toNullifierLeaf),
+                })
+              : await this.api.wsdbFindSiblingPaths({
+                  treeId: b.treeId,
+                  revision,
+                  leaves: b.leaves.map(toFrLeaf),
+                });
         return {
           paths: resp.paths.map(convertSiblingPathAndIndex),
         } as WorldStateResponse[T];
@@ -538,7 +626,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
                 subtreeDepth: b.subtreeDepth,
                 forkId: b.forkId,
               });
-        return convertUint8ArraysToBuffers(resp.result) as WorldStateResponse[T];
+        return (b.treeId === MerkleTreeId.PUBLIC_DATA_TREE
+          ? fromBatchInsertionResult(resp.result as any, fromPublicDataLeaf)
+          : fromBatchInsertionResult(resp.result as any, fromNullifierLeaf)) as unknown as WorldStateResponse[T];
       }
 
       case WorldStateMessageType.SEQUENTIAL_INSERT: {
@@ -553,7 +643,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
                 leaves: b.leaves.map(toNullifierLeaf),
                 forkId: b.forkId,
               });
-        return convertUint8ArraysToBuffers(resp.result) as WorldStateResponse[T];
+        return (b.treeId === MerkleTreeId.PUBLIC_DATA_TREE
+          ? fromSequentialInsertionResult(resp.result as any, fromPublicDataLeaf)
+          : fromSequentialInsertionResult(resp.result as any, fromNullifierLeaf)) as unknown as WorldStateResponse[T];
       }
 
       case WorldStateMessageType.UPDATE_ARCHIVE: {
