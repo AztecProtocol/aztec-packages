@@ -7,7 +7,7 @@ references: ["docs/examples/contracts/counter_contract/src/main.nr"]
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where you can keep your own private counter - so no one knows what ID you are at or when you increment! This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
+In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where each account keeps its own counter as encrypted private state, so the count stays known only to you. This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
 
 This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
@@ -104,11 +104,11 @@ Add this below the imports. It declares the storage variables for our contract. 
 
 Now we’ve got a mechanism for storing our private state, we can start using it to ensure the privacy of balances.
 
-Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
+Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. We name it `constructor` here, but the name is arbitrary; it is the `#[initializer]` decorator that marks it to run once when the contract is deployed. Write this:
 
 #include_code constructor /docs/examples/contracts/counter_contract/src/main.nr rust
 
-This function accesses the counters from storage. It adds the `headstart` value to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery.ONCHAIN_CONSTRAINED)` to ensure the note is delivered onchain.
+This function accesses the counters from storage. It adds the `initial_value` to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery.ONCHAIN_CONSTRAINED)` to ensure the note is delivered onchain.
 
 We have annotated this and other functions with `#[external("private")]` which are ABI macros so the compiler understands it will handle private inputs.
 
@@ -119,6 +119,8 @@ Now let's implement an `increment` function to increase the counter.
 #include_code increment /docs/examples/contracts/counter_contract/src/main.nr rust
 
 The `increment` function uses `self.msg_sender()` so each caller can only increment the counter mapped to their own address. It logs a debug message, then adds 1 to that counter and delivers the note onchain.
+
+Only this mutating action derives the owner from the caller. The one-time `constructor` and the `get_counter` read still take an explicit `owner`: the constructor can seed a chosen account, and a read selects which counter to view (only its owner can decrypt it).
 
 ## Getting a counter
 

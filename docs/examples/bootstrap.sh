@@ -209,8 +209,53 @@ function execute-examples {
   run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
 }
 
+# Runs the Noir TXE tests for the example test packages (the type = "lib" packages
+# that the `compile` step skips). A local TXE server resolves the foreign calls the
+# tests make: account creation, deployment, and private/utility execution.
+function test-contracts {
+  echo_header "Testing example contracts (TXE)"
+  local test_packages=("counter_contract_test" "logging_example_test")
+  local txe_port=${TXE_PORT:-14745}
+
+  # Run in a subshell so the EXIT trap that stops the TXE is scoped to this step.
+  (
+    set -euo pipefail
+    if command -v check_port >/dev/null 2>&1; then
+      check_port "$txe_port" || {
+        echo_stderr "Cannot start TXE: port $txe_port is already in use."
+        exit 1
+      }
+    fi
+    cd "$REPO_ROOT/yarn-project/txe"
+    UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT="$txe_port" yarn start >/dev/null &
+    txe_pid=$!
+    trap 'kill "$txe_pid" &>/dev/null || true' EXIT
+
+    echo_stderr "Waiting for TXE to start on port $txe_port..."
+    j=0
+    while ! nc -z 127.0.0.1 "$txe_port" &>/dev/null; do
+      [ "$j" -ge 60 ] && {
+        echo_stderr "TXE failed to start on port $txe_port after 60s."
+        exit 1
+      }
+      sleep 1
+      j=$((j + 1))
+    done
+
+    export RAYON_NUM_THREADS=1
+    export NARGO_FOREIGN_CALL_TIMEOUT=300000
+    cd "$REPO_ROOT/docs"
+    for pkg in "${test_packages[@]}"; do
+      echo_stderr "Running $pkg..."
+      $NARGO test --silence-warnings --skip-brillig-constraints-check \
+        --oracle-resolver "http://127.0.0.1:$txe_port" --package "$pkg"
+    done
+  )
+}
+
 function test_cmds {
   echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh execute"
+  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh test-contracts"
 }
 
 function test {
@@ -389,6 +434,9 @@ case "$cmd" in
     ;;
   execute)
     execute-examples
+    ;;
+  test-contracts)
+    test-contracts
     ;;
   *)
     default_cmd_handler "$@"

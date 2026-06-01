@@ -31,9 +31,13 @@ pub contract Counter {
         );
     }
 
-    // Adds 1 to the owner's counter.
+    // Adds 1 to the caller's own counter.
+    //
+    // The owner is read from self.msg_sender(), so a caller can only ever
+    // increment the counter mapped to their own address.
     #[external("private")]
-    fn increment(owner: AztecAddress) {
+    fn increment() {
+        let owner = self.msg_sender();
         self.storage.counters.at(owner).add(1).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
