@@ -454,6 +454,9 @@ export class NoteStore implements StagedStore {
       }
       for (const composite of composites) {
         const sep = composite.indexOf('|');
+        if (sep === -1) {
+          throw new Error(`Malformed nullification index entry: ${composite}`);
+        }
         const nullifier = composite.slice(0, sep);
         const originStr = composite.slice(sep + 1);
         // Delete only orphan (non-canonical) origins. Deleting a canonical origin would wrongly un-nullify a

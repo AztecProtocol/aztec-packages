@@ -690,14 +690,14 @@ describe('NoteStore (canonicality)', () => {
     makeCanonical();
     await store.addNotes([note], scope, JOB);
 
-    const nullBlockHash = Fr.random().toString();
+    const nullBlockHash = BlockHash.random();
     await store.applyNullifiers(
-      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash as any }],
+      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash }],
       JOB,
     );
     await store.commit(JOB);
 
-    canonical.add(originKey(BlockNumber(11), nullBlockHash));
+    canonical.add(originKey(BlockNumber(11), nullBlockHash.toString()));
     expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
     expect(await store.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'read-job')).toHaveLength(
       1,
@@ -709,7 +709,7 @@ describe('NoteStore (canonicality)', () => {
     makeCanonical();
     await store.addNotes([note], scope, JOB);
     await store.applyNullifiers(
-      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: Fr.random().toString() as any }],
+      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: BlockHash.random() }],
       JOB,
     );
     await store.commit(JOB);
@@ -723,19 +723,19 @@ describe('NoteStore (canonicality)', () => {
     makeCanonical();
     await store.addNotes([note], scope, JOB);
 
-    const forkAHash = Fr.random().toString();
-    const forkBHash = Fr.random().toString();
+    const forkAHash = BlockHash.random();
+    const forkBHash = BlockHash.random();
     await store.applyNullifiers(
-      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: forkAHash as any }],
+      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: forkAHash }],
       JOB,
     );
     await store.applyNullifiers(
-      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: forkBHash as any }],
+      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: forkBHash }],
       JOB,
     );
     await store.commit(JOB);
 
-    canonical.add(originKey(BlockNumber(11), forkBHash));
+    canonical.add(originKey(BlockNumber(11), forkBHash.toString()));
     expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
   });
 
@@ -753,7 +753,7 @@ describe('NoteStore (canonicality)', () => {
 
     await store.addNotes([note], scope, JOB);
     await store.applyNullifiers(
-      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: Fr.random().toString() as any }],
+      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: BlockHash.random() }],
       JOB,
     );
 
@@ -820,7 +820,7 @@ describe('NoteStore (canonicality)', () => {
     // An orphan note created on a reorged-away fork, then nullified on a canonical block. The nullification origin is
     // canonical, so absent cleanup it would survive the reap keyed by the shared siloedNullifier.
     const sharedNullifier = Fr.random();
-    const nullBlockHash = Fr.random().toString();
+    const nullBlockHash = BlockHash.random();
     const orphan = await NoteDao.random({
       contractAddress: contract,
       l2BlockNumber: BlockNumber(9),
@@ -829,12 +829,12 @@ describe('NoteStore (canonicality)', () => {
     });
     await store.addNotes([orphan], scope, JOB);
     await store.applyNullifiers(
-      [{ data: sharedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash as any }],
+      [{ data: sharedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash }],
       JOB,
     );
     await store.commit(JOB);
     // The nullification block IS canonical; the orphan's creation block is not.
-    canonical.add(originKey(BlockNumber(11), nullBlockHash));
+    canonical.add(originKey(BlockNumber(11), nullBlockHash.toString()));
 
     // Reap orphans at block 9: the orphan and its nullification origin are deleted.
     const isCanonical = (id: L2BlockId) => id.hash === CANONICAL_HASH;
@@ -864,7 +864,8 @@ describe('NoteStore (canonicality)', () => {
     // and `finalized ⇒ canonical` makes the orphan nullification origin read canonical again — resurrecting a
     // nullification that never happened on the canonical chain. The reap must delete orphan nullification origins
     // so this can't happen.
-    const ORPHAN_HASH_11 = Fr.fromString('0x0b').toString();
+    const orphanBlockHash11 = BlockHash.fromString(Fr.fromString('0x0b').toString());
+    const ORPHAN_HASH_11 = orphanBlockHash11.toString();
     const CANONICAL_HASH_11 = Fr.fromString('0x1b').toString();
 
     // The note is CREATED canonical at block 9 (its creation row is never reaped).
@@ -877,7 +878,7 @@ describe('NoteStore (canonicality)', () => {
 
     // It is nullified ONLY on the orphan fork at block 11.
     await store.applyNullifiers(
-      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: ORPHAN_HASH_11 as any }],
+      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: orphanBlockHash11 }],
       JOB,
     );
     await store.commit(JOB);
