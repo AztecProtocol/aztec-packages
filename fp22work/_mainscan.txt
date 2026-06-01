@@ -1,0 +1,20 @@
+=== grep counts ===
+seed: 4
+agree: 5
+DONE: 2
+cross: 37
+=== lines mentioning DONE ===
+1505:      log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
+1587:      log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
+=== lines mentioning X (result coord log) ===
+=== lines mentioning agree/cross/oracle/wasm ===
+7://     - Barretenberg WASM Pippenger, multi-threaded (numThreads = hw)
+8://   The WASM path uses `bb_native_pippenger_bn254_load` (decode + upload
+10://   timed `batch_multi_scalar_mul_native` compute) — direct WASM exports that
+12://   entry point from a hooked WASM would recurse back into the WebGPU
+28:import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
+66:// overtakes the WASM Pippenger; the v2 pipeline has no size floor.
+72:const NOBLE_REFERENCE_LOGN = 16;
+76:// Lets index.html A/B-test a knob against the WASM Pippenger, e.g. ?s=4&wgi=128.
+110:// WASM heap maximum. A log₂(n)=20 MSM keeps ~96 MiB of decoded points +
+117:// committed lazily as the heap grows. The wasm itself permits 4 GiB.

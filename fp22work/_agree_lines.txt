@@ -1,0 +1,7 @@
+971:    : ' <span class="err" title="WebGPU output disagrees with WASM MT">✗</span>';
+1027:      log('ok', `[cross-check] WebGPU and WASM MT agree`);
+1029:      log('err', `[cross-check] disagreement: gpu=${gpu.xy.x}, mt=${mt.xy.x}`);
+1668:      const crossOk = lines.some(l => /cross-check.*\bagree\b/i.test(l));
+1669:      const crossErr = lines.find(l => /cross-check.*disagreement/i.test(l));
+1505:      log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
+1587:      log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +

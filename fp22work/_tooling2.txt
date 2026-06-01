@@ -1,0 +1,23 @@
+=== search common install spots ===
+(eval):3: no matches found: /opt/arm/*/bin/malioc
+=== adb under android sdk ===
+/opt/homebrew/bin/adb
+=== phone profiling memory note ===
+---
+name: project-msm-phone-mali-profiling
+description: "How to bench the WebGPU MSM on the Pixel 9a, and why the stream-walker is slower than the fused kernel on Mali"
+metadata: 
+  node_type: memory
+  type: project
+  originSessionId: 1985162a-c6e2-4a52-a78b-8ea979e0a236
+---
+
+Pixel 9a = Tensor G4 / **Mali-G715 MP7** (Valhall 4th-gen). Benched the WebGPU MSM (2^17, random) on it vs the M2.
+
+**Phone bench setup (reusable):** USB + `adb reverse tcp:<port> tcp:<port>` → phone Chrome opens `http://localhost:<port>` (localhost = secure context, so WebGPU + COI work with no TLS/flags). Results auto-POST to the vite dev server's `/results` → JSONL on the laptop. Drivers live in `~/localclaudebox/phonetests/`: `drive-v2-random.mjs` (msm-cross-check ×N reps, captures `[gpu]`+`[wasm]` times) and `drive-android.mjs` (msm-bench A–E sweep). **Must:** `adb shell svc power stayon true` + phone **unlocked** (keyguard kills the run — Chrome won't run behind the lock; screen-off throttles JS timers). Serve walker from `aztec-pr23575` ts dir on :5199, fused baseline from `aztec-v2-baseline` (HEAD 6897d5e68a) on :5200. Beware ~/aztec-packages grabbing :5199.
+
+**Measured (10-rep medians, Chrome 148):** fused MSMV2 320 ms, stream-walker 460 ms (walker **1.44× slower** on Mali — opposite of M2 where walker wins). WASM-MT oracle ~754 ms. M2: fused 31, walker 39. Gap ~10–12×. Updating Chrome 133→148 changed nothing (browser not the lever).
+
+**Why (malioc static analysis, see `phonetests/MALI_ANALYSIS.md`):** both kernels are register-capped to **64 work regs → 50% occupancy** on Valhall (full occupancy needs ≤32; impossible for 256-bit field math). Arithmetic is identical (~285 cycles). The walker's deficit is **memory**: 1.9× the load/store cycles (270 vs 145), 2× stack/spill (1872 vs 960 B), hot-path memory 51× vs 1×. M2's larger register file + unified-memory bandwidth + caches hide that; Mali at 50% occupancy can't → walker loses on Mali, wins on M2. Raw GPU silicon gap is only ~2.5× (FP32/3DMark); occupancy+memory multiply it to ~10×.
+
+**malioc pipeline (Mali static analysis):** `naga` (cargo, v29) WGSL→SPIR-V, then `/Applications/Arm_Performance_Studio_2026.2/mali_offline_compiler/malioc --core Mali-G715 x.spv`. Generate exact WGSL via tsx + the worktree's ShaderManager (`gen-walker-wgsl.ts` / `gen-fused-wgsl.ts` in phonetests). Caveat: naga≠Tint, so absolute numbers are representative not bit-exact; walker-vs-fused comparison is apples-to-apples. See [[project-msm-logn-crash-cap]].

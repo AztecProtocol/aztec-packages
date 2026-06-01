@@ -1,4 +1,0 @@
-check native-montmul==plain-2^264: PASS
-fold const differs by exactly one value: yes (single compile-time const)
-affine-add R256 vs native-R264 (canonical): trials=5000 fails=0
-RESULT: PASS — native-264 multiply + single-const inverse bridge is bit-exact

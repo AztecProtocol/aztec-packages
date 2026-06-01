@@ -1,0 +1,28 @@
+=== get_r() consumers (Barrett entry scale) ===
+wgsl/cuzk/decompress_g1_bn254.template.wgsl:39:fn get_r() -> BigInt {
+wgsl/cuzk/decompress_g1_bn254.template.wgsl:145:    var r = get_r();
+wgsl/cuzk/convert_points_only.template.wgsl:49:fn get_r() -> BigInt {
+wgsl/cuzk/convert_points_only.template.wgsl:103:    var r = get_r();
+wgsl/field/field8.template.wgsl:28:fn get_r() -> BigInt {
+wgsl/field/fr_pow.template.wgsl:5:// `get_r()` is the multiplicative identity here.
+wgsl/field/fr_pow.template.wgsl:23:    var result: BigInt = get_r();   // Montgomery 1
+=== get_r_f8() consumers (8-word Montgomery-one — acc init in walker) ===
+wgsl/cuzk/ba_unified_combine.template.wgsl:98:    var prefix: array<u32, 8> = get_r_f8();
+wgsl/cuzk/ba_unified_combine.template.wgsl:107:            dx = get_r_f8();
+wgsl/cuzk/ba_unified_combine.template.wgsl:150:                dx_b = get_r_f8();
+wgsl/cuzk/ba_reduce_level_bench.template.wgsl:117:    let R: array<u32, 8> = get_r_f8();
+wgsl/cuzk/ba_walker_combine_batched.template.wgsl:157:        var prefix: array<u32, 8> = get_r_f8();
+wgsl/cuzk/ba_stream_walker.template.wgsl:285:        var acc: array<u32, 8> = get_r_f8();
+wgsl/field/field8.template.wgsl:20:fn get_r_f8() -> array<u32, 8> {
+wgsl/field/field8.template.wgsl:29:    return unpack256_to_limbs(get_r_f8());
+=== r8_csv / get_r_f8 definition + how it's built in TS ===
+cuzk/shader_manager.ts:449:   * fr_sub_f8 and the get_r_f8 seed, plus the 0..7 unroll index list.
+cuzk/shader_manager.ts:451:  private f8Context() {
+cuzk/shader_manager.ts:463:      r8_csv: words8(this.r)
+cuzk/shader_manager.ts:520:    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+cuzk/shader_manager.ts:526:        p8_consts, r8_csv, f8_words,
+cuzk/shader_manager.ts:868:    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+cuzk/shader_manager.ts:873:        p8_consts, r8_csv, f8_words,
+cuzk/shader_manager.ts:906:    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+cuzk/shader_manager.ts:912:        p8_consts, r8_csv, f8_words,
+cuzk/shader_manager.ts:1007:    const { p8_consts, r8_csv, f8_words } = this.f8Context();

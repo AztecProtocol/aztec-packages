@@ -1,0 +1,19 @@
+=== malioc available? ===
+malioc not found
+/Users/zac/localclaudebox/phonetests/malioc-fused-g715.txt
+/Users/zac/localclaudebox/phonetests/malioc-walker-g715-detailed.txt
+/Users/zac/localclaudebox/phonetests/malioc-walker-g715.txt
+/Users/zac/localclaudebox/phonetests/safegcd_malioc_full.txt
+/Users/zac/localclaudebox/phonetests/walkerkern_malioc_table.sh
+/Users/zac/localclaudebox/phonetests/malioc-walker-g715-detailed.txt
+/Users/zac/localclaudebox/phonetests/malioc-fused-g715.txt
+/Users/zac/localclaudebox/phonetests/walkerkern_malioc_table.sh
+/Users/zac/localclaudebox/phonetests/safegcd_malioc_full.txt
+/Users/zac/localclaudebox/phonetests/malioc-walker-g715.txt
+=== naga available? (for wgsl->spirv->malioc) ===
+/Users/zac/.cargo/bin/naga
+=== adb / phone reachable? ===
+/opt/homebrew/bin/adb
+List of devices attached
+58131JEBF16217	device
+
