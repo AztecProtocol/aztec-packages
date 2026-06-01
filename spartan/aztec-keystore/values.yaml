@@ -50,6 +50,8 @@ provers:
 keystores:
   secretName: "" # if empty, will be generated as {Release.Name}-keystores
 
+nodeSelector: {}
+
 serviceAccount:
   create: true
   name: "" # leave empty to generate a name based on Release.Name

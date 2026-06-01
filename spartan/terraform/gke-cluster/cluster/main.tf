@@ -9,7 +9,7 @@ resource "google_container_cluster" "primary" {
   deletion_protection      = true
 
   # Kubernetes version
-  min_master_version = var.node_version
+  min_master_version = "1.30.5-gke.1713000"
 
   release_channel {
     channel = "UNSPECIFIED"
@@ -346,8 +346,8 @@ resource "google_container_node_pool" "infra_nodes_8core_highmem" {
   version  = var.node_version
   # Enable autoscaling
   autoscaling {
-    min_node_count = 0
-    max_node_count = 4
+    min_node_count = var.infra_8core_pool_size.min
+    max_node_count = var.infra_8core_pool_size.max
   }
 
   # Node configuration
@@ -389,8 +389,8 @@ resource "google_container_node_pool" "infra_nodes_16core_highmem" {
   version  = var.node_version
   # Enable autoscaling
   autoscaling {
-    min_node_count = 0
-    max_node_count = 4
+    min_node_count = var.infra_16core_pool_size.min
+    max_node_count = var.infra_16core_pool_size.max
   }
 
   # Node configuration

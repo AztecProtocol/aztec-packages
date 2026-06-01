@@ -13,6 +13,10 @@ on:
         description: "Nightly tag to use (e.g., 2.3.4-nightly.20251209). Ignored if docker_image is set. Leave empty to auto-detect."
         required: false
         type: string
+      source_ref:
+        description: "Git ref to checkout (e.g., v5.0.0-nightly.20260529). Required when docker_image is not a standard nightly tag."
+        required: false
+        type: string
 
 concurrency:
   group: nightly-bench-10tps-${{ github.ref }}
@@ -24,6 +28,7 @@ jobs:
     outputs:
       docker_image: ${{ steps.docker-image.outputs.docker_image }}
       image_label: ${{ steps.docker-image.outputs.image_label }}
+      source_ref: ${{ steps.docker-image.outputs.source_ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -36,19 +41,43 @@ jobs:
           if [[ -n "${{ inputs.docker_image }}" ]]; then
             docker_image="${{ inputs.docker_image }}"
             image_label="${{ inputs.docker_image }}"
+            image_tag="${docker_image##*:}"
           elif [[ -n "${{ inputs.nightly_tag }}" ]]; then
             nightly_tag="${{ inputs.nightly_tag }}"
             docker_image="aztecprotocol/aztec:${nightly_tag}"
             image_label="${nightly_tag}"
+            image_tag="${nightly_tag}"
           else
             current_version=$(jq -r '."."' .release-please-manifest.json)
             nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
             docker_image="aztecprotocol/aztec:${nightly_tag}"
             image_label="${nightly_tag}"
+            image_tag="${nightly_tag}"
           fi
+
+          if [[ -n "${{ inputs.source_ref }}" ]]; then
+            source_ref="${{ inputs.source_ref }}"
+          elif [[ "${image_tag:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]{8}$ ]]; then
+            source_ref="v${image_tag}"
+          else
+            echo "Could not infer git ref from docker image. Pass workflow input source_ref."
+            exit 1
+          fi
+
           echo "docker_image=$docker_image" >> "$GITHUB_OUTPUT"
           echo "image_label=$image_label" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
           echo "Using docker image: $docker_image"
+          echo "Using source ref: $source_ref"
+
+      - name: Verify source git ref
+        id: verify-source
+        run: |
+          set -euo pipefail
+          source_ref="${{ steps.docker-image.outputs.source_ref }}"
+          git fetch --depth 1 origin "refs/tags/${source_ref}:refs/tags/${source_ref}"
+          source_sha=$(git rev-parse "${source_ref}^{}")
+          echo "Nightly source commit: $source_sha"
 
       - name: Check if Docker image exists
         run: |
@@ -68,27 +97,29 @@ jobs:
       network: bench-10tps
       namespace: bench-10tps
       aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
-      ref: next
+      ref: ${{ needs.select-image.outputs.source_ref }}
       notify_on_failure: false
     secrets: inherit
 
   wait-for-first-l2-block:
-    needs: deploy-bench-10tps-network
+    needs:
+      - select-image
+      - deploy-bench-10tps-network
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
           install_components: gke-gcloud-auth-plugin
 
@@ -106,9 +137,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Run 10 TPS benchmark
         timeout-minutes: 240
@@ -137,9 +168,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Cleanup network resources
         env:
@@ -163,9 +194,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack on failure
         env:

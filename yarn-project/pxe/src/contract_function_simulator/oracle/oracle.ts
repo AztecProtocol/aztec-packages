@@ -708,13 +708,4 @@ export class Oracle {
       handler: () => this.handlerAsPrivate().getSenderForTags(),
     });
   }
-
-  // eslint-disable-next-line camelcase
-  aztec_prv_setSenderForTags(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
-    return callHandler({
-      oracle: 'aztec_prv_setSenderForTags',
-      inputs,
-      handler: ([senderForTags]) => this.handlerAsPrivate().setSenderForTags(senderForTags),
-    });
-  }
 }

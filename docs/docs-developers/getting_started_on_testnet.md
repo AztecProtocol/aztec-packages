@@ -205,3 +205,7 @@ For complete testnet technical details including contract addresses and network 
 - Check out the [Tutorials](./docs/tutorials/contract_tutorials/counter_contract.md) for building more complex contracts
 - Learn about [paying fees](./docs/aztec-js/how_to_pay_fees.md) with different methods
 - Explore [Aztec Playground](https://play.aztec.network/) for an interactive development experience
+
+:::tip Need help?
+If something does not work, see the [support guide](./support.md). It tells you when to ask in [Discord](https://discord.gg/aztec) or the [forum](https://forum.aztec.network), when to [open a GitHub issue](https://github.com/AztecProtocol/aztec-packages/issues/new?template=bug_report.yml), and how to disclose security issues responsibly.
+:::

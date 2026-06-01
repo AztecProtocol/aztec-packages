@@ -7,6 +7,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
+import { OutboxContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import {
   FeeAssetHandlerAbi,
@@ -210,7 +211,8 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       .simulate({ from: ownerAztecAddress });
     logger.info(`New L2 balance of ${ownerAztecAddress} is ${newL2Balance}`);
 
-    const result = await computeL2ToL1MembershipWitness(node, l2ToL1Message, l2TxReceipt.txHash);
+    const outboxContract = new OutboxContract(l1Client, l1ContractAddresses.outboxAddress);
+    const result = await computeL2ToL1MembershipWitness(node, outboxContract, l2ToL1Message, l2TxReceipt);
     if (!result) {
       throw new Error('L2 to L1 message not found');
     }
@@ -219,6 +221,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       withdrawAmount,
       EthAddress.fromString(ownerEthAddress),
       result.epochNumber,
+      result.numCheckpointsInEpoch,
       result.leafIndex,
       result.siblingPath,
     );

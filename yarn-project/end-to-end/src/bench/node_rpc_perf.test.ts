@@ -24,6 +24,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import 'jest-extended';
 import * as path from 'path';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { setup } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
@@ -148,6 +149,7 @@ describe('e2e_node_rpc_perf', () => {
       sequencerPollingIntervalMS: 200,
       worldStateBlockCheckIntervalMS: 200,
       blockCheckIntervalMS: 200,
+      ...PIPELINING_SETUP_OPTS,
       minTxsPerBlock: 1,
     }));
 
@@ -558,31 +560,19 @@ describe('e2e_node_rpc_perf', () => {
   });
 
   describe('log APIs', () => {
-    it('benchmarks getPublicLogs', async () => {
-      const { stats } = await benchmark('getPublicLogs', () => aztecNode.getPublicLogs({}));
-      addResult('getPublicLogs', stats);
-      expect(stats.avg).toBeLessThan(3000);
-    });
-
-    it('benchmarks getContractClassLogs', async () => {
-      const { stats } = await benchmark('getContractClassLogs', () => aztecNode.getContractClassLogs({}));
-      addResult('getContractClassLogs', stats);
-      expect(stats.avg).toBeLessThan(3000);
-    });
-
     it('benchmarks getPrivateLogsByTags', async () => {
       const tags = [SiloedTag.random()];
-      const { stats } = await benchmark('getPrivateLogsByTags', () => aztecNode.getPrivateLogsByTags(tags));
+      const { stats } = await benchmark('getPrivateLogsByTags', () => aztecNode.getPrivateLogsByTags({ tags }));
       addResult('getPrivateLogsByTags', stats);
       expect(stats.avg).toBeLessThan(3000);
     });
 
-    it('benchmarks getPublicLogsByTagsFromContract', async () => {
+    it('benchmarks getPublicLogsByTags', async () => {
       const tags = [Tag.random()];
-      const { stats } = await benchmark('getPublicLogsByTagsFromContract', () =>
-        aztecNode.getPublicLogsByTagsFromContract(contractAddress, tags),
+      const { stats } = await benchmark('getPublicLogsByTags', () =>
+        aztecNode.getPublicLogsByTags({ contractAddress, tags }),
       );
-      addResult('getPublicLogsByTagsFromContract', stats);
+      addResult('getPublicLogsByTags', stats);
       expect(stats.avg).toBeLessThan(3000);
     });
   });

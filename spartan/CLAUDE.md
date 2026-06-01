@@ -302,7 +302,6 @@ This ensures each release uses non-overlapping publisher key ranges while decoup
 ### RPC Nodes
 - Serve public API endpoints
 - Optional ingress with GCP backend config
-- Archive nodes for historical data
 
 ### Boot Nodes
 - P2P bootstrap for network discovery

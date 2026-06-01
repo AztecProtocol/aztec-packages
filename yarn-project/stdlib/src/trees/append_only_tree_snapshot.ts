@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToSink } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
@@ -44,8 +44,13 @@ export class AppendOnlyTreeSnapshot {
     return this.root.size + 4;
   }
 
-  toBuffer() {
-    return serializeToBuffer(this.root, this.nextAvailableLeafIndex);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.root, this.nextAvailableLeafIndex);
   }
 
   toFields(): Fr[] {

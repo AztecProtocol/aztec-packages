@@ -26,6 +26,7 @@ import {
   L2Block,
   type L2BlockSink,
   type L2BlockSource,
+  type ProposedCheckpointSink,
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
@@ -45,7 +46,7 @@ import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
 
-import { expect } from '@jest/globals';
+import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -65,7 +66,7 @@ describe('sequencer', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let checkpointsBuilder: MockCheckpointsBuilder;
   let checkpointBuilder: MockCheckpointBuilder;
-  let l2BlockSource: MockProxy<L2BlockSource & L2BlockSink>;
+  let l2BlockSource: MockProxy<L2BlockSource & L2BlockSink & ProposedCheckpointSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let publisherFactory: MockProxy<SequencerPublisherFactory>;
@@ -84,13 +85,14 @@ describe('sequencer', () => {
   let globalVariables: GlobalVariables;
   let l1Constants: Pick<
     L1RollupConstants,
-    'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration' | 'rollupManaLimit'
+    'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration' | 'rollupManaLimit' | 'epochDuration'
   >;
 
   let sequencer: TestSequencer;
 
   const slotDuration = 8;
   const ethereumSlotDuration = 4;
+  const epochDuration = 16;
 
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
@@ -187,7 +189,13 @@ describe('sequencer', () => {
     );
 
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
-    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration, rollupManaLimit: Number.MAX_SAFE_INTEGER };
+    l1Constants = {
+      l1GenesisTime,
+      slotDuration,
+      ethereumSlotDuration,
+      epochDuration,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
+    };
 
     epochCache = mockDeep<EpochCache>();
     epochCache.isEscapeHatchOpen.mockResolvedValue(false);
@@ -292,7 +300,7 @@ describe('sequencer', () => {
     // Use blockProvider so the mock returns whatever `block` is set to at call time
     checkpointBuilder.setBlockProvider(() => block);
 
-    l2BlockSource = mock<L2BlockSource & L2BlockSink>({
+    l2BlockSource = mock<L2BlockSource & L2BlockSink & ProposedCheckpointSink>({
       getBlockData: mockFn().mockResolvedValue({
         header: BlockHeader.empty(),
         archive: AppendOnlyTreeSnapshot.empty(),
@@ -1061,6 +1069,34 @@ describe('sequencer', () => {
       sequencer.skipExecute = false;
     });
 
+    it('derives the pipelined target slot from the same next-L1-slot snapshot', async () => {
+      await setupSingleTxBlock();
+
+      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(6),
+        ts: 1780066804n,
+        nowSeconds: 1780066811n,
+      });
+      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(8),
+        ts: 1780066816n,
+        nowSeconds: 1780066812n,
+      });
+      publisher.canProposeAt.mockResolvedValue({
+        slot: SlotNumber(7),
+        checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
+        timeOfNextL1Slot: 1780066816n,
+      });
+
+      await sequencer.work();
+
+      expect(epochCache.getTargetEpochAndSlotInNextL1Slot).not.toHaveBeenCalled();
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(7));
+      expect(p2p.prepareForSlot).toHaveBeenCalledWith(SlotNumber(7));
+    });
+
     it('skips L1 check when proposed checkpoint exists', async () => {
       await setupSingleTxBlock();
 
@@ -1312,6 +1348,114 @@ describe('sequencer', () => {
     });
   });
 
+  describe('checkSync orphan-block guard', () => {
+    // Mocks all sync sources so checkSync passes its earlier equality checks and reaches the orphan
+    // guard, with the world-state tip at `blockNumber` (in `blockCheckpointNumber`) while the
+    // checkpointed and proposed-checkpoint tips sit at the given checkpoint numbers.
+    const setupSyncedToBlock = (opts: {
+      blockNumber: BlockNumber;
+      blockCheckpointNumber: CheckpointNumber;
+      checkpointedCheckpointNumber: CheckpointNumber;
+      proposedCheckpointTipNumber: CheckpointNumber;
+      proposedCheckpointData: ProposedCheckpointData | undefined;
+    }) => {
+      const hash = Fr.random().toString();
+      const checkpointHash = Fr.random().toString();
+      const proposedCheckpointHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: opts.blockNumber,
+          latestBlockHash: hash,
+          finalizedBlockNumber: BlockNumber.ZERO,
+          oldestHistoricBlockNumber: BlockNumber.ZERO,
+          treesAreSynched: true,
+        },
+      } satisfies WorldStateSynchronizerStatus);
+      const tips = {
+        proposed: { number: opts.blockNumber, hash },
+        proposedCheckpoint: {
+          block: { number: opts.blockNumber, hash },
+          checkpoint: { number: opts.proposedCheckpointTipNumber, hash: proposedCheckpointHash },
+        },
+        checkpointed: {
+          block: { number: opts.blockNumber, hash },
+          checkpoint: { number: opts.checkpointedCheckpointNumber, hash: checkpointHash },
+        },
+        proven: {
+          block: { number: opts.blockNumber, hash },
+          checkpoint: { number: opts.checkpointedCheckpointNumber, hash: checkpointHash },
+        },
+        finalized: {
+          block: { number: opts.blockNumber, hash },
+          checkpoint: { number: opts.checkpointedCheckpointNumber, hash: checkpointHash },
+        },
+      };
+      l2BlockSource.getL2Tips.mockResolvedValue(tips);
+      l1ToL2MessageSource.getL2Tips.mockResolvedValue(tips);
+      p2p.getStatus.mockResolvedValue({ syncedToL2Block: { number: opts.blockNumber, hash } } as any);
+      l2BlockSource.getBlockData.mockResolvedValue({
+        header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: opts.blockNumber }) }),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        blockHash: BlockHash.ZERO,
+        checkpointNumber: opts.blockCheckpointNumber,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      } satisfies BlockData);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpointData);
+    };
+
+    it('returns undefined and warns when the proposed block has no matching proposed checkpoint', async () => {
+      // Local tip is a block at checkpoint 3, but the checkpointed and proposed-checkpoint tips are
+      // still at checkpoint 2 and no proposed checkpoint 3 exists: an orphan block-only tip.
+      setupSyncedToBlock({
+        blockNumber: BlockNumber(3),
+        blockCheckpointNumber: CheckpointNumber(3),
+        checkpointedCheckpointNumber: CheckpointNumber(2),
+        proposedCheckpointTipNumber: CheckpointNumber(2),
+        proposedCheckpointData: undefined,
+      });
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
+
+      expect(result).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Sequencer sync check failed: proposed block has no matching proposed checkpoint',
+        expect.objectContaining({
+          blockCheckpointNumber: CheckpointNumber(3),
+          checkpointedCheckpointNumber: CheckpointNumber(2),
+          proposedCheckpointTipNumber: CheckpointNumber(2),
+          proposedCheckpointDataNumber: undefined,
+        }),
+      );
+    });
+
+    it('proceeds when a matching proposed checkpoint exists for the block', async () => {
+      setupSyncedToBlock({
+        blockNumber: BlockNumber(3),
+        blockCheckpointNumber: CheckpointNumber(3),
+        checkpointedCheckpointNumber: CheckpointNumber(2),
+        proposedCheckpointTipNumber: CheckpointNumber(3),
+        proposedCheckpointData: {
+          checkpointNumber: CheckpointNumber(3),
+          header: CheckpointHeader.empty(),
+          archive: AppendOnlyTreeSnapshot.empty(),
+          checkpointOutHash: Fr.ZERO,
+          startBlock: BlockNumber(3),
+          blockCount: 1,
+          totalManaUsed: 0n,
+          feeAssetPriceModifier: 0n,
+        } satisfies ProposedCheckpointData,
+      });
+
+      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
+
+      expect(result).toBeDefined();
+      expect(result?.checkpointNumber).toEqual(CheckpointNumber(3));
+      expect(result?.checkpointedCheckpointNumber).toEqual(CheckpointNumber(2));
+    });
+  });
+
   describe('view-based proposer lookup', () => {
     it('passes target slot to getProposerAttesterAddressInSlot', async () => {
       const proposer = signer.address;
@@ -1358,8 +1502,7 @@ class TestSequencer extends Sequencer {
     this.setState(SequencerState.IDLE, undefined, { force: true });
     if (this.skipExecute) {
       this.setState(SequencerState.SYNCHRONIZING, undefined);
-      const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
-      const { slot: targetSlot, epoch: targetEpoch } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
+      const { slot, targetSlot, epoch, targetEpoch, ts, nowSeconds } = this.getSlotContextInNextL1Slot();
       await this.prepareCheckpointProposal(slot, targetSlot, epoch, targetEpoch, ts, nowSeconds);
       return;
     }
@@ -1372,5 +1515,13 @@ class TestSequencer extends Sequencer {
 
   public checkCanProposeForTest(slot: SlotNumber) {
     return this.checkCanPropose(slot);
+  }
+
+  public checkSyncForTest(args: { ts: bigint; slot: SlotNumber }) {
+    return this.checkSync(args);
+  }
+
+  public getLogger() {
+    return this.log;
   }
 }

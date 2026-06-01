@@ -1,5 +1,6 @@
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 
 import { join } from 'path';
@@ -12,7 +13,7 @@ import { FunctionNamesCache } from './function_names_cache.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
-export const ARCHIVER_DB_VERSION = 6;
+export const ARCHIVER_DB_VERSION = 7;
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
@@ -48,25 +49,20 @@ export type ArchiverDataStores = {
   functionNames: FunctionNamesCache;
 };
 
-/** Options used by {@link createArchiverDataStores}. */
-export type CreateArchiverDataStoresOptions = {
-  /** Maximum number of logs returned per page when paginating tagged log queries. */
-  logsMaxPageSize?: number;
-};
-
 /**
  * Wires up the archiver substores against a shared KV store and returns the
  * {@link ArchiverDataStores} bundle.
+ *
+ * @param genesisBlockHash - Hash of the synthetic genesis block, forwarded to the {@link LogStore} so it
+ *   can resolve a genesis `referenceBlock` (used by the PXE during early sync) instead of treating it as a
+ *   reorg.
  */
-export function createArchiverDataStores(
-  db: AztecAsyncKVStore,
-  opts: CreateArchiverDataStoresOptions = {},
-): ArchiverDataStores {
+export function createArchiverDataStores(db: AztecAsyncKVStore, genesisBlockHash: BlockHash): ArchiverDataStores {
   const blocks = new BlockStore(db);
   return {
     db,
     blocks,
-    logs: new LogStore(db, blocks, opts.logsMaxPageSize ?? 1000),
+    logs: new LogStore(db, blocks, genesisBlockHash),
     messages: new MessageStore(db),
     contractClasses: new ContractClassStore(db),
     contractInstances: new ContractInstanceStore(db),
