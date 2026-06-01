@@ -213,6 +213,10 @@ Withdrawals from the GSE are subject to the Governance Withdrawal Delay, calcula
 
 This delay is enforced on every `initiateWithdraw` call routed through the GSE, so all stake (including stake deposited via Token Vault delegations) waits it out before finalization. It applies whether or not the depositor ever cast a vote. For the full picture of how this interacts with the rollup-level staking exit delay, see [Staking tokens, exit delays](/participate/token/staking#exit-delays).
 
+:::note Upcoming change (AZIP-1)
+[AZIP-1](https://github.com/AztecProtocol/governance/pull/4) will cut the execution delay from 30 days to 2 days, reducing the mainnet withdrawal delay to ~10 days. The figure above reflects the current live parameters.
+:::
+
 ## Best practices
 
 ### For validators

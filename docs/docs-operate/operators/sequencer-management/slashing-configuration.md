@@ -56,7 +56,7 @@ On the current network, **all offenses are currently configured to slash 2,000 t
 :::
 
 :::tip For delegators
-If you delegated stake to a validator and want to understand how slashing affects your balance specifically (not how to configure your own sequencer), see [Delegating stake, what happens if your operator is slashed](/participate/token/delegation#what-happens-if-your-operator-is-slashed). Slashing burns proportionally from the validator's total pool, so your loss depends on your share of the pool, including how much of their own stake the operator has put up.
+If you delegated stake to an operator and want to understand how slashing affects your balance specifically (not how to configure your own sequencer), see [Delegating stake, what happens if your operator is slashed](/participate/token/delegation#what-happens-if-your-operator-is-slashed). Each attester is funded by a single Token Vault, so a slash comes entirely out of your delegated position; the operator does not stake into the same attester and does not share the loss.
 :::
 
 ## Slashable Offenses

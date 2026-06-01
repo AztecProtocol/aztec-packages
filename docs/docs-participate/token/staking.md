@@ -69,6 +69,10 @@ When you initiate an unstake, two clocks start at the same time, and you can fin
 
 Because the two clocks run concurrently from the moment you call `initiateWithdraw`, your effective wait is the **longer of the two**: roughly 38 days on mainnet and roughly 2 days on testnet. This applies whether you self-stake or delegate through a Token Vault. In the current rollup contracts, staking deposits route through the Governance Staking Escrow (GSE), and the governance withdrawal delay applies to every exit from that path.
 
+:::note Upcoming change (AZIP-1)
+[AZIP-1](https://github.com/AztecProtocol/governance/pull/4) will cut the execution delay from 30 days to 2 days. Once adopted, the mainnet governance withdrawal delay drops from ~38 days to ~10 days. The values on this page reflect the current live parameters and change only once AZIP-1 is executed.
+:::
+
 #### Why two delays?
 
 The shorter rollup-level exit delay exists so the network can detect and slash a misbehaving validator during the exit window. The longer governance withdrawal delay exists so that anyone who *could have voted* on a proposal during their staked window remains subject to its outcome, even if they never actually voted. Your stake unconditionally backs voting power in the GSE, which is why the governance delay applies regardless of whether you cast a vote.
