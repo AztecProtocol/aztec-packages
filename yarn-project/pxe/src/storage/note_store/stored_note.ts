@@ -22,7 +22,7 @@ export class StoredNote {
     return serializeToBuffer(this.noteDao, scopesArray.length, ...scopesArray);
   }
 
-  /** The chain location that created this note — used as its canonicality coordinate. */
+  /** The chain location (block number + hash) where this note was created. */
   get creationOrigin(): L2BlockId {
     return { number: this.noteDao.l2BlockNumber, hash: this.noteDao.l2BlockHash };
   }
