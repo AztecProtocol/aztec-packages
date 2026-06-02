@@ -22,12 +22,12 @@ The term *payment endpoint* in this page is application-level. Aztec's protocol 
 
 ## A partial note as an offer to be paid
 
-A partial note is a commitment to `(owner, randomness)` that anyone holding the commitment can later complete with `(storage_slot, value)`. Once minted, the commitment is just a `Field`. It can be copied freely, stored anywhere, and shared with any sender.
+A partial note is a commitment to `(owner, randomness)`. Once minted, the commitment is just a `Field`: it can be copied freely, stored anywhere, and shared with any sender. Holding the commitment is not enough to complete it, though; only the note's designated completer can complete it with `(storage_slot, value)`.
 
-Two protocol properties make a partial note useful as a payment endpoint:
+Two properties make a partial note useful as a payment endpoint:
 
 - **The recipient does not need to be online during the payment.** When a partial note is minted, the contract sends the recipient a private message identifying the partial note. The recipient's Private eXecution Environment (PXE) holds this pending entry and scans for the completion log whenever it has the chance.
-- **The completer is bound at mint time.** The minting contract records a validity commitment `H(partial_commitment, completer)` in the nullifier tree. Only the designated `completer` can later finalize the note, because `msg_sender` at completion time must equal `completer`.
+- **The completer is fixed when the note is minted.** The minting contract records a validity commitment `H(partial_commitment, completer)` in the nullifier tree. Completion takes a `completer` argument and checks that the matching validity commitment exists, so it only succeeds for the completer the note was minted with. The primitive itself does not inspect `msg_sender`; the standard token is what binds the two, passing `self.msg_sender()` as the completer in both its prepare and finalize entrypoints. In practice, then, only the address the note was minted for (or, in the shim pattern below, the shim) can finalize it.
 
 Each partial note is single-use (see [single-use semantics](./partial_notes.md#single-use-semantics)), so an endpoint that accepts many payments must hold many partial notes.
 
@@ -145,7 +145,7 @@ A reused partial note breaks both the privacy property (linkable completions) an
 
 ## What this does not solve
 
-This pattern does not give the recipient non-interactive stealth addresses. A sender cannot derive a recipient-controlled commitment without the recipient's involvement: any scheme that let an arbitrary sender produce an address Alice controls would also let that sender prove the derivation, which defeats the unlinkability goal.
+This pattern is not a stealth-address scheme. It requires the recipient to pre-mint and publish a pool of commitments ahead of time, and to keep refilling it; senders draw from that pool. A stealth-address scheme, by contrast, lets a recipient publish a single meta-address once and stay otherwise passive, with each sender deriving a fresh one-time address non-interactively. Partial-note endpoints trade that recipient passivity for an explicit, recipient-controlled supply of payment slots.
 
 The pattern also does not protect against an attacker who can break the underlying hash function used to build the partial commitment. The commitment is a one-way hash of `(owner, randomness)`, and a published pool of commitments creates a public corpus that would be vulnerable in that scenario.
 
