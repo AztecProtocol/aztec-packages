@@ -882,6 +882,12 @@ export class MsmHighMemory {
   private convMetaPipe!: GPUComputePipeline;
   private reduceInitPipe!: GPUComputePipeline;
   private reduceLevelPipes: GPUComputePipeline[] = [];
+  // All-Jacobian (inversion-free) reduce. The high-memory backend is
+  // small-MSM-only, where the affine batched-inversion reduce can't saturate
+  // the GPU (too few buckets to amortise the safegcd), so Jacobian wins.
+  private zInitPipe!: GPUComputePipeline;
+  private jacLevelPipe!: GPUComputePipeline;
+  private jacFinalizePipe!: GPUComputePipeline;
   // layouts (needed by prepare to build bind groups)
   private plannerALayout!: GPUBindGroupLayout;
   private plannerBLayout!: GPUBindGroupLayout;
@@ -900,6 +906,9 @@ export class MsmHighMemory {
   private convMetaLayout!: GPUBindGroupLayout;
   private reduceInitLayout!: GPUBindGroupLayout;
   private reduceLevelLayout!: GPUBindGroupLayout;
+  private zInitLayout!: GPUBindGroupLayout;
+  private jacLevelLayout!: GPUBindGroupLayout;
+  private jacFinalizeLayout!: GPUBindGroupLayout;
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
@@ -999,6 +1008,10 @@ export class MsmHighMemory {
   private reduceInitBind!: GPUBindGroup;
   private reduceLevelBinds: GPUBindGroup[] = [];
   private reduceLevelKinds: number[] = [];
+  private redZBuf!: GPUBuffer;
+  private jacLevelBinds: GPUBindGroup[] = [];
+  private zInitBind!: GPUBindGroup;
+  private jacFinalizeBind!: GPUBindGroup;
   private levelBinds: LevelBind[] = [];
 
   private constructor() {}
@@ -1139,6 +1152,9 @@ export class MsmHighMemory {
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.reduceInitLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform']);
+    m.zInitLayout = lt(['read-only-storage', 'storage', 'uniform']); // is_present, red_z, zparams
+    m.jacLevelLayout = lt(['storage', 'storage', 'uniform', 'uniform']); // red_buf, red_z, cparams, lparams
+    m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform']); // red_buf, red_z, cparams
 
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
@@ -1212,6 +1228,15 @@ export class MsmHighMemory {
         m.reduceLevelLayout,
       );
     }
+    // All-Jacobian reduce: one kind-agnostic level kernel (kind in lparams.w),
+    // a Z-plane seed from is_present, and an affine convert at the end.
+    m.zInitPipe = await compile(sm.gen_ba_reduce_z_init_shader(WGI), `reduce-z-init`, m.zInitLayout);
+    m.jacLevelPipe = await compile(sm.gen_ba_reduce_level_jacobian_shader(REDUCE_WG), `reduce-level-jac`, m.jacLevelLayout);
+    m.jacFinalizePipe = await compile(
+      sm.gen_ba_reduce_jac_finalize_shader(WGI, INV_VARIANT),
+      `reduce-jac-finalize`,
+      m.jacFinalizeLayout,
+    );
 
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
@@ -1648,10 +1673,31 @@ export class MsmHighMemory {
     // One kind-specialized dispatch per level: the schedule's (a, b, ppw)
     // ride a per-level uniform, the (M, maxc, stride) constants a shared one.
     const cparams = ubuf(new Uint32Array([RED_M, this.capMAXC, this.stride, 0]));
+    // All-Jacobian reduce: a per-instance Z-plane (PG=2 vec4<u32> per red_buf
+    // slot, RED_M slots) replaces is_present/pref_scratch in the level kernel.
+    this.redZBuf = device.createBuffer({
+      size: 2 * RED_M * 16,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+    this.prepBuffers.push(this.redZBuf);
+    this.jacLevelBinds = [];
     this.reduceLevelBinds = this.reducePasses.map((_, i) => {
-      const lparams = ubuf(new Uint32Array([schedule[i * 4 + 1], schedule[i * 4 + 2], schedule[i * 4 + 3], 0]));
+      // lparams.w carries the kind (0 suffix / 1 tree / 2 double) so the
+      // runtime-kind Jacobian level kernel branches on it (the affine kernel,
+      // kept compiled, bakes the kind in and ignores .w).
+      const lparams = ubuf(new Uint32Array([
+        schedule[i * 4 + 1],
+        schedule[i * 4 + 2],
+        schedule[i * 4 + 3],
+        this.reduceLevelKinds[i],
+      ]));
+      this.jacLevelBinds.push(mkBind(this.jacLevelLayout, [redBuf, this.redZBuf, cparams, lparams]));
       return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams]);
     });
+    const zInitParams = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
+    this.zInitBind = mkBind(this.zInitLayout, [isPresentBuf, this.redZBuf, zInitParams]);
+    const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, this.stride, this.numWindows]));
+    this.jacFinalizeBind = mkBind(this.jacFinalizeLayout, [redBuf, this.redZBuf, jacFinalizeParams]);
     this.redBuf = redBuf;
     this.redStaging = device.createBuffer({
       size: NUM_WINDOWS * 64,
@@ -1800,7 +1846,8 @@ export class MsmHighMemory {
         for (let lv = 0; lv < levels; lv++) passes += 4 + this.levelBinds[lv].fusedTiles.length;
       }
       // reduceInit + one dispatch per reduction level.
-      passes += 1 + this.reducePasses.length;
+      // reduceInit + zInit + jacLevel×N + jacFinalize (all-Jacobian reduce).
+      passes += 3 + this.reducePasses.length;
       this.passCount = passes;
       this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
       this.tsResolveBuf = device.createBuffer({
@@ -2011,11 +2058,17 @@ export class MsmHighMemory {
     }
     setPhase('reduce_init');
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
+    // All-Jacobian (inversion-free) bucket reduction: seed the Z-plane from
+    // is_present, run the runtime-kind Jacobian level kernel per schedule level,
+    // then convert each window's Jacobian sum back to affine once.
+    setPhase('reduce_zinit');
+    dispatch(this.zInitPipe, this.zInitBind, Math.ceil(this.redM / WGI), 1);
     setPhase('reduce_level');
-    for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
-      const pipe = this.reduceLevelPipes[this.reduceLevelKinds[lv]];
-      dispatch(pipe, this.reduceLevelBinds[lv], this.numWindows, 1);
+    for (let lv = 0; lv < this.jacLevelBinds.length; lv++) {
+      dispatch(this.jacLevelPipe, this.jacLevelBinds[lv], this.numWindows, 1);
     }
+    setPhase('reduce_jacfinal');
+    dispatch(this.jacFinalizePipe, this.jacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
     // Per-window weighted sum gather. Same SoA stride math as run(), just
     // targeting an external staging buffer at an external offset.
     const yPlane = 32 * this.redM;
