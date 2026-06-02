@@ -396,13 +396,19 @@ of `n`. RED storage drops from `64·NW·stride` to `64·bw·stride`.
 >    `copyBufferToBuffer` window gather) move **into** the per-batch loop — the
 >    planner already runs per-batch, so the structure supports it. The gather's
 >    `dst` offset becomes `bi·bw·64`.
-> 3. **RESOLVE FIRST — a `batch_offset` asymmetry.** `ba_size1` computes
->    `red_slot` *without* `batch_offset` (`(bucket_idx/BW)*STRIDE + …`), while the
->    walker/combine *do* add it. In multi-batch this looks like size-1 buckets
->    land at local-window slots while the walker writes global — yet `?nb=4/20`
->    validate **byte-identical to golden**, so size1 is either not exercised on
->    those inputs or compensated elsewhere. Understand this before touching the
->    indexing; getting it wrong silently corrupts (no error).
+> 3. **The `batch_offset` asymmetry — RESOLVED.** `ba_size1` computes `red_slot`
+>    *without* `batch_offset` (`(bucket_idx/BW)*STRIDE + …`) while the walker/combine
+>    *add* it. Not a bug: `size1`'s `bucket_idx` is a **global** bid (it reads
+>    `size1_bucket_list` from `classify`, which is dispatched over the full
+>    `bTotal`; the `/BW` + `%BW` decomposition only works on a global bid), so
+>    `bucket_idx/BW` is already the global window — no offset needed. The walker
+>    instead carries a **batch-local** window and adds `batch_offset.x =
+>    bi·batchWindows` to globalise it. Both land at the same correct global slot,
+>    which is why `?nb=4/20` are byte-identical to golden. **Consequence for the
+>    restructure:** to make `redBuf` batch-local you must convert BOTH writers —
+>    feed the walker `batch_offset.x = 0`, AND give `size1` a *subtract*-batch-base
+>    term (`(bucket_idx/BW) - bi·batchWindows`) it currently lacks, else its
+>    global bids overflow the now-`bw`-window `redBuf`.
 >
 > **Risk is bounded:** at `numBatches=1` the change is byte-identical *by
 > construction* (`batchWindows=NW` ⇒ `M_RED=NW·stride`, `batch_offset.x=0=0·NW`),
@@ -475,7 +481,8 @@ cap at 16 KiB). Make `MPW` (hence `sT`) device-adaptive.
    path is ✅ validated golden (`?nb=1/4/20`, `15c708e231`). The remaining
    compute-flow change (batch-local `redBuf` so `bw < NW` shrinks RED) is
    **analysed + deferred into step 5** — see §7 IMPLEMENTATION NOTES (compile-time
-   `M_RED`, the `batch_offset.x→0` switch, the `ba_size1` asymmetry to resolve).
+   `M_RED`, the `batch_offset.x→0` switch, and the now-resolved `ba_size1`
+   global-vs-local convention: `size1` also needs a subtract-batch-base term).
    Its benefit only lands at `numBatches>1`, which is Packing's regime.
 4. **Overlay.** ~~scatter→`ptScratch`~~ — **infeasible under the 6-colour build**
    (the cross-zone reclaim is blocked by the ro+rw colouring; see §2
