@@ -64,8 +64,8 @@ describe('BlockSynchronizer', () => {
     aztecNode = mock<AztecNode>();
     tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
     anchorBlockStore = new AnchorBlockStore(store);
-    noteStore = new NoteStore(store, { isCanonical: () => true });
-    privateEventStore = new PrivateEventStore(store, { isCanonical: () => true });
+    noteStore = new NoteStore(store);
+    privateEventStore = new PrivateEventStore(store);
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });

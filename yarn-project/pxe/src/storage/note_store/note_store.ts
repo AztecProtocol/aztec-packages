@@ -8,7 +8,7 @@ import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { NotesFilter } from '../../notes_filter.js';
-import type { CanonicalityCheck, L2BlockId } from '../foundation/index.js';
+import type { L2BlockId } from '../foundation/index.js';
 import { StoredNote } from './stored_note.js';
 
 /**
@@ -16,14 +16,13 @@ import { StoredNote } from './stored_note.js';
  *
  * Notes are written once (keyed by siloedNullifier) and never mutated or deleted. Nullifications are recorded as
  * separate append-only entries: a multimap from nullifier to origin strings encoding the block that nullified it.
- * Reorgs are handled transparently by the CanonicalityCheck — a note is visible iff its creation origin is canonical
- * and no canonical nullification origin exists for it.
+ * Reorgs are handled by delete-on-prune: the `chain-pruned` path physically deletes every row anchored to an orphaned
+ * block, so the store holds only canonical rows by construction and reads need no canonicality check.
  */
 export class NoteStore implements StagedStore {
   readonly storeName: string = 'note';
 
   #store: AztecAsyncKVStore;
-  #check: CanonicalityCheck;
 
   // Note that we use the siloedNullifier as the note id in the store as it's guaranteed to be unique.
 
@@ -40,14 +39,15 @@ export class NoteStore implements StagedStore {
   // block number => nullifier
   #nullifiersByBlockNumber: AztecAsyncMultiMap<number, string>;
 
-  // Stores all nullification origins for each nullifier. Multiple origins arise when competing forks nullify the same
-  // note at different block hashes; the canonical one is selected at read time via #check.
+  // Stores all nullification origins for each nullifier. Multiple origins can arise when competing forks nullify the
+  // same note at different block hashes; orphaned-fork origins are removed by delete-on-prune, so any origin present
+  // here reflects the canonical chain.
   // nullifier => originStr ("<number>:<hash>")
   #nullificationsByNullifier: AztecAsyncMultiMap<string, string>;
 
-  // Locates nullification origins by the block that recorded them, so the reorg reap can find and delete orphan
-  // origins at a finalized height. The value packs both the nullifier (to locate the #nullificationsByNullifier key)
-  // and the originStr (the specific value to delete) as "<nullifier>|<originStr>"; '|' is a safe delimiter since
+  // Locates nullification origins by the block that recorded them, so delete-on-prune can find and delete orphan
+  // origins anchored to a pruned block. The value packs both the nullifier (to locate the #nullificationsByNullifier
+  // key) and the originStr (the specific value to delete) as "<nullifier>|<originStr>"; '|' is a safe delimiter since
   // nullifiers are hex "0x…" strings and originStr is "<decimal>:<0xhex>".
   // nullification block number => "<nullifier>|<originStr>"
   #nullificationsByBlockNumber: AztecAsyncMultiMap<number, string>;
@@ -65,9 +65,8 @@ export class NoteStore implements StagedStore {
   // jobId => lock
   #jobLocks: Map<string, Semaphore>;
 
-  constructor(store: AztecAsyncKVStore, check: CanonicalityCheck) {
+  constructor(store: AztecAsyncKVStore) {
     this.#store = store;
-    this.#check = check;
     this.#notes = store.openMap('notes');
     this.#nullifiersByContractAddress = store.openMultiMap('note_nullifiers_by_contract');
     this.#nullifiersByBlockNumber = store.openMultiMap('note_nullifiers_by_block');
@@ -119,9 +118,9 @@ export class NoteStore implements StagedStore {
   /**
    * Retrieves notes based on the provided filter criteria.
    *
-   * Whether a note is active or nullified is determined at read time by the CanonicalityCheck: the note's creation
-   * origin must be canonical, and it is considered nullified iff at least one recorded nullification origin for its
-   * nullifier is also canonical.
+   * Every row in the store is canonical by construction (orphaned rows are removed by delete-on-prune), so a note is
+   * considered nullified iff at least one nullification origin has been recorded for its nullifier (committed or
+   * staged).
    *
    * All DB reads are kicked off before any await so IndexedDB does not auto-commit the transaction mid-read.
    *
@@ -191,18 +190,13 @@ export class NoteStore implements StagedStore {
           throw new Error('PXE note database is corrupted.');
         }
 
-        // Creation origin must be on the canonical chain.
-        if (!this.#check.isCanonical(note.creationOrigin)) {
-          continue;
-        }
-
         const nullifierStr = note.noteDao.siloedNullifier.toString();
 
-        // A note is nullified if any recorded nullification origin (committed or staged) is canonical.
+        // A note is nullified once any nullification origin is recorded for it (committed or staged). Orphaned-fork
+        // origins are removed by delete-on-prune, so a recorded origin always reflects the canonical chain.
         const committedOrigins = committedOriginsMap.get(nullifierStr) ?? [];
-        const stagedOrigins = [...(this.#getNullificationsForJob(jobId).get(nullifierStr) ?? [])];
-        const allOrigins = [...committedOrigins, ...stagedOrigins];
-        const nullified = allOrigins.some(s => this.#check.isCanonical(this.#parseOrigin(s)));
+        const stagedOrigins = this.#getNullificationsForJob(jobId).get(nullifierStr);
+        const nullified = committedOrigins.length > 0 || (stagedOrigins?.size ?? 0) > 0;
 
         if (targetStatus === NoteStatus.ACTIVE && nullified) {
           continue;
@@ -245,8 +239,8 @@ export class NoteStore implements StagedStore {
    *
    * Each nullifier gets an append-only origin entry `"<number>:<hash>"`. Nullifications are recorded only for
    * notes already present in this store; a nullifier with no matching note is ignored (the note may belong to another
-   * account). Reorg safety comes from the CanonicalityCheck at read time — no physical deletion or mutation ever
-   * occurs here.
+   * account). Reorg safety comes from delete-on-prune, which removes orphaned origins anchored to pruned blocks — no
+   * physical deletion or mutation ever occurs here.
    *
    * applyNullifiers is idempotent with respect to read visibility: recording the same origin twice does not change
    * which notes appear active or nullified.
@@ -397,7 +391,7 @@ export class NoteStore implements StagedStore {
     return origins;
   }
 
-  /** Returns the nullifiers (note ids) of all notes created at the given block number. Used by the reorg reap. */
+  /** Returns the nullifiers (note ids) of all notes created at the given block number. Used by delete-on-prune. */
   public async nullifiersAtBlock(blockNumber: number): Promise<string[]> {
     const nullifiers: string[] = [];
     for await (const nullifier of this.#nullifiersByBlockNumber.getValuesAsync(blockNumber)) {

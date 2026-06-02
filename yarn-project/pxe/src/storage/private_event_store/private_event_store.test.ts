@@ -9,7 +9,6 @@ import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { PackedPrivateEvent } from '../../pxe.js';
-import type { CanonicalityCheck } from '../foundation/index.js';
 import { PrivateEventStore } from './private_event_store.js';
 
 const getRandomMsgContent = () => {
@@ -19,8 +18,6 @@ const getRandomMsgContent = () => {
 describe('PrivateEventStore', () => {
   let kvStore: AztecAsyncKVStore;
   let privateEventStore: PrivateEventStore;
-  let canonical: Set<string>;
-  let check: CanonicalityCheck;
   let contractAddress: AztecAddress;
   let scope: AztecAddress;
   let msgContent: Fr[];
@@ -34,10 +31,7 @@ describe('PrivateEventStore', () => {
 
   beforeEach(async () => {
     kvStore = await openTmpStore('private_event_store_test');
-    canonical = new Set<string>();
-    check = { isCanonical: o => canonical.has(`${o.number}:${o.hash}`) };
-    // Most tests don't exercise canonicality filtering; use an always-true check so stored events are always visible.
-    privateEventStore = new PrivateEventStore(kvStore, { isCanonical: () => true });
+    privateEventStore = new PrivateEventStore(kvStore);
     contractAddress = await AztecAddress.random();
     scope = await AztecAddress.random();
     msgContent = getRandomMsgContent();
@@ -340,40 +334,6 @@ describe('PrivateEventStore', () => {
     });
 
     expect(events).toEqual([]);
-  });
-
-  it('hides events whose block is not canonical and shows them once it is', async () => {
-    const blockHash = BlockHash.random();
-    const blockNumber = BlockNumber(5);
-
-    // Use the set-backed check so we can toggle canonicality at runtime.
-    const store = await openTmpStore('canonicality_test');
-    const canonicityStore = new PrivateEventStore(store, check);
-
-    await canonicityStore.storePrivateEventLog(
-      eventSelector,
-      randomness,
-      msgContent,
-      siloedEventCommitment,
-      {
-        contractAddress,
-        scope,
-        txHash,
-        l2BlockNumber: blockNumber,
-        l2BlockHash: blockHash,
-        txIndexInBlock: 0,
-        eventIndexInTx: 0,
-      },
-      'test',
-    );
-    await canonicityStore.commit('test');
-
-    const filter = { contractAddress, fromBlock: blockNumber, toBlock: blockNumber + 1, scopes: [scope] };
-
-    expect(await canonicityStore.getPrivateEvents(eventSelector, filter)).toHaveLength(0);
-
-    canonical.add(`${blockNumber}:${blockHash.toString()}`);
-    expect(await canonicityStore.getPrivateEvents(eventSelector, filter)).toHaveLength(1);
   });
 
   describe('event ordering', () => {

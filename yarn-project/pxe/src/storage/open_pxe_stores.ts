@@ -37,9 +37,9 @@ export function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: BlockH
   const anchorBlockStore = new AnchorBlockStore(store);
   return {
     addressStore: new AddressStore(store),
-    privateEventStore: new PrivateEventStore(store, { isCanonical: () => true }),
+    privateEventStore: new PrivateEventStore(store),
     contractStore: new ContractStore(store),
-    noteStore: new NoteStore(store, { isCanonical: () => true }),
+    noteStore: new NoteStore(store),
     anchorBlockStore,
     senderTaggingStore: new SenderTaggingStore(store),
     senderAddressBookStore: new SenderAddressBookStore(store),

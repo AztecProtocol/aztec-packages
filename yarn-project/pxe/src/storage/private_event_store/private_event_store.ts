@@ -9,7 +9,6 @@ import type { InTx, TxHash } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { PackedPrivateEvent } from '../../pxe.js';
-import type { CanonicalityCheck } from '../foundation/index.js';
 import { StoredPrivateEvent } from './stored_private_event.js';
 
 export type PrivateEventStoreFilter = {
@@ -30,8 +29,9 @@ type PrivateEventMetadata = InTx & {
 };
 
 /**
- * Stores decrypted private event logs. Append-only: events are never deleted; reorgs are handled
- * transparently by filtering reads through the provided `CanonicalityCheck`.
+ * Stores decrypted private event logs. Append-only: events are never deleted during normal operation. Reorgs are
+ * handled by delete-on-prune, which physically removes every event anchored to an orphaned block, so the store holds
+ * only canonical rows by construction and reads need no canonicality check.
  */
 export class PrivateEventStore implements StagedStore {
   readonly storeName: string = 'private_event';
@@ -41,10 +41,8 @@ export class PrivateEventStore implements StagedStore {
   #events: AztecAsyncMap<string, Buffer>;
   /** Multi-map from contractAddress_eventSelector to siloedEventCommitment for efficient lookup */
   #eventsByContractAndEventSelector: AztecAsyncMultiMap<string, string>;
-  /** Multi-map from block number to siloedEventCommitment, for the reorg reap. */
+  /** Multi-map from block number to siloedEventCommitment, for delete-on-prune. */
   #eventsByBlockNumber: AztecAsyncMultiMap<number, string>;
-
-  #check: CanonicalityCheck;
 
   /** jobId => eventId (event siloed nullifier) => StoredPrivateEvent */
   #eventsForJob: Map<string, Map<string, StoredPrivateEvent>>;
@@ -54,9 +52,8 @@ export class PrivateEventStore implements StagedStore {
 
   logger = createLogger('private_event_store');
 
-  constructor(store: AztecAsyncKVStore, check: CanonicalityCheck) {
+  constructor(store: AztecAsyncKVStore) {
     this.#store = store;
-    this.#check = check;
     this.#events = this.#store.openMap('private_event_logs');
     this.#eventsByContractAndEventSelector = this.#store.openMultiMap('events_by_contract_selector');
     this.#eventsByBlockNumber = this.#store.openMultiMap('events_by_block_number');
@@ -177,11 +174,6 @@ export class PrivateEventStore implements StagedStore {
 
         const storedPrivateEvent = StoredPrivateEvent.fromBuffer(eventBuffer);
 
-        // Filter out events whose origin block is not on the canonical chain.
-        if (!this.#check.isCanonical(storedPrivateEvent.creationOrigin)) {
-          continue;
-        }
-
         // Filter by block range
         if (storedPrivateEvent.l2BlockNumber < filter.fromBlock || storedPrivateEvent.l2BlockNumber >= filter.toBlock) {
           continue;
@@ -226,7 +218,7 @@ export class PrivateEventStore implements StagedStore {
     });
   }
 
-  /** Returns the ids (siloed event commitments) of all events emitted at the given block number. Used by the reorg reap. */
+  /** Returns the ids (siloed event commitments) of all events emitted at the given block number. Used by delete-on-prune. */
   public async eventIdsAtBlock(blockNumber: number): Promise<string[]> {
     const eventIds: string[] = [];
     for await (const eventId of this.#eventsByBlockNumber.getValuesAsync(blockNumber)) {

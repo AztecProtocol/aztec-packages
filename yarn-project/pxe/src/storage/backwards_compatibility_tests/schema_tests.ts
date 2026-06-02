@@ -284,9 +284,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   {
     name: 'NoteStore',
     writeToStore: async kvStore => {
-      // Always-canonical check: schema tests exercise what gets written to disk, not read-time visibility.
-      const alwaysCanonical = { isCanonical: () => true };
-      const noteStore = new NoteStore(kvStore, alwaysCanonical);
+      const noteStore = new NoteStore(kvStore);
 
       const jobId = 'fixture-job';
 
@@ -384,7 +382,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   {
     name: 'PrivateEventStore',
     writeToStore: async kvStore => {
-      const privateEventStore = new PrivateEventStore(kvStore, { isCanonical: () => true });
+      const privateEventStore = new PrivateEventStore(kvStore);
 
       const jobId = 'fixture-job';
 

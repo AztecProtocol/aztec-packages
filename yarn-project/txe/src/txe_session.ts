@@ -255,9 +255,8 @@ export class TXESession implements TXESessionStateHandler {
     const store = await openEphemeralStore('txe-session', undefined, 2);
 
     const addressStore = new AddressStore(store);
-    // TXE sessions are ephemeral and have no reorg concept; all events are always canonical.
-    const privateEventStore = new PrivateEventStore(store, { isCanonical: () => true });
-    const noteStore = new NoteStore(store, { isCanonical: () => true });
+    const privateEventStore = new PrivateEventStore(store);
+    const noteStore = new NoteStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const senderAddressBookStore = new SenderAddressBookStore(store);

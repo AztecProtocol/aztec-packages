@@ -322,16 +322,14 @@ describe('PXE', () => {
 
       contractAddress = contractInstance.address;
       eventSelector = EventSelector.random();
-      // Events are anchored to the canonical hash the synchronizer records for `lastKnownBlockNumber`. That hash is the
-      // block header hash the `blocks-added` handler derives from the block the node serves below, so we use the same
-      // value here; otherwise the recorded hash would disqualify these events from `isCanonical`.
+      // A well-formed header hash for `lastKnownBlockNumber`; the stored events just need a consistent block hash.
       l2BlockHash = await blockHeader.hash();
 
-      // Canonicality is established the same way it is in production, by driving the real L2BlockStream to completion.
+      // Drive the real L2BlockStream to completion so the synchronizer adopts `lastKnownBlockNumber` as the anchor.
       // Once genesis agrees (see the getBlock mock above) the stream ingests `lastKnownBlockNumber` as a `blocks-added`
-      // event, which the block synchronizer adopts as the anchor header. It then emits `chain-finalized` (the node
-      // reports a finalized tip there while the local store is still at genesis). So events at that block read back as
-      // canonical, and events in later, not-yet-synced blocks stay above the anchor height and are filtered out.
+      // event, which the block synchronizer adopts as the anchor header. The anchor height bounds the default query
+      // range: events at the anchor block are returned, while events in later, not-yet-synced blocks stay above it and
+      // are excluded by the block-range cap (see PrivateEventFilterValidator).
       //
       // getBlocks must yield a body-bearing response so the stream source can build a real L2Block; getCheckpoints has
       // nothing to serve (the single block is uncheckpointed here) and returns empty.
@@ -340,7 +338,7 @@ describe('PXE', () => {
 
       scope = await AztecAddress.random();
 
-      privateEventStore = new PrivateEventStore(kvStore, { isCanonical: () => true });
+      privateEventStore = new PrivateEventStore(kvStore);
     });
 
     let eventCounter = 0;

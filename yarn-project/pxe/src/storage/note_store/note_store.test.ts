@@ -5,7 +5,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type DataInBlock } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
-import type { CanonicalityCheck } from '../foundation/index.js';
 import { NoteStore } from './note_store.js';
 
 // -----------------------------------------------------------------------------
@@ -24,9 +23,6 @@ const SILOED_NULLIFIER_2 = Fr.random();
 const SILOED_NULLIFIER_3 = Fr.random();
 // -----------------------------------------------------------------------------
 
-/** A CanonicalityCheck that treats every origin as canonical. Used in legacy tests that don't exercise reorg behavior. */
-const alwaysCanonical: CanonicalityCheck = { isCanonical: () => true };
-
 describe('NoteStore', () => {
   // Helper to create a deterministic note with sensible defaults, override any field as needed.
   function mkNote(overrides: Partial<NoteDao> = {}) {
@@ -42,7 +38,7 @@ describe('NoteStore', () => {
   // Sets up a fresh NoteStore with two scopes and three notes.
   async function setupNoteStoreWithNotes(storeName: string) {
     const store = await openTmpStore(storeName);
-    const noteStore = new NoteStore(store, alwaysCanonical);
+    const noteStore = new NoteStore(store);
 
     const note1 = await mkNote({
       contractAddress: CONTRACT_A,
@@ -100,7 +96,7 @@ describe('NoteStore', () => {
   describe('NoteStore.create', () => {
     it('creates a NoteStore on an empty store and confirms getNotes returns an empty array', async () => {
       const store = await openTmpStore('note_store_fresh_store');
-      const noteStore = new NoteStore(store, alwaysCanonical);
+      const noteStore = new NoteStore(store);
 
       await verifyAndCommitForEachJob(['pre-commit', 'post-commit'], noteStore, async (jobId: string) => {
         const notes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] }, jobId);
@@ -116,7 +112,7 @@ describe('NoteStore', () => {
 
       // First note store populates the persistent store; second reopens it to verify persistence
       {
-        const noteStore1 = new NoteStore(store, alwaysCanonical);
+        const noteStore1 = new NoteStore(store);
 
         const noteA = await mkNote({ contractAddress: CONTRACT_A, siloedNullifier: SILOED_NULLIFIER_1 });
         const noteB = await mkNote({ contractAddress: CONTRACT_B, siloedNullifier: SILOED_NULLIFIER_2 });
@@ -124,7 +120,7 @@ describe('NoteStore', () => {
         await noteStore1.commit('first-store');
       }
 
-      const noteStore2 = new NoteStore(store, alwaysCanonical);
+      const noteStore2 = new NoteStore(store);
 
       await verifyAndCommitForEachJob(['second-store', 'fresh-job'], noteStore2, async (jobId: string) => {
         const notesA = await noteStore2.getNotes({ contractAddress: CONTRACT_A, scopes: [FAKE_ADDRESS] }, jobId);
@@ -490,7 +486,7 @@ describe('NoteStore', () => {
       await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
       await noteStore.commit('test');
 
-      // Second application records the same origin again (idempotent on the canonical result)
+      // Second application records the same origin again (recording it twice does not change visibility)
       await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
 
       await verifyAndCommitForEachJob(['test', 'after-job-commit'], noteStore, async (jobId: string) => {
@@ -626,7 +622,7 @@ describe('NoteStore', () => {
       // (causing the note to be "re-activated")
       expect(notesAfterSecondAttempt.filter(n => n.siloedNullifier.equals(duplicateNullifier))).toEqual([]);
 
-      // The second applyNullifiers records the same origin again (idempotent on the canonical result)
+      // The second applyNullifiers records the same origin again (recording it twice does not change visibility)
       await noteStore.applyNullifiers([mkNullifier(duplicateNote)], 'duplicate-job');
 
       // Verify the note is nullified and has both scopes
@@ -641,115 +637,60 @@ describe('NoteStore', () => {
   });
 });
 
-describe('NoteStore (canonicality)', () => {
+describe('NoteStore (nullification & reorg)', () => {
   const JOB = 'note-store-test-job';
   const scope = AztecAddress.fromBigInt(1n);
   const contract = AztecAddress.fromBigInt(100n);
 
   let kv: Awaited<ReturnType<typeof openTmpStore>>;
   let store: NoteStore;
-  let canonical: Set<string>;
-  const check: CanonicalityCheck = { isCanonical: o => canonical.has(`${o.number}:${o.hash}`) };
-
-  // Build a canonical-origin key from a note's own fields. NoteDao serializes l2BlockHash as an Fr, so the value
-  // returned by NoteDao.random is the canonical key — no manual hex padding needed.
-  function originKey(blockNumber: BlockNumber, blockHash: string): string {
-    return `${blockNumber}:${blockHash}`;
-  }
-
-  // Returns a NoteDao and a helper function that marks its creation origin as canonical.
-  async function makeCanonicalNote(blockNumber: BlockNumber) {
-    const note = await NoteDao.random({ contractAddress: contract, l2BlockNumber: blockNumber });
-    const makeCanonical = () => canonical.add(originKey(note.l2BlockNumber, note.l2BlockHash));
-    return { note, makeCanonical };
-  }
 
   const activeFilter = { contractAddress: contract, scopes: [scope], status: NoteStatus.ACTIVE };
 
+  async function noteAt(blockNumber: BlockNumber) {
+    return await NoteDao.random({ contractAddress: contract, l2BlockNumber: blockNumber });
+  }
+
   beforeEach(async () => {
-    canonical = new Set();
-    kv = await openTmpStore('note-store-canonicality-test');
-    store = new NoteStore(kv, check);
+    kv = await openTmpStore('note-store-reorg-test');
+    store = new NoteStore(kv);
   });
 
-  it('hides a note whose creation block is not canonical, shows it once it is', async () => {
-    const { note, makeCanonical } = await makeCanonicalNote(BlockNumber(10));
+  it('shows a note as soon as it is committed', async () => {
+    const note = await noteAt(BlockNumber(10));
     await store.addNotes([note], scope, JOB);
     await store.commit(JOB);
 
-    expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
-
-    makeCanonical();
     const found = await store.getNotes(activeFilter, 'read-job');
     expect(found).toHaveLength(1);
     expect(found[0].siloedNullifier.equals(note.siloedNullifier)).toBe(true);
   });
 
-  it('marks a note nullified when its nullification block is canonical', async () => {
-    const { note, makeCanonical } = await makeCanonicalNote(BlockNumber(10));
-    makeCanonical();
+  it('marks a note nullified once a nullification origin is recorded for it', async () => {
+    const note = await noteAt(BlockNumber(10));
     await store.addNotes([note], scope, JOB);
 
-    const nullBlockHash = BlockHash.random();
-    await store.applyNullifiers(
-      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash }],
-      JOB,
-    );
-    await store.commit(JOB);
-
-    canonical.add(originKey(BlockNumber(11), nullBlockHash.toString()));
-    expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
-    expect(await store.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'read-job')).toHaveLength(
-      1,
-    );
-  });
-
-  it('keeps a note active when its nullification block is reorged away (not canonical)', async () => {
-    const { note, makeCanonical } = await makeCanonicalNote(BlockNumber(10));
-    makeCanonical();
-    await store.addNotes([note], scope, JOB);
     await store.applyNullifiers(
       [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: BlockHash.random() }],
       JOB,
     );
     await store.commit(JOB);
 
-    // Nullification block is NOT added to canonical — note remains active.
-    expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(1);
-  });
-
-  it('treats competing-fork nullifications independently', async () => {
-    const { note, makeCanonical } = await makeCanonicalNote(BlockNumber(10));
-    makeCanonical();
-    await store.addNotes([note], scope, JOB);
-
-    const forkAHash = BlockHash.random();
-    const forkBHash = BlockHash.random();
-    await store.applyNullifiers(
-      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: forkAHash }],
-      JOB,
-    );
-    await store.applyNullifiers(
-      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: forkBHash }],
-      JOB,
-    );
-    await store.commit(JOB);
-
-    canonical.add(originKey(BlockNumber(11), forkBHash.toString()));
     expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
+    expect(await store.getNotes({ ...activeFilter, status: NoteStatus.ACTIVE_OR_NULLIFIED }, 'read-job')).toHaveLength(
+      1,
+    );
   });
 
   it('layers staged writes over committed state within a job', async () => {
-    const { note, makeCanonical } = await makeCanonicalNote(BlockNumber(10));
-    makeCanonical();
+    const note = await noteAt(BlockNumber(10));
     await store.addNotes([note], scope, JOB);
     expect(await store.getNotes(activeFilter, JOB)).toHaveLength(1);
     expect(await store.getNotes(activeFilter, 'other-job')).toHaveLength(0);
   });
 
   it('discardStaged drops staged notes and nullifications', async () => {
-    const { note, makeCanonical } = await makeCanonicalNote(BlockNumber(10));
-    makeCanonical();
+    const note = await noteAt(BlockNumber(10));
 
     await store.addNotes([note], scope, JOB);
     await store.applyNullifiers(
@@ -767,7 +708,7 @@ describe('NoteStore (canonicality)', () => {
   });
 
   it('indexes note nullifiers by creation block number', async () => {
-    const { note } = await makeCanonicalNote(BlockNumber(9));
+    const note = await noteAt(BlockNumber(9));
     await store.addNotes([note], scope, JOB);
     await store.commit(JOB);
     const nullifiers = await store.nullifiersAtBlock(9);
@@ -775,15 +716,15 @@ describe('NoteStore (canonicality)', () => {
   });
 
   it('indexes multiple notes created at the same block', async () => {
-    const { note: a } = await makeCanonicalNote(BlockNumber(9));
-    const { note: b } = await makeCanonicalNote(BlockNumber(9));
+    const a = await noteAt(BlockNumber(9));
+    const b = await noteAt(BlockNumber(9));
     await store.addNotes([a, b], scope, JOB);
     await store.commit(JOB);
     const nullifiers = await store.nullifiersAtBlock(9);
     expect(new Set(nullifiers)).toEqual(new Set([a.siloedNullifier.toString(), b.siloedNullifier.toString()]));
   });
 
-  const CANONICAL_HASH = Fr.fromString('0x0c').toString();
+  const FIXED_BLOCK_HASH = Fr.fromString('0x0c').toString();
 
   describe('deleteInBlockRange', () => {
     it('deletes all notes and nullification origins in the range, leaving lower blocks intact', async () => {
@@ -791,13 +732,13 @@ describe('NoteStore (canonicality)', () => {
       const noteA = await NoteDao.random({
         contractAddress: contract,
         l2BlockNumber: BlockNumber(9),
-        l2BlockHash: CANONICAL_HASH,
+        l2BlockHash: FIXED_BLOCK_HASH,
       });
       // Note B created at block 10 (inside the range — must be deleted).
       const noteB = await NoteDao.random({
         contractAddress: contract,
         l2BlockNumber: BlockNumber(10),
-        l2BlockHash: CANONICAL_HASH,
+        l2BlockHash: FIXED_BLOCK_HASH,
       });
       await store.addNotes([noteA, noteB], scope, JOB);
       // Nullify B at block 11 (also inside the range).
@@ -815,8 +756,6 @@ describe('NoteStore (canonicality)', () => {
       expect(await store.nullifiersAtBlock(10)).toHaveLength(0);
       expect(await store.nullifiersAtBlock(11)).toHaveLength(0);
 
-      // Mark note A's creation block canonical so getNotes can return it.
-      canonical.add(originKey(BlockNumber(9), CANONICAL_HASH));
       const found = await store.getNotes(activeFilter, 'read-job');
       expect(found).toHaveLength(1);
       expect(found[0].siloedNullifier.equals(noteA.siloedNullifier)).toBe(true);
@@ -828,7 +767,7 @@ describe('NoteStore (canonicality)', () => {
       const noteB = await NoteDao.random({
         contractAddress: contract,
         l2BlockNumber: BlockNumber(10),
-        l2BlockHash: CANONICAL_HASH,
+        l2BlockHash: FIXED_BLOCK_HASH,
       });
       await store.addNotes([noteB], scope, JOB);
       const nullBlockHash = BlockHash.fromString(Fr.fromString('0x14').toString());
@@ -843,8 +782,7 @@ describe('NoteStore (canonicality)', () => {
       // The creation row at block 10 is untouched.
       expect(await store.nullifiersAtBlock(10)).toEqual([noteB.siloedNullifier.toString()]);
 
-      // Mark the creation block canonical; the note should read back ACTIVE (nullification row gone).
-      canonical.add(originKey(BlockNumber(10), CANONICAL_HASH));
+      // The note should read back ACTIVE again (nullification row gone).
       const found = await store.getNotes(activeFilter, 'read-job');
       expect(found).toHaveLength(1);
       expect(found[0].siloedNullifier.equals(noteB.siloedNullifier)).toBe(true);
@@ -854,7 +792,7 @@ describe('NoteStore (canonicality)', () => {
       const noteB = await NoteDao.random({
         contractAddress: contract,
         l2BlockNumber: BlockNumber(10),
-        l2BlockHash: CANONICAL_HASH,
+        l2BlockHash: FIXED_BLOCK_HASH,
       });
       await store.addNotes([noteB], scope, JOB);
       await store.commit(JOB);
