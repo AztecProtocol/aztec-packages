@@ -1,99 +1,418 @@
-#pragma once
+// === AUDIT STATUS ===
+// internal:    { status: Planned, auditors: [Sergei], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
+// external_2:  { status: not started, auditors: [], commit: }
+// =====================
 
-#include "barretenberg/common/thread.hpp"
+#pragma once
+// This header hosts TWO implementations behind one facade:
+//   * `bb::scalar_multiplication::legacy::*`  — the pre-rewrite Pippenger MSM, bodies
+//     byte-identical to merge-train (only wrapped in the `legacy` sub-namespace).
+//   * the round-parallel rewrite in scalar_multiplication_fast.hpp (`*_fast`, `MSM_fast`).
+// The public facade (`pippenger`, `pippenger_unsafe`, `MSM`) at the bottom dispatches to
+// the rewrite by default, or to `legacy::` when `use_legacy_msm()` (env BB_MSM_LEGACY).
+// Remove the legacy half + the facade dispatch once the rewrite has soaked.
+#include "./scalar_multiplication_fast.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
+
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include <string>
 
-#include <atomic>
-#include <cstddef>
-#include <cstdint>
-#include <span>
-#include <vector>
+#include "./bitvector.hpp"
+#include "./process_buckets.hpp"
+namespace bb::scalar_multiplication::legacy {
 
+template <typename Curve> class MSM {
+  public:
+    using Element = typename Curve::Element;
+    using ScalarField = typename Curve::ScalarField;
+    using BaseField = typename Curve::BaseField;
+    using AffineElement = typename Curve::AffineElement;
+
+    static constexpr size_t NUM_BITS_IN_FIELD = ScalarField::modulus.get_msb() + 1;
+
+    // ======================= Algorithm Tuning Constants =======================
+    //
+    // These constants control the behavior of the Pippenger MSM algorithm.
+    // They are empirically tuned for performance on typical hardware.
+
+    // Below this threshold, use naive scalar multiplication instead of Pippenger
+    static constexpr size_t PIPPENGER_THRESHOLD = 16;
+
+    // Below this threshold, the affine batch inversion trick is not beneficial
+    // (cost of inversions exceeds savings from cheaper affine additions)
+    static constexpr size_t AFFINE_TRICK_THRESHOLD = 128;
+
+    // Maximum bits per scalar slice (2^20 = 1M buckets, far beyond practical use)
+    static constexpr size_t MAX_SLICE_BITS = 20;
+    static_assert(MAX_SLICE_BITS < 64,
+                  "get_scalar_slice uses 1ULL << lo_slice_bits where lo_slice_bits <= MAX_SLICE_BITS - 1; "
+                  "shifting uint64_t by >= 64 is UB.");
+
+    // Number of points to look ahead for memory prefetching
+    static constexpr size_t PREFETCH_LOOKAHEAD = 32;
+
+    // Prefetch every N iterations (must be power of 2); mask is N-1 for efficient modulo
+    static constexpr size_t PREFETCH_INTERVAL = 16;
+    static constexpr size_t PREFETCH_INTERVAL_MASK = PREFETCH_INTERVAL - 1;
+
+    // ======================= Cost Model Constants =======================
+    //
+    // These constants define the relative costs of various operations,
+    // used to decide between algorithm variants.
+
+    // Cost of bucket accumulation relative to a single point addition
+    // (2 Jacobian adds per bucket, each ~2.5x cost of affine add)
+    static constexpr size_t BUCKET_ACCUMULATION_COST = 5;
+
+    // Field multiplications saved per group operation when using affine trick
+    static constexpr size_t AFFINE_TRICK_SAVINGS_PER_OP = 5;
+
+    // Extra cost of Jacobian group operation when Z coordinate != 1
+    static constexpr size_t JACOBIAN_Z_NOT_ONE_PENALTY = 5;
+
+    // Cost of computing 4-bit lookup table for modular exponentiation (14 muls)
+    static constexpr size_t INVERSION_TABLE_COST = 14;
+    // ===========================================================================
+
+    // Offset generator used in bucket reduction to probabilistically avoid incomplete-addition
+    // edge cases in the accumulator. Derived from domain-separated precomputed generators.
+    static const AffineElement& get_offset_generator() noexcept
+    {
+        static const AffineElement offset_generator = []() {
+            if constexpr (std::same_as<typename Curve::Group, bb::g1>) {
+                return get_precomputed_generators<typename Curve::Group, "ECCVM_OFFSET_GENERATOR", 1>()[0];
+            } else {
+                return get_precomputed_generators<typename Curve::Group, "DEFAULT_DOMAIN_SEPARATOR", 8>()[0];
+            }
+        }();
+        return offset_generator;
+    }
+
+    /**
+     * @brief MSMWorkUnit describes an MSM that may be part of a larger MSM
+     * @details For a multi-MSM where each MSM has a variable size, we want to split the MSMs up
+     *          such that every available thread has an equal amount of MSM work to perform.
+     *          Each work unit is computed single-threaded; a single MSM may be split across
+     *          threads and reduced. This approach yields better scaling than thread-parallel
+     *          bucket accumulation.
+     */
+    struct MSMWorkUnit {
+        size_t batch_msm_index = 0;
+        size_t start_index = 0;
+        size_t size = 0;
+    };
+    using ThreadWorkUnits = std::vector<MSMWorkUnit>;
+
+    /**
+     * @brief Container for MSM input data passed between algorithm stages
+     * @note scalars must be in NON-Montgomery form for correct bucket index computation
+     */
+    struct MSMData {
+        std::span<const ScalarField> scalars;     // Scalars (non-Montgomery form)
+        std::span<const AffineElement> points;    // Input points
+        std::span<const uint32_t> scalar_indices; // Indices of nonzero scalars
+        std::span<uint64_t> point_schedule;       // Scratch space for point scheduling
+
+        /**
+         * @brief Factory method to construct MSMData from a work unit
+         * @details Extracts the appropriate slices from the full arrays based on MSMWorkUnit parameters
+         */
+        static MSMData from_work_unit(std::span<std::span<ScalarField>> all_scalars,
+                                      std::span<std::span<const AffineElement>> all_points,
+                                      const std::vector<std::vector<uint32_t>>& all_indices,
+                                      std::span<uint64_t> point_schedule_buffer,
+                                      const MSMWorkUnit& work_unit) noexcept
+        {
+            const auto& indices = all_indices[work_unit.batch_msm_index];
+            // Avoid indexing into an empty vector when all scalars are zero (work_unit.size == 0)
+            std::span<const uint32_t> scalar_indices =
+                work_unit.size > 0 ? std::span<const uint32_t>{ &indices[work_unit.start_index], work_unit.size }
+                                   : std::span<const uint32_t>{};
+            return MSMData{
+                .scalars = all_scalars[work_unit.batch_msm_index],
+                .points = all_points[work_unit.batch_msm_index],
+                .scalar_indices = scalar_indices,
+                .point_schedule = point_schedule_buffer,
+            };
+        }
+    };
+
+    /**
+     * @brief Affine bucket accumulators for the fast affine-trick Pippenger variant
+     * @details Used when handle_edge_cases=false. Stores buckets in affine coordinates,
+     *          enabling use of Montgomery's batch inversion trick. Does NOT handle
+     *          edge cases like point doubling or point at infinity.
+     * @note Allocated per-call for WASM compatibility.
+     */
+    struct BucketAccumulators {
+        std::vector<AffineElement> buckets;
+        BitVector bucket_exists;
+
+        BucketAccumulators(size_t num_buckets) noexcept
+            : buckets(num_buckets)
+            , bucket_exists(num_buckets)
+        {}
+    };
+
+    /**
+     * @brief Jacobian bucket accumulators for the safe Pippenger variant
+     * @details Used when handle_edge_cases=true or when affine trick is not beneficial.
+     *          Stores buckets in Jacobian coordinates which correctly handle point
+     *          doubling and point at infinity edge cases.
+     * @note Allocated per-call (not thread_local) in the Jacobian Pippenger path.
+     */
+    struct JacobianBucketAccumulators {
+        std::vector<Element> buckets;
+        BitVector bucket_exists;
+
+        JacobianBucketAccumulators(size_t num_buckets) noexcept
+            : buckets(num_buckets)
+            , bucket_exists(num_buckets)
+        {}
+    };
+    /**
+     * @brief Scratch space for batched affine point additions (one per thread)
+     */
+    struct AffineAdditionData {
+        static constexpr size_t BATCH_SIZE = 2048;
+        // when adding affine points, we have an edge case where the number of points in the batch can overflow by 2
+        static constexpr size_t BATCH_OVERFLOW_SIZE = 2;
+        std::vector<AffineElement> points_to_add;
+        std::vector<BaseField> inversion_scratch_space; // Used for Montgomery batch inversion denominators
+        std::vector<uint32_t> addition_result_bucket_destinations;
+        AffineElement null_location{}; // Dummy write target for branchless conditional moves
+
+        AffineAdditionData() noexcept
+            : points_to_add(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
+            , inversion_scratch_space(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
+            , addition_result_bucket_destinations(((BATCH_SIZE + BATCH_OVERFLOW_SIZE) / 2))
+        {}
+    };
+
+    /**
+     * @brief Packed point schedule entry: (point_index << 32) | bucket_index
+     * @details Used to sort points by their target bucket for cache-efficient processing
+     */
+    struct PointScheduleEntry {
+        uint64_t data;
+
+        [[nodiscard]] static constexpr PointScheduleEntry create(uint32_t point_index, uint32_t bucket_index) noexcept
+        {
+            return { (static_cast<uint64_t>(point_index) << 32) | bucket_index };
+        }
+        [[nodiscard]] constexpr uint32_t point_index() const noexcept { return static_cast<uint32_t>(data >> 32); }
+        [[nodiscard]] constexpr uint32_t bucket_index() const noexcept { return static_cast<uint32_t>(data); }
+    };
+
+    // ======================= Public Methods =======================
+    // See README.md for algorithm details and mathematical derivations.
+
+    /**
+     * @brief Main entry point for single MSM computation
+     * @param handle_edge_cases false (default): fast affine variant; true: safe Jacobian variant
+     * @note Scalars are temporarily modified but restored before returning
+     */
+    static AffineElement msm(std::span<const AffineElement> points,
+                             PolynomialSpan<const ScalarField> scalars,
+                             bool handle_edge_cases = false) noexcept;
+
+    /**
+     * @brief Compute multiple MSMs in parallel with work balancing
+     * @note Scalars are temporarily modified but restored before returning
+     * @see README.md "Parallelization"
+     */
+    static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
+                                                             std::span<std::span<ScalarField>> scalars,
+                                                             bool handle_edge_cases = true) noexcept;
+
+    // ======================= Test-Visible Methods =======================
+    // Exposed for unit testing; not part of the public API.
+
+    static uint32_t get_num_rounds(size_t num_points) noexcept
+    {
+        const uint32_t bits_per_slice = get_optimal_log_num_buckets(num_points);
+        return static_cast<uint32_t>((NUM_BITS_IN_FIELD + bits_per_slice - 1) / bits_per_slice);
+    }
+
+    /** @brief Batch add n/2 independent point pairs using Montgomery's trick */
+    static void add_affine_points(AffineElement* points,
+                                  const size_t num_points,
+                                  typename Curve::BaseField* scratch_space) noexcept;
+
+    /** @brief Extract c-bit slice from scalar for bucket index computation */
+    static uint32_t get_scalar_slice(const ScalarField& scalar, size_t round, size_t slice_size) noexcept;
+
+    /** @brief Compute optimal bits per slice by minimizing cost over c in [1, MAX_SLICE_BITS) */
+    static uint32_t get_optimal_log_num_buckets(size_t num_points) noexcept;
+
+    /** @brief Partition per-MSM scalar weights into num_threads work units of approximately
+     *         equal cumulative weight.
+     *  @details Curve-independent and side-effect-free. The walk closes a work unit every time
+     *           the running weight crosses the per-thread target, except on the last thread
+     *           which absorbs any remainder so rounding drift doesn't leave work stranded. */
+    static std::vector<ThreadWorkUnits> partition_by_weight(std::span<const std::vector<uint16_t>> msm_scalar_weights,
+                                                            size_t num_threads) noexcept;
+
+    /** @brief Process sorted point schedule into bucket accumulators using batched affine additions */
+    static void batch_accumulate_points_into_buckets(std::span<const uint64_t> point_schedule,
+                                                     std::span<const AffineElement> points,
+                                                     AffineAdditionData& affine_data,
+                                                     BucketAccumulators& bucket_data) noexcept;
+
+    /** @brief Reduce buckets to single point using running (suffix) sum from high to low: R = sum(k * B_k) */
+    template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators) noexcept
+    {
+        auto& buckets = bucket_accumulators.buckets;
+        BB_ASSERT_DEBUG(buckets.size() > static_cast<size_t>(0));
+        int starting_index = static_cast<int>(buckets.size() - 1);
+        Element running_sum;
+        bool found_start = false;
+        while (!found_start && starting_index > 0) {
+            const size_t idx = static_cast<size_t>(starting_index);
+            if (bucket_accumulators.bucket_exists.get(idx)) {
+
+                running_sum = buckets[idx];
+                found_start = true;
+            } else {
+                starting_index -= 1;
+            }
+        }
+        if (!found_start) {
+            return Curve::Group::point_at_infinity;
+        }
+        BB_ASSERT_DEBUG(starting_index > 0);
+        const auto& offset_generator = get_offset_generator();
+        Element sum = running_sum + offset_generator;
+        for (int i = starting_index - 1; i > 0; --i) {
+            size_t idx = static_cast<size_t>(i);
+            BB_ASSERT_DEBUG(idx < bucket_accumulators.bucket_exists.size());
+            if (bucket_accumulators.bucket_exists.get(idx)) {
+                running_sum += buckets[idx];
+            }
+            sum += running_sum;
+        }
+        return sum - offset_generator;
+    }
+
+  private:
+    // ======================= Private Implementation =======================
+
+    /** @brief Convert scalars from Montgomery form and collect indices of nonzero scalars */
+    static void transform_scalar_and_get_nonzero_scalar_indices(std::span<ScalarField> scalars,
+                                                                std::vector<uint32_t>& nonzero_scalar_indices) noexcept;
+
+    /** @brief Compute per-scalar slice-count weights ceil(bit_length / bits_per_slice).
+     *  @details Parallel over nonzero_indices. Scalars must be in non-Montgomery form (as left
+     *           by transform_scalar_and_get_nonzero_scalar_indices). Weights drive thread
+     *           partitioning in get_work_units. */
+    static void compute_scalar_slice_weights(std::span<const ScalarField> scalars,
+                                             std::span<const uint32_t> nonzero_indices,
+                                             uint32_t bits_per_slice,
+                                             std::vector<uint16_t>& weights) noexcept;
+
+    /** @brief Distribute multiple MSMs across threads with balanced bucket-accumulation work.
+     *  @details Per-thread assignment is a contiguous range of each MSM's nonzero-scalar
+     *           indices, sized by cumulative slice-count weight ceil(bit_length / c). This is
+     *           the actual number of nonzero c-bit slices a scalar contributes — the quantity
+     *           that drives bucket-accumulation cost. */
+    static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
+                                                       std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
+
+    /** @brief Decide if batch inversion saves work vs Jacobian additions */
+    static bool use_affine_trick(size_t num_points, size_t num_buckets) noexcept;
+
+    /** @brief Pippenger using Jacobian buckets (handles edge cases: doubling, infinity) */
+    static Element jacobian_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept;
+
+    /** @brief Pippenger using affine buckets with batch inversion (faster, no edge case handling) */
+    static Element affine_pippenger_with_transformed_scalars(MSMData& msm_data) noexcept;
+
+    // Helpers for batch_accumulate_points_into_buckets. Inlined for performance.
+
+    // Process single point: if bucket has accumulator, pair them for addition; else cache in bucket.
+    __attribute__((always_inline)) static void process_single_point(size_t bucket,
+                                                                    const AffineElement* point_source,
+                                                                    AffineAdditionData& affine_data,
+                                                                    BucketAccumulators& bucket_data,
+                                                                    size_t& scratch_it,
+                                                                    size_t& point_it) noexcept
+    {
+        bool has_accumulator = bucket_data.bucket_exists.get(bucket);
+        if (has_accumulator) {
+            affine_data.points_to_add[scratch_it] = *point_source;
+            affine_data.points_to_add[scratch_it + 1] = bucket_data.buckets[bucket];
+            bucket_data.bucket_exists.set(bucket, false);
+            affine_data.addition_result_bucket_destinations[scratch_it >> 1] = static_cast<uint32_t>(bucket);
+            scratch_it += 2;
+        } else {
+            bucket_data.buckets[bucket] = *point_source;
+            bucket_data.bucket_exists.set(bucket, true);
+        }
+        point_it += 1;
+    }
+
+    // Branchless bucket pair processing. Updates point_it (by 2 if same bucket, else 1) and scratch_it.
+    // See README.md "batch_accumulate_points_into_buckets Algorithm" for case analysis.
+    __attribute__((always_inline)) static void process_bucket_pair(size_t lhs_bucket,
+                                                                   size_t rhs_bucket,
+                                                                   const AffineElement* lhs_source,
+                                                                   const AffineElement* rhs_source_if_match,
+                                                                   AffineAdditionData& affine_data,
+                                                                   BucketAccumulators& bucket_data,
+                                                                   size_t& scratch_it,
+                                                                   size_t& point_it) noexcept
+    {
+        bool has_bucket_accumulator = bucket_data.bucket_exists.get(lhs_bucket);
+        bool buckets_match = lhs_bucket == rhs_bucket;
+        bool do_affine_add = buckets_match || has_bucket_accumulator;
+
+        const AffineElement* rhs_source = buckets_match ? rhs_source_if_match : &bucket_data.buckets[lhs_bucket];
+
+        AffineElement* lhs_destination =
+            do_affine_add ? &affine_data.points_to_add[scratch_it] : &bucket_data.buckets[lhs_bucket];
+        AffineElement* rhs_destination =
+            do_affine_add ? &affine_data.points_to_add[scratch_it + 1] : &affine_data.null_location;
+
+        uint32_t& dest_bucket = affine_data.addition_result_bucket_destinations[scratch_it >> 1];
+        dest_bucket = do_affine_add ? static_cast<uint32_t>(lhs_bucket) : dest_bucket;
+
+        *lhs_destination = *lhs_source;
+        *rhs_destination = *rhs_source;
+
+        bucket_data.bucket_exists.set(lhs_bucket, (has_bucket_accumulator && buckets_match) || !do_affine_add);
+        scratch_it += do_affine_add ? 2 : 0;
+        point_it += (do_affine_add && buckets_match) ? 2 : 1;
+    }
+};
+
+/** @brief Safe MSM wrapper (defaults to handle_edge_cases=true) */
+template <typename Curve>
+typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
+                                  std::span<const typename Curve::AffineElement> points,
+                                  bool handle_edge_cases = true) noexcept;
+
+/** @brief Fast MSM wrapper for linearly independent points (no edge case handling) */
+template <typename Curve>
+typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
+                                         std::span<const typename Curve::AffineElement> points) noexcept;
+
+extern template class MSM<curve::Grumpkin>;
+extern template class MSM<curve::BN254>;
+
+} // namespace bb::scalar_multiplication::legacy
+
+// ===================================================================================
+// Public MSM facade — the surface every caller uses. Dispatches to the `_fast` rewrite
+// by default, or `legacy::` when use_legacy_msm() (env BB_MSM_LEGACY, read once).
+// Signatures match the rewrite; the legacy branch adapts (legacy has no dedup pre-pass,
+// and its batch entry takes per-MSM point spans).
+// ===================================================================================
 namespace bb::scalar_multiplication {
 
-/**
- * @brief N-dependent oversubscription factor used ONLY for `choose_window_bits`'
- *        target_load formula (not for actual thread dispatch).
- */
-size_t window_bits_tuning_oversub_factor(size_t n_input);
-
-/**
- * @brief State of the art pippenger multiscalar multiplication algorithm.
- *
- * @details A traditional pippenger N/logN algorithm (split scalars into windows, use window value to map scalar's base
- * point into a bucket. Accumulate buckets. Repeat for all windows (1 window = 1 round))
- * We add the following optimizations on top of the algorithm:
- * 1) Efficient multithreading via round-parallelism. If memory budget allows each thread evaluates multiple rounds.
- *    Thread efficiency ~90% when measured.
- * 2) Booth in-place recoding of scalars. Each slice represents [-(num_buckets/2- 1), ..., (num_buckets/2 - 1)].
- *    halves number of buckets.
- * 3) GLV decompositon of input scalars into two half-size scalars. Halves number of bucket accumulation steps.
- *    Only used for n<2^{16} due to memory throughput tradeoffs.
- * 4) Adaptive bucket range. When mixing large and small scalars (e.g. witness values), low bit-ranges use a larger
- *    bucket-range. Larger bit-ranges use a bucket-range tuned to the reduced number of large scalars.
- * 5) Duplicate stripping. Witness commitments and permutation polynomials contain large numbers of duplicates. When
- *    dedup flag is active these are detected and base points consolidated prior to main MSM. 6) Batch-affine
- *    arithmetic. When accumulating points into buckets, independent point additions are gathered and batched, allowing
- *    for affine point arithmetic w. batch invert. Cost = 6M for addition, 7M for doubling (M=field mult).
- * 7) Batch-affine bucket accumulation. Uses novel technique from (TODO REF) to accumulate buckets in runs of
- *    independent additions.
- * 8) If n is small (num points per thread < ~24), fallback to optimised multithreaded Straus MSM
- *    (windowed double-and-add with GLV endomorphism)
- *
- * In order to efficiently utilize memory and prevent WASM memory fragmentation, we use a single `arena` memory buffer
- * to allocate all temporary data structures. Currently sized at 36MB which defines the upper cap on the memory consumed
- * by this algorihtm.
- * @param scalars  Input scalars
- * @param points   Input points
- * @param dedup_hint Activates duplicate stripping if true. Off by default as dup stripping adds ~5% overhead on random
- * inputs
- * @pre Inputs are linearly independent: no point-at-infinity, no equal-x within a bucket
- *      (matches `pippenger_unsafe`).
- * @note Scalars are converted out of Montgomery form internally and restored before return.
- */
-// `external_glv_doubled`: optional caller-supplied [P, φP, ...] interleaved buffer
-//   (length 2*n). When non-empty, every n_input is treated as GLV-eligible and the
-//   doubled points are aliased instead of recomputed — the batched driver uses this
-//   to share the doubled SRS prefix across MSMs in a batch.
-// `external_arena`: optional caller-supplied scratch buffer ≥ this MSM's required
-//   bytes. When empty, allocated per-MSM and freed at return. The batched driver
-//   supplies a single arena sized to the largest member.
-template <typename Curve>
-typename Curve::Element pippenger_round_parallel(
-    PolynomialSpan<const typename Curve::ScalarField> scalars,
-    std::span<const typename Curve::AffineElement> points,
-    bool dedup_hint = false,
-    std::span<const typename Curve::AffineElement> external_glv_doubled = {},
-    std::span<std::byte> external_arena = {}) noexcept;
-
-extern template curve::BN254::Element pippenger_round_parallel<curve::BN254>(
-    PolynomialSpan<const curve::BN254::ScalarField> scalars,
-    std::span<const curve::BN254::AffineElement> points,
-    bool dedup_hint,
-    std::span<const curve::BN254::AffineElement> external_glv_doubled,
-    std::span<std::byte> external_arena) noexcept;
-
-extern template curve::Grumpkin::Element pippenger_round_parallel<curve::Grumpkin>(
-    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
-    std::span<const curve::Grumpkin::AffineElement> points,
-    bool dedup_hint,
-    std::span<const curve::Grumpkin::AffineElement> external_glv_doubled,
-    std::span<std::byte> external_arena) noexcept;
-
-// ===================================================================================
-// Public API (interface-compatible with the legacy `scalar_multiplication::MSM` class).
-// ===================================================================================
-//
-// `pippenger`        — handle_edge_cases routed: false → fast affine round-parallel,
-//                      true → Jacobian fast path (handles point-at-infinity / equal-x
-//                      bucket collisions).
-// `pippenger_unsafe` — always the fast path; caller asserts linear-independence of points.
-// `MSM<Curve>::msm`            — single-MSM convenience wrapper (returns AffineElement).
-// `MSM<Curve>::batch_multi_scalar_mul` — multi-MSM driver: runs each MSM via `pippenger`
-//                                       and returns a vector of AffineElement results.
+[[nodiscard]] bool use_legacy_msm() noexcept;
 
 template <typename Curve>
 typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
@@ -110,18 +429,15 @@ extern template curve::BN254::Element pippenger<curve::BN254>(PolynomialSpan<con
                                                               std::span<const curve::BN254::AffineElement> points,
                                                               bool handle_edge_cases,
                                                               bool dedup_hint) noexcept;
-
 extern template curve::Grumpkin::Element pippenger<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
     bool handle_edge_cases,
     bool dedup_hint) noexcept;
-
 extern template curve::BN254::Element pippenger_unsafe<curve::BN254>(
     PolynomialSpan<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
     bool dedup_hint) noexcept;
-
 extern template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
@@ -133,120 +449,18 @@ template <typename Curve> class MSM {
     using ScalarField = typename Curve::ScalarField;
     using AffineElement = typename Curve::AffineElement;
 
-    /**
-     * @brief Single MSM convenience wrapper — returns the result as an AffineElement.
-     * @param handle_edge_cases  false (default): fast affine round-parallel path.
-     *                           true: Jacobian fast path (handles edge cases).
-     * @param dedup_hint         When true, opts this MSM into the input-scalar dedup pre-pass.
-     */
     static AffineElement msm(std::span<const AffineElement> points,
                              PolynomialSpan<const ScalarField> scalars,
                              bool handle_edge_cases = false,
                              bool dedup_hint = false) noexcept;
 
-    /**
-     * @brief Batch driver for multiple MSMs. Returns one AffineElement per input MSM.
-     *
-     * Every MSM in the batch shares a single contiguous point set (the SRS / GLV table);
-     * each MSM picks its own range via `scalars[m].start_index` and `scalars[m].size()`.
-     * MSM `m` computes Σ_i scalars[m][i] * points[scalars[m].start_index + i].
-     *
-     * Independent MSMs run sequentially (each MSM is itself round-parallel internally).
-     * This matches the legacy interface but the parallelisation strategy is different:
-     * the legacy implementation work-balanced points across threads spanning multiple
-     * MSMs; round-parallel parallelises within each MSM, so one MSM at a time uses the
-     * full thread pool. For the typical chonk workload (commit batches of polys of size
-     * 2^20), this is faster because per-MSM threading dominates over inter-MSM stealing.
-     *
-     * @param points      Shared point set (SRS prefix). Every MSM indexes into this span.
-     * @param scalars     Per-MSM scalars carrying the start offset into `points`.
-     * @param dedup_hints Optional per-MSM dedup opt-ins (parallel to `scalars`): a
-     *                    non-zero entry opts that MSM's input scalars into the
-     *                    duplicate-cluster pre-pass. Empty span means no dedup anywhere.
-     */
     static std::vector<AffineElement> batch_multi_scalar_mul(std::span<const AffineElement> points,
                                                              std::span<PolynomialSpan<ScalarField>> scalars,
                                                              bool handle_edge_cases = true,
                                                              std::span<const uint8_t> dedup_hints = {}) noexcept;
 };
 
-extern template class MSM<curve::Grumpkin>;
 extern template class MSM<curve::BN254>;
-
-// `pippenger_round_parallel` falls back to `trivial_msm_threaded` when each worker
-// would receive fewer than this many points (after the n_active filter). Exposed so tests
-// and bench targets can pin behaviour at the boundary.
-inline constexpr size_t MIN_PTS_PER_THREAD_FOR_PIPPENGER = 24;
-
-// Per-MSM arena sizer. Returns 0 for shapes that fall back to the Jacobian-fast path
-// (no affine arena). Mirrors the inline budget calc inside `pippenger_round_parallel`;
-// declared here so the test suite can exercise the same sizer.
-template <typename Curve>
-size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, bool dedup_active = false) noexcept;
-
-namespace round_parallel_detail {
-
-// Above this N, GLV's 2x point-count cost outweighs the windows-halved benefit.
-#ifdef __wasm__
-inline constexpr size_t GLV_SMALL_N_THRESHOLD = size_t{ 1 } << 16;
-#else
-inline constexpr size_t GLV_SMALL_N_THRESHOLD = size_t{ 1 } << 13;
-#endif
-
-/**
- * @brief Single-MSM, no-affine-trick Pippenger over window_bits-wide windows.
- *
- * `min_pts_per_thread_override` lets benchmarks pin behaviour:
- *   - 0 (default) → use the internal `MIN_PTS_PER_THREAD` heuristic (256 native, single-threaded on WASM).
- *   - SIZE_MAX    → force single-threaded.
- *   - 1           → maximally multi-threaded (one worker per logical CPU).
- */
-template <typename Curve>
-typename Curve::Element pippenger_round_parallel_jacobian_fast(std::span<const typename Curve::ScalarField> scalars,
-                                                               std::span<const typename Curve::AffineElement> points,
-                                                               size_t min_pts_per_thread_override = 0) noexcept;
-
-extern template curve::BN254::Element pippenger_round_parallel_jacobian_fast<curve::BN254>(
-    std::span<const curve::BN254::ScalarField> scalars,
-    std::span<const curve::BN254::AffineElement> points,
-    size_t min_pts_per_thread_override) noexcept;
-
-extern template curve::Grumpkin::Element pippenger_round_parallel_jacobian_fast<curve::Grumpkin>(
-    std::span<const curve::Grumpkin::ScalarField> scalars,
-    std::span<const curve::Grumpkin::AffineElement> points,
-    size_t min_pts_per_thread_override) noexcept;
-
-} // namespace round_parallel_detail
-
-/**
- * @brief Single-threaded small-MSM driver: `Element::straus_msm` over the input slice.
- */
-template <typename Curve>
-typename Curve::Element trivial_msm(PolynomialSpan<const typename Curve::ScalarField> scalars_span,
-                                    std::span<const typename Curve::AffineElement> all_points) noexcept;
-
-extern template curve::BN254::Element trivial_msm<curve::BN254>(
-    PolynomialSpan<const curve::BN254::ScalarField> scalars_span,
-    std::span<const curve::BN254::AffineElement> all_points) noexcept;
-
-extern template curve::Grumpkin::Element trivial_msm<curve::Grumpkin>(
-    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars_span,
-    std::span<const curve::Grumpkin::AffineElement> all_points) noexcept;
-
-/**
- * @brief Multi-threaded small-MSM driver: parallel `Element::straus_msm` over zero-skipped
- *        input slices.
- */
-template <typename Curve>
-typename Curve::Element trivial_msm_threaded(PolynomialSpan<const typename Curve::ScalarField> scalars_span,
-                                             std::span<const typename Curve::AffineElement> all_points) noexcept;
-
-extern template curve::BN254::Element trivial_msm_threaded<curve::BN254>(
-    PolynomialSpan<const curve::BN254::ScalarField> scalars_span,
-    std::span<const curve::BN254::AffineElement> all_points) noexcept;
-
-extern template curve::Grumpkin::Element trivial_msm_threaded<curve::Grumpkin>(
-    PolynomialSpan<const curve::Grumpkin::ScalarField> scalars_span,
-    std::span<const curve::Grumpkin::AffineElement> all_points) noexcept;
+extern template class MSM<curve::Grumpkin>;
 
 } // namespace bb::scalar_multiplication
