@@ -10,17 +10,21 @@ variable-window **split-c** schedule as a layout-table swap, not a re-architectu
 **All sizes below are exact, traced to source — no estimates.** The one term not
 closed-form from `n` alone (`reducePrefScratch`'s `MAXC`) is flagged.
 
-> **DEVICE CONSTRAINT (verified on M-series, Dawn/Metal, 2026-06-01).**
-> Binding the **same GPU buffer at two bindings in one bind group** — even
-> non-overlapping sub-ranges — silently produces **wrong results (output 0)**.
-> Proven by bisection: `ptScratch` carved from a shared arena passes alone at
-> offset 0 *and* at a nonzero offset, but `ptScratch`+`ptTasks` (co-bound in the
-> `ptCombine` bind group) outputs 0. **So this is NOT "one arena": two buffers may
-> share an arena only if they are never co-bound in any single bind group.**
-> Partition buffers by a co-binding conflict graph (graph-colour the 37 bind
-> groups' co-occurrences) — never-co-bound buffers share an arena, co-bound ones
-> go to different arenas. Still collapses ~49 buffers to a handful of arenas
-> (allocate-once, deterministic, packable), just not to a single one.
+> **WebGPU USAGE-SCOPE RULE (the real constraint; Dawn error verbatim below).**
+> A buffer may not be used as **read-write storage AND read-only storage in the
+> same usage scope** (a compute-pass dispatch). Dawn: *"usage
+> (Storage(read-write)|Storage(read-only)) includes writable usage and another
+> usage in the same synchronization scope"* → the command buffer is rejected →
+> output 0. Co-binding the same buffer twice is **fine** if the accesses match
+> (all-rw or all-ro); only the **ro+rw mix** is illegal. This bit the arena
+> because `ptCombine` binds `pt_tasks` (read-only) and `pt_buf` (read-write) — once
+> they share one arena buffer, that buffer is ro+rw in one scope.
+> **Fix:** two buffers may share an arena only if they are never co-bound with
+> *mismatched* access (one ro, one rw) in the same bind group. Partition by that
+> conflict graph (edge = co-bound with mixed access; graph-colour). Buffers that
+> are read-only where they meet a read-write co-tenant go in a different arena.
+> Still collapses ~49 buffers to a few arenas; co-bound-same-access buffers share
+> freely (e.g. `ptScratch`+`denseBucketList` — never co-bound — validated together).
 
 ---
 
@@ -373,12 +377,14 @@ cap at 16 KiB). Make `MPW` (hence `sT`) device-adaptive.
 
 ## Build order (lowest risk first)
 
-1. **Consolidate `SharedScratch` → co-binding-partitioned arenas.** Build the
-   co-binding conflict graph from the 37 bind groups, graph-colour it, and carve
-   each colour's buffers from one arena (256-B slots) via the polymorphic
-   `mkBind`. ✅ done: dead set dropped (`28c3babb5b`); `mkBind` accepts
-   `GPUBuffer | GPUBufferBinding` + `ptScratch` migrated, byte-identical
-   (`97190e5af7`). Next: colour the graph, migrate each colour, validate each.
+1. **Consolidate `SharedScratch` → usage-partitioned arenas.** Build the
+   mixed-access conflict graph from the 37 bind groups (edge = two buffers
+   co-bound in one group with mismatched ro/rw access — the WebGPU usage-scope
+   rule above), graph-colour it, and carve each colour's buffers from one arena
+   (256-B slots) via the polymorphic `mkBind`. ✅ done: dead set dropped
+   (`28c3babb5b`); `mkBind` accepts `GPUBuffer | GPUBufferBinding` + `ptScratch`
+   migrated, byte-identical (`97190e5af7`). Next: build the access map, colour,
+   migrate each colour, validate each.
 2. **`sT` device-adaptive** (`MPW`). Bench phone — confirm `sT=2048` holds perf.
 3. **Reduce restructure** → per-pass RED + persistent `windowSums`; wire the
    160 MB gate (incl. THREAD terms); enable `bw` staging.
