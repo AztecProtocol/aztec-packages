@@ -1132,6 +1132,8 @@ ${packLines.join('\n')}
         workgroup_size, s, inv_fn,
         bw, stride, m_red,
         p8_consts, r8_csv, f8_words,
+        // Use the packed-native register-lean montgomery_product_f8 (cios_unrolled 13-bit).
+        f8_native: this.montmul === 'cios_unrolled' && this.word_size === 13,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
@@ -1142,6 +1144,7 @@ ${packLines.join('\n')}
       {
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs: bigintByFuncs, inverse_funcs,
       },
     );
