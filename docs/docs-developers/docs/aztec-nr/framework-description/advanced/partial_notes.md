@@ -3,7 +3,11 @@ title: Partial notes
 sidebar_position: 1
 tags: [Developers, Contracts, Notes]
 description: How partial notes work, how they are completed, and how they enable use cases like AMM swaps and payment endpoints.
-references: ["noir-projects/aztec-nr/uint-note/src/uint_note.nr", "noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr"]
+references:
+  [
+    "noir-projects/aztec-nr/uint-note/src/uint_note.nr",
+    "noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr",
+  ]
 ---
 
 import Image from "@theme/IdealImage";
@@ -18,7 +22,7 @@ Let's say, for example, we have a `UintNote`:
 
 The `UintNote` struct itself only contains the `value` field. Additional fields including `owner`, `randomness`, and `storage_slot` are passed as parameters during note hash computation.
 
-When creating the note locally during private execution, the `owner` and `storage_slot` are known, but the `value` potentially is not (e.g., it depends on some onchain dynamic variable). First, a **partial note** can be created during private execution that commits to the `owner` and `randomness`, and then the note is *"completed"* to create a full note by later adding the `storage_slot` and `value` fields, usually during public execution.
+When creating the note locally during private execution, the `owner` and `storage_slot` are known, but the `value` potentially is not (e.g., it depends on some onchain dynamic variable). First, a **partial note** can be created during private execution that commits to the `owner` and `randomness`, and then the note is _"completed"_ to create a full note by later adding the `storage_slot` and `value` fields, usually during public execution.
 
 <Image img={require("@site/static/img/partial-notes.png")} />
 
@@ -37,7 +41,7 @@ They are also useful as **payment endpoints**: a recipient can mint a partial no
 Each partial note is intended to be completed exactly once. The protocol does not enforce this directly: completion checks that a validity commitment exists in the nullifier tree but does not consume it, so a partial note can technically be completed more than once. However, reuse is unsafe for two independent reasons:
 
 1. **Privacy.** The completion log is tagged by `H(partial_commitment, ...)`. Two completions of the same partial note emit logs with the same tag, which publicly links those completions as paying the same recipient.
-2. **Discovery.** The recipient's Private eXecution Environment (PXE) treats the partial note as pending until the first matching completion log is found. After the first match, the pending entry is removed. A second completion against the same commitment is unlikely to be discovered by the recipient's wallet, so the funds are effectively lost.
+2. **Discovery.** The recipient's Private eXecution Environment (PXE) treats the partial note as pending until the first matching completion log is found. After the first match, the pending entry is removed. A second completion against the same commitment may not be discovered by the recipient's wallet, so the funds are effectively lost.
 
 The token contract's `finalize_transfer_to_private` documents this behavior directly: reusing a `partial_note` argument means the amount "would most likely get lost" because partial note log processing fails to find the pending entry on the second pass.
 
@@ -103,7 +107,6 @@ When a note is created with all fields known (including `owner`, `storage_slot`,
 #include_code compute_note_hash /noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
 
 This two-step process ensures that notes with identical field values produce identical note hashes, regardless of whether they were created as partial notes or complete notes.
-
 
 ## Partial notes in practice
 
