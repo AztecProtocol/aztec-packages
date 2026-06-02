@@ -23,12 +23,9 @@ namespace bb {
 /**
  * @brief Mega flavor specialized for Chonk kernel circuits.
  *
- * @details Kernel circuits drop `LogDerivLookupRelation` and `NonNativeFieldRelation` relative to
- * MegaFlavor — empirical scan over real client-IVC flows shows `q_lookup`, the lookup tables, and
- * `q_nnf` are always inactive in every honest kernel. All five buses, Elliptic, Memory, and
- * EccOpQueue are retained: kernels are the read side of the databus and host the recursive verifier
- * stdlib (biggroup / bigfield / poseidon) that exercises those relations. See
- * `scripts/flavor-codegen/src/flavors/mega_kernel.ts`.
+ * @details Drops `LogDerivLookupRelation` and `NonNativeFieldRelation` relative to MegaFlavor.
+ * See `scripts/flavor-codegen/src/flavors/mega_kernel.ts` for the relation set and the empirical
+ * rationale behind the drops.
  */
 class MegaKernelFlavor : public MegaKernelFlavor_Generated {
   public:

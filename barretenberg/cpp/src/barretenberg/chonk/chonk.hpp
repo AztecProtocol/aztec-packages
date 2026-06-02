@@ -49,8 +49,8 @@ class Chonk {
     using AppVerificationKey = AppFlavor::VerificationKey;
     using KernelVerificationKey = KernelFlavor::VerificationKey;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
-    // Field / commitment types are the same across all Mega flavors (all on BN254). Source them
-    // directly from the curve so no flavor name leaks into callers that just want a scalar / point.
+    // Common to all Mega flavors (all BN254); sourced from the curve so no flavor name leaks to
+    // callers that just want a scalar / point.
     using FF = bb::fr;
     using Commitment = curve::BN254::AffineElement;
     using HidingKernelProverInstance = ProverInstance_<HidingKernelFlavor>;
@@ -58,9 +58,8 @@ class Chonk {
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using Transcript = NativeTranscript;
-    // Recursive types — folding uses heterogeneous App/Kernel recursive flavors per slot. Scalar /
-    // commitment / transcript shapes are common to both (they share the BN254 stdlib base), so we
-    // expose them as flavor-agnostic aliases sourced from the kernel recursive flavor.
+    // Recursive scalar / commitment / transcript shapes are common to App and Kernel recursive
+    // flavors (shared BN254 stdlib base), so these aliases are sourced from the kernel one.
     using AppRecursiveFlavor = MegaAppRecursiveFlavor;
     using KernelRecursiveFlavor = MegaKernelRecursiveFlavor;
     using StdlibFF = KernelRecursiveFlavor::FF;
@@ -78,8 +77,7 @@ class Chonk {
     using AppWitnessCommitments = AppRecursiveFlavor::WitnessCommitments;
     using KernelWitnessCommitments = KernelRecursiveFlavor::WitnessCommitments;
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
-    // Folding. The Hypernova accumulator (MultilinearBatchingVerifierClaim<Curve>) is flavor-agnostic,
-    // so apps and kernels (each with their own slim flavor) fold into the same accumulator type.
+    // Folding: the Hypernova accumulator is flavor-agnostic, so all kinds share one accumulator type.
     using FoldingProver = HypernovaFoldingProver;
     using DeciderProver = HypernovaDeciderProver;
     using ProverAccumulator = FoldingProver::Accumulator;

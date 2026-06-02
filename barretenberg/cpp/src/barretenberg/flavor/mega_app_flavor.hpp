@@ -22,12 +22,9 @@ namespace bb {
 /**
  * @brief Mega flavor specialized for Chonk app circuits.
  *
- * @details App circuits exercise a strict subset of Mega's gates. An empirical scan over real
- * client-IVC flows (transfer / deploy_schnorr / amm) shows that the kernel_calldata /
- * first/second/third app_calldata buses are never read, so those four bus-lookup relations are
- * dropped. The `return_data` bus is retained so the app's output commitment still propagates into
- * the next kernel. `EccOpQueueRelation` is retained because recursive apps may offload EC ops
- * through Goblin. See `scripts/flavor-codegen/src/flavors/mega_app.ts`.
+ * @details Drops the four calldata bus-lookup relations (kernel + first/second/third app), keeping
+ * only the `return_data` bus. See `scripts/flavor-codegen/src/flavors/mega_app.ts` for the relation
+ * set and the empirical rationale behind the drops.
  */
 class MegaAppFlavor : public MegaAppFlavor_Generated {
   public:
