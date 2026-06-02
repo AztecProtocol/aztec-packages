@@ -46,6 +46,15 @@ const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
 const DEFAULT_WGI = 128; // generic kernel workgroup size
 const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
 const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
+// Reduction coordinate regime: when the densest reduce level can't saturate
+// the GPU's affine path (numWindows*maxPpw below this), inversion-free
+// Jacobian wins outright and the whole reduce runs Jacobian. Above it, the
+// high-ppw coarse adds are affine-favourable (the 2-level split, WIP).
+// Measured on M2: all-Jacobian wins at c<=10 (numWindows*maxPpw<=6656),
+// 2-level needed at c>=13 (>=40960). TODO: device-probe instead of a constant
+// (T_sat scales with core count; the affine/Jacobian cost ratios do not).
+const T_SAT_REDUCE = 16384;
+const JAC_AUTO = -1; // jacobianCrossover sentinel: auto-select the regime
 
 /**
  * Tuning knobs for {@link MsmV2}. Every field is optional and defaults to the
@@ -1368,7 +1377,7 @@ export class MsmV2 {
   private invVariant!: 'loop' | 'pk';
   private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
-  private jacobianCrossover = 0;
+  private jacobianCrossover = JAC_AUTO;
   private combineOnHost = true;
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
@@ -1393,6 +1402,21 @@ export class MsmV2 {
   private convActivePipe!: GPUComputePipeline;
   private convMetaPipe!: GPUComputePipeline;
   private reduceLevelPipes: GPUComputePipeline[] = [];
+  // Jacobian (inversion-free) reduction tail: levels with index >=
+  // jacFromLevel run jacLevelPipe instead of the affine kernel. zInit seeds
+  // the Z-plane from is_present at the handoff; jacFinalize converts each
+  // window's Jacobian sum back to affine. Default jacFromLevel = +inf (off).
+  private jacLevelPipe!: GPUComputePipeline;
+  private zInitPipe!: GPUComputePipeline;
+  private jacFinalizePipe!: GPUComputePipeline;
+  private jacLevelLayout!: GPUBindGroupLayout;
+  private zInitLayout!: GPUBindGroupLayout;
+  private jacFinalizeLayout!: GPUBindGroupLayout;
+  private jacLevelBinds: GPUBindGroup[] = [];
+  private zInitBind!: GPUBindGroup;
+  private jacFinalizeBind!: GPUBindGroup;
+  private redZBuf!: GPUBuffer;
+  private jacFromLevel = Number.MAX_SAFE_INTEGER;
   // Streaming planner + accumulator pipelines
   private classifyPipe!: GPUComputePipeline;
   private metaFixupPipe!: GPUComputePipeline;
@@ -1602,7 +1626,7 @@ export class MsmV2 {
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
-    m.jacobianCrossover = config?.jacobianCrossover ?? 0;
+    m.jacobianCrossover = config?.jacobianCrossover ?? JAC_AUTO;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
@@ -1652,6 +1676,28 @@ export class MsmV2 {
     for (let L1 = 2 * L0; L1 < STRIDE; L1 *= 2) push(true, 2, L1, 0, STRIDE / L1 - 1);
     for (let mm = 1; mm < STRIDE; mm *= 2) push(false, 2, L0, mm, STRIDE / (2 * mm));
     if (m.reducePasses.length > 64) throw new Error(`reduction schedule too long: ${m.reducePasses.length} > 64`);
+    // Reduction coordinate regime (schedule-only, instance-constant). Levels
+    // with index >= jacFromLevel run the inversion-free Jacobian kernel; the
+    // Jacobian region is a contiguous suffix so Z stays consistent across it.
+    //   jacobianCrossover === JAC_AUTO (default): pick the regime from the
+    //     device saturation point — all-Jacobian when even the densest level
+    //     can't saturate the affine path, else affine (the 2-level split for
+    //     dense/large-c is handled separately, WIP).
+    //   === 0: force all-affine (A/B baseline).
+    //   > 0:   manual ppw threshold — first level with ppw <= value is the cut
+    //          (e.g. 999999 => level 0 => all-Jacobian, for validation).
+    if (m.jacobianCrossover === JAC_AUTO) {
+      const maxPpw = Math.max(...m.reducePasses.map(p => p.ppw));
+      m.jacFromLevel = m.numWindows * maxPpw < T_SAT_REDUCE ? 0 : m.reducePasses.length;
+    } else if (m.jacobianCrossover <= 0) {
+      m.jacFromLevel = m.reducePasses.length;
+    } else {
+      let f = m.reducePasses.length;
+      for (let i = 0; i < m.reducePasses.length; i++) {
+        if (m.reducePasses[i].ppw <= m.jacobianCrossover) { f = i; break; }
+      }
+      m.jacFromLevel = f;
+    }
     // --- Layouts (pool-cached: same `types` shape → same GPUBindGroupLayout
     // across every MsmV2 instance bound to this pool) ---
     const lt = (types: GPUBufferBindingType[]): GPUBindGroupLayout => pool.cache.getLayout(types);
@@ -1715,6 +1761,10 @@ export class MsmV2 {
     m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform']);
+    // Jacobian reduction-tail layouts.
+    m.jacLevelLayout = lt(['storage', 'storage', 'uniform', 'uniform']); // red_buf, red_z, cparams, lparams
+    m.zInitLayout = lt(['read-only-storage', 'storage', 'uniform']);     // is_present, red_z, zparams
+    m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform']); // red_buf, red_z, cparams
     // Streaming planner + accumulator layouts
     m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     m.metaFixupLayout = lt(['storage']);
@@ -1802,6 +1852,19 @@ export class MsmV2 {
       sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, INV_VARIANT, ADDSUB),
       `reduce-level`,
       m.reduceLevelLayout,
+    );
+    // Jacobian reduction-tail pipelines (inversion-free level + Z-seed +
+    // per-window Jacobian->affine finalize).
+    m.jacLevelPipe = await compile(
+      sm.gen_ba_reduce_level_jacobian_shader(REDUCE_WG),
+      `reduce-jac`,
+      m.jacLevelLayout,
+    );
+    m.zInitPipe = await compile(sm.gen_ba_reduce_z_init_shader(WGI), `reduce-z-init`, m.zInitLayout);
+    m.jacFinalizePipe = await compile(
+      sm.gen_ba_reduce_jac_finalize_shader(WGI, INV_VARIANT),
+      `reduce-jac-finalize`,
+      m.jacFinalizeLayout,
     );
 
     // --- Streaming planner + accumulator pipelines ---
@@ -2322,6 +2385,16 @@ export class MsmV2 {
     // Phase 5: lparams now carries the kind as the 4th slot so the unified
     // reduce kernel can branch on it at runtime. cparams are level-invariant.
     const cparams = ubuf(new Uint32Array([RED_M, this.capMAXC, this.stride, 0]));
+    // Per-instance Jacobian Z-plane: PG=2 vec4<u32> (one field element) per
+    // red_buf slot, RED_M slots. Lives in prepBuffers so it is destroyed and
+    // reallocated alongside the other per-instance buffers on a slow-path
+    // rebuild (and in destroy()).
+    this.redZBuf = device.createBuffer({
+      size: 2 * RED_M * 16,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+    this.prepBuffers.push(this.redZBuf);
+    this.jacLevelBinds = [];
     this.reduceLevelBinds = this.reducePasses.map((_, i) => {
       const lparams = ubuf(new Uint32Array([
         schedule[i * 4 + 1], // pa
@@ -2329,8 +2402,15 @@ export class MsmV2 {
         schedule[i * 4 + 3], // ppw
         schedule[i * 4 + 0], // kind (was 0/unused before Phase 5)
       ]));
+      // Jacobian level reuses the same cparams/lparams; binds red_z in place
+      // of is_present + pref_scratch.
+      this.jacLevelBinds.push(mkBind(this.jacLevelLayout, [redBuf, this.redZBuf, cparams, lparams]));
       return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams]);
     });
+    const zInitParams = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
+    this.zInitBind = mkBind(this.zInitLayout, [isPresentBuf, this.redZBuf, zInitParams]);
+    const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, this.stride, this.numWindows]));
+    this.jacFinalizeBind = mkBind(this.jacFinalizeLayout, [redBuf, this.redZBuf, jacFinalizeParams]);
     this.redBuf = redBuf;
 
     // --- Streaming planner + accumulator bind groups ---
@@ -2511,6 +2591,8 @@ export class MsmV2 {
         passes += 7 + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
       }
       passes += 1 + this.reducePasses.length;
+      // Jacobian tail adds two dispatches: z-init + per-window finalize.
+      if (this.jacFromLevel < this.reducePasses.length) passes += 2;
       this.passCount = passes;
       this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
       this.tsResolveBuf = device.createBuffer({
@@ -2810,8 +2892,33 @@ export class MsmV2 {
     // Phase 5: ONE pipeline drives every level (kind branched at runtime
     // off lparams.w). reduceLevelKinds is no longer consulted.
     const reducePipe = this.reduceLevelPipes[0];
+    const jacActive = this.jacFromLevel < this.reduceLevelBinds.length;
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
-      dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
+      // At the affine->Jacobian handoff, seed the Z-plane from the current
+      // is_present flags (the affine prefix maintained them), then the
+      // remaining levels run inversion-free.
+      if (lv === this.jacFromLevel) {
+        setPhase('reduce_zinit');
+        dispatch(this.zInitPipe, this.zInitBind, Math.ceil(this.redM / WGI), 1);
+      }
+      // INSTRUMENTATION (revertible): tag each reduce level with a unique
+      // phase so the per-pass profiler splits the reduce phase per level.
+      // rd/jc prefix = affine/jacobian; NN/kK/wPPP = level / kind / ppw.
+      const rp = this.reducePasses[lv];
+      const rkind = rp.isDouble ? 2 : rp.shaderPhase === 0 ? 0 : 1;
+      const tag = `${String(lv).padStart(2, '0')}k${rkind}w${rp.ppw}`;
+      if (lv >= this.jacFromLevel) {
+        setPhase(`jc${tag}`);
+        dispatch(this.jacLevelPipe, this.jacLevelBinds[lv], this.numWindows, 1);
+      } else {
+        setPhase(`rd${tag}`);
+        dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
+      }
+    }
+    if (jacActive) {
+      // Per-window Jacobian -> affine so the gather below reads affine (x, y).
+      setPhase('reduce_jacfinal');
+      dispatch(this.jacFinalizePipe, this.jacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
     }
     // Per-window weighted sum gather. Same SoA stride math as run(), just
     // targeting an external staging buffer at an external offset.
