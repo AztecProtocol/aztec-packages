@@ -1,5 +1,5 @@
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
-import { createCheckpointTimingModel } from '@aztec/stdlib/timetable';
+import { calculateMaxBlocksPerSlot } from '@aztec/stdlib/timetable';
 
 import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 
@@ -17,10 +17,10 @@ export type TopicScoringNetworkParams = {
   targetCommitteeSize: number;
   /** Duration per block in milliseconds when building multiple blocks per slot. If undefined, single block mode. */
   blockDurationMs?: number;
-  /** Time budget in seconds reserved for L1 publishing. Defaults to ethereumSlotDuration. */
-  l1PublishingTime?: number;
   /** One-way proposal/attestation propagation budget in seconds. */
   p2pPropagationTime?: number;
+  /** Local checkpoint proposal preparation budget in seconds. */
+  checkpointProposalPrepareTime?: number;
   /** Expected number of block proposals per slot for scoring override. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
   expectedBlockProposalsPerSlot?: number;
 };
@@ -39,24 +39,15 @@ export function calculateBlocksPerSlot(
   blockDurationMs: number | undefined,
   opts?: {
     ethereumSlotDuration: number;
-    l1PublishingTime?: number;
     p2pPropagationTime?: number;
+    checkpointProposalPrepareTime?: number;
   },
 ): number {
-  if (!opts) {
-    return createCheckpointTimingModel({
-      aztecSlotDuration: slotDurationMs / 1000,
-      blockDuration: blockDurationMs ? blockDurationMs / 1000 : undefined,
-    }).calculateMaxBlocksPerSlot();
-  }
-
-  return createCheckpointTimingModel({
-    aztecSlotDuration: slotDurationMs / 1000,
-    ethereumSlotDuration: opts.ethereumSlotDuration,
-    blockDuration: blockDurationMs ? blockDurationMs / 1000 : undefined,
-    l1PublishingTime: opts.l1PublishingTime ?? opts.ethereumSlotDuration,
-    p2pPropagationTime: opts.p2pPropagationTime,
-  }).calculateMaxBlocksPerSlot();
+  return calculateMaxBlocksPerSlot(slotDurationMs / 1000, blockDurationMs ? blockDurationMs / 1000 : undefined, {
+    ethereumSlotDuration: opts?.ethereumSlotDuration,
+    p2pPropagationTime: opts?.p2pPropagationTime,
+    checkpointProposalPrepareTime: opts?.checkpointProposalPrepareTime,
+  });
 }
 
 /**
@@ -309,8 +300,8 @@ export class TopicScoreParamsFactory {
     // Compute values that are the same for all topics
     this.blocksPerSlot = calculateBlocksPerSlot(slotDurationMs, blockDurationMs, {
       ethereumSlotDuration: params.ethereumSlotDuration,
-      l1PublishingTime: params.l1PublishingTime,
       p2pPropagationTime: params.p2pPropagationTime,
+      checkpointProposalPrepareTime: params.checkpointProposalPrepareTime,
     });
     this.heartbeatsPerSlot = slotDurationMs / heartbeatIntervalMs;
     this.invalidDecay = computeDecay(heartbeatIntervalMs, slotDurationMs, INVALID_DECAY_WINDOW_SLOTS);

@@ -6,7 +6,11 @@ import {
 } from '@aztec/foundation/config';
 
 import type { SequencerConfig } from '../interfaces/configs.js';
-import { DEFAULT_P2P_PROPAGATION_TIME } from '../timetable/index.js';
+import {
+  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+  DEFAULT_MIN_BLOCK_DURATION,
+  DEFAULT_P2P_PROPAGATION_TIME,
+} from '../timetable/index.js';
 
 /** Default maximum number of transactions per block. */
 export const DEFAULT_MAX_TXS_PER_BLOCK = 32;
@@ -27,6 +31,8 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
     | 'expectedBlockProposalsPerSlot'
     | 'maxTxsPerBlock'
     | 'attestationPropagationTime'
+    | 'checkpointProposalPrepareTime'
+    | 'minBlockDuration'
     | 'maxBlocksPerCheckpoint'
   >
 > = {
@@ -54,6 +60,19 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
     description: 'How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way).',
     defaultValue: DEFAULT_P2P_PROPAGATION_TIME,
     ...floatConfigHelper(DEFAULT_P2P_PROPAGATION_TIME),
+  },
+  checkpointProposalPrepareTime: {
+    env: 'SEQ_CHECKPOINT_PROPOSAL_PREPARE_TIME',
+    description:
+      'Local time in seconds between the last block build finishing and the checkpoint proposal being ready for p2p send.',
+    defaultValue: DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+    ...floatConfigHelper(DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME),
+  },
+  minBlockDuration: {
+    env: 'SEQ_MIN_BLOCK_DURATION',
+    description: 'Minimum block-building time in seconds still worth allocating if the proposer starts late.',
+    defaultValue: DEFAULT_MIN_BLOCK_DURATION,
+    ...floatConfigHelper(DEFAULT_MIN_BLOCK_DURATION),
   },
   maxBlocksPerCheckpoint: {
     env: 'MAX_BLOCKS_PER_CHECKPOINT',

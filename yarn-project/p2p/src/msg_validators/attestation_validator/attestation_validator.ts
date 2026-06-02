@@ -10,7 +10,7 @@ import {
   hasValidSignatureContext,
 } from '@aztec/stdlib/p2p';
 
-import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
+import { PipeliningWindow } from '../clock_tolerance.js';
 
 export class CheckpointAttestationValidator implements P2PValidator<CheckpointAttestation> {
   protected epochCache: EpochCacheInterface;
@@ -21,16 +21,12 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
   constructor(
     epochCache: EpochCacheInterface,
     opts: {
-      l1PublishingTime?: number;
-      p2pPropagationTime?: number;
+      blockDurationMs?: number;
       signatureContext: CoordinationSignatureContext;
     },
   ) {
     this.epochCache = epochCache;
-    this.pipeliningWindow = new PipeliningWindow(epochCache, {
-      l1PublishingTime: opts.l1PublishingTime,
-      p2pPropagationTime: opts.p2pPropagationTime,
-    });
+    this.pipeliningWindow = new PipeliningWindow(epochCache, { blockDurationMs: opts.blockDurationMs });
     this.signatureContext = opts.signatureContext;
     this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
@@ -53,20 +49,18 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
       // Use target slots since proposals target pipeline slots (slot + 1 when pipelining).
       const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
 
-      if (slotNumber !== targetSlot && slotNumber !== nextSlot) {
-        // When pipelining, accept attestations for the current slot (built in the previous slot)
-        // until the target slot reaches its L1 publish cutoff.
-        if (this.pipeliningWindow.acceptsAttestation(slotNumber)) {
-          // Fall through to remaining validation (signature, committee, etc.)
-        } else if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {
-          this.logger.warn(
-            `Checkpoint attestation slot ${slotNumber} is not current (${targetSlot}) or next (${nextSlot}) slot`,
-          );
-          return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
-        } else {
-          this.logger.debug(`Ignoring checkpoint attestation for previous slot ${slotNumber} within clock tolerance`);
-          return { result: 'ignore' };
-        }
+      // Accept attestations whose explicit per-slot receive window contains the current wall-clock time.
+      // The window spans the build-frame start to the attestation deadline (target_slot_start + S - 2E),
+      // so it covers the build slot, the target slot, and clock-disparity grace on both ends.
+      if (
+        slotNumber !== targetSlot &&
+        slotNumber !== nextSlot &&
+        !this.pipeliningWindow.acceptsAttestation(slotNumber)
+      ) {
+        this.logger.warn(
+          `Checkpoint attestation slot ${slotNumber} is not current (${targetSlot}) or next (${nextSlot}) slot`,
+        );
+        return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
       }
 
       // Verify the signature is valid

@@ -1,54 +1,84 @@
 # Sequencer Client
 
-The sequencer client is the proposer-side counterpart to the [validator client](../validator-client/README.md): it builds checkpoints, broadcasts the block and checkpoint proposals that validators attest to, and publishes the resulting checkpoint to L1. It runs on any node whose configured validator address has been selected as proposer for the current (or next) slot.
+The sequencer client is the proposer-side counterpart to the [validator client](../validator-client/README.md): it
+builds checkpoints, broadcasts the block and checkpoint proposals that validators attest to, and publishes the resulting
+checkpoint to L1. It runs on any node whose configured validator address has been selected as proposer for the target
+slot.
 
-A single instance owns the entire proposer flow for one slot: deciding whether to propose, building several L2 blocks one after another, signing them, gossiping them, collecting attestations from the committee, and submitting the final checkpoint to L1 in one Multicall3 transaction together with governance and slashing votes.
+A single instance owns the proposer flow for one slot: deciding whether to propose, building several L2 blocks one after
+another, signing them, gossiping them, collecting attestations from the committee, and submitting the final
+checkpoint to L1 in one Multicall3 transaction together with governance and slashing votes.
 
-The sequencer does **not** decide what is in the next block on its own. It composes the work of several other subsystems: the [tx pool](../p2p/README.md) supplies transactions, the [validator client](../validator-client/README.md) owns operator keys and contains the `CheckpointBuilder` that actually executes them, the [archiver](../archiver/README.md) provides the L2 chain state needed to anchor each block, the [epoch cache](../epoch-cache/README.md) answers proposer/committee lookups, and the [slasher](../slasher/README.md) supplies offenses to vote on.
+The sequencer does **not** decide what is in the next block on its own. It composes the work of several subsystems: the
+[tx pool](../p2p/README.md) supplies transactions, the [validator client](../validator-client/README.md) owns operator keys
+and contains the `CheckpointBuilder` that actually executes them, the [archiver](../archiver/README.md) provides the L2
+chain state needed to anchor each block, the [epoch cache](../epoch-cache/README.md) answers proposer/committee
+lookups, and the [slasher](../slasher/README.md) supplies offenses to vote on.
 
 ## Key Concepts
 
 ### Slots, Blocks, and Checkpoints
 
-The Aztec consensus design splits each Aztec slot into multiple L2 blocks. This is the design originally called [building in chunks](https://github.com/AztecProtocol/engineering-designs/blob/main/docs/building-in-chunks/index.md).
+The Aztec consensus design splits each Aztec slot into multiple L2 blocks. This is the design originally called
+[building in chunks](https://github.com/AztecProtocol/engineering-designs/blob/main/docs/building-in-chunks/index.md).
 
 - **Slot** — a fixed time window (e.g. 72 s) during which one proposer is allowed to build.
 - **Block** — a single batch of transactions, executed and validated as a unit, with its own header.
-- **Checkpoint** — the collection of all blocks built within one slot. The proposer commits to a checkpoint on L1 by submitting a `propose` transaction containing the aggregated header, the blocks' tx effects (as blobs), and the committee attestations.
-- **Sub-slot** — a fixed-duration window within the slot during which one block is built. Sub-slots are equal in length and have deadlines fixed relative to the start of the slot.
+- **Checkpoint** — the collection of all blocks built for one target slot. The proposer commits to a checkpoint on L1 by
+  submitting a `propose` transaction containing the aggregated header, the blocks' tx effects (as blobs), and the
+  committee attestations.
+- **Sub-slot** — a fixed-duration window during which one block is built. Sub-slots are equal in length and have
+  deadlines fixed relative to the build frame.
 
-Several blocks per slot is intentional: it amortizes the fixed L1 cost of a checkpoint over more transactions, and it lets the rest of the network reach a usable state-root much sooner than the full L1 confirmation latency.
+Several blocks per slot is intentional: it amortizes the fixed L1 cost of a checkpoint over more transactions, and it
+lets the rest of the network reach a usable state-root much sooner than the full L1 confirmation latency.
 
 ### Proposed vs Checkpointed Chain
 
 There are two tips the sequencer cares about:
 
-- The **proposed chain** is the set of blocks that have been broadcast over p2p but not yet committed to L1. Both the sequencer and validators push these blocks into the archiver so the rest of the node can serve them.
+- The **proposed chain** is the set of blocks that have been broadcast over p2p but not yet committed to L1. Both the
+  sequencer and validators push these blocks into the archiver so the rest of the node can serve them.
 - The **checkpointed chain** is the set of checkpoints that have landed on L1, recovered from `CheckpointProposed` events.
 
-Within a slot, the proposer adds blocks to the proposed chain as it goes. Only the last block within the slot is bundled with a `CheckpointProposal` that committee members attest to; intermediate blocks are accepted onto the proposed chain by virtue of the proposer's signature alone, and every node that wants to follow the proposed chain re-executes them. See the [validator client README](../validator-client/README.md) for the consumer side.
+Within a slot, the proposer adds blocks to the proposed chain as it goes. Only the last block is bundled with a
+`CheckpointProposal` that committee members attest to; intermediate blocks are accepted onto the proposed chain by virtue
+of the proposer's signature alone, and every node that wants to follow the proposed chain re-executes them. See the
+[validator client README](../validator-client/README.md) for the consumer side.
 
 ### Proposer Pipelining
 
-Pipelining ([proposed in this discussion](https://github.com/AztecProtocol/governance/discussions/8)) is the only mode the production sequencer runs in. The proposer for slot `N` builds blocks, re-executes the last block, and collects attestations during slot `N - 1`, then submits the L1 transaction at the start of slot `N`. This removes the long idle window a naive flow would have inside slot `N`, where the proposer would otherwise spend most of the slot collecting attestations and waiting for the L1 transaction to mine.
+Pipelining ([proposed in this discussion](https://github.com/AztecProtocol/governance/discussions/8)) is the only mode the
+production sequencer runs in. The proposer for slot `N` builds blocks and broadcasts the checkpoint proposal during slot
+`N - 1`; the committee re-executes the final block, sends attestations back, and the proposer targets L1 submission for
+the start of slot `N`. This removes the long idle window a naive flow would have inside slot `N`, where the proposer would
+otherwise spend most of the slot collecting attestations and waiting for the L1 transaction to mine.
 
 Each phase lands in this slot:
 
 | Phase                   | Slot         |
 | ----------------------- | ------------ |
 | Block building          | slot `N - 1` |
-| Last-block re-execution | slot `N - 1` |
+| Checkpoint proposal     | slot `N - 1` |
+| Committee validation    | slot `N - 1` |
 | Attestation collection  | slot `N - 1` \* |
 | L1 submission           | slot `N`     |
 
-\* The timing model reserves enough end-of-slot budget for attestations to be in hand by the slot boundary, but the enforced deadline (`checkpointAttestationDeadline`) extends to `2 * aztecSlotDuration - l1PublishingTime`, so a late attestation can still spill into the target slot.
+\* The ideal timing path reserves enough budget for attestations to be in hand before the ideal L1 send time. The hard
+`attestation_deadline` is also the latest useful L1 publish time; validators must finish validation and sign by then for
+inactivity/slashing purposes.
 
-`EpochCache` always looks up the proposer for the next L1 slot, so the sequencer asks the cache for the proposer of `slot + 1` (`PROPOSER_PIPELINING_SLOT_OFFSET = 1`) rather than `slot`. Building runs during the wall-clock slot; the checkpoint commits to the target slot.
+`EpochCache` always looks up the pipelined target proposer, so the sequencer asks the cache for the proposer of
+`slot + 1` (`PROPOSER_PIPELINING_SLOT_OFFSET = 1`) rather than `slot`. Building runs during the wall-clock slot; the
+checkpoint commits to the target slot.
 
 This flow introduces two failure modes that block building has to handle:
 
-- **Pipeline depth** is bounded to 2 (`checkpointNumber ≤ confirmedCheckpoint + 2`). Building further ahead would require trusting more in-flight parent proposals than the design allows.
-- **Pipelined parent invalidation**: if the parent checkpoint we built on top of fails to land cleanly on L1, the next proposer's work is discarded (`pipelined-checkpoint-discarded` event) and an `invalidate` request is enqueued for the parent.
+- **Pipeline depth** is bounded to 2 (`checkpointNumber ≤ confirmedCheckpoint + 2`). Building further ahead would require
+  trusting more in-flight parent proposals than the design allows.
+- **Pipelined parent invalidation**: if the parent checkpoint we built on top of fails to land cleanly on L1, the next
+  proposer's work is discarded (`pipelined-checkpoint-discarded` event) and an `invalidate` request is enqueued for the
+  parent.
 
 ## Architecture
 
@@ -150,7 +180,8 @@ Inside `execute()`:
    - Transitions to `COLLECTING_ATTESTATIONS`. Reads the committee from `EpochCache`, computes the quorum (`2/3 + 1`), and waits for that many attestations on p2p. The validator client adds the proposer's own signature.
    - `waitForValidParentCheckpointOnL1()` waits for the archiver to confirm the parent we built on top of has landed on L1 with matching hash and valid attestations. If not, the work is dropped (`pipelined-checkpoint-discarded`) and we enqueue an invalidation for the parent so the next proposer doesn't repeat the same mistake.
    - Computes `submitAfter` as `getTimestampForSlot(targetSlot)` so the Multicall3 mines inside the target slot — EIP-712 signatures are bound to a slot and would silently fail if mined outside it.
-   - Calls `publisher.sendRequestsAt(submitAfter)`, which sleeps until the deadline, re-runs each request's `preCheck` against fresh L1 state, and submits the bundled Multicall3.
+   - Calls `publisher.sendRequestsAt(submitAfter)`, which targets the ideal L1 send time, re-runs each request's
+     `preCheck` against fresh L1 state, and submits the bundled Multicall3.
 
 ### Per-block loop (`buildBlocksForCheckpoint`)
 
@@ -170,7 +201,8 @@ loop:
 
   if result is 'insufficient-txs' or 'insufficient-valid-txs':
     if isLastBlock or no deadline:           break
-    else:                                    continue (try next sub-slot)
+    else:                                    wait until this sub-slot deadline,
+                                             then continue (try next sub-slot)
   if result is error:                        halt
 
   blockProposal = validatorClient.createBlockProposal(block)
@@ -195,7 +227,8 @@ The deadlines passed to `CheckpointBuilder.buildBlock` are absolute timestamps (
 - **Sub-slot scheduling**: `canStartNextBlock(secondsIntoSlot)` finds the next sub-slot with at least `minExecutionTime` remaining and returns its deadline and whether it is the last sub-slot. If we are running late, sub-slots are skipped; we never start a block we cannot finish.
 - **Per-state deadlines**: `getMaxAllowedTime(state)` returns the latest seconds-into-slot value a state is allowed to be entered; `assertTimeLeft()` enforces it.
 
-See [`src/sequencer/README.md`](src/sequencer/README.md) for the full timing model, including the pipelining math and the failure-mode walkthroughs.
+See [`src/sequencer/README.md`](src/sequencer/README.md) for the full timing model, including the ideal/deadline split
+for checkpoint proposals, the consensus-only receive deadline, and the failure-mode walkthroughs.
 
 ### SequencerPublisher
 
@@ -207,7 +240,9 @@ Key entry points:
 - `enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, opts)` — adds the propose call, with a `preCheck` that re-validates the proposal against real L1 state when it is finally sent (catches drift between build time and submit time).
 - `enqueueInvalidateCheckpoint`, `enqueueGovernanceCastSignal`, `enqueueSlashingActions` — the rest of the actions a proposer may bundle.
 - `sendRequests(targetSlot?)` — immediately flushes the queue as one Multicall3 transaction. Used by the `AutomineSequencer` for synchronous in-slot publishing.
-- `sendRequestsAt(targetSlot)` — the production (pipelined) path: sleeps (cancellable) until one L1 slot before `targetSlot` starts, runs each request's `preCheck` (dropping those that fail), and then calls `sendRequests(targetSlot)`, which filters expired requests, sorts the remainder, and submits one Multicall3 that mines inside the target slot.
+- `sendRequestsAt(targetSlot)` — the production (pipelined) path: sleeps (cancellable) until the ideal L1 send time, runs
+  each request's `preCheck` (dropping those that fail), and then calls `sendRequests(targetSlot)`, which filters expired
+  requests, sorts the remainder, and submits one Multicall3 that mines inside the target slot.
 
 `SequencerPublisherFactory` produces one publisher per attempt, wrapping an L1 publisher (EOA + `L1TxUtils`) leased from `PublisherManager`. Leases free the publisher when the job completes so multiple validator addresses on the same node can take turns without conflicts.
 
@@ -246,7 +281,7 @@ The configuration object is `SequencerConfig` (`src/sequencer/config.ts` + `src/
 | `blockDurationMs` / `SEQ_BLOCK_DURATION_MS` | unset | Length of one sub-slot in ms. `undefined` falls back to single-block-per-slot mode (used by tests / sandbox). |
 | `enforceTimeTable` / `SEQ_ENFORCE_TIME_TABLE` | true | If false, deadlines are not enforced and a single block is built with unbounded time. |
 | `attestationPropagationTime` / `SEQ_ATTESTATION_PROPAGATION_TIME` | 2 s | One-way p2p estimate fed to the timetable. |
-| `l1PublishingTime` / `SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT` | full L1 slot | Time reserved for the L1 tx to land. |
+| `l1PublishingTime` / `SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT` | full L1 slot | Late-publish allowance used to derive `attestation_deadline`. |
 | `sequencerPollingIntervalMS` / `SEQ_POLLING_INTERVAL_MS` | 500 | Work-loop tick rate. |
 
 ### Behavior

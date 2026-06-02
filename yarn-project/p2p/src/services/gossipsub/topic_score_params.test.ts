@@ -23,7 +23,7 @@ describe('Topic Score Params', () => {
     ethereumSlotDuration: 12,
     heartbeatIntervalMs: 700, // 700ms gossipsub heartbeat
     targetCommitteeSize: 48,
-    l1PublishingTime: 12,
+    checkpointProposalPrepareTime: 1,
   };
 
   describe('calculateBlocksPerSlot', () => {
@@ -36,26 +36,30 @@ describe('Topic Score Params', () => {
       expect(calculateBlocksPerSlot(72000, 0)).toBe(1);
     });
 
-    it('calculates correct blocks per slot for MBPS mode', () => {
-      // With 72s slot and 10s block duration under pipelining:
-      // reserved = assemble(1) + 2*p2p(2) + block(10) = 15; available = 72 - 1 - 15 = 56; floor(56/10) = 5
-      const result = calculateBlocksPerSlot(72000, 10000);
-      expect(result).toBeGreaterThanOrEqual(1);
+    it('matches the production worked example (10 blocks)', () => {
+      // floor((72 - 6 - 2*2 - 1) / 6) = floor(61/6) = 10
+      const result = calculateBlocksPerSlot(72000, 6000, {
+        ethereumSlotDuration: 12,
+        p2pPropagationTime: 2,
+        checkpointProposalPrepareTime: 1,
+      });
+      expect(result).toBe(10);
     });
 
-    it('uses the same compressed timing allowances as the sequencer for test configs', () => {
-      expect(() =>
-        calculateBlocksPerSlot(24000, 4000, {
-          ethereumSlotDuration: 8,
-          l1PublishingTime: 1,
-        }),
-      ).not.toThrow();
+    it('matches the local fast profile (4 blocks)', () => {
+      // floor((36 - 6 - 2*0.5 - 0.5) / 6) = floor(28.5/6) = 4
+      const result = calculateBlocksPerSlot(36000, 6000, {
+        ethereumSlotDuration: 4,
+        p2pPropagationTime: 0.5,
+        checkpointProposalPrepareTime: 0.5,
+      });
+      expect(result).toBe(4);
     });
 
-    it('throws for an impossible timing configuration', () => {
-      expect(() => calculateBlocksPerSlot(72000, 60000)).toThrow(
-        'Invalid timing configuration: only 6s available for block building, which is less than one blockDuration (60s).',
-      );
+    it('returns 0 for an impossible timing configuration (no room for a full block)', () => {
+      // floor((72 - 60 - 2*2 - 1) / 60) = floor(7/60) = 0; the pure fn does not throw, the proposer
+      // timetable constructor enforces the >= 1 minimum.
+      expect(calculateBlocksPerSlot(72000, 60000)).toBe(0);
     });
   });
 

@@ -46,8 +46,21 @@ export interface SequencerConfig {
   governanceProposerPayload?: EthAddress;
   /** Whether to enforce the time table when building blocks */
   enforceTimeTable?: boolean;
-  /** How much time (in seconds) we allow in the slot for publishing the L1 tx. */
+  /**
+   * @deprecated Vestigial under the pipelined timetable: the L1 send lead is exactly one Ethereum slot
+   * (`ethereum_slot_duration`). How much time (in seconds) we allow in the slot for publishing the L1 tx.
+   */
   l1PublishingTime?: number;
+  /**
+   * Minimum block-building time (`min_block_duration`) still worth allocating if the proposer starts
+   * late, in seconds.
+   */
+  minBlockDuration?: number;
+  /**
+   * Local time (`checkpoint_proposal_prepare_time`) between the last block build finishing and the
+   * checkpoint proposal being ready for p2p send, in seconds.
+   */
+  checkpointProposalPrepareTime?: number;
   /** Used for testing to introduce a fake delay after processing each tx */
   fakeProcessingDelayPerTxMs?: number;
   /** Used for testing to throw an error after processing N txs */
@@ -133,6 +146,8 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
     governanceProposerPayload: schemas.EthAddress.optional(),
     l1PublishingTime: z.number().optional(),
+    minBlockDuration: z.number().positive().optional(),
+    checkpointProposalPrepareTime: z.number().nonnegative().optional(),
     enforceTimeTable: z.boolean().optional(),
     fakeProcessingDelayPerTxMs: z.number().optional(),
     fakeThrowAfterProcessingTxCount: z.number().optional(),
@@ -173,6 +188,8 @@ type SequencerConfigOptionalKeys =
   | 'fakeProcessingDelayPerTxMs'
   | 'fakeThrowAfterProcessingTxCount'
   | 'l1PublishingTime'
+  | 'minBlockDuration'
+  | 'checkpointProposalPrepareTime'
   | 'txPublicSetupAllowListExtend'
   | 'invalidBlockProposalIndexWithinCheckpoint'
   | 'minValidTxsPerBlock'

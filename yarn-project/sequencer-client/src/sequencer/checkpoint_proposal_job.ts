@@ -328,15 +328,11 @@ export class CheckpointProposalJob implements Traceable {
   private async enqueueCheckpointForSubmission(result: CheckpointProposalResult): Promise<void> {
     const { checkpoint, attestations, attestationsSignature } = result;
 
-    // Build-frame state deadlines must be measured against `slotNow` (the build slot), not
-    // `targetSlot`. The timetable's `getMaxAllowedTime` deadlines are expressed relative to the
-    // build-frame start; passing `targetSlot` would shift the reference a full Aztec slot later
-    // (frame B), so the deadlines would never fire. `targetSlot` stays for headers, signing, and
-    // L1 submission scheduling.
+    // `slotNow` (the build slot) is used for the informational state-change payload; `targetSlot` is
+    // used for the timetable deadlines, headers, signing, and L1 submission scheduling.
     this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.slotNow);
-    const aztecSlotDuration = this.l1Constants.slotDuration;
-    const submissionSlotStart = Number(getTimestampForSlot(this.targetSlot, this.l1Constants));
-    const txTimeoutAt = new Date((submissionSlotStart + aztecSlotDuration) * 1000);
+    // Latest useful L1 send is the single attestation_deadline (target_slot_start + S - 2E).
+    const txTimeoutAt = new Date(this.timetable.getAttestationDeadline(this.targetSlot) * 1000);
 
     // If we have been configured to potentially skip publishing checkpoint then roll the dice here
     if (
@@ -840,14 +836,14 @@ export class CheckpointProposalJob implements Traceable {
         break;
       }
 
-      const secondsIntoSlot = this.getSecondsIntoSlot();
-      const timingInfo = this.timetable.canStartNextBlock(secondsIntoSlot);
+      const nowSeconds = this.dateProvider.now() / 1000;
+      const timingInfo = this.timetable.selectNextSubslot(this.targetSlot, nowSeconds);
 
       if (!timingInfo.canStart) {
         this.log.debug(`Not enough time left in slot to start another block`, {
           slot: this.targetSlot,
           blocksBuilt,
-          secondsIntoSlot,
+          nowSeconds,
         });
         break;
       }
@@ -857,10 +853,8 @@ export class CheckpointProposalJob implements Traceable {
         blockTimestamp: timestamp,
         // Create an empty block if we haven't already and this is the last one
         forceCreate: timingInfo.isLastBlock && blocksBuilt === 0 && this.config.buildCheckpointIfEmpty,
-        // Build deadline is only set if we are enforcing the timetable
-        buildDeadline: timingInfo.deadline
-          ? new Date((this.getSlotStartBuildTimestamp() + timingInfo.deadline) * 1000)
-          : undefined,
+        // Build deadline (absolute wall-clock seconds) is only set if we are enforcing the timetable
+        buildDeadline: timingInfo.deadline !== undefined ? new Date(timingInfo.deadline * 1000) : undefined,
         blockNumber,
         indexWithinCheckpoint,
         txHashesAlreadyIncluded,
@@ -965,14 +959,17 @@ export class CheckpointProposalJob implements Traceable {
     );
   }
 
-  /** Sleeps until it is time to produce the next block in the slot */
+  /**
+   * Sleeps until it is time to produce the next block in the slot.
+   * @param nextSubslotStart - Absolute wall-clock timestamp in seconds of the previous sub-slot deadline.
+   */
   @trackSpan('CheckpointProposalJob.waitUntilNextSubslot')
   private async waitUntilNextSubslot(nextSubslotStart: number) {
     this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.slotNow);
-    this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s into slot`, {
+    this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s`, {
       slot: this.targetSlot,
     });
-    await this.waitUntilTimeInSlot(nextSubslotStart);
+    await this.waitUntilTimeInSlot(nextSubslotStart - this.getSlotStartBuildTimestamp());
   }
 
   /** Builds a single block. Called from the main block building loop. */
@@ -1197,9 +1194,12 @@ export class CheckpointProposalJob implements Traceable {
     // We only allow a block with 0 txs in the first block of the checkpoint
     const minTxs = indexWithinCheckpoint > 0 && this.config.minTxsPerBlock === 0 ? 1 : this.config.minTxsPerBlock;
 
-    // Deadline is undefined if we are not enforcing the timetable, meaning we'll exit immediately when out of time
+    // Latest time to keep waiting for txs: wait_for_txs_deadline = block_build_deadline(k) - min_block_duration.
+    // buildDeadline is block_build_deadline(k) (multi-block) or the split deadline (single-block), so this
+    // is the uniform spec formula. Undefined if we are not enforcing the timetable (buildDeadline
+    // undefined), meaning we exit immediately when out of time.
     const startBuildingDeadline = buildDeadline
-      ? new Date(buildDeadline.getTime() - this.timetable.minExecutionTime * 1000)
+      ? new Date(buildDeadline.getTime() - this.timetable.minBlockDuration * 1000)
       : undefined;
 
     let availableTxs = await this.p2pClient.getPendingTxCount();
@@ -1293,12 +1293,17 @@ export class CheckpointProposalJob implements Traceable {
       );
     }
 
-    const attestationTimeAllowed = this.config.enforceTimeTable
-      ? this.timetable.getCheckpointAttestationDeadline()
-      : this.l1Constants.slotDuration;
-    const attestationDeadline = new Date((this.getSlotStartBuildTimestamp() + attestationTimeAllowed) * 1000);
+    // Hard attestation-collection cutoff = the single consensus attestation_deadline
+    // (target_slot_start + S - 2E). When not enforcing the timetable, loosen to the full target slot.
+    const attestationDeadlineSeconds = this.config.enforceTimeTable
+      ? this.timetable.getAttestationDeadline(this.targetSlot)
+      : Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) + this.l1Constants.slotDuration;
+    const attestationDeadline = new Date(attestationDeadlineSeconds * 1000);
 
-    this.metrics.recordRequiredAttestations(numberOfRequiredAttestations, attestationTimeAllowed);
+    this.metrics.recordRequiredAttestations(
+      numberOfRequiredAttestations,
+      Math.max(0, attestationDeadline.getTime() - this.dateProvider.now()),
+    );
 
     const collectAttestationsTimer = new Timer();
     let collectedAttestationsCount: number = 0;
@@ -1593,11 +1598,6 @@ export class CheckpointProposalJob implements Traceable {
 
   private getSlotStartBuildTimestamp(): number {
     return getSlotStartBuildTimestamp(this.slotNow, this.l1Constants);
-  }
-
-  private getSecondsIntoSlot(): number {
-    const slotStartTimestamp = this.getSlotStartBuildTimestamp();
-    return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));
   }
 
   public getPublisher() {

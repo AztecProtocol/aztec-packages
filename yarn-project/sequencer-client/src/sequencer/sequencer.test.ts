@@ -435,21 +435,15 @@ describe('sequencer', () => {
       expectPublisherProposeL2Block();
     });
 
-    it('does not build a block if it does not have enough time left in the slot', async () => {
+    it('does not build a block if it is past the start deadline for the target slot', async () => {
       await setupSingleTxBlock();
 
-      // Deadline for initializing proposal is 5.5s into the slot; the build slot starts at
-      // l1GenesisTime + slotDuration - ethereumSlotDuration, so setting the clock to
-      // l1GenesisTime + slotDuration + 2 puts us at 6s into the slot, past the deadline.
-      expect(sequencer.getTimeTable().initializeDeadline).toEqual(5.5);
-      const l1TsForL2Slot1 = Number(l1Constants.l1GenesisTime) + slotDuration;
-      dateProvider.setTime((l1TsForL2Slot1 + 2) * 1000);
-      await expect(sequencer.work()).rejects.toThrow(
-        expect.objectContaining({
-          name: 'SequencerTooSlowError',
-          message: expect.stringContaining(`Too far into slot`),
-        }),
-      );
+      // start_deadline (single-block, S=8 E=4 P=2 prepCp=1 minD=2) = target_slot_start - E - 2P - prepCp
+      // - minD = target_slot_start - 11. Set the clock past it so block building is abandoned before the
+      // proposer check, without throwing (setState is now pure).
+      const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+      await expect(sequencer.work()).resolves.not.toThrow();
 
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
@@ -746,13 +740,11 @@ describe('sequencer', () => {
 
     const mockSlashActions = [{ type: 'vote-offenses' as const, round: 1n, votes: [], committees: [] }];
 
-    it('should vote on slashing and governance when sync fails and past initialize deadline', async () => {
-      // Set time to be past the initializeDeadline (5.5s for this test config)
-      // Build start is: l1GenesisTime + slotNumber * slotDuration - ethereumSlotDuration
-      // For slot 1: l1GenesisTime + 1 * 8 - 4 = l1GenesisTime + 4
-      expect(sequencer.getTimeTable().initializeDeadline).toEqual(5.5);
-      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
-      dateProvider.setTime((buildStartTime + 6) * 1000); // 6 seconds after build start, past the 5.5s deadline
+    it('should vote on slashing and governance when sync fails and past the start deadline', async () => {
+      // Past start_deadline for the target slot: tryVoteWhenSyncFails should vote instead of waiting to
+      // build (sync has failed, so building is impossible anyway).
+      const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
@@ -786,12 +778,9 @@ describe('sequencer', () => {
     });
 
     it('should not vote when sync fails and within time limit', async () => {
-      // Set time to be within the max allowed time
-      // Build start is: l1GenesisTime + slotNumber * slotDuration - ethereumSlotDuration
-      // For slot 1: l1GenesisTime + 1 * 8 - 4 = l1GenesisTime + 4
-      // initializeDeadline is 1s, so we need to be less than 1s after the build start
-      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
-      dateProvider.setTime((buildStartTime + 0.5) * 1000); // 0.5s after build start, within 1s deadline
+      // Before start_deadline for the target slot: there is still time to build, so do not vote.
+      const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline - 1) * 1000);
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
@@ -807,9 +796,9 @@ describe('sequencer', () => {
     });
 
     it('should not vote when sync fails but not a proposer', async () => {
-      // Set time to be past the max allowed time
-      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
-      dateProvider.setTime((buildStartTime + 6) * 1000); // 6s after build start, past 5.5s deadline
+      // Set time past the start deadline for the target slot.
+      const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
@@ -825,9 +814,9 @@ describe('sequencer', () => {
     });
 
     it('should not attempt to vote twice in the same slot', async () => {
-      // Set time to be past the max allowed time
-      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
-      dateProvider.setTime((buildStartTime + 6) * 1000); // 6s after build start, past 5.5s deadline
+      // Set time past the start deadline for the target slot.
+      const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);

@@ -11,7 +11,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockSink, L2BlockSource, ProposedCheckpointSink } from '@aztec/stdlib/block';
-import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
   BlockBuilderOptions,
@@ -384,14 +384,12 @@ describe('CheckpointProposalJob Timing Tests', () => {
     // Create timetable with realistic production values
     timetable = new SequencerTimetable(
       {
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        l1PublishingTime: L1_PUBLISHING_TIME,
+        l1Constants,
         p2pPropagationTime: P2P_PROPAGATION_TIME,
+        checkpointProposalPrepareTime: CHECKPOINT_ASSEMBLE_TIME,
         blockDurationMs: BLOCK_DURATION * 1000,
         enforce: true,
       },
-      undefined,
       createLogger('test:timetable'),
     );
 
@@ -554,13 +552,11 @@ describe('CheckpointProposalJob Timing Tests', () => {
       job.setTimetable(
         new SequencerTimetable(
           {
-            ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-            aztecSlotDuration: AZTEC_SLOT_DURATION,
-            l1PublishingTime: L1_PUBLISHING_TIME,
+            l1Constants,
             p2pPropagationTime: P2P_PROPAGATION_TIME,
+            checkpointProposalPrepareTime: CHECKPOINT_ASSEMBLE_TIME,
             enforce: true,
           },
-          undefined,
           createLogger('test:timetable:single-block'),
         ),
       );
@@ -664,9 +660,10 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       await job.execute();
 
-      // Second block should have started at 9s (sub-slot 2 start), not at 5s
-      // The job should have waited from 5s to 9s
-      expect(checkpointBuilder.recordedBuildTimes[1].startTime).toBeGreaterThanOrEqual(9);
+      // Sub-slots are anchored at the build frame start: block_build_deadline(0) = 8s. The first block
+      // finishes early (at 5s) and the job waits until the first sub-slot deadline (8s) before starting
+      // the second block, so the second block starts at >= 8s, not at 5s.
+      expect(checkpointBuilder.recordedBuildTimes[1].startTime).toBeGreaterThanOrEqual(8);
     });
 
     it('verifies deadlines are passed to block builder', async () => {
@@ -689,10 +686,10 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       expect(checkpointBuilder.buildBlockCalls.length).toBe(EXPECTED_MAX_BLOCKS);
 
-      // Verify each block was given the correct deadline at sub-slot boundaries
-      // Sub-slot deadlines: 9s, 17s, 25s, 33s, 41s, 49s, 57s (initOffset + n * blockDuration)
+      // Verify each block was given the correct deadline at sub-slot boundaries.
+      // Sub-slot deadlines: block_build_deadline(k) = build_frame_start + (k+1)*blockDuration = 8s, 16s, ...
       const slotStart = getSlotStartTime(slotNumber);
-      const expectedDeadlines = [9, 17, 25, 33, 41, 49, 57];
+      const expectedDeadlines = [8, 16, 24, 32, 40, 48, 56];
 
       for (let i = 0; i < EXPECTED_MAX_BLOCKS; i++) {
         const deadline = checkpointBuilder.buildBlockCalls[i].opts.deadline;
@@ -738,8 +735,9 @@ describe('CheckpointProposalJob Timing Tests', () => {
       const lastBlockBuildTime = checkpointBuilder.recordedBuildTimes[EXPECTED_MAX_BLOCKS - 1];
       expect(lastBlockBuildTime).toBeDefined();
 
-      // Attestation deadline extends into the target slot under pipelining.
-      const attestationDeadline = timetable.getCheckpointAttestationDeadline();
+      // Attestation deadline (target_slot_start + S - 2E), expressed relative to the build frame start
+      // so it can be compared against the simulated seconds-into-slot recorded build times.
+      const attestationDeadline = timetable.getAttestationDeadline(targetSlot) - getSlotStartTime(slotNumber);
 
       // Validator re-execution budget = attestationDeadline - lastBlockEndTime - propagationTime
       // The propagationTime is for the checkpoint proposal to reach validators
@@ -751,8 +749,9 @@ describe('CheckpointProposalJob Timing Tests', () => {
       // The enforced attestation deadline above is permissive (it spills into the target slot), so it
       // can't catch a build slot that is overfilled. Assert the README design guarantee directly: the
       // last sub-slot's deadline, and the actual last-block completion, both leave the full
-      // end-of-build-slot reservation free before the build-slot boundary.
-      const lastSubSlotDeadline = timetable.initializationOffset + EXPECTED_MAX_BLOCKS * BLOCK_DURATION;
+      // end-of-build-slot reservation free before the build-slot boundary. Sub-slots are now anchored
+      // directly at the build frame start (block_build_deadline(k) = build_frame_start + (k+1)*D).
+      const lastSubSlotDeadline = EXPECTED_MAX_BLOCKS * BLOCK_DURATION;
       expect(lastSubSlotDeadline).toBeLessThanOrEqual(AZTEC_SLOT_DURATION - TIME_RESERVED_AT_END);
       expect(AZTEC_SLOT_DURATION - lastBlockBuildTime.endTime).toBeGreaterThanOrEqual(TIME_RESERVED_AT_END);
     });
@@ -785,7 +784,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       const lastBlockBuildTime = checkpointBuilder.recordedBuildTimes[blocksBuilt - 1];
 
       // The last block's deadline should still leave room for validator re-execution.
-      const attestationDeadline = timetable.getCheckpointAttestationDeadline();
+      const attestationDeadline = timetable.getAttestationDeadline(targetSlot) - getSlotStartTime(slotNumber);
       const validatorReexecutionBudget = attestationDeadline - lastBlockBuildTime.endTime - P2P_PROPAGATION_TIME;
 
       expect(validatorReexecutionBudget).toBeGreaterThanOrEqual(BLOCK_DURATION);
@@ -922,9 +921,10 @@ describe('CheckpointProposalJob Timing Tests', () => {
       // or cause blocks to miss their optimal sub-slots
       expect(buildTimes.length).toBeGreaterThan(0);
 
-      // Verify cascading effect: each block ends later than its deadline
+      // Verify cascading effect: each block ends later than its deadline. Sub-slots are anchored at
+      // the build frame start: block_build_deadline(i) = build_frame_start + (i+1)*D.
       for (let i = 0; i < buildTimes.length - 1; i++) {
-        const expectedDeadline = timetable.initializationOffset + (i + 1) * BLOCK_DURATION;
+        const expectedDeadline = (i + 1) * BLOCK_DURATION;
         // Each block (except possibly the last) exceeds its deadline
         if (i < buildTimes.length - 1) {
           expect(buildTimes[i].endTime).toBeGreaterThan(expectedDeadline);
@@ -1191,33 +1191,24 @@ describe('CheckpointProposalJob Timing Tests', () => {
       }
     });
 
-    it('abandons the slot when a build-frame deadline is missed (assembly past the build-slot boundary)', async () => {
+    it('abandons the slot when every sub-slot deadline has passed', async () => {
       const { blocks, txs } = await createTestBlocksAndTxs(1);
       mockP2pWithTxs(txs);
       checkpointBuilder.seedBlocks(blocks, [[txs[0]]]);
-      // Single block runs 50s -> 80s (in the build frame), so ASSEMBLING_CHECKPOINT is entered at
-      // ~80s into the build frame, past its deadline (checkpointAssemblyDeadline = 72s in frame A).
       checkpointBuilder.setExecutionDurations([30]);
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(blocks[0]));
 
-      setTimeInSlot(50);
+      // The last sub-slot deadline is EXPECTED_MAX_BLOCKS * BLOCK_DURATION = 56s into the build frame.
+      // Starting past that leaves no sub-slot with min_block_duration headroom, so selectNextSubslot
+      // refuses to start any block and no checkpoint is produced (setState is now pure — no throw).
+      setTimeInSlot(EXPECTED_MAX_BLOCKS * BLOCK_DURATION + 1);
 
-      // Enforcing setStateFn mirroring Sequencer.setState: measures the deadline for the passed slot
-      // against the build-frame reference (`getSlotStartBuildTimestamp(slot)`).
-      const setStateFn = (state: SequencerState, slot?: SlotNumber) => {
-        if (slot !== undefined) {
-          const ref = getSlotStartBuildTimestamp(slot, l1Constants);
-          timetable.assertTimeLeft(state, dateProvider.nowInSeconds() - ref);
-        }
-      };
-
-      const job = createJob(setStateFn);
+      const job = createJob();
       const checkpoint = await job.execute();
 
-      // Past the build-frame assembly deadline: the SequencerTooSlowError is caught inside
-      // proposeCheckpoint, which returns undefined, so no checkpoint is produced.
       expect(checkpoint).toBeUndefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
     });
   });
 });

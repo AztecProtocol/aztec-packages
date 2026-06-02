@@ -10,7 +10,12 @@ import {
   hasValidSignatureContext,
 } from '@aztec/stdlib/p2p';
 
-import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
+import { PipeliningWindow } from '../clock_tolerance.js';
+
+/** Type guard for checkpoint proposals (which carry a checkpoint header) vs plain block proposals. */
+function isCheckpointProposal(proposal: BlockProposal | CheckpointProposalCore): proposal is CheckpointProposalCore {
+  return 'checkpointHeader' in proposal;
+}
 
 /** Validates header-level and tx-level fields of block and checkpoint proposals. */
 export class ProposalValidator {
@@ -29,7 +34,7 @@ export class ProposalValidator {
       txsPermitted: boolean;
       maxTxsPerBlock?: number;
       maxBlocksPerCheckpoint?: number;
-      p2pPropagationTime?: number;
+      blockDurationMs?: number;
       skipSlotValidation?: boolean;
       signatureContext: CoordinationSignatureContext;
     },
@@ -39,7 +44,7 @@ export class ProposalValidator {
     this.txsPermitted = opts.txsPermitted;
     this.maxTxsPerBlock = opts.maxTxsPerBlock;
     this.maxBlocksPerCheckpoint = opts.maxBlocksPerCheckpoint;
-    this.pipeliningWindow = new PipeliningWindow(epochCache, { p2pPropagationTime: opts.p2pPropagationTime });
+    this.pipeliningWindow = new PipeliningWindow(epochCache, { blockDurationMs: opts.blockDurationMs });
     this.skipSlotValidation = opts.skipSlotValidation ?? false;
     this.signatureContext = opts.signatureContext;
     this.logger = createLogger(loggerName);
@@ -59,21 +64,23 @@ export class ProposalValidator {
         return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
       }
 
-      // Slot check: use target slots since proposals target pipeline slots (slot + 1 when pipelining).
+      // Slot check: the explicit receive window is the sole acceptance gate, enforced unconditionally
+      // (the window itself bounds which slots are valid, so far/wrong slots fall outside it; no need to
+      // special-case the build/target slots). Checkpoint proposals use the tight consensus receive
+      // window (`[receiveStart - δ, target_slot_start - E - D + δ]`), which gates the next-proposer
+      // handoff and must reject proposals that arrive after the checkpoint receive deadline even on the
+      // common `messageSlot === targetSlot` path under pipelining. Block proposals use the looser
+      // build-frame-to-attestation-deadline window.
       const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
 
       const slotNumber = proposal.slotNumber;
-      if (!this.skipSlotValidation && slotNumber !== targetSlot && slotNumber !== nextSlot) {
-        // When pipelining, accept proposals for the current slot (built in the previous slot)
-        // if they're still within the shared proposal acceptance window.
-        if (this.pipeliningWindow.acceptsProposal(slotNumber)) {
-          // Fall through to remaining validation (signature, proposer, etc.)
-        } else if (!isWithinClockTolerance(slotNumber, targetSlot, this.epochCache)) {
+      if (!this.skipSlotValidation) {
+        const withinWindow = isCheckpointProposal(proposal)
+          ? this.pipeliningWindow.acceptsProposal(slotNumber)
+          : this.pipeliningWindow.acceptsAttestation(slotNumber);
+        if (!withinWindow) {
           this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, { targetSlot, nextSlot });
           return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
-        } else {
-          this.logger.verbose(`Ignoring proposal for previous slot ${slotNumber} within clock tolerance`);
-          return { result: 'ignore' };
         }
       }
 

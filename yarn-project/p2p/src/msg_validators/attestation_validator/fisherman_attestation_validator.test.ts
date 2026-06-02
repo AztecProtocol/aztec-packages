@@ -28,12 +28,13 @@ describe('FishermanAttestationValidator', () => {
   beforeEach(() => {
     epochCache = mock<EpochCacheInterface>();
     epochCache.getL1Constants.mockReturnValue({
+      l1GenesisTime: 0n,
       slotDuration: 72,
       ethereumSlotDuration: 12,
     } as any);
     attestationPool = mock<AttestationPool>();
     validator = new FishermanAttestationValidator(epochCache, attestationPool, getTelemetryClient(), {
-      l1PublishingTime: 12,
+      blockDurationMs: 6000,
       signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
     });
     proposer = Secp256k1Signer.random();
@@ -57,8 +58,8 @@ describe('FishermanAttestationValidator', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: SlotNumber(98),
-        ts: 1000n,
-        nowMs: 1001000n, // 1000ms elapsed, outside 500ms tolerance
+        ts: 7033n,
+        nowMs: 7033_000n, // past slot 97's attestation deadline (7032s) + disparity
       });
       epochCache.isInCommittee.mockResolvedValue(true);
 

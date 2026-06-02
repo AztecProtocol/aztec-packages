@@ -44,6 +44,7 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointProposal, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import type { SubslotSelection } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
@@ -345,13 +346,29 @@ describe('CheckpointProposalJob', () => {
     };
 
     timetable = new SequencerTimetable({
-      ethereumSlotDuration,
-      aztecSlotDuration: slotDuration,
-      l1PublishingTime: ethereumSlotDuration,
+      l1Constants,
       enforce: config.enforceTimeTable,
     });
 
     job = createCheckpointProposalJob();
+  });
+
+  // selectNextSubslot now returns absolute wall-clock sub-slot deadlines (seconds). The build loop
+  // converts them back to seconds-into-slot before calling waitUntilTimeInSlot, so tests express
+  // deadlines as offsets from the build frame start and assert waitUntilTimeInSlot with those offsets.
+  const buildFrameStartSeconds = () =>
+    Number(l1Constants.l1GenesisTime) + newSlotNumber * slotDuration - ethereumSlotDuration;
+  const subslot = (offset: number, index: number, isLastBlock: boolean): SubslotSelection => ({
+    canStart: true,
+    index,
+    deadline: buildFrameStartSeconds() + offset,
+    isLastBlock,
+  });
+  const noSubslot = (): SubslotSelection => ({
+    canStart: false,
+    index: undefined,
+    deadline: undefined,
+    isLastBlock: false,
   });
 
   describe('single block mode', () => {
@@ -359,9 +376,7 @@ describe('CheckpointProposalJob', () => {
       // Single block mode: no blockDurationMs set
       job.setTimetable(
         new SequencerTimetable({
-          ethereumSlotDuration,
-          aztecSlotDuration: slotDuration,
-          l1PublishingTime: ethereumSlotDuration,
+          l1Constants,
           enforce: config.enforceTimeTable,
         }),
       );
@@ -488,9 +503,7 @@ describe('CheckpointProposalJob', () => {
       job = createCheckpointProposalJob();
       job.setTimetable(
         new SequencerTimetable({
-          ethereumSlotDuration,
-          aztecSlotDuration: slotDuration,
-          l1PublishingTime: ethereumSlotDuration,
+          l1Constants,
           enforce: config.enforceTimeTable,
         }),
       );
@@ -525,9 +538,7 @@ describe('CheckpointProposalJob', () => {
       job = createCheckpointProposalJob();
       job.setTimetable(
         new SequencerTimetable({
-          ethereumSlotDuration,
-          aztecSlotDuration: slotDuration,
-          l1PublishingTime: ethereumSlotDuration,
+          l1Constants,
           enforce: config.enforceTimeTable,
         }),
       );
@@ -570,9 +581,7 @@ describe('CheckpointProposalJob', () => {
       job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch });
       job.setTimetable(
         new SequencerTimetable({
-          ethereumSlotDuration,
-          aztecSlotDuration: slotDuration,
-          l1PublishingTime: ethereumSlotDuration,
+          l1Constants,
           enforce: config.enforceTimeTable,
         }),
       );
@@ -615,9 +624,7 @@ describe('CheckpointProposalJob', () => {
       });
       job.setTimetable(
         new SequencerTimetable({
-          ethereumSlotDuration,
-          aztecSlotDuration: slotDuration,
-          l1PublishingTime: ethereumSlotDuration,
+          l1Constants,
           enforce: config.enforceTimeTable,
         }),
       );
@@ -660,9 +667,7 @@ describe('CheckpointProposalJob', () => {
       job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch, proposedCheckpointData });
       job.setTimetable(
         new SequencerTimetable({
-          ethereumSlotDuration,
-          aztecSlotDuration: slotDuration,
-          l1PublishingTime: ethereumSlotDuration,
+          l1Constants,
           enforce: config.enforceTimeTable,
         }),
       );
@@ -1329,9 +1334,7 @@ describe('CheckpointProposalJob', () => {
       // under the stricter timing guards.
       job.setTimetable(
         new SequencerTimetable({
-          ethereumSlotDuration,
-          aztecSlotDuration: slotDuration,
-          l1PublishingTime: ethereumSlotDuration,
+          l1Constants,
           blockDurationMs: 3000,
           enforce: true,
         }),
@@ -1341,10 +1344,10 @@ describe('CheckpointProposalJob', () => {
     it('builds multiple blocks with sufficient txs', async () => {
       // Mock timetable to allow 2 blocks
       jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 10, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 18, isLastBlock: true })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, false))
+        .mockReturnValueOnce(subslot(18, 1, true))
+        .mockReturnValue(noSubslot());
 
       // Set up test data for 2 blocks
       const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
@@ -1370,10 +1373,10 @@ describe('CheckpointProposalJob', () => {
     it('builds a single empty block when no txs are available and no min txs required', async () => {
       // Mock timetable to have two sub-slots
       jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 2, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: true })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(2, 0, false))
+        .mockReturnValueOnce(subslot(4, 1, true))
+        .mockReturnValue(noSubslot());
 
       // Set up test data for an empty block
       const { lastBlock } = await setupMultipleBlocks(1, [0]);
@@ -1399,10 +1402,10 @@ describe('CheckpointProposalJob', () => {
     it('builds a single block when not enough txs are available but we build empty checkpoints', async () => {
       // Mock timetable to have two sub-slots
       jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 2, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: true })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(2, 0, false))
+        .mockReturnValueOnce(subslot(4, 1, true))
+        .mockReturnValue(noSubslot());
 
       // Set up test data for a block with only 2 txs, note that min txs is 5
       const { lastBlock } = await setupMultipleBlocks(1, [2]);
@@ -1428,10 +1431,10 @@ describe('CheckpointProposalJob', () => {
     it('does not build anything if not enough txs and we do not build empty checkpoints', async () => {
       // Mock timetable to have two sub-slots
       jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 2, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: true })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(2, 0, false))
+        .mockReturnValueOnce(subslot(4, 1, true))
+        .mockReturnValue(noSubslot());
 
       // Not enough txs to build a block
       p2p.getPendingTxCount.mockResolvedValue(2);
@@ -1453,12 +1456,12 @@ describe('CheckpointProposalJob', () => {
       expect(waitSpy.mock.calls[0][0]).toEqual(2);
     });
 
-    it('stops building when canStartNextBlock returns false', async () => {
+    it('stops building when selectNextSubslot returns false', async () => {
       // Mock timetable to stop after 1 block (simulating time running out)
       jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 10, isLastBlock: false })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(10, 0, false))
+        .mockReturnValue(noSubslot());
 
       const txs = await Promise.all([makeTx(1, chainId), makeTx(2, chainId)]);
       const block = await makeBlock(txs, globalVariables);
@@ -1490,11 +1493,11 @@ describe('CheckpointProposalJob', () => {
 
       // Mock timetable to allow 3 blocks
       jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 2 + blockDurationSeconds, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 2 + 2 * blockDurationSeconds, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 2 + 3 * blockDurationSeconds, isLastBlock: true })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(2 + blockDurationSeconds, 0, false))
+        .mockReturnValueOnce(subslot(2 + 2 * blockDurationSeconds, 1, false))
+        .mockReturnValueOnce(subslot(2 + 3 * blockDurationSeconds, 2, true))
+        .mockReturnValue(noSubslot());
 
       // Set up test data for 3 blocks
       const { lastBlock } = await setupMultipleBlocks(3, 1);
@@ -1513,11 +1516,7 @@ describe('CheckpointProposalJob', () => {
 
     it('does not call waitUntilTimeInSlot when building the last block', async () => {
       // Mock timetable to allow only 1 block (which is the last)
-      jest.spyOn(job.getTimetable(), 'canStartNextBlock').mockReturnValue({
-        canStart: true,
-        deadline: 30,
-        isLastBlock: true, // First and only block is the last
-      });
+      jest.spyOn(job.getTimetable(), 'selectNextSubslot').mockReturnValue(subslot(30, 0, true));
 
       const txs = await Promise.all([makeTx(1, chainId)]);
       const block = await makeBlock(txs, globalVariables);
@@ -1542,11 +1541,11 @@ describe('CheckpointProposalJob', () => {
 
     it('stops at maxBlocksPerCheckpoint even when the timetable would allow more', async () => {
       jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 8, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 12, isLastBlock: true })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(4, 0, false))
+        .mockReturnValueOnce(subslot(8, 1, false))
+        .mockReturnValueOnce(subslot(12, 2, true))
+        .mockReturnValue(noSubslot());
 
       const { lastBlock } = await setupMultipleBlocks(3, 1);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
@@ -1608,12 +1607,8 @@ describe('CheckpointProposalJob', () => {
 
   describe('timing edge cases', () => {
     it('handles insufficient time remaining in slot', async () => {
-      // Mock canStartNextBlock to return false (not enough time)
-      jest.spyOn(job.getTimetable(), 'canStartNextBlock').mockReturnValue({
-        canStart: false,
-        deadline: undefined,
-        isLastBlock: false,
-      });
+      // Mock selectNextSubslot to return false (not enough time)
+      jest.spyOn(job.getTimetable(), 'selectNextSubslot').mockReturnValue(noSubslot());
 
       const txs = await Promise.all([makeTx(1, chainId)]);
       p2p.getPendingTxCount.mockResolvedValue(txs.length);
@@ -1644,11 +1639,11 @@ describe('CheckpointProposalJob', () => {
     });
 
     it('respects buildDeadline when checking time availability', async () => {
-      // Mock canStartNextBlock to indicate we're at the deadline
+      // Mock selectNextSubslot to indicate we're at the deadline
       jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 1, isLastBlock: true }) // Very tight deadline
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(1, 0, true)) // Very tight deadline
+        .mockReturnValue(noSubslot());
 
       const txs = await Promise.all([makeTx(1, chainId)]);
       const block = await makeBlock(txs, globalVariables);
@@ -1783,9 +1778,7 @@ describe('CheckpointProposalJob', () => {
       // Create job first
       job.setTimetable(
         new SequencerTimetable({
-          ethereumSlotDuration,
-          aztecSlotDuration: slotDuration,
-          l1PublishingTime: ethereumSlotDuration,
+          l1Constants,
           blockDurationMs: 3000,
           enforce: true,
         }),
@@ -1793,11 +1786,11 @@ describe('CheckpointProposalJob', () => {
 
       // Mock timetable to allow multiple blocks
       jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 8, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 12, isLastBlock: false })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(4, 0, false))
+        .mockReturnValueOnce(subslot(8, 1, false))
+        .mockReturnValueOnce(subslot(12, 2, false))
+        .mockReturnValue(noSubslot());
 
       // Mock to throw on first block proposal
       validatorClient.createBlockProposal.mockImplementation(() => {
@@ -1824,9 +1817,7 @@ describe('CheckpointProposalJob', () => {
       // Create job first
       job.setTimetable(
         new SequencerTimetable({
-          ethereumSlotDuration,
-          aztecSlotDuration: slotDuration,
-          l1PublishingTime: ethereumSlotDuration,
+          l1Constants,
           blockDurationMs: 3000,
           enforce: true,
         }),
@@ -1834,11 +1825,11 @@ describe('CheckpointProposalJob', () => {
 
       // Mock timetable to allow multiple blocks
       jest
-        .spyOn(job.getTimetable(), 'canStartNextBlock')
-        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 8, isLastBlock: false })
-        .mockReturnValueOnce({ canStart: true, deadline: 12, isLastBlock: false })
-        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(4, 0, false))
+        .mockReturnValueOnce(subslot(8, 1, false))
+        .mockReturnValueOnce(subslot(12, 2, false))
+        .mockReturnValue(noSubslot());
 
       // Mock to throw on first block proposal
       validatorClient.createBlockProposal.mockImplementation(() => {

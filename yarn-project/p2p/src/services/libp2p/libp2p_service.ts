@@ -233,12 +233,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.protocolVersion,
     );
 
-    const p2pPropagationTime = config.attestationPropagationTime;
     const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
-      p2pPropagationTime,
+      blockDurationMs: config.blockDurationMs,
       skipSlotValidation: config.skipProposalSlotValidation,
       signatureContext: {
         chainId: config.l1ChainId,
@@ -248,8 +247,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
     const attestationValidatorOpts = {
-      l1PublishingTime: config.l1PublishingTime,
-      p2pPropagationTime,
+      blockDurationMs: config.blockDurationMs,
       signatureContext: proposalValidatorOpts.signatureContext,
     };
     this.checkpointAttestationValidator = config.fishermanMode
@@ -373,8 +371,8 @@ export class LibP2PService extends WithTracer implements P2PService {
       heartbeatIntervalMs: config.gossipsubInterval,
       targetCommitteeSize: l1Constants.targetCommitteeSize,
       blockDurationMs: config.blockDurationMs,
-      l1PublishingTime: config.l1PublishingTime,
       p2pPropagationTime: config.attestationPropagationTime,
+      checkpointProposalPrepareTime: config.checkpointProposalPrepareTime,
       expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 

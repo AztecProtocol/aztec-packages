@@ -1,121 +1,59 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { DEFAULT_P2P_PROPAGATION_TIME, createPipelinedCheckpointTimingModel } from '@aztec/stdlib/timetable';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 
 /**
  * Maximum clock disparity tolerance for P2P message validation (in milliseconds).
- * Messages for the previous slot are accepted if we're within this many milliseconds
- * of the current slot start. This prevents penalizing peers for messages that
- * were valid when sent but arrived slightly late due to network latency.
  *
- * This follows Ethereum's MAXIMUM_GOSSIP_CLOCK_DISPARITY approach.
+ * Acceptance windows are widened by this much on both ends so peers are not penalized for messages
+ * that were valid when sent but arrived slightly early or late due to clock skew. This follows
+ * Ethereum's MAXIMUM_GOSSIP_CLOCK_DISPARITY approach.
  */
 export const MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS = 500;
 
 /**
- * Checks if a message for the previous slot should be accepted due to clock tolerance.
+ * Computes explicit absolute acceptance windows for pipelined proposals and attestations.
  *
- * @param messageSlot - The slot number from the received message
- * @param currentSlot - The current slot number
- * @param epochCache - EpochCache to get timing information
- * @returns true if the message is for the previous slot AND we're within the clock tolerance window
+ * A message for target slot `N` is accepted iff `now ∈ [receiveStart(N) − δ, deadline(N) + δ]`, where
+ * `δ = MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS`. Both lower bounds are the build-frame start (nothing
+ * legitimate for slot `N` exists before its build frame opens). The two cases differ in the upper bound:
+ * - Checkpoint proposals use `getCheckpointProposalReceiveDeadline` (`target_slot_start − E − D`), a tight
+ *   non-overlapping window so a received proposal maps unambiguously to one target slot.
+ * - Attestations use `getAttestationDeadline` (`target_slot_start + S − 2E`), a deliberately liberal
+ *   window; attestations are attributed by content (`(slot, checkpoint)` in the signature), not timing.
  */
-export function isWithinClockTolerance(
-  messageSlot: SlotNumber,
-  currentSlot: SlotNumber,
-  epochCache: EpochCacheInterface,
-): boolean {
-  // Guard against slot 0 edge case (genesis)
-  if (currentSlot === SlotNumber.ZERO) {
-    return false;
-  }
-
-  // Only apply tolerance to messages for the previous slot
-  const previousSlot = SlotNumber(currentSlot - 1);
-  if (messageSlot !== previousSlot) {
-    return false;
-  }
-
-  // Check how far we are into the current slot (in milliseconds)
-  const { ts: slotStartTs, nowMs } = epochCache.getEpochAndSlotNow();
-  const targetSlot = epochCache.getTargetSlot();
-
-  // Sanity check: ensure the epoch cache's target slot matches the expected current slot
-  if (targetSlot !== currentSlot) {
-    return false;
-  }
-
-  // ts is in seconds, convert to ms; nowMs is already in milliseconds
-  const slotStartMs = slotStartTs * 1000n;
-  const elapsedMs = Number(nowMs - slotStartMs);
-
-  return elapsedMs < MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
-}
-
-/**
- * Checks if a straggler message for the previous target slot should be accepted.
- *
- * Proposals and attestations carry the target slot N. Most of the time the receiver is either
- * still in the build slot N-1 (accepted via the main `slotNumber === targetSlot` match) or in the
- * target slot N (accepted again via `targetSlot`). Stragglers that arrive after the receiver has
- * rolled past the target slot fall to this check: accept `messageSlot === slotNow` while we're
- * still within the first `windowSeconds + clock-disparity` of the slot.
- *
- * Under the early-pipelining schedule `windowSeconds` is small (0 for proposals,
- * `2*p2pPropagationTime` for attestations) since the proposer collects everything
- * before the slot boundary.
- *
- * @param messageSlot - The slot number from the received message
- * @param epochCache - EpochCache to get timing state
- * @param windowSeconds - How far into the current slot we still accept previous-target messages
- * @returns true if the message is for the current wallclock slot and we're within the grace period
- */
-function isWithinPipeliningWindow(
-  messageSlot: SlotNumber,
-  epochCache: EpochCacheInterface,
-  windowSeconds: number,
-): boolean {
-  const currentSlot = epochCache.getSlotNow();
-  if (messageSlot !== currentSlot) {
-    return false;
-  }
-
-  const { ts: slotStartTs, nowMs } = epochCache.getEpochAndSlotNow();
-  const slotStartMs = slotStartTs * 1000n;
-  const elapsedMs = Number(nowMs - slotStartMs);
-  const windowMs = windowSeconds * 1000 + MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
-
-  return elapsedMs < windowMs;
-}
-
 export class PipeliningWindow {
-  private readonly proposalWindowIntoTargetSlot: number;
-  private readonly attestationWindowIntoTargetSlot: number;
+  private readonly timetable: ConsensusTimetable;
 
   constructor(
     private readonly epochCache: EpochCacheInterface,
-    opts: {
-      p2pPropagationTime?: number;
-      l1PublishingTime?: number;
-    } = {},
+    opts: { blockDurationMs?: number } = {},
   ) {
     const l1Constants = epochCache.getL1Constants();
-    const checkpointTiming = createPipelinedCheckpointTimingModel({
-      aztecSlotDuration: l1Constants.slotDuration,
-      ethereumSlotDuration: l1Constants.ethereumSlotDuration,
-      l1PublishingTime: opts.l1PublishingTime ?? l1Constants.ethereumSlotDuration,
-      p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+    this.timetable = new ConsensusTimetable({
+      l1Constants,
+      blockDuration: opts.blockDurationMs !== undefined ? opts.blockDurationMs / 1000 : undefined,
     });
-
-    this.proposalWindowIntoTargetSlot = checkpointTiming.proposalWindowIntoTargetSlot;
-    this.attestationWindowIntoTargetSlot = checkpointTiming.attestationWindowIntoTargetSlot;
   }
 
+  /** Accepts a checkpoint or block proposal for `messageSlot` iff within its proposal receive window. */
   public acceptsProposal(messageSlot: SlotNumber): boolean {
-    return isWithinPipeliningWindow(messageSlot, this.epochCache, this.proposalWindowIntoTargetSlot);
+    const start = this.timetable.getCheckpointProposalReceiveStart(messageSlot);
+    const deadline = this.timetable.getCheckpointProposalReceiveDeadline(messageSlot);
+    return this.isWithinWindow(start, deadline);
   }
 
+  /** Accepts an attestation for `messageSlot` iff within its (liberal) attestation receive window. */
   public acceptsAttestation(messageSlot: SlotNumber): boolean {
-    return isWithinPipeliningWindow(messageSlot, this.epochCache, this.attestationWindowIntoTargetSlot);
+    const start = this.timetable.getAttestationReceiveStart(messageSlot);
+    const deadline = this.timetable.getAttestationDeadline(messageSlot);
+    return this.isWithinWindow(start, deadline);
+  }
+
+  private isWithinWindow(startSeconds: number, deadlineSeconds: number): boolean {
+    const nowMs = Number(this.epochCache.getEpochAndSlotNow().nowMs);
+    const lowerMs = startSeconds * 1000 - MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
+    const upperMs = deadlineSeconds * 1000 + MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
+    return nowMs >= lowerMs && nowMs <= upperMs;
   }
 }

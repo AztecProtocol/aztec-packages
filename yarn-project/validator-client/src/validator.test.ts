@@ -31,7 +31,6 @@ import { OffenseType, WANT_TO_CLEAR_SLASH_EVENT, WANT_TO_SLASH_EVENT } from '@az
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type BlockData, BlockHash, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
@@ -350,8 +349,14 @@ describe('ValidatorClient', () => {
     let parentBlockData: BlockData;
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
-    const getExpectedWallClockDeadline = (currentSlot: SlotNumber) =>
-      new Date(Number(getTimestampForSlot(SlotNumber(currentSlot + 1), checkpointsBuilder.getConfig())) * 1000);
+    // The tx-collection / re-execution deadline for a block proposal is the single consensus
+    // attestation_deadline for the target slot: target_slot_start + S - 2E.
+    const getExpectedAttestationDeadline = (targetSlot: SlotNumber) => {
+      const { l1GenesisTime, slotDuration } = checkpointsBuilder.getConfig();
+      const { ethereumSlotDuration } = epochCache.getL1Constants();
+      const targetSlotStart = Number(l1GenesisTime) + Number(targetSlot) * slotDuration;
+      return new Date((targetSlotStart + slotDuration - 2 * ethereumSlotDuration) * 1000);
+    };
     const makeCheckpointProposalForSlot = () =>
       makeCheckpointProposal({
         archiveRoot: proposal.archive,
@@ -435,10 +440,16 @@ describe('ValidatorClient', () => {
       const blockHeader = makeBlockHeader(1, { blockNumber: BlockNumber(100), slotNumber: SlotNumber(100) });
       blockNumber = BlockNumber(blockHeader.globalVariables.blockNumber);
       proposal = await makeBlockProposal({ blockHeader, inHash: emptyInHash });
-      // Set the current time to the start of the slot of the proposal
+      // The proposal targets slot 100, which under pipelining is built during the previous slot. Set the
+      // wall clock to the start of that build slot (target_slot_start - S), matching how a pipelined
+      // proposer is positioned when validating an inbound block proposal. With S - 2E = 0 in this config
+      // the reexecution deadline (attestation_deadline = target_slot_start + S - 2E) equals the target
+      // slot start, so this leaves a full slot of headroom before the deadline.
       const genesisTime = 1n;
-      const slotTime = genesisTime + BigInt(proposal.slotNumber) * BigInt(checkpointsBuilder.getConfig().slotDuration);
-      dateProvider.setTime(Number(slotTime * 1000n));
+      const slotDuration = BigInt(checkpointsBuilder.getConfig().slotDuration);
+      const buildSlotTime = genesisTime + BigInt(proposal.slotNumber - 1) * slotDuration;
+      dateProvider.setTime(Number(buildSlotTime * 1000n));
+      const buildSlot = SlotNumber(proposal.slotNumber - 1);
       sender = { toString: () => 'proposal-sender-peer-id' } as PeerId;
 
       p2pClient.getTxStatus.mockResolvedValue('pending');
@@ -452,29 +463,29 @@ describe('ValidatorClient', () => {
       );
 
       epochCache.isInCommittee.mockResolvedValue(true);
-      epochCache.getSlotNow.mockReturnValue(proposal.slotNumber);
+      epochCache.getSlotNow.mockReturnValue(buildSlot);
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: proposal.slotNumber,
         nextSlot: SlotNumber(proposal.slotNumber + 1),
       });
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
-        slot: proposal.slotNumber,
-        ts: 0n,
-        nowMs: 0n,
+        slot: buildSlot,
+        ts: buildSlotTime,
+        nowMs: buildSlotTime * 1000n,
       });
       epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
         epoch: EpochNumber(1),
-        slot: proposal.slotNumber,
-        ts: 0n,
-        nowSeconds: 0n,
+        slot: buildSlot,
+        ts: buildSlotTime,
+        nowSeconds: buildSlotTime,
       });
       epochCache.getTargetSlot.mockReturnValue(proposal.slotNumber);
       epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
         epoch: EpochNumber(1),
         slot: SlotNumber(proposal.slotNumber + 1),
-        ts: 0n,
-        nowSeconds: 0n,
+        ts: buildSlotTime,
+        nowSeconds: buildSlotTime,
       });
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposal.getSender());
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
@@ -648,8 +659,7 @@ describe('ValidatorClient', () => {
       expect(blockSource.addBlock).not.toHaveBeenCalled();
     });
 
-    it('uses the next wall-clock slot as the tx collection deadline for pipelined proposals', async () => {
-      const pipelineOffsetInSlots = 1;
+    it('uses the attestation deadline as the tx collection deadline for block proposals', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
 
       const futureSlot = SlotNumber(proposal.slotNumber + 20);
@@ -661,8 +671,20 @@ describe('ValidatorClient', () => {
         inHash: computeInHashFromL1ToL2Messages([]),
       });
 
-      // Under pipelining, the target slot is the future slot the proposer is building for,
-      // and the expected proposer for that slot is whoever signed the future proposal.
+      // Under pipelining, the target slot is the future slot the proposer is building for, built during
+      // the previous slot. Position the wall clock at that build slot so the proposal falls within its
+      // receive window and the attestation deadline is still in the future.
+      const slotDuration = BigInt(checkpointsBuilder.getConfig().slotDuration);
+      const futureBuildSlotTime = 1n + BigInt(futureSlot - 1) * slotDuration;
+      dateProvider.setTime(Number(futureBuildSlotTime * 1000n));
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(futureSlot - 1),
+        ts: futureBuildSlotTime,
+        nowMs: futureBuildSlotTime * 1000n,
+      });
+
+      // The expected proposer for the target slot is whoever signed the future proposal.
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(futureProposal.getSender());
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: futureSlot,
@@ -677,8 +699,8 @@ describe('ValidatorClient', () => {
         blockNumber,
         expect.objectContaining({
           pinnedPeer: sender,
-          // Expect wall clock time
-          deadline: getExpectedWallClockDeadline(SlotNumber(Number(futureProposal.slotNumber) - pipelineOffsetInSlots)),
+          // The consensus attestation deadline for the target slot.
+          deadline: getExpectedAttestationDeadline(futureSlot),
         }),
       );
     });
@@ -1425,24 +1447,28 @@ describe('ValidatorClient', () => {
           targetSlot: nonFirstBlockProposal.slotNumber,
           nextSlot: SlotNumber(nonFirstBlockProposal.slotNumber + 1),
         });
+        // Position the wall clock at the target slot's build slot (target_slot_start - S) so the
+        // proposal falls within its receive window and reaches the global-variables check.
+        const buildSlotTime =
+          1n + BigInt(nonFirstBlockProposal.slotNumber - 1) * BigInt(checkpointsBuilder.getConfig().slotDuration);
         epochCache.getEpochAndSlotNow.mockReturnValue({
           epoch: EpochNumber(1),
-          slot: nonFirstBlockProposal.slotNumber,
-          ts: 0n,
-          nowMs: 0n,
+          slot: SlotNumber(nonFirstBlockProposal.slotNumber - 1),
+          ts: buildSlotTime,
+          nowMs: buildSlotTime * 1000n,
         });
         epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
           epoch: EpochNumber(1),
-          slot: nonFirstBlockProposal.slotNumber,
-          ts: 0n,
-          nowSeconds: 0n,
+          slot: SlotNumber(nonFirstBlockProposal.slotNumber - 1),
+          ts: buildSlotTime,
+          nowSeconds: buildSlotTime,
         });
         epochCache.getTargetSlot.mockReturnValue(nonFirstBlockProposal.slotNumber);
         epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
           epoch: EpochNumber(1),
           slot: SlotNumber(nonFirstBlockProposal.slotNumber + 1),
-          ts: 0n,
-          nowSeconds: 0n,
+          ts: buildSlotTime,
+          nowSeconds: buildSlotTime,
         });
 
         // Mock parent block data returned by getBlockData
@@ -1458,11 +1484,8 @@ describe('ValidatorClient', () => {
           indexWithinCheckpoint: IndexWithinCheckpoint(0), // Parent is first block in checkpoint
         } as unknown as BlockData);
 
-        // Set time for the slot
-        const genesisTime = 1n;
-        const slotTime =
-          genesisTime + BigInt(nonFirstBlockProposal.slotNumber) * BigInt(checkpointsBuilder.getConfig().slotDuration);
-        dateProvider.setTime(Number(slotTime * 1000n));
+        // Set time to the target slot's build slot so the reexecution deadline is still in the future.
+        dateProvider.setTime(Number(buildSlotTime * 1000n));
 
         // Mock txProvider for the new proposal
         txProvider.getTxsForBlockProposal.mockImplementation((p: BlockProposal) =>

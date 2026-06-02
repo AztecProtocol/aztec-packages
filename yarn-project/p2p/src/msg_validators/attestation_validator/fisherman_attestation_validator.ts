@@ -26,8 +26,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
     private attestationPool: AttestationPoolApi,
     telemetryClient: TelemetryClient,
     opts: {
-      l1PublishingTime?: number;
-      p2pPropagationTime?: number;
+      blockDurationMs?: number;
       signatureContext: CoordinationSignatureContext;
     },
   ) {
