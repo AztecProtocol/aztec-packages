@@ -12,29 +12,31 @@
 
 {{> field8_funcs }}
 
-// Two-level segmented bucket reduction (the reformulation, Phase 2a).
+// Recursive radix-m bucket reduction (the reformulation, Phase 2b).
 //
-// Per window the reduce computes W = Sum_{j=0..STRIDE-1} (j+1)*P[j]. Split the
-// STRIDE buckets into G segments of size m = STRIDE/G:
+// Per window W = Sum_{j=0..STRIDE-1} (j+1)*P[j]. Each reduction "pair" carries
+// (total, wsum) for a contiguous bucket range, where total = Sum P[j] and
+// wsum = Sum (j-base)*P[j] (0-based local weight). Combining m children of
+// width w (each child spans w original buckets):
+//   parent.total = Sum_c child_c.total
+//   parent.wsum  = w*(Sum_c c*child_c.total) + Sum_c child_c.wsum
+// The whole reduce is W = root.total + root.wsum (since (j+1) = j + 1).
 //
-//   W = m*CoarseW + FineSum
-//     segTotal[s]  = Sum_{i in seg} P[i]                      (segment sum)
-//     segLocalW[s] = Sum_{i=0..m-1} (i+1)*P[s*m+i]            (in-segment weighted sum)
-//     CoarseW      = Sum_{s=0..G-1} s*segTotal[s]             (weighted sum over segments)
-//     FineSum      = Sum_{s=0..G-1} segLocalW[s]
+// Crucially every level is PARALLEL over (window x parent): one thread per
+// output pair, serial only over the m children. With m small and STRIDE/m^k
+// outputs per level, every level stays saturated until the last few — no
+// numWindows-thread serial tail (the Phase-2a bottleneck).
 //
-// The COARSE phase reads only the ORIGINAL affine buckets (never a doubled
-// point), so its adds are affine-eligible; the weight application (the *m and
-// the *s) lives entirely in the FINE phase. This phase-2a kernel runs both
-// phases in Jacobian to validate the decomposition; coord specialisation
-// (affine coarse) is layered on next.
+// The coarse adds read only ORIGINAL buckets (never a doubled point), so they
+// are affine-eligible; weight application (the *w) lives in jac_double here.
+// This 2b kernel is all-Jacobian to validate; affine coarse is layered next.
 //
-// phase 0 (COARSE): one thread per (window, segment). Serial suffix
-//   running-sum over the m buckets -> (segTotal, segLocalW) into seg_buf.
-// phase 1 (FINE): one thread per window. Combine the G summaries -> W, then
-//   Jacobian->affine into red_buf slot w*stride (the existing gather reads it).
+// phase 0 COARSE : one thread per (window, segment) — m raw buckets -> a pair.
+// phase 2 COMBINE: one thread per (window, parent)  — m pairs -> a pair, *w.
+// phase 1 FINAL  : one thread per window — root pair -> W -> affine in red_buf.
 //
-// Infinity (empty bucket / empty accumulator) is Z == 0; jac_add absorbs it.
+// seg_buf is a ping-pong pair store (src_base/dst_base in vec4 units); a pair
+// occupies 12 vec4 (total then wsum, each a Jacobian point = 6 vec4).
 
 const PG: u32 = 2u;
 const WG: u32 = {{ workgroup_size }}u;
@@ -43,7 +45,8 @@ const WG: u32 = {{ workgroup_size }}u;
 @group(0) @binding(1) var<storage, read>       is_present: array<u32>;
 @group(0) @binding(2) var<storage, read_write> seg_buf:    array<vec4<u32>>;
 @group(0) @binding(3) var<uniform>             cparams:    vec4<u32>; // (M_red, num_windows, stride, phase)
-@group(0) @binding(4) var<uniform>             sparams:    vec4<u32>; // (G, m, log2m, _)
+@group(0) @binding(4) var<uniform>             sparams:    vec4<u32>; // (m, log2w, inN, outN)
+@group(0) @binding(5) var<uniform>             bparams:    vec4<u32>; // (src_base, dst_base, _, _)
 
 fn load_x(idx: u32, M: u32) -> array<u32, 8> {
     let base = PG * idx;
@@ -67,6 +70,7 @@ fn store_y(idx: u32, M: u32, v: array<u32, 8>) {
 }
 
 struct Jac { x: array<u32, 8>, y: array<u32, 8>, z: array<u32, 8>, }
+struct Pair { total: Jac, wsum: Jac, }
 
 fn jac_inf() -> Jac {
     let z = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
@@ -123,26 +127,32 @@ fn jac_add(dst: Jac, src: Jac) -> Jac {
     return Jac(rx, ry, rz);
 }
 
-// seg_buf layout: two planes of (num_windows*G) Jacobian points, 6 vec4 each.
-// plane 0 = segTotal, plane 1 = segLocalW. slot = w*G + s.
-fn seg_store(slot: u32, plane: u32, p: Jac) {
-    let b = 6u * (plane * cparams.y * sparams.x + slot);
-    seg_buf[b + 0u] = vec4<u32>(p.x[0], p.x[1], p.x[2], p.x[3]);
-    seg_buf[b + 1u] = vec4<u32>(p.x[4], p.x[5], p.x[6], p.x[7]);
-    seg_buf[b + 2u] = vec4<u32>(p.y[0], p.y[1], p.y[2], p.y[3]);
-    seg_buf[b + 3u] = vec4<u32>(p.y[4], p.y[5], p.y[6], p.y[7]);
-    seg_buf[b + 4u] = vec4<u32>(p.z[0], p.z[1], p.z[2], p.z[3]);
-    seg_buf[b + 5u] = vec4<u32>(p.z[4], p.z[5], p.z[6], p.z[7]);
+fn pair_store(base: u32, slot: u32, p: Pair) {
+    let b = base + 12u * slot;
+    seg_buf[b + 0u] = vec4<u32>(p.total.x[0], p.total.x[1], p.total.x[2], p.total.x[3]);
+    seg_buf[b + 1u] = vec4<u32>(p.total.x[4], p.total.x[5], p.total.x[6], p.total.x[7]);
+    seg_buf[b + 2u] = vec4<u32>(p.total.y[0], p.total.y[1], p.total.y[2], p.total.y[3]);
+    seg_buf[b + 3u] = vec4<u32>(p.total.y[4], p.total.y[5], p.total.y[6], p.total.y[7]);
+    seg_buf[b + 4u] = vec4<u32>(p.total.z[0], p.total.z[1], p.total.z[2], p.total.z[3]);
+    seg_buf[b + 5u] = vec4<u32>(p.total.z[4], p.total.z[5], p.total.z[6], p.total.z[7]);
+    seg_buf[b + 6u] = vec4<u32>(p.wsum.x[0], p.wsum.x[1], p.wsum.x[2], p.wsum.x[3]);
+    seg_buf[b + 7u] = vec4<u32>(p.wsum.x[4], p.wsum.x[5], p.wsum.x[6], p.wsum.x[7]);
+    seg_buf[b + 8u] = vec4<u32>(p.wsum.y[0], p.wsum.y[1], p.wsum.y[2], p.wsum.y[3]);
+    seg_buf[b + 9u] = vec4<u32>(p.wsum.y[4], p.wsum.y[5], p.wsum.y[6], p.wsum.y[7]);
+    seg_buf[b + 10u] = vec4<u32>(p.wsum.z[0], p.wsum.z[1], p.wsum.z[2], p.wsum.z[3]);
+    seg_buf[b + 11u] = vec4<u32>(p.wsum.z[4], p.wsum.z[5], p.wsum.z[6], p.wsum.z[7]);
 }
-fn seg_load(slot: u32, plane: u32) -> Jac {
-    let b = 6u * (plane * cparams.y * sparams.x + slot);
-    let x0 = seg_buf[b + 0u]; let x1 = seg_buf[b + 1u];
-    let y0 = seg_buf[b + 2u]; let y1 = seg_buf[b + 3u];
-    let z0 = seg_buf[b + 4u]; let z1 = seg_buf[b + 5u];
+fn jac_from(a: vec4<u32>, b: vec4<u32>, c: vec4<u32>, d: vec4<u32>, e: vec4<u32>, f: vec4<u32>) -> Jac {
     return Jac(
-        array<u32, 8>(x0.x, x0.y, x0.z, x0.w, x1.x, x1.y, x1.z, x1.w),
-        array<u32, 8>(y0.x, y0.y, y0.z, y0.w, y1.x, y1.y, y1.z, y1.w),
-        array<u32, 8>(z0.x, z0.y, z0.z, z0.w, z1.x, z1.y, z1.z, z1.w));
+        array<u32, 8>(a.x, a.y, a.z, a.w, b.x, b.y, b.z, b.w),
+        array<u32, 8>(c.x, c.y, c.z, c.w, d.x, d.y, d.z, d.w),
+        array<u32, 8>(e.x, e.y, e.z, e.w, f.x, f.y, f.z, f.w));
+}
+fn pair_load(base: u32, slot: u32) -> Pair {
+    let b = base + 12u * slot;
+    let total = jac_from(seg_buf[b + 0u], seg_buf[b + 1u], seg_buf[b + 2u], seg_buf[b + 3u], seg_buf[b + 4u], seg_buf[b + 5u]);
+    let wsum = jac_from(seg_buf[b + 6u], seg_buf[b + 7u], seg_buf[b + 8u], seg_buf[b + 9u], seg_buf[b + 10u], seg_buf[b + 11u]);
+    return Pair(total, wsum);
 }
 
 @compute
@@ -152,20 +162,23 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let num_windows = cparams.y;
     let stride = cparams.z;
     let phase = cparams.w;
-    let G = sparams.x;
-    let m = sparams.y;
-    let log2m = sparams.z;
+    let m = sparams.x;
+    let log2w = sparams.y;
+    let inN = sparams.z;
+    let outN = sparams.w;
+    let src_base = bparams.x;
+    let dst_base = bparams.y;
     let R = get_r_f8();
 
     if (phase == 0u) {
-        // COARSE: one thread per (window, segment).
+        // COARSE: m raw buckets [w*stride + p*m, +m) -> pair (total, wsum_0based).
         let idx = gid.x;
-        if (idx >= num_windows * G) { return; }
-        let w = idx / G;
-        let s = idx % G;
-        let seg_base = w * stride + s * m;
+        if (idx >= num_windows * outN) { return; }
+        let w = idx / outN;
+        let p = idx % outN;
+        let seg_base = w * stride + p * m;
         var S: Jac = jac_inf();
-        var Wacc: Jac = jac_inf();
+        var WS: Jac = jac_inf();
         for (var ii: u32 = 0u; ii < m; ii = ii + 1u) {
             let i = m - 1u - ii;
             let slot = seg_base + i;
@@ -173,32 +186,37 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             let z = fr_sel(array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u), R, present);
             let P = Jac(load_x(slot, M), load_y(slot, M), z);
             S = jac_add(S, P);
-            Wacc = jac_add(Wacc, S);
+            if (i >= 1u) { WS = jac_add(WS, S); }
         }
-        seg_store(w * G + s, 0u, S);
-        seg_store(w * G + s, 1u, Wacc);
+        pair_store(dst_base, w * outN + p, Pair(S, WS));
+    } else if (phase == 2u) {
+        // COMBINE: m child pairs -> parent pair, weight w = 2^log2w.
+        let idx = gid.x;
+        if (idx >= num_windows * outN) { return; }
+        let w = idx / outN;
+        let p = idx % outN;
+        let i0 = p * m;
+        var ST: Jac = jac_inf();
+        var SccT: Jac = jac_inf();
+        var WS: Jac = jac_inf();
+        for (var cc: u32 = 0u; cc < m; cc = cc + 1u) {
+            let c = m - 1u - cc;
+            let ci = i0 + c;
+            if (ci >= inN) { continue; }
+            let ch = pair_load(src_base, w * inN + ci);
+            ST = jac_add(ST, ch.total);
+            WS = jac_add(WS, ch.wsum);
+            if (c >= 1u) { SccT = jac_add(SccT, ST); }
+        }
+        var wScc: Jac = SccT;
+        for (var d: u32 = 0u; d < log2w; d = d + 1u) { wScc = jac_double(wScc); }
+        pair_store(dst_base, w * outN + p, Pair(ST, jac_add(wScc, WS)));
     } else {
-        // FINE: one thread per window.
+        // FINAL: root pair -> W = total + wsum -> affine into slot w*stride.
         let w = gid.x;
         if (w >= num_windows) { return; }
-        // CoarseW = Sum_{s=1..G-1} suffixTotal[s] (suffix running-sum, s high->low).
-        var ST: Jac = jac_inf();
-        var CW: Jac = jac_inf();
-        for (var k: u32 = 0u; k < G - 1u; k = k + 1u) {
-            let s = G - 1u - k;
-            ST = jac_add(ST, seg_load(w * G + s, 0u));
-            CW = jac_add(CW, ST);
-        }
-        // FineSum = Sum_{s=0..G-1} segLocalW[s].
-        var FS: Jac = jac_inf();
-        for (var s: u32 = 0u; s < G; s = s + 1u) {
-            FS = jac_add(FS, seg_load(w * G + s, 1u));
-        }
-        // W = m*CoarseW + FineSum.
-        var mCW: Jac = CW;
-        for (var d: u32 = 0u; d < log2m; d = d + 1u) { mCW = jac_double(mCW); }
-        let Wj: Jac = jac_add(mCW, FS);
-        // Jacobian -> affine (Montgomery) into slot w*stride.
+        let root = pair_load(src_base, w);
+        let Wj: Jac = jac_add(root.total, root.wsum);
         let slot = w * stride;
         if (is_zero_f8(Wj.z)) {
             let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);

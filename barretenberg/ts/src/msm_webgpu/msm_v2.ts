@@ -1425,11 +1425,10 @@ export class MsmV2 {
   private jacFromLevel = Number.MAX_SAFE_INTEGER;
   // Two-level segmented reduction (opt-in via segReduceG). One pipeline,
   // phase branched (coarse=0/fine=1); seg_buf holds the per-segment summaries.
-  private segReduceG = 0;
+  private segReduceG = 0; // radix m of the recursive reduction (segment size per level)
   private segPipe!: GPUComputePipeline;
   private segLayout!: GPUBindGroupLayout;
-  private segCoarseBind!: GPUBindGroup;
-  private segFineBind!: GPUBindGroup;
+  private segSteps: { bind: GPUBindGroup; nx: number }[] = [];
   private segBuf!: GPUBuffer;
   // Streaming planner + accumulator pipelines
   private classifyPipe!: GPUComputePipeline;
@@ -1780,8 +1779,8 @@ export class MsmV2 {
     m.jacLevelLayout = lt(['storage', 'storage', 'uniform', 'uniform']); // red_buf, red_z, cparams, lparams
     m.zInitLayout = lt(['read-only-storage', 'storage', 'uniform']);     // is_present, red_z, zparams
     m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform']); // red_buf, red_z, cparams
-    // Segmented reduction: red_buf(rw), is_present(ro), seg_buf(rw), cparams, sparams.
-    m.segLayout = lt(['storage', 'read-only-storage', 'storage', 'uniform', 'uniform']);
+    // Segmented reduction: red_buf(rw), is_present(ro), seg_buf(rw), cparams, sparams, bparams.
+    m.segLayout = lt(['storage', 'read-only-storage', 'storage', 'uniform', 'uniform', 'uniform']);
     // Streaming planner + accumulator layouts
     m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     m.metaFixupLayout = lt(['storage']);
@@ -2434,26 +2433,47 @@ export class MsmV2 {
     const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, this.stride, this.numWindows]));
     this.jacFinalizeBind = mkBind(this.jacFinalizeLayout, [redBuf, this.redZBuf, jacFinalizeParams]);
 
-    // Segmented reduction buffers/binds. seg_buf = 2 planes (segTotal,
-    // segLocalW) of numWindows*G Jacobian points, 6 vec4 each. Allocated even
-    // when off (small) so the binds stay valid.
-    const segG = this.segReduceG;
-    if (segG > 0 && this.stride % segG !== 0) {
-      throw new Error(`segReduceG (${segG}) must divide STRIDE (${this.stride})`);
+    // Recursive radix-m segmented reduction. m = segReduceG (power of 2,
+    // divides STRIDE). seg_buf is a ping-pong pair store: two halves of
+    // G0 = STRIDE/m pairs/window, 12 vec4 each (total then wsum). The level
+    // schedule (phase0 coarse -> phase2 combine* -> phase1 final) is static
+    // (data-independent), so the binds are precomputed here.
+    const segM = this.segReduceG;
+    this.segSteps = [];
+    {
+      const G0 = segM > 0 ? Math.floor(this.stride / segM) : 1;
+      const half = G0 * this.numWindows * 12; // vec4 offset of the 2nd ping-pong half
+      this.segBuf = device.createBuffer({
+        size: Math.max(16, 2 * half * 16),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
+      this.prepBuffers.push(this.segBuf);
+      if (segM > 0) {
+        if (this.stride % segM !== 0 || (segM & (segM - 1)) !== 0 || segM < 2) {
+          throw new Error(`segReduceG (${segM}) must be a power of 2 >= 2 dividing STRIDE (${this.stride})`);
+        }
+        const lg = Math.round(Math.log2(segM));
+        const cpar = (phase: number): GPUBuffer => ubuf(new Uint32Array([RED_M, this.numWindows, this.stride, phase]));
+        const step = (phase: number, log2w: number, inN: number, outN: number, src: number, dst: number, nx: number) => {
+          const sp = ubuf(new Uint32Array([segM, log2w, inN, outN]));
+          const bp = ubuf(new Uint32Array([src, dst, 0, 0]));
+          const bind = mkBind(this.segLayout, [redBuf, isPresentBuf, this.segBuf, cpar(phase), sp, bp]);
+          this.segSteps.push({ bind, nx });
+        };
+        const cw = (n: number) => Math.ceil((this.numWindows * n) / WGI);
+        // phase 0: STRIDE raw buckets -> G0 pairs in half 0.
+        step(0, 0, 0, G0, 0, 0, cw(G0));
+        // phase 2: combine m children per level, weight w = m^level, ping-ponging.
+        let N = G0, src = 0, dst = half, wlog = lg;
+        while (N > 1) {
+          const outN = Math.ceil(N / segM);
+          step(2, wlog, N, outN, src, dst, cw(outN));
+          N = outN; wlog += lg; const t = src; src = dst; dst = t;
+        }
+        // phase 1: root pair (at src) -> W -> affine.
+        step(1, 0, 1, 1, src, 0, Math.ceil(this.numWindows / WGI));
+      }
     }
-    const segCount = Math.max(1, segG);
-    const mSeg = segG > 0 ? this.stride / segG : 1;
-    const log2m = Math.round(Math.log2(Math.max(1, mSeg)));
-    this.segBuf = device.createBuffer({
-      size: 12 * this.numWindows * segCount * 16,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-    });
-    this.prepBuffers.push(this.segBuf);
-    const segSParams = ubuf(new Uint32Array([segCount, mSeg, log2m, 0]));
-    const segCparamsCoarse = ubuf(new Uint32Array([RED_M, this.numWindows, this.stride, 0]));
-    const segCparamsFine = ubuf(new Uint32Array([RED_M, this.numWindows, this.stride, 1]));
-    this.segCoarseBind = mkBind(this.segLayout, [redBuf, isPresentBuf, this.segBuf, segCparamsCoarse, segSParams]);
-    this.segFineBind = mkBind(this.segLayout, [redBuf, isPresentBuf, this.segBuf, segCparamsFine, segSParams]);
     this.redBuf = redBuf;
 
     // --- Streaming planner + accumulator bind groups ---
@@ -2935,12 +2955,13 @@ export class MsmV2 {
     // Phase 5: ONE pipeline drives every level (kind branched at runtime
     // off lparams.w). reduceLevelKinds is no longer consulted.
     if (this.segReduceG > 0) {
-      // Two-level segmented reduce: coarse (one thread per window*segment) ->
-      // seg_buf summaries, then fine (one thread per window) -> W into red_buf.
-      setPhase('seg_coarse');
-      dispatch(this.segPipe, this.segCoarseBind, Math.ceil((this.numWindows * this.segReduceG) / WGI), 1);
-      setPhase('seg_fine');
-      dispatch(this.segPipe, this.segFineBind, Math.ceil(this.numWindows / WGI), 1);
+      // Recursive radix-m reduce: phase0 coarse -> phase2 combine* -> phase1
+      // final. Precomputed step schedule; one dispatch each.
+      for (let si = 0; si < this.segSteps.length; si++) {
+        const s = this.segSteps[si];
+        setPhase(si === 0 ? 'seg_coarse' : si === this.segSteps.length - 1 ? 'seg_final' : `seg_cmb${si}`);
+        dispatch(this.segPipe, s.bind, s.nx, 1);
+      }
     } else {
     const reducePipe = this.reduceLevelPipes[0];
     const jacActive = this.jacFromLevel < this.reduceLevelBinds.length;
