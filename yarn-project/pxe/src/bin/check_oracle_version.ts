@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 import ts from 'typescript';
 import { fileURLToPath } from 'url';
 
-import { ORACLE_INTERFACE_HASH } from '../oracle_version.js';
+import { ORACLE_INTERFACE_HASH, ORACLE_VERSION_MAJOR } from '../oracle_version.js';
 
 /**
  * Verifies that the Oracle interface matches the expected interface hash.
@@ -43,6 +43,47 @@ function assertOracleInterfaceMatches(): void {
     throw new Error(
       `The Oracle interface has changed. Update ORACLE_INTERFACE_HASH to ${oracleInterfaceHash} in pxe/src/oracle_version.ts and bump the oracle version (ORACLE_VERSION_MAJOR for breaking changes, ORACLE_VERSION_MINOR for oracle additions).`,
     );
+  }
+}
+
+/**
+ * Verifies that `ORACLE_VERSION_MAJOR` is identical across all of its hand-maintained copies.
+ *
+ * The major version is duplicated across the PXE TypeScript constant and two Noir constants (Aztec.nr and the protocol
+ * contracts' `aztec_sublib`) because those layers can't import each other. A mismatch is only caught at runtime today,
+ * deep inside an e2e run, with a cryptic "Incompatible private environment version" error. This static check fails fast
+ * at build time instead, naming each file and its value.
+ *
+ * Only the major version is checked: the minor version legitimately diverges under the "environment minor >= contract
+ * minor" tolerance, so asserting minor equality would false-positive.
+ */
+function assertContractOracleVersionMajorInSync(): void {
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  // Go up from dest/bin/ or src/bin/ to the package root (pxe/), then up two more to the git root.
+  const packageRoot = dirname(dirname(currentDir));
+  const gitRoot = join(packageRoot, '..', '..');
+
+  const copies = [
+    { label: 'pxe/src/oracle_version.ts', value: ORACLE_VERSION_MAJOR },
+    {
+      label: 'aztec-nr/aztec/src/oracle/version.nr',
+      value: readNumericGlobal(
+        join(gitRoot, 'noir-projects/aztec-nr/aztec/src/oracle/version.nr'),
+        'ORACLE_VERSION_MAJOR',
+      ),
+    },
+    {
+      label: 'aztec_sublib/src/oracle/version.nr',
+      value: readNumericGlobal(
+        join(gitRoot, 'noir-projects/noir-contracts/contracts/protocol/aztec_sublib/src/oracle/version.nr'),
+        'ORACLE_VERSION_MAJOR',
+      ),
+    },
+  ];
+
+  if (new Set(copies.map(copy => copy.value)).size > 1) {
+    const details = copies.map(copy => `${copy.label}=${copy.value}`).join(', ');
+    throw new Error(`ORACLE_VERSION_MAJOR is out of sync: ${details}. Bump all copies together.`);
   }
 }
 
@@ -115,6 +156,28 @@ export function getOracleInterfaceSignature(sourcePath: string, targets: string[
 }
 
 /**
+ * Reads an integer-valued global constant from a Noir or TypeScript source file.
+ *
+ * Matches both the Noir form (`pub global NAME: Field = N;`) and the TypeScript form (`export const NAME = N;`). This
+ * lets us compare a version constant that is hand-duplicated across the TS and Noir layers (which can't import each
+ * other) without depending on either compiler. Only the assignment form `NAME = N` matches, so later usages of the
+ * constant are ignored regardless of their order in the file.
+ *
+ * @param sourcePath - Absolute path to the source file to read.
+ * @param name - Name of the global constant whose integer value should be extracted.
+ * @returns The integer value assigned to the constant.
+ * @throws If the constant's declaration is not found in the file.
+ */
+export function readNumericGlobal(sourcePath: string, name: string): number {
+  const sourceCode = readFileSync(sourcePath, 'utf-8');
+  const match = sourceCode.match(new RegExp(`\\b${name}\\s*(?::\\s*\\w+\\s*)?=\\s*(\\d+)`));
+  if (!match) {
+    throw new Error(`Could not find numeric global '${name}' in ${sourcePath}.`);
+  }
+  return Number(match[1]);
+}
+
+/**
  * Extracts the parameter name from a parameter node, handling destructured parameters.
  */
 function extractParameterName(param: ts.ParameterDeclaration, sourceFile: ts.SourceFile): string {
@@ -169,3 +232,4 @@ function extractTypeString(typeNode: ts.TypeNode | undefined, sourceFile: ts.Sou
 }
 
 assertOracleInterfaceMatches();
+assertContractOracleVersionMajorInSync();
