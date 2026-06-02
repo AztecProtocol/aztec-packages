@@ -1,10 +1,16 @@
 use aztec::macros::aztec;
 mod handshake_note;
+mod sync;
 mod test;
+
+use sync::handshake_registry_sync;
 
 /// Handshake type identifier for non-interactive handshakes (sender-generated random shared secret, no recipient
 /// signature). See [`HandshakeRegistry::non_interactive_handshake`].
-pub(crate) global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
+global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
+
+/// Page size for [`HandshakeRegistry::get_handshakes`].
+global MAX_HANDSHAKES_PER_PAGE: u32 = 32;
 
 /// Registry for the constrained-delivery shared-secret handshake protocol.
 ///
@@ -16,10 +22,10 @@ pub(crate) global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 /// private surfaces silo against `msg_sender()`, so a contract can only obtain or validate secrets siloed to itself.
 ///
 /// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
-#[aztec]
+#[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::handshake_registry_sync))]
 pub contract HandshakeRegistry {
     use crate::handshake_note::HandshakeNote;
-    use crate::NON_INTERACTIVE_HANDSHAKE;
+    use crate::{MAX_HANDSHAKES_PER_PAGE, NON_INTERACTIVE_HANDSHAKE, sync::get_all_handshakes};
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
@@ -28,11 +34,22 @@ pub contract HandshakeRegistry {
             message_delivery::{MessageDelivery, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
         },
         protocol::{
-            address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
-            traits::ToField,
+            address::AztecAddress,
+            constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
+            hash::compute_log_tag,
+            point::EmbeddedCurvePoint,
+            traits::{Deserialize, Serialize, ToField},
         },
         state_vars::{Map, Owned, PrivateMutable},
     };
+
+    #[derive(Deserialize, Serialize)]
+    pub struct HandshakePage {
+        /// Sender ephemeral public keys. The recipient derives each shared
+        /// secret via `recipient_isk * eph_pk`.
+        pub items: BoundedVec<EmbeddedCurvePoint, MAX_HANDSHAKES_PER_PAGE>,
+        pub total_count: u32,
+    }
 
     #[storage]
     struct Storage<Context> {
@@ -148,5 +165,24 @@ pub contract HandshakeRegistry {
         } else {
             Option::none()
         }
+    }
+
+    /// Returns a page of discovered handshakes addressed to `recipient`.
+    ///
+    /// `total_count` is the full list length, so callers can determine whether more pages remain.
+    #[external("utility")]
+    unconstrained fn get_handshakes(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
+        let handshakes = get_all_handshakes(self.context.this_address(), recipient);
+        let total_count = handshakes.len();
+        let end = if page_offset + MAX_HANDSHAKES_PER_PAGE < total_count {
+            page_offset + MAX_HANDSHAKES_PER_PAGE
+        } else {
+            total_count
+        };
+        let mut items = BoundedVec::new();
+        for i in page_offset..end {
+            items.push(handshakes.get(i));
+        }
+        HandshakePage { items, total_count }
     }
 }

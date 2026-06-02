@@ -36,7 +36,7 @@ unconstrained fn validate_and_store_enqueued_notes_and_events_oracle(
 ///
 /// Each element in the outer array is an inner `EphemeralArray<LogRetrievalResponse>` containing all matching logs for
 /// the request at the same index (which may be empty if no logs were found).
-pub(crate) unconstrained fn get_logs_by_tag(
+pub unconstrained fn get_logs_by_tag(
     requests: EphemeralArray<LogRetrievalRequest>,
 ) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {
     get_logs_by_tag_oracle(requests)
