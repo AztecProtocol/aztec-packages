@@ -833,7 +833,7 @@ function ARRAY<T>(element: TypeMapping<T>): TypeMapping<T[]> {
  * slot 1: Fr(2)                                  // actual length
  * ```
  */
-function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
+export function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
   return {
     serialization: element.serialization
       ? {
@@ -936,8 +936,8 @@ function BUFFER(bitSize: number): TypeMapping<Buffer> {
 }
 
 export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<EphemeralArray<T>> {
-  // Each row is read from its own reader and must be consumed fully; trailing fields mean malformed input. We wrap
-  // `element` to assert that after deserializing each row.
+  // An EphemeralArray param is a single slot; the per-param assert covers that slot but never sees the
+  // per-row readers materialized in readAll(). Assert full consumption per row here.
   const rowElement: TypeMapping<T> | undefined = element.deserialization
     ? {
         deserialization: {

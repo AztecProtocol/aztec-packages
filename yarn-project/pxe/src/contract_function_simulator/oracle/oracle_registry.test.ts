@@ -5,7 +5,15 @@ import { Tag } from '@aztec/stdlib/logs';
 
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import { BYTE, EPHEMERAL_ARRAY, FIELD, LOG_RETRIEVAL_REQUEST, type TypeMapping, U32 } from './oracle_registry.js';
+import {
+  BOUNDED_VEC,
+  BYTE,
+  EPHEMERAL_ARRAY,
+  FIELD,
+  LOG_RETRIEVAL_REQUEST,
+  type TypeMapping,
+  U32,
+} from './oracle_registry.js';
 
 function deserialize<T>(mapping: TypeMapping<T>, value: Fr): T {
   const reader = new FieldReader([value]);
@@ -41,6 +49,29 @@ describe('oracle_registry type mappings', () => {
     });
   });
 
+  describe('BOUNDED_VEC', () => {
+    it('deserializes when capacity equals length', () => {
+      const a = Fr.random();
+      const b = Fr.random();
+      const bv = deserializeBoundedVec(FIELD, [a, b], 2);
+      expect(bv.data).toEqual([a, b]);
+      expect(bv.maxLength).toBe(2);
+    });
+
+    it('deserializes when capacity exceeds length', () => {
+      const a = Fr.random();
+      const bv = deserializeBoundedVec(FIELD, [a], 4);
+      expect(bv.data).toEqual([a]);
+      expect(bv.maxLength).toBe(4);
+    });
+
+    it('deserializes an empty vec with nonzero capacity', () => {
+      const bv = deserializeBoundedVec(FIELD, [], 3);
+      expect(bv.data).toEqual([]);
+      expect(bv.maxLength).toBe(3);
+    });
+  });
+
   describe('EPHEMERAL_ARRAY', () => {
     it('deserializes well-formed rows', () => {
       const a = Fr.random();
@@ -64,6 +95,14 @@ describe('oracle_registry type mappings', () => {
     });
   });
 });
+
+/** Deserializes a BoundedVec from `data` (padded to `capacity` with Fr.ZERO) and a length field. */
+function deserializeBoundedVec<T>(element: TypeMapping<T>, data: Fr[], capacity: number) {
+  const padded = [...data, ...Array(capacity - data.length).fill(Fr.ZERO)];
+  const storageReader = new FieldReader(padded);
+  const lengthReader = new FieldReader([new Fr(data.length)]);
+  return BOUNDED_VEC(element).deserialization!.fn([storageReader, lengthReader]);
+}
 
 /** Reads an input-mode EphemeralArray backed by `rows`, the way the registry does when deserializing an oracle param. */
 function readEphemeralArray<T>(element: TypeMapping<T>, rows: Fr[][]): T[] {
