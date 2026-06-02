@@ -426,6 +426,23 @@ cap and the budget, using `arenaColourSizes` (the THREAD terms the old estimate
 omitted) + SRS + CSR. The budget is device-configurable (`budgetMiB`, default 160,
 `3bd8ea957f`). Pack-count staging is the remaining piece, deferred into step 5.
 
+> **LATENT BUG — multi-batch transpose at `BW > 8192` (`5b9aa5068e`).**
+> `gen_transpose_count_tiled_shader` uses an 8192-entry shared histogram
+> (`Math.min(BW, 8192)`, 32 KiB). When `BW > 8192` (i.e. `c ≥ 14`) **and**
+> `numBatches > 1`, the tiled transpose produces **wrong bucket sums** — bisected
+> against the WASM oracle: `c=13` (BW 4352) is correct at any `nb`; `c=14` (BW
+> 8448) and `c=15` (BW 16640) disagree at `nb≥2` but are correct at `nb=1`; the
+> threshold is exactly the 8192 cap, independent of `n`. Pre-existing (the
+> `wgFits`-only loop hits it at logN≥19); the budget gate would have newly hit it
+> at logN18, so the gate is now guarded (`canStageForBudget = BW ≤
+> TRANSPOSE_HIST_CAP`) — at `BW>8192` the budget is met by the `sT` lever only,
+> never window-staging. **Chonk never triggers it** (max `c=13`). It MUST be fixed
+> before split-c/packing use `c ≥ 14` with staging: the tiled transpose's
+> per-batch window offset interacts wrong with the >cap tiling — `ba_size1` writes
+> the global slot while the transpose count/scatter tile over the capped
+> histogram; reproduce with `?logn=16&c=14&nb=2`, fix, and re-validate that path
+> agrees with the oracle.
+
 ---
 
 ## 8. `sT` is the phone lever (exact)
