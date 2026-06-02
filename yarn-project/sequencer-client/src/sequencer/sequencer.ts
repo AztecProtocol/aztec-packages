@@ -89,6 +89,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** The last slot for which we attempted to perform our voting duties with degraded block production */
   private lastSlotForFallbackVote: SlotNumber | undefined;
 
+  /** The (checkpoint, slot) of the last invalidation request we successfully simulated, to prevent
+   * re-simulating and re-submitting the same invalidation across the many ticks within a single slot. */
+  private lastInvalidationAttempt: { slot: SlotNumber; checkpointNumber: CheckpointNumber } | undefined;
+
   /** The last slot for which we logged "no committee" warning, to avoid spam */
   private lastSlotForNoCommitteeWarning: SlotNumber | undefined;
 
@@ -347,12 +351,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    // Check all components are synced to latest as seen by the archiver (queries all subsystems)
-    const syncedTo = await this.checkSync({ ts, slot });
-    if (!syncedTo) {
-      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
-      return undefined;
-    }
+    // Cheap proposer check first: most nodes are not the proposer for most slots, so gate the
+    // expensive multi-subsystem checkSync (and the rest of the build path) behind it. Computed once
+    // here and reused for the escape-hatch voting path below. No setState/timing gate on this path:
+    // the build-start deadline gate runs only on the proposer build path after a successful checkSync.
+    const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
 
     // If escape hatch is open for the target epoch, do not start checkpoint proposal work and do not attempt invalidations.
     // Still perform governance/slashing voting (as proposer) once per slot.
@@ -360,8 +363,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const isEscapeHatchOpen = await this.epochCache.isEscapeHatchOpen(targetEpoch);
 
     if (isEscapeHatchOpen) {
-      this.setState(SequencerState.PROPOSER_CHECK, targetSlot);
-      const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
       if (canPropose) {
         await this.tryVoteWhenEscapeHatchOpen({ slot, targetSlot, proposer });
       } else {
@@ -374,11 +375,35 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    // Explicit build-loop entry gate (replaces the old getMaxAllowedTime(INITIALIZING_CHECKPOINT)
-    // state gate that fired before the proposer check): if we are past the latest useful block-building
-    // start for the target slot, abandon building for this slot before doing the proposer check. The
-    // proposer prioritizes the ideal L1-publish path and does not plan around the late
-    // consensus-handoff path. Vote-only paths still run when block building is abandoned.
+    // If we are not the proposer, check whether we should invalidate an invalid pending chain (a
+    // liveness backstop) and bail before any sync work or build-timing gate. This reads only the
+    // archiver's pending-chain validation status, which is authoritative on its own, instead of
+    // running the full sync check. Wrapped in try/catch because this leaner path skips the broader
+    // proposed-checkpoint/tip coherence screen that checkSync applied, so transient archiver
+    // incoherence surfaces as a quiet skip rather than a work-loop error.
+    if (!canPropose) {
+      try {
+        const pendingChainValidationStatus = await this.l2BlockSource.getPendingChainValidationStatus();
+        await this.considerInvalidatingCheckpoint(pendingChainValidationStatus, slot);
+      } catch (err) {
+        this.log.warn(`Failed to consider invalidating checkpoint`, { err, slot, targetSlot });
+      }
+      return undefined;
+    }
+
+    // We are the proposer and the escape hatch is closed: now run the full sync check before building.
+    const syncedTo = await this.checkSync({ ts, slot });
+    if (!syncedTo) {
+      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
+      return undefined;
+    }
+
+    // Explicit build-loop entry gate: if we are past the latest useful block-building start for the
+    // target slot, abandon building for this slot. The proposer prioritizes the ideal L1-publish path
+    // and does not plan around the late consensus-handoff path. This is the proposer build path's
+    // timing gate; it runs only after we know we are the synced proposer, so non-proposer invalidation
+    // and escape-hatch voting (which returned above) are never gated by build timing. Vote-only paths
+    // still run when block building is abandoned.
     const startDeadline = this.timetable.getBuildStartDeadline(targetSlot);
     const nowForStartGate = this.dateProvider.now() / 1000;
     if (this.config.enforceTimeTable && nowForStartGate > startDeadline) {
@@ -407,15 +432,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       isPendingChainValid: pick(syncedTo.pendingChainValidationStatus, 'valid', 'reason', 'invalidIndex'),
     };
 
-    // Check that we are a proposer for the target slot.
+    // We are the synced proposer within the build window; enter the proposer-check state and build.
     this.setState(SequencerState.PROPOSER_CHECK, targetSlot);
-    const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
-
-    // If we are not a proposer check if we should invalidate an invalid checkpoint, and bail
-    if (!canPropose) {
-      await this.considerInvalidatingCheckpoint(syncedTo, slot);
-      return undefined;
-    }
 
     // Guard: don't exceed 1-deep pipeline. Without a proposed checkpoint, we can only build
     // confirmed + 1. With a proposed checkpoint, we can build confirmed + 2.
@@ -1027,17 +1045,36 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * has been there without being invalidated and whether the sequencer is in the committee or not. We always
    * have the proposer try to invalidate, but if they fail, the sequencers in the committee are expected to try,
    * and if they fail, any sequencer will try as well.
+   * @param pendingChainValidationStatus - The archiver's pending-chain validation status, authoritative on its own.
+   * @param currentSlot - The wall-clock slot, used for committee lookup, the per-(checkpoint, slot) dedup guard, and logging.
+   * @param syncedL2Slot - The synced L2 slot, included in logs when available (absent on the non-proposer path).
    */
   protected async considerInvalidatingCheckpoint(
-    syncedTo: SequencerSyncCheckResult,
+    pendingChainValidationStatus: ValidateCheckpointResult,
     currentSlot: SlotNumber,
+    syncedL2Slot?: SlotNumber,
   ): Promise<void> {
-    const { pendingChainValidationStatus, syncedL2Slot } = syncedTo;
     if (pendingChainValidationStatus.valid) {
       return;
     }
 
     const invalidCheckpointNumber = pendingChainValidationStatus.checkpoint.checkpointNumber;
+
+    // Avoid re-running the committee lookup, simulation, and submission on every tick within a slot.
+    // The guard is keyed by (checkpoint, slot) — so a different invalid checkpoint surfacing later in
+    // the same slot is not suppressed — and is set only after a request is successfully simulated below,
+    // so a transient simulation failure (or thresholds not yet met) still retries on the next tick.
+    if (
+      this.lastInvalidationAttempt?.slot === currentSlot &&
+      this.lastInvalidationAttempt.checkpointNumber === invalidCheckpointNumber
+    ) {
+      this.log.trace(`Already attempted to invalidate checkpoint ${invalidCheckpointNumber} in slot ${currentSlot}`, {
+        currentSlot,
+        invalidCheckpointNumber,
+      });
+      return;
+    }
+
     const invalidCheckpointTimestamp = pendingChainValidationStatus.checkpoint.timestamp;
     const timeSinceChainInvalid = this.dateProvider.nowInSeconds() - Number(invalidCheckpointTimestamp);
     const ourValidatorAddresses = this.validatorClient.getValidatorAddresses();
@@ -1099,6 +1136,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log.warn(`Failed to simulate invalidate checkpoint`, logData);
       return;
     }
+
+    // We produced a valid invalidation request; record it so further ticks within this slot skip the
+    // committee lookup, simulation, and submission above for this same invalid checkpoint.
+    this.lastInvalidationAttempt = { slot: currentSlot, checkpointNumber: invalidCheckpointNumber };
 
     this.log.info(
       invalidateAsCommitteeMember
