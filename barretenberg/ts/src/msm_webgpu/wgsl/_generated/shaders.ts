@@ -3819,8 +3819,15 @@ export const decompose_scalars_booth = `// Carry-free signed-Booth window decomp
 // scalar at the GLOBAL window index (gid.y + batch_window_base);
 // bucket_and_sign is written at the batch-local index (gid.y).
 @group(0) @binding(3) var<uniform>             batch:           vec4<u32>;
+// WindowDesc table (SPLIT_C_PLAN.md): one row per GLOBAL window, stride 8 u32;
+// window_bits at +0, bit_base at +1. Uniform fill (window_bits=c, bit_base=w·c)
+// makes this byte-identical to the old constant-c path; split-c fills it with the
+// variable schedule. Read here (not params.z) so the per-window c/bit-offset is
+// table-driven — \`read_bits\` already takes a runtime count, so variable c is free.
+@group(0) @binding(4) var<storage, read>       window_desc:     array<u32>;
 
 const WORD_BITS: u32 = 32u;
+const WD_STRIDE: u32 = 8u;
 
 // Read \`count\` (<= 32) bits at absolute bit \`bit_off\` from scalar \`s\`,
 // little-endian. Bits past the scalar's words read as 0.
@@ -3851,16 +3858,18 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (p >= input_size || w >= num_windows) {
         return;
     }
-    let c = params.z;
     let scalar_words = params.w;
     let w_global = w + batch.x;
+    // Per-window geometry from the WindowDesc table (uniform fill ⇒ c, w_global·c).
+    let c = window_desc[w_global * WD_STRIDE + 0u];       // window_bits
+    let bit_base = window_desc[w_global * WD_STRIDE + 1u];
 
     // c+1-bit window: the window's c bits, with the lookback bit (top bit
     // of the window below; synthetic 0 for window 0) shifted in as the LSB.
-    let win_bits = read_bits(p, scalar_words, w_global * c, c);
+    let win_bits = read_bits(p, scalar_words, bit_base, c);
     var lookback: u32 = 0u;
     if (w_global > 0u) {
-        lookback = read_bits(p, scalar_words, w_global * c - 1u, 1u);
+        lookback = read_bits(p, scalar_words, bit_base - 1u, 1u);
     }
     let raw = (win_bits << 1u) | lookback;
 

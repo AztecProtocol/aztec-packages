@@ -1823,7 +1823,7 @@ export class MsmV2 {
     ]);
     // 4 bindings: scalars (read), bucket_and_sign (write), params, batch.
     // (Previously 5 — separate signs buffer collapsed into the bucket_and_sign pack.)
-    m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform']);
+    m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
     m.xposeReduceLayout = lt(['storage', 'storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform']);
@@ -2393,6 +2393,26 @@ export class MsmV2 {
     const padParams0Buf = ubuf(new Uint32Array([batchSlots, batchSlots + 1, poolM1 - 1, 0]));
     const padParams1Buf = ubuf(new Uint32Array([poolM1 - 3, poolM1 - 2, poolM1 - 1, 0]));
     const decomposeParams = ubuf(new Uint32Array([n, batchWindows, c, 8]));
+    // WindowDesc table (SPLIT_C_PLAN.md): one row per GLOBAL window, stride 8 u32.
+    // Filled uniformly here (no-split) → kernels that read it reproduce today's
+    // geometry byte-identically; split-c later fills it with the variable schedule.
+    // Row w: [window_bits, bit_base, num_buckets(red slots), work_off, reduce_off].
+    const WD_STRIDE = 8;
+    const wdData = new Uint32Array(NUM_WINDOWS * WD_STRIDE);
+    for (let w = 0; w < NUM_WINDOWS; w++) {
+      const o = w * WD_STRIDE;
+      wdData[o + 0] = c; // window_bits
+      wdData[o + 1] = w * c; // bit_base
+      wdData[o + 2] = this.stride; // num_buckets (red slots per window)
+      wdData[o + 3] = w * BW; // work_off (PASS bucket base)
+      wdData[o + 4] = w * this.stride; // reduce_off (red_buf base)
+    }
+    const windowDescBuf = device.createBuffer({
+      size: wdData.byteLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(windowDescBuf, 0, wdData as BufferSource);
+    this.prepBuffers.push(windowDescBuf);
     // Uniform layout: [num_point_tiles, BW, n, points_per_tile]; consumed by
     // transpose_count_tiled, transpose_reduce_tiled (only [0] [1]),
     // transpose_scatter_tiled (all four).
@@ -2409,7 +2429,7 @@ export class MsmV2 {
     }
 
     this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.decomposeLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeParams, bwb]),
+      mkBind(this.decomposeLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeParams, bwb, windowDescBuf]),
     );
     // The transpose borrows l0IdxBuf as the per-chunk partials matrix. Its
     // [0, batchSlots) region is dormant until convActive (which runs strictly
