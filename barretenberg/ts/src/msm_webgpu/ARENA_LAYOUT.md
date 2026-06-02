@@ -2,13 +2,25 @@
 
 Target: the live `stream_walker` + multi-dispatch pair-tree in `msm_v2.ts`
 (`SharedScratch` on `MsmV2Pool`). Hard budget: **160 MB total GPU buffers.**
-Designed to (a) collapse the ~49-binding `SharedScratch` to a ~5-binding group,
+Designed to (a) collapse the ~49-buffer `SharedScratch` to a handful of arenas
 (b) be sized deterministically against a fixed budget rather than grown
 monotonically, (c) pack multiple MSMs per dispatch, and (d) accept the
 variable-window **split-c** schedule as a layout-table swap, not a re-architecture.
 
 **All sizes below are exact, traced to source — no estimates.** The one term not
 closed-form from `n` alone (`reducePrefScratch`'s `MAXC`) is flagged.
+
+> **DEVICE CONSTRAINT (verified on M-series, Dawn/Metal, 2026-06-01).**
+> Binding the **same GPU buffer at two bindings in one bind group** — even
+> non-overlapping sub-ranges — silently produces **wrong results (output 0)**.
+> Proven by bisection: `ptScratch` carved from a shared arena passes alone at
+> offset 0 *and* at a nonzero offset, but `ptScratch`+`ptTasks` (co-bound in the
+> `ptCombine` bind group) outputs 0. **So this is NOT "one arena": two buffers may
+> share an arena only if they are never co-bound in any single bind group.**
+> Partition buffers by a co-binding conflict graph (graph-colour the 37 bind
+> groups' co-occurrences) — never-co-bound buffers share an arena, co-bound ones
+> go to different arenas. Still collapses ~49 buffers to a handful of arenas
+> (allocate-once, deterministic, packable), just not to a single one.
 
 ---
 
@@ -361,9 +373,12 @@ cap at 16 KiB). Make `MPW` (hence `sT`) device-adaptive.
 
 ## Build order (lowest risk first)
 
-1. **Consolidate to arena + layout table, uniform-stride only** (single MSM).
-   ~49 bindings → ~5; delete dead stubs; bucket addressing via `layout_win`.
-   Validate byte-identical output vs current at logN 14/15/17.
+1. **Consolidate `SharedScratch` → co-binding-partitioned arenas.** Build the
+   co-binding conflict graph from the 37 bind groups, graph-colour it, and carve
+   each colour's buffers from one arena (256-B slots) via the polymorphic
+   `mkBind`. ✅ done: dead set dropped (`28c3babb5b`); `mkBind` accepts
+   `GPUBuffer | GPUBufferBinding` + `ptScratch` migrated, byte-identical
+   (`97190e5af7`). Next: colour the graph, migrate each colour, validate each.
 2. **`sT` device-adaptive** (`MPW`). Bench phone — confirm `sT=2048` holds perf.
 3. **Reduce restructure** → per-pass RED + persistent `windowSums`; wire the
    160 MB gate (incl. THREAD terms); enable `bw` staging.
