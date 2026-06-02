@@ -38,6 +38,15 @@ const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
 const FP = BN254_BASE_FIELD;
 const NUMBITS = 254; // scalar field bit length
+
+// A scratch buffer is either a standalone GPUBuffer or a {buffer,offset,size}
+// slot carved from an arena (ARENA_LAYOUT.md §1). These helpers act on either,
+// so clear/write/copy sites work whether or not the buffer has been migrated.
+type ScratchSlot = GPUBuffer | GPUBufferBinding;
+const slotBuf = (x: ScratchSlot): GPUBuffer => (x instanceof GPUBuffer ? x : x.buffer);
+const slotOff = (x: ScratchSlot): number => (x instanceof GPUBuffer ? 0 : (x.offset ?? 0));
+const slotSize = (x: ScratchSlot): number => (x instanceof GPUBuffer ? x.size : (x.size ?? 0));
+const clearSlot = (enc: GPUCommandEncoder, x: ScratchSlot): void => enc.clearBuffer(slotBuf(x), slotOff(x), slotSize(x));
 const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
 
 // Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
@@ -547,10 +556,10 @@ interface SharedScratch {
   denseCountList: GPUBuffer;
   sortedBucketList: GPUBufferBinding;
   sortedCountList: GPUBuffer;
-  radixHist: GPUBuffer;
+  radixHist: GPUBufferBinding;
   cumulativeAdds: GPUBuffer;
   wgCuts: GPUBufferBinding;
-  threadCuts: GPUBuffer;
+  threadCuts: GPUBufferBinding;
   queueBuf: GPUBuffer;
   partialsBuf: GPUBuffer;
   partialBucketsList: GPUBuffer;
@@ -558,7 +567,7 @@ interface SharedScratch {
   streamPrefScratch: GPUBuffer;
   // Stream-walker buffers (Plan §3.1 + C's KNOB 2 variant).
   taskCuts: GPUBuffer;              // (S+1) cut points/thread × 2 u32
-  walkerPartials: GPUBuffer;        // 2*S partial slots/thread (split-start + task-end)
+  walkerPartials: GPUBufferBinding; // arena slot — 2*S partial slots/thread (split-start + task-end)
   walkerPartialDest: GPUBuffer;     // bucket_id per partial slot (NO_BUCKET if unused)
   // Optimal walker_combine pipeline buffers.
   partialCount: GPUBuffer;          // bTotal × atomic<u32> — partials per bucket
@@ -570,7 +579,7 @@ interface SharedScratch {
   // Counting-sort prepass: groups active_buckets by partial_count so each
   // combine_batched thread's S=8 slots have matching N → zero tail divergence.
   // MAX_N = 64 bins (sized in ba_walker_combine_sort_*.template.wgsl).
-  countHistogram: GPUBuffer;        // MAX_N × atomic<u32>
+  countHistogram: GPUBufferBinding; // arena slot — MAX_N × atomic<u32>
   binOffsets: GPUBuffer;            // MAX_N × u32 — exclusive prefix sum
   binWritePos: GPUBuffer;           // MAX_N × atomic<u32>
   sortedActiveBuckets: GPUBufferBinding; // arena slot — bTotal × u32 — active_buckets in N order
@@ -593,7 +602,7 @@ interface SharedScratch {
   ptChunks: GPUBuffer;                 // vec4<u32> × max_chunks — (in_off, count, out_off, bid)
   ptChunksTotal: GPUBuffer;            // 1 × atomic<u32> — chunks emitted in current pass
   // Pair-tree v2 (multi-dispatch). Per-bucket level state, task list, counters.
-  ptOff: GPUBuffer;                 // sBTotal × u32 — bucket's current start in pt_buf
+  ptOff: GPUBufferBinding;          // arena slot — sBTotal × u32 — bucket's current start in pt_buf
   ptCount: GPUBuffer;               // sBTotal × u32 — bucket's current level count
   ptMeta: GPUBuffer;                // 4 × u32 — NUM_HOT, total partials, _, _
   ptTasks: GPUBuffer;               // max tasks per level × vec4<u32>
@@ -729,11 +738,10 @@ export class MsmV2Pool {
       total += s.streamPlannerMeta.size + s.size1BucketList.size;
       total += s.denseBucketList.size + s.denseCountList.size;
       total += s.sortedCountList.size;
-      total += s.radixHist.size + s.cumulativeAdds.size;
-      total += s.threadCuts.size;
+      total += s.cumulativeAdds.size;
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
-      total += s.taskCuts.size + s.walkerPartials.size + s.walkerPartialDest.size;
+      total += s.taskCuts.size + s.walkerPartialDest.size;
     }
     return total;
   }
@@ -954,28 +962,23 @@ export class MsmV2Pool {
       denseBucketList?.destroy();
       denseCountList?.destroy();
       sortedCountList?.destroy();
-      radixHist?.destroy();
       cumulativeAdds?.destroy();
-      threadCuts?.destroy();
       queueBuf?.destroy();
       partialsBuf?.destroy();
       partialBucketsList?.destroy();
       accBuf?.destroy();
       streamPrefScratch?.destroy();
       taskCuts?.destroy();
-      walkerPartials?.destroy();
       walkerPartialDest?.destroy();
       partialCount?.destroy();
       partialWritePos?.destroy();
       partialLayout?.destroy();
       activeBuckets?.destroy();
       activeCount?.destroy();
-      countHistogram?.destroy();
       binOffsets?.destroy();
       binWritePos?.destroy();
       ptAlloc?.destroy();
       ptDispatchArgs?.destroy();
-      ptOff?.destroy();
       ptCount?.destroy();
       ptMeta?.destroy();
       ptTasks?.destroy();
@@ -1007,6 +1010,13 @@ export class MsmV2Pool {
       arenaBytes[4] = alignArena(512 * sT * sS) + alignArena(sBTotal * 4) + alignArena(MAX_STREAM_WORKGROUPS * 2 * 4);
       // A5: partialOffset + sortedActiveBuckets
       arenaBytes[5] = alignArena((sBTotal + 1) * 4) + alignArena(sBTotal * 4);
+      // A3: radixHist + threadCuts + walkerPartials + countHistogram + ptOff
+      arenaBytes[3] =
+        alignArena(sRadixTiles * 256 * 4) +
+        alignArena(sT * 2 * 4) +
+        alignArena(10 * sT * sS * 16) +
+        alignArena(64 * 4) +
+        alignArena(sBTotal * 4);
       arenas = arenaBytes.map(b =>
         device.createBuffer({
           size: Math.max(b, 4),
@@ -1026,10 +1036,10 @@ export class MsmV2Pool {
       denseCountList = sbuf(sBTotal * 4);
       sortedBucketList = carve(4, sBTotal * 4);
       sortedCountList = sbuf(sBTotal * 4);
-      radixHist = sbuf(sRadixTiles * 256 * 4);
+      radixHist = carve(3, sRadixTiles * 256 * 4);
       cumulativeAdds = sbuf(sBTotal * 4);
       wgCuts = carve(4, MAX_STREAM_WORKGROUPS * 2 * 4);
-      threadCuts = sbuf(sT * 2 * 4);
+      threadCuts = carve(3, sT * 2 * 4);
       // Step 9: legacy stream-accum buffers shrunk — only the dead
       // ba_stream_accum / ba_partial_sum / ba_planner_emit / ba_emit_fixup /
       // ba_debug_accum / ba_recompute_split pipelines reference these.
@@ -1047,7 +1057,7 @@ export class MsmV2Pool {
       // walkerPartials = partials region (8*sT*sS vec4) + pref tail (2*sT*sS vec4)
       // = 10*sT*sS vec4 × 16 B = 160*sT*sS bytes. Coalesced pref layout requires
       // the pref tail to live in the same buffer.
-      walkerPartials = sbuf(10 * sT * sS * 16);
+      walkerPartials = carve(3, 10 * sT * sS * 16);
       walkerPartialDest = sbuf(2 * sT * sS * 4);
       // Optimal combine pipeline buffers.
       partialCount = sbuf(sBTotal * 4);
@@ -1057,7 +1067,7 @@ export class MsmV2Pool {
       activeBuckets = sbuf(sBTotal * 4);
       activeCount = sbuf(4);
       // Counting-sort buffers. MAX_N = 64 (mirrors WGSL const).
-      countHistogram = sbuf(64 * 4);
+      countHistogram = carve(3, 64 * 4);
       binOffsets = sbuf(64 * 4);
       binWritePos = sbuf(64 * 4);
       sortedActiveBuckets = carve(5, sBTotal * 4);
@@ -1081,7 +1091,7 @@ export class MsmV2Pool {
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
       // Pair-tree v2 state buffers.
-      ptOff = sbuf(sBTotal * 4);
+      ptOff = carve(3, sBTotal * 4);
       ptCount = sbuf(sBTotal * 4);
       ptMeta = sbuf(16);
       // pt_tasks: bound by max tasks at level 0 = sum(ceil(N_i / 2)) ≤
@@ -2633,8 +2643,8 @@ export class MsmV2 {
     // Stream-walker buffers (Plan §6 + C's KNOB 2 variant).
     // walkerPartialDest is cleared INSIDE the batch loop instead — see note
     // there. Cleared once here too would just be redundant.
-    enc.clearBuffer(this.pool.scratch!.threadCuts);
-    enc.clearBuffer(this.pool.scratch!.walkerPartials);
+    clearSlot(enc, this.pool.scratch!.threadCuts);
+    clearSlot(enc, this.pool.scratch!.walkerPartials);
     enc.clearBuffer(this.pool.scratch!.taskCuts);
     // Pair-tree alloc counter — claims start from 0 each MSM (legacy v1 buf).
     enc.clearBuffer(this.pool.scratch!.ptAlloc);
@@ -2687,7 +2697,7 @@ export class MsmV2 {
       enc.clearBuffer(this.pool.scratch!.partialCount);
       enc.clearBuffer(this.pool.scratch!.partialWritePos);
       enc.clearBuffer(this.pool.scratch!.activeCount);
-      enc.clearBuffer(this.pool.scratch!.countHistogram);
+      clearSlot(enc, this.pool.scratch!.countHistogram);
       // walkerPartialDest must also be per-batch. Walker only initializes its
       // own dispatched slots to NO_BUCKET (=0xFFFFFFFF); slots beyond that
       // would otherwise leak the previous batch's partial mapping into
