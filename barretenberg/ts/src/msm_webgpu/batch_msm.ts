@@ -185,6 +185,12 @@ export class BatchMsmV2 {
     return { results, gpuMs, wallMs: performance.now() - wallT0 };
   }
 
+  /** GPU bytes this batch instance owns: its dedicated SRS pool + scratch plus
+   *  the single virtualised MsmV2's working set. */
+  statsBytes(): number {
+    return this.pool.statsBytes() + this.msm.statsBytes();
+  }
+
   /** Release the underlying MsmV2 and the SRS pool. */
   destroy(): void {
     try {

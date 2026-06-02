@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Chonk e2e — WASM-MT vs WebGPU MSM (block-list applied)</title>
+    <title>Chonk e2e — WASM vs WebGPU MSM</title>
     <style>
       /* GitHub-dark palette. color-scheme makes native form controls (select
          popup, checkboxes, scrollbars) render dark too. */
@@ -191,18 +191,22 @@
     </style>
   </head>
   <body>
-    <h1>Chonk e2e — WASM-MT vs WebGPU MSM (solo + batch)</h1>
+    <h1>Chonk e2e — WASM vs WebGPU MSM</h1>
     <div class="subtitle">
       <code>ChonkApi::prove</code> on the canonical
-      <code>ecdsar1+transfer_1_recursions+sponsored_fpc</code> flow, three ways:
+      <code>ecdsar1+transfer_1_recursions+sponsored_fpc</code> flow. Each button
+      runs the prove <em>N&nbsp;times</em> on one reused backend and reports the
+      <strong>median</strong> (with min–max and the per-run list).
       <strong>WASM</strong> runs every MSM on the multi-threaded CPU Pippenger;
-      <strong>WebGPU (solo)</strong> delegates the 89 random-distributed MSMs
-      to the GPU one at a time (current default); <strong>WebGPU (batch)</strong>
-      is the same as solo except same-N batches with B&nbsp;≥&nbsp;4 at
-      n&nbsp;≤&nbsp;2<sup>17</sup> route through the Tier&nbsp;2
-      <code>BatchMsmV2</code> virtualised B·W-window dispatch. Run each
-      independently; both WebGPU cards cross-check their VK against the last
-      WASM run.
+      <strong>WebGPU</strong> delegates eligible MSMs to the GPU (a block-list
+      keeps a few structured-scalar columns on the CPU);
+      <strong>WebGPU&nbsp;(batch)</strong> additionally routes same-N batches of
+      B&nbsp;≥&nbsp;4 at n&nbsp;≤&nbsp;2<sup>17</sup> through the
+      <code>BatchMsmV2</code> dispatch. The WebGPU cards cross-check their
+      verification key against the last WASM run. Each card also reports
+      <strong>peak memory</strong>: the WASM linear heap (the metric CI tracks),
+      plus, for the WebGPU cards, the GPU&nbsp;VRAM the MSM bridge holds — the
+      pool the WASM-only number can't see.
     </div>
 
     <div class="panel">
@@ -214,37 +218,23 @@
             ecdsar1+transfer_1_recursions+sponsored_fpc
           </option>
         </select>
+        <label>runs <input id="runs" type="number" value="5" min="1" max="20" step="1" style="width: 48px" /></label>
+        <button id="warm-up" title="Build the 16-thread WASM backend + load the CRS once now, so the first Run WASM skips the ~13s setup. The backend stays warm and is reused across same-mode clicks; switching mode (WASM↔WebGPU↔batch) rebuilds it (only one is held). Tracing frees it.">Warm up</button>
         <button id="run-wasm" class="primary">Run WASM</button>
         <button id="run-webgpu" class="primary">Run WebGPU</button>
         <button id="run-webgpu-batch" class="primary">Run WebGPU (batch)</button>
-        <label title="Capture a Perfetto trace of the next prove and POST it to /tmp/zac-webgpu/. Run WebGPU → chonk-trace-webgpu.json (aligned CPU+GPU; adds per-batch GPU readback, so that run's prove time is slightly inflated). Run WASM → chonk-trace-wasm.json (prove-relative MSM timeline; negligible cost). Open either at ui.perfetto.dev.">
-          <input id="trace-webgpu" type="checkbox" /> Perfetto trace
-        </label>
-        <label title="Capture the FULL end-to-end Perfetto trace: WASM prove phases (one lane per worker, nested down to batch_commit/MSM) + host MSM bridge + GPU passes + memory transfers, all on one clock. Tick this, then click Run WebGPU — it POSTs chonk-webgpu-e2e-trace.json to /tmp/zac-webgpu/ AND downloads it. Hardware WebGPU only (SwiftShader fails verify). Open at ui.perfetto.dev.">
-          <input id="trace-e2e" type="checkbox" /> Full e2e trace
-        </label>
-        <button id="run-msmcsv">Per-MSM CPU vs GPU</button>
-        <button id="clear-log">Clear log</button>
         <span id="status" class="status">idle</span>
       </div>
       <div class="ctrl" style="margin-top: 10px;">
-        <button id="run-median" class="primary" title="Run the prove N× as WASM and N× as WebGPU and report MEDIAN (+ min/max) total + per-circuit walls — washes out run-to-run noise. Takes a few minutes (2×N proves). POSTs + downloads chonk-median.json.">
-          Run median
-        </button>
-        <label title="How many times to run each of WASM and WebGPU.">
-          × <input id="median-runs" type="number" value="5" min="1" max="20" step="1" style="width: 48px" />
-          runs each side
-        </label>
+        <label>features:</label>
+        <button id="trace-webgpu" title="Capture ONE end-to-end Perfetto trace of a single WebGPU prove (WASM phases + host MSM bridge + GPU passes + memory, all on one clock). Saves + downloads the JSON; open it at ui.perfetto.dev. Needs a hardware GPU (SwiftShader fails verify).">Trace WebGPU</button>
+        <button id="trace-wasm" title="Capture ONE end-to-end Perfetto trace of a single WASM prove (per-worker phase tree). Saves + downloads the JSON; open it at ui.perfetto.dev.">Trace WASM</button>
+        <button id="run-percircuit" title="Run ONE traced WASM prove + ONE traced WebGPU prove and fill the per-circuit table below: witness-commit time per circuit, the WASM→WebGPU reduction, and which MSMs ran on the GPU. ~2 proves; independent of the median run buttons.">Per-circuit comparison</button>
+        <button id="clear-log">Clear log</button>
       </div>
       <div id="progress" class="progress" style="display: none">
         <progress id="prog-bar" max="100"></progress>
         <span id="prog-text"></span>
-      </div>
-      <div class="ctrl" style="margin-top: 10px;">
-        <label>block-list:</label>
-        <span class="blocklist">LOOKUP_READ_COUNTS</span>
-        <span class="blocklist">LOOKUP_READ_TAGS</span>
-        <span class="blocklist">VK_PRECOMPUTED_POLY</span>
       </div>
     </div>
 
@@ -256,22 +246,21 @@
     </div>
 
     <div class="panel">
-      <h2>Results</h2>
+      <h2>Results — median of N runs</h2>
       <div class="results">
         <div class="result-card">
-          <h3>WASM (multi-threaded, no GPU)</h3>
-          <div class="metric"><span class="k">prove</span><span class="v" id="wasm-prove">—</span></div>
-          <div class="metric"><span class="k">verify</span><span class="v" id="wasm-verify">—</span></div>
+          <h3>WASM (multi-threaded CPU)</h3>
           <div class="big" id="wasm-prove-big">—</div>
           <div class="runs" id="wasm-runs"></div>
           <div style="margin-top: 6px;">
             <span class="pill" id="wasm-verified">verified: —</span>
           </div>
+          <div class="metric" style="margin-top: 8px;">
+            <span class="k">peak memory</span><span class="v" id="wasm-mem">—</span>
+          </div>
         </div>
         <div class="result-card">
-          <h3>WebGPU solo (89 MSMs, per-MSM submit)</h3>
-          <div class="metric"><span class="k">prove</span><span class="v" id="webgpu-prove">—</span></div>
-          <div class="metric"><span class="k">verify</span><span class="v" id="webgpu-verify">—</span></div>
+          <h3>WebGPU (eligible MSMs on GPU)</h3>
           <div class="big" id="webgpu-prove-big">—</div>
           <div class="runs" id="webgpu-runs"></div>
           <div class="speedup" id="webgpu-speedup"></div>
@@ -279,17 +268,21 @@
             <span class="pill" id="webgpu-verified">verified: —</span>
             <span class="pill" id="webgpu-vkmatch">vk vs WASM: —</span>
           </div>
+          <div class="metric" style="margin-top: 8px;">
+            <span class="k">peak memory</span><span class="v" id="webgpu-mem">—</span>
+          </div>
         </div>
         <div class="result-card">
           <h3>WebGPU batch (same-N B≥4 → BatchMsmV2)</h3>
-          <div class="metric"><span class="k">prove</span><span class="v" id="webgpu-batch-prove">—</span></div>
-          <div class="metric"><span class="k">verify</span><span class="v" id="webgpu-batch-verify">—</span></div>
           <div class="big" id="webgpu-batch-prove-big">—</div>
+          <div class="runs" id="webgpu-batch-runs"></div>
           <div class="speedup" id="webgpu-batch-speedup"></div>
-          <div class="speedup" id="webgpu-batch-vs-solo"></div>
           <div style="margin-top: 6px;">
             <span class="pill" id="webgpu-batch-verified">verified: —</span>
             <span class="pill" id="webgpu-batch-vkmatch">vk vs WASM: —</span>
+          </div>
+          <div class="metric" style="margin-top: 8px;">
+            <span class="k">peak memory</span><span class="v" id="webgpu-batch-mem">—</span>
           </div>
         </div>
       </div>
@@ -300,16 +293,14 @@
       <div id="log"></div>
     </div>
 
-    <div class="footer">
-      The block-list excludes <code>LOOKUP_READ_TAGS</code>,
-      <code>LOOKUP_READ_COUNTS</code>, and <code>VK_PRECOMPUTED_POLY</code>
-      from GPU delegation. These columns concentrate every nonzero scalar into
-      a single bucket (selectors are 0/1, lookup tags repeat the same value),
-      which the MsmV2 pair-tree's <em>"scalars must be random"</em> contract
-      does not guarantee. Empirically they cost ~5.8% of total CPU MSM time —
-      keeping them on CPU is essentially free. See
-      <code>/tmp/zac-webgpu/chonk-delegate-eligible.md</code> for the
-      per-column safety analysis.
+    <div class="panel" id="phase-panel" style="display: none">
+      <h2>Phase breakdown — WASM vs WebGPU (full e2e prove)</h2>
+      <div id="phase-table"></div>
+    </div>
+
+    <div class="panel" id="percircuit-panel" style="display: none">
+      <h2>Per-circuit — WASM vs WebGPU (single traced prove each)</h2>
+      <div id="percircuit-table"></div>
     </div>
 
     <script src="index.js"></script>

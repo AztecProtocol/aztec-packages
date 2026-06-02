@@ -128,6 +128,18 @@ function sampleAlignAnchor(): void {
   anchors: alignAnchors.length,
 });
 
+// Whole-prove GPU-memory high-water mark, in bytes. `statsBytesSummary` updates
+// it every time the bridge logs a per-batch memory summary, so it tracks the
+// peak of (SRS pool + active + LRU) GPU bytes across the entire prove. The
+// chonk-webgpu bench resets it before each run and reads it after — same
+// flag-style global pattern as the trace handles above, so serve.ts reads the
+// number without importing this module (which would couple the webpack bundle).
+let peakGpuBytes = 0;
+(globalThis as any).__bridge_gpu_mem_reset = (): void => {
+  peakGpuBytes = 0;
+};
+(globalThis as any).__bridge_gpu_mem_peak = (): number => peakGpuBytes;
+
 /**
  * Main-thread host for the WebGPU MSM bridge. Owns one `GPUDevice`, one shared
  * `MsmV2Pool` (the SRS uploaded + Montgomery-converted on the GPU once), and a
@@ -215,6 +227,16 @@ export class WebGpuMsmHost {
         await this.runPublishSrs();
       } else {
         throw new Error(`WebGPU bridge: unknown opcode ${op}`);
+      }
+      // Track the whole-prove GPU-memory high-water after each dispatch (buffers
+      // persist in the pool + caches), so the peak is captured regardless of the
+      // dispatch path. The bench/page reads it via __bridge_gpu_mem_peak().
+      // Best-effort telemetry: never let it fail the MSM request / break a prove.
+      try {
+        const gpuBytes = this.currentGpuBytes();
+        if (gpuBytes > peakGpuBytes) peakGpuBytes = gpuBytes;
+      } catch {
+        /* ignore — memory accounting must not break proving */
       }
       Atomics.store(this.ctrl, SLOT_STATE, STATE_DONE);
     } catch (err) {
@@ -331,6 +353,29 @@ export class WebGpuMsmHost {
     }
     const mb = (b: number) => `${(b / (1024 * 1024)).toFixed(1)}MB`;
     return `pool=${mb(pool)},active=${mb(active)},lru=${mb(lru)},total=${mb(pool + active + lru)}`;
+  }
+
+  /**
+   * Current total GPU bytes the bridge holds: the shared SRS pool + scratch,
+   * every cached per-size `MsmV2` (solo + same-N slot pools), and every
+   * `BatchMsmV2`'s dedicated pool. Read from the host's own state so it is
+   * accurate for every dispatch path (solo / same-N / batch), independent of
+   * which paths happen to log a memory summary.
+   */
+  private currentGpuBytes(): number {
+    let total = this.pool?.statsBytes() ?? 0;
+    const seen = new Set<MsmV2>();
+    const add = (m: MsmV2 | null): void => {
+      if (m && !seen.has(m)) {
+        seen.add(m);
+        total += m.statsBytes();
+      }
+    };
+    add(this.srsMsm);
+    for (const m of this.lru.values()) add(m);
+    for (const slotPool of this.slotPools.values()) for (const m of slotPool) add(m);
+    for (const b of this.batchInstances.values()) total += b.statsBytes();
+    return total;
   }
 
   /**

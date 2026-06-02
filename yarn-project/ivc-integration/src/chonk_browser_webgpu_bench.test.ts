@@ -80,6 +80,12 @@ interface ChonkWebGpuBenchRunResult {
   verifyMs: number;
   verified: boolean;
   proofLength: number;
+  /** Peak WASM linear-memory heap during prove (MiB) — the CI `(mem: X MiB)` metric. */
+  wasmHeapPeakMb: number;
+  /** Peak GPU VRAM held by the WebGPU MSM bridge during prove (MiB); 0 when WebGPU off. */
+  gpuPeakMb: number;
+  /** Best-effort JS-heap size after prove (MiB); 0 if unavailable under the test Chrome flags. */
+  jsHeapMb: number;
 }
 
 interface ChonkWebGpuBenchResult {
@@ -238,6 +244,19 @@ describe('Chonk WebGPU MSM benchmark - Browser (ECDSA-r1 transfer)', () => {
     writeBenchmark('chonk-prove-webgpu-on', r.on.proveMs, labels);
     writeBenchmark('chonk-verify-webgpu-off', r.off.verifyMs, labels);
     writeBenchmark('chonk-verify-webgpu-on', r.on.verifyMs, labels);
+
+    // Memory. wasm-heap is the CI `(mem: X MiB)` metric, captured for both modes
+    // (expected ~equal — GPU delegation doesn't shrink the WASM heap). gpu-peak
+    // is the additional VRAM the WebGPU path uses, invisible to the wasm metric.
+    logger.info(
+      `[bench] memory off: wasm=${r.off.wasmHeapPeakMb.toFixed(0)}MiB js=${r.off.jsHeapMb.toFixed(0)}MiB | ` +
+        `on: wasm=${r.on.wasmHeapPeakMb.toFixed(0)}MiB gpu=${r.on.gpuPeakMb.toFixed(0)}MiB js=${r.on.jsHeapMb.toFixed(0)}MiB`,
+    );
+    writeBenchmark('chonk-mem-wasm-heap-off-mb', r.off.wasmHeapPeakMb, labels);
+    writeBenchmark('chonk-mem-wasm-heap-on-mb', r.on.wasmHeapPeakMb, labels);
+    writeBenchmark('chonk-mem-gpu-peak-on-mb', r.on.gpuPeakMb, labels);
+    writeBenchmark('chonk-mem-js-heap-off-mb', r.off.jsHeapMb, labels);
+    writeBenchmark('chonk-mem-js-heap-on-mb', r.on.jsHeapMb, labels);
   });
 
   it(`3-mode comparison (off / on-all / on-blocklist) on ${DEFAULT_FLOW} produces matching VKs`, async () => {
@@ -313,6 +332,14 @@ describe('Chonk WebGPU MSM benchmark - Browser (ECDSA-r1 transfer)', () => {
       writeBenchmark('chonk-prove-webgpu-off', result.off.proveMs, labels);
       writeBenchmark('chonk-prove-webgpu-on-all', result.onAll!.proveMs, labels);
       writeBenchmark('chonk-prove-webgpu-on-blocklist', result.onPartial!.proveMs, labels);
+
+      logger.info(
+        `[bench-partial] gpu peak: onAll=${result.onAll!.gpuPeakMb.toFixed(0)}MiB ` +
+          `onBlocklist=${result.onPartial!.gpuPeakMb.toFixed(0)}MiB ` +
+          `(wasm heap off=${result.off.wasmHeapPeakMb.toFixed(0)}MiB onAll=${result.onAll!.wasmHeapPeakMb.toFixed(0)}MiB)`,
+      );
+      writeBenchmark('chonk-mem-gpu-peak-on-all-mb', result.onAll!.gpuPeakMb, labels);
+      writeBenchmark('chonk-mem-gpu-peak-on-blocklist-mb', result.onPartial!.gpuPeakMb, labels);
     } finally {
       await page.close();
     }
@@ -338,10 +365,7 @@ describe('Chonk WebGPU MSM benchmark - Browser (ECDSA-r1 transfer)', () => {
       await page.waitForFunction('typeof window.runChonkMsmDistribution !== "undefined"', { timeout: 60_000 });
       logger.info(`Capturing per-MSM scalar distribution for flow=${flow}…`);
 
-      const result = (await page.evaluate(
-        async (f: string) => (window as any).runChonkMsmDistribution(f),
-        flow,
-      )) as {
+      const result = (await page.evaluate(async (f: string) => (window as any).runChonkMsmDistribution(f), flow)) as {
         flow: string;
         csv: string;
         rowCount: number;

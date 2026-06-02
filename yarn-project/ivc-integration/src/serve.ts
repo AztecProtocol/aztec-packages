@@ -32,6 +32,21 @@ interface ChonkWebGpuBenchRunResult {
    *  the instrumentation export. GPU bridge round-trips when WebGPU is on;
    *  native Pippenger when off. */
   msmPhaseMs: number;
+  /** Peak WASM linear-memory heap during prove, in MiB — the same metric the
+   *  CI browser benchmark greps as `(mem: X MiB)` (committed WebAssembly.Memory
+   *  buffer of the one shared multi-threaded heap). Captured for both off and
+   *  on; should be ~equal between them since delegating MSMs to the GPU does
+   *  not shrink the WASM heap (polynomials still live there). */
+  wasmHeapPeakMb: number;
+  /** Peak GPU (VRAM) bytes the WebGPU MSM bridge held during prove, in MiB —
+   *  the high-water of (SRS pool + active + LRU) GPUBuffer sizes self-accounted
+   *  by the bridge. 0 when WebGPU is off (no bridge). This is the memory the
+   *  WASM-heap metric above cannot see (separate GPU process). */
+  gpuPeakMb: number;
+  /** Best-effort JS-heap size after prove, in MiB, from
+   *  performance.measureUserAgentSpecificMemory() (or performance.memory as a
+   *  fallback). 0 when neither API is available under the test Chrome flags. */
+  jsHeapMb: number;
 }
 
 interface ChonkWebGpuBenchResult {
@@ -43,6 +58,34 @@ interface ChonkWebGpuBenchResult {
   on: ChonkWebGpuBenchRunResult;
   /** True if the produced verification keys are byte-equal between runs. */
   vksMatch: boolean;
+  /** True when the GPU adapter is SwiftShader/software (the webgpu=on run was
+   *  skipped — not BN254 bit-exact). The bench test reads this to gate its
+   *  on-mode assertions. */
+  swiftshaderDetected: boolean;
+}
+
+/**
+ * Best-effort JS-heap size in MiB. Prefers
+ * `performance.measureUserAgentSpecificMemory()` (accurate cross-origin-isolated
+ * breakdown — the bench server already sets the required COOP/COEP headers),
+ * falling back to the legacy `performance.memory.usedJSHeapSize`, and 0 when
+ * neither is exposed under the current Chrome flags. Never throws.
+ */
+async function measureJsHeapMb(): Promise<number> {
+  try {
+    const measure = (performance as any).measureUserAgentSpecificMemory;
+    if (typeof measure === 'function') {
+      const sample = await measure.call(performance);
+      if (sample && typeof sample.bytes === 'number') {
+        return sample.bytes / (1024 * 1024);
+      }
+    }
+  } catch {
+    // Can reject if not cross-origin-isolated or if the UA throttles the call.
+    // Fall through to the legacy synchronous API.
+  }
+  const mem = (performance as any).memory;
+  return mem && typeof mem.usedJSHeapSize === 'number' ? mem.usedJSHeapSize / (1024 * 1024) : 0;
 }
 
 /**
@@ -64,6 +107,15 @@ async function runChonkOnce(
   webgpuMsmBlocklist?: readonly string[],
   msmTraceMode = false,
   benchTraceOpts?: { maxDepth?: number; denylist?: readonly string[] },
+  // Discarded proves run on this same instance BEFORE the measured one. A WebGPU
+  // prove pays one-time GPU cold-start (SRS upload + Montgomery-convert, shader
+  // compilation, buffer-pool allocation) that subsequent proves on the instance
+  // skip; warming first makes the measured prove (and its trace) reflect steady
+  // state rather than that cold-start. `onBeforeMeasured` fires after the last
+  // warm-up, before the measured prove — used to reset the host bridge trace so
+  // its lanes capture only the measured prove.
+  warmupRuns = 0,
+  onBeforeMeasured?: () => void | Promise<void>,
 ): Promise<{
   result: ChonkWebGpuBenchRunResult;
   vk: Uint8Array;
@@ -77,11 +129,21 @@ async function runChonkOnce(
   // accumulator log, so we can report the exact cumulative MSM-phase wall time
   // for this run. Wrap whatever base logger the caller wants.
   let msmPhaseMs = 0;
+  let wasmHeapPeakMb = 0;
   const baseLog = loggerOverride ?? ((m: string) => logger.info(m));
   const capturingLog = (m: string): void => {
     const mt = /\[msm-phase-total\]\s+ms=([\d.]+)/.exec(m);
     if (mt) {
       msmPhaseMs = parseFloat(mt[1]);
+    }
+    // Every WASM log line carries the heap size as `(mem: X MiB)` (appended by
+    // bb.js's logstr import). The shared linear memory only grows during a
+    // prove, so the max observed value is the prove's peak — the same number
+    // the CI browser memory benchmark greps as `(mem: X MiB)`.
+    const mm = /\(mem:\s*([\d.]+)\s*MiB\)/.exec(m);
+    if (mm) {
+      const v = parseFloat(mm[1]);
+      if (v > wasmHeapPeakMb) wasmHeapPeakMb = v;
     }
     baseLog(m);
   };
@@ -98,11 +160,28 @@ async function runChonkOnce(
     webgpuMsmBlocklist,
   });
   try {
+    // Cold-start warm-up: a fresh backend wrapper per prove (cheap — bb is reused,
+    // so the bridge's GPU pool + compiled shaders persist), discarded.
+    for (let w = 0; w < warmupRuns; w++) {
+      baseLog(`[trace] warm-up prove ${w + 1}/${warmupRuns} (discarded — pays GPU cold-start so the measured prove is warm)`);
+      const warmBackend = new AztecClientBackend(bytecodes, bb, functionNames);
+      await warmBackend.prove(witnessStack, vks);
+    }
+    if (onBeforeMeasured) await onBeforeMeasured();
     const backend = new AztecClientBackend(bytecodes, bb, functionNames);
+    // Reset the bridge's whole-prove GPU-memory high-water before this run so
+    // gpuPeakMb is per-run (the bridge module persists across off/on runs).
+    // No-op when WebGPU is off (handle undefined / bridge not loaded).
+    (window as any).__bridge_gpu_mem_reset?.();
     const t0 = performance.now();
     const { proof, vk } = await backend.prove(witnessStack, vks);
     const proveMs = performance.now() - t0;
     const proveEndMs = performance.now();
+
+    // GPU VRAM peak (bridge self-accounting) and JS heap — the memory the WASM
+    // `(mem:)` metric can't see. GPU peak is 0 when WebGPU is off.
+    const gpuPeakMb = ((window as any).__bridge_gpu_mem_peak?.() ?? 0) / (1024 * 1024);
+    const jsHeapMb = await measureJsHeapMb();
 
     // Emit the cumulative MSM-phase wall time accrued during prove (the fresh
     // WASM instance starts the accumulator at 0). Emitted before verify so it
@@ -118,7 +197,16 @@ async function runChonkOnce(
     const verifyMs = performance.now() - t1;
 
     return {
-      result: { proveMs, verifyMs, verified, proofLength: proof.length, msmPhaseMs },
+      result: {
+        proveMs,
+        verifyMs,
+        verified,
+        proofLength: proof.length,
+        msmPhaseMs,
+        wasmHeapPeakMb,
+        gpuPeakMb,
+        jsHeapMb,
+      },
       vk,
       benchTraceJson,
       proveStartMs: t0,
@@ -244,7 +332,16 @@ async function runChonkWebGpuBench(
       adapter: adapterInfo,
       numCreatorApps: bytecodes.length,
       off: off.result,
-      on: { proveMs: 0, verifyMs: 0, verified: false, proofLength: 0 },
+      on: {
+        proveMs: 0,
+        verifyMs: 0,
+        verified: false,
+        proofLength: 0,
+        msmPhaseMs: 0,
+        wasmHeapPeakMb: 0,
+        gpuPeakMb: 0,
+        jsHeapMb: 0,
+      },
       vksMatch: false,
       swiftshaderDetected: true,
     };
@@ -1010,10 +1107,246 @@ function untrackedSpans(allSpans: readonly TraceSpan[], start: number, end: numb
   return gaps;
 }
 
+/** One circuit's witness-commit (Oink) wall + the commitments delegated to the
+ *  GPU in it. Per-circuit reduction = WASM oinkMs − WebGPU oinkMs. */
+export interface PerCircuitRow {
+  name: string;
+  oinkMs: number;
+  /** Commitment names whose MSM ran on the GPU in this circuit (empty for WASM). */
+  gpuMsms: string[];
+}
+
+/**
+ * Extract a per-circuit breakdown from a merged e2e Perfetto trace: each circuit
+ * is one `OinkProver::prove` span on the WASM-main lane (the MSM-dominated
+ * witness-commit phase), labelled by `functionNames` in prove order. `gpuMsms`
+ * is the set of commitment names appearing on the GPU lane within that circuit's
+ * window — i.e. the MSMs that were delegated to WebGPU there. Pure; validated
+ * against captured traces in /tmp/zac-webgpu/.
+ */
+export function extractPerCircuit(traceJson: string, functionNames: string[]): PerCircuitRow[] {
+  let parsed: { traceEvents?: Array<Record<string, any>> };
+  try {
+    parsed = JSON.parse(traceJson);
+  } catch {
+    return [];
+  }
+  const ev = parsed.traceEvents ?? [];
+  const tidByName = new Map<string, number>();
+  for (const e of ev) {
+    if (e.ph === 'M' && e.name === 'thread_name') tidByName.set(e.args?.name, e.tid);
+  }
+  const mainTid = tidByName.get('WASM main');
+  const gpuTid = tidByName.get('GPU (WebGPU passes)');
+  const slices = ev.filter(e => e.ph === 'X');
+  const windows = slices
+    .filter(e => e.name === 'OinkProver::prove' && e.tid === mainTid)
+    .map(e => ({ s: e.ts as number, en: (e.ts as number) + (e.dur as number), durUs: e.dur as number }))
+    .sort((a, b) => a.s - b.s);
+  const gpuSlices = gpuTid != null ? slices.filter(e => e.tid === gpuTid) : [];
+  // GPU pass labels are "<pass>#<k> · <COMMITMENT>"; the suffix is the MSM identity.
+  const commitment = (name: string): string | undefined =>
+    name.includes('·') ? name.split('·').pop()!.trim() : undefined;
+  const gpuNamesIn = (wins: Array<{ s: number; en: number }>): string[] => {
+    const names = new Set<string>();
+    for (const g of gpuSlices) {
+      const ts = g.ts as number;
+      if (wins.some(w => ts >= w.s && ts < w.en)) {
+        const c = commitment(g.name as string);
+        if (c) names.add(c);
+      }
+    }
+    return [...names].sort();
+  };
+
+  const circuitRows: PerCircuitRow[] = windows.map((w, i) => ({
+    name: functionNames[i] ?? `circuit ${i}`,
+    oinkMs: w.durUs / 1000,
+    gpuMsms: gpuNamesIn([w]),
+  }));
+
+  // Tail phases — once per prove, AFTER the per-circuit Oink loop (so they aren't
+  // captured by the circuit windows): the Goblin ECCVM, the Translator (where the
+  // tail GPU MSMs land), and the remaining decider/PCS. Verify is excluded.
+  if (windows.length === 0) return circuitRows;
+  let tailStart = 0;
+  for (const w of windows) if (w.en > tailStart) tailStart = w.en;
+  let traceEnd = tailStart;
+  for (const e of slices) {
+    const end = (e.ts as number) + (e.dur as number);
+    if (end > traceEnd) traceEnd = end;
+  }
+  let tailEnd = traceEnd;
+  for (const e of slices) {
+    if (e.name === 'ChonkVerifier::verify' && (e.ts as number) < tailEnd) tailEnd = e.ts as number;
+  }
+  const phaseWins = (name: string): Array<{ s: number; en: number }> =>
+    slices
+      .filter(e => e.name === name && e.tid === mainTid && (e.ts as number) >= tailStart && (e.ts as number) < tailEnd)
+      .map(e => ({ s: e.ts as number, en: (e.ts as number) + (e.dur as number) }));
+  const sumMs = (wins: Array<{ s: number; en: number }>): number => wins.reduce((a, w) => a + (w.en - w.s), 0) / 1000;
+  const eccWins = phaseWins('Goblin::prove_eccvm');
+  const trWins = phaseWins('BatchedHonkTranslatorProver::prove');
+  const inAny = (ts: number, wins: Array<{ s: number; en: number }>): boolean => wins.some(w => ts >= w.s && ts < w.en);
+  const restGpu = new Set<string>();
+  for (const g of gpuSlices) {
+    const ts = g.ts as number;
+    if (ts >= tailStart && ts < tailEnd && !inAny(ts, eccWins) && !inAny(ts, trWins)) {
+      const c = commitment(g.name as string);
+      if (c) restGpu.add(c);
+    }
+  }
+  const eccMs = sumMs(eccWins);
+  const trMs = sumMs(trWins);
+  const restMs = Math.max(0, (tailEnd - tailStart) / 1000 - eccMs - trMs);
+  const tailRows: PerCircuitRow[] = [
+    { name: 'tail · ECCVM (Goblin)', oinkMs: eccMs, gpuMsms: gpuNamesIn(eccWins) },
+    { name: 'tail · Translator', oinkMs: trMs, gpuMsms: gpuNamesIn(trWins) },
+    { name: 'tail · Decider/PCS', oinkMs: restMs, gpuMsms: [...restGpu].sort() },
+  ];
+  return [...circuitRows, ...tailRows];
+}
+
+/** One profiling phase from the merged e2e trace: a top-level Chonk phase
+ *  (`depth` 0) or a one-level-deeper sub-phase of ChonkProve (`depth` 1).
+ *  `gpuMsms` counts the MSM dispatches delegated to the GPU inside the phase
+ *  window — each opens with a `decompose` pass — so it reads as "where the GPU
+ *  was actually engaged" (0 in a WASM trace, since nothing is delegated). */
+export interface PhaseRow {
+  name: string;
+  ms: number;
+  depth: number;
+  gpuMsms: number;
+}
+
+/** ChonkProve's one-level-deeper Goblin sub-provers, in run order. Each label
+ *  matches the BB_BENCH span name(s) bounded to the ChonkProve window; Translator
+ *  folds its tiny circuit-build + proving-key setup spans into the prove span. */
+const CHONK_PROVE_SUBPHASES: { label: string; names: string[] }[] = [
+  { label: 'Mega-ZK oink (hiding)', names: ['BatchedHonkTranslatorProver::prove_mega_zk_oink'] },
+  { label: 'Goblin merge', names: ['Goblin::prove_merge'] },
+  { label: 'ECCVM', names: ['Goblin::prove_eccvm'] },
+  {
+    label: 'Translator',
+    names: [
+      'BatchedHonkTranslatorProver::prove',
+      'TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit',
+      'TranslatorCircuitBuilder::constructor',
+      'TranslatorProvingKey(TranslatorCircuit&)',
+    ],
+  },
+];
+
+/**
+ * Extract the high-level phase breakdown from a merged e2e Perfetto trace: the
+ * top-level Chonk phases (`ChonkStart` / `ChonkLoad` / `ChonkAccumulate` /
+ * `ChonkProve` / `ChonkComputeVk` / `ChonkVerify`) on the WASM-main lane, plus a
+ * one-level-deeper split of `ChonkProve` into its Goblin sub-provers (Mega-ZK
+ * oink, merge, ECCVM, Translator, and a decider/PCS/verify remainder). `ChonkLoad`
+ * and `ChonkAccumulate` run once per circuit, so their durations are summed across
+ * windows. Pure; validated against captured traces in /tmp/zac-webgpu/.
+ */
+export function extractPhaseBreakdown(traceJson: string): PhaseRow[] {
+  let parsed: { traceEvents?: Array<Record<string, any>> };
+  try {
+    parsed = JSON.parse(traceJson);
+  } catch {
+    return [];
+  }
+  const ev = parsed.traceEvents ?? [];
+  const tidByName = new Map<string, number>();
+  for (const e of ev) {
+    if (e.ph === 'M' && e.name === 'thread_name') tidByName.set(e.args?.name, e.tid);
+  }
+  const mainTid = tidByName.get('WASM main');
+  const gpuTid = tidByName.get('GPU (WebGPU passes)');
+  const slices = ev.filter(e => e.ph === 'X');
+  const mainSlices = slices.filter(e => e.tid === mainTid);
+  // Each MSM delegated to the GPU opens with a `decompose` pass; counting those
+  // inside a window = number of MSM dispatches that ran on the GPU in that phase.
+  const gpuDispatches =
+    gpuTid != null
+      ? slices.filter(e => e.tid === gpuTid && typeof e.name === 'string' && (e.name as string).startsWith('decompose'))
+      : [];
+  type Win = { s: number; en: number };
+  const winsOf = (name: string): Win[] =>
+    mainSlices.filter(e => e.name === name).map(e => ({ s: e.ts as number, en: (e.ts as number) + (e.dur as number) }));
+  const sumMs = (wins: Win[]): number => wins.reduce((a, w) => a + (w.en - w.s), 0) / 1000;
+  const gpuIn = (wins: Win[]): number =>
+    gpuDispatches.filter(g => wins.some(w => (g.ts as number) >= w.s && (g.ts as number) < w.en)).length;
+
+  const TOP = ['ChonkStart', 'ChonkLoad', 'ChonkAccumulate', 'ChonkProve', 'ChonkComputeVk', 'ChonkVerify'];
+  const rows: PhaseRow[] = [];
+  for (const name of TOP) {
+    const wins = winsOf(name);
+    if (!wins.length) continue;
+    const ms = sumMs(wins);
+    rows.push({ name, ms, depth: 0, gpuMsms: gpuIn(wins) });
+    if (name !== 'ChonkProve') continue;
+    // Bound the sub-phase name matches to the prove window so a span name that
+    // also appears outside ChonkProve cannot leak in. Sub-rows sum to ChonkProve;
+    // the remainder absorbs the inner verify, decider, and PCS.
+    const pv = wins.slice().sort((a, b) => a.s - b.s)[0];
+    let subMs = 0;
+    let subGpu = 0;
+    for (const sp of CHONK_PROVE_SUBPHASES) {
+      const sw = mainSlices
+        .filter(e => sp.names.includes(e.name as string) && (e.ts as number) >= pv.s && (e.ts as number) < pv.en)
+        .map(e => ({ s: e.ts as number, en: (e.ts as number) + (e.dur as number) }));
+      const sms = sumMs(sw);
+      const sg = gpuIn(sw);
+      subMs += sms;
+      subGpu += sg;
+      rows.push({ name: sp.label, ms: sms, depth: 1, gpuMsms: sg });
+    }
+    const otherMs = ms - subMs;
+    if (otherMs > 20) {
+      rows.push({ name: 'decider / PCS / verify', ms: otherMs, depth: 1, gpuMsms: Math.max(0, gpuIn(wins) - subGpu) });
+    }
+  }
+  return rows;
+}
+
+/**
+ * When a trace was captured with one or more discarded warm-up proves preceding
+ * the measured one, the C++ bench buffer (which has no clear hook) holds every
+ * prove's events. Each prove opens with exactly one `ChonkStart` scope, so the
+ * last `ChonkStart`'s `ts` marks the start of the measured prove; drop every `X`
+ * event before it (keeping all `M` metadata + the `min_ts_ns` header) so the
+ * merged trace, the lane counts, and the per-circuit/phase extraction all see only
+ * the measured prove. No-op when fewer than two proves are present (the common
+ * single-prove trace), so non-warm-up traces are returned byte-identical.
+ * Comparison is `ts`-vs-`ts` within one JSON — no clock conversion.
+ */
+function clipBenchTraceJsonToLastProve(json: string): string {
+  let parsed: { traceEvents?: Array<Record<string, any>>; [k: string]: any };
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return json;
+  }
+  const ev = parsed.traceEvents ?? [];
+  let starts = 0;
+  let clipTs = -Infinity;
+  for (const e of ev) {
+    if (e.ph === 'X' && e.name === 'ChonkStart' && typeof e.ts === 'number') {
+      starts++;
+      if (e.ts > clipTs) clipTs = e.ts;
+    }
+  }
+  if (starts < 2) return json;
+  const kept = ev.filter(e => e.ph !== 'X' || (typeof e.ts === 'number' && e.ts >= clipTs));
+  return JSON.stringify({ ...parsed, traceEvents: kept });
+}
+
 interface ChonkWebGpuTraceResult {
   flow: string;
   adapter: string;
   swiftshaderDetected: boolean;
+  /** Per-circuit witness-commit walls + GPU-delegated MSMs (empty under SwiftShader). */
+  perCircuit?: PerCircuitRow[];
+  /** High-level Chonk phase breakdown (Load/Accumulate/Prove…) with ChonkProve drilled one level deeper. */
+  phases?: PhaseRow[];
   /** Perfetto-loadable Chrome Trace Event JSON, or undefined if no GPU run happened. */
   traceJson?: string;
   proveMs: number;
@@ -1094,12 +1427,18 @@ async function runChonkWebGpuTrace(
   win.__bridge_trace_reset?.();
 
   // Bracket the prove with precise edge-detected anchors; the bridge fills in ~per-MSM anchors
-  // across the prove via sampleAlignAnchor() in handleMessage.
-  const preAnchors = sampleEdgeAnchors(16, 60);
+  // across the prove via sampleAlignAnchor() in handleMessage. Re-sampled tight against the
+  // measured prove (after the warm-up) by the onBeforeMeasured callback below.
+  let preAnchors = sampleEdgeAnchors(16, 60);
 
+  // Warm up the GPU once for a webgpu trace so the measured prove reflects steady state, not the
+  // one-time SRS upload + shader compile + pool allocation (which would otherwise inflate the
+  // WebGPU e2e total and ChonkAccumulate vs the warm median). WASM has no such cold-start.
+  const warmupRuns = webgpu ? 1 : 0;
   logger.info(
     `[trace] running ONE ${webgpu ? 'webgpu=on' : 'webgpu=off (WASM)'} prove of flow=${flow} ` +
-      `(${bytecodes.length} circuits), bench trace ON`,
+      `(${bytecodes.length} circuits), bench trace ON` +
+      (warmupRuns ? `, after ${warmupRuns} discarded GPU warm-up prove` : ''),
   );
   const out = await runChonkOnce(
     /*webgpuMsm=*/ webgpu,
@@ -1113,10 +1452,23 @@ async function runChonkWebGpuTrace(
     /*webgpuMsmBlocklist=*/ webgpu ? DEFAULT_WEBGPU_BLOCKLIST : undefined,
     /*msmTraceMode=*/ false,
     /*benchTraceOpts=*/ { maxDepth: BENCH_TRACE_MAX_DEPTH, denylist: BENCH_TRACE_DENYLIST },
+    /*warmupRuns=*/ warmupRuns,
+    /*onBeforeMeasured=*/ () => {
+      // Drop the warm-up's bridge spans + anchors so the bridge lanes capture only the measured
+      // prove, and re-bracket with anchors taken right before it.
+      win.__bridge_trace_reset?.();
+      preAnchors = sampleEdgeAnchors(16, 60);
+    },
   );
 
   const postAnchors = sampleEdgeAnchors(16, 60);
   win.__bridge_trace_on = false;
+
+  // The C++ bench buffer can't be cleared between proves, so a warm-up trace holds both proves'
+  // events; slice to the measured (last) prove before mapping/extraction.
+  const benchTraceJson = warmupRuns
+    ? clipBenchTraceJsonToLastProve(out.benchTraceJson ?? '')
+    : out.benchTraceJson;
 
   const bridgeAnchors: AlignAnchor[] = win.__bridge_align_anchors?.() ?? [];
   const anchors = [...preAnchors, ...bridgeAnchors, ...postAnchors];
@@ -1131,8 +1483,8 @@ async function runChonkWebGpuTrace(
   // Map the C++ phase lanes onto the host clock.
   let cppTracks: { name: string; spans: TraceSpan[] }[] = [];
   let cppEvents = 0;
-  if (fit && out.benchTraceJson) {
-    const mapped = mapCppTraceToTracks(out.benchTraceJson, fit);
+  if (fit && benchTraceJson) {
+    const mapped = mapCppTraceToTracks(benchTraceJson, fit);
     cppTracks = mapped.tracks;
     cppEvents = mapped.eventCount;
   } else if (!fit) {
@@ -1235,6 +1587,8 @@ async function runChonkWebGpuTrace(
     adapter: adapterInfo,
     swiftshaderDetected: false,
     traceJson,
+    perCircuit: extractPerCircuit(traceJson, functionNames),
+    phases: extractPhaseBreakdown(traceJson),
     proveMs: out.result.proveMs,
     verified: out.result.verified,
     vksMatch: undefined,
@@ -1360,6 +1714,202 @@ async function runChonkMedian(
 (window as any).runChonkMedian = runChonkMedian;
 
 (window as any).runChonkSingleMode = runChonkSingleMode;
+
+type RunMode = 'wasm' | 'webgpu' | 'batch';
+
+interface ModeMultiProgress {
+  done: number;
+  total: number;
+  run: number;
+  runs: number;
+  // 'measuring' fires once after the last run, while the post-loop JS-heap
+  // sample (measureUserAgentSpecificMemory) is still pending — that call can
+  // take seconds (Chrome defers it to the next GC), so the UI relabels rather
+  // than leaving the elapsed timer looking like it's still proving.
+  phase: 'start' | 'done' | 'measuring';
+  lastMs?: number;
+}
+
+interface ModeMultiResult {
+  totals: number[];
+  medianTotal: number;
+  minTotal: number;
+  maxTotal: number;
+  allVerified: boolean;
+  vk: Uint8Array;
+  /** One-time `loadPinnedInputs` wall (fetch + msgpack decode + gunzip). */
+  loadMs: number;
+  /** `Barretenberg.initSingleton` wall (compile WASM + spin up the 16 worker
+   *  threads + load CRS). 0 when the warm backend was reused. Excluded from
+   *  `totals`, which time prove only. */
+  initMs: number;
+  /** True when this click reused the already-warm backend (no init paid). */
+  reused: boolean;
+  /** Peak WASM linear-memory heap across the N runs (MiB) — the same `(mem: X MiB)`
+   *  metric the CI browser benchmark reports. */
+  wasmHeapPeakMb: number;
+  /** Peak GPU VRAM the WebGPU MSM bridge held across the N runs (MiB); 0 in WASM mode. */
+  gpuPeakMb: number;
+  /** Best-effort JS-heap size after the run loop (MiB); 0 if unavailable under the browser flags. */
+  jsHeapMb: number;
+}
+
+// ── Warm backend reuse ──────────────────────────────────────────────────────
+// One Barretenberg backend kept alive across median-run clicks so the ~13s
+// 16-thread WASM init + CRS load isn't re-paid on every click. webgpuMsm wiring
+// and the MSM block-list are baked at init, so the slot is keyed by config: a
+// different mode tears the old one down and rebuilds (only one instance is ever
+// held — no multiplied memory). The trace path needs benchTrace at init, so it
+// disposes this slot first (disposeWarmBackend) and builds its own fresh
+// instance — otherwise the config-blind initSingleton would hand it this
+// non-bench backend.
+let warmKey: string | undefined;
+let warmHeapPeakMb = 0;
+// Bound once at init; the only logger the warm backend ever gets, so it must read
+// into module state (reset per run) rather than a per-call closure.
+const warmMemLogger = (m: string): void => {
+  const mm = /\(mem:\s*([\d.]+)\s*MiB\)/.exec(m);
+  if (mm) {
+    const v = parseFloat(mm[1]);
+    if (v > warmHeapPeakMb) warmHeapPeakMb = v;
+  }
+};
+
+function warmConfigKey(webgpu: boolean, blocklist?: readonly string[]): string {
+  return `${webgpu}|${(blocklist ?? []).join(',')}`;
+}
+
+/** Return the warm backend for this config, building it (and tearing down a
+ *  differently-configured one) only when the config changed. `initMs` is 0 and
+ *  `reused` true when the live backend was reused. */
+async function ensureWarmBackend(
+  webgpu: boolean,
+  blocklist: readonly string[] | undefined,
+): Promise<{ bb: Barretenberg; initMs: number; reused: boolean }> {
+  const key = warmConfigKey(webgpu, webgpu ? blocklist : undefined);
+  if (warmKey === key) {
+    try {
+      return { bb: Barretenberg.getSingleton(), initMs: 0, reused: true };
+    } catch {
+      // The singleton was torn down out from under us (e.g. a trace run); rebuild.
+      warmKey = undefined;
+    }
+  }
+  if (warmKey !== undefined) {
+    await Barretenberg.destroySingleton();
+    warmKey = undefined;
+  }
+  const t0 = performance.now();
+  const bb = await Barretenberg.initSingleton({
+    threads: 16,
+    logger: warmMemLogger,
+    webgpuMsm: webgpu,
+    webgpuMsmBlocklist: webgpu ? blocklist : undefined,
+  });
+  warmKey = key;
+  return { bb, initMs: performance.now() - t0, reused: false };
+}
+
+/** Tear down the warm backend, if any. The trace path calls this so its fresh
+ *  benchTrace instance isn't shadowed by the config-blind singleton. */
+async function disposeWarmBackend(): Promise<void> {
+  if (warmKey !== undefined) {
+    await Barretenberg.destroySingleton();
+    warmKey = undefined;
+  }
+}
+
+(window as any).ensureWarmBackend = (webgpu: boolean): Promise<{ bb: Barretenberg; initMs: number; reused: boolean }> =>
+  ensureWarmBackend(webgpu, webgpu ? DEFAULT_WEBGPU_BLOCKLIST : undefined);
+(window as any).disposeWarmBackend = disposeWarmBackend;
+
+/**
+ * Run the Chonk prove `runs`× in a single mode on ONE backend (warm-reused across
+ * clicks where the config matches; otherwise rebuilt — no per-run worker/SRS
+ * churn, which otherwise makes the CPU-bound WASM totals degrade run-over-run) and
+ * return the median (+ min/max) prove time, the per-run totals, and the last VK
+ * for the WASM-baseline check. `'batch'` enables the BatchMsmV2 same-N route and
+ * uses the batch block-list. The backend is left warm for the next click; a prove
+ * error disposes it so a possibly-corrupt instance is never reused.
+ */
+async function runChonkModeMulti(
+  mode: RunMode,
+  flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
+  runs = 5,
+  onProgress?: (p: ModeMultiProgress) => void,
+): Promise<ModeMultiResult> {
+  // At least one run, so the loop always assigns lastVk and the median/min/max are
+  // over a non-empty set (the UI clamps too, but this is window-exposed for tests).
+  runs = Math.max(1, Math.floor(runs));
+  const tLoad0 = performance.now();
+  const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
+  const loadMs = performance.now() - tLoad0;
+  const webgpu = mode !== 'wasm';
+  const blocklist = mode === 'batch' ? DEFAULT_WEBGPU_BLOCKLIST_BATCH : DEFAULT_WEBGPU_BLOCKLIST;
+  // Reuse the warm backend if this mode's config matches the live one; otherwise
+  // it's torn down and rebuilt. The `(mem: X MiB)` high-water is captured by the
+  // backend's bound `warmMemLogger` into module state — reset here so it reflects
+  // only this click's N runs (the shared linear memory only grows).
+  warmHeapPeakMb = 0;
+  const { bb, initMs, reused } = await ensureWarmBackend(webgpu, webgpu ? blocklist : undefined);
+  const win = window as any;
+  if (mode === 'batch') win.__bridge_batch_enabled = true;
+  // Reset the bridge's GPU-memory high-water so gpuPeakMb reflects only this
+  // mode's N runs (the bridge module persists across button clicks).
+  if (webgpu) win.__bridge_gpu_mem_reset?.();
+  const totals: number[] = [];
+  let allVerified = true;
+  let lastVk: Uint8Array | undefined;
+  let jsHeapMb = 0;
+  try {
+    for (let r = 1; r <= runs; r++) {
+      onProgress?.({ done: r - 1, total: runs, run: r, runs, phase: 'start' });
+      // Fresh backend wrapper per run (cheap — bb is reused). Time prove only.
+      const backend = new AztecClientBackend(bytecodes, bb, functionNames);
+      const t0 = performance.now();
+      const { proof, vk } = await backend.prove(witnesses, vks);
+      const proveMs = performance.now() - t0;
+      const verified = await backend.verify(proof, vk);
+      totals.push(proveMs);
+      allVerified = allVerified && verified;
+      lastVk = vk;
+      onProgress?.({ done: r, total: runs, run: r, runs, phase: 'done', lastMs: proveMs });
+      logger.info(`[multi:${mode}] run ${r}/${runs}: prove=${proveMs.toFixed(0)}ms verified=${verified}`);
+    }
+    // Sample JS heap before any later teardown frees the worker isolates.
+    // Signal a distinct phase first: measureUserAgentSpecificMemory() can take
+    // seconds, and without this the elapsed timer keeps ticking under a "N/N
+    // done" label that reads as if a prove were still running.
+    onProgress?.({ done: runs, total: runs, run: runs, runs, phase: 'measuring' });
+    jsHeapMb = await measureJsHeapMb();
+  } catch (err) {
+    // Don't keep a possibly-corrupt backend warm for the next click.
+    await disposeWarmBackend();
+    throw err;
+  } finally {
+    // Leave the backend warm for the next click; only clear the per-run batch gate.
+    if (mode === 'batch') win.__bridge_batch_enabled = false;
+  }
+  // peakGpuBytes persists in the bridge module across runs, so this reads the
+  // whole-mode peak. WASM mode never touches the bridge → 0.
+  const gpuPeakMb = webgpu ? (win.__bridge_gpu_mem_peak?.() ?? 0) / (1024 * 1024) : 0;
+  return {
+    totals,
+    medianTotal: median(totals),
+    minTotal: Math.min(...totals),
+    maxTotal: Math.max(...totals),
+    allVerified,
+    vk: lastVk!,
+    loadMs,
+    initMs,
+    reused,
+    wasmHeapPeakMb: warmHeapPeakMb,
+    gpuPeakMb,
+    jsHeapMb,
+  };
+}
+
+(window as any).runChonkModeMulti = runChonkModeMulti;
 
 interface MsmCsvRow {
   seq: number;
@@ -1719,36 +2269,28 @@ function setupChonkWebGpuPage(): void {
   const runWasm = $<HTMLButtonElement>('run-wasm');
   const runWebgpu = $<HTMLButtonElement>('run-webgpu');
   const runWebgpuBatch = $<HTMLButtonElement>('run-webgpu-batch');
-  const runMsmCsv = $<HTMLButtonElement>('run-msmcsv');
+  const warmUp = $<HTMLButtonElement>('warm-up');
   const clearLog = $<HTMLButtonElement>('clear-log');
   const flowSel = $<HTMLSelectElement>('flow');
-  // Optional — absent on the minimal Puppeteer harness pages, so it's looked up
-  // outside the mandatory-elements guard below. When checked, the WebGPU run
-  // captures an aligned CPU+GPU Perfetto trace from the bridge and POSTs it.
-  const traceWebgpu = $<HTMLInputElement>('trace-webgpu');
-  // When ticked, "Run WebGPU" captures the FULL end-to-end trace (WASM phases +
-  // host bridge + GPU passes + memory) via runChonkWebGpuTrace instead of the
-  // bridge-only trace. Optional element — absent on the minimal harness pages.
-  const traceE2e = $<HTMLInputElement>('trace-e2e');
-  // Multi-run median controls + progress bar — optional (absent on harness pages).
-  const runMedian = $<HTMLButtonElement>('run-median');
-  const medianRuns = $<HTMLInputElement>('median-runs');
+  // All optional — absent on the minimal Puppeteer harness pages, so they're
+  // looked up outside the mandatory-elements guard below.
+  const runsInput = $<HTMLInputElement>('runs');
+  // Single-run e2e Perfetto trace buttons (one prove with phase capture, merged
+  // into one Perfetto JSON, POSTed + downloaded).
+  const traceBtnWebgpu = $<HTMLButtonElement>('trace-webgpu');
+  const traceBtnWasm = $<HTMLButtonElement>('trace-wasm');
+  const runPerCircuit = $<HTMLButtonElement>('run-percircuit');
+  // Per-circuit breakdown: each WASM/WebGPU run does one extra traced prove and
+  // the table (shown empty from the start) fills in as each mode completes.
+  const pcPanel = $('percircuit-panel');
+  const pcTable = $('percircuit-table');
+  const phPanel = $('phase-panel');
+  const phTable = $('phase-table');
   const progressEl = $('progress');
   const progBar = $<HTMLProgressElement>('prog-bar');
   const progText = $('prog-text');
 
-  if (
-    !status ||
-    !adapter ||
-    !sab ||
-    !log ||
-    !runWasm ||
-    !runWebgpu ||
-    !runWebgpuBatch ||
-    !runMsmCsv ||
-    !clearLog ||
-    !flowSel
-  ) {
+  if (!status || !adapter || !sab || !log || !runWasm || !runWebgpu || !runWebgpuBatch || !clearLog || !flowSel) {
     /* Page is missing expected elements — bail; harness pages (e.g. the
      * Puppeteer test's minimal HTML) intentionally don't have them. */
     return;
@@ -1897,36 +2439,13 @@ function setupChonkWebGpuPage(): void {
     if (progressEl) progressEl.style.display = 'none';
   };
 
-  const setBusy = (busy: boolean, label = 'Running prove… (this takes ~1 min)'): void => {
-    runWasm.disabled = busy;
-    runWebgpu.disabled = busy;
-    runWebgpuBatch.disabled = busy;
-    runMsmCsv.disabled = busy;
-    if (runMedian) runMedian.disabled = busy;
+  const setBusy = (busy: boolean, label = 'Running…'): void => {
+    for (const b of [runWasm, runWebgpu, runWebgpuBatch, warmUp, traceBtnWebgpu, traceBtnWasm, runPerCircuit]) {
+      if (b) b.disabled = busy;
+    }
     status.textContent = busy ? 'running…' : 'idle';
-    if (busy) {
-      // Clear any stale per-run breakdown from a previous median run.
-      setText('wasm-runs', '');
-      setText('webgpu-runs', '');
-      startProg(label);
-    } else {
-      stopProg();
-    }
-  };
-  // Generic vs-baseline ratio printer (e.g. "1.12× vs WebGPU solo (faster)").
-  // Hidden when baseline is missing — the card just shows the WASM ratio.
-  const setRatio = (id: string, faster: number, baseline: number | undefined, label: string): void => {
-    const el = $(id);
-    if (!el) return;
-    if (!baseline) {
-      el.textContent = '';
-      el.className = 'speedup';
-      return;
-    }
-    const ratio = baseline / faster;
-    el.textContent =
-      ratio >= 1 ? `${ratio.toFixed(2)}× vs ${label} (faster)` : `${(1 / ratio).toFixed(2)}× vs ${label} (slower)`;
-    el.className = ratio >= 1 ? 'speedup up' : 'speedup down';
+    if (busy) startProg(label);
+    else stopProg();
   };
 
   // POST a built Perfetto trace JSON to the server sink under `filename`
@@ -1969,408 +2488,400 @@ function setupChonkWebGpuPage(): void {
     }
   };
 
-  // The WASM baseline VK + prove time, kept across clicks so the WebGPU run can
-  // report a speedup and a VK byte-equality check against it. A matching VK is
-  // the gold-standard correctness signal: it proves the GPU-delegated MSMs
+  // The WASM baseline VK + median prove time, kept across clicks so the WebGPU
+  // runs can report a speedup and a VK byte-equality check against it. A matching
+  // VK is the gold-standard correctness signal: it proves the GPU-delegated MSMs
   // produced the same commitments as the all-CPU path.
   let lastWasmVk: Uint8Array | undefined;
   let lastWasmProveMs: number | undefined;
-  let lastWasmMsmPhaseMs: number | undefined;
-  // Tracked separately so the batch card can show a "vs solo" speedup —
-  // the actionable signal for the production routing decision (does
-  // shipping BatchMsmV2 for same-N batches in the chonk flow actually
-  // beat the existing serial-solo bridge fallback).
-  let lastWebgpuSoloProveMs: number | undefined;
-  let lastWebgpuSoloMsmPhaseMs: number | undefined;
+  // WebGPU-solo median, kept so the per-circuit table can show it next to the
+  // (bench-on) traced totals for a consistency check.
+  let lastWebgpuProveMs: number | undefined;
+  // Per-circuit breakdowns + the e2e prove total of each per-circuit traced run.
+  let lastWasmPerCircuit: PerCircuitRow[] | undefined;
+  let lastWebgpuPerCircuit: PerCircuitRow[] | undefined;
+  let lastWasmPhases: PhaseRow[] | undefined;
+  let lastWebgpuPhases: PhaseRow[] | undefined;
+  let lastWasmTraceMs: number | undefined;
+  let lastWebgpuTraceMs: number | undefined;
 
-  runWasm.addEventListener('click', async () => {
-    setBusy(true);
-    try {
-      const flow = flowSel.value;
-
-      // "Full e2e trace" ticked → the same phase-level BB_BENCH capture as the WebGPU path, but on a
-      // CPU-only prove: one lane per WASM worker (the nested prove tree down to batch_commit/MSM),
-      // no GPU / host-bridge / Memory lanes (the bridge is inactive). Saves + downloads
-      // chonk-wasm-e2e-trace. Phase capture adds a small per-scope cost, so this run is a touch slower.
-      if (traceE2e?.checked) {
-        append(`▶ Capturing FULL e2e Perfetto trace (WASM phase tree, one lane per worker) on flow=${flow}`, 'info');
-        append('  ⏺ phase-level BB_BENCH capture ON — slightly inflates this run vs an untraced WASM prove.', 'info');
-        setText('wasm-prove-big', '…');
-        const r = await (window as any).runChonkWebGpuTrace(flow, { webgpu: false });
-        setText('wasm-prove', fmtMs(r.proveMs));
-        setText('wasm-prove-big', fmtMs(r.proveMs));
-        setPill('wasm-verified', r.verified ? 'ok' : 'fail', `verified: ${r.verified}`);
-        append(
-          `  lanes=${r.counts.lanes} cppEvents=${r.counts.cppEvents} (WASM phase lanes only; no GPU/memory lanes)`,
-          'info',
-        );
-        if (r.traceJson) {
-          await postTrace(
-            r.traceJson,
-            'chonk-wasm-e2e-trace.json',
-            `${r.counts.lanes} lanes, ${r.counts.cppEvents} events`,
-          );
-          downloadJson(r.traceJson, 'chonk-wasm-e2e-trace.perfetto.json');
-          append('  ⬇ downloaded chonk-wasm-e2e-trace.perfetto.json — open it at ui.perfetto.dev.', 'ok');
-        } else {
-          append('[WARN] no e2e trace JSON produced.', 'warn');
-        }
-        return;
-      }
-
-      const wantTrace = !!traceWebgpu?.checked;
-      append(`▶ Run WASM (multi-threaded, no GPU) on flow=${flow}`, 'info');
-      if (wantTrace) {
-        append(
-          '  ⏺ Perfetto trace capture ON — emits a prove-relative [msm-span] per MSM batch (negligible cost).',
-          'info',
-        );
-      }
-      setText('wasm-prove-big', '…');
-      const { result, vk, traceJson } = await (window as any).runChonkSingleMode('wasm', flow, wantTrace);
-      lastWasmVk = vk;
-      lastWasmProveMs = result.proveMs;
-      lastWasmMsmPhaseMs = result.msmPhaseMs;
-      setText('wasm-prove', fmtMs(result.proveMs));
-      setText('wasm-verify', fmtMs(result.verifyMs));
-      setText('wasm-prove-big', fmtMs(result.proveMs));
-      setPill('wasm-verified', result.verified ? 'ok' : 'fail', `verified: ${result.verified}`);
-      append(
-        `✓ WASM: prove=${fmtMs(result.proveMs)} verify=${fmtMs(result.verifyMs)} ` +
-          `MSM-phase=${fmtMs(result.msmPhaseMs)} verified=${result.verified}`,
-        result.verified ? 'ok' : 'err',
-      );
-      if (wantTrace) {
-        if (traceJson) {
-          await postTrace(traceJson, 'chonk-trace-wasm.json', 'WASM MSM timeline');
-        } else {
-          append(
-            '[WARN] no WASM trace captured — no [msm-span] lines (is the WASM built with the trace export?).',
-            'warn',
-          );
-        }
-      }
-    } catch (err) {
-      setText('wasm-prove-big', '✗');
-      setPill('wasm-verified', 'fail', 'verified: error');
-      append(`[ERR] WASM run: ${err instanceof Error ? err.message : String(err)}`, 'err');
-      console.error(err);
-    } finally {
-      setBusy(false);
+  // Render the WASM-vs-WebGPU per-circuit table below the log. Shows whichever
+  // columns are available; the per-circuit Δ is the GPU reduction for that
+  // circuit's witness-commit phase, and "MSMs on GPU" lists the delegated
+  // commitments. Joined by circuit prove order (both modes share it).
+  const renderPerCircuit = (): void => {
+    if (!pcPanel || !pcTable) return;
+    pcPanel.style.display = 'block';
+    const w = lastWasmPerCircuit;
+    const g = lastWebgpuPerCircuit;
+    if (!w && !g) {
+      pcTable.innerHTML =
+        `<div style="color:#8b949e;font-size:13px;">Run <strong>WASM</strong> and <strong>WebGPU</strong> ` +
+        `to populate. Each run automatically does one extra traced prove and fills its column here: ` +
+        `per-circuit witness-commit time, the WASM↔WebGPU reduction, and which MSMs ran on the GPU.</div>`;
+      return;
     }
-  });
+    const n = Math.max(w?.length ?? 0, g?.length ?? 0);
+    const td = (s: string, extra = ''): string =>
+      `<td style="padding:4px 10px;border-bottom:1px solid #21262d;${extra}">${s}</td>`;
+    const head = ['#', 'circuit / phase', 'WASM', 'WebGPU', 'Δ (GPU saves)', 'MSMs on GPU']
+      .map(h => `<th style="text-align:left;padding:4px 10px;border-bottom:1px solid #30363d;color:#8b949e;">${h}</th>`)
+      .join('');
+    let body = '';
+    let totW = 0;
+    let totG = 0;
+    let prevTail = false;
+    for (let i = 0; i < n; i++) {
+      const wr = w?.[i];
+      const gr = g?.[i];
+      const name = gr?.name ?? wr?.name ?? `circuit ${i}`;
+      if (wr) totW += wr.oinkMs;
+      if (gr) totG += gr.oinkMs;
+      const delta = wr && gr ? wr.oinkMs - gr.oinkMs : undefined;
+      const dColor = delta == null ? '' : delta >= 0 ? 'color:#3fb950;' : 'color:#f85149;';
+      const dTxt = delta == null ? '—' : `${delta >= 0 ? '−' : '+'}${fmtMs(Math.abs(delta))}`;
+      const msms = gr ? (gr.gpuMsms.length ? gr.gpuMsms.join(', ') : '— (all on CPU)') : '';
+      // Visually separate the once-per-prove tail phases from the per-circuit rows.
+      const isTail = name.startsWith('tail');
+      const sep = isTail && !prevTail ? 'border-top:2px solid #30363d;' : '';
+      prevTail = isTail;
+      const idCell = isTail ? '' : String(i);
+      body +=
+        `<tr>${td(idCell, sep)}${td(name, sep)}${td(wr ? fmtMs(wr.oinkMs) : '—', sep)}` +
+        `${td(gr ? fmtMs(gr.oinkMs) : '—', sep)}${td(dTxt, sep + dColor)}${td(msms, sep + 'color:#8b949e;')}</tr>`;
+    }
+    const totDelta = w && g ? totW - totG : undefined;
+    const totColor = totDelta == null ? '' : totDelta >= 0 ? 'color:#3fb950;' : 'color:#f85149;';
+    const totTxt = totDelta == null ? '—' : `${totDelta >= 0 ? '−' : '+'}${fmtMs(Math.abs(totDelta))}`;
+    body +=
+      `<tr style="font-weight:600;">${td('', 'border-top:2px solid #30363d;')}${td('total (prove − verify)', 'border-top:2px solid #30363d;')}` +
+      `${td(w ? fmtMs(totW) : '—', 'border-top:2px solid #30363d;')}` +
+      `${td(g ? fmtMs(totG) : '—', 'border-top:2px solid #30363d;')}${td(totTxt, 'border-top:2px solid #30363d;' + totColor)}${td('', 'border-top:2px solid #30363d;')}</tr>`;
+    // e2e prove totals of these traced runs, with the clean medians for a
+    // consistency check. The WebGPU trace is taken after a discarded GPU warm-up
+    // prove, so it's a steady-state (warm) number like the median — the only
+    // residual gap is the BB_BENCH per-scope recording overhead.
+    const fmtOpt = (ms?: number): string => (ms == null ? '—' : fmtMs(ms));
+    const tw = lastWasmTraceMs;
+    const tg = lastWebgpuTraceMs;
+    let e2e = '';
+    if (tw != null || tg != null) {
+      const vs = tw != null && tg != null && tg > 0 ? ` (${(tw / tg).toFixed(2)}× vs WASM)` : '';
+      e2e =
+        `<div style="font-size:13px;margin-bottom:8px;"><strong>e2e prove — this traced run (warm, bench-on):</strong> ` +
+        `<span style="font-family:ui-monospace,monospace;">WASM ${fmtOpt(tw)} · WebGPU ${fmtOpt(tg)}${vs}</span>`;
+      if (lastWasmProveMs != null || lastWebgpuProveMs != null) {
+        e2e +=
+          `<br><span style="color:#8b949e;">median (clean runs): ` +
+          `<span style="font-family:ui-monospace,monospace;">WASM ${fmtOpt(lastWasmProveMs)} · WebGPU ${fmtOpt(lastWebgpuProveMs)}</span>` +
+          ` — these should track the medians closely; any residual excess is BB_BENCH recording overhead, not GPU cold-start.</span>`;
+      } else {
+        e2e += `<br><span style="color:#8b949e;">run the median buttons to compare against the clean (bench-off) totals.</span>`;
+      }
+      e2e += `</div>`;
+    }
+    const hint = w && g
+      ? ''
+      : `<div style="color:#8b949e;font-size:12px;margin-bottom:8px;"><em>run the other side — Per-circuit comparison traces WASM then WebGPU</em></div>`;
+    pcTable.innerHTML =
+      e2e +
+      hint +
+      `<table style="border-collapse:collapse;font-size:12.5px;font-family:ui-monospace,monospace;width:100%;">` +
+      `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    pcPanel.style.display = 'block';
+  };
 
-  runWebgpu.addEventListener('click', async () => {
-    setBusy(true);
+  // Render the high-level phase breakdown (ChonkLoad/Accumulate/Prove/…) below
+  // the per-circuit table, ChonkProve drilled one level deeper into its Goblin
+  // sub-provers. Δ = WASM − WebGPU per phase (green = GPU gain, red = GPU loss),
+  // so it reads at a glance which stage the GPU helps and which it doesn't.
+  const renderPhases = (): void => {
+    if (!phPanel || !phTable) return;
+    phPanel.style.display = 'block';
+    const w = lastWasmPhases;
+    const g = lastWebgpuPhases;
+    if (!w && !g) {
+      phTable.innerHTML =
+        `<div style="color:#8b949e;font-size:13px;">Run <strong>Per-circuit comparison</strong> to populate — ` +
+        `it traces one WASM and one WebGPU prove and breaks each into the high-level Chonk phases, ` +
+        `with <code>ChonkProve</code> split into its Goblin sub-provers.</div>`;
+      return;
+    }
+    // Join by phase name in run order (both modes share the same phase sequence).
+    const order = (g ?? w)!.map(p => p.name);
+    const byName = (rows: PhaseRow[] | undefined): Map<string, PhaseRow> =>
+      new Map((rows ?? []).map(p => [p.name, p]));
+    const wm = byName(w);
+    const gm = byName(g);
+    const td = (s: string, extra = ''): string =>
+      `<td style="padding:4px 10px;border-bottom:1px solid #21262d;${extra}">${s}</td>`;
+    const head = ['phase', 'WASM', 'WebGPU', 'Δ (GPU saves)', 'GPU MSMs']
+      .map(h => `<th style="text-align:left;padding:4px 10px;border-bottom:1px solid #30363d;color:#8b949e;">${h}</th>`)
+      .join('');
+    let body = '';
+    let totW = 0;
+    let totG = 0;
+    for (const name of order) {
+      const wr = wm.get(name);
+      const gr = gm.get(name);
+      const depth = (gr ?? wr)!.depth;
+      // Only the top-level (depth 0) phases sum to the e2e total; depth-1 rows are
+      // a drill-down of ChonkProve and would double-count.
+      if (depth === 0) {
+        if (wr) totW += wr.ms;
+        if (gr) totG += gr.ms;
+      }
+      const delta = wr && gr ? wr.ms - gr.ms : undefined;
+      const dColor = delta == null ? '' : delta >= 0 ? 'color:#3fb950;' : 'color:#f85149;';
+      const dTxt = delta == null ? '—' : `${delta >= 0 ? '−' : '+'}${fmtMs(Math.abs(delta))}`;
+      const gpu = gr ? (gr.gpuMsms > 0 ? String(gr.gpuMsms) : '—') : '';
+      const label = depth === 0 ? name : `<span style="color:#8b949e;">└ ${name}</span>`;
+      const indent = depth === 0 ? '' : 'padding-left:28px;';
+      const nameStyle = depth === 0 ? 'font-weight:600;' : '';
+      body +=
+        `<tr>${td(label, indent + nameStyle)}${td(wr ? fmtMs(wr.ms) : '—')}${td(gr ? fmtMs(gr.ms) : '—')}` +
+        `${td(dTxt, dColor)}${td(gpu, 'color:#8b949e;')}</tr>`;
+    }
+    const totDelta = w && g ? totW - totG : undefined;
+    const totColor = totDelta == null ? '' : totDelta >= 0 ? 'color:#3fb950;' : 'color:#f85149;';
+    const totTxt = totDelta == null ? '—' : `${totDelta >= 0 ? '−' : '+'}${fmtMs(Math.abs(totDelta))}`;
+    const tb = 'border-top:2px solid #30363d;';
+    body +=
+      `<tr style="font-weight:600;">${td('e2e prove (sum of phases)', tb)}${td(w ? fmtMs(totW) : '—', tb)}` +
+      `${td(g ? fmtMs(totG) : '—', tb)}${td(totTxt, tb + totColor)}${td('', tb)}</tr>`;
+    const hint = w && g
+      ? ''
+      : `<div style="color:#8b949e;font-size:12px;margin-bottom:8px;"><em>run the other side — Per-circuit comparison traces WASM then WebGPU</em></div>`;
+    phTable.innerHTML =
+      hint +
+      `<table style="border-collapse:collapse;font-size:12.5px;font-family:ui-monospace,monospace;width:100%;">` +
+      `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    phPanel.style.display = 'block';
+  };
+
+  const getRuns = (): number => Math.max(1, Math.min(20, parseInt(runsInput?.value ?? '5', 10) || 5));
+
+  // The three run buttons share one N×-with-median runner; this maps each mode
+  // to its result-card element ids.
+  const MODES: Record<RunMode, { label: string; prefix: string; vkId?: string; speedId?: string }> = {
+    wasm: { label: 'WASM', prefix: 'wasm' },
+    webgpu: { label: 'WebGPU', prefix: 'webgpu', vkId: 'webgpu-vkmatch', speedId: 'webgpu-speedup' },
+    batch: {
+      label: 'WebGPU (batch)',
+      prefix: 'webgpu-batch',
+      vkId: 'webgpu-batch-vkmatch',
+      speedId: 'webgpu-batch-speedup',
+    },
+  };
+
+  const vkEqual = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.length && a.every((x, i) => x === b[i]);
+
+  const runMode = async (mode: RunMode): Promise<void> => {
+    const m = MODES[mode];
+    const runs = getRuns();
+    setBusy(true, `${m.label} ×${runs} — starting`);
     try {
       const flow = flowSel.value;
-
-      // "Full e2e trace" ticked → run ONE webgpu=on prove with BB_BENCH phase capture and merge the
-      // WASM/host/GPU/memory lanes into a single Perfetto JSON, then POST + download it. This is a
-      // distinct path from the bridge-only "Perfetto trace" checkbox below.
-      if (traceE2e?.checked) {
-        append(
-          `▶ Capturing FULL e2e Perfetto trace (WASM phases + host bridge + GPU + memory) on flow=${flow}`,
-          'info',
-        );
-        append('  ⏺ ONE webgpu=on prove with phase-level BB_BENCH capture; hardware WebGPU only.', 'info');
-        setText('webgpu-prove-big', '…');
-        const r = await (window as any).runChonkWebGpuTrace(flow);
-        append(`  GPU adapter: ${r.adapter}`, 'info');
-        if (r.swiftshaderDetected) {
-          setText('webgpu-prove-big', '✗');
-          setPill('webgpu-verified', 'fail', 'SwiftShader — no trace');
-          append(
-            '[WARN] SwiftShader/software WebGPU — e2e trace not captured (the prove would not verify). ' +
-              'Use a hardware GPU (Apple Metal / discrete NVIDIA).',
-            'warn',
-          );
+      append(`▶ ${m.label}: ${runs}× prove on flow=${flow} (reports the median)`, 'info');
+      setText(`${m.prefix}-prove-big`, '…');
+      setText(`${m.prefix}-runs`, '');
+      setText(`${m.prefix}-mem`, '…');
+      const res: ModeMultiResult = await (window as any).runChonkModeMulti(mode, flow, runs, (p: ModeMultiProgress) => {
+        if (p.phase === 'measuring') {
+          setProg(`${m.label} ${p.runs}/${p.runs} done · measuring memory…`, p.done, p.total);
           return;
         }
-        setText('webgpu-prove', fmtMs(r.proveMs));
-        setText('webgpu-prove-big', fmtMs(r.proveMs));
-        setPill('webgpu-verified', r.verified ? 'ok' : 'fail', `verified: ${r.verified}`);
-        if (r.alignment) {
-          append(
-            `  clock fit: b-1=${r.alignment.bMinus1.toExponential(2)} ` +
-              `maxResidual=${(r.alignment.maxResidualMs * 1000).toFixed(0)}µs (anchors=${r.alignment.anchors})`,
-            'info',
-          );
-        }
-        append(
-          `  lanes=${r.counts.lanes} cppEvents=${r.counts.cppEvents} ` +
-            `cpu=${r.counts.cpu} gpu=${r.counts.gpu} mem=${r.counts.mem} untracked=${r.counts.untracked}`,
-          'info',
-        );
-        if (r.traceJson) {
-          const note = `${r.counts.lanes} lanes, ${r.counts.cppEvents} C++ events`;
-          await postTrace(r.traceJson, 'chonk-webgpu-e2e-trace.json', note);
-          downloadJson(r.traceJson, 'chonk-webgpu-e2e-trace.perfetto.json');
-          append(
-            '  ⬇ downloaded chonk-webgpu-e2e-trace.perfetto.json — open it at ui.perfetto.dev (Open trace file).',
-            'ok',
-          );
-        } else {
-          append('[WARN] no e2e trace JSON produced (fewer than 2 alignment anchors?).', 'warn');
-        }
-        return;
-      }
-
-      append(`▶ Run WebGPU (89 MSMs delegated, block-list applied) on flow=${flow}`, 'info');
-      setText('webgpu-prove-big', '…');
-      const win = window as any;
-      const wantTrace = !!traceWebgpu?.checked;
-      if (wantTrace) {
-        win.__bridge_trace_reset?.();
-        win.__bridge_trace_on = true;
-        append(
-          "  ⏺ Perfetto trace capture ON — adds per-batch GPU timestamp readback, so this run's prove time is slightly inflated.",
-          'info',
-        );
-      }
-      let runOut: any;
-      try {
-        runOut = await win.runChonkSingleMode('webgpu', flow);
-      } finally {
-        if (wantTrace) win.__bridge_trace_on = false;
-      }
-      const { result, vk, adapter: adp, gpuPhase } = runOut;
-      append(`  GPU adapter: ${adp}`, 'info');
-      lastWebgpuSoloProveMs = result.proveMs;
-      lastWebgpuSoloMsmPhaseMs = result.msmPhaseMs;
-      setText('webgpu-prove', fmtMs(result.proveMs));
-      setText('webgpu-verify', fmtMs(result.verifyMs));
-      setText('webgpu-prove-big', fmtMs(result.proveMs));
-      setPill('webgpu-verified', result.verified ? 'ok' : 'fail', `verified: ${result.verified}`);
-      if (lastWasmProveMs) {
-        setSpeedup('webgpu-speedup', result.proveMs, lastWasmProveMs);
-      }
-      if (lastWasmVk) {
-        const match = lastWasmVk.length === vk.length && lastWasmVk.every((b: number, i: number) => b === vk[i]);
-        setPill('webgpu-vkmatch', match ? 'ok' : 'fail', match ? 'vk vs WASM: match' : 'vk vs WASM: MISMATCH');
-      } else {
-        setPill('webgpu-vkmatch', 'skip', 'vk vs WASM: run WASM first');
-      }
-      append(
-        `✓ WebGPU: prove=${fmtMs(result.proveMs)} verify=${fmtMs(result.verifyMs)} ` +
-          `MSM-phase=${fmtMs(result.msmPhaseMs)} verified=${result.verified}`,
-        result.verified ? 'ok' : 'err',
+        const tag =
+          p.phase === 'done'
+            ? `${m.label} run ${p.run}/${p.runs} done (${((p.lastMs ?? 0) / 1000).toFixed(1)}s)`
+            : `${m.label} run ${p.run}/${p.runs} proving…`;
+        setProg(`${tag} · ${p.done}/${p.total}`, p.done, p.total);
+      });
+      setText(`${m.prefix}-prove-big`, fmtMs(res.medianTotal));
+      setText(
+        `${m.prefix}-runs`,
+        `${runs}× [${res.totals.map(t => (t / 1000).toFixed(2)).join(', ')}] s · min ${fmtMs(res.minTotal)} · max ${fmtMs(res.maxTotal)}`,
       );
-      if (lastWasmMsmPhaseMs) {
-        append(
-          `  MSM phase: WASM=${fmtMs(lastWasmMsmPhaseMs)} vs GPU=${fmtMs(result.msmPhaseMs)} ` +
-            `(GPU saves ${fmtMs(lastWasmMsmPhaseMs - result.msmPhaseMs)})`,
-          'ok',
-        );
-      }
-      if (gpuPhase) {
-        const g = gpuPhase;
-        append(
-          `  GPU phase breakdown — prepare: mixed=${g.mixedPrepareMs.toFixed(0)}ms + same-n=${g.sameNPrepareMs.toFixed(0)}ms | ` +
-            `GPU compute(mixed,timestamp)=${g.mixedGpuComputeMs.toFixed(0)}ms | ` +
-            `same-n gpu_wait=${g.sameNGpuWaitMs.toFixed(0)}ms (wall, upper bound) | ` +
-            `encode=${(g.mixedEncodeMs + g.sameNEncodeMs).toFixed(0)}ms submit/map=${(g.mixedSubmitWaitMs + g.sameNMapAsyncMs).toFixed(0)}ms`,
-          'info',
-        );
-        // POST the structured breakdown to the box for report generation.
-        try {
-          const r = await fetch('/msm-phase', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              flow,
-              adapter: adp,
-              proveMs: result.proveMs,
-              gpuPhase: g,
-              wasmMsmPhaseMs: lastWasmMsmPhaseMs ?? null,
-            }),
-          });
-          const j = await r.json().catch(() => ({}));
-          append(
-            r.ok ? `✓ phase breakdown saved → ${j.path ?? '/msm-phase'}` : `[WARN] phase POST status ${r.status}`,
-            r.ok ? 'ok' : 'warn',
-          );
-        } catch (e) {
-          append(`[WARN] phase POST failed: ${e instanceof Error ? e.message : String(e)}`, 'warn');
-          console.log(JSON.stringify(g));
+      setPill(
+        `${m.prefix}-verified`,
+        res.allVerified ? 'ok' : 'fail',
+        res.allVerified ? `verified: ${runs}/${runs}` : 'verified: FAILED',
+      );
+      setText(
+        `${m.prefix}-mem`,
+        mode === 'wasm'
+          ? `${res.wasmHeapPeakMb.toFixed(0)} MiB heap`
+          : `${res.wasmHeapPeakMb.toFixed(0)} heap + ${res.gpuPeakMb.toFixed(0)} GPU MiB`,
+      );
+      if (mode === 'wasm') {
+        lastWasmVk = res.vk;
+        lastWasmProveMs = res.medianTotal;
+      } else {
+        if (mode === 'webgpu') lastWebgpuProveMs = res.medianTotal;
+        if (m.speedId && lastWasmProveMs) setSpeedup(m.speedId, res.medianTotal, lastWasmProveMs);
+        if (m.vkId) {
+          if (lastWasmVk) {
+            const match = vkEqual(lastWasmVk, res.vk);
+            setPill(m.vkId, match ? 'ok' : 'fail', match ? 'vk vs WASM: match' : 'vk vs WASM: MISMATCH');
+            if (!match) {
+              append(
+                `[ERR] ${m.label} VK does not match the WASM baseline — GPU-delegated commitments diverge!`,
+                'err',
+              );
+            }
+          } else {
+            setPill(m.vkId, 'skip', 'vk vs WASM: run WASM first');
+          }
         }
       }
-      if (wantTrace) {
-        const json: string | undefined = win.__bridge_trace_build?.();
-        const counts = win.__bridge_trace_counts?.() as { cpu: number; gpu: number } | undefined;
-        if (json && counts && counts.cpu + counts.gpu > 0) {
-          await postTrace(json, 'chonk-trace-webgpu.json', `${counts.cpu} cpu + ${counts.gpu} gpu spans`);
-        } else {
-          append(
-            '[WARN] no trace captured — the WebGPU bridge module did not record any spans ' +
-              '(was WebGPU actually delegating MSMs?).',
-            'warn',
-          );
-        }
-      }
+      const vsWasm =
+        mode !== 'wasm' && lastWasmProveMs ? ` · ${(lastWasmProveMs / res.medianTotal).toFixed(2)}× vs WASM` : '';
+      append(
+        `✓ ${m.label} median=${fmtMs(res.medianTotal)} [${fmtMs(res.minTotal)}–${fmtMs(res.maxTotal)}] verified=${res.allVerified}${vsWasm}`,
+        res.allVerified ? 'ok' : 'err',
+      );
+      append(
+        `  peak memory: WASM heap ${res.wasmHeapPeakMb.toFixed(0)} MiB` +
+          (mode !== 'wasm'
+            ? ` + GPU ${res.gpuPeakMb.toFixed(0)} MiB = ${(res.wasmHeapPeakMb + res.gpuPeakMb).toFixed(0)} MiB total`
+            : '') +
+          (res.jsHeapMb > 0 ? ` · JS heap ${res.jsHeapMb.toFixed(0)} MiB` : ''),
+        'info',
+      );
+      append(
+        res.reused
+          ? `  setup (not in the per-run timings): backend reused warm — 0s init this click · load inputs ${fmtMs(res.loadMs)}`
+          : `  setup (not in the per-run timings): load inputs ${fmtMs(res.loadMs)} + ` +
+              `init 16-thread WASM + CRS ${fmtMs(res.initMs)} — backend now warm, so the next ${m.label} click skips the init`,
+        'info',
+      );
     } catch (err) {
-      setText('webgpu-prove-big', '✗');
-      setPill('webgpu-verified', 'fail', 'verified: error');
-      append(`[ERR] WebGPU run: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      setText(`${m.prefix}-prove-big`, '✗');
+      setText(`${m.prefix}-mem`, '—');
+      setPill(`${m.prefix}-verified`, 'fail', 'error');
+      append(`[ERR] ${m.label} run: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  runWasm.addEventListener('click', () => void runMode('wasm'));
+  runWebgpu.addEventListener('click', () => void runMode('webgpu'));
+  runWebgpuBatch.addEventListener('click', () => void runMode('batch'));
+
+  // Pre-build the WASM backend (16 threads + CRS) now, so the first Run WASM pays
+  // no init. The backend stays warm and is reused on same-mode clicks; switching
+  // mode rebuilds it (only one is held). Lazy anyway — a Run click warms if cold.
+  warmUp?.addEventListener('click', async () => {
+    setBusy(true, 'Warming up WASM backend (16-thread WASM + CRS)…');
+    try {
+      append('▶ Warm up: building the WASM backend (16 threads + CRS) so the first Run WASM skips the ~13s init', 'info');
+      const r = await (window as any).ensureWarmBackend(false);
+      append(
+        r.reused
+          ? '✓ WASM backend already warm — Run WASM is instant.'
+          : `✓ WASM backend warm (${fmtMs(r.initMs)}). Run WASM is now instant; WebGPU/batch build on first use (only one backend is held).`,
+        'ok',
+      );
+      status.textContent = 'backend warm: WASM';
+    } catch (err) {
+      append(`[ERR] warm up: ${err instanceof Error ? err.message : String(err)}`, 'err');
       console.error(err);
     } finally {
       setBusy(false);
     }
   });
 
-  // WebGPU (batch) — same prove flow as the solo button, but the bridge's
-  // same-N collision path routes uniform B ≥ 4 batches at n ≤ 2^17 through
-  // BatchMsmV2 (the Tier 2 virtualised B·W-window dispatch — see
-  // barretenberg/ts/src/msm_webgpu/BATCH_MSM_DESIGN.md). The flag is set
-  // for the duration of the run only so it doesn't leak into any later
-  // solo run; if it's not set the bridge falls back to the existing
-  // per-MSM-submit fallback (byte-identical to the solo button).
-  runWebgpuBatch.addEventListener('click', async () => {
-    setBusy(true);
+  // Single-run e2e Perfetto trace: ONE prove with phase-level BB_BENCH capture,
+  // merged onto one clock, POSTed + downloaded. Separate from the N× run buttons
+  // because a trace is inherently a single run.
+  const captureTrace = async (webgpu: boolean): Promise<void> => {
+    const label = webgpu ? 'WebGPU' : 'WASM';
+    setBusy(true, `Tracing ${label} (1×)`);
     try {
       const flow = flowSel.value;
-      append(
-        `▶ Run WebGPU (batch) on flow=${flow} — same-N B≥4 batches at n≤2^17 route through BatchMsmV2. ` +
-          `Blocklist drops the 10 translator @131071 entries (re-enabled vs solo) so the B=10 ` +
-          `range-constraint batch reaches the bridge.`,
-        'info',
-      );
-      setText('webgpu-batch-prove-big', '…');
-      const win = window as any;
-      win.__bridge_batch_enabled = true;
-      let runOut: any;
-      try {
-        runOut = await win.runChonkSingleMode('webgpu', flow, /*trace=*/ false, DEFAULT_WEBGPU_BLOCKLIST_BATCH);
-      } finally {
-        win.__bridge_batch_enabled = false;
-      }
-      const { result, vk, adapter: adp, gpuPhase } = runOut;
-      append(`  GPU adapter: ${adp}`, 'info');
-      setText('webgpu-batch-prove', fmtMs(result.proveMs));
-      setText('webgpu-batch-verify', fmtMs(result.verifyMs));
-      setText('webgpu-batch-prove-big', fmtMs(result.proveMs));
-      setPill('webgpu-batch-verified', result.verified ? 'ok' : 'fail', `verified: ${result.verified}`);
-      if (lastWasmProveMs) {
-        setSpeedup('webgpu-batch-speedup', result.proveMs, lastWasmProveMs);
-      }
-      setRatio('webgpu-batch-vs-solo', result.proveMs, lastWebgpuSoloProveMs, 'WebGPU solo');
-      if (lastWasmVk) {
-        const match = lastWasmVk.length === vk.length && lastWasmVk.every((b: number, i: number) => b === vk[i]);
-        setPill('webgpu-batch-vkmatch', match ? 'ok' : 'fail', match ? 'vk vs WASM: match' : 'vk vs WASM: MISMATCH');
-        if (!match) {
-          // VK mismatch is a correctness regression — log loudly. If the
-          // batch route produced byte-identical commitments to the solo
-          // path (which the existing WebGPU button verifies against WASM),
-          // this can only mean BatchMsmV2 diverged for some same-N batch.
-          append(
-            '[ERR] BatchMsmV2 produced a VK that does not match the WASM baseline — same-N batched result diverges from solo!',
-            'err',
-          );
-        }
-      } else {
-        setPill('webgpu-batch-vkmatch', 'skip', 'vk vs WASM: run WASM first');
-      }
-      append(
-        `✓ WebGPU (batch): prove=${fmtMs(result.proveMs)} verify=${fmtMs(result.verifyMs)} ` +
-          `MSM-phase=${fmtMs(result.msmPhaseMs)} verified=${result.verified}`,
-        result.verified ? 'ok' : 'err',
-      );
-      if (lastWebgpuSoloProveMs) {
-        const ratio = lastWebgpuSoloProveMs / result.proveMs;
-        const dir = ratio >= 1 ? 'faster' : 'slower';
+      append(`▶ Capturing e2e Perfetto trace — ${label}, single run, flow=${flow}`, 'info');
+      // Free the warm median backend so the trace's fresh benchTrace instance isn't
+      // shadowed by the config-blind singleton (the next median click re-warms).
+      await (window as any).disposeWarmBackend?.();
+      const r = await (window as any).runChonkWebGpuTrace(flow, { webgpu });
+      if (webgpu && r.swiftshaderDetected) {
         append(
-          `  vs solo: prove ${ratio.toFixed(2)}× ${dir} (solo=${fmtMs(lastWebgpuSoloProveMs)} → batch=${fmtMs(result.proveMs)})`,
-          ratio >= 1 ? 'ok' : 'warn',
-        );
-        if (lastWebgpuSoloMsmPhaseMs) {
-          append(
-            `  MSM phase vs solo: solo=${fmtMs(lastWebgpuSoloMsmPhaseMs)} → batch=${fmtMs(result.msmPhaseMs)} ` +
-              `(${(lastWebgpuSoloMsmPhaseMs / result.msmPhaseMs).toFixed(2)}× faster)`,
-            'info',
-          );
-        }
-      }
-      if (lastWasmMsmPhaseMs) {
-        append(
-          `  MSM phase: WASM=${fmtMs(lastWasmMsmPhaseMs)} vs GPU(batch)=${fmtMs(result.msmPhaseMs)} ` +
-            `(GPU saves ${fmtMs(lastWasmMsmPhaseMs - result.msmPhaseMs)})`,
-          'ok',
-        );
-      }
-      if (gpuPhase) {
-        const g = gpuPhase;
-        append(
-          `  GPU phase breakdown — prepare: mixed=${g.mixedPrepareMs.toFixed(0)}ms + same-n=${g.sameNPrepareMs.toFixed(0)}ms | ` +
-            `GPU compute(mixed,timestamp)=${g.mixedGpuComputeMs.toFixed(0)}ms | ` +
-            `same-n gpu_wait=${g.sameNGpuWaitMs.toFixed(0)}ms (incl. BatchMsmV2 batches) | ` +
-            `encode=${(g.mixedEncodeMs + g.sameNEncodeMs).toFixed(0)}ms submit/map=${(g.mixedSubmitWaitMs + g.sameNMapAsyncMs).toFixed(0)}ms`,
-          'info',
-        );
-        try {
-          const r = await fetch('/msm-phase?name=chonk-msm-phase-batch.json', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              flow,
-              adapter: adp,
-              proveMs: result.proveMs,
-              gpuPhase: g,
-              wasmMsmPhaseMs: lastWasmMsmPhaseMs ?? null,
-              soloProveMs: lastWebgpuSoloProveMs ?? null,
-              soloMsmPhaseMs: lastWebgpuSoloMsmPhaseMs ?? null,
-              route: 'webgpu-batch',
-            }),
-          });
-          const j = await r.json().catch(() => ({}));
-          append(
-            r.ok ? `✓ phase breakdown saved → ${j.path ?? '/msm-phase'}` : `[WARN] phase POST status ${r.status}`,
-            r.ok ? 'ok' : 'warn',
-          );
-        } catch (e) {
-          append(`[WARN] phase POST failed: ${e instanceof Error ? e.message : String(e)}`, 'warn');
-          console.log(JSON.stringify(g));
-        }
-      }
-    } catch (err) {
-      setText('webgpu-batch-prove-big', '✗');
-      setPill('webgpu-batch-verified', 'fail', 'verified: error');
-      append(`[ERR] WebGPU (batch) run: ${err instanceof Error ? err.message : String(err)}`, 'err');
-      console.error(err);
-    } finally {
-      setBusy(false);
-    }
-  });
-
-  runMsmCsv.addEventListener('click', async () => {
-    setBusy(true);
-    try {
-      const flow = flowSel.value;
-      append(`▶ Per-MSM CPU-vs-GPU measurement on flow=${flow} (CPU-solo + GPU-batched, ~2 proves)`, 'info');
-      const res = await (window as any).runChonkMsmCsv(flow);
-      append(
-        `  rows=${res.rowCount} delegated(gpu)=${res.gpuOnly} cpu-only=${res.cpuOnly} adapter=${res.adapter}`,
-        'info',
-      );
-      // POST the CSV back to the server so it lands on the box for report
-      // generation (avoids copy-pasting hundreds of rows).
-      try {
-        const r = await fetch('/msm-csv', { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: res.csv });
-        const j = await r.json().catch(() => ({}));
-        append(
-          r.ok
-            ? `✓ CSV saved on server: ${j.bytes ?? '?'} bytes → ${j.path ?? '/msm-csv'}`
-            : `[WARN] server did not save CSV (status ${r.status})`,
-          r.ok ? 'ok' : 'warn',
-        );
-      } catch (e) {
-        append(
-          `[WARN] POST /msm-csv failed: ${e instanceof Error ? e.message : String(e)} — full CSV dumped to console`,
+          '[WARN] SwiftShader/software WebGPU — trace not captured (the prove would not verify). Use a hardware GPU.',
           'warn',
         );
-        console.log(res.csv);
+        return;
+      }
+      append(
+        `  prove=${fmtMs(r.proveMs)} verified=${r.verified} lanes=${r.counts.lanes} cppEvents=${r.counts.cppEvents}` +
+          (webgpu ? ` cpu=${r.counts.cpu} gpu=${r.counts.gpu} mem=${r.counts.mem}` : ''),
+        r.verified ? 'ok' : 'warn',
+      );
+      if (r.traceJson) {
+        const base = webgpu ? 'chonk-webgpu-e2e-trace' : 'chonk-wasm-e2e-trace';
+        await postTrace(r.traceJson, `${base}.json`, `${r.counts.lanes} lanes, ${r.counts.cppEvents} events`);
+        downloadJson(r.traceJson, `${base}.perfetto.json`);
+        append(`  ⬇ downloaded ${base}.perfetto.json — open at ui.perfetto.dev`, 'ok');
+      } else {
+        append('[WARN] no trace JSON produced.', 'warn');
       }
     } catch (err) {
-      append(`[ERR] per-MSM CSV run: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      append(`[ERR] trace ${label}: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  traceBtnWebgpu?.addEventListener('click', () => void captureTrace(true));
+  traceBtnWasm?.addEventListener('click', () => void captureTrace(false));
+
+  // Dedicated per-circuit table: one traced WASM prove + one traced WebGPU prove
+  // (bench on), parsed into the WASM-vs-WebGPU per-circuit breakdown. Independent
+  // of the median run buttons, which stay clean (bench off, no extra prove).
+  runPerCircuit?.addEventListener('click', async () => {
+    setBusy(true, 'Per-circuit: tracing WASM + WebGPU (2 proves)');
+    try {
+      const flow = flowSel.value;
+      append(`▶ Per-circuit table: 1 traced WASM prove + 1 traced WebGPU prove (bench on) on flow=${flow}`, 'info');
+      // Free the warm median backend so each trace's fresh benchTrace instance isn't
+      // shadowed by the config-blind singleton (the next median click re-warms).
+      await (window as any).disposeWarmBackend?.();
+      setProg('Per-circuit: tracing WASM (1 prove)…');
+      const wr = await (window as any).runChonkWebGpuTrace(flow, { webgpu: false });
+      lastWasmTraceMs = wr.proveMs;
+      if (wr.perCircuit?.length) {
+        lastWasmPerCircuit = wr.perCircuit;
+        lastWasmPhases = wr.phases;
+        renderPerCircuit();
+        renderPhases();
+        append(
+          `  ✓ WASM traced prove=${fmtMs(wr.proveMs)} verified=${wr.verified} (${wr.perCircuit.length} circuits)`,
+          'ok',
+        );
+      } else {
+        append('  [WARN] WASM per-circuit extraction produced no rows.', 'warn');
+      }
+      setProg('Per-circuit: tracing WebGPU (1 prove)…');
+      const gr = await (window as any).runChonkWebGpuTrace(flow, { webgpu: true });
+      if (gr.swiftshaderDetected) {
+        append('  [WARN] SwiftShader — WebGPU per-circuit unavailable (the prove would not verify).', 'warn');
+      } else if (gr.perCircuit?.length) {
+        lastWebgpuTraceMs = gr.proveMs;
+        lastWebgpuPerCircuit = gr.perCircuit;
+        lastWebgpuPhases = gr.phases;
+        renderPerCircuit();
+        renderPhases();
+        append(
+          `  ✓ WebGPU traced prove=${fmtMs(gr.proveMs)} verified=${gr.verified} (${gr.perCircuit.length} circuits)`,
+          'ok',
+        );
+      } else {
+        append('  [WARN] WebGPU per-circuit extraction produced no rows.', 'warn');
+      }
+      append('✓ Per-circuit table updated.', 'ok');
+    } catch (err) {
+      append(`[ERR] per-circuit: ${err instanceof Error ? err.message : String(err)}`, 'err');
       console.error(err);
     } finally {
       setBusy(false);
@@ -2381,60 +2892,9 @@ function setupChonkWebGpuPage(): void {
     log.innerHTML = '';
   });
 
-  // Multi-run median: N× WASM + N× WebGPU, report median (+ min/max) total and per-circuit walls.
-  runMedian?.addEventListener('click', async () => {
-    const runs = Math.max(1, Math.min(20, parseInt(medianRuns?.value ?? '5', 10) || 5));
-    setBusy(true, `Median ×${runs} — starting`);
-    try {
-      const flow = flowSel.value;
-      append(
-        `▶ Median: ${runs}× WASM + ${runs}× WebGPU on flow=${flow} (~${Math.ceil((2 * runs * 8) / 60)} min). ` +
-          `bench trace ON for per-circuit walls — totals carry recording overhead, so read them relatively.`,
-        'info',
-      );
-      const res = await (window as any).runChonkMedian(flow, runs, (p: MedianProgress) => {
-        const tag =
-          p.phase === 'done'
-            ? `${p.side.toUpperCase()} run ${p.run}/${p.runs} done (last ${((p.lastMs ?? 0) / 1000).toFixed(1)}s)`
-            : `${p.side.toUpperCase()} run ${p.run}/${p.runs} proving…`;
-        setProg(`${tag} · ${p.done}/${p.total} proves`, p.done, p.total);
-      });
-      const W = res.wasm;
-      const G = res.webgpu;
-      // headline cards
-      setText('wasm-prove', fmtMs(W.medianTotal));
-      setText('wasm-prove-big', fmtMs(W.medianTotal));
-      setText('webgpu-prove', fmtMs(G.medianTotal));
-      setText('webgpu-prove-big', fmtMs(G.medianTotal));
-      setPill('wasm-verified', W.allVerified ? 'ok' : 'fail', `verified: ${W.allVerified}`);
-      setPill('webgpu-verified', G.allVerified ? 'ok' : 'fail', `verified: ${G.allVerified}`);
-      setSpeedup('webgpu-speedup', G.medianTotal, W.medianTotal);
-      // Tiny per-run breakdown under the median (run order, seconds).
-      const runsText = (totals: number[]): string =>
-        `${runs}× [${totals.map(t => (t / 1000).toFixed(2)).join(', ')}] s`;
-      setText('wasm-runs', runsText(W.totals));
-      setText('webgpu-runs', runsText(G.totals));
-      const net = W.medianTotal - G.medianTotal;
-      append(
-        `✓ MEDIAN (${runs}×): WASM ${fmtMs(W.medianTotal)} [${fmtMs(W.minTotal)}–${fmtMs(W.maxTotal)}]  |  ` +
-          `WebGPU ${fmtMs(G.medianTotal)} [${fmtMs(G.minTotal)}–${fmtMs(G.maxTotal)}]  |  ` +
-          `net ${net >= 0 ? '−' : '+'}${fmtMs(Math.abs(net))} ${net >= 0 ? '(GPU faster)' : '(GPU slower)'}`,
-        net >= 0 ? 'ok' : 'warn',
-      );
-      append(`  WASM runs:   [${W.totals.map(t => (t / 1000).toFixed(2)).join(', ')}] s`, 'info');
-      append(`  WebGPU runs: [${G.totals.map(t => (t / 1000).toFixed(2)).join(', ')}] s`, 'info');
-      const json = JSON.stringify(res, null, 2);
-      await postTrace(json, 'chonk-median.json', `${runs}× median totals`);
-      downloadJson(json, 'chonk-median.json');
-    } catch (err) {
-      append(`[ERR] median run: ${err instanceof Error ? err.message : String(err)}`, 'err');
-      console.error(err);
-    } finally {
-      setBusy(false);
-    }
-  });
-
-  status.textContent = 'ready — Run WASM / Run WebGPU (solo) / Run WebGPU (batch) / Per-MSM CPU vs GPU / Run median';
+  renderPerCircuit(); // show the empty per-circuit table from the start
+  renderPhases(); // show the empty phase-breakdown table from the start
+  status.textContent = 'ready — Run WASM / Run WebGPU / Run WebGPU (batch), N× each (median)';
 }
 
 (window as any).setupChonkWebGpuPage = setupChonkWebGpuPage;
