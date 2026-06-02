@@ -191,6 +191,13 @@ export interface MsmConfig {
    * alone is `512 · sT · 8` B, so 32→8 reclaims ~24 MiB. ARENA_LAYOUT.md §8.
    */
   maxPlannerWorkgroups?: number;
+  /**
+   * Force ≥ this many window-batches, overriding the budget-driven count (never
+   * below the 65k-workgroup minimum). Default 0 (budget-driven). The MSM result
+   * is invariant to the batch count, so this is a test/packing lever to exercise
+   * the multi-batch reduce path that single MSMs at logN ≤ 17 never reach.
+   */
+  numBatchesOverride?: number;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -1443,6 +1450,7 @@ export class MsmV2 {
   private profile = false;
   private jacobianCrossover = 0;
   private combineOnHost = true;
+  private numBatchesForce = 0; // 0 = budget-driven; >0 forces ≥ this many window-batches (testing/packing)
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
   private pointXBuf!: GPUBuffer;
@@ -1679,6 +1687,7 @@ export class MsmV2 {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
+    m.numBatchesForce = config?.numBatchesOverride ?? 0;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -2170,6 +2179,7 @@ export class MsmV2 {
     // NUM_WINDOWS, proceed best-effort (as the prior wgFits-only loop did).
     let numBatches = 1;
     while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || estimateMem(numBatches) > MEM_BUDGET)) numBatches++;
+    if (this.numBatchesForce) numBatches = Math.min(NUM_WINDOWS, Math.max(numBatches, this.numBatchesForce));
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;
     const batchSlots = batchWindows * n;
