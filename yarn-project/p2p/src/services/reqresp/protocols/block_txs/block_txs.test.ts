@@ -142,18 +142,17 @@ describe('BlockTxRequest', () => {
 
 describe('BlockTxResponse', () => {
   it('should serialize and deserialize correctly', async () => {
-    const archiveRoot = Fr.random();
     const txs = new TxArray(await mockTx(), await mockTx(), await mockTx());
     const txIndices = BitVector.init(8, [0, 2, 5]);
 
-    const original = new BlockTxsResponse(archiveRoot, txs, txIndices);
+    const original = new BlockTxsResponse(txs, txIndices);
     const buffer = original.toBuffer();
     const deserialized = BlockTxsResponse.fromBuffer(buffer);
 
-    expect(deserialized.archiveRoot).toEqual(original.archiveRoot);
     expect(deserialized.txs.length).toBe(original.txs.length);
     expect(deserialized.txIndices.getLength()).toBe(original.txIndices.getLength());
     expect(deserialized.txIndices.getTrueIndices()).toEqual(original.txIndices.getTrueIndices());
+    expect(deserialized.peerHasBlock()).toBe(true);
 
     // Make sure we calculate transaction hashes before comparison
     await Promise.all([...original.txs.map(tx => tx.getTxHash()), ...deserialized.txs.map(tx => tx.getTxHash())]);
@@ -163,17 +162,24 @@ describe('BlockTxResponse', () => {
   });
 
   it('should handle empty response', () => {
-    const archiveRoot = Fr.random();
     const txs = new TxArray(); // No transactions
     const txIndices = BitVector.init(10, []); // No indices
 
-    const original = new BlockTxsResponse(archiveRoot, txs, txIndices);
+    const original = new BlockTxsResponse(txs, txIndices);
     const buffer = original.toBuffer();
     const deserialized = BlockTxsResponse.fromBuffer(buffer);
 
-    expect(deserialized.archiveRoot).toEqual(archiveRoot);
     expect(deserialized.txs.length).toBe(0);
     expect(deserialized.txIndices.getTrueIndices()).toEqual([]);
+    // A non-empty bitvector (length 10) still signals the peer has the block, just none of these txs.
+    expect(deserialized.peerHasBlock()).toBe(true);
+  });
+
+  it('peerHasBlock is false when the bitvector is empty', () => {
+    // This is the "I don't have the block but matched your hashes" signal from the responder.
+    const response = new BlockTxsResponse(new TxArray(), BitVector.init(0, []));
+    expect(response.peerHasBlock()).toBe(false);
+    expect(BlockTxsResponse.empty().peerHasBlock()).toBe(false);
   });
 });
 

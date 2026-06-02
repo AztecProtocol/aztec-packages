@@ -1,4 +1,3 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { TxArray } from '@aztec/stdlib/tx';
 
@@ -53,7 +52,7 @@ export function reqRespBlockTxsHandler(
     // But peer has sent requested tx hashes, so we can send them the transactions
     if (!txHashes && requestedTxsHashes !== undefined) {
       const responseTxs = (await txPool.getTxsByHash(requestedTxsHashes)).filter(tx => !!tx);
-      const response = new BlockTxsResponse(Fr.zero(), new TxArray(...responseTxs), BitVector.init(0, []));
+      const response = new BlockTxsResponse(new TxArray(...responseTxs), BitVector.init(0, []));
       return response.toBuffer();
     }
 
@@ -71,7 +70,7 @@ export function reqRespBlockTxsHandler(
     requestedTxsHashes = txHashes.filter((_, idx) => requestedIndices.has(idx));
 
     const responseTxs = (await txPool.getTxsByHash(requestedTxsHashes)).filter(tx => !!tx);
-    const response = new BlockTxsResponse(request.archiveRoot, new TxArray(...responseTxs), responseBitVector);
+    const response = new BlockTxsResponse(new TxArray(...responseTxs), responseBitVector);
 
     return response.toBuffer();
   };

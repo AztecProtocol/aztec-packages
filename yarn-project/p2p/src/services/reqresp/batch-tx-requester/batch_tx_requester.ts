@@ -564,9 +564,10 @@ export class BatchTxRequester {
       return;
     }
 
-    const hasArchiveRootMismatch = this.blockTxsSource.archive.toString() !== response.archiveRoot.toString();
-    if (hasArchiveRootMismatch) {
-      this.handleArchiveRootMismatch(peerId, response);
+    // If the peer doesn't have the block, we mark them as dumb.
+    if (!response.peerHasBlock()) {
+      this.peers.markPeerDumb(peerId);
+      this.txsMetadata.clearPeerData(peerId);
       return;
     }
 
@@ -582,21 +583,6 @@ export class BatchTxRequester {
 
     // Unblock smart workers
     this.smartRequesterSemaphore.release();
-  }
-
-  /**
-   * Handles an archive root mismatch between local state and peer response.
-   *
-   * - Response archive is Fr.ZERO (peer pruned proposal, legitimate): marks peer dumb.
-   * - Non-zero archive mismatch (malicious response): penalises + marks dumb.
-   */
-  private handleArchiveRootMismatch(peerId: PeerId, response: BlockTxsResponse): void {
-    if (!response.archiveRoot.isZero()) {
-      this.peers.penalisePeer(peerId, PeerErrorSeverity.LowToleranceError);
-    }
-
-    this.peers.markPeerDumb(peerId);
-    this.txsMetadata.clearPeerData(peerId);
   }
 
   private peerHasSomeTxsWeAreMissing(_peerId: PeerId, response: BlockTxsResponse): boolean {

@@ -71,7 +71,8 @@ describe('reqRespBlockTxsHandler', () => {
       const response = await callHandler(request);
 
       expect(response.txs.length).toBe(2);
-      expect(response.archiveRoot).toEqual(Fr.zero());
+      // An empty bitvector signals the peer did not have the block (only matched the requested hashes).
+      expect(response.peerHasBlock()).toBe(false);
     });
 
     it('returns empty when txs not in pool', async () => {
@@ -98,7 +99,8 @@ describe('reqRespBlockTxsHandler', () => {
       const request = new BlockTxsRequest(proposal.archive, new TxHashArray(), BitVector.init(3, [0, 1, 2]));
       const response = await callHandler(request);
 
-      expect(response.archiveRoot).toEqual(proposal.archive);
+      // A non-empty bitvector signals the peer has the block.
+      expect(response.peerHasBlock()).toBe(true);
       expect(response.txs.length).toBe(3);
       expect(response.txIndices.getTrueIndices()).toEqual([0, 1, 2]);
     });
@@ -146,7 +148,7 @@ describe('reqRespBlockTxsHandler', () => {
       const request = new BlockTxsRequest(block.archive.root, new TxHashArray(), BitVector.init(3, [0, 1, 2]));
       const response = await callHandler(request);
 
-      expect(response.archiveRoot).toEqual(block.archive.root);
+      expect(response.peerHasBlock()).toBe(true);
       expect(response.txs.length).toBe(3);
       expect(response.txIndices.getTrueIndices()).toEqual([0, 1, 2]);
 
