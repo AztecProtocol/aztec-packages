@@ -178,9 +178,10 @@ where
 
 /// Returns the sender-side app tagging secret for a `(sender, recipient)` pair.
 ///
-/// This returns `None` for an invalid recipient address. Other sender-side lookup failures are simulator errors and
-/// fail before this wrapper returns. Callers that need a discoverable tag must obtain an index from
-/// [`get_next_tagging_index`] and hash the secret with the index.
+/// The secret is resolved by the simulator rather than constrained by the contract.
+///
+/// Returns `None` for an invalid recipient address. Other sender-side lookup failures are simulator errors and fail
+/// before this wrapper returns.
 pub unconstrained fn get_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
     get_app_tagging_secret_oracle(sender, recipient)
 }
@@ -190,15 +191,15 @@ unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient
 
 /// Returns the next sender-side tagging index for a given secret and delivery mode.
 ///
-/// The caller already holds the tagging `secret` and only needs the simulator to hand out a fresh per-secret,
-/// per-mode index, then computes the tag itself. `mode` is one of
-/// [`ONCHAIN_UNCONSTRAINED`](crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED) /
+/// The caller already holds the tagging `secret`, whether obtained from [`get_app_tagging_secret`] or computed by the
+/// contract, and only needs the simulator to hand out a fresh per-secret, per-mode index; it computes the tag itself.
+/// `mode` is one of [`ONCHAIN_UNCONSTRAINED`](crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED) /
 /// [`ONCHAIN_CONSTRAINED`](crate::messages::message_delivery::ONCHAIN_CONSTRAINED) and selects the per-mode index
 /// counter. Offchain messages are not tagged, so only the onchain delivery variants reach this oracle.
 ///
-/// The simulator persists the index increment only if the tagged log is found in an actual block - a reverting
-/// transaction can otherwise cause the sender to accidentally skip indices and later produce notes that are not
-/// found by the recipient.
+/// The simulator persists the index increment only if the tagged log is found in an actual block; a reverting
+/// transaction can otherwise cause the sender to skip indices and later produce notes that are not found by the
+/// recipient.
 pub unconstrained fn get_next_tagging_index(secret: Field, mode: u8) -> u32 {
     get_next_tagging_index_oracle(secret, mode)
 }
