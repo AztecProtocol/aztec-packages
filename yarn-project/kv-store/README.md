@@ -2,8 +2,8 @@
 
 The Aztec KV store is an implementation of a durable key-value database with a pluggable backend. Four backends are available, each exposed as its own package entrypoint:
 
-- `@aztec/kv-store/lmdb-v2`: server / Node, backed by [`lmdb-js`](https://github.com/kriszyp/lmdb-js). The current default for node components.
-- `@aztec/kv-store/lmdb`: the legacy LMDB backend.
+- `@aztec/kv-store/lmdb-v2`: server / Node. The current default for node components.
+- `@aztec/kv-store/lmdb`: the legacy LMDB backend, backed by [`lmdb-js`](https://github.com/kriszyp/lmdb-js).
 - `@aztec/kv-store/indexeddb`: browser, backed by IndexedDB.
 - `@aztec/kv-store/sqlite-opfs`: browser, backed by SQLite over the Origin Private File System.
 
