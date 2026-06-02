@@ -8,6 +8,10 @@ bot:
   stopIfUnhealthy: true
   botPrivateKey: "0xcafe03"
 
+  node:
+    env:
+      OTEL_SERVICE_NAME: "bot-cross-chain"
+
   persistence:
     enabled: true
   statefulSet:

@@ -8,6 +8,10 @@ bot:
   stopIfUnhealthy: true
   botPrivateKey: "0xcafe02"
 
+  node:
+    env:
+      OTEL_SERVICE_NAME: "bot-swaps"
+
   persistence:
     enabled: true
   statefulSet:
