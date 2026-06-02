@@ -7,6 +7,7 @@ import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
+import { strict as assert } from 'assert';
 
 import type { IRequestTracker } from '../../tx_collection/request_tracker.js';
 import { ReqRespSubProtocol } from '.././interface.js';
@@ -459,24 +460,19 @@ export class BatchTxRequester {
    *   this implies we will query these peers couple of more times and give them a chance to "redeem" themselves before completely ignoring them
    */
   private handleFailResponseFromPeer(peerId: PeerId, responseStatus: ReqRespStatus) {
-    if (responseStatus === ReqRespStatus.FAILURE || responseStatus === ReqRespStatus.UNKNOWN) {
-      this.peers.penalisePeer(peerId, PeerErrorSeverity.HighToleranceError);
-      this.peers.markPeerDumb(peerId);
-      this.txsMetadata.clearPeerData(peerId);
-      return;
-    }
-
-    // NOT_FOUND means the peer pruned its block proposal — it can no longer serve
-    // index-based requests, but this is a legitimate state so we don't penalize.
-    // We use INTERNAL_ERROR to cover cases where the request-response consistency validation fails.
-    if (responseStatus === ReqRespStatus.NOT_FOUND || responseStatus === ReqRespStatus.INTERNAL_ERROR) {
-      this.peers.markPeerDumb(peerId);
-      this.txsMetadata.clearPeerData(peerId);
-      return;
-    }
-
-    if (responseStatus === ReqRespStatus.RATE_LIMIT_EXCEEDED) {
-      this.peers.markPeerRateLimitExceeded(peerId);
+    switch (responseStatus) {
+      case ReqRespStatus.RATE_LIMIT_EXCEEDED:
+        this.peers.markPeerRateLimitExceeded(peerId);
+        return;
+      case ReqRespStatus.INTERNAL_ERROR:
+        this.peers.markPeerDumb(peerId);
+        this.txsMetadata.clearPeerData(peerId);
+        return;
+      default: // includes FAILURE, UNKNOWN
+        this.peers.penalisePeer(peerId, PeerErrorSeverity.HighToleranceError);
+        this.peers.markPeerDumb(peerId);
+        this.txsMetadata.clearPeerData(peerId);
+        return;
     }
   }
 
@@ -600,15 +596,9 @@ export class BatchTxRequester {
   }
 
   private extractHashesPeerHasFromResponse(response: BlockTxsResponse): Array<TxHash> {
-    const hashes: TxHash[] = [];
-    const indicesOfHashesPeerHas = new Set(response.txIndices.getTrueIndices());
-    this.blockTxsSource.txHashes.forEach((hash, idx) => {
-      if (indicesOfHashesPeerHas.has(idx)) {
-        hashes.push(hash);
-      }
-    });
-
-    return hashes;
+    // Should already have been validated, but just in case.
+    assert(response.txIndices.getLength() === this.blockTxsSource.txHashes.length);
+    return response.txIndices.getTrueIndices().map(idx => this.blockTxsSource.txHashes[idx]);
   }
 
   /*
