@@ -92,8 +92,6 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         break;
       }
       case 'chain-finalized': {
-        // Finality requires no storage action under delete-on-prune: a finalized block can no longer be reorged, and any
-        // orphaned rows were already deleted at prune time, so finality is a pure anchor advance.
         if (this.config.syncChainTip === 'finalized') {
           const block = await this.node.getBlock(BlockNumber(event.block.number));
           if (block) {
@@ -129,12 +127,10 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           );
         }
 
+        // Operations are wrapped in a single transaction to ensure atomicity.
         await this.store.transactionAsync(async () => {
-          // Truncate the orphaned tail: every note/event anchored above the fork (up to the old synced tip, which is the
-          // current anchor height) is on the abandoned fork. Delete unconditionally, then move the anchor down.
-          const firstOrphanBlock = event.block.number + 1;
-          await this.noteStore.deleteInBlockRange(firstOrphanBlock, currentAnchorBlockNumber);
-          await this.privateEventStore.deleteInBlockRange(firstOrphanBlock, currentAnchorBlockNumber);
+          await this.noteStore.deleteInBlockRange(event.block.number + 1, currentAnchorBlockNumber);
+          await this.privateEventStore.deleteInBlockRange(event.block.number + 1, currentAnchorBlockNumber);
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;
