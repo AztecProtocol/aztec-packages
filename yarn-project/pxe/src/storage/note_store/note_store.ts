@@ -424,8 +424,9 @@ export class NoteStore implements StagedStore {
         await this.#notes.delete(nullifier);
         await this.#nullifiersByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), nullifier);
         await this.#nullifiersByBlockNumber.deleteValue(block, nullifier);
-        // A note's nullifications are always at >= its creation block, so if its creation is in the pruned range
-        // every nullification origin is too — dropping the whole set is safe.
+        // Drop the note's whole nullification-origin set. Safe under this method's tail-truncation contract (toBlock is
+        // the anchor tip): no nullification origin can exist above the deleted range, so the per-block composites for
+        // these origins all fall within the loop's range and none is left dangling in #nullificationsByBlockNumber.
         await this.#nullificationsByNullifier.delete(nullifier);
       }
 
