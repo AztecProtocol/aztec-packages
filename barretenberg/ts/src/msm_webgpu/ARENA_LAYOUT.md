@@ -309,17 +309,25 @@ identity is the whole point: split-c is a different table, nothing else.
 `VariableWindowSchedule` (CPU ref `scalar_multiplication.cpp:633`) precomputes the
 inner table: `window_bits_per_window[w]`, `bit_base[w]`, `num_buckets[w]`.
 
-1. **Decide the schedule** from a 256-bin MSB histogram (`choose_var_window_split`,
-   `:721`) computed **host-side** from the zero-copy scalar view (cheap O(n), no
-   round-trip). Fill `WindowDesc[]`: `work_off`/`reduce_off` are prefix sums of
-   the variable `num_buckets[w]`, not `w·BW`/`w·STRIDE`.
+1. **Decide the schedule** from a 256-bin MSB histogram. The histogram is a **GPU
+   kernel** (one `atomicAdd`/scalar, workgroup-reduced — like `radixHist`), NOT a
+   host pass: reading all `n` scalars back to bin them is a 4 MB round-trip to
+   avoid a 1 KB one, and the scalars may be GPU-resident in `ChonkApi::Prove`. The
+   histogram kernel also writes `msb_per_scalar[n]` so `idx_large` reuses the MSB.
+   The decision (`choose_var_window_split`, `:721`) runs in a **GPU single-workgroup
+   kernel** (input is 256 bins, not `n`) and writes `WindowDesc[]` + the front-end
+   indirect-dispatch args directly. `work_off`/`reduce_off` are prefix sums of the
+   variable `num_buckets[w]`, not `w·BW`/`w·STRIDE`. **See `SPLIT_C_PLAN.md`.**
 2. **Two populations.** Lower windows iterate all `n`; upper windows iterate only
-   `n_large`. Build `idx_large` (msb ≥ `b_star`) via a GPU stream-compaction;
-   its size is known from the histogram, so the upper scatter (`n_large·W_hi`)
-   stays deterministic. Total scatter `= 4·(n·W_lo + n_large·W_hi)·(3 buffers)` —
+   `idx_large` (msb ≥ `b_star-1`), built by GPU stream-compaction reusing
+   `msb_per_scalar`. decompose/transpose are **region-split + indirect-dispatched**
+   sized by `n` / `n_large` (never one dispatch padded to `n` — split makes more,
+   narrower windows). Total scatter `= 4·(n·W_lo + n_large·W_hi)·(3 buffers)` —
    **smaller** than uniform, never larger.
-3. **Variable-c decode** in `decompose`: read `wd.window_bits`/`wd.bit_base`.
-4. **Reduction/walker** iterate `num_buckets[w]` per window.
+3. **Variable-c decode** in `decompose`: read `wd.window_bits`/`wd.bit_base`
+   (already runtime params today). **Packed-window bid** (`(window<<15)|mag`) keeps
+   the bucket→window decode a shift, not a runtime divide — see `SPLIT_C_PLAN.md`.
+4. **Reduction/walker** iterate `num_buckets[w]` per window (unified dispatch).
 
 **Sizing stays bounded:** the CPU sizer uses the unsplit `num_buckets` as the
 conservative B_eff bound *before* the split (`scalar_multiplication.cpp:2525`).
