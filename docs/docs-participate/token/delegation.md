@@ -23,7 +23,7 @@ When you delegate tokens to an operator:
 1. **Your tokens are staked** through the operator's sequencer
 2. **The operator runs infrastructure** on your behalf
 3. **Rewards are shared** between you and the operator based on their fee structure
-4. **Slashing risk falls on your stake**: each attester is funded by exactly one Token Vault. If the operator runs the node poorly and the attester is slashed, the burn comes out of your Token Vault's position. The operator does not contribute tokens to the same attester and so does not share the financial loss directly.
+4. **Slashing risk falls on your stake**: each attester is funded by a single staking position. If the operator runs the node poorly and the attester is slashed, the burn comes out of the stake you delegated. The operator does not contribute tokens to the same attester and so does not share the financial loss directly.
 
 For how unstaking and slashing affect a delegator's balance specifically, see [Withdrawing delegated stake](#withdrawing-delegated-stake) and [What happens if your operator is slashed](#what-happens-if-your-operator-is-slashed) below.
 
@@ -51,8 +51,7 @@ When selecting an operator to delegate to, consider:
 
 ### Prerequisites
 
-- An Ethereum wallet that owns an Aztec Token Vault (the same wallet you connected during the token sale)
-- A Token Vault balance of at least 200,000 AZTEC tokens
+- An Ethereum wallet holding at least 200,000 AZTEC available to stake. Token-sale participants hold their AZTEC in a Token Vault owned by the same wallet they connect to the dashboard.
 
 :::note Stake amount
 Staking requires exactly 200,000 AZTEC per validator, a fixed protocol constant rather than a minimum.
@@ -60,13 +59,13 @@ Staking requires exactly 200,000 AZTEC per validator, a fixed protocol constant 
 
 ### Step 1: connect your wallet
 
-Navigate to [staking.aztec.network](https://staking.aztec.network) and click **Connect Wallet**. Connect the wallet that owns your Token Vaults.
+Navigate to [staking.aztec.network](https://staking.aztec.network) and click **Connect Wallet**. Connect the wallet that owns your Token Vaults (if applicable).
 
-The dashboard displays all your Token Vaults and an overview of the assets under your control. Click on any Token Vault to view details such as its vesting schedule.
+The dashboard displays the AZTEC available to stake from the connected wallet, including any Token Vaults from the token sale, with an overview of the assets under your control. Token Vaults also show details such as their vesting schedule.
 
 ### Step 2: navigate to the stake tab
 
-Above the Token Vaults overview, select the **Stake** tab. You are presented with two options: **Delegate** and **Self-Stake**. Choose **Delegate**.
+From the dashboard overview, select the **Stake** tab. You are presented with two options: **Delegate** and **Self-Stake**. Choose **Delegate**.
 
 ![Stake tab showing delegate and self-stake options](/img/stake-choice.png)
 
@@ -94,9 +93,9 @@ Some providers appear greyed out because they are not currently accepting delega
 One of your responsibilities as a delegator is choosing good providers without overly centralizing the network. Avoid providers that already have very high staking concentration.
 :::
 
-### Step 4: select Token Vault and amount
+### Step 4: select what to stake and the amount
 
-Choose a Token Vault with at least 200,000 tokens available. Then select how much you want to delegate.
+Choose a Token Vault or wallet balance with at least 200,000 AZTEC available. Then select how much you want to delegate.
 
 Your delegation amount is capped by:
 
@@ -105,27 +104,27 @@ Your delegation amount is capped by:
 
 whichever is lower.
 
-![Token vault selection and delegation amount](/img/delegation-token-vault.png)
+![Stake selection and delegation amount](/img/delegation-token-vault.png)
 
 :::note
-You cannot consolidate multiple Token Vaults into a single delegation. Each vault must be staked individually.
+You cannot combine multiple Token Vaults or balances into a single delegation. Each must be staked individually.
 :::
 
-### Step 5: set operator address
+### Step 5: confirm operator address
 
-The operator address controls sequencer operations for this vault. Confirm the address is correct, as this address can choose who to delegate to and pick the reward attribution address
+The operator address controls sequencer operations for this vault. Confirm the address is correct, as this address can choose who to delegate to and pick the reward attribution address.
 
 The staking dashboard defaults the operator to the connected wallet address. If you need a separate operator address for security separation, interact directly with the staking contracts via the CLI.
 
 Click **Add to Batch** to continue.
 
 :::note One-time Action
-Setting the operator address is a one-time action per Token Vault. If the vault already has an operator configured, this step is skipped automatically.
+Setting the operator address is a one-time action per staking position. If it already has an operator configured, this step is skipped automatically.
 :::
 
 ### Step 6: select staking version
 
-Every Token Vault uses a **Staker Contract** that handles staking and unstaking operations. Governance may periodically approve new staker contract versions that add features (such as unstaking) or improve security.
+Each staking position uses a **Staker Contract** that handles staking and unstaking operations. Governance may periodically approve new staker contract versions that add features (such as unstaking) or improve security.
 
 On the **Set Staker Version** screen, upgrade to **Latest** to stay current with governance-approved contracts, or select a specific older version. The dashboard describes each version's capabilities.
 
@@ -134,12 +133,12 @@ Click **Add to Batch** to continue.
 ![Staking version selection screen](/img/staker-version.png)
 
 :::note One-time Action
-Selecting the staking version is a one-time action per Token Vault. If the vault already has a staker version configured, this step is skipped automatically.
+Selecting the staking version is a one-time action per staking position. If it already has a staker version configured, this step is skipped automatically.
 :::
 
 ### Step 7: approve tokens
 
-Approve the staker contract to move funds from your Token Vault. Each validator requires 200,000 tokens, so the approval amount matches your delegation.
+Approve the staker contract to move your AZTEC. Each validator requires 200,000 tokens, so the approval amount matches your delegation.
 
 ### Step 8: delegate
 
@@ -152,7 +151,7 @@ Review the full set of queued transactions and click **Execute All**.
 ![Batch execution review screen](/img/batch-execute.png)
 
 :::tip Subsequent delegations
-When you delegate again from a vault that already has an operator and staker version configured, Steps 5 and 6 are skipped, making future delegations faster.
+When you delegate again from a position that already has an operator and staker version configured, Steps 5 and 6 are skipped, making future delegations faster.
 :::
 
 ## Managing your delegation
@@ -187,7 +186,7 @@ If your operator is slashed during the exit window, the penalty comes out of you
 
 ## What happens if your operator is slashed
 
-Each attester (validator key) is funded by exactly one Token Vault holding the 200,000-token activation threshold. When you delegate, your Token Vault funds that attester; the operator runs the node on your behalf but does not contribute tokens to the same attester. Slashing penalties for that attester therefore come entirely out of the position your Token Vault funded.
+Each attester (validator key) is funded by a single staking position holding the 200,000-token activation threshold. When you delegate, your stake funds that attester; the operator runs the node on your behalf but does not contribute tokens to the same attester. Slashing penalties for that attester therefore come entirely out of the stake you delegated.
 
 - Each slashable offense reduces the attester's stake by a fixed per-offense penalty. Once the remaining stake falls below the ejection threshold, the attester is automatically removed from the validator set. See [Slashing and offenses](/operate/operators/sequencer-management/slashing_and_offenses) for the offenses that trigger slashing and how ejection works.
 - The operator running the node does not share that financial loss directly. Their exposure is reputational and through lost future rewards on an ejected validator.
