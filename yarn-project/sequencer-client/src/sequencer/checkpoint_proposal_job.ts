@@ -331,8 +331,17 @@ export class CheckpointProposalJob implements Traceable {
     // `slotNow` (the build slot) is used for the informational state-change payload; `targetSlot` is
     // used for the timetable deadlines, headers, signing, and L1 submission scheduling.
     this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.slotNow);
-    // Latest useful L1 send is the single attestation_deadline (target_slot_start + S - 2E).
-    const txTimeoutAt = new Date(this.timetable.getAttestationDeadline(this.targetSlot) * 1000);
+    // Latest L1 block the propose can still land in for the target slot: the last Ethereum block inside
+    // the target slot (`target_slot_start + S - E`). This is one ethereum slot later than
+    // `attestation_deadline` (= last_ethereum_block_in_target_slot - E), which bounds when validators must
+    // have signed, not when the proposer must have sent. Using the attestation deadline here is too tight:
+    // attestations are collected up to (and, when not enforcing, past) it, so the propose tx would be
+    // enqueued already expired and time out before it can mine.
+    const lastL1BlockInTargetSlot =
+      Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) +
+      this.l1Constants.slotDuration -
+      this.l1Constants.ethereumSlotDuration;
+    const txTimeoutAt = new Date(lastL1BlockInTargetSlot * 1000);
 
     // If we have been configured to potentially skip publishing checkpoint then roll the dice here
     if (

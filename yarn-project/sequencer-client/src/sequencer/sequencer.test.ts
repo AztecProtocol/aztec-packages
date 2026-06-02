@@ -778,9 +778,11 @@ describe('sequencer', () => {
     });
 
     it('should not vote when sync fails and within time limit', async () => {
-      // Before start_deadline for the target slot: there is still time to build, so do not vote.
+      // Before start_deadline for the target slot: there is still time to build, so do not vote. The gate
+      // applies a one-`ethereumSlotDuration` look-ahead (the target slot is derived from the next L1
+      // slot), so the clock must be at least that far before the start deadline to be "within time".
       const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
-      dateProvider.setTime((startDeadline - 1) * 1000);
+      dateProvider.setTime((startDeadline - ethereumSlotDuration - 1) * 1000);
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);

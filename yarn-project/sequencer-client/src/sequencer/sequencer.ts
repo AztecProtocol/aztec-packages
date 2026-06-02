@@ -857,7 +857,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const nowSeconds = this.dateProvider.now() / 1000;
     const startDeadline = this.timetable.getStartDeadline(targetSlot);
 
-    if (this.config.enforceTimeTable && nowSeconds <= startDeadline) {
+    if (this.config.enforceTimeTable && !this.isPastBuildStartDeadline(targetSlot)) {
       this.log.trace(`Not attempting to vote since there is still time for block building`, {
         nowSeconds,
         startDeadline,
@@ -1113,6 +1113,22 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private getSecondsIntoSlot(slotNumber: SlotNumber): number {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp(slotNumber);
     return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));
+  }
+
+  /**
+   * Whether we are past the latest useful block-building start for `targetSlot`, used by the
+   * sync-failure vote fallback to decide it can stop waiting to build and cast votes instead.
+   *
+   * The target slot is derived from the slot at the *next* L1 block (a one-`ethereumSlotDuration`
+   * look-ahead, see {@link getSlotContextInNextL1Slot}). The start deadline is an absolute time anchored
+   * to the target slot, so the wall-clock used to test it must include the same look-ahead — otherwise
+   * the gate is never reached for the current target slot, since the look-ahead advances `targetSlot`
+   * before `now` catches up to its start deadline, and the fallback would never vote.
+   */
+  private isPastBuildStartDeadline(targetSlot: SlotNumber): boolean {
+    const startDeadline = this.timetable.getStartDeadline(targetSlot);
+    const nowAtNextL1Slot = this.dateProvider.now() / 1000 + this.l1Constants.ethereumSlotDuration;
+    return nowAtNextL1Slot > startDeadline;
   }
 
   public get aztecSlotDuration() {

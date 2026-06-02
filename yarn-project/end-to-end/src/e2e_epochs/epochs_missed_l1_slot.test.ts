@@ -198,15 +198,20 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     // `hasProposedCheckpoint`, which is sourced from L1 and is false in this window).
     const sequencer = context.sequencer!.getSequencer();
     const targetSlotForBugFixCycle = SlotNumber(nextSlotNumber + 1);
+    // Build-frame states (INITIALIZING_CHECKPOINT etc.) carry the build slot (`slotNow`), not the target
+    // slot. The bug-fix cycle runs at wall-clock slot N+1 (= nextSlotNumber) and builds the checkpoint
+    // that commits to target slot N+2 (= targetSlotForBugFixCycle), so the state event carries N+1.
+    const buildSlotForBugFixCycle = nextSlotNumber;
 
     logger.info(
-      `Waiting for sequencer to reach INITIALIZING_CHECKPOINT for target slot ${targetSlotForBugFixCycle} during mining pause...`,
+      `Waiting for sequencer to reach INITIALIZING_CHECKPOINT for build slot ${buildSlotForBugFixCycle} ` +
+        `(target slot ${targetSlotForBugFixCycle}) during mining pause...`,
     );
     await executeTimeout(
       signal =>
         new Promise<void>((res, rej) => {
           const stateListener = (args: { newState: SequencerState; slot?: SlotNumber }) => {
-            if (args.newState === SequencerState.INITIALIZING_CHECKPOINT && args.slot === targetSlotForBugFixCycle) {
+            if (args.newState === SequencerState.INITIALIZING_CHECKPOINT && args.slot === buildSlotForBugFixCycle) {
               sequencer.off('state-changed', stateListener);
               res();
             }
@@ -218,11 +223,11 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
           sequencer.on('state-changed', stateListener);
         }),
       L2_SLOT_DURATION * 3 * 1000,
-      `Wait for sequencer INITIALIZING_CHECKPOINT at target slot ${targetSlotForBugFixCycle}`,
+      `Wait for sequencer INITIALIZING_CHECKPOINT at build slot ${buildSlotForBugFixCycle}`,
     );
 
     logger.info(
-      `Sequencer reached INITIALIZING_CHECKPOINT for target slot ${targetSlotForBugFixCycle} during mining pause`,
+      `Sequencer reached INITIALIZING_CHECKPOINT for build slot ${buildSlotForBugFixCycle} during mining pause`,
     );
 
     // Step 4: Resume mining so the pending L1 txs land and the test can clean up.
