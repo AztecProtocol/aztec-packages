@@ -40,7 +40,6 @@ When selecting an operator to delegate to, consider:
 ### Economic terms
 
 - **Commission rate**: what percentage of rewards does the operator keep?
-- **Minimum delegation**: is there a minimum amount required?
 
 ### Reputation
 
@@ -55,8 +54,8 @@ When selecting an operator to delegate to, consider:
 - An Ethereum wallet that owns an Aztec Token Vault (the same wallet you connected during the token sale)
 - A Token Vault balance of at least 200,000 AZTEC tokens
 
-:::note Minimum stake
-You must stake a minimum of 200,000 AZTEC per validator, similar to how Ethereum requires 32 ETH per validator.
+:::note Stake amount
+Staking requires exactly 200,000 AZTEC per validator, a fixed protocol constant rather than a minimum.
 :::
 
 ### Step 1: connect your wallet
