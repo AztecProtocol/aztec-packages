@@ -6,7 +6,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
-  AnchorHeaderStore,
+  AnchorBlockStore,
   CanonicalBlockStore,
   CapsuleService,
   CapsuleStore,
@@ -278,11 +278,11 @@ export class TXESession implements TXESessionStateHandler {
     const archiver = new TXEArchiver(store);
     const canonicalBlockStore = new CanonicalBlockStore(store, archiver);
     await canonicalBlockStore.load();
-    const anchorHeaderStore = new AnchorHeaderStore(store);
+    const anchorBlockStore = new AnchorBlockStore(store);
     const stateMachine = await TXEStateMachine.create(
       archiver,
       canonicalBlockStore,
-      anchorHeaderStore,
+      anchorBlockStore,
       contractStore,
       noteStore,
     );
@@ -625,7 +625,7 @@ export class TXESession implements TXESessionStateHandler {
     this.exitTopLevelState();
     this.resetLastCall();
 
-    const anchorBlockHeader = await this.stateMachine.anchorHeaderStore.getBlockHeader();
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
     // There is no automatic message discovery and contract-driven syncing process in inlined private or utility
     // contexts, which means that known nullifiers are also not searched for, since it is during the tagging sync that

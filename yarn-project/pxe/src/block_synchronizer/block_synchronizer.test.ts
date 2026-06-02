@@ -23,7 +23,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
-import { AnchorHeaderStore } from '../storage/anchor_header_store/index.js';
+import { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
 import { CanonicalBlockStore } from '../storage/canonical_block_store/index.js';
 import { NoteStore } from '../storage/note_store/index.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
@@ -34,7 +34,7 @@ describe('BlockSynchronizer', () => {
   let store: AztecAsyncKVStore;
   let tipsStore: L2TipsKVStore;
   let canonicalBlockStore: CanonicalBlockStore;
-  let anchorHeaderStore: AnchorHeaderStore;
+  let anchorBlockStore: AnchorBlockStore;
   let noteStore: NoteStore;
   let privateEventStore: PrivateEventStore;
   let aztecNode: MockProxy<AztecNode>;
@@ -52,7 +52,7 @@ describe('BlockSynchronizer', () => {
       aztecNode,
       store,
       canonicalBlockStore,
-      anchorHeaderStore,
+      anchorBlockStore,
       noteStore,
       privateEventStore,
       tipsStore,
@@ -68,7 +68,7 @@ describe('BlockSynchronizer', () => {
     tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
     canonicalBlockStore = new CanonicalBlockStore(store, tipsStore);
     await canonicalBlockStore.load();
-    anchorHeaderStore = new AnchorHeaderStore(store);
+    anchorBlockStore = new AnchorBlockStore(store);
     noteStore = new NoteStore(store, canonicalBlockStore);
     privateEventStore = new PrivateEventStore(store, canonicalBlockStore);
     contractSyncService = mock<ContractSyncService>();
@@ -79,7 +79,7 @@ describe('BlockSynchronizer', () => {
     const block = await L2Block.random(BlockNumber(1));
     await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
-    const obtainedHeader = await anchorHeaderStore.getBlockHeader();
+    const obtainedHeader = await anchorBlockStore.getBlockHeader();
     expect(obtainedHeader.equals(block.header)).toBe(true);
   });
 
@@ -112,7 +112,7 @@ describe('BlockSynchronizer', () => {
     });
 
     // The anchor block should be updated to the reorg block header.
-    const obtainedHeader = await anchorHeaderStore.getBlockHeader();
+    const obtainedHeader = await anchorBlockStore.getBlockHeader();
     expect(obtainedHeader.equals(reorgBlock!.header)).toBe(true);
   });
 
@@ -211,7 +211,7 @@ describe('BlockSynchronizer', () => {
         expect(canonicalBlockStore.isCanonical({ number: b.number, hash: (await b.hash()).toString() })).toBe(true);
       }
       // The new anchor header should be the common ancestor block
-      const obtainedHeader = await anchorHeaderStore.getBlockHeader();
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(commonAncestorBlock.header)).toBe(true);
     });
 
@@ -322,7 +322,7 @@ describe('BlockSynchronizer', () => {
       const block = await L2Block.random(BlockNumber(1));
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
 
-      const obtainedHeader = await anchorHeaderStore.getBlockHeader();
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(block.header)).toBe(true);
     });
 
@@ -331,13 +331,13 @@ describe('BlockSynchronizer', () => {
 
       // First set a known anchor
       const initialBlock = await L2Block.random(BlockNumber(0));
-      await anchorHeaderStore.setHeader(initialBlock.header);
+      await anchorBlockStore.setHeader(initialBlock.header);
 
       // blocks-added should NOT update the anchor
       const newBlock = await L2Block.random(BlockNumber(1));
       await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [newBlock] });
 
-      const obtainedHeader = await anchorHeaderStore.getBlockHeader();
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(initialBlock.header)).toBe(true);
     });
 
@@ -346,7 +346,7 @@ describe('BlockSynchronizer', () => {
 
       // Set initial anchor
       const initialBlock = await L2Block.random(BlockNumber(0));
-      await anchorHeaderStore.setHeader(initialBlock.header);
+      await anchorBlockStore.setHeader(initialBlock.header);
 
       // Create a checkpoint with a block
       const checkpointBlock = await L2Block.random(BlockNumber(1));
@@ -362,7 +362,7 @@ describe('BlockSynchronizer', () => {
         block: { number: BlockNumber(1), hash: '0x456' },
       });
 
-      const obtainedHeader = await anchorHeaderStore.getBlockHeader();
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(checkpointBlock.header)).toBe(true);
     });
 
@@ -384,7 +384,7 @@ describe('BlockSynchronizer', () => {
       });
 
       // Anchor should still be the initial block, not the checkpoint block
-      const obtainedHeader = await anchorHeaderStore.getBlockHeader();
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(initialBlock.header)).toBe(true);
     });
 
@@ -393,7 +393,7 @@ describe('BlockSynchronizer', () => {
 
       // Set initial anchor
       const initialBlock = await L2Block.random(BlockNumber(0));
-      await anchorHeaderStore.setHeader(initialBlock.header);
+      await anchorBlockStore.setHeader(initialBlock.header);
 
       // Mock node to return block
       const provenBlock = await L2Block.random(BlockNumber(5));
@@ -404,7 +404,7 @@ describe('BlockSynchronizer', () => {
         block: { number: BlockNumber(5), hash: '0x789' },
       });
 
-      const obtainedHeader = await anchorHeaderStore.getBlockHeader();
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(provenBlock.header)).toBe(true);
     });
 
@@ -413,7 +413,7 @@ describe('BlockSynchronizer', () => {
 
       // Set initial anchor
       const initialBlock = await L2Block.random(BlockNumber(0));
-      await anchorHeaderStore.setHeader(initialBlock.header);
+      await anchorBlockStore.setHeader(initialBlock.header);
 
       // Mock node to return block
       const finalizedBlock = await L2Block.random(BlockNumber(10));
@@ -424,7 +424,7 @@ describe('BlockSynchronizer', () => {
         block: { number: BlockNumber(10), hash: '0xabc' },
       });
 
-      const obtainedHeader = await anchorHeaderStore.getBlockHeader();
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(finalizedBlock.header)).toBe(true);
     });
 
@@ -433,7 +433,7 @@ describe('BlockSynchronizer', () => {
 
       // Set anchor to block 2
       const anchorBlock = await L2Block.random(BlockNumber(2));
-      await anchorHeaderStore.setHeader(anchorBlock.header);
+      await anchorBlockStore.setHeader(anchorBlock.header);
 
       // Prune to block 3 (above anchor) - should be ignored
       await synchronizer.handleBlockStreamEvent({
@@ -443,7 +443,7 @@ describe('BlockSynchronizer', () => {
       });
 
       // Anchor should be unchanged
-      const obtainedHeader = await anchorHeaderStore.getBlockHeader();
+      const obtainedHeader = await anchorBlockStore.getBlockHeader();
       expect(obtainedHeader.equals(anchorBlock.header)).toBe(true);
     });
   });

@@ -4,7 +4,7 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import {
-  type AnchorHeaderStore,
+  type AnchorBlockStore,
   type CanonicalBlockStore,
   type ContractStore,
   ContractSyncService,
@@ -34,7 +34,7 @@ export class TXEStateMachine {
     public synchronizer: TXESynchronizer,
     public archiver: TXEArchiver,
     public canonicalBlockStore: CanonicalBlockStore,
-    public anchorHeaderStore: AnchorHeaderStore,
+    public anchorBlockStore: AnchorBlockStore,
     public contractSyncService: ContractSyncService,
     public messageContextService: MessageContextService,
   ) {}
@@ -42,7 +42,7 @@ export class TXEStateMachine {
   public static async create(
     archiver: TXEArchiver,
     canonicalBlockStore: CanonicalBlockStore,
-    anchorHeaderStore: AnchorHeaderStore,
+    anchorBlockStore: AnchorBlockStore,
     contractStore: ContractStore,
     noteStore: NoteStore,
   ) {
@@ -89,7 +89,7 @@ export class TXEStateMachine {
       synchronizer,
       archiver,
       canonicalBlockStore,
-      anchorHeaderStore,
+      anchorBlockStore,
       contractSyncService,
       messageContextService,
     );
@@ -145,7 +145,7 @@ export class TXEStateMachine {
     await Promise.all([
       this.synchronizer.handleL2Block(block),
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
-      this.anchorHeaderStore.setHeader(block.header),
+      this.anchorBlockStore.setHeader(block.header),
     ]);
   }
 }

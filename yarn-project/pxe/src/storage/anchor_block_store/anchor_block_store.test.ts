@@ -1,15 +1,15 @@
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
-import { AnchorHeaderStore } from './anchor_header_store.js';
+import { AnchorBlockStore } from './anchor_block_store.js';
 
-describe('AnchorHeaderStore', () => {
+describe('AnchorBlockStore', () => {
   let kv: Awaited<ReturnType<typeof openTmpStore>>;
-  let store: AnchorHeaderStore;
+  let store: AnchorBlockStore;
 
   beforeEach(async () => {
     kv = await openTmpStore('anchor-header-store-test');
-    store = new AnchorHeaderStore(kv);
+    store = new AnchorBlockStore(kv);
   });
 
   it('round-trips the synchronized header', async () => {

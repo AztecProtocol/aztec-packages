@@ -36,7 +36,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { AddressStore } from '../address_store/address_store.js';
-import { AnchorHeaderStore } from '../anchor_header_store/index.js';
+import { AnchorBlockStore } from '../anchor_block_store/index.js';
 import { CanonicalBlockStore } from '../canonical_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
@@ -105,13 +105,13 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   },
 
   {
-    name: 'AnchorHeaderStore',
+    name: 'AnchorBlockStore',
     writeToStore: async kvStore => {
-      const anchorHeaderStore = new AnchorHeaderStore(kvStore);
+      const anchorBlockStore = new AnchorBlockStore(kvStore);
 
       // Each primitive field gets a distinct prime so any reorder shows up in the snapshot diff. An all-zero
       // `BlockHeader.empty()` would silently pass through same-width field swaps.
-      await anchorHeaderStore.setHeader(
+      await anchorBlockStore.setHeader(
         new BlockHeader(
           new AppendOnlyTreeSnapshot(new Fr(2n), 3),
           new StateReference(

@@ -2,16 +2,16 @@ import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 /**
- * Holds PXE's execution anchor block header — the block that private execution is anchored to. This is the synced tip
- * header used to build transactions, kept separate from the canonical-chain state in `CanonicalBlockStore`.
+ * Holds the block header that PXE's private execution is anchored to — the synced tip header used to build
+ * transactions. Updated by the BlockSynchronizer as the chain advances or reorgs.
  */
-export class AnchorHeaderStore {
+export class AnchorBlockStore {
   #store: AztecAsyncKVStore;
   #synchronizedHeader: AztecAsyncSingleton<Buffer>;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
-    this.#synchronizedHeader = store.openSingleton('header');
+    this.#synchronizedHeader = this.#store.openSingleton('header');
   }
 
   /**
