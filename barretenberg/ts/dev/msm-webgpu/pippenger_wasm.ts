@@ -54,6 +54,7 @@ export interface WasmPippengerHandle {
     rootRank: number,
     kPerWindow: number,
     numWindows: number,
+    c: number,
   ): { result: Uint8Array; computeMs: number; totalMs: number };
   /** Thread count this handle was instantiated with (post-detection). */
   readonly threads: number;
@@ -227,10 +228,11 @@ export async function createWasmPippenger(
     rootRank: number,
     kPerWindow: number,
     numWindows: number,
+    c: number,
   ): { result: Uint8Array; computeMs: number; totalMs: number } {
     const numOps = ops.length / 4;
     const opsBytes = new Uint8Array(ops.buffer, ops.byteOffset, ops.byteLength);
-    const resBytes = numWindows * 96; // Jacobian X||Y||Z per window
+    const resBytes = 64; // one final affine MSM point
     if (dense.length > cDenseCap) {
       if (cDensePtr) wasmMain.call("bbfree", cDensePtr);
       cDensePtr = wasmMain.call("bbmalloc", Math.max(64, dense.length));
@@ -250,7 +252,7 @@ export async function createWasmPippenger(
     wasmMain.writeMemory(cDensePtr, dense);
     if (opsBytes.length > 0) wasmMain.writeMemory(cOpsPtr, opsBytes);
     const t1 = performance.now();
-    wasmMain.call("bb_msm_complete_reduce", numWindows, kPerWindow, cDensePtr, numOps, cOpsPtr, rootRank, cResPtr);
+    wasmMain.call("bb_msm_complete_reduce", numWindows, kPerWindow, cDensePtr, numOps, cOpsPtr, rootRank, c, cResPtr);
     const t2 = performance.now();
     const result = wasmMain.getMemorySlice(cResPtr, cResPtr + resBytes);
     const t3 = performance.now();

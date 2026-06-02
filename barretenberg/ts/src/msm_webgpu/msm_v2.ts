@@ -3370,7 +3370,7 @@ export class MsmV2 {
    * `ops` the flat op-list, `rootRank` the per-window output rank. Returns null
    * if no cutoff was set.
    */
-  getReduceDensePack(): { dense: Uint8Array; ops: Uint32Array; rootRank: number; kPerWindow: number; numWindows: number } | null {
+  getReduceDensePack(): { dense: Uint8Array; ops: Uint32Array; rootRank: number; kPerWindow: number; numWindows: number; c: number } | null {
     if (this.reduceSnapshotLevel < 0 || !this.denseBytes) return null;
     return {
       dense: this.denseBytes,
@@ -3378,6 +3378,7 @@ export class MsmV2 {
       rootRank: this.dpRootRank,
       kPerWindow: this.dpKPerWindow,
       numWindows: this.numWindows,
+      c: this.c,
     };
   }
 
