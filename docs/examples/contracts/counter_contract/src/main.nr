@@ -35,8 +35,7 @@ pub contract Counter {
 
     // docs:start:increment
     #[external("private")]
-    fn increment() {
-        let owner = self.msg_sender();
+    fn increment(owner: AztecAddress) {
         debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
         self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
     }

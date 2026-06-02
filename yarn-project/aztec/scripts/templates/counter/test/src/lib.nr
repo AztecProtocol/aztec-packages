@@ -25,7 +25,7 @@ unconstrained fn test_increment() {
     let initial_value = 5;
     let (mut env, contract_address, owner) = setup(initial_value);
 
-    env.call_private(owner, Counter::at(contract_address).increment());
+    env.call_private(owner, Counter::at(contract_address).increment(owner));
 
     let counter = env.execute_utility(Counter::at(contract_address).get_counter(owner));
     assert_eq(counter, initial_value + 1);

@@ -118,9 +118,7 @@ Now let's implement an `increment` function to increase the counter.
 
 #include_code increment /docs/examples/contracts/counter_contract/src/main.nr rust
 
-The `increment` function uses `self.msg_sender()` so each caller can only increment the counter mapped to their own address. It logs a debug message, then adds 1 to that counter and delivers the note onchain.
-
-Only this mutating action derives the owner from the caller. The one-time `constructor` and the `get_counter` read still take an explicit `owner`: the constructor can seed a chosen account, and a read selects which counter to view (only its owner can decrypt it).
+The `increment` function works similarly to the `constructor`. It logs a debug message, then adds 1 to the `owner`'s counter and delivers the note onchain.
 
 ## Getting a counter
 
