@@ -9,13 +9,16 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
   BlockHash,
+  type BlockParameter,
   GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
   L2Block,
   type L2BlockStream,
+  makeL2BlockId,
+  makeL2CheckpointId,
 } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, BlockIncludeOptions, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -23,8 +26,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
-import { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
-import { NoteStore } from '../storage/note_store/index.js';
+import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
 
@@ -79,21 +82,24 @@ describe('BlockSynchronizer', () => {
   });
 
   it('updates anchor block on a reorg', async () => {
-    const block3Hash = Fr.fromString('0x3');
-    let reorgBlock: L2Block | undefined;
-    aztecNode.getBlock.mockImplementation(async (block: any) => {
-      if (block instanceof BlockHash && block.equals(block3Hash)) {
-        reorgBlock = await L2Block.random(BlockNumber(3));
-        return {
+    // Fork point; the node serves a fresh random block at that height as the new anchor.
+    const reorgBlock = await L2Block.random(BlockNumber(3));
+    const reorgBlockHash = await reorgBlock.hash();
+    const getBlock = aztecNode.getBlock as jest.MockedFunction<
+      (param: BlockParameter, options?: BlockIncludeOptions) => Promise<BlockResponse | undefined>
+    >;
+    getBlock.mockImplementation(block => {
+      if (block instanceof BlockHash && block.equals(reorgBlockHash)) {
+        return Promise.resolve({
           header: reorgBlock.header,
           archive: reorgBlock.archive,
-          hash: await reorgBlock.hash(),
+          hash: reorgBlockHash,
           checkpointNumber: reorgBlock.checkpointNumber,
           indexWithinCheckpoint: reorgBlock.indexWithinCheckpoint,
           number: reorgBlock.number,
-        } as any;
+        });
       }
-      return undefined;
+      return Promise.resolve(undefined);
     });
 
     await synchronizer.handleBlockStreamEvent({
@@ -102,13 +108,13 @@ describe('BlockSynchronizer', () => {
     });
     await synchronizer.handleBlockStreamEvent({
       type: 'chain-pruned',
-      block: { number: BlockNumber(3), hash: block3Hash.toString() },
-      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      block: makeL2BlockId(reorgBlock.number, reorgBlockHash.toString()),
+      checkpoint: makeL2CheckpointId(CheckpointNumber.ZERO, GENESIS_CHECKPOINT_HEADER_HASH.toString()),
     });
 
     // The anchor block should be updated to the reorg block header.
     const obtainedHeader = await anchorBlockStore.getBlockHeader();
-    expect(obtainedHeader.equals(reorgBlock!.header)).toBe(true);
+    expect(obtainedHeader.equals(reorgBlock.header)).toBe(true);
   });
 
   describe('stop', () => {
