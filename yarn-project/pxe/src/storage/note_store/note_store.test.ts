@@ -931,7 +931,7 @@ describe('NoteStore (canonicality)', () => {
       });
       await store.addNotes([noteA, noteB], scope, JOB);
       // Nullify B at block 11 (also inside the range).
-      const nullBlockHash = BlockHash.fromString(Fr.fromString('0x11').toString());
+      const nullBlockHash = BlockHash.fromString(Fr.fromString('0x0b').toString());
       await store.applyNullifiers(
         [{ data: noteB.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash }],
         JOB,
@@ -961,7 +961,7 @@ describe('NoteStore (canonicality)', () => {
         l2BlockHash: CANONICAL_HASH,
       });
       await store.addNotes([noteB], scope, JOB);
-      const nullBlockHash = BlockHash.fromString(Fr.fromString('0x20').toString());
+      const nullBlockHash = BlockHash.fromString(Fr.fromString('0x14').toString());
       await store.applyNullifiers(
         [{ data: noteB.siloedNullifier, l2BlockNumber: BlockNumber(20), l2BlockHash: nullBlockHash }],
         JOB,
@@ -978,6 +978,23 @@ describe('NoteStore (canonicality)', () => {
       const found = await store.getNotes(activeFilter, 'read-job');
       expect(found).toHaveLength(1);
       expect(found[0].siloedNullifier.equals(noteB.siloedNullifier)).toBe(true);
+    });
+
+    it('is idempotent — re-running over an already-deleted range is a no-op', async () => {
+      const noteB = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(10),
+        l2BlockHash: CANONICAL_HASH,
+      });
+      await store.addNotes([noteB], scope, JOB);
+      await store.commit(JOB);
+
+      await kv.transactionAsync(() => store.deleteInBlockRange(10, 10));
+      expect(await store.nullifiersAtBlock(10)).toHaveLength(0);
+
+      // Second run over the same now-empty range hits the missing-row guard: no throw, state unchanged.
+      await kv.transactionAsync(() => store.deleteInBlockRange(10, 10));
+      expect(await store.nullifiersAtBlock(10)).toHaveLength(0);
     });
   });
 

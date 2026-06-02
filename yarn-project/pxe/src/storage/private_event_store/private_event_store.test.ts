@@ -756,7 +756,7 @@ describe('PrivateEventStore', () => {
 
   describe('deleteInBlockRange', () => {
     const BLOCK_HASH_9 = BlockHash.fromString(Fr.fromString('0x09').toString());
-    const BLOCK_HASH_10 = BlockHash.fromString(Fr.fromString('0x10').toString());
+    const BLOCK_HASH_10 = BlockHash.fromString(Fr.fromString('0x0a').toString());
 
     it('deletes every event in the range, leaving lower blocks intact', async () => {
       const eventAt9 = Fr.random();

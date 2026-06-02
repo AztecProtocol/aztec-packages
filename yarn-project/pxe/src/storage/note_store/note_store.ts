@@ -424,50 +424,6 @@ export class NoteStore implements StagedStore {
    *   reaps against the freshly-advanced finalized floor), and passing it in keeps the method unit-testable in
    *   isolation.
    */
-  /**
-   * Deletes every note row and nullification origin anchored to a block in `[fromBlock, toBlock]`. Used by the reorg
-   * (`chain-pruned`) path to truncate the orphaned tail: at prune time every row in this range is on the orphaned
-   * fork, so deletion is unconditional. The append-only model means deleting only the block range that contains a
-   * note's nullification (leaving its creation row at a lower block) restores the note to active — no inversion
-   * logic required.
-   *
-   * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own — the reorg
-   * path wraps it together with the anchor update, and IndexedDB has no nested transactions). Idempotent and
-   * resumable: re-running over the same range hits the missing-row guards and does nothing.
-   */
-  public async deleteInBlockRange(fromBlock: number, toBlock: number): Promise<void> {
-    for (let block = fromBlock; block <= toBlock; block++) {
-      // Snapshot before mutating so we never delete from the multimap we are iterating.
-      const nullifiers = await this.nullifiersAtBlock(block);
-      for (const nullifier of nullifiers) {
-        const buf = await this.#notes.getAsync(nullifier);
-        if (!buf) {
-          continue;
-        }
-        const stored = StoredNote.fromBuffer(buf);
-        await this.#notes.delete(nullifier);
-        await this.#nullifiersByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), nullifier);
-        await this.#nullifiersByBlockNumber.deleteValue(block, nullifier);
-        await this.#nullificationsByNullifier.delete(nullifier);
-      }
-
-      const composites: string[] = [];
-      for await (const composite of this.#nullificationsByBlockNumber.getValuesAsync(block)) {
-        composites.push(composite);
-      }
-      for (const composite of composites) {
-        const sep = composite.indexOf('|');
-        if (sep === -1) {
-          throw new Error(`Malformed nullification index entry: ${composite}`);
-        }
-        const nullifier = composite.slice(0, sep);
-        const originStr = composite.slice(sep + 1);
-        await this.#nullificationsByNullifier.deleteValue(nullifier, originStr);
-        await this.#nullificationsByBlockNumber.deleteValue(block, composite);
-      }
-    }
-  }
-
   public async reapNonCanonicalInRange(
     fromBlock: number,
     toBlock: number,
@@ -508,6 +464,52 @@ export class NoteStore implements StagedStore {
         if (isCanonical(this.#parseOrigin(originStr))) {
           continue;
         }
+        await this.#nullificationsByNullifier.deleteValue(nullifier, originStr);
+        await this.#nullificationsByBlockNumber.deleteValue(block, composite);
+      }
+    }
+  }
+
+  /**
+   * Deletes every note row and nullification origin anchored to a block in `[fromBlock, toBlock]`. Used by the reorg
+   * (`chain-pruned`) path to truncate the orphaned tail: at prune time every row in this range is on the orphaned
+   * fork, so deletion is unconditional. The append-only model means deleting only the block range that contains a
+   * note's nullification (leaving its creation row at a lower block) restores the note to active — no inversion
+   * logic required.
+   *
+   * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own — the reorg
+   * path wraps it together with the anchor update, and IndexedDB has no nested transactions). Idempotent and
+   * resumable: re-running over the same range hits the missing-row guards and does nothing.
+   */
+  public async deleteInBlockRange(fromBlock: number, toBlock: number): Promise<void> {
+    for (let block = fromBlock; block <= toBlock; block++) {
+      // Snapshot before mutating so we never delete from the multimap we are iterating.
+      const nullifiers = await this.nullifiersAtBlock(block);
+      for (const nullifier of nullifiers) {
+        const buf = await this.#notes.getAsync(nullifier);
+        if (!buf) {
+          continue;
+        }
+        const stored = StoredNote.fromBuffer(buf);
+        await this.#notes.delete(nullifier);
+        await this.#nullifiersByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), nullifier);
+        await this.#nullifiersByBlockNumber.deleteValue(block, nullifier);
+        // A note's nullifications are always at >= its creation block, so if its creation is in the pruned range
+        // every nullification origin is too — dropping the whole set is safe.
+        await this.#nullificationsByNullifier.delete(nullifier);
+      }
+
+      const composites: string[] = [];
+      for await (const composite of this.#nullificationsByBlockNumber.getValuesAsync(block)) {
+        composites.push(composite);
+      }
+      for (const composite of composites) {
+        const sep = composite.indexOf('|');
+        if (sep === -1) {
+          throw new Error(`Malformed nullification index entry: ${composite}`);
+        }
+        const nullifier = composite.slice(0, sep);
+        const originStr = composite.slice(sep + 1);
         await this.#nullificationsByNullifier.deleteValue(nullifier, originStr);
         await this.#nullificationsByBlockNumber.deleteValue(block, composite);
       }

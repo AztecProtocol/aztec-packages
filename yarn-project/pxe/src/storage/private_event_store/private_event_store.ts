@@ -250,6 +250,33 @@ export class PrivateEventStore implements StagedStore {
    *   reaps against the freshly-advanced finalized floor), and passing it in keeps the method unit-testable in
    *   isolation.
    */
+  public async reapNonCanonicalInRange(
+    fromBlock: number,
+    toBlock: number,
+    isCanonical: (id: L2BlockId) => boolean,
+  ): Promise<void> {
+    for (let block = fromBlock; block <= toBlock; block++) {
+      // Snapshot the block's event ids BEFORE mutating, so we never delete from the multimap we are iterating.
+      const eventIds = await this.eventIdsAtBlock(block);
+      for (const eventId of eventIds) {
+        const buf = await this.#events.getAsync(eventId);
+        if (!buf) {
+          continue;
+        }
+        const stored = StoredPrivateEvent.fromBuffer(buf);
+        if (isCanonical(stored.creationOrigin)) {
+          continue;
+        }
+        await this.#events.delete(eventId);
+        await this.#eventsByContractAndEventSelector.deleteValue(
+          this.#keyFor(stored.contractAddress, stored.eventSelector),
+          eventId,
+        );
+        await this.#eventsByBlockNumber.deleteValue(block, eventId);
+      }
+    }
+  }
+
   /**
    * Deletes every event anchored to a block in `[fromBlock, toBlock]`. Used by the reorg (`chain-pruned`) path to
    * truncate the orphaned tail: at prune time every row in this range is on the orphaned fork, so deletion is
@@ -269,33 +296,6 @@ export class PrivateEventStore implements StagedStore {
           continue;
         }
         const stored = StoredPrivateEvent.fromBuffer(buf);
-        await this.#events.delete(eventId);
-        await this.#eventsByContractAndEventSelector.deleteValue(
-          this.#keyFor(stored.contractAddress, stored.eventSelector),
-          eventId,
-        );
-        await this.#eventsByBlockNumber.deleteValue(block, eventId);
-      }
-    }
-  }
-
-  public async reapNonCanonicalInRange(
-    fromBlock: number,
-    toBlock: number,
-    isCanonical: (id: L2BlockId) => boolean,
-  ): Promise<void> {
-    for (let block = fromBlock; block <= toBlock; block++) {
-      // Snapshot the block's event ids BEFORE mutating, so we never delete from the multimap we are iterating.
-      const eventIds = await this.eventIdsAtBlock(block);
-      for (const eventId of eventIds) {
-        const buf = await this.#events.getAsync(eventId);
-        if (!buf) {
-          continue;
-        }
-        const stored = StoredPrivateEvent.fromBuffer(buf);
-        if (isCanonical(stored.creationOrigin)) {
-          continue;
-        }
         await this.#events.delete(eventId);
         await this.#eventsByContractAndEventSelector.deleteValue(
           this.#keyFor(stored.contractAddress, stored.eventSelector),
