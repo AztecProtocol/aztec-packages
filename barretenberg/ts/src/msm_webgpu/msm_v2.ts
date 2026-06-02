@@ -540,6 +540,8 @@ interface SharedScratch {
   reducePrefScratch: GPUBuffer;
   // Streaming planner + accumulator buffers (Phase 1-4).
   streamPlannerMeta: GPUBuffer;
+  arena: GPUBuffer;                 // shared buffer; migrated mkBind-only scratch is carved at 256-B offsets
+
   size1BucketList: GPUBuffer;
   denseBucketList: GPUBuffer;
   denseCountList: GPUBuffer;
@@ -576,7 +578,7 @@ interface SharedScratch {
   // partials per hot bucket; pt_alloc is a single atomic claim counter
   // reset each MSM. Sized for the worst case where every emitted partial
   // is in a hot bucket — sum(2N over hot) ≤ 2 × total_partials.
-  ptScratch: GPUBuffer;             // shared by old pt kernel and new pt_buf (16 MB)
+  ptScratch: GPUBufferBinding;      // arena slot — pt_buf (512·sT·sS B ≈ 32 MB)
   ptAlloc: GPUBuffer;               // 1 × atomic<u32> — legacy, kept to avoid bind churn
   ptDispatchArgs: GPUBuffer;        // 3 × u32 — sort_scan writes (ceil(hot_count/TPB),1,1); used by pt_init_copy/build/finalize
   ptCombineDispatchArgs: GPUBuffer; // 3 × u32 — pt_dispatch_compute writes per-level (ceil(total_tasks/S/TPB),1,1)
@@ -943,7 +945,9 @@ export class MsmV2Pool {
     let ptWgBucketStarts = s?.ptWgBucketStarts;
     let ptChunks = s?.ptChunks;
     let ptChunksTotal = s?.ptChunksTotal;
+    let arena = s?.arena;
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
+      arena?.destroy();
       streamPlannerMeta?.destroy();
       size1BucketList?.destroy();
       denseBucketList?.destroy();
@@ -972,7 +976,6 @@ export class MsmV2Pool {
       binOffsets?.destroy();
       binWritePos?.destroy();
       sortedActiveBuckets?.destroy();
-      ptScratch?.destroy();
       ptAlloc?.destroy();
       ptDispatchArgs?.destroy();
       ptOff?.destroy();
@@ -994,6 +997,21 @@ export class MsmV2Pool {
       grow(dims.streamS > cur.streamS, 'streamS');
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
       grow(dims.streamRadixTiles > cur.streamRadixTiles, 'streamRadixTiles');
+      // Arena (incremental consolidation — batch 1: ptScratch only). One buffer,
+      // carved at 256-B-aligned offsets; more buffers fold in as later batches.
+      const ARENA_ALIGN = 256;
+      const alignArena = (b: number): number => Math.ceil(Math.max(b, 4) / ARENA_ALIGN) * ARENA_ALIGN;
+      arena = device.createBuffer({
+        size: alignArena(512 * sT * sS),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
+      let arenaOff = 0;
+      const carve = (b: number): GPUBufferBinding => {
+        const size = Math.max(b, 4);
+        const offset = arenaOff;
+        arenaOff += alignArena(size);
+        return { buffer: arena!, offset, size };
+      };
       streamPlannerMeta = ibuf(Math.max((20 + sT) * 4, 256));
       size1BucketList = sbuf(sBTotal * 2 * 4);
       denseBucketList = sbuf(sBTotal * 4);
@@ -1046,7 +1064,7 @@ export class MsmV2Pool {
       // shift layout. Per-bucket exact slots = N + ceil(N/2) + ceil(N/4) +
       // ... ≤ 2N + log2(N). Sum across hot buckets ≤ 2·total + NUM_HOT·17.
       // 4× M_partials_walker is the safe ceiling — bumping past 16 MB to 32.
-      ptScratch = sbuf(512 * sT * sS);
+      ptScratch = carve(512 * sT * sS);
       ptAlloc = sbuf(4);
       // Indirect dispatch args (x, y, z) written by sortScan and consumed by
       // the pair-tree dispatchWorkgroupsIndirect. Needs INDIRECT usage.
@@ -1143,6 +1161,7 @@ export class MsmV2Pool {
       binOffsets: binOffsets!,
       binWritePos: binWritePos!,
       sortedActiveBuckets: sortedActiveBuckets!,
+      arena: arena!,
       ptScratch: ptScratch!,
       ptAlloc: ptAlloc!,
       ptDispatchArgs: ptDispatchArgs!,
@@ -2134,10 +2153,16 @@ export class MsmV2 {
       this.prepBuffers.push(b);
       return b;
     };
-    const mkBind = (layout: GPUBindGroupLayout, buffers: GPUBuffer[]): GPUBindGroup =>
+    // Accepts a raw GPUBuffer (whole-buffer binding) or a {buffer, offset, size}
+    // slot (sub-range of the shared arena), so buffers migrate into the arena one
+    // batch at a time while un-migrated ones keep binding as whole buffers.
+    const mkBind = (layout: GPUBindGroupLayout, buffers: (GPUBuffer | GPUBufferBinding)[]): GPUBindGroup =>
       device.createBindGroup({
         layout,
-        entries: buffers.map((buffer, binding) => ({ binding, resource: { buffer } })),
+        entries: buffers.map((b, binding) => ({
+          binding,
+          resource: b instanceof GPUBuffer ? { buffer: b } : b,
+        })),
       });
 
     const l0Slots = batchSlots + 3;
