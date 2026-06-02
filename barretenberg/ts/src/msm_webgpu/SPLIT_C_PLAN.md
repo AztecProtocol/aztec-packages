@@ -81,21 +81,26 @@ out divide-free and byte-identical *before* any variable geometry exists.
 
 ## The `WindowDesc[]` table
 
-One storage buffer, ≤128 entries (`VAR_WINDOW_MAX_WINDOWS`). Per window `w`:
+One storage buffer, stride-8 u32 rows (5 fields used + 3 pad). As actually built
+in `msm_v2.ts` (NOT the original sketch — `num_buckets` holds the reduce-slot count
+STRIDE, and the CSR column count is a separate `num_columns` field). Per window `w`:
 
 ```wgsl
-struct WindowDesc {        // 20 B → pad to 32
-  window_bits : u32,       // c_w
-  bit_base    : u32,       // Σ_{k<w} c_k  (start bit in the scalar)
-  num_buckets : u32,       // 2^(c_w-1) + 1
-  work_off    : u32,       // prefix sum of num_buckets — bucket-id base in PASS space
-  reduce_off  : u32,       // prefix sum of stride_w = 2^(c_w-1) — red_buf base
-}
+// WD_STRIDE = 8 u32 per row.
+//  +0 window_bits : c_w
+//  +1 bit_base    : Σ_{k<w} c_k          (start bit in the scalar)
+//  +2 num_buckets : stride_w = 2^(c_w-1)  (red_buf slots per window; the magnitude
+//                                          upper bound — classify drops mag>this)
+//  +3 work_off    : Σ_{k<w} num_columns_k (CSR/PASS bucket-id base; prefix of +5)
+//  +4 reduce_off  : Σ_{k<w} stride_k       (red_buf base; prefix of +2)
+//  +5 num_columns : BW_w = pad(2^(c_w-1)+1) (transpose CSR column count per window)
 ```
 `region` (lower/upper) and `point source` (identity vs `idx_large`) are derived
 from `w < W_lo`. **`no-split = uniform fill`**: `window_bits=c`, `bit_base=w·c`,
-`num_buckets=2^(c-1)+1`, `work_off=w·BW`, `reduce_off=w·STRIDE` → every kernel
-reproduces today's output exactly.
+`num_buckets=STRIDE`, `work_off=w·BW`, `reduce_off=w·STRIDE`, `num_columns=BW` →
+every kernel reproduces today's output exactly. (`BW = pad(2^(c-1)+1)` to a
+multiple of `PLANNER_TPB`; the table is padded to `numBatches·batchWindows` rows so
+short final batches have valid padded-window entries.)
 
 ## Memory — envelope-bounded, no bloat
 
