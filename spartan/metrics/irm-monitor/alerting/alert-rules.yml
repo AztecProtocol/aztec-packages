@@ -16,7 +16,7 @@ groups:
               datasourceUid: grafanacloud-prom
               model:
                 editorMode: code
-                expr: changes(rollup_pending_block_number{network!="staging-ignition"}[40m])
+                expr: changes(rollup_pending_block_number[40m])
                 instant: true
                 intervalMs: 1000
                 legendFormat: __auto
@@ -33,7 +33,7 @@ groups:
                     type: prometheus
                     uid: grafanacloud-prom
                 editorMode: code
-                expr: rollup_pending_block_number{network!="staging-ignition"}
+                expr: rollup_pending_block_number
                 instant: true
                 intervalMs: 1000
                 legendFormat: __auto

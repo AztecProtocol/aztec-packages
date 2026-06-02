@@ -62,6 +62,7 @@
     "./eth-signature": "./dest/eth-signature/index.js",
     "./queue": "./dest/queue/index.js",
     "./fifo": "./dest/fifo/index.js",
+    "./fifo-set": "./dest/fifo_set/index.js",
     "./fs": "./dest/fs/index.js",
     "./buffer": "./dest/buffer/index.js",
     "./json-rpc": "./dest/json-rpc/index.js",

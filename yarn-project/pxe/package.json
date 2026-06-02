@@ -16,7 +16,8 @@
     "./client/lazy": "./dest/entrypoints/client/lazy/index.js",
     "./client/bundle": "./dest/entrypoints/client/bundle/index.js",
     "./simulator": "./dest/contract_function_simulator/index.js",
-    "./config": "./dest/config/index.js"
+    "./config": "./dest/config/index.js",
+    "./bin": "./dest/bin/index.js"
   },
   "bin": "./dest/bin/index.js",
   "scripts": {
@@ -82,6 +83,7 @@
     "@aztec/noir-types": "workspace:*",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "koa": "^2.16.1",
     "koa-router": "^13.1.1",

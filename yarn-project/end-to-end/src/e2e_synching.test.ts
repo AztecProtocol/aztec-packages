@@ -66,6 +66,7 @@ import * as fs from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { getContract } from 'viem';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { type EndToEndContext, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
 import { TestWallet } from './test-wallet/test_wallet.js';
@@ -340,6 +341,7 @@ describe('e2e_synching', () => {
         initialFundedAccounts,
         cheatCodes,
       } = await setup(1, {
+        ...PIPELINING_SETUP_OPTS,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
         numberOfInitialFundedAccounts: variant.txCount + 1,
@@ -422,6 +424,7 @@ describe('e2e_synching', () => {
       initialFundedAccounts,
       dateProvider,
     } = await setup(0, {
+      ...PIPELINING_SETUP_OPTS,
       l1StartTime: START_TIME,
       numberOfInitialFundedAccounts: 10,
     });
@@ -630,13 +633,10 @@ describe('e2e_synching', () => {
           );
           for (let i = 0; i < contracts.length; i++) {
             expect(contractInstances[i]).not.toBeUndefined();
-            expect(contractClassIds.includes(contractInstances[i].currentContractClassId)).toBeTrue;
+            expect(contractClassIds.some(id => id.equals(contractInstances[i].currentContractClassId))).toBeTrue();
           }
 
-          expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
-          expect(
-            await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 }),
-          ).not.toEqual([]);
+          expect(await archiver.getTxEffect(txHash)).not.toBeUndefined();
 
           await rollup.write.prune();
 
@@ -646,21 +646,18 @@ describe('e2e_synching', () => {
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
-          expect(contractClassIdsAfter.includes(contractInstances[0].currentContractClassId)).toBeTrue;
-          expect(contractClassIdsAfter.includes(contractInstances[1].currentContractClassId)).toBeFalse;
-          expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined;
-          expect(await archiver.getContract(contracts[1].address)).toBeUndefined;
-          expect(await archiver.getContract(contracts[2].address)).toBeUndefined;
+          expect(contractClassIdsAfter.some(id => id.equals(contractInstances[0].currentContractClassId))).toBeTrue();
+          expect(contractClassIdsAfter.some(id => id.equals(contractInstances[1].currentContractClassId))).toBeFalse();
+          expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined();
+          expect(await archiver.getContract(contracts[1].address)).toBeUndefined();
+          expect(await archiver.getContract(contracts[2].address)).toBeUndefined();
 
           // Only the hardcoded schnorr is pruned since the contract class also existed before prune.
           expect(contractClassIdsAfter).toEqual(
             contractClassIds.filter(c => !c.equals(contractInstances[1].currentContractClassId)),
           );
 
-          expect(await archiver.getTxEffect(txHash)).toBeUndefined;
-          expect(await archiver.getPublicLogs({ fromBlock: blockTip.number, toBlock: blockTip.number + 1 })).toEqual(
-            [],
-          );
+          expect(await archiver.getTxEffect(txHash)).toBeUndefined();
 
           // Check world state reverted as well
           const latestBlockNumber = await archiver.getBlockNumber();

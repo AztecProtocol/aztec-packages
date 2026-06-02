@@ -5,6 +5,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { OutboxContract, RollupContract, type ViemL2ToL1Msg } from '@aztec/ethereum/contracts';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import {
@@ -12,14 +13,45 @@ import {
   computeL2ToL1MembershipWitness,
   getL2ToL1MessageLeafId,
 } from '@aztec/stdlib/messaging';
-import type { TxHash } from '@aztec/stdlib/tx';
+import { type TxHash, TxStatus } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import { type Hex, decodeEventLog } from 'viem';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
+/**
+ * Waits for the sequencer to reach IDLE state so that subsequent setConfig() calls take effect on
+ * the next checkpoint job rather than racing with an in-flight one. Mirrors the helper in
+ * `e2e_fees/gas_estimation.test.ts`.
+ */
+function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<void> {
+  if (sequencer.status().state === SequencerState.IDLE) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      sequencer.off('state-changed', handler);
+      reject(new Error('Timeout waiting for sequencer IDLE state'));
+    }, timeout);
+    const handler = (args: Parameters<SequencerEvents['state-changed']>[0]) => {
+      if (args.newState === SequencerState.IDLE) {
+        clearTimeout(timer);
+        sequencer.off('state-changed', handler);
+        resolve();
+      }
+    };
+    sequencer.on('state-changed', handler);
+  });
+}
+
 describe('e2e_cross_chain_messaging l2_to_l1', () => {
+  // Pipelining slows wall-clock chain progress (12s slots); advanceToEpochProven plus the per-test
+  // multi-tx flows exceed the default 300s per-test budget.
+  jest.setTimeout(15 * 60 * 1000);
+
   const t = new CrossChainMessagingTest('l2_to_l1', { startProverNode: true });
 
   let crossChainTestHarness: CrossChainTestHarness;
@@ -35,7 +67,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   let contract: TestContract;
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS }, { syncChainTip: 'checkpointed' });
 
     ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, wallet, user1Address, rollup, outbox } = t);
 
@@ -43,7 +75,10 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     version = BigInt(await rollup.getVersion());
 
-    ({ contract } = await TestContract.deploy(wallet).send({ from: user1Address }));
+    ({ contract } = await TestContract.deploy(wallet).send({
+      from: user1Address,
+      wait: { waitForStatus: TxStatus.CHECKPOINTED },
+    }));
   });
 
   afterAll(async () => {
@@ -59,6 +94,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     // Configure the node to be able to rollup only 1 tx.
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+    await waitForSequencerIdle(t.context.sequencer!.getSequencer());
 
     const { receipt: txReceipt } = await new BatchCall(wallet, [
       contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(contents[0], recipient),
@@ -90,6 +126,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     // Configure the node to include the 2 txs in the same block.
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
+    await waitForSequencerIdle(t.context.sequencer!.getSequencer());
 
     // Send the 2 txs.
     const [{ receipt: noMessageReceipt }, { receipt: withMessageReceipt }] = await Promise.all([
@@ -112,6 +149,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   it('2 txs (balanced), one with 3 messages (unbalanced), one with 4 messages (balanced)', async () => {
     // Force txs to be in the same block.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
+    await waitForSequencerIdle(t.context.sequencer!.getSequencer());
 
     const tx0 = generateMessages(3);
     const tx1 = generateMessages(4);
@@ -164,6 +202,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   it('3 txs (unbalanced), one with 3 messages (unbalanced), one with 1 message (the subtree root), one with 2 messages (balanced)', async () => {
     // Force txs to be in the same block.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 3 });
+    await waitForSequencerIdle(t.context.sequencer!.getSequencer());
 
     const tx0 = generateMessages(3);
     const tx1 = generateMessages(1);
@@ -214,7 +253,64 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     }
   });
 
-  // TODO(#17027): Add tests for multiple blocks per checkpoint.
+  // Two txs, each emitting one L2-to-L1 message, packed into separate blocks of a single checkpoint.
+  // This exercises the checkpoint level of the L2-to-L1 message tree (the block out hashes within a
+  // checkpoint), which the single-block-per-checkpoint cases above never reach. See #17027.
+  it('2 txs each with a message, in different blocks of the same checkpoint', async () => {
+    const recipient = msgSender;
+    const contents = [Fr.random(), Fr.random()];
+    const messages = contents.map(content => makeL2ToL1Message(recipient, content));
+
+    // Enable multiple-blocks-per-checkpoint: enforce the timetable so the sequencer splits the slot
+    // into per-block sub-slots, cap each block at a single tx, and require (and accept at most) two
+    // blocks before publishing the checkpoint. With the two txs below this yields one checkpoint
+    // holding two single-tx blocks.
+    await aztecNodeAdmin.setConfig({
+      enforceTimeTable: true,
+      blockDurationMs: 2000,
+      minTxsPerBlock: 1,
+      maxTxsPerBlock: 1,
+      minBlocksForCheckpoint: 2,
+      maxBlocksPerCheckpoint: 2,
+    });
+    await waitForSequencerIdle(t.context.sequencer!.getSequencer());
+
+    // Send the 2 txs. minBlocksForCheckpoint=2 keeps the sequencer from publishing until both have
+    // been packed (one per block), so they always end up in the same checkpoint.
+    const [{ receipt: receipt0 }, { receipt: receipt1 }] = await Promise.all([
+      contract.methods
+        .create_l2_to_l1_message_arbitrary_recipient_private(contents[0], recipient)
+        .send({ from: user1Address }),
+      contract.methods
+        .create_l2_to_l1_message_arbitrary_recipient_private(contents[1], recipient)
+        .send({ from: user1Address }),
+    ]);
+
+    // The 2 txs must land in different blocks...
+    expect(receipt0.blockNumber).not.toEqual(receipt1.blockNumber);
+
+    // ...that belong to the same checkpoint, at consecutive positions within it.
+    const block0 = (await aztecNode.getBlock(receipt0.blockNumber!, { includeTransactions: true }))!;
+    const block1 = (await aztecNode.getBlock(receipt1.blockNumber!, { includeTransactions: true }))!;
+    expect(block0.checkpointNumber).toEqual(block1.checkpointNumber);
+    expect([block0.indexWithinCheckpoint, block1.indexWithinCheckpoint].sort((a, b) => a - b)).toEqual([0, 1]);
+
+    // Each block carries exactly its own message.
+    expect(block0.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs)).toStrictEqual([
+      computeMessageLeaf(messages[0]),
+    ]);
+    expect(block1.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs)).toStrictEqual([
+      computeMessageLeaf(messages[1]),
+    ]);
+
+    // Advance the epoch until proven, since the messages are inserted to the outbox when the epoch is proven.
+    await t.advanceToEpochProven(receipt1);
+
+    // Consume both messages. The membership witnesses now span the checkpoint's block subtree, not just
+    // a single block.
+    await expectConsumeMessageToSucceed(messages[0], receipt0.txHash);
+    await expectConsumeMessageToSucceed(messages[1], receipt1.txHash);
+  });
 
   function makeL2ToL1Message(recipient: EthAddress, content: Fr = Fr.ZERO): ViemL2ToL1Msg {
     return {
@@ -254,13 +350,14 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
   async function expectConsumeMessageToSucceed(msg: ReturnType<typeof makeL2ToL1Message>, l2TxHash: TxHash) {
     const msgLeaf = computeMessageLeaf(msg);
-    const result = (await computeL2ToL1MembershipWitness(aztecNode, msgLeaf, l2TxHash))!;
-    const { epochNumber: epoch, ...witness } = result;
+    const result = (await computeL2ToL1MembershipWitness(aztecNode, outbox, msgLeaf, l2TxHash))!;
+    const { epochNumber: epoch, numCheckpointsInEpoch, ...witness } = result;
     const leafId = getL2ToL1MessageLeafId(witness);
 
     const txHash = await outbox.consume(
       msg,
       epoch,
+      numCheckpointsInEpoch,
       witness.leafIndex,
       witness.siblingPath.toFields().map(f => f.toString()),
     );
@@ -288,6 +385,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
         root: `0x${string}`;
         messageHash: `0x${string}`;
         leafId: bigint;
+        numCheckpointsInEpoch: bigint;
       };
     };
     expect(topics.args.epoch).toBe(BigInt(epoch));
@@ -307,6 +405,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       outbox.consume(
         msg,
         witness.epochNumber,
+        witness.numCheckpointsInEpoch,
         witness.leafIndex,
         witness.siblingPath.toFields().map(f => f.toString()),
       ),

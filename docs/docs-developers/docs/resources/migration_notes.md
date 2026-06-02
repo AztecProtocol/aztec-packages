@@ -9,6 +9,369 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `set_sender_for_tags` oracle removed
+
+The `set_sender_for_tags` oracle has been removed. Contracts that used it to override the sender for discovery tag derivation should now use the `with_sender` builder method on `MessageDelivery`:
+
+```diff
+- use aztec::oracle::notes::set_sender_for_tags;
++ use aztec::messages::message_delivery::MessageDelivery;
+
+- unsafe { set_sender_for_tags(some_address) };
+- note.deliver(MessageDelivery::onchain_constrained());
++ note.deliver(MessageDelivery::onchain_constrained().with_sender(some_address));
+```
+
+When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender.
+
+### [Aztec.nr] `MessageDelivery` API syntax change
+
+`MessageDelivery` variants are now accessed via constructor functions instead of dot notation:
+
+```diff
+- MessageDelivery.OFFCHAIN
++ MessageDelivery::offchain()
+
+- MessageDelivery.ONCHAIN_UNCONSTRAINED
++ MessageDelivery::onchain_unconstrained()
+
+- MessageDelivery.ONCHAIN_CONSTRAINED
++ MessageDelivery::onchain_constrained()
+```
+
+### [Aztec.js] `ExtendedDirectionalAppTaggingSecret` renamed to `AppTaggingSecret`
+
+`ExtendedDirectionalAppTaggingSecret` has been renamed to `AppTaggingSecret`.
+
+**Migration:**
+
+```diff
+- import { ExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
++ import { AppTaggingSecret } from '@aztec/stdlib/logs';
+
+- ExtendedDirectionalAppTaggingSecret.fromString(value)
++ AppTaggingSecret.fromString(value)
+```
+
+**Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
+
+### [Protocol] Remaining protocol-contract addresses compacted to 1-3
+
+After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
+
+### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
+
+`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE *preloads*: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
+
+To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
+
+```ts
+const wallet = await EmbeddedWallet.create(node, {
+  pxe: {
+    preloadedContractsProvider: {
+      // EmbeddedWallet's built-in default preloads only MultiCallEntrypoint + AuthRegistry.
+      // A custom provider REPLACES that default (it is not additive), so re-list the ones you
+      // still want and add the extras — here, PublicChecks.
+      getPreloadedContracts: async () => [
+        await getStandardMultiCallEntrypoint(),
+        await getStandardAuthRegistry(),
+        await getStandardPublicChecks(),
+      ],
+    },
+  },
+});
+```
+
+The provider *replaces* the default list (it is not additive), so include every standard contract you want available.
+
+### [Aztec.nr] `public_checks` demoted from protocol contract
+
+`public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. The aztec-nr constant has moved and been renamed:
+
+```diff
+- use protocol_types::constants::PUBLIC_CHECKS_ADDRESS;
++ use crate::standard_addresses::STANDARD_PUBLIC_CHECKS_ADDRESS;
+```
+
+Unlike MultiCallEntrypoint and AuthRegistry, `PublicChecks` is **not** preloaded by `createPXE` or `EmbeddedWallet`. If your contract uses `privately_check_timestamp` or `privately_check_block_number`, `PublicChecks` must be deployed and made available to your PXE — either include it in a custom `preloadedContractsProvider` (see the `multi_call_entrypoint` note above) or register it directly:
+
+```ts
+import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
+
+const { instance, artifact } = await getStandardPublicChecks();
+await pxe.registerContract({ instance, artifact });
+```
+
+For browser bundles, import from `@aztec/standard-contracts/public-checks/lazy` instead.
+
+Deploy `PublicChecks` once per fresh rollup: `aztec-wallet deploy public_checks_contract@PublicChecks --salt 1 --universal -f <fee-paying-account>`.
+
+### [Aztec.nr] `auth_registry` demoted from protocol contract
+
+`auth_registry` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `1`. The aztec-nr constant has moved and been renamed:
+
+```diff
+- use protocol_types::constants::CANONICAL_AUTH_REGISTRY_ADDRESS;
++ use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
+```
+
+PXE no longer auto-registers `AuthRegistry` on startup. `EmbeddedWallet` preloads it automatically (alongside the MultiCallEntrypoint — see the `multi_call_entrypoint` note above), so apps using the standard wallet need no changes. If you use a PXE setup that doesn't preload it, add it to a custom `preloadedContractsProvider` or register it explicitly:
+
+```ts
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+
+const { instance, artifact } = await getStandardAuthRegistry();
+await pxe.registerContract({ instance, artifact });
+```
+
+For browser bundles, import from `@aztec/standard-contracts/auth-registry/lazy` instead.
+
+Deploy `AuthRegistry` once per fresh rollup: `aztec-wallet deploy auth_registry_contract@AuthRegistry --salt 1 --universal -f <fee-paying-account>`.
+
+### [Aztec.nr] `public_checks` helpers moved to `aztec-nr`
+
+The `privately_check_timestamp`, `privately_check_block_number`, and related caller helpers previously in `noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr` are now in `aztec-nr/aztec/src/public_checks.nr`. Consumer contracts should update their imports:
+
+```diff
+- use public_checks::utils::privately_check_timestamp;
++ use aztec::public_checks::privately_check_timestamp;
+```
+
+### [Aztec Node / Aztec.js / CLI] Log retrieval API consolidated to two tag-based methods
+
+The four log-retrieval methods on `AztecNode` have been collapsed into two. `getContractClassLogs` and the `LogFilter`-shaped `getPublicLogs` are removed entirely; the surviving methods are `getPrivateLogsByTags(query)` and `getPublicLogsByTags(query)`, both taking a single query object and returning `LogResult[][]` (one inner array per requested tag, in input order).
+
+**Removed methods on `AztecNode`:**
+
+| Removed                                                                     | Replacement                                              |
+| --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `getPublicLogs(filter: LogFilter)`                                          | `getPublicLogsByTags({ contractAddress, tags, ... })`    |
+| `getContractClassLogs(filter: LogFilter)`                                   | none — RPC removed; no production consumer existed       |
+| `getPrivateLogsByTags(tags, page?, referenceBlock?)`                        | `getPrivateLogsByTags({ tags, ... })`                    |
+| `getPublicLogsByTagsFromContract(contract, tags, page?, referenceBlock?)`   | `getPublicLogsByTags({ contractAddress, tags, ... })`    |
+
+**New query and response shapes:**
+
+```ts
+// Query
+type TagQuery<T> = T | { tag: T; afterLog?: LogCursor };
+
+type LogsQueryBase = {
+  fromBlock?: BlockNumber;        // inclusive
+  toBlock?: BlockNumber;          // exclusive
+  txHash?: TxHash;                // mutually exclusive with fromBlock/toBlock
+  referenceBlock?: BlockHash;     // reorg-safety anchor; throws if missing
+  includeEffects?: boolean;       // attach noteHashes + all nullifiers
+};
+
+type PrivateLogsQuery = LogsQueryBase & { tags: TagQuery<SiloedTag>[] };
+type PublicLogsQuery  = LogsQueryBase & { contractAddress: AztecAddress; tags: TagQuery<Tag>[] };
+
+// Response (per log)
+type LogResult = {
+  logData: Fr[];
+  blockNumber: BlockNumber;
+  blockHash: BlockHash;
+  blockTimestamp: UInt64;
+  txHash: TxHash;
+  logIndexWithinTx: number;
+  noteHashes?: Fr[];   // present only when includeEffects is set
+  nullifiers?: Fr[];   // all nullifiers of the tx, not just the first
+};
+```
+
+**Public queries now require a contract address.** Tag-only / contract-less public queries are no longer supported (the public log index is keyed on `(contract, tag)`).
+
+**Per-tag `afterLog` cursors replace the global `page` argument.** Each tag advances independently — pass `{ tag, afterLog: LogCursor.fromLog(lastLog) }` to resume that tag, and omit it for tags that are already exhausted.
+
+**Aztec.js wallet — `PublicEventFilter.contractAddress` is now required, and `afterLog` is a `LogCursor`:**
+
+```diff
+- type PublicEventFilter = EventFilterBase & { contractAddress?: AztecAddress };
++ type PublicEventFilter = EventFilterBase & { contractAddress: AztecAddress };
+
+  type EventFilterBase = {
+    txHash?: TxHash;
+    fromBlock?: BlockNumber;
+    toBlock?: BlockNumber;
+-   afterLog?: LogId;
++   afterLog?: LogCursor;
+  };
+```
+
+`LogId`, `LogFilter`, `TxScopedL2Log`, `ExtendedPublicLog`, `ExtendedContractClassLog`, `GetPublicLogsResponse`, and `GetContractClassLogsResponse` are no longer exported from `@aztec/aztec.js`. Build cursors with `LogCursor.fromLog(log)` and decode public-event payloads from `result.logData.slice(1)` (the tag is field 0).
+
+**CLI — `aztec get-logs` now requires `--contract-address` and `--tag`:**
+
+```diff
+- aztec get-logs [--tx-hash <tx>] [--from-block <n>] [--to-block <n>] [--after-log <id>]
++ aztec get-logs --contract-address <address> --tag <tag> \
++               [--tx-hash <tx>] [--from-block <n>] [--to-block <n>] [--after-log <cursor>]
+```
+
+`--after-log` now takes a `LogCursor` of the form `<blockNumber>-<txIndexWithinBlock>-<logIndexWithinTx>` (formerly a `LogId`).
+
+**Mutual exclusion**: setting both `txHash` and `fromBlock`/`toBlock` is rejected (a `txHash` already pins a block). `txHash` + `afterLog` is allowed and paginates within the tx's logs for a tag.
+
+**Impact**: Any consumer of `getPublicLogs(LogFilter)`, `getContractClassLogs`, the old tag-based methods, `PublicEventFilter` without a `contractAddress`, or `EventFilterBase.afterLog: LogId` must be updated. The CLI rejects calls missing `--contract-address` or `--tag`.
+
+### [Aztec.js] `AccountManager.create` takes an options bag
+
+`AccountManager.create` no longer takes `salt` as a positional argument. The trailing `salt?: Salt` parameter has been folded into a new `AccountManagerCreateOptions` bag alongside `immutablesHash` and `deployer`:
+
+```diff
+- AccountManager.create(wallet, secret, accountContract, salt)
++ AccountManager.create(wallet, secret, accountContract, { salt })
+```
+
+`immutablesHash` lets callers commit a non-zero immutables hash on the resulting `ContractInstance` (folded into the salted initialization hash, so it affects the derived address). `deployer` overrides the deployer address recorded on the instance (defaults to `AztecAddress.ZERO`). The same `immutablesHash` field is now also threaded through `DeployMethod` / `DeployAccountMethod` so the address derived at deploy time matches the one on `accountManager.getInstance()`.
+
+### [Aztec.nr] Defining a custom `sync_state` function now requires `AztecConfig`
+
+Contracts that previously overrode the default `sync_state` by defining their own function with that name will now get a compile error. Use `AztecConfig::custom_sync_state()` instead.
+
+The custom hook receives the same parameters as `do_sync_state` and is responsible for calling it if default behavior is also desired. You can perform work before and/or after the default `do_sync_state` call, or skip it entirely.
+
+```diff
++ unconstrained fn my_custom_sync(
++     contract_address: AztecAddress,
++     compute_note_hash: ComputeNoteHash,
++     compute_note_nullifier: ComputeNoteNullifier,
++     process_custom_message: Option<CustomMessageHandler>,
++     offchain_inbox_sync: Option<OffchainInboxSync>,
++     scope: AztecAddress,
++ ) {
++     // optional: work before default sync
++     do_sync_state(contract_address, compute_note_hash, compute_note_nullifier, process_custom_message, offchain_inbox_sync, scope);
++     // optional: work after default sync
++ }
+
+- #[aztec]
++ #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::my_custom_sync))]
+  contract MyContract {
+-     use aztec::macros::functions::external;
+-
+-     #[external("utility")]
+-     unconstrained fn sync_state(scope: AztecAddress) {
+-         // custom sync logic
+-     }
+  }
+```
+
+**Impact**: Only contracts that manually defined a `sync_state` function are affected. Contracts using the default macro-generated `sync_state` require no changes.
+
+### [Aztec.nr] `push_nullifier` renamed to `push_nullifier_unsafe`
+
+`PrivateContext::push_nullifier` and `PublicContext::push_nullifier` have been renamed to `push_nullifier_unsafe` to
+make it clear that they are low-level functions that require careful domain separation. This is consistent with the
+`_unsafe` suffix already used by `emit_private_log_unsafe`, `emit_raw_note_log_unsafe`, and `emit_public_log_unsafe`.
+
+```diff
+- context.push_nullifier(nullifier);
++ context.push_nullifier_unsafe(nullifier);
+```
+
+Prefer higher-level abstractions like `SingleUseClaim` or `destroy_note` which handle domain separation automatically.
+
+### [Aztec.nr] `LogRetrievalRequest` now includes `source`, `from_block`, and `to_block` fields
+
+`LogRetrievalRequest` has been extended with three new fields to support filtering logs by source and block range. The `get_logs_by_tag` oracle now also returns all matching logs per tag instead of only the first match.
+
+A `LogRetrievalRequest::new(contract_address, tag)` constructor is provided that defaults to querying both public and private logs with no block range filter:
+
+```rust
+LogRetrievalRequest::new(contract_address, my_tag)
+```
+
+If you need to customize source or block range, construct the struct manually with the new fields:
+
+```diff
+  LogRetrievalRequest {
+      tag: my_tag,
++     source: LogSource.PUBLIC_AND_PRIVATE,
++     from_block: Option::none(),
++     to_block: Option::none(),
+  }
+```
+
+`source` controls which RPCs are queried: `LogSource.PRIVATE`, `LogSource.PUBLIC`, or `LogSource.PUBLIC_AND_PRIVATE`. `from_block` and `to_block` define a half-open `[from, to)` block range filter. Both are `Option<Field>` and default to `Option::none()` (no filtering).
+
+### [Protocol] Public-key hashes replace points in `PublicKeys`
+
+Ships together with immutables hash changes (shown below).
+
+Per [AZIP-8](https://github.com/AztecProtocol/governance/blob/main/AZIPs/azip-8.md), `PublicKeys` no longer carries the four master public keys as elliptic curve points. Three of them (`npk_m`, `ovpk_m`, `tpk_m`) are now exposed only as their poseidon2 hash digests; only `ivpk_m` (the master incoming viewing key) remains a point because address derivation needs it as a curve point.
+
+**This is a hard fork:** every contract address and account address derived from a non-default `PublicKeys` changes.
+
+**Contract author migration.** Read the master nullifier hash directly off `PublicKeys` instead of computing it from a point:
+
+```diff
+- let owner_npk_m = get_public_keys(owner).npk_m;
+- let secret = context.request_nhk_app(owner_npk_m.hash());
++ let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
++ let secret = context.request_nhk_app(owner_npk_m_hash);
+```
+
+The same field-rename applies to `.ovpk_m` and `.tpk_m`: these are now `.ovpk_m_hash` and `.tpk_m_hash` respectively. Code that needed those keys as points will not compile; the points are no longer accessible to contract code.
+
+**Custom account contracts.** Wallets that ship their own Noir account contracts must recompile. Macro-generated calldata extraction and the `request_nsk_app` / `request_ovsk_app` paths use the hash form natively.
+
+**TS / wallet author migration.** The `PublicKeys` constructor signature changes from four `Point`s to `(npkMHash: Fr, ivpkM: Point, ovpkMHash: Fr, tpkMHash: Fr)`. `KeyValidationRequest` carries `pkMHash: Fr` instead of `pkM: Point`. `KeyStore.getMasterSecretKey` now takes a `pkMHash: Fr` rather than a `Point`. Callers using the auto-generated TS binding pick this up automatically; callers that hand-roll the arg buffer must update.
+
+**Wallet UI.** Any panel that displayed `masterNullifierPublicKey`, `masterOutgoingViewingPublicKey`, or `masterTaggingPublicKey` as Grumpkin points will no longer compile against the new `PublicKeys` class. The points themselves are no longer in `ContractInstancePublished` and cannot be recovered from the onchain record. Switch to displaying the hashes (`npkMHash`, `ovpkMHash`, `tpkMHash`) or drop the display.
+
+**PXE storage migration.** `DatabaseVersionManager` deletes pre-v6 databases on first open: users will see registered accounts, contacts, address aliases, and synced notes wiped. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path. There is no forward migration because the address derived from a given secret changes (the new `public_keys_hash` is over four single-key digests, not four raw points). Previous addresses are not recoverable from the same secret; assets and notes attached to them are inaccessible at the protocol level.
+
+**Indexer / event-decoder migration.** The `ContractInstancePublished` private log payload is now 13 fields:
+
+```text
+[ MAGIC, address, version, salt, class_id, init_hash,
+  immutables_hash,
+  npk_m_hash,
+  ivpk_m.x, ivpk_m.y,
+  ovpk_m_hash,
+  tpk_m_hash,
+  deployer ]
+```
+
+`version` is `2`. v1 events should be rejected.
+
+**Security note (PXE side).** The kernel circuit no longer checks that `npk_m`, `ovpk_m`, `tpk_m` are on-curve or non-infinity (those points are no longer in the witness). The PXE / key store relies on `deriveKeys`'s by-construction guarantee that derived points are on-curve and non-infinity. Account-creation flows that bypass `deriveKeys` (e.g. importing pre-derived public keys from an external source) must validate this themselves, or risk producing unspendable notes.
+
+### [Contracts] `ContractInstance` gains `immutablesHash`, address derivation changes
+
+`ContractInstance` now has a new `immutablesHash: Fr` field that commits to a contract's immutable storage values. The field is folded into the salted initialization hash, so contract addresses are impacted:
+
+```
+salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash])
+```
+
+**You may need to act if:**
+
+- You hardcode contract addresses computed from instance fields outside the SDK. Recompute them under the new derivation.
+- You parse the `ContractInstancePublished` private log directly. The event payload has an extra field, with `immutables_hash` inserted between `initialization_hash` and the public-keys block:
+
+  ```
+  [tag, address, version, salt, classId, initialization_hash, immutables_hash, ...publicKeys(5), deployer]
+  ```
+
+- You call `ContractInstanceRegistry.publish_for_public_execution` directly. The function now takes 6 arguments instead of 5, with `immutables_hash` inserted between `initialization_hash` and `public_keys`:
+
+  ```diff
+  - publish_for_public_execution(salt, contract_class_id, initialization_hash,                  public_keys, universal_deploy)
+  + publish_for_public_execution(salt, contract_class_id, initialization_hash, immutables_hash, public_keys, universal_deploy)
+  ```
+
+- You call the `GetContractInstance` AVM opcode directly or use the per-member helpers in `aztec-nr`. A new enum value `ContractInstanceMember::IMMUTABLES_HASH = 3` selects `immutables_hash`. Use the wrapper helper from `aztec::oracle::get_contract_instance`:
+
+  ```rust
+  use aztec::oracle::get_contract_instance::get_contract_instance_immutables_hash_avm;
+  let immutables_hash: Option<Field> = get_contract_instance_immutables_hash_avm(address);
+  ```
+
+The `aztec.js` `publishInstance` helper handles this automatically.
+
 ### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` now take `BoundedVec`
 
 The old array-based `emit_private_log_unsafe(tag, log: [Field; N], length)` and `emit_raw_note_log_unsafe(tag, log: [Field; N], length, note_hash_counter)` have been removed. The temporary `_vec_unsafe` variants introduced in a prior release have been renamed to take their place.
@@ -102,7 +465,7 @@ The `Schnorr` TypeScript API in `@aztec/foundation/crypto/schnorr` keeps the sam
 + env.call_public_incognito(SampleContract::at(addr).some_function());
 ```
 
-If you need to call a public function *with* a sender, use `call_public` instead.
+If you need to call a public function _with_ a sender, use `call_public` instead.
 
 ### [Aztec.nr] TXE `view_public_incognito` is deprecated
 
@@ -255,7 +618,13 @@ If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/cur
 ```typescript
 const result = await contract.methods.read_balance(account).simulate({
   overrides: {
-    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+    publicStorage: [
+      {
+        contract: contract.address,
+        slot: BALANCE_SLOT,
+        value: new Fr(1_000_000n),
+      },
+    ],
   },
 });
 ```
@@ -272,7 +641,7 @@ Direct callers of the `SimulationOverrides` constructor must switch from a posit
 `overrides.contracts` swaps contract instances in the simulator's contract DB — useful for simulating a contract being on a different class than the one it was deployed with. To simulate a complete onchain upgrade flow, use the `fastForwardContractUpdate` helper which returns a `SimulationOverrides` covering both registry storage rewrites and the upgraded instance entry:
 
 ```typescript
-import { fastForwardContractUpdate } from '@aztec/aztec.js';
+import { fastForwardContractUpdate } from "@aztec/aztec.js";
 
 const overrides = await fastForwardContractUpdate({
   instanceAddress: contract.address,
@@ -399,8 +768,8 @@ If you want the latest L1-confirmed checkpoint regardless of proposed state, swi
 
 ```ts
 // Throws BadRequestError when a proposed entry exists at the resolved number:
-await node.getCheckpoint('proposed', { includeAttestations: true });
-await node.getCheckpoint('proposed', { includeL1PublishInfo: true });
+await node.getCheckpoint("proposed", { includeAttestations: true });
+await node.getCheckpoint("proposed", { includeL1PublishInfo: true });
 
 // And when a by-number / by-slot lookup falls back to a proposed entry:
 await node.getCheckpoint({ number: N }, { includeAttestations: true });
@@ -586,6 +955,8 @@ The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
 - `aztec new <NAME>` — still scaffolds a blank contract, either as a new standalone project or as a new crate added to an existing workspace.
 
 **Impact**: any scripts, CI jobs, or onboarding docs that ran `aztec init` expecting an empty contract starting point now get the Counter example. Use `aztec new <NAME>` for the blank scaffold. The existing Counter tutorial under [`docs/tutorials/contract_tutorials`](../tutorials/contract_tutorials/counter_contract.md) is unaffected because it uses `aztec new`.
+
+## 4.3.0
 
 ### `aztec new` and `aztec init` now create a 2-crate workspace
 

@@ -3,13 +3,15 @@ nameOverride: ""
 # -- Overrides the chart computed fullname
 fullnameOverride: ""
 
-snapshot:
+snapshots:
   uploadLocation: null
   frequency: "0 0 * * *" # daily uploads at midnight
   aztecNodeAdminUrl: null
   s3AccessKeyId:
   s3SecretAccessKey:
   s3SessionToken:
+
+nodeSelector: {}
 
 image:
   repository: curlimages/curl

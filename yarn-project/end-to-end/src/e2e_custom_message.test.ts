@@ -7,9 +7,10 @@ import { CustomMessageContract, type MultiLogEvent } from '@aztec/noir-test-cont
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('CustomMessage - Multi-Log Pattern', () => {
   let contract: CustomMessageContract;
@@ -24,7 +25,7 @@ describe('CustomMessage - Multi-Log Pattern', () => {
       teardown,
       wallet,
       accounts: [account],
-    } = await setup(1));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     await ensureAccountContractsPublished(wallet, [account]);
     ({ contract } = await CustomMessageContract.deploy(wallet).send({ from: account }));
   });

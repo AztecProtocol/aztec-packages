@@ -88,10 +88,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 owner: aztec::protocol::address::AztecAddress,
                 note_hash_for_nullification: Field,
             ) -> Field {
-                let owner_npk_m = aztec::keys::getters::get_public_keys(owner).npk_m;
-                // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
-                // in the quote to avoid "trait not in scope" compiler warnings.
-                let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
+                let owner_npk_m_hash = aztec::keys::getters::get_public_keys(owner).npk_m_hash;
                 let secret = context.request_nhk_app(owner_npk_m_hash);
                 aztec::note::utils::compute_note_nullifier(note_hash_for_nullification, [secret])
             }
@@ -105,10 +102,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
                 // hiding key (nhk) is also available, so we don't need to handle get_nhk_app potentially
                 // failing. The Option is only needed for the try_get_public_keys call.
                 aztec::keys::getters::try_get_public_keys(owner).map(|public_keys| {
-                    let owner_npk_m = public_keys.npk_m;
-                    // We invoke hash as a static trait function rather than calling owner_npk_m.hash() directly
-                    // in the quote to avoid "trait not in scope" compiler warnings.
-                    let owner_npk_m_hash = aztec::protocol::traits::Hash::hash(owner_npk_m);
+                    let owner_npk_m_hash = public_keys.npk_m_hash;
                     let secret = aztec::keys::getters::get_nhk_app(owner_npk_m_hash);
                     aztec::note::utils::compute_note_nullifier(note_hash_for_nullification, [secret])
                 })

@@ -122,4 +122,6 @@ jobs:
           gh workflow run claudebox.yml \
             -f prompt="Backport PR #$PR ($TITLE) to $BRANCH. The automatic cherry-pick failed due to conflicts. Follow .claude/claudebox/backport.md to resolve conflicts and create a PR." \
             -f link="${LINK:-$URL}" \
-            -f target_ref="origin/backport-to-${BRANCH}-staging"
+            -f target_ref="origin/backport-to-${BRANCH}-staging" \
+            -f slack_channel="$CHANNEL_ID" \
+            -f slack_thread_ts="$TS"

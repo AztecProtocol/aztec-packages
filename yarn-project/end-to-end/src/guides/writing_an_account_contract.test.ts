@@ -8,6 +8,7 @@ import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { setup } from '../fixtures/utils.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 
@@ -44,7 +45,7 @@ describe('guides/writing_an_account_contract', () => {
   let context: Awaited<ReturnType<typeof setup>>;
 
   beforeEach(async () => {
-    context = await setup(1);
+    context = await setup(1, { ...AUTOMINE_E2E_OPTS });
   });
 
   afterEach(() => context.teardown());

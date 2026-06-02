@@ -27,6 +27,9 @@ describe('committable', () => {
     expect(committableNumber.get(true)).toBe(3);
     expect(committableNumber.get(false)).toBe(2);
     committableNumber.rollback();
-    expect(committableNumber.get()).toBe(2);
+    // After rollback the uncommitted value must be discarded, so reading with includeUncommitted falls back to the
+    // committed value. Asserting on get(true) here is what actually exercises rollback.
+    expect(committableNumber.get(true)).toBe(2);
+    expect(committableNumber.get(false)).toBe(2);
   });
 });

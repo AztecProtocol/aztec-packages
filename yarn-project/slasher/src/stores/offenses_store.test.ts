@@ -107,7 +107,7 @@ describe('SlasherOffensesStore', () => {
     it('should handle large amounts and epoch/slot values', async () => {
       const largeAmount = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'); // Max uint128
       const largeEpochOrSlot = BigInt(1_000_000_000);
-      const offense = createOffense(EthAddress.random(), largeAmount, OffenseType.VALID_EPOCH_PRUNED, largeEpochOrSlot);
+      const offense = createOffense(EthAddress.random(), largeAmount, OffenseType.INACTIVITY, largeEpochOrSlot);
 
       await store.addOffense(offense);
 
@@ -119,7 +119,12 @@ describe('SlasherOffensesStore', () => {
 
     it('should preserve offense data across store operations', async () => {
       const validator = EthAddress.fromString('0x1234567890abcdef1234567890abcdef12345678');
-      const offense = createOffense(validator, 12345n, OffenseType.ATTESTED_DESCENDANT_OF_INVALID, 54321n);
+      const offense = createOffense(
+        validator,
+        12345n,
+        OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
+        54321n,
+      );
 
       await store.addOffense(offense);
 
@@ -127,7 +132,9 @@ describe('SlasherOffensesStore', () => {
       expect(pendingOffenses).toHaveLength(1);
       expect(pendingOffenses[0].validator.toString()).toBe(validator.toString());
       expect(pendingOffenses[0].amount).toBe(12345n);
-      expect(pendingOffenses[0].offenseType).toBe(OffenseType.ATTESTED_DESCENDANT_OF_INVALID);
+      expect(pendingOffenses[0].offenseType).toBe(
+        OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
+      );
       expect(pendingOffenses[0].epochOrSlot).toBe(54321n);
     });
 

@@ -80,7 +80,6 @@ use types::{
     },
     merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::L2ToL1Message,
-    point::Point,
     proof::{verification_key::{MegaVerificationKey, VerificationKey}, vk_data::VkData},
     public_keys::PublicKeys,
     side_effect::{Counted, Ordered, Scoped},
@@ -965,11 +964,11 @@ impl FixtureBuilder {
 
     pub fn add_request_for_key_validation(
         &mut self,
-        pk_m: Point,
+        pk_m_hash: Field,
         sk_app: Field,
         key_type_domain_separator: Field,
     ) {
-        let request = KeyValidationRequest { pk_m, sk_app };
+        let request = KeyValidationRequest { pk_m_hash, sk_app };
         let request_and_separator =
             KeyValidationRequestAndSeparator { request, key_type_domain_separator };
         let scoped_key_validation_request_and_generator =
@@ -1258,10 +1257,7 @@ impl FixtureBuilder {
 
     fn mock_key_validation_request(self, index: u32) -> KeyValidationRequestAndSeparator {
         let value_offset = 3030 + self.value_offset + index as Field;
-        let request = KeyValidationRequest {
-            pk_m: Point { x: value_offset, y: 1 + value_offset, is_infinite: false },
-            sk_app: 2 + value_offset,
-        };
+        let request = KeyValidationRequest { pk_m_hash: value_offset, sk_app: 2 + value_offset };
         KeyValidationRequestAndSeparator { request, key_type_domain_separator: 3 + value_offset }
     }
 

@@ -15,6 +15,7 @@ export class ContractInstancePublishedEvent {
     public readonly salt: Fr,
     public readonly contractClassId: Fr,
     public readonly initializationHash: Fr,
+    public readonly immutablesHash: Fr,
     public readonly publicKeys: PublicKeys,
     public readonly deployer: AztecAddress,
   ) {}
@@ -31,6 +32,7 @@ export class ContractInstancePublishedEvent {
     const salt = reader.readObject(Fr);
     const contractClassId = reader.readObject(Fr);
     const initializationHash = reader.readObject(Fr);
+    const immutablesHash = reader.readObject(Fr);
     const publicKeys = reader.readObject(PublicKeys);
     const deployer = reader.readObject(AztecAddress);
 
@@ -40,13 +42,14 @@ export class ContractInstancePublishedEvent {
       salt,
       contractClassId,
       initializationHash,
+      immutablesHash,
       publicKeys,
       deployer,
     );
   }
 
   toContractInstance(): ContractInstanceWithAddress {
-    if (this.version !== 1) {
+    if (this.version !== 2) {
       throw new Error(`Unexpected contract instance version ${this.version}`);
     }
 
@@ -56,6 +59,7 @@ export class ContractInstancePublishedEvent {
       currentContractClassId: this.contractClassId,
       originalContractClassId: this.contractClassId,
       initializationHash: this.initializationHash,
+      immutablesHash: this.immutablesHash,
       publicKeys: this.publicKeys,
       salt: this.salt,
       deployer: this.deployer,

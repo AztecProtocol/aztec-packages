@@ -1,5 +1,6 @@
 use crate::{
     capsules::CapsuleArray,
+    ephemeral::EphemeralArray,
     messages::{
         discovery::{ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
@@ -88,17 +89,17 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     // Each of the pending partial notes might get completed by a log containing its public values. For performance
     // reasons, we fetch all of these logs concurrently and then process them one by one, minimizing the amount of time
     // waiting for the node roundtrip.
-    let maybe_completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
+    let completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
 
-    // Each entry in the maybe completion logs array corresponds to the entry in the pending partial notes array at the
-    // same index. This means we can use the same index as we iterate through the responses to get both the partial
-    // note and the log that might complete it.
-    assert_eq(maybe_completion_logs.len(), pending_partial_notes.len());
+    // Each entry in the completion logs array corresponds to the entry in the pending partial notes array at the same
+    // index. Each inner array contains all matching LogRetrievalResponses.
+    assert_eq(completion_logs.len(), pending_partial_notes.len());
 
-    maybe_completion_logs.for_each(|i, maybe_log: Option<LogRetrievalResponse>| {
+    completion_logs.for_each(|i, logs_for_tag: EphemeralArray<LogRetrievalResponse>| {
         let pending_partial_note = pending_partial_notes.get(i);
+        let num_logs = logs_for_tag.len();
 
-        if maybe_log.is_none() {
+        if num_logs == 0 {
             aztecnr_debug_log_format!("Found no completion logs for partial note with tag {}")(
                 [pending_partial_note.note_completion_log_tag],
             );
@@ -107,10 +108,12 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
             // searching for this tagged log when performing message discovery in the future until we either find it or
             // the entry is somehow removed from the array.
         } else {
+            assert(num_logs == 1, f"Expected at most 1 completion log per partial note, got {num_logs}");
+
             aztecnr_debug_log_format!("Completion log found for partial note with tag {}")([
                 pending_partial_note.note_completion_log_tag,
             ]);
-            let log = maybe_log.unwrap();
+            let log = logs_for_tag.get(0);
 
             // The first field in the completion log payload is the storage slot, followed by the public note
             // content fields.

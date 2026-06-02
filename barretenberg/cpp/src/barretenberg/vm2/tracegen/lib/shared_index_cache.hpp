@@ -80,7 +80,21 @@ class SharedIndexCache {
             promise->set_value(index);
             return *index;
         } catch (...) {
-            promise->set_exception(std::current_exception());
+            // Evict the failed entry so a subsequent get_or_build can retry rather than
+            // re-throwing the cached exception forever (and broadcasting it to all jobs
+            // that share this destination).
+            {
+                std::unique_lock lock(mutex_);
+                cache_.erase(key);
+            }
+            // Wake any threads already waiting on this future with the build error.
+            // Swallow any secondary failure here (e.g. promise_already_satisfied if
+            // set_value partially completed) so the original exception always
+            // propagates and we never leave waiters blocked.
+            try {
+                promise->set_exception(std::current_exception());
+            } catch (...) {
+            }
             throw;
         }
     }

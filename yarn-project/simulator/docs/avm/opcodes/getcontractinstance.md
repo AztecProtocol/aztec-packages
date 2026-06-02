@@ -12,7 +12,7 @@ M[dstOffset] = contractInstance.exists ? 1 : 0; M[dstOffset+1] = contractInstanc
 
 ## Details
 
-Looks up contract instance by address and retrieves the specified member. This opcode can get contract instance information for any contract address, not just the currently executing one. Returns existence flag (Uint1) and member value (FIELD). If the contract does not exist, the member value is set to 0. Supported enum values: `[DEPLOYER=0, CLASS_ID, INIT_HASH]`.
+Looks up contract instance by address and retrieves the specified member. This opcode can get contract instance information for any contract address, not just the currently executing one. Returns existence flag (Uint1) and member value (FIELD). If the contract does not exist, the member value is set to 0. Supported enum values: `[DEPLOYER=0, CLASS_ID, INIT_HASH, IMMUTABLES_HASH]`.
 
 ## Contract Classes and Instances
 
@@ -32,6 +32,7 @@ This separation allows for:
 | **Deployer Address** | The address of the account that deployed this contract instance. |
 | **Class ID** | The identifier of the contract class that this instance uses for its code. |
 | **Initialization Hash** | A hash of the constructor arguments used when the contract instance was deployed. |
+| **Immutables Hash** | A hash of the immutable storage values declared by a contract instance when it was deployed. |
 
 **Example**: To check if a contract at a given `address` is an instance of a known `CLASS_ID`:
 1. Use `GETCONTRACTINSTANCE` with the `address` and the `CLASS_ID` member enum.

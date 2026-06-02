@@ -1,9 +1,15 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 
+import { jest } from '@jest/globals';
+
 import type { P2PNetworkTest } from '../p2p_network.js';
 import { cleanupReqrespTest, createReqrespDataDir, createReqrespTest, runReqrespTxTest } from './utils.js';
 
 const DATA_DIR = createReqrespDataDir();
+
+// Under pipelining a 36s aztec slot plus build-slot/target-slot round trip + L1
+// publish exceeds the default 5 min jest test timeout. Allow 15 min.
+jest.setTimeout(15 * 60 * 1000);
 
 describe('e2e_p2p_reqresp_tx', () => {
   let t: P2PNetworkTest;

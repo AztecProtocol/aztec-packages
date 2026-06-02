@@ -1,5 +1,6 @@
 import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract reading constants', () => {
@@ -8,7 +9,7 @@ describe('e2e_token_contract reading constants', () => {
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
-    await t.setup();
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
   });
 
   afterAll(async () => {

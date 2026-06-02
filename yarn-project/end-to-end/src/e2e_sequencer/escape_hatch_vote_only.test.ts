@@ -20,6 +20,7 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
 const OPEN_THE_HATCH = true;
@@ -61,20 +62,25 @@ describe('e2e_escape_hatch_vote_only', () => {
     });
 
     const context = await setup(1, {
+      ...PIPELINING_SETUP_OPTS,
       anvilAccounts: 10,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
       validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)),
       governanceProposerRoundSize: ROUND_SIZE,
       governanceProposerQuorum: QUORUM_SIZE,
+      // Override PIPELINING_SETUP_OPTS slot durations for the longer cadence this test needs.
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
       // Keep pruning far away for this test.
       aztecProofSubmissionEpochs: 15, // needed so ACTIVE_DURATION=2 is a valid EscapeHatch config
-      minTxsPerBlock: 0,
       enforceTimeTable: true,
       automineL1Setup: true,
+      // Pipelining opts — exercise the §6 B5 fix (tryVoteWhenEscapeHatchOpen signing/submitting for targetSlot).
+      // inboxLag: 2 so the sequencer sources L1->L2 messages from a sealed checkpoint when building for slot+1.
+      enableProposerPipelining: true,
+      inboxLag: 2,
     });
 
     ({
@@ -134,7 +140,7 @@ describe('e2e_escape_hatch_vote_only', () => {
 
     // Wire escape hatch into the rollup (owner-only).
     await cheatCodes.rollup.asOwner(async (owner, rollupAsOwner) => {
-      const hash = await rollupAsOwner.write.updateEscapeHatch([escapeHatchAddress.toString()], { account: owner });
+      const hash = await rollupAsOwner.write.setEscapeHatch([escapeHatchAddress.toString()], { account: owner });
       await l1Client.waitForTransactionReceipt({ hash });
     });
   });
@@ -142,18 +148,37 @@ describe('e2e_escape_hatch_vote_only', () => {
   afterEach(() => teardown());
 
   it('casts governance signals and advances checkpoints while escape hatch is closed', async () => {
+    const sequencer = sequencerClient!.getSequencer();
+
     // Enable voting from the sequencer.
     await aztecNodeAdmin!.setConfig({
       governanceProposerPayload: newGovernanceProposerPayloadAddress,
       minTxsPerBlock: 0,
     });
 
-    // Set up event listeners to track sequencer behavior
+    // We need to set it for hatch 1, and then make a time jump. We do this such that we don't pollute the epoch cache.
+    // The warp must happen before we attach failure-event listeners, because any checkpoint proposal in flight at warp
+    // time will fail (its propose tx becomes invalid after the L1 timestamp jump) — that is a test-setup artifact, not
+    // a behavior we are asserting on.
+    if (OPEN_THE_HATCH) {
+      await ethCheatCodes.store(
+        await rollup.getEscapeHatchAddress(),
+        ethCheatCodes.keccak256(BigInt(EscapeHatchStorage.find(s => s.label === '$designatedProposer')!.slot), 1n),
+        escapeHatchProposerAddress.toField().toBigInt(),
+      );
+      expect(await rollup.isEscapeHatchOpen(EpochNumber(Number(ESCAPE_HATCH_FREQUENCY)))).toBeTruthy();
+
+      logger.info(`Advancing to epoch ${ESCAPE_HATCH_FREQUENCY}`);
+
+      await cheatCodes.rollup.advanceToEpoch(EpochNumber(Number(ESCAPE_HATCH_FREQUENCY)), {
+        offset: -ETHEREUM_SLOT_DURATION,
+      });
+    }
+
+    // Set up event listeners to track sequencer behavior during the vote-only window
     const failEvents: Array<{ type: keyof SequencerEvents; args: any }> = [];
     const blockProposedEvents: Array<{ blockNumber: any; slot: any }> = [];
     const checkpointPublishedEvents: Array<{ checkpoint: any; slot: any }> = [];
-
-    const sequencer = sequencerClient!.getSequencer();
 
     // Track failure events that indicate problems
     const failEventTypes: (keyof SequencerEvents)[] = [
@@ -161,6 +186,7 @@ describe('e2e_escape_hatch_vote_only', () => {
       'checkpoint-publish-failed',
       'proposer-rollup-check-failed',
       'checkpoint-error',
+      'header-validation-failed',
     ];
 
     failEventTypes.forEach(eventType => {
@@ -191,22 +217,6 @@ describe('e2e_escape_hatch_vote_only', () => {
       logger.warn(`Sequencer published checkpoint when escape hatch should be open`, args);
     });
 
-    // We need to set it for hatch 1, and then make a time jump. We do this such that we don't pollute the epoch cache
-    if (OPEN_THE_HATCH) {
-      await ethCheatCodes.store(
-        await rollup.getEscapeHatchAddress(),
-        ethCheatCodes.keccak256(BigInt(EscapeHatchStorage.find(s => s.label === '$designatedProposer')!.slot), 1n),
-        escapeHatchProposerAddress.toField().toBigInt(),
-      );
-      expect(await rollup.isEscapeHatchOpen(EpochNumber(Number(ESCAPE_HATCH_FREQUENCY)))).toBeTruthy();
-
-      logger.info(`Advancing to epoch ${ESCAPE_HATCH_FREQUENCY}`);
-
-      await cheatCodes.rollup.advanceToEpoch(EpochNumber(Number(ESCAPE_HATCH_FREQUENCY)), {
-        offset: -ETHEREUM_SLOT_DURATION,
-      });
-    }
-
     const getStats = async () => ({
       slot: await rollup.getSlotNumber(),
       epoch: await rollup.getEpochNumberForSlotNumber(await rollup.getSlotNumber()),
@@ -228,20 +238,37 @@ describe('e2e_escape_hatch_vote_only', () => {
       1,
     );
 
-    const finalStats = await getStats();
-
-    // Due to the the stats not being pulled at the same time, a vote could land after the slot is fetched, but before the votes are.
-    // Therefore, we use the slots passed as the lower bound.
-    const slotsPassed = finalStats.slot - initialStats.slot;
+    // Snapshot the slot we will assert against now; under proposer pipelining the sequencer signs a vote in build
+    // slot N for target slot N+1 and submits it at the start of N+1, so the votes corresponding to slots up through
+    // `slotAtMeasurement` lag the current slot by one. Wait for the L1 slot to advance one more so the last
+    // in-flight vote (signed for `slotAtMeasurement`) has time to mine before we count votes.
+    const slotAtMeasurement = await rollup.getSlotNumber();
+    const slotsPassed = slotAtMeasurement - initialStats.slot;
     expect(slotsPassed).toBeGreaterThan(0);
+    const drainTarget = slotAtMeasurement + 2;
+    await retryUntil(
+      () => rollup.getSlotNumber().then(s => s >= drainTarget),
+      'pipelined vote drain',
+      AZTEC_SLOT_DURATION * 4,
+      1,
+    );
+
+    const finalStats = await getStats();
     expect(finalStats.votes - initialStats.votes).toBeGreaterThanOrEqual(slotsPassed);
     if (OPEN_THE_HATCH) {
       expect(finalStats.pending - initialStats.pending).toBe(0);
 
       // When escape hatch is open, sequencer should only vote, not build blocks nor checkpoints, but there should also be no failures.
-      expect(blockProposedEvents).toEqual([]);
-      expect(failEvents).toEqual([]);
-      expect(checkpointPublishedEvents).toEqual([]);
+      // Filter out events corresponding to pre-warp slots — they are checkpoint proposals that were in flight when
+      // the test warped past their target slot and whose L1 propose tx then fails. That's a setup artifact of the
+      // warp, not behavior we are asserting on in the vote-only window.
+      const inVoteOnlyWindow = <T extends { slot?: any; args?: { slot?: any } }>(e: T) => {
+        const slotValue = (e as any).slot ?? (e as any).args?.slot;
+        return slotValue === undefined || Number(slotValue) >= Number(initialStats.slot);
+      };
+      expect(blockProposedEvents.filter(inVoteOnlyWindow)).toEqual([]);
+      expect(failEvents.filter(inVoteOnlyWindow)).toEqual([]);
+      expect(checkpointPublishedEvents.filter(inVoteOnlyWindow)).toEqual([]);
     } else {
       expect(finalStats.pending - initialStats.pending).toBeGreaterThanOrEqual(slotsPassed);
     }

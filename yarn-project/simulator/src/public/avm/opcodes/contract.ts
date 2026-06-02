@@ -9,6 +9,7 @@ export enum ContractInstanceMember {
   DEPLOYER,
   CLASS_ID,
   INIT_HASH,
+  IMMUTABLES_HASH,
 }
 
 export class GetContractInstance extends Instruction {
@@ -41,7 +42,7 @@ export class GetContractInstance extends Instruction {
     );
 
     if (!(this.memberEnum in ContractInstanceMember)) {
-      throw new InstructionExecutionError(`Invalid GETCONSTRACTINSTANCE member enum ${this.memberEnum}`);
+      throw new InstructionExecutionError(`Invalid GETCONTRACTINSTANCE member enum ${this.memberEnum}`);
     }
 
     const operands = [this.addressOffset, this.dstOffset];
@@ -63,6 +64,9 @@ export class GetContractInstance extends Instruction {
           break;
         case ContractInstanceMember.INIT_HASH:
           memberValue = new Field(instance.initializationHash);
+          break;
+        case ContractInstanceMember.IMMUTABLES_HASH:
+          memberValue = new Field(instance.immutablesHash);
           break;
       }
     }

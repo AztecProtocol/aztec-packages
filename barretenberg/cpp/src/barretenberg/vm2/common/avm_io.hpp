@@ -113,18 +113,18 @@ struct PublicInputs {
 ////////////////////////////////////////////////////////////////////////////
 // Hints (contracts)
 ////////////////////////////////////////////////////////////////////////////
+// Only ivpk_m is sent as a point; the others are field-element hashes.
 struct PublicKeysHint {
-    AffinePoint master_nullifier_public_key;
-    AffinePoint master_incoming_viewing_public_key;
-    AffinePoint master_outgoing_viewing_public_key;
-    AffinePoint master_tagging_public_key;
+    FF npk_m_hash;
+    AffinePoint ivpk_m;
+    FF ovpk_m_hash;
+    FF tpk_m_hash;
+    FF mspk_m_hash;
+    FF fbpk_m_hash;
 
     bool operator==(const PublicKeysHint& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(master_nullifier_public_key,
-                              master_incoming_viewing_public_key,
-                              master_outgoing_viewing_public_key,
-                              master_tagging_public_key);
+    MSGPACK_CAMEL_CASE_FIELDS(npk_m_hash, ivpk_m, ovpk_m_hash, tpk_m_hash, mspk_m_hash, fbpk_m_hash);
 };
 
 struct ContractInstanceHint {
@@ -135,6 +135,7 @@ struct ContractInstanceHint {
     ContractClassId current_contract_class_id;
     ContractClassId original_contract_class_id;
     FF initialization_hash;
+    FF immutables_hash;
     PublicKeysHint public_keys;
 
     bool operator==(const ContractInstanceHint& other) const = default;
@@ -146,6 +147,7 @@ struct ContractInstanceHint {
                               current_contract_class_id,
                               original_contract_class_id,
                               initialization_hash,
+                              immutables_hash,
                               public_keys);
 };
 

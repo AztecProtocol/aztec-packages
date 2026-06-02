@@ -1,10 +1,6 @@
 name: Deploy to staging-public
 
 on:
-  workflow_run:
-    workflows: ["Nightly Release Tag (v4-next)"]
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       tag:

@@ -27,11 +27,15 @@ Each Aztec account uses multiple key pairs:
 
 | Key Type | Purpose | Protocol Managed | Rotatable |
 |----------|---------|-----------------|-----------|
-| **Nullifier Keys** | Spending notes (destroying private state) | Yes | No |
-| **Incoming Viewing Keys** | Decrypting received notes | Yes | No |
+| **Nullifier Keys** (`Npk_m`) | Spending notes (destroying private state) | Yes | No |
+| **Incoming Viewing Keys** (`Ivpk_m`) | Decrypting received notes | Yes | No |
+| **Outgoing Viewing Keys** (`Ovpk_m`) | Reserved — not currently used | Yes | No |
+| **Tagging Keys** (`Tpk_m`) | Reserved — not currently used | Yes | No |
+| **Message-Signing Keys** (`Mspk_m`) | Reserved — slot for future protocol-level message signing | Yes | No |
+| **Fallback Keys** (`Fbpk_m`) | Reserved — slot for future account-recovery / fallback flows | Yes | No |
 | **Signing Keys** | Transaction authorization | No (app-defined) | Yes |
 
-Protocol keys (nullifier and incoming viewing) are embedded into the protocol and cannot be changed once an account is created. The signing key is abstracted to the account contract developer, allowing complete flexibility in authentication methods.
+Protocol keys are embedded into the protocol and cannot be changed once an account is created. The signing key is abstracted to the account contract developer, allowing complete flexibility in authentication methods.
 
 ### Nullifier Keys
 
@@ -68,8 +72,10 @@ The nullifier hiding key (`nhk`) — sometimes referred to in older documentatio
 To get the owner's master nullifier public key hash (needed as input):
 
 ```rust
-let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
 ```
+
+`PublicKeys` exposes the nullifier, outgoing-viewing, and tagging keys directly as their hashes; only `ivpk_m` is held as a Grumpkin point (it is required as a point for address derivation and encrypt-to-address).
 
 :::warning
 Do not compute nullifier keys by hand or derive custom blinding factors. The protocol kernel validates that `nhk_app` derives correctly from the master key — a hand-rolled value will fail verification.
@@ -122,17 +128,25 @@ Your Aztec address is deterministically computed from your public keys and accou
 
 ![Address derivation](/img/address_derivation.svg)
 
+:::note
+The diagram above is being updated to reflect the new key-hashing scheme described below. Treat the text formulas as authoritative until a refresh lands.
+:::
+
 ```text
 pre_address = hash(public_keys_hash, partial_address)
 
 where:
-  public_keys_hash = hash(Npk_m, Ivpk_m, Ovpk_m, Tpk_m)
-  partial_address = hash(contract_class_id, salted_initialization_hash)
+  public_keys_hash = hash(npk_m_hash, ivpk_m_hash, ovpk_m_hash, tpk_m_hash,
+                          mspk_m_hash, fbpk_m_hash)
+  ivpk_m_hash      = hash(Ivpk_m.x, Ivpk_m.y)        // computed in-circuit
+  npk_m_hash, ovpk_m_hash, tpk_m_hash,               // computed off-circuit (PXE)
+  mspk_m_hash, fbpk_m_hash                           // computed off-circuit (PXE)
+  partial_address  = hash(contract_class_id, salted_initialization_hash)
   contract_class_id = hash(artifact_hash, fn_tree_root, public_bytecode_commitment)
-  salted_initialization_hash = hash(deployer_address, salt, constructor_hash)
+  salted_initialization_hash = hash(salt, constructor_hash, deployer_address, immutables_hash)
 ```
 
-The final address is derived as `address = (pre_address * G + Ivpk_m).x` - only the x-coordinate of the resulting elliptic curve point.
+The final address is derived as `address = (pre_address * G + Ivpk_m).x` - only the x-coordinate of the resulting elliptic curve point. Note that `Ivpk_m` (the master incoming viewing key) is the only public key still represented as an elliptic curve point: address derivation needs it as a point so that anyone can encrypt to the address without further information. The other five master keys are exposed only as their hashes.
 
 This derivation ensures:
 
@@ -142,6 +156,10 @@ This derivation ensures:
 
 :::note
 The `Ovpk` (outgoing viewing key) and `Tpk` (tagging key) exist in the protocol's `PublicKeys` struct but are not currently used. They're reserved for future protocol upgrades.
+:::
+
+:::note
+The `Mspk` (master message-signing key) and `Fbpk` (master fallback key) hash slots exist in `PublicKeys` and participate in the address derivation above, but there is **no canonical derivation path for them yet**. `deriveKeys(secretKey)` stamps the canonical default hashes (`DEFAULT_MSPK_M_HASH`, `DEFAULT_FBPK_M_HASH`) into every account, so today they contribute no per-account entropy. When a real derivation lands in a future release, the address derived from the same secret will change — see the migration notes.
 :::
 
 ## Key Management
@@ -193,8 +211,12 @@ Aztec's multi-key architecture is fundamental to its privacy and security model:
 
 | Key Type | Purpose | App-Siloed | Rotatable | Managed By |
 |----------|---------|------------|-----------|------------|
-| **Nullifier** | Spend notes | Yes | No | Protocol (PXE) |
-| **Incoming Viewing** | Decrypt received notes | No | No | Protocol (PXE) |
+| **Nullifier** (`Npk_m`) | Spend notes | Yes | No | Protocol (PXE) |
+| **Incoming Viewing** (`Ivpk_m`) | Decrypt received notes | No | No | Protocol (PXE) |
+| **Outgoing Viewing** (`Ovpk_m`) | Reserved | N/A | No | Protocol (PXE) |
+| **Tagging** (`Tpk_m`) | Reserved | N/A | No | Protocol (PXE) |
+| **Message-Signing** (`Mspk_m`) | Reserved | N/A | No | Protocol (PXE) |
+| **Fallback** (`Fbpk_m`) | Reserved | N/A | No | Protocol (PXE) |
 | **Signing** | Transaction authorization | N/A | Yes | Application |
 
 **Key takeaways:**

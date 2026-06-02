@@ -11,6 +11,7 @@ import {
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE, AttesterConfig, IGSECore} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
@@ -79,6 +80,8 @@ struct StakingStorage {
   IERC20 stakingAsset;
   address slasher;
   uint96 localEjectionThreshold;
+  address pendingSlasher;
+  CompressedTimestamp pendingSlasherReadyAt;
   GSE gse;
   CompressedTimestamp exitDelay;
   mapping(address attester => Exit) exits;
@@ -87,6 +90,12 @@ struct StakingStorage {
   CompressedEpoch nextFlushableEpoch;
   uint32 availableValidatorFlushes;
   bool isBootstrapped;
+  // Outgoing slasher that finalizeSetSlasher has rotated off the active slot. Retains
+  // authority to call {slash} until `legacySlasherAuthorizedUntil` so that slashing rounds
+  // which already reached quorum before the rotation can still execute after the new
+  // slasher takes over.
+  address legacySlasher;
+  CompressedTimestamp legacySlasherAuthorizedUntil;
 }
 
 library StakingLib {
@@ -102,6 +111,17 @@ library StakingLib {
   using CompressedTimeMath for Epoch;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
+
+  /// @notice Delay between queuing a slasher replacement and being able to finalize it.
+  uint256 internal constant SLASHER_EXECUTION_DELAY = 60 days;
+  /// @notice After {finalizeSetSlasher} swaps the active slasher, the outgoing slasher retains
+  ///         the right to call {slash} for this long. The window is sized to comfortably cover
+  ///         any reasonable SlashingProposer lifetime: at the default config a round's full
+  ///         vote -> execution lifetime fits inside a few hours, so 30 days is generous.
+  ///         Rollups configured with multi-week round lifetimes should raise this -- the value
+  ///         is the only knob bounding how long an in-flight slash can drain through the old
+  ///         proposer after rotation.
+  uint256 internal constant LEGACY_SLASHER_DRAIN_WINDOW = 30 days;
 
   function initialize(
     IERC20 _stakingAsset,
@@ -121,22 +141,63 @@ library StakingLib {
     store.localEjectionThreshold = _localEjectionThreshold.toUint96();
   }
 
-  function setSlasher(address _slasher) internal {
+  function queueSetSlasher(address _slasher) internal {
     StakingStorage storage store = getStorage();
 
-    address oldSlasher = store.slasher;
-    store.slasher = _slasher;
+    // `Slasher.initializeProposer` is permissionless while `PROPOSER` is unset. Queuing a
+    // not-yet-initialized Slasher would let anyone claim the proposer role during the 60-day
+    // delay and gain arbitrary slash-payload authority once `finalizeSetSlasher` lands. Require
+    // the proposer to already be wired so the queued replacement is not capturable.
+    require(Slasher(_slasher).PROPOSER() != address(0), Errors.Staking__SlasherProposerNotInitialized(_slasher));
 
-    emit IStakingCore.SlasherUpdated(oldSlasher, _slasher);
+    Timestamp readyAt = Timestamp.wrap(block.timestamp + SLASHER_EXECUTION_DELAY);
+    store.pendingSlasher = _slasher;
+    store.pendingSlasherReadyAt = readyAt.compress();
+
+    emit IStakingCore.PendingSlasherQueued(_slasher, Timestamp.unwrap(readyAt));
   }
 
-  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) internal {
+  function cancelSetSlasher() internal {
     StakingStorage storage store = getStorage();
 
-    uint256 oldLocalEjectionThreshold = store.localEjectionThreshold;
-    store.localEjectionThreshold = _localEjectionThreshold.toUint96();
+    require(CompressedTimestamp.unwrap(store.pendingSlasherReadyAt) != 0, Errors.Staking__NoPendingSlasher());
 
-    emit IStakingCore.LocalEjectionThresholdUpdated(oldLocalEjectionThreshold, _localEjectionThreshold);
+    address cancelled = store.pendingSlasher;
+    store.pendingSlasher = address(0);
+    store.pendingSlasherReadyAt = CompressedTimestamp.wrap(0);
+
+    emit IStakingCore.PendingSlasherCancelled(cancelled);
+  }
+
+  function finalizeSetSlasher() internal {
+    StakingStorage storage store = getStorage();
+
+    require(CompressedTimestamp.unwrap(store.pendingSlasherReadyAt) != 0, Errors.Staking__NoPendingSlasher());
+    Timestamp readyAt = store.pendingSlasherReadyAt.decompress();
+    require(Timestamp.wrap(block.timestamp) >= readyAt, Errors.Staking__SlasherNotReady(readyAt));
+
+    address newSlasher = store.pendingSlasher;
+    // Defense in depth against state queued before the queueSetSlasher guard existed, and
+    // against a replacement whose proposer somehow regressed to zero after queueing.
+    require(Slasher(newSlasher).PROPOSER() != address(0), Errors.Staking__SlasherProposerNotInitialized(newSlasher));
+
+    address oldSlasher = store.slasher;
+    // Park the outgoing slasher in the legacy slot with a drain window so quorum-backed rounds
+    // already accumulated on the old SlashingProposer can still execute against the rollup
+    // through the old slasher. Without this, a committee just before a queued slasher takes over
+    // gets a "free round" to do what they like. Any prior legacy auth window is overwritten -- only
+    // one rotation can be in flight at a time, and the most recent rotation defines the
+    // currently-relevant outgoing slasher.
+    Timestamp drainUntil = Timestamp.wrap(block.timestamp + LEGACY_SLASHER_DRAIN_WINDOW);
+    store.legacySlasher = oldSlasher;
+    store.legacySlasherAuthorizedUntil = drainUntil.compress();
+
+    store.slasher = newSlasher;
+    store.pendingSlasher = address(0);
+    store.pendingSlasherReadyAt = CompressedTimestamp.wrap(0);
+
+    emit IStakingCore.SlasherUpdated(oldSlasher, newSlasher);
+    emit IStakingCore.LegacySlasherAuthorized(oldSlasher, Timestamp.unwrap(drainUntil));
   }
 
   /**
@@ -220,7 +281,7 @@ library StakingLib {
    */
   function slash(address _attester, uint256 _amount) internal {
     StakingStorage storage store = getStorage();
-    require(msg.sender == store.slasher, Errors.Staking__NotSlasher(store.slasher, msg.sender));
+    require(_isAuthorizedSlasher(store, msg.sender), Errors.Staking__NotSlasher(store.slasher, msg.sender));
 
     Exit storage exit = store.exits[_attester];
 
@@ -465,6 +526,7 @@ library StakingLib {
   }
 
   function updateStakingQueueConfig(StakingQueueConfig memory _config) internal {
+    assertValidQueueConfig(_config);
     getStorage().queueConfig = _config.compress();
     emit IStakingCore.StakingQueueConfigUpdated(_config);
   }
@@ -556,7 +618,9 @@ library StakingLib {
    *      3. Normal phase: After the initial bootstrap and growth phases, returns a number proportional to the current
    *         set size for conservative steady-state growth, unless constrained by configuration (`normalFlushSizeMin`).
    *
-   *      All phases are subject to a hard cap of `maxQueueFlushSize`.
+   *      The normal-phase result is clamped to `maxQueueFlushSize` at runtime; the
+   *      bootstrap-phase value is bounded by the same cap at config-acceptance time inside
+   *      {assertValidQueueConfig}, so every phase respects the cap.
    *
    *      The motivation for floodgates is that the whole system starts producing checkpoints with what is considered
    *      a sufficiently decentralized set of validators.
@@ -603,11 +667,53 @@ library StakingLib {
     return getStorage().availableValidatorFlushes;
   }
 
+  /// @notice Enforces invariants on a {StakingQueueConfig}.
+  ///         - `normalFlushSizeMin > 0`: a zero floor can close the queue on a running rollup.
+  ///         - `normalFlushSizeQuotient > 0`: {getEntryQueueFlushSize} divides by this field.
+  ///         - `maxQueueFlushSize > 0`: a zero cap leaves the normal-phase queue impossible to
+  ///           drain (the `Math.min(..., 0)` clamp pins every flush at zero), trapping queued
+  ///           validator stake.
+  ///         - `bootstrapFlushSize > 0` whenever `bootstrapValidatorSetSize > 0`: a zero
+  ///           bootstrap flush size traps queued validators during bootstrap growth because the
+  ///           bootstrap branch returns `bootstrapFlushSize` directly.
+  ///         - `bootstrapFlushSize <= maxQueueFlushSize`: keeps {getEntryQueueFlushSize}'s
+  ///           bootstrap-phase return inside the same cap that bounds the normal phase, so the
+  ///           cap holds across every phase as documented.
+  /// @param _config The queue config to validate; reverts when any of the above is violated.
+  function assertValidQueueConfig(StakingQueueConfig memory _config) internal pure {
+    require(_config.normalFlushSizeMin > 0, Errors.Staking__InvalidStakingQueueConfig());
+    require(_config.normalFlushSizeQuotient > 0, Errors.Staking__InvalidNormalFlushSizeQuotient());
+    require(_config.maxQueueFlushSize > 0, Errors.Staking__InvalidMaxQueueFlushSize());
+    require(
+      _config.bootstrapValidatorSetSize == 0 || _config.bootstrapFlushSize > 0,
+      Errors.Staking__InvalidBootstrapFlushSize()
+    );
+    require(
+      _config.bootstrapFlushSize <= _config.maxQueueFlushSize,
+      Errors.Staking__BootstrapFlushSizeAboveMax(_config.bootstrapFlushSize, _config.maxQueueFlushSize)
+    );
+  }
+
   function getStorage() internal pure returns (StakingStorage storage storageStruct) {
     bytes32 position = STAKING_SLOT;
     assembly {
       storageStruct.slot := position
     }
+  }
+
+  /// @notice Whether `_caller` can call {slash}.
+  /// @dev The active slasher always qualifies. The legacy slasher qualifies only while its
+  ///      drain window is still open, so quorum-backed rounds queued before a rotation can
+  ///      still execute against the rollup even though the active slasher has moved on.
+  function _isAuthorizedSlasher(StakingStorage storage _store, address _caller) private view returns (bool) {
+    if (_caller == _store.slasher) {
+      return true;
+    }
+    address legacy = _store.legacySlasher;
+    if (legacy == address(0) || _caller != legacy) {
+      return false;
+    }
+    return Timestamp.wrap(block.timestamp) <= _store.legacySlasherAuthorizedUntil.decompress();
   }
 
   function _calculateAvailableFlushes()

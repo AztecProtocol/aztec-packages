@@ -1,4 +1,5 @@
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import type { Logger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -82,7 +83,7 @@ export class TxPoolV2Impl {
   #evictionManager: EvictionManager;
   #dateProvider: DateProvider;
   #instrumentation: TxPoolV2Instrumentation;
-  #evictedTxHashes: Set<string> = new Set();
+  #evictedTxHashes: FifoSet<string>;
   #log: Logger;
   #callbacks: TxPoolV2Callbacks;
 
@@ -105,6 +106,7 @@ export class TxPoolV2Impl {
     this.#checkAllowedSetupCalls = deps.checkAllowedSetupCalls;
 
     this.#config = { ...DEFAULT_TX_POOL_V2_CONFIG, ...config };
+    this.#evictedTxHashes = FifoSet.withLimit<string>(this.#config.evictedTxCacheSize);
     this.#archive = new TxArchive(archiveStore, this.#config.archivedTxLimit, log);
     this.#deletedPool = new DeletedPool(store, this.#txsDB, log);
     this.#dateProvider = dateProvider;
@@ -903,19 +905,9 @@ export class TxPoolV2Impl {
     this.#instrumentation.recordEvictions(txHashes.length, reason);
     for (const txHashStr of txHashes) {
       this.#log.debug(`Evicting tx ${txHashStr}`, { txHash: txHashStr, reason });
-      this.#addToEvictedCache(txHashStr);
+      this.#evictedTxHashes.add(txHashStr);
     }
     await this.#deleteTxsBatch(txHashes);
-  }
-
-  /** Adds a tx hash to the bounded evicted cache, evicting the oldest entry if at capacity. */
-  #addToEvictedCache(txHashStr: string): void {
-    if (this.#evictedTxHashes.size >= this.#config.evictedTxCacheSize) {
-      // FIFO eviction: remove the first (oldest) entry
-      const oldest = this.#evictedTxHashes.values().next().value!;
-      this.#evictedTxHashes.delete(oldest);
-    }
-    this.#evictedTxHashes.add(txHashStr);
   }
 
   // ============================================================================

@@ -43,8 +43,6 @@ import {
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
-  type ReqRespSubProtocolValidators,
-  noopValidator,
 } from '../services/reqresp/interface.js';
 import { pingHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
@@ -199,17 +197,6 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.BLOCK_TXS]: (_msg: any) => Promise.resolve(Buffer.from('block_txs')),
 };
 
-// By default, all requests are valid
-// If you want to test an invalid response, you can override the validator
-export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
-  [ReqRespSubProtocol.PING]: noopValidator,
-  [ReqRespSubProtocol.STATUS]: noopValidator,
-  [ReqRespSubProtocol.TX]: noopValidator,
-  [ReqRespSubProtocol.GOODBYE]: noopValidator,
-  [ReqRespSubProtocol.AUTH]: noopValidator,
-  [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
-};
-
 /**
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
@@ -222,13 +209,9 @@ export const createNodes = (
   return timesParallel(numberOfNodes, () => createReqResp(peerScoring, rateLimits));
 };
 
-export const startNodes = async (
-  nodes: ReqRespNode[],
-  subProtocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS,
-  subProtocolValidators = MOCK_SUB_PROTOCOL_VALIDATORS,
-) => {
+export const startNodes = async (nodes: ReqRespNode[], subProtocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS) => {
   for (const node of nodes) {
-    await node.req.start(subProtocolHandlers, subProtocolValidators);
+    await node.req.start(subProtocolHandlers);
   }
 };
 

@@ -856,7 +856,7 @@ describe.each([
       await assertJobTransition(id, 'in-progress', 'in-queue');
     });
 
-    it('cancel stale jobs that time out', async () => {
+    it('cleans up stale in-progress jobs before deleting their epoch database', async () => {
       const id = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
         id,
@@ -887,10 +887,9 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
 
-      // advance time again so job times out. Since the job was in-progress, it won't be cleaned up as stale
-      // but will be rejected when it times out
-      await sleep(jobTimeoutMs + brokerIntervalMs);
-      await assertJobStatus(id, 'rejected');
+      // the epoch-1 database is old enough to delete, so the broker closes any remaining epoch-1 jobs
+      await (broker as any).cleanupPass();
+      await assertJobStatus(id, 'not-found');
     });
 
     it('rejects jobs that time out more than maxRetries times', async () => {
@@ -1070,13 +1069,15 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
 
-      await sleep(brokerIntervalMs);
+      await (broker as any).cleanupPass();
+      await assertJobStatus(id, 'not-found');
 
-      // job was in-progress so it won't be cleaned up as stale, but will be rejected on error
+      // the epoch-1 database has been deleted, so late worker reports are ignored
+      jest.spyOn(database, 'setProvingJobError');
       await broker.reportProvingJobError(id, 'test error', true);
+      expect(database.setProvingJobError).not.toHaveBeenCalled();
       await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
-        status: 'rejected',
-        reason: 'test error',
+        status: 'not-found',
       });
     });
   });

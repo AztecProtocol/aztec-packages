@@ -35,6 +35,10 @@ unconstrained fn get_contract_instance_class_id_oracle_avm(_address: AztecAddres
 unconstrained fn get_contract_instance_initialization_hash_oracle_avm(
     _address: AztecAddress,
 ) -> [GetContractInstanceResult; 1] {}
+#[oracle(aztec_avm_getContractInstanceImmutablesHash)]
+unconstrained fn get_contract_instance_immutables_hash_oracle_avm(
+    _address: AztecAddress,
+) -> [GetContractInstanceResult; 1] {}
 
 unconstrained fn get_contract_instance_deployer_internal_avm(address: AztecAddress) -> [GetContractInstanceResult; 1] {
     get_contract_instance_deployer_oracle_avm(address)
@@ -46,6 +50,11 @@ unconstrained fn get_contract_instance_initialization_hash_internal_avm(
     address: AztecAddress,
 ) -> [GetContractInstanceResult; 1] {
     get_contract_instance_initialization_hash_oracle_avm(address)
+}
+unconstrained fn get_contract_instance_immutables_hash_internal_avm(
+    address: AztecAddress,
+) -> [GetContractInstanceResult; 1] {
+    get_contract_instance_immutables_hash_oracle_avm(address)
 }
 
 pub fn get_contract_instance_deployer_avm(address: AztecAddress) -> Option<AztecAddress> {
@@ -72,6 +81,16 @@ pub fn get_contract_instance_initialization_hash_avm(address: AztecAddress) -> O
     // Safety: AVM opcodes are constrained by the AVM itself
     let GetContractInstanceResult { exists, member } =
         unsafe { get_contract_instance_initialization_hash_internal_avm(address)[0] };
+    if exists {
+        Option::some(member)
+    } else {
+        Option::none()
+    }
+}
+pub fn get_contract_instance_immutables_hash_avm(address: AztecAddress) -> Option<Field> {
+    // Safety: AVM opcodes are constrained by the AVM itself
+    let GetContractInstanceResult { exists, member } =
+        unsafe { get_contract_instance_immutables_hash_internal_avm(address)[0] };
     if exists {
         Option::some(member)
     } else {

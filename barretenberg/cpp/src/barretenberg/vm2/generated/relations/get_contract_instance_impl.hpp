@@ -74,7 +74,9 @@ void get_contract_instanceImpl<FF_>::accumulate(ContainerOverSubrelations& evals
                      static_cast<View>(in.get(C::get_contract_instance_is_class_id)) *
                          static_cast<View>(in.get(C::get_contract_instance_retrieved_class_id)) +
                      static_cast<View>(in.get(C::get_contract_instance_is_init_hash)) *
-                         static_cast<View>(in.get(C::get_contract_instance_retrieved_init_hash))));
+                         static_cast<View>(in.get(C::get_contract_instance_retrieved_init_hash)) +
+                     static_cast<View>(in.get(C::get_contract_instance_is_immutables_hash)) *
+                         static_cast<View>(in.get(C::get_contract_instance_retrieved_immutables_hash))));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     { // MEMBER_WRITE_OFFSET

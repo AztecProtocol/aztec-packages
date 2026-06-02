@@ -46,6 +46,7 @@ export class EpochProvingJob implements Traceable {
   private uuid: string;
 
   private runPromise: Promise<void> | undefined;
+  private abortController = new AbortController();
   private epochCheckPromise: RunningPromise | undefined;
   private deadlineTimeoutHandler: NodeJS.Timeout | undefined;
 
@@ -170,7 +171,7 @@ export class EpochProvingJob implements Traceable {
           ? AVM_MAX_CONCURRENT_SIMULATIONS
           : this.checkpoints.length;
 
-      await asyncPool(parallelism, this.checkpoints, async checkpoint => {
+      await this.processCheckpoints(parallelism, async checkpoint => {
         this.checkState();
         const checkpointTimer = new Timer();
 
@@ -228,22 +229,26 @@ export class EpochProvingJob implements Traceable {
 
           // Process public fns. L1 to L2 messages are only inserted for the first block of a checkpoint,
           // as the fork for subsequent blocks already includes them from the previous block's synced state.
-          const db = await this.createFork(
-            BlockNumber(block.number - 1),
-            blockIndex === 0 ? l1ToL2Messages : undefined,
-          );
-          const config = PublicSimulatorConfig.from({
-            proverId: this.prover.getProverId().toField(),
-            skipFeeEnforcement: false,
-            collectDebugLogs: false,
-            collectHints: true,
-            collectPublicInputs: true,
-            collectStatistics: false,
-          });
-          const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
-          const processed = await this.processTxs(publicProcessor, txs);
-          await this.prover.addTxs(processed);
-          await db.close();
+          {
+            await using db = await this.createFork(
+              BlockNumber(block.number - 1),
+              blockIndex === 0 ? l1ToL2Messages : undefined,
+            );
+            this.checkState();
+            const config = PublicSimulatorConfig.from({
+              proverId: this.prover.getProverId().toField(),
+              skipFeeEnforcement: false,
+              collectDebugLogs: false,
+              collectHints: true,
+              collectPublicInputs: true,
+              collectStatistics: false,
+            });
+            const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
+            const processed = await this.processTxs(publicProcessor, txs);
+            this.checkState();
+            await this.prover.addTxs(processed);
+          }
+          this.checkState();
           this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
             blockNumber: block.number,
             blockHash: (await block.hash()).toString(),
@@ -337,7 +342,9 @@ export class EpochProvingJob implements Traceable {
    */
   private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[] | undefined) {
     this.log.verbose(`Creating fork at ${blockNumber}`, { blockNumber });
-    const db = await this.dbProvider.fork(blockNumber);
+    // temporary stack to control fork lifetime
+    await using cleanup = new AsyncDisposableStack();
+    const db = cleanup.use(await this.dbProvider.fork(blockNumber));
 
     if (l1ToL2Messages !== undefined) {
       this.log.verbose(`Inserting ${l1ToL2Messages.length} L1 to L2 messages in fork`, {
@@ -347,7 +354,42 @@ export class EpochProvingJob implements Traceable {
       await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
     }
 
+    // everything run succesfully so we can release this stack and give control of the fork's lifetime to the caller
+    cleanup.move();
     return db;
+  }
+
+  private async processCheckpoints(
+    parallelism: number,
+    processCheckpoint: (checkpoint: Checkpoint) => Promise<void>,
+  ): Promise<void> {
+    let hasError = false;
+    let firstError: unknown;
+
+    await asyncPool(Math.max(parallelism, 1), this.checkpoints, async checkpoint => {
+      if (hasError || this.abortController.signal.aborted) {
+        return;
+      }
+
+      try {
+        this.checkState();
+        await processCheckpoint(checkpoint);
+      } catch (err) {
+        if (!hasError) {
+          hasError = true;
+          firstError = err;
+          this.failProcessing();
+        }
+      }
+    });
+
+    if (hasError) {
+      throw firstError;
+    }
+
+    if (this.abortController.signal.aborted) {
+      this.checkState();
+    }
   }
 
   private progressState(state: EpochProvingJobState) {
@@ -363,10 +405,22 @@ export class EpochProvingJob implements Traceable {
 
   public async stop(state: EpochProvingJobTerminalState = 'stopped') {
     this.state = state;
-    this.prover.cancel();
+    this.interruptProcessing();
     if (this.runPromise) {
       await this.runPromise;
     }
+  }
+
+  private failProcessing() {
+    if (!EpochProvingJobTerminalState.includes(this.state)) {
+      this.state = 'failed';
+    }
+    this.interruptProcessing();
+  }
+
+  private interruptProcessing() {
+    this.abortController.abort();
+    this.prover.cancel();
   }
 
   private scheduleDeadlineStop() {
@@ -444,7 +498,11 @@ export class EpochProvingJob implements Traceable {
 
   private async processTxs(publicProcessor: PublicProcessor, txs: Tx[]): Promise<ProcessedTx[]> {
     const { deadline } = this;
-    const [processedTxs, failedTxs] = await publicProcessor.process(txs, { deadline });
+    const [processedTxs, failedTxs] = await publicProcessor.process(txs, {
+      deadline,
+      signal: this.abortController.signal,
+    });
+    this.checkState();
 
     if (failedTxs.length) {
       const failedTxHashes = await Promise.all(failedTxs.map(({ tx }) => tx.getTxHash()));

@@ -17,12 +17,7 @@ import type EventEmitter from 'events';
 import type { BatchTxRequesterLibP2PService } from './reqresp/batch-tx-requester/interface.js';
 import type { P2PReqRespConfig } from './reqresp/config.js';
 import type { StatusMessage } from './reqresp/index.js';
-import type {
-  ReqRespSubProtocol,
-  ReqRespSubProtocolHandler,
-  ReqRespSubProtocolValidators,
-  SubProtocolMap,
-} from './reqresp/interface.js';
+import type { ReqRespSubProtocol, ReqRespSubProtocolHandler } from './reqresp/interface.js';
 import type { AuthRequest, AuthResponse } from './reqresp/protocols/auth.js';
 
 export enum PeerDiscoveryState {
@@ -100,31 +95,12 @@ export interface P2PService {
    */
   propagate<T extends Gossipable>(message: T): Promise<void>;
 
-  /**
-   * Send a batch of requests to peers, and return the responses
-   *
-   * @param protocol - The request response protocol to use
-   * @param requests - The requests to send to the peers
-   * @returns The responses to the requests
-   */
-  sendBatchRequest<Protocol extends ReqRespSubProtocol>(
-    protocol: Protocol,
-    requests: InstanceType<SubProtocolMap[Protocol]['request']>[],
-    pinnedPeerId?: PeerId,
-    timeoutMs?: number,
-    maxPeers?: number,
-    maxRetryAttempts?: number,
-  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']>[]>;
-
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: P2PBlockReceivedCallback): void;
 
   registerValidatorCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
 
   registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
-
-  /** Fires the all-nodes checkpoint callback for our own proposal (gossipsub doesn't deliver own messages). */
-  notifyOwnCheckpointProposal(checkpoint: CheckpointProposalCore): Promise<void>;
 
   /**
    * Registers a callback invoked when a duplicate proposal is detected (equivocation).
@@ -150,11 +126,7 @@ export interface P2PService {
 
   validateTxsReceivedInBlockProposal(txs: Tx[]): Promise<void>;
 
-  addReqRespSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void>;
+  addReqRespSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void>;
 
   handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 

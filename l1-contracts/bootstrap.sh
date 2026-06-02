@@ -18,8 +18,11 @@ function download_solc {
   echo_stderr "Downloading solc $solc_version via svm..."
   # svm-rs always uses ~/.svm if it exists. Make sure it does for a consistent path across OS/architecture.
   mkdir -p "$HOME/.svm"
-  # We build a minimal file to trigger svm download of solc.
-  forge build --use "$solc_version" src/core/libraries/ConstantsGen.sol 2>/dev/null
+  # We build a minimal file to trigger svm download of solc. svm fetches the
+  # binary from binaries.soliditylang.org, which intermittently fails to resolve
+  # under heavy parallel CI load; retry to ride out transient DNS drops. (The
+  # merge queue disables the cache above, so this download path runs every time.)
+  retry "forge build --use \"$solc_version\" src/core/libraries/ConstantsGen.sol 2>/dev/null"
 
   # Copy from svm cache to local path
   local svm_path="$HOME/.svm/$solc_version/solc-$solc_version"

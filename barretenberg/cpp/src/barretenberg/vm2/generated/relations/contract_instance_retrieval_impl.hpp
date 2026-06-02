@@ -148,12 +148,19 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
                    static_cast<View>(in.get(C::contract_instance_retrieval_init_hash));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // INSTANCE_MEMBER_IMMUTABLES_HASH_IS_ZERO_IF_DNE
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_sel)) *
+                   (FF(1) - static_cast<View>(in.get(C::contract_instance_retrieval_exists))) *
+                   static_cast<View>(in.get(C::contract_instance_retrieval_immutables_hash));
+        std::get<17>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::contract_instance_retrieval_should_check_for_update)) -
                     static_cast<View>(in.get(C::contract_instance_retrieval_should_check_nullifier)) *
                         static_cast<View>(in.get(C::contract_instance_retrieval_exists)));
-        std::get<17>(evals) += (tmp * scaling_factor);
+        std::get<18>(evals) += (tmp * scaling_factor);
     }
 }
 

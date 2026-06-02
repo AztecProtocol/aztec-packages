@@ -222,8 +222,7 @@ describe('aztec node', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
-      undefined,
+      async () => {},
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
@@ -623,6 +622,27 @@ describe('aztec node', () => {
         expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber(3));
       });
 
+      it('drives a reorg-aware sync to the requested block hash', async () => {
+        // A hash-anchored query resolves the hash against the archiver and then syncs world state to that
+        // exact (number, hash) so the synchronizer barriers on the archive-tree commit and detects reorgs,
+        // rather than syncing to bare latest height and racing the snapshot read.
+        const blockHash = BlockHash.random();
+        l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) =>
+          Promise.resolve(
+            query && 'hash' in query ? BlockNumber(3) : lastBlockNumber,
+          )) as L2BlockSource['getBlockNumber']);
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash);
+
+        await node.getWorldState(blockHash);
+
+        expect(worldState.syncImmediate).toHaveBeenCalledWith(BlockNumber(3), blockHash);
+      });
+
+      it('syncs to latest height without a hash when querying by block number', async () => {
+        await node.getWorldState(BlockNumber(3));
+        expect(worldState.syncImmediate).toHaveBeenCalledWith(lastBlockNumber, undefined);
+      });
+
       it('throws when block hash is not found in archiver', async () => {
         const blockHash = BlockHash.random();
 
@@ -739,8 +759,7 @@ describe('aztec node', () => {
           undefined,
           slasherClient,
           undefined,
-          undefined,
-          undefined,
+          async () => {},
           12345,
           rollupVersion.toNumber(),
           globalVariablesBuilder,
@@ -930,8 +949,7 @@ describe('aztec node', () => {
           undefined,
           slasherClient,
           undefined,
-          undefined,
-          undefined,
+          async () => {},
           12345,
           rollupVersion.toNumber(),
           globalVariablesBuilder,
@@ -1002,8 +1020,7 @@ describe('aztec node', () => {
         undefined,
         undefined,
         undefined,
-        undefined,
-        undefined,
+        async () => {},
         12345,
         rollupVersion.toNumber(),
         globalVariablesBuilder,
@@ -1028,6 +1045,80 @@ describe('aztec node', () => {
       expect(updateCalls[0][0]).toEqual({ minTxsPerBlock: 0 });
       // Last call to update calls should revert the value to the original
       expect(updateCalls[1][0]).toEqual({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK });
+    });
+  });
+
+  describe('pauseSequencer + setConfig', () => {
+    const INITIAL_MIN_TXS_PER_BLOCK = 2;
+
+    let sequencerClient: MockProxy<SequencerClient>;
+    let nodeWithSequencer: AztecNodeService;
+
+    beforeEach(() => {
+      const sequencer = mock<Sequencer>();
+      sequencer.getConfig.mockReturnValue({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK } as any);
+
+      sequencerClient = mock<SequencerClient>();
+      sequencerClient.getSequencer.mockReturnValue(sequencer);
+
+      nodeWithSequencer = new AztecNodeService(
+        nodeConfig,
+        p2p,
+        l2BlockSource,
+        mock(),
+        mock(),
+        mock(),
+        worldState,
+        sequencerClient,
+        undefined,
+        undefined,
+        undefined,
+        async () => {},
+        12345,
+        rollupVersion.toNumber(),
+        globalVariablesBuilder,
+        mock<FeeProvider>(),
+        epochCache,
+        getPackageVersion(),
+        new TestCircuitVerifier(),
+        new TestCircuitVerifier(),
+      );
+    });
+
+    it('keeps the sequencer frozen when setConfig updates minTxsPerBlock while paused', async () => {
+      await nodeWithSequencer.pauseSequencer();
+      sequencerClient.updateConfig.mockClear();
+
+      await nodeWithSequencer.setConfig({ minTxsPerBlock: 1 });
+
+      // The sequencer must not receive the new minTxsPerBlock while paused; the freeze stays in place.
+      const updateCalls = sequencerClient.updateConfig.mock.calls;
+      const minTxsUpdates = updateCalls.filter(([cfg]) => 'minTxsPerBlock' in cfg);
+      expect(minTxsUpdates).toEqual([]);
+    });
+
+    it('resumeSequencer applies the value set via setConfig during pause (not the pre-pause value)', async () => {
+      await nodeWithSequencer.pauseSequencer();
+      await nodeWithSequencer.setConfig({ minTxsPerBlock: 5 });
+      sequencerClient.updateConfig.mockClear();
+
+      await nodeWithSequencer.resumeSequencer();
+
+      // Resume must use the test-supplied value (5), not the pre-pause snapshot (INITIAL_MIN_TXS_PER_BLOCK).
+      expect(sequencerClient.updateConfig).toHaveBeenCalledWith({ minTxsPerBlock: 5 });
+    });
+
+    it('still forwards non-minTxsPerBlock config changes while paused', async () => {
+      await nodeWithSequencer.pauseSequencer();
+      sequencerClient.updateConfig.mockClear();
+
+      const coinbase = EthAddress.random();
+      await nodeWithSequencer.setConfig({ coinbase, minTxsPerBlock: 3 });
+
+      // coinbase still reaches the sequencer; only minTxsPerBlock is filtered.
+      const updateCalls = sequencerClient.updateConfig.mock.calls;
+      expect(updateCalls).toHaveLength(1);
+      expect(updateCalls[0][0]).toEqual({ coinbase });
     });
   });
 

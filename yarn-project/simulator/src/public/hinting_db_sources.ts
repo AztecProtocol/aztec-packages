@@ -83,6 +83,7 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
           instance.currentContractClassId,
           instance.originalContractClassId,
           instance.initializationHash,
+          instance.immutablesHash,
           instance.publicKeys,
         ),
       );

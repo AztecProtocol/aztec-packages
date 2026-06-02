@@ -1,6 +1,6 @@
 import { getKzg } from '@aztec/blob-lib';
-import type { EpochCache } from '@aztec/epoch-cache';
-import { NoCommitteeError, type RollupContract, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
+import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
+import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -11,10 +11,16 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { BlockData, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type {
+  BlockData,
+  L2BlockSink,
+  L2BlockSource,
+  ProposedCheckpointSink,
+  ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -33,7 +39,7 @@ import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { buildPipelinedParentSimulationOverridesPlan } from './chain_state_overrides.js';
+import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointProposalJobMetrics } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
@@ -45,6 +51,16 @@ import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
 
 export { SequencerState };
+
+/** Slot snapshot used to prepare a checkpoint proposal. */
+type SequencerSlotContext = {
+  slot: SlotNumber;
+  targetSlot: SlotNumber;
+  epoch: EpochNumber;
+  targetEpoch: EpochNumber;
+  ts: bigint;
+  nowSeconds: bigint;
+};
 
 /**
  * Sequencer client
@@ -95,7 +111,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected p2pClient: P2P,
     protected worldState: WorldStateSynchronizer,
     protected slasherClient: SlasherClientInterface | undefined,
-    protected l2BlockSource: L2BlockSource & L2BlockSink,
+    protected l2BlockSource: L2BlockSource & L2BlockSink & ProposedCheckpointSink,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected checkpointsBuilder: FullNodeCheckpointsBuilder,
     protected l1Constants: SequencerRollupConstants,
@@ -214,8 +230,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   @trackSpan('Sequencer.work')
   protected async work() {
     this.setState(SequencerState.SYNCHRONIZING, undefined);
-    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const { slot: targetSlot, epoch: targetEpoch } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
+    const { slot, targetSlot, epoch, targetEpoch, ts, nowSeconds } = this.getSlotContextInNextL1Slot();
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
     const checkpointProposalJob = await this.prepareCheckpointProposal(
@@ -251,6 +266,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     return checkpoint;
+  }
+
+  /** Returns slot and target slot from a single clock snapshot. */
+  protected getSlotContextInNextL1Slot(): SequencerSlotContext {
+    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const targetSlot = SlotNumber(
+      slot + (this.epochCache.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0),
+    );
+    return { slot, targetSlot, epoch, targetEpoch: getEpochAtSlot(targetSlot, this.l1Constants), ts, nowSeconds };
   }
 
   /**
@@ -312,7 +336,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.setState(SequencerState.PROPOSER_CHECK, slot);
       const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
       if (canPropose) {
-        await this.tryVoteWhenEscapeHatchOpen({ slot, proposer });
+        await this.tryVoteWhenEscapeHatchOpen({ slot, targetSlot, proposer });
       } else {
         this.log.trace(`Escape hatch open but we are not proposer, skipping vote-only actions`, {
           slot,
@@ -374,70 +398,68 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerForPublisher);
     this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
 
-    // In fisherman mode, set the actual proposer's address for simulations
-    if (this.config.fishermanMode && proposer) {
-      publisher.setProposerAddressForSimulation(proposer);
-      this.log.debug(`Set proposer address ${proposer} for simulation in fisherman mode`);
-    }
+    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
 
-    // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
-    let invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
+    // Prepare invalidation request if the pending chain is invalid (returns undefined if no need).
+    // Only simulate invalidation when there's no proposed parent, since we assume the proposed parent
+    // will invalidate the currently invalid checkpoint on L1.
+    const invalidateCheckpoint =
+      (isPipelining && syncedTo.hasProposedCheckpoint) || syncedTo.pendingChainValidationStatus.valid
+        ? undefined
+        : await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
 
     // Determine the correct archive and L1 state overrides for the canProposeAt check.
     // The L1 contract reads archives[proposedCheckpointNumber] and compares it with the provided archive.
     // When invalidating or pipelining, the local archive may differ from L1's, so we adjust accordingly.
     let archiveForCheck = syncedTo.archive;
-    const l1SimulationOverridesBuilder = new SimulationOverridesBuilder();
 
-    if (this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint) {
-      // Parent checkpoint hasn't landed on L1 yet. Build a byte-faithful override of the parent's
-      // tempCheckpointLog cell — slotNumber is the load-bearing field that, if left at storage zero,
-      // makes canPruneAtTime spuriously declare the proof window expired and triggers a
-      // Rollup__InvalidArchive revert during the canProposeAt simulation.
-      const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
-      const parentPlan = await buildPipelinedParentSimulationOverridesPlan({
-        checkpointNumber,
-        proposedCheckpointData: syncedTo.proposedCheckpointData,
-        rollup: this.rollupContract,
-        signatureContext: this.signatureContext,
-        log: this.log,
-        pipeliningEnabled: true,
-      });
-      l1SimulationOverridesBuilder.merge(parentPlan);
+    if (isPipelining && syncedTo.hasProposedCheckpoint) {
       this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
-
       this.log.verbose(
         `Building on top of proposed checkpoint (pending=${syncedTo.proposedCheckpointData?.checkpointNumber}) for target slot ${targetSlot}`,
-        { targetSlot, parentCheckpointNumber },
+        { targetSlot, parentCheckpointNumber: CheckpointNumber(checkpointNumber - 1) },
       );
-      // Clear the invalidation - the proposed checkpoint should handle it.
-      invalidateCheckpoint = undefined;
+      // Match what L1 will see at archives[pending] once the proposed parent lands: the parent's
+      // own archive root from the gossiped proposal. `syncedTo.archive` is the world-state-local
+      // view and can transiently diverge from the proposed parent (e.g. before the proposed
+      // parent's blocks have been applied locally); diverging here would cause the canProposeAt
+      // override to set archives[pending] to one value while we present another for comparison.
+      archiveForCheck = syncedTo.proposedCheckpointData!.archive.root;
     } else if (invalidateCheckpoint) {
       // After invalidation, L1 will roll back to checkpoint N-1. The archive at N-1 already
       // exists on L1, so we just pass the matching archive (the lastArchive of the invalid checkpoint).
       archiveForCheck = invalidateCheckpoint.lastArchive;
-      l1SimulationOverridesBuilder.withChainTips({ pending: invalidateCheckpoint.forcePendingCheckpointNumber });
       this.metrics.recordPipelineDepth(0);
     } else {
       this.metrics.recordPipelineDepth(0);
     }
 
-    let provenOverride: CheckpointNumber | undefined;
-    if (await this.l2BlockSource.isPruneDueAtSlot(targetSlot)) {
-      // Force `proven == pending` in the simulation so `STFLib.canPruneAtTime` short-circuits
-      // to false. Use the simulated pending if the caller already overrode it, otherwise the
-      // real L1 pending tip.
-      const overriddenPending = l1SimulationOverridesBuilder.build()?.chainTipsOverride?.pending;
-      const realPending = (await this.l2BlockSource.getL2Tips()).checkpointed.checkpoint.number;
-      provenOverride = overriddenPending ?? realPending;
-      l1SimulationOverridesBuilder.withChainTips({ proven: provenOverride });
+    // Build the simulation plan: pending/proven override from pipelining or invalidation (or the
+    // current snapshot when neither applies, to short-circuit any pending prune in simulation),
+    // plus the parent checkpoint cell and fee header when pipelining.
+    const simulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
+      checkpointNumber,
+      proposedCheckpointData:
+        isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
+      invalidateToPendingCheckpointNumber: invalidateCheckpoint?.forcePendingCheckpointNumber,
+      checkpointedCheckpointNumber: syncedTo.checkpointedCheckpointNumber,
+      rollup: this.rollupContract,
+      signatureContext: this.signatureContext,
+      log: this.log,
+    });
+
+    // The plan always pins both pending/proven (to short-circuit `canPruneAtTime` in simulation),
+    // so `provenOverride` always reflects the assumed proven checkpoint we are pinning the
+    // simulation to. We additionally warn when the pin is load-bearing — i.e. when a prune would
+    // actually fire at the target slot without it — so observers can spot "we are building
+    // optimistically across a pruning boundary" in the logs.
+    const provenOverride = simulationOverridesPlan?.chainTipsOverride?.proven;
+    if (provenOverride !== undefined && (await this.l2BlockSource.isPruneDueAtSlot(targetSlot))) {
       this.log.warn(
-        `applying-proven-override-for-boundary: assuming proof for epoch ending at checkpoint ${provenOverride} lands by target slot ${targetSlot}`,
-        { checkpointNumber, slot, targetSlot, provenOverride, overriddenPending },
+        `Assuming proof for epoch ending at checkpoint ${provenOverride} lands by target slot ${targetSlot}`,
+        { checkpointNumber, slot, targetSlot, provenOverride },
       );
     }
-
-    const simulationOverridesPlan = l1SimulationOverridesBuilder.build();
 
     this.emit('preparing-checkpoint', {
       targetSlot,
@@ -515,12 +537,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       targetEpoch,
       checkpointNumber,
       syncedTo.blockNumber,
+      syncedTo.checkpointedCheckpointNumber,
       proposer,
       publisher,
       attestorAddress,
       invalidateCheckpoint,
       syncedTo.proposedCheckpointData,
-      provenOverride !== undefined ? { provenOverride } : undefined,
     );
   }
 
@@ -530,12 +552,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     targetEpoch: EpochNumber,
     checkpointNumber: CheckpointNumber,
     syncedToBlockNumber: BlockNumber,
+    checkpointedCheckpointNumber: CheckpointNumber,
     proposer: EthAddress | undefined,
     publisher: SequencerPublisher,
     attestorAddress: EthAddress,
     invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
     proposedCheckpointData?: ProposedCheckpointData,
-    prunePending?: { provenOverride: CheckpointNumber },
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
       slot,
@@ -543,6 +565,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       targetEpoch,
       checkpointNumber,
       syncedToBlockNumber,
+      checkpointedCheckpointNumber,
       proposer,
       publisher,
       attestorAddress,
@@ -569,7 +592,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.tracer,
       this.log.getBindings(),
       proposedCheckpointData,
-      prunePending,
     );
   }
 
@@ -695,6 +717,30 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log.warn(`Sequencer sync check failed: failed to get L2 block data ${blockNumber} from the archiver`, {
         blockNumber,
         l2Tips,
+        syncedL2Slot,
+        ...args,
+      });
+      return undefined;
+    }
+
+    // Refuse to build a checkpoint on top of a proposed block whose enclosing checkpoint was never
+    // proposed. Under pipelining we may have received and reexecuted such a block locally — advancing
+    // our world-state tip past the checkpointed tip — while the proposing node never published the
+    // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
+    // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
+    // once their build slot ends; this guard is the correctness barrier during the grace window before.
+    if (
+      blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
+      (l2Tips.proposedCheckpoint.checkpoint.number !== blockData.checkpointNumber ||
+        proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber)
+    ) {
+      this.log.warn(`Sequencer sync check failed: proposed block has no matching proposed checkpoint`, {
+        blockCheckpointNumber: blockData.checkpointNumber,
+        checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
+        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
+        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+        blockNumber: blockData.header.getBlockNumber(),
+        blockSlot: blockData.header.getSlot(),
         syncedL2Slot,
         ...args,
       });
@@ -869,20 +915,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.log.info(`Voting in slot ${slot} despite sync failure`, { slot });
-    // Under proposer pipelining, votes are EIP-712-signed for `targetSlot` (the pipelined slot
-    // in which the multicall is expected to mine). Submitting immediately would let the
-    // multicall mine in the wall-clock slot, causing signature verification to fail silently
-    // inside Multicall3. Delay submission to the start of `targetSlot` so the tx mines in the
+    // Votes are EIP-712-signed for `targetSlot` (the pipelined slot in which the multicall is
+    // expected to mine). Delay submission to the start of `targetSlot` so the tx mines in the
     // slot the votes were signed for. We fire-and-forget so we don't block the sequencer's
     // work loop while waiting for the target slot to start.
-    if (this.epochCache.isProposerPipeliningEnabled()) {
-      const submitAfter = new Date(Number(getTimestampForSlot(targetSlot, this.l1Constants)) * 1000);
-      void publisher.sendRequestsAt(submitAfter).catch(err => {
-        this.log.error(`Failed to publish votes despite sync failure for slot ${slot}`, err, { slot });
-      });
-    } else {
-      await publisher.sendRequests();
-    }
+    void publisher.sendRequestsAt(targetSlot).catch(err => {
+      this.log.error(`Failed to publish votes despite sync failure for slot ${slot}`, err, { slot });
+    });
   }
 
   /**
@@ -892,9 +931,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   @trackSpan('Sequencer.tryVoteWhenEscapeHatchOpen', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
   protected async tryVoteWhenEscapeHatchOpen(args: {
     slot: SlotNumber;
+    targetSlot: SlotNumber;
     proposer: EthAddress | undefined;
   }): Promise<void> {
-    const { slot, proposer } = args;
+    const { slot, targetSlot, proposer } = args;
 
     // Prevent duplicate attempts in the same slot
     if (this.lastSlotForFallbackVote === slot) {
@@ -907,10 +947,19 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
 
-    this.log.debug(`Escape hatch open for slot ${slot}, attempting vote-only actions`, { slot, attestorAddress });
-
-    const voter = new CheckpointVoter(
+    this.log.debug(`Escape hatch open for slot ${slot}, attempting vote-only actions`, {
       slot,
+      targetSlot,
+      attestorAddress,
+    });
+
+    // Under proposer pipelining, the multicall is expected to mine in `targetSlot` (slot + 1).
+    // Governance and slashing votes are EIP-712-signed against the slot they will mine in, and the
+    // L1 contract checks `msg.sender == getCurrentProposer()` using the mining slot. So we must
+    // sign for `targetSlot` and delay submission to the start of `targetSlot`. When pipelining is
+    // disabled `targetSlot == slot` and `sendRequestsAt` resolves with no extra sleep.
+    const voter = new CheckpointVoter(
+      targetSlot,
       publisher,
       attestorAddress,
       this.validatorClient,
@@ -929,8 +978,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    this.log.info(`Voting in slot ${slot} (escape hatch open)`, { slot });
-    await publisher.sendRequests();
+    this.log.info(`Voting in slot ${slot} (escape hatch open)`, { slot, targetSlot });
+    // Votes are EIP-712-signed for `targetSlot`. Delay submission to the start of `targetSlot` so
+    // the multicall mines in the slot the votes were signed for; otherwise the L1 contract reads
+    // `signaler = getCurrentProposer()` against the wrong slot and signature verification fails
+    // silently inside Multicall3. Fire-and-forget so we don't block the sequencer's work loop while
+    // waiting for the target slot to start, mirroring tryVoteWhenSyncFails.
+    void publisher.sendRequestsAt(targetSlot).catch(err => {
+      this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
+    });
   }
 
   /**

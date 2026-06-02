@@ -40,7 +40,7 @@ flowchart TB
 ```
 
 :::note[Privacy consideration]
-When the PXE queries the node for world state (e.g., to check if a nullifier exists), the node learns which data the user is interested in. This is a known tradeoff—users can mitigate this by running their own node.
+When the PXE queries the node for world state (e.g., to check if a nullifier exists), the node learns which data the user is interested in. This is a known tradeoff. Users can mitigate this by running their own node.
 :::
 
 ## Components
@@ -51,7 +51,7 @@ An application prompts the user's PXE to execute a transaction (e.g. execute fun
 
 The contract function simulator handles execution of smart contract functions by simulating transactions. It generates the required data and inputs for these functions, including partial witnesses and public inputs.
 
-Until simulated simulations are implemented ([#9133](https://github.com/AztecProtocol/aztec-packages/issues/9133)), authentication witnesses are required for simulation before proving.
+By default, the simulator runs in a [kernelless mode](./kernelless_simulations.md): it executes the private bytecode and computes the values the private kernels would have produced in TypeScript, instead of running the kernel circuits themselves. This is faster than a full simulation and lets the wallet capture authentication witness requests as offchain effects without prompting the user to sign during simulation.
 
 ### Proof Generation
 
@@ -93,7 +93,7 @@ The set of oracles that the PXE exposes to private and utility functions is vers
 
 The version uses two components, `major.minor`, with the following compatibility rules:
 
-- **`major`** must match exactly. A major bump is a breaking change — oracles were removed or their signatures changed — and a PXE on a different major cannot safely run the contract.
+- **`major`** must match exactly. A major bump is a breaking change: oracles were removed or their signatures changed, and a PXE on a different major cannot safely run the contract.
 - **`minor`** indicates additive changes (new oracles). The PXE uses a best-effort approach here: a contract compiled against a higher `minor` than the PXE supports is still allowed to run, and an error is only thrown if the contract actually invokes an oracle the PXE does not know about. In practice, a contract built with a newer Aztec.nr may not use any of the newly added oracles at all, in which case it runs fine on an older PXE.
 
 The canonical version constants live in the PXE (`ORACLE_VERSION_MAJOR` / `ORACLE_VERSION_MINOR` in `yarn-project/pxe/src/oracle_version.ts`) and in Aztec.nr (`noir-projects/aztec-nr/aztec/src/oracle/version.nr`). The two are kept in lockstep as part of each release.

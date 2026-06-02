@@ -210,7 +210,10 @@ function execute-examples {
 }
 
 function test_cmds {
-  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh execute"
+  # Bumped from the default 600s by ~50% (now 15m) to absorb cumulative-runtime growth
+  # under merge-queue load — example_swap's `wait-for-proven` poll was tipping SIGTERM
+  # near the old limit. See PR #23253 dequeue log http://ci.aztec-labs.com/b08ac48286302949.
+  echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=15m docs/examples/bootstrap.sh execute"
 }
 
 function test {

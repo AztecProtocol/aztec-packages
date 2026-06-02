@@ -5,7 +5,6 @@ use types::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, DOM_SEP__TSK_M, PRIVATE_KERNEL_TAIL_VK_INDEX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    point::Point,
     side_effect::Scoped,
     traits::{Empty, FromField},
 };
@@ -40,11 +39,7 @@ fn non_empty_nullifier_read_requests() {
 #[test(should_fail_with = "Non empty key validation requests")]
 fn non_empty_key_validations() {
     let mut builder = TestBuilder::new();
-    builder.previous_kernel.add_request_for_key_validation(
-        Point { x: 1, y: 2, is_infinite: false },
-        27,
-        DOM_SEP__TSK_M as Field,
-    );
+    builder.previous_kernel.add_request_for_key_validation(12345, 27, DOM_SEP__TSK_M as Field);
     let _ = builder.execute();
 }
 

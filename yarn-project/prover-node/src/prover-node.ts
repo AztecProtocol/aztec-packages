@@ -166,10 +166,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   async stop() {
     this.log.info('Stopping ProverNode');
     await this.epochsMonitor.stop();
-    await this.prover.stop();
-    await tryStop(this.publisherFactory);
     this.publisher?.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
+    await this.prover.stop();
+    await tryStop(this.publisherFactory);
     this.rewardsMetrics.stop();
     this.l1Metrics.stop();
     await this.telemetryClient.stop();

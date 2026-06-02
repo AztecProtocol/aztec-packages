@@ -113,44 +113,6 @@ describe('p2p client integration reqresp', () => {
     return (p2pService as any).node.peerId;
   };
 
-  it('can request txs from peers via mock reqresp', async () => {
-    const numberOfNodes = 2;
-    const mockGossipSubNetwork = new MockGossipSubNetwork();
-
-    const testConfig = {
-      p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1 },
-      mockAttestationPool: attestationPool,
-      mockTxPool: txPool,
-      mockEpochCache: epochCache,
-      mockWorldState: worldState,
-      alwaysTrueVerifier: true,
-      mockGossipSubNetwork,
-      logger,
-    };
-
-    const clientsAndConfig = await makeAndStartTestP2PClients(numberOfNodes, testConfig);
-    clients = clientsAndConfig.map(c => c.client);
-
-    await sleep(1000);
-
-    // Create a mock tx and configure the shared pool to return it
-    const tx = await createMockTxWithMetadata(testConfig.p2pBaseConfig);
-    const txHash = tx.getTxHash();
-
-    txPool.getTxByHash.mockImplementation((hash: TxHash) => Promise.resolve(hash.equals(txHash) ? tx : undefined));
-
-    // Request the tx from node-2, which will route to node-1 via the mock network
-    const reqresp = getReqResp(clients[1]);
-    const responses = await reqresp.sendBatchRequest(ReqRespSubProtocol.TX, [new TxHashArray(txHash)], undefined);
-
-    expect(responses).toHaveLength(1);
-    const txArray = responses[0] as TxArray;
-    expect(txArray).toHaveLength(1);
-
-    const receivedTxHash = txArray[0].getTxHash();
-    expect(receivedTxHash.toString()).toEqual(txHash.toString());
-  });
-
   it('sendRequestToPeer routes to the correct peer handler', async () => {
     const numberOfNodes = 2;
     const mockGossipSubNetwork = new MockGossipSubNetwork();
@@ -196,37 +158,5 @@ describe('p2p client integration reqresp', () => {
       const receivedTxHash = txArray[0].getTxHash();
       expect(receivedTxHash.toString()).toEqual(txHash.toString());
     }
-  });
-
-  it('reqresp returns empty when peer has no matching txs', async () => {
-    const numberOfNodes = 2;
-    const mockGossipSubNetwork = new MockGossipSubNetwork();
-
-    const testConfig = {
-      p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1 },
-      mockAttestationPool: attestationPool,
-      mockTxPool: txPool,
-      mockEpochCache: epochCache,
-      mockWorldState: worldState,
-      alwaysTrueVerifier: true,
-      mockGossipSubNetwork,
-      logger,
-    };
-
-    const clientsAndConfig = await makeAndStartTestP2PClients(numberOfNodes, testConfig);
-    clients = clientsAndConfig.map(c => c.client);
-
-    await sleep(1000);
-
-    // Request a random tx hash that no peer has
-    const randomTxHash = TxHash.random();
-    const reqresp = getReqResp(clients[1]);
-    const responses = await reqresp.sendBatchRequest(ReqRespSubProtocol.TX, [new TxHashArray(randomTxHash)], undefined);
-
-    // The handler returns an empty TxArray (serialized as a 4-byte vector with count 0),
-    // so sendBatchRequest includes it as a response with an empty TxArray.
-    expect(responses).toHaveLength(1);
-    const txArray = responses[0] as TxArray;
-    expect(txArray).toHaveLength(0);
   });
 });

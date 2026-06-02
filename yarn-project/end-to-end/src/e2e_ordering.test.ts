@@ -4,6 +4,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
@@ -11,6 +12,7 @@ import { computeCalldataHash } from '@aztec/stdlib/hash';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
@@ -26,15 +28,15 @@ describe('e2e_ordering', () => {
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
-  const expectLogsFromLastBlockToBe = async (logMessages: bigint[]) => {
-    const fromBlock = await aztecNode.getBlockNumber();
-    const logFilter = {
-      fromBlock,
-      toBlock: fromBlock + 1,
-    };
-    const publicLogs = (await aztecNode.getPublicLogs(logFilter)).logs;
-
-    const bigintLogs = publicLogs.map(extendedLog => toBigIntBE(serializeToBuffer(extendedLog.log.getEmittedFields())));
+  const expectLogsFromBlockToBe = async (logMessages: bigint[], blockNumber: number) => {
+    // The log RPC is tag-based and per-contract; fetch the block's tx effects directly to assert ordering across all
+    // public logs in the block in canonical (txIndex, logIndexWithinTx) order.
+    const block = await aztecNode.getBlock(BlockNumber(blockNumber), { includeTransactions: true });
+    if (!block) {
+      throw new Error(`Block ${blockNumber} not found`);
+    }
+    const publicLogs = block.body.txEffects.flatMap(txEffect => txEffect.publicLogs);
+    const bigintLogs = publicLogs.map(publicLog => toBigIntBE(serializeToBuffer(publicLog.getEmittedFields())));
 
     expect(bigintLogs).toStrictEqual(logMessages);
   };
@@ -45,7 +47,7 @@ describe('e2e_ordering', () => {
       wallet,
       aztecNode,
       accounts: [defaultAccountAddress],
-    } = await setup());
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
   }, TIMEOUT);
 
   afterEach(() => teardown());
@@ -77,7 +79,7 @@ describe('e2e_ordering', () => {
           const action = parent.methods[method](child.address, pubSetValueSelector);
           const tx = await proveInteraction(wallet, action, { from: defaultAccountAddress });
 
-          await tx.send();
+          const receipt = await tx.send();
 
           // There are two enqueued calls
           const enqueuedPublicCalls = tx.getPublicCallRequestsWithCalldata();
@@ -94,7 +96,7 @@ describe('e2e_ordering', () => {
           expect(enqueuedPublicCalls.map(c => c.args[0].toBigInt())).toEqual(expectedOrder);
 
           // Logs are emitted in the expected order
-          await expectLogsFromLastBlockToBe(expectedOrder);
+          await expectLogsFromBlockToBe(expectedOrder, receipt.blockNumber!);
 
           // The final value of the child is the last one set
           const value = await aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
@@ -133,10 +135,10 @@ describe('e2e_ordering', () => {
       ] as const)('orders public logs in %s', async method => {
         const expectedOrder = expectedOrders[method];
 
-        await child.methods[method]().send({ from: defaultAccountAddress });
+        const { receipt } = await child.methods[method]().send({ from: defaultAccountAddress });
 
         // Logs are emitted in the expected order
-        await expectLogsFromLastBlockToBe(expectedOrder);
+        await expectLogsFromBlockToBe(expectedOrder, receipt.blockNumber!);
       });
     });
   });

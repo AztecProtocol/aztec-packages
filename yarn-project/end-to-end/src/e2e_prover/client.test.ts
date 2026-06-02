@@ -4,14 +4,19 @@ import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
-import '@jest/globals';
+import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 
 // Set a very long 20 minute timeout.
 const TIMEOUT = 1_200_000;
+
+// Pipelined 12s-slot setup chain (account deploys + token deploy + mint + epoch advance +
+// prover-node startup) exceeds the default 5min jest per-test budget.
+jest.setTimeout(15 * 60 * 1000);
 
 describe('client_prover', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
@@ -25,26 +30,29 @@ describe('client_prover', () => {
   let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, ExtendedViemWalletClient>;
   let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, ExtendedViemWalletClient>;
 
-  beforeAll(async () => {
-    t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
+  beforeAll(
+    async () => {
+      t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
-    await t.setup();
+      await t.setup({ ...PIPELINING_SETUP_OPTS });
 
-    ({ provenAsset, accounts, logger, wallet } = t);
-    [sender, recipient] = accounts;
+      ({ provenAsset, accounts, logger, wallet } = t);
+      [sender, recipient] = accounts;
 
-    feeJuicePortal = getContract({
-      abi: FeeJuicePortalAbi,
-      address: t.l1Contracts.l1ContractAddresses.feeJuicePortalAddress.toString(),
-      client: t.l1Contracts.l1Client,
-    });
+      feeJuicePortal = getContract({
+        abi: FeeJuicePortalAbi,
+        address: t.l1Contracts.l1ContractAddresses.feeJuicePortalAddress.toString(),
+        client: t.l1Contracts.l1Client,
+      });
 
-    feeJuiceToken = getContract({
-      abi: TestERC20Abi,
-      address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
-      client: t.l1Contracts.l1Client,
-    });
-  }, 120_000);
+      feeJuiceToken = getContract({
+        abi: TestERC20Abi,
+        address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
+        client: t.l1Contracts.l1Client,
+      });
+    },
+    15 * 60 * 1000,
+  );
 
   afterAll(async () => {
     await t.teardown();

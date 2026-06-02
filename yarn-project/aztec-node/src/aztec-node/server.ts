@@ -1,4 +1,4 @@
-import { Archiver, createArchiver } from '@aztec/archiver';
+import { Archiver, L1ToL2MessagesNotReadyError, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
@@ -20,6 +20,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
+import { isErrorClass } from '@aztec/foundation/types';
 import { type KeyStore, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
@@ -34,19 +35,25 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import {
+  AutomineSequencer,
   FeeProviderImpl,
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
+  createAutomineSequencer,
 } from '@aztec/sequencer-client';
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
-  EpochPruneWatcher,
+  AttestedInvalidProposalWatcher,
+  BroadcastedInvalidCheckpointProposalWatcher,
+  CheckpointEquivocationWatcher,
+  DataWithholdingWatcher,
   type SlasherClientInterface,
   type Watcher,
   createSlasher,
 } from '@aztec/slasher';
+import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from '@aztec/standard-contracts/multi-call-entrypoint';
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -61,7 +68,12 @@ import {
   type NormalizedBlockParameter,
   inspectBlockParameter,
 } from '@aztec/stdlib/block';
-import { type CheckpointData, L1PublishedData, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  type CheckpointData,
+  CheckpointReexecutionTracker,
+  L1PublishedData,
+  type PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -84,8 +96,6 @@ import type {
   CheckpointIncludeOptions,
   CheckpointParameter,
   CheckpointResponse,
-  GetContractClassLogsResponse,
-  GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
@@ -97,10 +107,11 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { DebugLogStore, LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
 import { InboxLeaf, type L1ToL2MessageSource, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { Offense } from '@aztec/stdlib/slashing';
+import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -159,6 +170,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   private metrics: NodeMetrics;
   // Prevent two snapshot operations to happen simultaneously
   private isUploadingSnapshot = false;
+  // Saved minTxsPerBlock used by `pauseSequencer` to restore production-sequencer config on resume.
+  private sequencerPausedMinTxsPerBlock: number | undefined;
 
   public readonly tracer: Tracer;
 
@@ -174,8 +187,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     protected readonly proverNode: ProverNode | undefined,
     protected readonly slasherClient: SlasherClientInterface | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
-    protected readonly epochPruneWatcher: EpochPruneWatcher | undefined,
-    protected readonly attestationsBlockWatcher: AttestationsBlockWatcher | undefined,
+    private readonly stopStartedWatchers: () => Promise<void>,
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
@@ -190,6 +202,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     private validatorClient?: ValidatorClient,
     private keyStoreManager?: KeystoreManager,
     private debugLogStore: DebugLogStore = new NullDebugLogStore(),
+    private readonly automineSequencer?: AutomineSequencer,
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
@@ -395,7 +408,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   /** Fetches checkpoint context for a set of blocks, deduplicating shared checkpoints. */
   async #getCheckpointContextsForBlocks(
     blocks: { checkpointNumber: CheckpointNumber }[],
-    // TODO(palla): CheckpointNumber should be accepted by this lint rule
   ): Promise<Map<CheckpointNumber, { l1?: L1PublishedData; attestations?: CommitteeAttestation[] } | undefined>> {
     const unique = Array.from(new Set(blocks.map(b => b.checkpointNumber)));
     const entries = await Promise.all(unique.map(async n => [n, await this.#getCheckpointContext(n)] as const));
@@ -565,6 +577,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // Track started resources so we can clean up on partial failure during node creation.
     const started: { stop?(): Promise<void> | void }[] = [];
     try {
+      // Default the orphan-prune grace window from the block build duration when unset, so the archiver
+      // waits roughly one build slot for a proposed checkpoint to arrive before pruning a block-only tip.
+      config.orphanProposedBlockPruneGraceSeconds ??=
+        config.blockDurationMs !== undefined ? Math.ceil(config.blockDurationMs / 1000) : MIN_EXECUTION_TIME;
+
       // Create world-state first so we can retrieve the initial header before constructing the archiver.
       const nativeWs = await createWorldState(config, options.genesis);
       const initialHeader = nativeWs.getInitialHeader();
@@ -659,6 +676,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       let validatorClient: ValidatorClient | undefined;
 
+      // Tracks successful checkpoint re-execution by a checkpoint proposal handler.
+      const reexecutionTracker = new CheckpointReexecutionTracker();
+
       if (!config.disableValidator) {
         // Create validator client if required
         validatorClient = await createValidatorClient(config, {
@@ -672,6 +692,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           l1ToL2MessageSource: archiver,
           keyStoreManager,
           blobClient,
+          reexecutionTracker,
           slashingProtectionDb: deps.slashingProtectionDb,
         });
 
@@ -708,6 +729,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           blobClient,
           dateProvider,
           telemetry,
+          reexecutionTracker,
         }).register(p2pClient, reexecute, archiver);
       }
 
@@ -718,56 +740,87 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       await p2pClient.start();
 
       let validatorsSentinel: Awaited<ReturnType<typeof createSentinel>> | undefined;
-      let epochPruneWatcher: EpochPruneWatcher | undefined;
+      let dataWithholdingWatcher: DataWithholdingWatcher | undefined;
       let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
+      let attestedInvalidProposalWatcher: AttestedInvalidProposalWatcher | undefined;
+      let broadcastedInvalidCheckpointProposalWatcher: BroadcastedInvalidCheckpointProposalWatcher | undefined;
+      let checkpointEquivocationWatcher: CheckpointEquivocationWatcher | undefined;
 
       if (!proverOnly) {
-        validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-        if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
+        validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, reexecutionTracker, config);
+        if (validatorsSentinel) {
           watchers.push(validatorsSentinel);
         }
 
-        if (config.slashPrunePenalty > 0n || config.slashDataWithholdingPenalty > 0n) {
-          epochPruneWatcher = new EpochPruneWatcher(
-            archiver,
+        dataWithholdingWatcher = new DataWithholdingWatcher(
+          epochCache,
+          archiver,
+          p2pClient.getTxProvider(),
+          p2pClient,
+          reexecutionTracker,
+          { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
+          config,
+        );
+        watchers.push(dataWithholdingWatcher);
+
+        broadcastedInvalidCheckpointProposalWatcher = new BroadcastedInvalidCheckpointProposalWatcher(
+          p2pClient,
+          archiver,
+          epochCache,
+          config,
+        );
+        watchers.push(broadcastedInvalidCheckpointProposalWatcher);
+
+        if (validatorClient) {
+          attestedInvalidProposalWatcher = new AttestedInvalidProposalWatcher(
+            p2pClient,
+            validatorClient,
             archiver,
             epochCache,
-            p2pClient.getTxProvider(),
-            validatorCheckpointsBuilder,
             config,
+            { log: log.createChild('attested-invalid-proposal-watcher') },
           );
-          watchers.push(epochPruneWatcher);
+          watchers.push(attestedInvalidProposalWatcher);
         }
 
-        // We assume we want to slash for invalid attestations unless all max penalties are set to 0
-        if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
-          attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
-          watchers.push(attestationsBlockWatcher);
-        }
+        checkpointEquivocationWatcher = new CheckpointEquivocationWatcher(archiver, epochCache, config);
+        watchers.push(checkpointEquivocationWatcher);
+
+        attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config, log.getBindings());
+        watchers.push(attestationsBlockWatcher);
       }
+
+      const watchersToStart = compactArray([
+        validatorsSentinel,
+        dataWithholdingWatcher,
+        attestationsBlockWatcher,
+        broadcastedInvalidCheckpointProposalWatcher,
+        attestedInvalidProposalWatcher,
+        checkpointEquivocationWatcher,
+      ]);
+      const startedWatchers: Watcher[] = [];
+      const stopStartedWatchers = async () => {
+        for (const watcher of startedWatchers) {
+          await tryStop(watcher);
+        }
+      };
 
       // Start p2p-related services once the archiver has completed sync
       void archiver
         .waitForInitialSync()
         .then(async () => {
-          if (validatorsSentinel) {
-            await validatorsSentinel.start();
-            started.push(validatorsSentinel);
-          }
-          if (epochPruneWatcher) {
-            await epochPruneWatcher.start();
-            started.push(epochPruneWatcher);
-          }
-          if (attestationsBlockWatcher) {
-            await attestationsBlockWatcher.start();
-            started.push(attestationsBlockWatcher);
+          for (const watcher of watchersToStart) {
+            await watcher.start();
+            startedWatchers.push(watcher);
           }
           log.info(`All p2p services started`);
         })
         .catch(err => log.error('Failed to start p2p services after archiver sync', err));
+      started.push({ stop: stopStartedWatchers });
 
       // Validator enabled, create/start relevant service
       let sequencer: SequencerClient | undefined;
+      let automineSequencer: AutomineSequencer | undefined;
       let slasherClient: SlasherClientInterface | undefined;
       if (!config.disableValidator && validatorClient) {
         // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
@@ -827,24 +880,54 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           debugLogStore,
         );
 
-        sequencer = await SequencerClient.new(config, {
-          ...deps,
-          epochCache,
-          l1TxUtils,
-          funderL1TxUtils,
-          validatorClient,
-          p2pClient,
-          worldStateSynchronizer,
-          slasherClient,
-          checkpointsBuilder,
-          l2BlockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          telemetry,
-          dateProvider,
-          blobClient,
-          nodeKeyStore: keyStoreManager!,
-          globalVariableBuilder,
-        });
+        if (config.useAutomineSequencer) {
+          // Test-only path: deterministic, queue-driven sequencer for non-block-building e2e tests.
+          // See `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts`.
+          automineSequencer = await createAutomineSequencer({
+            config,
+            l1TxUtils,
+            funderL1TxUtils,
+            publicClient,
+            rollupContract,
+            epochCache,
+            blobClient,
+            telemetry,
+            dateProvider,
+            keyStoreManager: keyStoreManager!,
+            validatorClient,
+            checkpointsBuilder,
+            globalVariableBuilder,
+            worldStateSynchronizer,
+            archiver,
+            p2pClient,
+            l1Constants: {
+              l1GenesisTime,
+              slotDuration: Number(slotDuration),
+              ethereumSlotDuration: config.ethereumSlotDuration,
+              rollupManaLimit,
+            },
+            log,
+          });
+        } else {
+          sequencer = await SequencerClient.new(config, {
+            ...deps,
+            epochCache,
+            l1TxUtils,
+            funderL1TxUtils,
+            validatorClient,
+            p2pClient,
+            worldStateSynchronizer,
+            slasherClient,
+            checkpointsBuilder,
+            l2BlockSource: archiver,
+            l1ToL2MessageSource: archiver,
+            telemetry,
+            dateProvider,
+            blobClient,
+            nodeKeyStore: keyStoreManager!,
+            globalVariableBuilder,
+          });
+        }
       }
 
       if (!options.dontStartSequencer && sequencer) {
@@ -853,6 +936,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         log.verbose(`Sequencer started`);
       } else if (sequencer) {
         log.warn(`Sequencer created but not started`);
+      }
+
+      if (!options.dontStartSequencer && automineSequencer) {
+        await automineSequencer.start();
+        started.push({ stop: () => automineSequencer!.stop() });
+        log.verbose(`AutomineSequencer started`);
+      } else if (automineSequencer) {
+        log.warn(`AutomineSequencer created but not started`);
       }
 
       // Create prover node subsystem if enabled
@@ -891,8 +982,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         proverNode,
         slasherClient,
         validatorsSentinel,
-        epochPruneWatcher,
-        attestationsBlockWatcher,
+        stopStartedWatchers,
         ethereumChain.chainInfo.id,
         config.rollupVersion,
         globalVariableBuilder,
@@ -907,6 +997,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         validatorClient,
         keyStoreManager,
         debugLogStore,
+        automineSequencer,
       );
 
       return node;
@@ -925,6 +1016,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    */
   public getSequencer(): SequencerClient | undefined {
     return this.sequencer;
+  }
+
+  /** Test-only: returns the AutomineSequencer when wired via `useAutomineSequencer`. */
+  public getAutomineSequencer(): AutomineSequencer | undefined {
+    return this.automineSequencer;
   }
 
   /** Returns the prover node subsystem, if enabled. */
@@ -1040,59 +1136,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.contractDataSource.getContract(address);
   }
 
-  public async getPrivateLogsByTags(
-    tags: SiloedTag[],
-    page?: number,
-    referenceBlock?: BlockHash,
-  ): Promise<TxScopedL2Log[][]> {
-    let upToBlockNumber: BlockNumber | undefined;
-    if (referenceBlock) {
-      const data = await this.blockSource.getBlockData({ hash: referenceBlock });
-      if (!data) {
-        throw new Error(
-          `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
-        );
-      }
-      upToBlockNumber = data.header.globalVariables.blockNumber;
-    }
-    return this.logsSource.getPrivateLogsByTags(tags, page, upToBlockNumber);
+  public getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+    return this.logsSource.getPrivateLogsByTags(query);
   }
 
-  public async getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    page?: number,
-    referenceBlock?: BlockHash,
-  ): Promise<TxScopedL2Log[][]> {
-    let upToBlockNumber: BlockNumber | undefined;
-    if (referenceBlock) {
-      const data = await this.blockSource.getBlockData({ hash: referenceBlock });
-      if (!data) {
-        throw new Error(
-          `Block ${referenceBlock.toString()} not found in the node. This might indicate a reorg has occurred.`,
-        );
-      }
-      upToBlockNumber = data.header.globalVariables.blockNumber;
-    }
-    return this.logsSource.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
-  }
-
-  /**
-   * Gets public logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
-   */
-  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    return this.logsSource.getPublicLogs(filter);
-  }
-
-  /**
-   * Gets contract class logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
-   */
-  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    return this.logsSource.getContractClassLogs(filter);
+  public getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+    return this.logsSource.getPublicLogsByTags(query);
   }
 
   /**
@@ -1168,12 +1217,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    */
   public async stop() {
     this.log.info(`Stopping Aztec Node`);
-    await tryStop(this.attestationsBlockWatcher);
-    await tryStop(this.validatorsSentinel);
-    await tryStop(this.epochPruneWatcher);
+    await this.stopStartedWatchers();
     await tryStop(this.slasherClient);
     await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
     await tryStop(this.sequencer);
+    await tryStop(this.automineSequencer);
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);
     await tryStop(this.worldStateSynchronizer);
@@ -1490,11 +1538,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // the world state tree so simulation can take them into account. We detect if the next block would
     // start a new checkpoint by checking if the proposed checkpoint's block number matches the latest block number,
     // which means the next block would be the first block of the next checkpoint.
+    const targetCheckpoint = CheckpointNumber(
+      (l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1,
+    );
     const nextCheckpointMessages: Fr[] | undefined =
       l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number
-        ? await this.l1ToL2MessageSource.getL1ToL2Messages(
-            CheckpointNumber((l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1),
-          )
+        ? await this.l1ToL2MessageSource.getL1ToL2Messages(targetCheckpoint).catch(err => {
+            if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
+              this.log.warn(
+                `L1-to-L2 messages for checkpoint ${targetCheckpoint} are not ready yet (simulating without them)`,
+              );
+            } else {
+              this.log.error(
+                `Failed to get L1-to-L2 messages for checkpoint ${targetCheckpoint} (simulating without them)`,
+                err,
+              );
+            }
+            return undefined;
+          })
         : undefined;
 
     // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
@@ -1590,7 +1651,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
   public async setConfig(config: Partial<AztecNodeAdminConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
-    this.sequencer?.updateConfig(config);
+    // If the sequencer is currently paused via pauseSequencer(), record the caller's desired
+    // minTxsPerBlock as the restore value (so resumeSequencer applies it) and keep the freeze
+    // (MAX_SAFE_INTEGER) applied to the underlying sequencer. Without this guard, forwarding
+    // the new minTxsPerBlock to the sequencer would silently unpause block production while
+    // pauseSequencer() still considers it paused.
+    const sequencerUpdate = { ...config };
+    if (this.sequencerPausedMinTxsPerBlock !== undefined && sequencerUpdate.minTxsPerBlock !== undefined) {
+      this.sequencerPausedMinTxsPerBlock = sequencerUpdate.minTxsPerBlock;
+      delete sequencerUpdate.minTxsPerBlock;
+    }
+    this.sequencer?.updateConfig(sequencerUpdate);
+    this.automineSequencer?.updateConfig(sequencerUpdate);
     this.slasherClient?.updateConfig(config);
     this.validatorsSentinel?.updateConfig(config);
     await this.p2pClient.updateP2PConfig(config);
@@ -1618,7 +1690,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       classRegistry: ProtocolContractAddress.ContractClassRegistry,
       feeJuice: ProtocolContractAddress.FeeJuice,
       instanceRegistry: ProtocolContractAddress.ContractInstanceRegistry,
-      multiCallEntrypoint: ProtocolContractAddress.MultiCallEntrypoint,
+      multiCallEntrypoint: STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS,
     });
   }
 
@@ -1735,6 +1807,41 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return Promise.resolve();
   }
 
+  public pauseSequencer(): Promise<void> {
+    if (this.automineSequencer) {
+      this.automineSequencer.pause();
+      return Promise.resolve();
+    }
+    if (this.sequencer) {
+      if (this.sequencerPausedMinTxsPerBlock === undefined) {
+        this.sequencerPausedMinTxsPerBlock = this.sequencer.getSequencer().getConfig().minTxsPerBlock ?? 0;
+        this.sequencer.updateConfig({ minTxsPerBlock: Number.MAX_SAFE_INTEGER });
+        this.log.info(`Sequencer paused (minTxsPerBlock set to MAX_SAFE_INTEGER)`, {
+          previousMinTxsPerBlock: this.sequencerPausedMinTxsPerBlock,
+        });
+      }
+      return Promise.resolve();
+    }
+    throw new BadRequestError('Cannot pause sequencer: no sequencer is running');
+  }
+
+  public resumeSequencer(): Promise<void> {
+    if (this.automineSequencer) {
+      this.automineSequencer.resume();
+      return Promise.resolve();
+    }
+    if (this.sequencer) {
+      if (this.sequencerPausedMinTxsPerBlock !== undefined) {
+        const restored = this.sequencerPausedMinTxsPerBlock;
+        this.sequencerPausedMinTxsPerBlock = undefined;
+        this.sequencer.updateConfig({ minTxsPerBlock: restored });
+        this.log.info(`Sequencer resumed (minTxsPerBlock restored)`, { minTxsPerBlock: restored });
+      }
+      return Promise.resolve();
+    }
+    throw new BadRequestError('Cannot resume sequencer: no sequencer is running');
+  }
+
   public getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]> {
     if (!this.slasherClient) {
       throw new Error(`Slasher client not enabled`);
@@ -1835,6 +1942,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async mineBlock(): Promise<void> {
+    if (this.automineSequencer) {
+      await this.automineSequencer.buildEmptyBlock();
+      return;
+    }
     if (!this.sequencer) {
       throw new BadRequestError('Cannot mine block: no sequencer is running');
     }
@@ -1874,21 +1985,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @returns An instance of a committed MerkleTreeOperations
    */
   protected async getWorldState(block: BlockParameter) {
+    const query = this.normalizeBlockParameter(block);
+
+    // When the request anchors on a specific block hash, resolve it against the archiver up front and
+    // drive the world-state sync to that exact block number and hash. Resolving against the archiver
+    // first fails fast with a clear reorg error if the hash is unknown, and passing the hash to the
+    // synchronizer makes the sync reorg-aware: it barriers until the archive-tree commit for that block
+    // has landed and verifies it matches the requested fork, instead of syncing to bare latest height
+    // and then racing the snapshot read below against an in-flight archive-tree write.
+    const requestedHash = 'hash' in query ? query.hash : undefined;
+    const anchorBlockNumber = requestedHash !== undefined ? await this.resolveBlockNumber(query) : undefined;
+
     let blockSyncedTo: BlockNumber = BlockNumber.ZERO;
     try {
       // Attempt to sync the world state if necessary
-      blockSyncedTo = await this.#syncWorldState();
+      blockSyncedTo = await this.#syncWorldState(anchorBlockNumber, requestedHash);
     } catch (err) {
       this.log.error(`Error getting world state: ${err}`);
     }
 
-    const query = this.normalizeBlockParameter(block);
     if ('tag' in query && query.tag === 'proposed') {
       this.log.debug(`Using committed db for latest block, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getCommitted();
     }
 
-    const blockNumber = await this.resolveBlockNumber(block);
+    const blockNumber = anchorBlockNumber ?? (await this.resolveBlockNumber(query));
 
     // Check it's within world state sync range
     if (blockNumber > blockSyncedTo) {
@@ -1905,7 +2026,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // (size 0), so leaf 0 is not yet inserted from that snapshot's view even though block 0's hash
     // does live at archive index 0 in the committed tree. The genesis hash is already validated by
     // the archiver when it resolves the hash query to block number 0.
-    const requestedHash = 'hash' in query ? query.hash : undefined;
     if (requestedHash !== undefined && blockNumber !== BlockNumber.ZERO) {
       const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
       if (!blockHash || !requestedHash.equals(blockHash)) {
@@ -1937,11 +2057,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   /**
-   * Ensure we fully sync the world state
+   * Ensure the world state is synced.
+   * @param targetBlockNumber - Block to sync up to. Defaults to the latest block known to the archiver.
+   * @param blockHash - If provided, the synchronizer verifies the block at `targetBlockNumber` matches this
+   * hash, resyncing (and so detecting reorgs) if it does not yet match or has been reorged away.
    * @returns A promise that fulfils once the world state is synced
    */
-  async #syncWorldState(): Promise<BlockNumber> {
-    const blockSourceHeight = await this.blockSource.getBlockNumber();
-    return await this.worldStateSynchronizer.syncImmediate(blockSourceHeight);
+  async #syncWorldState(targetBlockNumber?: BlockNumber, blockHash?: BlockHash): Promise<BlockNumber> {
+    const target = targetBlockNumber ?? (await this.blockSource.getBlockNumber());
+    return await this.worldStateSynchronizer.syncImmediate(target, blockHash);
   }
 }

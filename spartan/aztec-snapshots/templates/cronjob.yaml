@@ -10,6 +10,10 @@ spec:
     spec:
       template:
         spec:
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           restartPolicy: Never
           containers:
             - name: snapshot

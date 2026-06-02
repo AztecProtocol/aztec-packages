@@ -23,7 +23,7 @@ import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type BlockProposal, P2PMessage } from '@aztec/stdlib/p2p';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeAztecAddress, makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
-import { Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import { Tx, TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { Message, PeerId } from '@libp2p/interface';
@@ -38,7 +38,6 @@ import { LibP2PService } from '../services/index.js';
 import type { PeerManager } from '../services/peer-manager/peer_manager.js';
 import { BatchTxRequester } from '../services/reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterLibP2PService } from '../services/reqresp/batch-tx-requester/interface.js';
-import type { IBatchRequestTxValidator } from '../services/reqresp/batch-tx-requester/tx_validator.js';
 import { RateLimitStatus } from '../services/reqresp/rate-limiter/rate_limiter.js';
 import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
@@ -276,10 +275,8 @@ async function runAggregatorBenchmark(
       }
     }
 
-    const noopTxValidator: IBatchRequestTxValidator = {
-      validateRequestedTx: (_tx: Tx): Promise<TxValidationResult> => Promise.resolve({ result: 'valid' }),
-      validateRequestedTxs: (txs: Tx[]): Promise<TxValidationResult[]> =>
-        Promise.resolve(txs.map(() => ({ result: 'valid' }))),
+    const noopTxValidator: TxValidator = {
+      validateTx: (_tx: Tx): Promise<TxValidationResult> => Promise.resolve({ result: 'valid' }),
     };
 
     timer = new Timer();

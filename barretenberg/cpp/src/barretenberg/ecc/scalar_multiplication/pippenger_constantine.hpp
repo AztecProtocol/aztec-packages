@@ -1,12 +1,19 @@
-// Constantine-style signed-Booth window recoder for the round-parallel Pippenger MSM.
+// Constantine-style signed-Booth window recoder for Pippenger MSM.
+//
+// Given a scalar s = sum_i s_i 2^i and a window [b, b + c), this module computes a
+// signed digit d in [-(2^c - 1), 2^c - 1] such that the scalar can be reconstructed as
+// s = sum_w d_w 2^{b_w}. It returns d as a packed `(sign | bucket)` value, where
+// `bucket = |d|` and `sign` records whether d is negative.
 //
 // Implements the carry-less `signedWindowEncoding` / `getSignedFullWindowAt` pattern from
 // `constantine/math/arithmetic/bigints.nim`: each window reads c+1 bits including the
-// previous window's top bit, lets that shared boundary bit substitute for an explicit
-// carry, and produces a `(sign | bucket)` packed digit. Stage 1 and Stage 4 of the
-// pipeline call into here on the hot path.
+// previous window boundary bit, lets that shared boundary bit substitute for an explicit
+// carry, and produces a `(sign | bucket)` packed digit.
 //
-// Two parallel families live in this file:
+// Assumptions: production callers pass `window_bits` in [1, 19] and bit offsets within a
+// 256-bit scalar. The bit-twiddling below assumes `window_bits < 32`.
+//
+// Two parallel paths:
 //   * scalar path  — `ConstantineSliceParams` + `get_constantine_packed_digit` (uint64-
 //     indexed limbs).
 //   * SIMD x4 path — `ConstantineSliceParamsU32` + `store_constantine_packed_digits_x4_*`
@@ -14,9 +21,11 @@
 //
 // The SIMD helpers split on slice-path (Localised / Bottom / Boundary) so the per-window
 // branch is hoisted out of the per-scalar loop. `classify_slice_path_u32` returns the
-// matching enum; Stage 1 / Stage 4 dispatch on it once per window.
+// matching enum for callers to dispatch on once per window.
 
 #pragma once
+
+#include "barretenberg/ecc/groups/booth_recode.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -27,103 +36,32 @@
 
 namespace bb::scalar_multiplication::round_parallel_detail {
 
-/**
- * @brief Per-window precomputed slice parameters for the carry-less signed-Booth window
- *        recoding (after Constantine `signedWindowEncoding` / `getSignedFullWindowAt`,
- *        `constantine/math/arithmetic/bigints.nim`). Computed once per window outside the
- *        Stage 1 / Stage 4 inner loops; the per-(point, window) hot path is then 2 i32
- *        loads + a fixed bit-twiddle, no branches and no per-iter address arithmetic.
- *        Carry-less because every non-bottom window's c+1-bit read shares its boundary bit
- *        with the previous window — the bit a non-overlapping recoder would carry.
- *
- * `slice_localised_to_one_u64`: true iff every bit of the c+1-bit window lives inside a
- * single uint64 limb. ~75% of windows on typical 254-bit scalars with c ∈ [12, 18]
- * (lookback bits at non-boundary positions) hit this and take the fast path: one load,
- * one shift, one mask. The slow path is the boundary-straddling case + the synthetic-
- * lookback bottom window.
- */
-struct ConstantineSliceParams {
-    uint32_t lo_mask;
-    uint32_t hi_mask;
-    uint32_t lo_limb;
-    uint32_t hi_limb; // == lo_limb + 1, except clamped to last valid limb at the top window
-    uint32_t lo_off;
-    uint32_t lo_bits;
-    bool slice_localised_to_one_u64;
-};
+// Bring the shared signed-Booth slice primitive (from ecc/groups/booth_recode.hpp) into
+// this namespace so the MSM-specific readers below can call it unqualified. The same
+// primitive is also used by the GLV-endo straus path in element_impl.hpp; only the
+// MSM-specific u32-indexed variant and perf-tuned packed-digit readers stay local.
+using bb::ecc::booth::BoothSliceParams;
+using bb::ecc::booth::compute_booth_slice_params;
 
-/**
- * @brief Compute the Constantine slice params for a window starting at absolute bit position
- *        `bit_offset` (= Σ_{k<w} window_bits_k under variable-window, or w·window_bits under
- *        uniform-window). The slice is `[bit_offset - 1, bit_offset + window_bits)`; the bit at
- *        bit_offset - 1 is the shared boundary bit. The bottom window (bit_offset == 0) is
- *        encoded specially so its inner loop body matches non-bottom windows.
- */
-[[nodiscard]] inline ConstantineSliceParams compute_constantine_slice_params(size_t bit_offset,
-                                                                             size_t window_bits,
-                                                                             size_t num_uint64_limbs) noexcept
+// Backward-compat aliases for the MSM-local names; the canonical definitions live in
+// ecc/groups/booth_recode.hpp and are pulled in by the using-declarations above.
+using ConstantineSliceParams = BoothSliceParams;
+[[nodiscard]] [[gnu::always_inline]] inline ConstantineSliceParams compute_constantine_slice_params(
+    size_t bit_offset, size_t window_bits, size_t num_uint64_limbs) noexcept
 {
-    constexpr size_t LIMB_BITS = 64;
-    ConstantineSliceParams sp;
-    if (bit_offset == 0) {
-        // Bottom window: the boundary bit below the LSB is a synthetic 0. Encode this by
-        // reading "limb -1" as a zero-masked load (lo_mask = 0), then reading window_bits
-        // bits from limb 0 into the hi side and shifting them left by 1. This puts the
-        // window_bits-bit window at bits 1..window_bits with bit 0 = 0, matching the inner-
-        // loop body used by every other window. Not localised — the synthetic-lookback
-        // assembly only works in the slow path.
-        sp.lo_limb = 0; // safe in-range, but masked to 0
-        sp.hi_limb = 0; // = scalar limb 0
-        sp.lo_off = LIMB_BITS - 1;
-        sp.lo_bits = 1; // shifts hi_part left by 1, planting the window_bits-bit window at bits 1..window_bits
-        sp.lo_mask = 0; // lo_part contributes nothing
-        sp.hi_mask = (uint32_t{ 1 } << window_bits) - 1;
-        sp.slice_localised_to_one_u64 = false;
-    } else {
-        const size_t lookback_bit = bit_offset - 1;
-        const size_t bits_to_read = window_bits + 1;
-        sp.lo_limb = static_cast<uint32_t>(lookback_bit / LIMB_BITS);
-        sp.lo_off = static_cast<uint32_t>(lookback_bit & (LIMB_BITS - 1));
-        sp.lo_bits = static_cast<uint32_t>(LIMB_BITS - sp.lo_off < bits_to_read ? LIMB_BITS - sp.lo_off : bits_to_read);
-        const uint32_t hi_bits = static_cast<uint32_t>(bits_to_read) - sp.lo_bits;
-        // window_bits+1 ≤ 32 for our windows ⇒ lo_bits ≤ 32 ⇒ mask fits in uint32.
-        sp.lo_mask = (uint32_t{ 1 } << sp.lo_bits) - 1;
-        // If the natural hi-limb read would land past the end of the scalar's storage,
-        // clamp `hi_limb` to a safe in-range index and mask its contribution to zero. The
-        // top window's hi_bits worth of bits are conceptually zero (scalar < 2^num_bits ≤
-        // num_windows·window_bits). Re-reading lo_limb under a zero mask keeps the slow
-        // path's two unconditional limb loads branch-free.
-        if (static_cast<size_t>(sp.lo_limb) + 1 >= num_uint64_limbs) {
-            sp.hi_limb = sp.lo_limb;
-            sp.hi_mask = 0;
-        } else {
-            sp.hi_limb = sp.lo_limb + 1;
-            sp.hi_mask = (uint32_t{ 1 } << hi_bits) - 1;
-        }
-        // Fast path: the full (window_bits+1)-bit window lives inside `lo_limb`. hi_bits == 0
-        // captures both the in-limb case (window doesn't straddle a 64-bit boundary) and the
-        // clamped top-window case (above) where hi_mask was forced to 0.
-        sp.slice_localised_to_one_u64 = (hi_bits == 0);
-    }
-    return sp;
+    return compute_booth_slice_params(bit_offset, window_bits, num_uint64_limbs);
 }
 
 /**
  * @brief Read (window_bits+1) bits from `scalar_data` (uint64 limbs) using precomputed
  *        slice params and apply Constantine's signedWindowEncoding to produce a
- *        `(sign | bucket)` packed digit. Inner-loop body for Stage 1 / Stage 4 —
- *        fully inlined.
+ *        `(sign | bucket)` packed digit.
  *
  *        Takes the slice params as scalar value parameters rather than a struct reference
- *        so the compiler reliably holds them in registers across the inner loop. (Passing
- *        a const-ref to a small struct sometimes blocks the same hoisting an explicit
- *        unpack-then-pass guarantees; we saw exactly this regression with the variable-c
- *        split params before unpacking.)
+ *        so the compiler can keep them in registers across the caller loop.
  *
  *        `slice_localised_to_one_u64` selects the single-load fast path: ~75% of windows
- *        on typical 254-bit scalars (window_bits ∈ [12, 18]) hit this. Because the slice
- *        params are loop-invariant within a window, the branch resolves once per inner-
- *        loop iter and the inner branch predictor pins it.
+ *        on typical 254-bit scalars (window_bits in [12, 19]) hit this.
  */
 [[nodiscard]] [[gnu::always_inline]] inline uint32_t get_constantine_packed_digit(const uint64_t* scalar_data,
                                                                                   uint32_t lo_limb,
@@ -176,16 +114,15 @@ struct ConstantineSliceParams {
     const uint32_t encode = (raw + 1) >> 1;
     const uint32_t bucket_idx = ((encode - neg) ^ neg_mask) & val_mask;
 
-    // Pack into (sign | bucket). Stage 1 uses the bucket bits for histograms; Stage 4
-    // stores only the sign bit because Stage 6 recovers bucket magnitude from bucket_start.
+    // Pack into (sign | bucket): sign in bit 31, bucket magnitude in the low bits.
     return (neg << 31) | bucket_idx;
 }
 
 // 128-bit SIMD-friendly 4-wide variant of get_constantine_packed_digit. Computes 4 packed
 // digits in parallel via GCC's vector_size extension, which lowers to native SIMD on x86
 // (SSE2), ARM (NEON), and WASM (wasm-simd128). The branch on slice path is hoisted from
-// the per-call site to the per-window outer loop, so Stage 1 / Stage 4 callers select the
-// localised / bottom / boundary specialisation once per window.
+// the per-call site to the per-window outer loop, so callers select the localised / bottom /
+// boundary specialisation once per window.
 //
 // We index the scalar via a `const uint32_t*` view rather than the natural `uint64_t*`:
 // each lane is one uint32, so a 128-bit SIMD register holds 4 (raw, encode, bucket, …)
@@ -194,12 +131,10 @@ struct ConstantineSliceParams {
 // codebase already assumes this layout in many places — `from_montgomery`, `uint256_t`,
 // etc.). The reinterpret_cast is the same alias pattern.
 //
-// Returns the four packed digits in `out[0..3]`. The caller scatters them to the histogram
-// (Stage 1) or schedule (Stage 4) individually, since the consuming write is a
-// non-vectorisable scatter. Switching from 2-wide uint64 to 4-wide uint32 doubles the
-// compute throughput per SIMD instruction at the cost of slightly more straddle hits (the
-// "localised" fast-path rate drops from ~77 % to ~50 % at c=14), but compute dominates
-// per-iter cost so the net win is positive.
+// Returns the four packed digits in `out[0..3]`. The caller scatters them individually,
+// since the consuming writes are not vectorisable. Switching from 2-wide uint64 to 4-wide
+// uint32 doubles the compute throughput per SIMD instruction at the cost of slightly more
+// straddle hits.
 using SimdU32x4 = uint32_t __attribute__((vector_size(16)));
 
 // Helpers return `SimdU32x4` directly so the v128 stays in the SIMD register file end-to-end.
@@ -275,14 +210,27 @@ struct ConstantineSliceParamsU32 {
 #endif
 }
 
+// Store a `SimdU32x4` to a 4-lane uint32 destination as a single 128-bit op.
+// On WASM the explicit `wasm_v128_store` is used because earlier codegen for
+// the equivalent struct-wrapper assignment was observed to round-trip the
+// vector through 4 scalar memory slots; the intrinsic guarantees the
+// `i32x4.store` opcode. On native the `vector_size` store lowers directly to
+// SSE2 `movdqu` / NEON `st1`.
+[[gnu::always_inline]] inline void simd_u32x4_store(uint32_t* dst, SimdU32x4 v) noexcept
+{
+#ifdef __wasm_simd128__
+    wasm_v128_store(dst, reinterpret_cast<v128_t>(v));
+#else
+    *reinterpret_cast<SimdU32x4*>(dst) = v;
+#endif
+}
+
 // All four mask / constant v128s (lo_mask_v, hi_mask_v, one_v, val_mask) are loop-invariant
 // within a window. Callers build them ONCE per window in the outer-w loop and pass them in,
 // so the inner-i compute loop has zero v128.const / splat / shl+sub for the masks.
 // `neg_mask = -neg` uses GCC vector-ext unary minus which lowers to `i32x4.neg` on WASM.
 //
-// Helpers write the v128 result DIRECTLY into the caller's stack buffer via an aligned
-// `v128.store` (or equivalent on native). No return-by-value, no temporary, no memcpy —
-// the v128 register flows from the bit-pack pipeline straight into the destination buffer.
+// Helpers write the v128 result directly into the caller-provided 4-lane destination buffer.
 [[gnu::always_inline]] inline void store_constantine_packed_digits_x4_localised(uint32_t* dst,
                                                                                 const uint32_t* scalar_data_0,
                                                                                 const uint32_t* scalar_data_1,
@@ -302,11 +250,7 @@ struct ConstantineSliceParamsU32 {
     const SimdU32x4 encode = (raw + one_v) >> 1;
     const SimdU32x4 bucket = ((encode - neg) ^ neg_mask) & val_mask;
     const SimdU32x4 packed = (neg << 31) | bucket;
-#ifdef __wasm_simd128__
-    wasm_v128_store(dst, reinterpret_cast<v128_t>(packed));
-#else
-    *reinterpret_cast<SimdU32x4*>(dst) = packed;
-#endif
+    simd_u32x4_store(dst, packed);
 }
 
 [[gnu::always_inline]] inline void store_constantine_packed_digits_x4_bottom(uint32_t* dst,
@@ -328,11 +272,7 @@ struct ConstantineSliceParamsU32 {
     const SimdU32x4 encode = (raw + one_v) >> 1;
     const SimdU32x4 bucket = ((encode - neg) ^ neg_mask) & val_mask;
     const SimdU32x4 packed = (neg << 31) | bucket;
-#ifdef __wasm_simd128__
-    wasm_v128_store(dst, reinterpret_cast<v128_t>(packed));
-#else
-    *reinterpret_cast<SimdU32x4*>(dst) = packed;
-#endif
+    simd_u32x4_store(dst, packed);
 }
 
 [[gnu::always_inline]] inline void store_constantine_packed_digits_x4_boundary(uint32_t* dst,
@@ -360,15 +300,11 @@ struct ConstantineSliceParamsU32 {
     const SimdU32x4 encode = (raw + one_v) >> 1;
     const SimdU32x4 bucket = ((encode - neg) ^ neg_mask) & val_mask;
     const SimdU32x4 packed = (neg << 31) | bucket;
-#ifdef __wasm_simd128__
-    wasm_v128_store(dst, reinterpret_cast<v128_t>(packed));
-#else
-    *reinterpret_cast<SimdU32x4*>(dst) = packed;
-#endif
+    simd_u32x4_store(dst, packed);
 }
 
-// Path-selector enum (used by Stage 1 / Stage 4 to dispatch on the SIMD specialisation
-// once per window rather than once per scalar).
+// Path-selector enum used to dispatch on the SIMD specialisation once per window rather
+// than once per scalar.
 enum class ConstantineSlicePath : uint8_t {
     Localised = 0,
     Bottom = 1,

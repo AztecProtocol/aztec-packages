@@ -315,7 +315,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
           wallet,
           secret,
           new SchnorrAccountContract(deriveSigningKey(secret)),
-          salt,
+          { salt },
         );
         const deployMethod = await manager.getDeployMethod();
         await deployMethod.send({

@@ -44,7 +44,7 @@ if kubectl get cronjob "$SNAPSHOT_CRONJOB" -n "$NAMESPACE" &>/dev/null; then
   log "Snapshotting $NAMESPACE"
   $scripts_dir/manual_snapshot.sh $NAMESPACE
   log "Waiting for snapshot upload"
-  sleep 60 # staging-ignition takes 28s
+  sleep 60
 else
   log "Snapshot cronjob not found ($SNAPSHOT_CRONJOB), skipping snapshot"
 fi

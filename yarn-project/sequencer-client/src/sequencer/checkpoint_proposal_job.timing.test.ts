@@ -10,7 +10,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSink, L2BlockSource, ProposedCheckpointSink } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
@@ -206,7 +206,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let l2BlockSource: MockProxy<L2BlockSource>;
-  let blockSink: MockProxy<L2BlockSink>;
+  let blockSink: MockProxy<L2BlockSink & ProposedCheckpointSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let metrics: MockProxy<SequencerMetrics>;
   let checkpointMetrics: MockProxy<CheckpointProposalJobMetricsRecorder>;
@@ -301,6 +301,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       epoch,
       checkpointNumber,
       BlockNumber.ZERO,
+      CheckpointNumber(checkpointNumber - 1),
       proposer,
       publisher,
       attestorAddress,
@@ -405,7 +406,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.sendRequestsAt.mockResolvedValue({
-      result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+      result: { receipt: { status: 'success' } as any },
       successfulActions: ['propose'],
       failedActions: [],
       sentActions: ['propose'],
@@ -437,7 +438,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getCheckpointsData.mockResolvedValue([]);
 
-    blockSink = mock<L2BlockSink>();
+    blockSink = mock<L2BlockSink & ProposedCheckpointSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
 
     validatorClient = mock<ValidatorClient>();
@@ -1047,6 +1048,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
         epoch,
         checkpointNumber,
         BlockNumber.ZERO,
+        CheckpointNumber(checkpointNumber - 1),
         proposer,
         publisher,
         attestorAddress,

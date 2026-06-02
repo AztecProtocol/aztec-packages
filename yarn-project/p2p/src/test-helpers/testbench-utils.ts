@@ -4,12 +4,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import type { L2Block, L2BlockId } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type {
-  BlockProposal,
-  CheckpointAttestation,
-  CheckpointProposal,
-  CheckpointProposalCore,
-} from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import EventEmitter from 'events';
@@ -215,6 +210,7 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
  */
 export class InMemoryAttestationPool {
   private proposals = new Map<string, BlockProposal>();
+  private checkpoints = new Map<SlotNumber, CheckpointProposalCore[]>();
 
   tryAddBlockProposal(blockProposal: BlockProposal): Promise<TryAddResult> {
     const id = blockProposal.archive.toString();
@@ -230,12 +226,25 @@ export class InMemoryAttestationPool {
     return Promise.resolve(this.proposals.get(id));
   }
 
-  tryAddCheckpointProposal(_proposal: CheckpointProposal): Promise<TryAddResult> {
+  tryAddCheckpointProposal(proposal: CheckpointProposalCore): Promise<TryAddResult> {
+    const proposals = this.checkpoints.get(proposal.slotNumber) ?? [];
+    proposals.push(proposal);
+    this.checkpoints.set(proposal.slotNumber, proposals);
     return Promise.resolve({ added: true, alreadyExists: false, count: 1 });
   }
 
-  getCheckpointProposal(_slot: SlotNumber): Promise<CheckpointProposalCore | undefined> {
-    return Promise.resolve(undefined);
+  getCheckpointProposal(slot: SlotNumber): Promise<CheckpointProposalCore | undefined> {
+    return Promise.resolve(this.checkpoints.get(slot)?.[0]);
+  }
+
+  getProposalsForSlot(slot: SlotNumber): Promise<{
+    blockProposals: BlockProposal[];
+    checkpointProposals: CheckpointProposalCore[];
+  }> {
+    return Promise.resolve({
+      blockProposals: [...this.proposals.values()].filter(proposal => proposal.slotNumber === slot),
+      checkpointProposals: this.checkpoints.get(slot) ?? [],
+    });
   }
 
   async addOwnCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {}
@@ -262,11 +271,12 @@ export class InMemoryAttestationPool {
   }
 
   isEmpty(): Promise<boolean> {
-    return Promise.resolve(this.proposals.size === 0);
+    return Promise.resolve(this.proposals.size === 0 && this.checkpoints.size === 0);
   }
 
   resetState(): void {
     this.proposals.clear();
+    this.checkpoints.clear();
   }
 }
 

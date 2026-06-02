@@ -7,7 +7,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { BlockProposal } from '@aztec/stdlib/p2p';
+import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
@@ -417,5 +417,47 @@ describe('p2p client integration block txs protocol ', () => {
 
     // Should get NOT_FOUND because without full tx hashes, handler can't return txs without proposal
     expect(response.status).toBe(ReqRespStatus.NOT_FOUND);
+  });
+
+  // When the responder takes the Fr.zero branch (no proposal/archived block locally, but matched
+  // the requested hashes against its tx pool) it is acting correctly per block_txs_handler.ts:54-58.
+  // Drive the response back through the requester's real validation and confirm it does NOT apply
+  // a peer penalty — Fr.zero is a documented "I don't have the block" signal, not misbehavior.
+  it('requester does not penalize peer that returns Fr.zero (peer lacks proposal but matched by hash)', async () => {
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
+    const hashToTx = new Map(txs.map((tx, i) => [txHashes[i].toString(), tx]));
+    txPool.getTxsByHash.mockImplementation((hashes: TxHash[]) =>
+      Promise.resolve(hashes.map(h => hashToTx.get(h.toString())!)),
+    );
+
+    const [client1, client2] = clients as any;
+    const peerManager = client1.p2pService.peerManager;
+    const penalizeSpy = jest.spyOn(peerManager, 'penalizePeer');
+
+    // Build and send a real reqresp BLOCK_TXS request over libp2p (includeFullTxHashes=true so
+    // the responder hits the Fr.zero branch instead of NOT_FOUND).
+    const requestedHashes = [txHashes[1], txHashes[3]];
+    const sourceProposal = await createBlockProposal(blockNumber, Fr.random(), txHashes);
+    const request = BlockTxsRequest.fromTxsSourceAndMissingTxs(sourceProposal, requestedHashes, true)!;
+    const response = await client1.p2pService.reqresp.sendRequestToPeer(
+      client2.p2pService.node.peerId,
+      ReqRespSubProtocol.BLOCK_TXS,
+      request.toBuffer(),
+    );
+
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const decoded = BlockTxsResponse.fromBuffer(response.data);
+    expect(decoded.archiveRoot.equals(Fr.ZERO)).toBe(true);
+
+    // Run the response through client1's real validation — this is what BatchTxRequester does in
+    // production. The peer must not be penalized.
+    await (client1.p2pService as any).validateRequestedBlockTxsConsistency(
+      request,
+      decoded,
+      client2.p2pService.node.peerId,
+    );
+
+    expect(penalizeSpy).not.toHaveBeenCalledWith(expect.anything(), PeerErrorSeverity.MidToleranceError);
+    expect(penalizeSpy).not.toHaveBeenCalledWith(expect.anything(), PeerErrorSeverity.LowToleranceError);
   });
 });

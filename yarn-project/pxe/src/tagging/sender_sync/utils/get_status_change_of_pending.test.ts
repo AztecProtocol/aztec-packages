@@ -55,7 +55,7 @@ describe('getStatusChangeOfPending', () => {
           new TxReceipt(
             hash,
             TxStatus.FINALIZED,
-            TxExecutionResult.APP_LOGIC_REVERTED,
+            TxExecutionResult.REVERTED,
             undefined,
             undefined,
             undefined,
@@ -67,7 +67,7 @@ describe('getStatusChangeOfPending', () => {
           new TxReceipt(
             hash,
             TxStatus.FINALIZED,
-            TxExecutionResult.TEARDOWN_REVERTED,
+            TxExecutionResult.REVERTED,
             undefined,
             undefined,
             undefined,
@@ -79,7 +79,7 @@ describe('getStatusChangeOfPending', () => {
           new TxReceipt(
             hash,
             TxStatus.FINALIZED,
-            TxExecutionResult.BOTH_REVERTED,
+            TxExecutionResult.REVERTED,
             undefined,
             undefined,
             undefined,

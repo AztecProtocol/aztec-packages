@@ -428,17 +428,15 @@ std::vector<FuzzInstruction> InstructionMutator::generate_ecadd_instruction(std:
         // Random mode: use existing memory values (may fail if not valid points on curve)
         return { ECADD_Instruction{ .p1_x = generate_variable_ref(rng),
                                     .p1_y = generate_variable_ref(rng),
-                                    .p1_infinite = generate_variable_ref(rng),
                                     .p2_x = generate_variable_ref(rng),
                                     .p2_y = generate_variable_ref(rng),
-                                    .p2_infinite = generate_variable_ref(rng),
                                     .result = generate_address_ref(rng, MAX_16BIT_OPERAND) } };
     }
 
     // Backfill mode: generate valid points on the Grumpkin curve and SET them
-    // 6 SET instructions (2 points * 3 fields each) + 1 ECADD = 7 instructions
+    // 4 SET instructions (2 points * 4 fields each) + 1 ECADD = 5 instructions
     std::vector<FuzzInstruction> instructions;
-    instructions.reserve(7);
+    instructions.reserve(5);
 
     // Generate a valid point via scalar multiplication of the generator (always on curve)
     auto generate_point = [&rng]() {
@@ -447,17 +445,12 @@ std::vector<FuzzInstruction> InstructionMutator::generate_ecadd_instruction(std:
     };
 
     // Generate SET instructions to backfill a point at the given addresses
-    auto backfill_point = [&instructions](const bb::avm2::EmbeddedCurvePoint& point,
-                                          AddressRef x_addr,
-                                          AddressRef y_addr,
-                                          AddressRef inf_addr) {
+    auto backfill_point = [&instructions](
+                              const bb::avm2::EmbeddedCurvePoint& point, AddressRef x_addr, AddressRef y_addr) {
         instructions.push_back(
             SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .result_address = x_addr, .value = point.x() });
         instructions.push_back(
             SET_FF_Instruction{ .value_tag = bb::avm2::MemoryTag::FF, .result_address = y_addr, .value = point.y() });
-        instructions.push_back(SET_8_Instruction{ .value_tag = bb::avm2::MemoryTag::U1,
-                                                  .result_address = inf_addr,
-                                                  .value = static_cast<uint8_t>(point.is_infinity() ? 1 : 0) });
     };
 
     auto p1 = generate_point();
@@ -466,20 +459,16 @@ std::vector<FuzzInstruction> InstructionMutator::generate_ecadd_instruction(std:
     // Generate addresses (SET_FF uses 16-bit, SET_8 uses 8-bit operands)
     AddressRef p1_x_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
     AddressRef p1_y_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
-    AddressRef p1_inf_addr = generate_address_ref(rng, MAX_8BIT_OPERAND);
     AddressRef p2_x_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
     AddressRef p2_y_addr = generate_address_ref(rng, MAX_16BIT_OPERAND);
-    AddressRef p2_inf_addr = generate_address_ref(rng, MAX_8BIT_OPERAND);
 
-    backfill_point(p1, p1_x_addr, p1_y_addr, p1_inf_addr);
-    backfill_point(p2, p2_x_addr, p2_y_addr, p2_inf_addr);
+    backfill_point(p1, p1_x_addr, p1_y_addr);
+    backfill_point(p2, p2_x_addr, p2_y_addr);
 
     instructions.push_back(ECADD_Instruction{ .p1_x = p1_x_addr,
                                               .p1_y = p1_y_addr,
-                                              .p1_infinite = p1_inf_addr,
                                               .p2_x = p2_x_addr,
                                               .p2_y = p2_y_addr,
-                                              .p2_infinite = p2_inf_addr,
                                               .result = generate_address_ref(rng, MAX_16BIT_OPERAND) });
 
     return instructions;
@@ -1476,8 +1465,8 @@ void InstructionMutator::mutate_successcopy_instruction(SUCCESSCOPY_Instruction&
 
 void InstructionMutator::mutate_ecadd_instruction(ECADD_Instruction& instruction, std::mt19937_64& rng)
 {
-    // ECADD has 7 operands, select one to mutate
-    int choice = std::uniform_int_distribution<int>(0, 6)(rng);
+    // ECADD has 5 operands, select one to mutate
+    int choice = std::uniform_int_distribution<int>(0, 4)(rng);
     switch (choice) {
     case 0:
         mutate_param_ref(instruction.p1_x, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
@@ -1486,18 +1475,12 @@ void InstructionMutator::mutate_ecadd_instruction(ECADD_Instruction& instruction
         mutate_param_ref(instruction.p1_y, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
     case 2:
-        mutate_param_ref(instruction.p1_infinite, rng, MemoryTag::U1, MAX_16BIT_OPERAND);
-        break;
-    case 3:
         mutate_param_ref(instruction.p2_x, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
-    case 4:
+    case 3:
         mutate_param_ref(instruction.p2_y, rng, MemoryTag::FF, MAX_16BIT_OPERAND);
         break;
-    case 5:
-        mutate_param_ref(instruction.p2_infinite, rng, MemoryTag::U1, MAX_16BIT_OPERAND);
-        break;
-    case 6:
+    case 4:
         mutate_address_ref(instruction.result, rng, MAX_16BIT_OPERAND);
         break;
     }

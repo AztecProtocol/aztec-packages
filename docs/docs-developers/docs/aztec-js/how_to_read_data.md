@@ -49,6 +49,10 @@ When simulating private functions, the caller must have access to any private st
 
 If the caller doesn't have access to another address's notes, the simulation will fail with an error.
 
+:::tip
+If `.simulate()` is prompting the user to sign every call, or failing with `min_revertible_side_effect_counter must not be 0` when you pass `from: AztecAddress.ZERO`, see [Simulate without signing prompts](./how_to_simulate_without_signing.md).
+:::
+
 :::warning
 Simulation runs locally without generating proofs. No correctness guarantees are provided on the result. See [Call Types](../foundational-topics/call_types.md#simulate) for more details.
 :::
@@ -61,18 +65,18 @@ Contracts emit data in two forms you can read:
 | ------------------ | --------------------------- | -------------------------------------------------- |
 | **What**           | Raw field arrays (untyped)  | Decoded domain objects with type info              |
 | **Storage**        | Archiver (node-level)       | PXE (client-level) for private events              |
-| **API**            | `aztecNode.getPublicLogs()` | `wallet.getPrivateEvents()` or `getPublicEvents()` |
+| **API**            | `aztecNode.getBlock()` tx effects | `wallet.getPrivateEvents()` or `getPublicEvents()` |
 | **Type awareness** | None - raw `Fr[]` data      | Requires ABI metadata to decode                    |
 
 **Logs** are the low-level transport layer, while **events** are the semantic application layer decoded using ABI metadata from your contract.
 
 ## Reading raw public logs
 
-Use `aztecNode.getPublicLogs()` to retrieve raw log data:
+Raw public logs are carried on each block's transaction effects. Fetch a block with `includeTransactions: true` and read `body.txEffects[*].publicLogs`:
 
 #include_code read_public_logs /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
-You can also filter by transaction hash or block range:
+You can scope this to a single transaction (by locating its block and matching its tx hash) or to a block range (by reading each block's tx effects):
 
 #include_code read_logs_by_filter /docs/examples/ts/aztecjs_advanced/index.ts typescript
 

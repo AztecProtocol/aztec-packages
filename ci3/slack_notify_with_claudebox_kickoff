@@ -47,14 +47,22 @@ if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
   fi
 fi
 
-# Dispatch ClaudeBox workflow (CI=1 guaranteed above; gh auth assumed in CI)
-target_ref_args=()
+# Dispatch ClaudeBox workflow (CI=1 guaranteed above; gh auth assumed in CI).
+# claudebox.yml forwards these inputs to the ClaudeBox v2 /run webhook; passing
+# the Slack channel + thread ts lets v2 reply into the message posted above.
+extra_args=()
 if [[ -n "$target_ref" ]]; then
-  target_ref_args+=(-f "target_ref=$target_ref")
+  extra_args+=(-f "target_ref=$target_ref")
+fi
+if [[ -n "${CHANNEL_ID:-}" ]]; then
+  extra_args+=(-f "slack_channel=$CHANNEL_ID")
+fi
+if [[ -n "${TS:-}" ]]; then
+  extra_args+=(-f "slack_thread_ts=$TS")
 fi
 gh workflow run claudebox.yml \
   -R "$REPO" --ref next \
   -f prompt="$prompt" \
   -f link="$link" \
-  "${target_ref_args[@]}" || true
+  "${extra_args[@]}" || true
 echo "ClaudeBox dispatched"

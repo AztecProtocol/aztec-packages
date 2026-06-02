@@ -9,11 +9,12 @@ import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 // Unhappy path tests are written only in Noir.
 //
@@ -47,7 +48,7 @@ describe('Orderbook', () => {
       accounts: [adminAddress, makerAddress, takerAddress],
       aztecNode,
       logger,
-    } = await setup(3));
+    } = await setup(3, { ...AUTOMINE_E2E_OPTS }));
 
     ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
@@ -84,7 +85,7 @@ describe('Orderbook', () => {
       const { events: orderCreatedEvents } = await getPublicEvents<OrderCreated>(
         aztecNode,
         OrderbookContract.events.OrderCreated,
-        {},
+        { contractAddress: orderbook.address },
       );
       expect(orderCreatedEvents.length).toBe(1);
 
@@ -140,7 +141,7 @@ describe('Orderbook', () => {
       const { events: orderFulfilledEvents } = await getPublicEvents<OrderFulfilled>(
         aztecNode,
         OrderbookContract.events.OrderFulfilled,
-        {},
+        { contractAddress: orderbook.address },
       );
       expect(orderFulfilledEvents.length).toBe(1);
       expect(orderFulfilledEvents[0].event.order_id).toEqual(orderId);

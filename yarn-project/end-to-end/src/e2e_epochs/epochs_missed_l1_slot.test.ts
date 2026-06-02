@@ -234,9 +234,13 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     await eth.setIntervalMining(L1_BLOCK_TIME);
 
     // Step 5: Wait for the next checkpoint to confirm block production resumed cleanly.
+    // We allow up to 3 L2 slots because the slot-N+1 propose for this checkpoint is dropped
+    // pre-send by bundleSimulate (the resumed L1 block lands in slot N, not slot N+1, so
+    // propose's validateHeader would revert), and the publisher retries one or two slots
+    // later once L1 timing realigns.
     const finalCheckpoint = CheckpointNumber(checkpointEvent.checkpointNumber + 1);
     logger.info(`Waiting for checkpoint ${finalCheckpoint}...`);
-    await test.waitUntilCheckpointNumber(finalCheckpoint, 60);
+    await test.waitUntilCheckpointNumber(finalCheckpoint, L2_SLOT_DURATION * 3);
     await monitor.run();
     logger.info(`Checkpoint ${finalCheckpoint} published in slot ${monitor.l2SlotNumber}`);
 

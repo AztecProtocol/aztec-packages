@@ -253,7 +253,7 @@ impl PublicContext {
         assert(!self.nullifier_exists_unsafe(nullifier, self.this_address()), "L1-to-L2 message is already nullified");
         assert(self.l1_to_l2_msg_exists(message_hash, leaf_index), "Tried to consume nonexistent L1-to-L2 message");
 
-        self.push_nullifier(nullifier);
+        self.push_nullifier_unsafe(nullifier);
     }
 
     /// Sends an "L2 -> L1 message" from this function (Aztec, L2) to a smart contract on Ethereum (L1). L1 contracts
@@ -406,7 +406,7 @@ impl PublicContext {
     /// The raw `nullifier` is not what is inserted into the Aztec state tree: it will be first siloed by contract
     /// address via [`crate::protocol::hash::compute_siloed_nullifier`] in order to prevent accidental or malicious
     /// interference of nullifiers from different contracts.
-    pub fn push_nullifier(_self: Self, nullifier: Field) {
+    pub fn push_nullifier_unsafe(_self: Self, nullifier: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { avm::emit_nullifier(nullifier) };
     }

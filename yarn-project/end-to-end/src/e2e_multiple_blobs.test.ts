@@ -13,6 +13,7 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { L2Block } from '@aztec/stdlib/block';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_multiple_blobs', () => {
@@ -34,7 +35,7 @@ describe('e2e_multiple_blobs', () => {
       aztecNodeAdmin: maybeAztecNodeAdmin,
       wallet,
       teardown,
-    } = await setup(1));
+    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
     aztecNodeAdmin = maybeAztecNodeAdmin!;
 
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));

@@ -28,7 +28,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS, MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
 import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../../fixtures/setup.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { setupSponsoredFPC } from '../../fixtures/utils.js';
@@ -125,7 +125,7 @@ export class ClientFlowsBenchmark {
 
   constructor(testName?: string, setupOptions: Partial<SetupOptions & DeployAztecL1ContractsArgs> = {}) {
     this.logger = createLogger(`bench:client_flows${testName ? `:${testName}` : ''}`);
-    this.setupOptions = { startProverNode: true, ...setupOptions };
+    this.setupOptions = { ...AUTOMINE_E2E_OPTS, startProverNode: true, ...setupOptions };
     this.config = BENCHMARK_CONFIG === 'key_flows' ? KEY_FLOWS_CONFIG : FULL_FLOWS_CONFIG;
     ProxyLogger.create();
     this.proxyLogger = ProxyLogger.getInstance();
@@ -349,7 +349,7 @@ export class ClientFlowsBenchmark {
     // Register benchy on the user's Wallet, where we're going to be interacting from
     const accountManager = await this.userWallet.createAccount({
       secret: benchysAccount.getSecretKey(),
-      salt: new Fr(benchysAccount.salt),
+      salt: new Fr(benchysAccountManager.getInstance().salt),
       contract: benchysAccountManager.getAccountContract(),
     });
     return accountManager.address;

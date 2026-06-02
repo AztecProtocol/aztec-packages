@@ -10,6 +10,7 @@ struct AddressDerivationEvent {
     ContractInstance instance{};
     FF salted_initialization_hash = 0;
     FF partial_address = 0;
+    FF incoming_viewing_key_hash = 0;
     FF public_keys_hash = 0;
     FF preaddress = 0;
     EmbeddedCurvePoint preaddress_public_key = EmbeddedCurvePoint::infinity();

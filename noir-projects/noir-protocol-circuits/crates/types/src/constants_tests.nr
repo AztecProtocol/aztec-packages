@@ -9,10 +9,10 @@ use crate::{
         DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER,
         DOM_SEP__AUTHWIT_OUTER, DOM_SEP__BLOB_CHALLENGE_Z, DOM_SEP__BLOB_GAMMA_ACC,
         DOM_SEP__BLOB_GAMMA_FINAL, DOM_SEP__BLOB_HASHED_Y_LIMBS, DOM_SEP__BLOB_Z_ACC,
-        DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__BLOCK_HEADERS_HASH, DOM_SEP__CONTRACT_ADDRESS_V1,
-        DOM_SEP__CONTRACT_CLASS_ID, DOM_SEP__ECDH_FIELD_MASK, DOM_SEP__ECDH_SUBKEY,
-        DOM_SEP__EVENT_COMMITMENT, DOM_SEP__EVENT_LOG_TAG, DOM_SEP__FUNCTION_ARGS,
-        DOM_SEP__INITIALIZATION_NULLIFIER, DOM_SEP__INITIALIZER,
+        DOM_SEP__BLOCK_HEADER_HASH, DOM_SEP__BLOCK_HEADERS_HASH, DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
+        DOM_SEP__CONTRACT_ADDRESS_V2, DOM_SEP__CONTRACT_CLASS_ID, DOM_SEP__ECDH_FIELD_MASK,
+        DOM_SEP__ECDH_SUBKEY, DOM_SEP__EVENT_COMMITMENT, DOM_SEP__EVENT_LOG_TAG,
+        DOM_SEP__FUNCTION_ARGS, DOM_SEP__INITIALIZATION_NULLIFIER, DOM_SEP__INITIALIZER,
         DOM_SEP__IVSK_M, DOM_SEP__MERKLE_HASH, DOM_SEP__MESSAGE_NULLIFIER, DOM_SEP__NHK_M,
         DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, DOM_SEP__NOTE_COMPLETION_LOG_TAG,
         DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER,
@@ -25,9 +25,10 @@ use crate::{
         DOM_SEP__PUBLIC_LEAF_SLOT, DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, DOM_SEP__PUBLIC_TX_HASH,
         DOM_SEP__RETRIEVED_BYTECODES_MERKLE, DOM_SEP__SALTED_INITIALIZATION_HASH,
         DOM_SEP__SECRET_HASH, DOM_SEP__SIGNATURE_PAYLOAD, DOM_SEP__SILOED_NOTE_HASH,
-        DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, DOM_SEP__TSK_M,
-        DOM_SEP__TX_NULLIFIER, DOM_SEP__TX_REQUEST, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
-        DOM_SEP__UNIQUE_NOTE_HASH, DOM_SEP__WRITTEN_SLOTS_MERKLE, NULL_MSG_SENDER_CONTRACT_ADDRESS,
+        DOM_SEP__SILOED_NULLIFIER, DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
+        DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, DOM_SEP__TSK_M, DOM_SEP__TX_NULLIFIER,
+        DOM_SEP__TX_REQUEST, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNIQUE_NOTE_HASH,
+        DOM_SEP__WRITTEN_SLOTS_MERKLE, NULL_MSG_SENDER_CONTRACT_ADDRESS,
         SIDE_EFFECT_MASKING_ADDRESS, TX_START_PREFIX,
     },
     hash::poseidon2_hash_bytes,
@@ -142,7 +143,7 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
-    let mut tester = HashedValueTester::<70, 63>::new();
+    let mut tester = HashedValueTester::<72, 65>::new();
 
     // -----------------
     // Domain separators
@@ -176,6 +177,10 @@ fn hashed_values_match_derived() {
         "unconstrained_msg_log_tag",
     );
     tester.assert_dom_sep_matches_derived(
+        DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
+        "constrained_msg_log_tag",
+    );
+    tester.assert_dom_sep_matches_derived(
         DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         "non_interactive_handshake_log_tag",
     );
@@ -193,8 +198,9 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(DOM_SEP__OVSK_M, "ovsk_m");
     tester.assert_dom_sep_matches_derived(DOM_SEP__TSK_M, "tsk_m");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_KEYS_HASH, "public_keys_hash");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__SINGLE_PUBLIC_KEY_HASH, "single_public_key_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PARTIAL_ADDRESS, "partial_address");
-    tester.assert_dom_sep_matches_derived(DOM_SEP__CONTRACT_ADDRESS_V1, "contract_address_v1");
+    tester.assert_dom_sep_matches_derived(DOM_SEP__CONTRACT_ADDRESS_V2, "contract_address_v2");
     tester.assert_dom_sep_matches_derived(DOM_SEP__BLOCK_HEADER_HASH, "block_header_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__TX_REQUEST, "tx_request");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_TX_HASH, "public_tx_hash");

@@ -691,7 +691,7 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+    expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
     // tx reports app logic failure
     expect(txResult.findRevertReason()).toEqual(appLogicFailure);
 
@@ -812,7 +812,7 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.revertCode).toEqual(RevertCode.TEARDOWN_REVERTED);
+    expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
     expect(txResult.findRevertReason()).toEqual(teardownFailure);
 
     const expectedSetupGas = enqueuedCallGasUsed;
@@ -921,7 +921,7 @@ describe('public_tx_simulator', () => {
 
     const txResult = await simulator.simulate(tx);
 
-    expect(txResult.revertCode).toEqual(RevertCode.BOTH_REVERTED);
+    expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
     // tx reports app logic failure
     expect(txResult.findRevertReason()).toEqual(appLogicFailure);
 
@@ -1246,7 +1246,7 @@ describe('public_tx_simulator', () => {
       });
 
       const txResult = await simulator.simulate(tx);
-      expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+      expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
       const revertReason = txResult.findRevertReason();
       expect(revertReason).toBeDefined();
       expect(revertReason?.getOriginalMessage()).toContain(new NullifierLimitReachedError().message);
@@ -1269,7 +1269,7 @@ describe('public_tx_simulator', () => {
         throw new NoteHashLimitReachedError();
       });
       const txResult = await simulator.simulate(tx);
-      expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+      expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
       const revertReason = txResult.findRevertReason();
       expect(revertReason).toBeDefined();
       expect(revertReason?.getOriginalMessage()).toContain(new NoteHashLimitReachedError().message);
@@ -1296,7 +1296,7 @@ describe('public_tx_simulator', () => {
       });
 
       const txResult = await simulator.simulate(tx);
-      expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
+      expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
       const revertReason = txResult.findRevertReason();
       expect(revertReason).toBeDefined();
       expect(revertReason?.getOriginalMessage()).toContain(new L2ToL1MessageLimitReachedError().message);

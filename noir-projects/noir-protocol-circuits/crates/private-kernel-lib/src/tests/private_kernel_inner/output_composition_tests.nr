@@ -13,7 +13,6 @@ use types::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PRIVATE_LOGS_PER_CALL, MAX_PRIVATE_LOGS_PER_TX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
     },
-    point::Point,
     traits::{Empty, FromField},
     utils::arrays::subarray,
 };
@@ -732,7 +731,7 @@ fn with_allowed_empty_values_from_private_call() {
     let _ = builder.private_call.add_nullifier_read_request(0);
     let empty_nullifier_read_request = builder.private_call.nullifier_read_requests.storage()[0];
 
-    builder.private_call.add_request_for_key_validation(Point::empty(), 0, 0);
+    builder.private_call.add_request_for_key_validation(0, 0, 0);
     let empty_key_validation_request =
         builder.private_call.scoped_key_validation_requests_and_separators.storage()[0];
 

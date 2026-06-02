@@ -58,7 +58,7 @@ pub contract SideEffect {
         assert(value != 0, "note value must be non-zero");
         let note = UintNote { value };
         create_note(self.context, owner, storage_slot, note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
 
@@ -165,7 +165,7 @@ pub contract SideEffect {
     #[external("private")]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     #[external("private")]
