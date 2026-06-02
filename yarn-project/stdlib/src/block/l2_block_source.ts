@@ -15,7 +15,8 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointData, ProposedCheckpointData, ProposedCheckpointInput } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -284,6 +285,19 @@ export interface L2BlockSink {
 }
 
 /**
+ * Interface for classes that can receive and store proposed (not-yet-L1-confirmed) checkpoints.
+ */
+export interface ProposedCheckpointSink {
+  /**
+   * Adds a proposed checkpoint to the store. The archive and checkpointOutHash are computed
+   * internally from the already-stored blocks, so every block in the checkpoint must be added
+   * (via {@link L2BlockSink.addBlock}) before calling this.
+   * @param checkpoint - The proposed checkpoint metadata.
+   */
+  addProposedCheckpoint(checkpoint: ProposedCheckpointInput): Promise<void>;
+}
+
+/**
  * L2BlockSource that emits events upon pending / proven chain changes.
  * see L2BlockSourceEvents for the events emitted.
  */
@@ -293,6 +307,10 @@ export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
   [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
   [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
+  [L2BlockSourceEvents.CheckpointEquivocationDetected]: (args: CheckpointEquivocationDetectedEvent) => void;
+  [L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected]: (
+    args: DescendentOfInvalidAttestationsCheckpointEvent,
+  ) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource {
   events: ArchiverEmitter;
@@ -374,6 +392,8 @@ export enum L2BlockSourceEvents {
   L2BlockProven = 'l2BlockProven',
   L2BlocksCheckpointed = 'l2BlocksCheckpointed',
   InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
+  CheckpointEquivocationDetected = 'checkpointEquivocationDetected',
+  DescendentOfInvalidAttestationsCheckpointDetected = 'descendentOfInvalidAttestationsCheckpointDetected',
 }
 
 export type L2BlockProvenEvent = {
@@ -403,4 +423,32 @@ export type L2CheckpointEvent = {
 export type InvalidCheckpointDetectedEvent = {
   type: 'invalidCheckpointDetected';
   validationResult: ValidateCheckpointNegativeResult;
+};
+
+/**
+ * Emitted when a local proposed checkpoint is found to disagree with the L1-confirmed
+ * checkpoint at the same slot. The slot proposer signed both — equivocation.
+ */
+export type CheckpointEquivocationDetectedEvent = {
+  type: 'checkpointEquivocationDetected';
+  slotNumber: SlotNumber;
+  checkpointNumber: CheckpointNumber;
+  l1ArchiveRoot: Fr;
+  proposedArchiveRoot: Fr;
+};
+
+/**
+ * Emitted when the archiver observes a checkpoint that builds on a previously-rejected
+ * ancestor (typically one with insufficient/invalid attestations). The descendant itself may
+ * have valid attestations, but it cannot be ingested because the chain it extends was
+ * skipped. The slasher uses this to slash the proposer of the descendant.
+ */
+export type DescendentOfInvalidAttestationsCheckpointEvent = {
+  type: 'descendentOfInvalidAttestationsCheckpointDetected';
+  /** The descendant checkpoint being rejected. */
+  checkpoint: CheckpointInfo;
+  /** Archive root of the rejected ancestor this descendant builds on. */
+  ancestorArchiveRoot: Fr;
+  /** Checkpoint number of the rejected ancestor. */
+  ancestorCheckpointNumber: CheckpointNumber;
 };

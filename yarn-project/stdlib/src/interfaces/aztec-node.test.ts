@@ -28,13 +28,10 @@ import {
 } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
-import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import type { LogFilter } from '../logs/log_filter.js';
+import { type LogResult, randomLogResult } from '../logs/log_result.js';
+import type { PrivateLogsQuery, PublicLogsQuery } from '../logs/logs_query.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
-import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
-import { randomTxScopedPrivateL2Log } from '../tests/factories.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -55,7 +52,6 @@ import type { ChainTip, ChainTips } from './chain_tips.js';
 import type { CheckpointParameter } from './checkpoint_parameter.js';
 import type { CheckpointIncludeOptions, CheckpointResponse } from './checkpoint_response.js';
 import type { SequencerConfig } from './configs.js';
-import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 import type { ProverConfig } from './prover-client.js';
 import type { WorldStateSyncStatus } from './world_state.js';
 
@@ -268,40 +264,19 @@ describe('AztecNodeApiSchema', () => {
     await context.client.registerContractFunctionSignatures(['test()']);
   });
 
-  it('getPublicLogs', async () => {
-    const response = await context.client.getPublicLogs({ contractAddress: await AztecAddress.random() });
-    expect(response).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
-  });
-
-  it('getContractClassLogs', async () => {
-    const response = await context.client.getContractClassLogs({ contractAddress: await AztecAddress.random() });
-    expect(response).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
-  });
-
   it('getPrivateLogsByTags', async () => {
-    const response = await context.client.getPrivateLogsByTags([SiloedTag.random()]);
-    expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
-
-    const responseWithOptionals = await context.client.getPrivateLogsByTags(
-      [SiloedTag.random()],
-      3,
-      BlockHash.random(),
-    );
-    expect(responseWithOptionals).toEqual([[expect.any(TxScopedL2Log)]]);
+    const response = await context.client.getPrivateLogsByTags({ tags: [SiloedTag.random()] });
+    expect(response).toHaveLength(1);
+    expect(response[0]).toHaveLength(1);
+    expect(response[0][0].txHash).toBeDefined();
   });
 
-  it('getPublicLogsByTagsFromContract', async () => {
+  it('getPublicLogsByTags', async () => {
     const contractAddress = await AztecAddress.random();
-    const response = await context.client.getPublicLogsByTagsFromContract(contractAddress, [Tag.random()]);
-    expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
-
-    const responseWithOptionals = await context.client.getPublicLogsByTagsFromContract(
-      contractAddress,
-      [Tag.random()],
-      3,
-      BlockHash.random(),
-    );
-    expect(responseWithOptionals).toEqual([[expect.any(TxScopedL2Log)]]);
+    const response = await context.client.getPublicLogsByTags({ contractAddress, tags: [Tag.random()] });
+    expect(response).toHaveLength(1);
+    expect(response[0]).toHaveLength(1);
+    expect(response[0][0].txHash).toBeDefined();
   });
 
   it('sendTx', async () => {
@@ -428,7 +403,7 @@ describe('AztecNodeApiSchema', () => {
         missedProposals: { currentStreak: 0, count: 0, total: 1 },
         history: [{ slot: SlotNumber(1), status: 'checkpoint-mined' }],
       },
-      allTimeProvenPerformance: [],
+      allTimeEpochPerformance: [],
       lastProcessedSlot: SlotNumber(10),
       initialSlot: SlotNumber(1),
       slotWindow: 100,
@@ -453,7 +428,7 @@ describe('AztecNodeApiSchema', () => {
         missedProposals: { currentStreak: 0, count: 0, total: 0 },
         history: [{ slot: SlotNumber(5), status: 'attestation-sent' }],
       },
-      allTimeProvenPerformance: [],
+      allTimeEpochPerformance: [],
       lastProcessedSlot: SlotNumber(10),
       initialSlot: SlotNumber(5),
       slotWindow: 5,
@@ -730,41 +705,14 @@ class MockAztecNode implements AztecNode {
   registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
-  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
+  getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+    expect(Array.isArray(query.tags)).toBe(true);
+    return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
-  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
-  }
-  getPrivateLogsByTags(tags: SiloedTag[], page?: number, referenceBlock?: BlockHash): Promise<TxScopedL2Log[][]> {
-    expect(tags).toHaveLength(1);
-    expect(tags[0]).toBeInstanceOf(SiloedTag);
-    if (page !== undefined) {
-      expect(page).toBe(3);
-    }
-    if (referenceBlock !== undefined) {
-      expect(referenceBlock).toBeInstanceOf(BlockHash);
-    }
-    return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
-  }
-  getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    page?: number,
-    referenceBlock?: BlockHash,
-  ): Promise<TxScopedL2Log[][]> {
-    expect(contractAddress).toBeInstanceOf(AztecAddress);
-    expect(tags).toHaveLength(1);
-    expect(tags[0]).toBeInstanceOf(Tag);
-    if (page !== undefined) {
-      expect(page).toBe(3);
-    }
-    if (referenceBlock !== undefined) {
-      expect(referenceBlock).toBeInstanceOf(BlockHash);
-    }
-    return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
+  getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+    expect(query.contractAddress).toBeInstanceOf(AztecAddress);
+    expect(Array.isArray(query.tags)).toBe(true);
+    return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);

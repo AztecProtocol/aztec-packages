@@ -2,7 +2,9 @@ import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/brand
 
 import { z } from 'zod';
 
+import type { BlockProposal } from '../p2p/block_proposal.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
+import type { CheckpointProposalCore } from '../p2p/checkpoint_proposal.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -67,6 +69,12 @@ export interface P2PApi {
 export interface P2PClient extends P2PApi {
   /** Manually adds checkpoint attestations to the p2p client attestation pool. */
   addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void>;
+
+  /** Returns retained signed proposals for a slot. */
+  getProposalsForSlot(slot: SlotNumber): Promise<{
+    blockProposals: BlockProposal[];
+    checkpointProposals: CheckpointProposalCore[];
+  }>;
 }
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {

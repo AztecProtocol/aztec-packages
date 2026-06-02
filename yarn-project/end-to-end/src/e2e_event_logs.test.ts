@@ -17,9 +17,10 @@ import {
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('Logs', () => {
   let testLogContract: TestLogContract;
@@ -41,7 +42,7 @@ describe('Logs', () => {
       accounts: [account1Address, account2Address],
       aztecNode,
       logger: log,
-    } = await setup(2));
+    } = await setup(2, { ...AUTOMINE_E2E_OPTS }));
 
     log.warn(`Setup complete, checking account contracts published`);
     await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
@@ -139,6 +140,7 @@ describe('Logs', () => {
 
       // docs:start:get_public_events
       const publicEventFilter: PublicEventFilter = {
+        contractAddress: testLogContract.address,
         fromBlock: BlockNumber(firstTx.blockNumber!),
         toBlock: BlockNumber(lastTx.blockNumber! + 1),
       };
@@ -192,6 +194,7 @@ describe('Logs', () => {
         aztecNode,
         TestLogContract.events.ExampleNestedEvent,
         {
+          contractAddress: testLogContract.address,
           fromBlock: BlockNumber(tx.blockNumber!),
           toBlock: BlockNumber(tx.blockNumber! + 1),
         },

@@ -9,6 +9,7 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { DeployTest } from './deploy_test.js';
 
@@ -20,7 +21,7 @@ describe('e2e_deploy_contract legacy', () => {
   let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
-    ({ logger, wallet, defaultAccountAddress } = await t.setup());
+    ({ logger, wallet, defaultAccountAddress } = await t.setup({ ...AUTOMINE_E2E_OPTS }));
   });
 
   afterAll(() => t.teardown());
@@ -122,7 +123,7 @@ describe('e2e_deploy_contract legacy', () => {
     expect(goodTxReceipt!.blockNumber).toEqual(expect.any(Number));
     expect(badTxReceipt!.blockNumber).toEqual(expect.any(Number));
 
-    expect(badTxReceipt!.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
+    expect(badTxReceipt!.executionResult).toEqual(TxExecutionResult.REVERTED);
 
     const badInstance = await badDeploy.getInstance();
     // But the bad tx did not deploy the class

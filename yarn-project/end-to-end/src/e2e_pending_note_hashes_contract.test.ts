@@ -10,6 +10,7 @@ import {
 } from '@aztec/constants';
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
@@ -28,14 +29,25 @@ describe('e2e_pending_note_hashes_contract', () => {
       wallet,
       logger,
       accounts: [owner],
-    } = await setup(1));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
   });
 
   afterAll(() => teardown());
 
+  // Find the most recent block containing tx effects; pipelining may produce empty blocks after a tx lands.
+  const getLatestNonEmptyBlock = async () => {
+    const latest = await aztecNode.getBlockNumber();
+    for (let n = latest; n > 0; n--) {
+      const block = (await aztecNode.getBlocks(n, 1, { includeTransactions: true }))[0];
+      if (block.body.txEffects.length > 0) {
+        return block;
+      }
+    }
+    throw new Error('No non-empty block found');
+  };
+
   const expectNoteHashesSquashedExcept = async (exceptFirstFew: number) => {
-    const blockNum = await aztecNode.getBlockNumber();
-    const block = (await aztecNode.getBlocks(blockNum, 1, { includeTransactions: true }))[0];
+    const block = await getLatestNonEmptyBlock();
 
     const noteHashes = block.body.txEffects.flatMap(txEffect => txEffect.noteHashes);
 
@@ -50,8 +62,7 @@ describe('e2e_pending_note_hashes_contract', () => {
   };
 
   const expectNullifiersSquashedExcept = async (exceptFirstFew: number) => {
-    const blockNum = await aztecNode.getBlockNumber();
-    const block = (await aztecNode.getBlocks(blockNum, 1, { includeTransactions: true }))[0];
+    const block = await getLatestNonEmptyBlock();
 
     const nullifierArray = block.body.txEffects.flatMap(txEffect => txEffect.nullifiers);
 
@@ -66,8 +77,7 @@ describe('e2e_pending_note_hashes_contract', () => {
   };
 
   const expectNoteLogsSquashedExcept = async (exceptFirstFew: number) => {
-    const blockNum = await aztecNode.getBlockNumber();
-    const block = (await aztecNode.getBlocks(blockNum, 1, { includeTransactions: true }))[0];
+    const block = await getLatestNonEmptyBlock();
 
     const privateLogs = block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
     expect(privateLogs.length).toBe(exceptFirstFew);

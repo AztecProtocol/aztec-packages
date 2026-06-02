@@ -41,9 +41,9 @@ Your structure should look like this:
 | | |-Nargo.toml            <-- test package config
 ```
 
-The `aztec new` command creates a contract project with `Nargo.toml` and `src/main.nr`. The file `src/main.nr` will soon turn into our smart contract!
+The `aztec new` command creates a two-crate workspace: a `counter_contract` crate for your contract and a `counter_test` crate for tests. The file `counter_contract/src/main.nr` will soon turn into our smart contract!
 
-Add the following dependency to `Nargo.toml` under the existing `aztec` dependency:
+Add the following dependency to `counter_contract/Nargo.toml` under the existing `aztec` dependency:
 
 ```toml
 [dependencies]
@@ -108,7 +108,7 @@ Let’s create a constructor method to run on deployment that assigns an initial
 
 #include_code constructor /docs/examples/contracts/counter_contract/src/main.nr rust
 
-This function accesses the counters from storage. It adds the `initial_value` to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery.ONCHAIN_CONSTRAINED)` to ensure the note is delivered onchain.
+This function accesses the counters from storage. It adds the `initial_value` to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery::onchain_constrained())` to ensure the note is delivered onchain.
 
 We have annotated this and other functions with `#[external("private")]` which are ABI macros so the compiler understands it will handle private inputs.
 

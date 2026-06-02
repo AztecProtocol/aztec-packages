@@ -28,6 +28,7 @@ import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client'
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
 const ETHEREUM_SLOT_DURATION = 8;
@@ -66,6 +67,7 @@ describe('e2e_gov_proposal', () => {
 
     let accounts: AztecAddress[] = [];
     const context = await setup(1, {
+      ...PIPELINING_SETUP_OPTS,
       anvilAccounts: 100,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
@@ -78,6 +80,15 @@ describe('e2e_gov_proposal', () => {
       minTxsPerBlock: TXS_PER_BLOCK,
       enforceTimeTable: true,
       automineL1Setup: true, // speed up setup
+      // Force the L1 sync to fetch blobs rather than promote the locally-proposed checkpoint.
+      // The "should vote even when unable to build blocks" test relies on the blob client being the
+      // only source of truth for block sync: disabling the blob client should make the tx un-syncable.
+      // Under pipelining the proposer also enters its proposed checkpoint into the local store
+      // (proposal_handler.ts § setProposedCheckpointFromBlocks), and the L1 synchronizer would then
+      // promote that proposed checkpoint into a published one without going through the blob client
+      // (l1_synchronizer.ts § tryBuildPublishedCheckpointFromProposed). Forcing the blob path here
+      // restores the legacy assumption for both tests in this describe block.
+      skipPromoteProposedCheckpointDuringL1Sync: true,
     });
 
     ({
@@ -138,8 +149,12 @@ describe('e2e_gov_proposal', () => {
       round,
     });
 
-    // We warp to one L1 slot before the start of the slot, since that's when we start building the L2 block
-    await cheatCodes.eth.warp(Number(nextRoundBeginsAtTimestamp) - ETHEREUM_SLOT_DURATION, {
+    // Under proposer pipelining the sequencer for slot N builds during slot N-1 and the L1 propose mines in slot N.
+    // So to land a vote in the very first slot of the round we need to be in the build slot for it, which is one
+    // L2 slot (not one L1 slot) earlier. Warping just one L1 slot before the round start puts the sequencer in the
+    // build slot for round_start+1, costing us the first vote of the round. Warp one full L2 slot earlier instead
+    // so the build slot for round_start fires while we are inside the round.
+    await cheatCodes.eth.warp(Number(nextRoundBeginsAtTimestamp) - AZTEC_SLOT_DURATION - ETHEREUM_SLOT_DURATION, {
       resetBlockInterval: true,
     });
 
@@ -168,6 +183,12 @@ describe('e2e_gov_proposal', () => {
     // We know that this will last at least as long as the round duration,
     // since we wait for the txs to be mined, and do so `roundDuration` times.
     // Simultaneously, we should be voting for the proposal in every slot.
+    //
+    // Under proposer pipelining, the proposer for slot N builds in slot N-1 and the L1 propose tx mines during
+    // slot N. After the L1-time warp in setupVotingRound, the first post-warp checkpoint takes at least two slots
+    // to land (one to detect the new wall-clock slot and start a pipelined build, one for the propose to mine).
+    // Allow up to 3 slots per tx to absorb that warp catch-up and pipelining lag.
+    const waitForTxTimeout = AZTEC_SLOT_DURATION * 3 + 10;
     for (let i = 0; i < roundDuration; i++) {
       const txHashes = await timesAsync(TXS_PER_BLOCK, async () => {
         const { txHash } = await testContract.methods
@@ -178,7 +199,7 @@ describe('e2e_gov_proposal', () => {
       await Promise.all(
         txHashes.map((hash, j) => {
           logger.info(`Waiting for tx ${i}-${j}: ${hash} to be mined`);
-          return waitForTx(aztecNode!, hash, { timeout: AZTEC_SLOT_DURATION + 10 });
+          return waitForTx(aztecNode!, hash, { timeout: waitForTxTimeout });
         }),
       );
     }
@@ -190,21 +211,39 @@ describe('e2e_gov_proposal', () => {
   it('should vote even when unable to build blocks', async () => {
     const monitor = new ChainMonitor(rollup, dateProvider).start();
 
-    // Break the blob client so no new blocks are synced
+    // Disable the in-process proposer→archiver block shortcut (validator-client and
+    // checkpoint_proposal_job both push the just-built block into the local archiver) and then
+    // disable the blob client. The archiver-side `skipPromoteProposedCheckpointDuringL1Sync`
+    // shortcut is disabled at setup() — without it the L1 synchronizer would promote the locally
+    // proposed checkpoint into a published one without going through the blob client, and the
+    // tx would still be observed as `checkpointed` regardless of the disabled blob client. With
+    // all three shortcuts off the node has no choice but to rely on the blob client for sync.
+    await aztecNodeAdmin!.setConfig({ skipPushProposedBlocksToArchiver: true });
     ((aztecNodeAdmin as AztecNodeService).getBlobClient() as HttpBlobClient).setDisabled(true);
     await sleep(1000);
     const lastBlockSynced = await aztecNode!.getBlockNumber();
     logger.warn(`blob client is disabled (last block synced is ${lastBlockSynced})`);
 
-    // And send a tx which shouldnt be syncable but does move the block forward
+    // And send a tx which shouldnt be syncable but does move the block forward.
+    // Under proposer pipelining the proposer builds in slot N-1 and the L1 propose mines in slot N, so a single
+    // slot is not enough to observe the L1 checkpoint advance. Wait at least two slots before declaring the tx
+    // un-syncable and before checking that L1 has progressed.
     await expect(() =>
       testContract.methods
         .create_l2_to_l1_message_arbitrary_recipient_private(Fr.random(), EthAddress.random())
-        .send({ from: defaultAccountAddress, wait: { timeout: AZTEC_SLOT_DURATION + 2 } }),
+        .send({ from: defaultAccountAddress, wait: { timeout: AZTEC_SLOT_DURATION * 2 + 2 } }),
     ).rejects.toThrow(TimeoutError);
     logger.warn(`Test tx timed out as expected`);
 
-    // Check that the block number has indeed increased on L1 so sequencers cant pass the sync check
+    // Check that the block number has indeed increased on L1 so sequencers cant pass the sync check.
+    // Allow another slot for any in-flight L1 propose to mine, since the work loop above hits its wait timeout the
+    // moment the tx misses L2 sync, not the moment the L1 tx lands.
+    await retryUntil(
+      async () => (await monitor.run().then(b => b.checkpointNumber)) > lastBlockSynced,
+      'L1 checkpoint to advance after disabling blob client',
+      AZTEC_SLOT_DURATION + 5,
+      1,
+    );
     expect(await monitor.run().then(b => b.checkpointNumber)).toBeGreaterThan(lastBlockSynced);
     logger.warn(`L2 block number has increased on L1`);
 
@@ -212,9 +251,11 @@ describe('e2e_gov_proposal', () => {
     await aztecNodeAdmin!.setConfig({ governanceProposerPayload: newGovernanceProposerAddress });
     const { round, roundDuration, nextRoundBeginsAtSlot } = await setupVotingRound();
 
-    // And wait until the round is over
+    // And wait until the round is over. Add one extra slot to absorb pipelining catch-up after the L1 warp in
+    // setupVotingRound — the proposer for round_start builds during the slot before it, so the L1 chain takes
+    // an extra slot to advance past nextRoundEndsAtSlot.
     const nextRoundEndsAtSlot = SlotNumber(nextRoundBeginsAtSlot + Number(roundDuration));
-    const timeout = AZTEC_SLOT_DURATION * Number(roundDuration + 1n) + 20;
+    const timeout = AZTEC_SLOT_DURATION * Number(roundDuration + 2n) + 20;
     logger.warn(`Waiting until slot ${nextRoundEndsAtSlot} for round to end (timeout ${timeout}s)`);
     await retryUntil(() => rollup.getSlotNumber().then(s => s > nextRoundEndsAtSlot), 'round end', timeout, 1);
 

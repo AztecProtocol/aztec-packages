@@ -39,7 +39,7 @@ After cutting a release, deploy a public testnet using the new Docker containers
 Verbose logging on Aztec nodes should be enabled by default using the following `ENV VARS`:
 
 - `LOG_JSON=1`
-- `LOG_LEVEL=debug`
+- `LOG_LEVEL="debug; info: json-rpc, simulator"`
 
 Deployments are initiated from CI by manually running the (_name pending_) workflow.
 

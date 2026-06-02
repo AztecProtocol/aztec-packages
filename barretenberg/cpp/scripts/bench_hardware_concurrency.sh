@@ -45,7 +45,7 @@ run_benchmark() {
     local test_case=$1
     local concurrency=$2
 
-    local input_path="$REPO_ROOT/yarn-project/end-to-end/example-app-ivc-inputs-out/$test_case/ivc-inputs.msgpack"
+    local input_path="$(pinned_chonk_inputs_dir)/$test_case/ivc-inputs.msgpack"
     local bench_file="/tmp/bench_${test_case}_concurrency_${concurrency}.json"
 
     if [ ! -f "$input_path" ]; then

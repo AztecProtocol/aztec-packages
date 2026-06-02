@@ -124,7 +124,7 @@ impl UintNote {
             || encode_partial_note_private_message(private_log_content, owner, randomness, commitment),
             Option::none(),
             recipient,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         let partial_note = PartialUintNote { commitment };
@@ -133,7 +133,7 @@ impl UintNote {
         // nullifier tree since it uses its own separator, making collisions with actual note nullifiers practically
         // impossible.
         let validity_commitment = partial_note.compute_validity_commitment(completer);
-        context.push_nullifier(validity_commitment);
+        context.push_nullifier_unsafe(validity_commitment);
 
         partial_note
     }

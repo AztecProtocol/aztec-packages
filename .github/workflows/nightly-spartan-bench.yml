@@ -20,9 +20,10 @@ jobs:
     outputs:
       nightly_tag: ${{ steps.nightly-tag.outputs.nightly_tag }}
       docker_image: ${{ steps.nightly-tag.outputs.docker_image }}
+      source_ref: ${{ steps.nightly-tag.outputs.source_ref }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: next
 
@@ -36,9 +37,20 @@ jobs:
             nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
           fi
           docker_image="aztecprotocol/aztec:${nightly_tag}"
+          source_ref="v${nightly_tag}"
           echo "nightly_tag=$nightly_tag" >> "$GITHUB_OUTPUT"
           echo "docker_image=$docker_image" >> "$GITHUB_OUTPUT"
+          echo "source_ref=$source_ref" >> "$GITHUB_OUTPUT"
           echo "Using nightly tag: $nightly_tag"
+          echo "Using source ref: $source_ref"
+
+      - name: Verify source git ref
+        run: |
+          set -euo pipefail
+          source_ref="${{ steps.nightly-tag.outputs.source_ref }}"
+          git fetch --depth 1 origin "refs/tags/${source_ref}:refs/tags/${source_ref}"
+          source_sha=$(git rev-parse "${source_ref}^{}")
+          echo "Nightly source commit: $source_sha"
 
       - name: Check if Docker image exists
         run: |
@@ -61,27 +73,29 @@ jobs:
       network: tps-scenario
       namespace: nightly-bench
       aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
-      ref: next
+      ref: ${{ needs.select-image.outputs.source_ref }}
       notify_on_failure: false
     secrets: inherit
 
   wait-bench-l2-block:
-    needs: deploy-bench-network
+    needs:
+      - select-image
+      - deploy-bench-network
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
           install_components: gke-gcloud-auth-plugin
 
@@ -100,9 +114,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Run benchmarks
         timeout-minutes: 240
@@ -134,7 +148,7 @@ jobs:
 
       - name: Upload benchmarks
         if: always() && env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
           name: Spartan
           benchmark-data-dir-path: "bench/next"
@@ -152,15 +166,16 @@ jobs:
   cleanup-bench:
     if: always()
     needs:
+      - select-image
       - deploy-bench-network
       - wait-bench-l2-block
       - benchmark
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Cleanup network resources
         env:
@@ -184,9 +199,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         env:
@@ -210,27 +225,29 @@ jobs:
       network: prove-n-tps-fake
       namespace: prove-n-tps-fake
       aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
-      ref: next
+      ref: ${{ needs.select-image.outputs.source_ref }}
       notify_on_failure: false
     secrets: inherit
 
   wait-proving-l2-block:
-    needs: deploy-proving-network
+    needs:
+      - select-image
+      - deploy-proving-network
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
           install_components: gke-gcloud-auth-plugin
 
@@ -249,9 +266,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Run proving benchmarks
         timeout-minutes: 180
@@ -282,7 +299,7 @@ jobs:
 
       - name: Upload benchmarks
         if: always() && env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
           name: Spartan
           benchmark-data-dir-path: "bench/next"
@@ -299,15 +316,16 @@ jobs:
   cleanup-proving:
     if: always()
     needs:
+      - select-image
       - deploy-proving-network
       - wait-proving-l2-block
       - proving-benchmark
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Cleanup network resources
         env:
@@ -331,9 +349,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         env:
@@ -357,27 +375,29 @@ jobs:
       network: block-capacity
       namespace: nightly-block-capacity
       aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
-      ref: next
+      ref: ${{ needs.select-image.outputs.source_ref }}
       notify_on_failure: false
     secrets: inherit
 
   wait-block-capacity-l2-block:
-    needs: deploy-block-capacity-network
+    needs:
+      - select-image
+      - deploy-block-capacity-network
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@6fc4af4b145ae7821d527454aa9bd537d1f2dc5f
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@6189d56e4096ee891640bb02ac264be376592d6a
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
           install_components: gke-gcloud-auth-plugin
 
@@ -396,9 +416,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Run block capacity benchmarks
         timeout-minutes: 240
@@ -429,7 +449,7 @@ jobs:
 
       - name: Upload benchmarks
         if: always() && env.ENABLE_DEPLOY_BENCH == '1'
-        uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with:
           name: Spartan
           benchmark-data-dir-path: "bench/next"
@@ -447,15 +467,16 @@ jobs:
   cleanup-block-capacity:
     if: always()
     needs:
+      - select-image
       - deploy-block-capacity-network
       - wait-block-capacity-l2-block
       - block-capacity-benchmark
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Cleanup network resources
         env:
@@ -479,9 +500,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: next
+          ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         env:

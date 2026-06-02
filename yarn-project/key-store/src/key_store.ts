@@ -74,6 +74,9 @@ export class KeyStore {
     // The npk/ovpk/tpk hashes are already in publicKeys; ivpk_m_hash is computed for indexing.
     const masterIncomingViewingPublicKeyHash = await hashPublicKey(publicKeys.ivpkM);
 
+    // The Message Signing and Fallback Keys don't have a derivation path yet, so we just use the default values for their hashes.
+    // So we avoid storing them persistently. The default hash is still required for address derivation
+
     await this.#db.transactionAsync(async () => {
       // Naming of keys is as follows ${account}-${n/iv/ov/t}${sk/pk}_m
       await this.#keys.set(`${account.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());

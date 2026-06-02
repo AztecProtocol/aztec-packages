@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export SEQ_ENABLE_PROPOSER_PIPELINING=true
+
 # Start local network and wait for port to open.
 aztec start --local-network &
 local_network_pid=$!

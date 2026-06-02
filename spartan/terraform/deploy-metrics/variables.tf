@@ -34,12 +34,6 @@ variable "SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME" {
   default     = "slack-webhook-staging-public-url"
 }
 
-variable "SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME" {
-  description = "Webhook for staging-ignition alerts"
-  type        = string
-  default     = "slack-webhook-staging-ignition-url"
-}
-
 variable "SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME" {
   description = "Webhook for next-scenario alerts"
   type        = string

@@ -48,7 +48,7 @@ export function packAsHintedNote({
   noteNonce: Fr;
   isPending: boolean;
   note: Note;
-}) {
+}): Fr[] {
   // If the note is pending it means it has a non-zero note hash counter associated with it.
   const nonZeroNoteHashCounter = isPending;
 
@@ -58,8 +58,8 @@ export function packAsHintedNote({
   // Pack in order: note, contract_address, owner, randomness, storage_slot, metadata (stage, maybe_note_nonce)
   return [
     ...note.items,
-    contractAddress,
-    owner,
+    contractAddress.toField(),
+    owner.toField(),
     randomness,
     storageSlot,
     new Fr(noteMetadata.stage),

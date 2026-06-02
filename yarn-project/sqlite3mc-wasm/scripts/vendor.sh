@@ -75,7 +75,11 @@ WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 echo "==> Downloading ${ASSET}"
-curl -fsSL -o "$WORK_DIR/$ASSET" "$URL"
+# Retries cover transient DNS / TLS failures on CI runners — a one-off
+# `Could not resolve host: release-assets.githubusercontent.com` here has
+# dequeued the merge train.
+curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors --retry-connrefused \
+  -o "$WORK_DIR/$ASSET" "$URL"
 
 echo "==> Verifying zip SHA256"
 ACTUAL_SHA=$(sha256sum "$WORK_DIR/$ASSET" | awk '{print $1}')

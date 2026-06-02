@@ -19,18 +19,6 @@ policies:
             - =~
             - $STAGING_PUBLIC_REGEX
 
-      # Staging Ignition - by namespace
-      - receiver: "Slack #alerts-staging-ignition by namespace"
-        object_matchers:
-          - - k8s_namespace_name
-            - =~
-            - $STAGING_IGNITION_REGEX
-      # Staging Ignition - by network label
-      - receiver: "Slack #alerts-staging-ignition by network"
-        object_matchers:
-          - - network
-            - =~
-            - $STAGING_IGNITION_REGEX
 
       # Next Scenario - by namespace
       - receiver: "Slack #alerts-next-scenario by namespace"

@@ -3,6 +3,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
@@ -20,7 +21,7 @@ describe('e2e_pxe', () => {
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup());
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 

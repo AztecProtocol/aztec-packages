@@ -5,10 +5,11 @@ import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('partial notes', () => {
   jest.setTimeout(TIMEOUT);
@@ -32,7 +33,7 @@ describe('partial notes', () => {
       wallet,
       accounts: [adminAddress, liquidityProviderAddress],
       logger,
-    } = await setup(2));
+    } = await setup(2, { ...AUTOMINE_E2E_OPTS }));
 
     const { contract } = await deployToken(wallet, adminAddress, 0n, logger);
     token0 = contract;

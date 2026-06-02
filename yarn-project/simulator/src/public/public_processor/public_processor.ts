@@ -3,7 +3,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import { DateProvider, Timer, elapsed, execWithSignal } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -123,6 +123,17 @@ class PublicProcessorTimeoutError extends Error {
   }
 }
 
+class PublicProcessorAbortError extends Error {
+  constructor(message: string = 'Aborted while processing tx') {
+    super(message);
+    this.name = 'PublicProcessorAbortError';
+  }
+}
+
+function isPublicProcessorInterruptError(err: any) {
+  return err?.name === 'PublicProcessorTimeoutError' || err?.name === 'PublicProcessorAbortError';
+}
+
 /**
  * Converts Txs lifted from the P2P module into ProcessedTx objects by executing
  * any public function calls in them. Txs with private calls only are unaffected.
@@ -159,7 +170,7 @@ export class PublicProcessor implements Traceable {
     limits: PublicProcessorLimits = {},
     validator: PublicProcessorValidator = {},
   ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[], DebugLog[]]> {
-    const { maxTransactions, deadline, maxBlockGas, maxBlobFields, isBuildingProposal } = limits;
+    const { maxTransactions, deadline, maxBlockGas, maxBlobFields, isBuildingProposal, signal } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
     const usedTxs: Tx[] = [];
@@ -182,9 +193,13 @@ export class PublicProcessor implements Traceable {
         break;
       }
 
-      // Bail if we've hit the deadline
+      // Bail if we've hit the deadline or have been interrupted.
       if (deadline && this.dateProvider.now() > +deadline) {
         this.log.warn(`Stopping tx processing due to timeout.`);
+        break;
+      }
+      if (signal?.aborted) {
+        this.log.warn(`Stopping tx processing due to abort signal.`);
         break;
       }
 
@@ -240,7 +255,7 @@ export class PublicProcessor implements Traceable {
 
       try {
         const [txProcessingTimeMs, [processedTx, returnValues, txDebugLogs]] = await elapsed(() =>
-          this.processTx(tx, deadline),
+          this.processTx(tx, deadline, signal),
         );
 
         // Inject a fake processing failure after N txs if requested
@@ -311,15 +326,11 @@ export class PublicProcessor implements Traceable {
         // Commit the tx-level contracts checkpoint on success
         this.contractsDB.commitCheckpoint();
       } catch (err: any) {
-        if (err?.name === 'PublicProcessorTimeoutError') {
-          this.log.warn(`Stopping tx processing due to timeout.`);
-          // We hit the transaction execution deadline.
-          // There may still be a transaction executing on a worker thread (C++ via NAPI).
-          // Signal cancellation AND WAIT for the simulation to actually stop.
-          // This is critical because C++ might be in the middle of a slow operation (e.g., pad_trees)
-          // and won't check the cancellation flag until that operation completes.
-          // Without waiting, we'd proceed to revert checkpoints while C++ is still writing to state.
-          // Wait for C++ to stop gracefully.
+        if (isPublicProcessorInterruptError(err)) {
+          const interruptReason = err.name === 'PublicProcessorTimeoutError' ? 'timeout' : 'abort signal';
+          this.log.warn(`Stopping tx processing due to ${interruptReason}.`);
+          // The tx may still be executing on a worker thread (C++ via NAPI).
+          // Signal cancellation AND WAIT for the simulation to actually stop before touching fork checkpoints.
           await this.publicTxSimulator.cancel?.();
 
           // Now stop the guarded fork to prevent any further TS-side access to the world state.
@@ -407,9 +418,10 @@ export class PublicProcessor implements Traceable {
   private async processTx(
     tx: Tx,
     deadline: Date | undefined,
+    signal: AbortSignal | undefined,
   ): Promise<[ProcessedTx, NestedProcessReturnValues[], DebugLog[]]> {
     const [time, [processedTx, returnValues, debugLogs]] = await elapsed(() =>
-      this.processTxWithinDeadline(tx, deadline),
+      this.processTxWithinDeadline(tx, deadline, signal),
     );
 
     this.log.verbose(
@@ -463,10 +475,11 @@ export class PublicProcessor implements Traceable {
     this.metrics.recordTreeInsertions(Number(treeInsertionEnd - treeInsertionStart) / 1_000);
   }
 
-  /** Processes the given tx within deadline. Returns timeout if deadline is hit. */
+  /** Processes the given tx within deadline or until the signal is aborted. */
   private async processTxWithinDeadline(
     tx: Tx,
     deadline: Date | undefined,
+    signal: AbortSignal | undefined,
   ): Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined, DebugLog[]]> {
     const innerProcessFn: () => Promise<[ProcessedTx, NestedProcessReturnValues[] | undefined, DebugLog[]]> =
       tx.hasPublicCalls() ? () => this.processTxWithPublicCalls(tx) : () => this.processPrivateOnlyTx(tx);
@@ -483,27 +496,38 @@ export class PublicProcessor implements Traceable {
           }
         : innerProcessFn;
 
-    if (!deadline) {
+    const processingSignal = this.getProcessingSignal(tx, deadline, signal);
+    if (!processingSignal) {
       return await processFn();
     }
 
-    const txHash = tx.getTxHash();
+    return await execWithSignal(
+      () => processFn(),
+      processingSignal,
+      signal =>
+        signal.reason?.name === 'TimeoutError' ? new PublicProcessorTimeoutError() : new PublicProcessorAbortError(),
+    );
+  }
+
+  private getProcessingSignal(tx: Tx, deadline: Date | undefined, signal: AbortSignal | undefined) {
+    if (!deadline) {
+      return signal;
+    }
+
     const timeout = +deadline - this.dateProvider.now();
     if (timeout <= 0) {
       throw new PublicProcessorTimeoutError();
     }
 
+    const txHash = tx.getTxHash();
     this.log.debug(`Processing tx ${txHash.toString()} within ${timeout}ms`, {
       deadline: deadline.toISOString(),
       now: new Date(this.dateProvider.now()).toISOString(),
       txHash,
     });
 
-    return await executeTimeout(
-      () => processFn(),
-      timeout,
-      () => new PublicProcessorTimeoutError(),
-    );
+    const timeoutSignal = AbortSignal.timeout(timeout);
+    return signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
   }
 
   /**

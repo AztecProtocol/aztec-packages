@@ -9,45 +9,45 @@ import type {
 } from '@aztec/stdlib/validators';
 
 export class SentinelStore {
-  public static readonly SCHEMA_VERSION = 3;
+  public static readonly SCHEMA_VERSION = 4;
 
   // a map from validator address to their ValidatorStatusHistory
   private readonly historyMap: AztecAsyncMap<`0x${string}`, Buffer>;
 
-  // a map from validator address to their historical proven epoch performance
+  // a map from validator address to their historical epoch performance, evaluated at end-of-epoch.
   // e.g. { validator: [{ epoch: 1, missed: 1, total: 10 }, { epoch: 2, missed: 3, total: 7 }, ...] }
-  private readonly provenMap: AztecAsyncMap<`0x${string}`, Buffer>;
+  private readonly epochMap: AztecAsyncMap<`0x${string}`, Buffer>;
 
   constructor(
     private store: AztecAsyncKVStore,
-    private config: { historyLength: number; historicProvenPerformanceLength: number },
+    private config: { historyLength: number; historicEpochPerformanceLength: number },
   ) {
     this.historyMap = store.openMap('sentinel-validator-status');
-    this.provenMap = store.openMap('sentinel-validator-proven');
+    this.epochMap = store.openMap('sentinel-validator-epoch');
   }
 
   public getHistoryLength() {
     return this.config.historyLength;
   }
 
-  public getHistoricProvenPerformanceLength() {
-    return this.config.historicProvenPerformanceLength;
+  public getHistoricEpochPerformanceLength() {
+    return this.config.historicEpochPerformanceLength;
   }
 
-  public async updateProvenPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
+  public async updateEpochPerformance(epoch: EpochNumber, performance: ValidatorsEpochPerformance) {
     await this.store.transactionAsync(async () => {
       for (const [who, { missed, total }] of Object.entries(performance)) {
-        await this.pushValidatorProvenPerformanceForEpoch({ who: EthAddress.fromString(who), missed, total, epoch });
+        await this.pushValidatorEpochPerformance({ who: EthAddress.fromString(who), missed, total, epoch });
       }
     });
   }
 
-  public async getProvenPerformance(who: EthAddress): Promise<{ missed: number; total: number; epoch: EpochNumber }[]> {
-    const currentPerformanceBuffer = await this.provenMap.getAsync(who.toString());
+  public async getEpochPerformance(who: EthAddress): Promise<{ missed: number; total: number; epoch: EpochNumber }[]> {
+    const currentPerformanceBuffer = await this.epochMap.getAsync(who.toString());
     return currentPerformanceBuffer ? this.deserializePerformance(currentPerformanceBuffer) : [];
   }
 
-  private async pushValidatorProvenPerformanceForEpoch({
+  private async pushValidatorEpochPerformance({
     who,
     missed,
     total,
@@ -58,7 +58,7 @@ export class SentinelStore {
     total: number;
     epoch: EpochNumber;
   }) {
-    const currentPerformance = await this.getProvenPerformance(who);
+    const currentPerformance = await this.getEpochPerformance(who);
     const existingIndex = currentPerformance.findIndex(p => p.epoch === epoch);
     if (existingIndex !== -1) {
       currentPerformance[existingIndex] = { missed, total, epoch };
@@ -70,10 +70,10 @@ export class SentinelStore {
     // Since we keep the size small, this is not a big deal.
     currentPerformance.sort((a, b) => Number(a.epoch - b.epoch));
 
-    // keep the most recent `historicProvenPerformanceLength` entries.
-    const performanceToKeep = currentPerformance.slice(-this.config.historicProvenPerformanceLength);
+    // keep the most recent `historicEpochPerformanceLength` entries.
+    const performanceToKeep = currentPerformance.slice(-this.config.historicEpochPerformanceLength);
 
-    await this.provenMap.set(who.toString(), this.serializePerformance(performanceToKeep));
+    await this.epochMap.set(who.toString(), this.serializePerformance(performanceToKeep));
   }
 
   public async updateValidators(slot: SlotNumber, statuses: Record<`0x${string}`, ValidatorStatusInSlot | undefined>) {
@@ -147,7 +147,7 @@ export class SentinelStore {
     switch (status) {
       case 'checkpoint-mined':
         return 1;
-      case 'checkpoint-proposed':
+      case 'checkpoint-valid':
         return 2;
       case 'checkpoint-missed':
         return 3;
@@ -157,6 +157,10 @@ export class SentinelStore {
         return 5;
       case 'blocks-missed':
         return 6;
+      case 'checkpoint-invalid':
+        return 7;
+      case 'checkpoint-unvalidated':
+        return 8;
       default: {
         const _exhaustive: never = status;
         throw new Error(`Unknown status: ${status}`);
@@ -169,7 +173,7 @@ export class SentinelStore {
       case 1:
         return 'checkpoint-mined';
       case 2:
-        return 'checkpoint-proposed';
+        return 'checkpoint-valid';
       case 3:
         return 'checkpoint-missed';
       case 4:
@@ -178,6 +182,10 @@ export class SentinelStore {
         return 'attestation-missed';
       case 6:
         return 'blocks-missed';
+      case 7:
+        return 'checkpoint-invalid';
+      case 8:
+        return 'checkpoint-unvalidated';
       default:
         throw new Error(`Unknown status: ${status}`);
     }

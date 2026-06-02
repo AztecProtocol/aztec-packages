@@ -40,10 +40,10 @@ pub contract SimulatedSchnorrAccount {
         let seed = unsafe { random() };
 
         // Emit the initialization nullifier for the contract itself.
-        self.context.push_nullifier(seed);
+        self.context.push_nullifier_unsafe(seed);
 
         // Emit the initialization nullifier for the signing_public_key SinglePrivateImmutable.
-        self.context.push_nullifier(seed + 1);
+        self.context.push_nullifier_unsafe(seed + 1);
 
         // Emit the note hash for the signing key note.
         self.context.push_note_hash(seed + 2);

@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import type { SlotNumber } from '@aztec/foundation/branded-types';
+import { SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
@@ -104,20 +104,32 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     }
   });
 
-  it('collects attestations for all validators on a node', async () => {
-    // Ensure all nodes see each other, especially the sentinel, before starting slot counting
-    await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
-
-    // Wait until validator nodes have advanced past their first proposed slot so that the
-    // pipelining warm-up period (where some attestations may be missed) is behind us.
+  const waitForPostWarmupCheckpoint = async (action: string): Promise<void> => {
     await t.monitor.run();
     const warmupSlot = Number(t.monitor.l2SlotNumber) + 1;
-    t.logger.info(`Waiting for warmup slot ${warmupSlot} before establishing initial slot`);
+    t.logger.info(`Waiting for warmup slot ${warmupSlot} before ${action}`);
     await retryUntil(
       async () => (await t.monitor.run()).l2SlotNumber >= warmupSlot,
       'warmup slot',
       AZTEC_SLOT_DURATION * 3,
     );
+
+    const warmupCheckpoint = t.monitor.checkpointNumber;
+    t.logger.info(`Waiting for checkpoint after warmup before ${action}`, { warmupCheckpoint });
+    await retryUntil(
+      async () => (await t.monitor.run()).checkpointNumber > warmupCheckpoint,
+      'post-warmup checkpoint',
+      AZTEC_SLOT_DURATION * (SLOT_COUNT + 1) * 3,
+    );
+  };
+
+  it('collects attestations for all validators on a node', async () => {
+    // Ensure all nodes see each other, especially the sentinel, before starting slot counting
+    await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
+
+    // Wait until validator nodes have advanced past their first proposed slot and landed a checkpoint so that the
+    // pipelining warm-up period (where some attestations may be missed) is behind us.
+    await waitForPostWarmupCheckpoint('establishing initial slot');
 
     const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = t.monitor;
 
@@ -155,6 +167,8 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
   it('collects attestations for validators in proposer node when block is not published', async () => {
     // Ensure all nodes see each other, especially the sentinel
     await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
+
+    await waitForPostWarmupCheckpoint('stopping a validator node and establishing initial slot');
 
     // Stop the second node, this means the first node won't be able to propose since won't achieve quorum
     await tryStop(nodes[1]);
@@ -200,11 +214,14 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     const stats = await sentinel.getValidatorsStats();
     t.logger.info(`Collected validator stats at slot ${t.monitor.l2SlotNumber}`, { stats });
 
-    // Check that all of the first node validators have attestations recorded
+    const historyForSlot = (validator: (typeof firstNodeValidators)[number]) =>
+      stats.stats[validator.toString().toLowerCase()]?.history.filter(h => h.slot === slotForSentinel) ?? [];
+
+    // Check that all of the first node validators have attestations recorded for the selected proposer slot.
     for (const validator of firstNodeValidators) {
-      const validatorStats = stats.stats[validator.toString().toLowerCase()];
-      const history = validatorStats?.history.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
+      const history = historyForSlot(validator);
       t.logger.info(`Asserting stats for online validator ${validator}`, { history });
+      expect(history).not.toBeEmpty();
       expect(
         history.filter(
           h => h.status === 'attestation-missed' || h.status === 'blocks-missed' || h.status === 'checkpoint-missed',
@@ -215,14 +232,13 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     // At least one of the first node validators must have been seen as proposer
     const firstNodeBlockProposedHistory = firstNodeValidators
       .flatMap(v => stats.stats[v.toString().toLowerCase()].history)
-      .filter(h => h.slot > initialSlot && h.slot <= slotForSentinel)
-      .filter(h => h.status === 'checkpoint-proposed');
+      .filter(h => h.slot === slotForSentinel)
+      .filter(h => h.status === 'checkpoint-valid' || h.status === 'checkpoint-mined');
     expect(firstNodeBlockProposedHistory).not.toBeEmpty();
 
-    // And all of the proposers for the offline node must be seen as missed attestation or proposal
+    // And all of the validators for the offline node must be seen as missed attestation or proposal.
     for (const validator of offlineValidators) {
-      const validatorStats = stats.stats[validator.toString().toLowerCase()];
-      const history = validatorStats.history?.filter(h => h.slot > initialSlot && h.slot <= slotForSentinel) ?? [];
+      const history = historyForSlot(validator);
       t.logger.info(`Asserting stats for offline validator ${validator}`, { history });
       expect(
         history.filter(

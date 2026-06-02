@@ -6,7 +6,7 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: 'Environment to fund (e.g., staging-public, next-net, staging-ignition, testnet)'
+        description: 'Environment to fund (e.g., staging-public, next-net, testnet)'
         required: true
         type: string
       low_watermark:
@@ -32,7 +32,6 @@ on:
         options:
         - staging-public
         - next-net
-        - staging-ignition
         - testnet
         - devnet
         - tps-scenario
@@ -62,7 +61,7 @@ jobs:
       GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ github.ref }}
           fetch-depth: 1

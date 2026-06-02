@@ -8,11 +8,13 @@ import { areArraysEqual } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
 import { CommitteeAttestation, CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
+import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { FeeRecipient, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import type { L1PublishProofStats } from '@aztec/stdlib/stats';
@@ -101,6 +103,11 @@ export class ProverNodePublisher {
     const ctx = { epochNumber, fromCheckpoint, toCheckpoint };
 
     if (!this.interrupted) {
+      if (!(await this.waitUntilStartBuildsOnProven(args))) {
+        this.log.verbose('Checkpoint data syncing interrupted', ctx);
+        return false;
+      }
+
       const timer = new Timer();
       // Validate epoch proof range and hashes are correct before submitting
       await this.validateEpochProofSubmission(args);
@@ -145,6 +152,53 @@ export class ProverNodePublisher {
 
     this.log.verbose('Checkpoint data syncing interrupted', ctx);
     return false;
+  }
+
+  private async waitUntilStartBuildsOnProven(args: { epochNumber: EpochNumber; fromCheckpoint: CheckpointNumber }) {
+    const { epochNumber, fromCheckpoint } = args;
+    const provenCheckpoint = await this.getProvenCheckpoint();
+    if (this.isStartBuildingOnProven(fromCheckpoint, provenCheckpoint)) {
+      return true;
+    }
+
+    const timeout = await this.getSecondsUntilProofSubmissionWindowEnd(epochNumber);
+    this.log.info(`Waiting for proven checkpoint to reach proof start`, {
+      epochNumber,
+      fromCheckpoint,
+      provenCheckpoint,
+      timeout,
+    });
+
+    await retryUntil(
+      async () => {
+        if (this.interrupted) {
+          return true;
+        }
+
+        const proven = await this.getProvenCheckpoint();
+        this.log.verbose(`Proven checkpoint is at ${proven} (waiting for ${fromCheckpoint - 1})`, { epochNumber });
+        return this.isStartBuildingOnProven(fromCheckpoint, proven) ? true : undefined;
+      },
+      `proven checkpoint to reach ${fromCheckpoint - 1}`,
+      timeout,
+      4,
+    );
+
+    return !this.interrupted;
+  }
+
+  private async getProvenCheckpoint() {
+    return (await this.rollupContract.getTips()).proven;
+  }
+
+  private isStartBuildingOnProven(fromCheckpoint: CheckpointNumber, provenCheckpoint: CheckpointNumber) {
+    return fromCheckpoint - 1 <= provenCheckpoint;
+  }
+
+  private async getSecondsUntilProofSubmissionWindowEnd(epochNumber: EpochNumber) {
+    const deadline = getProofSubmissionDeadlineTimestamp(epochNumber, await this.rollupContract.getRollupConstants());
+    const now = BigInt(Math.floor(Date.now() / 1000));
+    return Math.max(Number(deadline - now), 0.001);
   }
 
   private async validateEpochProofSubmission(args: {

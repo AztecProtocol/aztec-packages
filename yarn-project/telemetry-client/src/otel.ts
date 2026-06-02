@@ -374,7 +374,12 @@ export class OpenTelemetryClient implements TelemetryClient {
       const tracerProvider = new NodeTracerProvider({
         resource,
         spanProcessors: config.tracesCollectorUrl
-          ? [new MonitoredBatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href }), log)]
+          ? [
+              new MonitoredBatchSpanProcessor(new OTLPTraceExporter({ url: config.tracesCollectorUrl.href }), log, {
+                maxQueueSize: config.otelBspMaxQueueSize,
+                minTraceDurationMs: config.otelMinTraceDurationMs,
+              }),
+            ]
           : [],
       });
 

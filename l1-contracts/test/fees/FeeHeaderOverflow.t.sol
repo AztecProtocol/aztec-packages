@@ -137,16 +137,28 @@ contract FeeHeaderOverflowTest is DecoderBase {
    *         because the final proving prover cost also includes the L1 component.
    */
   function test_propose_compressOverflow_provingCost() public {
-    // 2^63 fits in uint64 (FeeConfig) but exceeds uint63 (FeeHeader)
-    EthValue provingCostPerMana = EthValue.wrap((1 << 63));
-
+    // Deploy with a normal initial provingCostPerMana, then forcibly inject the oversized value
+    // by overwriting the compressed FeeStore slot directly. The deploy-time ceiling
+    // (MAX_INITIAL_PROVING_COST_PER_MANA) blocks (1 << 63) at construction; this test models the
+    // post-deploy reality that governance updates have no absolute ceiling and the value can
+    // drift past 2^63 over time, so the compress() guard still has to cope.
+    // In practice, this will not happen because the deploy-time ceiling should make approaching
+    // 2^63 infeasible.
     RollupConfigInput memory config = TestConstants.getRollupConfigInput();
-    config.provingCostPerMana = provingCostPerMana;
     // 1:1 ETH/AZTEC parity so proverCost (fee asset) = proverCostPerMana (wei)
     config.initialEthPerFeeAsset = EthPerFeeAssetE12.wrap(1e12);
     config.targetCommitteeSize = 0;
 
     Rollup rollup = _deployRollup(config);
+
+    // Overwrite the low 64 bits of the FeeStore's CompressedFeeConfig (slot 0 of the FeeLib
+    // namespaced storage) with (1 << 63). The high 192 bits (manaTarget,
+    // congestionUpdateFraction) stay intact.
+    bytes32 feeStoreSlot = keccak256("aztec.fee.storage");
+    uint256 existing = uint256(vm.load(address(rollup), feeStoreSlot));
+    uint256 masked = existing & ~((uint256(1) << 64) - 1);
+    uint256 newConfig = masked | (uint256(1) << 63);
+    vm.store(address(rollup), feeStoreSlot, bytes32(newConfig));
 
     // Warp to slot 1
     vm.warp(block.timestamp + SLOT_DURATION);

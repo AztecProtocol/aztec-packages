@@ -11,4 +11,19 @@ export { Oracle } from './oracle/oracle.js';
 export { executePrivateFunction, extractPrivateCircuitPublicInputs } from './oracle/private_execution.js';
 export { generateSimulatedProvingResult } from './contract_function_simulator.js';
 export { packAsHintedNote } from './oracle/note_packing_utils.js';
+export { BoundedVec } from './noir-structs/bounded_vec.js';
+export { EphemeralArray } from './noir-structs/ephemeral_array.js';
+export { Option } from './noir-structs/option.js';
 export { UtilityContext } from './noir-structs/utility_context.js';
+export {
+  EPHEMERAL_ARRAY,
+  EVENT_VALIDATION_REQUEST,
+  FIELD,
+  LOG_RETRIEVAL_REQUEST,
+  LOG_RETRIEVAL_RESPONSE,
+  MESSAGE_CONTEXT,
+  NOTE_VALIDATION_REQUEST,
+  OPTION,
+  PENDING_TAGGED_LOG,
+  POINT,
+} from './oracle/oracle_registry.js';

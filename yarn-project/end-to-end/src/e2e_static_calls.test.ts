@@ -3,7 +3,11 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { StaticChildContract } from '@aztec/noir-test-contracts.js/StaticChild';
 import { StaticParentContract } from '@aztec/noir-test-contracts.js/StaticParent';
 
-import { STATIC_CALL_STATE_MODIFICATION_ERROR, STATIC_CONTEXT_ASSERTION_ERROR } from './fixtures/fixtures.js';
+import {
+  AUTOMINE_E2E_OPTS,
+  STATIC_CALL_STATE_MODIFICATION_ERROR,
+  STATIC_CONTEXT_ASSERTION_ERROR,
+} from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_static_calls', () => {
@@ -19,7 +23,7 @@ describe('e2e_static_calls', () => {
       teardown,
       wallet,
       accounts: [owner],
-    } = await setup());
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
     sender = owner;
     ({ contract: parentContract } = await StaticParentContract.deploy(wallet).send({ from: owner }));
     ({ contract: childContract } = await StaticChildContract.deploy(wallet).send({ from: owner }));

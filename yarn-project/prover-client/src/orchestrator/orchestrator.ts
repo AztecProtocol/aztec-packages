@@ -89,7 +89,7 @@ export class ProvingOrchestrator extends TopTreeProvingScheduler implements Epoc
 
   protected provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+
   private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
 
   constructor(
@@ -697,7 +697,6 @@ export class ProvingOrchestrator extends TopTreeProvingScheduler implements Epoc
 
     const txProvingState = provingState.getTxProvingState(txIndex);
     const txHash = txProvingState.processedTx.hash.toString();
-    NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
     const handleResult = (
       result: PublicInputsAndRecursiveProof<
         PublicChonkVerifierPublicInputs,

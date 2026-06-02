@@ -38,6 +38,11 @@ export interface IAvmExecutionOracle {
   nullifierExists(siloedNullifier: Fr): Promise<boolean>;
   storageWrite(slot: Fr, value: Fr): Promise<void>;
   storageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr>;
+  returndataSize(): Promise<Fr>;
+  returndataCopy(rdOffset: number, copySize: number): Promise<Fr[]>;
+  call(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<Fr[]>;
+  staticCall(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<Fr[]>;
+  successCopy(): Promise<Fr>;
 }
 
 /**

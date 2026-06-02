@@ -104,7 +104,7 @@ impl SingleUseClaim<&mut PrivateContext> {
     /// storage slot of the underlying state variable.
     pub fn claim(self) {
         let owner_nhk_app = self.context.request_nhk_app(get_public_keys(self.owner).npk_m_hash);
-        self.context.push_nullifier(self.compute_nullifier(owner_nhk_app));
+        self.context.push_nullifier_unsafe(self.compute_nullifier(owner_nhk_app));
     }
 
     /// Asserts that the owner has already claimed this single use claim (i.e. that [`SingleUseClaim::claim`] has been

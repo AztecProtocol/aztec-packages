@@ -5,7 +5,7 @@ import {
   STATE_REFERENCE_LENGTH,
 } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -46,9 +46,14 @@ export class StateReference {
     return new StateReference(...StateReference.getFields(fields));
   }
 
-  toBuffer() {
-    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
-    return serializeToBuffer(this.l1ToL2MessageTree, this.partial);
+  // Note: The order here must match the order in the ProposedHeaderLib solidity library.
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.l1ToL2MessageTree, this.partial);
   }
 
   toFields(): Fr[] {

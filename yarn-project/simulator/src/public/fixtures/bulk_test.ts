@@ -25,12 +25,26 @@ export async function bulkTest(
   // Register multiple different protocol contracts (to ensure we don't dedup bytecode hashing events):
   await tester.registerAuthContract();
   await tester.registerInstanceRegistryContract();
+  await tester.registerClassRegistryContract();
 
   // Get a deployed contract instance to pass to the contract
   // for it to use as "expected" values when testing contract instance retrieval.
   const expectContractInstance = avmTestContract;
   const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  // Pinned grumpkin-Poseidon2 Schnorr signature (mirrors the C++ `pinned_test_vector_large`
+  // and noir-lang/schnorr v0.4.0's `pinned_vector_large`). Passing these in as calldata
+  // (rather than baking them into Noir as constants) keeps MSM + Poseidon2 from being folded
+  // by the Noir compiler.
+  const schnorrInputs = [
+    Fr.fromHexString('0x065812e335a97c2108ea8cf4ccfe2f9dd6b117a0714f5e18461575be93f61da6'), // pubkey.x
+    Fr.fromHexString('0x1a915003e8ec534f9a15d926a7ded478e178468ccc4f28e236e67450a55ac622'), // pubkey.y
+    Fr.fromHexString('0xf3bc3b7147acb9c621fd9f72dbf15ffa'), // sig_s.lo
+    Fr.fromHexString('0x08599f379f0301dfefdbd0272554454d'), // sig_s.hi
+    Fr.fromHexString('0x97065383ebbbd76620398792bd259bc2'), // sig_e.lo
+    Fr.fromHexString('0x2ceaee87f45b7a417f0ffb05451a8c92'), // sig_e.hi
+    Fr.fromHexString('0x0123456789abcdef0fedcba9876543210123456789abcdef0fedcba987654321'), // message
+  ];
   const args = [
     argsField,
     argsU8,
@@ -39,6 +53,7 @@ export async function bulkTest(
     /*expectedClassId=*/ expectContractInstance.currentContractClassId,
     /*expectedInitializationHash=*/ expectContractInstance.initializationHash,
     /*expectedImmutablesHash=*/ expectContractInstance.immutablesHash,
+    /*schnorrInputs=*/ schnorrInputs,
     /*skip_strictly_limited_side_effects=*/ false,
   ];
 
@@ -122,6 +137,15 @@ export async function megaBulkTest(
   //const argsField7 = [15, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   //const argsField8 = [17, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
+  const schnorrInputs = [
+    Fr.fromHexString('0x065812e335a97c2108ea8cf4ccfe2f9dd6b117a0714f5e18461575be93f61da6'), // pubkey.x
+    Fr.fromHexString('0x1a915003e8ec534f9a15d926a7ded478e178468ccc4f28e236e67450a55ac622'), // pubkey.y
+    Fr.fromHexString('0xf3bc3b7147acb9c621fd9f72dbf15ffa'), // sig_s.lo
+    Fr.fromHexString('0x08599f379f0301dfefdbd0272554454d'), // sig_s.hi
+    Fr.fromHexString('0x97065383ebbbd76620398792bd259bc2'), // sig_e.lo
+    Fr.fromHexString('0x2ceaee87f45b7a417f0ffb05451a8c92'), // sig_e.hi
+    Fr.fromHexString('0x0123456789abcdef0fedcba9876543210123456789abcdef0fedcba987654321'), // message
+  ];
   const genArgs = (argsField: Fr[]) => [
     argsField,
     argsU8,
@@ -130,6 +154,7 @@ export async function megaBulkTest(
     /*expectedClassId=*/ expectContractInstance.currentContractClassId.toField(),
     /*expectedInitializationHash=*/ expectContractInstance.initializationHash.toField(),
     /*expectedImmutablesHash=*/ expectContractInstance.immutablesHash.toField(),
+    /*schnorrInputs=*/ schnorrInputs,
     // Must skip strictly limited side effects (logs, messages) so we can spam the bulk test several times.
     /*skip_strictly_limited_side_effects=*/ true,
   ];

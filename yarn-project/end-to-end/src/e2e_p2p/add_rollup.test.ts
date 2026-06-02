@@ -7,10 +7,10 @@ import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
-import { FeeAssetHandlerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import { FeeAssetHandlerContract, OutboxContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
-import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -364,14 +364,19 @@ describe('e2e_p2p_add_rollup', () => {
           chainId: new Fr(l1Client.chain.id),
         });
 
-        const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, leaf, l2OutgoingReceipt.txHash))!;
-        const { epochNumber: epoch, ...l2ToL1MessageWitness } = l2ToL1MessageResult;
-        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageWitness);
-
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.
         const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
-        await cheatcodes.advanceToEpoch(EpochNumber(epoch + 1));
+        const minedReceipt = await node.getTxReceipt(l2OutgoingReceipt.txHash);
+        if (minedReceipt.epochNumber === undefined) {
+          throw new Error('Outgoing tx is not yet in an epoch');
+        }
+        await cheatcodes.advanceToEpoch(EpochNumber(minedReceipt.epochNumber + 1));
         await waitForProven(node, l2OutgoingReceipt, { provenTimeout: 300 });
+
+        const outboxContract = new OutboxContract(l1Client, l1ContractAddresses.outboxAddress);
+        const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, outboxContract, leaf, minedReceipt))!;
+        const { epochNumber: epoch, numCheckpointsInEpoch, ...l2ToL1MessageWitness } = l2ToL1MessageResult;
+        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageWitness);
 
         // Then we want to go and comsume it!
         const outbox = getContract({
@@ -388,6 +393,7 @@ describe('e2e_p2p_add_rollup', () => {
             args: [
               l2ToL1Message,
               BigInt(epoch),
+              BigInt(numCheckpointsInEpoch),
               BigInt(l2ToL1MessageWitness.leafIndex),
               l2ToL1MessageWitness.siblingPath
                 .toBufferArray()
@@ -412,6 +418,7 @@ describe('e2e_p2p_add_rollup', () => {
             root: `0x${string}`;
             messageHash: `0x${string}`;
             leafId: bigint;
+            numCheckpointsInEpoch: bigint;
           };
         };
 
@@ -555,8 +562,7 @@ describe('e2e_p2p_add_rollup', () => {
       dataDirectory: DATA_DIR_NEW,
       rollupVersion: Number(newVersion),
       governanceProposerPayload: EthAddress.ZERO,
-      ...t.ctx.deployL1ContractsValues.l1ContractAddresses,
-      ...addresses,
+      l1Contracts: { ...t.ctx.deployL1ContractsValues.l1ContractAddresses, ...addresses },
     };
     await setupSharedBlobStorage(newConfig);
 
@@ -611,7 +617,7 @@ describe('e2e_p2p_add_rollup', () => {
       nodes[0],
       initialTestAccounts[0],
       t.ctx.deployL1ContractsValues.l1Client,
-      pickL1ContractAddresses(newConfig),
+      newConfig.l1Contracts,
       BigInt(newConfig.rollupVersion),
       newConfig.l1RpcUrls,
     );

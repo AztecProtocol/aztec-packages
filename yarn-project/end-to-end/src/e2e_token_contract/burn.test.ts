@@ -2,7 +2,7 @@ import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 
 import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixtures/authwit_proxy.js';
-import { DUPLICATE_NULLIFIER_ERROR, U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
+import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR, U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract burn', () => {
@@ -12,7 +12,7 @@ describe('e2e_token_contract burn', () => {
   beforeAll(async () => {
     t.applyBaseSnapshots();
     t.applyMintSnapshot();
-    await t.setup();
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
     // Have to destructure again to ensure we have latest refs.
     ({ asset, wallet, adminAddress, tokenSim, adminAddress, account1Address } = t);
   });

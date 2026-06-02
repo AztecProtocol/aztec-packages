@@ -20,14 +20,14 @@ import {
 } from 'zlib';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 
-// Set a 3 minute timeout.
-const TIMEOUT = 180_000;
+const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
+const TIMEOUT = REAL_PROOFS ? 45 * 60 * 1000 : 15 * 60 * 1000;
 
 describe('transaction benchmarks', () => {
-  const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
@@ -55,7 +55,7 @@ describe('transaction benchmarks', () => {
   beforeAll(async () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
 
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
 
     ({
       provenWallet,

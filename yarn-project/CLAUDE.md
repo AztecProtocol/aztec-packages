@@ -118,7 +118,7 @@ yarn workspace @aztec/<package-name> test --runInBand
 
 ```bash
 LOG_LEVEL=verbose yarn workspace @aztec/<package-name> test src/file.test.ts  # Recommended
-LOG_LEVEL=debug yarn workspace @aztec/<package-name> test src/file.test.ts    # More detail
+LOG_LEVEL="debug; info: json-rpc, simulator" yarn workspace @aztec/<package-name> test src/file.test.ts    # More detail
 # Available levels: trace, debug, verbose, info, warn
 
 # Module-specific logging

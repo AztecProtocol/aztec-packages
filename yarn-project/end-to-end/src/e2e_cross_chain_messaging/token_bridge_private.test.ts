@@ -6,11 +6,18 @@ import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
+import { jest } from '@jest/globals';
+
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging token_bridge_private', () => {
+  // Pipelining slows wall-clock chain progress (12s slots); waitForProven via advanceToEpochProven
+  // needs more than the default 300s per-test budget.
+  jest.setTimeout(15 * 60 * 1000);
+
   const t = new CrossChainMessagingTest('token_bridge_private', { startProverNode: true });
 
   let crossChainTestHarness: CrossChainTestHarness;
@@ -24,7 +31,7 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
   let user2Address: AztecAddress;
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     // Have to destructure again to ensure we have latest refs.
     ({ crossChainTestHarness, ethAccount, aztecNode, logger, ownerAddress, l2Bridge, l2Token, wallet, user2Address } =
       t);
@@ -75,13 +82,19 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
     await t.advanceToEpochProven(l2TxReceipt);
 
-    const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(aztecNode, l2ToL1Message, l2TxReceipt.txHash))!;
+    const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(
+      aztecNode,
+      crossChainTestHarness.outboxContract,
+      l2ToL1Message,
+      l2TxReceipt,
+    ))!;
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
       l2ToL1MessageResult.epochNumber,
+      l2ToL1MessageResult.numCheckpointsInEpoch,
       l2ToL1MessageResult.leafIndex,
       l2ToL1MessageResult.siblingPath,
     );
@@ -106,6 +119,5 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
       .send({ from: user2Address });
 
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, initialPrivateBalance + bridgeAmount);
-  }),
-    90_000;
+  }, 90_000);
 });

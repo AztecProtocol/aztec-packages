@@ -5,19 +5,17 @@ import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type GovernanceProposerContract,
   Multicall3,
+  MulticallForwarderRevertedError,
   type RollupContract,
-  type SimulationOverridesPlan,
   type SlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import {
-  type GasPrice,
   type L1TxUtils,
   type L1TxUtilsConfig,
+  MAX_L1_TX_LIMIT,
   defaultL1TxUtilsConfig,
 } from '@aztec/ethereum/l1-tx-utils';
-import { FormattedViemError } from '@aztec/ethereum/utils';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
@@ -33,9 +31,12 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type GetCodeReturnType,
   type GetTransactionReceiptReturnType,
+  type Hex,
   type PrivateKeyAccount,
   type TransactionReceipt,
   encodeFunctionData,
+  encodeFunctionResult,
+  multicall3Abi,
   toHex,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -67,6 +68,7 @@ describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
   let slashingProposerContract: MockProxy<SlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
+  let epochCache: MockProxy<EpochCache>;
   let l1TxUtils: MockProxy<L1TxUtils>;
   let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
@@ -136,7 +138,7 @@ describe('SequencerPublisher', () => {
 
     governanceProposerContract = mock<GovernanceProposerContract>();
 
-    const epochCache = mock<EpochCache>();
+    epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, nowMs: 3000n });
     epochCache.getL1Constants.mockReturnValue(EmptyL1RollupConstants);
     epochCache.getSlotNow.mockReturnValue(SlotNumber(2));
@@ -168,10 +170,13 @@ describe('SequencerPublisher', () => {
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
     (l1TxUtils as any).simulate.mockResolvedValue({ gasUsed: 1_000_000n, result: '0x' });
     (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
+    l1TxUtils.getSenderBalance.mockResolvedValue(10_000_000_000_000_000_000n); // 10 ETH, sufficient for all tests
     (l1TxUtils as any).client = {
       account: {
         address: '0x1234567890123456789012345678901234567890',
       },
+      getGasPrice: () => Promise.resolve(1n),
+      getBlock: () => Promise.resolve({ timestamp: 0n }),
     };
 
     const currentL2Slot = publisher.getCurrentL2Slot();
@@ -230,7 +235,8 @@ describe('SequencerPublisher', () => {
 
     forwardSpy.mockResolvedValue({
       receipt: proposeTxReceipt,
-      errorMsg: undefined,
+      stats: undefined,
+      multicallData: '0x',
     });
 
     await publisher.sendRequests();
@@ -274,8 +280,7 @@ describe('SequencerPublisher', () => {
       expect.objectContaining({
         blobs: expect.any(Array),
       }),
-      mockRollupAddress,
-      expect.anything(), // the logger
+      { gasLimitRequired: true },
     );
 
     expect(forwardSpy.mock.calls[0][2]?.gasLimit).toBeGreaterThan(2_000_000n);
@@ -291,7 +296,8 @@ describe('SequencerPublisher', () => {
   it('errors if forwarder tx fails', async () => {
     forwardSpy.mockRejectedValueOnce(new Error()).mockResolvedValueOnce({
       receipt: proposeTxReceipt,
-      errorMsg: undefined,
+      stats: undefined,
+      multicallData: '0x',
     });
 
     await publisher.enqueueProposeCheckpoint(
@@ -312,7 +318,14 @@ describe('SequencerPublisher', () => {
       secondL1TxUtils = mock<L1TxUtils>();
       secondL1TxUtils.getBlockNumber.mockResolvedValue(1n);
       secondL1TxUtils.getSenderAddress.mockReturnValue(EthAddress.random());
-      secondL1TxUtils.getSenderBalance.mockResolvedValue(1000n);
+      secondL1TxUtils.getSenderBalance.mockResolvedValue(10_000_000_000_000_000_000n); // 10 ETH
+      (secondL1TxUtils as any).client = {
+        account: { address: EthAddress.random().toString() },
+        getGasPrice: () => Promise.resolve(1n),
+      };
+      (secondL1TxUtils as any).bumpGasLimit = (val: bigint) => val + (val * 20n) / 100n;
+      (secondL1TxUtils as any).simulate = () => Promise.resolve({ gasUsed: 1_000_000n, result: '0x' });
+      (secondL1TxUtils as any).getBlockNumber = () => Promise.resolve(1n);
 
       getNextPublisher = jest.fn();
 
@@ -352,7 +365,7 @@ describe('SequencerPublisher', () => {
     it('rotates to next publisher when forward throws and retries successfully', async () => {
       forwardSpy
         .mockRejectedValueOnce(new Error('RPC error'))
-        .mockResolvedValueOnce({ receipt: proposeTxReceipt, errorMsg: undefined });
+        .mockResolvedValueOnce({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
       getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
 
       await rotatingPublisher.enqueueProposeCheckpoint(
@@ -371,13 +384,11 @@ describe('SequencerPublisher', () => {
         expect.anything(),
         expect.anything(),
         expect.anything(),
-        expect.anything(),
       );
       expect(forwardSpy).toHaveBeenNthCalledWith(
         2,
         expect.anything(),
         secondL1TxUtils,
-        expect.anything(),
         expect.anything(),
         expect.anything(),
         expect.anything(),
@@ -424,8 +435,61 @@ describe('SequencerPublisher', () => {
       expect(result).toBeUndefined();
     });
 
-    it('does not rotate when forward returns a revert (on-chain failure)', async () => {
-      forwardSpy.mockResolvedValue({ receipt: { ...proposeTxReceipt, status: 'reverted' }, errorMsg: 'revert reason' });
+    it('does not enter the rotation loop when txTimeoutAt is already in the past', async () => {
+      const pastTimeout = new Date(Date.now() - 1000);
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
+        Signature.empty(),
+        { txTimeoutAt: pastTimeout },
+      );
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(result).toBeUndefined();
+      expect(forwardSpy).not.toHaveBeenCalled();
+      expect(getNextPublisher).not.toHaveBeenCalled();
+    });
+
+    it('stops rotating once txTimeoutAt elapses mid-rotation', async () => {
+      // First forward throws; getNextPublisher rotates to a new publisher; but by then the
+      // deadline has elapsed and the rotation loop should bail before the second forward call.
+      // Use jest fake timers to control `Date.now()` deterministically — the rotation loop
+      // checks the deadline via `new Date() > txConfig.txTimeoutAt`, so faking the system clock
+      // is the cleanest way to model "deadline elapses mid-rotation" without racing wall-clock
+      // setTimeout against CI host speed.
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate'] });
+      try {
+        jest.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+        const futureTimeout = new Date(Date.now() + 1000);
+        forwardSpy.mockImplementationOnce(() => {
+          // Simulate enough wall-clock advance during the forward to push past the deadline,
+          // so the loop's next deadline check bails before the second attempt.
+          jest.setSystemTime(Date.now() + 5000);
+          return Promise.reject(new Error('RPC error on first'));
+        });
+        getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
+
+        await rotatingPublisher.enqueueProposeCheckpoint(
+          new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+          CommitteeAttestationsAndSigners.empty(testSignatureContext),
+          Signature.empty(),
+          { txTimeoutAt: futureTimeout },
+        );
+        const result = await rotatingPublisher.sendRequests();
+
+        expect(result).toBeUndefined();
+        // forward was attempted exactly once (the first publisher); rotation was aborted before
+        // the second attempt because the deadline had passed.
+        expect(forwardSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('does not rotate when forward throws MulticallForwarderRevertedError (on-chain failure)', async () => {
+      forwardSpy.mockRejectedValueOnce(
+        new MulticallForwarderRevertedError({ ...proposeTxReceipt, status: 'reverted' }),
+      );
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
@@ -436,140 +500,210 @@ describe('SequencerPublisher', () => {
 
       expect(forwardSpy).toHaveBeenCalledTimes(1);
       expect(getNextPublisher).not.toHaveBeenCalled();
-      // Result contains the reverted receipt (no rotation)
-      expect(result?.result).toMatchObject({ receipt: { status: 'reverted' } });
+      expect(result).toBeUndefined();
     });
   });
 
   it('does not send propose tx if rollup validation fails', async () => {
-    l1TxUtils.simulate.mockRejectedValueOnce(new Error('Test error'));
+    await publisher.enqueueProposeCheckpoint(
+      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
+      Signature.empty(),
+    );
 
-    await expect(
-      publisher.enqueueProposeCheckpoint(
-        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(testSignatureContext),
-        Signature.empty(),
-      ),
-    ).rejects.toThrow();
-
-    expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
+    // Simulate the bundle-level validate returning a failed entry for the propose call.
+    // When all entries fail, bundleSimulate returns undefined and sendRequests returns undefined.
+    const failedResult = encodeFunctionResult({
+      abi: multicall3Abi,
+      functionName: 'aggregate3',
+      result: [{ success: false, returnData: '0x' }],
+    });
+    (l1TxUtils as any).simulate.mockResolvedValueOnce({ gasUsed: 0n, result: failedResult });
 
     const result = await publisher.sendRequests();
     expect(result).toEqual(undefined);
     expect(forwardSpy).not.toHaveBeenCalled();
+    expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
   });
 
-  it('preCheck closure uses preCheckSimulationOverridesPlan, not the enqueue-time plan', async () => {
-    (publisher.epochCache.isProposerPipeliningEnabled as jest.Mock).mockReturnValue(true);
-
-    const validateSpy = jest.spyOn(publisher, 'validateCheckpointForSubmission').mockResolvedValue(undefined);
-
-    const enqueuePlan: SimulationOverridesPlan = {
-      chainTipsOverride: { pending: CheckpointNumber(7) },
-      pendingCheckpointState: { archive: Fr.random() },
-    };
-    const preCheckPlan: SimulationOverridesPlan = {
-      chainTipsOverride: { pending: CheckpointNumber(8) },
-    };
-
-    await publisher.enqueueProposeCheckpoint(
-      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(testSignatureContext),
-      Signature.empty(),
-      { simulationOverridesPlan: enqueuePlan, preCheckSimulationOverridesPlan: preCheckPlan },
-    );
-
-    // Enqueue-time validation called with the enqueue plan (plus withoutBlobCheck applied).
-    expect(validateSpy).toHaveBeenCalledTimes(1);
-    expect(validateSpy.mock.calls[0][3]).toMatchObject({
-      chainTipsOverride: { pending: CheckpointNumber(7) },
-      disableBlobCheck: true,
+  it('validates block headers when L1 head is already at the L2 slot boundary', async () => {
+    epochCache.getL1Constants.mockReturnValue({
+      ...EmptyL1RollupConstants,
+      l1GenesisTime: 1000n,
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    });
+    const slotStartTimestamp = 1360n;
+    (l1TxUtils as any).simulate.mockImplementationOnce((_call: unknown, blockOverrides: { time?: bigint }) => {
+      if ((blockOverrides.time ?? 0n) <= slotStartTimestamp) {
+        throw new Error(`simulated block timestamp must be greater than parent timestamp`);
+      }
+      return Promise.resolve({ gasUsed: 1_000_000n, result: '0x' });
     });
 
-    // The pending preCheck request should now run the preCheck closure with the preCheck plan.
-    const requests: { preCheck?: () => Promise<void> }[] = (publisher as any).requests;
-    expect(requests).toHaveLength(1);
-    const preCheck = requests[0].preCheck;
-    expect(preCheck).toBeDefined();
-
-    validateSpy.mockClear();
-    await preCheck!();
-
-    expect(validateSpy).toHaveBeenCalledTimes(1);
-    expect(validateSpy.mock.calls[0][3]).toMatchObject({
-      chainTipsOverride: { pending: CheckpointNumber(8) },
-      disableBlobCheck: true,
-    });
-    // And not the enqueue plan's archive override.
-    expect(validateSpy.mock.calls[0][3]?.pendingCheckpointState).toBeUndefined();
+    await expect(
+      publisher.validateBlockHeader(CheckpointHeader.random({ slotNumber: SlotNumber(5) })),
+    ).resolves.toBeUndefined();
   });
 
-  it('preCheck does not fall back to the enqueue plan when preCheckSimulationOverridesPlan is omitted', async () => {
-    (publisher.epochCache.isProposerPipeliningEnabled as jest.Mock).mockReturnValue(true);
-
-    const validateSpy = jest.spyOn(publisher, 'validateCheckpointForSubmission').mockResolvedValue(undefined);
-
-    const enqueuePlan: SimulationOverridesPlan = {
-      chainTipsOverride: { pending: CheckpointNumber(7) },
-      pendingCheckpointState: { archive: Fr.random() },
-    };
-
-    await publisher.enqueueProposeCheckpoint(
-      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(testSignatureContext),
-      Signature.empty(),
-      { simulationOverridesPlan: enqueuePlan },
-    );
-
-    expect(validateSpy).toHaveBeenCalledTimes(1);
-    expect(validateSpy.mock.calls[0][3]).toMatchObject({
-      chainTipsOverride: { pending: CheckpointNumber(7) },
-      disableBlobCheck: true,
+  it('simulates request bundles at the last L1 timestamp within the target L2 slot', async () => {
+    epochCache.getL1Constants.mockReturnValue({
+      ...EmptyL1RollupConstants,
+      l1GenesisTime: 1000n,
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
     });
+    publisher.addRequest({
+      action: 'invalidate-by-invalid-attestation',
+      request: { to: mockRollupAddress, data: '0xdeadbeef' },
+      lastValidL2Slot: SlotNumber(5),
+      checkSuccess: () => true,
+    });
+    forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
 
-    const requests: { preCheck?: () => Promise<void> }[] = (publisher as any).requests;
-    expect(requests).toHaveLength(1);
-    const preCheck = requests[0].preCheck;
-    expect(preCheck).toBeDefined();
+    await publisher.sendRequests(SlotNumber(5));
 
-    validateSpy.mockClear();
-    await preCheck!();
-
-    expect(validateSpy).toHaveBeenCalledTimes(1);
-    const preCheckArg = validateSpy.mock.calls[0][3];
-    expect(preCheckArg?.disableBlobCheck).toBe(true);
-    expect(preCheckArg?.chainTipsOverride).toBeUndefined();
-    expect(preCheckArg?.pendingCheckpointState).toBeUndefined();
+    expect(l1TxUtils.simulate.mock.calls[0][1]).toEqual({
+      time: 1420n,
+      gasLimit: MAX_L1_TX_LIMIT * 2n,
+    });
   });
 
-  it('returns errorMsg if forwarder tx reverts', async () => {
-    forwardSpy.mockResolvedValue({
-      receipt: { ...proposeTxReceipt, status: 'reverted' },
-      errorMsg: 'Test error',
+  describe('bundleSimulate second-pass re-decode', () => {
+    const addTwoRequests = () => {
+      const currentL2Slot = publisher.getCurrentL2Slot();
+      publisher.addRequest({
+        action: 'invalidate-by-invalid-attestation',
+        request: { to: mockRollupAddress, data: '0xdeadbeef' },
+        lastValidL2Slot: SlotNumber(Number(currentL2Slot) + 2),
+        checkSuccess: () => true,
+      });
+      publisher.addRequest({
+        action: 'propose',
+        request: {
+          to: mockRollupAddress,
+          data: encodeFunctionData({
+            abi: EmpireBaseAbi,
+            functionName: 'signal',
+            args: [EthAddress.random().toString()],
+          }),
+        },
+        lastValidL2Slot: SlotNumber(Number(currentL2Slot) + 2),
+        checkSuccess: () => true,
+      });
+    };
+
+    it('drops an entry that still reverts in the second-pass re-simulate', async () => {
+      addTwoRequests();
+
+      // First simulate: invalidate succeeds, propose fails.
+      const firstResult = encodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        result: [
+          { success: true, returnData: '0x' },
+          { success: false, returnData: '0x' },
+        ],
+      });
+      // Second simulate (reduced bundle with only invalidate): that entry also fails.
+      const secondResult = encodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        result: [{ success: false, returnData: '0x' }],
+      });
+
+      (l1TxUtils as any).simulate
+        .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
+        .mockResolvedValueOnce({ gasUsed: 0n, result: secondResult });
+
+      const result = await publisher.sendRequests();
+
+      // Both passes dropped everything — should abort.
+      expect(result).toBeUndefined();
+      expect(forwardSpy).not.toHaveBeenCalled();
+      expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
     });
 
-    await publisher.enqueueProposeCheckpoint(
-      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(testSignatureContext),
-      Signature.empty(),
-    );
-    const result = await publisher.sendRequests();
+    it('sends only survivors after second-pass re-simulate filters additional failures', async () => {
+      addTwoRequests();
 
-    expect(result).not.toBeInstanceOf(FormattedViemError);
-    if (result instanceof FormattedViemError) {
-      fail('Not Expected result to be a FormattedViemError');
-    } else {
-      expect((result as any).result.errorMsg).toEqual('Test error');
-    }
+      // First simulate: both succeed initially.
+      // (Simulate a case where second-pass further trims — to test the path where
+      // first pass survivors differ from second pass survivors.)
+      const firstResult = encodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        result: [
+          { success: true, returnData: '0x' },
+          { success: false, returnData: '0x' },
+        ],
+      });
+      // Second simulate (reduced bundle with only invalidate): that one succeeds.
+      const secondResult = encodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        result: [{ success: true, returnData: '0x' }],
+      });
+
+      (l1TxUtils as any).simulate
+        .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
+        .mockResolvedValueOnce({ gasUsed: 300_000n, result: secondResult });
+
+      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+
+      const result = await publisher.sendRequests();
+
+      expect(result).toBeDefined();
+      // Only the invalidate survivor was sent.
+      expect(result?.sentActions).toEqual(['invalidate-by-invalid-attestation']);
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+      expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
+    });
+
+    it('preserves first-pass survivors when second-pass simulate returns fallback', async () => {
+      addTwoRequests();
+
+      // First simulate: propose fails, invalidate survives.
+      const firstResult = encodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        result: [
+          { success: true, returnData: '0x' },
+          { success: false, returnData: '0x' },
+        ],
+      });
+      // Second simulate: fallback (eth_simulateV1 not supported on the reduced bundle).
+      (l1TxUtils as any).simulate
+        .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
+        .mockResolvedValueOnce({ gasUsed: 1_000_000n, result: '0x' });
+
+      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+
+      const result = await publisher.sendRequests();
+
+      // Second-pass fallback must NOT re-include the propose entry that first-pass dropped.
+      expect(result).toBeDefined();
+      expect(result?.sentActions).toEqual(['invalidate-by-invalid-attestation']);
+      expect(result?.failedActions).toEqual(['propose']);
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+      expect(forwardSpy.mock.calls[0][2]?.gasLimit).toEqual(MAX_L1_TX_LIMIT);
+      // The forwarded bundle should only contain the survivor.
+      expect(forwardSpy.mock.calls[0][0]).toHaveLength(1);
+      expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
+    });
   });
 
   it('does not send requests if interrupted', async () => {
     forwardSpy.mockImplementationOnce(
       () =>
-        sleep(10, { receipt: proposeTxReceipt, gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } }) as Promise<{
+        sleep(10, {
+          receipt: proposeTxReceipt,
+          stats: undefined,
+          multicallData: '0x',
+        }) as Promise<{
           receipt: TransactionReceipt;
-          gasPrice: GasPrice;
-          errorMsg: undefined;
+          stats: undefined;
+          multicallData: Hex;
         }>,
     );
     await publisher.enqueueProposeCheckpoint(
@@ -584,64 +718,6 @@ describe('SequencerPublisher', () => {
     expect(result).toEqual(undefined);
     expect(forwardSpy).not.toHaveBeenCalled();
     expect((publisher as any).requests.length).toEqual(0);
-  });
-
-  it('discards only the request whose preCheck fails before sending', async () => {
-    const currentL2Slot = publisher.getCurrentL2Slot();
-    const keptRequest = {
-      to: mockGovernanceProposerAddress,
-      data: encodeFunctionData({
-        abi: EmpireBaseAbi,
-        functionName: 'signal',
-        args: [EthAddress.random().toString()],
-      }),
-    };
-    const failedRequest = {
-      to: mockRollupAddress,
-      data: encodeFunctionData({
-        abi: EmpireBaseAbi,
-        functionName: 'signal',
-        args: [EthAddress.random().toString()],
-      }),
-    };
-
-    const keptPreCheck = jest.fn(() => Promise.resolve());
-    const failedPreCheck = jest.fn(() => Promise.reject(new Error('preCheck failed')));
-
-    publisher.addRequest({
-      action: 'vote-offenses',
-      request: keptRequest,
-      lastValidL2Slot: currentL2Slot,
-      preCheck: keptPreCheck,
-      checkSuccess: () => true,
-    });
-    publisher.addRequest({
-      action: 'governance-signal',
-      request: failedRequest,
-      lastValidL2Slot: currentL2Slot,
-      preCheck: failedPreCheck,
-      checkSuccess: () => true,
-    });
-
-    forwardSpy.mockResolvedValue({
-      receipt: proposeTxReceipt,
-      errorMsg: undefined,
-    });
-
-    const result = await publisher.sendRequestsAt(new Date((publisher as any).dateProvider.now()));
-
-    expect(keptPreCheck).toHaveBeenCalledTimes(1);
-    expect(failedPreCheck).toHaveBeenCalledTimes(1);
-    expect(result?.sentActions).toEqual(['vote-offenses']);
-    expect(forwardSpy).toHaveBeenCalledTimes(1);
-    expect(forwardSpy).toHaveBeenCalledWith(
-      [keptRequest],
-      l1TxUtils,
-      { gasLimit: undefined, txTimeoutAt: undefined },
-      undefined,
-      mockRollupAddress,
-      expect.anything(),
-    );
   });
 
   it('does not send requests if no valid requests are found', async () => {
@@ -704,15 +780,18 @@ describe('SequencerPublisher', () => {
 
     forwardSpy.mockResolvedValue({
       receipt: proposeTxReceipt,
-      errorMsg: undefined,
+      stats: undefined,
+      multicallData: '0x',
     });
 
     await publisher.sendRequests();
 
     expect(forwardSpy).toHaveBeenCalledTimes(1);
-    // The gas config should only include the valid request's gas (100_000), not the expired one (500_000)
+    // The expired request (500_000) is filtered before bundle simulate.
+    // Bundle simulate returns '0x' (fallback), so gasLimit comes from MAX_L1_TX_LIMIT,
+    // not from per-request gasConfig — the expired request's gasLimit has no effect.
     const txConfig = forwardSpy.mock.calls[0][2];
-    expect(txConfig?.gasLimit).toEqual(100_000n);
+    expect(txConfig?.gasLimit).toEqual(MAX_L1_TX_LIMIT);
   });
 
   it('does not signal for payload when quorum is reached', async () => {
@@ -737,8 +816,8 @@ describe('SequencerPublisher', () => {
 
   it('does not signal for payload with empty code', async () => {
     const { govPayload } = mockGovernancePayload();
-    l1TxUtils.getCode.mockReturnValue(Promise.resolve(undefined));
-    ``;
+    // isPayloadEmpty now lives on GovernanceProposerContract, not L1TxUtils.
+    governanceProposerContract.isPayloadEmpty.mockResolvedValue(true);
 
     expect(
       await publisher.enqueueGovernanceCastSignal(

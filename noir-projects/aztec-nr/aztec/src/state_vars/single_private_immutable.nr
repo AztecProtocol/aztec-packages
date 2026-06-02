@@ -100,7 +100,7 @@ impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
         Note: NoteType + NoteHash + Packable,
     {
         let nullifier = self.get_initialization_nullifier();
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
 
         // The note owner is set to the contract's address. Strictly speaking, specifying a note owner is not required
         // here, as this note is never intended to be nullified. However, we must provide an owner because Aztec.nr

@@ -136,7 +136,7 @@ where
     {
         // Nullify the storage slot.
         let nullifier = self.get_initialization_nullifier();
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
 
         create_note(self.context, owner, self.storage_slot, note)
     }

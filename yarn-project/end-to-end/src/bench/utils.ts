@@ -11,6 +11,7 @@ import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/utils.js';
 
 /**
@@ -23,7 +24,7 @@ export async function benchmarkSetup(
     benchOutput?: string;
   },
 ) {
-  const context = await setup(1, { ...opts, telemetryConfig: { benchmark: true } });
+  const context = await setup(1, { ...PIPELINING_SETUP_OPTS, ...opts, telemetryConfig: { benchmark: true } });
   const defaultAccountAddress = context.accounts[0];
   const { contract } = await BenchmarkingContract.deploy(context.wallet).send({ from: defaultAccountAddress });
   context.logger.info(`Deployed benchmarking contract at ${contract.address}`);

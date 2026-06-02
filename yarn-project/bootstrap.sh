@@ -138,13 +138,19 @@ function compile_all {
     noir-test-contracts.js \
     noir-protocol-circuits-types \
     protocol-contracts \
-    pxe
+    pxe \
+    standard-contracts
   cat joblog.txt
 
   get_projects | compile_project
 
-  # Run oracle version check for pxe after compilation
+  cd txe && yarn build
+  cd ..
+
+  # Run oracle version checks after compilation
   cd pxe && yarn check_oracle_version
+  cd ..
+  cd txe && yarn check_txe_oracle_version
   cd ..
 
   cmds=('format --check' 'yarn tsgo -b --emitDeclarationOnly')
@@ -201,9 +207,9 @@ function test_cmds {
 
     # Add debug logging for tests that require a bit more info
     if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts || "$test" == p2p/src/client/p2p_client.integration.test.ts ]]; then
-      cmd_env+=" LOG_LEVEL=debug"
+      cmd_env+=" LOG_LEVEL=\"debug; info: json-rpc, simulator\""
     elif [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
-      cmd_env+=" LOG_LEVEL=debug BB_VERBOSE=1 "
+      cmd_env+=" LOG_LEVEL=\"debug; info: json-rpc, simulator\" BB_VERBOSE=1 "
     elif [[ "$test" =~ e2e_p2p ]]; then
       cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
     fi
@@ -245,7 +251,7 @@ function bench_cmds {
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_pool_v2.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool_v2/tx_pool_v2_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_validator.bench.json yarn-project/scripts/run_test.sh p2p/src/msg_validators/tx_validator/tx_validator_bench.test.ts"
-  echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=1800 BENCH_OUTPUT=bench-out/p2p_client_proposal_tx_collector.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/tx_proposal_collector/p2p_client.proposal_tx_collector.bench.test.ts"
+  echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=1800 BENCH_OUTPUT=bench-out/p2p_client_batch_tx_requester.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/p2p_client.batch_tx_requester.bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx.bench.json yarn-project/scripts/run_test.sh stdlib/src/tx/tx_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=16:MEM=16g BENCH_OUTPUT=bench-out/avm_bulk_test.bench.json yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts"

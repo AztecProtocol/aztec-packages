@@ -4,6 +4,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { NestedContractTest } from './nested_contract_test.js';
 
 describe('e2e_nested_contract manual', () => {
@@ -14,7 +15,7 @@ describe('e2e_nested_contract manual', () => {
     aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
     await t.applyManual();
     ({ wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t);
   });
@@ -49,14 +50,9 @@ describe('e2e_nested_contract manual', () => {
     ];
 
     const { receipt: tx } = await new BatchCall(wallet, actions).send({ from: defaultAccountAddress });
-    const extendedLogs = (
-      await aztecNode.getPublicLogs({
-        fromBlock: tx.blockNumber!,
-      })
-    ).logs;
-    const processedLogs = extendedLogs.map(extendedLog =>
-      toBigIntBE(serializeToBuffer(extendedLog.log.getEmittedFields())),
-    );
+    const block = (await aztecNode.getBlock({ number: tx.blockNumber! }, { includeTransactions: true }))!;
+    const allPublicLogs = block.body.txEffects.flatMap(tx => tx.publicLogs);
+    const processedLogs = allPublicLogs.map(log => toBigIntBE(serializeToBuffer(log.getEmittedFields())));
     expect(processedLogs).toEqual([20n, 40n]);
     expect(await getChildStoredValue(childContract)).toEqual(new Fr(40n));
   });

@@ -24,49 +24,31 @@ variable "GCP_REGION" {
 variable "FULL_NODE_RESOURCE_PROFILE" {
   description = "Resource profile to use for the full node"
   type        = string
-  default     = "prod"
 }
 
 variable "P2P_BOOTSTRAP_RESOURCE_PROFILE" {
   description = "Resource profile to use for the p2p bootstrap"
   type        = string
-  default     = "prod"
 }
 
 variable "VALIDATOR_RESOURCE_PROFILE" {
   description = "Resource profile to use for the validator"
   type        = string
-  default     = "prod"
 }
 
 variable "PROVER_RESOURCE_PROFILE" {
   description = "Resource profile to use for the prover"
   type        = string
-  default     = "prod"
 }
 
 variable "RPC_RESOURCE_PROFILE" {
   description = "Resource profile to use for the rpc"
   type        = string
-  default     = "prod"
 }
 
 variable "BOT_RESOURCE_PROFILE" {
   description = "Resource profile to use for the bots"
   type        = string
-  default     = "prod"
-}
-
-variable "ARCHIVE_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the archive node"
-  type        = string
-  default     = "prod"
-}
-
-variable "BLOB_SINK_RESOURCE_PROFILE" {
-  description = "Resource profile to use for the blob sink"
-  type        = string
-  default     = "prod"
 }
 
 variable "DEBUG_P2P_INSTRUMENT_MESSAGES" {
@@ -272,6 +254,12 @@ variable "PROVER_REPLICAS" {
   default     = 4
 }
 
+variable "PROVER_ENABLED" {
+  description = "Whether to deploy the prover stack"
+  type        = bool
+  default     = true
+}
+
 variable "PROVER_TEST_DELAY_TYPE" {
   description = "The type of test delay to introduce in the prover (fixed, realistic)"
   type        = string
@@ -466,14 +454,14 @@ variable "SLASH_INACTIVITY_PENALTY" {
   nullable    = true
 }
 
-variable "SLASH_PRUNE_PENALTY" {
-  description = "The slash prune penalty"
+variable "SLASH_DATA_WITHHOLDING_PENALTY" {
+  description = "The slash data withholding penalty"
   type        = string
   nullable    = true
 }
 
-variable "SLASH_DATA_WITHHOLDING_PENALTY" {
-  description = "The slash data withholding penalty"
+variable "SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS" {
+  description = "L2 slots to wait after a checkpoint slot before slashing for data withholding"
   type        = string
   nullable    = true
 }
@@ -496,8 +484,8 @@ variable "SLASH_DUPLICATE_ATTESTATION_PENALTY" {
   nullable    = true
 }
 
-variable "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" {
-  description = "The slash attest descendant of invalid penalty"
+variable "SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY" {
+  description = "The slash propose descendant of invalid penalty"
   type        = string
   nullable    = true
 }
@@ -516,6 +504,12 @@ variable "SLASH_UNKNOWN_PENALTY" {
 
 variable "SLASH_INVALID_BLOCK_PENALTY" {
   description = "The slash invalid block penalty"
+  type        = string
+  nullable    = true
+}
+
+variable "SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY" {
+  description = "The slash invalid checkpoint proposal penalty"
   type        = string
   nullable    = true
 }
@@ -553,12 +547,6 @@ variable "EXTERNAL_BOOTNODES" {
   description = "Whether to use externally deployed bootnodes"
   type        = list(string)
   default     = []
-}
-
-variable "DEPLOY_ARCHIVAL_NODE" {
-  description = "Whether to deploy the archival node"
-  type        = bool
-  default     = false
 }
 
 variable "NETWORK" {
@@ -845,6 +833,51 @@ variable "PROVER_AGENT_POLL_INTERVAL_MS" {
   description = "Interval in milliseconds between prover agent polls"
   type        = number
   default     = 1000
+}
+
+variable "PROVER_AGENT_KEDA_ENABLED" {
+  description = "Whether KEDA should scale prover agent pods from proving queue depth"
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_AGENT_KEDA_MIN_REPLICAS" {
+  description = "Minimum prover agent pods managed by KEDA"
+  type        = number
+  default     = 0
+}
+
+variable "PROVER_AGENT_KEDA_MAX_REPLICAS" {
+  description = "Maximum prover agent pods managed by KEDA"
+  type        = number
+  default     = 1
+}
+
+variable "PROVER_AGENT_KEDA_SCALING_BANDS" {
+  description = "Step scaling bands for prover agents. Each band scales to replicas when total proving queue size is greater than queueSize."
+  type = list(object({
+    queueSize = number
+    replicas  = number
+  }))
+  default = []
+}
+
+variable "PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS" {
+  description = "Prometheus server URL queried by KEDA for prover queue depth"
+  type        = string
+  default     = ""
+}
+
+variable "PROVER_AGENT_KEDA_POLLING_INTERVAL_SECONDS" {
+  description = "KEDA polling interval for prover agent queue-depth scaling"
+  type        = number
+  default     = 30
+}
+
+variable "PROVER_AGENT_KEDA_COOLDOWN_PERIOD_SECONDS" {
+  description = "KEDA cooldown period before scaling prover agents back down"
+  type        = number
+  default     = 300
 }
 
 variable "PROVER_AGENT_INCLUDE_METRICS" {

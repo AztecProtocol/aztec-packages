@@ -208,6 +208,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
 
 export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTreeWriteOperations {
   private log = createLogger('world-state:merkle-trees-fork-facade');
+  private closePromise: Promise<void> | undefined;
 
   constructor(
     instance: NativeWorldStateInstance,
@@ -291,14 +292,29 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     };
   }
 
-  public async close(): Promise<void> {
+  public close(): Promise<void> {
     assert.notEqual(this.revision.forkId, 0, 'Fork ID must be set');
+    // Share the in-flight close promise across duplicate dispose calls so DELETE_FORK is sent at most once.
+    if (this.closePromise) {
+      return this.closePromise;
+    }
+    this.closePromise = this.doClose();
+    return this.closePromise;
+  }
+
+  private async doClose(): Promise<void> {
     try {
       await this.instance.call(WorldStateMessageType.DELETE_FORK, { forkId: this.revision.forkId });
     } catch (err: any) {
       // Ignore errors due to native instance being closed during shutdown.
       // This can happen when validators are still processing block proposals while the node is stopping.
       if (err?.message === 'Native instance is closed') {
+        return;
+      }
+      // Ignore "Fork not found": the native fork was already destroyed by a pending-chain unwind or a
+      // historical prune (both call C++ remove_forks_for_block). Fork IDs are monotonic and never reused,
+      // so swallowing this on close cannot mask a deletion of a different fork.
+      if (err?.message === 'Fork not found') {
         return;
       }
       throw err;
@@ -310,9 +326,6 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
       void sleep(this.opts.closeDelayMs)
         .then(() => this.close())
         .catch(err => {
-          if (err && 'message' in err && err.message === 'Native instance is closed') {
-            return; // Ignore errors due to native instance being closed
-          }
           this.log.warn('Error closing MerkleTreesForkFacade after delay', { err });
         });
     } else {

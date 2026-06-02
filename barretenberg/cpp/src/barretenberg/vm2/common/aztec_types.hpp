@@ -86,20 +86,19 @@ enum class ContractInstanceMember : uint8_t {
 ////////////////////////////////////////////////////////////////////////////
 
 // Only `incoming_viewing_key` is exposed as a point (since address derivation
-// needs the curve point in-circuit); the other three keys are exposed as their hashes.
+// needs the curve point in-circuit); the other five keys are exposed as their hashes.
 struct PublicKeys {
     FF nullifier_key_hash;
     AffinePoint incoming_viewing_key;
     FF outgoing_viewing_key_hash;
     FF tagging_key_hash;
+    FF message_signing_key_hash;
+    FF fallback_key_hash;
 
     std::vector<FF> to_fields() const
     {
-        return { nullifier_key_hash,
-                 incoming_viewing_key.x,
-                 incoming_viewing_key.y,
-                 outgoing_viewing_key_hash,
-                 tagging_key_hash };
+        return { nullifier_key_hash, incoming_viewing_key.x,   incoming_viewing_key.y, outgoing_viewing_key_hash,
+                 tagging_key_hash,   message_signing_key_hash, fallback_key_hash };
     }
 
     bool operator==(const PublicKeys& other) const = default;
@@ -115,7 +114,11 @@ struct PublicKeys {
                 "ovpkMHash",
                 outgoing_viewing_key_hash,
                 "tpkMHash",
-                tagging_key_hash);
+                tagging_key_hash,
+                "mspkMHash",
+                message_signing_key_hash,
+                "fbpkMHash",
+                fallback_key_hash);
     }
 };
 

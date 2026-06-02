@@ -91,6 +91,7 @@ delegators
 deloying
 depoyment
 deserialise
+devrel
 devtoken
 dialable
 diversifier
@@ -182,6 +183,7 @@ jumpi
 JUMPI
 kalypso
 Keccakf
+kernelless
 keypair
 knwon
 lbwop
@@ -439,3 +441,4 @@ reentrancy
 variadic
 Wonderland
 indistinguishability
+nightlies

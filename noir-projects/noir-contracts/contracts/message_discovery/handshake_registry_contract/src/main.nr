@@ -23,8 +23,10 @@ pub contract HandshakeRegistry {
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
-        messages::message_delivery::MessageDelivery,
-        oracle::notes::set_sender_for_tags,
+        messages::{
+            encryption::{aes128::AES128, message_encryption::MessageEncryption},
+            message_delivery::MessageDelivery,
+        },
         protocol::{
             address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
             traits::ToField,
@@ -46,7 +48,7 @@ pub contract HandshakeRegistry {
     /// `S = eph_sk * recipient_address_point`, and produces three effects:
     ///
     /// 1. Inserts or replaces a [`HandshakeNote`] owned by `sender`, holding the raw point `S`.
-    /// 2. Emits a 1-field private log under a recipient-keyed tag with payload `[eph_pk.x]`. The recipient
+    /// 2. Emits an encrypted private log under a recipient-keyed tag with payload `[eph_pk.x]`. The recipient
     ///    discovers handshakes addressed to them by scanning their tag and recovers `S` from `eph_pk` via their own
     ///    ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
     ///    [`generate_positive_ephemeral_key_pair`] convention, so only `eph_pk.x` is transmitted.
@@ -66,15 +68,12 @@ pub contract HandshakeRegistry {
 
         let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient);
 
-        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs, so it
-        // is safe to set from a constrained context.
-        unsafe { set_sender_for_tags(sender) };
         // Delivery is `ONCHAIN_UNCONSTRAINED`. The recipient is not involved in this note's delivery. They
-        // discover the handshake via the recipient-keyed log emitted below, not via the sender's note.
+        // discover the handshake via the encrypted log emitted below, not via the sender's note.
         // We use onchain unconstrained delivery rather than `OFFCHAIN` so the note is
         // discoverable via normal PXE sync.
         self.storage.handshakes.at(recipient).at(sender).initialize_or_replace(|_| note).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained().with_sender(sender),
         );
 
         let log_tag = compute_log_tag(
@@ -82,8 +81,8 @@ pub contract HandshakeRegistry {
             DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         );
 
-        // TODO(F-653): Encrypt `eph_pk.x` to keep the log private
-        self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array([eph_pk.x]));
+        let ciphertext = AES128::encrypt([eph_pk.x], recipient, self.context.this_address());
+        self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array(ciphertext));
 
         note.siloed_for(self.msg_sender())
     }
@@ -107,7 +106,7 @@ pub contract HandshakeRegistry {
 
         // `PrivateMutable::get_note` proves the current note by nullifying and recreating it. Deliver the
         // replacement to the sender so later validation calls can prove the same current handshake again.
-        replacement_note_message.deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        replacement_note_message.deliver(MessageDelivery::onchain_unconstrained());
     }
 
     /// Returns the app-siloed shared secret for an existing handshake.

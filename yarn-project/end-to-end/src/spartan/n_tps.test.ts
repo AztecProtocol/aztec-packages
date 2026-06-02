@@ -319,7 +319,7 @@ describe('sustained N TPS test', () => {
           wallet,
           secret,
           new SchnorrAccountContract(deriveSigningKey(secret)),
-          salt,
+          { salt },
         );
         const deployMethod = await manager.getDeployMethod();
         // Explicit gas estimation: BaseWallet's fallback bakes

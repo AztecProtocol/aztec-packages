@@ -98,12 +98,25 @@ pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note
 /// Contracts that emit custom messages (i.e. any with a message type that is not in [`crate::messages::msg_type`])
 /// need to use [`crate::macros::AztecConfig::custom_message_handler`] with a function of this type in order to
 /// process them. They will otherwise be **silently ignored**.
-pub type CustomMessageHandler<Env> = unconstrained fn[Env](
+pub type CustomMessageHandler = unconstrained fn(
 /* contract_address */AztecAddress,
 /* msg_type_id */ u64,
 /* msg_metadata */ u64,
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 /* message_context */ MessageContext,
+/* scope */ AztecAddress);
+
+/// Custom state synchronization handler.
+///
+/// When set via [`crate::macros::AztecConfig::custom_sync_state`], the generated `sync_state` function will call
+/// this handler instead of [`do_sync_state`]. It receives all of the same parameters, so it can run custom logic
+/// (e.g. fetching and decrypting custom logs) before, after, or instead of calling [`do_sync_state`].
+pub type CustomSyncHandler = unconstrained fn(
+/* contract_address */AztecAddress,
+/* compute_note_hash */ ComputeNoteHash,
+/* compute_note_nullifier */ ComputeNoteNullifier,
+/* process_custom_message */ Option<CustomMessageHandler>,
+/* offchain_inbox_sync */ Option<OffchainInboxSync>,
 /* scope */ AztecAddress);
 
 /// Synchronizes the contract's private state with the network.
@@ -114,12 +127,12 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 ///
 /// The private state will be synchronized up to the block that will be used for private transactions (i.e. the anchor
 /// block. This will typically be close to the tip of the chain.
-pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
+pub unconstrained fn do_sync_state(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
-    process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
-    offchain_inbox_sync: Option<OffchainInboxSync<()>>,
+    process_custom_message: Option<CustomMessageHandler>,
+    offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
     aztecnr_debug_log!("Performing state synchronization");
@@ -205,8 +218,8 @@ mod test {
             logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
             assert_eq(logs.len(), 1);
 
-            let no_handler: Option<CustomMessageHandler<()>> = Option::none();
-            let no_inbox_sync: Option<OffchainInboxSync<()>> = Option::none();
+            let no_handler: Option<CustomMessageHandler> = Option::none();
+            let no_inbox_sync: Option<OffchainInboxSync> = Option::none();
             do_sync_state(
                 contract_address,
                 dummy_compute_note_hash,

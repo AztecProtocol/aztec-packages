@@ -20,6 +20,7 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { jest } from '@jest/globals';
 
 import { simulateThroughAuthwitProxy } from './fixtures/authwit_proxy.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -56,7 +57,7 @@ describe('Kernelless simulation', () => {
       wallet,
       accounts: [adminAddress, liquidityProviderAddress, swapperAddress],
       logger,
-    } = await setup(3));
+    } = await setup(3, { ...AUTOMINE_E2E_OPTS }));
 
     ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));

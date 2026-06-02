@@ -19,9 +19,10 @@ import {
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('Keys', () => {
   jest.setTimeout(TIMEOUT);
@@ -43,7 +44,7 @@ describe('Keys', () => {
       wallet,
       accounts: [defaultAccountAddress],
       initialFundedAccounts,
-    } = await setup(1));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS }));
 
     ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
 

@@ -14,7 +14,7 @@ import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instru
 
 /** Result of trying to add an item (proposal or attestation) to the pool */
 export type TryAddResult = {
-  /** Whether the item was added to a main store. False when the slot/position/(slot,signer) already had a stored entry, even if a new equivocation hash was tracked. */
+  /** Whether the item was accepted into pool state. False when it already existed, was invalid, or hit a cap. */
   added: boolean;
   /** Whether the exact signed payload (matched by payload hash) already existed in the pool. */
   alreadyExists: boolean;
@@ -23,6 +23,11 @@ export type TryAddResult = {
    *  - tryAddCheckpointProposal: distinct payload hashes at slot
    *  - tryAddCheckpointAttestation: distinct payload hashes by this signer for this slot */
   count: number;
+};
+
+export type ProposalsForSlot = {
+  blockProposals: BlockProposal[];
+  checkpointProposals: CheckpointProposalCore[];
 };
 
 export const MAX_CHECKPOINT_PROPOSALS_PER_SLOT = 2;
@@ -35,6 +40,7 @@ export type AttestationPoolApi = Pick<
   AttestationPool,
   | 'tryAddBlockProposal'
   | 'getBlockProposalByArchive'
+  | 'getProposalsForSlot'
   | 'tryAddCheckpointProposal'
   | 'getCheckpointProposal'
   | 'addOwnCheckpointAttestations'
@@ -52,11 +58,11 @@ export type AttestationPoolApi = Pick<
  * Attestations and proposals observed via the p2p network are stored for requests
  * from the validator to produce a block, or to serve to other peers.
  *
- * Equivocation detection: each main store holds at most one entry per equivocation
- * position (one checkpoint proposal per slot, one block proposal per (slot, position),
- * one attestation per (slot, signer)). Distinct *signed payload hashes* arriving at
- * the same position are tracked in the matching index multimap so the equivocation
- * count reaches 2 even when archive collides on `feeAssetPriceModifier` variants.
+ * Equivocation detection: distinct *signed payload hashes* arriving at the same
+ * position are tracked in the matching index multimap so the equivocation count
+ * reaches 2 even when archive collides on `feeAssetPriceModifier` variants.
+ * Proposal bytes are retained per accepted payload hash, up to the same equivocation
+ * caps, for slashing watchers that need signed P2P proposals.
  */
 export class AttestationPool {
   private metrics: PoolInstrumentation<CheckpointAttestation>;
@@ -71,26 +77,25 @@ export class AttestationPool {
   // Key: `${paddedSlot}-${signerAddress}`, Value: CheckpointProposalHash (`0x`-prefixed hex)
   private attestationHashesPerSlotAndSigner: AztecAsyncMultiMap<string, CheckpointProposalHash>;
 
-  // Checkpoint proposals from slot number to serialized CheckpointProposal.
-  // Stores the first proposal seen per slot.
-  private checkpointProposalPerSlot: AztecAsyncMap<number, Buffer>;
+  // Checkpoint proposals from `${paddedSlot}-${payloadHash}` to serialized CheckpointProposalCore.
+  // Stores every accepted distinct payload up to MAX_CHECKPOINT_PROPOSALS_PER_SLOT.
+  private checkpointProposalsPerSlotAndHash: AztecAsyncMap<string, Buffer>;
 
   // Distinct payload hashes seen per slot. Hash collision = duplicate.
   // Hash count reaching 2 = equivocation.
   // Key: slot number, Value: CheckpointProposalHash (`0x`-prefixed hex)
   private checkpointProposalHashesPerSlot: AztecAsyncMultiMap<number, CheckpointProposalHash>;
 
-  // Block proposals from positionKey to serialized BlockProposal.
-  // Stores the first proposal seen per (slot, indexWithinCheckpoint).
-  private blockProposalPerSlotAndIndex: AztecAsyncMap<number, Buffer>;
+  // Block proposals from `${paddedSlot}-${paddedIndex}-${payloadHash}` to serialized BlockProposal.
+  // Stores every accepted distinct payload up to MAX_BLOCK_PROPOSALS_PER_POSITION.
+  private blockProposalsPerSlotIndexAndHash: AztecAsyncMap<string, Buffer>;
 
   // Distinct payload hashes seen per (slot, indexWithinCheckpoint).
   // Key: slot * (1 << INDEX_BITS) + indexWithinCheckpoint, Value: BlockProposalHash (`0x`-prefixed hex)
   private blockProposalHashesPerSlotAndIndex: AztecAsyncMultiMap<number, BlockProposalHash>;
 
-  // Secondary index from archive root to positionKey, so that the block-txs req/resp
-  // handler can still resolve a stored proposal by archive root.
-  private blockProposalSlotAndIndexPerArchive: AztecAsyncMap<string, number>;
+  // Secondary index from archive root to all retained block proposal keys.
+  private blockProposalKeysPerArchive: AztecAsyncMultiMap<string, string>;
 
   constructor(
     private store: AztecAsyncKVStore,
@@ -98,16 +103,16 @@ export class AttestationPool {
     private log = createLogger('aztec:attestation_pool'),
   ) {
     // Initialize block proposal storage
-    this.blockProposalPerSlotAndIndex = store.openMap('proposals');
+    this.blockProposalsPerSlotIndexAndHash = store.openMap('block_proposals_by_slot_index_and_hash');
     this.blockProposalHashesPerSlotAndIndex = store.openMultiMap('block_proposals_for_slot_and_index');
-    this.blockProposalSlotAndIndexPerArchive = store.openMap('block_proposals_by_archive');
+    this.blockProposalKeysPerArchive = store.openMultiMap('block_proposals_by_archive');
 
     // Initialize checkpoint attestations storage
     this.attestationPerSlotAndSigner = store.openMap('checkpoint_attestations');
     this.attestationHashesPerSlotAndSigner = store.openMultiMap('checkpoint_attestations_per_slot_and_signer');
 
     // Initialize checkpoint proposal storage
-    this.checkpointProposalPerSlot = store.openMap('checkpoint_proposals');
+    this.checkpointProposalsPerSlotAndHash = store.openMap('checkpoint_proposals_by_slot_and_hash');
     this.checkpointProposalHashesPerSlot = store.openMultiMap('checkpoint_proposals_for_slot');
 
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL, this.poolStats);
@@ -121,13 +126,13 @@ export class AttestationPool {
 
   /** Returns whether the pool is empty. */
   public async isEmpty(): Promise<boolean> {
-    for await (const _ of this.attestationPerSlotAndSigner.entriesAsync()) {
-      return false;
-    }
-    for await (const _ of this.blockProposalPerSlotAndIndex.entriesAsync()) {
-      return false;
-    }
-    return true;
+    const [attestationCount, blockProposalCount, checkpointProposalCount] = await Promise.all([
+      this.attestationPerSlotAndSigner.sizeAsync(),
+      this.blockProposalsPerSlotIndexAndHash.sizeAsync(),
+      this.checkpointProposalsPerSlotAndHash.sizeAsync(),
+    ]);
+
+    return attestationCount === 0 && blockProposalCount === 0 && checkpointProposalCount === 0;
   }
 
   /** Number of bits reserved for indexWithinCheckpoint in position keys. */
@@ -141,6 +146,35 @@ export class AttestationPool {
   /** Fixed-width decimal slot string for use in composite string keys. */
   private slotPaddedKey(slot: SlotNumber | number): string {
     return slot.toString().padStart(AttestationPool.SLOT_PAD_DIGITS, '0');
+  }
+
+  /** Fixed-width decimal index string for use in composite string keys. */
+  private indexPaddedKey(indexWithinCheckpoint: number): string {
+    return indexWithinCheckpoint.toString().padStart(4, '0');
+  }
+
+  /** Key for retained block proposals. */
+  private getBlockProposalKey(
+    slot: SlotNumber | number,
+    indexWithinCheckpoint: number,
+    payloadHash: BlockProposalHash,
+  ): string {
+    return `${this.slotPaddedKey(slot)}-${this.indexPaddedKey(indexWithinCheckpoint)}-${payloadHash}`;
+  }
+
+  /** Range bounds for all retained block proposals in a slot. */
+  private getBlockProposalKeyRangeForSlot(slot: SlotNumber): { start: string; end: string } {
+    return { start: `${this.slotPaddedKey(slot)}-`, end: `${this.slotPaddedKey(slot + 1)}-` };
+  }
+
+  /** Key for retained checkpoint proposals. */
+  private getCheckpointProposalKey(slot: SlotNumber | number, payloadHash: CheckpointProposalHash): string {
+    return `${this.slotPaddedKey(slot)}-${payloadHash}`;
+  }
+
+  /** Range bounds for all retained checkpoint proposals in a slot. */
+  private getCheckpointProposalKeyRangeForSlot(slot: SlotNumber): { start: string; end: string } {
+    return { start: `${this.slotPaddedKey(slot)}-`, end: `${this.slotPaddedKey(slot + 1)}-` };
   }
 
   /** Key for the per-(slot, signer) attestation main store and equivocation index. */
@@ -185,8 +219,7 @@ export class AttestationPool {
    * - Detects duplicates by signed-payload hash (not archive); a re-broadcast of the
    *   exact same signed payload returns `alreadyExists: true`.
    * - Distinct payload hashes at the same `(slot, indexWithinCheckpoint)` are tracked
-   *   in the equivocation index. The first hash also stores the proposal bytes; later
-   *   distinct hashes only bump `count` so libp2p can fire its duplicate callback.
+   *   in the equivocation index and retained up to the cap.
    *
    * @param blockProposal - The block proposal to add
    * @returns Result indicating whether the proposal was added and duplicate detection info
@@ -210,14 +243,13 @@ export class AttestationPool {
 
       // Track the new payload hash for equivocation detection.
       await this.blockProposalHashesPerSlotAndIndex.set(positionKey, payloadHash);
-
-      // Only the first distinct payload at this position is stored; later equivocations
-      // are detected via the multimap but their payload bytes are not retained.
-      const alreadyHasStored = await this.blockProposalPerSlotAndIndex.hasAsync(positionKey);
-      if (!alreadyHasStored) {
-        await this.blockProposalPerSlotAndIndex.set(positionKey, blockProposal.withoutSignedTxs().toBuffer());
-        await this.blockProposalSlotAndIndexPerArchive.set(blockProposal.archive.toString(), positionKey);
-      }
+      const proposalKey = this.getBlockProposalKey(
+        blockProposal.slotNumber,
+        blockProposal.indexWithinCheckpoint,
+        payloadHash,
+      );
+      await this.blockProposalsPerSlotIndexAndHash.set(proposalKey, blockProposal.withoutSignedTxs().toBuffer());
+      await this.blockProposalKeysPerArchive.set(blockProposal.archive.toString(), proposalKey);
 
       this.log.debug(
         `Added block proposal for slot ${blockProposal.slotNumber} and index ${blockProposal.indexWithinCheckpoint}`,
@@ -226,7 +258,6 @@ export class AttestationPool {
           payloadHash,
           slotNumber: blockProposal.slotNumber,
           indexWithinCheckpoint: blockProposal.indexWithinCheckpoint,
-          stored: !alreadyHasStored,
         },
       );
 
@@ -237,40 +268,57 @@ export class AttestationPool {
   /**
    * Get block proposal by archive root.
    *
-   * Resolves the archive root to its `(slot, indexWithinCheckpoint)` via a secondary
-   * index, then fetches the stored proposal (if any). Returns the *first* proposal
-   * seen at that position, even if a later equivocating payload was tracked.
-   * Validates that the stored proposal's archive matches the requested one before
-   * returning, guarding against secondary-index corruption or position-key reuse.
+   * Resolves the archive root through the archive index and returns the first
+   * retained proposal for that archive. This lookup is used by block-txs req/resp,
+   * where any retained proposal for the requested archive gives the tx hash list.
    *
    * @param archiveRoot - The archive root to look up
    * @return The block proposal if it exists and its archive matches, otherwise undefined.
    */
   public async getBlockProposalByArchive(archiveRoot: string): Promise<BlockProposal | undefined> {
-    const positionKey = await this.blockProposalSlotAndIndexPerArchive.getAsync(archiveRoot);
-    if (positionKey === undefined) {
-      return undefined;
+    for await (const proposalKey of this.blockProposalKeysPerArchive.getValuesAsync(archiveRoot)) {
+      const buffer = await this.blockProposalsPerSlotIndexAndHash.getAsync(proposalKey);
+      if (!buffer || buffer.length === 0) {
+        continue;
+      }
+      try {
+        const proposal = BlockProposal.fromBuffer(buffer);
+        if (proposal.archive.toString() === archiveRoot) {
+          return proposal;
+        }
+      } catch {
+        continue;
+      }
     }
-    const buffer = await this.blockProposalPerSlotAndIndex.getAsync(positionKey);
-    if (!buffer || buffer.length === 0) {
-      return undefined;
+    return undefined;
+  }
+
+  /** Returns retained signed proposals for a slot. */
+  public async getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot> {
+    const blockProposals: BlockProposal[] = [];
+    const checkpointProposals: CheckpointProposalCore[] = [];
+
+    for await (const [_, buffer] of this.blockProposalsPerSlotIndexAndHash.entriesAsync(
+      this.getBlockProposalKeyRangeForSlot(slot),
+    )) {
+      try {
+        blockProposals.push(BlockProposal.fromBuffer(buffer));
+      } catch {
+        continue;
+      }
     }
-    let proposal: BlockProposal;
-    try {
-      proposal = BlockProposal.fromBuffer(buffer);
-    } catch {
-      return undefined;
+
+    for await (const [_, buffer] of this.checkpointProposalsPerSlotAndHash.entriesAsync(
+      this.getCheckpointProposalKeyRangeForSlot(slot),
+    )) {
+      try {
+        checkpointProposals.push(CheckpointProposal.fromBuffer(buffer));
+      } catch {
+        continue;
+      }
     }
-    const storedArchive = proposal.archive.toString();
-    if (storedArchive !== archiveRoot) {
-      this.log.warn(`Stored block proposal archive does not match requested archive root`, {
-        requestedArchive: archiveRoot,
-        storedArchive,
-        positionKey,
-      });
-      return undefined;
-    }
-    return proposal;
+
+    return { blockProposals, checkpointProposals };
   }
 
   /** Checks if any block proposals exist for a given slot (at index 0). */
@@ -286,8 +334,8 @@ export class AttestationPool {
    * - Detects duplicates by signed-payload hash (not archive); a re-broadcast of the
    *   exact same signed payload returns `alreadyExists: true`.
    * - Distinct payload hashes at the same slot are tracked in the equivocation index.
-   *   Only the first distinct payload's bytes are stored; later distinct hashes bump
-   *   `count` so libp2p can fire its duplicate callback.
+   *   Distinct payload bytes are retained up to the same cap so slashing watchers
+   *   can recover signed proposals.
    *
    * Note: This method only handles the CheckpointProposalCore. If the original
    * CheckpointProposal contains a lastBlock, the caller should extract it via
@@ -313,19 +361,15 @@ export class AttestationPool {
 
       // Track the new payload hash for equivocation detection.
       await this.checkpointProposalHashesPerSlot.set(slot, payloadHash);
-
-      // Only the first distinct payload at this slot is stored; later equivocations
-      // are detected via the multimap but their payload bytes are not retained.
-      const alreadyHasStored = await this.checkpointProposalPerSlot.hasAsync(slot);
-      if (!alreadyHasStored) {
-        await this.checkpointProposalPerSlot.set(slot, proposal.toBuffer());
-      }
+      await this.checkpointProposalsPerSlotAndHash.set(
+        this.getCheckpointProposalKey(slot, payloadHash),
+        proposal.toBuffer(),
+      );
 
       this.log.debug(`Added checkpoint proposal for slot ${slot}`, {
         archive: proposal.archive.toString(),
         payloadHash,
         slotNumber: slot,
-        stored: !alreadyHasStored,
       });
 
       return { added: true, alreadyExists: false, count: count + 1 };
@@ -333,7 +377,9 @@ export class AttestationPool {
   }
 
   /**
-   * Get the (first) checkpoint proposal stored for the given slot.
+   * Get a retained checkpoint proposal stored for the given slot.
+   * If multiple proposals were retained for an equivocation, returns the lowest
+   * payload hash deterministically.
    *
    * Returns a CheckpointProposalCore (without lastBlock info) since the lastBlock
    * is extracted and stored separately as a BlockProposal when added.
@@ -342,13 +388,16 @@ export class AttestationPool {
    * @return The checkpoint proposal core if one is stored, otherwise undefined.
    */
   public async getCheckpointProposal(slot: SlotNumber): Promise<CheckpointProposalCore | undefined> {
-    const buffer = await this.checkpointProposalPerSlot.getAsync(slot);
-    try {
-      if (buffer && buffer.length > 0) {
-        return CheckpointProposal.fromBuffer(buffer);
+    for await (const [_, buffer] of this.checkpointProposalsPerSlotAndHash.entriesAsync(
+      this.getCheckpointProposalKeyRangeForSlot(slot),
+    )) {
+      try {
+        if (buffer && buffer.length > 0) {
+          return CheckpointProposal.fromBuffer(buffer);
+        }
+      } catch {
+        continue;
       }
-    } catch {
-      return undefined;
     }
 
     return undefined;
@@ -465,10 +514,13 @@ export class AttestationPool {
       // Delete checkpoint proposals for slots < oldestSlot.
       for await (const slot of this.checkpointProposalHashesPerSlot.keysAsync({ end: oldestSlot })) {
         await this.checkpointProposalHashesPerSlot.delete(slot);
-        if (await this.checkpointProposalPerSlot.hasAsync(slot)) {
-          await this.checkpointProposalPerSlot.delete(slot);
-          numberOfCheckpointProposals++;
-        }
+      }
+
+      for await (const key of this.checkpointProposalsPerSlotAndHash.keysAsync({
+        end: `${oldestSlotPadded}-`,
+      })) {
+        await this.checkpointProposalsPerSlotAndHash.delete(key);
+        numberOfCheckpointProposals++;
       }
 
       // Delete block proposals for slots < oldestSlot, using blockProposalHashesPerSlotAndIndex as index.
@@ -476,17 +528,19 @@ export class AttestationPool {
       const blockPositionEndKey = oldestSlot * (1 << AttestationPool.INDEX_BITS);
       for await (const positionKey of this.blockProposalHashesPerSlotAndIndex.keysAsync({ end: blockPositionEndKey })) {
         await this.blockProposalHashesPerSlotAndIndex.delete(positionKey);
-        const stored = await this.blockProposalPerSlotAndIndex.getAsync(positionKey);
-        if (stored) {
-          try {
-            const proposal = BlockProposal.fromBuffer(stored);
-            await this.blockProposalSlotAndIndexPerArchive.delete(proposal.archive.toString());
-          } catch {
-            // ignore decode errors when cleaning up
-          }
-          await this.blockProposalPerSlotAndIndex.delete(positionKey);
-          numberOfBlockProposals++;
+      }
+
+      for await (const [key, buffer] of this.blockProposalsPerSlotIndexAndHash.entriesAsync({
+        end: `${oldestSlotPadded}-`,
+      })) {
+        try {
+          const proposal = BlockProposal.fromBuffer(buffer);
+          await this.blockProposalKeysPerArchive.deleteValue(proposal.archive.toString(), key);
+        } catch {
+          // ignore decode errors when cleaning up
         }
+        await this.blockProposalsPerSlotIndexAndHash.delete(key);
+        numberOfBlockProposals++;
       }
     });
 

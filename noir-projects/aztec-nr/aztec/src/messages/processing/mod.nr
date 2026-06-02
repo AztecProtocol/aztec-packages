@@ -83,19 +83,17 @@ pub unconstrained fn enqueue_note_for_validation(
     nullifier: Field,
     tx_hash: Field,
 ) {
-    EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
-        NoteValidationRequest {
-            contract_address,
-            owner,
-            storage_slot,
-            randomness,
-            note_nonce,
-            packed_note,
-            note_hash,
-            nullifier,
-            tx_hash,
-        },
-    )
+    EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(NoteValidationRequest::new(
+        contract_address,
+        owner,
+        storage_slot,
+        randomness,
+        note_nonce,
+        packed_note,
+        note_hash,
+        nullifier,
+        tx_hash,
+    ))
 }
 
 /// Enqueues an event for validation and storage by PXE.
@@ -118,16 +116,14 @@ pub unconstrained fn enqueue_event_for_validation(
     event_commitment: Field,
     tx_hash: Field,
 ) {
-    EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
-        EventValidationRequest {
-            contract_address,
-            event_type_id,
-            randomness,
-            serialized_event,
-            event_commitment,
-            tx_hash,
-        },
-    )
+    EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(EventValidationRequest::new(
+        contract_address,
+        event_type_id,
+        randomness,
+        serialized_event,
+        event_commitment,
+        tx_hash,
+    ))
 }
 
 /// Validates and stores all enqueued notes and events.
@@ -137,10 +133,8 @@ pub unconstrained fn enqueue_event_for_validation(
 /// API (PXE::getPrivateEvents).
 pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAddress) {
     message_processing::validate_and_store_enqueued_notes_and_events(
-        NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
-        EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
-        MAX_NOTE_PACKED_LEN as Field,
-        MAX_EVENT_SERIALIZED_LEN as Field,
+        EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT),
+        EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT),
         scope,
     );
 
@@ -151,22 +145,19 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAd
 }
 
 /// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
-/// a `CapsuleArray` by performing all node communication concurrently. Returns an `EphemeralArray` with Options
-/// for the responses that correspond to the pending partial notes at the same index.
-///
-/// For example, given an array with pending partial notes `[ p1, p2, p3 ]`, where `p1` and `p3` have corresponding
-/// completion logs but `p2` does not, the returned `EphemeralArray` will have contents `[some(p1_log), none(),
-/// some(p3_log)]`.
+/// a `CapsuleArray` by performing all node communication concurrently. Returns a nested `EphemeralArray`, one inner
+/// array per pending partial note, each containing all matching `LogRetrievalResponse`s (which may be empty if no
+/// logs were found).
 pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     contract_address: AztecAddress,
     pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
-) -> EphemeralArray<Option<LogRetrievalResponse>> {
+) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {
     let log_retrieval_requests = EphemeralArray::at(LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
-    // We create a LogRetrievalRequest for each PendingPartialNote in the EphemeralArray. Because we need the indices in
-    // the request array to match the indices in the partial note array, we can't use EphemeralArray::for_each, as that
-    // function has arbitrary iteration order. Instead, we manually iterate the array from the beginning and push into
-    // the requests array, which we expect to be empty.
+    // We create a LogRetrievalRequest for each PendingPartialNote in the EphemeralArray. Because we need the indices
+    // in the request array to match the indices in the partial note array, we can't use EphemeralArray::for_each, as
+    // that function has arbitrary iteration order. Instead, we manually iterate the array from the beginning and push
+    // into the requests array, which we expect to be empty.
     let mut i = 0;
     let pending_partial_notes_count = pending_partial_notes.len();
     while i < pending_partial_notes_count {
@@ -177,7 +168,7 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
             pending_partial_note.note_completion_log_tag,
             DOM_SEP__NOTE_COMPLETION_LOG_TAG,
         );
-        log_retrieval_requests.push(LogRetrievalRequest { contract_address, unsiloed_tag: log_tag });
+        log_retrieval_requests.push(LogRetrievalRequest::new(contract_address, log_tag));
         i += 1;
     }
 

@@ -9,7 +9,7 @@ mod test;
 #[aztec]
 pub contract NestedUtility {
     use crate::pow_note::PowNote;
-    use aztec::macros::{functions::external, storage::storage};
+    use aztec::macros::{functions::{external, view}, storage::storage};
     use aztec::{
         messages::message_delivery::MessageDelivery,
         protocol::address::AztecAddress,
@@ -40,7 +40,7 @@ pub contract NestedUtility {
     fn set_pow_args(x: Field, n: Field) {
         let owner = self.msg_sender();
         self.storage.pow_args.at(owner).initialize_or_replace(|_| PowNote { x, n }).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
 
@@ -68,6 +68,16 @@ pub contract NestedUtility {
 
     #[external("private")]
     fn delegate_pow_private(target: AztecAddress, x: Field, n: u32) -> Field {
+        // Safety: this is a test contract; the unconstrained result is returned directly
+        // and never used as input to a constrained assertion
+        unsafe {
+            self.utility.call(NestedUtility::at(target).pow_utility(x, n))
+        }
+    }
+
+    #[view]
+    #[external("private")]
+    fn delegate_pow_view(target: AztecAddress, x: Field, n: u32) -> Field {
         // Safety: this is a test contract; the unconstrained result is returned directly
         // and never used as input to a constrained assertion
         unsafe {

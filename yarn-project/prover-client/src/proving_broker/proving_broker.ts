@@ -319,6 +319,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   }
 
   private cleanUpProvingJobState(ids: ProvingJobId[]) {
+    const idsToClean = new Set(ids);
     for (const id of ids) {
       this.jobsCache.delete(id);
       const deferred = this.promises.get(id);
@@ -331,6 +332,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       this.retries.delete(id);
       this.enqueuedAt.delete(id);
     }
+    this.completedJobNotifications = this.completedJobNotifications.filter(id => !idsToClean.has(id));
   }
 
   #getProvingJobStatus(id: ProvingJobId): ProvingJobStatus {
@@ -598,21 +600,21 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   }
 
   private async cleanupPass() {
-    this.cleanupStaleJobs();
     this.reEnqueueExpiredJobs();
     const oldestEpochToKeep = this.oldestEpochToKeep();
     if (oldestEpochToKeep > 0) {
+      this.cleanupJobsOlderThanEpoch(EpochNumber(oldestEpochToKeep));
       await this.database.deleteAllProvingJobsOlderThanEpoch(EpochNumber(oldestEpochToKeep));
       this.logger.trace(`Deleted all epochs older than ${oldestEpochToKeep}`);
     }
   }
 
-  private cleanupStaleJobs() {
+  private cleanupJobsOlderThanEpoch(epochNumber: EpochNumber) {
     const jobIds = Array.from(this.jobsCache.keys());
     const jobsToClean: ProvingJobId[] = [];
     for (const id of jobIds) {
       const job = this.jobsCache.get(id)!;
-      if (this.isJobStale(job) && !this.inProgress.has(id) && !this.resultsCache.has(id)) {
+      if (job.epochNumber < epochNumber) {
         jobsToClean.push(id);
       }
     }

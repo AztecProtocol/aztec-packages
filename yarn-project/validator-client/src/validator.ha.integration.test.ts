@@ -17,6 +17,7 @@ import type { P2P, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { SlasherConfig, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -136,6 +137,7 @@ describe('ValidatorClient HA Integration', () => {
       Pick<
         SlasherConfig,
         | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidCheckpointProposalPenalty'
         | 'slashDuplicateProposalPenalty'
         | 'slashDuplicateAttestationPenalty'
         | 'slashAttestInvalidCheckpointProposalPenalty'
@@ -145,6 +147,7 @@ describe('ValidatorClient HA Integration', () => {
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
+      slashBroadcastedInvalidCheckpointProposalPenalty: 1n,
       rollupAddress,
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       slashDuplicateProposalPenalty: 1n,
@@ -193,6 +196,7 @@ describe('ValidatorClient HA Integration', () => {
       Pick<
         SlasherConfig,
         | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidCheckpointProposalPenalty'
         | 'slashDuplicateProposalPenalty'
         | 'slashDuplicateAttestationPenalty'
         | 'slashAttestInvalidCheckpointProposalPenalty'
@@ -226,6 +230,7 @@ describe('ValidatorClient HA Integration', () => {
       epochCache,
       config,
       blobClient,
+      new CheckpointReexecutionTracker(),
       metrics,
       dateProvider,
       getTelemetryClient(),

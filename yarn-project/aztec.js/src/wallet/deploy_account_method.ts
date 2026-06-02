@@ -85,6 +85,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     artifact: ContractArtifact,
     postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
     salt: Fr,
+    immutablesHash: Fr,
     private account: Account,
     args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
@@ -96,7 +97,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
       wallet,
       { artifact, postDeployCtor, args, constructorNameOrArtifact },
       // Account contracts are always deployed universally.
-      { salt, universalDeploy: true, publicKeys },
+      { salt, universalDeploy: true, publicKeys, immutablesHash },
       { authWitnesses, capsules, extraHashedArgs },
     );
   }
@@ -221,6 +222,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
       this.artifact,
       this.postDeployCtor,
       this.salt,
+      this.immutablesHash,
       this.account,
       this.args,
       this.constructorArtifact?.name,

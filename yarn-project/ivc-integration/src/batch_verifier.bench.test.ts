@@ -1,7 +1,7 @@
 /**
  * Batch chonk verifier benchmarks using real protocol proofs.
  *
- * Uses pinned IVC inputs from example-app-ivc-inputs-out, proves a representative transaction,
+ * Uses pinned IVC inputs from chonk-pinned-flows, proves a representative transaction,
  * then benchmarks batch verification throughput at various configurations.
  */
 import { BatchChonkVerifier } from '@aztec/bb-prover';
@@ -21,7 +21,7 @@ const execFileAsync = promisify(execFile);
 const logger = createLogger('ivc-integration:bench:batch-verifier');
 
 const REPO_ROOT = resolve('../..');
-const INPUTS_DIR = resolve('../end-to-end/example-app-ivc-inputs-out');
+const INPUTS_DIR = resolve(REPO_ROOT, 'barretenberg/cpp/chonk-pinned-flows');
 const BB_PATH = process.env.BB_BINARY_PATH ?? resolve('../../barretenberg/cpp/build/bin/bb');
 const CHONK_INPUTS_SCRIPT = resolve(REPO_ROOT, 'barretenberg/cpp/scripts/chonk_inputs.sh');
 const CHONK_INPUTS_HASH_FILE = resolve(REPO_ROOT, 'barretenberg/cpp/scripts/chonk-inputs.hash');
@@ -65,7 +65,7 @@ describe('Batch Chonk Verifier Benchmarks (Real Proofs)', () => {
   beforeAll(async () => {
     await ensurePinnedInputs();
 
-    // Use pinned IVC inputs from example-app-ivc-inputs-out
+    // Use pinned IVC inputs from chonk-pinned-flows
     logger.info(`Using local IVC inputs from ${INPUTS_DIR}...`);
 
     // Pick the largest flow for a realistic proof

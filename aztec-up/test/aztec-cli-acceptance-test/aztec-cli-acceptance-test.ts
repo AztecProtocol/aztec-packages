@@ -49,7 +49,10 @@ if (!existsSync(join(AZTEC_INSTALL_DIR, "package.json"))) {
   process.exit(2);
 }
 
-const TMP_DIR = mkdtempSync(join(tmpdir(), "aztec-cli-acceptance-test-"));
+// Prefer RUNNER_TEMP so the GitHub Actions upload-artifact step can find the diagnostic
+// tree on failure under a predictable parent path. Falls back to the system tmpdir locally.
+const TMP_DIR_PARENT = process.env.RUNNER_TEMP ?? tmpdir();
+const TMP_DIR = mkdtempSync(join(TMP_DIR_PARENT, "aztec-cli-acceptance-test-"));
 const WORKSPACE_DIR = join(TMP_DIR, "my_workspace");
 
 // Exit codes follow the Unix 128+signal convention for signal terminations.
@@ -188,13 +191,32 @@ function locateArtifact(): string {
 async function startLocalNetwork(): Promise<void> {
   const logPath = join(TMP_DIR, "local_network.log");
   const logFd = openSync(logPath, "a");
+  // LOG_LEVEL defaults to "debug" so failed CI runs leave useful traces in local_network.log;
+  // override with LOCAL_NETWORK_LOG_LEVEL=silent when running locally and the volume is noisy.
+  const logLevel = process.env.LOCAL_NETWORK_LOG_LEVEL ?? "debug";
+  const reportDir = join(TMP_DIR, "node-reports");
+  mkdirSync(reportDir, { recursive: true });
+  const nodeOptions = [
+    process.env.NODE_OPTIONS,
+    `--report-on-signal`,
+    `--report-directory=${reportDir}`,
+  ]
+    .filter(Boolean)
+    .join(" ");
   const proc = spawn("aztec", ["start", "--local-network"], {
     cwd: TMP_DIR,
     stdio: ["ignore", logFd, logFd],
-    env: { ...process.env, LOG_LEVEL: "silent", PXE_PROVER: "none" },
+    env: {
+      ...process.env,
+      LOG_LEVEL: logLevel,
+      PXE_PROVER: "none",
+      NODE_OPTIONS: nodeOptions,
+    },
   });
   closeSync(logFd);
-  log(`    local-network pid=${proc.pid}, log=${logPath}`);
+  log(
+    `    local-network pid=${proc.pid}, log=${logPath}, LOG_LEVEL=${logLevel}`,
+  );
 
   // Kill the network on process exit (including SIGINT/SIGTERM via the signal handlers).
   process.on("exit", () => {
@@ -214,6 +236,10 @@ async function startLocalNetwork(): Promise<void> {
       );
     }
     if (Date.now() > deadline) {
+      try {
+        process.kill(proc.pid!, "SIGUSR2");
+        await delay(2000);
+      } catch {}
       dumpTail(logPath);
       fail(
         `timed out after ${msToSecs(LOCAL_NETWORK_READY_TIMEOUT_MS)}s waiting for local-network /status (see ${logPath})`,
@@ -306,7 +332,7 @@ function leaveTmpDirForInspection() {
   console.error(`>>> Left tmp dir at ${TMP_DIR} for inspection`);
 }
 
-function dumpTail(path: string, lines = 100) {
+function dumpTail(path: string, lines = 400) {
   if (!existsSync(path)) {
     return;
   }

@@ -19,7 +19,7 @@ Enable different levels of logging on the local network or node by setting `LOG_
 
 ```bash
 # Set log level (options: fatal, error, warn, info, verbose, debug, trace)
-LOG_LEVEL=debug aztec start --local-network
+LOG_LEVEL="debug; info: json-rpc, simulator" aztec start --local-network
 
 # Different levels for different services
 LOG_LEVEL="verbose;info:sequencer" aztec start --local-network

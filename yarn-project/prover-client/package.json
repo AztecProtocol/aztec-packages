@@ -28,7 +28,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "bb": "node --no-warnings ./dest/bb/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=3500000",
-    "test:debug": "LOG_LEVEL=debug NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --testNamePattern prover/bb_prover/parity"
+    "test:debug": "LOG_LEVEL=\"debug; info: json-rpc, simulator\" NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --testNamePattern prover/bb_prover/parity"
   },
   "jest": {
     "moduleNameMapper": {

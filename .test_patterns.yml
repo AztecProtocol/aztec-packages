@@ -91,6 +91,13 @@ tests:
     owners:
       - *nico
 
+  # Fails in CI: "No execution steps in ivc-inputs.msgpack" — pinned Chonk IVC
+  # inputs missing/stale. http://ci.aztec-labs.com/d7647a841ee811a0
+  - regex: "bbapi/chonk_pinned_inputs.test"
+    skip: true
+    owners:
+      - *palla
+
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"
     skip: true
@@ -116,9 +123,7 @@ tests:
     error_regex: "✕ Repay"
     owners:
       - *lasse
-  # http://ci.aztec-labs.com/e85ff6c5da65a1e7
-  - regex: "src/e2e_cross_chain_messaging/l1_to_l2.test.ts"
-    error_regex: "Failed to advance block"
+  - regex: "src/e2e_cross_chain_messaging/l1_to_l2"
     owners:
       - *palla
   - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
@@ -139,6 +144,10 @@ tests:
       - *lasse
   - regex: "src/e2e_l1_publisher/e2e_l1_publisher.test.ts"
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
+    owners:
+      - *palla
+  - regex: "src/e2e_bot.test.ts"
+    error_regex: "Tx dropped"
     owners:
       - *palla
 
@@ -164,6 +173,10 @@ tests:
     error_regex: "Error: Timeout of 2000ms exceeded"
     owners:
       - *martin
+  - regex: "kv-store/.*store\\.test"
+    error_regex: "guards against too many cursors"
+    owners:
+      - *palla
   - regex: "ethereum/src/test/tx_delayer.test.ts"
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
@@ -172,6 +185,10 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
+  - regex: "e2e_p2p/valid_epoch_pruned_slash.test.ts"
+    owners:
+      - *mitch
+      - *palla
   - regex: "archiver/src/archiver/archiver.test.ts"
     error_regex: "Received number of calls: 1"
     owners:
@@ -184,14 +201,6 @@ tests:
     owners:
       - *phil
       - *palla
-
-  # http://ci.aztec-labs.com/64a972aafaa40dd0
-  # ProvingBroker › Retries › does not retry if job is stale — kv-store closes
-  # before the broker's final reportProvingJobError write lands.
-  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
-    error_regex: "does not retry if job is stale|Store is closed"
-    owners:
-      - *alex
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
@@ -259,14 +268,10 @@ tests:
       - *adam
 
   - regex: "src/e2e_epochs/epochs_l1_reorgs.parallel.test.ts"
-    skip: true
     owners:
       - *phil
 
-  # Consistently times out — prune detection timing too tight for CI resources
-  # See https://github.com/AztecProtocol/aztec-packages/pull/22392
   - regex: "epochs_mbps.pipeline.parallel.test.ts.*prunes uncheckpointed"
-    skip: true
     owners:
       - *sean
 
@@ -332,6 +337,15 @@ tests:
     owners:
       - *adam
 
+  # http://ci.aztec-labs.com/93754bdf832ef9bd
+  # P2P receipt race in the compose CLI-wallet flow: the account deployment tx
+  # can be reported as dropped after the 5s grace window before inclusion is
+  # visible to the queried node.
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh compose ../cli-wallet/test/flows/public_authwit_transfer.sh"
+    error_regex: "Transaction .* was dropped\\. Reason: Tx dropped by P2P node"
+    owners:
+      - *palla
+
   - regex: "cd l1-contracts && forge test"
     error_regex: "Encountered 1 failing test in test/staking_asset_handler/claim.t.sol:ClaimTest"
     owners:
@@ -347,8 +361,17 @@ tests:
     owners:
       - *esau
 
+  # http://ci.aztec-labs.com/6db6103599cb22e6
+  # Under pipelining, the lazy validator's attestation can arrive after the
+  # p2p checkpoint-attestation-validator's acceptance window, getting rejected
+  # before the slasher's gossip callback fires. The slasher then never records
+  # ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL and the test times out.
+  - regex: "src/e2e_slashing/attested_invalid_proposal.test.ts"
+    error_regex: "Timeout awaiting honest validator slash offenses for invalid proposal attestation"
+    owners:
+      - *palla
+
   - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
-    error_regex: "✕ should coordinate governance voting across HA nodes"
     owners:
       - *spyros
 
@@ -374,3 +397,11 @@ tests:
     error_regex: "✕ verifies transactions at 10 TPS"
     owners:
       - *phil
+
+  # http://ci.aztec-labs.com/930ddc9ede87059f
+  # Pipelining race: slasher doesn't record the duplicate proposal offense before
+  # the test's wait timeout — same family as #23501.
+  - regex: "src/e2e_p2p/duplicate_proposal_slash.test.ts"
+    error_regex: "TimeoutError: Timeout awaiting duplicate proposal offense"
+    owners:
+      - *palla

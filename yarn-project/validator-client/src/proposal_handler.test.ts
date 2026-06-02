@@ -3,13 +3,14 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -98,6 +99,7 @@ describe('ProposalHandler checkpoint validation', () => {
       epochCache,
       config,
       mock<BlobClientInterface>(),
+      new CheckpointReexecutionTracker(),
       metrics,
       dateProvider,
     );
@@ -167,6 +169,7 @@ describe('ProposalHandler checkpoint validation', () => {
         epochCache,
         config,
         mock<BlobClientInterface>(),
+        new CheckpointReexecutionTracker(),
         metrics,
         dateProvider,
       );
@@ -274,6 +277,31 @@ describe('ProposalHandler checkpoint validation', () => {
     });
   });
 
+  describe('own checkpoint proposal handling', () => {
+    it('skips validation and does not touch the archiver for own proposals', async () => {
+      // The proposer's own proposed checkpoint is now set locally by the sequencer job, not via the
+      // p2p loopback, so the all-nodes handler must not re-validate or re-add it.
+      const signer = Secp256k1Signer.random();
+      const proposal = await makeProposal({ signer });
+
+      const p2p = mock<P2P>();
+      let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
+      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
+        checkpointHandler = handler;
+      });
+
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint'>>();
+      const handleSpy = jest.spyOn(handler, 'handleCheckpointProposal');
+
+      handler.register(p2p, true, archiver, () => [signer.address.toString()]);
+      await checkpointHandler!(proposal, {} as any);
+
+      expect(handleSpy).not.toHaveBeenCalled();
+      expect(archiver.addProposedCheckpoint).not.toHaveBeenCalled();
+      expect(blockSource.getBlockData).not.toHaveBeenCalled();
+    });
+  });
+
   describe('deep validation (openCheckpoint + completeCheckpoint)', () => {
     const archiveRoot = Fr.random();
     const checkpointOutHash = Fr.random();
@@ -328,7 +356,11 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: proposalHeader });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'checkpoint_header_mismatch' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_header_mismatch',
+        checkpointNumber: CheckpointNumber(1),
+      });
       expect(mockDispose).toHaveBeenCalled();
     });
 
@@ -342,7 +374,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'archive_mismatch' });
+      expect(result).toEqual({ isValid: false, reason: 'archive_mismatch', checkpointNumber: CheckpointNumber(1) });
     });
 
     it('returns out_hash_mismatch when epoch out hash differs', async () => {
@@ -355,7 +387,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'out_hash_mismatch' });
+      expect(result).toEqual({ isValid: false, reason: 'out_hash_mismatch', checkpointNumber: CheckpointNumber(1) });
     });
 
     it('returns checkpoint_validation_failed when validateCheckpoint throws', async () => {
@@ -370,7 +402,11 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'checkpoint_validation_failed' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_validation_failed',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
 
     it('returns isValid true when everything matches', async () => {

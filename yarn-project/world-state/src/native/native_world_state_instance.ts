@@ -59,12 +59,13 @@ export class NativeWorldState implements NativeWorldStateInstance {
     private readonly instrumentation: WorldStateInstrumentation,
     bindings?: LoggerBindings,
     private readonly log: Logger = createLogger('world-state:database', bindings),
+    private readonly ephemeral: boolean = false,
   ) {
     const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
     log.info(
       `Creating world state data store at directory ${dataDir} with map sizes ${JSON.stringify(
         wsTreeMapSizes,
-      )} and ${threads} threads.`,
+      )} and ${threads} threads (ephemeral=${ephemeral}).`,
     );
     const prefilledPublicDataBufferArray = genesis.prefilledPublicData.map(d => [
       d.slot.toBuffer(),
@@ -94,6 +95,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
         [MerkleTreeId.ARCHIVE]: wsTreeMapSizes.archiveTreeMapSizeKb,
       },
       threads,
+      ephemeral,
     );
     this.instance = new MsgpackChannel(ws);
     // Manually create the queue for the canonical fork
@@ -112,6 +114,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
       this.instrumentation,
       this.log.getBindings(),
       this.log,
+      this.ephemeral,
     );
   }
 
@@ -184,30 +187,33 @@ export class NativeWorldState implements NativeWorldStateInstance {
       this.queues.set(forkId, requestQueue);
     }
 
-    // Enqueue the request and wait for the response
-    const response = await requestQueue.execute(
-      async () => {
-        assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the native instance');
-        assert.equal(this.open, true, 'Native instance is closed');
-        let response: WorldStateResponse[T];
-        try {
-          response = await this._sendMessage(messageType, body);
-        } catch (error: any) {
-          errorHandler(error.message);
-          throw error;
-        }
-        return responseHandler(response);
-      },
-      messageType,
-      committedOnly,
-    );
-
-    // If the request was to delete the fork then we clean it up here
-    if (messageType === WorldStateMessageType.DELETE_FORK) {
-      await requestQueue.stop();
-      this.queues.delete(forkId);
+    // Enqueue the request and wait for the response. The per-fork queue is cleaned up in `finally` even on
+    // error, so the JS-side queues map cannot outlive the native fork (e.g. when the native fork was already
+    // destroyed by an unwind/historical-prune and DELETE_FORK rejects with "Fork not found").
+    try {
+      const response = await requestQueue.execute(
+        async () => {
+          assert.notEqual(messageType, WorldStateMessageType.CLOSE, 'Use close() to close the native instance');
+          assert.equal(this.open, true, 'Native instance is closed');
+          let response: WorldStateResponse[T];
+          try {
+            response = await this._sendMessage(messageType, body);
+          } catch (error: any) {
+            errorHandler(error.message);
+            throw error;
+          }
+          return responseHandler(response);
+        },
+        messageType,
+        committedOnly,
+      );
+      return response;
+    } finally {
+      if (messageType === WorldStateMessageType.DELETE_FORK) {
+        await requestQueue.stop();
+        this.queues.delete(forkId);
+      }
     }
-    return response;
   }
 
   /**

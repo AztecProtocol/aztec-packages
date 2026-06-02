@@ -25,7 +25,7 @@ import {
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { Tx, type TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
+import { Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import {
@@ -74,8 +74,8 @@ import {
   createFirstStageTxValidationsForGossipedTransactions,
   createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForBlockProposalReceivedTxs,
-  createTxValidatorForOnDemandReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
+import { TxValidationCache } from '../../msg_validators/tx_validator/tx_validation_cache.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { getVersions } from '../../versioning.js';
@@ -93,15 +93,12 @@ import {
   AuthRequest,
   BlockTxsRequest,
   BlockTxsResponse,
-  DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
-  type ReqRespSubProtocolValidators,
   StatusMessage,
-  type SubProtocolMap,
   ValidationError,
   pingHandler,
   reqGoodbyeHandler,
@@ -206,6 +203,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     private blockMinFeesProvider: BlockMinFeesProvider,
     telemetry: TelemetryClient,
     logger: Logger = createLogger('p2p:libp2p_service'),
+    private txValidationCache?: TxValidationCache,
   ) {
     super(telemetry, 'LibP2PService');
     this.telemetry = telemetry;
@@ -241,6 +239,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
       p2pPropagationTime,
+      skipSlotValidation: config.skipProposalSlotValidation,
       signatureContext: {
         chainId: config.l1ChainId,
         rollupAddress: config.rollupAddress,
@@ -305,6 +304,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry: TelemetryClient;
       logger: Logger;
       packageVersion: string;
+      txValidationCache?: TxValidationCache;
     },
   ) {
     const {
@@ -318,6 +318,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry,
       logger,
       packageVersion,
+      txValidationCache,
     } = deps;
     const { p2pPort, maxPeerCount, listenAddress } = config;
     const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
@@ -525,6 +526,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       blockMinFeesProvider,
       telemetry,
       logger,
+      txValidationCache,
     );
   }
 
@@ -568,16 +570,9 @@ export class LibP2PService extends WithTracer implements P2PService {
       requestResponseHandlers[ReqRespSubProtocol.TX] = txHandler.bind(this);
     }
 
-    // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
-    const reqrespSubProtocolValidators = {
-      ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
-      [ReqRespSubProtocol.TX]: this.validateRequestedTxs.bind(this),
-      [ReqRespSubProtocol.BLOCK_TXS]: this.validateRequestedBlockTxs.bind(this),
-    };
-
     await this.peerManager.initializePeers();
 
-    await this.reqresp.start(requestResponseHandlers, reqrespSubProtocolValidators);
+    await this.reqresp.start(requestResponseHandlers);
 
     await this.node.start();
 
@@ -669,12 +664,8 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.logger.info('LibP2P service stopped');
   }
 
-  addReqRespSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
-    return this.reqresp.addSubProtocol(subProtocol, handler, validator);
+  addReqRespSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void> {
+    return this.reqresp.addSubProtocol(subProtocol, handler);
   }
 
   public registerThisValidatorAddresses(address: EthAddress[]): void {
@@ -700,20 +691,6 @@ export class LibP2PService extends WithTracer implements P2PService {
       }
     };
     setImmediate(() => void safeJob());
-  }
-
-  /**
-   * Send a batch of requests to peers, and return the responses
-   * @param protocol - The request response protocol to use
-   * @param requests - The requests to send to the peers
-   * @returns The responses to the requests
-   */
-  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    protocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    pinnedPeerId: PeerId | undefined,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
-    return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
   }
 
   public sendRequestToPeer(
@@ -743,10 +720,6 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
     this.allNodesCheckpointReceivedCallback = callback;
-  }
-
-  public async notifyOwnCheckpointProposal(checkpoint: CheckpointProposalCore): Promise<void> {
-    await this.allNodesCheckpointReceivedCallback(checkpoint, this.node.peerId);
   }
 
   /**
@@ -1369,17 +1342,33 @@ export class LibP2PService extends WithTracer implements P2PService {
       TopicType.checkpoint_proposal,
     );
 
+    // Process checkpoint proposal if valid and not equivocated.
+    const processCheckpointFn = () =>
+      result === TopicValidatorResult.Accept && checkpoint && !isEquivocated
+        ? this.processValidCheckpointProposal(checkpoint.toCore(), source)
+        : Promise.resolve();
+
     // If the checkpoint contained a valid last block, we process it even if the checkpoint itself is to be rejected
     // TODO(palla/mbps): Is this ok? Should we be considering a block from a checkpoint that was equivocated?
-    if (processBlock && checkpoint?.getBlockProposal()) {
-      await this.processValidBlockProposal(checkpoint.getBlockProposal()!, source);
-    }
+    const processBlockFn = () =>
+      processBlock && checkpoint && checkpoint.getBlockProposal()
+        ? this.processValidBlockProposal(checkpoint.getBlockProposal()!, source)
+        : Promise.resolve();
 
-    if (result !== TopicValidatorResult.Accept || !checkpoint || isEquivocated) {
+    // A node that skips checkpoint validation attests without re-executing the embedded last block, so run
+    // the checkpoint callback first: this creates and broadcasts the attestation before the block is
+    // processed. Otherwise the block's re-execution — which can stall until the re-execution deadline
+    // waiting for a parent that may never arrive — would delay the attestation past the slot's attestation
+    // window, after which peers reject it as stale.
+    if (this.config.skipCheckpointProposalValidation) {
+      await processCheckpointFn();
+      await processBlockFn();
       return;
     }
 
-    await this.processValidCheckpointProposal(checkpoint.toCore(), source);
+    // Process the block first, since it's required for the checkpoint proposal validation.
+    await processBlockFn();
+    await processCheckpointFn();
   }
 
   /**
@@ -1535,23 +1524,32 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   /**
-   * Validate the requested block transactions. Allow partial returns.
+   * Validate the requested block transactions request-response consistency.
+   * It does NOT validate the transactions themselves.
    * @param request - The block transactions request.
    * @param response - The block transactions response.
    * @param peerId - The ID of the peer that made the request.
-   * @returns True if the requested block transactions are valid, false otherwise.
+   * @returns True if the request-response is consistent, false otherwise.
    */
-  @trackSpan('Libp2pService.validateRequestedBlockTxs', request => ({
+  @trackSpan('Libp2pService.validateRequestedBlockTxsConsistency', request => ({
     [Attributes.BLOCK_ARCHIVE]: request.archiveRoot.toString(),
   }))
-  protected async validateRequestedBlockTxs(
+  protected async validateRequestedBlockTxsConsistency(
     request: BlockTxsRequest,
     response: BlockTxsResponse,
     peerId: PeerId,
   ): Promise<boolean> {
-    const requestedTxValidator = this.createRequestedTxValidator();
-
     try {
+      // A response with archiveRoot=Fr.zero is the documented "I don't have the block" signal from
+      // reqRespBlockTxsHandler (block_txs_handler.ts:54-58): the peer lacked the block in its
+      // attestation pool and archiver, but matched the requested hashes against its tx pool and
+      // shipped what it found. This is legitimate behaviour, not misbehaviour — we just can't verify
+      // membership/order without the block, so we drop the response without penalising the peer.
+      if (response.archiveRoot.isZero()) {
+        this.logger.debug(`Peer ${peerId.toString()} signalled missing block with Fr.zero archive root`);
+        return false;
+      }
+
       if (!response.archiveRoot.equals(request.archiveRoot)) {
         this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
         throw new ValidationError(
@@ -1584,18 +1582,26 @@ export class LibP2PService extends WithTracer implements P2PService {
         );
       }
 
-      // Given proposal (should have locally), ensure returned txs are valid subset and match request indices
+      // To verify membership/order of the returned txs we need the canonical tx hash list for the
+      // block. Prefer the block proposal (held while a block is in flight), but fall back to the
+      // archiver for blocks we only know as mined — e.g. a prover collecting txs to prove a block it
+      // never received a proposal for. This mirrors the responder side (reqRespBlockTxsHandler),
+      // which serves from proposal-or-archiver.
       const proposal = await this.mempools.attestationPool.getBlockProposalByArchive(request.archiveRoot.toString());
-      if (proposal) {
+      const blockTxHashes =
+        proposal?.txHashes ??
+        (await this.archiver.getBlock({ archive: request.archiveRoot }))?.body.txEffects.map(e => e.txHash);
+
+      if (blockTxHashes) {
         // Build intersected indices
         const intersectIdx = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));
 
         // Enforce subset membership and preserve increasing order by index.
-        const hashToIndexInProposal = new Map<string, number>(
-          proposal.txHashes.map((h, i) => [h.toString(), i] as [string, number]),
+        const hashToIndexInBlock = new Map<string, number>(
+          blockTxHashes.map((h, i) => [h.toString(), i] as [string, number]),
         );
         const allowedIndexSet = new Set(intersectIdx);
-        const indices = returnedHashes.map(h => hashToIndexInProposal.get(h));
+        const indices = returnedHashes.map(h => hashToIndexInBlock.get(h));
         const allAllowed = indices.every(idx => idx !== undefined && allowedIndexSet.has(idx));
         const strictlyIncreasing = indices.every((idx, i) => (i === 0 ? idx !== undefined : idx! > indices[i - 1]!));
         if (!allAllowed || !strictlyIncreasing) {
@@ -1603,14 +1609,14 @@ export class LibP2PService extends WithTracer implements P2PService {
           throw new ValidationError('Returned txs do not match expected subset/order for requested indices');
         }
       } else {
-        // No local proposal, cannot check the membership/order of the returned txs
+        // Neither a local proposal nor an archived block: we cannot verify membership/order of the
+        // returned txs. This is a local-state gap, not a peer fault, so we do not penalize.
         this.logger.warn(
-          `Block proposal not found for archive root ${request.archiveRoot.toString()}; cannot validate membership/order of returned txs`,
+          `Block ${request.archiveRoot.toString()} not found in attestation pool or archiver; cannot validate membership/order of returned txs`,
         );
         return false;
       }
 
-      await Promise.all(response.txs.map(tx => this.validateRequestedTx(tx, peerId, requestedTxValidator)));
       return true;
     } catch (e: any) {
       if (e instanceof ValidationError) {
@@ -1621,69 +1627,6 @@ export class LibP2PService extends WithTracer implements P2PService {
 
       return false;
     }
-  }
-
-  /**
-   * Validate a collection of txs that has been requested from a peer.
-   *
-   * The core component of this validator is that each tx hash MUST match the requested tx hash,
-   * In order to perform this check, the tx proof must be verified.
-   *
-   * Note: This function is called from within `ReqResp.sendRequest` as part of the
-   * ReqRespSubProtocol.TX subprotocol validation.
-   *
-   * @param requestedTxHash - The collection of the txs that was requested.
-   * @param responseTx - The collection of txs that was received as a response to the request.
-   * @param peerId - The peer ID of the peer that sent the tx.
-   * @returns True if the whole collection of txs is valid, false otherwise.
-   */
-  @trackSpan('Libp2pService.validateRequestedTx', (requestedTxHash, _responseTx) => ({
-    [Attributes.TX_HASH]: requestedTxHash.toString(),
-  }))
-  private async validateRequestedTxs(requestedTxHash: TxHash[], responseTx: Tx[], peerId: PeerId): Promise<boolean> {
-    const requested = new Set(requestedTxHash.map(h => h.toString()));
-    const requestedTxValidator = this.createRequestedTxValidator();
-
-    //TODO: (mralj) - this is somewhat naive implementation, if single tx is invalid we consider the whole response invalid.
-    // I think we should still extract the valid txs and return them, so that we can still use the response.
-    try {
-      await Promise.all(responseTx.map(tx => this.validateRequestedTx(tx, peerId, requestedTxValidator, requested)));
-      return true;
-    } catch (e: any) {
-      if (e instanceof ValidationError) {
-        this.logger.warn(`Failed to validate requested txs from peer ${peerId.toString()}, reason ${e.message}`);
-      } else {
-        this.logger.error(`Error during validation of requested txs`, e);
-      }
-
-      return false;
-    }
-  }
-
-  protected async validateRequestedTx(
-    tx: Tx,
-    peerId: PeerId,
-    txValidator: TxValidator,
-    requested?: Set<`0x${string}`>,
-  ) {
-    const penalize = (severity: PeerErrorSeverity) => this.peerManager.penalizePeer(peerId, severity);
-    if (requested && !requested.has(tx.getTxHash().toString())) {
-      penalize(PeerErrorSeverity.MidToleranceError);
-      throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that was not requested.`);
-    }
-
-    const { result } = await txValidator.validateTx(tx);
-    if (result === 'invalid') {
-      penalize(PeerErrorSeverity.LowToleranceError);
-      throw new ValidationError(`Received tx with hash ${tx.getTxHash().toString()} that is invalid.`);
-    }
-  }
-
-  protected createRequestedTxValidator(): TxValidator {
-    return createTxValidatorForOnDemandReceivedTxs(this.proofVerifier, {
-      l1ChainId: this.config.l1ChainId,
-      rollupVersion: this.config.rollupVersion,
-    });
   }
 
   private getGasFees(): Promise<GasFees> {
@@ -1701,8 +1644,10 @@ export class LibP2PService extends WithTracer implements P2PService {
         l1ChainId: this.config.l1ChainId,
         rollupVersion: this.config.rollupVersion,
         proofVerifier: this.proofVerifier,
+        txValidationCache: this.txValidationCache,
       },
       peerScoring: this.peerManager,
+      validateRequestedBlockTxsConsistency: this.validateRequestedBlockTxsConsistency.bind(this),
     };
   }
 
@@ -1711,6 +1656,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.proofVerifier,
       { l1ChainId: this.config.l1ChainId, rollupVersion: this.config.rollupVersion },
       this.logger.getBindings(),
+      this.txValidationCache,
     );
 
     const results = await Promise.all(
