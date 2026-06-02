@@ -44,6 +44,12 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 // numBatches == 1.
 @group(0) @binding(6) var<uniform>             params:            vec4<u32>;
 @group(0) @binding(7) var<storage, read_write> is_present:        array<u32>;
+// WindowDesc as a uniform array<vec4<u32>> (row g = 2 vec4): reduce_off
+// (red_buf base for GLOBAL window g) = u32 +4 = vec4[g*2+1].x. Uniform (not
+// storage) keeps the at-cap consumers within the 10-storage-buffer limit; used
+// here too for one consistent decode across all bid consumers.
+@group(0) @binding(8) var<uniform> window_desc: array<vec4<u32>, 256>;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -77,7 +83,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let window = bucket_idx >> WBID_SHIFT;
     let mag = bucket_idx & WBID_MAG_MASK;
-    let red_slot = (window + params.x) * STRIDE + (mag - 1u);
+    // Global window = batch-local window + batch_offset (params.x).
+    let red_slot = wd_reduce_off(window + params.x) + (mag - 1u);
 
     let base_x = PG * red_slot;
     red_buf[base_x + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);

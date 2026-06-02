@@ -925,12 +925,11 @@ export const ba_planner_classify = `// Bucket-accumulate planner stage 1.1: 3-wa
 // Atomic counters in planner_meta[0] (num_size1) and planner_meta[1]
 // (num_dense) track list lengths.
 
-const B_TOTAL: u32 = {{ b_total }}u;
-const BW:      u32 = {{ bw }}u;
-const STRIDE:  u32 = {{ stride }}u;
+const WD_STRIDE: u32 = 8u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
-// Decode is shift+mask (divide-free even when BW becomes a per-window runtime
-// value under split-c); the flat CSR index is recovered as window*BW + mag.
+// classify runs 2D (window = gid.y, magnitude = gid.x) so each window's bucket
+// count / CSR base / stride are read from WindowDesc per window — correct for
+// split-c variable widths. Uniform fill ⇒ byte-identical to the old b/BW path.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
 
@@ -941,28 +940,42 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(4) var<storage, read_write> dense_count_list:   array<u32>;
 @group(0) @binding(5) var<storage, read_write> planner_meta:       array<atomic<u32>>;
 @group(0) @binding(6) var<uniform>             params:             vec4<u32>;
+// params.x = num_windows (this batch's window count)
+// WindowDesc (SPLIT_C_PLAN.md): num_columns at +5, work_off (prefix) at +3,
+// num_buckets (= stride_w, red slots) at +2.
+@group(0) @binding(7) var<storage, read>       window_desc:        array<u32>;
+// batch_window_base.x = global index of this batch's first window.
+@group(0) @binding(8) var<uniform>             batch_window_base:  vec4<u32>;
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let b = gid.x;
-    if (b >= B_TOTAL) { return; }
+    let window = gid.y;
+    if (window >= params.x) { return; }
+
+    // Per-window CSR geometry from WindowDesc (global window = batch-local +
+    // batch base). The batch-local CSR index b is the global work_off prefix
+    // minus the batch's base. Uniform fill ⇒ b == window*BW + bucket_local.
+    let gwin = window + batch_window_base.x;
+    let num_columns = window_desc[gwin * WD_STRIDE + 5u];
+    let bucket_local = gid.x;
+    if (bucket_local >= num_columns) { return; }
+    let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
+                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+    let b = work_off_local + bucket_local;
 
     let n = counts[b];
     if (n == 0u) { return; }
 
-    // Drop buckets whose magnitude is outside the reduce-valid range
-    // [1, STRIDE]. Magnitude 0 is the zero-digit (no contribution after
-    // weighting); magnitude > STRIDE is BW-padding (booth never produces
-    // it, but guard defensively). Hoisting the filter here means walker
-    // output kernels never need to check magnitude per-store.
-    let window = b / BW;
-    let magnitude = b % BW;
-    if (magnitude == 0u || magnitude > STRIDE) { return; }
+    // Drop buckets outside the reduce-valid magnitude range [1, stride_w].
+    // The magnitude IS the column index (bucket_local); magnitude 0 is the
+    // zero-digit, magnitude > stride_w is column padding. The per-window
+    // stride comes from WindowDesc (num_buckets field). Hoisting the filter
+    // here means walker output kernels never check magnitude per-store.
+    let magnitude = bucket_local;
+    let stride_w = window_desc[gwin * WD_STRIDE + 2u];
+    if (magnitude == 0u || magnitude > stride_w) { return; }
 
-    // Re-encode the flat CSR bucket index b into the packed-window bid that
-    // every downstream producer/consumer carries. On the uniform path
-    // window*BW + magnitude == b, so this is byte-identical; the gather of
-    // offsets[b] still uses the flat index (b == gid.x).
+    // Packed-window bid: batch-local window in the high bits, magnitude low.
     let packed = (window << WBID_SHIFT) | magnitude;
 
     if (n == 1u) {
@@ -1774,6 +1787,12 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 // numBatches == 1.
 @group(0) @binding(6) var<uniform>             params:            vec4<u32>;
 @group(0) @binding(7) var<storage, read_write> is_present:        array<u32>;
+// WindowDesc as a uniform array<vec4<u32>> (row g = 2 vec4): reduce_off
+// (red_buf base for GLOBAL window g) = u32 +4 = vec4[g*2+1].x. Uniform (not
+// storage) keeps the at-cap consumers within the 10-storage-buffer limit; used
+// here too for one consistent decode across all bid consumers.
+@group(0) @binding(8) var<uniform> window_desc: array<vec4<u32>, 256>;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -1807,7 +1826,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let window = bucket_idx >> WBID_SHIFT;
     let mag = bucket_idx & WBID_MAG_MASK;
-    let red_slot = (window + params.x) * STRIDE + (mag - 1u);
+    // Global window = batch-local window + batch_offset (params.x).
+    let red_slot = wd_reduce_off(window + params.x) + (mag - 1u);
 
     let base_x = PG * red_slot;
     red_buf[base_x + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
@@ -1891,6 +1911,12 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 // correct window range. red_buf is no longer cleared per batch (only once
 // per encode) so batches accumulate side-by-side.
 @group(0) @binding(11) var<uniform>            batch_offset:       vec4<u32>;
+// WindowDesc as a UNIFORM array<vec4<u32>> (row g = 2 vec4): work_off (u32 +3)
+// = vec4[g*2].w, reduce_off (u32 +4) = vec4[g*2+1].x. Uniform, NOT storage, so
+// the walker stays at the 10-storage-buffer cap noted below.
+@group(0) @binding(12) var<uniform>            window_desc:        array<vec4<u32>, 256>;
+fn wd_work_off(g: u32) -> u32 { return window_desc[g * 2u + 0u].w; }
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
 // is_present marking is hoisted into combine_filter; stream_walker stays
 // at 10 storage bindings (M2 cap). combine_filter sees every bucket with
 // count >= 1, including those stream_walker whole-retired.
@@ -1903,10 +1929,12 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 // touches just 2-4 cache lines (vs 32 lines in the naive per-thread-stride
 // layout), letting the GPU coalesce the writes into a single transaction.
 
-// Flat CSR index (offsets/counts space) for a packed-window bid. Recovers
-// window*BW + mag — a multiply, never a divide. Uniform path ⇒ == old flat bid.
+// Flat CSR index (offsets/counts space) for a packed-window bid. The CSR is
+// batch-local, so subtract the batch's base work_off from the global prefix.
+// Uniform fill ⇒ wd_work_off(gwin) - wd_work_off(bwb) == window*BW.
 fn flat_bid(bid: u32) -> u32 {
-    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+    let gwin = (bid >> WBID_SHIFT) + batch_offset.x;
+    return wd_work_off(gwin) - wd_work_off(batch_offset.x) + (bid & WBID_MAG_MASK);
 }
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
@@ -1948,7 +1976,7 @@ fn store_bucket_sum(bucket_id: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) 
     // Global window index = (batch-local window) + batch_offset (= bi * batchWindows).
     let window = bucket_id >> WBID_SHIFT;
     let mag = bucket_id & WBID_MAG_MASK;
-    let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
+    let red_slot = wd_reduce_off(window + batch_offset.x) + (mag - 1u);
     let bx = PG * red_slot;
     red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
@@ -2500,6 +2528,10 @@ fn flat_bid(bid: u32) -> u32 {
 @group(0) @binding(10) var<uniform>            params:          vec4<u32>;
 // batch_offset.x = bi * batchWindows — added to local window index for red_slot.
 @group(0) @binding(11) var<uniform>            batch_offset:    vec4<u32>;
+// WindowDesc as uniform array<vec4<u32>> (row g = 2 vec4): reduce_off (u32 +4)
+// = vec4[g*2+1].x. Uniform because this kernel is at the 10-storage-buffer cap.
+@group(0) @binding(12) var<uniform>            window_desc:     array<vec4<u32>, 256>;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
 // is_present marking is hoisted into combine_filter to keep this kernel
 // at 10 storage bindings (M2's maxStorageBuffersPerShaderStage = 10).
 
@@ -2526,7 +2558,7 @@ fn load_pt_x(cursor: u32) -> array<u32, 8> {
 fn store_bucket_sum(bid: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
     let window = bid >> WBID_SHIFT;
     let mag = bid & WBID_MAG_MASK;
-    let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
+    let red_slot = wd_reduce_off(window + batch_offset.x) + (mag - 1u);
     let bx = PG * red_slot;
     red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
@@ -2779,6 +2811,10 @@ fn flat_bid(bid: u32) -> u32 {
 @group(0) @binding(10) var<storage, read_write> is_present:        array<u32>;
 // batch_offset.x = bi * batchWindows — added to local window index for red_slot.
 @group(0) @binding(11) var<uniform>             batch_offset:      vec4<u32>;
+// WindowDesc as uniform array<vec4<u32>> (row g = 2 vec4): reduce_off (u32 +4)
+// = vec4[g*2+1].x. Uniform because this kernel is at the 10-storage-buffer cap.
+@group(0) @binding(12) var<uniform>             window_desc:       array<vec4<u32>, 256>;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
 
 // Workgroup-shared buffer for collecting active bucket ids locally.
 // Single global atomic per workgroup (NOT per active bucket) — friendly to
@@ -2820,7 +2856,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             // storage cap (no is_present binding needed there).
             let window = bid >> WBID_SHIFT;
             let mag = bid & WBID_MAG_MASK;
-            let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
+            let red_slot = wd_reduce_off(window + batch_offset.x) + (mag - 1u);
             is_present[red_slot] = 1u;
 
             if (count == 1u) {
@@ -3325,6 +3361,10 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(7) var<storage, read_write> is_present:     array<u32>;
 // batch_offset.x = bi * batchWindows — added to local window index for red_slot.
 @group(0) @binding(8) var<uniform>             batch_offset:   vec4<u32>;
+// WindowDesc as uniform array<vec4<u32>> (row g = 2 vec4): reduce_off (u32 +4)
+// = vec4[g*2+1].x. See ba_size1 for why this is a uniform.
+@group(0) @binding(9) var<uniform>             window_desc:    array<vec4<u32>, 256>;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -3344,7 +3384,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let window = bid >> WBID_SHIFT;
     let mag = bid & WBID_MAG_MASK;
-    let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
+    let red_slot = wd_reduce_off(window + batch_offset.x) + (mag - 1u);
 
     red_buf[PG * red_slot + 0u] = x0;
     red_buf[PG * red_slot + 1u] = x1;

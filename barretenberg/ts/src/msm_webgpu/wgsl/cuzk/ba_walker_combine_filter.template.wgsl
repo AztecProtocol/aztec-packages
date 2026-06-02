@@ -50,6 +50,10 @@ fn flat_bid(bid: u32) -> u32 {
 @group(0) @binding(10) var<storage, read_write> is_present:        array<u32>;
 // batch_offset.x = bi * batchWindows — added to local window index for red_slot.
 @group(0) @binding(11) var<uniform>             batch_offset:      vec4<u32>;
+// WindowDesc as uniform array<vec4<u32>> (row g = 2 vec4): reduce_off (u32 +4)
+// = vec4[g*2+1].x. Uniform because this kernel is at the 10-storage-buffer cap.
+@group(0) @binding(12) var<uniform>             window_desc:       array<vec4<u32>, 256>;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
 
 // Workgroup-shared buffer for collecting active bucket ids locally.
 // Single global atomic per workgroup (NOT per active bucket) — friendly to
@@ -91,7 +95,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             // storage cap (no is_present binding needed there).
             let window = bid >> WBID_SHIFT;
             let mag = bid & WBID_MAG_MASK;
-            let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
+            let red_slot = wd_reduce_off(window + batch_offset.x) + (mag - 1u);
             is_present[red_slot] = 1u;
 
             if (count == 1u) {

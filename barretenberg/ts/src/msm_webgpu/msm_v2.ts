@@ -1497,7 +1497,7 @@ export class MsmV2 {
   private partitionThreadPipe!: GPUComputePipeline;
   private size1Pipe!: GPUComputePipeline;
   // Streaming bind groups (built in prepare, rebuilt on epoch change)
-  private classifyBind!: GPUBindGroup;
+  private classifyBinds!: GPUBindGroup[];
   private metaFixupBind!: GPUBindGroup;
   private radixCountBinds!: [GPUBindGroup, GPUBindGroup, GPUBindGroup]; // ping-pong per pass
   private radixScanBind!: GPUBindGroup;
@@ -1831,7 +1831,7 @@ export class MsmV2 {
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform']);
     // Streaming planner + accumulator layouts
-    m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
+    m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.metaFixupLayout = lt(['storage']);
     m.radixCountLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     m.radixScanLayout = lt(['storage', 'read-only-storage', 'uniform']);
@@ -1839,12 +1839,12 @@ export class MsmV2 {
     m.cumsumLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.partitionWgLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.partitionThreadLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-    m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform', 'storage']);
+    m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform', 'storage', 'uniform']);
     // Stream-walker layouts (C's KNOB 2 variant).
     //   partition_task: sorted_count_list, cumulative_adds, thread_cuts, planner_meta(rw), task_cuts(rw), params(uniform)
     m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   stream_walker: sorted_bucket_list, sorted_count_list, offsets, task_cuts, l0_index, point_x, point_y, bucket_sums(rw), partials(rw), partial_dest(rw), params(uniform)
-    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'uniform']);
+    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'uniform', 'uniform']);
     // === Optimal walker_combine pipeline layouts ===
     //   count: partial_dest, partial_count(rw), params
     m.combineCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
@@ -1853,9 +1853,9 @@ export class MsmV2 {
     //   scatter: partial_dest, partial_offset, partial_write_pos(rw), partial_layout(rw), params
     m.combineScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   filter: sorted_bucket_list, partial_count, partial_offset, partial_layout, partials_buf, bucket_sums(rw), active_buckets(rw), active_count(rw), params, planner_meta
-    m.combineFilterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'storage', 'uniform']);
+    m.combineFilterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'storage', 'uniform', 'uniform']);
     //   batched: active_buckets, active_count, partial_count, partial_offset, partial_layout, l0_index, point_x, point_y, partials_buf(rw), bucket_sums(rw), params
-    m.combineBatchedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform', 'uniform']);
+    m.combineBatchedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform', 'uniform', 'uniform']);
     //   sort-count:   active_buckets, active_count, partial_count, count_histogram(rw)
     m.sortCountLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage']);
     //   sort-scan:    count_histogram, bin_offsets(rw), bin_write_pos(rw), pt_dispatch_args(rw), pt_persistent_args(rw)
@@ -1874,7 +1874,7 @@ export class MsmV2 {
     //   pt-combine: pt_tasks, pt_total_tasks, pt_buf(rw), params
     m.ptCombineLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     //   pt-finalize: sorted_active, bin_offsets, active_count, pt_off, pt_buf, bucket_sums(rw), params
-    m.ptFinalizeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage', 'uniform']);
+    m.ptFinalizeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage', 'uniform', 'uniform']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1933,7 +1933,7 @@ export class MsmV2 {
     m.numRadixTiles = Math.ceil(m.bTotal / RADIX_TILE);
     const qHeaderLen = 2 * STREAM_T;
     m.classifyPipe = await compile(
-      sm.gen_ba_planner_classify_shader(256, m.bTotal, m.BW, m.stride), `classify`, m.classifyLayout);
+      sm.gen_ba_planner_classify_shader(256), `classify`, m.classifyLayout);
     m.metaFixupPipe = await compile(
       sm.gen_ba_planner_meta_fixup_shader(), `meta-fixup`, m.metaFixupLayout);
     m.radixCountPipe = await compile(
@@ -2403,7 +2403,10 @@ export class MsmV2 {
     // count 0). The padding rows continue the uniform sequence; nb=1 has no
     // padding so the table is exactly NUM_WINDOWS rows (byte-identical).
     const WD_STRIDE = 8;
-    const WD_ROWS = numBatches * batchWindows;
+    // >= numBatches*batchWindows for the short-batch padded slots; >= 128 rows
+    // (4096 B) so the at-cap consumers can bind it as a fixed array<vec4<u32>,256>
+    // uniform (their storage-buffer slots are full). VAR_WINDOW_MAX_WINDOWS=128.
+    const WD_ROWS = Math.max(numBatches * batchWindows, 128);
     const wdData = new Uint32Array(WD_ROWS * WD_STRIDE);
     for (let w = 0; w < WD_ROWS; w++) {
       const o = w * WD_STRIDE;
@@ -2416,7 +2419,7 @@ export class MsmV2 {
     }
     const windowDescBuf = device.createBuffer({
       size: wdData.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(windowDescBuf, 0, wdData as BufferSource);
     this.prepBuffers.push(windowDescBuf);
@@ -2513,8 +2516,9 @@ export class MsmV2 {
       const pbl = scratch.partialBucketsList;
       const ab = scratch.accBuf;
       const sps = scratch.streamPrefScratch;
-      const classifyParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
-      this.classifyBind = mkBind(this.classifyLayout, [countsBufs[0], offsetsBufs[0], s1, db, dc, sp, classifyParams]);
+      const classifyParams = ubuf(new Uint32Array([this.batchWindows, 0, 0, 0]));
+      this.classifyBinds = batchWindowBaseBufs.map(bwb =>
+        mkBind(this.classifyLayout, [countsBufs[0], offsetsBufs[0], s1, db, dc, sp, classifyParams, windowDescBuf, bwb]));
       this.metaFixupBind = mkBind(this.metaFixupLayout, [sp]);
       const radixParams = [
         ubuf(new Uint32Array([0, 0, 0, 0])),
@@ -2542,7 +2546,7 @@ export class MsmV2 {
       // size1 is per-batch: binding 6 carries batch_offset (= bi·batchWindows) so
       // size-1 buckets land in their global red_buf slice, like the walker/combine.
       this.size1Binds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, scratch.redBuf, sp, bwb, scratch.isPresentBuf]),
+        mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, scratch.redBuf, sp, bwb, scratch.isPresentBuf, windowDescBuf]),
       );
       // Stream-walker bind groups (Plan §6 + C's KNOB 2 variant).
       const taskc = scratch.taskCuts;
@@ -2556,7 +2560,7 @@ export class MsmV2 {
       this.streamWalkerBinds = batchWindowBaseBufs.map(bwb =>
         mkBind(this.streamWalkerLayout, [
           sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
-          scratch.redBuf, wp, pdest, walkerParams, bwb,
+          scratch.redBuf, wp, pdest, walkerParams, bwb, windowDescBuf,
         ]),
       );
       const numPartialSlots = M_partials_walker;
@@ -2578,7 +2582,7 @@ export class MsmV2 {
       // filter: params = (num_dense, M_buckets, M_partials, _)
       const filterParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, M_partials_walker, 0]));
       this.combineFilterBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.combineFilterLayout, [sb, pcount, poffset, playout, wp, scratch.redBuf, abkts, acnt, filterParams, scratch.streamPlannerMeta, scratch.isPresentBuf, bwb]),
+        mkBind(this.combineFilterLayout, [sb, pcount, poffset, playout, wp, scratch.redBuf, abkts, acnt, filterParams, scratch.streamPlannerMeta, scratch.isPresentBuf, bwb, windowDescBuf]),
       );
       // batched: params = (NUM_ACTIVE — dynamic, set at runtime, IDLE_ANCHOR, M_buckets, M_partials)
       // For now, we'll use 0 for NUM_ACTIVE here and update before dispatch (or dispatch ceil(B_TOTAL/S) and gate internally).
@@ -2629,12 +2633,12 @@ export class MsmV2 {
       this.ptDispatchChainBind = mkBind(this.ptDispatchChainLayout, [ptTotalBuf, scratch.ptCombineDispatchArgs, scratch.ptBuildLoopArgs, scratch.ptDispatchArgs]);
       this.ptCombineBind = mkBind(this.ptCombineLayout, [ptTasksBuf, ptTotalBuf, ptBuf, ptCombineParams]);
       this.ptFinalizeBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.ptFinalizeLayout, [sabkts, boffs, acnt, ptOffBuf, ptBuf, scratch.redBuf, ptFinalizeParams, scratch.isPresentBuf, bwb]),
+        mkBind(this.ptFinalizeLayout, [sabkts, boffs, acnt, ptOffBuf, ptBuf, scratch.redBuf, ptFinalizeParams, scratch.isPresentBuf, bwb, windowDescBuf]),
       );
       // combine_batched now reads sorted_active_buckets at binding 0 → zero
       // tail divergence per S=8 thread group.
       this.combineBatchedBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.combineBatchedLayout, [sabkts, acnt, pcount, poffset, playout, l0IdxBuf, this.pointXBuf, this.pointYBuf, wp, scratch.redBuf, walkerParams, bwb]),
+        mkBind(this.combineBatchedLayout, [sabkts, acnt, pcount, poffset, playout, l0IdxBuf, this.pointXBuf, this.pointYBuf, wp, scratch.redBuf, walkerParams, bwb, windowDescBuf]),
       );
     }
 
@@ -2856,7 +2860,7 @@ export class MsmV2 {
       // combine_scatter accept both 0 and NO_BUCKET as "no partial here"
       // since the classifier's magnitude filter guarantees no real bid is 0.
       clearSlot(enc, this.pool.scratch!.walkerPartialDest);
-      dispatch(this.classifyPipe, this.classifyBind, Math.ceil(this.bTotal / 256), 1);
+      dispatch(this.classifyPipe, this.classifyBinds[bi], Math.ceil(this.BW / 256), this.batchWindows);
       dispatch(this.metaFixupPipe, this.metaFixupBind, 1, 1);
       for (let rpass = 0; rpass < 3; rpass++) {
         dispatch(this.radixCountPipe, this.radixCountBinds[rpass], this.numRadixTiles, 1);

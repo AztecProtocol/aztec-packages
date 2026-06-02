@@ -66,6 +66,10 @@ fn flat_bid(bid: u32) -> u32 {
 @group(0) @binding(10) var<uniform>            params:          vec4<u32>;
 // batch_offset.x = bi * batchWindows — added to local window index for red_slot.
 @group(0) @binding(11) var<uniform>            batch_offset:    vec4<u32>;
+// WindowDesc as uniform array<vec4<u32>> (row g = 2 vec4): reduce_off (u32 +4)
+// = vec4[g*2+1].x. Uniform because this kernel is at the 10-storage-buffer cap.
+@group(0) @binding(12) var<uniform>            window_desc:     array<vec4<u32>, 256>;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
 // is_present marking is hoisted into combine_filter to keep this kernel
 // at 10 storage bindings (M2's maxStorageBuffersPerShaderStage = 10).
 
@@ -92,7 +96,7 @@ fn load_pt_x(cursor: u32) -> array<u32, 8> {
 fn store_bucket_sum(bid: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
     let window = bid >> WBID_SHIFT;
     let mag = bid & WBID_MAG_MASK;
-    let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
+    let red_slot = wd_reduce_off(window + batch_offset.x) + (mag - 1u);
     let bx = PG * red_slot;
     red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);

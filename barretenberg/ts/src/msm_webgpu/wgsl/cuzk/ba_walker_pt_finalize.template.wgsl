@@ -31,6 +31,10 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(7) var<storage, read_write> is_present:     array<u32>;
 // batch_offset.x = bi * batchWindows — added to local window index for red_slot.
 @group(0) @binding(8) var<uniform>             batch_offset:   vec4<u32>;
+// WindowDesc as uniform array<vec4<u32>> (row g = 2 vec4): reduce_off (u32 +4)
+// = vec4[g*2+1].x. See ba_size1 for why this is a uniform.
+@group(0) @binding(9) var<uniform>             window_desc:    array<vec4<u32>, 256>;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -50,7 +54,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     let window = bid >> WBID_SHIFT;
     let mag = bid & WBID_MAG_MASK;
-    let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
+    let red_slot = wd_reduce_off(window + batch_offset.x) + (mag - 1u);
 
     red_buf[PG * red_slot + 0u] = x0;
     red_buf[PG * red_slot + 1u] = x1;

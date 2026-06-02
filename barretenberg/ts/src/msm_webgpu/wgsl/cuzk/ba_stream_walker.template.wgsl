@@ -66,6 +66,12 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 // correct window range. red_buf is no longer cleared per batch (only once
 // per encode) so batches accumulate side-by-side.
 @group(0) @binding(11) var<uniform>            batch_offset:       vec4<u32>;
+// WindowDesc as a UNIFORM array<vec4<u32>> (row g = 2 vec4): work_off (u32 +3)
+// = vec4[g*2].w, reduce_off (u32 +4) = vec4[g*2+1].x. Uniform, NOT storage, so
+// the walker stays at the 10-storage-buffer cap noted below.
+@group(0) @binding(12) var<uniform>            window_desc:        array<vec4<u32>, 256>;
+fn wd_work_off(g: u32) -> u32 { return window_desc[g * 2u + 0u].w; }
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
 // is_present marking is hoisted into combine_filter; stream_walker stays
 // at 10 storage bindings (M2 cap). combine_filter sees every bucket with
 // count >= 1, including those stream_walker whole-retired.
@@ -78,10 +84,12 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 // touches just 2-4 cache lines (vs 32 lines in the naive per-thread-stride
 // layout), letting the GPU coalesce the writes into a single transaction.
 
-// Flat CSR index (offsets/counts space) for a packed-window bid. Recovers
-// window*BW + mag — a multiply, never a divide. Uniform path ⇒ == old flat bid.
+// Flat CSR index (offsets/counts space) for a packed-window bid. The CSR is
+// batch-local, so subtract the batch's base work_off from the global prefix.
+// Uniform fill ⇒ wd_work_off(gwin) - wd_work_off(bwb) == window*BW.
 fn flat_bid(bid: u32) -> u32 {
-    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+    let gwin = (bid >> WBID_SHIFT) + batch_offset.x;
+    return wd_work_off(gwin) - wd_work_off(batch_offset.x) + (bid & WBID_MAG_MASK);
 }
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
@@ -123,7 +131,7 @@ fn store_bucket_sum(bucket_id: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) 
     // Global window index = (batch-local window) + batch_offset (= bi * batchWindows).
     let window = bucket_id >> WBID_SHIFT;
     let mag = bucket_id & WBID_MAG_MASK;
-    let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
+    let red_slot = wd_reduce_off(window + batch_offset.x) + (mag - 1u);
     let bx = PG * red_slot;
     red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);

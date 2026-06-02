@@ -743,8 +743,8 @@ ${packLines.join('\n')}
 
   // --- Streaming planner + accumulator generators ---
 
-  public gen_ba_planner_classify_shader(workgroup_size: number, b_total: number, bw: number, stride: number): string {
-    return mustache.render(ba_planner_classify_shader, { workgroup_size, b_total, bw, stride, recompile: this.recompile });
+  public gen_ba_planner_classify_shader(workgroup_size: number): string {
+    return mustache.render(ba_planner_classify_shader, { workgroup_size, recompile: this.recompile });
   }
 
   public gen_ba_planner_meta_fixup_shader(): string {
