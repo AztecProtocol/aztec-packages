@@ -376,10 +376,49 @@ matches the existing `combineOnHost=true` flow (already reads back per-window
 points and Horner-combines on host); host readback becomes `NW·64` B regardless
 of `n`. RED storage drops from `64·NW·stride` to `64·bw·stride`.
 
-**Wire the budget gate.** Replace the `wgFits`-only loop (`msm_v2.ts:2071`) with:
-pick the largest `bw` (and pack-count) satisfying §3's inequality at 160 MB
-**including the THREAD terms `estimateMem` omits**, with `wgFits` as a second
-constraint.
+> **IMPLEMENTATION NOTES (more invasive than the paragraph implies — analysed,
+> deferred into Packing).** Three findings from auditing the live dispatch flow:
+> 1. **`M_RED` is a compile-time constant**, not a uniform. `redBuf`'s Y-plane
+>    offset `PG·M_RED` (`M_RED = redM = NW·stride`) is baked into **6 shaders**:
+>    `ba_stream_walker`, `ba_size1`, `ba_walker_combine_filter`,
+>    `ba_walker_combine_batched`, `ba_walker_pt_finalize`, `ba_reduce_level_bench`.
+>    Shrinking `redBuf` to `bw·stride` needs `M_RED = bw·stride`. Two routes:
+>    (a) make `M_RED` a runtime uniform — but a spare field already exists, the
+>    `batch_offset: vec4<u32>` those shaders carry (`.x` is the only field used),
+>    so pass `M_RED` in `batch_offset.y` and add **no new binding**; or
+>    (b) compute `numBatches` at `create()` (it depends only on `n`/`NW`/`sT`/
+>    `budget`, all known there) and compile each shader with a per-instance
+>    `M_RED = batchWindows·stride`. Route (a) is less coupling.
+> 2. **`batch_offset.x → 0` is the whole batch-local switch.** Walker/combine/
+>    pt_finalize already add `batch_offset.x` (`= bi·batchWindows`) to the local
+>    window index; feeding 0 makes them write batch-local with no WGSL change.
+>    The reduce + per-window gather (`msm_v2.ts` ~`reduce` loop + the
+>    `copyBufferToBuffer` window gather) move **into** the per-batch loop — the
+>    planner already runs per-batch, so the structure supports it. The gather's
+>    `dst` offset becomes `bi·bw·64`.
+> 3. **RESOLVE FIRST — a `batch_offset` asymmetry.** `ba_size1` computes
+>    `red_slot` *without* `batch_offset` (`(bucket_idx/BW)*STRIDE + …`), while the
+>    walker/combine *do* add it. In multi-batch this looks like size-1 buckets
+>    land at local-window slots while the walker writes global — yet `?nb=4/20`
+>    validate **byte-identical to golden**, so size1 is either not exercised on
+>    those inputs or compensated elsewhere. Understand this before touching the
+>    indexing; getting it wrong silently corrupts (no error).
+>
+> **Risk is bounded:** at `numBatches=1` the change is byte-identical *by
+> construction* (`batchWindows=NW` ⇒ `M_RED=NW·stride`, `batch_offset.x=0=0·NW`),
+> so the golden path can't regress; the `nb>1` path is checked by `?nb=` forced
+> staging against golden (the MSM is batch-invariant — verified at nb=1/4/20).
+> **Benefit only at `numBatches>1`** (packing or logN≥18): `redBuf`+`isPresent`
+> drop `64·NW·stride+4·NW·stride → 64·bw·stride+4·bw·stride` (~5 MiB at logN17
+> fully staged). For single MSMs the `sT` lever (§8) already dominates the memory
+> win, so **fold this into Packing (step 5)**, where `numBatches>1` is the norm
+> and the benefit actually lands.
+
+**Wire the budget gate.** ✅ **DONE** (`3cc7ce72a3`): the `wgFits`-only loop is
+replaced by one that raises the batch count until each batch fits both the 65k-wg
+cap and the budget, using `arenaColourSizes` (the THREAD terms the old estimate
+omitted) + SRS + CSR. The budget is device-configurable (`budgetMiB`, default 160,
+`3bd8ea957f`). Pack-count staging is the remaining piece, deferred into step 5.
 
 ---
 
@@ -431,9 +470,13 @@ cap at 16 KiB). Make `MPW` (hence `sT`) device-adaptive.
    160 MB, overridable via `config.maxPlannerWorkgroups` / `?mpw=`. Desktop keeps
    32 (byte-identical); `?mpw=8` reclaims 34 MiB (100.57→66.33 @ logN17),
    byte-identical + D/E oracle-agree. Phone perf-bench of `sT=2048` still open.
-3. **Reduce restructure** → per-pass RED + persistent `windowSums`; enable `bw`
-   staging. (The 160 MB gate incl. THREAD terms is ✅ wired, `3cc7ce72a3`; this
-   step is the remaining compute-flow change that lets `bw < NW` actually shrink RED.)
+3. **Reduce restructure** → per-pass RED. The 160 MB gate incl. THREAD terms is
+   ✅ wired (`3cc7ce72a3`) + device-configurable (`3bd8ea957f`); the multi-batch
+   path is ✅ validated golden (`?nb=1/4/20`, `15c708e231`). The remaining
+   compute-flow change (batch-local `redBuf` so `bw < NW` shrinks RED) is
+   **analysed + deferred into step 5** — see §7 IMPLEMENTATION NOTES (compile-time
+   `M_RED`, the `batch_offset.x→0` switch, the `ba_size1` asymmetry to resolve).
+   Its benefit only lands at `numBatches>1`, which is Packing's regime.
 4. **Overlay.** ~~scatter→`ptScratch`~~ — **infeasible under the 6-colour build**
    (the cross-zone reclaim is blocked by the ro+rw colouring; see §2
    RECONCILIATION). Achievable substitute: **within-colour** overlay via a
