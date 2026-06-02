@@ -232,10 +232,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   /**
    * Returns the next sender-side tagging index for a given secret and delivery mode.
    *
-   * Both delivery origins funnel through here: the caller already holds the tagging secret (derived via
-   * {@link getAppTaggingSecret} or retrieved from a handshake registry) and only needs a fresh per-secret,
-   * per-mode index, then computes the tag itself. `mode` selects the per-mode index counter.
-   *
    * @param secret - The tagging secret to allocate an index for.
    * @param mode - The delivery mode; selects the per-mode index counter.
    * @returns The next index to use for this secret.
