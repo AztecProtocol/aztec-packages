@@ -3,20 +3,13 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundatio
 import { SerialQueue } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
-import {
-  BlockHash,
-  type L2BlockId,
-  L2BlockStream,
-  type L2BlockStreamEvent,
-  type L2BlockStreamEventHandler,
-} from '@aztec/stdlib/block';
+import { BlockHash, L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
-import type { CanonicalBlockStore } from '../storage/canonical_block_store/index.js';
 import type { NoteStore } from '../storage/note_store/index.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
@@ -35,7 +28,6 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   constructor(
     private node: AztecNode,
     private store: AztecAsyncKVStore,
-    private canonicalBlockStore: CanonicalBlockStore,
     private anchorBlockStore: AnchorBlockStore,
     private noteStore: NoteStore,
     private privateEventStore: PrivateEventStore,
@@ -74,10 +66,6 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
     switch (event.type) {
       case 'blocks-added': {
-        const origins = await Promise.all(
-          event.blocks.map(async b => ({ number: b.number, hash: (await b.hash()).toString() })),
-        );
-        await this.canonicalBlockStore.setManyCanonical(origins);
         if (this.config.syncChainTip === undefined || this.config.syncChainTip === 'proposed') {
           const lastBlock = event.blocks.at(-1)!;
           await this.updateAnchorBlockHeader(lastBlock.header);
@@ -104,21 +92,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         break;
       }
       case 'chain-finalized': {
-        const prevFloor = this.canonicalBlockStore.getFinalizedFloor();
-        const newFloor = event.block.number;
-        if (newFloor > prevFloor) {
-          // Reap orphaned rows in the newly-finalized range and raise the floor atomically: either both happen or
-          // neither, so a crash mid-way can never leave non-canonical rows below a raised floor (where they'd become
-          // permanently visible, since blocks at or below the floor are canonical with no hash to disqualify them).
-          await this.store.transactionAsync(async () => {
-            const isCanonical = (id: L2BlockId) => this.canonicalBlockStore.isCanonical(id);
-            // Reap BEFORE advancing the floor: advanceFinalized prunes the (prevFloor, newFloor] hashes, so isCanonical
-            // would no longer be able to distinguish the canonical fork from orphans at those heights afterwards.
-            await this.noteStore.reapNonCanonicalInRange(prevFloor + 1, newFloor, isCanonical);
-            await this.privateEventStore.reapNonCanonicalInRange(prevFloor + 1, newFloor, isCanonical);
-            await this.canonicalBlockStore.advanceFinalized(newFloor);
-          });
-        }
+        // Finality requires no storage action under delete-on-prune: a finalized block can no longer be reorged, so its
+        // rows are already canonical and nothing needs reaping.
         if (this.config.syncChainTip === 'finalized') {
           const block = await this.node.getBlock(BlockNumber(event.block.number));
           if (block) {
@@ -155,7 +130,11 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         }
 
         await this.store.transactionAsync(async () => {
-          await this.canonicalBlockStore.clearAbove(event.block.number);
+          // Truncate the orphaned tail: every note/event anchored above the fork (up to the old synced tip, which is the
+          // current anchor height) is on the abandoned fork. Delete unconditionally, then move the anchor down.
+          const firstOrphanBlock = event.block.number + 1;
+          await this.noteStore.deleteInBlockRange(firstOrphanBlock, currentAnchorBlockNumber);
+          await this.privateEventStore.deleteInBlockRange(firstOrphanBlock, currentAnchorBlockNumber);
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;

@@ -6,14 +6,6 @@
       "kind": "map"
     },
     {
-      "name": "canonical_hashes",
-      "kind": "map"
-    },
-    {
-      "name": "canonical_meta",
-      "kind": "singleton"
-    },
-    {
       "name": "capsules",
       "kind": "map"
     },

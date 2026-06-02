@@ -24,7 +24,6 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
-import { CanonicalBlockStore } from '../storage/canonical_block_store/index.js';
 import { NoteStore } from '../storage/note_store/index.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
@@ -33,7 +32,6 @@ describe('BlockSynchronizer', () => {
   let synchronizer: BlockSynchronizer;
   let store: AztecAsyncKVStore;
   let tipsStore: L2TipsKVStore;
-  let canonicalBlockStore: CanonicalBlockStore;
   let anchorBlockStore: AnchorBlockStore;
   let noteStore: NoteStore;
   let privateEventStore: PrivateEventStore;
@@ -51,7 +49,6 @@ describe('BlockSynchronizer', () => {
     return new TestSynchronizer(
       aztecNode,
       store,
-      canonicalBlockStore,
       anchorBlockStore,
       noteStore,
       privateEventStore,
@@ -66,11 +63,9 @@ describe('BlockSynchronizer', () => {
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
     tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
-    canonicalBlockStore = new CanonicalBlockStore(store, tipsStore);
-    await canonicalBlockStore.load();
     anchorBlockStore = new AnchorBlockStore(store);
-    noteStore = new NoteStore(store, canonicalBlockStore);
-    privateEventStore = new PrivateEventStore(store, canonicalBlockStore);
+    noteStore = new NoteStore(store, { isCanonical: () => true });
+    privateEventStore = new PrivateEventStore(store, { isCanonical: () => true });
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });
@@ -161,97 +156,118 @@ describe('BlockSynchronizer', () => {
     });
   });
 
-  describe('canonical map', () => {
-    it('records canonical hashes for all blocks in a blocks-added event', async () => {
-      const blocks = await timesParallel(3, i => L2Block.random(BlockNumber(i + 1)));
-      await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });
+  describe('delete-on-prune', () => {
+    // Two distinct, valid block-hash Fr values for forks at the same height.
+    const HASH_A = Fr.fromString('0x0c').toString();
+    const HASH_B = Fr.fromString('0x0a').toString();
 
-      for (const b of blocks) {
-        expect(canonicalBlockStore.isCanonical({ number: b.number, hash: (await b.hash()).toString() })).toBe(true);
-      }
-    });
-
-    it('clears orphaned suffix on chain-pruned and updates the anchor header', async () => {
-      // Pre-record blocks 1..5
-      const blocks = await timesParallel(5, i => L2Block.random(BlockNumber(i + 1)));
-      await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });
-
-      // The block at common ancestor 3 (hash) is what the prune event reports
-      const commonAncestorBlock = blocks[2]; // blockNumber 3
-      aztecNode.getBlock.mockImplementation(async (param: any) => {
-        if (
-          param instanceof BlockHash &&
-          param.equals(Fr.fromString(await commonAncestorBlock.hash().then(h => h.toString())))
-        ) {
-          return {
-            header: commonAncestorBlock.header,
-            archive: commonAncestorBlock.archive,
-            hash: await commonAncestorBlock.hash(),
-            checkpointNumber: commonAncestorBlock.checkpointNumber,
-            indexWithinCheckpoint: commonAncestorBlock.indexWithinCheckpoint,
-            number: commonAncestorBlock.number,
-          } as any;
-        }
-        return undefined;
-      });
-
-      const commonAncestorHash = (await commonAncestorBlock.hash()).toString();
-      await synchronizer.handleBlockStreamEvent({
-        type: 'chain-pruned',
-        block: { number: BlockNumber(3), hash: commonAncestorHash },
-        checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-      });
-
-      // Heights above 3 should no longer be canonical
-      for (const b of blocks.filter(b => b.number > 3)) {
-        expect(canonicalBlockStore.isCanonical({ number: b.number, hash: (await b.hash()).toString() })).toBe(false);
-      }
-      // Heights at or below 3 should still be canonical
-      for (const b of blocks.filter(b => b.number <= 3)) {
-        expect(canonicalBlockStore.isCanonical({ number: b.number, hash: (await b.hash()).toString() })).toBe(true);
-      }
-      // The new anchor header should be the common ancestor block
-      const obtainedHeader = await anchorBlockStore.getBlockHeader();
-      expect(obtainedHeader.equals(commonAncestorBlock.header)).toBe(true);
-    });
-
-    // Two distinct, valid block-hash Fr values for the orphan/canonical forks at the same finalized height. The note
-    // and event stores serialize l2BlockHash as a field element, so the hashes must be real field elements.
-    const CANONICAL_HASH = Fr.fromString('0x0c').toString();
-    const ORPHAN_HASH = Fr.fromString('0x0a').toString();
-
-    it('chain-finalized reaps non-canonical rows in the newly-finalized range and advances the floor', async () => {
+    it('chain-pruned deletes rows anchored above the fork and keeps rows at or below it', async () => {
       const contract = await AztecAddress.random();
       const scope = await AztecAddress.random();
 
-      // The canonical fork at block 9 (a prior blocks-added would have recorded this).
-      await canonicalBlockStore.setManyCanonical([{ number: BlockNumber(9), hash: CANONICAL_HASH }]);
-
-      // A note on the canonical fork and a competing note on an orphaned fork, both created at block 9.
-      const canonicalNote = await NoteDao.random({
+      // Seed notes at blocks 3, 4, and 5. block 3 is the fork point; 4 and 5 are on the abandoned fork.
+      const noteAt3 = await NoteDao.random({
         contractAddress: contract,
-        l2BlockNumber: BlockNumber(9),
-        l2BlockHash: CANONICAL_HASH,
+        l2BlockNumber: BlockNumber(3),
+        l2BlockHash: HASH_A,
       });
-      const orphanNote = await NoteDao.random({
+      const noteAt4 = await NoteDao.random({
         contractAddress: contract,
-        l2BlockNumber: BlockNumber(9),
-        l2BlockHash: ORPHAN_HASH,
+        l2BlockNumber: BlockNumber(4),
+        l2BlockHash: HASH_A,
       });
-      await noteStore.addNotes([canonicalNote, orphanNote], scope, 'note-job');
+      const noteAt5 = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(5),
+        l2BlockHash: HASH_A,
+      });
+      await noteStore.addNotes([noteAt3, noteAt4, noteAt5], scope, 'note-job');
       await noteStore.commit('note-job');
 
-      // Likewise a canonical and an orphan private event at block 9, sharing contract + selector.
+      // Seed events at blocks 3, 4, and 5.
       const eventSelector = EventSelector.random();
-      const randomness = Fr.random();
-      const msgContent = [Fr.random(), Fr.random()];
-      const canonicalEventId = Fr.random();
-      const orphanEventId = Fr.random();
+      const storeEvent = (eventId: Fr, blockNumber: number) =>
+        privateEventStore.storePrivateEventLog(
+          eventSelector,
+          Fr.random(),
+          [Fr.random()],
+          eventId,
+          {
+            contractAddress: contract,
+            scope,
+            txHash: TxHash.random(),
+            l2BlockNumber: BlockNumber(blockNumber),
+            l2BlockHash: BlockHash.fromString(HASH_A),
+            txIndexInBlock: 0,
+            eventIndexInTx: 0,
+          },
+          'event-job',
+        );
+      const eventIdAt3 = Fr.random();
+      const eventIdAt4 = Fr.random();
+      const eventIdAt5 = Fr.random();
+      await storeEvent(eventIdAt3, 3);
+      await storeEvent(eventIdAt4, 4);
+      await storeEvent(eventIdAt5, 5);
+      await privateEventStore.commit('event-job');
+
+      // Set the anchor to block 5 so the prune guard passes.
+      const anchorBlock5 = await L2Block.random(BlockNumber(5));
+      await anchorBlockStore.setHeader(anchorBlock5.header);
+
+      // Mock the node to return a block at the fork hash for block 3.
+      const forkBlock3 = await L2Block.random(BlockNumber(3));
+      aztecNode.getBlock.mockImplementation((param: any) => {
+        if (param instanceof BlockHash && param.equals(Fr.fromString(HASH_B))) {
+          return Promise.resolve({ header: forkBlock3.header } as any);
+        }
+        return Promise.resolve(undefined);
+      });
+
+      // Prune back to block 3 (orphaning blocks 4 and 5).
+      await synchronizer.handleBlockStreamEvent({
+        type: 'chain-pruned',
+        block: { number: BlockNumber(3), hash: HASH_B },
+        checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      });
+
+      // Rows at blocks 4 and 5 must be gone.
+      expect(await noteStore.nullifiersAtBlock(4)).toHaveLength(0);
+      expect(await noteStore.nullifiersAtBlock(5)).toHaveLength(0);
+      expect(await privateEventStore.eventIdsAtBlock(4)).toHaveLength(0);
+      expect(await privateEventStore.eventIdsAtBlock(5)).toHaveLength(0);
+
+      // Row at block 3 (the fork point, not an orphan) must survive.
+      expect(await noteStore.nullifiersAtBlock(3)).toEqual([noteAt3.siloedNullifier.toString()]);
+      expect(await privateEventStore.eventIdsAtBlock(3)).toEqual([eventIdAt3.toString()]);
+    });
+
+    it('chain-finalized does not delete any rows', async () => {
+      const contract = await AztecAddress.random();
+      const scope = await AztecAddress.random();
+
+      // Seed a note with two competing fork hashes at block 9 (simulating an unresolved fork).
+      const noteCanonical = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(9),
+        l2BlockHash: HASH_A,
+      });
+      const noteOrphan = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(9),
+        l2BlockHash: HASH_B,
+      });
+      await noteStore.addNotes([noteCanonical, noteOrphan], scope, 'note-job');
+      await noteStore.commit('note-job');
+
+      const eventIdA = Fr.random();
+      const eventIdB = Fr.random();
+      const eventSelector = EventSelector.random();
       const storeEvent = (eventId: Fr, hash: string) =>
         privateEventStore.storePrivateEventLog(
           eventSelector,
-          randomness,
-          msgContent,
+          Fr.random(),
+          [Fr.random()],
           eventId,
           {
             contractAddress: contract,
@@ -264,55 +280,76 @@ describe('BlockSynchronizer', () => {
           },
           'event-job',
         );
-      await storeEvent(canonicalEventId, CANONICAL_HASH);
-      await storeEvent(orphanEventId, ORPHAN_HASH);
+      await storeEvent(eventIdA, HASH_A);
+      await storeEvent(eventIdB, HASH_B);
       await privateEventStore.commit('event-job');
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',
-        block: { number: BlockNumber(9), hash: CANONICAL_HASH },
+        block: { number: BlockNumber(9), hash: HASH_A },
       });
 
-      // The orphan rows are reaped; only the canonical fork survives the finalization.
-      expect(await noteStore.nullifiersAtBlock(9)).toEqual([canonicalNote.siloedNullifier.toString()]);
-      expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([canonicalEventId.toString()]);
-
-      // The floor is raised to the finalized height and the height's hashes are pruned from the reorg-able window.
-      expect(canonicalBlockStore.getFinalizedFloor()).toBe(9);
-      expect(canonicalBlockStore.getCanonicalHash(BlockNumber(9))).toBeUndefined();
-
-      // With the hash pruned, every block at or below the floor is canonical: finalized ⇒ canonical.
-      expect(canonicalBlockStore.isCanonical({ number: BlockNumber(9), hash: ORPHAN_HASH })).toBe(true);
+      // Both rows survive: chain-finalized takes no storage action under delete-on-prune.
+      const nullifiers = await noteStore.nullifiersAtBlock(9);
+      expect(nullifiers).toHaveLength(2);
+      const eventIds = await privateEventStore.eventIdsAtBlock(9);
+      expect(eventIds).toHaveLength(2);
     });
 
-    it('keeps a canonical row at a finalized height visible after finalization', async () => {
+    it('notes below the fork survive and remain queryable after a prune', async () => {
       const contract = await AztecAddress.random();
       const scope = await AztecAddress.random();
 
-      await canonicalBlockStore.setManyCanonical([{ number: BlockNumber(9), hash: CANONICAL_HASH }]);
-      const canonicalNote = await NoteDao.random({
+      const noteAt1 = await NoteDao.random({
         contractAddress: contract,
-        l2BlockNumber: BlockNumber(9),
-        l2BlockHash: CANONICAL_HASH,
+        l2BlockNumber: BlockNumber(1),
+        l2BlockHash: HASH_A,
       });
-      await noteStore.addNotes([canonicalNote], scope, 'note-job');
+      const noteAt2 = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(2),
+        l2BlockHash: HASH_A,
+      });
+      const noteAt3 = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(3),
+        l2BlockHash: HASH_A,
+      });
+      await noteStore.addNotes([noteAt1, noteAt2, noteAt3], scope, 'note-job');
       await noteStore.commit('note-job');
 
-      await synchronizer.handleBlockStreamEvent({
-        type: 'chain-finalized',
-        block: { number: BlockNumber(9), hash: CANONICAL_HASH },
+      // Anchor at block 3.
+      const anchorBlock3 = await L2Block.random(BlockNumber(3));
+      await anchorBlockStore.setHeader(anchorBlock3.header);
+
+      // Mock block 1 for the new anchor after prune.
+      const forkBlock1 = await L2Block.random(BlockNumber(1));
+      aztecNode.getBlock.mockImplementation((param: any) => {
+        if (param instanceof BlockHash) {
+          return Promise.resolve({ header: forkBlock1.header } as any);
+        }
+        return Promise.resolve(undefined);
       });
 
-      // The canonical note survives the reap, and stays visible via finalized ⇒ canonical even though its hash is gone.
-      expect(await noteStore.nullifiersAtBlock(9)).toEqual([canonicalNote.siloedNullifier.toString()]);
-      expect(canonicalBlockStore.getCanonicalHash(BlockNumber(9))).toBeUndefined();
-      expect(canonicalBlockStore.isCanonical({ number: BlockNumber(9), hash: CANONICAL_HASH })).toBe(true);
+      // Prune back to block 1 (orphaning blocks 2 and 3).
+      await synchronizer.handleBlockStreamEvent({
+        type: 'chain-pruned',
+        block: { number: BlockNumber(1), hash: HASH_B },
+        checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      });
+
+      // Blocks 2 and 3 deleted.
+      expect(await noteStore.nullifiersAtBlock(2)).toHaveLength(0);
+      expect(await noteStore.nullifiersAtBlock(3)).toHaveLength(0);
+
+      // Block 1 note still present and visible via getNotes.
+      expect(await noteStore.nullifiersAtBlock(1)).toEqual([noteAt1.siloedNullifier.toString()]);
       const found = await noteStore.getNotes(
         { contractAddress: contract, scopes: [scope], status: NoteStatus.ACTIVE },
         'read-job',
       );
       expect(found).toHaveLength(1);
-      expect(found[0].siloedNullifier.equals(canonicalNote.siloedNullifier)).toBe(true);
+      expect(found[0].siloedNullifier.equals(noteAt1.siloedNullifier)).toBe(true);
     });
   });
 

@@ -37,7 +37,6 @@ import {
 
 import { AddressStore } from '../address_store/address_store.js';
 import { AnchorBlockStore } from '../anchor_block_store/index.js';
-import { CanonicalBlockStore } from '../canonical_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
 import { NoteStore } from '../note_store/note_store.js';
@@ -78,29 +77,6 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     snapshotStore: async kvStore => ({
       complete_addresses: await snapshotArray(kvStore.openArray<Buffer>('complete_addresses')),
       complete_address_index: await snapshotMap(kvStore.openMap<string, number>('complete_address_index')),
-    }),
-  },
-
-  {
-    name: 'CanonicalBlockStore',
-    writeToStore: async kvStore => {
-      const canonicalBlockStore = new CanonicalBlockStore(
-        kvStore,
-        new L2TipsKVStore(kvStore, 'pxe', GENESIS_BLOCK_HEADER_HASH),
-      );
-      await canonicalBlockStore.load();
-
-      // Populate the canonical map + finalized floor so canonical_hashes / canonical_meta are fingerprinted.
-      await canonicalBlockStore.setManyCanonical([
-        { number: BlockNumber(101), hash: '0x6f' },
-        { number: BlockNumber(103), hash: '0x83' },
-      ]);
-      // 89 is below the recorded hashes at 101/103, so this prunes nothing and only sets the floor + persists meta.
-      await canonicalBlockStore.advanceFinalized(BlockNumber(89));
-    },
-    snapshotStore: async kvStore => ({
-      canonical_hashes: await snapshotMap(kvStore.openMap<number, string>('canonical_hashes')),
-      canonical_meta: await snapshotSingleton(kvStore.openSingleton<Buffer>('canonical_meta')),
     }),
   },
 

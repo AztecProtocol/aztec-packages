@@ -256,7 +256,6 @@ export class PXE {
       privateEventStore,
       contractStore,
       noteStore,
-      canonicalBlockStore,
       anchorBlockStore,
       senderTaggingStore,
       senderAddressBookStore,
@@ -264,7 +263,7 @@ export class PXE {
       capsuleStore,
       keyStore,
       l2TipsStore,
-    } = await openPxeStores(store, initialBlockHash);
+    } = openPxeStores(store, initialBlockHash);
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,
@@ -276,7 +275,6 @@ export class PXE {
     const synchronizer = new BlockSynchronizer(
       node,
       store,
-      canonicalBlockStore,
       anchorBlockStore,
       noteStore,
       privateEventStore,

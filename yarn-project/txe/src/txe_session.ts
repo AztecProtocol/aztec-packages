@@ -7,7 +7,6 @@ import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
   AnchorBlockStore,
-  CanonicalBlockStore,
   CapsuleService,
   CapsuleStore,
   ContractStore,
@@ -276,16 +275,8 @@ export class TXESession implements TXESessionStateHandler {
     ]);
 
     const archiver = new TXEArchiver(store);
-    const canonicalBlockStore = new CanonicalBlockStore(store, archiver);
-    await canonicalBlockStore.load();
     const anchorBlockStore = new AnchorBlockStore(store);
-    const stateMachine = await TXEStateMachine.create(
-      archiver,
-      canonicalBlockStore,
-      anchorBlockStore,
-      contractStore,
-      noteStore,
-    );
+    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());

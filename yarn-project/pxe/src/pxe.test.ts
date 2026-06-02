@@ -329,11 +329,9 @@ describe('PXE', () => {
 
       // Canonicality is established the same way it is in production, by driving the real L2BlockStream to completion.
       // Once genesis agrees (see the getBlock mock above) the stream ingests `lastKnownBlockNumber` as a `blocks-added`
-      // event, which the block synchronizer records in `CanonicalBlockStore` with the block header hash and adopts as
-      // the anchor header. It then emits `chain-finalized` (the node reports a finalized tip there while the local store
-      // is still at genesis), raising the finalized floor to `lastKnownBlockNumber`. So events at that block read back
-      // as canonical (recorded hash matches), and events in later, not-yet-synced blocks stay above the floor with no
-      // recorded hash and are filtered out.
+      // event, which the block synchronizer adopts as the anchor header. It then emits `chain-finalized` (the node
+      // reports a finalized tip there while the local store is still at genesis). So events at that block read back as
+      // canonical, and events in later, not-yet-synced blocks stay above the anchor height and are filtered out.
       //
       // getBlocks must yield a body-bearing response so the stream source can build a real L2Block; getCheckpoints has
       // nothing to serve (the single block is uncheckpointed here) and returns empty.

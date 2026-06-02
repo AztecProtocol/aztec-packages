@@ -5,7 +5,6 @@ import type { BlockHash } from '@aztec/stdlib/block';
 
 import { AddressStore } from './address_store/address_store.js';
 import { AnchorBlockStore } from './anchor_block_store/index.js';
-import { CanonicalBlockStore } from './canonical_block_store/index.js';
 import { CapsuleStore } from './capsule_store/capsule_store.js';
 import { ContractStore } from './contract_store/contract_store.js';
 import { NoteStore } from './note_store/note_store.js';
@@ -20,7 +19,6 @@ export type PxeStores = {
   privateEventStore: PrivateEventStore;
   contractStore: ContractStore;
   noteStore: NoteStore;
-  canonicalBlockStore: CanonicalBlockStore;
   anchorBlockStore: AnchorBlockStore;
   senderTaggingStore: SenderTaggingStore;
   senderAddressBookStore: SenderAddressBookStore;
@@ -34,17 +32,14 @@ export type PxeStores = {
  * Opens every PXE sub-store against the given backing store. The `initialBlockHash` seeds the
  * `L2TipsKVStore` so it agrees with the node's archiver on the dynamic genesis header hash.
  */
-export async function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: BlockHash): Promise<PxeStores> {
+export function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: BlockHash): PxeStores {
   const l2TipsStore = new L2TipsKVStore(store, 'pxe', initialBlockHash);
-  const canonicalBlockStore = new CanonicalBlockStore(store, l2TipsStore);
-  await canonicalBlockStore.load();
   const anchorBlockStore = new AnchorBlockStore(store);
   return {
     addressStore: new AddressStore(store),
-    privateEventStore: new PrivateEventStore(store, canonicalBlockStore),
+    privateEventStore: new PrivateEventStore(store, { isCanonical: () => true }),
     contractStore: new ContractStore(store),
-    noteStore: new NoteStore(store, canonicalBlockStore),
-    canonicalBlockStore,
+    noteStore: new NoteStore(store, { isCanonical: () => true }),
     anchorBlockStore,
     senderTaggingStore: new SenderTaggingStore(store),
     senderAddressBookStore: new SenderAddressBookStore(store),
