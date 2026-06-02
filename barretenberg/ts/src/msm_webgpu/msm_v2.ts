@@ -558,11 +558,6 @@ interface SharedScratch {
   taskCuts: GPUBuffer;              // (S+1) cut points/thread × 2 u32
   walkerPartials: GPUBuffer;        // 2*S partial slots/thread (split-start + task-end)
   walkerPartialDest: GPUBuffer;     // bucket_id per partial slot (NO_BUCKET if unused)
-  // Task #19 — per-bucket linked-list index for the indexed walker_combine.
-  bucketHead: GPUBuffer;            // bTotal × atomic<u32>, 0=NO_NODE, otherwise 1-indexed handle
-  walkerNodesSlot: GPUBuffer;       // node_idx → partial slot index
-  walkerNodesNext: GPUBuffer;       // node_idx → next node handle
-  walkerNodeCounter: GPUBuffer;     // single atomic<u32> counter
   // Optimal walker_combine pipeline buffers.
   partialCount: GPUBuffer;          // bTotal × atomic<u32> — partials per bucket
   partialOffset: GPUBuffer;         // (bTotal+1) × u32 — exclusive prefix sum
@@ -736,7 +731,6 @@ export class MsmV2Pool {
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
       total += s.taskCuts.size + s.walkerPartials.size + s.walkerPartialDest.size;
-      total += s.bucketHead.size + s.walkerNodesSlot.size + s.walkerNodesNext.size + s.walkerNodeCounter.size;
     }
     return total;
   }
@@ -921,11 +915,6 @@ export class MsmV2Pool {
     let taskCuts = s?.taskCuts;
     let walkerPartials = s?.walkerPartials;
     let walkerPartialDest = s?.walkerPartialDest;
-    // Task #19: per-bucket linked-list index.
-    let bucketHead = s?.bucketHead;
-    let walkerNodesSlot = s?.walkerNodesSlot;
-    let walkerNodesNext = s?.walkerNodesNext;
-    let walkerNodeCounter = s?.walkerNodeCounter;
     let partialCount = s?.partialCount;
     let partialOffset = s?.partialOffset;
     let partialWritePos = s?.partialWritePos;
@@ -973,10 +962,6 @@ export class MsmV2Pool {
       taskCuts?.destroy();
       walkerPartials?.destroy();
       walkerPartialDest?.destroy();
-      bucketHead?.destroy();
-      walkerNodesSlot?.destroy();
-      walkerNodesNext?.destroy();
-      walkerNodeCounter?.destroy();
       partialCount?.destroy();
       partialOffset?.destroy();
       partialWritePos?.destroy();
@@ -1038,14 +1023,6 @@ export class MsmV2Pool {
       // the pref tail to live in the same buffer.
       walkerPartials = sbuf(10 * sT * sS * 16);
       walkerPartialDest = sbuf(2 * sT * sS * 4);
-      // Task #19 — per-bucket linked-list index for walker_combine.
-      //   bucketHead:  bTotal × atomic<u32>, cleared to 0 (NO_NODE) per MSM.
-      //   walkerNodesSlot/Next: one node per partial slot = 2*sT*sS u32 each.
-      //   walkerNodeCounter: single atomic<u32>, cleared to 0 per MSM.
-      bucketHead = sbuf(sBTotal * 4);
-      walkerNodesSlot = sbuf(2 * sT * sS * 4);
-      walkerNodesNext = sbuf(2 * sT * sS * 4);
-      walkerNodeCounter = sbuf(4);
       // Optimal combine pipeline buffers.
       partialCount = sbuf(sBTotal * 4);
       partialOffset = sbuf((sBTotal + 1) * 4);
@@ -1156,10 +1133,6 @@ export class MsmV2Pool {
       taskCuts: taskCuts!,
       walkerPartials: walkerPartials!,
       walkerPartialDest: walkerPartialDest!,
-      bucketHead: bucketHead!,
-      walkerNodesSlot: walkerNodesSlot!,
-      walkerNodesNext: walkerNodesNext!,
-      walkerNodeCounter: walkerNodeCounter!,
       partialCount: partialCount!,
       partialOffset: partialOffset!,
       partialWritePos: partialWritePos!,
@@ -2398,16 +2371,7 @@ export class MsmV2 {
           scratch.redBuf, wp, pdest, walkerParams, bwb,
         ]),
       );
-      // Walker partials indexer (Task #19): one thread per partial slot,
-      // builds the per-bucket linked-list head/nodes that walker_combine
-      // walks. params.x = num_partial_slots, params.y = max_nodes
-      // (overflow guard — same as the array size).
-      const bh = scratch.bucketHead;
-      const wns = scratch.walkerNodesSlot;
-      const wnn = scratch.walkerNodesNext;
-      const wnc = scratch.walkerNodeCounter;
       const numPartialSlots = M_partials_walker;
-      const idxParams = ubuf(new Uint32Array([numPartialSlots, numPartialSlots, 0, 0]));
       // === Optimal walker_combine bind groups. ===
       const pcount = scratch.partialCount;
       const poffset = scratch.partialOffset;
@@ -2639,10 +2603,6 @@ export class MsmV2 {
     enc.clearBuffer(this.pool.scratch!.threadCuts);
     enc.clearBuffer(this.pool.scratch!.walkerPartials);
     enc.clearBuffer(this.pool.scratch!.taskCuts);
-    // Task #19 — clear linked-list state so bucket_head=NO_NODE (0)
-    // and node_counter=0 at the start of each MSM.
-    enc.clearBuffer(this.pool.scratch!.bucketHead);
-    enc.clearBuffer(this.pool.scratch!.walkerNodeCounter);
     // Pair-tree alloc counter — claims start from 0 each MSM (legacy v1 buf).
     enc.clearBuffer(this.pool.scratch!.ptAlloc);
     // Pair-tree v2 task counter — pt_dispatch_compute resets it each level,
