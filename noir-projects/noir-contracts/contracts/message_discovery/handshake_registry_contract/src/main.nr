@@ -16,7 +16,7 @@ pub(crate) global MODE_CONSTRAINED: u8 = 2;
 /// Registry for the constrained-delivery shared-secret handshake protocol.
 ///
 /// The registry establishes a master shared-secret point `S` between a sender and a recipient and stores one current
-/// note for each `(recipient, sender)` pair. The raw `S` never leaves the registry: app contracts call
+/// note for each `(recipient, sender, mode)` tuple. The raw `S` never leaves the registry: app contracts call
 /// [`HandshakeRegistry::non_interactive_handshake`] to receive the secret already siloed to the caller, call
 /// [`HandshakeRegistry::get_app_siloed_secret`] offchain for an existing handshake, and use
 /// [`HandshakeRegistry::validate_handshake`] to check an app-siloed secret against the current stored handshake. The
@@ -25,7 +25,7 @@ pub(crate) global MODE_CONSTRAINED: u8 = 2;
 /// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
 #[aztec]
 pub contract HandshakeRegistry {
-    use crate::handshake_note::{AppSiloedSecret, HandshakeNote};
+    use crate::handshake_note::HandshakeNote;
     use crate::{MODE_CONSTRAINED, MODE_UNCONSTRAINED, NON_INTERACTIVE_HANDSHAKE};
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
@@ -43,9 +43,9 @@ pub contract HandshakeRegistry {
 
     #[storage]
     struct Storage<Context> {
-        /// One current [`HandshakeNote`] per `(recipient, sender)` pair. Re-handshaking for the same pair replaces the
-        /// prior sender-owned note, so only the latest handshake remains valid.
-        handshakes: Map<AztecAddress, Owned<PrivateMutable<HandshakeNote, Context>, Context>, Context>,
+        /// One current [`HandshakeNote`] per `(recipient, sender, mode)` tuple. Re-handshaking for the same tuple
+        /// replaces the prior sender-owned note, so only the latest handshake remains valid for that mode.
+        handshakes: Map<AztecAddress, Map<u8, Owned<PrivateMutable<HandshakeNote, Context>, Context>, Context>, Context>,
     }
 
     /// Performs a non-interactive handshake from `sender` to `recipient` and returns the app-siloed shared secret
@@ -57,7 +57,7 @@ pub contract HandshakeRegistry {
     /// Generates a fresh ephemeral key pair `(eph_sk, eph_pk)`, computes the raw ECDH shared secret point
     /// `S = eph_sk * recipient_address_point`, and produces three effects:
     ///
-    /// 1. Inserts or replaces a [`HandshakeNote`] owned by `sender`, holding the raw point `S`.
+    /// 1. Inserts or replaces a [`HandshakeNote`] owned by `sender` for `mode`, holding the raw point `S`.
     /// 2. Emits an encrypted private log under a recipient-keyed tag with payload `[eph_pk.x]`. The recipient
     ///    discovers handshakes addressed to them by scanning their tag and recovers `S` from `eph_pk` via their own
     ///    ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
@@ -80,13 +80,13 @@ pub contract HandshakeRegistry {
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
         let s_raw = derive_ecdh_shared_secret(eph_sk, recipient_point.inner);
 
-        let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, mode, recipient);
+        let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient);
 
         // Delivery is `ONCHAIN_UNCONSTRAINED`. The recipient is not involved in this note's delivery. They
         // discover the handshake via the encrypted log emitted below, not via the sender's note.
         // We use onchain unconstrained delivery rather than `OFFCHAIN` so the note is
         // discoverable via normal PXE sync.
-        self.storage.handshakes.at(recipient).at(sender).initialize_or_replace(|_| note).deliver(
+        self.storage.handshakes.at(recipient).at(mode).at(sender).initialize_or_replace(|_| note).deliver(
             MessageDelivery::onchain_unconstrained().with_sender(sender),
         );
 
@@ -101,19 +101,23 @@ pub contract HandshakeRegistry {
         note.siloed_for(self.msg_sender())
     }
 
-    /// Asserts that `app_siloed_secret` is the silo of a stored handshake from `sender` to `recipient`, for the
-    /// caller (`msg_sender()`).
+    /// Asserts that `app_siloed_secret` is the silo of a stored handshake from `sender` to `recipient` in `mode`, for
+    /// the caller (`msg_sender()`).
     ///
     /// Apps that receive an `app_siloed_secret` from an untrusted source call this once to validate that secret
     /// against the registry's stored handshake.
     ///
     /// # Panics
-    /// If no stored handshake for `(sender, recipient)` silos to `app_siloed_secret` under the calling contract's
-    /// address.
+    /// If `mode` is not a recognized delivery mode.
+    ///
+    /// If no stored handshake for `(sender, recipient, mode)` silos to `app_siloed_secret` under the calling
+    /// contract's address.
     #[external("private")]
-    fn validate_handshake(sender: AztecAddress, recipient: AztecAddress, app_siloed_secret: Field) {
+    fn validate_handshake(sender: AztecAddress, recipient: AztecAddress, mode: u8, app_siloed_secret: Field) {
+        assert((mode == MODE_UNCONSTRAINED) | (mode == MODE_CONSTRAINED), "unrecognized delivery mode");
+
         let caller = self.msg_sender();
-        let replacement_note_message = self.storage.handshakes.at(recipient).at(sender).get_note();
+        let replacement_note_message = self.storage.handshakes.at(recipient).at(mode).at(sender).get_note();
         let note = replacement_note_message.get_note();
 
         assert(note.siloed_for(caller) == app_siloed_secret, "no matching handshake");
@@ -123,27 +127,32 @@ pub contract HandshakeRegistry {
         replacement_note_message.deliver(MessageDelivery::onchain_unconstrained());
     }
 
-    /// Returns the app-siloed shared secret for an existing handshake, together with the delivery mode of its
-    /// tagged messages.
+    /// Returns the app-siloed shared secret for an existing handshake in `mode`.
     ///
-    /// This is the existing-handshake retrieval surface. It returns `silo(S, caller)` (never raw `S`) plus the
-    /// handshake's mode, so the caller knows the tag index discipline; a different caller receives a different
-    /// app-siloed value for the same registry note. This is a utility function because it is a local read helper.
+    /// This is the existing-handshake retrieval surface. It returns `silo(S, caller)`, never raw `S`; a different
+    /// caller receives a different app-siloed value for the same registry note. This is a utility function because it
+    /// is a local read helper.
     /// Contracts should still call [HandshakeRegistry::validate_handshake] when they need a constrained proof that a
     /// supplied app-siloed secret matches the current handshake.
+    ///
+    /// # Panics
+    /// If `mode` is not a recognized delivery mode.
     #[external("utility")]
     unconstrained fn get_app_siloed_secret(
         sender: AztecAddress,
         recipient: AztecAddress,
+        mode: u8,
         // TODO(F-671): replace with `self.msg_sender()` once utility context exposes it. The
-        // explicit param forces hooks to also gate on `params[2]`; otherwise any contract that
+        // explicit param forces hooks to also gate on `params[3]`; otherwise any contract that
         // can authorize (target, selector) can read another caller's siloed secret.
         caller: AztecAddress,
-    ) -> Option<AppSiloedSecret> {
-        let handshake = self.storage.handshakes.at(recipient).at(sender);
+    ) -> Option<Field> {
+        assert((mode == MODE_UNCONSTRAINED) | (mode == MODE_CONSTRAINED), "unrecognized delivery mode");
+
+        let handshake = self.storage.handshakes.at(recipient).at(mode).at(sender);
 
         if handshake.is_initialized() {
-            Option::some(handshake.view_note().app_siloed_secret(caller))
+            Option::some(handshake.view_note().siloed_for(caller))
         } else {
             Option::none()
         }
