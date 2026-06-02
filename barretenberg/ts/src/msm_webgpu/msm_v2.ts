@@ -33,6 +33,7 @@ import {
   STREAM_WALKER_TPB,
   STREAM_S as STREAM_S_PLAN,
 } from './cuzk/ba_stream_plan.js';
+import { buildVarWindowSchedule, type SplitDecision } from './var_window_split.js';
 
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
@@ -1746,6 +1747,17 @@ export class MsmV2 {
     // it; m.windowCs carries the per-window widths (numWindows overridden below).
     if (config?.varSched) {
       m.windowCs = buildVarSchedule(NUMBITS);
+      m.c = Math.max(...m.windowCs);
+    }
+    // split-c forced split (Phase 1): build the create-time schedule from
+    // [b_star, c_lo, c_hi] via the ported build_var_window_schedule and size the
+    // envelope to its max width — exactly as varSched does for its fixture. Uses
+    // NUMBITS (data-independent) since create() runs before any scalar is seen;
+    // the data-dependent natural decision lands with Phase 2 (indirect dispatch).
+    if (config?.forceSplit) {
+      const [fb, fclo, fchi] = config.forceSplit;
+      const dec: SplitDecision = { isSplit: true, bStar: fb, cLo: fclo, cHi: fchi };
+      m.windowCs = buildVarWindowSchedule(dec, NUMBITS);
       m.c = Math.max(...m.windowCs);
     }
     m.s = config?.s ?? pickS(n);

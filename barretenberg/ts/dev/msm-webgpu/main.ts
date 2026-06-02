@@ -24,8 +24,13 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js';
-import { computeMsbHistogram } from '../../src/msm_webgpu/var_window_split.js';
+import { MsmV2, MsmV2Pool, type MsmConfig, pickC } from '../../src/msm_webgpu/msm_v2.js';
+import {
+  computeMsbHistogram,
+  chooseVarWindowSplit,
+  buildVarWindowSchedule,
+  effectiveNumBits,
+} from '../../src/msm_webgpu/var_window_split.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
@@ -1653,6 +1658,17 @@ function hideProgress(): void {
         log('ok', `[msbhist] PASS — 256 bins match host, sum=${gpuSum}=n, msb_per_scalar OK (4096 spot-checked)`);
       } else {
         log('error', `[msbhist] FAIL — ${mismatches} bin mismatches (first bin ${firstBad}), gpuSum=${gpuSum} n=${inputs.n}, mpsBad=${mpsBad}`);
+      }
+      // Diagnostic: run the natural decision on the GPU histogram and log the
+      // schedule it would choose (consumption is Phase 2; this validates the
+      // decision end-to-end on the real distribution).
+      const enb = effectiveNumBits(hist);
+      const dec = chooseVarWindowSplit(hist, inputs.n, enb, pickC);
+      if (dec.isSplit) {
+        const widths = buildVarWindowSchedule(dec, enb);
+        log('info', `[msbhist] decision: SPLIT b*=${dec.bStar} cLo=${dec.cLo} cHi=${dec.cHi} → ${widths.length} windows (effNumBits=${enb})`);
+      } else {
+        log('info', `[msbhist] decision: NO_SPLIT (effNumBits=${enb}, c=${pickC(inputs.n)})`);
       }
     } catch (e) {
       log('error', `[msbhist] ERROR: ${e instanceof Error ? e.message : String(e)}`);
