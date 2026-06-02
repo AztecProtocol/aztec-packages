@@ -49,7 +49,50 @@ const slotSize = (x: ScratchSlot): number => (x instanceof GPUBuffer ? x.size : 
 const clearSlot = (enc: GPUCommandEncoder, x: ScratchSlot): void => enc.clearBuffer(slotBuf(x), slotOff(x), slotSize(x));
 const writeSlot = (q: GPUQueue, x: ScratchSlot, off: number, data: BufferSource): void =>
   q.writeBuffer(slotBuf(x), slotOff(x) + off, data);
-const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
+const MEM_BUDGET = 160 * (1 << 20); // phone GPU-buffer budget (ARENA_LAYOUT.md §3)
+
+/**
+ * Byte size of each of the 6 colour-partitioned arenas (ARENA_LAYOUT.md §1),
+ * summed from the same per-buffer formulas the `carve()` sites use. This is the
+ * single source of truth shared by `ensureScratch`'s `reqArena` (the real
+ * allocation) and `prepare()`'s budget gate (the fit decision), so the two can
+ * never drift — adding a buffer means appending one `a(...)` term here and one
+ * `carve()` at the matching site. Returns `[A0, A1, A2, A3, A4, A5]`.
+ *
+ * `soaSize(M) = 2·PG·M·4·4`. Sizes round up to 256-B arena alignment, min 4.
+ */
+function arenaColourSizes(p: {
+  sT: number;
+  sS: number;
+  sBTotal: number;
+  sRadixTiles: number;
+  batchSlots: number;
+  redM: number;
+  rowPtrLen: number;
+  reducePrefBytes: number;
+  scalarsBytes: number;
+  l0Slots: number;
+}): number[] {
+  const ALIGN = 256;
+  const a = (b: number): number => Math.ceil(Math.max(b, 4) / ALIGN) * ALIGN;
+  const { sT, sS, sBTotal, sRadixTiles, batchSlots, redM, rowPtrLen, reducePrefBytes, scalarsBytes, l0Slots } = p;
+  const soa = 2 * PG * redM * 4 * 4; // soaSize(redM)
+  return [
+    // A0: activeBuckets activeCount binOffsets partialWritePos reducePrefScratch sortedCountList scalarsRawBuf l0IdxBuf
+    a(sBTotal * 4) + a(4) + a(64 * 4) + a(sBTotal * 4) + a(reducePrefBytes) + a(sBTotal * 4) + a(scalarsBytes) + a(l0Slots * 4),
+    // A1: bucketAndSign denseBucketList denseCountList binWritePos cumulativeAdds ptCount ptMeta ptTasks ptTotalTasks walkerPartialDest rowPtrBuf isPresentBuf redBuf
+    a(batchSlots * 4) + a(sBTotal * 4) + a(sBTotal * 4) + a(64 * 4) + a(sBTotal * 4) + a(sBTotal * 4) + a(16) +
+      a(2 * sT * sS * 16) + a(4) + a(2 * sT * sS * 4) + a(rowPtrLen * 4) + a(redM * 4) + a(soa),
+    // A2: partialCount partialLayout size1BucketList taskCuts valIdxBuf
+    a(sBTotal * 4) + a(2 * sT * sS * 4) + a(sBTotal * 2 * 4) + a(sT * (sS + 1) * 2 * 4) + a(batchSlots * 4),
+    // A3: radixHist threadCuts walkerPartials countHistogram ptOff
+    a(sRadixTiles * 256 * 4) + a(sT * 2 * 4) + a(10 * sT * sS * 16) + a(64 * 4) + a(sBTotal * 4),
+    // A4: ptScratch sortedBucketList wgCuts
+    a(512 * sT * sS) + a(sBTotal * 4) + a(MAX_STREAM_WORKGROUPS * 2 * 4),
+    // A5: partialOffset sortedActiveBuckets
+    a((sBTotal + 1) * 4) + a(sBTotal * 4),
+  ];
+}
 
 // Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
 // `reduceWg` are instead chosen per problem size — by pickC / pickS /
@@ -942,33 +985,21 @@ export class MsmV2Pool {
     const ARENA_ALIGN = 256;
     const alignArena = (b: number): number => Math.ceil(Math.max(b, 4) / ARENA_ALIGN) * ARENA_ALIGN;
     const NUM_ARENAS = 6;
-    const reqArena = new Array<number>(NUM_ARENAS).fill(0);
-    // A3: radixHist + threadCuts + walkerPartials + countHistogram + ptOff
-    reqArena[3] =
-      alignArena(sRadixTiles * 256 * 4) + alignArena(sT * 2 * 4) + alignArena(10 * sT * sS * 16) +
-      alignArena(64 * 4) + alignArena(sBTotal * 4);
-    // A4: ptScratch + sortedBucketList + wgCuts
-    reqArena[4] = alignArena(512 * sT * sS) + alignArena(sBTotal * 4) + alignArena(MAX_STREAM_WORKGROUPS * 2 * 4);
-    // A5: partialOffset + sortedActiveBuckets
-    reqArena[5] = alignArena((sBTotal + 1) * 4) + alignArena(sBTotal * 4);
-    // A2: partialCount + partialLayout + size1BucketList + taskCuts + valIdxBuf
-    reqArena[2] =
-      alignArena(sBTotal * 4) + alignArena(2 * sT * sS * 4) + alignArena(sBTotal * 2 * 4) +
-      alignArena(sT * (sS + 1) * 2 * 4) + alignArena(cur.batchSlots * 4);
-    // A1: bucketAndSign + denseBucketList + denseCountList + binWritePos + cumulativeAdds
-    //     + ptCount + ptMeta + ptTasks + ptTotalTasks + walkerPartialDest + rowPtrBuf
-    //     + isPresentBuf + redBuf
-    reqArena[1] =
-      alignArena(cur.batchSlots * 4) + alignArena(sBTotal * 4) + alignArena(sBTotal * 4) +
-      alignArena(64 * 4) + alignArena(sBTotal * 4) + alignArena(sBTotal * 4) + alignArena(16) +
-      alignArena(2 * sT * sS * 16) + alignArena(4) + alignArena(2 * sT * sS * 4) +
-      alignArena(cur.rowPtrLen * 4) + alignArena(cur.redM * 4) + alignArena(soaSize(cur.redM));
-    // A0: activeBuckets + activeCount + binOffsets + partialWritePos + reducePrefScratch
-    //     + sortedCountList + scalarsRawBuf + l0IdxBuf
-    reqArena[0] =
-      alignArena(sBTotal * 4) + alignArena(4) + alignArena(64 * 4) + alignArena(sBTotal * 4) +
-      alignArena(cur.reducePrefBytes) + alignArena(sBTotal * 4) + alignArena(cur.scalarsBytes) +
-      alignArena(cur.l0Slots * 4);
+    // High-water bytes per colour, from the shared model that also drives the
+    // budget gate in prepare(). The carve() order below must match the
+    // per-colour term order inside arenaColourSizes term-for-term.
+    const reqArena = arenaColourSizes({
+      sT,
+      sS,
+      sBTotal,
+      sRadixTiles,
+      batchSlots: cur.batchSlots,
+      redM: cur.redM,
+      rowPtrLen: cur.rowPtrLen,
+      reducePrefBytes: cur.reducePrefBytes,
+      scalarsBytes: cur.scalarsBytes,
+      l0Slots: cur.l0Slots,
+    });
     if (!arenas || reqArena.some((r, c) => r > (arenas![c]?.size ?? 0))) {
       const prevArenas = arenas;
       arenas = reqArena.map((r, c) =>
@@ -2030,34 +2061,46 @@ export class MsmV2 {
     }
     const levels = levelPlans.length;
 
-    // --- Lever G: budget-driven window-batch count.
-    const maxPairBlocksPerWindow = Math.max(1, ...levelPlans.map(p => p.pairBlocksPerWindow));
-    const maxCarriesPerWindow = Math.max(1, ...levelPlans.map(p => p.carriesPerWindow));
+    // --- Lever G: budget-driven window-batch count (ARENA_LAYOUT.md §7).
     const RED_M = this.redM;
+    // MAXC / reducePrefBytes don't depend on the batch count; compute them
+    // up-front because both the budget model and the fast-path fit-check need MAXC.
+    let MAXC = 1;
+    for (const p of this.reducePasses) {
+      MAXC = Math.max(MAXC, Math.ceil(p.ppw / REDUCE_WG));
+    }
+    const reducePrefBytes = NUM_WINDOWS * REDUCE_WG * MAXC * 2 * 16;
+    // Total GPU working-set footprint for window-batch count `nb`: the 6 arenas
+    // (arenaColourSizes — identical formulas to ensureScratch's carve sites) +
+    // the standalone CSR counts/offsets (16·bw·BW) + planMeta + the SRS point
+    // pool. Only the scatter/csr terms shrink as nb rises (bw = ⌈NW/nb⌉); THREAD,
+    // GRID and RED are fixed, so the gate only ever stages the PASS zone.
+    const srsBytes = this.pool.poolX.size + this.pool.poolY.size;
     const estimateMem = (nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
-      const m1 = bw * wstride1 + 3;
-      const bSlots = bw * n;
-      const bBuckets = bw * BW;
-      const tc = bw * maxPairBlocksPerWindow;
-      const tile = Math.min(Math.ceil((1 << 16) / WGI) * WGI, Math.max(WGI, Math.ceil(tc / WGI) * WGI));
-      return (
-        2 * 64 * m1 +
-        64 * B_TOTAL +
-        4 * 4 * bBuckets +
-        4 * (bSlots + 3) +
-        2 * (3 * tc * S + 2 * bw * maxCarriesPerWindow) * 4 +
-        tile * S * 8 * 4 +
-        3 * 4 * bSlots +
-        4 * bw * (BW + 1) +
-        4 * bBuckets +
-        4 * 32 * n +
-        68 * RED_M
-      );
+      const arenaBytes = arenaColourSizes({
+        sT: this.streamNumThreads,
+        sS: this.streamS,
+        sBTotal: B_TOTAL,
+        sRadixTiles: this.numRadixTiles,
+        batchSlots: bw * n,
+        redM: RED_M,
+        rowPtrLen: bw * (BW + 1),
+        reducePrefBytes,
+        scalarsBytes: 32 * n,
+        l0Slots: bw * n + 3,
+      }).reduce((acc, b) => acc + b, 0);
+      const countsOffsetsBytes = 4 * (bw * BW) * 4; // countsBufs[2] + offsetsBufs[2]
+      const planMetaBytes = (3 * NUM_WINDOWS + 6) * 4;
+      return srsBytes + arenaBytes + countsOffsetsBytes + planMetaBytes;
     };
     const wgFits = (nb: number): boolean => Math.ceil((Math.ceil(NUM_WINDOWS / nb) * n) / WGI) < 65000;
+    // Raise the batch count until each batch fits both the 65k-workgroup cap and
+    // the 160 MB budget. Footprint is monotone-decreasing in numBatches, so the
+    // first satisfying count gives the largest feasible bw; if nothing fits by
+    // NUM_WINDOWS, proceed best-effort (as the prior wgFits-only loop did).
     let numBatches = 1;
-    while (numBatches < NUM_WINDOWS && !wgFits(numBatches)) numBatches++;
+    while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || estimateMem(numBatches) > MEM_BUDGET)) numBatches++;
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;
     const batchSlots = batchWindows * n;
@@ -2070,12 +2113,6 @@ export class MsmV2 {
     let M1 = batchWindows * wstride1 + 3;
     let maxTotalPairBlocks = Math.max(...levelPlans.map(p => p.totalPairBlocks));
     let maxTotalCarries = Math.max(1, ...levelPlans.map(p => p.totalCarries));
-
-    // Reduction: compute MAXC up-front (needed for fit-check and uniform write).
-    let MAXC = 1;
-    for (const p of this.reducePasses) {
-      MAXC = Math.max(MAXC, Math.ceil(p.ppw / REDUCE_WG));
-    }
 
     // --- Fast path: subsequent prepare() with a plan that fits in the
     // already-allocated buffers + bind groups. Skips the destroy+realloc of
@@ -2207,7 +2244,7 @@ export class MsmV2 {
         S,
         scalarsBytes: scalars.byteLength,
         redM: RED_M,
-        reducePrefBytes: NUM_WINDOWS * REDUCE_WG * this.capMAXC * 2 * 16,
+        reducePrefBytes,
         bTotal: B_TOTAL,
         streamNumThreads: this.streamNumThreads,
         streamS: this.streamS,
