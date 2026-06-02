@@ -533,7 +533,7 @@ interface SharedScratch {
   bufA: GPUBuffer;
   bufB: GPUBuffer;
   l0IdxBuf: GPUBuffer;
-  bucketAndSignBuf: GPUBuffer;
+  bucketAndSignBuf: GPUBufferBinding;
   valIdxBuf: GPUBufferBinding;
   rowPtrBuf: GPUBuffer;
   planMeta: GPUBuffer;
@@ -552,12 +552,12 @@ interface SharedScratch {
   arenas: GPUBuffer[];              // one GPU buffer per arena colour (ARENA_LAYOUT.md §1); mkBind-only scratch carved at 256-B offsets
 
   size1BucketList: GPUBufferBinding;
-  denseBucketList: GPUBuffer;
-  denseCountList: GPUBuffer;
+  denseBucketList: GPUBufferBinding;
+  denseCountList: GPUBufferBinding;
   sortedBucketList: GPUBufferBinding;
   sortedCountList: GPUBuffer;
   radixHist: GPUBufferBinding;
-  cumulativeAdds: GPUBuffer;
+  cumulativeAdds: GPUBufferBinding;
   wgCuts: GPUBufferBinding;
   threadCuts: GPUBufferBinding;
   queueBuf: GPUBuffer;
@@ -568,7 +568,7 @@ interface SharedScratch {
   // Stream-walker buffers (Plan §3.1 + C's KNOB 2 variant).
   taskCuts: GPUBufferBinding;       // arena slot — (S+1) cut points/thread × 2 u32
   walkerPartials: GPUBufferBinding; // arena slot — 2*S partial slots/thread (split-start + task-end)
-  walkerPartialDest: GPUBuffer;     // bucket_id per partial slot (NO_BUCKET if unused)
+  walkerPartialDest: GPUBufferBinding; // arena slot — bucket_id per partial slot (NO_BUCKET if unused)
   // Optimal walker_combine pipeline buffers.
   partialCount: GPUBufferBinding;   // arena slot — bTotal × atomic<u32> — partials per bucket
   partialOffset: GPUBufferBinding;  // arena slot — (bTotal+1) × u32 — exclusive prefix sum
@@ -581,7 +581,7 @@ interface SharedScratch {
   // MAX_N = 64 bins (sized in ba_walker_combine_sort_*.template.wgsl).
   countHistogram: GPUBufferBinding; // arena slot — MAX_N × atomic<u32>
   binOffsets: GPUBuffer;            // MAX_N × u32 — exclusive prefix sum
-  binWritePos: GPUBuffer;           // MAX_N × atomic<u32>
+  binWritePos: GPUBufferBinding;    // arena slot — MAX_N × atomic<u32>
   sortedActiveBuckets: GPUBufferBinding; // arena slot — bTotal × u32 — active_buckets in N order
   // Pair-tree hot-bucket combine. pt_scratch holds intermediate level
   // partials per hot bucket; pt_alloc is a single atomic claim counter
@@ -603,10 +603,10 @@ interface SharedScratch {
   ptChunksTotal: GPUBuffer;            // 1 × atomic<u32> — chunks emitted in current pass
   // Pair-tree v2 (multi-dispatch). Per-bucket level state, task list, counters.
   ptOff: GPUBufferBinding;          // arena slot — sBTotal × u32 — bucket's current start in pt_buf
-  ptCount: GPUBuffer;               // sBTotal × u32 — bucket's current level count
-  ptMeta: GPUBuffer;                // 4 × u32 — NUM_HOT, total partials, _, _
-  ptTasks: GPUBuffer;               // max tasks per level × vec4<u32>
-  ptTotalTasks: GPUBuffer;          // 1 × atomic<u32>
+  ptCount: GPUBufferBinding;        // arena slot — sBTotal × u32 — bucket's current level count
+  ptMeta: GPUBufferBinding;         // arena slot — 4 × u32 — NUM_HOT, total partials, _, _
+  ptTasks: GPUBufferBinding;        // arena slot — max tasks per level × vec4<u32>
+  ptTotalTasks: GPUBufferBinding;   // arena slot — 1 × atomic<u32>
   // Pad-trio layout in bufA/bufB (depends on the M1 the buffers were
   // sized for). Re-derived whenever bufA grows.
   planeBytes: number;
@@ -726,7 +726,7 @@ export class MsmV2Pool {
       const s = this._scratch;
       total += s.arenas.reduce((acc, a) => acc + a.size, 0); // arena-resident buffers, counted once per arena
       total += s.bufA.size + s.bufB.size;
-      total += s.l0IdxBuf.size + s.bucketAndSignBuf.size;
+      total += s.l0IdxBuf.size;
       total += s.rowPtrBuf.size + s.planMeta.size;
       total += s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size;
       total += s.scatterPlanRing[0].size + s.scatterPlanRing[1].size;
@@ -736,12 +736,9 @@ export class MsmV2Pool {
       total += s.prefScratchBuf.size + s.scalarsRawBuf.size;
       total += s.redBuf.size + s.isPresentBuf.size + s.reducePrefScratch.size;
       total += s.streamPlannerMeta.size;
-      total += s.denseBucketList.size + s.denseCountList.size;
       total += s.sortedCountList.size;
-      total += s.cumulativeAdds.size;
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
-      total += s.walkerPartialDest.size;
     }
     return total;
   }
@@ -819,9 +816,7 @@ export class MsmV2Pool {
       grew = true;
     }
     if (!bucketAndSignBuf || dims.batchSlots > cur.batchSlots) {
-      bucketAndSignBuf?.destroy();
-      grow(true, 'batchSlots');
-      bucketAndSignBuf = sbuf(cur.batchSlots * 4);
+      grow(true, 'batchSlots'); // sizes the arena (bucketAndSign/valIdx carved centrally)
       grew = true;
     }
     if (!rowPtrBuf || dims.rowPtrLen > cur.rowPtrLen) {
@@ -974,6 +969,12 @@ export class MsmV2Pool {
     reqArena[2] =
       alignArena(sBTotal * 4) + alignArena(2 * sT * sS * 4) + alignArena(sBTotal * 2 * 4) +
       alignArena(sT * (sS + 1) * 2 * 4) + alignArena(cur.batchSlots * 4);
+    // A1: bucketAndSign + denseBucketList + denseCountList + binWritePos + cumulativeAdds
+    //     + ptCount + ptMeta + ptTasks + ptTotalTasks + walkerPartialDest
+    reqArena[1] =
+      alignArena(cur.batchSlots * 4) + alignArena(sBTotal * 4) + alignArena(sBTotal * 4) +
+      alignArena(64 * 4) + alignArena(sBTotal * 4) + alignArena(sBTotal * 4) + alignArena(16) +
+      alignArena(2 * sT * sS * 16) + alignArena(4) + alignArena(2 * sT * sS * 4);
     if (!arenas || reqArena.some((r, c) => r > (arenas![c]?.size ?? 0))) {
       const prevArenas = arenas;
       arenas = reqArena.map((r, c) =>
@@ -1008,29 +1009,30 @@ export class MsmV2Pool {
     size1BucketList = carve(2, sBTotal * 2 * 4);
     taskCuts = carve(2, sT * (sS + 1) * 2 * 4);
     valIdxBuf = carve(2, cur.batchSlots * 4);
+    bucketAndSignBuf = carve(1, cur.batchSlots * 4);
+    denseBucketList = carve(1, sBTotal * 4);
+    denseCountList = carve(1, sBTotal * 4);
+    binWritePos = carve(1, 64 * 4);
+    cumulativeAdds = carve(1, sBTotal * 4);
+    ptCount = carve(1, sBTotal * 4);
+    ptMeta = carve(1, 16);
+    ptTasks = carve(1, 2 * sT * sS * 16);
+    ptTotalTasks = carve(1, 4);
+    walkerPartialDest = carve(1, 2 * sT * sS * 4);
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
       streamPlannerMeta?.destroy();
-      denseBucketList?.destroy();
-      denseCountList?.destroy();
       sortedCountList?.destroy();
-      cumulativeAdds?.destroy();
       queueBuf?.destroy();
       partialsBuf?.destroy();
       partialBucketsList?.destroy();
       accBuf?.destroy();
       streamPrefScratch?.destroy();
-      walkerPartialDest?.destroy();
       partialWritePos?.destroy();
       activeBuckets?.destroy();
       activeCount?.destroy();
       binOffsets?.destroy();
-      binWritePos?.destroy();
       ptAlloc?.destroy();
       ptDispatchArgs?.destroy();
-      ptCount?.destroy();
-      ptMeta?.destroy();
-      ptTasks?.destroy();
-      ptTotalTasks?.destroy();
       ptCombineDispatchArgs?.destroy();
       ptBuildLoopArgs?.destroy();
       cbDispatchArgs?.destroy();
@@ -1046,10 +1048,7 @@ export class MsmV2Pool {
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
       grow(dims.streamRadixTiles > cur.streamRadixTiles, 'streamRadixTiles');
       streamPlannerMeta = ibuf(Math.max((20 + sT) * 4, 256));
-      denseBucketList = sbuf(sBTotal * 4);
-      denseCountList = sbuf(sBTotal * 4);
       sortedCountList = sbuf(sBTotal * 4);
-      cumulativeAdds = sbuf(sBTotal * 4);
       // Step 9: legacy stream-accum buffers shrunk — only the dead
       // ba_stream_accum / ba_partial_sum / ba_planner_emit / ba_emit_fixup /
       // ba_debug_accum / ba_recompute_split pipelines reference these.
@@ -1066,14 +1065,12 @@ export class MsmV2Pool {
       // walkerPartials = partials region (8*sT*sS vec4) + pref tail (2*sT*sS vec4)
       // = 10*sT*sS vec4 × 16 B = 160*sT*sS bytes. Coalesced pref layout requires
       // the pref tail to live in the same buffer.
-      walkerPartialDest = sbuf(2 * sT * sS * 4);
       // Optimal combine pipeline buffers.
       partialWritePos = sbuf(sBTotal * 4);
       activeBuckets = sbuf(sBTotal * 4);
       activeCount = sbuf(4);
       // Counting-sort buffers. MAX_N = 64 (mirrors WGSL const).
       binOffsets = sbuf(64 * 4);
-      binWritePos = sbuf(64 * 4);
       // Pair-tree scratch. Worst-case sum(2N over hot) = 2 × total partials
       // emitted = 2 × (2 * T * S). Each scratch slot stores 1 partial = 2
       // vec4 X + 2 vec4 Y (plane-separated, M_scratch = max slots).
@@ -1092,13 +1089,8 @@ export class MsmV2Pool {
         size: 12,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
-      // Pair-tree v2 state buffers.
-      ptCount = sbuf(sBTotal * 4);
-      ptMeta = sbuf(16);
       // pt_tasks: bound by max tasks at level 0 = sum(ceil(N_i / 2)) ≤
       // total_partials/2 + NUM_HOT ≤ M_partials_walker. Each task = vec4<u32>.
-      ptTasks = sbuf(2 * sT * sS * 16); // M_partials_walker × 16 bytes
-      ptTotalTasks = sbuf(4);
       ptCombineDispatchArgs = device.createBuffer({
         size: 12,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
@@ -1329,7 +1321,6 @@ export class MsmV2Pool {
       s.bufA.destroy();
       s.bufB.destroy();
       s.l0IdxBuf.destroy();
-      s.bucketAndSignBuf.destroy();
       s.rowPtrBuf.destroy();
       s.planMeta.destroy();
       s.pairBlockPlanRing[0].destroy();
@@ -2651,7 +2642,7 @@ export class MsmV2 {
     enc.clearBuffer(this.pool.scratch!.ptAlloc);
     // Pair-tree v2 task counter — pt_dispatch_compute resets it each level,
     // but the very first level needs it zeroed too.
-    enc.clearBuffer(this.pool.scratch!.ptTotalTasks);
+    clearSlot(enc, this.pool.scratch!.ptTotalTasks);
     // red_buf / is_present span ALL windows globally — each batch writes its
     // own [bi*batchWindows*STRIDE, (bi+1)*batchWindows*STRIDE) slice via the
     // batch_offset uniform. Clearing once per encode (not per batch) lets
@@ -2692,7 +2683,7 @@ export class MsmV2 {
       // task_cuts cut_offsets, which drive ba_stream_walker into an
       // infinite loop (cur_sorted advances past task_end_sort and never
       // returns; task_done never fires).
-      enc.clearBuffer(this.pool.scratch!.cumulativeAdds);
+      clearSlot(enc, this.pool.scratch!.cumulativeAdds);
       // walker_combine atomic counters — must be per-batch, not per-MSM.
       // See note above the batch loop for the failure mode if cumulative.
       clearSlot(enc, this.pool.scratch!.partialCount);
@@ -2705,7 +2696,7 @@ export class MsmV2 {
       // combine_count/scatter. clearBuffer writes zeros — combine_count and
       // combine_scatter accept both 0 and NO_BUCKET as "no partial here"
       // since the classifier's magnitude filter guarantees no real bid is 0.
-      enc.clearBuffer(this.pool.scratch!.walkerPartialDest);
+      clearSlot(enc, this.pool.scratch!.walkerPartialDest);
       dispatch(this.classifyPipe, this.classifyBind, Math.ceil(this.bTotal / 256), 1);
       dispatch(this.metaFixupPipe, this.metaFixupBind, 1, 1);
       for (let rpass = 0; rpass < 3; rpass++) {
@@ -2805,7 +2796,7 @@ export class MsmV2 {
       enc.copyBufferToBuffer(ptHotArgs, 0, ptBuildArgs, 0, 12);
       setPhase('pt_loop');
       for (let lvl = 0; lvl < PT_LEVELS; lvl++) {
-        enc.clearBuffer(this.pool.scratch!.ptTotalTasks);
+        clearSlot(enc, this.pool.scratch!.ptTotalTasks);
         indirectDispatch(this.ptBuildPipe, this.ptBuildBind, ptBuildArgs, 0);
         dispatch(this.ptDispatchChainPipe, this.ptDispatchChainBind, 1, 1);
         indirectDispatch(this.ptCombinePipe, this.ptCombineBind, ptCombineArgs, 0);
