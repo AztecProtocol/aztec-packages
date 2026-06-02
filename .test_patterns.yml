@@ -366,8 +366,15 @@ tests:
   # p2p checkpoint-attestation-validator's acceptance window, getting rejected
   # before the slasher's gossip callback fires. The slasher then never records
   # ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL and the test times out.
+  #
+  # http://ci.aztec-labs.com/98c05f8e7fb981d9
+  # The setup helper advanceToEpochBeforePipelinedTargetSlot warps epoch-by-epoch
+  # looking for a future epoch where the bad proposer proposes the second slot but
+  # not the first. When the proposer schedule keeps assigning the bad proposer both
+  # slots of every epoch it leads (or never the second slot alone), the helper
+  # exhausts its 30 attempts and throws before the slashing logic runs.
   - regex: "src/e2e_slashing/attested_invalid_proposal.test.ts"
-    error_regex: "Timeout awaiting honest validator slash offenses for invalid proposal attestation"
+    error_regex: "Timeout awaiting honest validator slash offenses for invalid proposal attestation|Target proposer .* not found after [0-9]+ epoch attempts"
     owners:
       - *palla
 
