@@ -176,37 +176,41 @@ where
 
 // TODO: Oracles below are generic private log oracles and are not specific to notes. Move them somewhere else.
 
-/// Returns the next app tag for a given sender and recipient pair.
+/// Returns the directional app tagging secret for a `(sender, recipient)` pair (address-pair / ECDH origin).
 ///
-/// This also notifies the simulator that a tag has been used in a note, and to therefore increment the associated
-/// index so that future notes get a different tag and can be discovered by the recipient. This change should only be
-/// persisted in a non-volatile database if the tagged log is found in an actual block - otherwise e.g. a reverting
-/// transaction can cause the sender to accidentally skip indices and later produce notes that are not found by the
-/// recipient.
-pub unconstrained fn get_next_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
-    get_next_app_tag_as_sender_oracle(sender, recipient)
+/// This is the secret half of unconstrained-delivery tag derivation. The simulator performs the ECDH multiply -
+/// which needs the sender's master incoming viewing secret key and so can only run in the PXE - siloes the result
+/// to the calling contract, and returns it. The caller finishes the tag by obtaining an index from
+/// [`get_next_tagging_index`] and hashing the two together. Handshake-origin sends skip this entirely: the registry
+/// provides the secret instead.
+pub unconstrained fn get_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) -> Field {
+    get_app_tagging_secret_oracle(sender, recipient)
 }
 
-#[oracle(aztec_prv_getNextAppTagAsSender)]
-unconstrained fn get_next_app_tag_as_sender_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Field {}
+#[oracle(aztec_prv_getAppTaggingSecret)]
+unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Field {}
 
-/// Returns the next sender-side index for a constrained-delivery shared secret.
+/// Delivery mode for a tagging secret: selects the per-mode index counter (and, recipient-side, the tag domain
+/// separator). A raw `u8` for now; a typed delivery mode shared across aztec-nr will replace it later.
+pub global TAGGING_MODE_UNCONSTRAINED: u8 = 1;
+pub global TAGGING_MODE_CONSTRAINED: u8 = 2;
+
+/// Returns the next sender-side tagging index for a given secret and delivery mode.
 ///
-/// Unlike [`get_next_app_tag_as_sender`], which derives the full tag from a `(sender, recipient)` pair that only the
-/// simulator knows the directional secret for, the constrained-delivery flow has the app contract holding the
-/// app-siloed shared secret directly. The app computes the tag itself but it can't tell what the next index should be,
-/// so the simulator is the one that needs to hand out a fresh per-secret index. However, the constrained caller
-/// must still check that the returned index is valid.
+/// Both delivery origins (address-pair ECDH and handshake) funnel through this single index allocator: the caller
+/// already holds the tagging `secret` - from [`get_app_tagging_secret`] or the handshake registry - and only needs
+/// the simulator to hand out a fresh per-secret, per-mode index, then computes the tag itself. `mode` is one of
+/// [`TAGGING_MODE_UNCONSTRAINED`] / [`TAGGING_MODE_CONSTRAINED`] and selects the per-mode index counter.
 ///
-/// As with the unconstrained variant, the simulator persists the index increment only if the tagged log is found in
-/// an actual block - a reverting transaction can otherwise cause the sender to accidentally skip indices and later
-/// produce notes that are not found by the recipient.
-pub unconstrained fn get_next_constrained_tagging_index(app_siloed_secret: Field) -> u32 {
-    get_next_constrained_tagging_index_oracle(app_siloed_secret)
+/// The simulator persists the index increment only if the tagged log is found in an actual block - a reverting
+/// transaction can otherwise cause the sender to accidentally skip indices and later produce notes that are not
+/// found by the recipient.
+pub unconstrained fn get_next_tagging_index(secret: Field, mode: u8) -> u32 {
+    get_next_tagging_index_oracle(secret, mode)
 }
 
-#[oracle(aztec_prv_getNextConstrainedTaggingIndex)]
-unconstrained fn get_next_constrained_tagging_index_oracle(_app_siloed_secret: Field) -> u32 {}
+#[oracle(aztec_prv_getNextTaggingIndex)]
+unconstrained fn get_next_tagging_index_oracle(_secret: Field, _mode: u8) -> u32 {}
 
 /// Gets the sender for tags.
 ///

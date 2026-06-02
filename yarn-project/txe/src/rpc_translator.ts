@@ -1445,20 +1445,21 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_getNextAppTagAsSender(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
+  async aztec_prv_getAppTaggingSecret(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
     const sender = AztecAddress.fromField(fromSingle(foreignSender));
     const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
 
-    const nextAppTag = await this.handlerAsPrivate().getNextAppTagAsSender(sender, recipient);
+    const secret = await this.handlerAsPrivate().getAppTaggingSecret(sender, recipient);
 
-    return toForeignCallResult([toSingle(nextAppTag.value)]);
+    return toForeignCallResult([toSingle(secret)]);
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_getNextConstrainedTaggingIndex(foreignAppSiloedSecret: ForeignCallSingle) {
-    const appSiloedSecret = fromSingle(foreignAppSiloedSecret);
+  async aztec_prv_getNextTaggingIndex(foreignSecret: ForeignCallSingle, foreignMode: ForeignCallSingle) {
+    const secret = fromSingle(foreignSecret);
+    const mode = fromSingle(foreignMode).toNumber();
 
-    const index = await this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret);
+    const index = await this.handlerAsPrivate().getNextTaggingIndex(secret, mode);
 
     return toForeignCallResult([toSingle(new Fr(index))]);
   }

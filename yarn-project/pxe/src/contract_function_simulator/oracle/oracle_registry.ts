@@ -33,7 +33,6 @@ import {
   MessageContext,
   PendingTaggedLog,
   PrivateLog,
-  Tag,
 } from '@aztec/stdlib/logs';
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -132,11 +131,6 @@ const NOTE_SELECTOR: TypeMapping<NoteSelector> = {
 const TX_HASH: TypeMapping<TxHash> = {
   serialization: { fn: v => [v.hash] },
   deserialization: { fn: ([reader]) => TxHash.fromField(reader.readField()), slots: 1 },
-};
-
-const TAG: TypeMapping<Tag> = {
-  serialization: { fn: v => [v.value] },
-  deserialization: { fn: ([reader]) => new Tag(reader.readField()), slots: 1 },
 };
 
 const BLOCK_HEADER: TypeMapping<BlockHeader> = {
@@ -666,16 +660,19 @@ const ORACLE_REGISTRY = {
     returnType: BOOL,
   }),
 
-  aztec_prv_getNextAppTagAsSender: makeEntry({
+  aztec_prv_getAppTaggingSecret: makeEntry({
     params: [
       { name: 'sender', type: AZTEC_ADDRESS },
       { name: 'recipient', type: AZTEC_ADDRESS },
     ],
-    returnType: TAG,
+    returnType: FIELD,
   }),
 
-  aztec_prv_getNextConstrainedTaggingIndex: makeEntry({
-    params: [{ name: 'appSiloedSecret', type: FIELD }],
+  aztec_prv_getNextTaggingIndex: makeEntry({
+    params: [
+      { name: 'secret', type: FIELD },
+      { name: 'mode', type: BYTE },
+    ],
     returnType: U32,
   }),
 

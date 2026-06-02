@@ -509,8 +509,6 @@ mod test {
             let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
             let _ = OracleMock::mock("aztec_utl_getRandomField").returns(randomness).times(1000000);
 
-            let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(42);
-
             // Encrypt the message
             let encrypted_message = BoundedVec::from_array(AES128::encrypt(plaintext, recipient, contract_address));
 
