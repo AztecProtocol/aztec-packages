@@ -11,6 +11,14 @@ export const DEFAULT_P2P_PROPAGATION_TIME = 2;
 /** Default local checkpoint proposal preparation time (`checkpoint_proposal_prepare_time`) in seconds. */
 export const DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME = 1;
 
+/**
+ * Default proposer initialization time (`checkpoint_proposal_init_time`) in seconds: the budget reserved at
+ * the start of the build frame for sync, the proposer check, and checkpoint initialization before the first
+ * block sub-slot opens. The proposer rarely starts building exactly at `build_frame_start`; this offset
+ * shifts the sub-slot grid so the first sub-slot still has its full duration once the prologue completes.
+ */
+export const DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME = 1;
+
 /** Default L1 publishing time (matches Ethereum slot duration on mainnet) in seconds. Deprecated: vestigial under the pipelined model. */
 export const DEFAULT_L1_PUBLISHING_TIME = 12;
 
@@ -148,6 +156,9 @@ export class ProposerTimetable extends ConsensusTimetable {
   /** Local checkpoint proposal preparation budget (`checkpoint_proposal_prepare_time`) in seconds. */
   public readonly checkpointProposalPrepareTime: number;
 
+  /** Proposer initialization budget (`checkpoint_proposal_init_time`) reserved before the first sub-slot, in seconds. */
+  public readonly checkpointProposalInitTime: number;
+
   /** Whether the proposer enforces sub-slot/start deadlines (false keeps the single-mined-block test mode). */
   public readonly enforce: boolean;
 
@@ -160,12 +171,14 @@ export class ProposerTimetable extends ConsensusTimetable {
     minBlockDuration?: number;
     p2pPropagationTime?: number;
     checkpointProposalPrepareTime?: number;
+    checkpointProposalInitTime?: number;
     enforce: boolean;
   }) {
     super({ l1Constants: opts.l1Constants, blockDuration: opts.blockDuration });
 
     this.p2pPropagationTime = opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME;
     this.checkpointProposalPrepareTime = opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME;
+    this.checkpointProposalInitTime = opts.checkpointProposalInitTime ?? DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME;
     this.enforce = opts.enforce;
 
     // Clamp min block duration to the block duration so a single sub-slot is always startable.
@@ -177,6 +190,7 @@ export class ProposerTimetable extends ConsensusTimetable {
       ethereumSlotDuration: this.ethereumSlotDuration,
       p2pPropagationTime: this.p2pPropagationTime,
       checkpointProposalPrepareTime: this.checkpointProposalPrepareTime,
+      checkpointProposalInitTime: this.checkpointProposalInitTime,
     });
   }
 
@@ -219,9 +233,19 @@ export class ProposerTimetable extends ConsensusTimetable {
     return this.getTargetSlotStart(slot) - this.ethereumSlotDuration;
   }
 
-  /** Build deadline for sub-slot `k` (zero-based): `build_frame_start + (k + 1) * D`. */
+  /**
+   * Build deadline for sub-slot `k` (zero-based): `build_frame_start + init + (k + 1) * D`.
+   *
+   * The `init` (`checkpoint_proposal_init_time`) offset reserves the proposer's sync/proposer-check/init
+   * budget at the start of the build frame, so the first sub-slot still has its full duration once the
+   * prologue finishes rather than being eaten by it.
+   */
   public getBlockBuildDeadline(slot: SlotNumber, blockIndex: number): number {
-    return this.getBuildFrameStart(slot) + (blockIndex + 1) * this.requireBlockDurationForSchedule();
+    return (
+      this.getBuildFrameStart(slot) +
+      this.checkpointProposalInitTime +
+      (blockIndex + 1) * this.requireBlockDurationForSchedule()
+    );
   }
 
   /** Latest time to keep waiting for txs for sub-slot `k`: `block_build_deadline(k) - min_block_duration`. */
@@ -286,14 +310,15 @@ export class ProposerTimetable extends ConsensusTimetable {
 /**
  * Calculates the maximum number of full-duration block sub-slots in a checkpoint.
  *
- * Derived from the spec's `max_blocks_per_checkpoint = floor((last_block_build_time - build_frame_start) / D)`,
- * which simplifies to `floor((S - D - 2P - prepCp) / D)`. Used by both the proposer timetable and p2p
+ * Derived from the spec's `max_blocks_per_checkpoint = floor((last_block_build_time - first_subslot_start) / D)`,
+ * where the first sub-slot starts one `checkpoint_proposal_init_time` (`init`) after `build_frame_start`, so it
+ * simplifies to `floor((S - init - D - 2P - prepCp) / D)`. Used by both the proposer timetable and p2p
  * gossipsub scoring (which does not construct a proposer timetable). Single-block mode (`blockDuration`
  * undefined) returns 1.
  *
  * @param aztecSlotDurationSec - Aztec slot duration (`S`) in seconds.
  * @param blockDurationSec - Block sub-slot duration (`D`) in seconds (undefined = single block mode).
- * @param opts - Propagation and preparation budgets used to size the dead zone at the end of the build slot.
+ * @param opts - Init, propagation and preparation budgets used to size the build window inside the build slot.
  * @returns Maximum number of blocks per checkpoint (>= 1).
  */
 export function calculateMaxBlocksPerSlot(
@@ -303,6 +328,7 @@ export function calculateMaxBlocksPerSlot(
     ethereumSlotDuration?: number;
     p2pPropagationTime?: number;
     checkpointProposalPrepareTime?: number;
+    checkpointProposalInitTime?: number;
   } = {},
 ): number {
   if (!blockDurationSec) {
@@ -311,9 +337,14 @@ export function calculateMaxBlocksPerSlot(
 
   const p2pPropagationTime = opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME;
   const checkpointProposalPrepareTime = opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME;
+  const checkpointProposalInitTime = opts.checkpointProposalInitTime ?? DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME;
 
-  // last_block_build_time - build_frame_start = S - D - 2P - prepCp.
+  // last_block_build_time - (build_frame_start + init) = S - init - D - 2P - prepCp.
   const timeAvailableForBlocks =
-    aztecSlotDurationSec - blockDurationSec - 2 * p2pPropagationTime - checkpointProposalPrepareTime;
+    aztecSlotDurationSec -
+    checkpointProposalInitTime -
+    blockDurationSec -
+    2 * p2pPropagationTime -
+    checkpointProposalPrepareTime;
   return Math.floor(timeAvailableForBlocks / blockDurationSec);
 }

@@ -660,10 +660,10 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       await job.execute();
 
-      // Sub-slots are anchored at the build frame start: block_build_deadline(0) = 8s. The first block
-      // finishes early (at 5s) and the job waits until the first sub-slot deadline (8s) before starting
-      // the second block, so the second block starts at >= 8s, not at 5s.
-      expect(checkpointBuilder.recordedBuildTimes[1].startTime).toBeGreaterThanOrEqual(8);
+      // Sub-slots are anchored at build_frame_start + init (1s): block_build_deadline(0) = 9s. The first
+      // block finishes early (at 5s) and the job waits until the first sub-slot deadline (9s) before
+      // starting the second block, so the second block starts at >= 9s, not at 5s.
+      expect(checkpointBuilder.recordedBuildTimes[1].startTime).toBeGreaterThanOrEqual(9);
     });
 
     it('verifies deadlines are passed to block builder', async () => {
@@ -687,9 +687,9 @@ describe('CheckpointProposalJob Timing Tests', () => {
       expect(checkpointBuilder.buildBlockCalls.length).toBe(EXPECTED_MAX_BLOCKS);
 
       // Verify each block was given the correct deadline at sub-slot boundaries.
-      // Sub-slot deadlines: block_build_deadline(k) = build_frame_start + (k+1)*blockDuration = 8s, 16s, ...
+      // Sub-slot deadlines: block_build_deadline(k) = build_frame_start + init(1) + (k+1)*blockDuration = 9s, 17s, ...
       const slotStart = getSlotStartTime(slotNumber);
-      const expectedDeadlines = [8, 16, 24, 32, 40, 48, 56];
+      const expectedDeadlines = [9, 17, 25, 33, 41, 49, 57];
 
       for (let i = 0; i < EXPECTED_MAX_BLOCKS; i++) {
         const deadline = checkpointBuilder.buildBlockCalls[i].opts.deadline;

@@ -25,7 +25,7 @@ inside the same slot and do not use the pipelined build-slot/target-slot timetab
 
 This example uses the production-like values proposed below: `aztec_slot_duration = 72s`,
 `ethereum_slot_duration = 12s`, `block_duration = 6s`, `p2p_propagation_time = 2s`,
-and `checkpoint_proposal_prepare_time = 1s`.
+`checkpoint_proposal_prepare_time = 1s`, and `checkpoint_proposal_init_time = 1s`.
 
 All times are offsets from `build_frame_start`. Rows are ordered by the ideal path; deadline-path values show late
 acceptance cutoffs for the same activity.
@@ -33,7 +33,8 @@ acceptance cutoffs for the same activity.
 | Step | Ideal path | Deadline path |
 | --- | ---: | ---: |
 | Build frame opens | +0s (`build_frame_start`) | +0s (`build_frame_start`) |
-| Block 1 build deadline | +6s (`block_build_deadline(0)`) | +6s (`block_build_deadline(0)`) |
+| First sub-slot opens | +1s (`first_subslot_start`) | +1s (`first_subslot_start`) |
+| Block 1 build deadline | +7s (`block_build_deadline(0)`) | +7s (`block_build_deadline(0)`) |
 | Build slot starts | +12s (`build_slot_start`) | +12s (`build_slot_start`) |
 | Latest useful block-building start | +59s (`start_deadline`) | +59s (`start_deadline`) |
 | Last block build time | +61s (`last_block_build_time`) | +61s (`last_block_build_time`) |
@@ -103,6 +104,7 @@ same network should use the same values for coordinated proposer and validator b
 | `min_block_duration` | Minimum block-building time that is still worth allocating if the proposer starts late. |
 | `p2p_propagation_time` | One-way propagation budget for proposals and attestations. |
 | `checkpoint_proposal_prepare_time` | Local time between the last block build finishing and the checkpoint proposal being ready for p2p send. |
+| `checkpoint_proposal_init_time` | Proposer budget reserved at the start of the build frame for sync, the proposer check, and checkpoint initialization before the first block sub-slot opens. |
 
 `checkpoint_proposal_prepare_time` includes `completeCheckpoint`, local checkpoint validation, header validation
 simulation, checkpoint proposal signing, proposed-checkpoint archiver sync, and the immediate call into p2p broadcast.
@@ -253,13 +255,23 @@ to decide whether a validator failed to attest on time.
 
 ## Block Sub-Slots
 
-Block sub-slots are fixed windows counted from `build_frame_start`. `min_block_duration` is the spec name for the
-minimum execution headroom currently called `minExecutionTime`.
+Block sub-slots are fixed windows counted from the first sub-slot start, which sits one
+`checkpoint_proposal_init_time` after `build_frame_start`. `min_block_duration` is the spec name for the minimum
+execution headroom currently called `minExecutionTime`.
+
+`checkpoint_proposal_init_time` is the proposer budget reserved at the start of the build frame for sync, the proposer
+check, and checkpoint initialization. The proposer rarely begins building exactly at `build_frame_start` — it enters the
+build loop only after that prologue completes — so the sub-slot grid is offset by this budget. Without it, any non-zero
+prologue eats into the first sub-slot, and when `min_block_duration` equals `block_duration` (tight fast profiles) the
+first sub-slot becomes unstartable, leaving the checkpoint under-packed. This is an operational proposer budget, so it
+lives in the proposer timetable and does not affect any consensus-acceptance deadline.
 
 ```text
-block_build_start(block_index) = build_frame_start + block_index * block_duration
+first_subslot_start = build_frame_start + checkpoint_proposal_init_time
 
-block_build_deadline(block_index) = build_frame_start + (block_index + 1) * block_duration
+block_build_start(block_index) = first_subslot_start + block_index * block_duration
+
+block_build_deadline(block_index) = first_subslot_start + (block_index + 1) * block_duration
 ```
 
 where `block_index` is zero-based.
@@ -271,7 +283,7 @@ sub-slot keeps its original deadline and therefore has less remaining headroom.
 The maximum number of full-duration block sub-slots is:
 
 ```text
-max_blocks_per_checkpoint = floor((last_block_build_time - build_frame_start) / block_duration)
+max_blocks_per_checkpoint = floor((last_block_build_time - first_subslot_start) / block_duration)
 ```
 
 The start deadline is the latest time at which the proposer can still squeeze one minimum-duration block and make the
@@ -418,6 +430,7 @@ min_block_duration > 0
 min_block_duration <= block_duration
 p2p_propagation_time >= 0
 checkpoint_proposal_prepare_time >= 0
+checkpoint_proposal_init_time >= 0
 ```
 
 ### Build frame constraint
@@ -534,6 +547,7 @@ with mocked p2p networks.
 | `min_block_duration` | 2s | Conservative minimum useful execution budget. |
 | `p2p_propagation_time` | 2s | Conservative one-way proposal/attestation propagation budget. |
 | `checkpoint_proposal_prepare_time` | 1s | Conservative checkpoint assembly and broadcast preparation budget. |
+| `checkpoint_proposal_init_time` | 1s | Sync + proposer-check + init budget reserved before the first sub-slot. |
 
 Derived shape with these values:
 
@@ -569,6 +583,7 @@ Recommended fast local profile:
 | `min_block_duration` | 1s | Local execution and mocked p2p are faster; preserves late-start behavior. |
 | `p2p_propagation_time` | 0.5s | Mocked one-way proposal/attestation propagation budget. |
 | `checkpoint_proposal_prepare_time` | 0.5s | Short local checkpoint assembly and broadcast preparation budget. |
+| `checkpoint_proposal_init_time` | 1s | Sync + proposer-check + init budget reserved before the first sub-slot. |
 
 Derived shape with these values:
 
@@ -595,5 +610,6 @@ Alternative slower-block local profile:
 | `min_block_duration` | 1s |
 | `p2p_propagation_time` | 0.5s |
 | `checkpoint_proposal_prepare_time` | 0.5s |
+| `checkpoint_proposal_init_time` | 1s |
 
 This yields `max_blocks_per_checkpoint = 3` for a 36s/4s/8s local profile.

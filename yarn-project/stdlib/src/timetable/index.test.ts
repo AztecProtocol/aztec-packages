@@ -93,10 +93,12 @@ describe('ProposerTimetable', () => {
       expect(timetable.getL1PublishIdealTime(slot)).toBe(targetSlotStart - E);
     });
 
-    it('spaces block build deadlines uniformly from build_frame_start', () => {
+    it('spaces block build deadlines uniformly from build_frame_start + init', () => {
+      // init defaults to 1, so the first sub-slot deadline sits at build_frame_start + 1 + D.
       const buildFrameStart = targetSlotStart - S - E;
-      expect(timetable.getBlockBuildDeadline(slot, 0)).toBe(buildFrameStart + 6);
-      expect(timetable.getBlockBuildDeadline(slot, 9)).toBe(buildFrameStart + 60);
+      expect(timetable.checkpointProposalInitTime).toBe(1);
+      expect(timetable.getBlockBuildDeadline(slot, 0)).toBe(buildFrameStart + 1 + 6);
+      expect(timetable.getBlockBuildDeadline(slot, 9)).toBe(buildFrameStart + 1 + 60);
     });
 
     it('sets wait_for_txs_deadline to block_build_deadline(k) - minD', () => {
@@ -149,6 +151,8 @@ describe('ProposerTimetable', () => {
     const E = 12;
     const slot = SlotNumber(5);
     const buildFrameStart = S * slot - S - E;
+    // The sub-slot grid starts one init (default 1s) after the build frame opens.
+    const firstSubslotStart = buildFrameStart + 1;
 
     const timetable = new ProposerTimetable({
       l1Constants: l1Constants(S, E),
@@ -161,15 +165,15 @@ describe('ProposerTimetable', () => {
 
     it('selects the first sub-slot at the build frame start', () => {
       const result = timetable.selectNextSubslot(slot, buildFrameStart);
-      expect(result).toEqual({ canStart: true, index: 0, deadline: buildFrameStart + 6, isLastBlock: false });
+      expect(result).toEqual({ canStart: true, index: 0, deadline: firstSubslotStart + 6, isLastBlock: false });
     });
 
     it('skips sub-slots with less than minD remaining', () => {
-      // 5s past the first sub-slot deadline leaves only 1s < minD (2s); skip to sub-slot 1.
-      const result = timetable.selectNextSubslot(slot, buildFrameStart + 5);
+      // 5s past the first sub-slot start leaves only 1s < minD (2s) until its deadline; skip to sub-slot 1.
+      const result = timetable.selectNextSubslot(slot, firstSubslotStart + 5);
       expect(result.canStart).toBe(true);
       expect(result.index).toBe(1);
-      expect(result.deadline).toBe(buildFrameStart + 12);
+      expect(result.deadline).toBe(firstSubslotStart + 12);
     });
 
     it('flags the last sub-slot', () => {
@@ -185,6 +189,49 @@ describe('ProposerTimetable', () => {
       const result = timetable.selectNextSubslot(slot, lastDeadline);
       expect(result.canStart).toBe(false);
       expect(result.deadline).toBeUndefined();
+    });
+
+    // Regression: with a tight fast profile where minD == D, the first sub-slot used to be anchored at
+    // build_frame_start, so any non-zero proposer prologue starved it (deadline - now < minD) and the
+    // checkpoint under-packed to a single block. The init offset gives the first sub-slot its full
+    // duration once the prologue completes, so a realistic late start still packs both sub-slots.
+    describe('packs minimum blocks with a realistic late proposer start (minD == D)', () => {
+      const tightS = 12;
+      const tightE = 4;
+      const tightD = 2;
+      const tightSlot = SlotNumber(11);
+      const tightBuildFrameStart = tightS * tightSlot - tightS - tightE;
+
+      const tight = new ProposerTimetable({
+        l1Constants: l1Constants(tightS, tightE),
+        blockDuration: tightD,
+        minBlockDuration: 2,
+        p2pPropagationTime: 2,
+        checkpointProposalPrepareTime: 1,
+        enforce: true,
+      });
+
+      it('derives two sub-slots', () => {
+        expect(tight.getMaxBlocksPerCheckpoint()).toBe(2);
+      });
+
+      it('selects sub-slot 0 (not 1) when starting just after the build frame opens', () => {
+        // Proposer enters the build loop ~0.75s into the build frame after sync + proposer check + init.
+        const now = tightBuildFrameStart + 0.75;
+        const result = tight.selectNextSubslot(tightSlot, now);
+        expect(result.canStart).toBe(true);
+        expect(result.index).toBe(0);
+        expect(result.isLastBlock).toBe(false);
+      });
+
+      it('selects the final sub-slot for the second block after the first finishes', () => {
+        // After building block 0 the proposer waits until sub-slot 0's deadline, then selects sub-slot 1.
+        const subslot0Deadline = tight.getBlockBuildDeadline(tightSlot, 0);
+        const result = tight.selectNextSubslot(tightSlot, subslot0Deadline);
+        expect(result.canStart).toBe(true);
+        expect(result.index).toBe(1);
+        expect(result.isLastBlock).toBe(true);
+      });
     });
   });
 

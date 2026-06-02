@@ -71,8 +71,8 @@ describe('SequencerTimetable', () => {
 
     it('wait-for-txs deadline is block_build_deadline(k) - minD', () => {
       const buildFrameStart = targetSlotStart - AZTEC_SLOT_DURATION - ETHEREUM_SLOT_DURATION;
-      // block_build_deadline(0) = build_frame_start + 6; minus minD (2).
-      expect(timetable.getWaitForTxsDeadline(slot, 0)).toBe(buildFrameStart + 6 - 2);
+      // block_build_deadline(0) = build_frame_start + init (1) + 6; minus minD (2).
+      expect(timetable.getWaitForTxsDeadline(slot, 0)).toBe(buildFrameStart + 1 + 6 - 2);
     });
   });
 
@@ -80,6 +80,8 @@ describe('SequencerTimetable', () => {
     const slot = SlotNumber(5);
     const targetSlotStart = AZTEC_SLOT_DURATION * slot;
     const buildFrameStart = targetSlotStart - AZTEC_SLOT_DURATION - ETHEREUM_SLOT_DURATION;
+    // The sub-slot grid starts one init (default 1s) after the build frame opens.
+    const firstSubslotStart = buildFrameStart + 1;
 
     describe('multi-block enforced', () => {
       let timetable: SequencerTimetable;
@@ -99,21 +101,21 @@ describe('SequencerTimetable', () => {
         const result = timetable.selectNextSubslot(slot, buildFrameStart);
         expect(result.canStart).toBe(true);
         expect(result.index).toBe(0);
-        expect(result.deadline).toBe(buildFrameStart + 8);
+        expect(result.deadline).toBe(firstSubslotStart + 8);
         expect(result.isLastBlock).toBe(false);
       });
 
       it('skips a sub-slot with less than minD remaining', () => {
-        // 7s past build frame leaves 1s < minD (2s) in sub-slot 0; skip to sub-slot 1.
-        const result = timetable.selectNextSubslot(slot, buildFrameStart + 7);
+        // 7s past the first sub-slot start leaves 1s < minD (2s) in sub-slot 0; skip to sub-slot 1.
+        const result = timetable.selectNextSubslot(slot, firstSubslotStart + 7);
         expect(result.canStart).toBe(true);
         expect(result.index).toBe(1);
-        expect(result.deadline).toBe(buildFrameStart + 16);
+        expect(result.deadline).toBe(firstSubslotStart + 16);
       });
 
       it('flags the last sub-slot and refuses to start past it', () => {
         const maxBlocks = timetable.maxNumberOfBlocks;
-        const lastDeadline = buildFrameStart + maxBlocks * 8;
+        const lastDeadline = firstSubslotStart + maxBlocks * 8;
         const last = timetable.selectNextSubslot(slot, lastDeadline - 2);
         expect(last.canStart).toBe(true);
         expect(last.index).toBe(maxBlocks - 1);
