@@ -176,25 +176,21 @@ where
 
 // TODO: Oracles below are generic private log oracles and are not specific to notes. Move them somewhere else.
 
-/// Returns the directional app tagging secret for a `(sender, recipient)` pair (address-pair / ECDH origin).
+/// Returns the sender-side app tagging secret for a `(sender, recipient)` pair.
 ///
-/// This is the secret half of unconstrained-delivery tag derivation. The simulator performs the ECDH multiply -
-/// which needs the sender's master incoming viewing secret key and so can only run in the PXE - siloes the result
-/// to the calling contract, and returns it. The caller finishes the tag by obtaining an index from
-/// [`get_next_tagging_index`] and hashing the two together. Handshake-origin sends skip this entirely: the registry
-/// provides the secret instead.
-pub unconstrained fn get_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) -> Field {
+/// This returns `None` if the simulator cannot resolve the secret for the pair. Callers that need a discoverable tag
+/// must obtain an index from [`get_next_tagging_index`] and hash the secret with the index.
+pub unconstrained fn get_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
     get_app_tagging_secret_oracle(sender, recipient)
 }
 
 #[oracle(aztec_prv_getAppTaggingSecret)]
-unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Field {}
+unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Option<Field> {}
 
 /// Returns the next sender-side tagging index for a given secret and delivery mode.
 ///
-/// Both delivery origins (address-pair ECDH and handshake) funnel through this single index allocator: the caller
-/// already holds the tagging `secret` - from [`get_app_tagging_secret`] or the handshake registry - and only needs
-/// the simulator to hand out a fresh per-secret, per-mode index, then computes the tag itself. `mode` is one of
+/// The caller already holds the tagging `secret` and only needs the simulator to hand out a fresh per-secret,
+/// per-mode index, then computes the tag itself. `mode` is one of
 /// [`ONCHAIN_UNCONSTRAINED`](crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED) /
 /// [`ONCHAIN_CONSTRAINED`](crate::messages::message_delivery::ONCHAIN_CONSTRAINED) and selects the per-mode index
 /// counter. Offchain messages are not tagged, so only the onchain delivery variants reach this oracle.

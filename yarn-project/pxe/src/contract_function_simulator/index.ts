@@ -16,6 +16,7 @@ export { EphemeralArray } from './noir-structs/ephemeral_array.js';
 export { Option } from './noir-structs/option.js';
 export { UtilityContext } from './noir-structs/utility_context.js';
 export {
+  DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,

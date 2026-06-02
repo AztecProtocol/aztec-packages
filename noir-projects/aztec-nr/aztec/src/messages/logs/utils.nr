@@ -1,5 +1,5 @@
 use crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED;
-use crate::oracle::notes::{get_app_tagging_secret, get_next_tagging_index, get_sender_for_tags};
+use crate::oracle::{notes::{get_app_tagging_secret, get_next_tagging_index, get_sender_for_tags}, random::random};
 use crate::protocol::{address::AztecAddress, hash::poseidon2_hash};
 
 // TODO(#14565): Add constrained tagging
@@ -20,8 +20,13 @@ pub(crate) fn compute_discovery_tag(recipient: AztecAddress, sender_override: Op
             )
         });
         let secret = get_app_tagging_secret(sender, recipient);
-        let index = get_next_tagging_index(secret, ONCHAIN_UNCONSTRAINED);
-        poseidon2_hash([secret, index as Field])
+        if secret.is_some() {
+            let secret = secret.unwrap_unchecked();
+            let index = get_next_tagging_index(secret, ONCHAIN_UNCONSTRAINED);
+            poseidon2_hash([secret, index as Field])
+        } else {
+            random()
+        }
     }
 }
 
@@ -45,9 +50,20 @@ mod test {
         let secret: Field = 7;
         let index: u32 = 3;
         let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
-        let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(secret);
+        let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::some(secret));
         let _ = OracleMock::mock("aztec_prv_getNextTaggingIndex").returns(index);
         assert_eq(compute_discovery_tag(recipient, Option::none()), poseidon2_hash([secret, index as Field]));
+    }
+
+    #[test]
+    unconstrained fn uses_random_tag_when_secret_is_missing() {
+        let sender = AztecAddress::from_field(1);
+        let recipient = AztecAddress::from_field(2);
+        let random_tag = 42;
+        let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
+        let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::<Field>::none());
+        let _ = OracleMock::mock("aztec_utl_getRandomField").returns(random_tag);
+        assert_eq(compute_discovery_tag(recipient, Option::none()), random_tag);
     }
 
     #[test]

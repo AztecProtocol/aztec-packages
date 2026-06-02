@@ -27,6 +27,7 @@ import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import {
+  AppTaggingSecretKind,
   ContractClassLog,
   ContractClassLogFields,
   FlatPublicLogs,
@@ -90,6 +91,28 @@ export const BYTE: TypeMapping<number> = {
       return Number(value);
     },
     slots: 1,
+  },
+};
+
+const ONCHAIN_UNCONSTRAINED_DELIVERY_MODE = 2;
+const ONCHAIN_CONSTRAINED_DELIVERY_MODE = 3;
+
+function appTaggingSecretKindFromDeliveryMode(deliveryMode: number): AppTaggingSecretKind {
+  switch (deliveryMode) {
+    case ONCHAIN_UNCONSTRAINED_DELIVERY_MODE:
+      return AppTaggingSecretKind.UNCONSTRAINED;
+    case ONCHAIN_CONSTRAINED_DELIVERY_MODE:
+      return AppTaggingSecretKind.CONSTRAINED;
+    default:
+      throw new Error(`Unrecognized delivery mode for tagging: ${deliveryMode}`);
+  }
+}
+
+// Noir passes `MessageDelivery` onchain variants here; offchain messages are not tagged.
+export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
+  deserialization: {
+    fn: readers => appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn(readers)),
+    slots: BYTE.deserialization!.slots,
   },
 };
 
@@ -665,13 +688,13 @@ const ORACLE_REGISTRY = {
       { name: 'sender', type: AZTEC_ADDRESS },
       { name: 'recipient', type: AZTEC_ADDRESS },
     ],
-    returnType: FIELD,
+    returnType: OPTION(FIELD),
   }),
 
   aztec_prv_getNextTaggingIndex: makeEntry({
     params: [
       { name: 'secret', type: FIELD },
-      { name: 'mode', type: BYTE },
+      { name: 'deliveryMode', type: DELIVERY_MODE },
     ],
     returnType: U32,
   }),

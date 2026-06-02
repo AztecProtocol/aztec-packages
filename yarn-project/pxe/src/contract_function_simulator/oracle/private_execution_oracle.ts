@@ -41,23 +41,6 @@ import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
 import { executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
-// Onchain delivery-variant wire values, mirroring the ONCHAIN_* globals in aztec-nr's message_delivery
-// (2 = onchain unconstrained, 3 = onchain constrained). Offchain messages (variant 1) are never tagged and so never
-// reach this oracle.
-const ONCHAIN_UNCONSTRAINED = 2;
-const ONCHAIN_CONSTRAINED = 3;
-
-function taggingModeToKind(mode: number): AppTaggingSecretKind {
-  switch (mode) {
-    case ONCHAIN_UNCONSTRAINED:
-      return AppTaggingSecretKind.UNCONSTRAINED;
-    case ONCHAIN_CONSTRAINED:
-      return AppTaggingSecretKind.CONSTRAINED;
-    default:
-      throw new Error(`Unrecognized tagging mode: ${mode}`);
-  }
-}
-
 /** Args for PrivateExecutionOracle constructor. */
 export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contractAddress'> & {
   argsHash: Fr;
@@ -203,41 +186,35 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Returns the directional app tagging secret for a `(sender, recipient)` pair (address-pair / ECDH origin).
+   * Returns the sender-side app tagging secret for a `(sender, recipient)` pair.
    *
-   * The simulator derives the secret via ECDH from `(sender, recipient, contract)` - which requires the sender's
-   * master incoming viewing secret key and so can only run here in the PXE - and hands it back. The caller obtains
-   * an index via {@link getNextTaggingIndex} and computes the final the tag itself.
+   * The caller obtains an index via {@link getNextTaggingIndex} and computes the final tag itself.
    *
    * @param sender - The address sending the log
    * @param recipient - The address receiving the log
-   * @returns The directional app tagging secret.
+   * @returns The app tagging secret, or `None` if no sender-side secret can be resolved.
    */
-  public async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Fr> {
+  public async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Option<Fr>> {
     const extendedSecret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);
 
     if (!extendedSecret) {
-      // We'd only fail to compute a secret if the recipient is an invalid address. To prevent king-of-the-hill
-      // attacks, instead of failing we return a random secret: the resulting tag still looks correct, so the
-      // transaction shape is preserved and no privacy is leaked, even though the tag is bogus.
-      this.logger.warn(`Computing a tagging secret for invalid recipient ${recipient} - returning a random secret`, {
+      this.logger.warn(`Computing a tagging secret for invalid recipient ${recipient} - returning no secret`, {
         contractAddress: this.contractAddress,
       });
-      return Fr.random();
+      return Option.none(Fr.ZERO);
     }
 
-    return extendedSecret.secret;
+    return Option.some(extendedSecret.secret);
   }
 
   /**
    * Returns the next sender-side tagging index for a given secret and delivery mode.
    *
    * @param secret - The tagging secret to allocate an index for.
-   * @param mode - The delivery mode; selects the per-mode index counter.
+   * @param kind - The sender-side index namespace.
    * @returns The next index to use for this secret.
    */
-  public async getNextTaggingIndex(secret: Fr, mode: number): Promise<number> {
-    const kind = taggingModeToKind(mode);
+  public async getNextTaggingIndex(secret: Fr, kind: AppTaggingSecretKind): Promise<number> {
     const appTaggingSecret = new AppTaggingSecret(secret, this.contractAddress, kind);
     const index = await this.#reserveNextIndexForSecret(appTaggingSecret);
     this.logger.debug(`Incrementing ${kind} tagging index for secret in contract ${this.contractAddress} to ${index}`);

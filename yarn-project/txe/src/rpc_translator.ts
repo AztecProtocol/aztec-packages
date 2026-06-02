@@ -8,9 +8,11 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { FieldReader } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import {
   BoundedVec,
+  DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   EphemeralArray,
@@ -1449,15 +1451,17 @@ export class RPCTranslator {
     const sender = AztecAddress.fromField(fromSingle(foreignSender));
     const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
 
-    const secret = await this.handlerAsPrivate().getAppTaggingSecret(sender, recipient);
+    const maybeSecret = await this.handlerAsPrivate().getAppTaggingSecret(sender, recipient);
 
-    return toForeignCallResult([toSingle(secret)]);
+    return maybeSecret.isSome()
+      ? toForeignCallResult([toSingle(1), toSingle(maybeSecret.value)])
+      : toForeignCallResult([toSingle(0), toSingle(0)]);
   }
 
   // eslint-disable-next-line camelcase
   async aztec_prv_getNextTaggingIndex(foreignSecret: ForeignCallSingle, foreignMode: ForeignCallSingle) {
     const secret = fromSingle(foreignSecret);
-    const mode = fromSingle(foreignMode).toNumber();
+    const mode = DELIVERY_MODE.deserialization!.fn([new FieldReader([fromSingle(foreignMode)])]);
 
     const index = await this.handlerAsPrivate().getNextTaggingIndex(secret, mode);
 
