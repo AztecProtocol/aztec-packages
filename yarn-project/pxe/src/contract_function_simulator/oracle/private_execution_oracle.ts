@@ -189,10 +189,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Returns the sender-side app tagging secret for a `(sender, recipient)` pair.
    *
    * The caller obtains an index via {@link getNextTaggingIndex} and computes the final tag itself.
+   * The only expected `None` case is an invalid recipient address; missing sender data fails while deriving.
    *
    * @param sender - The address sending the log
    * @param recipient - The address receiving the log
-   * @returns The app tagging secret, or `None` if no sender-side secret can be resolved.
+   * @returns The app tagging secret, or `None` if the recipient is invalid.
    */
   public async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Option<Fr>> {
     const extendedSecret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);

@@ -178,8 +178,9 @@ where
 
 /// Returns the sender-side app tagging secret for a `(sender, recipient)` pair.
 ///
-/// This returns `None` if the simulator cannot resolve the secret for the pair. Callers that need a discoverable tag
-/// must obtain an index from [`get_next_tagging_index`] and hash the secret with the index.
+/// This returns `None` for an invalid recipient address. Other sender-side lookup failures are simulator errors and
+/// fail before this wrapper returns. Callers that need a discoverable tag must obtain an index from
+/// [`get_next_tagging_index`] and hash the secret with the index.
 pub unconstrained fn get_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
     get_app_tagging_secret_oracle(sender, recipient)
 }

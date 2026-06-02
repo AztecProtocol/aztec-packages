@@ -25,6 +25,8 @@ pub(crate) fn compute_discovery_tag(recipient: AztecAddress, sender_override: Op
             let index = get_next_tagging_index(secret, ONCHAIN_UNCONSTRAINED);
             poseidon2_hash([secret, index as Field])
         } else {
+            // The oracle returns `None` for invalid recipients. To prevent king-of-the-hill attacks, emit a random
+            // tag instead of failing: the log shape is preserved, even though no recipient can discover the note.
             random()
         }
     }
@@ -56,7 +58,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn uses_random_tag_when_secret_is_missing() {
+    unconstrained fn uses_random_tag_for_invalid_recipient() {
         let sender = AztecAddress::from_field(1);
         let recipient = AztecAddress::from_field(2);
         let random_tag = 42;
