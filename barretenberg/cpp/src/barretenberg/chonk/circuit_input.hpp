@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_flavor.hpp"
@@ -18,6 +19,7 @@
 #include <cstdint>
 #include <memory>
 #include <ostream>
+#include <string>
 #include <utility>
 #include <variant>
 
@@ -83,7 +85,11 @@ template <typename F> constexpr decltype(auto) dispatch_kind(CircuitKind kind, F
     case CircuitKind::HidingKernel:
         return std::forward<F>(f).template operator()<CircuitKind::HidingKernel>();
     }
-    __builtin_unreachable();
+    // Not a BB_ASSERT/unreachable: MSGPACK_ADD_ENUM does an unchecked cast, so a kind byte >= 3 from
+    // an old/external/crafted msgpack yields an invalid enum. The VK paths (compute_chonk_vk /
+    // check_precomputed_chonk_vk) dispatch on the raw wire kind with no other guard, so this must
+    // throw in release/WASM rather than jump past the switch (UB).
+    throw_or_abort("dispatch_kind: invalid CircuitKind " + std::to_string(static_cast<int>(kind)));
 }
 
 } // namespace bb

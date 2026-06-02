@@ -91,7 +91,12 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
 Chonk::Chonk(size_t num_circuits)
     : num_circuits(num_circuits)
 {
-    BB_ASSERT_GTE(num_circuits, 4UL, "Number of circuits must be at least 4 (get_queue_type uses num_circuits - 3).");
+    // Not a BB_ASSERT: num_circuits arrives from msgpack (ChonkStart::num_circuits / folding stack
+    // size). get_queue_type subtracts 3 from it; an unchecked value < 4 would underflow the unsigned
+    // arithmetic and silently mis-type the whole queue, so reject it clearly in release/WASM too.
+    if (num_circuits < 4) {
+        throw_or_abort("Chonk: number of circuits must be at least 4, got " + std::to_string(num_circuits));
+    }
 }
 
 /**
@@ -507,20 +512,22 @@ Chonk::QUEUE_TYPE Chonk::get_queue_type() const
     if (num_circuits_accumulated == 0) {
         return QUEUE_TYPE::OINK;
     }
+    // Comparisons written in additive form (a + k == n rather than a == n - k) so they stay correct
+    // even if num_circuits is small; the constructor already rejects num_circuits < 4.
     // app (excluding first) or kernel (inner or reset)
-    if (num_circuits_accumulated < num_circuits - 3) {
+    if (num_circuits_accumulated + 3 < num_circuits) {
         return QUEUE_TYPE::HN;
     }
     // last kernel prior to tail kernel
-    if (num_circuits_accumulated == num_circuits - 3) {
+    if (num_circuits_accumulated + 3 == num_circuits) {
         return QUEUE_TYPE::HN_TAIL;
     }
     // tail kernel
-    if (num_circuits_accumulated == num_circuits - 2) {
+    if (num_circuits_accumulated + 2 == num_circuits) {
         return QUEUE_TYPE::HN_FINAL;
     }
     // hiding kernel
-    if (num_circuits_accumulated == num_circuits - 1) {
+    if (num_circuits_accumulated + 1 == num_circuits) {
         return QUEUE_TYPE::MEGA;
     }
     throw_or_abort("Chonk::get_queue_type: num_circuits_accumulated out of range");
@@ -535,8 +542,11 @@ void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
     BB_BENCH_NAME("Chonk::accumulate_hiding_kernel");
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
-    BB_ASSERT(get_queue_type() == QUEUE_TYPE::MEGA,
-              "Chonk::accumulate_hiding_kernel must be the final circuit in the IVC stack");
+    // throw, not BB_ASSERT: reachable from external step ordering, and a wrong position would feed
+    // the wrong variant alternative into std::get below (std::bad_variant_access / mis-folding).
+    if (get_queue_type() != QUEUE_TYPE::MEGA) {
+        throw_or_abort("Chonk::accumulate_hiding_kernel must be the final circuit in the IVC stack");
+    }
 
     vinfo("Constructing hiding kernel instance (proving deferred to prove())");
     hiding_prover_inst = std::make_shared<HidingKernelProverInstance>(circuit);
@@ -683,13 +693,18 @@ void Chonk::accumulate(ClientCircuit& circuit, CircuitKind kind, const CircuitVe
 
     switch (kind) {
     case CircuitKind::HidingKernel: {
-        BB_ASSERT(queue_type == QUEUE_TYPE::MEGA, "HidingKernel must be the final circuit in the IVC stack");
+        // throw, not BB_ASSERT: wrong position feeds the wrong variant into std::get (bad_variant_access).
+        if (queue_type != QUEUE_TYPE::MEGA) {
+            throw_or_abort("HidingKernel must be the final circuit in the IVC stack");
+        }
         accumulate_hiding_kernel(circuit, std::get<std::shared_ptr<MegaZKVerificationKey>>(vk));
         break;
     }
     case CircuitKind::App:
     case CircuitKind::Kernel: {
-        BB_ASSERT(queue_type != QUEUE_TYPE::MEGA, "App/Kernel cannot be the final circuit; use HidingKernel");
+        if (queue_type == QUEUE_TYPE::MEGA) {
+            throw_or_abort("App/Kernel cannot be the final circuit; use HidingKernel");
+        }
         accumulate_and_fold(circuit, kind, queue_type, vk);
 
         if (queue_type == QUEUE_TYPE::HN_FINAL) {
