@@ -31,7 +31,7 @@ import { OffenseType, WANT_TO_CLEAR_SLASH_EVENT, WANT_TO_SLASH_EVENT } from '@az
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type BlockData, BlockHash, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
-import { type getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
@@ -130,9 +130,15 @@ describe('ValidatorClient', () => {
     epochCache = mock<EpochCache>();
 
     epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
-    epochCache.getL1Constants.mockReturnValue({ epochDuration: 8 } satisfies Parameters<
-      typeof getEpochAtSlot
-    >[1] as any);
+    // Includes the L1 geometry fields read by the checkpoint-validation publish deadline
+    // (getLastL1SlotTimestampForL2Slot needs l1GenesisTime/slotDuration/ethereumSlotDuration), kept
+    // consistent with checkpointsBuilder.getConfig() above.
+    epochCache.getL1Constants.mockReturnValue({
+      epochDuration: 8,
+      l1GenesisTime: 1n,
+      slotDuration: 24,
+      ethereumSlotDuration: 12,
+    } as any);
     epochCache.getSlotNow.mockReturnValue(SlotNumber(1));
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),

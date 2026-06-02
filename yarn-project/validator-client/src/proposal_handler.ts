@@ -22,7 +22,7 @@ import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/stdlib/checkpoint';
 import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
-import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getLastL1SlotTimestampForL2Slot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
@@ -901,11 +901,15 @@ export class ProposalHandler {
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;
 
-    // Block-sync deadline = the moment the proposer can no longer publish this checkpoint to L1.
-    // The proposal is built one slot ahead (pipelining), so the publication deadline is the start
-    // of the target slot, as computed by `getReexecutionDeadline`.
-    const config = this.checkpointsBuilder.getConfig();
-    const deadline = this.getReexecutionDeadline(slot, config);
+    // Block-sync deadline = the L1 publish deadline, i.e. the latest moment the proposer can submit
+    // this checkpoint and still have it land on L1 in the target slot. That is 12s (one Ethereum
+    // slot) before the last L1 block of the target slot, which is later than the target-slot start
+    // used for block re-execution. Keeping validation/attestation alive until then lets validators
+    // keep attesting right up to the proposer's real publish cutoff.
+    const l1Constants = this.epochCache.getL1Constants();
+    const publishDeadlineSeconds =
+      Number(getLastL1SlotTimestampForL2Slot(slot, l1Constants)) - l1Constants.ethereumSlotDuration;
+    const deadline = new Date(publishDeadlineSeconds * 1000);
     const timeoutSeconds = Math.max(1, Math.floor((deadline.getTime() - this.dateProvider.now()) / 1000));
 
     // Wait for last block to sync by archive

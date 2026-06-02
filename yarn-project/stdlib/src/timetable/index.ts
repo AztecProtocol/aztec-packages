@@ -79,6 +79,7 @@ class CheckpointTimingModel implements PipelinedCheckpointTiming {
   public readonly l1PublishingTime: number;
   public readonly minExecutionTime: number;
   public readonly p2pPropagationTime: number;
+  private readonly ethereumSlotDuration: number;
 
   constructor(opts: CheckpointTimingConfig) {
     this.aztecSlotDuration = opts.aztecSlotDuration;
@@ -89,6 +90,7 @@ class CheckpointTimingModel implements PipelinedCheckpointTiming {
     this.l1PublishingTime = opts.l1PublishingTime ?? DEFAULT_L1_PUBLISHING_TIME;
     this.minExecutionTime = opts.minExecutionTime ?? MIN_EXECUTION_TIME;
     this.p2pPropagationTime = opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME;
+    this.ethereumSlotDuration = opts.ethereumSlotDuration ?? this.l1PublishingTime;
   }
 
   public get checkpointFinalizationTime(): number {
@@ -107,9 +109,11 @@ class CheckpointTimingModel implements PipelinedCheckpointTiming {
   }
 
   public get attestationWindowIntoTargetSlot(): number {
-    // Straggler grace: attestations aim to complete by build-slot end. Allow a
-    // small window into the target slot for late arrivals (round-trip p2p).
-    return 2 * this.p2pPropagationTime;
+    // Span from the target-slot start to the L1 publish deadline (12s before the last L1 block of
+    // the target slot). The p2p layer accepts slot-N attestations until right before the publish
+    // deadline so the proposer can keep collecting useful attestations up to the latest moment the
+    // checkpoint can still land on L1 in the target slot.
+    return this.aztecSlotDuration - 2 * this.ethereumSlotDuration;
   }
 
   public get pipeliningAttestationGracePeriod(): number {
@@ -145,13 +149,17 @@ class CheckpointTimingModel implements PipelinedCheckpointTiming {
   }
 
   public get checkpointAttestationDeadline(): number {
-    // Allowed to be into the next wallclock slot minus the allocated l1 publishing time
-    return this.aztecSlotDuration * 2 - this.l1PublishingTime;
+    // L1 publish deadline — 12s (one Ethereum slot) before the last L1 block of the target L2 slot;
+    // the latest the checkpoint can be submitted and still land on L1 in the target slot. This is an
+    // L1-geometry bound (ethereumSlotDuration), matching the publisher's send lead in sendRequestsAt
+    // (which also targets one Ethereum slot before the target slot start).
+    return this.aztecSlotDuration * 2 - this.ethereumSlotDuration;
   }
 
   public get checkpointPublishingDeadline(): number {
-    // Allowed to be into the next wallclock slot minus the allocated l1 Publishing time
-    return this.aztecSlotDuration * 2 - this.l1PublishingTime;
+    // L1 publish deadline — 12s (one Ethereum slot) before the last L1 block of the target L2 slot;
+    // the latest the checkpoint can be submitted and still land on L1 in the target slot.
+    return this.aztecSlotDuration * 2 - this.ethereumSlotDuration;
   }
 
   public calculateMaxBlocksPerSlot(): number {
