@@ -218,6 +218,18 @@ export interface MsmConfig {
    * The MSM result is windowing-invariant, so output must still match the oracle.
    */
   varSched?: boolean;
+  /**
+   * Enable the split-c variable-window decision (Phase 1): build the GPU MSB
+   * histogram so the schedule can be chosen from the scalar distribution. Off by
+   * default — the uniform path is untouched and byte-identical. The decision only
+   * splits when the cost model finds it worthwhile (or {@link forceSplit} forces it).
+   */
+  splitC?: boolean;
+  /**
+   * Test hook (mirrors the C++ VAR_WINDOW_FORCE_SPLIT env var): force a split at
+   * `[b_star, c_lo, c_hi]`, bypassing the cost model. Requires {@link splitC}.
+   */
+  forceSplit?: [number, number, number];
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -1472,6 +1484,10 @@ export class MsmV2 {
   /** Per-window widths. Uniform = [c, c, …]; the varSched fixture fills it with
    *  the two-region schedule. Drives the WindowDesc fill and the host combine. */
   private windowCs!: number[];
+  /** split-c (Phase 1): build the MSB histogram + run the variable-window decision. */
+  private splitC = false;
+  /** split-c test hook: force a split at [b_star, c_lo, c_hi], bypassing the cost model. */
+  private forceSplit?: [number, number, number];
   /** Number of Pippenger windows = ceil(NUMBITS / c). Public — the bridge
    *  reads it when packing per-MSM staging buffers. */
   numWindows!: number;
@@ -1508,6 +1524,7 @@ export class MsmV2 {
   private carryPipeL0!: GPUComputePipeline;
   private finalizePipeL0!: GPUComputePipeline;
   private decomposePipe!: GPUComputePipeline;
+  private msbHistPipe!: GPUComputePipeline;
   private xposeCountPipe!: GPUComputePipeline;
   private xposeReducePipe!: GPUComputePipeline;
   private xposeScanPipe!: GPUComputePipeline;
@@ -1549,6 +1566,7 @@ export class MsmV2 {
   private finalizeLayout!: GPUBindGroupLayout;
   private finalizeLayoutL0!: GPUBindGroupLayout;
   private decomposeLayout!: GPUBindGroupLayout;
+  private msbHistLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
   private xposeReduceLayout!: GPUBindGroupLayout;
   private xposeScanLayout!: GPUBindGroupLayout;
@@ -1666,6 +1684,11 @@ export class MsmV2 {
   private passCount = 0;
   private passPhases: string[] = [];
   private decomposeBinds!: GPUBindGroup[];
+  // split-c MSB histogram (Phase 1). msbHistBuf: 256 u32 bins; msbPerScalarBuf:
+  // n u32 (per-scalar msb, 255 sentinel for zero — reused by Phase 2 idx_large).
+  private msbHistBind?: GPUBindGroup;
+  private msbHistBuf?: GPUBuffer;
+  private msbPerScalarBuf?: GPUBuffer;
   private xposeCountBinds!: GPUBindGroup[];
   private xposeReduceBinds!: GPUBindGroup[];
   private xposeScanBinds!: GPUBindGroup[];
@@ -1734,6 +1757,8 @@ export class MsmV2 {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
+    m.splitC = config?.splitC ?? false;
+    m.forceSplit = config?.forceSplit;
     m.numBatchesForce = config?.numBatchesOverride ?? 0;
     m.memBudget = config?.budgetMiB ? config.budgetMiB * (1 << 20) : MEM_BUDGET;
     const wantProfile = config?.profile ?? false;
@@ -1863,6 +1888,8 @@ export class MsmV2 {
     // 4 bindings: scalars (read), bucket_and_sign (write), params, batch.
     // (Previously 5 — separate signs buffer collapsed into the bucket_and_sign pack.)
     m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+    // msb_histogram: scalars(read), msb_hist(rw), msb_per_scalar(rw), params(uniform).
+    m.msbHistLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.xposeReduceLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform', 'read-only-storage', 'uniform']);
@@ -1926,6 +1953,7 @@ export class MsmV2 {
     const compile = (code: string, label: string, layout: GPUBindGroupLayout) =>
       pool.cache.getPipeline(code, layout, label);
     m.decomposePipe = await compile(sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
+    m.msbHistPipe = await compile(sm.gen_ba_msb_histogram_shader(), `msb_histogram`, m.msbHistLayout);
     // Tiled counting-sort transpose: count + scatter dispatch across point-
     // chunks (not just windows) so the GPU stays saturated; reduce folds the
     // per-chunk partials; scan is the unchanged per-window prefix sum. Only
@@ -2472,6 +2500,26 @@ export class MsmV2 {
     });
     device.queue.writeBuffer(windowDescBuf, 0, wdData as BufferSource);
     this.prepBuffers.push(windowDescBuf);
+
+    // split-c MSB histogram resources (Phase 1) — only when the decision is on.
+    // msbHistBuf: 256 u32 bins (cleared before each dispatch). msbPerScalarBuf:
+    // n u32 (per-scalar msb, reused by Phase 2 idx_large). Both standalone so
+    // they don't perturb the arena's 6-colour conflict graph.
+    if (this.splitC) {
+      const msbHistBuf = device.createBuffer({
+        size: 256 * 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+      });
+      const msbPerScalarBuf = device.createBuffer({
+        size: n * 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      });
+      const msbHistParams = ubuf(new Uint32Array([n, 8, 0, 0]));
+      this.msbHistBuf = msbHistBuf;
+      this.msbPerScalarBuf = msbPerScalarBuf;
+      this.msbHistBind = mkBind(this.msbHistLayout, [scalarsRawBuf, msbHistBuf, msbPerScalarBuf, msbHistParams]);
+      this.prepBuffers.push(msbHistBuf, msbPerScalarBuf);
+    }
     // Uniform layout: [num_point_tiles, BW, n, points_per_tile]; consumed by
     // transpose_count_tiled, transpose_reduce_tiled (only [0] [1]),
     // transpose_scatter_tiled (all four).
@@ -3080,6 +3128,28 @@ export class MsmV2 {
     return out;
   }
 
+  /**
+   * Run ONLY the MSB-histogram kernel and read back its outputs (split-c Phase 1
+   * validation). Requires `splitC` + a prior `prepare()`. Returns the 256-bin
+   * histogram and the per-scalar msb array; compare against {@link computeMsbHistogram}.
+   */
+  async debugMsbHistogram(): Promise<{ hist: Uint32Array; msbPerScalar: Uint32Array }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugMsbHistogram: call prepare() first');
+    if (!this.msbHistBind || !this.msbHistBuf || !this.msbPerScalarBuf) {
+      throw new Error('MsmV2.debugMsbHistogram: requires splitC=true');
+    }
+    const enc = this.device.createCommandEncoder();
+    enc.clearBuffer(this.msbHistBuf);
+    const pass = enc.beginComputePass();
+    pass.setPipeline(this.msbHistPipe);
+    pass.setBindGroup(0, this.msbHistBind);
+    pass.dispatchWorkgroups(Math.ceil(this.n / 256), 1, 1);
+    pass.end();
+    this.device.queue.submit([enc.finish()]);
+    const hist = await readbackU32(this.device, this.msbHistBuf, 256 * 4);
+    const msbPerScalar = await readbackU32(this.device, this.msbPerScalarBuf, this.n * 4);
+    return { hist, msbPerScalar };
+  }
 
   async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null; windowSums: Pt[]; c: number }> {
     if (this.preparedFor === null) throw new Error('MsmV2.run: call prepare() first');

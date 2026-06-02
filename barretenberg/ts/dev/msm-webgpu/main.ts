@@ -25,6 +25,7 @@ import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js';
+import { computeMsbHistogram } from '../../src/msm_webgpu/var_window_split.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
@@ -94,6 +95,13 @@ const gpuKnobs: MsmConfig = (() => {
     numBatchesOverride: optInt('nb'),
     budgetMiB: optInt('budgetmib'),
     varSched: q.get('varsched') === '1' || undefined,
+    splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
+    forceSplit: (() => {
+      const f = q.get('forcesplit');
+      if (!f) return undefined;
+      const parts = f.split(',').map(x => parseInt(x, 10));
+      return parts.length === 3 && parts.every(x => x > 0) ? (parts as [number, number, number]) : undefined;
+    })(),
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
 })();
@@ -1602,6 +1610,54 @@ function hideProgress(): void {
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({ state: 'error', params: { logN: autorunLogN, reps, page: 'msm-bench' }, results: null, error: msg, log: allLines.slice(-100), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
     }
+  } else if (autorun === 'msm-msbhist') {
+    // split-c Phase 1: validate the GPU MSB histogram against the host oracle.
+    const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
+    log('info', `[msbhist] logN=${autorunLogN} — GPU histogram vs host oracle`);
+    const waitForRun = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('Run button never enabled within 10 minutes');
+    };
+    try {
+      await waitForRun();
+      const inputs = await generateInputs(autorunLogN, false);
+      const msm = await ensureWebGpuWarmed(inputs);
+      msm.prepare(inputs.scalarsBuf);
+      const { hist, msbPerScalar } = await msm.debugMsbHistogram();
+      const scalarsU32 = new Uint32Array(inputs.scalarsBuf.buffer, inputs.scalarsBuf.byteOffset, inputs.n * 8);
+      const hostHist = computeMsbHistogram(scalarsU32, inputs.n);
+      let mismatches = 0;
+      let firstBad = -1;
+      for (let bin = 0; bin < 256; bin++) {
+        if (hist[bin] !== hostHist[bin]) {
+          mismatches++;
+          if (firstBad < 0) firstBad = bin;
+        }
+      }
+      const gpuSum = hist.reduce((a, b) => a + b, 0);
+      // Spot-check msb_per_scalar against a host recompute for the first few scalars.
+      let mpsBad = 0;
+      for (let i = 0; i < Math.min(inputs.n, 4096); i++) {
+        const base = i * 8;
+        let msb = -1;
+        for (let w = 7; w >= 0; w--) {
+          if (scalarsU32[base + w] !== 0) { msb = w * 32 + (31 - Math.clz32(scalarsU32[base + w])); break; }
+        }
+        const expect = msb < 0 ? 255 : msb;
+        if (msbPerScalar[i] !== expect) mpsBad++;
+      }
+      if (mismatches === 0 && gpuSum === inputs.n && mpsBad === 0) {
+        log('ok', `[msbhist] PASS — 256 bins match host, sum=${gpuSum}=n, msb_per_scalar OK (4096 spot-checked)`);
+      } else {
+        log('error', `[msbhist] FAIL — ${mismatches} bin mismatches (first bin ${firstBad}), gpuSum=${gpuSum} n=${inputs.n}, mpsBad=${mpsBad}`);
+      }
+    } catch (e) {
+      log('error', `[msbhist] ERROR: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    log('ok', `[bench] state=done`); // drive-persist completion marker
   } else if (autorun === 'msm-cross-check') {
     const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
     const tree = qp.get('use_tree_reduce') === '1';

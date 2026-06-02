@@ -2,6 +2,7 @@ import mustache from 'mustache';
 import {
   barrett as barrett_funcs,
   ba_reduce_level_bench as ba_reduce_level_bench_shader,
+  ba_msb_histogram as ba_msb_histogram_shader,
   ba_planner_classify as ba_planner_classify_shader,
   ba_planner_meta_fixup as ba_planner_meta_fixup_shader,
   ba_planner_radix_count as ba_planner_radix_count_shader,
@@ -362,6 +363,10 @@ ${packLines.join('\n')}
 
   public gen_decompose_scalars_booth_shader(workgroup_size: number): string {
     return mustache.render(decompose_scalars_booth_shader, { workgroup_size, recompile: this.recompile }, {});
+  }
+
+  public gen_ba_msb_histogram_shader(): string {
+    return mustache.render(ba_msb_histogram_shader, { recompile: this.recompile }, {});
   }
 
   public gen_transpose_scan_shader(workgroup_size: number): string {
