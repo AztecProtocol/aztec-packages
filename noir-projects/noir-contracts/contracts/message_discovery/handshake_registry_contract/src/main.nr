@@ -6,13 +6,6 @@ mod test;
 /// signature). See [`HandshakeRegistry::non_interactive_handshake`].
 pub(crate) global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 
-/// Unconstrained delivery mode for messages tagged with a handshake: the recipient discovers them with a windowed tag
-/// scan and no nullifier chain. Suitable when the sender is trusted to deliver correctly.
-pub(crate) global MODE_UNCONSTRAINED: u8 = 1;
-/// Constrained delivery mode for messages tagged with a handshake: the recipient scans them sequentially and the
-/// sender advances a per-message nullifier chain, guaranteeing ordered, gap-free delivery.
-pub(crate) global MODE_CONSTRAINED: u8 = 2;
-
 /// Registry for the constrained-delivery shared-secret handshake protocol.
 ///
 /// The registry establishes a master shared-secret point `S` between a sender and a recipient and stores one current
@@ -26,13 +19,13 @@ pub(crate) global MODE_CONSTRAINED: u8 = 2;
 #[aztec]
 pub contract HandshakeRegistry {
     use crate::handshake_note::HandshakeNote;
-    use crate::{MODE_CONSTRAINED, MODE_UNCONSTRAINED, NON_INTERACTIVE_HANDSHAKE};
+    use crate::NON_INTERACTIVE_HANDSHAKE;
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
         messages::{
             encryption::{aes128::AES128, message_encryption::MessageEncryption},
-            message_delivery::MessageDelivery,
+            message_delivery::{MessageDelivery, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
         },
         protocol::{
             address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
@@ -51,8 +44,8 @@ pub contract HandshakeRegistry {
     /// Performs a non-interactive handshake from `sender` to `recipient` and returns the app-siloed shared secret
     /// for the calling contract.
     ///
-    /// `mode` sets the delivery mode for messages tagged with this handshake ([`MODE_UNCONSTRAINED`] or
-    /// [`MODE_CONSTRAINED`]); the handshake note itself is always stored onchain.
+    /// `mode` sets the delivery mode for messages tagged with this handshake ([`ONCHAIN_UNCONSTRAINED`] or
+    /// [`ONCHAIN_CONSTRAINED`]); the handshake note itself is always stored onchain.
     ///
     /// Generates a fresh ephemeral key pair `(eph_sk, eph_pk)`, computes the raw ECDH shared secret point
     /// `S = eph_sk * recipient_address_point`, and produces three effects:
@@ -73,7 +66,7 @@ pub contract HandshakeRegistry {
     /// polluting registry state.
     #[external("private")]
     fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress, mode: u8) -> Field {
-        assert((mode == MODE_UNCONSTRAINED) | (mode == MODE_CONSTRAINED), "unrecognized delivery mode");
+        assert((mode == ONCHAIN_UNCONSTRAINED) | (mode == ONCHAIN_CONSTRAINED), "unrecognized delivery mode");
 
         let recipient_point = recipient.to_address_point().expect(f"recipient address is not on the curve");
 
@@ -114,7 +107,7 @@ pub contract HandshakeRegistry {
     /// contract's address.
     #[external("private")]
     fn validate_handshake(sender: AztecAddress, recipient: AztecAddress, mode: u8, app_siloed_secret: Field) {
-        assert((mode == MODE_UNCONSTRAINED) | (mode == MODE_CONSTRAINED), "unrecognized delivery mode");
+        assert((mode == ONCHAIN_UNCONSTRAINED) | (mode == ONCHAIN_CONSTRAINED), "unrecognized delivery mode");
 
         let caller = self.msg_sender();
         let replacement_note_message = self.storage.handshakes.at(recipient).at(mode).at(sender).get_note();
@@ -142,11 +135,11 @@ pub contract HandshakeRegistry {
         recipient: AztecAddress,
         mode: u8,
         // TODO(F-671): replace with `self.msg_sender()` once utility context exposes it. The
-        // explicit param forces hooks to also gate on `params[3]`; otherwise any contract that
+        // explicit param forces hooks to also gate on the caller; otherwise any contract that
         // can authorize (target, selector) can read another caller's siloed secret.
         caller: AztecAddress,
     ) -> Option<Field> {
-        assert((mode == MODE_UNCONSTRAINED) | (mode == MODE_CONSTRAINED), "unrecognized delivery mode");
+        assert((mode == ONCHAIN_UNCONSTRAINED) | (mode == ONCHAIN_CONSTRAINED), "unrecognized delivery mode");
 
         let handshake = self.storage.handshakes.at(recipient).at(mode).at(sender);
 
