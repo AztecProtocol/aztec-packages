@@ -93,6 +93,35 @@ dispatch intervals. Intervals are **exact from the dispatch trace**
 (net `ptScratch` cost ≈ 2 MiB). This single overlay is why the arena is far below
 the naive sum, and it is provable, not heuristic.
 
+> **RECONCILIATION (6-colour build — this overlay is NOT realizable as written).**
+> The table above assumes the original **single-arena** design (§1). The build
+> that shipped is **6 colour-partitioned arenas** (forced by the ro+rw usage-scope
+> rule). The three scatter buffers land in *different* colours
+> (`bucketAndSign`∈A1, `valIdx`∈A2, `l0Idx`∈A0) and `ptScratch`∈A4. `ptScratch`
+> sits in the forcing 6-clique with `isPresent`∈A1, `partialCount`∈A2 and
+> `activeCount`∈A0, so it **cannot legally share an arena with any scatter
+> buffer** — every scatter buffer's colour already holds a clique member that
+> conflicts with `ptScratch`. The cross-zone 30 MiB reclaim is therefore lost to
+> the colouring. **Achievable instead: within-colour overlay** — a dead scatter
+> buffer hosts *later-lived buffers of its own colour* via a lifetime-aware
+> `carve` (interval-graph allocation per colour, replacing the static bump-sum):
+> - **A1**: `bucketAndSign` (10 MiB, dead after disp 5) hosts `redBuf`+`isPresent`
+>   ([22,end], ~5.3 MiB). **~5.3 MiB.**
+> - **A2**: `valIdx` (10 MiB, dead after 5) hosts `partialCount`/`partialLayout`/
+>   `size1BucketList`/`taskCuts` (~2 MiB). **~2 MiB.**
+> - **A0**: `l0Idx` (10 MiB, dead after 31) hosts `reducePrefScratch` (~1.25 MiB).
+>   **~1.25 MiB.**
+>
+> Total **~8.5 MiB** at any `sT` (the scatter & `redBuf` sizes are `sT`-independent),
+> vs the single-arena dream's 30. **Deferred, not done:** the gain is ~8 % of a
+> 100 MiB footprint that already sits 60 MiB under budget, while a lifetime-aware
+> allocator adds exact-interval tracing and the §2 clear-relocation hazard (a
+> mis-scoped `clearBuffer` silently zeroes the co-tenant → output 0, no error).
+> The THREAD memory the cross-zone overlay chased is instead reclaimed by the
+> budget-aware `sT` lever (§8, `chooseBudgetMpw`), which drops ~34 MiB with zero
+> aliasing risk. Revisit within-colour overlay only if packing makes a colour the
+> binding constraint.
+
 ### Always-live — exclude from overlay
 `redBuf`,`isPresent`: **[22, end]** (accumulation + reduce). Long tails into the
 17-level pt loop: `activeCount`[27,85], `binOffsets`[29,85],
@@ -392,18 +421,25 @@ cap at 16 KiB). Make `MPW` (hence `sT`) device-adaptive.
 
    (\*`streamPlannerMeta` needs INDIRECT usage + indirect-offset math — keep it
    standalone, move it to an arena last if at all.) Verified: every bind group
-   binds each arena with a single access. ✅ done: dead set dropped
-   (`28c3babb5b`); polymorphic `mkBind`; **A4 fully migrated + validated**
-   byte-identical (`ptScratch`+`sortedBucketList`+`wgCuts`). Next: A0/A1/A2/A3/A5,
-   one arena at a time. A1/A0/A5 contain cleared/written buffers (`redBuf`,
-   `isPresentBuf`, `scalarsRawBuf`, `taskCuts`, …) → add slot-aware
-   `clearSlot`/`writeSlot`/`copySlot` helpers (accept `GPUBuffer | GPUBufferBinding`)
-   before migrating those.
-2. **`sT` device-adaptive** (`MPW`). Bench phone — confirm `sT=2048` holds perf.
-3. **Reduce restructure** → per-pass RED + persistent `windowSums`; wire the
-   160 MB gate (incl. THREAD terms); enable `bw` staging.
-4. **Overlay** scatter→`ptScratch` + the short-disjoint slot (§2), with clears
-   relocated into per-occupant scope. Validate output unchanged.
+   binds each arena with a single access. ✅ **DONE — all 6 arenas (A0–A5)
+   migrated and validated byte-identical** at logN 14/15/16/17 + profiles D/E.
+   The 36 scratch buffers carve from the 6 arenas; slot-aware
+   `clearSlot`/`writeSlot`; `arenaColourSizes` is the single source of truth for
+   both the carve sites and the budget gate.
+2. **`sT` device-adaptive** (`MPW`). ✅ **DONE — budget-aware** (`chooseBudgetMpw`,
+   `cddfe01d54`): the cap defaults to the largest `MPW` whose working set fits
+   160 MB, overridable via `config.maxPlannerWorkgroups` / `?mpw=`. Desktop keeps
+   32 (byte-identical); `?mpw=8` reclaims 34 MiB (100.57→66.33 @ logN17),
+   byte-identical + D/E oracle-agree. Phone perf-bench of `sT=2048` still open.
+3. **Reduce restructure** → per-pass RED + persistent `windowSums`; enable `bw`
+   staging. (The 160 MB gate incl. THREAD terms is ✅ wired, `3cc7ce72a3`; this
+   step is the remaining compute-flow change that lets `bw < NW` actually shrink RED.)
+4. **Overlay.** ~~scatter→`ptScratch`~~ — **infeasible under the 6-colour build**
+   (the cross-zone reclaim is blocked by the ro+rw colouring; see §2
+   RECONCILIATION). Achievable substitute: **within-colour** overlay via a
+   lifetime-aware `carve` (~8.5 MiB), with clears relocated into per-occupant
+   scope. **Deferred** — modest gain vs the budget headroom + clear-relocation
+   hazard; the THREAD reclaim it targeted is delivered by the `sT` lever (step 2).
 5. **Packing** (work-tile scheduler, shared PASS/THREAD). Validate profiles A–E.
 6. **Split-c**: `VariableWindowSchedule`-derived `WindowDesc[]` + `idx_large`
    compaction + budget-aware decision. Arena unchanged.
