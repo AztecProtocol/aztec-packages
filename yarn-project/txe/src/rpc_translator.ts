@@ -11,10 +11,21 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import {
   BoundedVec,
+  EPHEMERAL_ARRAY,
+  EVENT_VALIDATION_REQUEST,
+  EphemeralArray,
+  FIELD,
   type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
+  LOG_RETRIEVAL_REQUEST,
+  LOG_RETRIEVAL_RESPONSE,
+  MESSAGE_CONTEXT,
+  NOTE_VALIDATION_REQUEST,
+  OPTION,
   Option,
+  PENDING_TAGGED_LOG,
+  POINT,
   packAsHintedNote,
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
@@ -820,23 +831,30 @@ export class RPCTranslator {
   // eslint-disable-next-line camelcase
   async aztec_utl_getPendingTaggedLogs(foreignScope: ForeignCallSingle) {
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
-    const slot = await this.handlerAsUtility().getPendingTaggedLogs(scope);
+    const result = await this.handlerAsUtility().getPendingTaggedLogs(scope);
+    const slot = EPHEMERAL_ARRAY(PENDING_TAGGED_LOG).serialization!.fn(result)[0] as Fr;
     return toForeignCallResult([toSingle(slot)]);
   }
 
   // eslint-disable-next-line camelcase
   public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
-    foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
-    foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignNoteValidationRequestsSlot: ForeignCallSingle,
+    foreignEventValidationRequestsSlot: ForeignCallSingle,
     foreignScope: ForeignCallSingle,
   ) {
-    const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
-    const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
+    const noteValidationRequests = EphemeralArray.fromSlot(
+      fromSingle(foreignNoteValidationRequestsSlot),
+      NOTE_VALIDATION_REQUEST,
+    );
+    const eventValidationRequests = EphemeralArray.fromSlot(
+      fromSingle(foreignEventValidationRequestsSlot),
+      EVENT_VALIDATION_REQUEST,
+    );
     const scope = AztecAddress.fromField(fromSingle(foreignScope));
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
-      noteValidationRequestsArrayBaseSlot,
-      eventValidationRequestsArrayBaseSlot,
+      noteValidationRequests,
+      eventValidationRequests,
       scope,
     );
 
@@ -845,16 +863,18 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_getLogsByTag(foreignRequestArrayBaseSlot: ForeignCallSingle) {
-    const requestArrayBaseSlot = fromSingle(foreignRequestArrayBaseSlot);
-    const responseSlot = await this.handlerAsUtility().getLogsByTag(requestArrayBaseSlot);
-    return toForeignCallResult([toSingle(responseSlot)]);
+    const requests = EphemeralArray.fromSlot(fromSingle(foreignRequestArrayBaseSlot), LOG_RETRIEVAL_REQUEST);
+    const result = await this.handlerAsUtility().getLogsByTag(requests);
+    const slot = EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)).serialization!.fn(result)[0] as Fr;
+    return toForeignCallResult([toSingle(slot)]);
   }
 
   // eslint-disable-next-line camelcase
   async aztec_utl_getMessageContextsByTxHash(foreignRequestArrayBaseSlot: ForeignCallSingle) {
-    const requestArrayBaseSlot = fromSingle(foreignRequestArrayBaseSlot);
-    const responseSlot = await this.handlerAsUtility().getMessageContextsByTxHash(requestArrayBaseSlot);
-    return toForeignCallResult([toSingle(responseSlot)]);
+    const requests = EphemeralArray.fromSlot(fromSingle(foreignRequestArrayBaseSlot), FIELD);
+    const result = await this.handlerAsUtility().getMessageContextsByTxHash(requests);
+    const slot = EPHEMERAL_ARRAY(OPTION(MESSAGE_CONTEXT)).serialization!.fn(result)[0] as Fr;
+    return toForeignCallResult([toSingle(slot)]);
   }
 
   // eslint-disable-next-line camelcase
@@ -1026,12 +1046,13 @@ export class RPCTranslator {
     foreignContractAddress: ForeignCallSingle,
   ) {
     const address = AztecAddress.fromField(fromSingle(foreignAddress));
-    const ephPksSlot = fromSingle(foreignEphPksSlot);
+    const ephPks = EphemeralArray.fromSlot(fromSingle(foreignEphPksSlot), POINT);
     const contractAddress = AztecAddress.fromField(fromSingle(foreignContractAddress));
 
-    const responseSlot = await this.handlerAsUtility().getSharedSecrets(address, ephPksSlot, contractAddress);
+    const result = await this.handlerAsUtility().getSharedSecrets(address, ephPks, contractAddress);
 
-    return toForeignCallResult([toSingle(responseSlot)]);
+    const slot = EPHEMERAL_ARRAY(FIELD).serialization!.fn(result)[0] as Fr;
+    return toForeignCallResult([toSingle(slot)]);
   }
 
   // eslint-disable-next-line camelcase
