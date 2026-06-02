@@ -143,12 +143,20 @@ logN 14/15/16/17 + D/E, and ≤1% bench delta.
 **0.2 done** (`01faf5fefc`) — packed-window bid (`(window<<15)|mag`) flipped across
 every bid producer/consumer; decode is shift/mask, flat CSR index recovered via
 `flat_bid(bid)=window*BW+mag`. `ba_unified_combine` needs no change (pt_buf indices,
-no bid). Validated golden+oracle 14–17, D/E, nb=2/5/4·E. *Remaining:* swap the two
-uniform-geometry const-multiplies for table reads (`window*BW`→`work_off[window]`,
-`window*STRIDE`→`reduce_off[window]`) per kernel, plus `csr_to_v2_meta`/transpose
-`num_columns`/`bit_base`. NOTE: `stream_walker` is at the 10-storage-binding cap, so
-its `window_desc` must be a `var<uniform>` (the work_off/reduce_off swap is a no-op
-on the uniform path, so it can wait until variable geometry exists in Phase 1).
+no bid). **0.3 done** (`17b71ba7ac`) — the binning kernels (4 transpose +
+`csr_to_v2_meta`) read per-window `num_columns`(WindowDesc[+5])/`work_off`(+3)
+instead of the constant BW param; `csr_to_v2_meta` is now a 2D (window=gid.y) pass.
+WindowDesc padded to numBatches·batchWindows rows for short-batch slots; scan
+dispatches tbw to avoid OOB. `csr_to_v2_active_sums` is point-space → unchanged.
+Validated golden+oracle 14–17, D/E, nb=2/3/5/4·E/3·D.
+*Remaining:* the **bid consumers** (`stream_walker`, `size1`, `combine_*`,
+`pt_finalize`, `pt_init_*`, flat-index kernels) still use constant BW/STRIDE in
+`flat_bid`/`red_slot`; swap to `work_off[gwin]+mag` / `reduce_off[gwin]+(mag-1)`
+table reads. Caveats: `stream_walker` is at the 10-storage-binding cap so its
+`window_desc` must be a `var<uniform>`; and the bid's window is batch-local while
+`red_slot` adds `batch_offset` for the global slot, so reconcile the batch base as
+in 0.3. No-op on the uniform path; the payoff lands once Phase 1 fills a variable
+schedule.
 
 **Phase 1 — GPU decision + schedule.** `histogram` kernel (+`msb_per_scalar`),
 `decide` kernel (port `choose_var_window_split`/`build_var_window_schedule`/
