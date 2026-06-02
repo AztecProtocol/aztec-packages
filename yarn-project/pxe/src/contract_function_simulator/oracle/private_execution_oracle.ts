@@ -207,7 +207,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    *
    * The simulator derives the secret via ECDH from `(sender, recipient, contract)` - which requires the sender's
    * master incoming viewing secret key and so can only run here in the PXE - and hands it back. The caller obtains
-   * an index via {@link getNextTaggingIndex} and finishes the tag itself.
+   * an index via {@link getNextTaggingIndex} and computes the final the tag itself.
    *
    * @param sender - The address sending the log
    * @param recipient - The address receiving the log
