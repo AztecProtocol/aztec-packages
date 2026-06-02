@@ -99,6 +99,8 @@ const gpuKnobs: MsmConfig = (() => {
     reduceSatThreshold: optInt('redsat'),
     convChunk: optInt('convc'),
     convertBound: optInt('convbound'),
+    // GPU/CPU split: snapshot red_buf after this many reduce levels (0 allowed).
+    reduceSnapshotLevel: q.get('cpucut') !== null ? Number(q.get('cpucut')) : undefined,
     reduceStride: optInt('redstride'),
     maxScalarBits: optInt('maxbits'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
@@ -581,6 +583,28 @@ async function runWebGpuOnce(
   const gpu = await msm.run();
   const ms = performance.now() - t0;
   log('info', `[gpu] returned in ${ms.toFixed(1)} ms`);
+  // GPU/CPU split experiment: if ?cpucut=L, finish the remaining reduce levels
+  // single-threaded on the CPU (wasm) from the red_buf snapshot, and verify the
+  // per-window sums match the GPU's full reduce.
+  const cpucut = location.search.includes('cpucut') ? Number(new URLSearchParams(location.search).get('cpucut')) : -1;
+  if (cpucut >= 0) {
+    const snap = msm.getReduceDensePack();
+    if (snap) {
+      const handle = await ensureWasmBooted();
+      const c0 = performance.now();
+      const cpuBytes = await handle.completeReduce(snap.dense, snap.ops, snap.rootRank, snap.kPerWindow, snap.numWindows);
+      const cpuMs = performance.now() - c0;
+      let agree = true;
+      for (let w = 0; w < snap.numWindows && agree; w++) {
+        const cw = parseAffineLE(cpuBytes.subarray(w * 64, w * 64 + 64));
+        const gw = gpu.windowSums[w];
+        if (cw.x !== gw.x || cw.y !== gw.y) agree = false;
+      }
+      log(agree ? 'ok' : 'err',
+        `[cpucut=${cpucut}] ops=${snap.ops.length / 4} kPerWindow=${snap.kPerWindow} ` +
+          `cpu_complete_ms=${cpuMs.toFixed(2)} windows_agree=${agree}`);
+    }
+  }
   // MsmV2 does not emit a per-pass GPU profile; the breakdown table skips
   // a null-profile capture, so the GPU column there simply renders empty.
   return { ms, xy: gpu, capture: { profile: null } };

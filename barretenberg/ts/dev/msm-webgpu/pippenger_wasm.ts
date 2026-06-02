@@ -39,6 +39,20 @@ export interface WasmPippengerHandle {
    * runtime default.
    */
   runMsm(numThreads: number): Promise<Uint8Array>;
+  /**
+   * Complete a partially-reduced bucket reduction on the CPU from the GPU's
+   * dense-packed working set. `dense` = numWindows*kPerWindow × 64 LE
+   * non-Montgomery affine ((0,0)=empty); `ops` = the flat op-list (per op
+   * (opcode,dst_rank,src_rank,_)); `rootRank` = per-window output rank. Returns
+   * numWindows × 64 LE per-window sums. The timed single-threaded compute call.
+   */
+  completeReduce(
+    dense: Uint8Array,
+    ops: Uint32Array,
+    rootRank: number,
+    kPerWindow: number,
+    numWindows: number,
+  ): Promise<Uint8Array>;
   /** Thread count this handle was instantiated with (post-detection). */
   readonly threads: number;
   destroy(): Promise<void>;
@@ -182,9 +196,48 @@ export async function createWasmPippenger(
     }
   }
 
+  // Finish a partially-reduced reduction on the CPU from the GPU dense-pack.
+  // Single-threaded: bb_msm_complete_reduce replays the op-list over the dense
+  // working set. The timed call for the split experiment.
+  async function completeReduce(
+    dense: Uint8Array,
+    ops: Uint32Array,
+    rootRank: number,
+    kPerWindow: number,
+    numWindows: number,
+  ): Promise<Uint8Array> {
+    const numOps = ops.length / 4;
+    const opsBytes = new Uint8Array(ops.buffer, ops.byteOffset, ops.byteLength);
+    const densePtr = await wasm.call("bbmalloc", Math.max(64, dense.length));
+    const opsPtr = await wasm.call("bbmalloc", Math.max(4, opsBytes.length));
+    const resultPtr = await wasm.call("bbmalloc", numWindows * 64);
+    try {
+      await wasm.writeMemory(densePtr, dense);
+      if (opsBytes.length > 0) {
+        await wasm.writeMemory(opsPtr, opsBytes);
+      }
+      await wasm.call(
+        "bb_msm_complete_reduce",
+        numWindows,
+        kPerWindow,
+        densePtr,
+        numOps,
+        opsPtr,
+        rootRank,
+        resultPtr,
+      );
+      return await wasm.getMemorySlice(resultPtr, resultPtr + numWindows * 64);
+    } finally {
+      await wasm.call("bbfree", densePtr);
+      await wasm.call("bbfree", opsPtr);
+      await wasm.call("bbfree", resultPtr);
+    }
+  }
+
   return {
     loadMsm,
     runMsm,
+    completeReduce,
     threads,
     async destroy() {
       await wasm.destroy();

@@ -108,6 +108,14 @@ export interface MsmConfig {
   /** Slots per thread (one safegcd per chunk) in the batched jac→affine convert. Tuning knob. */
   convChunk?: number;
   /**
+   * GPU/CPU split experiment: snapshot red_buf after this many reduce levels so
+   * the remaining levels can be finished single-threaded on the CPU (wasm
+   * bb_msm_complete_reduce). -1 = off. Requires the all-affine reduce
+   * (jacobianCrossover=0) so the snapshot slots are affine. The host reads
+   * getReduceDensePack() and hands it to the wasm completion.
+   */
+  reduceSnapshotLevel?: number;
+  /**
    * Convert-affordability bound (in slots = numWindows·stride). The per-level
    * cut only pushes the doublings to Jacobian — which forces one jac→affine
    * convert — when numWindows·stride is at or below this. Above it, only the
@@ -1504,6 +1512,25 @@ export class MsmV2 {
   private jacToAffineLayout!: GPUBindGroupLayout;
   private jacToAffineBind!: GPUBindGroup;
   private jacToAffineNx = 0;
+  // GPU/CPU split experiment: at a cutoff level, the GPU gathers + Montgomery-
+  // strips the (data-independent) working set the remaining levels touch into a
+  // small dense canonical buffer; the host pre-remaps those levels into a flat
+  // op-list; the CPU (wasm) replays it. -1 = off.
+  private reduceSnapshotLevel = -1;
+  private reduceSchedule: Uint32Array = new Uint32Array(0);
+  private gatherPipe!: GPUComputePipeline;
+  private gatherLayout!: GPUBindGroupLayout;
+  private gatherBind?: GPUBindGroup;
+  private gatherIdxBuf?: GPUBuffer;
+  private denseStorageBuf?: GPUBuffer;
+  private denseStagingBuf?: GPUBuffer;
+  private denseBytes: Uint8Array | null = null;
+  private gatherNx = 0;
+  // Cached dense-pack plan (data-independent, depends only on cutoff+schedule).
+  private dpKPerWindow = 0;
+  private dpOffsets: Uint32Array = new Uint32Array(0);
+  private dpOps: Uint32Array = new Uint32Array(0);
+  private dpRootRank = 0;
   // Two-level segmented reduction (opt-in via segReduceG). One pipeline,
   // phase branched (coarse=0/fine=1); seg_buf holds the per-segment summaries.
   private segReduceG = 0; // radix m of the recursive reduction (segment size per level)
@@ -1731,6 +1758,7 @@ export class MsmV2 {
     m.reduceSatThreshold = config?.reduceSatThreshold && config.reduceSatThreshold > 0 ? config.reduceSatThreshold : 8192;
     m.convChunk = config?.convChunk && config.convChunk > 0 ? config.convChunk : 8;
     m.convertBound = config?.convertBound && config.convertBound > 0 ? config.convertBound : 150000;
+    m.reduceSnapshotLevel = config?.reduceSnapshotLevel ?? -1;
     m.reduceStride = config?.reduceStride ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
@@ -1911,6 +1939,8 @@ export class MsmV2 {
     m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform']); // red_buf, red_z, cparams
     // red_buf(rw), red_z(ro), is_present(rw), conv_scratch(rw), cparams
     m.jacToAffineLayout = lt(['storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
+    // red_buf(ro), is_present(ro), gather_idx(ro), dense_out(rw), cparams
+    m.gatherLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     // Segmented reduction: red_buf(rw), is_present(ro), seg_buf(rw), cparams, sparams, bparams.
     m.segLayout = lt(['storage', 'read-only-storage', 'storage', 'uniform', 'uniform', 'uniform']);
     // Streaming planner + accumulator layouts
@@ -2018,6 +2048,11 @@ export class MsmV2 {
       sm.gen_ba_reduce_jac_to_affine_shader(WGI, INV_VARIANT),
       `reduce-jac-to-affine`,
       m.jacToAffineLayout,
+    );
+    m.gatherPipe = await compile(
+      sm.gen_ba_reduce_gather_canonical_shader(WGI),
+      `reduce-gather-canonical`,
+      m.gatherLayout,
     );
     m.segPipe = await compile(
       sm.gen_ba_reduce_segmented_shader(WGI, INV_VARIANT),
@@ -2548,6 +2583,10 @@ export class MsmV2 {
     const redBuf = scratch.redBuf;
     const isPresentBuf = scratch.isPresentBuf;
     const reducePrefScratch = scratch.reducePrefScratch;
+    // GPU/CPU split: remember the schedule and (re)compute the data-independent
+    // dense-pack plan (touched offsets, op-list, root rank) for the cutoff.
+    this.reduceSchedule = schedule.slice(0, this.reducePasses.length * 4);
+    if (this.reduceSnapshotLevel >= 0) this.buildDensePackPlan();
     // Phase 5: lparams now carries the kind as the 4th slot so the unified
     // reduce kernel can branch on it at runtime. cparams are level-invariant.
     const cparams = ubuf(new Uint32Array([RED_M, this.capMAXC, this.stride, 0]));
@@ -2585,6 +2624,29 @@ export class MsmV2 {
     const jacToAffineParams = ubuf(new Uint32Array([RED_M, convTotal, this.convChunk, convNthreads]));
     this.jacToAffineBind = mkBind(this.jacToAffineLayout, [redBuf, this.redZBuf, isPresentBuf, reducePrefScratch, jacToAffineParams]);
     this.jacToAffineNx = Math.ceil(convNthreads / WGI);
+    // Dense-pack gather buffers (GPU/CPU split). gather_idx holds the absolute
+    // red_buf slots the CPU-completion working set needs; the kernel packs them
+    // (Montgomery-stripped) into denseStorage, copied to a mappable staging.
+    if (this.reduceSnapshotLevel >= 0) {
+      const kTotal = this.numWindows * this.dpKPerWindow;
+      const gidx = new Uint32Array(Math.max(1, kTotal));
+      for (let w = 0; w < this.numWindows; w++) {
+        for (let r = 0; r < this.dpKPerWindow; r++) {
+          gidx[w * this.dpKPerWindow + r] = w * this.stride + this.dpOffsets[r];
+        }
+      }
+      this.gatherIdxBuf?.destroy();
+      this.gatherIdxBuf = device.createBuffer({ size: Math.max(4, kTotal * 4), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+      device.queue.writeBuffer(this.gatherIdxBuf, 0, gidx);
+      const dsz = Math.max(64, kTotal * 64);
+      this.denseStorageBuf?.destroy();
+      this.denseStorageBuf = device.createBuffer({ size: dsz, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+      this.denseStagingBuf?.destroy();
+      this.denseStagingBuf = device.createBuffer({ size: dsz, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+      const gp = ubuf(new Uint32Array([RED_M, kTotal, 0, 0]));
+      this.gatherBind = mkBind(this.gatherLayout, [redBuf, isPresentBuf, this.gatherIdxBuf, this.denseStorageBuf, gp]);
+      this.gatherNx = Math.ceil(Math.max(1, kTotal) / WGI);
+    }
 
     // Recursive radix-m segmented reduction. m = segReduceG (power of 2,
     // divides STRIDE). seg_buf is a ping-pong pair store: two halves of
@@ -2832,6 +2894,7 @@ export class MsmV2 {
         if (cur) trans++;
         passes += trans;
       }
+      if (this.reduceSnapshotLevel >= 0) passes += 1; // dense-pack gather dispatch
       this.passCount = passes;
       this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
       this.tsResolveBuf = device.createBuffer({
@@ -3147,6 +3210,11 @@ export class MsmV2 {
     // case where useJac is a contiguous suffix (one z-init, no mid convert).
     let curJac = false;
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
+      // GPU/CPU split: pack the working set out of red_buf after levels 0..lv-1.
+      if (lv === this.reduceSnapshotLevel && this.gatherBind) {
+        setPhase('reduce_gather');
+        dispatch(this.gatherPipe, this.gatherBind, this.gatherNx, 1);
+      }
       const wantJac = this.useJac[lv];
       if (wantJac && !curJac) {
         setPhase('reduce_zinit');
@@ -3176,6 +3244,11 @@ export class MsmV2 {
       setPhase('reduce_jacfinal');
       dispatch(this.jacFinalizePipe, this.jacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
     }
+    // Cutoff at/after the last level: pack the fully-reduced red_buf.
+    if (this.reduceSnapshotLevel >= this.reduceLevelBinds.length && this.gatherBind) {
+      setPhase('reduce_gather');
+      dispatch(this.gatherPipe, this.gatherBind, this.gatherNx, 1);
+    }
     }
     // Per-window weighted sum gather. Same SoA stride math as run(), just
     // targeting an external staging buffer at an external offset.
@@ -3184,6 +3257,10 @@ export class MsmV2 {
       const g = 32 * w * this.stride;
       enc.copyBufferToBuffer(this.redBuf, g, dstStaging, dstByteOff + w * 64, 32);
       enc.copyBufferToBuffer(this.redBuf, yPlane + g, dstStaging, dstByteOff + w * 64 + 32, 32);
+    }
+    // GPU/CPU split: ship the dense-packed working set to a mappable buffer.
+    if (this.reduceSnapshotLevel >= 0 && this.denseStorageBuf && this.denseStagingBuf) {
+      enc.copyBufferToBuffer(this.denseStorageBuf, 0, this.denseStagingBuf, 0, this.denseStorageBuf.size);
     }
     if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
       enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
@@ -3232,6 +3309,78 @@ export class MsmV2 {
     return out;
   }
 
+  /** Copy red_buf (SoA x|y planes) + is_present into the mappable snapshot buffer. */
+  /**
+   * Compute the data-independent dense-pack plan for the current cutoff: the
+   * sorted per-window offsets the remaining levels touch (the working set), the
+   * window-independent flat op-list over their compact ranks, and the rank that
+   * holds each window's final sum. Depends only on (cutoff, schedule).
+   */
+  private buildDensePackPlan(): void {
+    const sched = this.reduceSchedule;
+    const L = Math.min(this.reduceSnapshotLevel, this.reducePasses.length);
+    const offSet = new Set<number>([0]); // offset 0 = w*stride = the extracted root
+    for (let l = L; l < this.reducePasses.length; l++) {
+      const kind = sched[l * 4];
+      const pa = sched[l * 4 + 1];
+      const pb = sched[l * 4 + 2];
+      const ppw = sched[l * 4 + 3];
+      for (let j2 = 0; j2 < ppw; j2++) {
+        if (kind === 2) {
+          offSet.add((j2 + 1) * pa);
+        } else if (kind === 0) {
+          const src = j2 * pa + pb;
+          offSet.add(src);
+          offSet.add(src - 1);
+        } else {
+          offSet.add(2 * j2 * pa);
+          offSet.add((2 * j2 + 1) * pa);
+        }
+      }
+    }
+    const offsets = Uint32Array.from([...offSet].sort((a, b) => a - b));
+    const rank = new Map<number, number>();
+    for (let r = 0; r < offsets.length; r++) rank.set(offsets[r], r);
+    const ops: number[] = [];
+    for (let l = L; l < this.reducePasses.length; l++) {
+      const kind = sched[l * 4];
+      const pa = sched[l * 4 + 1];
+      const pb = sched[l * 4 + 2];
+      const ppw = sched[l * 4 + 3];
+      for (let j2 = 0; j2 < ppw; j2++) {
+        if (kind === 2) {
+          ops.push(1, rank.get((j2 + 1) * pa)!, 0, 0);
+        } else if (kind === 0) {
+          const src = j2 * pa + pb;
+          ops.push(0, rank.get(src - 1)!, rank.get(src)!, 0);
+        } else {
+          ops.push(0, rank.get(2 * j2 * pa)!, rank.get((2 * j2 + 1) * pa)!, 0);
+        }
+      }
+    }
+    this.dpOffsets = offsets;
+    this.dpKPerWindow = offsets.length;
+    this.dpOps = Uint32Array.from(ops);
+    this.dpRootRank = rank.get(0)!;
+  }
+
+  /**
+   * The CPU-completion input from the last run(): `dense` = the GPU-packed,
+   * Montgomery-stripped working set (numWindows × kPerWindow × 64 LE affine),
+   * `ops` the flat op-list, `rootRank` the per-window output rank. Returns null
+   * if no cutoff was set.
+   */
+  getReduceDensePack(): { dense: Uint8Array; ops: Uint32Array; rootRank: number; kPerWindow: number; numWindows: number } | null {
+    if (this.reduceSnapshotLevel < 0 || !this.denseBytes) return null;
+    return {
+      dense: this.denseBytes,
+      ops: this.dpOps,
+      rootRank: this.dpRootRank,
+      kPerWindow: this.dpKPerWindow,
+      numWindows: this.numWindows,
+    };
+  }
+
 
   async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null; windowSums: Pt[]; c: number }> {
     if (this.preparedFor === null) throw new Error('MsmV2.run: call prepare() first');
@@ -3251,6 +3400,13 @@ export class MsmV2 {
     const L = this.decodeWindowSumsFromBytes(stagingBytes, 0);
     this.redStaging.unmap();
     this.windowSums = L;
+    // GPU/CPU split: pull back the dense-packed working set for the CPU.
+    this.denseBytes = null;
+    if (this.reduceSnapshotLevel >= 0 && this.denseStagingBuf) {
+      await this.denseStagingBuf.mapAsync(GPUMapMode.READ);
+      this.denseBytes = new Uint8Array(this.denseStagingBuf.getMappedRange().slice(0));
+      this.denseStagingBuf.unmap();
+    }
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
