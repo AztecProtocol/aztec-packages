@@ -623,7 +623,8 @@ function release_compat_e2e {
 
   # Build and run the compat test commands in an isolated subshell so the bespoke test settings
   # (no test cache, no fast-fail short-circuit) don't leak into the release build/publish that follows.
-  # set -e is explicit here because this function runs under `||` in ci-release, which suspends it.
+  # set -e re-enables errexit inside this subshell: the caller invokes release_compat_e2e with errexit
+  # disabled (to capture its exit code), so without this a failed build/install would be masked.
   (
     set -e
     export USE_TEST_CACHE=0
@@ -946,8 +947,13 @@ case "$cmd" in
 
     # Backwards-compatibility e2e checks. A failure blocks stable/RC releases, but only warns on
     # nightlies (where compat coverage is observational) so the nightly publish still proceeds.
+    # Toggle errexit explicitly rather than `release_compat_e2e || compat_rc=$?`: calling under `||`
+    # suspends errexit for the whole function (and its subshell), masking build/setup failures there.
     compat_rc=0
-    release_compat_e2e || compat_rc=$?
+    set +e
+    release_compat_e2e
+    compat_rc=$?
+    set -e
     if [ "$compat_rc" -ne 0 ]; then
       if [[ "${REF_NAME:-}" == *-nightly.* ]]; then
         run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${RUN_ID:-unknown}"
