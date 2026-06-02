@@ -6,6 +6,7 @@ import {
   ba_reduce_segmented as ba_reduce_segmented_shader,
   ba_reduce_z_init as ba_reduce_z_init_shader,
   ba_reduce_jac_finalize as ba_reduce_jac_finalize_shader,
+  ba_reduce_jac_to_affine as ba_reduce_jac_to_affine_shader,
   ba_planner_classify as ba_planner_classify_shader,
   ba_planner_meta_fixup as ba_planner_meta_fixup_shader,
   ba_planner_radix_count as ba_planner_radix_count_shader,
@@ -593,6 +594,40 @@ ${packLines.join('\n')}
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_jac_finalize_shader,
+      {
+        workgroup_size, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  // Batched mid-schedule Jacobian -> affine convert of all live slots. One
+  // safegcd per chunk of C slots (forward prefix -> 1 inverse -> backward peel),
+  // restores is_present. Same partial/param set as the bench kernel.
+  public gen_ba_reduce_jac_to_affine_shader(
+    workgroup_size: number,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_jac_to_affine_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_jac_to_affine_shader,
       {
         workgroup_size, inv_fn,
         p8_consts, r8_csv, f8_words,
