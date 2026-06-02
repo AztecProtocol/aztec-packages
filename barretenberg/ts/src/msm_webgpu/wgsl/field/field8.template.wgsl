@@ -8,8 +8,8 @@
 // multiplies, contracts back. fr_add / fr_sub run natively on 8x u32.
 //
 // Resolved across the assembled shader: montgomery_product,
-// unpack256_to_limbs, pack_limbs_to_256, and (addsub=unpack only)
-// fr_add / fr_sub. Include this partial after dec_unpack / dec_pack.
+// unpack256_to_limbs, pack_limbs_to_256. fr_add_f8 / fr_sub_f8 are native
+// 8x u32 (no unpack/repack). Include this partial after dec_unpack / dec_pack.
 
 // p as eight 32-bit words, for the native fr_add_f8 / fr_sub_f8.
 {{#p8_consts}}
@@ -57,27 +57,10 @@ fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
 }
 {{/f8_native}}
 
-{{#addsub_unpack}}
-// fr_add / fr_sub via expand -> 20x13 op -> contract. The A/B alternative
-// to the native path; selected by `addsub=unpack`.
-fn fr_add_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
-    var a20: BigInt = unpack256_to_limbs(a);
-    var b20: BigInt = unpack256_to_limbs(b);
-    var r: BigInt = fr_add(&a20, &b20);
-    return pack_limbs_to_256(&r);
-}
-
-fn fr_sub_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
-    var a20: BigInt = unpack256_to_limbs(a);
-    var b20: BigInt = unpack256_to_limbs(b);
-    var r: BigInt = fr_sub(&a20, &b20);
-    return pack_limbs_to_256(&r);
-}
-{{/addsub_unpack}}
-{{^addsub_unpack}}
 // Native 8x u32 fr_add / fr_sub — 8-word modular add / sub. WGSL has no
-// add-with-carry, so the carry out of each word is `u32(sum < operand)`
-// (one compare, no branch). a, b are canonical in [0, p).
+// add-with-carry; the carry/borrow out of each word is u32(sum < operand). The
+// two overflow sources per word are mutually exclusive, so | composes them
+// (each is 0/1). a, b are canonical in [0, p).
 fn fr_add_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
     var s: array<u32, 8>;
     var carry: u32 = 0u;
@@ -86,24 +69,24 @@ fn fr_add_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
         let lo: u32 = a[{{i}}] + b[{{i}}];
         let v: u32 = lo + carry;
         s[{{i}}] = v;
-        carry = select(0u, 1u, lo < a[{{i}}]) + select(0u, 1u, v < lo);
+        carry = u32(lo < a[{{i}}]) | u32(v < lo);
     }
 {{/f8_words}}
-    // s = a + b in [0, 2p); subtract p iff s >= p — the s - p borrow
-    // chain underflows exactly when s < p.
+    // s = a + b in [0, 2p); subtract p iff s >= p — the s - p borrow chain
+    // underflows (borrow != 0) exactly when s < p.
     var d: array<u32, 8>;
     var borrow: u32 = 0u;
 {{#f8_words}}
     {
         let t1: u32 = s[{{i}}] - P8_{{i}};
-        let v: u32 = t1 - borrow;
-        d[{{i}}] = v;
-        borrow = select(0u, 1u, s[{{i}}] < P8_{{i}}) + select(0u, 1u, t1 < borrow);
+        d[{{i}}] = t1 - borrow;
+        borrow = u32(s[{{i}}] < P8_{{i}}) | u32(t1 < borrow);
     }
 {{/f8_words}}
+    let lt_p: bool = borrow != 0u;  // s < p -> keep s; else use s - p
     var out: array<u32, 8>;
 {{#f8_words}}
-    out[{{i}}] = select(d[{{i}}], s[{{i}}], borrow != 0u);
+    out[{{i}}] = select(d[{{i}}], s[{{i}}], lt_p);
 {{/f8_words}}
     return out;
 }
@@ -114,24 +97,22 @@ fn fr_sub_f8(a: array<u32, 8>, b: array<u32, 8>) -> array<u32, 8> {
 {{#f8_words}}
     {
         let t1: u32 = a[{{i}}] - b[{{i}}];
-        let v: u32 = t1 - borrow;
-        d[{{i}}] = v;
-        borrow = select(0u, 1u, a[{{i}}] < b[{{i}}]) + select(0u, 1u, t1 < borrow);
+        d[{{i}}] = t1 - borrow;
+        borrow = u32(a[{{i}}] < b[{{i}}]) | u32(t1 < borrow);
     }
 {{/f8_words}}
-    // d = a - b; on borrow (a < b) the canonical result is d + p, with the
-    // 2^256 wrap discarded (a - b + p lands in (0, p)).
+    // d = a - b; on borrow (a < b) add p back, discarding the 2^256 wrap.
+    let neg: bool = borrow != 0u;
     var out: array<u32, 8>;
     var carry: u32 = 0u;
 {{#f8_words}}
     {
-        let pw: u32 = select(0u, P8_{{i}}, borrow != 0u);
+        let pw: u32 = select(0u, P8_{{i}}, neg);
         let lo: u32 = d[{{i}}] + pw;
         let v: u32 = lo + carry;
         out[{{i}}] = v;
-        carry = select(0u, 1u, lo < d[{{i}}]) + select(0u, 1u, v < lo);
+        carry = u32(lo < d[{{i}}]) | u32(v < lo);
     }
 {{/f8_words}}
     return out;
 }
-{{/addsub_unpack}}

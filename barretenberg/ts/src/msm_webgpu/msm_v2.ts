@@ -72,8 +72,6 @@ export interface MsmConfig {
    *  pipeline to 17×15-bit (R=2^255, all R-parameters re-derived, native CIOS-15
    *  multiply; Karatsuba is not compiled). Must match the pool's wordSize. */
   wordSize?: number;
-  /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
-  addsub?: 'native' | 'unpack';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -1385,7 +1383,6 @@ export class MsmV2 {
   private invVariant!: 'loop' | 'pk';
   private montmul!: MontMulVariant;
   private wordSize = 13;
-  private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
   private jacobianCrossover = 0;
   private combineOnHost = true;
@@ -1622,7 +1619,6 @@ export class MsmV2 {
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.montmul = config?.montmul ?? 'karat';
     m.wordSize = config?.wordSize ?? 13;
-    m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
@@ -1631,7 +1627,7 @@ export class MsmV2 {
       console.warn('[MsmV2] profile requested but timestamp-query unavailable — disabled');
     }
     // Pull the knobs into the local names the rest of create() uses.
-    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT, addsub: ADDSUB } = m;
+    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT } = m;
     m.numWindows = Math.ceil(NUMBITS / m.c);
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
     m.bTotal = m.numWindows * m.BW;
@@ -1823,7 +1819,7 @@ export class MsmV2 {
     // across the workgroup, so the compiler specialises per-dispatch with
     // no SIMT divergence. Replaces the three kind-specialised pipelines.
     m.reduceLevelPipes[0] = await compile(
-      sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, INV_VARIANT, ADDSUB),
+      sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, INV_VARIANT),
       `reduce-level`,
       m.reduceLevelLayout,
     );

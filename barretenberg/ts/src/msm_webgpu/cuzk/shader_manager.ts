@@ -593,7 +593,6 @@ ${packLines.join('\n')}
   public gen_ba_reduce_level_bench_shader(
     workgroup_size: number,
     variant: 'loop' | 'pk' = 'pk',
-    addsub: 'native' | 'unpack' = 'native',
   ): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
@@ -605,7 +604,6 @@ ${packLines.join('\n')}
       ba_reduce_level_bench_shader,
       {
         workgroup_size, inv_fn,
-        addsub_unpack: addsub === 'unpack',
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
