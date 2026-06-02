@@ -754,6 +754,66 @@ describe('PrivateEventStore', () => {
     });
   });
 
+  describe('deleteInBlockRange', () => {
+    const BLOCK_HASH_9 = BlockHash.fromString(Fr.fromString('0x09').toString());
+    const BLOCK_HASH_10 = BlockHash.fromString(Fr.fromString('0x10').toString());
+
+    it('deletes every event in the range, leaving lower blocks intact', async () => {
+      const eventAt9 = Fr.random();
+      const eventAt10 = Fr.random();
+
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        msgContent,
+        eventAt9,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber: BlockNumber(9),
+          l2BlockHash: BLOCK_HASH_9,
+          txIndexInBlock: 0,
+          eventIndexInTx: 0,
+        },
+        'test',
+      );
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        msgContent,
+        eventAt10,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber: BlockNumber(10),
+          l2BlockHash: BLOCK_HASH_10,
+          txIndexInBlock: 0,
+          eventIndexInTx: 0,
+        },
+        'test',
+      );
+      await privateEventStore.commit('test');
+
+      await kvStore.transactionAsync(() => privateEventStore.deleteInBlockRange(10, 10));
+
+      // Block 9 event survives; block 10 event is gone.
+      expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventAt9.toString()]);
+      expect(await privateEventStore.eventIdsAtBlock(10)).toHaveLength(0);
+
+      // getPrivateEvents confirms only the block-9 event is retrievable.
+      const events = await privateEventStore.getPrivateEvents(eventSelector, {
+        contractAddress,
+        fromBlock: 9,
+        toBlock: 11,
+        scopes: [scope],
+      });
+      expect(events).toHaveLength(1);
+      expect(events[0].l2BlockHash.equals(BLOCK_HASH_9)).toBe(true);
+    });
+  });
+
   describe('staging', () => {
     it('stages events without affecting committed storage', async () => {
       const commitJobId: string = 'commit-job';

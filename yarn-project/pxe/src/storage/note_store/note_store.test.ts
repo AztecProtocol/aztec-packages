@@ -915,6 +915,72 @@ describe('NoteStore (canonicality)', () => {
     expect(await store.nullifiersAtBlock(20)).toEqual([outOfRange.siloedNullifier.toString()]);
   });
 
+  describe('deleteInBlockRange', () => {
+    it('deletes all notes and nullification origins in the range, leaving lower blocks intact', async () => {
+      // Note A created at block 9 (below the delete range — must survive).
+      const noteA = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(9),
+        l2BlockHash: CANONICAL_HASH,
+      });
+      // Note B created at block 10 (inside the range — must be deleted).
+      const noteB = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(10),
+        l2BlockHash: CANONICAL_HASH,
+      });
+      await store.addNotes([noteA, noteB], scope, JOB);
+      // Nullify B at block 11 (also inside the range).
+      const nullBlockHash = BlockHash.fromString(Fr.fromString('0x11').toString());
+      await store.applyNullifiers(
+        [{ data: noteB.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash }],
+        JOB,
+      );
+      await store.commit(JOB);
+
+      await kv.transactionAsync(() => store.deleteInBlockRange(10, 11));
+
+      // Only note A survives.
+      expect(await store.nullifiersAtBlock(9)).toEqual([noteA.siloedNullifier.toString()]);
+      expect(await store.nullifiersAtBlock(10)).toHaveLength(0);
+      expect(await store.nullifiersAtBlock(11)).toHaveLength(0);
+
+      // Mark note A's creation block canonical so getNotes can return it.
+      canonical.add(originKey(BlockNumber(9), CANONICAL_HASH));
+      const found = await store.getNotes(activeFilter, 'read-job');
+      expect(found).toHaveLength(1);
+      expect(found[0].siloedNullifier.equals(noteA.siloedNullifier)).toBe(true);
+    });
+
+    it('un-nullifies a note whose nullification fell in the deleted range (append-only payoff)', async () => {
+      // Note B created at block 10; nullified at block 20. Deleting only [16, 20] orphans the nullification
+      // while leaving the creation row intact — so B becomes active again with no inversion logic.
+      const noteB = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(10),
+        l2BlockHash: CANONICAL_HASH,
+      });
+      await store.addNotes([noteB], scope, JOB);
+      const nullBlockHash = BlockHash.fromString(Fr.fromString('0x20').toString());
+      await store.applyNullifiers(
+        [{ data: noteB.siloedNullifier, l2BlockNumber: BlockNumber(20), l2BlockHash: nullBlockHash }],
+        JOB,
+      );
+      await store.commit(JOB);
+
+      await kv.transactionAsync(() => store.deleteInBlockRange(16, 20));
+
+      // The creation row at block 10 is untouched.
+      expect(await store.nullifiersAtBlock(10)).toEqual([noteB.siloedNullifier.toString()]);
+
+      // Mark the creation block canonical; the note should read back ACTIVE (nullification row gone).
+      canonical.add(originKey(BlockNumber(10), CANONICAL_HASH));
+      const found = await store.getNotes(activeFilter, 'read-job');
+      expect(found).toHaveLength(1);
+      expect(found[0].siloedNullifier.equals(noteB.siloedNullifier)).toBe(true);
+    });
+  });
+
   afterEach(async () => {
     await kv.close();
   });

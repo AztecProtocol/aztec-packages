@@ -250,6 +250,35 @@ export class PrivateEventStore implements StagedStore {
    *   reaps against the freshly-advanced finalized floor), and passing it in keeps the method unit-testable in
    *   isolation.
    */
+  /**
+   * Deletes every event anchored to a block in `[fromBlock, toBlock]`. Used by the reorg (`chain-pruned`) path to
+   * truncate the orphaned tail: at prune time every row in this range is on the orphaned fork, so deletion is
+   * unconditional.
+   *
+   * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own — the reorg
+   * path wraps it together with the anchor update, and IndexedDB has no nested transactions). Idempotent and
+   * resumable: re-running over the same range hits the missing-buffer guard and does nothing.
+   */
+  public async deleteInBlockRange(fromBlock: number, toBlock: number): Promise<void> {
+    for (let block = fromBlock; block <= toBlock; block++) {
+      // Snapshot before mutating so we never delete from the multimap we are iterating.
+      const eventIds = await this.eventIdsAtBlock(block);
+      for (const eventId of eventIds) {
+        const buf = await this.#events.getAsync(eventId);
+        if (!buf) {
+          continue;
+        }
+        const stored = StoredPrivateEvent.fromBuffer(buf);
+        await this.#events.delete(eventId);
+        await this.#eventsByContractAndEventSelector.deleteValue(
+          this.#keyFor(stored.contractAddress, stored.eventSelector),
+          eventId,
+        );
+        await this.#eventsByBlockNumber.deleteValue(block, eventId);
+      }
+    }
+  }
+
   public async reapNonCanonicalInRange(
     fromBlock: number,
     toBlock: number,
