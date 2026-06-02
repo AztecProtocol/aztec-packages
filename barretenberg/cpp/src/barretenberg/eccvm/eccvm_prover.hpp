@@ -21,7 +21,7 @@ namespace bb {
 // The prover always runs sumcheck with the short-monomial flavor (faster sumcheck).
 class ECCVMProver {
   public:
-    using Flavor = ECCVMFlavor;
+    using Flavor = ECCVMShortMonomialFlavor;
     using FF = Flavor::FF;
     using BF = Flavor::BF;
     using Commitment = Flavor::Commitment;
