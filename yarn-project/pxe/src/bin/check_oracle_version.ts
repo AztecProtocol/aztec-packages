@@ -50,9 +50,8 @@ function assertOracleInterfaceMatches(): void {
  * Verifies that `ORACLE_VERSION_MAJOR` is identical across all of its hand-maintained copies.
  *
  * The major version is duplicated across the PXE TypeScript constant and two Noir constants (Aztec.nr and the protocol
- * contracts' `aztec_sublib`) because those layers can't import each other. A mismatch is only caught at runtime today,
- * deep inside an e2e run, with a cryptic "Incompatible private environment version" error. This static check fails fast
- * at build time instead, naming each file and its value.
+ * contracts' `aztec_sublib`) because those layers can't import each other. This static check fails fastvat build time,
+ * naming each file and its value.
  *
  * Only the major version is checked: the minor version legitimately diverges under the "environment minor >= contract
  * minor" tolerance, so asserting minor equality would false-positive.
