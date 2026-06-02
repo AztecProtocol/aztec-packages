@@ -178,7 +178,7 @@ where
 
 /// Returns the sender-side app tagging secret for a `(sender, recipient)` pair.
 ///
-/// The secret is resolved by the simulator rather than constrained by the contract.
+/// The secret is resolved by the simulator rather than computed by the contract.
 ///
 /// Returns `None` for an invalid recipient address. Other sender-side lookup failures are simulator errors and fail
 /// before this wrapper returns.
