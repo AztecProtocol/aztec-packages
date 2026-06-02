@@ -94,6 +94,47 @@ function arenaColourSizes(p: {
   ];
 }
 
+/**
+ * Largest planner-workgroup cap (≤ `maxMpw`) whose most-staged working set fits
+ * {@link MEM_BUDGET}. The walker thread count is `sT = MPW · STREAM_PLANNER_TPB`
+ * and the THREAD-zone arenas scale with `sT`, so feasibility is monotone in MPW
+ * — a smaller cap fits whenever a larger one does. Tested at the most-staged
+ * point (one window per batch, `bw = 1`) — the minimum footprint the prepare()
+ * gate can reach — so a cap is rejected only if even maximal bw-staging
+ * overflows it. Returns 4 (sT = 1024, the §8 floor) if nothing fits, leaving
+ * prepare() to proceed best-effort. Desktop sizes keep the full cap.
+ */
+function chooseBudgetMpw(g: {
+  maxMpw: number;
+  n: number;
+  NW: number;
+  BW: number;
+  redM: number;
+  bTotal: number;
+  stride: number;
+  reduceWg: number;
+  srsBytes: number;
+}): number {
+  const reducePrefBytes = g.NW * g.reduceWg * Math.ceil(Math.ceil(g.stride / 2) / g.reduceWg) * 2 * 16;
+  const standalone = 4 * g.BW * 4 + (3 * g.NW + 6) * 4; // counts/offsets at bw=1 + planMeta
+  for (let mpw = g.maxMpw; mpw >= 4; mpw >>= 1) {
+    const arenaBytes = arenaColourSizes({
+      sT: mpw * STREAM_PLANNER_TPB,
+      sS: STREAM_S_PLAN,
+      sBTotal: g.bTotal,
+      sRadixTiles: Math.ceil(g.bTotal / 2048),
+      batchSlots: g.n,
+      redM: g.redM,
+      rowPtrLen: g.BW + 1,
+      reducePrefBytes,
+      scalarsBytes: 32 * g.n,
+      l0Slots: g.n + 3,
+    }).reduce((acc, b) => acc + b, 0);
+    if (g.srsBytes + arenaBytes + standalone <= MEM_BUDGET) return mpw;
+  }
+  return 4;
+}
+
 // Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
 // `reduceWg` are instead chosen per problem size — by pickC / pickS /
 // pickReduceWg below. All values are the bench-msm-v2 sweep optimum.
@@ -142,6 +183,14 @@ export interface MsmConfig {
    * the C++ hook does the combine in native `bb::g1`.
    */
   combineOnHost?: boolean;
+  /**
+   * Planner-workgroup cap → walker thread count `sT = maxPlannerWorkgroups · 256`.
+   * Default: budget-aware (largest cap ≤ 32 whose working set fits the 160 MB
+   * GPU-buffer budget; see {@link chooseBudgetMpw}). Lower it (16/8/4) to trade
+   * walker parallelism for THREAD-zone memory on constrained devices — `ptScratch`
+   * alone is `512 · sT · 8` B, so 32→8 reclaims ~24 MiB. ARENA_LAYOUT.md §8.
+   */
+  maxPlannerWorkgroups?: number;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -1438,6 +1487,7 @@ export class MsmV2 {
   private partitionThreadBind!: GPUBindGroup;
   private size1Bind!: GPUBindGroup;
   private streamNumThreads = STREAM_NUM_THREADS;
+  private maxPlannerWorkgroups = MAX_STREAM_WORKGROUPS;
   private streamS = 8;
   private numRadixTiles = 1;
   // layouts (needed by prepare to build bind groups)
@@ -1641,6 +1691,24 @@ export class MsmV2 {
     m.bTotal = m.numWindows * m.BW;
     m.stride = 2 ** (m.c - 1);
     m.redM = m.numWindows * m.stride;
+    // Walker thread-count lever (sT = MPW·256). Budget-aware by default so a
+    // working set that would exceed the 160 MB budget drops sT — the §8
+    // priority-1 lever — before anything else; an explicit config overrides.
+    // Resolved here (before shader compile) because the cap is baked into the
+    // cumsum/partition_wg kernels and must match the per-thread buffer sizing.
+    m.maxPlannerWorkgroups =
+      config?.maxPlannerWorkgroups ??
+      chooseBudgetMpw({
+        maxMpw: MAX_STREAM_WORKGROUPS,
+        n,
+        NW: m.numWindows,
+        BW: m.BW,
+        redM: m.redM,
+        bTotal: m.bTotal,
+        stride: m.stride,
+        reduceWg: m.reduceWg,
+        srsBytes: pool.poolX.size + pool.poolY.size,
+      });
     const misc = compute_misc_params(FP, 13);
     m.R = misc.r;
     m.rinv = misc.rinv;
@@ -1834,7 +1902,8 @@ export class MsmV2 {
     // Do not introduce literals for the cap, the planner TPB, or NUM_THREADS
     // here — change them at the source so every kernel and buffer stays
     // consistent. STREAM_NUM_THREADS = MAX_STREAM_WORKGROUPS * STREAM_PLANNER_TPB.
-    const STREAM_T = STREAM_NUM_THREADS;
+    const MPW = m.maxPlannerWorkgroups;
+    const STREAM_T = MPW * STREAM_PLANNER_TPB;
     const STREAM_S = STREAM_S_PLAN;
     const RADIX_TILE = 2048;
     m.streamNumThreads = STREAM_T;
@@ -1852,10 +1921,10 @@ export class MsmV2 {
     m.radixScatterPipe = await compile(
       sm.gen_ba_planner_radix_scatter_shader(RADIX_TILE), `radix-scatter`, m.radixScatterLayout);
     m.cumsumPipe = await compile(
-      sm.gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 1, MAX_STREAM_WORKGROUPS, STREAM_PLANNER_TPB),
+      sm.gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 1, MPW, STREAM_PLANNER_TPB),
       `cumsum`, m.cumsumLayout);
     m.partitionWgPipe = await compile(
-      sm.gen_ba_planner_partition_wg_shader(MAX_STREAM_WORKGROUPS), `partition-wg`, m.partitionWgLayout);
+      sm.gen_ba_planner_partition_wg_shader(MPW), `partition-wg`, m.partitionWgLayout);
     m.partitionThreadPipe = await compile(
       sm.gen_ba_planner_partition_thread_shader(STREAM_PLANNER_TPB), `partition-thread`, m.partitionThreadLayout);
     m.size1Pipe = await compile(
@@ -2736,10 +2805,10 @@ export class MsmV2 {
       }
       dispatch(this.cumsumPipe, this.cumsumBind, 1, 1);
       dispatch(this.partitionWgPipe, this.partitionWgBind, 1, 1);
-      dispatch(this.partitionThreadPipe, this.partitionThreadBind, MAX_STREAM_WORKGROUPS, 1);
+      dispatch(this.partitionThreadPipe, this.partitionThreadBind, this.maxPlannerWorkgroups, 1);
       // Stream-walker KNOB 2 planner: precompute per-thread task cuts +
       // emit walker's indirect dispatch args at planner_meta[15..17].
-      dispatch(this.partitionTaskPipe, this.partitionTaskBind, MAX_STREAM_WORKGROUPS, 1);
+      dispatch(this.partitionTaskPipe, this.partitionTaskBind, this.maxPlannerWorkgroups, 1);
       setPhase('accumulate');
       // NOTE: redBuf and isPresentBuf are cleared ONCE per encode (above
       // the batch loop), not per batch. Each batch writes its own global
