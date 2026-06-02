@@ -1,5 +1,5 @@
 import { getKzg } from '@aztec/blob-lib';
-import type { EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
@@ -11,10 +11,16 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { BlockData, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type {
+  BlockData,
+  L2BlockSink,
+  L2BlockSource,
+  ProposedCheckpointSink,
+  ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -45,6 +51,16 @@ import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
 
 export { SequencerState };
+
+/** Slot snapshot used to prepare a checkpoint proposal. */
+type SequencerSlotContext = {
+  slot: SlotNumber;
+  targetSlot: SlotNumber;
+  epoch: EpochNumber;
+  targetEpoch: EpochNumber;
+  ts: bigint;
+  nowSeconds: bigint;
+};
 
 /**
  * Sequencer client
@@ -95,7 +111,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected p2pClient: P2P,
     protected worldState: WorldStateSynchronizer,
     protected slasherClient: SlasherClientInterface | undefined,
-    protected l2BlockSource: L2BlockSource & L2BlockSink,
+    protected l2BlockSource: L2BlockSource & L2BlockSink & ProposedCheckpointSink,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected checkpointsBuilder: FullNodeCheckpointsBuilder,
     protected l1Constants: SequencerRollupConstants,
@@ -214,8 +230,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   @trackSpan('Sequencer.work')
   protected async work() {
     this.setState(SequencerState.SYNCHRONIZING, undefined);
-    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const { slot: targetSlot, epoch: targetEpoch } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
+    const { slot, targetSlot, epoch, targetEpoch, ts, nowSeconds } = this.getSlotContextInNextL1Slot();
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
     const checkpointProposalJob = await this.prepareCheckpointProposal(
@@ -251,6 +266,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     return checkpoint;
+  }
+
+  /** Returns slot and target slot from a single clock snapshot. */
+  protected getSlotContextInNextL1Slot(): SequencerSlotContext {
+    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const targetSlot = SlotNumber(
+      slot + (this.epochCache.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0),
+    );
+    return { slot, targetSlot, epoch, targetEpoch: getEpochAtSlot(targetSlot, this.l1Constants), ts, nowSeconds };
   }
 
   /**
@@ -693,6 +717,30 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log.warn(`Sequencer sync check failed: failed to get L2 block data ${blockNumber} from the archiver`, {
         blockNumber,
         l2Tips,
+        syncedL2Slot,
+        ...args,
+      });
+      return undefined;
+    }
+
+    // Refuse to build a checkpoint on top of a proposed block whose enclosing checkpoint was never
+    // proposed. Under pipelining we may have received and reexecuted such a block locally — advancing
+    // our world-state tip past the checkpointed tip — while the proposing node never published the
+    // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
+    // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
+    // once their build slot ends; this guard is the correctness barrier during the grace window before.
+    if (
+      blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
+      (l2Tips.proposedCheckpoint.checkpoint.number !== blockData.checkpointNumber ||
+        proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber)
+    ) {
+      this.log.warn(`Sequencer sync check failed: proposed block has no matching proposed checkpoint`, {
+        blockCheckpointNumber: blockData.checkpointNumber,
+        checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
+        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
+        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+        blockNumber: blockData.header.getBlockNumber(),
+        blockSlot: blockData.header.getSlot(),
         syncedL2Slot,
         ...args,
       });

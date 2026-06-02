@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Cancel active PR runs for ${{ matrix.workflow_id }}
         continue-on-error: true
-        uses: actions/github-script@5c56fde4671bc2d3592fb0f2c5b5bab9ddae03b1
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const {owner, repo} = context.repo;

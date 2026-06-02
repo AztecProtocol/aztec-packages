@@ -51,8 +51,12 @@ export function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
   if (!pxe) {
     return { config: {}, creation: {} };
   }
-  const { loggers, loggerActorLabel, proverOrOptions, store, simulator, ...config } = pxe;
-  return { config, creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator } };
+  const { loggers, loggerActorLabel, proverOrOptions, store, simulator, hooks, preloadedContractsProvider, ...config } =
+    pxe;
+  return {
+    config,
+    creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator, hooks, preloadedContractsProvider },
+  };
 }
 
 /** Options for the EmbeddedWallet's own DB (accounts, senders — distinct from PXE state). */
@@ -272,16 +276,6 @@ export class EmbeddedWallet extends BaseWallet {
     this.stubClassIds.set('schnorr', schnorrClassId);
     this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
-  }
-
-  async registerAuthRegistry(
-    getStandardAuthRegistry: () => Promise<{
-      instance: ContractInstanceWithAddress;
-      artifact: ContractArtifact;
-    }>,
-  ): Promise<void> {
-    const { instance, artifact } = await getStandardAuthRegistry();
-    await this.pxe.registerContract({ instance, artifact });
   }
 
   /**

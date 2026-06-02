@@ -165,7 +165,7 @@ export class ProposalHandler {
   };
 
   /** Archiver reference for setting proposed checkpoints (pipelining). Set via register(). */
-  private archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>;
+  private archiver?: Pick<Archiver, 'addProposedCheckpoint'>;
 
   /** Returns current validator addresses for own-proposal detection. Set via register(). */
   private getOwnValidatorAddresses?: () => string[];
@@ -231,7 +231,7 @@ export class ProposalHandler {
   register(
     p2pClient: P2P,
     shouldReexecute: boolean,
-    archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>,
+    archiver?: Pick<Archiver, 'addProposedCheckpoint'>,
     getOwnValidatorAddresses?: () => string[],
   ): ProposalHandler {
     this.p2pClient = p2pClient;
@@ -297,24 +297,17 @@ export class ProposalHandler {
           return undefined;
         }
 
-        // For own proposals, skip validation — the proposer already built and validated the checkpoint
+        // For own proposals, skip validation and return: the proposer already built and validated the
+        // checkpoint, and the sequencer's checkpoint proposal job pushed the proposed checkpoint to the
+        // archiver from local data before broadcasting. Gossipsub doesn't echo our own messages back, so
+        // this branch is normally unreachable — it remains as defense if an own proposal arrives by some
+        // other path.
         const proposer = proposal.getSender();
         const ownAddresses = this.getOwnValidatorAddresses?.();
         const isOwnProposal = proposer && ownAddresses?.some(addr => addr === proposer.toString());
 
         if (isOwnProposal) {
           this.log.debug(`Skipping validation for own checkpoint proposal at slot ${proposal.slotNumber}`);
-          if (this.archiver && this.epochCache.isProposerPipeliningEnabled()) {
-            await this.setProposedCheckpointFromBlocks(proposal);
-          }
-          return undefined;
-        }
-
-        if (this.config.skipCheckpointProposalValidation) {
-          this.log.warn(
-            `Skipping all-nodes checkpoint proposal validation for slot ${proposal.slotNumber}`,
-            proposalInfo,
-          );
           return undefined;
         }
 
@@ -1210,49 +1203,5 @@ export class ProposalHandler {
       feeAssetPriceModifier: proposal.feeAssetPriceModifier,
     });
     return true;
-  }
-
-  /**
-   * Sets proposed checkpoint from blocks for own proposals (skips full validation).
-   * Retries fetching block data since the checkpoint proposal often arrives before the last block
-   * finishes re-execution.
-   */
-  private async setProposedCheckpointFromBlocks(proposal: CheckpointProposalCore): Promise<boolean> {
-    if (!this.archiver) {
-      return false;
-    }
-    let blockData = await this.blockSource.getBlockData({ archive: proposal.archive });
-
-    if (!blockData) {
-      // The checkpoint proposal often arrives before the last block finishes re-execution.
-      // Retry until we find the data or give up at the end of the slot.
-      const nextSlot = this.epochCache.getSlotNow() + 1;
-      const timeOfNextSlot = getTimestampForSlot(SlotNumber(nextSlot), await this.archiver.getL1Constants());
-      const timeoutSeconds = Math.max(1, Number(timeOfNextSlot) - Math.floor(this.dateProvider.now() / 1000));
-
-      blockData = await retryUntil(
-        () => this.blockSource.getBlockData({ archive: proposal.archive }),
-        'block data for own checkpoint proposal',
-        timeoutSeconds,
-        0.25,
-      ).catch(() => undefined);
-    }
-
-    if (blockData) {
-      await this.archiver.addProposedCheckpoint({
-        header: proposal.checkpointHeader,
-        checkpointNumber: blockData.checkpointNumber,
-        startBlock: BlockNumber(blockData.header.getBlockNumber() - blockData.indexWithinCheckpoint),
-        blockCount: blockData.indexWithinCheckpoint + 1,
-        totalManaUsed: proposal.checkpointHeader.totalManaUsed.toBigInt(),
-        feeAssetPriceModifier: proposal.feeAssetPriceModifier,
-      });
-      return true;
-    } else {
-      this.log.debug(`Block data not found for own checkpoint proposal archive, cannot set proposed checkpoint`, {
-        archive: proposal.archive.toString(),
-      });
-      return false;
-    }
   }
 }

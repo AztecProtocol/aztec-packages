@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, serializeToSink } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 import { z } from 'zod';
@@ -63,8 +63,13 @@ export class PublicCallRequestWithCalldata {
     );
   }
 
-  toBuffer() {
-    return serializeToBuffer(this.request, new Vector(this.calldata));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.request, new Vector(this.calldata));
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {

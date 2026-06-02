@@ -248,7 +248,7 @@ impl<let N: u32, let T: u32> CallPrivateOptions<N, T> {
         }
     }
 
-    /// Authorizes cross-contract utility calls to the given target contracts during this call.
+    /// Authorizes cross-contract utility calls to given targets.
     ///
     /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
     /// contracts are allowed to be called via utility functions during execution.
@@ -359,7 +359,7 @@ impl<let S: u32, let T: u32> ViewPrivateOptions<S, T> {
         ViewPrivateOptions { additional_scopes, authorized_utility_call_targets: self.authorized_utility_call_targets }
     }
 
-    /// Authorizes cross-contract utility calls to the given target contracts during this call.
+    /// Authorizes cross-contract utility calls to given targets.
     ///
     /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
     /// contracts are allowed to be called via utility functions during execution.
@@ -401,7 +401,7 @@ impl ExecuteUtilityOptions<0> {
 }
 
 impl<let T: u32> ExecuteUtilityOptions<T> {
-    /// Authorizes cross-contract utility calls to the given target contracts during this call.
+    /// Authorizes cross-contract utility calls to given targets.
     ///
     /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
     /// contracts are allowed to be called via utility functions during execution.

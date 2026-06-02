@@ -1,11 +1,11 @@
 import { MAX_TX_LIFETIME } from '@aztec/constants';
-import type { TxScopedL2Log } from '@aztec/stdlib/logs';
+import type { LogResult } from '@aztec/stdlib/logs';
 
 /**
  * Finds the highest aged and the highest finalized tagging indexes.
  */
 export function findHighestIndexes(
-  privateLogsWithIndexes: Array<{ log: TxScopedL2Log; taggingIndex: number }>,
+  privateLogsWithIndexes: Array<{ log: LogResult; taggingIndex: number }>,
   currentTimestamp: bigint,
   finalizedBlockNumber: number,
 ): { highestAgedIndex: number | undefined; highestFinalizedIndex: number | undefined } {

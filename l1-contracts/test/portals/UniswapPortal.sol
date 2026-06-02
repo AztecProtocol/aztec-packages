@@ -86,6 +86,7 @@ contract UniswapPortal {
           _inAmount,
           true,
           _outboxMessageMetadata[0]._epoch,
+          _outboxMessageMetadata[0]._numCheckpointsInEpoch,
           _outboxMessageMetadata[0]._leafIndex,
           _outboxMessageMetadata[0]._path
         );
@@ -119,6 +120,7 @@ contract UniswapPortal {
           content: vars.contentHash
         }),
         _outboxMessageMetadata[1]._epoch,
+        _outboxMessageMetadata[1]._numCheckpointsInEpoch,
         _outboxMessageMetadata[1]._leafIndex,
         _outboxMessageMetadata[1]._path
       );
@@ -188,6 +190,7 @@ contract UniswapPortal {
           _inAmount,
           true,
           _outboxMessageMetadata[0]._epoch,
+          _outboxMessageMetadata[0]._numCheckpointsInEpoch,
           _outboxMessageMetadata[0]._leafIndex,
           _outboxMessageMetadata[0]._path
         );
@@ -220,6 +223,7 @@ contract UniswapPortal {
           content: vars.contentHash
         }),
         _outboxMessageMetadata[1]._epoch,
+        _outboxMessageMetadata[1]._numCheckpointsInEpoch,
         _outboxMessageMetadata[1]._leafIndex,
         _outboxMessageMetadata[1]._path
       );

@@ -1,12 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
-import {
-  BufferReader,
-  FieldReader,
-  bigintToUInt128BE,
-  serializeToBuffer,
-  serializeToFields,
-} from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -110,8 +104,14 @@ export class GasFees {
     return new GasFees(reader.readUInt128(), reader.readUInt128());
   }
 
-  toBuffer() {
-    return serializeToBuffer(bigintToUInt128BE(this.feePerDaGas), bigintToUInt128BE(this.feePerL2Gas));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    sink.writeBigInt(this.feePerDaGas, 16);
+    sink.writeBigInt(this.feePerL2Gas, 16);
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
