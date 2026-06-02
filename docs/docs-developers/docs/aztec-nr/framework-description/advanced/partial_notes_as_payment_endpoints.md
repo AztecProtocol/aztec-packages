@@ -50,7 +50,7 @@ Each partial note is single-use (see [single-use semantics](./partial_notes.md#s
 
 ## The completer choice
 
-The choice of `completer` determines who can pay through a given partial note. Two options matter:
+The choice of `completer` determines who can complete a given partial note, and so how senders pay through it. Two options matter:
 
 ### Completer = a specific sender
 
@@ -99,7 +99,7 @@ Both private and public payments are supported: `transfer_private_to_commitment`
 Where the mapping "name → partial-note commitments" lives is independent of who completes the notes:
 
 - **Offchain.** A static file at `alice.example/aztec.json`, an ENS text record, IPFS, or any other lookup channel. The chain never sees the name or the pool size. Requires trust in the hosting and a way to authenticate the result.
-- **Onchain.** A registry contract with public storage mapping names to commitments. Censorship-resistant and allows atomic lookup-and-pay in a single transaction, but exposes the pool size, refill cadence, and the plaintext name on every payment.
+- **Onchain.** A registry contract with public storage mapping names to commitments. Censorship-resistant and allows atomic lookup-and-pay in a single transaction, but exposes the pool size, refill cadence, and the plaintext name.
 
 The two choices are orthogonal. Either channel can hand out commitments minted with any completer; only the lookup mechanism differs.
 
@@ -136,11 +136,9 @@ A reused partial note breaks both the privacy property (linkable completions) an
 
 This pattern is not a stealth-address scheme. It requires the recipient to pre-mint and publish a pool of commitments ahead of time, and to keep refilling it; senders draw from that pool. A stealth-address scheme, by contrast, lets a recipient publish a single meta-address once and stay otherwise passive, with each sender deriving a fresh one-time address non-interactively. Partial-note endpoints trade that recipient passivity for an explicit, recipient-controlled supply of payment slots.
 
-The pattern also does not protect against an attacker who can break the underlying hash function used to build the partial commitment. The commitment is a one-way hash of `(owner, randomness)`, and a published pool of commitments creates a public corpus that would be vulnerable in that scenario.
-
 ## Forward-looking note
 
-Partial-note creation uses `MessageDelivery.ONCHAIN_UNCONSTRAINED` today. Constrained tagging and handshaking is tracked in [aztec-packages issue #14565](https://github.com/AztecProtocol/aztec-packages/issues/14565) and may change how recipients discover partial-note creation messages. The concepts on this page (single-use commitments, completer binding, distribution choice) are stable across that change; specific code patterns on the recipient's discovery side may shift.
+Partial-note creation uses `MessageDelivery::onchain_unconstrained` today. A constrained delivery mode (`MessageDelivery::onchain_constrained`) now exists, but its log tag is not yet fully constrained and partial notes do not use it. Constrained tagging and handshaking is tracked in [aztec-packages issue #14565](https://github.com/AztecProtocol/aztec-packages/issues/14565) and may change how recipients discover partial-note creation messages. The concepts on this page (single-use commitments, completer binding, distribution choice) are stable across that change; specific code patterns on the recipient's discovery side may shift.
 
 ## Related
 

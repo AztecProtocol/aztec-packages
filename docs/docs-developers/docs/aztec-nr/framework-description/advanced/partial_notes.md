@@ -3,14 +3,14 @@ title: Partial notes
 sidebar_position: 1
 tags: [Developers, Contracts, Notes]
 description: How partial notes work, how they are completed, and how they enable use cases like AMM swaps and payment endpoints.
-references:
-  [
-    "noir-projects/aztec-nr/uint-note/src/uint_note.nr",
-    "noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr",
-  ]
+references: ["noir-projects/aztec-nr/uint-note/src/uint_note.nr"]
 ---
 
 import Image from "@theme/IdealImage";
+
+:::note Token standard
+Where this page refers to a concrete token, it assumes the [AIP-20 fungible token standard](../../standards/aip-20.md). The partial-note primitive (`UintNote` / `PartialUintNote`) is token-agnostic; AIP-20 is one standard built on top of it.
+:::
 
 ## What are partial notes?
 
@@ -36,14 +36,22 @@ Partial notes are useful when part of the note struct is a value that depends on
 
 They are also useful as **payment endpoints**: a recipient can mint a partial note ahead of time and share the commitment with prospective senders. Senders later complete the partial note to pay the recipient, who does not need to be online for the payment to land. See [partial notes as payment endpoints](./partial_notes_as_payment_endpoints.md) for the full design.
 
+## The completer
+
+A partial note is finalized by a later completion step that supplies the public fields (`storage_slot` and `value`). At that point its private preimage (`owner` and `randomness`) is not re-derived or re-checked, and the partial note itself is just a `Field` that can be copied and shared freely. If anyone holding it could complete it, they could insert a note with an arbitrary, unbacked `value` into the note hash tree, or complete the note at the wrong time or with the wrong values.
+
+To prevent this, the creator designates a **completer** at mint time. During the constrained private execution that mints the partial note, the contract records a validity commitment `H(partial_commitment, completer)` in the nullifier tree. Completion recomputes this commitment and asserts it exists, using its presence as proof that a legitimate, constrained execution created the partial note and authorized this specific completer to supply the public values and finalize it.
+
+With AIP-20, the completer is chosen explicitly when calling `initialize_transfer_commitment`; completion (`transfer_private_to_commitment` / `transfer_public_to_commitment`) binds the completer to the caller's `msg_sender` and debits a separately authorized `from` account.
+
 ## Single-use semantics
 
 Each partial note is intended to be completed exactly once. The protocol does not enforce this directly: completion checks that a validity commitment exists in the nullifier tree but does not consume it, so a partial note can technically be completed more than once. However, reuse is unsafe for two independent reasons:
 
-1. **Privacy.** The completion log is tagged by `H(partial_commitment, ...)`. Two completions of the same partial note emit logs with the same tag, which publicly links those completions as paying the same recipient.
+1. **Privacy.** The completion log is tagged by `H(partial_commitment)`. Two completions of the same partial note emit logs with the same tag, which publicly links those completions as paying the same recipient.
 2. **Discovery.** The recipient's Private eXecution Environment (PXE) treats the partial note as pending until the first matching completion log is found. After the first match, the pending entry is removed. A second completion against the same commitment may not be discovered by the recipient's wallet, so the funds are effectively lost.
 
-The token contract's `finalize_transfer_to_private` documents this behavior directly: reusing a `partial_note` argument means the amount "would most likely get lost" because partial note log processing fails to find the pending entry on the second pass.
+This is why an AIP-20 commitment should be completed only once. A second `transfer_private_to_commitment` (or `transfer_public_to_commitment`) against the same commitment is not found by the recipient's log processing on the second pass, so the amount is most likely lost.
 
 The takeaway: treat each partial note as a one-shot object. To accept multiple payments, mint multiple partial notes.
 
@@ -51,10 +59,10 @@ The takeaway: treat each partial note as a one-shot object. To accept multiple p
 
 `PartialUintNote` supports completion in two contexts:
 
-- `complete` runs in a public function. The storage slot and value are emitted in a public log tagged by the partial commitment. Anyone observing the chain learns the amount.
-- `complete_from_private` runs in a private function. The same storage slot and value are emitted in a private log with the same tag. The payload is plaintext, but it is only useful to a party that knows the tag, and the tag derives from the partial commitment.
+- `complete` runs in a public function (AIP-20's `transfer_public_to_commitment`). The storage slot and value are emitted in a public log tagged by the partial note's commitment. Anyone observing the chain learns the amount.
+- `complete_from_private` runs in a private function (AIP-20's `transfer_private_to_commitment`). The same storage slot and value are emitted in a private log with the same tag. The payload is plaintext, but it is only discoverable by a party that can derive the tag, and the tag derives from the partial note's commitment.
 
-For private→private completion, the privacy of the amount depends on whether the partial commitment itself is held secret. If the commitment is published publicly (e.g., in an onchain registry), anyone can derive the tag and read the amount from the private log payload. If the commitment is shared only with prospective senders, the amount stays hidden from outside observers.
+For private→private completion, the privacy of the amount depends on whether the partial note's commitment itself is held secret. If the commitment is published publicly (e.g., in an onchain registry), anyone can derive the tag and read the amount from the private log payload. If the commitment is shared only with prospective senders, the amount stays hidden from outside observers.
 
 One additional protocol constraint: `complete_from_private` requires the validity commitment to be settled in a prior transaction. A partial note cannot be both minted and completed in the same private transaction. The public completion path has no such restriction.
 
