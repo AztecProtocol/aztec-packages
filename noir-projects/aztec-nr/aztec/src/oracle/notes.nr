@@ -190,17 +190,14 @@ pub unconstrained fn get_app_tagging_secret(sender: AztecAddress, recipient: Azt
 #[oracle(aztec_prv_getAppTaggingSecret)]
 unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Field {}
 
-/// Delivery mode for a tagging secret: selects the per-mode index counter (and, recipient-side, the tag domain
-/// separator). A raw `u8` for now; a typed delivery mode shared across aztec-nr will replace it later.
-pub global TAGGING_MODE_UNCONSTRAINED: u8 = 1;
-pub global TAGGING_MODE_CONSTRAINED: u8 = 2;
-
 /// Returns the next sender-side tagging index for a given secret and delivery mode.
 ///
 /// Both delivery origins (address-pair ECDH and handshake) funnel through this single index allocator: the caller
 /// already holds the tagging `secret` - from [`get_app_tagging_secret`] or the handshake registry - and only needs
 /// the simulator to hand out a fresh per-secret, per-mode index, then computes the tag itself. `mode` is one of
-/// [`TAGGING_MODE_UNCONSTRAINED`] / [`TAGGING_MODE_CONSTRAINED`] and selects the per-mode index counter.
+/// [`ONCHAIN_UNCONSTRAINED`](crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED) /
+/// [`ONCHAIN_CONSTRAINED`](crate::messages::message_delivery::ONCHAIN_CONSTRAINED) and selects the per-mode index
+/// counter. Offchain messages are not tagged, so only the onchain delivery variants reach this oracle.
 ///
 /// The simulator persists the index increment only if the tagged log is found in an actual block - a reverting
 /// transaction can otherwise cause the sender to accidentally skip indices and later produce notes that are not

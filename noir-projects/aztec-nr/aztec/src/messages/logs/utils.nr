@@ -1,6 +1,5 @@
-use crate::oracle::notes::{
-    get_app_tagging_secret, get_next_tagging_index, get_sender_for_tags, TAGGING_MODE_UNCONSTRAINED,
-};
+use crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED;
+use crate::oracle::notes::{get_app_tagging_secret, get_next_tagging_index, get_sender_for_tags};
 use crate::protocol::{address::AztecAddress, hash::poseidon2_hash};
 
 // TODO(#14565): Add constrained tagging
@@ -21,7 +20,7 @@ pub(crate) fn compute_discovery_tag(recipient: AztecAddress, sender_override: Op
             )
         });
         let secret = get_app_tagging_secret(sender, recipient);
-        let index = get_next_tagging_index(secret, TAGGING_MODE_UNCONSTRAINED);
+        let index = get_next_tagging_index(secret, ONCHAIN_UNCONSTRAINED);
         poseidon2_hash([secret, index as Field])
     }
 }

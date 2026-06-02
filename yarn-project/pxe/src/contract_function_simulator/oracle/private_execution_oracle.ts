@@ -41,16 +41,17 @@ import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
 import { executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
-// Tagging-mode wire values, mirroring the TAGGING_MODE_* globals in aztec-nr (1 = unconstrained, 2 = constrained).
-// Kept as a raw mapping for now; a shared typed delivery mode will replace it later.
-const TAGGING_MODE_UNCONSTRAINED = 1;
-const TAGGING_MODE_CONSTRAINED = 2;
+// Onchain delivery-variant wire values, mirroring the ONCHAIN_* globals in aztec-nr's message_delivery
+// (2 = onchain unconstrained, 3 = onchain constrained). Offchain messages (variant 1) are never tagged and so never
+// reach this oracle.
+const ONCHAIN_UNCONSTRAINED = 2;
+const ONCHAIN_CONSTRAINED = 3;
 
 function taggingModeToKind(mode: number): AppTaggingSecretKind {
   switch (mode) {
-    case TAGGING_MODE_UNCONSTRAINED:
+    case ONCHAIN_UNCONSTRAINED:
       return AppTaggingSecretKind.UNCONSTRAINED;
-    case TAGGING_MODE_CONSTRAINED:
+    case ONCHAIN_CONSTRAINED:
       return AppTaggingSecretKind.CONSTRAINED;
     default:
       throw new Error(`Unrecognized tagging mode: ${mode}`);

@@ -28,8 +28,8 @@ pub struct MessageDelivery {
 }
 
 global OFFCHAIN: u8 = 1;
-global ONCHAIN_UNCONSTRAINED: u8 = 2;
-global ONCHAIN_CONSTRAINED: u8 = 3;
+pub global ONCHAIN_UNCONSTRAINED: u8 = 2;
+pub global ONCHAIN_CONSTRAINED: u8 = 3;
 
 impl MessageDelivery {
     /// Delivers the message fully off-chain, with no guarantees whatsoever.
