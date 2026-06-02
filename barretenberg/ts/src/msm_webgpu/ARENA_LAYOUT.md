@@ -377,14 +377,28 @@ cap at 16 KiB). Make `MPW` (hence `sT`) device-adaptive.
 
 ## Build order (lowest risk first)
 
-1. **Consolidate `SharedScratch` → usage-partitioned arenas.** Build the
-   mixed-access conflict graph from the 37 bind groups (edge = two buffers
-   co-bound in one group with mismatched ro/rw access — the WebGPU usage-scope
-   rule above), graph-colour it, and carve each colour's buffers from one arena
-   (256-B slots) via the polymorphic `mkBind`. ✅ done: dead set dropped
-   (`28c3babb5b`); `mkBind` accepts `GPUBuffer | GPUBufferBinding` + `ptScratch`
-   migrated, byte-identical (`97190e5af7`). Next: build the access map, colour,
-   migrate each colour, validate each.
+1. **Consolidate `SharedScratch` → usage-partitioned arenas.** The mixed-access
+   conflict graph over the 37 bind groups (edge = co-bound with mismatched ro/rw
+   access) has chromatic number **6** (proven: a 6-clique
+   `{activeCount, isPresentBuf, partialCount, ptScratch, sortedActiveBuckets,
+   walkerPartials}` forced by `ptInitCopy`/`ptFinalize`). Optimal colouring →
+   **6 arenas** (the 5 indirect-args buffers + 2 SRS stay standalone):
+   - **A0**: activeBuckets, activeCount, binOffsets, countsBufs0, l0IdxBuf, offsetsBufs0, partialWritePos, reducePrefScratch, scalarsRawBuf, sortedCountList
+   - **A1**: binWritePos, bucketAndSignBuf, cumulativeAdds, denseBucketList, denseCountList, isPresentBuf, ptCount, ptMeta, ptTasks, ptTotalTasks, redBuf, rowPtrBuf, walkerPartialDest
+   - **A2**: partialCount, partialLayout, size1BucketList, streamPlannerMeta*, taskCuts, valIdxBuf
+   - **A3**: countHistogram, ptOff, radixHist, threadCuts, walkerPartials
+   - **A4**: ptScratch, sortedBucketList, wgCuts
+   - **A5**: partialOffset, sortedActiveBuckets
+
+   (\*`streamPlannerMeta` needs INDIRECT usage + indirect-offset math — keep it
+   standalone, move it to an arena last if at all.) Verified: every bind group
+   binds each arena with a single access. ✅ done: dead set dropped
+   (`28c3babb5b`); polymorphic `mkBind`; **A4 fully migrated + validated**
+   byte-identical (`ptScratch`+`sortedBucketList`+`wgCuts`). Next: A0/A1/A2/A3/A5,
+   one arena at a time. A1/A0/A5 contain cleared/written buffers (`redBuf`,
+   `isPresentBuf`, `scalarsRawBuf`, `taskCuts`, …) → add slot-aware
+   `clearSlot`/`writeSlot`/`copySlot` helpers (accept `GPUBuffer | GPUBufferBinding`)
+   before migrating those.
 2. **`sT` device-adaptive** (`MPW`). Bench phone — confirm `sT=2048` holds perf.
 3. **Reduce restructure** → per-pass RED + persistent `windowSums`; wire the
    160 MB gate (incl. THREAD terms); enable `bw` staging.

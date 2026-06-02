@@ -545,11 +545,11 @@ interface SharedScratch {
   size1BucketList: GPUBuffer;
   denseBucketList: GPUBuffer;
   denseCountList: GPUBuffer;
-  sortedBucketList: GPUBuffer;
+  sortedBucketList: GPUBufferBinding;
   sortedCountList: GPUBuffer;
   radixHist: GPUBuffer;
   cumulativeAdds: GPUBuffer;
-  wgCuts: GPUBuffer;
+  wgCuts: GPUBufferBinding;
   threadCuts: GPUBuffer;
   queueBuf: GPUBuffer;
   partialsBuf: GPUBuffer;
@@ -715,6 +715,7 @@ export class MsmV2Pool {
     let total = this.poolX.size + this.poolY.size;
     if (this._scratch) {
       const s = this._scratch;
+      total += s.arena.size; // arena-resident buffers (ptScratch, sortedBucketList, wgCuts, …) counted once here
       total += s.bufA.size + s.bufB.size;
       total += s.l0IdxBuf.size + s.bucketAndSignBuf.size + s.valIdxBuf.size;
       total += s.rowPtrBuf.size + s.planMeta.size;
@@ -727,9 +728,9 @@ export class MsmV2Pool {
       total += s.redBuf.size + s.isPresentBuf.size + s.reducePrefScratch.size;
       total += s.streamPlannerMeta.size + s.size1BucketList.size;
       total += s.denseBucketList.size + s.denseCountList.size;
-      total += s.sortedBucketList.size + s.sortedCountList.size;
+      total += s.sortedCountList.size;
       total += s.radixHist.size + s.cumulativeAdds.size;
-      total += s.wgCuts.size + s.threadCuts.size;
+      total += s.threadCuts.size;
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
       total += s.taskCuts.size + s.walkerPartials.size + s.walkerPartialDest.size;
@@ -952,11 +953,9 @@ export class MsmV2Pool {
       size1BucketList?.destroy();
       denseBucketList?.destroy();
       denseCountList?.destroy();
-      sortedBucketList?.destroy();
       sortedCountList?.destroy();
       radixHist?.destroy();
       cumulativeAdds?.destroy();
-      wgCuts?.destroy();
       threadCuts?.destroy();
       queueBuf?.destroy();
       partialsBuf?.destroy();
@@ -1002,7 +1001,7 @@ export class MsmV2Pool {
       const ARENA_ALIGN = 256;
       const alignArena = (b: number): number => Math.ceil(Math.max(b, 4) / ARENA_ALIGN) * ARENA_ALIGN;
       arena = device.createBuffer({
-        size: alignArena(512 * sT * sS),
+        size: alignArena(512 * sT * sS) + alignArena(sBTotal * 4) + alignArena(MAX_STREAM_WORKGROUPS * 2 * 4),
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
       let arenaOff = 0;
@@ -1016,11 +1015,11 @@ export class MsmV2Pool {
       size1BucketList = sbuf(sBTotal * 2 * 4);
       denseBucketList = sbuf(sBTotal * 4);
       denseCountList = sbuf(sBTotal * 4);
-      sortedBucketList = sbuf(sBTotal * 4);
+      sortedBucketList = carve(sBTotal * 4);
       sortedCountList = sbuf(sBTotal * 4);
       radixHist = sbuf(sRadixTiles * 256 * 4);
       cumulativeAdds = sbuf(sBTotal * 4);
-      wgCuts = sbuf(MAX_STREAM_WORKGROUPS * 2 * 4);
+      wgCuts = carve(MAX_STREAM_WORKGROUPS * 2 * 4);
       threadCuts = sbuf(sT * 2 * 4);
       // Step 9: legacy stream-accum buffers shrunk — only the dead
       // ba_stream_accum / ba_partial_sum / ba_planner_emit / ba_emit_fixup /
