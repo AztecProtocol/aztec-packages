@@ -540,7 +540,7 @@ interface SharedScratch {
   reducePrefScratch: GPUBuffer;
   // Streaming planner + accumulator buffers (Phase 1-4).
   streamPlannerMeta: GPUBuffer;
-  arena: GPUBuffer;                 // shared buffer; migrated mkBind-only scratch is carved at 256-B offsets
+  arenas: GPUBuffer[];              // one GPU buffer per arena colour (ARENA_LAYOUT.md §1); mkBind-only scratch carved at 256-B offsets
 
   size1BucketList: GPUBuffer;
   denseBucketList: GPUBuffer;
@@ -562,7 +562,7 @@ interface SharedScratch {
   walkerPartialDest: GPUBuffer;     // bucket_id per partial slot (NO_BUCKET if unused)
   // Optimal walker_combine pipeline buffers.
   partialCount: GPUBuffer;          // bTotal × atomic<u32> — partials per bucket
-  partialOffset: GPUBuffer;         // (bTotal+1) × u32 — exclusive prefix sum
+  partialOffset: GPUBufferBinding;  // arena slot — (bTotal+1) × u32 — exclusive prefix sum
   partialWritePos: GPUBuffer;       // bTotal × atomic<u32> — scatter scratch
   partialLayout: GPUBuffer;         // max_partials × u32 — dense per-bucket slot indices
   activeBuckets: GPUBuffer;         // bTotal × u32 — filtered list of count>=2 bucket_ids
@@ -573,7 +573,7 @@ interface SharedScratch {
   countHistogram: GPUBuffer;        // MAX_N × atomic<u32>
   binOffsets: GPUBuffer;            // MAX_N × u32 — exclusive prefix sum
   binWritePos: GPUBuffer;           // MAX_N × atomic<u32>
-  sortedActiveBuckets: GPUBuffer;   // bTotal × u32 — active_buckets in N order
+  sortedActiveBuckets: GPUBufferBinding; // arena slot — bTotal × u32 — active_buckets in N order
   // Pair-tree hot-bucket combine. pt_scratch holds intermediate level
   // partials per hot bucket; pt_alloc is a single atomic claim counter
   // reset each MSM. Sized for the worst case where every emitted partial
@@ -715,7 +715,7 @@ export class MsmV2Pool {
     let total = this.poolX.size + this.poolY.size;
     if (this._scratch) {
       const s = this._scratch;
-      total += s.arena.size; // arena-resident buffers (ptScratch, sortedBucketList, wgCuts, …) counted once here
+      total += s.arenas.reduce((acc, a) => acc + a.size, 0); // arena-resident buffers, counted once per arena
       total += s.bufA.size + s.bufB.size;
       total += s.l0IdxBuf.size + s.bucketAndSignBuf.size + s.valIdxBuf.size;
       total += s.rowPtrBuf.size + s.planMeta.size;
@@ -946,9 +946,9 @@ export class MsmV2Pool {
     let ptWgBucketStarts = s?.ptWgBucketStarts;
     let ptChunks = s?.ptChunks;
     let ptChunksTotal = s?.ptChunksTotal;
-    let arena = s?.arena;
+    let arenas = s?.arenas;
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
-      arena?.destroy();
+      arenas?.forEach(a => a.destroy());
       streamPlannerMeta?.destroy();
       size1BucketList?.destroy();
       denseBucketList?.destroy();
@@ -966,7 +966,6 @@ export class MsmV2Pool {
       walkerPartials?.destroy();
       walkerPartialDest?.destroy();
       partialCount?.destroy();
-      partialOffset?.destroy();
       partialWritePos?.destroy();
       partialLayout?.destroy();
       activeBuckets?.destroy();
@@ -974,7 +973,6 @@ export class MsmV2Pool {
       countHistogram?.destroy();
       binOffsets?.destroy();
       binWritePos?.destroy();
-      sortedActiveBuckets?.destroy();
       ptAlloc?.destroy();
       ptDispatchArgs?.destroy();
       ptOff?.destroy();
@@ -996,30 +994,41 @@ export class MsmV2Pool {
       grow(dims.streamS > cur.streamS, 'streamS');
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
       grow(dims.streamRadixTiles > cur.streamRadixTiles, 'streamRadixTiles');
-      // Arena (incremental consolidation — batch 1: ptScratch only). One buffer,
-      // carved at 256-B-aligned offsets; more buffers fold in as later batches.
+      // One GPU buffer per arena colour (ARENA_LAYOUT.md §1). mkBind-only scratch
+      // is carved at 256-B offsets; buffers sharing a colour are never co-bound
+      // with mismatched ro/rw access (the WebGPU usage-scope rule). Colours whose
+      // members all live in this grow block are populated; the rest are 4-B stubs
+      // until their (cross-block) migration lands.
       const ARENA_ALIGN = 256;
       const alignArena = (b: number): number => Math.ceil(Math.max(b, 4) / ARENA_ALIGN) * ARENA_ALIGN;
-      arena = device.createBuffer({
-        size: alignArena(512 * sT * sS) + alignArena(sBTotal * 4) + alignArena(MAX_STREAM_WORKGROUPS * 2 * 4),
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-      });
-      let arenaOff = 0;
-      const carve = (b: number): GPUBufferBinding => {
+      const NUM_ARENAS = 6;
+      const arenaBytes = new Array<number>(NUM_ARENAS).fill(0);
+      // A4: ptScratch + sortedBucketList + wgCuts
+      arenaBytes[4] = alignArena(512 * sT * sS) + alignArena(sBTotal * 4) + alignArena(MAX_STREAM_WORKGROUPS * 2 * 4);
+      // A5: partialOffset + sortedActiveBuckets
+      arenaBytes[5] = alignArena((sBTotal + 1) * 4) + alignArena(sBTotal * 4);
+      arenas = arenaBytes.map(b =>
+        device.createBuffer({
+          size: Math.max(b, 4),
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        }),
+      );
+      const arenaOff = new Array<number>(NUM_ARENAS).fill(0);
+      const carve = (color: number, b: number): GPUBufferBinding => {
         const size = Math.max(b, 4);
-        const offset = arenaOff;
-        arenaOff += alignArena(size);
-        return { buffer: arena!, offset, size };
+        const offset = arenaOff[color];
+        arenaOff[color] += alignArena(size);
+        return { buffer: arenas![color], offset, size };
       };
       streamPlannerMeta = ibuf(Math.max((20 + sT) * 4, 256));
       size1BucketList = sbuf(sBTotal * 2 * 4);
       denseBucketList = sbuf(sBTotal * 4);
       denseCountList = sbuf(sBTotal * 4);
-      sortedBucketList = carve(sBTotal * 4);
+      sortedBucketList = carve(4, sBTotal * 4);
       sortedCountList = sbuf(sBTotal * 4);
       radixHist = sbuf(sRadixTiles * 256 * 4);
       cumulativeAdds = sbuf(sBTotal * 4);
-      wgCuts = carve(MAX_STREAM_WORKGROUPS * 2 * 4);
+      wgCuts = carve(4, MAX_STREAM_WORKGROUPS * 2 * 4);
       threadCuts = sbuf(sT * 2 * 4);
       // Step 9: legacy stream-accum buffers shrunk — only the dead
       // ba_stream_accum / ba_partial_sum / ba_planner_emit / ba_emit_fixup /
@@ -1042,7 +1051,7 @@ export class MsmV2Pool {
       walkerPartialDest = sbuf(2 * sT * sS * 4);
       // Optimal combine pipeline buffers.
       partialCount = sbuf(sBTotal * 4);
-      partialOffset = sbuf((sBTotal + 1) * 4);
+      partialOffset = carve(5, (sBTotal + 1) * 4);
       partialWritePos = sbuf(sBTotal * 4);
       partialLayout = sbuf(2 * sT * sS * 4);
       activeBuckets = sbuf(sBTotal * 4);
@@ -1051,7 +1060,7 @@ export class MsmV2Pool {
       countHistogram = sbuf(64 * 4);
       binOffsets = sbuf(64 * 4);
       binWritePos = sbuf(64 * 4);
-      sortedActiveBuckets = sbuf(sBTotal * 4);
+      sortedActiveBuckets = carve(5, sBTotal * 4);
       // Pair-tree scratch. Worst-case sum(2N over hot) = 2 × total partials
       // emitted = 2 × (2 * T * S). Each scratch slot stores 1 partial = 2
       // vec4 X + 2 vec4 Y (plane-separated, M_scratch = max slots).
@@ -1063,7 +1072,7 @@ export class MsmV2Pool {
       // shift layout. Per-bucket exact slots = N + ceil(N/2) + ceil(N/4) +
       // ... ≤ 2N + log2(N). Sum across hot buckets ≤ 2·total + NUM_HOT·17.
       // 4× M_partials_walker is the safe ceiling — bumping past 16 MB to 32.
-      ptScratch = carve(512 * sT * sS);
+      ptScratch = carve(4, 512 * sT * sS);
       ptAlloc = sbuf(4);
       // Indirect dispatch args (x, y, z) written by sortScan and consumed by
       // the pair-tree dispatchWorkgroupsIndirect. Needs INDIRECT usage.
@@ -1160,7 +1169,7 @@ export class MsmV2Pool {
       binOffsets: binOffsets!,
       binWritePos: binWritePos!,
       sortedActiveBuckets: sortedActiveBuckets!,
-      arena: arena!,
+      arenas: arenas!,
       ptScratch: ptScratch!,
       ptAlloc: ptAlloc!,
       ptDispatchArgs: ptDispatchArgs!,
