@@ -2,8 +2,8 @@ import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 /**
- * Holds the block header that PXE's private execution is anchored to — the synced tip header used to build
- * transactions. Updated by the BlockSynchronizer as the chain advances or reorgs.
+ * Holds the block header that PXE's private execution is anchored to. Updated by the BlockSynchronizer as the chain
+ * advances or reorgs.
  */
 export class AnchorBlockStore {
   #store: AztecAsyncKVStore;
@@ -18,7 +18,8 @@ export class AnchorBlockStore {
    * Sets the currently synchronized block header.
    *
    * Important: only called from BlockSynchronizer, and since it must run atomically with other stores in a reorg, it
-   * MUST NOT be wrapped in `transactionAsync` — doing so deadlocks IndexedDB (no reentrancy).
+   * MUST NOT be wrapped in `transactionAsync`: doing so deadlocks when the kv-store backend is IndexedDB (no
+   * support for reentrancy).
    */
   async setHeader(header: BlockHeader): Promise<void> {
     await this.#synchronizedHeader.set(header.toBuffer());
