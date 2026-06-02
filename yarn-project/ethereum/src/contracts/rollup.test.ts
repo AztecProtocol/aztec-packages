@@ -1,4 +1,4 @@
-import { getPublicClient } from '@aztec/ethereum/client';
+import { L1RpcError, getPublicClient } from '@aztec/ethereum/client';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -7,7 +7,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import type { Abi } from 'viem';
+import { jest } from '@jest/globals';
+import { type Abi, RpcRequestError, encodeErrorResult } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
@@ -369,6 +370,27 @@ describe('Rollup', () => {
     it('reads protocolContractsHash from storage', async () => {
       const result = await rollup.getProtocolContractsHash();
       expect(result).toEqual(protocolContractsHash);
+    });
+  });
+
+  describe('committee helpers', () => {
+    it('handles wrapped insufficient validator set errors', async () => {
+      const data = encodeErrorResult({
+        abi: RollupAbi,
+        errorName: 'ValidatorSelection__InsufficientValidatorSetSize',
+        args: [0n, 1n],
+      });
+      using _simulateContractSpy = jest.spyOn(publicClient, 'simulateContract').mockRejectedValueOnce(
+        new L1RpcError('L1 RPC request failed', {
+          cause: new RpcRequestError({
+            body: { method: 'eth_call', params: [] },
+            error: { code: 3, data, message: 'execution reverted' },
+            url: 'https://example.com/rpc',
+          }),
+        }),
+      );
+
+      await expect(rollup.getCurrentEpochCommittee()).resolves.toBeUndefined();
     });
   });
 
