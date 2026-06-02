@@ -24,8 +24,9 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { MsmStreamWalker, MsmStreamWalkerPool } from '../../src/msm_webgpu/msm_stream_walker.js';
-import { MsmHighMemory, MsmHighMemoryPool } from '../../src/msm_webgpu/msm_high_memory.js';
+import { MsmStreamWalker } from '../../src/msm_webgpu/msm_stream_walker.js';
+import { createMsm, createMsmPool, type Msm, type BackendPool } from '../../src/msm_webgpu/msm.js';
+import type { MsmPool } from '../../src/msm_webgpu/msm_pool.js';
 import type { MsmConfig } from '../../src/msm_webgpu/msm_types.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
@@ -167,8 +168,9 @@ let wasmMtBootInFlight: Promise<WasmPippengerHandle> | null = null;
 // a device and recompile every pipeline. MsmStreamWalker.create runs one warm-up
 // dispatch so the first timed run doesn't pay shader JIT.
 let gpuDevice: GPUDevice | null = null;
-let msmV2: MsmStreamWalker | MsmHighMemory | null = null;
-let msmV2Pool: MsmStreamWalkerPool | MsmHighMemoryPool | null = null;
+let msmV2: Msm | null = null;
+let msmV2Pool: BackendPool | null = null;
+let srsPool: MsmPool | null = null;
 let msmV2LogN: number | null = null;
 // Cooperative cancellation flag for in-flight sweeps. The actual MSM
 // call inside the WASM worker can't be preempted from JS, but we check
@@ -331,6 +333,8 @@ async function stopAndDestroyWasm(reason: string): Promise<void> {
       log('warn', `[stop/gpu] device.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
     }
     msmV2 = null;
+    msmV2Pool = null;
+    srsPool = null;
     msmV2LogN = null;
     gpuDevice = null;
     log('info', `[stop] GPU device destroyed`);
@@ -542,7 +546,7 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
  *      pair-tree pipelines and runs warm-up dispatches so the next run pays
  *      no JIT.
  */
-async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmStreamWalker | MsmHighMemory> {
+async function ensureWebGpuWarmed(inputs: TestInputs): Promise<Msm> {
   const logN = Math.log2(inputs.n);
   if (gpuDevice === null) {
     log('info', '[gpu-warm] acquiring GPUDevice (one-time)');
@@ -552,11 +556,13 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmStreamWalker |
   }
   if (msmV2 === null || msmV2LogN !== logN) {
     if (msmV2 !== null) {
-      log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding MsmStreamWalker`);
+      log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding`);
       msmV2.destroy();
       msmV2Pool?.destroy();
+      srsPool?.destroy();
       msmV2 = null;
       msmV2Pool = null;
+      srsPool = null;
       msmV2LogN = null;
     }
     const knobStr = Object.entries(gpuKnobs)
@@ -566,18 +572,14 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmStreamWalker |
     const backendName = gpuKnobs.backend === 'high_memory' ? 'MsmHighMemory' : 'MsmStreamWalker';
     log('info', `[gpu-warm] building ${backendName} for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
-    if (gpuKnobs.backend === 'high_memory') {
-      // High-memory backend folds the windows itself (combineOnHost) and
-      // returns the affine point straight from run(); the CPU reduce-tail
-      // (cpucut) path is stream-walker-only.
-      const pool = await MsmHighMemoryPool.create(gpuDevice, inputs.pointsBuf);
-      msmV2Pool = pool;
-      msmV2 = await MsmHighMemory.create(gpuDevice, inputs.n, pool, { ...gpuKnobs, combineOnHost: true });
-    } else {
-      const pool = await MsmStreamWalkerPool.create(gpuDevice, inputs.pointsBuf);
-      msmV2Pool = pool;
-      msmV2 = await MsmStreamWalker.create(gpuDevice, inputs.n, pool, gpuKnobs);
-    }
+    // The SRS pool (Montgomery upload) is shared across backends; each backend's
+    // own scratch lives in the BackendPool. The high-memory backend host-folds
+    // in run() (combineOnHost); the stream-walker keeps the CPU reduce-tail path.
+    srsPool = await createMsmPool(gpuDevice, inputs.pointsBuf);
+    const cfg = gpuKnobs.backend === 'high_memory' ? { ...gpuKnobs, combineOnHost: true } : gpuKnobs;
+    const built = await createMsm(gpuDevice, inputs.n, srsPool, cfg);
+    msmV2 = built.msm;
+    msmV2Pool = built.pool;
     msmV2LogN = logN;
     log('ok', `[gpu-warm] ${backendName} ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }

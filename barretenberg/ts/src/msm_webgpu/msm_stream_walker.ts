@@ -34,6 +34,7 @@ import {
   STREAM_S as STREAM_S_PLAN,
 } from './cuzk/ba_stream_plan.js';
 import type { MsmConfig, ProfileBreakdown, Pt } from './msm_types.js';
+import { MsmPool } from './msm_pool.js';
 
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
@@ -1194,99 +1195,13 @@ export class MsmStreamWalkerPool {
    * once for the whole SRS), and its bounds guard discards threads whose
    * `id >= srsN`.
    */
-  static async create(device: GPUDevice, srsCanonicalBytes: Uint8Array): Promise<MsmStreamWalkerPool> {
-    const srsN = srsCanonicalBytes.byteLength / 64;
-    if (!Number.isInteger(srsN) || srsN <= 0) {
-      throw new Error(`MsmStreamWalkerPool.create: byte length ${srsCanonicalBytes.byteLength} is not a positive multiple of 64`);
-    }
-
-    // convert_points_only reads the raw input from two storage buffers (its
-    // first_half / second_half bindings); split by point count. For odd
-    // srsN the two halves are floor(srsN/2) and ceil(srsN/2) entries.
-    const halfBytes = (srsN >> 1) * 64;
-    const firstHalf = device.createBuffer({
-      size: Math.max(4, halfBytes),
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    const secondHalf = device.createBuffer({
-      size: Math.max(4, srsCanonicalBytes.byteLength - halfBytes),
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(firstHalf, 0, srsCanonicalBytes as BufferSource, 0, halfBytes);
-    device.queue.writeBuffer(
-      secondHalf,
-      0,
-      srsCanonicalBytes as BufferSource,
-      halfBytes,
-      srsCanonicalBytes.byteLength - halfBytes,
-    );
-
-    // Montgomery-form pool: 8×u32 (32 bytes) per coordinate. Exactly srsN
-    // slots — no over-allocation for non-power-of-two srsN.
-    const poolBytes = srsN * 32;
-    const poolUsage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC;
-    const poolX = device.createBuffer({ size: poolBytes, usage: poolUsage });
-    const poolY = device.createBuffer({ size: poolBytes, usage: poolUsage });
-
-    // Workgroup shape: pick (workgroup_size, numXWorkgroups) on the same
-    // tier table as before for occupancy; numYWorkgroups rounds up to cover
-    // srsN with extra threads no-oping via the shader's bounds guard. Same
-    // exact totals on power-of-two srsN (no regression); the only overshoot
-    // is on non-PoT inputs, where it's at most one extra y-row.
-    let workgroupSize: number;
-    let numXWorkgroups: number;
-    if (srsN <= 256) {
-      workgroupSize = 256;
-      numXWorkgroups = 1;
-    } else if (srsN <= 32768) {
-      workgroupSize = 64;
-      numXWorkgroups = 4;
-    } else {
-      workgroupSize = 256;
-      numXWorkgroups = srsN <= 131072 ? 8 : 32;
-    }
-    const numYWorkgroups = Math.max(1, Math.ceil(srsN / (workgroupSize * numXWorkgroups)));
-
-    // The pool's one-shot convert pipeline doesn't go through the cache —
-    // it's only run once per pool, and its dispatch shape is data-dependent
-    // (workgroup_size / numYWorkgroups), so caching wouldn't help.
-    const pool = new MsmStreamWalkerPool(srsN, poolX, poolY, device);
-
-    const sm = new ShaderManager(4, srsN, BN254_CURVE_CONFIG, false);
-    const code = sm.gen_convert_points_only_shader(workgroupSize, numYWorkgroups, /* packed */ true);
-    const layout = pool.cache.getLayout(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
-    const pipeline = await pool.cache.getPipeline(code, layout, 'convert-points-pool');
-
-    const params = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-    device.queue.writeBuffer(params, 0, new Uint32Array([srsN, 0, 0, 0]));
-    const bind = device.createBindGroup({
-      layout,
-      entries: [firstHalf, secondHalf, poolX, poolY, params].map((buffer, binding) => ({
-        binding,
-        resource: { buffer },
-      })),
-    });
-
-    const enc = device.createCommandEncoder();
-    const pass = enc.beginComputePass();
-    pass.setPipeline(pipeline);
-    pass.setBindGroup(0, bind);
-    pass.dispatchWorkgroups(numXWorkgroups, numYWorkgroups, 1);
-    pass.end();
-    device.queue.submit([enc.finish()]);
-    await device.queue.onSubmittedWorkDone();
-
-    firstHalf.destroy();
-    secondHalf.destroy();
-    params.destroy();
-    return pool;
+  static create(device: GPUDevice, srs: MsmPool): MsmStreamWalkerPool {
+    return new MsmStreamWalkerPool(srs.srsN, srs.poolX, srs.poolY, device);
   }
 
-  /** Free the pool's GPU buffers — the SRS (poolX/Y) and the shared
-   * scratch (every buffer in `_scratch`, if allocated). */
+  /** Free this backend's scratch buffers. The SRS (poolX/poolY) is owned by
+   * the shared {@link MsmPool} and outlives the backend pool. */
   destroy(): void {
-    this.poolX.destroy();
-    this.poolY.destroy();
     if (this._scratch) {
       const s = this._scratch;
       s.bufA.destroy();

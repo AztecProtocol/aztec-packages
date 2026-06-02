@@ -1,4 +1,5 @@
 import { MsmStreamWalker, MsmStreamWalkerPool } from '../msm_stream_walker.js';
+import { MsmPool } from '../msm_pool.js';
 import { get_device } from '../cuzk/gpu.js';
 import {
   ERR_GENERIC,
@@ -70,6 +71,7 @@ export class WebGpuMsmHost {
   // per N (the "slot pool") so the same-N batch can encode into ONE command
   // buffer with each MSM in its own slot — eliminating per-MSM submit + per-
   // MSM mapAsync for the same-N case.
+  private srsPool: MsmPool | null = null;
   private pool: MsmStreamWalkerPool | null = null;
   private srsN = 0;
   private srsMsm: MsmStreamWalker | null = null;
@@ -151,6 +153,7 @@ export class WebGpuMsmHost {
     }
     try {
       this.pool?.destroy();
+      this.srsPool?.destroy();
     } catch {
       /* idempotent */
     }
@@ -158,6 +161,7 @@ export class WebGpuMsmHost {
     this.lru.clear();
     this.slotPools.clear();
     this.pool = null;
+    this.srsPool = null;
     // GPUDevice.destroy() lets the driver reclaim every shader pipeline and
     // buffer immediately instead of waiting for GC. Idempotent per the spec.
     if (this.device) {
@@ -232,8 +236,10 @@ export class WebGpuMsmHost {
     for (const pools of this.slotPools.values()) for (const m of pools) m.destroy();
     this.slotPools.clear();
     this.pool?.destroy();
+    this.srsPool?.destroy();
 
-    this.pool = await MsmStreamWalkerPool.create(device, srsBytes);
+    this.srsPool = await MsmPool.create(device, srsBytes);
+    this.pool = MsmStreamWalkerPool.create(device, this.srsPool);
     this.srsN = n;
   }
 
@@ -344,7 +350,7 @@ export class WebGpuMsmHost {
     const scalars = new Uint8Array(this.wasmMemory!.buffer, scalarsPtr, n * 32);
 
     let msm: MsmStreamWalker;
-    let oneOff: { pool: MsmStreamWalkerPool; msm: MsmStreamWalker } | null = null;
+    let oneOff: { pool: MsmStreamWalkerPool; msm: MsmStreamWalker; srsPool: MsmPool } | null = null;
     const tGet = performance.now();
     let hitKind: 'srs-pinned' | 'srs-cached' | 'srs-fresh' | 'off-srs' = 'srs-pinned';
     if (pointsPtr === 0) {
@@ -364,9 +370,10 @@ export class WebGpuMsmHost {
       // Off-SRS MSM: bring its points in as a one-off pool.
       const device = await this.getDevice();
       const pointBytes = this.wasmSliceCopy(pointsPtr, n * 64);
-      const pool = await MsmStreamWalkerPool.create(device, pointBytes);
+      const sp = await MsmPool.create(device, pointBytes);
+      const pool = MsmStreamWalkerPool.create(device, sp);
       msm = await MsmStreamWalker.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
-      oneOff = { pool, msm };
+      oneOff = { pool, msm, srsPool: sp };
     }
     const tGetEnd = performance.now();
 
@@ -398,6 +405,7 @@ export class WebGpuMsmHost {
       if (oneOff) {
         oneOff.msm.destroy();
         oneOff.pool.destroy();
+        oneOff.srsPool.destroy();
       }
     }
   }
