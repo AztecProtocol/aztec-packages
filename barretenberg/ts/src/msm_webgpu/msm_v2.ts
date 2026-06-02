@@ -955,8 +955,53 @@ export class MsmV2Pool {
     let ptChunks = s?.ptChunks;
     let ptChunksTotal = s?.ptChunksTotal;
     let arenas = s?.arenas;
+    // --- Arenas (ARENA_LAYOUT.md §1): one GPU buffer per colour, sized to
+    // high-water (recreated only when a colour grows), carved every call so the
+    // slots always reference the live arenas. Colour-mates are never co-bound
+    // with mismatched ro/rw access (the WebGPU usage-scope rule). Created before
+    // the grow blocks so buffers in any block can carve from them. ---
+    const ARENA_ALIGN = 256;
+    const alignArena = (b: number): number => Math.ceil(Math.max(b, 4) / ARENA_ALIGN) * ARENA_ALIGN;
+    const NUM_ARENAS = 6;
+    const reqArena = new Array<number>(NUM_ARENAS).fill(0);
+    // A3: radixHist + threadCuts + walkerPartials + countHistogram + ptOff
+    reqArena[3] =
+      alignArena(sRadixTiles * 256 * 4) + alignArena(sT * 2 * 4) + alignArena(10 * sT * sS * 16) +
+      alignArena(64 * 4) + alignArena(sBTotal * 4);
+    // A4: ptScratch + sortedBucketList + wgCuts
+    reqArena[4] = alignArena(512 * sT * sS) + alignArena(sBTotal * 4) + alignArena(MAX_STREAM_WORKGROUPS * 2 * 4);
+    // A5: partialOffset + sortedActiveBuckets
+    reqArena[5] = alignArena((sBTotal + 1) * 4) + alignArena(sBTotal * 4);
+    if (!arenas || reqArena.some((r, c) => r > (arenas![c]?.size ?? 0))) {
+      const prevArenas = arenas;
+      arenas = reqArena.map((r, c) =>
+        device.createBuffer({
+          size: Math.max(r, prevArenas?.[c]?.size ?? 0, 4),
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+        }),
+      );
+      prevArenas?.forEach(a => a.destroy());
+      grew = true;
+    }
+    const arenaOff = new Array<number>(NUM_ARENAS).fill(0);
+    const carve = (color: number, b: number): GPUBufferBinding => {
+      const size = Math.max(b, 4);
+      const offset = arenaOff[color];
+      arenaOff[color] += alignArena(size);
+      return { buffer: arenas![color], offset, size };
+    };
+    // Carve order per colour must match the reqArena[] sum order above.
+    radixHist = carve(3, sRadixTiles * 256 * 4);
+    threadCuts = carve(3, sT * 2 * 4);
+    walkerPartials = carve(3, 10 * sT * sS * 16);
+    countHistogram = carve(3, 64 * 4);
+    ptOff = carve(3, sBTotal * 4);
+    ptScratch = carve(4, 512 * sT * sS);
+    sortedBucketList = carve(4, sBTotal * 4);
+    wgCuts = carve(4, MAX_STREAM_WORKGROUPS * 2 * 4);
+    partialOffset = carve(5, (sBTotal + 1) * 4);
+    sortedActiveBuckets = carve(5, sBTotal * 4);
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
-      arenas?.forEach(a => a.destroy());
       streamPlannerMeta?.destroy();
       size1BucketList?.destroy();
       denseBucketList?.destroy();
@@ -997,49 +1042,12 @@ export class MsmV2Pool {
       grow(dims.streamS > cur.streamS, 'streamS');
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
       grow(dims.streamRadixTiles > cur.streamRadixTiles, 'streamRadixTiles');
-      // One GPU buffer per arena colour (ARENA_LAYOUT.md §1). mkBind-only scratch
-      // is carved at 256-B offsets; buffers sharing a colour are never co-bound
-      // with mismatched ro/rw access (the WebGPU usage-scope rule). Colours whose
-      // members all live in this grow block are populated; the rest are 4-B stubs
-      // until their (cross-block) migration lands.
-      const ARENA_ALIGN = 256;
-      const alignArena = (b: number): number => Math.ceil(Math.max(b, 4) / ARENA_ALIGN) * ARENA_ALIGN;
-      const NUM_ARENAS = 6;
-      const arenaBytes = new Array<number>(NUM_ARENAS).fill(0);
-      // A4: ptScratch + sortedBucketList + wgCuts
-      arenaBytes[4] = alignArena(512 * sT * sS) + alignArena(sBTotal * 4) + alignArena(MAX_STREAM_WORKGROUPS * 2 * 4);
-      // A5: partialOffset + sortedActiveBuckets
-      arenaBytes[5] = alignArena((sBTotal + 1) * 4) + alignArena(sBTotal * 4);
-      // A3: radixHist + threadCuts + walkerPartials + countHistogram + ptOff
-      arenaBytes[3] =
-        alignArena(sRadixTiles * 256 * 4) +
-        alignArena(sT * 2 * 4) +
-        alignArena(10 * sT * sS * 16) +
-        alignArena(64 * 4) +
-        alignArena(sBTotal * 4);
-      arenas = arenaBytes.map(b =>
-        device.createBuffer({
-          size: Math.max(b, 4),
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-        }),
-      );
-      const arenaOff = new Array<number>(NUM_ARENAS).fill(0);
-      const carve = (color: number, b: number): GPUBufferBinding => {
-        const size = Math.max(b, 4);
-        const offset = arenaOff[color];
-        arenaOff[color] += alignArena(size);
-        return { buffer: arenas![color], offset, size };
-      };
       streamPlannerMeta = ibuf(Math.max((20 + sT) * 4, 256));
       size1BucketList = sbuf(sBTotal * 2 * 4);
       denseBucketList = sbuf(sBTotal * 4);
       denseCountList = sbuf(sBTotal * 4);
-      sortedBucketList = carve(4, sBTotal * 4);
       sortedCountList = sbuf(sBTotal * 4);
-      radixHist = carve(3, sRadixTiles * 256 * 4);
       cumulativeAdds = sbuf(sBTotal * 4);
-      wgCuts = carve(4, MAX_STREAM_WORKGROUPS * 2 * 4);
-      threadCuts = carve(3, sT * 2 * 4);
       // Step 9: legacy stream-accum buffers shrunk — only the dead
       // ba_stream_accum / ba_partial_sum / ba_planner_emit / ba_emit_fixup /
       // ba_debug_accum / ba_recompute_split pipelines reference these.
@@ -1057,20 +1065,16 @@ export class MsmV2Pool {
       // walkerPartials = partials region (8*sT*sS vec4) + pref tail (2*sT*sS vec4)
       // = 10*sT*sS vec4 × 16 B = 160*sT*sS bytes. Coalesced pref layout requires
       // the pref tail to live in the same buffer.
-      walkerPartials = carve(3, 10 * sT * sS * 16);
       walkerPartialDest = sbuf(2 * sT * sS * 4);
       // Optimal combine pipeline buffers.
       partialCount = sbuf(sBTotal * 4);
-      partialOffset = carve(5, (sBTotal + 1) * 4);
       partialWritePos = sbuf(sBTotal * 4);
       partialLayout = sbuf(2 * sT * sS * 4);
       activeBuckets = sbuf(sBTotal * 4);
       activeCount = sbuf(4);
       // Counting-sort buffers. MAX_N = 64 (mirrors WGSL const).
-      countHistogram = carve(3, 64 * 4);
       binOffsets = sbuf(64 * 4);
       binWritePos = sbuf(64 * 4);
-      sortedActiveBuckets = carve(5, sBTotal * 4);
       // Pair-tree scratch. Worst-case sum(2N over hot) = 2 × total partials
       // emitted = 2 × (2 * T * S). Each scratch slot stores 1 partial = 2
       // vec4 X + 2 vec4 Y (plane-separated, M_scratch = max slots).
@@ -1082,7 +1086,6 @@ export class MsmV2Pool {
       // shift layout. Per-bucket exact slots = N + ceil(N/2) + ceil(N/4) +
       // ... ≤ 2N + log2(N). Sum across hot buckets ≤ 2·total + NUM_HOT·17.
       // 4× M_partials_walker is the safe ceiling — bumping past 16 MB to 32.
-      ptScratch = carve(4, 512 * sT * sS);
       ptAlloc = sbuf(4);
       // Indirect dispatch args (x, y, z) written by sortScan and consumed by
       // the pair-tree dispatchWorkgroupsIndirect. Needs INDIRECT usage.
@@ -1091,7 +1094,6 @@ export class MsmV2Pool {
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
       // Pair-tree v2 state buffers.
-      ptOff = carve(3, sBTotal * 4);
       ptCount = sbuf(sBTotal * 4);
       ptMeta = sbuf(16);
       // pt_tasks: bound by max tasks at level 0 = sum(ceil(N_i / 2)) ≤
