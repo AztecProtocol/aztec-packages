@@ -17,6 +17,7 @@
 
 const WG: u32 = {{ workgroup_size }}u;
 const TILE: u32 = {{ tile }}u;          // shared histogram capacity (entries)
+const WD_STRIDE: u32 = 8u;
 
 // One u32 per (window, point): low 31 bits = bucket index (Booth digit),
 // bit 31 = sign. We mask off the sign bit when using the entry as a CSR
@@ -29,7 +30,16 @@ var<storage, read_write> partials: array<u32>;
 
 @group(0) @binding(2)
 var<uniform> params: vec4<u32>;
-// params[0] = num_point_tiles  params[1] = BW  params[2] = n  params[3] = points_per_tile
+// params[0] = num_point_tiles  params[1] = BW (unused; column count now from
+// WindowDesc)  params[2] = n  params[3] = points_per_tile
+
+// WindowDesc (SPLIT_C_PLAN.md): per-GLOBAL-window geometry, stride 8 u32.
+// num_columns at +5 (CSR column count), work_off at +3 (prefix of num_columns).
+@group(0) @binding(3)
+var<storage, read> window_desc: array<u32>;
+// batch_window_base.x = global index of this batch's first window (Lever G).
+@group(0) @binding(4)
+var<uniform> batch_window_base: vec4<u32>;
 
 var<workgroup> hist: array<atomic<u32>, {{ tile }}>;
 
@@ -42,12 +52,20 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let n_cols = params[1];
     let n = params[2];
     let points_per_tile = params[3];
 
+    // Per-window CSR geometry from WindowDesc (global window = batch-local +
+    // batch base). work_off is a global prefix; subtract the batch's base so
+    // the partials layout stays batch-local. Uniform fill ⇒ n_cols == BW and
+    // work_off_local == window * BW (byte-identical to the old constant path).
+    let gwin = window + batch_window_base.x;
+    let n_cols = window_desc[gwin * WD_STRIDE + 5u];
+    let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
+                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+
     let cci_offset = window * n;
-    let part_offset = (window * num_point_tiles + point_tile) * n_cols;
+    let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
     if (tile_point_hi > n) { tile_point_hi = n; }

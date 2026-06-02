@@ -14,6 +14,7 @@
 // Phase 3 (the scan) turns the per-column counts into inclusive offsets.
 
 const WG: u32 = {{ workgroup_size }}u;
+const WD_STRIDE: u32 = 8u;
 
 @group(0) @binding(0)
 var<storage, read_write> partials: array<u32>;
@@ -23,19 +24,32 @@ var<storage, read_write> all_csc_col_ptr: array<u32>;
 
 @group(0) @binding(2)
 var<uniform> params: vec4<u32>;
-// params[0] = num_point_tiles  params[1] = BW
+// params[0] = num_point_tiles  params[1] = BW (unused; column count now from WindowDesc)
+
+// WindowDesc (SPLIT_C_PLAN.md): num_columns at +5, work_off (prefix) at +3.
+@group(0) @binding(3)
+var<storage, read> window_desc: array<u32>;
+// batch_window_base.x = global index of this batch's first window.
+@group(0) @binding(4)
+var<uniform> batch_window_base: vec4<u32>;
 
 @compute
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         @builtin(workgroup_id) wid: vec3<u32>) {
     let num_point_tiles = params[0];
-    let n_cols = params[1];
     let bucket = gid.x;
     let window = wid.y;
+
+    // Per-window CSR geometry from WindowDesc (batch-local work_off = global
+    // prefix minus the batch base). Uniform fill ⇒ identical to the old path.
+    let gwin = window + batch_window_base.x;
+    let n_cols = window_desc[gwin * WD_STRIDE + 5u];
+    let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
+                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
     if (bucket >= n_cols) { return; }
 
-    let win_part = window * num_point_tiles * n_cols;
+    let win_part = num_point_tiles * work_off_local;
     var run: u32 = 0u;
     for (var k: u32 = 0u; k < num_point_tiles; k = k + 1u) {
         let idx = win_part + k * n_cols + bucket;
@@ -43,8 +57,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         partials[idx] = run;          // point-tile-exclusive prefix
         run = run + t;
     }
-    // `run` is now the bucket's total count across the whole window.
-    all_csc_col_ptr[window * (n_cols + 1u) + bucket + 1u] = run;
+    // `run` is now the bucket's total count across the whole window. The
+    // row_ptr base for this window is Σ(n_cols+1) = work_off_local + window.
+    all_csc_col_ptr[(work_off_local + window) + bucket + 1u] = run;
 
     {{{ recompile }}}
 }

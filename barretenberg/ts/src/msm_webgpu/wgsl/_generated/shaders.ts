@@ -3858,6 +3858,8 @@ export const csr_to_v2_meta = `// Companion to csr_to_v2_active_sums: derives th
 //
 // One thread per (subtask, bucket) emits one (count, offset) pair.
 
+const WD_STRIDE: u32 = 8u;
+
 @group(0) @binding(0)
 var<storage, read> row_ptr: array<u32>;
 @group(0) @binding(1)
@@ -3865,32 +3867,50 @@ var<storage, read_write> active_counts: array<u32>;
 @group(0) @binding(2)
 var<storage, read_write> active_offsets: array<u32>;
 
-// params[0] = num_columns
-// params[1] = total_buckets (num_subtasks * num_columns)
-// params[2] = input_size   (per-subtask slot stride; globalises offsets)
+// params[0] = num_windows (this batch's window count, tbw)
+// params[1] = input_size   (per-subtask slot stride; globalises offsets)
 @group(0) @binding(3)
 var<uniform> params: vec4<u32>;
+// WindowDesc (SPLIT_C_PLAN.md): per-GLOBAL-window geometry, stride 8 u32.
+// num_columns at +5, work_off (prefix of num_columns) at +3.
+@group(0) @binding(4)
+var<storage, read> window_desc: array<u32>;
+// batch_window_base.x = global index of this batch's first window.
+@group(0) @binding(5)
+var<uniform> batch_window_base: vec4<u32>;
 
+// 2D dispatch (bucket_local = gid.x, window = gid.y). Each window reads its own
+// bucket count from WindowDesc, so windows of different widths (split-c) are
+// handled in one unified pass. Uniform fill ⇒ id == subtask*BW + bucket_local
+// and rp_offset == subtask*(BW+1), byte-identical to the old flat 1D path.
 @compute
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let id = gid.x;
-    let total = params[1];
-    if (id >= total) {
+    let window = gid.y;
+    if (window >= params[0]) {
         return;
     }
+    let gwin = window + batch_window_base.x;
+    let num_columns = window_desc[gwin * WD_STRIDE + 5u];
+    let bucket_local = gid.x;
+    if (bucket_local >= num_columns) {
+        return;
+    }
+    let input_size = params[1];
 
-    let num_columns = params[0];
-    let input_size = params[2];
-    let subtask = id / num_columns;
-    let bucket_local = id % num_columns;
-    let rp_offset = subtask * (num_columns + 1u);
+    // Batch-local CSR base for this window: global work_off prefix minus the
+    // batch's base work_off. The row_ptr stride is num_columns+1, so the
+    // row_ptr base is Σ(num_columns+1) = work_off_local + window.
+    let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
+                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+    let id = work_off_local + bucket_local;
+    let rp_offset = work_off_local + window;
 
     let begin = row_ptr[rp_offset + bucket_local];
     let end = row_ptr[rp_offset + bucket_local + 1u];
 
     active_counts[id] = end - begin;
-    active_offsets[id] = subtask * input_size + begin;
+    active_offsets[id] = window * input_size + begin;
 
     {{{ recompile }}}
 }
@@ -4265,6 +4285,7 @@ export const transpose_count_tiled = `// Parallel transpose — Phase 1 of 4: pe
 
 const WG: u32 = {{ workgroup_size }}u;
 const TILE: u32 = {{ tile }}u;          // shared histogram capacity (entries)
+const WD_STRIDE: u32 = 8u;
 
 // One u32 per (window, point): low 31 bits = bucket index (Booth digit),
 // bit 31 = sign. We mask off the sign bit when using the entry as a CSR
@@ -4277,7 +4298,16 @@ var<storage, read_write> partials: array<u32>;
 
 @group(0) @binding(2)
 var<uniform> params: vec4<u32>;
-// params[0] = num_point_tiles  params[1] = BW  params[2] = n  params[3] = points_per_tile
+// params[0] = num_point_tiles  params[1] = BW (unused; column count now from
+// WindowDesc)  params[2] = n  params[3] = points_per_tile
+
+// WindowDesc (SPLIT_C_PLAN.md): per-GLOBAL-window geometry, stride 8 u32.
+// num_columns at +5 (CSR column count), work_off at +3 (prefix of num_columns).
+@group(0) @binding(3)
+var<storage, read> window_desc: array<u32>;
+// batch_window_base.x = global index of this batch's first window (Lever G).
+@group(0) @binding(4)
+var<uniform> batch_window_base: vec4<u32>;
 
 var<workgroup> hist: array<atomic<u32>, {{ tile }}>;
 
@@ -4290,12 +4320,20 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let n_cols = params[1];
     let n = params[2];
     let points_per_tile = params[3];
 
+    // Per-window CSR geometry from WindowDesc (global window = batch-local +
+    // batch base). work_off is a global prefix; subtract the batch's base so
+    // the partials layout stays batch-local. Uniform fill ⇒ n_cols == BW and
+    // work_off_local == window * BW (byte-identical to the old constant path).
+    let gwin = window + batch_window_base.x;
+    let n_cols = window_desc[gwin * WD_STRIDE + 5u];
+    let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
+                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+
     let cci_offset = window * n;
-    let part_offset = (window * num_point_tiles + point_tile) * n_cols;
+    let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
     if (tile_point_hi > n) { tile_point_hi = n; }
@@ -4368,12 +4406,21 @@ export const transpose_parallel_scan = `// Parallel transpose — Phase 2 of 3: 
 // csc_col_ptr[i] = count(i-1) for i >= 1.)
 
 const SCAN_WG_SIZE = 256u;
+const WD_STRIDE: u32 = 8u;
 
 @group(0) @binding(0)
 var<storage, read_write> all_csc_col_ptr: array<atomic<u32>>;
 
 @group(0) @binding(1)
 var<uniform> params: vec3<u32>;
+// params[1] = BW (unused; per-window column count now from WindowDesc)
+
+// WindowDesc (SPLIT_C_PLAN.md): num_columns at +5, work_off (prefix) at +3.
+@group(0) @binding(2)
+var<storage, read> window_desc: array<u32>;
+// batch_window_base.x = global index of this batch's first window.
+@group(0) @binding(3)
+var<uniform> batch_window_base: vec4<u32>;
 
 var<workgroup> wg_sums: array<u32, SCAN_WG_SIZE>;
 
@@ -4386,9 +4433,15 @@ fn main(
     let tid = lid.x;
     let subtask_idx = wid.x;
 
-    let n = params[1];
+    // Per-window CSR geometry from WindowDesc; the row_ptr base for this
+    // subtask is Σ(n_cols+1) = work_off_local + subtask. Uniform fill ⇒
+    // n == BW and base == subtask*(BW+1), byte-identical to the old path.
+    let gwin = subtask_idx + batch_window_base.x;
+    let n = window_desc[gwin * WD_STRIDE + 5u];
+    let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
+                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
     let n_plus_1 = n + 1u;
-    let base = subtask_idx * n_plus_1;
+    let base = work_off_local + subtask_idx;
 
     let chunk_size = (n_plus_1 + SCAN_WG_SIZE - 1u) / SCAN_WG_SIZE;
     let chunk_start = tid * chunk_size;
@@ -4456,6 +4509,7 @@ export const transpose_reduce_tiled = `// Parallel transpose — Phase 2 of 4: r
 // Phase 3 (the scan) turns the per-column counts into inclusive offsets.
 
 const WG: u32 = {{ workgroup_size }}u;
+const WD_STRIDE: u32 = 8u;
 
 @group(0) @binding(0)
 var<storage, read_write> partials: array<u32>;
@@ -4465,19 +4519,32 @@ var<storage, read_write> all_csc_col_ptr: array<u32>;
 
 @group(0) @binding(2)
 var<uniform> params: vec4<u32>;
-// params[0] = num_point_tiles  params[1] = BW
+// params[0] = num_point_tiles  params[1] = BW (unused; column count now from WindowDesc)
+
+// WindowDesc (SPLIT_C_PLAN.md): num_columns at +5, work_off (prefix) at +3.
+@group(0) @binding(3)
+var<storage, read> window_desc: array<u32>;
+// batch_window_base.x = global index of this batch's first window.
+@group(0) @binding(4)
+var<uniform> batch_window_base: vec4<u32>;
 
 @compute
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         @builtin(workgroup_id) wid: vec3<u32>) {
     let num_point_tiles = params[0];
-    let n_cols = params[1];
     let bucket = gid.x;
     let window = wid.y;
+
+    // Per-window CSR geometry from WindowDesc (batch-local work_off = global
+    // prefix minus the batch base). Uniform fill ⇒ identical to the old path.
+    let gwin = window + batch_window_base.x;
+    let n_cols = window_desc[gwin * WD_STRIDE + 5u];
+    let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
+                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
     if (bucket >= n_cols) { return; }
 
-    let win_part = window * num_point_tiles * n_cols;
+    let win_part = num_point_tiles * work_off_local;
     var run: u32 = 0u;
     for (var k: u32 = 0u; k < num_point_tiles; k = k + 1u) {
         let idx = win_part + k * n_cols + bucket;
@@ -4485,8 +4552,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         partials[idx] = run;          // point-tile-exclusive prefix
         run = run + t;
     }
-    // \`run\` is now the bucket's total count across the whole window.
-    all_csc_col_ptr[window * (n_cols + 1u) + bucket + 1u] = run;
+    // \`run\` is now the bucket's total count across the whole window. The
+    // row_ptr base for this window is Σ(n_cols+1) = work_off_local + window.
+    all_csc_col_ptr[(work_off_local + window) + bucket + 1u] = run;
 
     {{{ recompile }}}
 }
@@ -4511,6 +4579,7 @@ export const transpose_scatter_tiled = `// Parallel transpose — Phase 4 of 4: 
 
 const WG: u32 = {{ workgroup_size }}u;
 const TILE: u32 = {{ tile }}u;          // shared cursor capacity (entries)
+const WD_STRIDE: u32 = 8u;
 
 // One u32 per (window, point): low 31 bits = bucket index, bit 31 = sign.
 // We mask off the sign bit when scattering by bucket. See
@@ -4529,7 +4598,15 @@ var<storage, read_write> all_csc_val_idxs: array<u32>;
 
 @group(0) @binding(4)
 var<uniform> params: vec4<u32>;
-// params[0] = num_point_tiles  params[1] = BW  params[2] = n  params[3] = points_per_tile
+// params[0] = num_point_tiles  params[1] = BW (unused; column count from
+// WindowDesc)  params[2] = n  params[3] = points_per_tile
+
+// WindowDesc (SPLIT_C_PLAN.md): num_columns at +5, work_off (prefix) at +3.
+@group(0) @binding(5)
+var<storage, read> window_desc: array<u32>;
+// batch_window_base.x = global index of this batch's first window.
+@group(0) @binding(6)
+var<uniform> batch_window_base: vec4<u32>;
 
 var<workgroup> curr: array<atomic<u32>, {{ tile }}>;
 
@@ -4542,13 +4619,19 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let n_cols = params[1];
     let n = params[2];
     let points_per_tile = params[3];
 
+    // Per-window CSR geometry from WindowDesc (batch-local work_off = global
+    // prefix minus batch base). Uniform fill ⇒ identical to the old path.
+    let gwin = window + batch_window_base.x;
+    let n_cols = window_desc[gwin * WD_STRIDE + 5u];
+    let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
+                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+
     let cci_offset = window * n;
-    let ccp_offset = window * (n_cols + 1u);
-    let part_offset = (window * num_point_tiles + point_tile) * n_cols;
+    let ccp_offset = work_off_local + window;
+    let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
     if (tile_point_hi > n) { tile_point_hi = n; }

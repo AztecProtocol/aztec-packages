@@ -24,12 +24,21 @@
 // csc_col_ptr[i] = count(i-1) for i >= 1.)
 
 const SCAN_WG_SIZE = 256u;
+const WD_STRIDE: u32 = 8u;
 
 @group(0) @binding(0)
 var<storage, read_write> all_csc_col_ptr: array<atomic<u32>>;
 
 @group(0) @binding(1)
 var<uniform> params: vec3<u32>;
+// params[1] = BW (unused; per-window column count now from WindowDesc)
+
+// WindowDesc (SPLIT_C_PLAN.md): num_columns at +5, work_off (prefix) at +3.
+@group(0) @binding(2)
+var<storage, read> window_desc: array<u32>;
+// batch_window_base.x = global index of this batch's first window.
+@group(0) @binding(3)
+var<uniform> batch_window_base: vec4<u32>;
 
 var<workgroup> wg_sums: array<u32, SCAN_WG_SIZE>;
 
@@ -42,9 +51,15 @@ fn main(
     let tid = lid.x;
     let subtask_idx = wid.x;
 
-    let n = params[1];
+    // Per-window CSR geometry from WindowDesc; the row_ptr base for this
+    // subtask is Σ(n_cols+1) = work_off_local + subtask. Uniform fill ⇒
+    // n == BW and base == subtask*(BW+1), byte-identical to the old path.
+    let gwin = subtask_idx + batch_window_base.x;
+    let n = window_desc[gwin * WD_STRIDE + 5u];
+    let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
+                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
     let n_plus_1 = n + 1u;
-    let base = subtask_idx * n_plus_1;
+    let base = work_off_local + subtask_idx;
 
     let chunk_size = (n_plus_1 + SCAN_WG_SIZE - 1u) / SCAN_WG_SIZE;
     let chunk_start = tid * chunk_size;

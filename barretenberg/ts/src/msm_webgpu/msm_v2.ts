@@ -1625,7 +1625,6 @@ export class MsmV2 {
   // so the count/scatter kernels saturate the GPU instead of running one
   // workgroup per window.
   private transposeNumPointTiles = 1;
-  private nConvMeta = 0;
   private nReduceInit = 0;
   private numWgsFinalize = 0;
   private rowPtrBuf!: ScratchSlot; // cleared each batch by run()
@@ -1638,10 +1637,10 @@ export class MsmV2 {
   private passCount = 0;
   private passPhases: string[] = [];
   private decomposeBinds!: GPUBindGroup[];
-  private xposeCountBind!: GPUBindGroup;
-  private xposeReduceBind!: GPUBindGroup;
-  private xposeScanBind!: GPUBindGroup;
-  private xposeScatterBind!: GPUBindGroup;
+  private xposeCountBinds!: GPUBindGroup[];
+  private xposeReduceBinds!: GPUBindGroup[];
+  private xposeScanBinds!: GPUBindGroup[];
+  private xposeScatterBinds!: GPUBindGroup[];
   private convActiveBind!: GPUBindGroup;
   // Uniform buffer for csr_to_v2_active_sums; reused across prepare() calls
   // so a single MsmV2 instance can serve different SRS offsets. Layout:
@@ -1671,7 +1670,7 @@ export class MsmV2 {
   private padBytesPerPlane: number = 0; // 3 × PG × 16 = 96
   private padXOffset: number = 0; // X plane pad start = planeBytes - padBytesPerPlane
   private padYOffset: number = 0; // Y plane pad start = 2*planeBytes - padBytesPerPlane
-  private convMetaBind!: GPUBindGroup;
+  private convMetaBinds!: GPUBindGroup[];
   private reduceInitBind!: GPUBindGroup;
   private reduceLevelBinds: GPUBindGroup[] = [];
   private levelBinds: LevelBind[] = [];
@@ -1824,12 +1823,12 @@ export class MsmV2 {
     // 4 bindings: scalars (read), bucket_and_sign (write), params, batch.
     // (Previously 5 — separate signs buffer collapsed into the bucket_and_sign pack.)
     m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
-    m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
-    m.xposeReduceLayout = lt(['storage', 'storage', 'uniform']);
-    m.xposeScanLayout = lt(['storage', 'uniform']);
-    m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+    m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
+    m.xposeReduceLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
+    m.xposeScanLayout = lt(['storage', 'uniform', 'read-only-storage', 'uniform']);
+    m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
-    m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
+    m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform']);
     // Streaming planner + accumulator layouts
     m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
@@ -2396,16 +2395,24 @@ export class MsmV2 {
     // WindowDesc table (SPLIT_C_PLAN.md): one row per GLOBAL window, stride 8 u32.
     // Filled uniformly here (no-split) → kernels that read it reproduce today's
     // geometry byte-identically; split-c later fills it with the variable schedule.
-    // Row w: [window_bits, bit_base, num_buckets(red slots), work_off, reduce_off].
+    // Row w: [window_bits, bit_base, num_buckets(red slots), work_off,
+    //         reduce_off, num_columns].
+    // Sized to numBatches*batchWindows (>= NUM_WINDOWS): the last batch pads
+    // its window count up to batchWindows, and csr_to_v2_meta reads WindowDesc
+    // for every padded slot (those windows resolve to cleared-zero row_ptr =>
+    // count 0). The padding rows continue the uniform sequence; nb=1 has no
+    // padding so the table is exactly NUM_WINDOWS rows (byte-identical).
     const WD_STRIDE = 8;
-    const wdData = new Uint32Array(NUM_WINDOWS * WD_STRIDE);
-    for (let w = 0; w < NUM_WINDOWS; w++) {
+    const WD_ROWS = numBatches * batchWindows;
+    const wdData = new Uint32Array(WD_ROWS * WD_STRIDE);
+    for (let w = 0; w < WD_ROWS; w++) {
       const o = w * WD_STRIDE;
       wdData[o + 0] = c; // window_bits
       wdData[o + 1] = w * c; // bit_base
       wdData[o + 2] = this.stride; // num_buckets (red slots per window)
-      wdData[o + 3] = w * BW; // work_off (PASS bucket base)
+      wdData[o + 3] = w * BW; // work_off (PASS bucket base, prefix of num_columns)
       wdData[o + 4] = w * this.stride; // reduce_off (red_buf base)
+      wdData[o + 5] = BW; // num_columns (transpose CSR column count per window)
     }
     const windowDescBuf = device.createBuffer({
       size: wdData.byteLength,
@@ -2422,7 +2429,7 @@ export class MsmV2 {
     // starting at index 0 and need no offset.
     const convActiveParams = ubuf(new Uint32Array([batchSlots, 0, WSTRIDE, n]));
     this.convActiveParamsBuf = convActiveParams;
-    const convMetaParams = ubuf(new Uint32Array([BW, batchBuckets, n, 0]));
+    const convMetaParams = ubuf(new Uint32Array([this.batchWindows, n, 0, 0]));
     const batchWindowBaseBufs: GPUBuffer[] = [];
     for (let bi = 0; bi < numBatches; bi++) {
       batchWindowBaseBufs.push(ubuf(new Uint32Array([bi * batchWindows, 0, 0, 0])));
@@ -2436,21 +2443,27 @@ export class MsmV2 {
     // after the transpose, per batch) overwrites it; the level-0 seed trio
     // sits above batchSlots and is never touched by the partials region.
     const partialsBuf = l0IdxBuf;
-    this.xposeCountBind = mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParams]);
-    this.xposeReduceBind = mkBind(this.xposeReduceLayout, [partialsBuf, rowPtrBuf, xposeParams]);
-    this.xposeScanBind = mkBind(this.xposeScanLayout, [rowPtrBuf, xposeParams]);
-    this.xposeScatterBind = mkBind(this.xposeScatterLayout, [
-      bucketAndSignBuf,
-      rowPtrBuf,
-      partialsBuf,
-      valIdxBuf,
-      xposeParams,
-    ]);
+    this.xposeCountBinds = batchWindowBaseBufs.map(bwb =>
+      mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParams, windowDescBuf, bwb]));
+    this.xposeReduceBinds = batchWindowBaseBufs.map(bwb =>
+      mkBind(this.xposeReduceLayout, [partialsBuf, rowPtrBuf, xposeParams, windowDescBuf, bwb]));
+    this.xposeScanBinds = batchWindowBaseBufs.map(bwb =>
+      mkBind(this.xposeScanLayout, [rowPtrBuf, xposeParams, windowDescBuf, bwb]));
+    this.xposeScatterBinds = batchWindowBaseBufs.map(bwb =>
+      mkBind(this.xposeScatterLayout, [
+        bucketAndSignBuf,
+        rowPtrBuf,
+        partialsBuf,
+        valIdxBuf,
+        xposeParams,
+        windowDescBuf,
+        bwb,
+      ]));
     this.convActiveBind = mkBind(this.convActiveLayout, [valIdxBuf, l0IdxBuf, convActiveParams, bucketAndSignBuf]);
-    this.convMetaBind = mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams]);
+    this.convMetaBinds = batchWindowBaseBufs.map(bwb =>
+      mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams, windowDescBuf, bwb]));
     this.rowPtrBuf = rowPtrBuf;
     this.nXposePts = Math.ceil(n / WGI);
-    this.nConvMeta = Math.ceil(batchBuckets / WGI);
 
     // --- Reduction ---
     // MAXC was already computed above (needed for the fits-check) and saved
@@ -2810,12 +2823,12 @@ export class MsmV2 {
       setPhase('preprocess');
       dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
       clearSlot(enc, this.rowPtrBuf);
-      dispatch(this.xposeCountPipe, this.xposeCountBind, this.transposeNumPointTiles, tbw);
-      dispatch(this.xposeReducePipe, this.xposeReduceBind, Math.ceil(this.BW / 256), tbw);
-      dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1);
-      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.transposeNumPointTiles, tbw);
+      dispatch(this.xposeCountPipe, this.xposeCountBinds[bi], this.transposeNumPointTiles, tbw);
+      dispatch(this.xposeReducePipe, this.xposeReduceBinds[bi], Math.ceil(this.BW / 256), tbw);
+      dispatch(this.xposeScanPipe, this.xposeScanBinds[bi], tbw, 1);
+      dispatch(this.xposeScatterPipe, this.xposeScatterBinds[bi], this.transposeNumPointTiles, tbw);
       dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1);
-      dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1);
+      dispatch(this.convMetaPipe, this.convMetaBinds[bi], Math.ceil(this.BW / this.wgi), this.batchWindows);
       setPhase('planner');
       const spMeta = this.pool.scratch!.streamPlannerMeta;
       enc.clearBuffer(spMeta);
