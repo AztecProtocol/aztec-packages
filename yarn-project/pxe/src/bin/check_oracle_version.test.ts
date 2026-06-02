@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { readNumericGlobal } from './check_oracle_version.js';
+import { readNumericGlobal } from './oracle_version_helpers.js';
 
 describe('readNumericGlobal', () => {
   let dir: string;

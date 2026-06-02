@@ -1,1 +1,1 @@
-export { getOracleInterfaceSignature, readNumericGlobal } from './check_oracle_version.js';
+export { getOracleInterfaceSignature, readNumericGlobal } from './oracle_version_helpers.js';

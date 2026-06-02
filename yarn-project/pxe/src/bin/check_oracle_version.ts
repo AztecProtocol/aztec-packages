@@ -1,12 +1,10 @@
-/* eslint-disable import-x/no-named-as-default-member */
 import { keccak256String } from '@aztec/foundation/crypto/keccak';
 
-import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
-import ts from 'typescript';
 import { fileURLToPath } from 'url';
 
 import { ORACLE_INTERFACE_HASH, ORACLE_VERSION_MAJOR } from '../oracle_version.js';
+import { getOracleInterfaceSignature, readNumericGlobal } from './oracle_version_helpers.js';
 
 /**
  * Verifies that the Oracle interface matches the expected interface hash.
@@ -84,150 +82,6 @@ function assertContractOracleVersionMajorInSync(): void {
     const details = copies.map(copy => `${copy.label}=${copy.value}`).join(', ');
     throw new Error(`ORACLE_VERSION_MAJOR is out of sync: ${details}. Bump all copies together.`);
   }
-}
-
-/**
- * Extracts method signatures from TypeScript classes or interfaces and returns a deterministic string representation.
- *
- * This is used to detect when an oracle interface changes so that the oracle version can be bumped. It works with both
- * class declarations (e.g. PXE's `Oracle` class) and interface declarations (e.g. TXE's `IAvmExecutionOracle`).
- *
- * @param sourcePath - Absolute path to the TypeScript source file to parse.
- * @param targets - Names of classes or interfaces to extract methods from.
- * @param excludedMembers - Method names to skip (e.g. non-oracle helpers like `constructor`).
- */
-export function getOracleInterfaceSignature(sourcePath: string, targets: string[], excludedMembers: string[]): string {
-  // Read and parse the TypeScript source file
-  const sourceCode = readFileSync(sourcePath, 'utf-8');
-  const sourceFile = ts.createSourceFile(sourcePath, sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-
-  // Extract method signatures from the target classes/interfaces
-  const methodSignatures: string[] = [];
-
-  function visit(node: ts.Node) {
-    // Look for class or interface declarations matching the target names
-    const isTarget =
-      (ts.isClassDeclaration(node) || ts.isInterfaceDeclaration(node)) && targets.includes(node.name?.text ?? '');
-
-    if (isTarget) {
-      // Visit all members of the class/interface
-      node.members.forEach(member => {
-        if (
-          (ts.isMethodDeclaration(member) || ts.isMethodSignature(member)) &&
-          member.name &&
-          ts.isIdentifier(member.name)
-        ) {
-          const methodName = member.name.text;
-
-          // Skip excluded methods
-          if (excludedMembers.includes(methodName)) {
-            return;
-          }
-
-          // Extract parameter signatures
-          const paramSignatures: string[] = [];
-          member.parameters.forEach(param => {
-            const paramName = extractParameterName(param, sourceFile);
-            const paramType = extractTypeString(param.type, sourceFile);
-            paramSignatures.push(`${paramName}: ${paramType}`);
-          });
-
-          // Extract return type
-          const returnType = extractTypeString(member.type, sourceFile);
-
-          // Build full signature: methodName(param1: Type1, param2: Type2): ReturnType
-          const signature = `${methodName}(${paramSignatures.join(', ')}): ${returnType}`;
-          methodSignatures.push(signature);
-        }
-      });
-    }
-
-    ts.forEachChild(node, visit);
-  }
-
-  visit(sourceFile);
-
-  // Sort signatures alphabetically for consistent hashing
-  methodSignatures.sort();
-
-  // Create a hashable representation by concatenating all signatures
-  return methodSignatures.join('');
-}
-
-/**
- * Reads an integer-valued global constant from a Noir or TypeScript source file.
- *
- * Matches both the Noir form (`pub global NAME: Field = N;`) and the TypeScript form (`export const NAME = N;`). This
- * lets us compare a version constant that is hand-duplicated across the TS and Noir layers (which can't import each
- * other) without depending on either compiler. Only the assignment form `NAME = N` matches, so later usages of the
- * constant are ignored regardless of their order in the file.
- *
- * @param sourcePath - Absolute path to the source file to read.
- * @param name - Name of the global constant whose integer value should be extracted.
- * @returns The integer value assigned to the constant.
- * @throws If the constant's declaration is not found in the file.
- */
-export function readNumericGlobal(sourcePath: string, name: string): number {
-  const sourceCode = readFileSync(sourcePath, 'utf-8');
-  const match = sourceCode.match(new RegExp(`\\b${name}\\s*(?::\\s*\\w+\\s*)?=\\s*(\\d+)`));
-  if (!match) {
-    throw new Error(`Could not find numeric global '${name}' in ${sourcePath}.`);
-  }
-  return Number(match[1]);
-}
-
-/**
- * Extracts the parameter name from a parameter node, handling destructured parameters.
- */
-function extractParameterName(param: ts.ParameterDeclaration, sourceFile: ts.SourceFile): string {
-  const name = param.name;
-
-  if (ts.isIdentifier(name)) {
-    return name.text;
-  }
-
-  if (ts.isArrayBindingPattern(name)) {
-    // Handle destructured parameters like [blockNumber]: ACVMField[]
-    // Extract the first element name
-    if (name.elements.length > 0) {
-      const element = name.elements[0];
-      if (ts.isBindingElement(element)) {
-        const elementName = element.name;
-        if (ts.isIdentifier(elementName)) {
-          return elementName.text;
-        }
-        // Nested destructuring - use text representation
-        if (ts.isArrayBindingPattern(elementName) || ts.isObjectBindingPattern(elementName)) {
-          return elementName.getText(sourceFile);
-        }
-      }
-    }
-    // Fallback: return the text representation
-    return name.getText(sourceFile);
-  }
-
-  if (ts.isObjectBindingPattern(name)) {
-    // Handle object destructuring
-    return name.getText(sourceFile);
-  }
-
-  // Fallback for any other case - this should never happen but TypeScript needs it
-  return (name as ts.Node).getText(sourceFile);
-}
-
-/**
- * Extracts the type string from a type node, normalizing whitespace.
- */
-function extractTypeString(typeNode: ts.TypeNode | undefined, sourceFile: ts.SourceFile): string {
-  if (!typeNode) {
-    return 'void';
-  }
-
-  // Get the type text and normalize whitespace
-  let typeText = typeNode.getText(sourceFile);
-  // Normalize whitespace: remove extra spaces, newlines, and tabs
-  typeText = typeText.replace(/\s+/g, ' ').trim();
-  return typeText;
 }
 
 assertOracleInterfaceMatches();
