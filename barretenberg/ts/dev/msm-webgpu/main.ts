@@ -592,11 +592,22 @@ async function runWebGpuOnce(
     if (snap) {
       const handle = await ensureWasmBooted();
       const r = handle.completeReduce(snap.dense, snap.ops, snap.rootRank, snap.kPerWindow, snap.numWindows);
+      // CPU returns Jacobian (X,Y,Z) per window — compare projectively to the
+      // GPU's affine per-window sums (gpu.x·Z² == X, gpu.y·Z³ == Y), so the CPU
+      // never inverts. FQ = BN254 base field.
+      const FQ = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
+      const leBig = (b: Uint8Array, o: number): bigint => { let v = 0n; for (let i = 31; i >= 0; i--) v = (v << 8n) | BigInt(b[o + i]); return v; };
       let agree = true;
       for (let w = 0; w < snap.numWindows && agree; w++) {
-        const cw = parseAffineLE(r.result.subarray(w * 64, w * 64 + 64));
+        const X = leBig(r.result, w * 96), Y = leBig(r.result, w * 96 + 32), Z = leBig(r.result, w * 96 + 64);
         const gw = gpu.windowSums[w];
-        if (cw.x !== gw.x || cw.y !== gw.y) agree = false;
+        if (Z === 0n) {
+          if (gw.x !== 0n || gw.y !== 0n) agree = false;
+        } else {
+          const Z2 = (Z * Z) % FQ;
+          const Z3 = (Z2 * Z) % FQ;
+          if ((gw.x * Z2) % FQ !== X % FQ || (gw.y * Z3) % FQ !== Y % FQ) agree = false;
+        }
       }
       log(agree ? 'ok' : 'err',
         `[cpucut=${cpucut}] ops=${snap.ops.length / 4} kPerWindow=${snap.kPerWindow} ` +

@@ -230,7 +230,7 @@ export async function createWasmPippenger(
   ): { result: Uint8Array; computeMs: number; totalMs: number } {
     const numOps = ops.length / 4;
     const opsBytes = new Uint8Array(ops.buffer, ops.byteOffset, ops.byteLength);
-    const resBytes = numWindows * 64;
+    const resBytes = numWindows * 96; // Jacobian X||Y||Z per window
     if (dense.length > cDenseCap) {
       if (cDensePtr) wasmMain.call("bbfree", cDensePtr);
       cDensePtr = wasmMain.call("bbmalloc", Math.max(64, dense.length));
