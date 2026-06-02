@@ -130,8 +130,7 @@ pub contract HandshakeRegistry {
     /// Returns the app-siloed shared secret for an existing handshake in `mode`.
     ///
     /// This is the existing-handshake retrieval surface. It returns `silo(S, caller)`, never raw `S`; a different
-    /// caller receives a different app-siloed value for the same registry note. This is a utility function because it
-    /// is a local read helper.
+    /// caller receives a different app-siloed value for the same registry note.
     /// Contracts should still call [HandshakeRegistry::validate_handshake] when they need a constrained proof that a
     /// supplied app-siloed secret matches the current handshake.
     ///
