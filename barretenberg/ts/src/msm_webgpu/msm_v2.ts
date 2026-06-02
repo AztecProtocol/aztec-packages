@@ -534,7 +534,7 @@ class PipelineCache {
 interface SharedScratch {
   bufA: GPUBuffer;
   bufB: GPUBuffer;
-  l0IdxBuf: GPUBuffer;
+  l0IdxBuf: GPUBufferBinding;
   bucketAndSignBuf: GPUBufferBinding;
   valIdxBuf: GPUBufferBinding;
   rowPtrBuf: GPUBufferBinding;
@@ -545,7 +545,7 @@ interface SharedScratch {
   countsBufs: [GPUBuffer, GPUBuffer];
   offsetsBufs: [GPUBuffer, GPUBuffer];
   prefScratchBuf: GPUBuffer;
-  scalarsRawBuf: GPUBuffer;
+  scalarsRawBuf: GPUBufferBinding;
   redBuf: GPUBufferBinding;
   isPresentBuf: GPUBufferBinding;
   reducePrefScratch: GPUBufferBinding;
@@ -728,14 +728,13 @@ export class MsmV2Pool {
       const s = this._scratch;
       total += s.arenas.reduce((acc, a) => acc + a.size, 0); // arena-resident buffers, counted once per arena
       total += s.bufA.size + s.bufB.size;
-      total += s.l0IdxBuf.size;
       total += s.planMeta.size;
       total += s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size;
       total += s.scatterPlanRing[0].size + s.scatterPlanRing[1].size;
       total += s.carryPlanRing[0].size + s.carryPlanRing[1].size;
       total += s.countsBufs[0].size + s.countsBufs[1].size;
       total += s.offsetsBufs[0].size + s.offsetsBufs[1].size;
-      total += s.prefScratchBuf.size + s.scalarsRawBuf.size;
+      total += s.prefScratchBuf.size;
       total += s.streamPlannerMeta.size;
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
@@ -809,9 +808,7 @@ export class MsmV2Pool {
     // partials matrix (batchWindows × num_point_tiles × BW × 4). Its size
     // is the max of those — caller passes the larger as `l0Slots`.
     if (!l0IdxBuf || dims.l0Slots > cur.l0Slots) {
-      l0IdxBuf?.destroy();
-      grow(true, 'l0Slots');
-      l0IdxBuf = sbuf(cur.l0Slots * 4);
+      grow(true, 'l0Slots'); // sizes arena A0 (l0IdxBuf carved centrally)
       grew = true;
     }
     if (!bucketAndSignBuf || dims.batchSlots > cur.batchSlots) {
@@ -865,9 +862,7 @@ export class MsmV2Pool {
       grew = true;
     }
     if (!scalarsRawBuf || dims.scalarsBytes > cur.scalarsBytes) {
-      scalarsRawBuf?.destroy();
-      grow(true, 'scalarsBytes');
-      scalarsRawBuf = sbuf(cur.scalarsBytes);
+      grow(true, 'scalarsBytes'); // sizes arena A0 (scalarsRawBuf carved centrally)
       grew = true;
     }
     if (!redBuf || dims.redM > cur.redM) {
@@ -968,10 +963,12 @@ export class MsmV2Pool {
       alignArena(64 * 4) + alignArena(sBTotal * 4) + alignArena(sBTotal * 4) + alignArena(16) +
       alignArena(2 * sT * sS * 16) + alignArena(4) + alignArena(2 * sT * sS * 4) +
       alignArena(cur.rowPtrLen * 4) + alignArena(cur.redM * 4) + alignArena(soaSize(cur.redM));
-    // A0: activeBuckets + activeCount + binOffsets + partialWritePos + reducePrefScratch + sortedCountList
+    // A0: activeBuckets + activeCount + binOffsets + partialWritePos + reducePrefScratch
+    //     + sortedCountList + scalarsRawBuf + l0IdxBuf
     reqArena[0] =
       alignArena(sBTotal * 4) + alignArena(4) + alignArena(64 * 4) + alignArena(sBTotal * 4) +
-      alignArena(cur.reducePrefBytes) + alignArena(sBTotal * 4);
+      alignArena(cur.reducePrefBytes) + alignArena(sBTotal * 4) + alignArena(cur.scalarsBytes) +
+      alignArena(cur.l0Slots * 4);
     if (!arenas || reqArena.some((r, c) => r > (arenas![c]?.size ?? 0))) {
       const prevArenas = arenas;
       arenas = reqArena.map((r, c) =>
@@ -1025,6 +1022,8 @@ export class MsmV2Pool {
     partialWritePos = carve(0, sBTotal * 4);
     reducePrefScratch = carve(0, cur.reducePrefBytes);
     sortedCountList = carve(0, sBTotal * 4);
+    scalarsRawBuf = carve(0, cur.scalarsBytes);
+    l0IdxBuf = carve(0, cur.l0Slots * 4);
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
       streamPlannerMeta?.destroy();
       queueBuf?.destroy();
@@ -1314,7 +1313,6 @@ export class MsmV2Pool {
       s.arenas.forEach(a => a.destroy()); // arena-resident scratch (valIdxBuf, ptScratch, …)
       s.bufA.destroy();
       s.bufB.destroy();
-      s.l0IdxBuf.destroy();
       s.planMeta.destroy();
       s.pairBlockPlanRing[0].destroy();
       s.pairBlockPlanRing[1].destroy();
@@ -1327,7 +1325,6 @@ export class MsmV2Pool {
       s.offsetsBufs[0].destroy();
       s.offsetsBufs[1].destroy();
       s.prefScratchBuf.destroy();
-      s.scalarsRawBuf.destroy();
       this._scratch = null;
     }
   }
@@ -1554,7 +1551,7 @@ export class MsmV2 {
   // srsOffset) lets the bridge serve repeated MSMs of the same n by just
   // rewriting this one buffer + the offset uniform, instead of tearing down
   // and re-creating every per-prepare buffer.
-  private scalarsRawBuf!: GPUBuffer;
+  private scalarsRawBuf!: ScratchSlot;
   // Active-sums double-buffer for the pair-tree level loop. Reset at the top
   // of every run() — different scalar distributions produce different
   // per-bucket pair counts, and stale slots from the previous run would be
@@ -2243,7 +2240,7 @@ export class MsmV2 {
     // pool's ensureScratch sizes l0IdxBuf to fit l0Slots = batchSlots+3
     // but doesn't initialize these slots (varies per N), so we write them
     // here at the per-prepare batchSlots offset.
-    device.queue.writeBuffer(l0IdxBuf, batchSlots * 4, new Uint32Array([0, 1, 2]));
+    writeSlot(device.queue, l0IdxBuf, batchSlots * 4, new Uint32Array([0, 1, 2]));
     const countsBufs = scratch.countsBufs;
     const offsetsBufs = scratch.offsetsBufs;
     const planMeta = scratch.planMeta;
@@ -2252,7 +2249,7 @@ export class MsmV2 {
     const carryPlanRing = scratch.carryPlanRing;
     const prefScratchBuf = scratch.prefScratchBuf;
     const scalarsRawBuf = scratch.scalarsRawBuf;
-    device.queue.writeBuffer(scalarsRawBuf, 0, scalars as BufferSource);
+    writeSlot(device.queue, scalarsRawBuf, 0, scalars as BufferSource);
     this.scalarsRawBuf = scalarsRawBuf;
     const bucketAndSignBuf = scratch.bucketAndSignBuf;
     const rowPtrBuf = scratch.rowPtrBuf;
@@ -2547,7 +2544,7 @@ export class MsmV2 {
    */
   private fastPathRewrite(scalars: Uint32Array, srsOffset: number, _levelPlans: LevelPlan[], _levels: number): void {
     const device = this.device;
-    device.queue.writeBuffer(this.scalarsRawBuf, 0, scalars as BufferSource);
+    writeSlot(device.queue, this.scalarsRawBuf, 0, scalars as BufferSource);
     if (srsOffset !== this.preparedSrsOffset) {
       device.queue.writeBuffer(this.convActiveParamsBuf, 4, new Uint32Array([srsOffset]));
     }
@@ -2619,7 +2616,13 @@ export class MsmV2 {
     // batch scalars into one source buffer with one writeBuffer; each MSM's
     // encode copies its slice.
     if (scalarsSrcBuf) {
-      enc.copyBufferToBuffer(scalarsSrcBuf, scalarsSrcByteOff, this.scalarsRawBuf, 0, this.n * 32);
+      enc.copyBufferToBuffer(
+        scalarsSrcBuf,
+        scalarsSrcByteOff,
+        slotBuf(this.scalarsRawBuf),
+        slotOff(this.scalarsRawBuf),
+        this.n * 32,
+      );
     }
 
     // Stream-walker buffers (Plan §6 + C's KNOB 2 variant).
