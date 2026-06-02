@@ -14,8 +14,10 @@
 //   - active_buckets[0 .. active_count) holds bucket_ids needing real combine
 //   - red_buf[red_slot(bid)] = the single partial for any bucket with count == 1
 //
-// red_slot(bid) = (bid / BW) * STRIDE + (bid % BW - 1)
-// (See UNIFIED_COMBINE_PLAN.md §Phase 2.)
+// bid is the packed-window id (window << 15 | mag). red_slot =
+// (window + batch_offset) * STRIDE + (mag - 1). Flat CSR index for the
+// partial_* arrays is window*BW + mag = flat_bid(bid).
+// (See UNIFIED_COMBINE_PLAN.md §Phase 2, SPLIT_C_PLAN.md for the bid encoding.)
 //
 // params.x = num_dense
 // params.y = M_partials   (partials_buf plane stride)
@@ -24,8 +26,16 @@ const PG: u32 = 2u;
 const BW:     u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
 const M_RED:  u32 = {{ m_red }}u;
+// Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
+const WBID_SHIFT:    u32 = 15u;
+const WBID_MAG_MASK: u32 = 0x7fffu;
 
 const TPB: u32 = {{ workgroup_size }}u;
+
+// Flat CSR index (partial_* space) for a packed-window bid.
+fn flat_bid(bid: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+}
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       partial_count:      array<u32>;
@@ -66,11 +76,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     if (t < num_dense) {
         let bid = sorted_bucket_list[t];
-        let count = partial_count[bid];
+        let fb = flat_bid(bid);
+        let count = partial_count[fb];
 
-        // Magnitude (bid % BW) is guaranteed in [1, STRIDE] — ba_planner_classify
-        // filters out zero-digit and BW-padding buckets before they reach
-        // sorted_bucket_list.
+        // Magnitude (bid & WBID_MAG_MASK) is guaranteed in [1, STRIDE] —
+        // ba_planner_classify filters out zero-digit and BW-padding buckets
+        // before they reach sorted_bucket_list.
         {
             // EVERY dense bucket gets is_present pre-marked, unconditional on
             // partial_count: stream_walker may have whole-retired this bucket
@@ -78,13 +89,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             // and pt_finalize then only write coordinates, not flags.
             // Unconditional mark also keeps combine_batched within M2's 10-
             // storage cap (no is_present binding needed there).
-            let red_slot = ((bid / BW) + batch_offset.x) * STRIDE + (bid % BW - 1u);
+            let window = bid >> WBID_SHIFT;
+            let mag = bid & WBID_MAG_MASK;
+            let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
             is_present[red_slot] = 1u;
 
             if (count == 1u) {
                 // Single partial — copy directly to red_buf.
                 let M_partials = params.y;
-                let slot = partial_layout[partial_offset[bid]];
+                let slot = partial_layout[partial_offset[fb]];
 
                 let bx = PG * red_slot;
                 let px0 = partials_buf[PG * slot + 0u];

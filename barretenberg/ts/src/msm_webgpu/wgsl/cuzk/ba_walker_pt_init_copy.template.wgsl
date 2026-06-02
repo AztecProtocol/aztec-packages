@@ -11,6 +11,15 @@
 
 const HOT_THRESHOLD: u32 = 8u;
 const PG: u32 = 2u;
+const BW: u32 = {{ bw }}u;
+// Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
+const WBID_SHIFT:    u32 = 15u;
+const WBID_MAG_MASK: u32 = 0x7fffu;
+
+// Flat CSR index (partial_* space) for a packed-window bid.
+fn flat_bid(bid: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+}
 
 @group(0) @binding(0) var<storage, read>       sorted_active:  array<u32>;
 @group(0) @binding(1) var<storage, read>       bin_offsets:    array<u32>;
@@ -33,8 +42,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (cool_end + hot_idx >= NUM_ACTIVE) { return; }
 
     let bid = sorted_active[cool_end + hot_idx];
-    let N = partial_count[bid];
-    let p_off = partial_offset[bid];
+    let fb = flat_bid(bid);
+    let N = partial_count[fb];
+    let p_off = partial_offset[fb];
     let pt_base = pt_off[hot_idx];
     let M_partials = params.x;
     let M_pt = params.y;

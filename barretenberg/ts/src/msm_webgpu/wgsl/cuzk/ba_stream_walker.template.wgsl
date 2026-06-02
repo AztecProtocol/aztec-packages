@@ -46,6 +46,9 @@ const NO_BUCKET: u32 = 0xffffffffu;
 const BW:     u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
 const M_RED:  u32 = {{ m_red }}u;
+// Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
+const WBID_SHIFT:    u32 = 15u;
+const WBID_MAG_MASK: u32 = 0x7fffu;
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
@@ -74,6 +77,12 @@ const M_RED:  u32 = {{ m_red }}u;
 // → same 64-byte cache line. A SIMD group of 32 threads writing one slot
 // touches just 2-4 cache lines (vs 32 lines in the naive per-thread-stride
 // layout), letting the GPU coalesce the writes into a single transaction.
+
+// Flat CSR index (offsets/counts space) for a packed-window bid. Recovers
+// window*BW + mag — a multiply, never a divide. Uniform path ⇒ == old flat bid.
+fn flat_bid(bid: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+}
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_index[cursor];
@@ -112,7 +121,9 @@ fn store_bucket_sum(bucket_id: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) 
     // out invalid bids before they reach sorted_bucket_list (the only source
     // stream_walker reads bucket_ids from).
     // Global window index = (batch-local window) + batch_offset (= bi * batchWindows).
-    let red_slot = ((bucket_id / BW) + batch_offset.x) * STRIDE + (bucket_id % BW - 1u);
+    let window = bucket_id >> WBID_SHIFT;
+    let mag = bucket_id & WBID_MAG_MASK;
+    let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
     let bx = PG * red_slot;
     red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
@@ -177,7 +188,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         let eo = task_cuts[cut_base + (k + 1u) * 2u + 1u];
 
         let sb_id = sorted_bucket_list[sb];
-        let sb_base = offsets[sb_id];
+        let sb_base = offsets[flat_bid(sb_id)];
         let sb_count = sorted_count_list[sb];
 
         // Start cursor. so==0 → fresh at the bucket's first point. so in
@@ -198,7 +209,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         } else {
             eff_sorted = sb + 1u;
             eff_id = sorted_bucket_list[eff_sorted];
-            eff_base = offsets[eff_id];
+            eff_base = offsets[flat_bid(eff_id)];
             eff_count = sorted_count_list[eff_sorted];
             start_cursor = eff_base;
             split_start_m = split_start_m & ~(1u << k);
@@ -210,11 +221,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         var te_cur: u32;
         if (eo > 0u) {
             te_sort = eb;
-            te_cur = offsets[sorted_bucket_list[eb]] + eo + 1u;
+            te_cur = offsets[flat_bid(sorted_bucket_list[eb])] + eo + 1u;
         } else if (eb > 0u) {
             te_sort = eb - 1u;
             let pid = sorted_bucket_list[te_sort];
-            te_cur = offsets[pid] + sorted_count_list[te_sort];
+            te_cur = offsets[flat_bid(pid)] + sorted_count_list[te_sort];
         } else {
             te_sort = 0u;
             te_cur = 0u;
@@ -251,7 +262,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
                 let nxt = eff_sorted + 1u;
                 let nxt_id = sorted_bucket_list[nxt];
-                let nxt_base = offsets[nxt_id];
+                let nxt_base = offsets[flat_bid(nxt_id)];
                 cur_sorted[k] = nxt;
 
                 bucket_end[k] = nxt_base + sorted_count_list[nxt];
@@ -399,7 +410,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 // buckets always begin fresh (never split-start).
                 let nxt = cur_sorted[k] + 1u;
                 let nxt_id = sorted_bucket_list[nxt];
-                let nxt_base = offsets[nxt_id];
+                let nxt_base = offsets[flat_bid(nxt_id)];
                 cur_sorted[k] = nxt;
 
                 bucket_end[k] = nxt_base + sorted_count_list[nxt];

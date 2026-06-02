@@ -847,10 +847,10 @@ ${packLines.join('\n')}
 
   // === Optimal walker_combine — cross-bucket batched-inversion pipeline. ===
 
-  public gen_ba_walker_combine_count_shader(workgroup_size: number): string {
+  public gen_ba_walker_combine_count_shader(workgroup_size: number, bw: number): string {
     return mustache.render(
       ba_walker_combine_count_shader,
-      { workgroup_size, recompile: this.recompile },
+      { workgroup_size, bw, recompile: this.recompile },
     );
   }
 
@@ -861,10 +861,10 @@ ${packLines.join('\n')}
     );
   }
 
-  public gen_ba_walker_combine_scatter_shader(workgroup_size: number): string {
+  public gen_ba_walker_combine_scatter_shader(workgroup_size: number, bw: number): string {
     return mustache.render(
       ba_walker_combine_scatter_shader,
-      { workgroup_size, recompile: this.recompile },
+      { workgroup_size, bw, recompile: this.recompile },
     );
   }
 
@@ -875,10 +875,10 @@ ${packLines.join('\n')}
     );
   }
 
-  public gen_ba_walker_combine_sort_count_shader(workgroup_size: number): string {
+  public gen_ba_walker_combine_sort_count_shader(workgroup_size: number, bw: number): string {
     return mustache.render(
       ba_walker_combine_sort_count_shader,
-      { workgroup_size, recompile: this.recompile },
+      { workgroup_size, bw, recompile: this.recompile },
     );
   }
 
@@ -889,19 +889,19 @@ ${packLines.join('\n')}
     );
   }
 
-  public gen_ba_walker_combine_sort_scatter_shader(workgroup_size: number): string {
+  public gen_ba_walker_combine_sort_scatter_shader(workgroup_size: number, bw: number): string {
     return mustache.render(
       ba_walker_combine_sort_scatter_shader,
-      { workgroup_size, recompile: this.recompile },
+      { workgroup_size, bw, recompile: this.recompile },
     );
   }
 
-  public gen_ba_walker_pt_init_scan_shader(): string {
-    return mustache.render(ba_walker_pt_init_scan_shader, { recompile: this.recompile });
+  public gen_ba_walker_pt_init_scan_shader(bw: number): string {
+    return mustache.render(ba_walker_pt_init_scan_shader, { bw, recompile: this.recompile });
   }
 
-  public gen_ba_walker_pt_init_copy_shader(workgroup_size: number): string {
-    return mustache.render(ba_walker_pt_init_copy_shader, { workgroup_size, recompile: this.recompile });
+  public gen_ba_walker_pt_init_copy_shader(workgroup_size: number, bw: number): string {
+    return mustache.render(ba_walker_pt_init_copy_shader, { workgroup_size, bw, recompile: this.recompile });
   }
 
   public gen_ba_walker_pt_build_shader(workgroup_size: number): string {

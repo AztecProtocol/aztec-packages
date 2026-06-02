@@ -32,7 +32,8 @@
 // params.z = unused (kept for binding/uniform stability across MSM sizes)
 // params.w = M_partials  (partials_buf plane stride; pref tail starts at 4*M_partials)
 //
-// Final per-bucket sum lands in red_buf at red_slot(bid) = (bid / BW) * STRIDE + (bid % BW - 1).
+// Final per-bucket sum lands in red_buf at red_slot = (window + batch_offset) *
+// STRIDE + (mag - 1), where (window, mag) decode the packed-window bid.
 // See UNIFIED_COMBINE_PLAN.md §Phase 2.
 
 const S: u32 = {{ s }}u;
@@ -43,6 +44,14 @@ const L0_IDX_MASK: u32 = 0x7fffffffu;
 const BW:     u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
 const M_RED:  u32 = {{ m_red }}u;
+// Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
+const WBID_SHIFT:    u32 = 15u;
+const WBID_MAG_MASK: u32 = 0x7fffu;
+
+// Flat CSR index (partial_* space) for a packed-window bid.
+fn flat_bid(bid: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+}
 
 @group(0) @binding(0) var<storage, read>       active_buckets:  array<u32>;
 @group(0) @binding(1) var<storage, read>       active_count:    array<u32>;
@@ -81,7 +90,9 @@ fn load_pt_x(cursor: u32) -> array<u32, 8> {
 }
 
 fn store_bucket_sum(bid: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
-    let red_slot = ((bid / BW) + batch_offset.x) * STRIDE + (bid % BW - 1u);
+    let window = bid >> WBID_SHIFT;
+    let mag = bid & WBID_MAG_MASK;
+    let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
     let bx = PG * red_slot;
     red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
@@ -125,12 +136,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             continue;
         }
         bid[k] = active_buckets[task_id];
-        cnt[k] = partial_count[bid[k]];
+        let fb = flat_bid(bid[k]);
+        cnt[k] = partial_count[fb];
         if (cnt[k] > HOT_THRESHOLD) {
             slot_done[k] = 1u;
             continue;
         }
-        off[k] = partial_offset[bid[k]];
+        off[k] = partial_offset[fb];
         pos[k] = 0u;
         let slot0 = partial_layout[off[k]];
         acc_x[k] = load_partial_x(slot0);

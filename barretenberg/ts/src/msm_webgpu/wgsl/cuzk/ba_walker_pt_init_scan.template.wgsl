@@ -17,6 +17,15 @@
 // the breakdown.
 
 const HOT_THRESHOLD: u32 = 8u;
+const BW: u32 = {{ bw }}u;
+// Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
+const WBID_SHIFT:    u32 = 15u;
+const WBID_MAG_MASK: u32 = 0x7fffu;
+
+// Flat CSR index (partial_count space) for a packed-window bid.
+fn flat_bid(bid: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+}
 
 @group(0) @binding(0) var<storage, read>       sorted_active:  array<u32>;
 @group(0) @binding(1) var<storage, read>       bin_offsets:    array<u32>;
@@ -42,7 +51,7 @@ fn main() {
     for (var hot_idx: u32 = 0u; hot_idx < NUM_HOT; hot_idx = hot_idx + 1u) {
         if (hot_idx >= 65536u) { break; }
         let bid = sorted_active[cool_end + hot_idx];
-        let cnt = partial_count[bid];
+        let cnt = partial_count[flat_bid(bid)];
         pt_off[hot_idx] = running;
         pt_count[hot_idx] = cnt;
         total_orig = total_orig + cnt;

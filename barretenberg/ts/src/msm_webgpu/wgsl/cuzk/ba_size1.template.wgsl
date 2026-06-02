@@ -16,8 +16,9 @@
 // and writes directly into red_buf at the unified-buffer slot for that
 // bucket, also marking is_present[slot] = 1.
 //
-// red_slot(bid) = ((bid / BW) + batch_offset) * STRIDE + (bid % BW - 1)
-// (See UNIFIED_COMBINE_PLAN.md §Phase 2. batch_offset = params.x.)
+// bid is the packed-window id (window << 15 | mag). red_slot =
+// (window + batch_offset) * STRIDE + (mag - 1), batch_offset = params.x.
+// (See UNIFIED_COMBINE_PLAN.md §Phase 2, SPLIT_C_PLAN.md for the bid encoding.)
 //
 // Dispatch: indirect from planner_meta (ceil(num_size1 / 64), 1, 1).
 
@@ -27,6 +28,9 @@ const L0_IDX_MASK: u32 = 0x7fffffffu;
 const BW:    u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
 const M_RED:  u32 = {{ m_red }}u;
+// Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
+const WBID_SHIFT:    u32 = 15u;
+const WBID_MAG_MASK: u32 = 0x7fffu;
 
 @group(0) @binding(0) var<storage, read>       size1_bucket_list: array<u32>;
 @group(0) @binding(1) var<storage, read>       l0_index:          array<u32>;
@@ -71,7 +75,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         y_val = fr_sub_f8(zero, y_val);
     }
 
-    let red_slot = ((bucket_idx / BW) + params.x) * STRIDE + (bucket_idx % BW - 1u);
+    let window = bucket_idx >> WBID_SHIFT;
+    let mag = bucket_idx & WBID_MAG_MASK;
+    let red_slot = (window + params.x) * STRIDE + (mag - 1u);
 
     let base_x = PG * red_slot;
     red_buf[base_x + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);

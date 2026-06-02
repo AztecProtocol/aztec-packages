@@ -1965,13 +1965,13 @@ export class MsmV2 {
       `stream-walker`, m.streamWalkerLayout);
     // === Optimal walker_combine pipeline. ===
     m.combineCountPipe = await compile(
-      sm.gen_ba_walker_combine_count_shader(256),
+      sm.gen_ba_walker_combine_count_shader(256, m.BW),
       `combine-count`, m.combineCountLayout);
     m.combineScanPipe = await compile(
       sm.gen_ba_walker_combine_scan_shader(256),
       `combine-scan`, m.combineScanLayout);
     m.combineScatterPipe = await compile(
-      sm.gen_ba_walker_combine_scatter_shader(256),
+      sm.gen_ba_walker_combine_scatter_shader(256, m.BW),
       `combine-scatter`, m.combineScatterLayout);
     m.combineFilterPipe = await compile(
       sm.gen_ba_walker_combine_filter_shader(256, m.BW, m.stride, m.redM),
@@ -1980,22 +1980,22 @@ export class MsmV2 {
       sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
       `combine-batched`, m.combineBatchedLayout);
     m.sortCountPipe = await compile(
-      sm.gen_ba_walker_combine_sort_count_shader(256),
+      sm.gen_ba_walker_combine_sort_count_shader(256, m.BW),
       `sort-count`, m.sortCountLayout);
     m.sortScanPipe = await compile(
       sm.gen_ba_walker_combine_sort_scan_shader(),
       `sort-scan`, m.sortScanLayout);
     m.sortScatterPipe = await compile(
-      sm.gen_ba_walker_combine_sort_scatter_shader(256),
+      sm.gen_ba_walker_combine_sort_scatter_shader(256, m.BW),
       `sort-scatter`, m.sortScatterLayout);
     m.ptInitScanPipe = await compile(
-      sm.gen_ba_walker_pt_init_scan_shader(),
+      sm.gen_ba_walker_pt_init_scan_shader(m.BW),
       `pt-init-scan`, m.ptInitScanLayout);
     // TPB = 64. With indirect dispatch from sort-scan's NUM_HOT-based args,
     // pt_init_copy/build/finalize launch ceil(NUM_HOT/64) WGs — no idle
     // workgroups. pt_combine launches ceil(total_tasks/S/64) per level.
     m.ptInitCopyPipe = await compile(
-      sm.gen_ba_walker_pt_init_copy_shader(64),
+      sm.gen_ba_walker_pt_init_copy_shader(64, m.BW),
       `pt-init-copy`, m.ptInitCopyLayout);
     m.ptBuildPipe = await compile(
       sm.gen_ba_walker_pt_build_shader(64),

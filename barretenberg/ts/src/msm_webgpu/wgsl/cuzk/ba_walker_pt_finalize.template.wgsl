@@ -6,8 +6,9 @@
 // One thread per hot bucket copies that into red_buf at the unified
 // reduce slot for that bucket.
 //
-// red_slot(bid) = (bid / BW) * STRIDE + (bid % BW - 1)
-// (See UNIFIED_COMBINE_PLAN.md §Phase 2.)
+// bid is the packed-window id (window << 15 | mag). red_slot =
+// (window + batch_offset) * STRIDE + (mag - 1).
+// (See UNIFIED_COMBINE_PLAN.md §Phase 2, SPLIT_C_PLAN.md for the bid encoding.)
 //
 // params.x = M_pt    (pt_buf plane stride)
 
@@ -16,6 +17,9 @@ const PG: u32 = 2u;
 const BW:     u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
 const M_RED:  u32 = {{ m_red }}u;
+// Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
+const WBID_SHIFT:    u32 = 15u;
+const WBID_MAG_MASK: u32 = 0x7fffu;
 
 @group(0) @binding(0) var<storage, read>       sorted_active:  array<u32>;
 @group(0) @binding(1) var<storage, read>       bin_offsets:    array<u32>;
@@ -44,7 +48,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let y0 = pt_buf[PG * M_pt + PG * idx + 0u];
     let y1 = pt_buf[PG * M_pt + PG * idx + 1u];
 
-    let red_slot = ((bid / BW) + batch_offset.x) * STRIDE + (bid % BW - 1u);
+    let window = bid >> WBID_SHIFT;
+    let mag = bid & WBID_MAG_MASK;
+    let red_slot = (window + batch_offset.x) * STRIDE + (mag - 1u);
 
     red_buf[PG * red_slot + 0u] = x0;
     red_buf[PG * red_slot + 1u] = x1;
