@@ -661,10 +661,15 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * By combining N proofs via random linear combinations, we replace per-proof MSMs with a constant number of batched
      * MSMs.
      *
-     * The batch check first verifies that each prover-supplied \f$G_{0,i}\f$ matches the SRS MSM
-     * \f$\langle \vec{s}_i,\vec{G}\rangle\f$ via an independent random linear combination. It then verifies:
+     * Two families of equations are enforced over the SRS: the main IPA relation
      *   \f$\sum \alpha^i C_{0,i} = \langle \sum \alpha^i a_{0,i} \vec{s}_i, \vec{G} \rangle
      *     + (\sum \alpha^i a_{0,i} b_{0,i} u_i) \cdot G\f$
+     * and the \f$G_0\f$ binding \f$\sum \beta^i G_{0,i} = \langle \sum \beta^i \vec{s}_i, \vec{G} \rangle\f$,
+     * which carries the single-proof condition \f$G_0 = \langle \vec{s}, \vec{G} \rangle\f$ across the batch.
+     * Both right-hand sides are SRS MSMs, so they are random-linear-combined with a fresh challenge
+     * \f$\gamma\f$ into a single IPA commitment (one SRS MSM):
+     *   \f$\langle \gamma \sum \beta^i \vec{s}_i - \sum \alpha^i a_{0,i} \vec{s}_i, \vec{G} \rangle + C_{batch}
+     *     = \gamma \sum \beta^i G_{0,i} + (\sum \alpha^i a_{0,i} b_{0,i} u_i) \cdot G\f$
      *
      * where \f$G\f$ = Commitment::one() and \f$U_i = u_i \cdot G\f$.
      *
