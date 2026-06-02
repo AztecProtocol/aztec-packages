@@ -5,6 +5,7 @@ import type { BlockHash } from '@aztec/stdlib/block';
 
 import { AddressStore } from './address_store/address_store.js';
 import { AnchorBlockStore } from './anchor_block_store/anchor_block_store.js';
+import { CapsuleStore } from './capsule_store/capsule_store.js';
 import { ContractStore } from './contract_store/contract_store.js';
 import { NoteStore } from './note_store/note_store.js';
 import { PrivateEventStore } from './private_event_store/private_event_store.js';
