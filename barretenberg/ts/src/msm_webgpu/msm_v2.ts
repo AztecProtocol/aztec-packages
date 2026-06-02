@@ -36,12 +36,6 @@ import {
 
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
-// Shared-histogram capacity of gen_transpose_count_tiled_shader (32 KiB / 4 B).
-// When BW exceeds this, the tiled transpose has a latent multi-batch bug:
-// numBatches>1 produces wrong bucket sums (validated — c≥14 disagrees with the
-// oracle, c≤13 is correct at any nb). Chonk's max c=13 (BW=4352) never hits it.
-// Until it is fixed (ARENA_LAYOUT.md §7), the budget gate must not stage into it.
-const TRANSPOSE_HIST_CAP = 8192;
 const FP = BN254_BASE_FIELD;
 const NUMBITS = 254; // scalar field bit length
 
@@ -123,24 +117,22 @@ function chooseBudgetMpw(g: {
   budget: number;
 }): number {
   const reducePrefBytes = g.NW * g.reduceWg * Math.ceil(Math.ceil(g.stride / 2) / g.reduceWg) * 2 * 16;
-  // BW > cap ⇒ the prepare() gate can't stage windows (transpose multi-batch
-  // bug), so the sT lever alone must fit the budget — size to the UNSTAGED
-  // footprint (bw = NW). Otherwise test the most-staged point (bw = 1), the
-  // floor the gate can reach.
-  const bwTest = g.BW > TRANSPOSE_HIST_CAP ? g.NW : 1;
-  const standalone = 4 * (bwTest * g.BW) * 4 + (3 * g.NW + 6) * 4; // counts/offsets + planMeta
+  // Test the most-staged point (one window per batch, bw = 1) — the minimum
+  // footprint the prepare() gate can reach — so a cap is rejected only if even
+  // maximal bw-staging overflows it.
+  const standalone = 4 * g.BW * 4 + (3 * g.NW + 6) * 4; // counts/offsets at bw=1 + planMeta
   for (let mpw = g.maxMpw; mpw >= 4; mpw >>= 1) {
     const arenaBytes = arenaColourSizes({
       sT: mpw * STREAM_PLANNER_TPB,
       sS: STREAM_S_PLAN,
       sBTotal: g.bTotal,
       sRadixTiles: Math.ceil(g.bTotal / 2048),
-      batchSlots: bwTest * g.n,
+      batchSlots: g.n,
       redM: g.redM,
-      rowPtrLen: bwTest * (g.BW + 1),
+      rowPtrLen: g.BW + 1,
       reducePrefBytes,
       scalarsBytes: 32 * g.n,
-      l0Slots: bwTest * g.n + 3,
+      l0Slots: g.n + 3,
     }).reduce((acc, b) => acc + b, 0);
     if (g.srsBytes + arenaBytes + standalone <= g.budget) return mpw;
   }
@@ -2196,28 +2188,12 @@ export class MsmV2 {
     };
     const wgFits = (nb: number): boolean => Math.ceil((Math.ceil(NUM_WINDOWS / nb) * n) / WGI) < 65000;
     // Raise the batch count until each batch fits both the 65k-workgroup cap and
-    // the budget. wgFits is a hard constraint; budget-driven staging applies only
-    // when BW ≤ TRANSPOSE_HIST_CAP — above it the tiled transpose returns wrong
-    // sums for numBatches>1, so the sT lever (chooseBudgetMpw, sized to the
-    // unstaged footprint there) carries the budget instead. Footprint is
-    // monotone-decreasing in numBatches; the first satisfying count gives the
-    // largest feasible bw; if nothing fits by NUM_WINDOWS, proceed best-effort.
-    const canStageForBudget = BW <= TRANSPOSE_HIST_CAP;
+    // the budget. Footprint is monotone-decreasing in numBatches, so the first
+    // satisfying count gives the largest feasible bw; if nothing fits by
+    // NUM_WINDOWS, proceed best-effort (as the prior wgFits-only loop did).
     let numBatches = 1;
-    while (
-      numBatches < NUM_WINDOWS &&
-      (!wgFits(numBatches) || (canStageForBudget && estimateMem(numBatches) > this.memBudget))
-    ) {
-      numBatches++;
-    }
+    while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || estimateMem(numBatches) > this.memBudget)) numBatches++;
     if (this.numBatchesForce) numBatches = Math.min(NUM_WINDOWS, Math.max(numBatches, this.numBatchesForce));
-    if (!canStageForBudget && estimateMem(numBatches) > this.memBudget) {
-      console.warn(
-        `[MsmV2] GPU-buffer budget ${(this.memBudget / 1048576) | 0} MiB exceeded at ` +
-          `${(estimateMem(numBatches) / 1048576).toFixed(0)} MiB: BW=${BW} > ${TRANSPOSE_HIST_CAP} disables ` +
-          `window-staging (transpose multi-batch bug, ARENA_LAYOUT §7). Lower sT or fix the transpose.`,
-      );
-    }
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;
     const batchSlots = batchWindows * n;
