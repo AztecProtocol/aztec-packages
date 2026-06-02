@@ -1513,7 +1513,7 @@ export class MsmV2 {
   private cumsumBind!: GPUBindGroup;
   private partitionWgBind!: GPUBindGroup;
   private partitionThreadBind!: GPUBindGroup;
-  private size1Bind!: GPUBindGroup;
+  private size1Binds: GPUBindGroup[] = [];
   private streamNumThreads = STREAM_NUM_THREADS;
   private maxPlannerWorkgroups = MAX_STREAM_WORKGROUPS;
   private streamS = 8;
@@ -2530,8 +2530,11 @@ export class MsmV2 {
       this.partitionWgBind = mkBind(this.partitionWgLayout, [sc, ca, sp, wc, pwgParams]);
       const ptParams = ubuf(new Uint32Array([0, 0, 0, 0]));
       this.partitionThreadBind = mkBind(this.partitionThreadLayout, [sc, ca, wc, sp, tc, ptParams]);
-      const size1Params = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
-      this.size1Bind = mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, scratch.redBuf, sp, size1Params, scratch.isPresentBuf]);
+      // size1 is per-batch: binding 6 carries batch_offset (= bi·batchWindows) so
+      // size-1 buckets land in their global red_buf slice, like the walker/combine.
+      this.size1Binds = batchWindowBaseBufs.map(bwb =>
+        mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, scratch.redBuf, sp, bwb, scratch.isPresentBuf]),
+      );
       // Stream-walker bind groups (Plan §6 + C's KNOB 2 variant).
       const taskc = scratch.taskCuts;
       const wp = scratch.walkerPartials;
@@ -2881,7 +2884,7 @@ export class MsmV2 {
         pass.end();
       };
       setPhase('size1');
-      indirectDispatch(this.size1Pipe, this.size1Bind, spMeta, 8 * 4);
+      indirectDispatch(this.size1Pipe, this.size1Binds[bi], spMeta, 8 * 4);
       // Stream-walker replaces stream_accum + partial_sum + emit + emit_fixup.
       // partition_task wrote the walker's indirect args to planner_meta[15..17]
       // (= byte offset 60 = 15 * 4).

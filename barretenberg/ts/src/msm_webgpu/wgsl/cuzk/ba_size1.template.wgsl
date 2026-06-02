@@ -16,8 +16,8 @@
 // and writes directly into red_buf at the unified-buffer slot for that
 // bucket, also marking is_present[slot] = 1.
 //
-// red_slot(bid) = (bid / BW) * STRIDE + (bid % BW - 1)
-// (See UNIFIED_COMBINE_PLAN.md §Phase 2.)
+// red_slot(bid) = ((bid / BW) + batch_offset) * STRIDE + (bid % BW - 1)
+// (See UNIFIED_COMBINE_PLAN.md §Phase 2. batch_offset = params.x.)
 //
 // Dispatch: indirect from planner_meta (ceil(num_size1 / 64), 1, 1).
 
@@ -34,6 +34,10 @@ const M_RED:  u32 = {{ m_red }}u;
 @group(0) @binding(3) var<storage, read>       point_y:           array<vec4<u32>>;
 @group(0) @binding(4) var<storage, read_write> red_buf:           array<vec4<u32>>;
 @group(0) @binding(5) var<storage, read>       planner_meta:      array<u32>;
+// params.x = batch_offset = bi * batchWindows — added to the bucket's local
+// window so each window-batch's size-1 buckets land in their GLOBAL red_buf
+// slice, exactly as ba_stream_walker / ba_walker_combine_filter do. 0 when
+// numBatches == 1.
 @group(0) @binding(6) var<uniform>             params:            vec4<u32>;
 @group(0) @binding(7) var<storage, read_write> is_present:        array<u32>;
 
@@ -67,7 +71,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         y_val = fr_sub_f8(zero, y_val);
     }
 
-    let red_slot = (bucket_idx / BW) * STRIDE + (bucket_idx % BW - 1u);
+    let red_slot = ((bucket_idx / BW) + params.x) * STRIDE + (bucket_idx % BW - 1u);
 
     let base_x = PG * red_slot;
     red_buf[base_x + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
