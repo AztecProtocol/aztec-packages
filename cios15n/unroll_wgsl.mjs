@@ -19,7 +19,10 @@ for (const m of s.matchAll(/const\s+(\w+)\s*:\s*u32\s*=\s*(\d+)u\s*;/g)) consts[
 // Keep the OUTER safegcd loop rolled (malioc then reports per-outer-iteration
 // cost; multiply by NUM_OUTER for the true total) — unrolling it 49x makes a
 // 5 MB SPIR-V malioc can't process. Only inner loops (axby w<9, divstep) unroll.
-const SKIP = new Set(['PK15_MAX_OUTER', 'BYL_NUM_OUTER', 'BY_NUM_OUTER', 'NUM_OUTER']);
+// Default keeps the safegcd OUTER loop rolled (deployment form); override with
+// UNROLL_SKIP="" to FULLY unroll (incl. NUM_OUTER) for static==dynamic analysis,
+// or UNROLL_SKIP="A,B" for a custom set.
+const SKIP = new Set((process.env.UNROLL_SKIP ?? 'PK15_MAX_OUTER,BYL_NUM_OUTER,BY_NUM_OUTER,NUM_OUTER').split(',').map(x => x.trim()).filter(Boolean));
 const resolve = (tok) => { tok = tok.trim().replace(/u$/, ''); if (SKIP.has(tok)) return null; if (/^\d+$/.test(tok)) return parseInt(tok, 10); if (tok in consts) return consts[tok]; return null; };
 
 function matchBrace(str, openIdx) { // openIdx points at '{'; return index after matching '}'

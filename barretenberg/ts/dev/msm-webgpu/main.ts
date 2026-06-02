@@ -1488,11 +1488,31 @@ function hideProgress(): void {
       if (srsBuf === null) throw new Error('SRS never became ready');
       $logn.value = String(autorunLogN);
       $logn.dispatchEvent(new Event('input'));
+      // [mem] track live + peak GPU buffer bytes by wrapping createBuffer/destroy.
+      // Set up + reset BEFORE input-gen so the input point/scalar upload is counted
+      // too (the pre-loaded SRS cache, created earlier, is correctly excluded).
+      const __M: { live: number; peak: number; total: number; count: number } =
+        ((window as unknown as { __mem?: typeof __M }).__mem ??= { live: 0, peak: 0, total: 0, count: 0 });
+      const __dp = GPUDevice.prototype as unknown as { __memWrapped?: boolean; createBuffer: (d: GPUBufferDescriptor) => GPUBuffer };
+      if (!__dp.__memWrapped) {
+        const __oc = __dp.createBuffer;
+        __dp.createBuffer = function (this: GPUDevice, d: GPUBufferDescriptor): GPUBuffer {
+          const b = __oc.call(this, d);
+          __M.live += d.size; __M.total += d.size; __M.count++;
+          if (__M.live > __M.peak) __M.peak = __M.live;
+          const __od = b.destroy.bind(b);
+          (b as unknown as { destroy: () => void }).destroy = () => { __M.live -= d.size; __od(); };
+          return b;
+        };
+        __dp.__memWrapped = true;
+      }
+      __M.live = 0; __M.peak = 0; __M.total = 0; __M.count = 0;
       // Generate inputs ONCE (honours ?scalar_dist / ?profile).
       const inputs = await generateInputs(autorunLogN, false);
       // One warm-up run (builds + warms MsmV2 — outside the timed loop).
       log('info', `[bench] warmup run`);
       await runWebGpuOnce(inputs);
+      log('ok', `[mem] peak_live=${(__M.peak / 1048576).toFixed(2)}MB total_alloc=${(__M.total / 1048576).toFixed(2)}MB buffers=${__M.count}`);
       const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
       for (let r = 0; r < reps; r++) {
         const gpu = await runWebGpuOnce(inputs);

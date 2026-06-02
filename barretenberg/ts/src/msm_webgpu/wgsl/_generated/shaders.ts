@@ -1804,6 +1804,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 export const ba_stream_walker = `{{> structs }}
 {{> bigint_funcs }}
 {{> montgomery_product_funcs }}
+
+// PERF PROBES (additive, correctness-preserving). Default 0 = no-op; sed to sweep.
+const EXTRA_MUL_PROBE: u32 = 0u;
+const EXTRA_INV_PROBE: u32 = 0u;
 {{> field_funcs }}
 {{> fr_pow_funcs }}
 {{> bigint_by_funcs }}
@@ -2109,6 +2113,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
         var acc20 = unpack256_to_limbs(acc);
         var inv20 = {{ inv_fn }}(acc20);
+        // PERF PROBE (additive, correctness-preserving): each pair is inv(inv(x))==x,
+        // chained so the compiler cannot CSE it. EXTRA_INV_PROBE=0 => no-op.
+        for (var ei: u32 = 0u; ei < EXTRA_INV_PROBE; ei = ei + 1u) { inv20 = {{ inv_fn }}(inv20); inv20 = {{ inv_fn }}(inv20); }
         var inv = pack_limbs_to_256(&inv20);
 
         // OPTIMIZATION (c): fused inverse pass + backward peel.
@@ -2177,6 +2184,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var r_y = fr_sub_f8(p_lx, r_x);
             r_y = montgomery_product_f8(lambda, r_y);
             r_y = fr_sub_f8(r_y, p_ly);
+            // PERF PROBE (additive, correctness-preserving): montmul(a,R)==a, chained
+            // (no CSE). Adds EXTRA_MUL_PROBE montmuls per active slot. =0 => no-op.
+            for (var em: u32 = 0u; em < EXTRA_MUL_PROBE; em = em + 1u) { r_y = montgomery_product_f8(r_y, get_r_f8()); }
 
             // Task end is region-aware: only the task's designated last bucket
             // can trigger it (cursor is meaningful only within the current
