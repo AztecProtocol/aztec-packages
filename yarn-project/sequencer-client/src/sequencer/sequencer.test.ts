@@ -42,6 +42,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
@@ -1335,6 +1336,7 @@ describe('sequencer', () => {
     // checkpointed and proposed-checkpoint tips sit at the given checkpoint numbers.
     const setupSyncedToBlock = (opts: {
       blockNumber: BlockNumber;
+      blockSlot: SlotNumber;
       blockCheckpointNumber: CheckpointNumber;
       checkpointedCheckpointNumber: CheckpointNumber;
       proposedCheckpointTipNumber: CheckpointNumber;
@@ -1376,7 +1378,9 @@ describe('sequencer', () => {
       l1ToL2MessageSource.getL2Tips.mockResolvedValue(tips);
       p2p.getStatus.mockResolvedValue({ syncedToL2Block: { number: opts.blockNumber, hash } } as any);
       l2BlockSource.getBlockData.mockResolvedValue({
-        header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: opts.blockNumber }) }),
+        header: BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: opts.blockNumber, slotNumber: opts.blockSlot }),
+        }),
         archive: AppendOnlyTreeSnapshot.empty(),
         blockHash: BlockHash.ZERO,
         checkpointNumber: opts.blockCheckpointNumber,
@@ -1385,16 +1389,23 @@ describe('sequencer', () => {
       l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpointData);
     };
 
-    it('returns undefined and warns when the proposed block has no matching proposed checkpoint', async () => {
+    // The orphan block sits at slot 3; with pipelining offset 1 and a grace of MIN_EXECUTION_TIME (no
+    // blockDurationMs configured) its enclosing checkpoint is due at l1GenesisTime + 3 * slotDuration + 2.
+    const orphanCheckpointDueSeconds = () => Number(l1Constants.l1GenesisTime) + 3 * slotDuration + MIN_EXECUTION_TIME;
+
+    it('returns undefined and warns once the missing proposed checkpoint is overdue', async () => {
       // Local tip is a block at checkpoint 3, but the checkpointed and proposed-checkpoint tips are
-      // still at checkpoint 2 and no proposed checkpoint 3 exists: an orphan block-only tip.
+      // still at checkpoint 2 and no proposed checkpoint 3 exists: an orphan block-only tip whose
+      // enclosing checkpoint should have been proposed by now.
       setupSyncedToBlock({
         blockNumber: BlockNumber(3),
+        blockSlot: SlotNumber(3),
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
         proposedCheckpointTipNumber: CheckpointNumber(2),
         proposedCheckpointData: undefined,
       });
+      dateProvider.setTime((orphanCheckpointDueSeconds() + 1) * 1000);
       const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
 
       const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
@@ -1411,9 +1422,31 @@ describe('sequencer', () => {
       );
     });
 
+    it('returns undefined without warning while the proposed checkpoint is not yet overdue', async () => {
+      // Same orphan-shaped tip, but we are still within the normal pipelining window: the block proposal
+      // for checkpoint 3 has arrived ahead of its checkpoint proposal, which is not yet due. This is the
+      // happy-path steady state and must not warn.
+      setupSyncedToBlock({
+        blockNumber: BlockNumber(3),
+        blockSlot: SlotNumber(3),
+        blockCheckpointNumber: CheckpointNumber(3),
+        checkpointedCheckpointNumber: CheckpointNumber(2),
+        proposedCheckpointTipNumber: CheckpointNumber(2),
+        proposedCheckpointData: undefined,
+      });
+      dateProvider.setTime((orphanCheckpointDueSeconds() - 1) * 1000);
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
+
+      expect(result).toBeUndefined();
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
     it('proceeds when a matching proposed checkpoint exists for the block', async () => {
       setupSyncedToBlock({
         blockNumber: BlockNumber(3),
+        blockSlot: SlotNumber(3),
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
         proposedCheckpointTipNumber: CheckpointNumber(3),
