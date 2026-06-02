@@ -139,6 +139,17 @@ count/scatter → `stream_walker` → `size1` → `combine_filter`/`combine_batc
 *Exit:* every kernel reads `WindowDesc`; uniform fill = byte-identical golden at
 logN 14/15/16/17 + D/E, and ≤1% bench delta.
 
+*Status:* **0.1 done** (`ce2c4b02af`) — `WindowDesc` table + `decompose` reads it.
+**0.2 done** (`01faf5fefc`) — packed-window bid (`(window<<15)|mag`) flipped across
+every bid producer/consumer; decode is shift/mask, flat CSR index recovered via
+`flat_bid(bid)=window*BW+mag`. `ba_unified_combine` needs no change (pt_buf indices,
+no bid). Validated golden+oracle 14–17, D/E, nb=2/5/4·E. *Remaining:* swap the two
+uniform-geometry const-multiplies for table reads (`window*BW`→`work_off[window]`,
+`window*STRIDE`→`reduce_off[window]`) per kernel, plus `csr_to_v2_meta`/transpose
+`num_columns`/`bit_base`. NOTE: `stream_walker` is at the 10-storage-binding cap, so
+its `window_desc` must be a `var<uniform>` (the work_off/reduce_off swap is a no-op
+on the uniform path, so it can wait until variable geometry exists in Phase 1).
+
 **Phase 1 — GPU decision + schedule.** `histogram` kernel (+`msb_per_scalar`),
 `decide` kernel (port `choose_var_window_split`/`build_var_window_schedule`/
 `predict_schedule_cost`, incl. budget-awareness: reject schedules whose envelope
