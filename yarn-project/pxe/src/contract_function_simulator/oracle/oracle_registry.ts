@@ -27,13 +27,14 @@ import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import {
-  AppTaggingSecretKind,
   ContractClassLog,
   ContractClassLogFields,
   FlatPublicLogs,
   MessageContext,
   PendingTaggedLog,
   PrivateLog,
+  appTaggingSecretKindFromDeliveryMode,
+  type AppTaggingSecretKind,
 } from '@aztec/stdlib/logs';
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -93,20 +94,6 @@ export const BYTE: TypeMapping<number> = {
     slots: 1,
   },
 };
-
-const ONCHAIN_UNCONSTRAINED_DELIVERY_MODE = 2;
-const ONCHAIN_CONSTRAINED_DELIVERY_MODE = 3;
-
-function appTaggingSecretKindFromDeliveryMode(deliveryMode: number): AppTaggingSecretKind {
-  switch (deliveryMode) {
-    case ONCHAIN_UNCONSTRAINED_DELIVERY_MODE:
-      return AppTaggingSecretKind.UNCONSTRAINED;
-    case ONCHAIN_CONSTRAINED_DELIVERY_MODE:
-      return AppTaggingSecretKind.CONSTRAINED;
-    default:
-      throw new Error(`Unrecognized delivery mode for tagging: ${deliveryMode}`);
-  }
-}
 
 // Noir passes `MessageDelivery` onchain variants here.
 export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
