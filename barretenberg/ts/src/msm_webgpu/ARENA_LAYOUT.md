@@ -426,7 +426,7 @@ cap and the budget, using `arenaColourSizes` (the THREAD terms the old estimate
 omitted) + SRS + CSR. The budget is device-configurable (`budgetMiB`, default 160,
 `3bd8ea957f`). Pack-count staging is the remaining piece, deferred into step 5.
 
-> **LATENT BUG — multi-batch transpose at `BW > 8192` (`5b9aa5068e`).**
+> **LATENT BUG — multi-batch staging at `BW > 8192` / `c ≥ 14` (`5b9aa5068e`).**
 > `gen_transpose_count_tiled_shader` uses an 8192-entry shared histogram
 > (`Math.min(BW, 8192)`, 32 KiB). When `BW > 8192` (i.e. `c ≥ 14`) **and**
 > `numBatches > 1`, the tiled transpose produces **wrong bucket sums** — bisected
@@ -437,11 +437,24 @@ omitted) + SRS + CSR. The budget is device-configurable (`budgetMiB`, default 16
 > at logN18, so the gate is now guarded (`canStageForBudget = BW ≤
 > TRANSPOSE_HIST_CAP`) — at `BW>8192` the budget is met by the `sT` lever only,
 > never window-staging. **Chonk never triggers it** (max `c=13`). It MUST be fixed
-> before split-c/packing use `c ≥ 14` with staging: the tiled transpose's
-> per-batch window offset interacts wrong with the >cap tiling — `ba_size1` writes
-> the global slot while the transpose count/scatter tile over the capped
-> histogram; reproduce with `?logn=16&c=14&nb=2`, fix, and re-validate that path
-> agrees with the oracle.
+> before split-c/packing use `c ≥ 14` with staging.
+>
+> **Localization (per-window-sum bisection, `?logn=16&c=14&nb=N` vs `nb=1`).** Wrong
+> windows are structural (data-independent — identical sets at seed 12345 & 99999)
+> and `bw`-dependent (nb=2 bw=10 → {0,2,5,7,10,12,15,17}; nb=3 bw=7 →
+> {1,3,5,8,10,12,15,17}; nb=5 bw=4 → 10 windows). **NOT the transpose:** a single
+> window's transpose CSR is `bw`-independent (its indices use `window`/`npt`/`BW`,
+> not `batchWindows`), yet `nb=1` (bw=NW) gets a window right while `nb=17` (bw=1)
+> gets the SAME window wrong → corruption is **downstream of the transpose**, in
+> the planner (classify/radix/cumsum/partition) or walker_combine — all dispatched
+> `ceil(bTotal/256)` over GLOBAL bucket space while the active data is batch-local
+> (`batchBuckets = bw·BW`). The reduce is correct (runs once over NW; `nb=1` exact).
+> Threshold is the 8192 transpose cap, so something keyed to `BW>cap` (the >cap
+> bucket region, magnitude near `STRIDE`) combines with the `bw<NW` planner
+> dispatch. **Next:** read back `partial_count` / `active_buckets` / the
+> radix-sorted list for a wrong window at `nb=2` vs `nb=1` to find the first
+> diverging stage; the guard makes this safe to investigate without shipping wrong
+> results.
 
 ---
 
