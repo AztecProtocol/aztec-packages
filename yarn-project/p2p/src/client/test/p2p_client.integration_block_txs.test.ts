@@ -152,14 +152,19 @@ describe('p2p client integration block txs protocol ', () => {
     );
   };
 
-  it('responds with NOT_FOUND when peer does not have the requested block proposal', async () => {
+  it('responds with an empty, block-less response when peer does not have the requested block proposal', async () => {
     attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
     const missing = new TxHashArray(...Array.from({ length: 4 }, () => TxHash.random()));
 
     const blockProposal = await createBlockProposal(blockNumber, Fr.random(), missing);
     const response = await sendBlockTxsRequest(blockProposal, missing);
 
-    expect(response.status).toBe(ReqRespStatus.NOT_FOUND);
+    // The responder never returns NOT_FOUND: it services what it can and signals it lacks the block via
+    // an empty bitvector. With no proposal and no explicit hashes, there is nothing to serve.
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+    expect(blockTxsResponse.peerHasBlock()).toBe(false);
+    expect(blockTxsResponse.txs.length).toBe(0);
   });
 
   it('responds with all requested txs when the peer has them', async () => {
@@ -178,7 +183,6 @@ describe('p2p client integration block txs protocol ', () => {
       blockProposal,
       txHashes.filter((_, i) => requestedIndices.includes(i)),
     );
-    //const response = await sendBlockTxsRequest(archiveRoot, requestedIndices, txs.length);
 
     expect(response.status).toBe(ReqRespStatus.SUCCESS);
     const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
@@ -401,7 +405,7 @@ describe('p2p client integration block txs protocol ', () => {
     expect(blockTxsResponse.txIndices.getLength()).toBe(0);
   });
 
-  it('still responds with NOT_FOUND when peer does not have proposal and includeFullTxHashes=false', async () => {
+  it('responds with an empty, block-less response when peer does not have proposal and includeFullTxHashes=false', async () => {
     // Peer doesn't have the block proposal
     attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
 
@@ -415,8 +419,13 @@ describe('p2p client integration block txs protocol ', () => {
     const differentBlockProposal = await createBlockProposal(blockNumber, Fr.random(), txHashes);
     const response = await sendBlockTxsRequest(differentBlockProposal, requestedHashes, false); // includeFullTxHashes=false
 
-    // Should get NOT_FOUND because without full tx hashes, handler can't return txs without proposal
-    expect(response.status).toBe(ReqRespStatus.NOT_FOUND);
+    // Without the proposal AND without explicit tx hashes (includeFullTxHashes=false), the responder has
+    // nothing to serve by index, so it returns an empty response signalling it lacks the block rather
+    // than NOT_FOUND. The requester learns this via peerHasBlock().
+    expect(response.status).toBe(ReqRespStatus.SUCCESS);
+    const blockTxsResponse = BlockTxsResponse.fromBuffer(response.data);
+    expect(blockTxsResponse.peerHasBlock()).toBe(false);
+    expect(blockTxsResponse.txs.length).toBe(0);
   });
 
   // When the responder takes the "no proposal/archived block locally, but matched the requested
