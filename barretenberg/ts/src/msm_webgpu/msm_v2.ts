@@ -81,6 +81,12 @@ export interface MsmConfig {
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
   /**
+   * Two-level segmented reduction: when > 0, replace the level-based reduce
+   * with the segmented coarse/fine kernels using this many segments per
+   * window (G; must divide STRIDE). WIP — opt-in for validation. 0 = off.
+   */
+  segReduceG?: number;
+  /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
    * Default 5 (benchmark harness); the production bridge passes 0 so the first
@@ -1417,6 +1423,14 @@ export class MsmV2 {
   private jacFinalizeBind!: GPUBindGroup;
   private redZBuf!: GPUBuffer;
   private jacFromLevel = Number.MAX_SAFE_INTEGER;
+  // Two-level segmented reduction (opt-in via segReduceG). One pipeline,
+  // phase branched (coarse=0/fine=1); seg_buf holds the per-segment summaries.
+  private segReduceG = 0;
+  private segPipe!: GPUComputePipeline;
+  private segLayout!: GPUBindGroupLayout;
+  private segCoarseBind!: GPUBindGroup;
+  private segFineBind!: GPUBindGroup;
+  private segBuf!: GPUBuffer;
   // Streaming planner + accumulator pipelines
   private classifyPipe!: GPUComputePipeline;
   private metaFixupPipe!: GPUComputePipeline;
@@ -1627,6 +1641,7 @@ export class MsmV2 {
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? JAC_AUTO;
+    m.segReduceG = config?.segReduceG ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
@@ -1765,6 +1780,8 @@ export class MsmV2 {
     m.jacLevelLayout = lt(['storage', 'storage', 'uniform', 'uniform']); // red_buf, red_z, cparams, lparams
     m.zInitLayout = lt(['read-only-storage', 'storage', 'uniform']);     // is_present, red_z, zparams
     m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform']); // red_buf, red_z, cparams
+    // Segmented reduction: red_buf(rw), is_present(ro), seg_buf(rw), cparams, sparams.
+    m.segLayout = lt(['storage', 'read-only-storage', 'storage', 'uniform', 'uniform']);
     // Streaming planner + accumulator layouts
     m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     m.metaFixupLayout = lt(['storage']);
@@ -1865,6 +1882,11 @@ export class MsmV2 {
       sm.gen_ba_reduce_jac_finalize_shader(WGI, INV_VARIANT),
       `reduce-jac-finalize`,
       m.jacFinalizeLayout,
+    );
+    m.segPipe = await compile(
+      sm.gen_ba_reduce_segmented_shader(WGI, INV_VARIANT),
+      `reduce-segmented`,
+      m.segLayout,
     );
 
     // --- Streaming planner + accumulator pipelines ---
@@ -2411,6 +2433,27 @@ export class MsmV2 {
     this.zInitBind = mkBind(this.zInitLayout, [isPresentBuf, this.redZBuf, zInitParams]);
     const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, this.stride, this.numWindows]));
     this.jacFinalizeBind = mkBind(this.jacFinalizeLayout, [redBuf, this.redZBuf, jacFinalizeParams]);
+
+    // Segmented reduction buffers/binds. seg_buf = 2 planes (segTotal,
+    // segLocalW) of numWindows*G Jacobian points, 6 vec4 each. Allocated even
+    // when off (small) so the binds stay valid.
+    const segG = this.segReduceG;
+    if (segG > 0 && this.stride % segG !== 0) {
+      throw new Error(`segReduceG (${segG}) must divide STRIDE (${this.stride})`);
+    }
+    const segCount = Math.max(1, segG);
+    const mSeg = segG > 0 ? this.stride / segG : 1;
+    const log2m = Math.round(Math.log2(Math.max(1, mSeg)));
+    this.segBuf = device.createBuffer({
+      size: 12 * this.numWindows * segCount * 16,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+    this.prepBuffers.push(this.segBuf);
+    const segSParams = ubuf(new Uint32Array([segCount, mSeg, log2m, 0]));
+    const segCparamsCoarse = ubuf(new Uint32Array([RED_M, this.numWindows, this.stride, 0]));
+    const segCparamsFine = ubuf(new Uint32Array([RED_M, this.numWindows, this.stride, 1]));
+    this.segCoarseBind = mkBind(this.segLayout, [redBuf, isPresentBuf, this.segBuf, segCparamsCoarse, segSParams]);
+    this.segFineBind = mkBind(this.segLayout, [redBuf, isPresentBuf, this.segBuf, segCparamsFine, segSParams]);
     this.redBuf = redBuf;
 
     // --- Streaming planner + accumulator bind groups ---
@@ -2891,6 +2934,14 @@ export class MsmV2 {
     // directly via the bid → red_slot mapping. See UNIFIED_COMBINE_PLAN.md.
     // Phase 5: ONE pipeline drives every level (kind branched at runtime
     // off lparams.w). reduceLevelKinds is no longer consulted.
+    if (this.segReduceG > 0) {
+      // Two-level segmented reduce: coarse (one thread per window*segment) ->
+      // seg_buf summaries, then fine (one thread per window) -> W into red_buf.
+      setPhase('seg_coarse');
+      dispatch(this.segPipe, this.segCoarseBind, Math.ceil((this.numWindows * this.segReduceG) / WGI), 1);
+      setPhase('seg_fine');
+      dispatch(this.segPipe, this.segFineBind, Math.ceil(this.numWindows / WGI), 1);
+    } else {
     const reducePipe = this.reduceLevelPipes[0];
     const jacActive = this.jacFromLevel < this.reduceLevelBinds.length;
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
@@ -2919,6 +2970,7 @@ export class MsmV2 {
       // Per-window Jacobian -> affine so the gather below reads affine (x, y).
       setPhase('reduce_jacfinal');
       dispatch(this.jacFinalizePipe, this.jacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
+    }
     }
     // Per-window weighted sum gather. Same SoA stride math as run(), just
     // targeting an external staging buffer at an external offset.

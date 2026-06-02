@@ -92,6 +92,7 @@ const gpuKnobs: MsmConfig = (() => {
     // by c/device). jacxover=0 forces all-affine; >0 is a manual ppw threshold
     // (999999 => all-Jacobian). 0 must be allowed, so this bypasses optInt.
     jacobianCrossover: q.get('jacxover') !== null ? Number(q.get('jacxover')) : undefined,
+    segReduceG: optInt('segredg'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
