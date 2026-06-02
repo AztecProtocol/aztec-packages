@@ -94,6 +94,7 @@ const gpuKnobs: MsmConfig = (() => {
     jacobianCrossover: q.get('jacxover') !== null ? Number(q.get('jacxover')) : undefined,
     segReduceG: optInt('segredg'),
     reduceTsat: optInt('tsat'),
+    segAffineCoarse: q.get('segaff') === '1' || undefined,
     reduceStride: optInt('redstride'),
     maxScalarBits: optInt('maxbits'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,

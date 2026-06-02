@@ -92,6 +92,8 @@ export interface MsmConfig {
    * outputs per thread. Swept against real MSMs to find the device value.
    */
   reduceTsat?: number;
+  /** Radix-2 coarse reduce level runs affine (batched S=8) instead of Jacobian. WIP. */
+  segAffineCoarse?: boolean;
   /**
    * Sparsity extent clamp: process only the first STRIDE' = this value buckets
    * per window in the segmented reduce (must be >= the max live bucket index,
@@ -1473,6 +1475,7 @@ export class MsmV2 {
   // phase branched (coarse=0/fine=1); seg_buf holds the per-segment summaries.
   private segReduceG = 0; // radix m of the recursive reduction (segment size per level)
   private reduceTsat = 1 << 30; // threads to saturate the GPU (swept knob; default huge => 1 item/thread)
+  private segAffineCoarse = false; // radix-2 coarse level runs affine (batched S=8) instead of Jacobian
   private reduceStride = 0; // extent clamp STRIDE' for the segmented reduce (0 = full STRIDE)
   private segPipe!: GPUComputePipeline;
   private segLayout!: GPUBindGroupLayout;
@@ -1690,6 +1693,7 @@ export class MsmV2 {
     m.jacobianCrossover = config?.jacobianCrossover ?? JAC_AUTO;
     m.segReduceG = config?.segReduceG ?? 0;
     m.reduceTsat = config?.reduceTsat && config.reduceTsat > 0 ? config.reduceTsat : 1 << 30;
+    m.segAffineCoarse = config?.segAffineCoarse ?? false;
     m.reduceStride = config?.reduceStride ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
@@ -2525,15 +2529,19 @@ export class MsmV2 {
         // `items` = work at this level (parents/segments × windows). Field
         // exactly min(items, T_sat) threads; each strides over items/nthreads
         // outputs, so adds-per-thread rises only once items exceed T_sat.
+        // phase 3 (affine) fixes the S=8 batch => ceil(items/8) threads; the
+        // Jacobian phases (0/2) field min(items, T_sat) and stride.
         const step = (phase: number, log2w: number, inN: number, outN: number, src: number, dst: number, items: number) => {
-          const nthreads = Math.max(1, Math.min(items, Tsat));
+          const nthreads = phase === 3 ? Math.max(1, Math.ceil(items / 8)) : Math.max(1, Math.min(items, Tsat));
           const sp = ubuf(new Uint32Array([segM, log2w, inN, outN]));
           const bp = ubuf(new Uint32Array([src, dst, nthreads, 0]));
           const bind = mkBind(this.segLayout, [redBuf, isPresentBuf, this.segBuf, cpar(phase), sp, bp]);
           this.segSteps.push({ bind, nx: Math.ceil(nthreads / WGI) });
         };
-        // phase 0: STRIDE raw buckets -> G0 pairs in half 0.
-        step(0, 0, 0, G0, 0, 0, this.numWindows * G0);
+        // phase 0/3: STRIDE raw buckets -> G0 pairs in half 0. Affine coarse
+        // (phase 3) is only valid for radix-2 (it sums bucket pairs directly).
+        const coarsePhase = this.segAffineCoarse && segM === 2 ? 3 : 0;
+        step(coarsePhase, 0, 0, G0, 0, 0, this.numWindows * G0);
         // phase 2: combine m children per level, weight w = m^level, ping-ponging.
         let N = G0, src = 0, dst = half, wlog = lg;
         while (N > 1) {

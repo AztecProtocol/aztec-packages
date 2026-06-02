@@ -217,6 +217,57 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             for (var d: u32 = 0u; d < log2w; d = d + 1u) { wScc = jac_double(wScc); }
             pair_store(dst_base, w * outN + p, Pair(ST, jac_add(wScc, WS)));
         }
+    } else if (phase == 3u) {
+        // AFFINE COARSE (radix-2): per segment p, total = affine add of buckets
+        // B[2p], B[2p+1]; wsum = B[2p+1]. S=8 segments/thread, one shared
+        // inversion (forward prefix-product -> 1 inv -> backward peel), exactly
+        // the ba_reduce_level_bench add pattern. total/wsum stored affine (Z=R).
+        let total_items = num_windows * outN;
+        let seg0 = gid.x * 8u;
+        if (seg0 >= total_items) { return; }
+        let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
+        var pref: array<array<u32, 8>, 8>;
+        var acc: array<u32, 8> = R;
+        for (var k: u32 = 0u; k < 8u; k = k + 1u) {
+            let idx = seg0 + k;
+            var denom: array<u32, 8> = R;
+            if (idx < total_items) {
+                let w = idx / outN; let p = idx % outN;
+                let b0 = w * stride + 2u * p;
+                let both = (is_present[b0] != 0u) && (is_present[b0 + 1u] != 0u);
+                denom = fr_sel(R, fr_sub_f8(load_x(b0 + 1u, M), load_x(b0, M)), both);
+            }
+            acc = montgomery_product_f8(acc, denom);
+            pref[k] = acc;
+        }
+        var a20: BigInt = unpack256_to_limbs(acc);
+        var i20: BigInt = {{ inv_fn }}(a20);
+        var inv: array<u32, 8> = pack_limbs_to_256(&i20);
+        for (var kk: u32 = 0u; kk < 8u; kk = kk + 1u) {
+            let k = 7u - kk;
+            let idx = seg0 + k;
+            if (idx >= total_items) { continue; }
+            let w = idx / outN; let p = idx % outN;
+            let b0 = w * stride + 2u * p; let b1 = b0 + 1u;
+            let pres0 = is_present[b0] != 0u; let pres1 = is_present[b1] != 0u;
+            let both = pres0 && pres1;
+            let x0 = load_x(b0, M); let y0 = load_y(b0, M);
+            let x1 = load_x(b1, M); let y1 = load_y(b1, M);
+            let km1 = max(k, 1u) - 1u;
+            let pp = fr_sel(pref[km1], R, k == 0u);
+            let inv_denom = montgomery_product_f8(inv, pp);
+            let lam = montgomery_product_f8(fr_sub_f8(y1, y0), inv_denom);
+            let rx = fr_sub_f8(fr_sub_f8(montgomery_product_f8(lam, lam), x0), x1);
+            let ry = fr_sub_f8(montgomery_product_f8(lam, fr_sub_f8(x0, rx)), y0);
+            // total: both -> sum; one present -> that bucket; none -> infinity.
+            var tx = fr_sel(x1, x0, pres0); tx = fr_sel(tx, rx, both);
+            var ty = fr_sel(y1, y0, pres0); ty = fr_sel(ty, ry, both);
+            let tz = fr_sel(zero, R, pres0 || pres1);
+            let wz = fr_sel(zero, R, pres1);
+            pair_store(dst_base, w * outN + p, Pair(Jac(tx, ty, tz), Jac(x1, y1, wz)));
+            let denom = fr_sel(R, fr_sub_f8(x1, x0), both);
+            inv = montgomery_product_f8(inv, denom);
+        }
     } else {
         // FINAL: root pair -> W = total + wsum -> affine into slot w*stride.
         let w = gid.x;
