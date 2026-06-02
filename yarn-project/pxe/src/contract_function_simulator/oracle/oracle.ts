@@ -514,10 +514,10 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents',
       inputs,
-      handler: ([noteValidationRequestsArrayBaseSlot, eventValidationRequestsArrayBaseSlot, scope]) =>
+      handler: ([noteValidationRequests, eventValidationRequests, scope]) =>
         this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
-          noteValidationRequestsArrayBaseSlot,
-          eventValidationRequestsArrayBaseSlot,
+          noteValidationRequests,
+          eventValidationRequests,
           scope,
         ),
     });
@@ -528,7 +528,7 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_getLogsByTag',
       inputs,
-      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getLogsByTag(requestArrayBaseSlot),
+      handler: ([requests]) => this.handlerAsUtility().getLogsByTag(requests),
     });
   }
 
@@ -537,7 +537,7 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_getMessageContextsByTxHash',
       inputs,
-      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getMessageContextsByTxHash(requestArrayBaseSlot),
+      handler: ([requests]) => this.handlerAsUtility().getMessageContextsByTxHash(requests),
     });
   }
 
@@ -675,8 +675,8 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_getSharedSecrets',
       inputs,
-      handler: ([address, ephPksSlot, contractAddress]) =>
-        this.handlerAsUtility().getSharedSecrets(address, ephPksSlot, contractAddress),
+      handler: ([address, ephPks, contractAddress]) =>
+        this.handlerAsUtility().getSharedSecrets(address, ephPks, contractAddress),
     });
   }
 
