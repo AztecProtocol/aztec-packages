@@ -1,0 +1,33 @@
+[workspace]
+
+[package]
+name = "ligetron-guest"
+version = "0.1.0"
+edition = "2021"
+
+# Produce a WASI binary — Ligetron's target is wasm32-wasip1.
+# Two binaries:
+#   ligetron-guest: uses NativePrecompiles via shared runner (structural test)
+#   ligetron-poseidon2: uses Ligetron SDK's BN254 Poseidon2 directly (benchmark)
+
+[[bin]]
+name = "ligetron-guest"
+path = "src/main.rs"
+
+[[bin]]
+name = "ligetron-poseidon2"
+path = "src/poseidon2_bench.rs"
+
+[[bin]]
+name = "eddsa-test"
+path = "src/eddsa_test.rs"
+
+[dependencies]
+zkvm-data-types = { path = "../../../shared/data-types" }
+zkvm-kernel-logic = { path = "../../../shared/kernel-logic" }
+zkvm-aztec-sdk = { path = "../../../shared/aztec-sdk" }
+zkvm-test-contracts = { path = "../../../shared/test-contracts" }
+postcard = { version = "1.1", default-features = false, features = ["alloc"] }
+
+# Ligetron SDK — BN254 field ops and Poseidon2 as host function imports.
+ligetron = { path = "/mnt/user-data/mike/ligetron/sdk/rust" }

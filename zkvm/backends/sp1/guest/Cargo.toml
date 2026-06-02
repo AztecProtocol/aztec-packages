@@ -1,0 +1,18 @@
+[package]
+name = "zkvm-sp1-guest"
+version = "0.1.0"
+edition = "2021"
+
+# NOT a workspace member. Build with: cargo prove build
+
+[dependencies]
+zkvm-data-types = { path = "../../../shared/data-types" }
+zkvm-kernel-logic = { path = "../../../shared/kernel-logic" }
+zkvm-aztec-sdk = { path = "../../../shared/aztec-sdk" }
+zkvm-test-contracts = { path = "../../../shared/test-contracts" }
+zkvm-crypto-bn254 = { path = "../../../shared/crypto-bn254" }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+postcard = { version = "1.1", default-features = false, features = ["alloc"] }
+sp1-zkvm = "6.1.0"
+sha2 = { version = "0.10.8", default-features = false }
+k256 = { version = "0.13.4", default-features = false, features = ["ecdsa", "sha256", "alloc"] }

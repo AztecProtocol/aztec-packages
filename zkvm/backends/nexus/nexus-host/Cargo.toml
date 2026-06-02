@@ -1,0 +1,18 @@
+[package]
+name = "nexus-host"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+nexus-sdk = { git = "https://github.com/nexus-xyz/nexus-zkvm.git", tag = "0.3.6", version = "0.3.6" }
+
+[workspace]
+members = ["src/guest"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+

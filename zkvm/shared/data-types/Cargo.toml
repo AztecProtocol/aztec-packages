@@ -1,0 +1,9 @@
+[package]
+name = "zkvm-data-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+postcard = { workspace = true }

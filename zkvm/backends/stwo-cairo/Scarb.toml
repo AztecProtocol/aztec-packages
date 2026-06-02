@@ -1,0 +1,12 @@
+[package]
+name = "aztec_bench"
+version = "0.1.0"
+edition = "2024_07"
+
+[dependencies]
+cairo_execute = "2.16.1"
+
+[[target.executable]]
+
+[cairo]
+enable-gas = false

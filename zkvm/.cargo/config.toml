@@ -1,0 +1,5 @@
+# Workspace-level Cargo configuration.
+# Guest crates override this with their own target-specific settings.
+
+[alias]
+check-wasm = "check --target wasm32-unknown-unknown -p zkvm-data-types -p zkvm-kernel-logic -p zkvm-aztec-sdk -p zkvm-test-contracts"

@@ -1,0 +1,10 @@
+[package]
+name = "zkvm-aztec-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+zkvm-data-types = { workspace = true }
+zkvm-kernel-logic = { workspace = true }
+serde = { workspace = true }

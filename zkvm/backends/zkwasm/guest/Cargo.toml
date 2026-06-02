@@ -1,0 +1,17 @@
+[package]
+name = "zkwasm-guest"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+zkvm-data-types = { path = "../../../shared/data-types" }
+zkvm-kernel-logic = { path = "../../../shared/kernel-logic" }
+zkvm-aztec-sdk = { path = "../../../shared/aztec-sdk" }
+zkvm-test-contracts = { path = "../../../shared/test-contracts" }
+zkwasm-rust-sdk = { git = "https://github.com/DelphinusLab/zkWasm-rust.git" }
+wasm-bindgen = "0.2"
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+postcard = { version = "1.1", default-features = false, features = ["alloc"] }

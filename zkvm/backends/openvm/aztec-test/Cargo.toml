@@ -1,0 +1,17 @@
+[package]
+name = "aztec-test"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+openvm = { git = "https://github.com/openvm-org/openvm.git", tag = "v1.5.0", features = ["std"] }
+openvm-algebra-guest = { git = "https://github.com/openvm-org/openvm.git", tag = "v1.5.0" }
+openvm-ecc-guest = { git = "https://github.com/openvm-org/openvm.git", tag = "v1.5.0" }
+openvm-ecc-sw-macros = { git = "https://github.com/openvm-org/openvm.git", tag = "v1.5.0" }
+zkvm-data-types = { path = "../../../shared/data-types" }
+zkvm-kernel-logic = { path = "../../../shared/kernel-logic" }
+zkvm-aztec-sdk = { path = "../../../shared/aztec-sdk" }
+zkvm-test-contracts = { path = "../../../shared/test-contracts" }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+postcard = { version = "1.1", default-features = false, features = ["alloc"] }
+hex-literal = { version = "0.4", default-features = false }

@@ -1,0 +1,14 @@
+# Build / compile artifacts for the zkVM spike.
+# Each backend is its own Cargo workspace (and some pull in non-standard
+# toolchains), so build output lands in `target/` dirs at several depths.
+
+# Rust / Cargo build output (matches zkvm/target and every backend's target/)
+target/
+
+# Generated proving artifacts (proofs, keys) produced by running the backends.
+# These live outside target/ for some backends (e.g. openvm aztec-test).
+*.proof
+*.vk
+*.pk
+
+# Cargo.lock files ARE tracked intentionally (reproducible builds) — do not ignore.

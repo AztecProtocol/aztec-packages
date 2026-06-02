@@ -32,5 +32,10 @@ docs/docs/protocol-specs/public-vm/gen/
 
 __pycache__
 
+# scarb / cairo-language-server cache dropped at the repo root by the Cairo
+# tooling used in the zkvm spike (zkvm/backends/stwo-cairo). Anchored to root
+# so it doesn't shadow nested target/ handling (see zkvm/.gitignore).
+/target/
+
 *.local.md
 .claude/settings.local.json

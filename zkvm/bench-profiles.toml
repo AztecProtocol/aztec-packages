@@ -1,0 +1,28 @@
+# Container resource profiles for benchmarking.
+# These emulate constrained environments via Docker --cpus and --memory.
+#
+# NOTE: Container benchmarks are approximations. Docker CPU throttling is
+# not cycle-accurate, and QEMU ARM emulation is ~5-10x slower than native.
+# For meaningful comparison: run the same profile across backends.
+# For absolute numbers: use real hardware.
+
+[profiles.macbook-air-m2]
+cpus = 8
+memory_gb = 8
+description = "MacBook Air M2 (2022) — high-end laptop"
+
+[profiles.iphone-15-pro]
+cpus = 2
+memory_gb = 4
+platform = "linux/arm64"
+description = "iPhone 15 Pro — performance cores only"
+
+[profiles.browser-wasm]
+cpus = 2
+memory_gb = 4
+description = "Browser WASM — 4GB memory limit, 2 cores"
+
+[profiles.low-end-phone]
+cpus = 2
+memory_gb = 2
+description = "Budget Android phone"

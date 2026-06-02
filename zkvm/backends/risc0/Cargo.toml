@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = ["host", "methods"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+# RISC Zero requires opt-level 3 even in dev mode — unoptimized builds are
+# extremely slow in the guest.
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+lto = true
+
+# Patched crates for RISC Zero SHA-256 acceleration.
+# The sha2 patch routes SHA-256 compress through a dedicated syscall in the
+# RISC Zero guest, making SHA-256 essentially free (native circuit support).
+[patch.crates-io]
+sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.6-risczero.0" }

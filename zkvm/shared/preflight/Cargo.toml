@@ -1,0 +1,12 @@
+[package]
+name = "zkvm-preflight"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# This crate runs on the host (PXE) — std is allowed.
+
+[dependencies]
+zkvm-data-types = { workspace = true }
+zkvm-kernel-logic = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }

@@ -1,0 +1,10 @@
+[package]
+name = "zkvm-interpreter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+zkvm-data-types = { workspace = true }
+zkvm-aztec-sdk = { workspace = true }
+serde = { workspace = true }

@@ -1,0 +1,22 @@
+[package]
+name = "guest"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+guest = []
+
+[dependencies]
+jolt = { package = "jolt-sdk", git = "https://github.com/a16z/jolt" }
+zkvm-data-types = { path = "../../../shared/data-types" }
+zkvm-kernel-logic = { path = "../../../shared/kernel-logic" }
+zkvm-aztec-sdk = { path = "../../../shared/aztec-sdk" }
+zkvm-test-contracts = { path = "../../../shared/test-contracts" }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+postcard = { version = "1.1", default-features = false, features = ["alloc"] }
+# Real BN254 field arithmetic — uses Jolt's own ark fork (patched at workspace root)
+ark-ff = { version = "0.5", default-features = false }
+ark-bn254 = { version = "0.5", default-features = false, features = ["scalar_field"] }
+ark-grumpkin = { version = "0.5", default-features = false }
+ark-ec = { version = "0.5", default-features = false }
+spin = { version = "0.9", default-features = false, features = ["once"] }

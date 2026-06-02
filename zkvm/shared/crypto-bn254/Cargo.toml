@@ -1,0 +1,22 @@
+[package]
+name = "zkvm-crypto-bn254"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# Real BN254 cryptographic primitives: Poseidon2, Grumpkin EC ops.
+# This is the "native" crypto implementation — correct and compatible
+# with the current Aztec protocol. Backends that use different fields
+# or curves provide their own Precompiles impl instead.
+
+[dependencies]
+zkvm-data-types = { workspace = true }
+serde = { workspace = true }
+ark-ff = { version = "0.5", default-features = false }
+ark-bn254 = { version = "0.5", default-features = false }
+ark-grumpkin = { version = "0.5", default-features = false }
+ark-ec = { version = "0.5", default-features = false }
+spin = { version = "0.9", default-features = false, features = ["once"] }
+
+[dev-dependencies]
+hex = "0.4"
