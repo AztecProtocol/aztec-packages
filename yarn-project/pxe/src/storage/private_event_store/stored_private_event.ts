@@ -3,10 +3,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
+import { BlockHash, type L2BlockId } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
-
-import type { L2BlockId } from '../foundation/index.js';
 
 /** Serializable private event entry with scope tracking. */
 export class StoredPrivateEvent {

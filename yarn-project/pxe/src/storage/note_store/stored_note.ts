@@ -1,7 +1,6 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { L2BlockId } from '@aztec/stdlib/block';
 import { NoteDao } from '@aztec/stdlib/note';
-
-import type { L2BlockId } from '../foundation/index.js';
 
 /** A note as stored by the PXE: the note DAO plus the scopes that observed it. Append-only — never mutated. */
 export class StoredNote {
