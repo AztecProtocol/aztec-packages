@@ -99,8 +99,13 @@ const gpuKnobs: MsmConfig = (() => {
     reduceSatThreshold: optInt('redsat'),
     convChunk: optInt('convc'),
     convertBound: optInt('convbound'),
-    // GPU/CPU split: snapshot red_buf after this many reduce levels (0 allowed).
-    reduceSnapshotLevel: q.get('cpucut') !== null ? Number(q.get('cpucut')) : undefined,
+    // GPU/CPU split: the GPU hands off to the CPU after this many reduce levels;
+    // the CPU always does the rest of the reduce + the Horner window fold. Default
+    // (large) = GPU does the whole reduce, CPU does only the fold (the baseline).
+    reduceSnapshotLevel: q.get('cpucut') !== null ? Number(q.get('cpucut')) : 1000,
+    // The window fold runs on the CPU (bb-wasm); skip run()'s JS host fold so it
+    // isn't double-counted in the timed window.
+    combineOnHost: false,
     reduceStride: optInt('redstride'),
     maxScalarBits: optInt('maxbits'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
@@ -574,36 +579,38 @@ async function runWebGpuOnce(
   // Plan the level tree for these scalars + (re)build the data-dependent
   // buffers — untimed setup, outside the `t0` window.
   msm.prepare(inputs.scalarsBuf);
-  // prepare() reallocates every data-dependent buffer; the first run() on
-  // those fresh buffers pays a one-time first-use cost (driver lazy
-  // zero-init / first-touch). Warm it out of the timed window so the
-  // measurement is steady-state GPU, matching the bench's reused buffers.
+  // The GPU only ever produces per-window sums; the Horner window fold is ALWAYS
+  // on the CPU (bb-wasm combine_windows via completeReduce). ?cpucut=L hands off
+  // L..end of the reduce too — the GPU breaks after the gather and the CPU does
+  // the reduce tail + the fold. So the timed window is the REAL end-to-end MSM
+  // (GPU 0..L-1 + gather + readback + CPU finish) and `ms` is the full MSM time.
+  // Default cut (1000) = GPU does all reduce, CPU does only the fold (baseline).
+  // The returned point is the CPU's; the harness cross-checks it against the oracle.
+  const cutoff = location.search.includes('cpucut') ? Number(new URLSearchParams(location.search).get('cpucut')) : 1000;
+  const handle = await ensureWasmBooted(); // boot out of the timed window
+  let cpuMs = 0;
+  const finish = (): { x: bigint; y: bigint } => {
+    const snap = msm.getReduceDensePack()!;
+    const r = handle.completeReduce(snap.dense, snap.ops, snap.rootRank, snap.kPerWindow, snap.numWindows, snap.c);
+    cpuMs = r.computeMs;
+    return parseAffineLE(r.result);
+  };
+  // Warmup (buffer first-touch + warm the CPU path), untimed.
   await msm.run();
+  finish();
   const t0 = performance.now();
-  const gpu = await msm.run();
+  await msm.run();
+  const xy = finish();
   const ms = performance.now() - t0;
-  log('info', `[gpu] returned in ${ms.toFixed(1)} ms`);
-  // GPU/CPU split experiment: if ?cpucut=L, finish the remaining reduce levels
-  // single-threaded on the CPU (wasm) from the red_buf snapshot, and verify the
-  // per-window sums match the GPU's full reduce.
-  const cpucut = location.search.includes('cpucut') ? Number(new URLSearchParams(location.search).get('cpucut')) : -1;
-  if (cpucut >= 0) {
-    const snap = msm.getReduceDensePack();
-    if (snap) {
-      const handle = await ensureWasmBooted();
-      // The CPU finishes the whole MSM from the cutoff: reduce tail + window
-      // fold (combine_windows) → one final point, compared to the GPU's.
-      const r = handle.completeReduce(snap.dense, snap.ops, snap.rootRank, snap.kPerWindow, snap.numWindows, snap.c);
-      const cpu = parseAffineLE(r.result);
-      const agree = cpu.x === gpu.x && cpu.y === gpu.y;
-      log(agree ? 'ok' : 'err',
-        `[cpucut=${cpucut}] ops=${snap.ops.length / 4} kPerWindow=${snap.kPerWindow} ` +
-          `cpu_compute_ms=${r.computeMs.toFixed(3)} cpu_total_ms=${r.totalMs.toFixed(3)} final_agree=${agree}`);
-    }
-  }
+  // Publish the real end-to-end wall + CPU-fold time so the bench reps loop
+  // reads them directly (parsing the log line is unreliable, and the GPU
+  // timestamp sum goes partial once the GPU stops early at the cutoff).
+  (window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number }).__lastWallMs = ms;
+  (window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number }).__lastCpuFoldMs = cpuMs;
+  log('info', `[gpu] returned in ${ms.toFixed(1)} ms (cut=${cutoff >= 1000 ? 'all-gpu-reduce' : cutoff} cpu_fold=${cpuMs.toFixed(2)}ms)`);
   // MsmV2 does not emit a per-pass GPU profile; the breakdown table skips
   // a null-profile capture, so the GPU column there simply renders empty.
-  return { ms, xy: gpu, capture: { profile: null } };
+  return { ms, xy, capture: { profile: null } };
 }
 
 // Decode + upload the inputs into the WASM worker's native point/scalar
@@ -1511,11 +1518,10 @@ function hideProgress(): void {
       }
       // After warmup: msmV2 is built and ready. Run N timed iterations
       // by clicking Run for each rep and collecting __lastPhaseMs.
-      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
-      const initLogLen = $log.children.length;
+      const samples: { wallMs: number; gpuMs: number; cpuFoldMs: number; phases: Record<string, number> }[] = [];
+      const win = window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number; __lastPhaseMs?: Record<string, number> };
       for (let r = 0; r < reps; r++) {
-        // Snapshot log length
-        const startLen = $log.children.length;
+        win.__lastWallMs = undefined;
         $run.click();
         for (let i = 0; i < 60; i++) {
           if ($run.disabled) break;
@@ -1525,21 +1531,21 @@ function hideProgress(): void {
           if (!$run.disabled) break;
           await new Promise(r => setTimeout(r, 500));
         }
-        // Parse the [gpu] returned in X ms line
-        const newLines: string[] = [];
-        for (let i = startLen; i < $log.children.length; i++) {
-          newLines.push($log.children[i].textContent ?? '');
-        }
-        const gpuLine = newLines.find(l => /\[gpu\] returned in/.test(l));
-        const wallMs = gpuLine ? parseFloat(gpuLine.match(/in\s+([\d.]+)\s+ms/)?.[1] ?? '0') : 0;
-        const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+        // Read the real end-to-end wall + CPU-fold time published by
+        // runWebGpuOnce (see __lastWallMs). The GPU-timestamp sum is kept
+        // for visibility but is partial once the GPU stops early at a cutoff.
+        const wallMs = win.__lastWallMs ?? 0;
+        const cpuFoldMs = win.__lastCpuFoldMs ?? 0;
+        const phases = win.__lastPhaseMs ?? {};
         const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
-        samples.push({ wallMs, gpuMs, phases });
-        const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
-        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
+        samples.push({ wallMs, gpuMs, cpuFoldMs, phases });
+        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(2)}ms cpu_fold=${cpuFoldMs.toFixed(2)}ms gpu_ts=${gpuMs.toFixed(1)}ms`);
       }
       const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+      const minOf = (arr: number[]) => arr.reduce((a, b) => Math.min(a, b), Infinity);
       const avgWall = avg(samples.map(s => s.wallMs));
+      const minWall = minOf(samples.map(s => s.wallMs));
+      const avgCpuFold = avg(samples.map(s => s.cpuFoldMs));
       const avgGpu = avg(samples.map(s => s.gpuMs));
       const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
       const avgPhases: Record<string, number> = {};
@@ -1547,7 +1553,7 @@ function hideProgress(): void {
       const avgPhaseStr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
       (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
       log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
-        `wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ${avgPhaseStr}`);
+        `min_wall=${minWall.toFixed(2)}ms avg_wall=${avgWall.toFixed(2)}ms cpu_fold=${avgCpuFold.toFixed(2)}ms gpu_ts=${avgGpu.toFixed(1)}ms ${avgPhaseStr}`);
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({

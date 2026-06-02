@@ -3210,10 +3210,12 @@ export class MsmV2 {
     // case where useJac is a contiguous suffix (one z-init, no mid convert).
     let curJac = false;
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
-      // GPU/CPU split: pack the working set out of red_buf after levels 0..lv-1.
+      // GPU/CPU split: after levels 0..lv-1, pack the working set out of red_buf
+      // and HAND OFF — the GPU does no further reduce; the CPU finishes from here.
       if (lv === this.reduceSnapshotLevel && this.gatherBind) {
         setPhase('reduce_gather');
         dispatch(this.gatherPipe, this.gatherBind, this.gatherNx, 1);
+        break;
       }
       const wantJac = this.useJac[lv];
       if (wantJac && !curJac) {
