@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -835,9 +834,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates_without_
     };
 
     uint64_t indexPower2Ceil = log2Ceil(highest_index + 1);
-    index_t span = static_cast<index_t>(std::pow(2UL, indexPower2Ceil));
+    index_t span = static_cast<index_t>(1) << indexPower2Ceil;
     uint64_t numBatchesPower2Floor = numeric::get_msb(workers_->num_threads());
-    index_t numBatches = static_cast<index_t>(std::pow(2UL, numBatchesPower2Floor));
+    index_t numBatches = static_cast<index_t>(1) << numBatchesPower2Floor;
     index_t batchSize = span / numBatches;
     batchSize = std::max(batchSize, static_cast<index_t>(2));
     index_t startIndex = 0;
