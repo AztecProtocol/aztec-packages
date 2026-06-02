@@ -93,6 +93,7 @@ const gpuKnobs: MsmConfig = (() => {
     maxPlannerWorkgroups: optInt('mpw'),
     numBatchesOverride: optInt('nb'),
     budgetMiB: optInt('budgetmib'),
+    varSched: q.get('varsched') === '1' || undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
 })();

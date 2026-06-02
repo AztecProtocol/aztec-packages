@@ -209,6 +209,15 @@ export interface MsmConfig {
    * MSM is invariant to staging) but uses more, smaller passes.
    */
   budgetMiB?: number;
+  /**
+   * Test fixture for split-c variable-window correctness. When set, the uniform
+   * window schedule is replaced by a two-region schedule (wide lower windows,
+   * narrow upper) covering the same scalar bits. Buffers size to the envelope
+   * (max num_columns / stride); WindowDesc carries the per-window widths. Every
+   * window still iterates all n points, so it's correct without region-split.
+   * The MSM result is windowing-invariant, so output must still match the oracle.
+   */
+  varSched?: boolean;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -411,6 +420,21 @@ function buildPadBuf(Mb: number, padPts: Pt[], R: bigint): Uint32Array {
   return padBuf;
 }
 
+// Two-region variable-window test schedule: `wLo` wide windows (c=14) then
+// `wHi` narrow windows (c=12), contiguously tiling >= numBits+2 scalar bits.
+// Two distinct widths exercise the per-window WindowDesc path; the MSM result
+// is windowing-invariant so it must still match the oracle. Widths stay <= 15
+// (the packed-bid magnitude field is 15 bits).
+function buildVarSchedule(numBits: number): number[] {
+  const cLo = 14;
+  const cHi = 12;
+  const total = numBits + 2;
+  const wLo = Math.ceil(Math.floor(total / 2) / cLo);
+  const lowerBits = wLo * cLo;
+  const wHi = Math.ceil(Math.max(0, total - lowerBits) / cHi);
+  return [...new Array(wLo).fill(cLo), ...new Array(wHi).fill(cHi)];
+}
+
 // Window combine: Horner fold of the per-window weighted sums into the final
 // MSM point — acc = Σ_w L_w · 2^(w·c). The fold runs in Jacobian coordinates
 // (a = 0) so every step is inversion-free; one inverse converts back to affine.
@@ -426,7 +450,7 @@ function buildPadBuf(Mb: number, padPts: Pt[], R: bigint): Uint32Array {
 //   (b) mid windows empty: the mixed-add formula assumes both operands are
 //       valid; skipping it when L[w] is empty leaves acc as the doubled prior
 //       window, which is correct.
-function hostWindowCombine(L: Pt[], c: number): Pt {
+function hostWindowCombine(L: Pt[], windowCs: number[]): Pt {
   const fadd = (a: bigint, b: bigint): bigint => (a + b) % FP;
   // Find the highest non-empty window to seed Jacobian acc; any windows
   // above it are pure infinity (skip their doublings — doubling ∞ = ∞).
@@ -437,7 +461,9 @@ function hostWindowCombine(L: Pt[], c: number): Pt {
   let Y = L[top].y;
   let Z = 1n;
   for (let w = top - 1; w >= 0; w--) {
-    for (let d = 0; d < c; d++) {
+    // Doublings between window w+1 and window w = window w's width (bit_base
+    // step). Uniform schedule ⇒ windowCs[w] == c for every w.
+    for (let d = 0; d < windowCs[w]; d++) {
       // Jacobian doubling, a = 0 (EFD dbl-2009-l).
       const A = fmul(X, X);
       const B = fmul(Y, Y);
@@ -1443,6 +1469,9 @@ export class MsmV2 {
   /** Pippenger window bit width, picked by `pickC(n)`. Public so the
    *  bridge can ship it back to the C++ Horner combine. */
   c!: number;
+  /** Per-window widths. Uniform = [c, c, …]; the varSched fixture fills it with
+   *  the two-region schedule. Drives the WindowDesc fill and the host combine. */
+  private windowCs!: number[];
   /** Number of Pippenger windows = ceil(NUMBITS / c). Public — the bridge
    *  reads it when packing per-MSM staging buffers. */
   numWindows!: number;
@@ -1689,6 +1718,13 @@ export class MsmV2 {
     m.pool = pool;
     m.n = n;
     m.c = config?.c ?? pickC(n);
+    // varSched fixture: a two-region variable-width schedule. Set m.c to the
+    // envelope (max) width so reduceWg / BW / stride / pref_scratch all size to
+    // it; m.windowCs carries the per-window widths (numWindows overridden below).
+    if (config?.varSched) {
+      m.windowCs = buildVarSchedule(NUMBITS);
+      m.c = Math.max(...m.windowCs);
+    }
     m.s = config?.s ?? pickS(n);
     m.wgi = config?.wgi ?? DEFAULT_WGI;
     m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
@@ -1707,11 +1743,15 @@ export class MsmV2 {
     }
     // Pull the knobs into the local names the rest of create() uses.
     const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT, addsub: ADDSUB } = m;
-    m.numWindows = Math.ceil(NUMBITS / m.c);
+    m.numWindows = m.windowCs ? m.windowCs.length : Math.ceil(NUMBITS / m.c);
+    // BW / stride are the ENVELOPE (m.c = max width): every window's red slots
+    // are padded to stride and its CSR columns bounded by BW, so the reduce
+    // schedule and partial_* scratch hash stay uniform across windows.
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
     m.bTotal = m.numWindows * m.BW;
     m.stride = 2 ** (m.c - 1);
     m.redM = m.numWindows * m.stride;
+    if (!m.windowCs) m.windowCs = new Array(m.numWindows).fill(m.c);
     // Walker thread-count lever (sT = MPW·256). Budget-aware by default so a
     // working set that would exceed the 160 MB budget drops sT — the §8
     // priority-1 lever — before anything else; an explicit config overrides.
@@ -2408,14 +2448,23 @@ export class MsmV2 {
     // uniform (their storage-buffer slots are full). VAR_WINDOW_MAX_WINDOWS=128.
     const WD_ROWS = Math.max(numBatches * batchWindows, 128);
     const wdData = new Uint32Array(WD_ROWS * WD_STRIDE);
+    let wdBitBase = 0; // prefix of window widths
+    let wdWorkOff = 0; // prefix of num_columns (packed CSR bucket base)
     for (let w = 0; w < WD_ROWS; w++) {
       const o = w * WD_STRIDE;
-      wdData[o + 0] = c; // window_bits
-      wdData[o + 1] = w * c; // bit_base
-      wdData[o + 2] = this.stride; // num_buckets (red slots per window)
-      wdData[o + 3] = w * BW; // work_off (PASS bucket base, prefix of num_columns)
-      wdData[o + 4] = w * this.stride; // reduce_off (red_buf base)
-      wdData[o + 5] = BW; // num_columns (transpose CSR column count per window)
+      // Per-window width: the schedule for real windows, envelope c for the
+      // short-batch padding rows. Uniform fill ⇒ cw == c, byte-identical.
+      const cw = w < this.windowCs.length ? this.windowCs[w] : c;
+      const strideW = 2 ** (cw - 1);
+      const numColsW = Math.ceil((2 ** (cw - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
+      wdData[o + 0] = cw; // window_bits
+      wdData[o + 1] = wdBitBase; // bit_base (prefix of widths)
+      wdData[o + 2] = strideW; // num_buckets (this window's red slots)
+      wdData[o + 3] = wdWorkOff; // work_off (prefix of num_columns — packed CSR base)
+      wdData[o + 4] = w * this.stride; // reduce_off (PADDED to envelope stride)
+      wdData[o + 5] = numColsW; // num_columns (this window's CSR column count)
+      wdBitBase += cw;
+      wdWorkOff += numColsW;
     }
     const windowDescBuf = device.createBuffer({
       size: wdData.byteLength,
@@ -3052,7 +3101,7 @@ export class MsmV2 {
     this.windowSums = L;
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
-    const result = this.combineOnHost ? hostWindowCombine(L, this.c) : { x: 0n, y: 0n };
+    const result = this.combineOnHost ? hostWindowCombine(L, this.windowCs) : { x: 0n, y: 0n };
 
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new
