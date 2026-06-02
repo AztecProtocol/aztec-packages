@@ -50,7 +50,7 @@ function assertOracleInterfaceMatches(): void {
  * Verifies that `ORACLE_VERSION_MAJOR` is identical across all of its hand-maintained copies.
  *
  * The major version is duplicated across the PXE TypeScript constant and two Noir constants (Aztec.nr and the protocol
- * contracts' `aztec_sublib`) because those layers can't import each other. This static check fails fastvat build time,
+ * contracts' `aztec_sublib`) because those layers can't import each other. This static check fails fast at build time,
  * naming each file and its value.
  *
  * Only the major version is checked: the minor version legitimately diverges under the "environment minor >= contract
