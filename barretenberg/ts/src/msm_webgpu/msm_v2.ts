@@ -47,6 +47,8 @@ const slotBuf = (x: ScratchSlot): GPUBuffer => (x instanceof GPUBuffer ? x : x.b
 const slotOff = (x: ScratchSlot): number => (x instanceof GPUBuffer ? 0 : (x.offset ?? 0));
 const slotSize = (x: ScratchSlot): number => (x instanceof GPUBuffer ? x.size : (x.size ?? 0));
 const clearSlot = (enc: GPUCommandEncoder, x: ScratchSlot): void => enc.clearBuffer(slotBuf(x), slotOff(x), slotSize(x));
+const writeSlot = (q: GPUQueue, x: ScratchSlot, off: number, data: BufferSource): void =>
+  q.writeBuffer(slotBuf(x), slotOff(x) + off, data);
 const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
 
 // Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
@@ -535,7 +537,7 @@ interface SharedScratch {
   l0IdxBuf: GPUBuffer;
   bucketAndSignBuf: GPUBufferBinding;
   valIdxBuf: GPUBufferBinding;
-  rowPtrBuf: GPUBuffer;
+  rowPtrBuf: GPUBufferBinding;
   planMeta: GPUBuffer;
   pairBlockPlanRing: [GPUBuffer, GPUBuffer];
   scatterPlanRing: [GPUBuffer, GPUBuffer];
@@ -544,8 +546,8 @@ interface SharedScratch {
   offsetsBufs: [GPUBuffer, GPUBuffer];
   prefScratchBuf: GPUBuffer;
   scalarsRawBuf: GPUBuffer;
-  redBuf: GPUBuffer;
-  isPresentBuf: GPUBuffer;
+  redBuf: GPUBufferBinding;
+  isPresentBuf: GPUBufferBinding;
   reducePrefScratch: GPUBufferBinding;
   // Streaming planner + accumulator buffers (Phase 1-4).
   streamPlannerMeta: GPUBuffer;
@@ -727,14 +729,13 @@ export class MsmV2Pool {
       total += s.arenas.reduce((acc, a) => acc + a.size, 0); // arena-resident buffers, counted once per arena
       total += s.bufA.size + s.bufB.size;
       total += s.l0IdxBuf.size;
-      total += s.rowPtrBuf.size + s.planMeta.size;
+      total += s.planMeta.size;
       total += s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size;
       total += s.scatterPlanRing[0].size + s.scatterPlanRing[1].size;
       total += s.carryPlanRing[0].size + s.carryPlanRing[1].size;
       total += s.countsBufs[0].size + s.countsBufs[1].size;
       total += s.offsetsBufs[0].size + s.offsetsBufs[1].size;
       total += s.prefScratchBuf.size + s.scalarsRawBuf.size;
-      total += s.redBuf.size + s.isPresentBuf.size;
       total += s.streamPlannerMeta.size;
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
@@ -770,7 +771,6 @@ export class MsmV2Pool {
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
     const soaSize = (M: number): number => 2 * PG * M * 4 * 4;
-    const soaBuf = (M: number): GPUBuffer => sbuf(soaSize(M));
 
     const s = this._scratch;
     let bufA = s?.bufA;
@@ -819,9 +819,7 @@ export class MsmV2Pool {
       grew = true;
     }
     if (!rowPtrBuf || dims.rowPtrLen > cur.rowPtrLen) {
-      rowPtrBuf?.destroy();
-      grow(true, 'rowPtrLen');
-      rowPtrBuf = sbuf(cur.rowPtrLen * 4);
+      grow(true, 'rowPtrLen'); // sizes arena A1 (rowPtrBuf carved centrally)
       grew = true;
     }
     if (!planMeta || dims.planMetaLen > cur.planMetaLen) {
@@ -873,11 +871,7 @@ export class MsmV2Pool {
       grew = true;
     }
     if (!redBuf || dims.redM > cur.redM) {
-      redBuf?.destroy();
-      isPresentBuf?.destroy();
-      grow(true, 'redM');
-      redBuf = soaBuf(cur.redM);
-      isPresentBuf = sbuf(cur.redM * 4);
+      grow(true, 'redM'); // sizes arena A1 (redBuf + isPresentBuf carved centrally)
       grew = true;
     }
     if (!reducePrefScratch || dims.reducePrefBytes > cur.reducePrefBytes) {
@@ -967,11 +961,13 @@ export class MsmV2Pool {
       alignArena(sBTotal * 4) + alignArena(2 * sT * sS * 4) + alignArena(sBTotal * 2 * 4) +
       alignArena(sT * (sS + 1) * 2 * 4) + alignArena(cur.batchSlots * 4);
     // A1: bucketAndSign + denseBucketList + denseCountList + binWritePos + cumulativeAdds
-    //     + ptCount + ptMeta + ptTasks + ptTotalTasks + walkerPartialDest
+    //     + ptCount + ptMeta + ptTasks + ptTotalTasks + walkerPartialDest + rowPtrBuf
+    //     + isPresentBuf + redBuf
     reqArena[1] =
       alignArena(cur.batchSlots * 4) + alignArena(sBTotal * 4) + alignArena(sBTotal * 4) +
       alignArena(64 * 4) + alignArena(sBTotal * 4) + alignArena(sBTotal * 4) + alignArena(16) +
-      alignArena(2 * sT * sS * 16) + alignArena(4) + alignArena(2 * sT * sS * 4);
+      alignArena(2 * sT * sS * 16) + alignArena(4) + alignArena(2 * sT * sS * 4) +
+      alignArena(cur.rowPtrLen * 4) + alignArena(cur.redM * 4) + alignArena(soaSize(cur.redM));
     // A0: activeBuckets + activeCount + binOffsets + partialWritePos + reducePrefScratch + sortedCountList
     reqArena[0] =
       alignArena(sBTotal * 4) + alignArena(4) + alignArena(64 * 4) + alignArena(sBTotal * 4) +
@@ -1020,6 +1016,9 @@ export class MsmV2Pool {
     ptTasks = carve(1, 2 * sT * sS * 16);
     ptTotalTasks = carve(1, 4);
     walkerPartialDest = carve(1, 2 * sT * sS * 4);
+    rowPtrBuf = carve(1, cur.rowPtrLen * 4);
+    isPresentBuf = carve(1, cur.redM * 4);
+    redBuf = carve(1, soaSize(cur.redM));
     activeBuckets = carve(0, sBTotal * 4);
     activeCount = carve(0, 4);
     binOffsets = carve(0, 64 * 4);
@@ -1316,7 +1315,6 @@ export class MsmV2Pool {
       s.bufA.destroy();
       s.bufB.destroy();
       s.l0IdxBuf.destroy();
-      s.rowPtrBuf.destroy();
       s.planMeta.destroy();
       s.pairBlockPlanRing[0].destroy();
       s.pairBlockPlanRing[1].destroy();
@@ -1330,8 +1328,6 @@ export class MsmV2Pool {
       s.offsetsBufs[1].destroy();
       s.prefScratchBuf.destroy();
       s.scalarsRawBuf.destroy();
-      s.redBuf.destroy();
-      s.isPresentBuf.destroy();
       this._scratch = null;
     }
   }
@@ -1534,8 +1530,8 @@ export class MsmV2 {
   private nConvMeta = 0;
   private nReduceInit = 0;
   private numWgsFinalize = 0;
-  private rowPtrBuf!: GPUBuffer; // cleared each batch by run()
-  private redBuf!: GPUBuffer; // gathered + decoded by run()
+  private rowPtrBuf!: ScratchSlot; // cleared each batch by run()
+  private redBuf!: ScratchSlot; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
   // profiling (created in prepare when this.profile)
   private querySet: GPUQuerySet | null = null;
@@ -2641,8 +2637,8 @@ export class MsmV2 {
     // own [bi*batchWindows*STRIDE, (bi+1)*batchWindows*STRIDE) slice via the
     // batch_offset uniform. Clearing once per encode (not per batch) lets
     // batches accumulate side-by-side without overwriting one another.
-    enc.clearBuffer(this.pool.scratch!.redBuf);
-    enc.clearBuffer(this.pool.scratch!.isPresentBuf);
+    clearSlot(enc, this.pool.scratch!.redBuf);
+    clearSlot(enc, this.pool.scratch!.isPresentBuf);
     // NOTE: partialCount, partialWritePos, activeCount, countHistogram are
     // cleared INSIDE the batch loop (below) — they are all atomicAdd'd per
     // batch, so leaving them cumulative across batches makes sortScatter
@@ -2657,7 +2653,7 @@ export class MsmV2 {
       const tSlots = tbw * this.n;
       setPhase('preprocess');
       dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
-      enc.clearBuffer(this.rowPtrBuf);
+      clearSlot(enc, this.rowPtrBuf);
       dispatch(this.xposeCountPipe, this.xposeCountBind, this.transposeNumPointTiles, tbw);
       dispatch(this.xposeReducePipe, this.xposeReduceBind, Math.ceil(this.BW / 256), tbw);
       dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1);
@@ -2812,8 +2808,8 @@ export class MsmV2 {
     const yPlane = 32 * this.redM;
     for (let w = 0; w < this.numWindows; w++) {
       const g = 32 * w * this.stride;
-      enc.copyBufferToBuffer(this.redBuf, g, dstStaging, dstByteOff + w * 64, 32);
-      enc.copyBufferToBuffer(this.redBuf, yPlane + g, dstStaging, dstByteOff + w * 64 + 32, 32);
+      enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + g, dstStaging, dstByteOff + w * 64, 32);
+      enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + yPlane + g, dstStaging, dstByteOff + w * 64 + 32, 32);
     }
     if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
       enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
