@@ -965,6 +965,12 @@ case "$cmd" in
     # private fork and publishes just the aztec docker image — no npm/cargo/github release, no compat
     # gate. next-net deploys consume these. Checked before the generic private* path below.
     if [[ "$(semver prerelease $REF_NAME)" == private-nightly* ]]; then
+      # Only build in the public repo. The tagger creates the build-source tag in the private repo
+      # too; if that fires ci-release in the private mirror it would self-fetch and race the image.
+      if [[ "${GITHUB_REPOSITORY:-}" == "AztecProtocol/aztec-packages-private" ]]; then
+        echo "Skipping private-nightly build in the private mirror (handled by the public repo)."
+        exit 0
+      fi
       echo_header "Private nightly (docker images only): $REF_NAME"
       checkout_private_worktree
       ./bootstrap.sh build release
