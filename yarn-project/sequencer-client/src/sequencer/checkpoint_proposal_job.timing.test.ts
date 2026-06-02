@@ -302,7 +302,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
   /** Create a TimingTestCheckpointProposalJob with current mocks */
   function createJob(
-    setStateFn: (state: SequencerState, slot?: SlotNumber, timeReferenceSlot?: SlotNumber) => void = jest.fn(),
+    setStateFn: (state: SequencerState, slot?: SlotNumber) => void = jest.fn(),
   ): TimingTestCheckpointProposalJob {
     const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
 
@@ -1157,7 +1157,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       SequencerState.PUBLISHING_CHECKPOINT,
     ];
 
-    it('passes the target slot to observers and the build slot to deadline checks for build-frame states', async () => {
+    it('passes the build slot (not the target slot) to setState for every build-frame state', async () => {
       const { blocks, txs } = await createTestBlocksAndTxs(2);
       mockP2pWithTxs(txs);
       // Force a single WAITING_FOR_TXS poll before the first block by reporting no pending txs once.
@@ -1172,12 +1172,9 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       setTimeInSlot(1);
 
-      const observedSlots = new Map<
-        SequencerState,
-        { slot: SlotNumber | undefined; timeReferenceSlot: SlotNumber | undefined }
-      >();
-      const setStateFn = jest.fn((state: SequencerState, slot?: SlotNumber, timeReferenceSlot?: SlotNumber) => {
-        observedSlots.set(state, { slot, timeReferenceSlot });
+      const observedSlots = new Map<SequencerState, SlotNumber | undefined>();
+      const setStateFn = jest.fn((state: SequencerState, slot?: SlotNumber) => {
+        observedSlots.set(state, slot);
       });
 
       const job = createJob(setStateFn);
@@ -1189,8 +1186,8 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       for (const state of buildFrameStates) {
         expect(observedSlots.has(state)).toBe(true);
-        expect(observedSlots.get(state)?.slot).toBe(targetSlot);
-        expect(observedSlots.get(state)?.timeReferenceSlot).toBe(slotNumber);
+        expect(observedSlots.get(state)).toBe(slotNumber);
+        expect(observedSlots.get(state)).not.toBe(targetSlot);
       }
     });
 
@@ -1206,12 +1203,11 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       setTimeInSlot(50);
 
-      // Enforcing setStateFn mirroring Sequencer.setState: measures the deadline against the
-      // explicit time reference slot when one is provided.
-      const setStateFn = (state: SequencerState, slot?: SlotNumber, timeReferenceSlot?: SlotNumber) => {
-        const slotForTiming = timeReferenceSlot ?? slot;
-        if (slotForTiming !== undefined) {
-          const ref = getSlotStartBuildTimestamp(slotForTiming, l1Constants);
+      // Enforcing setStateFn mirroring Sequencer.setState: measures the deadline for the passed slot
+      // against the build-frame reference (`getSlotStartBuildTimestamp(slot)`).
+      const setStateFn = (state: SequencerState, slot?: SlotNumber) => {
+        if (slot !== undefined) {
+          const ref = getSlotStartBuildTimestamp(slot, l1Constants);
           timetable.assertTimeLeft(state, dateProvider.nowInSeconds() - ref);
         }
       };
