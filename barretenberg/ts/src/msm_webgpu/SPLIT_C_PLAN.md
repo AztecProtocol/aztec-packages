@@ -154,14 +154,19 @@ instead of the constant BW param; `csr_to_v2_meta` is now a 2D (window=gid.y) pa
 WindowDesc padded to numBatches·batchWindows rows for short-batch slots; scan
 dispatches tbw to avoid OOB. `csr_to_v2_active_sums` is point-space → unchanged.
 Validated golden+oracle 14–17, D/E, nb=2/3/5/4·E/3·D.
-*Remaining:* the **bid consumers** (`stream_walker`, `size1`, `combine_*`,
-`pt_finalize`, `pt_init_*`, flat-index kernels) still use constant BW/STRIDE in
-`flat_bid`/`red_slot`; swap to `work_off[gwin]+mag` / `reduce_off[gwin]+(mag-1)`
-table reads. Caveats: `stream_walker` is at the 10-storage-binding cap so its
-`window_desc` must be a `var<uniform>`; and the bid's window is batch-local while
-`red_slot` adds `batch_offset` for the global slot, so reconcile the batch base as
-in 0.3. No-op on the uniform path; the payoff lands once Phase 1 fills a variable
-schedule.
+**0.4 done** (`a6b38604ab`) — `classify` 1D→2D (per-window geometry) + the 5 bid
+consumers (`stream_walker`/`size1`/`combine_filter`/`combine_batched`/`pt_finalize`)
+swapped to `work_off[gwin]+mag` / `reduce_off[gwin]+(mag-1)` table reads.
+`window_desc` is a `var<uniform> array<vec4<u32>,256>` for the 3 at-cap kernels;
+batch base reconciled as `work_off[gwin]-work_off[bwb]`. **0.5 done** (`2d0f6c8297`)
+— host Horner combine folds with per-window widths; `?varsched=1` fixture
+(`buildVarSchedule`, two-region 14×10|12×10) **PROVES** GPU==oracle under a
+non-uniform schedule at logN 14/17, A/D/E, nb=2/3, E+nb=2. reduce_off stays padded
+to `w*stride_max` so the reduce kernel + gather are unchanged; partial_* stays a
+`window*BW_max` envelope hash. **Phase 0 COMPLETE: the pipeline is
+variable-window-correct. `?varsched=1` is the variable-geometry regression test.**
+*Next:* Phase 1 (the GPU decision kernel that CHOOSES the schedule — replaces the
+host `buildVarSchedule` fixture).
 
 **Phase 1 — GPU decision + schedule.** `histogram` kernel (+`msb_per_scalar`),
 `decide` kernel (port `choose_var_window_split`/`build_var_window_schedule`/
