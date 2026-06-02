@@ -34,6 +34,7 @@ import {
   // apply_matrix). Hosts BylMat, byl_divsteps, byl_apply_matrix, the
   // byl_reduce_to_canonical chain, and the fr_inv_by_loop driver.
   by_inverse_loop as by_inverse_loop_funcs,
+  by_inverse_loop_pk_wg as by_inverse_loop_pk_wg_funcs,
   // 15-bit sibling: BATCH=30, 18-limb BY state, 2-word (macc) apply_matrix.
   // Selected at word_size=15 (host-validated bit-exact in cios15n/by15_*.mjs).
   by_inverse_loop_15 as by_inverse_loop_15_funcs,
@@ -48,6 +49,8 @@ import {
   fr_pow as fr_pow_funcs,
   microbench as microbench_shader,
   mont_pro_product_cios_unrolled as montgomery_product_cios_unrolled_funcs,
+  mont_pro_product_cios_unrolled_wg as montgomery_product_cios_unrolled_wg_funcs,
+  mont_pro_product_f8_native as montgomery_product_f8_native_funcs,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
@@ -159,6 +162,15 @@ export class ShaderManager {
   // `get_p` / `conditional_reduce` helpers, so swapping the partial is
   // a drop-in change at every callsite.
   public mont_product_src: string;
+  // Workgroup-backed CIOS multiply (`montgomery_product_wg`): identical
+  // arithmetic to mont_product_src but the 20 accumulators live in a workgroup
+  // array instead of registers. Non-empty only for the cios_unrolled 13-bit
+  // path; included by the walker-path kernels (regfile_lean) to cut GPRs.
+  public mont_product_wg_src: string;
+  // Packed-native register-lean f8 multiply source (montgomery_product_f8),
+  // cios_unrolled 13-bit only; empty otherwise.
+  public mont_f8_native_src: string;
+  private montmul: MontMulVariant;
   public curveConfig: CurveConfig;
   public recompile = '';
 
@@ -247,6 +259,19 @@ export class ShaderManager {
           : montmul === 'cios15native'
             ? this.renderCiosLimbMont(15, 'div32')
             : this.renderKaratYuvalMont();
+
+    // Workgroup-backed twin of the cios_unrolled body. Only the cios_unrolled
+    // 13-bit path has a hand-written workgroup variant; every other path keeps
+    // its register multiply (regfile_lean is never set for them).
+    this.montmul = montmul;
+    this.mont_product_wg_src =
+      montmul === 'cios_unrolled' && this.word_size === 13 ? montgomery_product_cios_unrolled_wg_funcs.trim() : '';
+    // Packed-native register-lean f8 multiply (montgomery_product_f8): packed
+    // x/y in/out, per-iter working_x, s0..s19 packed + conditional-reduced in
+    // place. cios_unrolled 13-bit only; other paths keep the unpack/montmul/pack
+    // wrapper (the native body bakes BN254 20×13-bit limbs).
+    this.mont_f8_native_src =
+      montmul === 'cios_unrolled' && this.word_size === 13 ? montgomery_product_f8_native_funcs.trim() : '';
 
     if (force_recompile) {
       const rand = Math.round(Math.random() * 100000000000000000) % 2 ** 32;
@@ -953,12 +978,28 @@ ${packLines.join('\n')}
     const dec = this.decoupledPackUnpackWgsl();
     const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring(variant);
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    // Register-lean walker. The montmul/inverse workgroup relocations (P1/P2)
+    // are DISABLED: the montmul and inverse spill 0 bytes in isolation, so
+    // moving their internals to workgroup didn't cut the walker's spill and only
+    // added LDS pressure (occupancy 6%->4%). The walker's ~4.3 KB scratch is the
+    // per-slot peel state, now streamed from global (acc_x/acc_y above). Left
+    // gated so they can be re-enabled if a fissioned design makes them pay off.
+    const regfile_lean = false;
+    const regfile_lean_inv = regfile_lean && variant === 'pk';
+    const eff_inv_fn = regfile_lean_inv ? `${inv_fn}_wg` : inv_fn;
     return mustache.render(
       ba_stream_walker_shader,
       {
-        workgroup_size, s, inv_fn,
+        workgroup_size, s, inv_fn: eff_inv_fn,
         bw, stride, m_red,
         p8_consts, r8_csv, f8_words,
+        // regfile_lean: route the f8 multiply through the workgroup-backed
+        // montgomery_product_wg and declare its scratch. cios_unrolled only.
+        regfile_lean,
+        regfile_lean_inv,
+        // f8_native: use the packed-native register-lean montgomery_product_f8
+        // (no x20/r/s BigInt temps). cios_unrolled 13-bit only.
+        f8_native: this.montmul === 'cios_unrolled' && this.word_size === 13,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
         p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
@@ -969,6 +1010,9 @@ ${packLines.join('\n')}
       {
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_wg_funcs: this.mont_product_wg_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        inverse_wg_funcs: by_inverse_loop_pk_wg_funcs,
         field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs: bigintByFuncs, inverse_funcs,
       },
     );

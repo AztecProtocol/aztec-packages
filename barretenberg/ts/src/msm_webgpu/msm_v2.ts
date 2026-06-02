@@ -1038,10 +1038,17 @@ export class MsmV2Pool {
       //   walkerPartialDest: 2*S u32/thread (bucket_id per partial slot)
       taskCuts = sbuf(sT * (sS + 1) * 2 * 4);
       // walkerPartials = partials region (8*sT*sS vec4) + pref tail (2*sT*sS vec4)
-      // = 10*sT*sS vec4 × 16 B = 160*sT*sS bytes. Coalesced pref layout requires
-      // the pref tail to live in the same buffer.
-      walkerPartials = sbuf(10 * sT * sS * 16);
-      walkerPartialDest = sbuf(2 * sT * sS * 4);
+      // + acc tail (acc_x 2*sT*sS + acc_y 2*sT*sS vec4). The per-slot running
+      // partial sums acc_x/acc_y are streamed from this global region (one slot
+      // at a time in the peel) instead of held in per-thread private arrays —
+      // that private array was being unrolled into S simultaneously-live 256-bit
+      // values and spilling KB/thread. Total = 14*sT*sS vec4 × 16 B.
+      //   partials [0,8) · pref [8,10) · acc_x [10,12) · acc_y [12,14)  (×sT*sS vec4)
+      walkerPartials = sbuf(14 * sT * sS * 16);
+      // [0,2) partial-slot bucket ids + per-slot scalar state moved out of
+      // private regs into global: cursor[2,3), bucket_end[3,4), task_end_sort
+      // [4,5), task_end_cur[5,6), cur_sorted[6,7)  (each region sT*sS u32).
+      walkerPartialDest = sbuf(7 * sT * sS * 4);
       // Task #19 — per-bucket linked-list index for walker_combine.
       //   bucketHead:  bTotal × atomic<u32>, cleared to 0 (NO_NODE) per MSM.
       //   walkerNodesSlot/Next: one node per partial slot = 2*sT*sS u32 each.

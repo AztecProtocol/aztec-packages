@@ -17,7 +17,7 @@ const P8_{{idx}}: u32 = {{val}}u;
 {{/p8_consts}}
 
 // R mod p (Montgomery one) as 8x u32 — the montgomery_product identity.
-fn get_r_f8() -> array<u32, 8> {
+fn get_r_f8() -> array<u32, 8>  {
     return array<u32, 8>({{ r8_csv }});
 }
 
@@ -34,15 +34,28 @@ fn is_zero_f8(v: array<u32, 8>) -> bool {
     return (v[0] | v[1] | v[2] | v[3] | v[4] | v[5] | v[6] | v[7]) == 0u;
 }
 
+{{#f8_native}}
+// Packed-native register-lean CIOS multiply (cios_unrolled 13-bit): packed in/out,
+// per-iter working_x, s0..s19 packed + conditional-reduced in place. No BigInt temps.
+{{> montgomery_product_f8_native }}
+{{/f8_native}}
+{{^f8_native}}
 // montgomery_product on the 8x u32 form: expand both operands to the
-// 20x13-limb arithmetic form, run the grouped Karatsuba multiply,
-// contract the result back to 8x u32.
+// 20x13-limb arithmetic form, run the multiply, contract back to 8x u32.
 fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
     var x20: BigInt = unpack256_to_limbs(x);
     var y20: BigInt = unpack256_to_limbs(y);
+{{#regfile_lean}}
+    // Workgroup-backed multiply: the 20 CIOS accumulators live in `mont_s`
+    // (declared by the kernel) instead of registers, freeing GPRs for occupancy.
+    var r: BigInt = montgomery_product_wg(&x20, &y20);
+{{/regfile_lean}}
+{{^regfile_lean}}
     var r: BigInt = montgomery_product(&x20, &y20);
+{{/regfile_lean}}
     return pack_limbs_to_256(&r);
 }
+{{/f8_native}}
 
 {{#addsub_unpack}}
 // fr_add / fr_sub via expand -> 20x13 op -> contract. The A/B alternative

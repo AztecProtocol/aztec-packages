@@ -1,6 +1,17 @@
 {{> structs }}
 {{> bigint_funcs }}
 {{> montgomery_product_funcs }}
+{{#regfile_lean}}
+// Register-lean path: the CIOS multiply's 20 accumulators live in workgroup
+// memory (`mont_s`) instead of 20 registers, raising Adreno wave occupancy.
+// Transposed layout (slot j of thread wg_slot at mont_s[wg_slot + j*MONT_TPB])
+// keeps a wave's accesses to one accumulator on consecutive words = no bank
+// conflicts. Each thread touches only its own slots, so no barrier is needed.
+const MONT_TPB: u32 = {{ workgroup_size }}u;
+var<workgroup> mont_s: array<u32, 20u * MONT_TPB>;
+var<private> wg_slot: u32;
+{{> montgomery_product_wg_funcs }}
+{{/regfile_lean}}
 
 // PERF PROBES (additive, correctness-preserving). Default 0 = no-op; sed to sweep.
 const EXTRA_MUL_PROBE: u32 = 0u;
@@ -9,6 +20,14 @@ const EXTRA_INV_PROBE: u32 = 0u;
 {{> fr_pow_funcs }}
 {{> bigint_by_funcs }}
 {{> inverse_funcs }}
+{{#regfile_lean_inv}}
+// Register-lean inverse: the packed safegcd state f,g,d,e (4x10 words) lives in
+// the workgroup array `inv_state` (transposed, region-major) instead of private
+// memory, cutting the inverse's contribution to per-thread spill (scratch).
+const WG_TPB: u32 = MONT_TPB;
+var<workgroup> inv_state: array<u32, 40u * WG_TPB>;
+{{> inverse_wg_funcs }}
+{{/regfile_lean_inv}}
 
 {{{ dec_unpack }}}
 
@@ -135,15 +154,36 @@ fn store_partial(pslot: u32, bucket_id: u32, M: u32, x_val: array<u32, 8>, y_val
     partial_dest[pslot] = bucket_id;
 }
 
+// === Per-slot scalar state relocated to GLOBAL memory ===
+// The peel processes one slot at a time, so the per-slot state (cursor, bucket
+// bounds, task end, sorted index) is used sequentially — never simultaneously
+// register-resident. It lives in the tail of partial_dest: region r ∈ {2..6},
+// element k of thread ps_t at partial_dest[r*ps_nt*S + k*ps_nt + ps_t]
+// (coalesced over t). Set at kernel entry.
+var<private> ps_t: u32;       // global thread id (gid.x)
+var<private> ps_nt: u32;      // NUM_THREADS
+const PS_CURSOR: u32 = 2u;
+const PS_BEND:   u32 = 3u;
+const PS_TES:    u32 = 4u;
+const PS_TEC:    u32 = 5u;
+const PS_CS:     u32 = 6u;
+fn ld_ps(r: u32, k: u32) -> u32 { return partial_dest[r * ps_nt * S + k * ps_nt + ps_t]; }
+fn st_ps(r: u32, k: u32, v: u32) { partial_dest[r * ps_nt * S + k * ps_nt + ps_t] = v; }
+
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         @builtin(local_invocation_id) lid: vec3<u32>) {
     let t = gid.x;
     let l = lid.x;
+{{#regfile_lean}}
+    wg_slot = l;  // this thread's accumulator slot in the workgroup montmul scratch
+{{/regfile_lean}}
     let NUM_THREADS = params.x;
     let IDLE_ANCHOR = params.y;
     let M_buckets = params.z;
     let M_partials = params.w;
+    ps_t = t;
+    ps_nt = NUM_THREADS;
 
     if (t >= NUM_THREADS) { return; }
 
@@ -153,22 +193,30 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     //   k_stride = 2 * NUM_THREADS (per-slot stride; adjacent threads share cache line)
     let pref_off = 4u * M_partials;
     let k_stride = 2u * NUM_THREADS;
+    // acc_x / acc_y (per-slot running partial sums) live in GLOBAL memory in the
+    // tail of partials_buf, NOT in per-thread private arrays. The peel touches
+    // one slot at a time, so each slot's accumulator is streamed in/out as
+    // needed (load_pref/store_pref, same coalesced layout as pref). Holding all
+    // S in a private array unrolled into S simultaneously-live 256-bit values
+    // and spilled KB/thread to scratch; one-slot-at-a-time keeps it out of the
+    // register file. Regions (vec4 units): acc_x at 5*M_partials, acc_y at 6*.
+    let acc_x_off = 5u * M_partials;
+    let acc_y_off = 6u * M_partials;
 
-    // Per-slot state (private). acc lives in registers (plan §7.1). The task
-    // end is tracked as (sorted index, l0 cursor within that bucket) — NOT a
-    // bare l0 cursor — because l0 positions are not monotonic across sorted
-    // buckets, so a raw cursor>=task_end test would be meaningless once a
-    // multi-bucket task walks into a bucket whose l0 region precedes the end.
-    var cursor:         array<u32, {{ s }}>;   // l0_index point position
-    var bucket_end:     array<u32, {{ s }}>;   // l0 position past current bucket
-    var task_end_sort:  array<u32, {{ s }}>;   // sorted index of the task's last bucket
-    var task_end_cur:   array<u32, {{ s }}>;   // l0 position past the task within that bucket
-    var cur_sorted:     array<u32, {{ s }}>;   // index into sorted_bucket_list
+    // Per-slot state lives in GLOBAL memory (partial_dest tail) via ld_ps/st_ps,
+    // streamed one slot at a time. The task end is tracked as (sorted index, l0
+    // cursor within that bucket) — NOT a bare l0 cursor — because l0 positions
+    // are not monotonic across sorted buckets, so a raw cursor>=task_end test
+    // would be meaningless once a multi-bucket task walks into a bucket whose
+    // l0 region precedes the end.
+    //   PS_CURSOR    l0_index point position
+    //   PS_BEND      l0 position past current bucket
+    //   PS_TES       sorted index of the task's last bucket
+    //   PS_TEC       l0 position past the task within that bucket
+    //   PS_CS        index into sorted_bucket_list
     var is_first_m: u32 = 0u;
     var slot_done_m: u32 = 0u;
     var split_start_m: u32 = 0u;
-    var acc_x:          array<array<u32, 8>, {{ s }}>;
-    var acc_y:          array<array<u32, 8>, {{ s }}>;
 
     // Initialise slots from precomputed task cuts (KNOB 2).
     for (var k: u32 = 0u; k < S; k = k + 1u) {
@@ -224,11 +272,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             te_cur = 0u;
         }
 
-        cursor[k] = start_cursor;
-        bucket_end[k] = eff_base + eff_count;
-        task_end_sort[k] = te_sort;
-        task_end_cur[k] = te_cur;
-        cur_sorted[k] = eff_sorted;
+        st_ps(PS_CURSOR, k, start_cursor);
+        st_ps(PS_BEND, k, eff_base + eff_count);
+        st_ps(PS_TES, k, te_sort);
+        st_ps(PS_TEC, k, te_cur);
+        st_ps(PS_CS, k, eff_sorted);
 
         is_first_m = is_first_m | (1u << k);
         slot_done_m = slot_done_m & ~(1u << k);
@@ -243,7 +291,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         // so a piece with one point before its first boundary can't go through
         // it. Dense buckets have count>=2, so this only arises for a split
         // continuation landing on a bucket's last point.
-        var seg_end = bucket_end[k];
+        var seg_end = ld_ps(PS_BEND, k);
         if (eff_sorted == te_sort) { seg_end = te_cur; }
         if ((((split_start_m >> k) & 1u) == 1u) && seg_end - start_cursor == 1u) {
             let px = load_pt_x(start_cursor);
@@ -256,10 +304,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 let nxt = eff_sorted + 1u;
                 let nxt_id = sorted_bucket_list[nxt];
                 let nxt_base = offsets[nxt_id];
-                cur_sorted[k] = nxt;
+                st_ps(PS_CS, k, nxt);
 
-                bucket_end[k] = nxt_base + sorted_count_list[nxt];
-                cursor[k] = nxt_base;
+                st_ps(PS_BEND, k, nxt_base + sorted_count_list[nxt]);
+                st_ps(PS_CURSOR, k, nxt_base);
                 split_start_m = split_start_m & ~(1u << k);
                 if (nxt > te_sort) { slot_done_m = slot_done_m | (1u << k); }
             }
@@ -291,12 +339,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             var p_rx: array<u32, 8>;
             let sd_b = (slot_done_m >> k) & 1u;
             let isf_b = (is_first_m >> k) & 1u;
-            let rx_addr = select(select(cursor[k], cursor[k] + 1u, isf_b == 1u), IDLE_ANCHOR + 1u, sd_b == 1u);
+            let rx_addr = select(select(ld_ps(PS_CURSOR, k), ld_ps(PS_CURSOR, k) + 1u, isf_b == 1u), IDLE_ANCHOR + 1u, sd_b == 1u);
             p_rx = load_pt_x(rx_addr);
             if (sd_b == 1u || isf_b == 1u) {
-                p_lx = load_pt_x(select(cursor[k], IDLE_ANCHOR, sd_b == 1u));
+                p_lx = load_pt_x(select(ld_ps(PS_CURSOR, k), IDLE_ANCHOR, sd_b == 1u));
             } else {
-                p_lx = acc_x[k];
+                p_lx = load_pref(k, t, acc_x_off, k_stride);
             }
             let dx = fr_sub_f8(p_rx, p_lx);
             if (k == 0u) { acc = dx; } else { acc = montgomery_product_f8(acc, dx); }
@@ -324,28 +372,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
             let k = S - 1u - jj;
 
-            // X-coord loads (needed for both inv update and affine add).
+            // X-coord loads (registers).
             var p_lx: array<u32, 8>;
             var p_rx: array<u32, 8>;
             let sd_b = (slot_done_m >> k) & 1u;
             let isf_b = (is_first_m >> k) & 1u;
-            let rx_addr = select(select(cursor[k], cursor[k] + 1u, isf_b == 1u), IDLE_ANCHOR + 1u, sd_b == 1u);
+            let rx_addr = select(select(ld_ps(PS_CURSOR, k), ld_ps(PS_CURSOR, k) + 1u, isf_b == 1u), IDLE_ANCHOR + 1u, sd_b == 1u);
             p_rx = load_pt_x(rx_addr);
             if (sd_b == 1u || isf_b == 1u) {
-                p_lx = load_pt_x(select(cursor[k], IDLE_ANCHOR, sd_b == 1u));
+                p_lx = load_pt_x(select(ld_ps(PS_CURSOR, k), IDLE_ANCHOR, sd_b == 1u));
             } else {
-                p_lx = acc_x[k];
+                p_lx = load_pref(k, t, acc_x_off, k_stride);
             }
 
-            // Lever V1: compute x_sum = p_lx + p_rx immediately, so p_rx's
-            // live range ends here (before the inv-update mul, the inversion-
-            // derived inv_dx mul, the Y-loads, and the lambda/r_x chain). This
-            // removes one 256-bit value (8 regs) from the peak-pressure affine
-            // window. dx_b for the inv chain is also derived here from the same
-            // two operands, so p_rx is fully dead afterwards.
             let x_sum = fr_add_f8(p_lx, p_rx);
 
-            // Derive inv_dx[k] in register, update running inv for next iter.
+            // Derive inv_dx[k], update running inv (registers).
             var inv_dx: array<u32, 8>;
             if (k == 0u) {
                 inv_dx = inv;
@@ -360,19 +402,19 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             // the affine add.
             if ((((slot_done_m >> k) & 1u) == 1u)) { continue; }
 
-            // Y-coord loads + cursor advance.
+            // Y-coord loads (registers) + cursor advance.
             var p_ly: array<u32, 8>;
             var p_ry: array<u32, 8>;
-            let ry_addr = select(cursor[k], cursor[k] + 1u, isf_b == 1u);
+            let ry_addr = select(ld_ps(PS_CURSOR, k), ld_ps(PS_CURSOR, k) + 1u, isf_b == 1u);
             p_ry = load_pt_y(ry_addr);
             if (isf_b == 1u) {
-                p_ly = load_pt_y(cursor[k]);
+                p_ly = load_pt_y(ld_ps(PS_CURSOR, k));
             } else {
-                p_ly = acc_y[k];
+                p_ly = load_pref(k, t, acc_y_off, k_stride);
             }
-            cursor[k] = cursor[k] + select(1u, 2u, isf_b == 1u);
+            st_ps(PS_CURSOR, k, ld_ps(PS_CURSOR, k) + select(1u, 2u, isf_b == 1u));
 
-            // Affine add using inv_dx (in register). p_rx already consumed.
+            // Affine add (registers).
             var lambda = fr_sub_f8(p_ry, p_ly);
             lambda = montgomery_product_f8(lambda, inv_dx);
             var r_x = montgomery_product_f8(lambda, lambda);
@@ -387,37 +429,37 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             // Task end is region-aware: only the task's designated last bucket
             // can trigger it (cursor is meaningful only within the current
             // bucket's l0 region).
-            let task_done = (cur_sorted[k] == task_end_sort[k]) && (cursor[k] >= task_end_cur[k]);
-            let bucket_done = cursor[k] >= bucket_end[k];
+            let task_done = (ld_ps(PS_CS, k) == ld_ps(PS_TES, k)) && (ld_ps(PS_CURSOR, k) >= ld_ps(PS_TEC, k));
+            let bucket_done = ld_ps(PS_CURSOR, k) >= ld_ps(PS_BEND, k);
 
             if (task_done) {
-                let is_partial = ((((split_start_m >> k) & 1u) == 1u)) || (cursor[k] < bucket_end[k]);
+                let is_partial = ((((split_start_m >> k) & 1u) == 1u)) || (ld_ps(PS_CURSOR, k) < ld_ps(PS_BEND, k));
                 if (is_partial) {
-                    store_partial(2u * (t * S + k) + 1u, sorted_bucket_list[cur_sorted[k]], M_partials, r_x, r_y);
+                    store_partial(2u * (t * S + k) + 1u, sorted_bucket_list[ld_ps(PS_CS, k)], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(sorted_bucket_list[cur_sorted[k]], r_x, r_y);
+                    store_bucket_sum(sorted_bucket_list[ld_ps(PS_CS, k)], r_x, r_y);
                 }
                 slot_done_m = slot_done_m | (1u << k);
             } else if (bucket_done) {
                 if ((((split_start_m >> k) & 1u) == 1u)) {
-                    store_partial(2u * (t * S + k) + 0u, sorted_bucket_list[cur_sorted[k]], M_partials, r_x, r_y);
+                    store_partial(2u * (t * S + k) + 0u, sorted_bucket_list[ld_ps(PS_CS, k)], M_partials, r_x, r_y);
                 } else {
-                    store_bucket_sum(sorted_bucket_list[cur_sorted[k]], r_x, r_y);
+                    store_bucket_sum(sorted_bucket_list[ld_ps(PS_CS, k)], r_x, r_y);
                 }
                 // Advance to the next bucket within the task. Subsequent
                 // buckets always begin fresh (never split-start).
-                let nxt = cur_sorted[k] + 1u;
+                let nxt = ld_ps(PS_CS, k) + 1u;
                 let nxt_id = sorted_bucket_list[nxt];
                 let nxt_base = offsets[nxt_id];
-                cur_sorted[k] = nxt;
+                st_ps(PS_CS, k, nxt);
 
-                bucket_end[k] = nxt_base + sorted_count_list[nxt];
-                cursor[k] = nxt_base;
+                st_ps(PS_BEND, k, nxt_base + sorted_count_list[nxt]);
+                st_ps(PS_CURSOR, k, nxt_base);
                 is_first_m = is_first_m | (1u << k);
                 split_start_m = split_start_m & ~(1u << k);
             } else {
-                acc_x[k] = r_x;
-                acc_y[k] = r_y;
+                store_pref(k, t, acc_x_off, k_stride, r_x);
+                store_pref(k, t, acc_y_off, k_stride, r_y);
                 is_first_m = is_first_m & ~(1u << k);
             }
         }
