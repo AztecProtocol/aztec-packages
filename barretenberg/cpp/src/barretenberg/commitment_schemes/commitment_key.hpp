@@ -126,32 +126,21 @@ template <class Curve> class CommitmentKey {
         CommitmentKey* key;
         RefVector<Polynomial<Fr>> wires;
         std::vector<std::string> labels;
-        std::vector<const Polynomial<Fr>*> tail_polys; // optional ZK masking tails (parallel to wires)
-        std::vector<uint8_t> has_duplicates_hints;     // per-poly dedup opt-in (parallel to wires)
+        std::vector<uint8_t> has_duplicates_hints; // per-poly dedup opt-in (parallel to wires)
 
         std::vector<Commitment> commit_and_send_to_verifier(auto transcript)
         {
             std::vector<Commitment> commitments = key->batch_commit(wires, has_duplicates_hints);
-
-            // Adjust commitments for wires with masking tails: C' = C_short + commit(tail)
             for (size_t i = 0; i < commitments.size(); ++i) {
-                if (i < tail_polys.size() && tail_polys[i] != nullptr && !tail_polys[i]->is_empty()) {
-                    commitments[i] = commitments[i] + key->commit(*tail_polys[i]);
-                }
                 transcript->send_to_verifier(labels[i], commitments[i]);
             }
-
             return commitments;
         }
 
-        void add_to_batch(Polynomial<Fr>& poly,
-                          const std::string& label,
-                          const Polynomial<Fr>* tail = nullptr,
-                          bool has_duplicates_hint = false)
+        void add_to_batch(Polynomial<Fr>& poly, const std::string& label, bool has_duplicates_hint = false)
         {
             wires.push_back(poly);
             labels.push_back(label);
-            tail_polys.push_back(tail);
             has_duplicates_hints.push_back(has_duplicates_hint ? uint8_t{ 1 } : uint8_t{ 0 });
         }
     };

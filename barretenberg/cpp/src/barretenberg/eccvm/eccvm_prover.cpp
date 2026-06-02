@@ -65,8 +65,7 @@ void ECCVMProver::execute_wire_commitments_round()
 
     auto batch = key->commitment_key.start_batch();
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
-        batch.add_to_batch(
-            wire, label, /*tail=*/nullptr, Flavor::CommitmentLabels::wire_has_high_duplicate_density(label));
+        batch.add_to_batch(wire, label, Flavor::CommitmentLabels::wire_has_high_duplicate_density(label));
     }
     batch.commit_and_send_to_verifier(transcript);
 }

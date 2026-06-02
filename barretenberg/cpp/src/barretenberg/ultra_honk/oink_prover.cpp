@@ -74,12 +74,9 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
 
     // Commit to the first three wire polynomials; w_4 is deferred until after memory records are added
     // Masking values are already in the polynomials
-    batch.add_to_batch(
-        prover_instance->polynomials.w_l, commitment_labels.w_l, /*tail=*/nullptr, /*has_duplicates_hint=*/true);
-    batch.add_to_batch(
-        prover_instance->polynomials.w_r, commitment_labels.w_r, /*tail=*/nullptr, /*has_duplicates_hint=*/true);
-    batch.add_to_batch(
-        prover_instance->polynomials.w_o, commitment_labels.w_o, /*tail=*/nullptr, /*has_duplicates_hint=*/true);
+    batch.add_to_batch(prover_instance->polynomials.w_l, commitment_labels.w_l, /*has_duplicates_hint=*/true);
+    batch.add_to_batch(prover_instance->polynomials.w_r, commitment_labels.w_r, /*has_duplicates_hint=*/true);
+    batch.add_to_batch(prover_instance->polynomials.w_o, commitment_labels.w_o, /*has_duplicates_hint=*/true);
 
     if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [polynomial, label] :
@@ -124,8 +121,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_lookup_counts_and_
     auto batch = commitment_key.start_batch();
     batch.add_to_batch(prover_instance->polynomials.lookup_read_counts, commitment_labels.lookup_read_counts);
     batch.add_to_batch(prover_instance->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags);
-    batch.add_to_batch(
-        prover_instance->polynomials.w_4, commitment_labels.w_4, /*tail=*/nullptr, /*has_duplicates_hint=*/true);
+    batch.add_to_batch(prover_instance->polynomials.w_4, commitment_labels.w_4, /*has_duplicates_hint=*/true);
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
 
     prover_instance->commitments.lookup_read_counts = computed_commitments[0];
@@ -183,7 +179,7 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
     auto& z_perm = prover_instance->polynomials.z_perm;
     auto batch = commitment_key.start_batch();
     // set has_duplicates_hint for Z_PERM (empty row = duplicate Z value)
-    batch.add_to_batch(z_perm, commitment_labels.z_perm, /*tail=*/nullptr, /*has_duplicates_hint=*/true);
+    batch.add_to_batch(z_perm, commitment_labels.z_perm, /*has_duplicates_hint=*/true);
     auto commitments = batch.commit_and_send_to_verifier(transcript);
     prover_instance->commitments.z_perm = commitments[0];
 }
