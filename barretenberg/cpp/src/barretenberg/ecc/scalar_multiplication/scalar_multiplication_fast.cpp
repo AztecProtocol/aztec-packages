@@ -17,7 +17,6 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -130,29 +129,6 @@ template <typename ScalarField>
 // positions (0..253) plus this sentinel; matching `msb_hist` bin layout uses bin 0 = zero count
 // so callers index via `msb + 1` (with -1 → bin 0 for the zero case).
 inline constexpr uint8_t MSB_ZERO_SENTINEL = 255;
-
-// Ablation toggle for the 4-wide SIMD digit-extraction path used by Stage 1 / Stage 4.
-// When forced, both stages skip the SIMD x4 chunk loop and route every scalar through the
-// proven scalar `get_constantine_packed_digit` tail loop (the path that already handles the
-// <SIMD_BATCH remainder). Lets the SIMD x4 path be A/B-benched against the scalar path
-// without a code change, to validate the unverified "4-wide compute dominates so net win"
-// claim — particularly on V8/WASM where SIMD lowering quality differs from native.
-//
-// Selection: compile-time `BB_MSM_FORCE_SCALAR_DIGITS` (for per-artifact browser builds,
-// since env vars don't reach browser wasm), else runtime `BB_MSM_SCALAR_DIGITS` env var
-// (any value = force scalar). Read once per process; the guard sits outside the per-scalar
-// inner loop so the shipped (SIMD) path pays nothing.
-[[nodiscard]] inline bool msm_force_scalar_digits() noexcept
-{
-    static const bool forced = [] {
-#ifdef BB_MSM_FORCE_SCALAR_DIGITS
-        return true;
-#else
-        return std::getenv("BB_MSM_SCALAR_DIGITS") != nullptr;
-#endif
-    }();
-    return forced;
-}
 
 // Batched-affine drain trigger. `tree_reduce_in_place` accumulates same-bucket pair
 // candidates into the per-thread `points_to_add` / `pair_dest` scratch and drains via a
@@ -2270,8 +2246,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             };
 
             size_t i = start;
-            const bool force_scalar = round_parallel_detail::msm_force_scalar_digits();
-            while (!force_scalar && i + SIMD_BATCH <= end) {
+            while (i + SIMD_BATCH <= end) {
                 const uint64_t include_mask = compute_include_mask(i);
                 if (include_mask == 0) {
                     i += SIMD_BATCH;
@@ -2452,13 +2427,12 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                     active_tile[j] = static_cast<uint8_t>(include);
                 }
 
-                const bool force_scalar = round_parallel_detail::msm_force_scalar_digits();
                 for (size_t w = 0; w < windows_in_batch; ++w) {
                     uint32_t* my_cursor = cursors[w];
                     const size_t* bucket_start = bucket_starts[w];
                     uint32_t* sched_w = schedules[w];
                     size_t i = tile_start;
-                    while (!force_scalar && i + SIMD_BATCH <= tile_end) {
+                    while (i + SIMD_BATCH <= tile_end) {
                         const size_t rel = i - tile_start;
                         uint64_t include_mask = 0;
                         for (size_t k = 0; k < SIMD_BATCH; ++k) {
