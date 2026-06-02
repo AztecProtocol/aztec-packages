@@ -8,7 +8,7 @@ describe('AnchorBlockStore', () => {
   let store: AnchorBlockStore;
 
   beforeEach(async () => {
-    kv = await openTmpStore('anchor-header-store-test');
+    kv = await openTmpStore('anchor-block-store-test');
     store = new AnchorBlockStore(kv);
   });
 
