@@ -89,10 +89,19 @@ export interface MsmConfig {
   /**
    * Sparsity extent clamp: process only the first STRIDE' = this value buckets
    * per window in the segmented reduce (must be >= the max live bucket index,
-   * a power of 2, <= STRIDE). 0 = full STRIDE. The GPU planner sets this
-   * automatically; this knob is for validation.
+   * a power of 2, <= STRIDE). 0 = full STRIDE. Normally set automatically from
+   * {@link maxScalarBits}; this knob is for validation.
    */
   reduceStride?: number;
+  /**
+   * Guaranteed upper bound on scalar size: every scalar is < 2^maxScalarBits.
+   * When this implies the buckets occupy fewer than STRIDE slots (only when
+   * maxScalarBits < c), the reduce auto-switches to the recursive segmented
+   * kernel clamped to the safe extent — a large win for small-scalar MSMs
+   * (profiles D/E). Honest bound required: a scalar exceeding it corrupts the
+   * result. 0/unset = no bound (full reduce).
+   */
+  maxScalarBits?: number;
   /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
@@ -196,6 +205,30 @@ function boothDigit(scalar: bigint, w: number, c: number): { bucket: number; sig
   const encode = (raw + 1) >>> 1;
   const bucket = (((encode - neg) >>> 0) ^ negMask) & valMask;
   return { bucket, sign: neg };
+}
+
+// Provably-safe reduce extent STRIDE' for scalars guaranteed < 2^maxBits: the
+// smallest power of 2 >= the max bucket index any such scalar can produce in
+// any window. Returns STRIDE (no clamp) once a window can fill the full range.
+// The Booth recode is carry-free, so for maxBits < c only window 0 (and, for
+// safety, window 1) can be nonzero and 2^maxBits is tiny — exact evaluation is
+// cheap and avoids trusting an analytic bound (a too-small STRIDE' would
+// silently drop live buckets).
+function safeReduceStride(maxBits: number, c: number, stride: number, numWindows: number): number {
+  if (!Number.isInteger(maxBits) || maxBits >= c || maxBits >= 24) return stride;
+  const N = 1 << maxBits;
+  const wHi = Math.min(numWindows, 2);
+  let maxBucket = 0;
+  for (let v = 0; v < N; v++) {
+    for (let w = 0; w < wHi; w++) {
+      const b = boothDigit(BigInt(v), w, c).bucket;
+      if (b > maxBucket) maxBucket = b;
+    }
+  }
+  if (maxBucket === 0) return Math.min(stride, 2); // degenerate: all-zero scalars
+  // bucket k occupies slot offset k-1, so STRIDE' (slot count) must be >= maxBucket.
+  const sp = 1 << Math.ceil(Math.log2(maxBucket));
+  return Math.min(stride, Math.max(2, sp));
 }
 
 /**
@@ -1699,6 +1732,18 @@ export class MsmV2 {
     for (let L1 = 2 * L0; L1 < STRIDE; L1 *= 2) push(true, 2, L1, 0, STRIDE / L1 - 1);
     for (let mm = 1; mm < STRIDE; mm *= 2) push(false, 2, L0, mm, STRIDE / (2 * mm));
     if (m.reducePasses.length > 64) throw new Error(`reduction schedule too long: ${m.reducePasses.length} > 64`);
+    // Sparsity hint: a guaranteed scalar bound (every scalar < 2^maxScalarBits)
+    // lets us clamp the reduce to the live extent and switch to the recursive
+    // segmented kernel — the win for small-scalar MSMs (profiles D/E). Only
+    // bites when the bound implies fewer than STRIDE live buckets.
+    const maxScalarBits = config?.maxScalarBits ?? 0;
+    if (maxScalarBits > 0) {
+      const sp = safeReduceStride(maxScalarBits, m.c, m.stride, m.numWindows);
+      if (sp < m.stride) {
+        m.reduceStride = sp;
+        if (m.segReduceG === 0) m.segReduceG = Math.max(2, Math.min(sp, 8));
+      }
+    }
     // Reduction coordinate regime (schedule-only, instance-constant). Levels
     // with index >= jacFromLevel run the inversion-free Jacobian kernel; the
     // Jacobian region is a contiguous suffix so Z stays consistent across it.
