@@ -422,7 +422,6 @@ template <typename Flavor> class SumcheckProverRound {
             std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(chunks.num_slots());
 
             parallel_for(chunks.num_slots(), [&](size_t slot_id) {
-                BB_BENCH_NAME("compute_univariate_with_row_skipping/chunk");
                 // Construct extended univariates container; reused across every chunk this slot claims.
                 ExtendedEdges extended_edges;
                 auto& accum = thread_univariate_accumulators[slot_id];
