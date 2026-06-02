@@ -20,7 +20,7 @@
 import { createMainWorker } from "../../src/barretenberg_wasm/barretenberg_wasm_main/factory/browser/index.js";
 import { fetchModuleAndThreads } from "../../src/barretenberg_wasm/index.js";
 import { getRemoteBarretenbergWasm } from "../../src/barretenberg_wasm/helpers/browser/index.js";
-import type { BarretenbergWasmMainWorker } from "../../src/barretenberg_wasm/barretenberg_wasm_main/index.js";
+import { BarretenbergWasmMain, type BarretenbergWasmMainWorker } from "../../src/barretenberg_wasm/barretenberg_wasm_main/index.js";
 
 // bb.js's main bb worker doesn't currently install the WebGPU bridge
 // stubs on its own; the default `main.worker.ts` we ship hands the
@@ -41,10 +41,12 @@ export interface WasmPippengerHandle {
   runMsm(numThreads: number): Promise<Uint8Array>;
   /**
    * Complete a partially-reduced bucket reduction on the CPU from the GPU's
-   * dense-packed working set. `dense` = numWindows*kPerWindow × 64 LE
+   * dense-packed working set. Runs on a MAIN-THREAD wasm instance — direct,
+   * synchronous, no worker IPC. `dense` = numWindows*kPerWindow × 64 LE
    * non-Montgomery affine ((0,0)=empty); `ops` = the flat op-list (per op
-   * (opcode,dst_rank,src_rank,_)); `rootRank` = per-window output rank. Returns
-   * numWindows × 64 LE per-window sums. The timed single-threaded compute call.
+   * (opcode,dst_rank,src_rank,_)); `rootRank` = per-window output rank.
+   * `computeMs` is the bb_msm_complete_reduce call; `totalMs` adds the in-process
+   * memcpy of inputs/result.
    */
   completeReduce(
     dense: Uint8Array,
@@ -52,7 +54,7 @@ export interface WasmPippengerHandle {
     rootRank: number,
     kPerWindow: number,
     numWindows: number,
-  ): Promise<Uint8Array>;
+  ): { result: Uint8Array; computeMs: number; totalMs: number };
   /** Thread count this handle was instantiated with (post-detection). */
   readonly threads: number;
   destroy(): Promise<void>;
@@ -149,6 +151,18 @@ export async function createWasmPippenger(
   );
   log(`wasm.init: complete`);
 
+  // A second, MAIN-THREAD wasm instance for the CPU reduce-tail completion. The
+  // worker above is the multithreaded Pippenger oracle; the completion is pure
+  // single-threaded compute and must run in-process so its timing is the actual
+  // compute, not main↔worker IPC. init(threads=1) spawns no sub-workers.
+  const wasmMain = new BarretenbergWasmMain();
+  await withTimeout(
+    "wasmMain.init (main-thread completion instance)",
+    30_000,
+    wasmMain.init(module, 1, undefined, 256, 2048),
+  );
+  log(`wasmMain.init: complete (main-thread completion instance)`);
+
   // Decode + upload the points/scalars into WASM-side vectors. UNTIMED:
   // bb_native_pippenger_bn254_load builds the AffineElement / ScalarField
   // vectors, which is input-structure population — not Pippenger compute.
@@ -196,42 +210,51 @@ export async function createWasmPippenger(
     }
   }
 
-  // Finish a partially-reduced reduction on the CPU from the GPU dense-pack.
-  // Single-threaded: bb_msm_complete_reduce replays the op-list over the dense
-  // working set. The timed call for the split experiment.
-  async function completeReduce(
+  // Finish the reduce tail on the CPU, in-process on the main-thread wasm — no
+  // worker, no IPC. All three steps (write inputs, call, read result) are
+  // synchronous. Buffers are reused; the op-list is written each call (cheap
+  // in-process memcpy). `totalMs` is the whole CPU finish; `computeMs` isolates
+  // the bb_msm_complete_reduce call.
+  let cDensePtr = 0;
+  let cDenseCap = 0;
+  let cOpsPtr = 0;
+  let cOpsCap = 0;
+  let cResPtr = 0;
+  let cResCap = 0;
+  function completeReduce(
     dense: Uint8Array,
     ops: Uint32Array,
     rootRank: number,
     kPerWindow: number,
     numWindows: number,
-  ): Promise<Uint8Array> {
+  ): { result: Uint8Array; computeMs: number; totalMs: number } {
     const numOps = ops.length / 4;
     const opsBytes = new Uint8Array(ops.buffer, ops.byteOffset, ops.byteLength);
-    const densePtr = await wasm.call("bbmalloc", Math.max(64, dense.length));
-    const opsPtr = await wasm.call("bbmalloc", Math.max(4, opsBytes.length));
-    const resultPtr = await wasm.call("bbmalloc", numWindows * 64);
-    try {
-      await wasm.writeMemory(densePtr, dense);
-      if (opsBytes.length > 0) {
-        await wasm.writeMemory(opsPtr, opsBytes);
-      }
-      await wasm.call(
-        "bb_msm_complete_reduce",
-        numWindows,
-        kPerWindow,
-        densePtr,
-        numOps,
-        opsPtr,
-        rootRank,
-        resultPtr,
-      );
-      return await wasm.getMemorySlice(resultPtr, resultPtr + numWindows * 64);
-    } finally {
-      await wasm.call("bbfree", densePtr);
-      await wasm.call("bbfree", opsPtr);
-      await wasm.call("bbfree", resultPtr);
+    const resBytes = numWindows * 64;
+    if (dense.length > cDenseCap) {
+      if (cDensePtr) wasmMain.call("bbfree", cDensePtr);
+      cDensePtr = wasmMain.call("bbmalloc", Math.max(64, dense.length));
+      cDenseCap = dense.length;
     }
+    if (opsBytes.length > cOpsCap) {
+      if (cOpsPtr) wasmMain.call("bbfree", cOpsPtr);
+      cOpsPtr = wasmMain.call("bbmalloc", Math.max(4, opsBytes.length));
+      cOpsCap = opsBytes.length;
+    }
+    if (resBytes > cResCap) {
+      if (cResPtr) wasmMain.call("bbfree", cResPtr);
+      cResPtr = wasmMain.call("bbmalloc", Math.max(64, resBytes));
+      cResCap = resBytes;
+    }
+    const t0 = performance.now();
+    wasmMain.writeMemory(cDensePtr, dense);
+    if (opsBytes.length > 0) wasmMain.writeMemory(cOpsPtr, opsBytes);
+    const t1 = performance.now();
+    wasmMain.call("bb_msm_complete_reduce", numWindows, kPerWindow, cDensePtr, numOps, cOpsPtr, rootRank, cResPtr);
+    const t2 = performance.now();
+    const result = wasmMain.getMemorySlice(cResPtr, cResPtr + resBytes);
+    const t3 = performance.now();
+    return { result, computeMs: t2 - t1, totalMs: t3 - t0 };
   }
 
   return {

@@ -591,18 +591,16 @@ async function runWebGpuOnce(
     const snap = msm.getReduceDensePack();
     if (snap) {
       const handle = await ensureWasmBooted();
-      const c0 = performance.now();
-      const cpuBytes = await handle.completeReduce(snap.dense, snap.ops, snap.rootRank, snap.kPerWindow, snap.numWindows);
-      const cpuMs = performance.now() - c0;
+      const r = handle.completeReduce(snap.dense, snap.ops, snap.rootRank, snap.kPerWindow, snap.numWindows);
       let agree = true;
       for (let w = 0; w < snap.numWindows && agree; w++) {
-        const cw = parseAffineLE(cpuBytes.subarray(w * 64, w * 64 + 64));
+        const cw = parseAffineLE(r.result.subarray(w * 64, w * 64 + 64));
         const gw = gpu.windowSums[w];
         if (cw.x !== gw.x || cw.y !== gw.y) agree = false;
       }
       log(agree ? 'ok' : 'err',
         `[cpucut=${cpucut}] ops=${snap.ops.length / 4} kPerWindow=${snap.kPerWindow} ` +
-          `cpu_complete_ms=${cpuMs.toFixed(2)} windows_agree=${agree}`);
+          `cpu_compute_ms=${r.computeMs.toFixed(3)} cpu_total_ms=${r.totalMs.toFixed(3)} windows_agree=${agree}`);
     }
   }
   // MsmV2 does not emit a per-pass GPU profile; the breakdown table skips
