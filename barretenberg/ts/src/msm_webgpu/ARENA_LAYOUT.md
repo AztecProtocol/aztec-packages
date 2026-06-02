@@ -396,19 +396,16 @@ of `n`. RED storage drops from `64·NW·stride` to `64·bw·stride`.
 >    `copyBufferToBuffer` window gather) move **into** the per-batch loop — the
 >    planner already runs per-batch, so the structure supports it. The gather's
 >    `dst` offset becomes `bi·bw·64`.
-> 3. **The `batch_offset` asymmetry — RESOLVED.** `ba_size1` computes `red_slot`
->    *without* `batch_offset` (`(bucket_idx/BW)*STRIDE + …`) while the walker/combine
->    *add* it. Not a bug: `size1`'s `bucket_idx` is a **global** bid (it reads
->    `size1_bucket_list` from `classify`, which is dispatched over the full
->    `bTotal`; the `/BW` + `%BW` decomposition only works on a global bid), so
->    `bucket_idx/BW` is already the global window — no offset needed. The walker
->    instead carries a **batch-local** window and adds `batch_offset.x =
->    bi·batchWindows` to globalise it. Both land at the same correct global slot,
->    which is why `?nb=4/20` are byte-identical to golden. **Consequence for the
->    restructure:** to make `redBuf` batch-local you must convert BOTH writers —
->    feed the walker `batch_offset.x = 0`, AND give `size1` a *subtract*-batch-base
->    term (`(bucket_idx/BW) - bi·batchWindows`) it currently lacks, else its
->    global bids overflow the now-`bw`-window `redBuf`.
+> 3. **The `batch_offset` asymmetry — `size1` was BATCH-LOCAL all along (FIXED,
+>    `96d8739bb6`).** An earlier read of this guessed `size1`'s `bid` was global;
+>    it is not. `classify` reads `counts` (written batch-local by `convMeta` over
+>    `[0,batchBuckets)`), so its emitted `bid` is **batch-local** (`bid/BW` = local
+>    window), same convention the walker uses. `ba_size1` simply *forgot* to add
+>    `batch_offset`, so it wrote the local window slice → the multi-batch staging
+>    bug (see §7 LATENT BUG → FIXED). Now `size1` adds `params.x = bi·batchWindows`
+>    like the walker. **Consequence for the batch-local-`redBuf` restructure:** feed
+>    ALL global-writers (`walker`, `combine_filter`, `size1`) `batch_offset.x = 0`
+>    so they write the bw-window slice; that's the *only* change to the writers.
 >
 > **Risk is bounded:** at `numBatches=1` the change is byte-identical *by
 > construction* (`batchWindows=NW` ⇒ `M_RED=NW·stride`, `batch_offset.x=0=0·NW`),
@@ -426,35 +423,28 @@ cap and the budget, using `arenaColourSizes` (the THREAD terms the old estimate
 omitted) + SRS + CSR. The budget is device-configurable (`budgetMiB`, default 160,
 `3bd8ea957f`). Pack-count staging is the remaining piece, deferred into step 5.
 
-> **LATENT BUG — multi-batch staging at `BW > 8192` / `c ≥ 14` (`5b9aa5068e`).**
-> `gen_transpose_count_tiled_shader` uses an 8192-entry shared histogram
-> (`Math.min(BW, 8192)`, 32 KiB). When `BW > 8192` (i.e. `c ≥ 14`) **and**
-> `numBatches > 1`, the tiled transpose produces **wrong bucket sums** — bisected
-> against the WASM oracle: `c=13` (BW 4352) is correct at any `nb`; `c=14` (BW
-> 8448) and `c=15` (BW 16640) disagree at `nb≥2` but are correct at `nb=1`; the
-> threshold is exactly the 8192 cap, independent of `n`. Pre-existing (the
-> `wgFits`-only loop hits it at logN≥19); the budget gate would have newly hit it
-> at logN18, so the gate is now guarded (`canStageForBudget = BW ≤
-> TRANSPOSE_HIST_CAP`) — at `BW>8192` the budget is met by the `sT` lever only,
-> never window-staging. **Chonk never triggers it** (max `c=13`). It MUST be fixed
-> before split-c/packing use `c ≥ 14` with staging.
+> **FIXED — multi-batch staging corruption: `ba_size1` missing `batch_offset`**
+> (bug `5b9aa5068e` guarded → root-caused & fixed `96d8739bb6`, guard removed
+> `ab90ad555e`). `ba_size1` wrote `red_slot = (bid/BW)*STRIDE + (bid%BW-1)`
+> **without** the `batch_offset` that `ba_stream_walker` and
+> `ba_walker_combine_filter` both add. Its `bid` is batch-local, so for batches
+> `bi>0` the size-1 buckets landed in the *local* `red_buf` window slice instead
+> of the *global* one — batch `bi`'s size-1 buckets corrupting batch 0's windows.
 >
-> **Localization (per-window-sum bisection, `?logn=16&c=14&nb=N` vs `nb=1`).** Wrong
-> windows are structural (data-independent — identical sets at seed 12345 & 99999)
-> and `bw`-dependent (nb=2 bw=10 → {0,2,5,7,10,12,15,17}; nb=3 bw=7 →
-> {1,3,5,8,10,12,15,17}; nb=5 bw=4 → 10 windows). **NOT the transpose:** a single
-> window's transpose CSR is `bw`-independent (its indices use `window`/`npt`/`BW`,
-> not `batchWindows`), yet `nb=1` (bw=NW) gets a window right while `nb=17` (bw=1)
-> gets the SAME window wrong → corruption is **downstream of the transpose**, in
-> the planner (classify/radix/cumsum/partition) or walker_combine — all dispatched
-> `ceil(bTotal/256)` over GLOBAL bucket space while the active data is batch-local
-> (`batchBuckets = bw·BW`). The reduce is correct (runs once over NW; `nb=1` exact).
-> Threshold is the 8192 transpose cap, so something keyed to `BW>cap` (the >cap
-> bucket region, magnitude near `STRIDE`) combines with the `bw<NW` planner
-> dispatch. **Next:** read back `partial_count` / `active_buckets` / the
-> radix-sorted list for a wrong window at `nb=2` vs `nb=1` to find the first
-> diverging stage; the guard makes this safe to investigate without shipping wrong
-> results.
+> The "BW > 8192 / c ≥ 14" threshold was a **coincidence**: what matters is
+> **points-per-bucket = n/stride**. `c=13 @ logN16` = 16 pts/bucket → ~0 size-1
+> buckets → `size1` never runs → looked fine; `c=14` = 8 pts/bucket → ~420 size-1
+> buckets → corruption. Confirmed by forcing few pts/bucket at `c=13` (BW=4352,
+> *below* the cap): `?logn=14&c=13&nb=2` and `?logn=13&c=13&nb=2` were also wrong.
+>
+> **Bisection that found it** (kept as a debugging recipe): per-window-sum dump
+> (`run()` decode of `windowSums`) showed structural, data-independent wrong-window
+> sets → ruled out data corruption. A pre-reduce snapshot of `red_buf` + `is_present`
+> showed **batch 0 GAINS buckets while batch 1 LOSES** them → a writer with no
+> `batch_offset` → `size1` (the only one). **Fix:** `size1` is now per-batch with
+> `params.x = bi·batchWindows` added to `bid/BW`, identical to the walker; `= 0` at
+> `numBatches=1` so the single-batch path is byte-identical. Validated: all of
+> `c=13/14/15 nb=2/5/17` and `D/E nb=4` agree with the oracle; golden unchanged.
 
 ---
 
