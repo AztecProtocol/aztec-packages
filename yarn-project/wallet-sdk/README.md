@@ -383,6 +383,16 @@ try {
 1. **Opening a store consumes the key, it does not copy it.** So that raw key material does not linger in page memory, the SDK moves your key into the storage worker and detaches the buffer on your side. The `Uint8Array` you passed comes back empty, so the same array cannot be reused to open a second store. To open more than one store with the same key, hand each open a fresh copy (`new Uint8Array(key)`). `openEncryptedEmbeddedStores` does this for you by invoking your `getEncryptionKey` callback once per store.
 2. **Each coexisting store needs its own `poolDirectory`.** The OPFS SAH Pool holds an *exclusive* lock on its directory, so two stores sharing the default pool fail with "Access Handles cannot be created if there is another open Access Handle…". Give every store a distinct, stable `poolDirectory` (stable so the same files re-open next session).
 
+### No multi-tab access: assume one tab at a time
+
+A store can be opened by **one browser tab at a time per origin**. If the user opens your wallet in a second tab of the same origin pointing at the same store, the second open contends for that lock.
+
+Thanks to the lock, the data is never corrupted, but the second open fails or hangs rather than succeeding, and there is no graceful "already open elsewhere" signal yet.
+
+Until it does, design for a single active tab: detect a second instance (e.g. with the [Web Locks API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API) or a `BroadcastChannel`) and steer the user back to the existing tab, or open the store read-only there.
+
+If you need genuine concurrent multi-tab access, route all storage access through a single `SharedWorker` that you own and that holds the one connection.
+
 ### Opting out of encryption
 
 If you do not need at-rest encryption (you rely on full-disk encryption, or the device is trusted), an *unencrypted* SQLite-OPFS store is still a better default than IndexedDB.
