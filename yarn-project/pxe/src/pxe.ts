@@ -75,7 +75,7 @@ import {
 } from './private_kernel/private_kernel_execution_prover.js';
 import { PrivateKernelOracle } from './private_kernel/private_kernel_oracle.js';
 import { AddressStore } from './storage/address_store/address_store.js';
-import { AnchorBlockStore } from './storage/anchor_block_store/index.js';
+import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
 import { NoteStore } from './storage/note_store/note_store.js';
