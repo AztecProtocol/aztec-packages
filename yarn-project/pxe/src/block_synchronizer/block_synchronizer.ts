@@ -92,8 +92,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         break;
       }
       case 'chain-finalized': {
-        // Finality requires no storage action under delete-on-prune: a finalized block can no longer be reorged, so its
-        // rows are already canonical and nothing needs reaping.
+        // Finality requires no storage action under delete-on-prune: a finalized block can no longer be reorged, and any
+        // orphaned rows were already deleted at prune time, so finality is a pure anchor advance.
         if (this.config.syncChainTip === 'finalized') {
           const block = await this.node.getBlock(BlockNumber(event.block.number));
           if (block) {
