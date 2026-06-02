@@ -168,49 +168,55 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let outN = sparams.w;
     let src_base = bparams.x;
     let dst_base = bparams.y;
+    let nthreads = bparams.z; // = min(A, T_sat): each thread strides over A/nthreads items
     let R = get_r_f8();
 
     if (phase == 0u) {
         // COARSE: m raw buckets [w*stride + p*m, +m) -> pair (total, wsum_0based).
-        let idx = gid.x;
-        if (idx >= num_windows * outN) { return; }
-        let w = idx / outN;
-        let p = idx % outN;
-        let seg_base = w * stride + p * m;
-        var S: Jac = jac_inf();
-        var WS: Jac = jac_inf();
-        for (var ii: u32 = 0u; ii < m; ii = ii + 1u) {
-            let i = m - 1u - ii;
-            let slot = seg_base + i;
-            let present = is_present[slot] != 0u;
-            let z = fr_sel(array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u), R, present);
-            let P = Jac(load_x(slot, M), load_y(slot, M), z);
-            S = jac_add(S, P);
-            if (i >= 1u) { WS = jac_add(WS, S); }
+        // Adaptive: nthreads threads, each strides over its share of the outputs.
+        let total = num_windows * outN;
+        if (gid.x >= nthreads) { return; }
+        for (var idx: u32 = gid.x; idx < total; idx = idx + nthreads) {
+            let w = idx / outN;
+            let p = idx % outN;
+            let seg_base = w * stride + p * m;
+            var S: Jac = jac_inf();
+            var WS: Jac = jac_inf();
+            for (var ii: u32 = 0u; ii < m; ii = ii + 1u) {
+                let i = m - 1u - ii;
+                let slot = seg_base + i;
+                let present = is_present[slot] != 0u;
+                let z = fr_sel(array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u), R, present);
+                let P = Jac(load_x(slot, M), load_y(slot, M), z);
+                S = jac_add(S, P);
+                if (i >= 1u) { WS = jac_add(WS, S); }
+            }
+            pair_store(dst_base, w * outN + p, Pair(S, WS));
         }
-        pair_store(dst_base, w * outN + p, Pair(S, WS));
     } else if (phase == 2u) {
         // COMBINE: m child pairs -> parent pair, weight w = 2^log2w.
-        let idx = gid.x;
-        if (idx >= num_windows * outN) { return; }
-        let w = idx / outN;
-        let p = idx % outN;
-        let i0 = p * m;
-        var ST: Jac = jac_inf();
-        var SccT: Jac = jac_inf();
-        var WS: Jac = jac_inf();
-        for (var cc: u32 = 0u; cc < m; cc = cc + 1u) {
-            let c = m - 1u - cc;
-            let ci = i0 + c;
-            if (ci >= inN) { continue; }
-            let ch = pair_load(src_base, w * inN + ci);
-            ST = jac_add(ST, ch.total);
-            WS = jac_add(WS, ch.wsum);
-            if (c >= 1u) { SccT = jac_add(SccT, ST); }
+        let total = num_windows * outN;
+        if (gid.x >= nthreads) { return; }
+        for (var idx: u32 = gid.x; idx < total; idx = idx + nthreads) {
+            let w = idx / outN;
+            let p = idx % outN;
+            let i0 = p * m;
+            var ST: Jac = jac_inf();
+            var SccT: Jac = jac_inf();
+            var WS: Jac = jac_inf();
+            for (var cc: u32 = 0u; cc < m; cc = cc + 1u) {
+                let c = m - 1u - cc;
+                let ci = i0 + c;
+                if (ci >= inN) { continue; }
+                let ch = pair_load(src_base, w * inN + ci);
+                ST = jac_add(ST, ch.total);
+                WS = jac_add(WS, ch.wsum);
+                if (c >= 1u) { SccT = jac_add(SccT, ST); }
+            }
+            var wScc: Jac = SccT;
+            for (var d: u32 = 0u; d < log2w; d = d + 1u) { wScc = jac_double(wScc); }
+            pair_store(dst_base, w * outN + p, Pair(ST, jac_add(wScc, WS)));
         }
-        var wScc: Jac = SccT;
-        for (var d: u32 = 0u; d < log2w; d = d + 1u) { wScc = jac_double(wScc); }
-        pair_store(dst_base, w * outN + p, Pair(ST, jac_add(wScc, WS)));
     } else {
         // FINAL: root pair -> W = total + wsum -> affine into slot w*stride.
         let w = gid.x;

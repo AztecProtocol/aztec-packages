@@ -87,6 +87,12 @@ export interface MsmConfig {
    */
   segReduceG?: number;
   /**
+   * Threads needed to saturate the GPU for the segmented reduce. Each level
+   * fields min(work, reduceTsat) threads; work beyond that packs multiple
+   * outputs per thread. Swept against real MSMs to find the device value.
+   */
+  reduceTsat?: number;
+  /**
    * Sparsity extent clamp: process only the first STRIDE' = this value buckets
    * per window in the segmented reduce (must be >= the max live bucket index,
    * a power of 2, <= STRIDE). 0 = full STRIDE. Normally set automatically from
@@ -1466,6 +1472,7 @@ export class MsmV2 {
   // Two-level segmented reduction (opt-in via segReduceG). One pipeline,
   // phase branched (coarse=0/fine=1); seg_buf holds the per-segment summaries.
   private segReduceG = 0; // radix m of the recursive reduction (segment size per level)
+  private reduceTsat = 1 << 30; // threads to saturate the GPU (swept knob; default huge => 1 item/thread)
   private reduceStride = 0; // extent clamp STRIDE' for the segmented reduce (0 = full STRIDE)
   private segPipe!: GPUComputePipeline;
   private segLayout!: GPUBindGroupLayout;
@@ -1682,6 +1689,7 @@ export class MsmV2 {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? JAC_AUTO;
     m.segReduceG = config?.segReduceG ?? 0;
+    m.reduceTsat = config?.reduceTsat && config.reduceTsat > 0 ? config.reduceTsat : 1 << 30;
     m.reduceStride = config?.reduceStride ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
@@ -2512,25 +2520,29 @@ export class MsmV2 {
           throw new Error(`segReduceG (${segM}) must be a power of 2 >= 2 dividing STRIDE (${this.stride})`);
         }
         const lg = Math.round(Math.log2(segM));
+        const Tsat = this.reduceTsat; // saturation thread count (swept knob)
         const cpar = (phase: number): GPUBuffer => ubuf(new Uint32Array([RED_M, this.numWindows, this.stride, phase]));
-        const step = (phase: number, log2w: number, inN: number, outN: number, src: number, dst: number, nx: number) => {
+        // `items` = work at this level (parents/segments × windows). Field
+        // exactly min(items, T_sat) threads; each strides over items/nthreads
+        // outputs, so adds-per-thread rises only once items exceed T_sat.
+        const step = (phase: number, log2w: number, inN: number, outN: number, src: number, dst: number, items: number) => {
+          const nthreads = Math.max(1, Math.min(items, Tsat));
           const sp = ubuf(new Uint32Array([segM, log2w, inN, outN]));
-          const bp = ubuf(new Uint32Array([src, dst, 0, 0]));
+          const bp = ubuf(new Uint32Array([src, dst, nthreads, 0]));
           const bind = mkBind(this.segLayout, [redBuf, isPresentBuf, this.segBuf, cpar(phase), sp, bp]);
-          this.segSteps.push({ bind, nx });
+          this.segSteps.push({ bind, nx: Math.ceil(nthreads / WGI) });
         };
-        const cw = (n: number) => Math.ceil((this.numWindows * n) / WGI);
         // phase 0: STRIDE raw buckets -> G0 pairs in half 0.
-        step(0, 0, 0, G0, 0, 0, cw(G0));
+        step(0, 0, 0, G0, 0, 0, this.numWindows * G0);
         // phase 2: combine m children per level, weight w = m^level, ping-ponging.
         let N = G0, src = 0, dst = half, wlog = lg;
         while (N > 1) {
           const outN = Math.ceil(N / segM);
-          step(2, wlog, N, outN, src, dst, cw(outN));
+          step(2, wlog, N, outN, src, dst, this.numWindows * outN);
           N = outN; wlog += lg; const t = src; src = dst; dst = t;
         }
         // phase 1: root pair (at src) -> W -> affine.
-        step(1, 0, 1, 1, src, 0, Math.ceil(this.numWindows / WGI));
+        step(1, 0, 1, 1, src, 0, this.numWindows);
       }
     }
     this.redBuf = redBuf;
