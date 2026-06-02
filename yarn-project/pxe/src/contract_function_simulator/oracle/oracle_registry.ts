@@ -108,7 +108,7 @@ function appTaggingSecretKindFromDeliveryMode(deliveryMode: number): AppTaggingS
   }
 }
 
-// Noir passes `MessageDelivery` onchain variants here; offchain messages are not tagged.
+// Noir passes `MessageDelivery` onchain variants here.
 export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
   deserialization: {
     fn: readers => appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn(readers)),
