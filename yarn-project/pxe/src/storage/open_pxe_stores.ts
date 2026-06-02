@@ -33,19 +33,17 @@ export type PxeStores = {
  * `L2TipsKVStore` so it agrees with the node's archiver on the dynamic genesis header hash.
  */
 export function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: BlockHash): PxeStores {
-  const l2TipsStore = new L2TipsKVStore(store, 'pxe', initialBlockHash);
-  const anchorBlockStore = new AnchorBlockStore(store);
   return {
     addressStore: new AddressStore(store),
     privateEventStore: new PrivateEventStore(store),
     contractStore: new ContractStore(store),
     noteStore: new NoteStore(store),
-    anchorBlockStore,
+    anchorBlockStore: new AnchorBlockStore(store),
     senderTaggingStore: new SenderTaggingStore(store),
     senderAddressBookStore: new SenderAddressBookStore(store),
     recipientTaggingStore: new RecipientTaggingStore(store),
     capsuleStore: new CapsuleStore(store),
     keyStore: new KeyStore(store),
-    l2TipsStore,
+    l2TipsStore: new L2TipsKVStore(store, 'pxe', initialBlockHash),
   };
 }
