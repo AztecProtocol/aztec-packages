@@ -109,6 +109,31 @@ export type BackendOptions = {
   msmTraceMode?: boolean;
 
   /**
+   * @description Phase-level BB_BENCH per-call trace capture. When true, the WASM build records a
+   * `{name, parent, ts, dur, tid, depth}` event for every BB_BENCH scope within `benchTraceMaxDepth`
+   * across the whole prove (all worker threads), dumped post-prove via `dumpBenchTraceJson()` as
+   * Chrome Trace Event JSON. Powers the C++/WASM lanes of the end-to-end WebGPU Perfetto trace.
+   * Off by default; enable for a single traced run only — capture adds a per-scope cost.
+   */
+  benchTrace?: boolean;
+
+  /**
+   * @description Record-time nesting-depth cap for `benchTrace` (1 == outermost scope). Keeps the
+   * prove-stage tree (ChonkAPI::prove → accumulate* → …Prover::* → batch_commit → BatchMultiScalarMul)
+   * and drops the per-op leaves (field arithmetic, Execution::*). Defaults to 0xff (keep all) when
+   * unset; calibrate ~5–6. Ignored unless `benchTrace` is true.
+   */
+  benchTraceMaxDepth?: number;
+
+  /**
+   * @description Deny-list of BB_BENCH leaf op names excluded from `benchTrace` capture regardless
+   * of depth — for hot work-unit leaves the depth cap alone doesn't drop (e.g.
+   * `MSM::evaluate_work_units`, `compute_univariate_with_row_skipping/chunk`). Keeps the phase-level
+   * trace clean. Names must not contain commas. Ignored unless `benchTrace` is true.
+   */
+  benchTraceDenylist?: readonly string[];
+
+  /**
    * @description Per-label block-list of MSMs that must stay on the native CPU
    * Pippenger even when `webgpuMsm` is true. The label is the entity name
    * passed down to `MSM::batch_multi_scalar_mul` via `batch_commit(..., labels)`

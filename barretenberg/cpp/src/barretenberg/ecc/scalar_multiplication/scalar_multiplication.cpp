@@ -9,6 +9,7 @@
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 #include <chrono>
+#include <cstdlib>
 #include <iomanip>
 #include <sstream>
 
@@ -507,6 +508,67 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 {
     BB_BENCH_NAME("MSM::batch_multi_scalar_mul");
     BB_ASSERT_EQ(points.size(), scalars.size());
+    // --- MSM scalar-distribution profiling (env-gated: MSM_PROFILE=1) ----------
+    // For each MSM in the batch, classify the scalar distribution
+    // (full_dense / full_small / mixed / sparse) for the small-scalar lever
+    // study. Reads true integer values via a non-mutating from_montgomery_form()
+    // copy, so it does not disturb the MSM result. One [msm-profile] line per MSM.
+    {
+        static const bool msm_profile_enabled = (std::getenv("MSM_PROFILE") != nullptr);
+        if (msm_profile_enabled) {
+            constexpr size_t SMALL_BITS = 254 / 4; // "small" = <= 1/4 of the field width
+            const size_t batch_size = scalars.size();
+            for (size_t m = 0; m < batch_size; ++m) {
+                const auto& sc = scalars[m];
+                const size_t n = sc.size();
+                size_t nzero = 0, nsmall = 0, ndense = 0, maxbits = 0;
+                for (const auto& s_mont : sc) {
+                    const auto s = s_mont.from_montgomery_form();
+                    size_t bits = 0;
+                    for (int limb = 3; limb >= 0; --limb) {
+                        const uint64_t w = s.data[static_cast<size_t>(limb)];
+                        if (w != 0ULL) {
+                            bits = static_cast<size_t>(limb) * 64 + (64 - static_cast<size_t>(__builtin_clzll(w)));
+                            break;
+                        }
+                    }
+                    if (bits == 0) {
+                        ++nzero;
+                    } else {
+                        if (bits > maxbits) {
+                            maxbits = bits;
+                        }
+                        if (bits <= SMALL_BITS) {
+                            ++nsmall;
+                        } else {
+                            ++ndense;
+                        }
+                    }
+                }
+                const double inv = (n > 0) ? 1.0 / static_cast<double>(n) : 0.0;
+                const double zf = static_cast<double>(nzero) * inv;
+                const double sf = static_cast<double>(nsmall) * inv;
+                const double df = static_cast<double>(ndense) * inv;
+                const char* cat = "other";
+                if (zf >= 0.75) {
+                    cat = "sparse";
+                } else if (df >= 0.90) {
+                    cat = "full_dense";
+                } else if (sf >= 0.90) {
+                    cat = "full_small";
+                } else if (df <= 0.25 && sf >= 0.50) {
+                    cat = "mixed";
+                }
+                const std::string lbl =
+                    (labels.size() == batch_size && !labels[m].empty()) ? labels[m] : std::string("?");
+                std::ostringstream oss;
+                oss << std::fixed << std::setprecision(3);
+                oss << "[msm-profile] name=" << lbl << " n=" << n << " nnz=" << (n - nzero) << " zero=" << zf
+                    << " small=" << sf << " dense=" << df << " maxbits=" << maxbits << " cat=" << cat;
+                info(oss.str());
+            }
+        }
+    }
 #ifdef BBERG_WEBGPU_MSM_HOOK
     // Distribution-capture mode: emit per-MSM Booth-recoded bucket histogram
     // stats so columns can be classified by scalar sparsity before deciding

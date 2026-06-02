@@ -66,7 +66,7 @@ const BATCH_MSM_LRU_CAP = 8;
 // `performance.now()` start/end, so all batches across the proof lay out on one
 // shared CPU timeline; each batch's GPU passes are anchored to its own submit
 // instant on that same clock.
-const bridgeTrace: { cpu: TraceSpan[]; gpu: TraceSpan[] } = { cpu: [], gpu: [] };
+const bridgeTrace: { cpu: TraceSpan[]; gpu: TraceSpan[]; mem: TraceSpan[] } = { cpu: [], gpu: [], mem: [] };
 function bridgeTraceOn(): boolean {
   return (globalThis as any).__bridge_trace_on === true;
 }
@@ -76,15 +76,56 @@ function traceCpu(name: string, startMs: number, endMs: number, args?: Record<st
 function traceGpu(name: string, startMs: number, endMs: number, args?: Record<string, string | number>): void {
   bridgeTrace.gpu.push({ name, startMs, endMs, args });
 }
+// First-class Memory lane: host↔GPU transfers (scalar writeBuffer uploads, SRS upload, mapAsync
+// readbacks), each carrying its byte count and direction. writeBuffer is async on the WebGPU queue,
+// so the recorded span is the host-side wall cost of issuing it (the queue-flush), labelled as such.
+function traceMem(
+  name: string,
+  startMs: number,
+  endMs: number,
+  bytes: number,
+  dir: 'h2d' | 'd2h',
+  args?: Record<string, string | number>,
+): void {
+  const mb = (bytes / (1024 * 1024)).toFixed(2);
+  bridgeTrace.mem.push({ name: `${name} · ${mb}MB ${dir}`, startMs, endMs, args: { ...args, bytes, dir } });
+}
+
+// Paired (C++ clock ms, main-thread performance.now() ms) clock-alignment anchors, sampled at the
+// top of every bridge request so they spread across the whole prove. The C++ BB_BENCH events are
+// stamped with the WASI clock = `performance.timeOrigin + performance.now()`, so the anchor's cMs
+// reads that SAME source here; a least-squares fit then maps every C++ event onto the main-thread
+// performance.now() domain the GPU/host/memory lanes already live on. (On this thread cMs and hMs
+// share one performance.now(), so the pair is exact — no quantization.)
+const alignAnchors: { cMs: number; hMs: number }[] = [];
+function sampleAlignAnchor(): void {
+  if (!bridgeTraceOn()) return;
+  const hMs = performance.now();
+  const cMs = performance.timeOrigin + hMs;
+  alignAnchors.push({ cMs, hMs });
+}
+
 (globalThis as any).__bridge_trace_reset = (): void => {
   bridgeTrace.cpu = [];
   bridgeTrace.gpu = [];
+  bridgeTrace.mem = [];
+  alignAnchors.length = 0;
 };
 (globalThis as any).__bridge_trace_build = (): string =>
   buildPerfettoTrace({ cpu: bridgeTrace.cpu, gpu: bridgeTrace.gpu }, 'Chonk MSM (WebGPU)');
-(globalThis as any).__bridge_trace_counts = (): { cpu: number; gpu: number } => ({
+// Raw spans for the e2e merge in serve.ts (already on the performance.now() ms domain). Returns
+// copies so the caller can't mutate the live accumulators mid-prove.
+(globalThis as any).__bridge_trace_spans = (): { cpu: TraceSpan[]; gpu: TraceSpan[]; mem: TraceSpan[] } => ({
+  cpu: bridgeTrace.cpu.slice(),
+  gpu: bridgeTrace.gpu.slice(),
+  mem: bridgeTrace.mem.slice(),
+});
+(globalThis as any).__bridge_align_anchors = (): { cMs: number; hMs: number }[] => alignAnchors.slice();
+(globalThis as any).__bridge_trace_counts = (): { cpu: number; gpu: number; mem: number; anchors: number } => ({
   cpu: bridgeTrace.cpu.length,
   gpu: bridgeTrace.gpu.length,
+  mem: bridgeTrace.mem.length,
+  anchors: alignAnchors.length,
 });
 
 /**
@@ -160,6 +201,10 @@ export class WebGpuMsmHost {
    */
   public async handleMessage(msg: unknown): Promise<void> {
     if (msg !== 'msm_request' || this.destroyed) return;
+    // Clock-alignment anchor: pair the global Date.now() (the C++ BB_BENCH clock source) with the
+    // main-thread performance.now() right as this bridge request begins. Spread across the prove,
+    // these anchor the C++ event lanes onto this thread's performance.now() domain.
+    sampleAlignAnchor();
     try {
       const op = Atomics.load(this.ctrl, SLOT_OPCODE);
       if (op === OP_MSM) {
@@ -310,7 +355,13 @@ export class WebGpuMsmHost {
     this.batchInstances.clear();
     this.pool?.destroy();
 
+    const tSrs0 = performance.now();
     this.pool = await MsmV2Pool.create(device, srsBytes);
+    if (bridgeTraceOn()) {
+      // SRS coords streamed to the GPU + Montgomery-converted once. srsBytes is the raw n×64 LE
+      // upload; the convert runs on-GPU inside create().
+      traceMem('SRS upload+convert', tSrs0, performance.now(), srsBytes.byteLength, 'h2d', { n });
+    }
     this.srsN = n;
     // Keep the raw SRS so `runBatchMsm` can spin up BatchMsmV2 instances
     // on demand. `BatchMsmV2.create` re-uploads + Montgomery-converts to a
@@ -475,6 +526,11 @@ export class WebGpuMsmHost {
         traceCpu(`get n=${n}`, tGet, tGetEnd, { n, kind: hitKind });
         traceCpu(`prepare n=${n}`, tPrep, tPrepEnd, { n });
         traceCpu(`run n=${n}`, tPrepEnd, tRunEnd, { n });
+        // Scalar writeBuffer upload (host→GPU). The queue-flush wall is the first slice of
+        // prepare(); anchor the span there. Window-sums readback (GPU→host) lands in run().
+        const uploadMs = msm.scalarUploadMs;
+        traceMem(`scalars n=${n}`, tPrep, tPrep + uploadMs, n * 32, 'h2d', { n });
+        traceMem(`windowSums n=${n}`, tPrepEnd, tRunEnd, msm.windowSumsByteLength, 'd2h', { n });
         // run() submits right after prepare returns, so anchor the GPU passes
         // to tPrepEnd. run() already drained + read the timestamps; re-reading
         // the staging buffer yields the same per-pass timeline.
@@ -662,7 +718,10 @@ export class WebGpuMsmHost {
         const scalarsBytes = new Uint8Array(this.wasmMemory.buffer, scalarsBase + scalarsOff, n * SCALAR_BYTES);
         const tP0 = bridgeTraceOn() ? performance.now() : 0;
         await msm.prepare(scalarsBytes, srsOffset);
-        if (bridgeTraceOn()) traceCpu(`prepare ${labels[i]}`, tP0, performance.now(), { n, idx: i });
+        if (bridgeTraceOn()) {
+          traceCpu(`prepare ${labels[i]}`, tP0, performance.now(), { n, idx: i });
+          traceMem(`scalars ${labels[i]}`, tP0, tP0 + msm.scalarUploadMs, n * SCALAR_BYTES, 'h2d', { n, idx: i });
+        }
         msms[i] = msm;
         resultOffs[i] = resultOff;
         // 4-byte align so the next MSM's u32 writes from the GPU are aligned.
@@ -735,6 +794,8 @@ export class WebGpuMsmHost {
         traceCpu(`encode ×${batchCount}`, tPrepSum1, tEncoded, { count: batchCount });
         traceCpu('submit+wait', tEncoded, tMapped, { count: batchCount });
         traceCpu(`decode ×${batchCount}`, tMapped, tDecodeEnd, { count: batchCount });
+        // Single shared staging buffer mapped back (GPU→host) once for the whole batch.
+        traceMem(`readback ×${batchCount}`, tEncoded, tMapped, totalStagingBytes, 'd2h', { count: batchCount });
         // All MSMs were submitted into one command buffer, so their per-pass
         // timestamps share the device GPU clock. Rebase every MSM onto the
         // batch's earliest pass begin (minEpoch) and anchor that to the submit
@@ -856,7 +917,10 @@ export class WebGpuMsmHost {
       const tPrep0 = performance.now();
       await msm.prepare(scalarsBytes, srsOffset);
       const tPrep1 = performance.now();
-      if (traceOn) traceCpu(`prepare ${labels[i]}`, tPrep0, tPrep1, { n, idx: i });
+      if (traceOn) {
+        traceCpu(`prepare ${labels[i]}`, tPrep0, tPrep1, { n, idx: i });
+        traceMem(`scalars ${labels[i]}`, tPrep0, tPrep0 + msm.scalarUploadMs, n * SCALAR_BYTES, 'h2d', { n, idx: i });
+      }
       const windowSumBytes = msm.windowSumsByteLength;
       const staging = device.createBuffer({
         size: windowSumBytes,
@@ -952,6 +1016,10 @@ export class WebGpuMsmHost {
     }
     if (traceOn) {
       traceCpu(`await drain ×${batchCount}`, tEncoded, tMapped, { count: batchCount, maxSameN: maxNCount });
+      // Each MSM's window-sums staging is mapped back (GPU→host) during the batched drain window.
+      let readbackBytes = 0;
+      for (const p of pendings) readbackBytes += p.windowCount * 64;
+      traceMem(`readback ×${batchCount}`, tEncoded, tMapped, readbackBytes, 'd2h', { count: batchCount });
       // The GPU is one FIFO queue: same-N submits drain serially. Reconstruct
       // each MSM's GPU burst as [end of the previous burst (but not before this
       // MSM's own submit), this submit's drain instant]. submit/drain are
@@ -1093,6 +1161,10 @@ export class WebGpuMsmHost {
       traceCpu(`batch-v2 prepareAll B=${B} n=${n}`, tPrep0, tPrep1, { n, B });
       traceCpu(`batch-v2 runAll B=${B} n=${n}`, tPrep1, tRun1, { n, B });
       traceGpu(`batch-msm-v2 B=${B} n=${n}`, tPrep1, tPrep1 + gpuMs, { n, B, route: 'batch-v2' });
+      // All B scalar columns uploaded (host→GPU) inside prepareAll; B affine results read back
+      // (GPU→host) inside runAll.
+      traceMem(`scalars B=${B} n=${n}`, tPrep0, tPrep1, B * n * SCALAR_BYTES, 'h2d', { n, B });
+      traceMem(`readback B=${B}`, tPrep1, tRun1, B * 64, 'd2h', { n, B });
     }
   }
 }

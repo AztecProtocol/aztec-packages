@@ -63,7 +63,16 @@ async function runChonkOnce(
   msmDistributionMode = false,
   webgpuMsmBlocklist?: readonly string[],
   msmTraceMode = false,
-): Promise<{ result: ChonkWebGpuBenchRunResult; vk: Uint8Array }> {
+  benchTraceOpts?: { maxDepth?: number; denylist?: readonly string[] },
+): Promise<{
+  result: ChonkWebGpuBenchRunResult;
+  vk: Uint8Array;
+  /** Phase-level BB_BENCH per-call trace JSON (Chrome Trace Event format), when benchTraceOpts set. */
+  benchTraceJson?: string;
+  /** performance.now() ms at backend.prove entry/exit — the host-clock prove window. */
+  proveStartMs: number;
+  proveEndMs: number;
+}> {
   // Capture the [msm-phase-total] line that bb.emitMsmPhase() makes the C++
   // accumulator log, so we can report the exact cumulative MSM-phase wall time
   // for this run. Wrap whatever base logger the caller wants.
@@ -83,6 +92,9 @@ async function runChonkOnce(
     msmCsvMode,
     msmDistributionMode,
     msmTraceMode,
+    benchTrace: benchTraceOpts !== undefined,
+    benchTraceMaxDepth: benchTraceOpts?.maxDepth,
+    benchTraceDenylist: benchTraceOpts?.denylist,
     webgpuMsmBlocklist,
   });
   try {
@@ -90,12 +102,16 @@ async function runChonkOnce(
     const t0 = performance.now();
     const { proof, vk } = await backend.prove(witnessStack, vks);
     const proveMs = performance.now() - t0;
+    const proveEndMs = performance.now();
 
     // Emit the cumulative MSM-phase wall time accrued during prove (the fresh
     // WASM instance starts the accumulator at 0). Emitted before verify so it
     // reflects the prove only; the [msm-phase-total] line arrives via the logger
     // proxy and is read into the result below (after verify, so it has landed).
     await bb.emitMsmPhase();
+
+    // Dump the phase-level BB_BENCH per-call trace before destroying the singleton.
+    const benchTraceJson = benchTraceOpts !== undefined ? await bb.dumpBenchTraceJson() : undefined;
 
     const t1 = performance.now();
     const verified = await backend.verify(proof, vk);
@@ -104,6 +120,9 @@ async function runChonkOnce(
     return {
       result: { proveMs, verifyMs, verified, proofLength: proof.length, msmPhaseMs },
       vk,
+      benchTraceJson,
+      proveStartMs: t0,
+      proveEndMs,
     };
   } finally {
     await Barretenberg.destroySingleton();
@@ -768,7 +787,12 @@ interface TraceSpan {
  */
 function buildPerfettoTraceTracks(tracks: { name: string; spans: TraceSpan[] }[], processName: string): string {
   const all = tracks.flatMap(t => t.spans);
-  const t0 = all.length ? Math.min(...all.map(s => s.startMs)) : 0;
+  // Loop rather than `Math.min(...all.map(…))`: the e2e trace has tens of thousands of C++ spans,
+  // and spreading that many into a function call throws "Maximum call stack size exceeded".
+  let t0 = all.length ? all[0].startMs : 0;
+  for (const s of all) {
+    if (s.startMs < t0) t0 = s.startMs;
+  }
   const usPerMs = 1000;
   const events: Array<Record<string, unknown>> = [
     { ph: 'M', name: 'process_name', pid: 1, tid: 0, args: { name: processName } },
@@ -816,6 +840,524 @@ function buildWasmMsmTrace(lines: string[]): string | undefined {
   if (spans.length === 0) return undefined;
   return buildPerfettoTraceTracks([{ name: 'WASM MSM (CPU, MT Pippenger)', spans }], 'Chonk MSM (WASM)');
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// End-to-end WebGPU Perfetto trace: WASM phase lanes (C++ BB_BENCH per-call) +
+// bridge CPU/GPU/Memory lanes, all merged onto ONE main-thread performance.now()
+// clock via a least-squares fit of (Date.now(), performance.now()) anchors.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Smallest record-time nesting-depth cap that keeps the prove-stage tree down to its deepest MSM
+// overlay anchor (`MSM::batch_multi_scalar_mul` sits at record-depth 10 in the Hypernova → fold →
+// Oink → commit_to_wires → batch_commit → MSM path) while auto-excluding the per-work-unit leaves
+// below it (`MSM::evaluate_work_units` etc. live at record-depth 11+). Calibrated empirically from a
+// native BB_BENCH=1 prove of the pinned flow.
+const BENCH_TRACE_MAX_DEPTH = 10;
+
+// Hot work-unit / parallel-chunk leaves that fall within the depth cap on shallower call paths and
+// would otherwise flood the trace. Dropped at record time regardless of depth. The MSM anchors
+// (`MSM::batch_multi_scalar_mul`, `CommitmentKey::batch_commit`, `CommitmentKey::commit`) are kept.
+const BENCH_TRACE_DENYLIST: readonly string[] = [
+  'MSM::evaluate_work_units',
+  'MSM::batch_multi_scalar_mul/evaluate_work_units',
+  'MSM::batch_multi_scalar_mul/scalars_to_montgomery',
+  'MSM::batch_multi_scalar_mul/accumulate_results',
+  'MSM::batch_multi_scalar_mul/batch_normalize',
+  'MSM::scalars_to_montgomery/chunk',
+  'MSM::convert_scalars',
+  'compute_univariate_with_row_skipping/chunk',
+  'Polynomial::op*=/chunk',
+  'add_scaled_batch/chunk',
+  'Lookup::compute_inverses/chunk',
+  'Databus::compute_inverses/chunk',
+];
+
+interface AlignAnchor {
+  /** C++ clock sample in ms — the WASI clock_time_get source (performance.timeOrigin + performance.now()). */
+  cMs: number;
+  /** Main-thread performance.now() ms, read back-to-back with cMs. */
+  hMs: number;
+}
+
+interface AlignFit {
+  /** Slope (≈1; absorbs any rate drift between the WASI clock and performance.now). */
+  b: number;
+  /** Centering epoch: anchors[0].cMs (a high-res wall-clock ms value). */
+  cm0: number;
+  /** performance.now() ms at cMs == cm0 (the fit intercept, in centered space). */
+  hAtCm0: number;
+  n: number;
+  maxResidualMs: number;
+  rmsResidualMs: number;
+}
+
+/**
+ * Sample up to `maxCount` clock-alignment pairs back-to-back to bracket the prove (the per-bridge-
+ * call anchors fill in across it). The WASI clock is now `performance.timeOrigin + performance.now()`,
+ * so cMs reads that same source; on this thread cMs and hMs share one performance.now() read, making
+ * each pair exact. `maxSpinMs` bounds the loop.
+ */
+function sampleEdgeAnchors(maxCount: number, maxSpinMs: number): AlignAnchor[] {
+  const out: AlignAnchor[] = [];
+  const deadline = performance.now() + maxSpinMs;
+  const origin = performance.timeOrigin;
+  while (out.length < maxCount && performance.now() < deadline) {
+    const hMs = performance.now();
+    out.push({ cMs: origin + hMs, hMs });
+  }
+  return out;
+}
+
+/**
+ * Least-squares fit hMs ≈ hAtCm0 + b·(cMs − cm0). Centering at the first anchor's cMs keeps the
+ * normal equations numerically sound — raw wall-clock ms values (~1.7e12) would overflow a double's
+ * mantissa when squared. Reports max + RMS residual so the caller can validate the alignment (with
+ * the high-res WASI clock the main-thread anchors are near-exact, so the residual is ~µs).
+ */
+function fitAnchors(anchors: readonly AlignAnchor[]): AlignFit | undefined {
+  if (anchors.length < 2) return undefined;
+  const cm0 = anchors[0].cMs;
+  let sx = 0;
+  let sy = 0;
+  let sxx = 0;
+  let sxy = 0;
+  for (const a of anchors) {
+    const dx = a.cMs - cm0;
+    sx += dx;
+    sy += a.hMs;
+    sxx += dx * dx;
+    sxy += dx * a.hMs;
+  }
+  const n = anchors.length;
+  const denom = n * sxx - sx * sx;
+  // Degenerate (all anchors share one ms): fall back to slope 1.
+  const b = Math.abs(denom) < 1e-9 ? 1 : (n * sxy - sx * sy) / denom;
+  const hAtCm0 = (sy - b * sx) / n;
+  let maxRes = 0;
+  let sumSq = 0;
+  for (const a of anchors) {
+    const r = a.hMs - (hAtCm0 + b * (a.cMs - cm0));
+    maxRes = Math.max(maxRes, Math.abs(r));
+    sumSq += r * r;
+  }
+  return { b, cm0, hAtCm0, n, maxResidualMs: maxRes, rmsResidualMs: Math.sqrt(sumSq / n) };
+}
+
+/** Map a C++ clock sample (absolute ns) onto the main-thread performance.now() ms domain. */
+function cppNsToHostMs(absNs: bigint, fit: AlignFit): number {
+  // cm0 is now a fractional (high-res) ms, so convert via round (BigInt() rejects non-integers). The
+  // ~256 ns rounding error on this centering constant is a uniform offset, immaterial to placement.
+  const cm0Ns = BigInt(Math.round(fit.cm0 * 1e6));
+  // Event time relative to the centering epoch, in ms. The difference spans only the prove
+  // (~seconds), so Number() of the ns delta is exact and no precision is lost.
+  const relMs = Number(absNs - cm0Ns) / 1e6;
+  return fit.hAtCm0 + fit.b * relMs;
+}
+
+/**
+ * Parse the C++ BB_BENCH Chrome-trace JSON (with its `min_ts_ns` header and per-event rebased `ts`
+ * in µs) into one Perfetto track per WASM worker thread, every span mapped onto the main-thread
+ * performance.now() domain via `fit`. Perfetto auto-nests the `'X'` events on a track by ts/dur
+ * containment, so the phase tree renders without extra work.
+ */
+function mapCppTraceToTracks(
+  json: string,
+  fit: AlignFit,
+): { tracks: { name: string; spans: TraceSpan[] }[]; eventCount: number } {
+  const m = /"min_ts_ns"\s*:\s*(\d+)/.exec(json);
+  const minTsNs = m ? BigInt(m[1]) : 0n;
+  const parsed = JSON.parse(json) as { traceEvents: Array<Record<string, any>> };
+  const tidName = new Map<number, string>();
+  const tidSpans = new Map<number, TraceSpan[]>();
+  let eventCount = 0;
+  for (const e of parsed.traceEvents) {
+    if (e.ph === 'M' && e.name === 'thread_name') {
+      tidName.set(e.tid, e.args?.name ?? `tid${e.tid}`);
+    } else if (e.ph === 'X') {
+      const absNs = minTsNs + BigInt(Math.round((e.ts as number) * 1000));
+      const startMs = cppNsToHostMs(absNs, fit);
+      const endMs = startMs + ((e.dur as number) / 1000) * fit.b;
+      let spans = tidSpans.get(e.tid);
+      if (!spans) {
+        spans = [];
+        tidSpans.set(e.tid, spans);
+      }
+      spans.push({ name: e.name, startMs, endMs, args: e.args });
+      eventCount++;
+    }
+  }
+  const tracks = [...tidSpans.keys()]
+    .sort((a, b) => a - b)
+    .map(tid => ({ name: `WASM ${tidName.get(tid) ?? `tid${tid}`}`, spans: tidSpans.get(tid)! }));
+  return { tracks, eventCount };
+}
+
+/** Gaps within [start, end] not covered by the union of any span — emitted as explicit `untracked`
+ *  slices so unaccounted host time is never silently hidden. */
+function untrackedSpans(allSpans: readonly TraceSpan[], start: number, end: number): TraceSpan[] {
+  const ivals = allSpans
+    .map(s => [Math.max(start, s.startMs), Math.min(end, s.endMs)] as [number, number])
+    .filter(([a, b]) => b > a)
+    .sort((p, q) => p[0] - q[0]);
+  const gaps: TraceSpan[] = [];
+  let cursor = start;
+  for (const [a, b] of ivals) {
+    if (a > cursor + 0.05) gaps.push({ name: 'untracked', startMs: cursor, endMs: a, args: { gap_ms: a - cursor } });
+    cursor = Math.max(cursor, b);
+  }
+  if (end > cursor + 0.05)
+    gaps.push({ name: 'untracked', startMs: cursor, endMs: end, args: { gap_ms: end - cursor } });
+  return gaps;
+}
+
+interface ChonkWebGpuTraceResult {
+  flow: string;
+  adapter: string;
+  swiftshaderDetected: boolean;
+  /** Perfetto-loadable Chrome Trace Event JSON, or undefined if no GPU run happened. */
+  traceJson?: string;
+  proveMs: number;
+  verified: boolean;
+  vksMatch: boolean | undefined;
+  alignment?: { b: number; bMinus1: number; maxResidualMs: number; rmsResidualMs: number; anchors: number };
+  counts: { cppEvents: number; cpu: number; gpu: number; mem: number; untracked: number; lanes: number };
+  /** Top spans by total duration across all lanes (flame hotspot summary). */
+  top: { name: string; lane: string; totalMs: number; count: number }[];
+  validation: {
+    gpuPassSumMs: number;
+    bridgeSubmitWaitSumMs: number;
+    cppRootMs: number;
+    proveMs: number;
+    untrackedMs: number;
+  };
+}
+
+/**
+ * Capture ONE end-to-end WebGPU Chonk prove as a single Perfetto trace overlaying, on one clock:
+ * the C++/WASM prove phases (phase-level, one lane per worker thread), the host MSM bridge phases,
+ * the GPU passes, and host↔GPU memory transfers.
+ *
+ * Must run on a real hardware-WebGPU host: webgpu-on under SwiftShader is not BN254 bit-exact, so
+ * the prove's own verify fails. Detects SwiftShader and returns a bridge-less placeholder with a
+ * warning. Exposed on `window` for the Puppeteer capture test and the interactive page.
+ */
+async function runChonkWebGpuTrace(
+  flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
+  opts?: { webgpu?: boolean },
+): Promise<ChonkWebGpuTraceResult> {
+  // webgpu=false captures the same phase-level BB_BENCH WASM lanes from a CPU-only prove — there are
+  // simply no GPU / host-bridge / Memory lanes (the bridge isn't active), and no SwiftShader gating
+  // (a CPU prove needs no adapter). The WASM trace is internally consistent on the one Date.now()
+  // clock; the alignment fit still runs off the edge anchors but has nothing cross-clock to overlay.
+  const webgpu = opts?.webgpu ?? true;
+  let adapterInfo = webgpu ? 'unavailable' : 'n/a (WASM CPU run)';
+  if (webgpu && 'gpu' in navigator) {
+    try {
+      const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+      if (adapter) {
+        const info = (adapter as any).info ?? (await (adapter as any).requestAdapterInfo?.());
+        adapterInfo = info
+          ? `${info.vendor ?? '?'} / ${info.architecture ?? '?'} / ${info.device ?? '?'} / ${info.description ?? '?'}`
+          : 'unknown';
+      } else {
+        adapterInfo = 'requestAdapter returned null';
+      }
+    } catch (err) {
+      adapterInfo = `error: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  }
+  logger.info(`[trace] ${webgpu ? 'GPU adapter' : 'mode'}: ${adapterInfo}`);
+  const swiftshaderDetected = webgpu && /swiftshader|llvmpipe|software/i.test(adapterInfo);
+
+  const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
+
+  if (swiftshaderDetected) {
+    logger.warn(
+      `[trace] SwiftShader/software WebGPU detected — a webgpu=on prove would not be BN254 bit-exact ` +
+        `(verify fails). Run on a hardware GPU (Apple Metal / discrete NVIDIA) to capture a valid trace.`,
+    );
+    return {
+      flow,
+      adapter: adapterInfo,
+      swiftshaderDetected: true,
+      proveMs: 0,
+      verified: false,
+      vksMatch: undefined,
+      counts: { cppEvents: 0, cpu: 0, gpu: 0, mem: 0, untracked: 0, lanes: 0 },
+      top: [],
+      validation: { gpuPassSumMs: 0, bridgeSubmitWaitSumMs: 0, cppRootMs: 0, proveMs: 0, untrackedMs: 0 },
+    };
+  }
+
+  const win = window as any;
+  win.__bridge_trace_on = true;
+  win.__bridge_trace_reset?.();
+
+  // Bracket the prove with precise edge-detected anchors; the bridge fills in ~per-MSM anchors
+  // across the prove via sampleAlignAnchor() in handleMessage.
+  const preAnchors = sampleEdgeAnchors(16, 60);
+
+  logger.info(
+    `[trace] running ONE ${webgpu ? 'webgpu=on' : 'webgpu=off (WASM)'} prove of flow=${flow} ` +
+      `(${bytecodes.length} circuits), bench trace ON`,
+  );
+  const out = await runChonkOnce(
+    /*webgpuMsm=*/ webgpu,
+    bytecodes,
+    witnesses,
+    vks,
+    functionNames,
+    /*msmCsvMode=*/ false,
+    /*loggerOverride=*/ undefined,
+    /*msmDistributionMode=*/ false,
+    /*webgpuMsmBlocklist=*/ webgpu ? DEFAULT_WEBGPU_BLOCKLIST : undefined,
+    /*msmTraceMode=*/ false,
+    /*benchTraceOpts=*/ { maxDepth: BENCH_TRACE_MAX_DEPTH, denylist: BENCH_TRACE_DENYLIST },
+  );
+
+  const postAnchors = sampleEdgeAnchors(16, 60);
+  win.__bridge_trace_on = false;
+
+  const bridgeAnchors: AlignAnchor[] = win.__bridge_align_anchors?.() ?? [];
+  const anchors = [...preAnchors, ...bridgeAnchors, ...postAnchors];
+  const fit = fitAnchors(anchors);
+
+  const bridge = (win.__bridge_trace_spans?.() ?? { cpu: [], gpu: [], mem: [] }) as {
+    cpu: TraceSpan[];
+    gpu: TraceSpan[];
+    mem: TraceSpan[];
+  };
+
+  // Map the C++ phase lanes onto the host clock.
+  let cppTracks: { name: string; spans: TraceSpan[] }[] = [];
+  let cppEvents = 0;
+  if (fit && out.benchTraceJson) {
+    const mapped = mapCppTraceToTracks(out.benchTraceJson, fit);
+    cppTracks = mapped.tracks;
+    cppEvents = mapped.eventCount;
+  } else if (!fit) {
+    logger.warn(`[trace] fewer than 2 alignment anchors (${anchors.length}) — cannot map C++ lanes; bridge-only trace`);
+  }
+
+  // Untracked: prove window minus the union of every span (across all lanes).
+  const everySpan = [...cppTracks.flatMap(t => t.spans), ...bridge.cpu, ...bridge.gpu, ...bridge.mem];
+  const untracked = untrackedSpans(everySpan, out.proveStartMs, out.proveEndMs);
+
+  // Place the three host-bridge lanes (CPU/Memory/GPU) directly beneath the C++ main thread and
+  // above the per-worker C++ lanes. Perfetto orders rows by tid, which buildPerfettoTraceTracks
+  // assigns in array order, so row order == array order here.
+  const mainTrack = cppTracks.find(t => t.name === 'WASM main') ?? cppTracks[0];
+  const workerTracks = cppTracks.filter(t => t !== mainTrack);
+  const tracks = [
+    ...(mainTrack ? [mainTrack] : []),
+    { name: 'CPU (host MSM bridge)', spans: bridge.cpu },
+    { name: 'Memory', spans: bridge.mem },
+    { name: 'GPU (WebGPU passes)', spans: bridge.gpu },
+    ...workerTracks,
+    { name: 'Untracked', spans: untracked },
+  ].filter(t => t.spans.length > 0);
+  const traceJson = buildPerfettoTraceTracks(tracks, `Chonk e2e ${webgpu ? 'WebGPU' : 'WASM'} — ${flow}`);
+
+  // ── Validation + reporting ────────────────────────────────────────────────
+  const sumDur = (spans: readonly TraceSpan[]) => spans.reduce((acc, s) => acc + Math.max(0, s.endMs - s.startMs), 0);
+  const gpuPassSumMs = sumDur(bridge.gpu);
+  const bridgeSubmitWaitSumMs = sumDur(bridge.cpu.filter(s => /submit\+wait|await drain|runAll|submit /.test(s.name)));
+  // C++ prove root = the longest span on the WASM main lane (ChonkAPI::prove). Loop, not
+  // `Math.max(0, ...spans.map(…))` — the main lane can hold thousands of spans (spread overflow).
+  const mainLane = cppTracks.find(t => t.name === 'WASM main');
+  let cppRootMs = 0;
+  if (mainLane) {
+    for (const s of mainLane.spans) {
+      const d = s.endMs - s.startMs;
+      if (d > cppRootMs) cppRootMs = d;
+    }
+  }
+  const untrackedMs = sumDur(untracked);
+
+  // Top-20 by total duration across all lanes (flame hotspot summary).
+  const byName = new Map<string, { lane: string; totalMs: number; count: number }>();
+  for (const t of tracks) {
+    for (const s of t.spans) {
+      const key = `${t.name}|${s.name}`;
+      const cur = byName.get(key) ?? { lane: t.name, totalMs: 0, count: 0 };
+      cur.totalMs += Math.max(0, s.endMs - s.startMs);
+      cur.count++;
+      byName.set(key, cur);
+    }
+  }
+  const top = [...byName.entries()]
+    .map(([key, v]) => ({ name: key.split('|')[1], lane: v.lane, totalMs: v.totalMs, count: v.count }))
+    .sort((a, b) => b.totalMs - a.totalMs)
+    .slice(0, 20);
+
+  const alignment = fit
+    ? {
+        b: fit.b,
+        bMinus1: fit.b - 1,
+        maxResidualMs: fit.maxResidualMs,
+        rmsResidualMs: fit.rmsResidualMs,
+        anchors: fit.n,
+      }
+    : undefined;
+
+  logger.info(`[trace] ===== e2e WebGPU trace summary (flow=${flow}) =====`);
+  logger.info(
+    `[trace] adapter=${adapterInfo} verified=${out.result.verified} prove=${out.result.proveMs.toFixed(0)}ms`,
+  );
+  if (alignment) {
+    logger.info(
+      `[trace] alignment: anchors=${alignment.anchors} b-1=${alignment.bMinus1.toExponential(2)} ` +
+        `maxResidual=${(alignment.maxResidualMs * 1000).toFixed(0)}µs rmsResidual=${(alignment.rmsResidualMs * 1000).toFixed(0)}µs`,
+    );
+    if (alignment.maxResidualMs > 0.6) {
+      logger.warn(
+        `[trace] alignment maxResidual ${(alignment.maxResidualMs * 1000).toFixed(0)}µs is high for the ` +
+          `high-res clock (expect ~µs) — check for tab backgrounding (divergently throttled clocks).`,
+      );
+    }
+  }
+  logger.info(
+    `[trace] validation: Σgpu_passes=${gpuPassSumMs.toFixed(1)}ms Σbridge_submit_wait=${bridgeSubmitWaitSumMs.toFixed(1)}ms ` +
+      `cpp_prove_root=${cppRootMs.toFixed(0)}ms prove_wall=${out.result.proveMs.toFixed(0)}ms untracked=${untrackedMs.toFixed(0)}ms`,
+  );
+  logger.info(
+    `[trace] lanes=${tracks.length} cppEvents=${cppEvents} cpu=${bridge.cpu.length} gpu=${bridge.gpu.length} mem=${bridge.mem.length} untracked=${untracked.length}`,
+  );
+  logger.info(`[trace] top ${top.length} spans by total duration:`);
+  for (const t of top) {
+    logger.info(
+      `[trace]   ${t.totalMs.toFixed(1).padStart(8)}ms  ×${String(t.count).padStart(4)}  [${t.lane}] ${t.name}`,
+    );
+  }
+
+  return {
+    flow,
+    adapter: adapterInfo,
+    swiftshaderDetected: false,
+    traceJson,
+    proveMs: out.result.proveMs,
+    verified: out.result.verified,
+    vksMatch: undefined,
+    alignment,
+    counts: {
+      cppEvents,
+      cpu: bridge.cpu.length,
+      gpu: bridge.gpu.length,
+      mem: bridge.mem.length,
+      untracked: untracked.length,
+      lanes: tracks.length,
+    },
+    top,
+    validation: { gpuPassSumMs, bridgeSubmitWaitSumMs, cppRootMs, proveMs: out.result.proveMs, untrackedMs },
+  };
+}
+
+(window as any).runChonkWebGpuTrace = runChonkWebGpuTrace;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Multi-run median: run the prove N× each for WASM and WebGPU and report median
+// (+ min/max) totals, to wash out run-to-run noise.
+//
+// CRITICAL: this reuses ONE Barretenberg instance per mode (init once, prove N×,
+// destroy once) rather than re-initialising per run. Re-creating the full bb.js
+// instance — a main Web Worker + ~16 thread Web Workers + SRS upload — every run
+// and doing it 10× back-to-back in one tab leaks/contends workers the browser
+// doesn't reclaim promptly, which collapsed the CPU-bound WASM proves to ~10×
+// from the 2nd run on (the GPU-offloaded path barely noticed). Reuse removes the
+// churn entirely; it's also how production (PXE) uses bb — one instance, many
+// proves. Bench trace is OFF here so the totals are the true prove cost (per-
+// circuit detail comes from the e2e trace instead).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const median = (arr: number[]): number => {
+  const s = [...arr].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length === 0 ? 0 : s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+interface MedianSide {
+  totals: number[];
+  medianTotal: number;
+  minTotal: number;
+  maxTotal: number;
+  allVerified: boolean;
+}
+interface ChonkMedianResult {
+  flow: string;
+  runs: number;
+  wasm: MedianSide;
+  webgpu: MedianSide;
+}
+type MedianProgress = {
+  done: number;
+  total: number;
+  side: 'wasm' | 'webgpu';
+  run: number;
+  runs: number;
+  phase: 'start' | 'done';
+  lastMs?: number;
+};
+
+/**
+ * Run the pinned flow `runs`× as WASM and `runs`× as WebGPU on ONE reused bb instance per mode,
+ * reporting median (+ min/max + per-run) total prove time. `onProgress` fires before and after each
+ * prove so the page can drive a progress bar. Exposed on `window`.
+ */
+async function runChonkMedian(
+  flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
+  runs = 5,
+  onProgress?: (p: MedianProgress) => void,
+): Promise<ChonkMedianResult> {
+  const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
+  const total = 2 * runs;
+  let done = 0;
+  const sides: Array<{ key: 'wasm' | 'webgpu'; webgpu: boolean }> = [
+    { key: 'wasm', webgpu: false },
+    { key: 'webgpu', webgpu: true },
+  ];
+  const out: Partial<ChonkMedianResult> = { flow, runs };
+  for (const side of sides) {
+    // Fresh, single instance for this whole mode. destroy any leftover first so a stale
+    // single-run singleton can't bleed the wrong webgpuMsm setting in.
+    await Barretenberg.destroySingleton();
+    const bb = await Barretenberg.initSingleton({
+      threads: 16,
+      logger: () => {},
+      webgpuMsm: side.webgpu,
+      webgpuMsmBlocklist: side.webgpu ? DEFAULT_WEBGPU_BLOCKLIST : undefined,
+    });
+    const totals: number[] = [];
+    let allVerified = true;
+    try {
+      for (let r = 1; r <= runs; r++) {
+        onProgress?.({ done, total, side: side.key, run: r, runs, phase: 'start' });
+        // Fresh backend wrapper per run (cheap, no worker/SRS churn — bb is reused). Time prove only.
+        const backend = new AztecClientBackend(bytecodes, bb, functionNames);
+        const t0 = performance.now();
+        const { proof, vk } = await backend.prove(witnesses, vks);
+        const proveMs = performance.now() - t0;
+        const verified = await backend.verify(proof, vk);
+        totals.push(proveMs);
+        allVerified = allVerified && verified;
+        done += 1;
+        onProgress?.({ done, total, side: side.key, run: r, runs, phase: 'done', lastMs: proveMs });
+        logger.info(`[median] ${side.key} run ${r}/${runs}: prove=${proveMs.toFixed(0)}ms verified=${verified}`);
+      }
+    } finally {
+      await Barretenberg.destroySingleton();
+    }
+    out[side.key] = {
+      totals,
+      medianTotal: median(totals),
+      minTotal: Math.min(...totals),
+      maxTotal: Math.max(...totals),
+      allVerified,
+    };
+  }
+  return out as ChonkMedianResult;
+}
+
+(window as any).runChonkMedian = runChonkMedian;
 
 (window as any).runChonkSingleMode = runChonkSingleMode;
 
@@ -1052,6 +1594,11 @@ interface MsmDistRow {
   nnz: number;
   density: number;
   c: number;
+  /** Max bit-length over all scalars in this MSM — the hard bound for a safe
+   *  static `scalarBitLength` (small-scalar window-count optimisation). */
+  maxbits: number;
+  /** Mean bit-length over the nonzero scalars — the typical magnitude. */
+  mean_bits: number;
   maxbucket: number;
   p99bucket: number;
   mean_nonzero_bucket: number;
@@ -1100,11 +1647,12 @@ async function runChonkMsmDistribution(flow: string = 'ecdsar1+transfer_1_recurs
   );
 
   // Parse: `[msm-dist] name=W_L n=88899 nnz=85240 density=0.958897 c=15
-  //         maxbucket=42 p99bucket=28 mean_nonzero_bucket=2.71`.
+  //         maxbits=254 mean_bits=253.41 maxbucket=42 p99bucket=28
+  //         mean_nonzero_bucket=2.71`.
   // One regex per field — verbose but trivially extensible when we add new
   // stats (e.g. distinct-value count) later.
   const re =
-    /\[msm-dist\]\s+name=(\S+)\s+n=(\d+)\s+nnz=(\d+)\s+density=([\d.]+)\s+c=(\d+)\s+maxbucket=(\d+)\s+p99bucket=(\d+)\s+mean_nonzero_bucket=([\d.]+)/;
+    /\[msm-dist\]\s+name=(\S+)\s+n=(\d+)\s+nnz=(\d+)\s+density=([\d.]+)\s+c=(\d+)\s+maxbits=(\d+)\s+mean_bits=([\d.]+)\s+maxbucket=(\d+)\s+p99bucket=(\d+)\s+mean_nonzero_bucket=([\d.]+)/;
   const rows: MsmDistRow[] = [];
   for (const line of captured) {
     const m = re.exec(line);
@@ -1116,18 +1664,20 @@ async function runChonkMsmDistribution(flow: string = 'ecdsar1+transfer_1_recurs
       nnz: parseInt(m[3], 10),
       density: parseFloat(m[4]),
       c: parseInt(m[5], 10),
-      maxbucket: parseInt(m[6], 10),
-      p99bucket: parseInt(m[7], 10),
-      mean_nonzero_bucket: parseFloat(m[8]),
+      maxbits: parseInt(m[6], 10),
+      mean_bits: parseFloat(m[7]),
+      maxbucket: parseInt(m[8], 10),
+      p99bucket: parseInt(m[9], 10),
+      mean_nonzero_bucket: parseFloat(m[10]),
     });
   }
 
-  const header = 'seq,name,n,nnz,density,c,maxbucket,p99bucket,mean_nonzero_bucket\n';
+  const header = 'seq,name,n,nnz,density,c,maxbits,mean_bits,maxbucket,p99bucket,mean_nonzero_bucket\n';
   const body = rows
     .map(
       r =>
-        `${r.seq},${r.name},${r.n},${r.nnz},${r.density.toFixed(6)},${r.c},${r.maxbucket},` +
-        `${r.p99bucket},${r.mean_nonzero_bucket.toFixed(2)}`,
+        `${r.seq},${r.name},${r.n},${r.nnz},${r.density.toFixed(6)},${r.c},${r.maxbits},` +
+        `${r.mean_bits.toFixed(2)},${r.maxbucket},${r.p99bucket},${r.mean_nonzero_bucket.toFixed(2)}`,
     )
     .join('\n');
   const csv = header + body + '\n';
@@ -1176,6 +1726,16 @@ function setupChonkWebGpuPage(): void {
   // outside the mandatory-elements guard below. When checked, the WebGPU run
   // captures an aligned CPU+GPU Perfetto trace from the bridge and POSTs it.
   const traceWebgpu = $<HTMLInputElement>('trace-webgpu');
+  // When ticked, "Run WebGPU" captures the FULL end-to-end trace (WASM phases +
+  // host bridge + GPU passes + memory) via runChonkWebGpuTrace instead of the
+  // bridge-only trace. Optional element — absent on the minimal harness pages.
+  const traceE2e = $<HTMLInputElement>('trace-e2e');
+  // Multi-run median controls + progress bar — optional (absent on harness pages).
+  const runMedian = $<HTMLButtonElement>('run-median');
+  const medianRuns = $<HTMLInputElement>('median-runs');
+  const progressEl = $('progress');
+  const progBar = $<HTMLProgressElement>('prog-bar');
+  const progText = $('prog-text');
 
   if (
     !status ||
@@ -1206,21 +1766,21 @@ function setupChonkWebGpuPage(): void {
       : 'available but crossOriginIsolated=false (run via serve-chonk-webgpu.mjs)'
     : 'unavailable — multi-threaded WASM will not work';
   if (!isolated) {
-    sab.style.color = '#cf222e';
+    sab.style.color = '#f85149';
   }
 
   // GPU adapter probe — same shape as the bench functions use.
   (async () => {
     if (!('gpu' in navigator)) {
       adapter.textContent = 'WebGPU not exposed by navigator.gpu';
-      adapter.style.color = '#cf222e';
+      adapter.style.color = '#f85149';
       return;
     }
     try {
       const a = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
       if (!a) {
         adapter.textContent = 'requestAdapter returned null';
-        adapter.style.color = '#cf222e';
+        adapter.style.color = '#f85149';
         return;
       }
       const info = (a as any).info ?? (await (a as any).requestAdapterInfo?.());
@@ -1228,11 +1788,11 @@ function setupChonkWebGpuPage(): void {
         ? `${info.vendor ?? '?'} / ${info.architecture ?? '?'} / ${info.device ?? '?'} / ${info.description ?? '?'}`
         : 'unknown';
       if (/swiftshader/i.test(adapter.textContent ?? '')) {
-        adapter.style.color = '#9a6700';
+        adapter.style.color = '#d29922';
       }
     } catch (err) {
       adapter.textContent = `error: ${err instanceof Error ? err.message : String(err)}`;
-      adapter.style.color = '#cf222e';
+      adapter.style.color = '#f85149';
     }
   })();
 
@@ -1297,12 +1857,61 @@ function setupChonkWebGpuPage(): void {
     el.className = `pill ${state}`;
     el.textContent = text;
   };
-  const setBusy = (busy: boolean): void => {
+  // Progress bar with a live elapsed timer. The page main thread is free during a prove (it only
+  // services the bridge), so a setInterval ticker repaints the elapsed time; per-run progress is
+  // driven by setProg(). Indeterminate (no value attr) for single runs, determinate for the median.
+  let progStart = 0;
+  let progTimer = 0;
+  let progLabel = '';
+  const fmtElapsed = (ms: number): string => {
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
+  const renderProg = (): void => {
+    if (progText) progText.textContent = `${progLabel} · elapsed ${fmtElapsed(performance.now() - progStart)}`;
+  };
+  const startProg = (label: string): void => {
+    if (!progressEl || !progBar) return;
+    progLabel = label;
+    progStart = performance.now();
+    progBar.removeAttribute('value'); // indeterminate until setProg gives a value
+    progressEl.style.display = 'flex';
+    renderProg();
+    clearInterval(progTimer);
+    progTimer = window.setInterval(renderProg, 400);
+  };
+  const setProg = (label: string, value?: number, max?: number): void => {
+    progLabel = label;
+    if (progBar) {
+      if (value != null && max != null) {
+        progBar.max = max;
+        progBar.value = value;
+      } else {
+        progBar.removeAttribute('value');
+      }
+    }
+    renderProg();
+  };
+  const stopProg = (): void => {
+    clearInterval(progTimer);
+    if (progressEl) progressEl.style.display = 'none';
+  };
+
+  const setBusy = (busy: boolean, label = 'Running prove… (this takes ~1 min)'): void => {
     runWasm.disabled = busy;
     runWebgpu.disabled = busy;
     runWebgpuBatch.disabled = busy;
     runMsmCsv.disabled = busy;
+    if (runMedian) runMedian.disabled = busy;
     status.textContent = busy ? 'running…' : 'idle';
+    if (busy) {
+      // Clear any stale per-run breakdown from a previous median run.
+      setText('wasm-runs', '');
+      setText('webgpu-runs', '');
+      startProg(label);
+    } else {
+      stopProg();
+    }
   };
   // Generic vs-baseline ratio printer (e.g. "1.12× vs WebGPU solo (faster)").
   // Hidden when baseline is missing — the card just shows the WASM ratio.
@@ -1342,6 +1951,24 @@ function setupChonkWebGpuPage(): void {
     }
   };
 
+  // Trigger a client-side download of a JSON string — the "generated on the
+  // front end" path that works regardless of whether the page is served by
+  // serve-chonk-webgpu.mjs (which also has the /msm-trace disk sink).
+  const downloadJson = (json: string, filename: string): void => {
+    try {
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      append(`[WARN] download failed: ${e instanceof Error ? e.message : String(e)}`, 'warn');
+    }
+  };
+
   // The WASM baseline VK + prove time, kept across clicks so the WebGPU run can
   // report a speedup and a VK byte-equality check against it. A matching VK is
   // the gold-standard correctness signal: it proves the GPU-delegated MSMs
@@ -1360,6 +1987,37 @@ function setupChonkWebGpuPage(): void {
     setBusy(true);
     try {
       const flow = flowSel.value;
+
+      // "Full e2e trace" ticked → the same phase-level BB_BENCH capture as the WebGPU path, but on a
+      // CPU-only prove: one lane per WASM worker (the nested prove tree down to batch_commit/MSM),
+      // no GPU / host-bridge / Memory lanes (the bridge is inactive). Saves + downloads
+      // chonk-wasm-e2e-trace. Phase capture adds a small per-scope cost, so this run is a touch slower.
+      if (traceE2e?.checked) {
+        append(`▶ Capturing FULL e2e Perfetto trace (WASM phase tree, one lane per worker) on flow=${flow}`, 'info');
+        append('  ⏺ phase-level BB_BENCH capture ON — slightly inflates this run vs an untraced WASM prove.', 'info');
+        setText('wasm-prove-big', '…');
+        const r = await (window as any).runChonkWebGpuTrace(flow, { webgpu: false });
+        setText('wasm-prove', fmtMs(r.proveMs));
+        setText('wasm-prove-big', fmtMs(r.proveMs));
+        setPill('wasm-verified', r.verified ? 'ok' : 'fail', `verified: ${r.verified}`);
+        append(
+          `  lanes=${r.counts.lanes} cppEvents=${r.counts.cppEvents} (WASM phase lanes only; no GPU/memory lanes)`,
+          'info',
+        );
+        if (r.traceJson) {
+          await postTrace(
+            r.traceJson,
+            'chonk-wasm-e2e-trace.json',
+            `${r.counts.lanes} lanes, ${r.counts.cppEvents} events`,
+          );
+          downloadJson(r.traceJson, 'chonk-wasm-e2e-trace.perfetto.json');
+          append('  ⬇ downloaded chonk-wasm-e2e-trace.perfetto.json — open it at ui.perfetto.dev.', 'ok');
+        } else {
+          append('[WARN] no e2e trace JSON produced.', 'warn');
+        }
+        return;
+      }
+
       const wantTrace = !!traceWebgpu?.checked;
       append(`▶ Run WASM (multi-threaded, no GPU) on flow=${flow}`, 'info');
       if (wantTrace) {
@@ -1406,6 +2064,58 @@ function setupChonkWebGpuPage(): void {
     setBusy(true);
     try {
       const flow = flowSel.value;
+
+      // "Full e2e trace" ticked → run ONE webgpu=on prove with BB_BENCH phase capture and merge the
+      // WASM/host/GPU/memory lanes into a single Perfetto JSON, then POST + download it. This is a
+      // distinct path from the bridge-only "Perfetto trace" checkbox below.
+      if (traceE2e?.checked) {
+        append(
+          `▶ Capturing FULL e2e Perfetto trace (WASM phases + host bridge + GPU + memory) on flow=${flow}`,
+          'info',
+        );
+        append('  ⏺ ONE webgpu=on prove with phase-level BB_BENCH capture; hardware WebGPU only.', 'info');
+        setText('webgpu-prove-big', '…');
+        const r = await (window as any).runChonkWebGpuTrace(flow);
+        append(`  GPU adapter: ${r.adapter}`, 'info');
+        if (r.swiftshaderDetected) {
+          setText('webgpu-prove-big', '✗');
+          setPill('webgpu-verified', 'fail', 'SwiftShader — no trace');
+          append(
+            '[WARN] SwiftShader/software WebGPU — e2e trace not captured (the prove would not verify). ' +
+              'Use a hardware GPU (Apple Metal / discrete NVIDIA).',
+            'warn',
+          );
+          return;
+        }
+        setText('webgpu-prove', fmtMs(r.proveMs));
+        setText('webgpu-prove-big', fmtMs(r.proveMs));
+        setPill('webgpu-verified', r.verified ? 'ok' : 'fail', `verified: ${r.verified}`);
+        if (r.alignment) {
+          append(
+            `  clock fit: b-1=${r.alignment.bMinus1.toExponential(2)} ` +
+              `maxResidual=${(r.alignment.maxResidualMs * 1000).toFixed(0)}µs (anchors=${r.alignment.anchors})`,
+            'info',
+          );
+        }
+        append(
+          `  lanes=${r.counts.lanes} cppEvents=${r.counts.cppEvents} ` +
+            `cpu=${r.counts.cpu} gpu=${r.counts.gpu} mem=${r.counts.mem} untracked=${r.counts.untracked}`,
+          'info',
+        );
+        if (r.traceJson) {
+          const note = `${r.counts.lanes} lanes, ${r.counts.cppEvents} C++ events`;
+          await postTrace(r.traceJson, 'chonk-webgpu-e2e-trace.json', note);
+          downloadJson(r.traceJson, 'chonk-webgpu-e2e-trace.perfetto.json');
+          append(
+            '  ⬇ downloaded chonk-webgpu-e2e-trace.perfetto.json — open it at ui.perfetto.dev (Open trace file).',
+            'ok',
+          );
+        } else {
+          append('[WARN] no e2e trace JSON produced (fewer than 2 alignment anchors?).', 'warn');
+        }
+        return;
+      }
+
       append(`▶ Run WebGPU (89 MSMs delegated, block-list applied) on flow=${flow}`, 'info');
       setText('webgpu-prove-big', '…');
       const win = window as any;
@@ -1414,7 +2124,7 @@ function setupChonkWebGpuPage(): void {
         win.__bridge_trace_reset?.();
         win.__bridge_trace_on = true;
         append(
-          '  ⏺ Perfetto trace capture ON — adds per-batch GPU timestamp readback, so this run\'s prove time is slightly inflated.',
+          "  ⏺ Perfetto trace capture ON — adds per-batch GPU timestamp readback, so this run's prove time is slightly inflated.",
           'info',
         );
       }
@@ -1546,11 +2256,7 @@ function setupChonkWebGpuPage(): void {
       setRatio('webgpu-batch-vs-solo', result.proveMs, lastWebgpuSoloProveMs, 'WebGPU solo');
       if (lastWasmVk) {
         const match = lastWasmVk.length === vk.length && lastWasmVk.every((b: number, i: number) => b === vk[i]);
-        setPill(
-          'webgpu-batch-vkmatch',
-          match ? 'ok' : 'fail',
-          match ? 'vk vs WASM: match' : 'vk vs WASM: MISMATCH',
-        );
+        setPill('webgpu-batch-vkmatch', match ? 'ok' : 'fail', match ? 'vk vs WASM: match' : 'vk vs WASM: MISMATCH');
         if (!match) {
           // VK mismatch is a correctness regression — log loudly. If the
           // batch route produced byte-identical commitments to the solo
@@ -1675,7 +2381,60 @@ function setupChonkWebGpuPage(): void {
     log.innerHTML = '';
   });
 
-  status.textContent = 'ready — Run WASM / Run WebGPU (solo) / Run WebGPU (batch) / Per-MSM CPU vs GPU';
+  // Multi-run median: N× WASM + N× WebGPU, report median (+ min/max) total and per-circuit walls.
+  runMedian?.addEventListener('click', async () => {
+    const runs = Math.max(1, Math.min(20, parseInt(medianRuns?.value ?? '5', 10) || 5));
+    setBusy(true, `Median ×${runs} — starting`);
+    try {
+      const flow = flowSel.value;
+      append(
+        `▶ Median: ${runs}× WASM + ${runs}× WebGPU on flow=${flow} (~${Math.ceil((2 * runs * 8) / 60)} min). ` +
+          `bench trace ON for per-circuit walls — totals carry recording overhead, so read them relatively.`,
+        'info',
+      );
+      const res = await (window as any).runChonkMedian(flow, runs, (p: MedianProgress) => {
+        const tag =
+          p.phase === 'done'
+            ? `${p.side.toUpperCase()} run ${p.run}/${p.runs} done (last ${((p.lastMs ?? 0) / 1000).toFixed(1)}s)`
+            : `${p.side.toUpperCase()} run ${p.run}/${p.runs} proving…`;
+        setProg(`${tag} · ${p.done}/${p.total} proves`, p.done, p.total);
+      });
+      const W = res.wasm;
+      const G = res.webgpu;
+      // headline cards
+      setText('wasm-prove', fmtMs(W.medianTotal));
+      setText('wasm-prove-big', fmtMs(W.medianTotal));
+      setText('webgpu-prove', fmtMs(G.medianTotal));
+      setText('webgpu-prove-big', fmtMs(G.medianTotal));
+      setPill('wasm-verified', W.allVerified ? 'ok' : 'fail', `verified: ${W.allVerified}`);
+      setPill('webgpu-verified', G.allVerified ? 'ok' : 'fail', `verified: ${G.allVerified}`);
+      setSpeedup('webgpu-speedup', G.medianTotal, W.medianTotal);
+      // Tiny per-run breakdown under the median (run order, seconds).
+      const runsText = (totals: number[]): string =>
+        `${runs}× [${totals.map(t => (t / 1000).toFixed(2)).join(', ')}] s`;
+      setText('wasm-runs', runsText(W.totals));
+      setText('webgpu-runs', runsText(G.totals));
+      const net = W.medianTotal - G.medianTotal;
+      append(
+        `✓ MEDIAN (${runs}×): WASM ${fmtMs(W.medianTotal)} [${fmtMs(W.minTotal)}–${fmtMs(W.maxTotal)}]  |  ` +
+          `WebGPU ${fmtMs(G.medianTotal)} [${fmtMs(G.minTotal)}–${fmtMs(G.maxTotal)}]  |  ` +
+          `net ${net >= 0 ? '−' : '+'}${fmtMs(Math.abs(net))} ${net >= 0 ? '(GPU faster)' : '(GPU slower)'}`,
+        net >= 0 ? 'ok' : 'warn',
+      );
+      append(`  WASM runs:   [${W.totals.map(t => (t / 1000).toFixed(2)).join(', ')}] s`, 'info');
+      append(`  WebGPU runs: [${G.totals.map(t => (t / 1000).toFixed(2)).join(', ')}] s`, 'info');
+      const json = JSON.stringify(res, null, 2);
+      await postTrace(json, 'chonk-median.json', `${runs}× median totals`);
+      downloadJson(json, 'chonk-median.json');
+    } catch (err) {
+      append(`[ERR] median run: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  status.textContent = 'ready — Run WASM / Run WebGPU (solo) / Run WebGPU (batch) / Per-MSM CPU vs GPU / Run median';
 }
 
 (window as any).setupChonkWebGpuPage = setupChonkWebGpuPage;

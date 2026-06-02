@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <sys/types.h>
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
+#include "barretenberg/common/serialize.hpp"
+#include "barretenberg/common/wasm_export.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "bb_bench.hpp"
 #include <algorithm>
@@ -16,8 +18,10 @@
 #include <ostream>
 #include <set>
 #include <sstream>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace {
@@ -176,7 +180,64 @@ bool use_bb_bench = std::getenv("BB_BENCH") == nullptr ? false : std::string(std
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::atomic<bool> capture_per_call_events{ false };
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::atomic<uint8_t> bench_trace_max_depth{ []() -> uint8_t {
+    const char* e = std::getenv("BB_BENCH_TRACE_MAX_DEPTH");
+    if (e == nullptr) {
+        return 0xff;
+    }
+    const int v = std::atoi(e);
+    return (v <= 0 || v > 255) ? static_cast<uint8_t>(0xff) : static_cast<uint8_t>(v);
+}() };
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 using OperationKey = std::string_view;
+
+namespace {
+// Per-thread nesting depth of BB_BENCH scopes that are being recorded (stats != nullptr). Plain
+// thread_local so the increment/decrement in BenchReporter is lock-free and never serializes the
+// prover across its worker threads. 1 == outermost scope on this thread.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+thread_local uint32_t g_bench_depth = 0;
+
+// Deny-list of leaf op names excluded from per-call capture regardless of depth. The deny-list is
+// optional (usually empty) and is populated once before a trace run, so the hot dtor path stays
+// lock-free in the common case: `g_bench_trace_denylist_active` is a single relaxed atomic load,
+// and the mutex is only taken when a non-empty list has actually been set.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::atomic<bool> g_bench_trace_denylist_active{ false };
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::unordered_set<std::string> g_bench_trace_denylist;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::mutex g_bench_trace_denylist_mutex;
+} // namespace
+
+void set_bench_trace_denylist(std::string_view names_csv)
+{
+    std::unique_lock<std::mutex> lock(g_bench_trace_denylist_mutex);
+    g_bench_trace_denylist.clear();
+    size_t start = 0;
+    while (start <= names_csv.size()) {
+        size_t comma = names_csv.find(',', start);
+        size_t end = (comma == std::string_view::npos) ? names_csv.size() : comma;
+        std::string_view tok = names_csv.substr(start, end - start);
+        if (!tok.empty()) {
+            g_bench_trace_denylist.emplace(tok);
+        }
+        if (comma == std::string_view::npos) {
+            break;
+        }
+        start = comma + 1;
+    }
+    g_bench_trace_denylist_active.store(!g_bench_trace_denylist.empty(), std::memory_order_relaxed);
+}
+
+bool bench_trace_name_denied(std::string_view name) noexcept
+{
+    if (!g_bench_trace_denylist_active.load(std::memory_order_relaxed)) {
+        return false;
+    }
+    std::unique_lock<std::mutex> lock(g_bench_trace_denylist_mutex);
+    return g_bench_trace_denylist.find(std::string(name)) != g_bench_trace_denylist.end();
+}
 
 void AggregateEntry::add_thread_time_sample(const TimeAndCount& stats)
 {
@@ -381,8 +442,14 @@ namespace {
 // Emit a single Chrome Trace Event Format "X" (complete) event.
 // ts/dur are in microseconds (the Chrome Trace convention), with 3 digits after the
 // decimal so we don't lose nanosecond precision.
-void emit_x_event(
-    std::ostream& os, OperationKey name, OperationKey parent, double ts_us, double dur_us, uint64_t tid, bool& first)
+void emit_x_event(std::ostream& os,
+                  OperationKey name,
+                  OperationKey parent,
+                  double ts_us,
+                  double dur_us,
+                  uint64_t tid,
+                  uint32_t depth,
+                  bool& first)
 {
     if (!first) {
         os << ',';
@@ -396,8 +463,19 @@ void emit_x_event(
     os << ",\"tid\":" << tid;
     os << ",\"ts\":" << std::fixed << std::setprecision(3) << ts_us;
     os << ",\"dur\":" << std::fixed << std::setprecision(3) << dur_us;
-    if (!parent.empty() && parent != "_root") {
-        os << ",\"args\":{\"parent\":\"" << parent << "\"}";
+    const bool has_parent = !parent.empty() && parent != "_root";
+    if (has_parent || depth > 0) {
+        os << ",\"args\":{";
+        if (has_parent) {
+            os << "\"parent\":\"" << parent << "\"";
+        }
+        if (depth > 0) {
+            if (has_parent) {
+                os << ',';
+            }
+            os << "\"depth\":" << depth;
+        }
+        os << "}";
     }
     os << "}";
 }
@@ -421,7 +499,11 @@ void GlobalBenchStatsContainer::serialize_trace_events_json(std::ostream& os) co
         min_ts = 0;
     }
 
-    os << "{\n  \"displayTimeUnit\":\"us\",\n  \"traceEvents\":[";
+    // `min_ts_ns` is the un-rebased wall-clock ns of the first recorded event. The browser
+    // alignment fit (host_ms = a + b·(min_ts_ns + ts·1000)/1e6) needs this to map the rebased
+    // per-event `ts` (µs from min_ts) back onto the absolute C++ clock before fitting it to the
+    // main-thread performance.now() domain.
+    os << "{\n  \"displayTimeUnit\":\"us\",\n  \"min_ts_ns\":" << min_ts << ",\n  \"traceEvents\":[";
     bool first = true;
 
     // Remap each thread's raw pthread-hash tid to a small integer. Native
@@ -465,7 +547,7 @@ void GlobalBenchStatsContainer::serialize_trace_events_json(std::ostream& os) co
         for (const PerCallEvent& e : buf->events) {
             double ts_us = static_cast<double>(e.ts_ns - min_ts) / 1000.0;
             double dur_us = static_cast<double>(e.dur_ns) / 1000.0;
-            emit_x_event(os, e.name, e.parent, ts_us, dur_us, tid_remap[e.tid], first);
+            emit_x_event(os, e.name, e.parent, ts_us, dur_us, tid_remap[e.tid], e.depth, first);
         }
     }
     os << "\n  ]\n}\n";
@@ -506,6 +588,7 @@ void GlobalBenchStatsContainer::serialize_aggregate_trace_json(std::ostream& os)
                      static_cast<double>(ts_start_ns) / 1000.0,
                      static_cast<double>(self->time_max) / 1000.0,
                      /*tid=*/0,
+                     /*depth=*/0,
                      first);
 
         // Collect children: any entry whose parent_map contains `key`.
@@ -825,12 +908,16 @@ BenchReporter::BenchReporter(TimeStatsEntry* entry)
     : parent(nullptr)
     , stats(entry)
     , time(0)
+    , depth(0)
 {
     if (stats == nullptr) {
         return;
     }
     // Track the current parent context
     parent = GlobalBenchStatsContainer::parent;
+    // Snapshot this scope's nesting depth (1 == outermost recorded scope on this thread). Plain
+    // thread_local increment — lock-free, so it never serializes the prover's worker threads.
+    depth = ++g_bench_depth;
     auto now = std::chrono::high_resolution_clock::now();
     auto now_ns = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
     time = static_cast<uint64_t>(now_ns.time_since_epoch().count());
@@ -847,8 +934,13 @@ BenchReporter::~BenchReporter()
     stats->count.track(parent, end_ns - time);
 
     // Per-call event capture for Chrome Trace Event / Perfetto output. Only active when
-    // --trace_out_perfetto was set; otherwise a single relaxed atomic load on the hot path.
-    if (capture_per_call_events.load(std::memory_order_relaxed)) {
+    // --trace_out_perfetto / bb_set_bench_trace was set; otherwise a single relaxed atomic load on
+    // the hot path. Restricted at RECORD time to phase-level granularity: a scope is kept only when
+    // its nesting depth is within the cap and its op name isn't on the deny-list. This drops the
+    // per-op leaves (field arithmetic, Execution::*, …) before they ever hit the buffer, keeping
+    // both volume and overhead bounded on a many-thread prove.
+    if (capture_per_call_events.load(std::memory_order_relaxed) &&
+        depth <= bench_trace_max_depth.load(std::memory_order_relaxed) && !bench_trace_name_denied(stats->key)) {
         ThreadEventBuffer& buf = get_thread_event_buffer();
         buf.events.push_back(PerCallEvent{
             /*name=*/stats->key,
@@ -856,11 +948,67 @@ BenchReporter::~BenchReporter()
             /*ts_ns=*/time,
             /*dur_ns=*/end_ns - time,
             /*tid=*/buf.tid,
+            /*depth=*/depth,
         });
+    }
+
+    // Pop this scope from the thread-local depth counter (paired with the ctor's increment).
+    if (g_bench_depth > 0) {
+        --g_bench_depth;
     }
 
     // Unwind to previous parent
     GlobalBenchStatsContainer::parent = parent;
 }
 } // namespace bb::detail
+
+// WASM exports that drive the browser-side phase-level trace. Mirror the native CLI's
+// --trace_out_perfetto data flow: enable per-call capture, bound it to phase granularity with a
+// depth cap, sample the bench clock for host↔C++ alignment, and dump the Chrome-trace JSON after a
+// prove. Wired through bb.js exactly like bb_set_msm_distribution_mode.
+
+// Turn per-call event capture on/off. Also flips use_bb_bench so the BB_BENCH macros actually
+// allocate their per-thread stats (without it, ensure_stats() returns null and nothing records).
+// MUST be called before the prove starts so every worker thread sees use_bb_bench == true on its
+// first BB_BENCH scope; the globals live in shared WASM memory so one call covers all threads.
+WASM_EXPORT void bb_set_bench_trace(uint8_t on)
+{
+    bb::detail::use_bb_bench = on != 0;
+    bb::detail::capture_per_call_events.store(on != 0, std::memory_order_relaxed);
+}
+
+// Set the record-time nesting-depth cap (1 == outermost scope). Calibrated so the prove-stage tree
+// (ChonkAPI::prove → Chonk::accumulate* → {…Prover}::* → CommitmentKey::batch_commit →
+// BatchMultiScalarMul) is kept while the per-op leaves are dropped. 0xff keeps everything.
+WASM_EXPORT void bb_set_bench_trace_max_depth(uint8_t d)
+{
+    bb::detail::bench_trace_max_depth.store(d, std::memory_order_relaxed);
+}
+
+// Set a comma-separated deny-list of leaf op names that are never recorded even within the depth
+// cap (a null pointer or empty string clears it).
+WASM_EXPORT void bb_set_bench_trace_denylist(const char* names_csv)
+{
+    bb::detail::set_bench_trace_denylist(names_csv == nullptr ? std::string_view{} : std::string_view{ names_csv });
+}
+
+// Read the same clock BB_BENCH events are stamped with (high_resolution_clock → the WASI
+// clock_time_get import, i.e. Date.now()·1e6), written as a little-endian u64 ns to `out`. The
+// browser pairs this with performance.now() to fit C++ ns → main-thread ms.
+WASM_EXPORT void bb_bench_clock_ns(uint64_t* out)
+{
+    const auto now = std::chrono::high_resolution_clock::now();
+    const auto now_ns = std::chrono::time_point_cast<std::chrono::nanoseconds>(now);
+    *out = static_cast<uint64_t>(now_ns.time_since_epoch().count());
+}
+
+// Serialize all captured per-call events to Chrome Trace Event JSON (with the `min_ts_ns` header
+// and per-event `args.depth`) into a length-prefixed heap buffer for the JS side to read back.
+WASM_EXPORT void bb_dump_bench_trace_json(uint8_t** out)
+{
+    std::ostringstream oss;
+    bb::detail::GLOBAL_BENCH_STATS.serialize_trace_events_json(oss);
+    const std::string s = oss.str();
+    *out = to_heap_buffer(std::vector<uint8_t>(s.begin(), s.end()));
+}
 #endif

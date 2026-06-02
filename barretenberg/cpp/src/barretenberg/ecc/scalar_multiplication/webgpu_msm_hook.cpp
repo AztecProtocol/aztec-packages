@@ -363,11 +363,23 @@ void emit_msm_distribution(std::span<std::span<curve::BN254::ScalarField>> scala
         // Per-window per-bucket count grid. Indexed as counts[w * BW + bucket].
         std::vector<uint32_t> counts(static_cast<size_t>(num_windows) * BW, 0u);
         size_t nnz = 0;
+        // Scalar magnitude in bits (of the normal-form integer). `maxbits` is
+        // the hard bound that decides a safe static `scalarBitLength` for the
+        // small-scalar window-count optimisation — it must cover EVERY scalar.
+        // `sum_bits` over the nonzero scalars feeds `mean_bits`; a low mean
+        // with a high max flags a "mostly-small, few full-width" distribution.
+        uint64_t maxbits = 0;
+        uint64_t sum_bits = 0;
 
         for (size_t k = 0; k < n; ++k) {
             const auto u = static_cast<numeric::uint256_t>(scalars[i][k]);
             if (u != 0) {
                 ++nnz;
+                const uint64_t bits = u.get_msb() + 1;
+                if (bits > maxbits) {
+                    maxbits = bits;
+                }
+                sum_bits += bits;
             }
             for (uint32_t w = 0; w < num_windows; ++w) {
                 const uint32_t raw = read_window_raw(u, w, c);
@@ -423,12 +435,15 @@ void emit_msm_distribution(std::span<std::span<curve::BN254::ScalarField>> scala
         }
 
         const double density = n > 0 ? static_cast<double>(nnz) / static_cast<double>(n) : 0.0;
+        const double mean_bits = nnz > 0 ? static_cast<double>(sum_bits) / static_cast<double>(nnz) : 0.0;
         const std::string lbl = (labels.size() == batch_size) ? labels[i] : std::string("?");
 
         std::ostringstream odensity;
         odensity << std::fixed << std::setprecision(6) << density;
         std::ostringstream omean;
         omean << std::fixed << std::setprecision(2) << mean_nonzero;
+        std::ostringstream omeanbits;
+        omeanbits << std::fixed << std::setprecision(2) << mean_bits;
 
         info("[msm-dist] name=",
              lbl,
@@ -440,6 +455,10 @@ void emit_msm_distribution(std::span<std::span<curve::BN254::ScalarField>> scala
              odensity.str(),
              " c=",
              c,
+             " maxbits=",
+             maxbits,
+             " mean_bits=",
+             omeanbits.str(),
              " maxbucket=",
              maxbucket,
              " p99bucket=",

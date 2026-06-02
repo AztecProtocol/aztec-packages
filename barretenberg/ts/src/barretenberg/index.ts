@@ -51,6 +51,32 @@ export class Barretenberg extends AsyncApi {
   }
 
   /**
+   * Serialize the phase-level BB_BENCH per-call trace captured during the most recent prove to
+   * Chrome Trace Event JSON (with the `min_ts_ns` header). Enable capture via the `benchTrace`
+   * backend option. Returns `undefined` on a backend/build without the trace export. Call after
+   * prove, before destroy.
+   */
+  async dumpBenchTraceJson(): Promise<string | undefined> {
+    const backend = this.backend as unknown as { dumpBenchTraceJson?: () => Promise<string | undefined> };
+    if (typeof backend.dumpBenchTraceJson === 'function') {
+      return backend.dumpBenchTraceJson();
+    }
+    return undefined;
+  }
+
+  /**
+   * Read the BB_BENCH wall clock (the same source per-call `ts` is stamped with) as nanoseconds,
+   * for validating the host↔C++ clock alignment. Returns `undefined` on a backend without it.
+   */
+  async benchClockNs(): Promise<bigint | undefined> {
+    const backend = this.backend as unknown as { benchClockNs?: () => Promise<bigint | undefined> };
+    if (typeof backend.benchClockNs === 'function') {
+      return backend.benchClockNs();
+    }
+    return undefined;
+  }
+
+  /**
    * Constructs an instance of Barretenberg.
    *
    * If options.backend is set: uses that specific backend (throws if unavailable)

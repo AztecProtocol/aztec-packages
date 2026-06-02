@@ -413,6 +413,98 @@ describe('Chonk WebGPU MSM benchmark - Browser (ECDSA-r1 transfer)', () => {
     }
   }, 600_000);
 
+  it(`captures the end-to-end WebGPU Perfetto trace for ${DEFAULT_FLOW}`, async () => {
+    // One Perfetto-loadable JSON (ui.perfetto.dev) of ONE webgpu-on Chonk prove, overlaying on
+    // one clock: C++/WASM prove phases (one lane per worker), the host MSM bridge phases, the GPU
+    // passes, and host↔GPU memory transfers. Requires a hardware-WebGPU host (SwiftShader is not
+    // BN254 bit-exact → the prove's own verify fails); detects + skips on software.
+    const traceOutPath = process.env.WEBGPU_TRACE_OUT ?? '/tmp/zac-webgpu/chonk-webgpu-e2e-trace.perfetto.json';
+    let page: any;
+    try {
+      page = await browser.newPage();
+      let pageError: Error | null = null;
+      page.on('console', (msg: any) => {
+        const text = msg.text();
+        if (msg.type() === 'error') logger.error(`Browser[error]: ${text}`);
+        else logger.info(`Browser: ${text}`);
+      });
+      page.on('pageerror', (error: Error) => {
+        logger.error(`Page error: ${error.message}`);
+        pageError = error;
+      });
+      await page.goto(`${serverUrl}/test.html`, { waitUntil: 'networkidle0', timeout: 60_000 });
+      if (pageError) throw new Error(`Page error during load: ${String(pageError)}`);
+      await page.waitForFunction('typeof window.runChonkWebGpuTrace !== "undefined"', { timeout: 60_000 });
+      logger.info(`Capturing e2e WebGPU Perfetto trace for flow=${flow}…`);
+
+      const result = (await page.evaluate(async (f: string) => (window as any).runChonkWebGpuTrace(f), flow)) as {
+        flow: string;
+        adapter: string;
+        swiftshaderDetected: boolean;
+        traceJson?: string;
+        proveMs: number;
+        verified: boolean;
+        alignment?: { b: number; bMinus1: number; maxResidualMs: number; rmsResidualMs: number; anchors: number };
+        counts: { cppEvents: number; cpu: number; gpu: number; mem: number; untracked: number; lanes: number };
+        validation: {
+          gpuPassSumMs: number;
+          bridgeSubmitWaitSumMs: number;
+          cppRootMs: number;
+          proveMs: number;
+          untrackedMs: number;
+        };
+      };
+
+      if (result.swiftshaderDetected) {
+        logger.warn(
+          `[trace] adapter=[${result.adapter}] — SwiftShader/software WebGPU; a valid trace can't be ` +
+            `captured (verify would fail). Run on a hardware GPU (Apple Metal / discrete NVIDIA).`,
+        );
+        return;
+      }
+
+      expect(result.verified).toBe(true);
+      expect(result.traceJson).toBeTruthy();
+
+      const { writeFileSync, mkdirSync } = await import('fs');
+      const { dirname } = await import('path');
+      mkdirSync(dirname(traceOutPath), { recursive: true });
+      writeFileSync(traceOutPath, result.traceJson!);
+
+      logger.info(
+        `[trace] adapter=[${result.adapter}] prove=${result.proveMs.toFixed(0)}ms verified=${result.verified} ` +
+          `lanes=${result.counts.lanes} cppEvents=${result.counts.cppEvents} ` +
+          `cpu=${result.counts.cpu} gpu=${result.counts.gpu} mem=${result.counts.mem} → ${traceOutPath}`,
+      );
+      if (result.alignment) {
+        logger.info(
+          `[trace] alignment: anchors=${result.alignment.anchors} b-1=${result.alignment.bMinus1.toExponential(2)} ` +
+            `maxResidual=${(result.alignment.maxResidualMs * 1000).toFixed(0)}µs ` +
+            `rmsResidual=${(result.alignment.rmsResidualMs * 1000).toFixed(0)}µs`,
+        );
+        // Date.now() is 1ms-quantized so a per-event/anchor floor of ~0.5ms is expected; 1.5ms gives
+        // slack. A larger residual indicates tab backgrounding (divergently throttled clocks).
+        expect(result.alignment.maxResidualMs).toBeLessThan(1.5);
+      }
+      logger.info(
+        `[trace] validation: Σgpu_passes=${result.validation.gpuPassSumMs.toFixed(1)}ms ` +
+          `Σbridge_submit_wait=${result.validation.bridgeSubmitWaitSumMs.toFixed(1)}ms ` +
+          `cpp_prove_root=${result.validation.cppRootMs.toFixed(0)}ms prove_wall=${result.validation.proveMs.toFixed(0)}ms ` +
+          `untracked=${result.validation.untrackedMs.toFixed(0)}ms`,
+      );
+
+      expect(result.counts.cppEvents).toBeGreaterThan(0);
+      expect(result.counts.gpu).toBeGreaterThan(0);
+      // The C++ prove root maps to roughly the host-measured prove wall — the cross-clock fit landed
+      // the WASM lanes on the right timeline (not off by a factor or sign). Wide bounds: backend.prove
+      // wall includes msgpack encode/decode + the JS↔WASM round-trip around ChonkAPI::prove.
+      expect(result.validation.cppRootMs).toBeGreaterThan(result.proveMs * 0.5);
+      expect(result.validation.cppRootMs).toBeLessThan(result.proveMs * 1.5);
+    } finally {
+      if (page) await page.close();
+    }
+  }, 600_000);
+
   function startTestServer(): Promise<number> {
     return new Promise((resolve, reject) => {
       const distPath = join(projectRoot, 'dist');

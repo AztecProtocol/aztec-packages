@@ -273,3 +273,46 @@ cd ../../yarn-project/ivc-integration && yarn webpack
 cd /Users/zac/aztec-packages/yarn-project && LOG_LEVEL=verbose \
   yarn workspace @aztec/ivc-integration test src/chonk_browser_webgpu_bench.test.ts
 ```
+
+## Full e2e Perfetto trace (WASM phases + host + GPU + memory, one clock)
+
+`window.runChonkWebGpuTrace(flow?)` (serve.ts) captures ONE webgpu-on prove as a
+single Perfetto-loadable JSON (ui.perfetto.dev) overlaying, on one clock:
+
+- **WASM prove phases** at phase granularity, one lane per worker thread — the
+  C++ `BB_BENCH` per-call recorder, capped at **record-depth 10** (the deepest
+  MSM overlay anchor `MSM::batch_multi_scalar_mul` lives there, in the
+  Hypernova→fold→Oink→`commit_to_wires`→`batch_commit`→MSM path; the
+  `evaluate_work_units` leaves at depth 11+ are auto-excluded), plus a deny-list
+  of the `/chunk` work-unit leaves. Enabled via the `benchTrace` /
+  `benchTraceMaxDepth` / `benchTraceDenylist` backend options →
+  `bb_set_bench_trace*` WASM exports; dumped post-prove via
+  `bb.dumpBenchTraceJson()` → `bb_dump_bench_trace_json`.
+- **CPU (host MSM bridge)** — get / prepare / encode / submit+wait / decode.
+- **GPU (WebGPU passes)** — per-pass timestamps per MSM.
+- **Memory** — scalar `writeBuffer` uploads, SRS upload, mapAsync readbacks,
+  each with bytes + direction.
+- **Untracked** — prove-window time covered by no span (never hidden).
+
+**Clock alignment.** This is a wasi-sdk build, so `std::chrono` → the bb.js WASI
+`clock_time_get` import = `Date.now()·1e6` — a global wall clock shared by every
+worker (coherent across all lanes), 1 ms-quantized. The trace stamps a
+`min_ts_ns` header; the browser pairs `(Date.now(), performance.now())` anchors
+(per bridge call + edge-detected bursts bracketing the prove) and least-squares
+fits `host_ms = a + b·cMs` to map every C++ event onto the main-thread
+`performance.now()` domain the GPU/host/memory lanes already use. Residual is
+bounded below by the 1 ms `Date.now()` quantization (~0.3 ms RMS); the run logs
+`b−1`, max/RMS residual, Σgpu vs Σsubmit_wait, and a top-20-by-duration summary.
+
+**Must run on real hardware WebGPU** (Apple Metal / discrete NVIDIA):
+SwiftShader/software is not BN254 bit-exact so the prove's verify fails — the
+harness detects this and warns. The capture test writes
+`/tmp/zac-webgpu/chonk-webgpu-e2e-trace.perfetto.json` (env `WEBGPU_TRACE_OUT`):
+
+```bash
+LOG_LEVEL=verbose yarn workspace @aztec/ivc-integration \
+  test src/chonk_browser_webgpu_bench.test.ts -t "end-to-end WebGPU Perfetto trace"
+```
+
+or interactively via `yarn serve:chonk-webgpu` (port 8080) + a real Chrome:
+`await window.runChonkWebGpuTrace()`.

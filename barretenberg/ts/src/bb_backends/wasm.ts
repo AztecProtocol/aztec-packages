@@ -33,6 +33,27 @@ async function applyBlocklist(
 }
 
 /**
+ * Marshal a comma-separated deny-list of BB_BENCH leaf op names into the WASM heap and call
+ * `bb_set_bench_trace_denylist`. Drops hot work-unit leaves (e.g. `MSM::evaluate_work_units`,
+ * `compute_univariate_with_row_skipping/chunk`) from per-call capture regardless of depth, keeping
+ * a phase-level trace clean. Same null-terminated-CSV convention and one-shot leak as
+ * `applyBlocklist`; names must not contain commas.
+ */
+async function applyBenchTraceDenylist(
+  wasm: { call(name: string, ...args: any[]): Promise<any> | any; writeMemory(offset: number, arr: Uint8Array): any },
+  names: readonly string[],
+): Promise<void> {
+  const csv = names.join(',');
+  const bytes = new TextEncoder().encode(csv);
+  const buf = new Uint8Array(bytes.length + 1);
+  buf.set(bytes, 0);
+  buf[bytes.length] = 0;
+  const ptr = await wasm.call('bbmalloc', buf.length);
+  await wasm.writeMemory(ptr, buf);
+  await wasm.call('bb_set_bench_trace_denylist', ptr);
+}
+
+/**
  * Synchronous WASM backend that wraps BarretenbergWasmMain.
  * Encapsulates all WASM initialization and memory management.
  */
@@ -99,6 +120,9 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       msmCsvMode?: boolean;
       msmDistributionMode?: boolean;
       msmTraceMode?: boolean;
+      benchTrace?: boolean;
+      benchTraceMaxDepth?: number;
+      benchTraceDenylist?: readonly string[];
       webgpuMsmBlocklist?: readonly string[];
     } = {},
   ): Promise<BarretenbergWasmAsyncBackend> {
@@ -150,6 +174,17 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       if (options.msmTraceMode) {
         await wasm.call('bb_set_msm_trace_mode', 1);
       }
+      // Phase-level BB_BENCH capture. Set the depth cap first, then enable capture — both flip
+      // globals in shared WASM memory before the prove starts, so every worker thread sees them.
+      if (options.benchTrace) {
+        if (options.benchTraceMaxDepth !== undefined) {
+          await wasm.call('bb_set_bench_trace_max_depth', options.benchTraceMaxDepth & 0xff);
+        }
+        if (options.benchTraceDenylist && options.benchTraceDenylist.length > 0) {
+          await applyBenchTraceDenylist(wasm, options.benchTraceDenylist);
+        }
+        await wasm.call('bb_set_bench_trace', 1);
+      }
 
       if (options.unref) {
         worker.unref();
@@ -172,6 +207,15 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       if (options.msmTraceMode) {
         await wasm.call('bb_set_msm_trace_mode', 1);
       }
+      if (options.benchTrace) {
+        if (options.benchTraceMaxDepth !== undefined) {
+          await wasm.call('bb_set_bench_trace_max_depth', options.benchTraceMaxDepth & 0xff);
+        }
+        if (options.benchTraceDenylist && options.benchTraceDenylist.length > 0) {
+          await applyBenchTraceDenylist(wasm, options.benchTraceDenylist);
+        }
+        await wasm.call('bb_set_bench_trace', 1);
+      }
       return new BarretenbergWasmAsyncBackend(wasm);
     }
   }
@@ -187,6 +231,56 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
    */
   async callRawExport(name: string): Promise<void> {
     await this.wasm.call(name);
+  }
+
+  /**
+   * Serialize the phase-level BB_BENCH per-call trace captured during the most recent prove to
+   * Chrome Trace Event JSON. Returns `undefined` on a build without the trace export. The C++ side
+   * writes a length-prefixed heap buffer (`[u32 BE value-length][json bytes]`), so the leading 4
+   * bytes are stripped here. Call after prove, before destroy. No-op cost when `benchTrace` was off
+   * (the trace is just empty).
+   */
+  async dumpBenchTraceJson(): Promise<string | undefined> {
+    // `this.wasm` is BarretenbergWasmMain (direct) or its comlink Remote (worker); both expose
+    // callWasmExport (comlink proxies it). Don't guard on `typeof` — a comlink method proxy doesn't
+    // reliably report `'function'` — just call and let a missing export surface as a thrown error.
+    const w = this.wasm as unknown as {
+      callWasmExport: (
+        n: string,
+        inArgs: (Uint8Array | number)[],
+        outLens: (number | undefined)[],
+      ) => Promise<any> | any;
+    };
+    try {
+      const out = await w.callWasmExport('bb_dump_bench_trace_json', [], [undefined]);
+      const buf: Uint8Array = out[0];
+      // C++ returns `[u32 BE value-length][json bytes]` (to_heap_buffer's inner prefix); strip it.
+      return new TextDecoder().decode(buf.subarray(4));
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Read the BB_BENCH wall clock (the same source per-call `ts` is stamped with — the WASI
+   * `clock_time_get` import, i.e. `Date.now()·1e6`) as nanoseconds. Used to validate that the C++
+   * clock matches the JS-side `Date.now()` anchors. Returns `undefined` on a build without it.
+   */
+  async benchClockNs(): Promise<bigint | undefined> {
+    const w = this.wasm as unknown as {
+      callWasmExport: (
+        n: string,
+        inArgs: (Uint8Array | number)[],
+        outLens: (number | undefined)[],
+      ) => Promise<any> | any;
+    };
+    try {
+      const out = await w.callWasmExport('bb_bench_clock_ns', [], [8]);
+      const buf: Uint8Array = out[0];
+      return new DataView(buf.buffer, buf.byteOffset, 8).getBigUint64(0, true);
+    } catch {
+      return undefined;
+    }
   }
 
   async destroy(): Promise<void> {

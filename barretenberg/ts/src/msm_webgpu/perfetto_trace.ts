@@ -52,7 +52,12 @@ const PID = 1;
  *  show a stray empty row. */
 export function buildPerfettoTraceTracks(tracks: TraceTrack[], processName = 'MsmV2'): string {
   const all = tracks.flatMap(t => t.spans);
-  const t0 = all.length ? Math.min(...all.map(s => s.startMs)) : 0;
+  // Loop rather than `Math.min(...all.map(…))`: a full-prove trace can carry tens of thousands of
+  // spans, and spreading that many into a function call throws "Maximum call stack size exceeded".
+  let t0 = all.length ? all[0].startMs : 0;
+  for (const s of all) {
+    if (s.startMs < t0) t0 = s.startMs;
+  }
 
   const events: TraceEvent[] = [{ ph: 'M', name: 'process_name', pid: PID, tid: 0, args: { name: processName } }];
 

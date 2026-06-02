@@ -4,24 +4,27 @@
     <meta charset="UTF-8" />
     <title>Chonk e2e — WASM-MT vs WebGPU MSM (block-list applied)</title>
     <style>
+      /* GitHub-dark palette. color-scheme makes native form controls (select
+         popup, checkboxes, scrollbars) render dark too. */
+      :root { color-scheme: dark; }
       * { box-sizing: border-box; }
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         max-width: 1100px;
         margin: 24px auto;
         padding: 0 16px;
-        color: #1f2328;
-        background: #f6f8fa;
+        color: #e6edf3;
+        background: #0d1117;
       }
-      h1 { font-size: 22px; margin-bottom: 4px; }
+      h1 { font-size: 22px; margin-bottom: 4px; color: #e6edf3; }
       .subtitle {
-        color: #57606a;
+        color: #8b949e;
         font-size: 14px;
         margin-bottom: 24px;
       }
       .panel {
-        background: #fff;
-        border: 1px solid #d0d7de;
+        background: #161b22;
+        border: 1px solid #30363d;
         border-radius: 6px;
         padding: 16px 20px;
         margin-bottom: 16px;
@@ -30,38 +33,62 @@
         font-size: 14px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: #57606a;
+        color: #8b949e;
         margin: 0 0 12px;
       }
       .ctrl { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-      label { font-size: 13px; color: #57606a; }
+      label { font-size: 13px; color: #8b949e; }
       select, input[type=text] {
         font: inherit;
         padding: 6px 8px;
-        border: 1px solid #d0d7de;
+        border: 1px solid #30363d;
         border-radius: 4px;
-        background: #fff;
+        background: #0d1117;
+        color: #e6edf3;
       }
       button {
         font: inherit;
         font-weight: 500;
         padding: 8px 16px;
-        border: 1px solid rgba(31, 35, 40, 0.15);
+        border: 1px solid #30363d;
         border-radius: 6px;
         cursor: pointer;
-        background: linear-gradient(180deg, #f6f8fa 0%, #ebecf0 100%);
-        color: #1f2328;
+        background: #21262d;
+        color: #c9d1d9;
       }
+      button:hover:not(:disabled) { background: #30363d; border-color: #8b949e; }
       button.primary {
-        background: #1f883d;
-        border-color: rgba(31, 35, 40, 0.15);
+        background: #238636;
+        border-color: rgba(240, 246, 252, 0.1);
         color: #fff;
       }
-      button.primary:hover:not(:disabled) { background: #1a7f37; }
+      button.primary:hover:not(:disabled) { background: #2ea043; }
       button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .progress {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 12px;
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 8px;
+        padding: 10px 14px;
+      }
+      .progress progress {
+        flex: 1;
+        height: 12px;
+        border-radius: 6px;
+        accent-color: #3fb950;
+      }
+      #prog-text {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 13px;
+        color: #e6edf3;
+        white-space: nowrap;
+      }
       .status {
         font-size: 13px;
-        color: #57606a;
+        color: #8b949e;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
       .results {
@@ -70,15 +97,15 @@
         gap: 12px;
       }
       .result-card {
-        border: 1px solid #d0d7de;
+        border: 1px solid #30363d;
         border-radius: 6px;
         padding: 12px 14px;
-        background: #fff;
+        background: #0d1117;
       }
       .result-card h3 {
         font-size: 12px;
         margin: 0 0 8px;
-        color: #57606a;
+        color: #8b949e;
         text-transform: uppercase;
         letter-spacing: 0.5px;
       }
@@ -88,21 +115,29 @@
         font-size: 13px;
         padding: 2px 0;
       }
-      .metric .v { font-family: ui-monospace, monospace; color: #1f2328; }
-      .metric .k { color: #57606a; }
+      .metric .v { font-family: ui-monospace, monospace; color: #e6edf3; }
+      .metric .k { color: #8b949e; }
       .big {
         font-size: 26px;
         font-weight: 600;
         margin: 6px 0;
+        color: #e6edf3;
         font-family: ui-monospace, monospace;
+      }
+      .runs {
+        font-size: 10.5px;
+        color: #6e7681;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        word-break: break-word;
+        line-height: 1.4;
       }
       .speedup {
         font-size: 12px;
-        color: #57606a;
+        color: #8b949e;
         margin-top: 4px;
       }
-      .speedup.up { color: #1f883d; }
-      .speedup.down { color: #cf222e; }
+      .speedup.up { color: #3fb950; }
+      .speedup.down { color: #f85149; }
       .pill {
         display: inline-block;
         padding: 2px 8px;
@@ -111,15 +146,15 @@
         font-weight: 500;
         margin-right: 4px;
       }
-      .pill.ok { background: #dafbe1; color: #1a7f37; }
-      .pill.fail { background: #ffebe9; color: #cf222e; }
-      .pill.skip { background: #fff8c5; color: #9a6700; }
-      .pill.info { background: #ddf4ff; color: #0969da; }
+      .pill.ok { background: rgba(63, 185, 80, 0.15); color: #3fb950; }
+      .pill.fail { background: rgba(248, 81, 73, 0.15); color: #f85149; }
+      .pill.skip { background: rgba(210, 153, 34, 0.15); color: #d29922; }
+      .pill.info { background: rgba(56, 139, 253, 0.15); color: #58a6ff; }
       .blocklist {
         font-family: ui-monospace, monospace;
         font-size: 12px;
-        color: #57606a;
-        background: #f6f8fa;
+        color: #8b949e;
+        background: #21262d;
         padding: 4px 8px;
         border-radius: 4px;
         margin-right: 4px;
@@ -127,8 +162,9 @@
       #log {
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 11.5px;
-        background: #0d1117;
+        background: #010409;
         color: #c9d1d9;
+        border: 1px solid #30363d;
         padding: 12px 14px;
         border-radius: 6px;
         max-height: 360px;
@@ -142,12 +178,12 @@
       #log .l-err  { color: #f85149; }
       .footer {
         font-size: 12px;
-        color: #57606a;
+        color: #8b949e;
         margin-top: 12px;
         line-height: 1.5;
       }
       .footer code {
-        background: #f6f8fa;
+        background: #21262d;
         padding: 1px 4px;
         border-radius: 3px;
         font-family: ui-monospace, monospace;
@@ -184,9 +220,25 @@
         <label title="Capture a Perfetto trace of the next prove and POST it to /tmp/zac-webgpu/. Run WebGPU → chonk-trace-webgpu.json (aligned CPU+GPU; adds per-batch GPU readback, so that run's prove time is slightly inflated). Run WASM → chonk-trace-wasm.json (prove-relative MSM timeline; negligible cost). Open either at ui.perfetto.dev.">
           <input id="trace-webgpu" type="checkbox" /> Perfetto trace
         </label>
+        <label title="Capture the FULL end-to-end Perfetto trace: WASM prove phases (one lane per worker, nested down to batch_commit/MSM) + host MSM bridge + GPU passes + memory transfers, all on one clock. Tick this, then click Run WebGPU — it POSTs chonk-webgpu-e2e-trace.json to /tmp/zac-webgpu/ AND downloads it. Hardware WebGPU only (SwiftShader fails verify). Open at ui.perfetto.dev.">
+          <input id="trace-e2e" type="checkbox" /> Full e2e trace
+        </label>
         <button id="run-msmcsv">Per-MSM CPU vs GPU</button>
         <button id="clear-log">Clear log</button>
         <span id="status" class="status">idle</span>
+      </div>
+      <div class="ctrl" style="margin-top: 10px;">
+        <button id="run-median" class="primary" title="Run the prove N× as WASM and N× as WebGPU and report MEDIAN (+ min/max) total + per-circuit walls — washes out run-to-run noise. Takes a few minutes (2×N proves). POSTs + downloads chonk-median.json.">
+          Run median
+        </button>
+        <label title="How many times to run each of WASM and WebGPU.">
+          × <input id="median-runs" type="number" value="5" min="1" max="20" step="1" style="width: 48px" />
+          runs each side
+        </label>
+      </div>
+      <div id="progress" class="progress" style="display: none">
+        <progress id="prog-bar" max="100"></progress>
+        <span id="prog-text"></span>
       </div>
       <div class="ctrl" style="margin-top: 10px;">
         <label>block-list:</label>
@@ -211,6 +263,7 @@
           <div class="metric"><span class="k">prove</span><span class="v" id="wasm-prove">—</span></div>
           <div class="metric"><span class="k">verify</span><span class="v" id="wasm-verify">—</span></div>
           <div class="big" id="wasm-prove-big">—</div>
+          <div class="runs" id="wasm-runs"></div>
           <div style="margin-top: 6px;">
             <span class="pill" id="wasm-verified">verified: —</span>
           </div>
@@ -220,6 +273,7 @@
           <div class="metric"><span class="k">prove</span><span class="v" id="webgpu-prove">—</span></div>
           <div class="metric"><span class="k">verify</span><span class="v" id="webgpu-verify">—</span></div>
           <div class="big" id="webgpu-prove-big">—</div>
+          <div class="runs" id="webgpu-runs"></div>
           <div class="speedup" id="webgpu-speedup"></div>
           <div style="margin-top: 6px;">
             <span class="pill" id="webgpu-verified">verified: —</span>

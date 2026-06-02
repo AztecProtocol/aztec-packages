@@ -66,7 +66,16 @@ export class BarretenbergWasmBase {
         },
         clock_time_get: (a1: number, a2: number, out: number) => {
           out = out >>> 0;
-          const ts = BigInt(new Date().getTime()) * 1000000n;
+          // High-resolution wall clock: `performance.timeOrigin + performance.now()` (ns), rather
+          // than `Date.now()` which is integer-millisecond. Sub-ms resolution matters for the
+          // phase-level BB_BENCH trace — with ms precision every sub-millisecond scope records
+          // dur=0. `timeOrigin` is a per-thread constant, so it cancels in any duration (end−start
+          // on one thread), giving exact sub-µs durations; absolute values stay ≈ Date.now() and
+          // coherent across workers (each worker's timeOrigin+now ≈ the same absolute wall time).
+          // The split keeps the varying `now()` part at full precision (timeOrigin*1e6 alone would
+          // lose low bits to the double mantissa). `performance` is available in browser workers and
+          // Node alike.
+          const ts = BigInt(Math.round(performance.timeOrigin * 1e6)) + BigInt(Math.round(performance.now() * 1e6));
           const view = new DataView(this.getMemory().buffer);
           view.setBigUint64(out, ts, true);
         },

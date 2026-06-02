@@ -26,6 +26,20 @@ extern bool use_bb_bench;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 extern std::atomic<bool> capture_per_call_events;
 
+// Record-time nesting-depth cap for per-call event capture. A scope is recorded only when its
+// nesting depth (1 == outermost BB_BENCH scope on the thread) is <= this cap. Keeps a phase-level
+// trace bounded in both volume and overhead on a many-thread prover by dropping the deep
+// per-op leaves (field arithmetic, Execution::add, …) at record time rather than post-filtering.
+// 0xff (default) keeps every depth. Set via bb_set_bench_trace_max_depth.
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+extern std::atomic<uint8_t> bench_trace_max_depth;
+
+// Set a comma-separated deny-list of leaf op names that are never recorded even when within the
+// depth cap — for a hot shallow op the cap alone doesn't exclude. Empty clears it.
+void set_bench_trace_denylist(std::string_view names_csv);
+// True if `name` is on the deny-list.
+bool bench_trace_name_denied(std::string_view name) noexcept;
+
 // Compile-time string
 // See e.g. https://www.reddit.com/r/cpp_questions/comments/pumi9r/does_c20_not_support_string_literals_as_template/
 template <std::size_t N> struct OperationLabel {
@@ -91,6 +105,7 @@ struct PerCallEvent {
     uint64_t ts_ns;  // start wall-clock nanoseconds
     uint64_t dur_ns; // end - start
     uint64_t tid;    // hashed thread id
+    uint32_t depth;  // nesting depth at record time (1 == outermost scope on the thread)
 };
 
 // Per-thread event buffer. Owned by the global container so serialized traces can safely
@@ -227,6 +242,7 @@ struct BenchReporter {
     TimeStatsEntry* parent;
     TimeStatsEntry* stats;
     uint64_t time;
+    uint32_t depth; // this scope's nesting depth, snapshotted in the ctor (0 if not recording)
     BenchReporter(TimeStatsEntry* entry);
     ~BenchReporter();
 };
