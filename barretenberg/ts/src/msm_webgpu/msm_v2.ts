@@ -114,6 +114,7 @@ function chooseBudgetMpw(g: {
   stride: number;
   reduceWg: number;
   srsBytes: number;
+  budget: number;
 }): number {
   const reducePrefBytes = g.NW * g.reduceWg * Math.ceil(Math.ceil(g.stride / 2) / g.reduceWg) * 2 * 16;
   const standalone = 4 * g.BW * 4 + (3 * g.NW + 6) * 4; // counts/offsets at bw=1 + planMeta
@@ -130,7 +131,7 @@ function chooseBudgetMpw(g: {
       scalarsBytes: 32 * g.n,
       l0Slots: g.n + 3,
     }).reduce((acc, b) => acc + b, 0);
-    if (g.srsBytes + arenaBytes + standalone <= MEM_BUDGET) return mpw;
+    if (g.srsBytes + arenaBytes + standalone <= g.budget) return mpw;
   }
   return 4;
 }
@@ -198,6 +199,13 @@ export interface MsmConfig {
    * the multi-batch reduce path that single MSMs at logN ≤ 17 never reach.
    */
   numBatchesOverride?: number;
+  /**
+   * GPU-buffer budget in MiB. Default 160 (the portable phone floor). Drives
+   * both the `sT` cap ({@link chooseBudgetMpw}) and the window-batch staging
+   * gate. Lower it on memory-constrained devices; the result stays correct (the
+   * MSM is invariant to staging) but uses more, smaller passes.
+   */
+  budgetMiB?: number;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -1451,6 +1459,7 @@ export class MsmV2 {
   private jacobianCrossover = 0;
   private combineOnHost = true;
   private numBatchesForce = 0; // 0 = budget-driven; >0 forces ≥ this many window-batches (testing/packing)
+  private memBudget = MEM_BUDGET; // GPU-buffer budget driving the sT cap + window-batch staging
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
   private pointXBuf!: GPUBuffer;
@@ -1688,6 +1697,7 @@ export class MsmV2 {
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     m.numBatchesForce = config?.numBatchesOverride ?? 0;
+    m.memBudget = config?.budgetMiB ? config.budgetMiB * (1 << 20) : MEM_BUDGET;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -1717,6 +1727,7 @@ export class MsmV2 {
         stride: m.stride,
         reduceWg: m.reduceWg,
         srsBytes: pool.poolX.size + pool.poolY.size,
+        budget: m.memBudget,
       });
     const misc = compute_misc_params(FP, 13);
     m.R = misc.r;
@@ -2178,7 +2189,7 @@ export class MsmV2 {
     // first satisfying count gives the largest feasible bw; if nothing fits by
     // NUM_WINDOWS, proceed best-effort (as the prior wgFits-only loop did).
     let numBatches = 1;
-    while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || estimateMem(numBatches) > MEM_BUDGET)) numBatches++;
+    while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || estimateMem(numBatches) > this.memBudget)) numBatches++;
     if (this.numBatchesForce) numBatches = Math.min(NUM_WINDOWS, Math.max(numBatches, this.numBatchesForce));
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;

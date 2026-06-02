@@ -92,6 +92,7 @@ const gpuKnobs: MsmConfig = (() => {
     montmul: q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
     maxPlannerWorkgroups: optInt('mpw'),
     numBatchesOverride: optInt('nb'),
+    budgetMiB: optInt('budgetmib'),
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
 })();
