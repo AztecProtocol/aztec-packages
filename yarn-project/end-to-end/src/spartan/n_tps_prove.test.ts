@@ -32,9 +32,10 @@ import type { WorkerWallet } from '../test-wallet/worker_wallet.js';
 import { type WorkerWalletWrapper, createWorkerWalletClient } from './setup_test_wallets.js';
 import { ProvingMetrics } from './tx_metrics.js';
 import {
+  type ServiceEndpoint,
+  getEthereumEndpoint,
   getExternalIP,
   setupEnvironment,
-  startPortForwardForEthereum,
   startPortForwardForPrometeheus,
 } from './utils.js';
 
@@ -128,6 +129,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
   let metrics: ProvingMetrics;
   let childProcesses: ChildProcess[];
   let rollupCheatCodes: RollupCheatCodes;
+  let ethEndpoint: ServiceEndpoint | undefined;
   let metricsStartSnapshot: MetricsSnapshot | undefined;
 
   afterAll(async () => {
@@ -247,10 +249,11 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     logger.info('Metrics snapshot captured');
 
     // Setup Ethereum connection for RollupCheatCodes
-    const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(config.NAMESPACE);
-    childProcesses.push(ethProcess);
-    const ethereumHost = `http://127.0.0.1:${ethPort}`;
-    const ethCheatCodes = new EthCheatCodesWithState([ethereumHost], new DateProvider());
+    ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
+    if (ethEndpoint.process) {
+      childProcesses.push(ethEndpoint.process);
+    }
+    const ethCheatCodes = new EthCheatCodesWithState([ethEndpoint.url], new DateProvider());
     const l1ContractAddresses = await aztecNode.getNodeInfo().then(n => n.l1ContractAddresses);
     rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);
 
@@ -382,6 +385,16 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
         `Waiting ${formatDuration(secondsToWait)} (${slotsToWait} slots) until ${SLOTS_BUFFER} slot(s) before epoch boundary (until ${endTime.toISOString()})...`,
       );
       await sleep(secondsToWait * 1000);
+
+      // Port-forward to L1 may have died during the wait; re-establish before using rollupCheatCodes.
+      ethEndpoint?.process?.kill();
+      ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
+      if (ethEndpoint.process) {
+        childProcesses.push(ethEndpoint.process);
+      }
+      const freshEthCheatCodes = new EthCheatCodesWithState([ethEndpoint.url], new DateProvider());
+      const freshL1Addresses = await aztecNode.getNodeInfo().then(n => n.l1ContractAddresses);
+      rollupCheatCodes = new RollupCheatCodes(freshEthCheatCodes, freshL1Addresses);
     }
   });
 
