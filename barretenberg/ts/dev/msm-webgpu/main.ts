@@ -93,6 +93,7 @@ const gpuKnobs: MsmConfig = (() => {
     // (999999 => all-Jacobian). 0 must be allowed, so this bypasses optInt.
     jacobianCrossover: q.get('jacxover') !== null ? Number(q.get('jacxover')) : undefined,
     segReduceG: optInt('segredg'),
+    reduceStride: optInt('redstride'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };

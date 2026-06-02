@@ -81,11 +81,18 @@ export interface MsmConfig {
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
   /**
-   * Two-level segmented reduction: when > 0, replace the level-based reduce
-   * with the segmented coarse/fine kernels using this many segments per
-   * window (G; must divide STRIDE). WIP — opt-in for validation. 0 = off.
+   * Recursive segmented reduction: when > 0, replace the level-based reduce
+   * with the recursive radix-m kernel (m = this value, power of 2 dividing
+   * STRIDE). WIP — opt-in for validation. 0 = off.
    */
   segReduceG?: number;
+  /**
+   * Sparsity extent clamp: process only the first STRIDE' = this value buckets
+   * per window in the segmented reduce (must be >= the max live bucket index,
+   * a power of 2, <= STRIDE). 0 = full STRIDE. The GPU planner sets this
+   * automatically; this knob is for validation.
+   */
+  reduceStride?: number;
   /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
@@ -1426,6 +1433,7 @@ export class MsmV2 {
   // Two-level segmented reduction (opt-in via segReduceG). One pipeline,
   // phase branched (coarse=0/fine=1); seg_buf holds the per-segment summaries.
   private segReduceG = 0; // radix m of the recursive reduction (segment size per level)
+  private reduceStride = 0; // extent clamp STRIDE' for the segmented reduce (0 = full STRIDE)
   private segPipe!: GPUComputePipeline;
   private segLayout!: GPUBindGroupLayout;
   private segSteps: { bind: GPUBindGroup; nx: number }[] = [];
@@ -1641,6 +1649,7 @@ export class MsmV2 {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? JAC_AUTO;
     m.segReduceG = config?.segReduceG ?? 0;
+    m.reduceStride = config?.reduceStride ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
@@ -2441,7 +2450,12 @@ export class MsmV2 {
     const segM = this.segReduceG;
     this.segSteps = [];
     {
-      const G0 = segM > 0 ? Math.floor(this.stride / segM) : 1;
+      // STRIDE' extent clamp: only the first sPrime buckets per window are
+      // reduced (the rest are empty for sparse inputs). Window addressing in
+      // the kernel still uses the full this.stride; only the segment count
+      // G0 = sPrime/m shrinks.
+      const sPrime = this.reduceStride > 0 ? Math.min(this.reduceStride, this.stride) : this.stride;
+      const G0 = segM > 0 ? Math.floor(sPrime / segM) : 1;
       const half = G0 * this.numWindows * 12; // vec4 offset of the 2nd ping-pong half
       this.segBuf = device.createBuffer({
         size: Math.max(16, 2 * half * 16),
