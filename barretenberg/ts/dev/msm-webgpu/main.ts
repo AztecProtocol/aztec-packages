@@ -1,9 +1,10 @@
 // In-browser MSM comparison harness for the BN254 WebGPU port.
 //   Compares, for sizes 2^10..2^20 over a real prefix of the public SRS:
-//     - WebGPU MSM via the v2 pair-tree pipeline (`MsmStreamWalker`, msm_v2.ts —
-//       the memory-bounded carry-free-Booth / pair-tree / fused-reduction
-//       port; runs on the warm path with a persistent GPUDevice, an MsmStreamWalker
-//       rebuilt per logN, and one warm-up dispatch before timed runs)
+//     - WebGPU MSM via `createMsm` — either the stream-walker (default,
+//       msm_stream_walker.ts) or the high-memory transpose backend
+//       (?msm=highmem, msm_high_memory.ts); runs on the warm path with a
+//       persistent GPUDevice, the instance rebuilt per logN, and one warm-up
+//       dispatch before timed runs)
 //     - Barretenberg WASM Pippenger, multi-threaded (numThreads = hw)
 //   The WASM path uses `bb_native_pippenger_bn254_load` (decode + upload
 //   inputs, untimed) followed by `bb_native_pippenger_bn254_run` (the
@@ -162,9 +163,9 @@ let srsBuf: Uint8Array | null = null;
 let wasmMtPippenger: WasmPippengerHandle | null = null;
 let wasmMtBootInFlight: Promise<WasmPippengerHandle> | null = null;
 // Persistent WebGPU state. One GPUDevice is reused across every dispatch
-// on the page; one MsmStreamWalker (the v2 pair-tree pipeline — buffers, pipelines,
-// the Montgomery-form SRS for the current logN) is held alongside it and
-// rebuilt when logN changes. Without this, every dispatch would re-acquire
+// on the page; the selected MSM backend (buffers, pipelines) is held alongside
+// it, drawing the Montgomery-form SRS from a shared MsmPool for the current
+// logN, and rebuilt when logN changes. Without this, every dispatch would re-acquire
 // a device and recompile every pipeline. MsmStreamWalker.create runs one warm-up
 // dispatch so the first timed run doesn't pay shader JIT.
 let gpuDevice: GPUDevice | null = null;
@@ -1594,15 +1595,18 @@ function hideProgress(): void {
         const wd = window as unknown as { __lastPhaseCount?: Record<string, number>; __lastPassCount?: number };
         const cnt = wd.__lastPhaseCount ?? {};
         const passCount = wd.__lastPassCount ?? 0;
+        // Backend-agnostic grouping: walker phases (stream_walker/combine_batched/
+        // pt_*/rd*) and high-memory phases (decompose/transpose/convert/fused/
+        // carry/finalize/reduce_*) both fold into front / accumulate / reduce.
         const groupOf = (k: string) =>
-          /^stream_walker|^walker_index|^preprocess|^planner|^size1/.test(k) ? 'front'
-          : /^combine_batched|^pt_/.test(k) ? 'walker_combine'
-          : /^rd\d|^reduce/.test(k) ? 'bucket_reduce' : 'other';
-        const groupMs: Record<string, number> = { front: 0, walker_combine: 0, bucket_reduce: 0, other: 0 };
-        const groupCnt: Record<string, number> = { front: 0, walker_combine: 0, bucket_reduce: 0, other: 0 };
+          /^stream_walker|^walker_index|^preprocess|^planner|^size1|^decompose|^transpose|^convert/.test(k) ? 'front'
+          : /^combine_batched|^pt_|^fused|^carry|^finalize/.test(k) ? 'accumulate'
+          : /^rd\d|^reduce|^jc\d|^seg_/.test(k) ? 'bucket_reduce' : 'other';
+        const groupMs: Record<string, number> = { front: 0, accumulate: 0, bucket_reduce: 0, other: 0 };
+        const groupCnt: Record<string, number> = { front: 0, accumulate: 0, bucket_reduce: 0, other: 0 };
         for (const [k, v] of Object.entries(avgPhases)) { const g = groupOf(k); groupMs[g] += v; groupCnt[g] += (cnt[k] ?? 0); }
         log('info', `[detail] total: gpu_ts=${avgGpu.toFixed(2)}ms over ${passCount} dispatches | min_wall=${minWall.toFixed(2)}ms | wall−gpu_ts gap=${(minWall - avgGpu).toFixed(2)}ms (driver gaps + mapAsync poll)`);
-        for (const g of ['front', 'walker_combine', 'bucket_reduce', 'other']) {
+        for (const g of ['front', 'accumulate', 'bucket_reduce', 'other']) {
           const perDisp = groupCnt[g] > 0 ? (groupMs[g] * 1000 / groupCnt[g]) : 0;
           log('info', `[detail] ${g.padEnd(14)} = ${groupMs[g].toFixed(2)}ms  (${groupCnt[g]} disp, ${perDisp.toFixed(0)} us/disp, ${(100 * groupMs[g] / avgGpu).toFixed(0)}%)`);
         }

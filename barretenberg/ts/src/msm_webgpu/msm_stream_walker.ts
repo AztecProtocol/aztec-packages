@@ -1,15 +1,16 @@
 /// <reference types="@webgpu/types" />
-// msm_v2.ts — the memory-bounded v2 pair-tree GPU MSM.
+// msm_stream_walker.ts — the stream-walker (low-memory) GPU MSM backend.
 //
-// Pipeline: carry-free Booth -> privatized transpose -> csr_to_v2 -> pair-tree
-// bucket-accumulate -> branchless 4-phase reduction, with all five memory levers
-// (window batching, index-mode level-0, tiled fused dispatch, plan-buffer ring,
-// dropped -y plane).
+// Pipeline: carry-free Booth -> per-thread stream-walker bucket accumulate
+// (S=8 batched inversion, no transpose) -> cross-bucket walker_combine (cool
+// buckets summed directly, hot buckets via a multi-dispatch pair-tree) ->
+// branchless bucket reduction. Trades the high-memory backend's transpose
+// buffers for a streaming accumulator. The sibling backend is msm_high_memory.ts.
 //
-// Two pieces, so the SRS point pool is uploaded and converted to Montgomery form
-// exactly once and shared by every MSM of the proving session:
-//   - MsmStreamWalkerPool.create(device, srsCanonicalBytes) — upload the canonical SRS and
-//     GPU-convert it to the Montgomery-form 8xu32 point pool. Once per session.
+// The SRS point pool (MsmPool) is uploaded + Montgomery-converted once per
+// session and shared across backends; this backend holds only its own scratch:
+//   - MsmStreamWalkerPool.create(device, srsPool) — wrap the shared MsmPool and
+//     hold this backend's scratch (the SRS buffers live in MsmPool).
 //   - MsmStreamWalker.create(device, n, pool, config?) — data-independent: compile the
 //     pipelines + bind groups for an n-point MSM, binding a prefix of `pool`.
 //   - prepare(scalarsBuf) — UNTIMED: Booth-decode the scalars, plan every level,
@@ -17,7 +18,7 @@
 //   - run() -> {x, y} — TIMED: encode + submit the batched pipeline, decode
 //     red_buf, host-combine the windows.
 //
-// Production contract: SRS-backed MSM only. The affine-add pair-tree assumes the
+// Production contract: SRS-backed MSM only. The affine-add tree assumes the
 // point pool is free of the point at infinity and of colliding pairs (no P == ±Q
 // within a bucket) — both hold for an SRS basis. The C++ webgpu_msm hook enforces
 // this by delegating only when handle_edge_cases is false.
@@ -1187,13 +1188,9 @@ export class MsmStreamWalkerPool {
   }
 
   /**
-   * Upload the canonical SRS and GPU-convert it into the Montgomery point pool.
-   * `srsCanonicalBytes` is `srsN × 64` little-endian bytes —
-   * `[x0[32] || y0[32] || x1[32] || ...]`, non-Montgomery affine. `srsN` may be
-   * any positive integer; the conversion is one `convert_points_only` dispatch
-   * (same canonical→Montgomery field multiply MsmStreamWalker's pipeline expects, run
-   * once for the whole SRS), and its bounds guard discards threads whose
-   * `id >= srsN`.
+   * Wrap the shared {@link MsmPool} (the SRS already uploaded + Montgomery-
+   * converted) and hold this backend's scratch. The SRS buffers are not
+   * re-uploaded — `srs.poolX`/`srs.poolY` are bound directly.
    */
   static create(device: GPUDevice, srs: MsmPool): MsmStreamWalkerPool {
     return new MsmStreamWalkerPool(srs.srsN, srs.poolX, srs.poolY, device);
@@ -1232,7 +1229,7 @@ export class MsmStreamWalkerPool {
 }
 
 /**
- * The memory-bounded v2 pair-tree GPU MSM. See the file header for the
+ * The stream-walker (low-memory) GPU MSM backend. See the file header for the
  * create / prepare / run lifecycle.
  */
 export class MsmStreamWalker {

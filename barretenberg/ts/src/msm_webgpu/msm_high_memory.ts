@@ -1,15 +1,17 @@
 /// <reference types="@webgpu/types" />
-// msm_v2.ts — the memory-bounded v2 pair-tree GPU MSM.
+// msm_high_memory.ts — the transpose/cuZK (high-memory) GPU MSM backend.
 //
-// Pipeline: carry-free Booth -> privatized transpose -> csr_to_v2 -> pair-tree
-// bucket-accumulate -> branchless 4-phase reduction, with all five memory levers
-// (window batching, index-mode level-0, tiled fused dispatch, plan-buffer ring,
-// dropped -y plane).
+// Pipeline: carry-free Booth -> privatized transpose -> csr_to_v2 -> bin-packed
+// pair-tree bucket-accumulate (fused/carry/finalize) -> branchless reduction,
+// with the memory levers (window batching, index-mode level-0, tiled fused
+// dispatch, plan-buffer ring, dropped -y plane). Faster than the stream-walker
+// at small/mid N but uses the transpose buffers it trades away. Sibling:
+// msm_stream_walker.ts.
 //
-// Two pieces, so the SRS point pool is uploaded and converted to Montgomery form
-// exactly once and shared by every MSM of the proving session:
-//   - MsmHighMemoryPool.create(device, srsCanonicalBytes) — upload the canonical SRS and
-//     GPU-convert it to the Montgomery-form 8xu32 point pool. Once per session.
+// The SRS point pool (MsmPool) is uploaded + Montgomery-converted once per
+// session and shared across backends; this backend holds only its own scratch:
+//   - MsmHighMemoryPool.create(device, srsPool) — wrap the shared MsmPool and
+//     hold this backend's scratch (the SRS buffers live in MsmPool).
 //   - MsmHighMemory.create(device, n, pool, config?) — data-independent: compile the
 //     pipelines + bind groups for an n-point MSM, binding a prefix of `pool`.
 //   - prepare(scalarsBuf) — UNTIMED: Booth-decode the scalars, plan every level,
@@ -783,13 +785,9 @@ export class MsmHighMemoryPool {
   }
 
   /**
-   * Upload the canonical SRS and GPU-convert it into the Montgomery point pool.
-   * `srsCanonicalBytes` is `srsN × 64` little-endian bytes —
-   * `[x0[32] || y0[32] || x1[32] || ...]`, non-Montgomery affine. `srsN` may be
-   * any positive integer; the conversion is one `convert_points_only` dispatch
-   * (same canonical→Montgomery field multiply MsmHighMemory's pipeline expects, run
-   * once for the whole SRS), and its bounds guard discards threads whose
-   * `id >= srsN`.
+   * Wrap the shared {@link MsmPool} (the SRS already uploaded + Montgomery-
+   * converted) and hold this backend's scratch. The SRS buffers are not
+   * re-uploaded — `srs.poolX`/`srs.poolY` are bound directly.
    */
   static create(device: GPUDevice, srs: MsmPool): MsmHighMemoryPool {
     return new MsmHighMemoryPool(srs.srsN, srs.poolX, srs.poolY, device);
@@ -829,7 +827,7 @@ export class MsmHighMemoryPool {
 }
 
 /**
- * The memory-bounded v2 pair-tree GPU MSM. See the file header for the
+ * The transpose/cuZK (high-memory) GPU MSM backend. See the file header for the
  * create / prepare / run lifecycle.
  */
 export class MsmHighMemory {
@@ -962,6 +960,7 @@ export class MsmHighMemory {
   private tsResolveBuf: GPUBuffer | null = null;
   private tsStagingBuf: GPUBuffer | null = null;
   private passCount = 0;
+  private passPhases: string[] = [];
   private decomposeBinds!: GPUBindGroup[];
   private xposeCountBind!: GPUBindGroup;
   private xposeReduceBind!: GPUBindGroup;
@@ -1929,6 +1928,11 @@ export class MsmHighMemory {
     const { wgi: WGI } = this;
     let passIdx = 0;
     const profEnabled = this.profile && this.querySet;
+    if (profEnabled) this.passPhases = [];
+    let curPhase = 'misc';
+    const setPhase = (p: string): void => {
+      curPhase = p;
+    };
     const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1): void => {
       const desc: GPUComputePassDescriptor = {};
       if (profEnabled) {
@@ -1937,6 +1941,7 @@ export class MsmHighMemory {
           beginningOfPassWriteIndex: 2 * passIdx,
           endOfPassWriteIndex: 2 * passIdx + 1,
         };
+        this.passPhases.push(curPhase);
         passIdx++;
       }
       const pass = enc.beginComputePass(desc);
@@ -1975,12 +1980,15 @@ export class MsmHighMemory {
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
       const tSlots = tbw * this.n;
+      setPhase('decompose');
       dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
       enc.clearBuffer(this.rowPtrBuf);
+      setPhase('transpose');
       dispatch(this.xposeCountPipe, this.xposeCountBind, this.transposeNumPointTiles, tbw);
       dispatch(this.xposeReducePipe, this.xposeReduceBind, Math.ceil(this.BW / 256), tbw);
       dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1);
       dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.transposeNumPointTiles, tbw);
+      setPhase('convert');
       dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1);
       dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1);
       for (let lv = 0; lv < this.levels; lv++) {
@@ -1988,16 +1996,22 @@ export class MsmHighMemory {
         const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
         const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
         const flp = lv === 0 ? this.finalizePipeL0 : this.finalizePipe;
+        setPhase('planner');
         dispatch(this.plannerAPipe, lb.plannerABind, this.batchWindows, 1);
         dispatch(this.plannerBPipe, lb.plannerBBind, Math.ceil(this.BW / 256), this.batchWindows);
+        setPhase('fused');
         for (const tile of lb.fusedTiles) {
           if (tile.nx > 0) dispatch(fp, tile.bind, tile.nx, 1);
         }
+        setPhase('carry');
         dispatch(cp, lb.carryBind, lb.nCarry, 1);
+        setPhase('finalize');
         dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1);
       }
     }
+    setPhase('reduce_init');
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
+    setPhase('reduce_level');
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
       const pipe = this.reduceLevelPipes[this.reduceLevelKinds[lv]];
       dispatch(pipe, this.reduceLevelBinds[lv], this.numWindows, 1);
@@ -2084,34 +2098,48 @@ export class MsmHighMemory {
     // — use the dev sweep page directly for that). Wall time still works.
     let profile: ProfileBreakdown | null = null;
     if (this.profile && this.tsStagingBuf) {
-      // Sum (end - begin) across every pass to get total GPU compute time,
-      // distinct from `wall` (which includes encode + submit + mapAsync poll).
-      // Categorized breakdown removed in the encodeIntoBatch refactor; the
-      // microbench-relevant number is total compute, which lands in `decompose`
-      // as the only non-zero field so the dev page's profile breakdown view
-      // still works as a "total GPU time" gauge.
-      let totalNs = 0n;
+      // Per-phase GPU time: aggregate the per-pass timestamps by the phase
+      // label set in encodeIntoBatch. `wall` adds encode + submit + mapAsync poll.
+      const phaseNs: Record<string, bigint> = {};
       try {
         await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
         const tsArr = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
         this.tsStagingBuf.unmap();
         for (let p = 0; p < this.passCount; p++) {
-          totalNs += tsArr[2 * p + 1] - tsArr[2 * p];
+          const ph = this.passPhases[p] ?? 'misc';
+          phaseNs[ph] = (phaseNs[ph] ?? 0n) + (tsArr[2 * p + 1] - tsArr[2 * p]);
         }
       } catch {
         // mapAsync raced (already-mapped from a prior run); skip this sample.
       }
-      const totalMs = Number(totalNs) / 1e6;
+      const ms = (ph: string): number => Number(phaseNs[ph] ?? 0n) / 1e6;
+      // Publish the per-phase breakdown so the dev bench reads it (the same
+      // __lastPhaseMs / __lastPhaseCount / __lastPassCount globals the
+      // stream-walker sets).
+      if (typeof window !== 'undefined') {
+        const phaseMs: Record<string, number> = {};
+        for (const k of Object.keys(phaseNs)) phaseMs[k] = Number(phaseNs[k]) / 1e6;
+        const phaseCnt: Record<string, number> = {};
+        for (const ph of this.passPhases) phaseCnt[ph] = (phaseCnt[ph] ?? 0) + 1;
+        const w = window as unknown as {
+          __lastPhaseMs?: Record<string, number>;
+          __lastPhaseCount?: Record<string, number>;
+          __lastPassCount?: number;
+        };
+        w.__lastPhaseMs = phaseMs;
+        w.__lastPhaseCount = phaseCnt;
+        w.__lastPassCount = this.passCount;
+      }
       profile = {
-        decompose: totalMs,
-        transpose: 0,
-        convert: 0,
-        planner: 0,
-        fused: 0,
-        carry: 0,
-        finalize: 0,
-        redInit: 0,
-        redLevel: 0,
+        decompose: ms('decompose'),
+        transpose: ms('transpose'),
+        convert: ms('convert'),
+        planner: ms('planner'),
+        fused: ms('fused'),
+        carry: ms('carry'),
+        finalize: ms('finalize'),
+        redInit: ms('reduce_init'),
+        redLevel: ms('reduce_level'),
         wall: performance.now() - wallT0,
       };
     }

@@ -117,7 +117,7 @@ export function computeStreamPlanSizes(cfg: StreamPlanConfig) {
   };
 }
 
-// Re-export constants for use by msm_v2.ts pool allocator and shader_manager.
+// Re-export constants for use by msm_stream_walker.ts pool allocator and shader_manager.
 export {
   STREAM_S,
   MIN_ITERS_PER_WG,
