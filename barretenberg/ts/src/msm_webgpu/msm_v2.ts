@@ -68,6 +68,10 @@ export interface MsmConfig {
   /** Base-field Montgomery-multiply body. Default 'karat'; 'cios_unrolled' is the
    *  device-validated register-resident CIOS variant (−26% on Mali-G715, BN254 only). */
   montmul?: MontMulVariant;
+  /** Field-arithmetic limb width. Default 13 (20×13-bit). 15 switches the WHOLE
+   *  pipeline to 17×15-bit (R=2^255, all R-parameters re-derived, native CIOS-15
+   *  multiply; Karatsuba is not compiled). Must match the pool's wordSize. */
+  wordSize?: number;
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
@@ -1219,7 +1223,7 @@ export class MsmV2Pool {
    * once for the whole SRS), and its bounds guard discards threads whose
    * `id >= srsN`.
    */
-  static async create(device: GPUDevice, srsCanonicalBytes: Uint8Array): Promise<MsmV2Pool> {
+  static async create(device: GPUDevice, srsCanonicalBytes: Uint8Array, wordSize = 13): Promise<MsmV2Pool> {
     const srsN = srsCanonicalBytes.byteLength / 64;
     if (!Number.isInteger(srsN) || srsN <= 0) {
       throw new Error(`MsmV2Pool.create: byte length ${srsCanonicalBytes.byteLength} is not a positive multiple of 64`);
@@ -1277,7 +1281,10 @@ export class MsmV2Pool {
     // (workgroup_size / numYWorkgroups), so caching wouldn't help.
     const pool = new MsmV2Pool(srsN, poolX, poolY, device);
 
-    const sm = new ShaderManager(4, srsN, BN254_CURVE_CONFIG, false);
+    // wordSize must match the MsmV2 instances that consume this pool: the
+    // canonical→Montgomery conversion here bakes in R=2^(num_words·wordSize),
+    // and the kernels' arithmetic + readback rinv assume the same R.
+    const sm = new ShaderManager(4, srsN, BN254_CURVE_CONFIG, false, 'karat', wordSize);
     const code = sm.gen_convert_points_only_shader(workgroupSize, numYWorkgroups, /* packed */ true);
     const layout = pool.cache.getLayout(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     const pipeline = await pool.cache.getPipeline(code, layout, 'convert-points-pool');
@@ -1370,6 +1377,7 @@ export class MsmV2 {
   private reduceWg!: number;
   private invVariant!: 'loop' | 'pk';
   private montmul!: MontMulVariant;
+  private wordSize = 13;
   private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
   private jacobianCrossover = 0;
@@ -1606,6 +1614,7 @@ export class MsmV2 {
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.montmul = config?.montmul ?? 'karat';
+    m.wordSize = config?.wordSize ?? 13;
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
@@ -1621,10 +1630,13 @@ export class MsmV2 {
     m.bTotal = m.numWindows * m.BW;
     m.stride = 2 ** (m.c - 1);
     m.redM = m.numWindows * m.stride;
-    const misc = compute_misc_params(FP, 13);
+    // R (and its inverse, applied at result readback) MUST match the limb
+    // width: 20×13 ⇒ R=2^260, 17×15 ⇒ R=2^255. Derive from m.wordSize so
+    // encode (pool), kernel arithmetic and decode all share one Montgomery R.
+    const misc = compute_misc_params(FP, m.wordSize);
     m.R = misc.r;
     m.rinv = misc.rinv;
-    const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false, m.montmul);
+    const sm = new ShaderManager(4, n, BN254_CURVE_CONFIG, false, m.montmul, m.wordSize);
 
     // Bind a prefix of the shared, already-Montgomery-converted SRS pool. The
     // level-0 kernels index points by `val_idx < n`, so a pool with srsN >= n

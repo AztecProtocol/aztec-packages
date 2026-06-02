@@ -24,6 +24,7 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
+import { runMicrobench } from './microbench.js';
 import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
@@ -97,6 +98,9 @@ const gpuKnobs: MsmConfig = (() => {
           : q.get('montmul') === 'karat'
             ? 'karat'
             : undefined,
+    // Field-arithmetic limb width: 15 ⇒ full native 17×15 pipeline (R=2^255),
+    // 13/unset ⇒ default 20×13. Threaded to BOTH the pool and the MsmV2.
+    wordSize: q.get('wordsize') === '15' ? 15 : q.get('wordsize') === '13' ? 13 : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
 })();
@@ -548,7 +552,7 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
       .join(' ');
     log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
-    msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+    msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf, gpuKnobs.wordSize);
     msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
     msmV2LogN = logN;
     log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
@@ -1493,8 +1497,16 @@ function hideProgress(): void {
       for (let r = 0; r < reps; r++) {
         const gpu = await runWebGpuOnce(inputs);
         const wallMs = gpu.ms;
-        samples.push({ wallMs, gpuMs: 0, phases: {} });
-        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms`);
+        const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
+        samples.push({ wallMs, gpuMs: 0, phases: { ...phases } });
+        const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
+        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms ${phaseStr}`);
+      }
+      {
+        const keys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
+        const avgP: Record<string, number> = {};
+        for (const k of keys) avgP[k] = samples.reduce((a, s) => a + (s.phases[k] ?? 0), 0) / samples.length;
+        log('ok', `[bench] PHASES ${Object.entries(avgP).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ')}`);
       }
       const walls = samples.map(s => s.wallMs);
       const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -1707,6 +1719,35 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'micro') {
+    // Isolated montmul/inverse microbench:
+    //   ?autorun=micro&op=mul|inv&wordsize=13|15&montmul=&chain_k=&threads=&reps=
+    const op: 'mul' | 'inv' = qp.get('op') === 'inv' ? 'inv' : 'mul';
+    const wordSize = qp.get('wordsize') === '15' ? 15 : 13;
+    const montmul = (gpuKnobs.montmul ?? 'karat') as MsmConfig['montmul'];
+    const chainK = parseInt(qp.get('chain_k') ?? (op === 'inv' ? '6' : '64'), 10);
+    const nthreads = parseInt(qp.get('threads') ?? '65536', 10);
+    const reps = parseInt(qp.get('reps') ?? '20', 10);
+    const client = makeResultsClient({ page: 'micro' });
+    const lines: string[] = [];
+    const mlog = (k: 'info' | 'ok' | 'err', m: string): void => { lines.push(m); log(k, m); };
+    try {
+      mlog('info', `[micro] op=${op} wordsize=${wordSize} montmul=${montmul} K=${chainK} threads=${nthreads} reps=${reps}`);
+      const res = await runMicrobench({ op, wordSize, montmul: montmul ?? 'karat', nthreads, chainK, reps });
+      mlog('ok', `[micro] median=${res.medianMs.toFixed(3)}ms min=${res.minMs.toFixed(3)}ms`);
+      mlog('ok', `[micro] state=done`);
+      await client.postResults({
+        state: 'done',
+        params: { op, wordSize, montmul, chainK, nthreads, reps, page: 'micro' },
+        results: { medianMs: res.medianMs, minMs: res.minMs, walls: res.walls, samples: res.walls.map((w) => ({ wallMs: w })), medianWallMs: res.medianMs },
+        error: null, log: lines.slice(-50), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      mlog('err', `[micro] FATAL: ${msg}`);
+      mlog('err', `[micro] state=error`);
+      await client.postResults({ state: 'error', params: { op, wordSize, montmul, chainK, nthreads, reps, page: 'micro' }, results: null, error: msg, log: lines.slice(-50), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
     }
   }
 })();

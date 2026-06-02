@@ -59,11 +59,22 @@ async function fetchCompressed(numPoints: number, onProgress: SrsProgress): Prom
     }
     return r;
   };
+  // Try the SAME-ORIGIN path first ('' host → `/g1_compressed.dat`). In the
+  // dev server this is served by the vite `serve-srs-proxy` middleware, which
+  // Range-proxies the real CDN host-side — essential for the OFFLINE Pixel
+  // (USB-only via adb reverse, no WAN) whose IndexedDB SRS cache is cold. The
+  // proxy returns byte-identical data, so correctness/timing are unaffected.
+  // Falls through to the public CDNs for online/production clients (where the
+  // relative path simply 404s and we hit the real hosts).
   let response: Response;
   try {
-    response = await fetchOne(CRS_PRIMARY);
+    response = await fetchOne('');
   } catch {
-    response = await fetchOne(CRS_FALLBACK);
+    try {
+      response = await fetchOne(CRS_PRIMARY);
+    } catch {
+      response = await fetchOne(CRS_FALLBACK);
+    }
   }
 
   // Stream the body so we can report byte-level progress as it lands.

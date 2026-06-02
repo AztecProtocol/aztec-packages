@@ -93,6 +93,68 @@ function conditionalCoiHeaders(): PluginOption {
   };
 }
 
+// SRS proxy for OFFLINE phone benching. The Pixel under test has no WAN
+// internet (USB-only via `adb reverse`), so the dev page's direct fetch of the
+// CRS CDN (https://crs.aztec-cdn.foundation/g1_compressed.dat in srs.ts) fails
+// with "Failed to fetch" the moment the phone's IndexedDB SRS cache is cold.
+// This middleware serves the SAME-ORIGIN path `/g1_compressed.dat` (reachable
+// by the phone through the adb-reversed localhost tunnel) by Range-proxying to
+// the real CDN, which the *host* Mac can reach. Bytes are byte-identical to a
+// direct CDN fetch, so neither correctness nor GPU timing is affected — only
+// the source of the (otherwise-cached) point bytes. Host-side only; no-op for
+// online clients that still hit the CDN directly.
+function serveSrsProxy(): PluginOption {
+  const CDN_HOSTS = [
+    "https://crs.aztec-cdn.foundation",
+    "https://crs.aztec-labs.com",
+  ];
+  return {
+    name: "serve-srs-proxy",
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        // Match any request whose path ends in /g1_compressed.dat (the dev page
+        // fetches it same-origin once srs.ts is pointed at '' as the host).
+        const url = req.url ?? "";
+        if (!/\/g1_compressed\.dat(\?|$)/.test(url)) {
+          next();
+          return;
+        }
+        const range = (req.headers["range"] as string | undefined) ?? undefined;
+        let lastErr: unknown = null;
+        for (const host of CDN_HOSTS) {
+          try {
+            const upstream = await fetch(`${host}/g1_compressed.dat`, {
+              headers: range ? { Range: range } : {},
+            });
+            if (!upstream.ok && upstream.status !== 206) {
+              lastErr = new Error(`HTTP ${upstream.status} from ${host}`);
+              continue;
+            }
+            res.statusCode = upstream.status;
+            const cr = upstream.headers.get("content-range");
+            const cl = upstream.headers.get("content-length");
+            const ct = upstream.headers.get("content-type") ?? "application/octet-stream";
+            if (cr) res.setHeader("Content-Range", cr);
+            if (cl) res.setHeader("Content-Length", cl);
+            res.setHeader("Content-Type", ct);
+            res.setHeader("Accept-Ranges", "bytes");
+            // Keep CORP consistent with the COI middleware so a cross-origin
+            // isolated document can consume it.
+            res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+            const ab = await upstream.arrayBuffer();
+            res.end(Buffer.from(ab));
+            return;
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+        res.statusCode = 502;
+        res.end(`srs-proxy: all CDN hosts failed: ${(lastErr as Error)?.message ?? lastErr}`);
+      });
+    },
+  };
+}
+
 // In-process result collector. Bench/sanity pages POST a JSON payload to
 // `/results` when they reach a terminal state; progress chunks POST to
 // `/progress` while running. The middleware appends each payload as a JSONL
@@ -183,7 +245,7 @@ function resultsCollector(): PluginOption {
 // Run from `barretenberg/ts/` with `yarn dev:msm-webgpu`.
 export default defineConfig({
   root: tsRoot,
-  plugins: [serveBarretenbergWasm(), conditionalCoiHeaders(), resultsCollector()],
+  plugins: [serveBarretenbergWasm(), serveSrsProxy(), conditionalCoiHeaders(), resultsCollector()],
   resolve: {
     // The src/ tree hard-codes `bb_backends/node/` and similar `node/`
     // sub-paths in import specifiers; the production browser bundle

@@ -34,6 +34,9 @@ import {
   // apply_matrix). Hosts BylMat, byl_divsteps, byl_apply_matrix, the
   // byl_reduce_to_canonical chain, and the fr_inv_by_loop driver.
   by_inverse_loop as by_inverse_loop_funcs,
+  // 15-bit sibling: BATCH=30, 18-limb BY state, 2-word (macc) apply_matrix.
+  // Selected at word_size=15 (host-validated bit-exact in cios15n/by15_*.mjs).
+  by_inverse_loop_15 as by_inverse_loop_15_funcs,
   convert_points_only as convert_points_only_shader,
   csr_to_v2_active_sums as csr_to_v2_active_sums_shader,
   csr_to_v2_meta as csr_to_v2_meta_shader,
@@ -43,6 +46,7 @@ import {
   field as field_funcs,
   field8 as field8_funcs,
   fr_pow as fr_pow_funcs,
+  microbench as microbench_shader,
   mont_pro_product_cios_unrolled as montgomery_product_cios_unrolled_funcs,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
@@ -166,13 +170,22 @@ export class ShaderManager {
     // Base-field multiply body shared by every MSM shader. 'karat' (default)
     // is the generic Karatsuba+Yuval body; 'cios_unrolled' is the
     // device-validated register-resident CIOS variant (BN254 @ 20×13 only,
-    // −26% on Mali-G715). See `renderCiosUnrolledMont`.
+    // −26% on Mali-G715). See `renderCiosUnrolledMont`. IGNORED when the limb
+    // width is not 13 (see wordSizeOverride): only the native CIOS body works
+    // at non-13 widths, so it is forced regardless of this value.
     montmul: MontMulVariant = 'karat',
+    // Overrides curveConfig.wordSize so the WHOLE field representation — and
+    // every derived Montgomery/Barrett R-parameter — switches limb width
+    // per-run without mutating the shared curve config. undefined ⇒
+    // curveConfig.wordSize (13 for BN254 → 20×13). 15 ⇒ 17×15 (R=2^255), which
+    // forces the native CIOS-15 multiply and never compiles Karatsuba.
+    wordSizeOverride?: number,
   ) {
     this.curveConfig = curveConfig;
     this.p = curveConfig.baseFieldModulus;
-    const params = compute_misc_params(this.p, curveConfig.wordSize);
-    this.word_size = curveConfig.wordSize;
+    const ws = wordSizeOverride ?? curveConfig.wordSize;
+    const params = compute_misc_params(this.p, ws);
+    this.word_size = ws;
     this.chunk_size = chunk_size;
     this.input_size = input_size;
     this.n0 = params.n0;
@@ -222,12 +235,18 @@ export class ShaderManager {
     // Render the Karatsuba+Yuval Mont body once. This is the default
     // u32 multiplier used by every MSM shader that includes the
     // `montgomery_product_funcs` mustache partial.
+    // At non-13-bit limb widths neither the Karatsuba body (structurally
+    // 20-limb) nor the 20×13-baked cios_unrolled / cios15native drop-ins apply:
+    // the native CIOS body (B = word_size, no unpack/repack/correction) is the
+    // only valid multiply, so force it and never render Karatsuba.
     this.mont_product_src =
-      montmul === 'cios_unrolled'
-        ? this.renderCiosUnrolledMont()
-        : montmul === 'cios15native'
-          ? this.renderCiosLimbMont(15, 'div32')
-          : this.renderKaratYuvalMont();
+      this.word_size !== 13
+        ? this.renderCiosLimbMont(this.word_size)
+        : montmul === 'cios_unrolled'
+          ? this.renderCiosUnrolledMont()
+          : montmul === 'cios15native'
+            ? this.renderCiosLimbMont(15, 'div32')
+            : this.renderKaratYuvalMont();
 
     if (force_recompile) {
       const rand = Math.round(Math.random() * 100000000000000000) % 2 ** 32;
@@ -492,6 +511,60 @@ ${packLines.join('\n')}
    * via runtime branch on `lparams.w` — uniform across the workgroup, so
    * the compiler specialises per-dispatch with no SIMT divergence.
    */
+  // Inversion wiring by limb width. The BY safegcd (fr_inv_by_loop / _pk) and
+  // its Pk / BigIntBY helpers are structurally 20×13: pk_p_word packs
+  // P_LIMB_0..19 with a 13-bit shift, and the packed forms assume 13-bit limbs.
+  // So at any non-13 width they neither compile nor apply. There, fall back to
+  // the representation-agnostic Fermat inverse fr_pow_inv (a^(p-2) via the
+  // native montgomery_product) and drop the BY partials so the module compiles.
+  // fr_pow_inv has the same signature and Montgomery convention (Mont in → Mont
+  // a^-1 out) as fr_inv_by_loop, so it is a drop-in. NOTE: Fermat is ~5-8×
+  // slower on the serial inversion than the safegcd; generalizing safegcd to
+  // 17×15 is a separate follow-up.
+  private invWiring(variant: 'loop' | 'pk'): { invFn: string; inverseFuncs: string; bigintByFuncs: string } {
+    // 15-bit: the dedicated 15-bit safegcd (BATCH=30, 18-limb BY, 2-word
+    // macc apply_matrix). NOT the BY 9×29 / Pk forms (those are 13-bit-structural)
+    // and NOT Fermat. bigint_by partial dropped (unused at 15-bit).
+    if (this.word_size === 15) {
+      return { invFn: 'fr_inv_by_loop_pk15', inverseFuncs: by_inverse_loop_15_funcs, bigintByFuncs: '' };
+    }
+    // other non-13 widths (14, 16): no dedicated safegcd yet — representation-
+    // agnostic Fermat (a^(p-2) via the native montmul). Drop the BY partials.
+    if (this.word_size !== 13) {
+      return { invFn: 'fr_pow_inv', inverseFuncs: '', bigintByFuncs: '' };
+    }
+    return {
+      invFn: variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop',
+      inverseFuncs: by_inverse_loop_funcs,
+      bigintByFuncs: bigint_by_funcs,
+    };
+  }
+
+  // Isolated montmul / inverse microbench. op='mul' chains montgomery_product;
+  // op='inv' chains the selected field inverse (fr_inv_by_loop_pk at 13-bit,
+  // fr_inv_by_loop_pk15 at 15-bit). Same view/partials as the reduce-level
+  // kernel so it is the live 13-bit-vs-15-bit op comparison.
+  public gen_microbench_shader(op: 'mul' | 'inv', chain_k: number, nthreads: number): string {
+    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring('pk');
+    return mustache.render(
+      microbench_shader,
+      {
+        inv_fn, is_mul: op === 'mul', is_inv: op === 'inv',
+        chain_k, nthreads, in_stride: 2 * this.num_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, fr_pow_funcs, bigint_by_funcs: bigintByFuncs, inverse_funcs,
+      },
+    );
+  }
+
   public gen_ba_reduce_level_bench_shader(
     workgroup_size: number,
     variant: 'loop' | 'pk' = 'pk',
@@ -501,8 +574,7 @@ ${packLines.join('\n')}
       throw new Error(`gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring(variant);
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_level_bench_shader,
@@ -520,7 +592,7 @@ ${packLines.join('\n')}
       {
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs: bigintByFuncs, inverse_funcs,
       },
     );
   }
@@ -706,21 +778,28 @@ ${packLines.join('\n')}
 
   // Renders a limb-width-B CIOS body (B∈{13,14,15,16}) generated by
   // cios_limb_gen.ts and brace-match-splices it over the Karatsuba scaffold's
-  // `fn montgomery_product` (reusing get_p / conditional_reduce / BigInt). The
-  // body unpacks the scaffold's 20×13 BigInt into n×B-bit limbs internally,
-  // runs carry-minimal CIOS in named scalar registers, applies the requested
-  // Montgomery-domain correction (div32 for B=15: ×2^-5 single-pass reduction),
-  // and repacks to 20×13 so the signature + walker stay untouched. B-specific
-  // consts (WS_B/MASK_B/N0_B/TWO_B) are prepended at module scope. BN254-only.
+  // `fn montgomery_product` (reusing get_p / conditional_reduce / BigInt). Two
+  // modes, by how this pipeline's limb width relates to B:
+  //   • DROP-IN (pipeline 20×13, B≠13): unpacks 20×13 → n×B, runs carry-minimal
+  //     CIOS, applies the Montgomery-domain correction (div32 for B=15: ×2^-5),
+  //     repacks to 20×13 — signature + walker untouched.
+  //   • NATIVE (word_size === B, e.g. 17×15 driving B=15): unpack/repack are
+  //     identity and the domain matches (delta=0, no correction) — a clean
+  //     register-resident CIOS reducing by 2^(B·n) directly. The wordSize=15
+  //     config takes this path; Karatsuba's 20-limb body is spliced OUT and
+  //     never compiled.
+  // B-specific consts (WS_B/MASK_B/N0_B/TWO_B) are prepended at module scope.
   private renderCiosLimbMont(B: number, correction: Correction = 'halve5'): string {
-    if (this.num_words !== 20 || this.word_size !== 13) {
+    const isDropin = this.num_words === 20 && this.word_size === 13;
+    const isNative = this.word_size === B;
+    if (!isDropin && !isNative) {
       throw new Error(
-        `montmul='cios${B}' is only valid for BN254 (20×13-bit limbs); ` +
-          `got num_words=${this.num_words}, word_size=${this.word_size}`,
+        `renderCiosLimbMont(B=${B}): pipeline ${this.num_words}×${this.word_size} unsupported ` +
+          `(need 20×13 drop-in, or word_size===B for native)`,
       );
     }
     if (![13, 14, 15, 16].includes(B)) throw new Error(`renderCiosLimbMont: unsupported B=${B}`);
-    const { consts, body } = genCiosLimbBody(B, correction);
+    const { consts, body } = genCiosLimbBody(B, correction, { n: this.num_words, w: this.word_size });
     const scaffold = this.renderKaratYuvalMont();
     const start = scaffold.indexOf('fn montgomery_product(');
     if (start < 0) throw new Error('renderCiosLimbMont: fn montgomery_product not found in scaffold');
@@ -872,8 +951,7 @@ ${packLines.join('\n')}
     variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring(variant);
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_walker_shader,
@@ -891,7 +969,7 @@ ${packLines.join('\n')}
       {
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs: bigintByFuncs, inverse_funcs,
       },
     );
   }
@@ -973,8 +1051,7 @@ ${packLines.join('\n')}
     variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring(variant);
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_unified_combine_shader,
@@ -991,7 +1068,7 @@ ${packLines.join('\n')}
       {
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs: bigintByFuncs, inverse_funcs,
       },
     );
   }
@@ -1005,8 +1082,7 @@ ${packLines.join('\n')}
     variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring(variant);
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_walker_combine_batched_shader,
@@ -1024,7 +1100,7 @@ ${packLines.join('\n')}
       {
         structs, bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
-        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs: bigintByFuncs, inverse_funcs,
       },
     );
   }

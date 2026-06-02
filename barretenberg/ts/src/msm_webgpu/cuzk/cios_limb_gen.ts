@@ -43,6 +43,20 @@ export interface CiosParams {
   p: bigint[];
 }
 
+// The surrounding pipeline's limb layout — the `BigInt` the spliced
+// `montgomery_product` reads its operands from and writes its result to.
+// Defaults to BN254's 20×13 Karatsuba scaffold, which keeps the 13/14/15/16
+// drop-in bodies byte-identical to the prior generator. When `w === B` (i.e.
+// the pipeline limbs ARE the internal CIOS limbs — the NATIVE path, e.g. 17×15
+// driving B=15) the unpack/repack collapse to identity and the Montgomery
+// domain coincides (delta=0 ⇒ no correction): a clean register-resident CIOS
+// with no bridging overhead.
+export interface Pipeline {
+  n: number;
+  w: number;
+}
+const DEFAULT_PIPELINE: Pipeline = { n: 20, w: 13 };
+
 // Montgomery-domain correction strategy for the delta<0 case (B=15: delta=-5).
 //  - 'halve5' (default): |delta| SERIAL modular halvings (legacy path; keeps
 //    cios13/14/16 byte-identical).
@@ -121,27 +135,30 @@ function emitConsts(pp: CiosParams): string {
   );
 }
 
-// Recompose the scaffold's 20×13-bit BigInt input into n×B-bit limbs as
-// compile-time-constant shifts (identity for B=13).
-function emitUnpack(pp: CiosParams): string {
+// Recompose the pipeline's `pipeline.n × pipeline.w`-bit BigInt input into the
+// internal n×B-bit limbs as compile-time-constant shifts. Identity when the
+// pipeline already uses B-bit limbs (pipeline.w === B): the native path.
+function emitUnpack(pp: CiosParams, pipeline: Pipeline): string {
   const { n, B } = pp;
-  if (B === 13) {
+  if (pipeline.w === B) {
     let s = '';
     for (let k = 0; k < n; k++) s += `    let x${k}: u32 = (*x_ptr).limbs[${k}u];\n`;
     for (let k = 0; k < n; k++) s += `    let y${k}: u32 = (*y_ptr).limbs[${k}u];\n`;
     return s;
   }
+  const totalBits = pipeline.n * pipeline.w;
+  const srcW = pipeline.w;
   const emitOne = (name: string, src: string): string => {
     let out = '';
     for (let k = 0; k < n; k++) {
       const lo = k * B;
-      const hi = Math.min((k + 1) * B, 260);
+      const hi = Math.min((k + 1) * B, totalBits);
       const parts: string[] = [];
       let bit = lo;
       while (bit < hi) {
-        const sLimb = Math.floor(bit / 13);
-        const sBit = bit % 13;
-        const take = Math.min(13 - sBit, hi - bit);
+        const sLimb = Math.floor(bit / srcW);
+        const sBit = bit % srcW;
+        const take = Math.min(srcW - sBit, hi - bit);
         const srcExpr = `${src}.limbs[${sLimb}u]`;
         const shifted = sBit === 0 ? srcExpr : `(${srcExpr} >> ${sBit}u)`;
         const m = (1 << take) - 1;
@@ -159,18 +176,25 @@ function emitUnpack(pp: CiosParams): string {
 
 // Montgomery-domain correction. The CIOS body internally reduces by
 // R_int = 2^(B·n) (n outer iters), returning V = x·y·2^-(B·n) mod p — but the
-// surrounding 20×13 pipeline works in R_pipe = 2^260 and expects x·y·2^-260.
-// These coincide only for B=13 (13·20=260). For B≠13 we multiply V by the
-// factor 2^delta mod p, delta = (B·n)−260 (B=14:+6, B=15:−5, B=16:−4), realized
-// CHEAPLY (O(n·|delta|), not a second O(n²) multiply): repeated <<1 + cond-sub-p
-// (delta>0) or repeated halve-mod-p (delta<0). MUST stay byte-identical to the
-// validated host generator cios_limbgen.mjs (emitDomainCorrection).
-function emitDomainCorrection(pp: CiosParams, correction: Correction = 'halve5'): string {
+// surrounding pipeline works in R_pipe = 2^(pipeline.n·pipeline.w) and expects
+// x·y·R_pipe⁻¹. These coincide (delta=0, NO correction) whenever the pipeline
+// limbs are the internal limbs — the native path (e.g. 17×15 with B=15:
+// 15·17 = 17·15) and the 20×13 B=13 case (13·20=260). Otherwise we multiply V
+// by 2^delta mod p, delta = (B·n) − pipeline.n·pipeline.w (20×13 drop-in:
+// B=14:+6, B=15:−5, B=16:−4), realized CHEAPLY (O(n·|delta|), not a second
+// O(n²) multiply): repeated <<1 + cond-sub-p (delta>0) or repeated halve-mod-p
+// / div32 (delta<0). MUST stay byte-identical to the validated host generator
+// cios_limbgen.mjs (emitDomainCorrection).
+function emitDomainCorrection(
+  pp: CiosParams,
+  correction: Correction = 'halve5',
+  pipeline: Pipeline = DEFAULT_PIPELINE,
+): string {
   const { n, p, B } = pp;
-  const delta = B * n - 260;
+  const delta = B * n - pipeline.n * pipeline.w;
   if (delta === 0) return '';
   let s = `\n    // Montgomery-domain correction: V·2^(${delta}) mod p so the result is in\n`;
-  s += `    // the pipeline's 2^260 domain (internal CIOS reduces by 2^(${B}·${n})=2^${B * n}).\n`;
+  s += `    // the pipeline's 2^${pipeline.n * pipeline.w} domain (internal CIOS reduces by 2^(${B}·${n})=2^${B * n}).\n`;
   s += emitCondSubP(pp, '    ');
   if (delta > 0) {
     for (let it = 0; it < delta; it++) {
@@ -245,8 +269,9 @@ function emitCondSubP(pp: CiosParams, ind: string): string {
 }
 
 // Conditional subtract p (radix 2^B) over normalized s0..s_{n-1}, then repack
-// n×B → 20×13 and return via the scaffold's conditional_reduce (idempotent).
-function emitPackReduce(pp: CiosParams): string {
+// n×B → pipeline.n×pipeline.w (identity when pipeline.w === B) and return via
+// the scaffold's conditional_reduce (idempotent).
+function emitPackReduce(pp: CiosParams, pipeline: Pipeline): string {
   const { n, p, B } = pp;
   let s = '\n    // conditional subtract p (radix 2^B), branchless borrow chain.\n';
   s += '    {\n';
@@ -261,12 +286,12 @@ function emitPackReduce(pp: CiosParams): string {
   for (let k = 0; k < n; k++) s += `        s${k} = (r${k} & msk) | (s${k} & ~msk);\n`;
   s += '    }\n';
   s += '\n    var s: BigInt;\n';
-  if (B === 13) {
+  if (pipeline.w === B) {
     for (let k = 0; k < n; k++) s += `    s.limbs[${k}u] = s${k};\n`;
   } else {
-    for (let k = 0; k < 20; k++) {
-      const lo = k * 13;
-      const hi = (k + 1) * 13;
+    for (let k = 0; k < pipeline.n; k++) {
+      const lo = k * pipeline.w;
+      const hi = (k + 1) * pipeline.w;
       const parts: string[] = [];
       let bit = lo;
       while (bit < hi) {
@@ -288,7 +313,12 @@ function emitPackReduce(pp: CiosParams): string {
   return s;
 }
 
-function genDefer(pp: CiosParams, K: number, correction: Correction = 'halve5'): string {
+function genDefer(
+  pp: CiosParams,
+  K: number,
+  correction: Correction = 'halve5',
+  pipeline: Pipeline = DEFAULT_PIPELINE,
+): string {
   const { n, p, B } = pp;
   const intra = Math.max(0, Math.floor((n - 1) / K));
   let s = '';
@@ -297,7 +327,7 @@ function genDefer(pp: CiosParams, K: number, correction: Correction = 'halve5'):
   s += `// K is MAXIMAL period keeping the per-slot worst-case < 2^32 ⇒ fewest carries.\n`;
   s += `fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>) -> BigInt {\n`;
   for (let k = 0; k < n; k++) s += `    var s${k}: u32 = 0u;\n`;
-  s += emitUnpack(pp);
+  s += emitUnpack(pp, pipeline);
   s += '\n';
   for (let i = 0; i < n; i++) {
     s += `    {   // ===== outer i=${i} =====\n`;
@@ -323,20 +353,20 @@ function genDefer(pp: CiosParams, K: number, correction: Correction = 'halve5'):
   s += '    var cc: u32 = 0u;\n';
   for (let k = 0; k < n; k++)
     s += `    { let v: u32 = s${k} + cc; cc = v >> WS_B; s${k} = v & MASK_B; }\n`;
-  s += emitDomainCorrection(pp, correction);
-  s += emitPackReduce(pp);
+  s += emitDomainCorrection(pp, correction, pipeline);
+  s += emitPackReduce(pp, pipeline);
   s += `}\n`;
   return s;
 }
 
-function genColCarry(pp: CiosParams, correction: Correction = 'halve5'): string {
+function genColCarry(pp: CiosParams, correction: Correction = 'halve5', pipeline: Pipeline = DEFAULT_PIPELINE): string {
   const { n, p, B } = pp;
   let s = '';
   s += `// REGIME-COLCARRY CIOS, B=${B}, n=${n}. Canonical Acar/Koç CIOS, one product\n`;
   s += `// per column normalized immediately (no fused K<=n stays < 2^32 for B=16).\n`;
   s += `fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>) -> BigInt {\n`;
   for (let k = 0; k <= n; k++) s += `    var s${k}: u32 = 0u;\n`;
-  s += emitUnpack(pp);
+  s += emitUnpack(pp, pipeline);
   s += '\n';
   for (let i = 0; i < n; i++) {
     s += `    {   // ===== outer i=${i} =====\n`;
@@ -353,8 +383,8 @@ function genColCarry(pp: CiosParams, correction: Correction = 'halve5'): string 
     s += `        s${n} = c;\n`;
     s += `    }\n`;
   }
-  s += emitDomainCorrection(pp, correction);
-  s += emitPackReduce(pp);
+  s += emitDomainCorrection(pp, correction, pipeline);
+  s += emitPackReduce(pp, pipeline);
   s += `}\n`;
   return s;
 }
@@ -364,9 +394,10 @@ function genColCarry(pp: CiosParams, correction: Correction = 'halve5'): string 
 export function genCiosLimbBody(
   B: number,
   correction: Correction = 'halve5',
+  pipeline: Pipeline = DEFAULT_PIPELINE,
 ): { consts: string; body: string; regime: string; K: number | null } {
   const pp = ciosParams(B);
   const mk = maxDeferK(pp);
-  if (mk) return { consts: emitConsts(pp), body: genDefer(pp, mk.K, correction), regime: 'DEFER', K: mk.K };
-  return { consts: emitConsts(pp), body: genColCarry(pp, correction), regime: 'COLCARRY', K: null };
+  if (mk) return { consts: emitConsts(pp), body: genDefer(pp, mk.K, correction, pipeline), regime: 'DEFER', K: mk.K };
+  return { consts: emitConsts(pp), body: genColCarry(pp, correction, pipeline), regime: 'COLCARRY', K: null };
 }
