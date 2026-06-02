@@ -436,8 +436,6 @@ unconstrained fn validate_handshake_rejects_constrained_secret_for_unconstrained
     env.call_private(sender, registry.validate_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED, constrained_secret));
 }
 
-// `non_interactive_handshake` rejects a mode outside the recognized set, so registry storage is only indexed by
-// valid delivery modes.
 #[test(should_fail_with = "unrecognized delivery mode")]
 unconstrained fn non_interactive_handshake_rejects_unknown_mode() {
     let (env, registry_address, sender, _, recipient) = setup();
