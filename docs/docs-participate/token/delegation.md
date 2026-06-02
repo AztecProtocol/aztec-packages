@@ -113,7 +113,7 @@ You cannot consolidate multiple Token Vaults into a single delegation. Each vaul
 
 ### Step 5: set operator address
 
-The operator address controls block submissions for this vault. Confirm the address is correct, as this determines who manages sequencer operations and receives reward attribution.
+The operator address controls sequencer operations for this vault. Confirm the address is correct, as this address can choose who to delegate to and pick the reward attribution address
 
 The staking dashboard defaults the operator to the connected wallet address. If you need a separate operator address for security separation, interact directly with the staking contracts via the CLI.
 
