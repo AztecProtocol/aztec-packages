@@ -1,4 +1,4 @@
-import { MsmV2, MsmV2Pool } from '../msm_v2.js';
+import { MsmStreamWalker, MsmStreamWalkerPool } from '../msm_stream_walker.js';
 import { get_device } from '../cuzk/gpu.js';
 import {
   ERR_GENERIC,
@@ -28,7 +28,7 @@ import {
 // number of distinct sizes the canonical ECDSA-r1 transfer flow uses (the
 // telemetry shows ~10 distinct n values). 16 is plenty of headroom.
 const MSM_LRU_CAP = 16;
-// Max distinct MsmV2 slots kept per N for same-N batching. The biggest
+// Max distinct MsmStreamWalker slots kept per N for same-N batching. The biggest
 // same-N batch in the chonk flow is 10 (the translator concatenated/ordered
 // range constraints) so 10 keeps every same-N batch on the single-encoder
 // path. Each extra slot ≈ 25 MB GPU memory at n=131k.
@@ -36,8 +36,8 @@ const MAX_SAME_N_SLOTS = 10;
 
 /**
  * Main-thread host for the WebGPU MSM bridge. Owns one `GPUDevice`, one shared
- * `MsmV2Pool` (the SRS uploaded + Montgomery-converted on the GPU once), and a
- * small cache of per-size `MsmV2` instances bound to that pool.
+ * `MsmStreamWalkerPool` (the SRS uploaded + Montgomery-converted on the GPU once), and a
+ * small cache of per-size `MsmStreamWalker` instances bound to that pool.
  *
  * Lifecycle:
  *   1. Construct one per worker, sharing the same control SAB the worker stub
@@ -66,15 +66,15 @@ export class WebGpuMsmHost {
   // The one shared SRS point pool, plus the per-size MSM instances bound to it.
   // `srsMsm` (n === srsN) is the hot path and is pinned; other sizes rotate
   // through `lru` (insertion order == LRU order). For same-N batches > 1
-  // we additionally allocate up to MAX_SAME_N_SLOTS distinct MsmV2 instances
+  // we additionally allocate up to MAX_SAME_N_SLOTS distinct MsmStreamWalker instances
   // per N (the "slot pool") so the same-N batch can encode into ONE command
   // buffer with each MSM in its own slot — eliminating per-MSM submit + per-
   // MSM mapAsync for the same-N case.
-  private pool: MsmV2Pool | null = null;
+  private pool: MsmStreamWalkerPool | null = null;
   private srsN = 0;
-  private srsMsm: MsmV2 | null = null;
-  private lru = new Map<number, MsmV2>();
-  private slotPools = new Map<number, MsmV2[]>();
+  private srsMsm: MsmStreamWalker | null = null;
+  private lru = new Map<number, MsmStreamWalker>();
+  private slotPools = new Map<number, MsmStreamWalker[]>();
 
   // If a request arrives before `setWasmMemory` is called, we can't service it.
   // Used by the test harness; production order is always memory-then-message.
@@ -190,17 +190,17 @@ export class WebGpuMsmHost {
    * - `pool` = shared SRS pool bytes.
    * - `active` = sum across the MSMs in this batch (the ones the GPU just
    *   touched).
-   * - `lru` = sum across every cached MsmV2 instance not in `active`
+   * - `lru` = sum across every cached MsmStreamWalker instance not in `active`
    *   (the LRU memory "tax").
    * - `total` = pool + active + lru.
    * Used by the memory-reduction plan's per-phase verification.
    */
-  private statsBytesSummary(activeMsms: MsmV2[]): string {
+  private statsBytesSummary(activeMsms: MsmStreamWalker[]): string {
     const pool = this.pool?.statsBytes() ?? 0;
-    // Dedupe — same-N batches share one MsmV2 instance, so a batch of 3
+    // Dedupe — same-N batches share one MsmStreamWalker instance, so a batch of 3
     // same-N MSMs has activeMsms.length=3 but they all reference the same
     // instance. Counting each only once gives the actual GPU bytes.
-    const activeSet = new Set<MsmV2>(activeMsms);
+    const activeSet = new Set<MsmStreamWalker>(activeMsms);
     let active = 0;
     for (const m of activeSet) active += m.statsBytes();
     let lru = 0;
@@ -215,7 +215,7 @@ export class WebGpuMsmHost {
 
   /**
    * `OP_PUBLISH_SRS` — stream the SRS to the GPU once. Builds the shared
-   * `MsmV2Pool` (raw upload + GPU Montgomery conversion); any previously cached
+   * `MsmStreamWalkerPool` (raw upload + GPU Montgomery conversion); any previously cached
    * instances/pool are torn down first.
    */
   private async runPublishSrs(): Promise<void> {
@@ -233,22 +233,22 @@ export class WebGpuMsmHost {
     this.slotPools.clear();
     this.pool?.destroy();
 
-    this.pool = await MsmV2Pool.create(device, srsBytes);
+    this.pool = await MsmStreamWalkerPool.create(device, srsBytes);
     this.srsN = n;
   }
 
   /**
-   * Get (or build) an `MsmV2` for `n` points, bound to the shared pool. The
+   * Get (or build) an `MsmStreamWalker` for `n` points, bound to the shared pool. The
    * SRS-sized instance is pinned; others rotate through a small LRU.
    */
   /**
-   * Fetch (or create) the `slot`-th MsmV2 instance for size `n`. Slot 0 is the
+   * Fetch (or create) the `slot`-th MsmStreamWalker instance for size `n`. Slot 0 is the
    * primary cache entry (same as `getOrCreateMsm`); slots 1..K-1 are extra
    * instances kept in `slotPools[n]` so a same-N batch can place each MSM in
    * its own instance and the bridge's single-encoder path can encode them all
    * into one command buffer. Falls back to slot 0 (sharing) for slots ≥ K.
    */
-  private async getOrCreateMsmSlot(n: number, slot: number): Promise<MsmV2> {
+  private async getOrCreateMsmSlot(n: number, slot: number): Promise<MsmStreamWalker> {
     if (slot === 0) return this.getOrCreateMsm(n);
     if (slot >= MAX_SAME_N_SLOTS) return this.getOrCreateMsm(n);
     const device = await this.getDevice();
@@ -266,17 +266,17 @@ export class WebGpuMsmHost {
     // slots exist to break same-N submit serialization, not for timestamp
     // readback; their GPU compute is fungible with slot 0's at the same n.
     while (pools.length <= slot - 1) {
-      pools.push(await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: false }));
+      pools.push(await MsmStreamWalker.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: false }));
     }
     return pools[slot - 1];
   }
 
-  private async getOrCreateMsm(n: number): Promise<MsmV2> {
+  private async getOrCreateMsm(n: number): Promise<MsmStreamWalker> {
     const device = await this.getDevice();
     const pool = this.pool!;
     if (n === this.srsN) {
       if (this.srsMsm === null) {
-        this.srsMsm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+        this.srsMsm = await MsmStreamWalker.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
       }
       return this.srsMsm;
     }
@@ -288,7 +288,7 @@ export class WebGpuMsmHost {
       return hit;
     }
     // Build before inserting — a throw leaves the cache clean.
-    const fresh = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+    const fresh = await MsmStreamWalker.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
     while (this.lru.size >= MSM_LRU_CAP) {
       const oldest = this.lru.keys().next().value as number;
       this.lru.get(oldest)!.destroy();
@@ -312,7 +312,7 @@ export class WebGpuMsmHost {
   }
 
   /**
-   * `OP_MSM` — run one MSM. With `combineOnHost: false`, MsmV2 yields the
+   * `OP_MSM` — run one MSM. With `combineOnHost: false`, MsmStreamWalker yields the
    * per-window sums; they are written to the result region (`numWindows × 64`
    * canonical LE bytes) and `numWindows` + `c` go in the SAB slots, so the C++
    * hook Horner-combines them in native bb::g1.
@@ -339,12 +339,12 @@ export class WebGpuMsmHost {
     // worker thread issued this request and is blocked on Atomics.wait until
     // STATE_DONE is set in handleMessage() — WASM cannot call memory.grow()
     // while blocked, so the underlying ArrayBuffer cannot be detached during
-    // this view's lifetime (creation → MsmV2.prepare's writeBuffer → return).
+    // this view's lifetime (creation → MsmStreamWalker.prepare's writeBuffer → return).
     // Saves an n*32-byte copy per solo MSM (~2.8 MB at n=88_899).
     const scalars = new Uint8Array(this.wasmMemory!.buffer, scalarsPtr, n * 32);
 
-    let msm: MsmV2;
-    let oneOff: { pool: MsmV2Pool; msm: MsmV2 } | null = null;
+    let msm: MsmStreamWalker;
+    let oneOff: { pool: MsmStreamWalkerPool; msm: MsmStreamWalker } | null = null;
     const tGet = performance.now();
     let hitKind: 'srs-pinned' | 'srs-cached' | 'srs-fresh' | 'off-srs' = 'srs-pinned';
     if (pointsPtr === 0) {
@@ -354,7 +354,7 @@ export class WebGpuMsmHost {
         );
       }
       // The instance cache is keyed by n alone; the per-call SRS offset
-      // is threaded into prepare() so the same MsmV2 serves every commit
+      // is threaded into prepare() so the same MsmStreamWalker serves every commit
       // of the same size but different start_index.
       const cachedHit = n === this.srsN ? this.srsMsm !== null : this.lru.has(n);
       msm = await this.getOrCreateMsm(n);
@@ -364,15 +364,15 @@ export class WebGpuMsmHost {
       // Off-SRS MSM: bring its points in as a one-off pool.
       const device = await this.getDevice();
       const pointBytes = this.wasmSliceCopy(pointsPtr, n * 64);
-      const pool = await MsmV2Pool.create(device, pointBytes);
-      msm = await MsmV2.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
+      const pool = await MsmStreamWalkerPool.create(device, pointBytes);
+      msm = await MsmStreamWalker.create(device, n, pool, { warmupRuns: 0, combineOnHost: false, profile: true });
       oneOff = { pool, msm };
     }
     const tGetEnd = performance.now();
 
     try {
       const tPrep = performance.now();
-      // SRS-prefix MSMs pass the offset so MsmV2 bakes it into the
+      // SRS-prefix MSMs pass the offset so MsmStreamWalker bakes it into the
       // per-point indices written into active_sums; off-SRS uses the
       // one-off pool starting at index 0 (offset=0).
       msm.prepare(scalars, oneOff === null ? srsOffset : 0);
@@ -383,7 +383,7 @@ export class WebGpuMsmHost {
       Atomics.store(this.ctrl, SLOT_NUM_WINDOWS, windowSums.length);
       Atomics.store(this.ctrl, SLOT_C, c);
       // Per-MSM telemetry: get/prepare/run breakdown lets the bench see
-      // whether MsmV2 instance setup (rebuild on LRU miss) or GPU dispatch
+      // whether MsmStreamWalker instance setup (rebuild on LRU miss) or GPU dispatch
       // dominates. Costs only one console.log per delegated MSM.
       console.log(
         `[bridge-msm] n=${n} kind=${hitKind} srsOff=${srsOffset} get=${(tGetEnd - tGet).toFixed(1)}ms ` +
@@ -482,7 +482,7 @@ export class WebGpuMsmHost {
     const device = await this.getDevice();
 
     // Per-MSM submit strategy with batched mapAsync. We *cannot* collapse
-    // all MSMs into one encoder because `MsmV2.prepare()` is queue-ordered
+    // all MSMs into one encoder because `MsmStreamWalker.prepare()` is queue-ordered
     // (its writeBuffer calls fire before any submit), so two same-N MSMs
     // sharing an instance would clobber each other's uniforms — the second
     // prepare's plan would apply to the first MSM's dispatches in the
@@ -500,7 +500,7 @@ export class WebGpuMsmHost {
     // wait. Per-staging mapAsync allocations get freed at the end of the
     // function (browser-managed once unmapped + destroyed).
     interface Pending {
-      msm: MsmV2;
+      msm: MsmStreamWalker;
       staging: GPUBuffer;
       resultByteOff: number;
       windowCount: number;
@@ -509,7 +509,7 @@ export class WebGpuMsmHost {
     const pendings: Pending[] = new Array(batchCount);
     const phaseTrace = (globalThis as any).__bridge_phase_trace === true;
 
-    // Detect same-N collisions in this batch: with one MsmV2 instance
+    // Detect same-N collisions in this batch: with one MsmStreamWalker instance
     // per n, encoding two same-n MSMs into the same command buffer would
     // make them share scalarsRawBuf + per-level uniforms (the second
     // prepare clobbers the first's plan). For mixed-N batches we can
@@ -523,7 +523,7 @@ export class WebGpuMsmHost {
     let maxNCount = 0;
     for (const c of nCounts.values()) maxNCount = Math.max(maxNCount, c);
     // Slot-pool experiment (using getOrCreateMsmSlot) — tried Mon May 24:
-    //   - Routes same-N MSMs through distinct MsmV2 instances so the same-N
+    //   - Routes same-N MSMs through distinct MsmStreamWalker instances so the same-N
     //     batch can encode into one command buffer (no scalarsRawBuf race).
     //   - Cost: ~80-100 ms per fresh instance create × ~30 extra slots needed
     //     across the chonk flow = ~3 s of upfront overhead.
@@ -546,7 +546,7 @@ export class WebGpuMsmHost {
       // the inter-submit GPU idle gap for same-N batches.
       let totalStagingBytes = 0;
       const stagingOffsets: number[] = new Array(batchCount);
-      const msms: MsmV2[] = new Array(batchCount);
+      const msms: MsmStreamWalker[] = new Array(batchCount);
       const resultOffs: number[] = new Array(batchCount);
       const tPrepSum0 = performance.now();
       for (let i = 0; i < batchCount; i++) {

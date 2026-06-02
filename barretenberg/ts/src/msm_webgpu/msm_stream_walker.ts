@@ -8,9 +8,9 @@
 //
 // Two pieces, so the SRS point pool is uploaded and converted to Montgomery form
 // exactly once and shared by every MSM of the proving session:
-//   - MsmV2Pool.create(device, srsCanonicalBytes) — upload the canonical SRS and
+//   - MsmStreamWalkerPool.create(device, srsCanonicalBytes) — upload the canonical SRS and
 //     GPU-convert it to the Montgomery-form 8xu32 point pool. Once per session.
-//   - MsmV2.create(device, n, pool, config?) — data-independent: compile the
+//   - MsmStreamWalker.create(device, n, pool, config?) — data-independent: compile the
 //     pipelines + bind groups for an n-point MSM, binding a prefix of `pool`.
 //   - prepare(scalarsBuf) — UNTIMED: Booth-decode the scalars, plan every level,
 //     (re)allocate the data-dependent buffers + bind groups. Cached by identity.
@@ -33,6 +33,7 @@ import {
   STREAM_WALKER_TPB,
   STREAM_S as STREAM_S_PLAN,
 } from './cuzk/ba_stream_plan.js';
+import type { MsmConfig, ProfileBreakdown, Pt } from './msm_types.js';
 
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
@@ -56,125 +57,10 @@ const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
 const T_SAT_REDUCE = 16384;
 const JAC_AUTO = -1; // jacobianCrossover sentinel: auto-select the regime
 
-/**
- * Tuning knobs for {@link MsmV2}. Every field is optional and defaults to the
- * value that reproduces current behaviour, so `{}` (or omitting it) is a no-op
- * — which keeps A/B comparisons honest.
- */
-export interface MsmConfig {
-  /** Pippenger window bits. Default: `pickC(n)`. */
-  c?: number;
-  /** Fused-kernel chunk size (pairs batched per thread). Default: `pickS(n)`. */
-  s?: number;
-  /** Generic kernel workgroup size. Default 128. */
-  wgi?: number;
-  /** Bucket-reduction workgroup size. Default: `pickReduceWg(c)`. */
-  reduceWg?: number;
-  /** Reduction leaf-partition log2. Default 1. */
-  l0Log?: number;
-  /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
-  invVariant?: 'loop' | 'pk';
-  /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
-  addsub?: 'native' | 'unpack';
-  /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
-  profile?: boolean;
-  /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
-  jacobianCrossover?: number;
-  /**
-   * Recursive segmented reduction: when > 0, replace the level-based reduce
-   * with the recursive radix-m kernel (m = this value, power of 2 dividing
-   * STRIDE). WIP — opt-in for validation. 0 = off.
-   */
-  segReduceG?: number;
-  /**
-   * Threads needed to saturate the GPU for the segmented reduce. Each level
-   * fields min(work, reduceTsat) threads; work beyond that packs multiple
-   * outputs per thread. Swept against real MSMs to find the device value.
-   */
-  reduceTsat?: number;
-  /** Radix-2 coarse reduce level runs affine (batched S=8) instead of Jacobian. WIP. */
-  segAffineCoarse?: boolean;
-  /**
-   * Per-level affine/Jacobian cut. When set, each reduce level independently
-   * runs Jacobian if it can't saturate the batch-affine path (doublings always
-   * Jacobian; adds Jacobian iff numWindows·ppw < {@link reduceSatThreshold}),
-   * else batch-affine. Saturated late tree levels stay affine even with a
-   * Jacobian middle — the jac→affine flip is bridged by a batched convert.
-   * Replaces the single contiguous `jacobianCrossover` suffix-cut.
-   */
-  perLevelJac?: boolean;
-  /** Per-level cut saturation threshold (active threads); ppw·numWindows below this runs Jacobian. */
-  reduceSatThreshold?: number;
-  /** Slots per thread (one safegcd per chunk) in the batched jac→affine convert. Tuning knob. */
-  convChunk?: number;
-  /**
-   * GPU/CPU split experiment: snapshot red_buf after this many reduce levels so
-   * the remaining levels can be finished single-threaded on the CPU (wasm
-   * bb_msm_complete_reduce). -1 = off. Requires the all-affine reduce
-   * (jacobianCrossover=0) so the snapshot slots are affine. The host reads
-   * getReduceDensePack() and hands it to the wasm completion.
-   */
-  reduceSnapshotLevel?: number;
-  /**
-   * Convert-affordability bound (in slots = numWindows·stride). The per-level
-   * cut only pushes the doublings to Jacobian — which forces one jac→affine
-   * convert — when numWindows·stride is at or below this. Above it, only the
-   * free starved suffix runs Jacobian (no convert). Device-calibrated; on M2 the
-   * crossover is between c=13 (82k slots, convert pays) and c=15 (279k, doesn't).
-   */
-  convertBound?: number;
-  /**
-   * Sparsity extent clamp: process only the first STRIDE' = this value buckets
-   * per window in the segmented reduce (must be >= the max live bucket index,
-   * a power of 2, <= STRIDE). 0 = full STRIDE. Normally set automatically from
-   * {@link maxScalarBits}; this knob is for validation.
-   */
-  reduceStride?: number;
-  /**
-   * Guaranteed upper bound on scalar size: every scalar is < 2^maxScalarBits.
-   * When this implies the buckets occupy fewer than STRIDE slots (only when
-   * maxScalarBits < c), the reduce auto-switches to the recursive segmented
-   * kernel clamped to the safe extent — a large win for small-scalar MSMs
-   * (profiles D/E). Honest bound required: a scalar exceeding it corrupts the
-   * result. 0/unset = no bound (full reduce).
-   */
-  maxScalarBits?: number;
-  /**
-   * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
-   * the shader-JIT / command-buffer cold start before the first timed run.
-   * Default 5 (benchmark harness); the production bridge passes 0 so the first
-   * real MSM is the work, not a throwaway.
-   */
-  warmupRuns?: number;
-  /**
-   * Run the Horner window-combine + final modular inverse on the host. Default
-   * `true` — the benchmark harness wants the affine `{x, y}`. The production
-   * bridge passes `false`: it ships the per-window sums across the bridge and
-   * the C++ hook does the combine in native `bb::g1`.
-   */
-  combineOnHost?: boolean;
-}
 
-/** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
-export interface ProfileBreakdown {
-  decompose: number;
-  transpose: number;
-  convert: number;
-  planner: number;
-  fused: number;
-  carry: number;
-  finalize: number;
-  redInit: number;
-  redLevel: number;
-  wall: number;
-}
 
 // --- pure helpers ---
 
-interface Pt {
-  x: bigint;
-  y: bigint;
-}
 
 function makeRng(seed: number): () => number {
   let state = seed >>> 0 || 1;
@@ -536,7 +422,7 @@ interface LevelBind {
 /**
  * Per-pool memoization of bind-group layouts + compiled compute pipelines.
  *
- * Compiling a WGSL shader to a GPU pipeline is the dominant per-MsmV2.create
+ * Compiling a WGSL shader to a GPU pipeline is the dominant per-MsmStreamWalker.create
  * cost (~10–100 ms × ~17 pipelines × every distinct n a Chonk batch hits).
  * The cache keys on the rendered WGSL source for pipelines (deterministic
  * from generator args, so two equivalent calls share the cached pipeline)
@@ -545,7 +431,7 @@ interface LevelBind {
  * same shader collapse onto one compile.
  *
  * Lifetime is tied to the pool — pipelines and layouts hold no references
- * to MsmV2 instances and survive their destruction. Released when the
+ * to MsmStreamWalker instances and survive their destruction. Released when the
  * `GPUDevice` is destroyed (host calls `pool.destroy()`).
  */
 class PipelineCache {
@@ -587,23 +473,23 @@ class PipelineCache {
 /**
  * The shared SRS point pool: the base points uploaded to the GPU and converted
  * to Montgomery-form 8×u32 layout exactly once, then bound (as a prefix) by
- * every {@link MsmV2} instance. Build it once per proving session from the
- * canonical SRS; `MsmV2.create` references its buffers without re-uploading or
+ * every {@link MsmStreamWalker} instance. Build it once per proving session from the
+ * canonical SRS; `MsmStreamWalker.create` references its buffers without re-uploading or
  * re-converting.
  *
  * Hosts the per-pool layout / pipeline cache (see {@link PipelineCache}) so
- * MsmV2 instances bound to the same pool never recompile a shader they've
+ * MsmStreamWalker instances bound to the same pool never recompile a shader they've
  * collectively seen before.
  */
 /**
- * The shared per-MSM scratch buffers, owned by {@link MsmV2Pool}. Sized to
- * the high-water mark of every dimension `MsmV2.prepare` has asked for
+ * The shared per-MSM scratch buffers, owned by {@link MsmStreamWalkerPool}. Sized to
+ * the high-water mark of every dimension `MsmStreamWalker.prepare` has asked for
  * across all instances. Doubling-growth: any buffer reallocates only when
  * its dimension exceeds the current size. After a reallocation the pool's
- * `scratchEpoch` advances; MsmV2 instances detect a stale epoch and rebuild
+ * `scratchEpoch` advances; MsmStreamWalker instances detect a stale epoch and rebuild
  * their bind groups against the new buffer identities.
  *
- * Replaces the old per-instance buffer ownership where every cached MsmV2
+ * Replaces the old per-instance buffer ownership where every cached MsmStreamWalker
  * in the bridge LRU held its own 200+ MB of scratch. With the shared pool
  * the aggregate GPU memory is `one max-N copy + KB-sized bind groups per
  * instance`, regardless of LRU size. Cold N-switch goes from ~150 ms
@@ -729,8 +615,8 @@ interface ScratchDims {
   streamRadixTiles: number;
 }
 
-export class MsmV2Pool {
-  /** @internal — used by MsmV2.create to share compiled pipelines. */
+export class MsmStreamWalkerPool {
+  /** @internal — used by MsmStreamWalker.create to share compiled pipelines. */
   readonly cache: PipelineCache;
   /**
    * Pool-level upper bound on per-bucket pair count. Baked into the
@@ -742,7 +628,7 @@ export class MsmV2Pool {
    */
   readonly pairCap: number;
 
-  // Shared scratch state — allocated lazily on first MsmV2.prepare call,
+  // Shared scratch state — allocated lazily on first MsmStreamWalker.prepare call,
   // grown by doubling whenever a dimension exceeds the current size.
   // See SharedScratch above.
   private _scratch: SharedScratch | null = null;
@@ -771,7 +657,7 @@ export class MsmV2Pool {
   private _scratchEpoch = 0;
   private _device: GPUDevice;
 
-  /** Bumped whenever `ensureScratch` reallocates any buffer. MsmV2
+  /** Bumped whenever `ensureScratch` reallocates any buffer. MsmStreamWalker
    * instances cache the value at bind-group build time and rebuild when
    * it advances. */
   get scratchEpoch(): number {
@@ -799,7 +685,7 @@ export class MsmV2Pool {
   /**
    * GPU bytes the pool itself owns — the SRS point coordinates `poolX` +
    * `poolY` (the user's "points memory" line item) PLUS the shared scratch
-   * buffers (the per-MSM working set, shared across all MsmV2 instances).
+   * buffers (the per-MSM working set, shared across all MsmStreamWalker instances).
    * Pipelines and bind-group layouts cached in `this.cache` aren't counted
    * here; they're driver-managed shader objects, not allocated storage.
    */
@@ -1290,7 +1176,7 @@ export class MsmV2Pool {
       // each plane in bufA, read by the dead fused_super / carry / finalize
       // pipelines. The walker reads its IDLE anchor through
       // l0_index[batchSlots] → point_x/point_y[pt_idx] instead, and
-      // batchSlots is written by MsmV2.prepare on every run.
+      // batchSlots is written by MsmStreamWalker.prepare on every run.
       this._scratch = newScratch;
       this._scratchEpoch++;
     } else {
@@ -1304,14 +1190,14 @@ export class MsmV2Pool {
    * `srsCanonicalBytes` is `srsN × 64` little-endian bytes —
    * `[x0[32] || y0[32] || x1[32] || ...]`, non-Montgomery affine. `srsN` may be
    * any positive integer; the conversion is one `convert_points_only` dispatch
-   * (same canonical→Montgomery field multiply MsmV2's pipeline expects, run
+   * (same canonical→Montgomery field multiply MsmStreamWalker's pipeline expects, run
    * once for the whole SRS), and its bounds guard discards threads whose
    * `id >= srsN`.
    */
-  static async create(device: GPUDevice, srsCanonicalBytes: Uint8Array): Promise<MsmV2Pool> {
+  static async create(device: GPUDevice, srsCanonicalBytes: Uint8Array): Promise<MsmStreamWalkerPool> {
     const srsN = srsCanonicalBytes.byteLength / 64;
     if (!Number.isInteger(srsN) || srsN <= 0) {
-      throw new Error(`MsmV2Pool.create: byte length ${srsCanonicalBytes.byteLength} is not a positive multiple of 64`);
+      throw new Error(`MsmStreamWalkerPool.create: byte length ${srsCanonicalBytes.byteLength} is not a positive multiple of 64`);
     }
 
     // convert_points_only reads the raw input from two storage buffers (its
@@ -1364,7 +1250,7 @@ export class MsmV2Pool {
     // The pool's one-shot convert pipeline doesn't go through the cache —
     // it's only run once per pool, and its dispatch shape is data-dependent
     // (workgroup_size / numYWorkgroups), so caching wouldn't help.
-    const pool = new MsmV2Pool(srsN, poolX, poolY, device);
+    const pool = new MsmStreamWalkerPool(srsN, poolX, poolY, device);
 
     const sm = new ShaderManager(4, srsN, BN254_CURVE_CONFIG, false);
     const code = sm.gen_convert_points_only_shader(workgroupSize, numYWorkgroups, /* packed */ true);
@@ -1434,13 +1320,13 @@ export class MsmV2Pool {
  * The memory-bounded v2 pair-tree GPU MSM. See the file header for the
  * create / prepare / run lifecycle.
  */
-export class MsmV2 {
+export class MsmStreamWalker {
   // --- create-time (data-independent) state ---
   private device!: GPUDevice;
   // The pool that owns the SRS, the pipeline cache, and the shared scratch
   // buffers this instance binds against. Held by reference; not destroyed
-  // by MsmV2.destroy() (the pool outlives any individual instance).
-  private pool!: MsmV2Pool;
+  // by MsmStreamWalker.destroy() (the pool outlives any individual instance).
+  private pool!: MsmStreamWalkerPool;
   private n!: number;
   /** Pippenger window bit width, picked by `pickC(n)`. Public so the
    *  bridge can ship it back to the C++ Horner combine. */
@@ -1644,7 +1530,7 @@ export class MsmV2 {
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
-  // Bumped by MsmV2Pool.scratchEpoch when the pool's shared scratch
+  // Bumped by MsmStreamWalkerPool.scratchEpoch when the pool's shared scratch
   // reallocates. We compare against pool.scratchEpoch on every prepare; if
   // they differ, our bind groups point to dead buffers and we re-enter the
   // slow path even when the data-dependent caps would have allowed a fast-
@@ -1698,11 +1584,11 @@ export class MsmV2 {
   private xposeScatterBind!: GPUBindGroup;
   private convActiveBind!: GPUBindGroup;
   // Uniform buffer for csr_to_v2_active_sums; reused across prepare() calls
-  // so a single MsmV2 instance can serve different SRS offsets. Layout:
+  // so a single MsmStreamWalker instance can serve different SRS offsets. Layout:
   // [total_slots, base_offset, wstride, input_size].
   private convActiveParamsBuf!: GPUBuffer;
   // Scalars storage buffer — sized by `n × 32` bytes. Reused across prepare()
-  // calls on the same MsmV2 instance: the cache check on (preparedScalars,
+  // calls on the same MsmStreamWalker instance: the cache check on (preparedScalars,
   // srsOffset) lets the bridge serve repeated MSMs of the same n by just
   // rewriting this one buffer + the offset uniform, instead of tearing down
   // and re-creating every per-prepare buffer.
@@ -1734,12 +1620,12 @@ export class MsmV2 {
 
   /**
    * Build the data-independent half of the pipeline — pipelines and layouts —
-   * for an `n`-point MSM, binding a prefix of the shared {@link MsmV2Pool} as
+   * for an `n`-point MSM, binding a prefix of the shared {@link MsmStreamWalkerPool} as
    * the point pool (`n` must be `<= pool.srsN`). `config` tunes the pipeline
    * knobs; every field defaults to current behaviour (see {@link MsmConfig}).
    */
-  static async create(device: GPUDevice, n: number, pool: MsmV2Pool, config?: MsmConfig): Promise<MsmV2> {
-    const m = new MsmV2();
+  static async create(device: GPUDevice, n: number, pool: MsmStreamWalkerPool, config?: MsmConfig): Promise<MsmStreamWalker> {
+    const m = new MsmStreamWalker();
     m.device = device;
     m.pool = pool;
     m.n = n;
@@ -1764,7 +1650,7 @@ export class MsmV2 {
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
-      console.warn('[MsmV2] profile requested but timestamp-query unavailable — disabled');
+      console.warn('[MsmStreamWalker] profile requested but timestamp-query unavailable — disabled');
     }
     // Pull the knobs into the local names the rest of create() uses.
     const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT, addsub: ADDSUB } = m;
@@ -1783,7 +1669,7 @@ export class MsmV2 {
     // entries is consumed as its first-n prefix — no per-instance upload or
     // Montgomery conversion.
     if (n > pool.srsN) {
-      throw new Error(`MsmV2.create: n (${n}) exceeds the pool's srsN (${pool.srsN})`);
+      throw new Error(`MsmStreamWalker.create: n (${n}) exceeds the pool's srsN (${pool.srsN})`);
     }
     m.pointXBuf = pool.poolX;
     m.pointYBuf = pool.poolY;
@@ -1871,7 +1757,7 @@ export class MsmV2 {
       m.useJac = m.reducePasses.map((_, i) => i >= m.jacFromLevel);
     }
     // --- Layouts (pool-cached: same `types` shape → same GPUBindGroupLayout
-    // across every MsmV2 instance bound to this pool) ---
+    // across every MsmStreamWalker instance bound to this pool) ---
     const lt = (types: GPUBufferBindingType[]): GPUBindGroupLayout => pool.cache.getLayout(types);
     m.plannerALayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
     m.plannerBLayout = lt([
@@ -2178,7 +2064,7 @@ export class MsmV2 {
         m.prepare(dummy);
         for (let w = 0; w < warmupRuns; w++) await m.run();
       } catch (e) {
-        console.warn(`[MsmV2] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
+        console.warn(`[MsmStreamWalker] warm-up run threw (ignored): ${e instanceof Error ? e.message : String(e)}`);
       }
     }
     return m;
@@ -2191,7 +2077,7 @@ export class MsmV2 {
    * one input pay this once.
    *
    * `srsOffset` is the point-index offset into the bound pool — every L0
-   * point lookup is shifted by it, so a single MsmV2 instance can serve
+   * point lookup is shifted by it, so a single MsmStreamWalker instance can serve
    * commits whose `start_index` differs. Defaults to 0 for callers that
    * bind a pool already aligned to their MSM (the dev page) — that path
    * stays byte-identical to the no-offset behavior.
@@ -2408,7 +2294,7 @@ export class MsmV2 {
     this.capMAXC = MAXC;
 
     // Only uniform buffers are per-instance now — the big storage buffers
-    // live in `pool.scratch` and are shared across every MsmV2 bound to
+    // live in `pool.scratch` and are shared across every MsmStreamWalker bound to
     // this pool. `prepBuffers` tracks only the uniforms we own and must
     // destroy in destroy(); ensureScratch's buffers belong to the pool.
     const ubuf = (data: Uint32Array): GPUBuffer => {
@@ -2975,7 +2861,7 @@ export class MsmV2 {
     scalarsSrcBuf?: GPUBuffer,
     scalarsSrcByteOff: number = 0,
   ): void {
-    if (this.preparedFor === null) throw new Error('MsmV2.encodeIntoBatch: call prepare() first');
+    if (this.preparedFor === null) throw new Error('MsmStreamWalker.encodeIntoBatch: call prepare() first');
     const { wgi: WGI } = this;
     let passIdx = 0;
     const profEnabled = this.profile && this.querySet;
@@ -3001,7 +2887,7 @@ export class MsmV2 {
     };
 
     // Per-MSM scalars upload INTO the encoder. When two same-N MSMs share an
-    // MsmV2 instance in one batched submit, prepare()'s queue-ordered
+    // MsmStreamWalker instance in one batched submit, prepare()'s queue-ordered
     // writeBuffer races (the second prepare's writeBuffer overwrites
     // scalarsRawBuf before submit runs). copyBufferToBuffer in the encoder
     // is order-correct: copyA → passA → copyB → passB executes sequentially
@@ -3386,7 +3272,7 @@ export class MsmV2 {
 
 
   async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null; windowSums: Pt[]; c: number }> {
-    if (this.preparedFor === null) throw new Error('MsmV2.run: call prepare() first');
+    if (this.preparedFor === null) throw new Error('MsmStreamWalker.run: call prepare() first');
     const device = this.device;
     const wallT0 = performance.now();
     const enc = device.createCommandEncoder();
@@ -3422,6 +3308,7 @@ export class MsmV2 {
     let profile: ProfileBreakdown | null = null;
     if (this.profile && this.tsStagingBuf) {
       const phaseNs: Record<string, bigint> = {};
+      const phaseCnt: Record<string, number> = {};
       let totalNs = 0n;
       try {
         await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
@@ -3432,6 +3319,7 @@ export class MsmV2 {
           totalNs += dur;
           const phase = this.passPhases[p] ?? 'misc';
           phaseNs[phase] = (phaseNs[phase] ?? 0n) + dur;
+          phaseCnt[phase] = (phaseCnt[phase] ?? 0) + 1;
         }
       } catch {
         // mapAsync raced (already-mapped from a prior run); skip this sample.
@@ -3440,6 +3328,8 @@ export class MsmV2 {
       for (const key of Object.keys(phaseNs)) phaseMs[key] = Number(phaseNs[key]) / 1e6;
       if (typeof window !== 'undefined') {
         (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs = phaseMs;
+        (window as unknown as { __lastPhaseCount?: Record<string, number> }).__lastPhaseCount = phaseCnt;
+        (window as unknown as { __lastPassCount?: number }).__lastPassCount = this.passCount;
       }
       const totalMs = Number(totalNs) / 1e6;
       profile = {
@@ -3464,7 +3354,7 @@ export class MsmV2 {
   /**
    * GPU bytes the instance itself owns — every buffer in `prepBuffers`,
    * which the slow-path setup pushes every allocation into. Excludes the
-   * shared point pool (count that via `MsmV2Pool.statsBytes()`). Used by
+   * shared point pool (count that via `MsmStreamWalkerPool.statsBytes()`). Used by
    * the bench harness to track per-phase memory savings as the memory-
    * reduction plan lands. Sums after destroy() are 0.
    */
@@ -3476,7 +3366,7 @@ export class MsmV2 {
 
   /**
    * Release every GPU buffer owned by this instance. The shared point pool is
-   * owned by the {@link MsmV2Pool}, not by an instance, and is not freed here.
+   * owned by the {@link MsmStreamWalkerPool}, not by an instance, and is not freed here.
    */
   destroy(): void {
     for (const b of this.prepBuffers) b.destroy();

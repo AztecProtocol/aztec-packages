@@ -1,9 +1,9 @@
-// Public entry point for the WebGPU BN254 MSM. `MsmV2Pool` (the SRS point pool,
-// uploaded + Montgomery-converted once) and `MsmV2` (the per-size pipeline) are
+// Public entry point for the WebGPU BN254 MSM. `MsmStreamWalkerPool` (the SRS point pool,
+// uploaded + Montgomery-converted once) and `MsmStreamWalker` (the per-size pipeline) are
 // the algorithm; the bridge exports wire it into the bb.js WASM worker.
 
-export { MsmV2, MsmV2Pool } from "./msm_v2.js";
-export type { MsmConfig, ProfileBreakdown } from "./msm_v2.js";
+export { MsmStreamWalker, MsmStreamWalkerPool } from "./msm_stream_walker.js";
+export type { MsmConfig, ProfileBreakdown, MsmBackendKind, Pt } from "./msm_types.js";
 
 export { BN254_CURVE_CONFIG } from "./cuzk/curve_config.js";
 export type { CurveConfig } from "./cuzk/curve_config.js";

@@ -57,6 +57,13 @@ import {
   transpose_count_tiled as transpose_count_tiled_shader,
   transpose_reduce_tiled as transpose_reduce_tiled_shader,
   transpose_scatter_tiled as transpose_scatter_tiled_shader,
+  ba_fused_super_bench as ba_fused_super_bench_shader,
+  ba_carry_copy_bench as ba_carry_copy_bench_shader,
+  ba_finalize_copy_bench as ba_finalize_copy_bench_shader,
+  ba_reduce_init_bench as ba_reduce_init_bench_shader,
+  ba_planner_v2_emit as ba_planner_v2_emit_shader,
+  ba_planner_v2_offsets as ba_planner_v2_offsets_shader,
+  ba_reduce_level_hm as ba_reduce_level_hm_shader,
 } from '../wgsl/_generated/shaders.js';
 import {
   compute_by_p_inv_a,
@@ -489,6 +496,216 @@ ${packLines.join('\n')}
       ba_reduce_level_bench_shader,
       {
         workgroup_size, inv_fn,
+        addsub_unpack: addsub === 'unpack',
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  // === High-memory (transpose/cuZK) backend shaders. Used only by
+  // MsmHighMemory; the stream-walker backend never calls these. ===
+
+  public gen_ba_fused_super_bench_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'loop' | 'pk' = 'pk',
+    tiled = false,
+    l0_index_mode = false,
+    addsub: 'native' | 'unpack' = 'native',
+  ): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_fused_super_bench_shader,
+      {
+        workgroup_size, s, inv_fn, tiled, l0_index_mode,
+        addsub_unpack: addsub === 'unpack',
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * Planner pass A: per-window scan + per-bucket offsets. One workgroup per
+   * window — O(BW), flat in n. Writes new_counts / new_offsets / carry_off
+   * and the plan_meta totals; the emit pass writes the O(pairs) plans.
+   */
+  public gen_ba_planner_v2_offsets_shader(
+    workgroup_size: number,
+    c: number,
+    num_bits: number,
+    buckets_per_window_override?: number,
+  ): string {
+    if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 ||
+        !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits)) {
+      throw new Error(`gen_ba_planner_v2_offsets_shader: positive integer args required`);
+    }
+    const buckets_per_window = buckets_per_window_override ?? 2 ** (c - 1);
+    const num_windows = Math.ceil(num_bits / c);
+    if (buckets_per_window % workgroup_size !== 0) {
+      throw new Error(
+        `gen_ba_planner_v2_offsets_shader: buckets_per_window (${buckets_per_window}) ` +
+          `must be a positive multiple of workgroup_size (${workgroup_size})`,
+      );
+    }
+    const per_thread = buckets_per_window / workgroup_size;
+    return mustache.render(
+      ba_planner_v2_offsets_shader,
+      { workgroup_size, buckets_per_window, per_thread, num_windows, recompile: this.recompile },
+    );
+  }
+
+  /**
+   * Planner pass B: parallel plan emit. Dispatch (ceil(BW/wg), numWindows) —
+   * one workgroup per (bucket-group, window). Emits the chunk / scatter /
+   * carry plans from pass A's offsets, then cooperatively self-pads.
+   */
+  public gen_ba_planner_v2_emit_shader(
+    workgroup_size: number,
+    c: number,
+    num_bits: number,
+    s: number,
+    pair_cap: number,
+    buckets_per_window_override?: number,
+  ): string {
+    if (workgroup_size <= 0 || c <= 0 || num_bits <= 0 || s <= 0 || pair_cap <= 0 ||
+        !Number.isInteger(workgroup_size) || !Number.isInteger(c) || !Number.isInteger(num_bits) ||
+        !Number.isInteger(s) || !Number.isInteger(pair_cap)) {
+      throw new Error(`gen_ba_planner_v2_emit_shader: positive integer args required`);
+    }
+    const buckets_per_window = buckets_per_window_override ?? 2 ** (c - 1);
+    const num_windows = Math.ceil(num_bits / c);
+    if (buckets_per_window % workgroup_size !== 0) {
+      throw new Error(
+        `gen_ba_planner_v2_emit_shader: buckets_per_window (${buckets_per_window}) ` +
+          `must be a positive multiple of workgroup_size (${workgroup_size})`,
+      );
+    }
+    const num_groups = buckets_per_window / workgroup_size;
+    return mustache.render(
+      ba_planner_v2_emit_shader,
+      { workgroup_size, buckets_per_window, num_windows, num_groups, pair_cap, s, recompile: this.recompile },
+    );
+  }
+
+  /**
+   * Bin-packed pair-tree: carry-copy kernel. Propagates the odd-count
+   * carry element forward to the next level without modification.
+   * Pure memory shuffle.
+   */
+  public gen_ba_carry_copy_bench_shader(workgroup_size: number, l0_index_mode = false): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_carry_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    // l0_index_mode pulls in the field stack to negate y while
+    // materializing a level-0 (point index | sign) carry from the pool.
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      ba_carry_copy_bench_shader,
+      {
+        workgroup_size, l0_index_mode,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
+    );
+  }
+
+  /**
+   * Bin-packed pair-tree: finalize-copy kernel. Harvests a bucket's
+   * accumulated sum into bucket_result[b] at the level it reaches
+   * count 1 (the planner's finalize-and-drop). Pure memory shuffle.
+   */
+  public gen_ba_finalize_copy_bench_shader(workgroup_size: number, l0_index_mode = false): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_finalize_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    // l0_index_mode pulls in the field stack to negate y while
+    // materializing a level-0 (point index | sign) element from the pool.
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      ba_finalize_copy_bench_shader,
+      {
+        workgroup_size, l0_index_mode,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
+    );
+  }
+
+  /**
+   * Reduction-stage init: repacks the bucket-accumulate output into the
+   * reduction's STRIDE-column working buffer and seeds the present-mask.
+   * Pure vec4 copy — no field arithmetic.
+   */
+  public gen_ba_reduce_init_bench_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_init_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    return mustache.render(ba_reduce_init_bench_shader, { workgroup_size, recompile: this.recompile }, {});
+  }
+
+  /**
+   * One level of the recursive affine bucket reduction (high-memory backend).
+   * `kind` (0 = phase-A suffix add, 1 = phase-B/D tree-add, 2 = phase-C double)
+   * is baked in as a compile-time constant so each variant const-folds away the
+   * other kinds' branches. Forked from the walker's reduce level (which dropped
+   * the kind switch) — this one keeps the 3-phase schedule the transpose
+   * pipeline dispatches.
+   */
+  public gen_ba_reduce_level_hm_shader(
+    workgroup_size: number,
+    kind: number,
+    variant: 'loop' | 'pk' = 'pk',
+    addsub: 'native' | 'unpack' = 'native',
+  ): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_level_hm_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    if (kind !== 0 && kind !== 1 && kind !== 2) {
+      throw new Error(`gen_ba_reduce_level_hm_shader: kind (${kind}) must be 0, 1 or 2`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_level_hm_shader,
+      {
+        workgroup_size, kind, inv_fn,
+        kind0: kind === 0, kind1: kind === 1, kind2: kind === 2,
         addsub_unpack: addsub === 'unpack',
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,

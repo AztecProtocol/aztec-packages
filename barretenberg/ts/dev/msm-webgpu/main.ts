@@ -1,8 +1,8 @@
 // In-browser MSM comparison harness for the BN254 WebGPU port.
 //   Compares, for sizes 2^10..2^20 over a real prefix of the public SRS:
-//     - WebGPU MSM via the v2 pair-tree pipeline (`MsmV2`, msm_v2.ts —
+//     - WebGPU MSM via the v2 pair-tree pipeline (`MsmStreamWalker`, msm_v2.ts —
 //       the memory-bounded carry-free-Booth / pair-tree / fused-reduction
-//       port; runs on the warm path with a persistent GPUDevice, an MsmV2
+//       port; runs on the warm path with a persistent GPUDevice, an MsmStreamWalker
 //       rebuilt per logN, and one warm-up dispatch before timed runs)
 //     - Barretenberg WASM Pippenger, multi-threaded (numThreads = hw)
 //   The WASM path uses `bb_native_pippenger_bn254_load` (decode + upload
@@ -24,7 +24,9 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js';
+import { MsmStreamWalker, MsmStreamWalkerPool } from '../../src/msm_webgpu/msm_stream_walker.js';
+import { MsmHighMemory, MsmHighMemoryPool } from '../../src/msm_webgpu/msm_high_memory.js';
+import type { MsmConfig } from '../../src/msm_webgpu/msm_types.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
 import { makeResultsClient } from './results_post.js';
@@ -32,7 +34,7 @@ import { makeResultsClient } from './results_post.js';
 type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 
 // Per-rep profiling capture consumed by the sweep aggregator. `runWebGpuOnce`
-// only ever produces `{ profile: null }` (MsmV2's own ProfileBreakdown is a
+// only ever produces `{ profile: null }` (MsmStreamWalker's own ProfileBreakdown is a
 // different, flat shape), so the breakdown table renders empty GPU rows — this
 // type just keeps the aggregation code compiling.
 type ProfileCapture = {
@@ -72,7 +74,7 @@ const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const NOBLE_REFERENCE_LOGN = 16;
 const SWEEP_REPS = 5;
 
-// GPU pipeline knobs from the URL — forwarded to every MsmV2 (unset = defaults).
+// GPU pipeline knobs from the URL — forwarded to every MsmStreamWalker (unset = defaults).
 // Lets index.html A/B-test a knob against the WASM Pippenger, e.g. ?s=4&wgi=128.
 const gpuKnobs: MsmConfig = (() => {
   const q = new URLSearchParams(window.location.search);
@@ -110,6 +112,9 @@ const gpuKnobs: MsmConfig = (() => {
     maxScalarBits: optInt('maxbits'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
+    // Which backend algorithm to run: ?msm=highmem selects the transpose-based
+    // high-memory MSM; absent/anything else = the stream-walker (default).
+    backend: q.get('msm') === 'highmem' || q.get('msm') === 'high_memory' ? 'high_memory' : undefined,
   };
 })();
 
@@ -156,14 +161,14 @@ let srsBuf: Uint8Array | null = null;
 let wasmMtPippenger: WasmPippengerHandle | null = null;
 let wasmMtBootInFlight: Promise<WasmPippengerHandle> | null = null;
 // Persistent WebGPU state. One GPUDevice is reused across every dispatch
-// on the page; one MsmV2 (the v2 pair-tree pipeline — buffers, pipelines,
+// on the page; one MsmStreamWalker (the v2 pair-tree pipeline — buffers, pipelines,
 // the Montgomery-form SRS for the current logN) is held alongside it and
 // rebuilt when logN changes. Without this, every dispatch would re-acquire
-// a device and recompile every pipeline. MsmV2.create runs one warm-up
+// a device and recompile every pipeline. MsmStreamWalker.create runs one warm-up
 // dispatch so the first timed run doesn't pay shader JIT.
 let gpuDevice: GPUDevice | null = null;
-let msmV2: MsmV2 | null = null;
-let msmV2Pool: MsmV2Pool | null = null;
+let msmV2: MsmStreamWalker | MsmHighMemory | null = null;
+let msmV2Pool: MsmStreamWalkerPool | MsmHighMemoryPool | null = null;
 let msmV2LogN: number | null = null;
 // Cooperative cancellation flag for in-flight sweeps. The actual MSM
 // call inside the WASM worker can't be preempted from JS, but we check
@@ -311,7 +316,7 @@ async function stopAndDestroyWasm(reason: string): Promise<void> {
   $mtThreads.disabled = false;
   log('info', `[stop] WASM workers terminated`);
   // Tear down persistent WebGPU state too. Destroying the device
-  // invalidates every buffer / pipeline it owns (MsmV2's included —
+  // invalidates every buffer / pipeline it owns (MsmStreamWalker's included —
   // `msmV2.destroy()` on top is belt-and-braces). Next run lazily
   // re-creates everything via ensureWebGpuWarmed.
   if (msmV2 !== null || gpuDevice !== null) {
@@ -530,14 +535,14 @@ function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): 
 }
 
 /**
- * Lazily bring the WebGPU side to a warmed-up `MsmV2` for `inputs.n`:
+ * Lazily bring the WebGPU side to a warmed-up `MsmStreamWalker` for `inputs.n`:
  *   1. Acquire a `GPUDevice` on first call (reused across every dispatch).
- *   2. When n changes, build an `MsmV2Pool` (upload the SRS slice + GPU-convert
- *      it to Montgomery form) and an `MsmV2` bound to it — compiles the v2
+ *   2. When n changes, build an `MsmStreamWalkerPool` (upload the SRS slice + GPU-convert
+ *      it to Montgomery form) and an `MsmStreamWalker` bound to it — compiles the v2
  *      pair-tree pipelines and runs warm-up dispatches so the next run pays
  *      no JIT.
  */
-async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
+async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmStreamWalker | MsmHighMemory> {
   const logN = Math.log2(inputs.n);
   if (gpuDevice === null) {
     log('info', '[gpu-warm] acquiring GPUDevice (one-time)');
@@ -547,7 +552,7 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
   }
   if (msmV2 === null || msmV2LogN !== logN) {
     if (msmV2 !== null) {
-      log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding MsmV2`);
+      log('info', `[gpu-warm] logN changed (${msmV2LogN} → ${logN}); rebuilding MsmStreamWalker`);
       msmV2.destroy();
       msmV2Pool?.destroy();
       msmV2 = null;
@@ -558,12 +563,23 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
       .filter(([, v]) => v !== undefined)
       .map(([k, v]) => `${k}=${v}`)
       .join(' ');
-    log('info', `[gpu-warm] building MsmV2 for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
+    const backendName = gpuKnobs.backend === 'high_memory' ? 'MsmHighMemory' : 'MsmStreamWalker';
+    log('info', `[gpu-warm] building ${backendName} for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
     const t0 = performance.now();
-    msmV2Pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
-    msmV2 = await MsmV2.create(gpuDevice, inputs.n, msmV2Pool, gpuKnobs);
+    if (gpuKnobs.backend === 'high_memory') {
+      // High-memory backend folds the windows itself (combineOnHost) and
+      // returns the affine point straight from run(); the CPU reduce-tail
+      // (cpucut) path is stream-walker-only.
+      const pool = await MsmHighMemoryPool.create(gpuDevice, inputs.pointsBuf);
+      msmV2Pool = pool;
+      msmV2 = await MsmHighMemory.create(gpuDevice, inputs.n, pool, { ...gpuKnobs, combineOnHost: true });
+    } else {
+      const pool = await MsmStreamWalkerPool.create(gpuDevice, inputs.pointsBuf);
+      msmV2Pool = pool;
+      msmV2 = await MsmStreamWalker.create(gpuDevice, inputs.n, pool, gpuKnobs);
+    }
     msmV2LogN = logN;
-    log('ok', `[gpu-warm] MsmV2 ready in ${(performance.now() - t0).toFixed(0)} ms`);
+    log('ok', `[gpu-warm] ${backendName} ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   return msmV2;
 }
@@ -579,6 +595,21 @@ async function runWebGpuOnce(
   // Plan the level tree for these scalars + (re)build the data-dependent
   // buffers — untimed setup, outside the `t0` window.
   msm.prepare(inputs.scalarsBuf);
+
+  if (gpuKnobs.backend === 'high_memory') {
+    // High-memory backend host-folds the windows in run() (combineOnHost) and
+    // returns the affine point directly — no CPU reduce-tail / cpucut path.
+    await msm.run(); // warmup
+    const t0hm = performance.now();
+    const r = await msm.run();
+    const msHm = performance.now() - t0hm;
+    (window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number }).__lastWallMs = msHm;
+    (window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number }).__lastCpuFoldMs = 0;
+    log('info', `[gpu] returned in ${msHm.toFixed(1)} ms (backend=high_memory)`);
+    return { ms: msHm, xy: { x: r.x, y: r.y }, capture: { profile: null } };
+  }
+  const walker = msm as MsmStreamWalker;
+
   // The GPU only ever produces per-window sums; the Horner window fold is ALWAYS
   // on the CPU (bb-wasm combine_windows via completeReduce). ?cpucut=L hands off
   // L..end of the reduce too — the GPU breaks after the gather and the CPU does
@@ -590,7 +621,7 @@ async function runWebGpuOnce(
   const handle = await ensureWasmBooted(); // boot out of the timed window
   let cpuMs = 0;
   const finish = (): { x: bigint; y: bigint } => {
-    const snap = msm.getReduceDensePack()!;
+    const snap = walker.getReduceDensePack()!;
     const r = handle.completeReduce(snap.dense, snap.ops, snap.rootRank, snap.kPerWindow, snap.numWindows, snap.c);
     cpuMs = r.computeMs;
     return parseAffineLE(r.result);
@@ -608,7 +639,7 @@ async function runWebGpuOnce(
   (window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number }).__lastWallMs = ms;
   (window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number }).__lastCpuFoldMs = cpuMs;
   log('info', `[gpu] returned in ${ms.toFixed(1)} ms (cut=${cutoff >= 1000 ? 'all-gpu-reduce' : cutoff} cpu_fold=${cpuMs.toFixed(2)}ms)`);
-  // MsmV2 does not emit a per-pass GPU profile; the breakdown table skips
+  // MsmStreamWalker does not emit a per-pass GPU profile; the breakdown table skips
   // a null-profile capture, so the GPU column there simply renders empty.
   return { ms, xy, capture: { profile: null } };
 }
@@ -1279,7 +1310,7 @@ $probeGpu?.addEventListener('click', async () => {
  * been "right after `[gpu] dispatch`" with no further detail — checking
  * the input shape here separates "we sent garbage" from "GPU went
  * sideways on a valid input". On the warm path, the sanity check also
- * exercises `get_device` and `MsmV2.create` — a hang during device
+ * exercises `get_device` and `MsmStreamWalker.create` — a hang during device
  * acquisition or pipeline compile shows up in the `[gpu-warm]` lines.
  */
 $runSanity.addEventListener('click', async () => {
@@ -1554,6 +1585,31 @@ function hideProgress(): void {
       (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
       log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
         `min_wall=${minWall.toFixed(2)}ms avg_wall=${avgWall.toFixed(2)}ms cpu_fold=${avgCpuFold.toFixed(2)}ms gpu_ts=${avgGpu.toFixed(1)}ms ${avgPhaseStr}`);
+      // Detailed where-does-the-time-go breakdown: per-phase GPU ms + dispatch
+      // count + us/dispatch (so launch overhead vs real compute is visible),
+      // plus the wall-minus-gpu_ts gap (driver gaps + Chrome mapAsync polling).
+      {
+        const wd = window as unknown as { __lastPhaseCount?: Record<string, number>; __lastPassCount?: number };
+        const cnt = wd.__lastPhaseCount ?? {};
+        const passCount = wd.__lastPassCount ?? 0;
+        const groupOf = (k: string) =>
+          /^stream_walker|^walker_index|^preprocess|^planner|^size1/.test(k) ? 'front'
+          : /^combine_batched|^pt_/.test(k) ? 'walker_combine'
+          : /^rd\d|^reduce/.test(k) ? 'bucket_reduce' : 'other';
+        const groupMs: Record<string, number> = { front: 0, walker_combine: 0, bucket_reduce: 0, other: 0 };
+        const groupCnt: Record<string, number> = { front: 0, walker_combine: 0, bucket_reduce: 0, other: 0 };
+        for (const [k, v] of Object.entries(avgPhases)) { const g = groupOf(k); groupMs[g] += v; groupCnt[g] += (cnt[k] ?? 0); }
+        log('info', `[detail] total: gpu_ts=${avgGpu.toFixed(2)}ms over ${passCount} dispatches | min_wall=${minWall.toFixed(2)}ms | wall−gpu_ts gap=${(minWall - avgGpu).toFixed(2)}ms (driver gaps + mapAsync poll)`);
+        for (const g of ['front', 'walker_combine', 'bucket_reduce', 'other']) {
+          const perDisp = groupCnt[g] > 0 ? (groupMs[g] * 1000 / groupCnt[g]) : 0;
+          log('info', `[detail] ${g.padEnd(14)} = ${groupMs[g].toFixed(2)}ms  (${groupCnt[g]} disp, ${perDisp.toFixed(0)} us/disp, ${(100 * groupMs[g] / avgGpu).toFixed(0)}%)`);
+        }
+        const rows = Object.entries(avgPhases).map(([k, v]) => ({ k, v, c: cnt[k] ?? 0 })).sort((a, b) => b.v - a.v).slice(0, 12);
+        for (const r of rows) {
+          const perDisp = r.c > 0 ? (r.v * 1000 / r.c) : 0;
+          log('info', `[detail]   ${r.k.padEnd(20)} ${r.v.toFixed(2)}ms  ${String(r.c).padStart(3)}disp  ${perDisp.toFixed(0)}us/disp`);
+        }
+      }
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({
