@@ -190,33 +190,34 @@ pub unconstrained fn get_next_app_tag_as_sender(sender: AztecAddress, recipient:
 #[oracle(aztec_prv_getNextAppTagAsSender)]
 unconstrained fn get_next_app_tag_as_sender_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Field {}
 
+/// Returns the next sender-side index for a constrained-delivery shared secret.
+///
+/// Unlike [`get_next_app_tag_as_sender`], which derives the full tag from a `(sender, recipient)` pair that only the
+/// simulator knows the directional secret for, the constrained-delivery flow has the app contract holding the
+/// app-siloed shared secret directly. The app computes the tag itself but it can't tell what the next index should be,
+/// so the simulator is the one that needs to hand out a fresh per-secret index. However, the constrained caller
+/// must still check that the returned index is valid.
+///
+/// As with the unconstrained variant, the simulator persists the index increment only if the tagged log is found in
+/// an actual block - a reverting transaction can otherwise cause the sender to accidentally skip indices and later
+/// produce notes that are not found by the recipient.
+pub unconstrained fn get_next_constrained_tagging_index(app_siloed_secret: Field) -> u32 {
+    get_next_constrained_tagging_index_oracle(app_siloed_secret)
+}
+
+#[oracle(aztec_prv_getNextConstrainedTaggingIndex)]
+unconstrained fn get_next_constrained_tagging_index_oracle(_app_siloed_secret: Field) -> u32 {}
+
 /// Gets the sender for tags.
 ///
 /// This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
 /// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
 /// sender, and hence about the shared secret.
 ///
-/// Returns the initial default unless the current contract call has overridden it via `set_sender_for_tags`.
-/// Overrides made by other contracts in the call stack are not visible here.
-pub unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
+/// Returns the wallet-supplied default sender for tags, or `None` if no default was provided.
+pub(crate) unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
     get_sender_for_tags_oracle()
 }
 
 #[oracle(aztec_prv_getSenderForTags)]
 unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
-
-/// Sets the sender for tags.
-///
-/// This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
-/// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
-/// sender, and hence about the shared secret.
-///
-/// The override is scoped to the current contract call. It does not propagate to nested calls (which always start
-/// from the initial default), nor to siblings or parents. The default is typically set by the wallet (to the
-/// originating account), so most contracts do not need to call this setter.
-pub unconstrained fn set_sender_for_tags(sender_for_tags: AztecAddress) {
-    set_sender_for_tags_oracle(sender_for_tags);
-}
-
-#[oracle(aztec_prv_setSenderForTags)]
-unconstrained fn set_sender_for_tags_oracle(_sender_for_tags: AztecAddress) {}

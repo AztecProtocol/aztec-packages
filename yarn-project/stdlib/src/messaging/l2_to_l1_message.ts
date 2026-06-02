@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
@@ -54,8 +54,13 @@ export class L2ToL1Message {
    * Serialize this as a buffer.
    * @returns The buffer.
    */
-  toBuffer(): Buffer {
-    return serializeToBuffer(this.recipient, this.content);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.recipient, this.content);
   }
 
   /**
@@ -127,8 +132,13 @@ export class CountedL2ToL1Message {
     return new CountedL2ToL1Message(reader.readObject(L2ToL1Message), reader.readNumber());
   }
 
-  toBuffer(): Buffer {
-    return serializeToBuffer(this.message, this.counter);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.message, this.counter);
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -187,8 +197,13 @@ export class ScopedL2ToL1Message {
     return new ScopedL2ToL1Message(reader.readObject(L2ToL1Message), reader.readObject(AztecAddress));
   }
 
-  toBuffer(): Buffer {
-    return serializeToBuffer(this.message, this.contractAddress);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.message, this.contractAddress);
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
@@ -229,8 +244,13 @@ export class ScopedCountedL2ToL1Message {
     return new ScopedCountedL2ToL1Message(reader.readObject(CountedL2ToL1Message), reader.readObject(AztecAddress));
   }
 
-  toBuffer(): Buffer {
-    return serializeToBuffer(this.inner, this.contractAddress);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.inner, this.contractAddress);
   }
 
   static fromFields(fields: Fr[] | FieldReader) {

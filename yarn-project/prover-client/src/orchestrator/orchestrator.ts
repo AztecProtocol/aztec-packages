@@ -697,7 +697,6 @@ export class ProvingOrchestrator extends TopTreeProvingScheduler implements Epoc
 
     const txProvingState = provingState.getTxProvingState(txIndex);
     const txHash = txProvingState.processedTx.hash.toString();
-    NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
     const handleResult = (
       result: PublicInputsAndRecursiveProof<
         PublicChonkVerifierPublicInputs,

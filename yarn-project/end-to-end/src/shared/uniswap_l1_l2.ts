@@ -21,7 +21,11 @@ import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
-import { type EndToEndContext, ensureAccountContractsPublished } from '../fixtures/utils.js';
+import {
+  type EndToEndContext,
+  ensureAccountContractsPublished,
+  ensureAuthRegistryPublished,
+} from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
 
@@ -98,6 +102,7 @@ export const uniswapL1L2TestSuite = (
       ownerEthAddress = EthAddress.fromString((await l1Client.getAddresses())[0]);
 
       await ensureAccountContractsPublished(wallet, [ownerAddress, sponsorAddress]);
+      await ensureAuthRegistryPublished(wallet, ownerAddress);
 
       logger.info('Deploying DAI Portal, initializing and deploying l2 contract...');
       daiCrossChainHarness = await CrossChainTestHarness.new(
@@ -250,14 +255,13 @@ export const uniswapL1L2TestSuite = (
       // ensure that uniswap contract didn't eat the funds.
       await wethCrossChainHarness.expectPublicBalanceOnL2(uniswapL2Contract.address, 0n);
 
-      // Since the outbox is only consumable when the epoch is proven, we need to advance to the next epoch.
-      const swapResult = (await computeL2ToL1MembershipWitness(
-        aztecNode,
-        swapPrivateLeaf,
-        l2UniswapInteractionReceipt.txHash,
-      ))!;
-      const { epochNumber: epoch } = swapResult;
-      await cheatCodes.rollup.advanceToEpoch(EpochNumber(epoch + 1));
+      // Since the outbox is only consumable when the epoch is proven, we need to advance to the next epoch
+      // before we can ask the witness helper for a covering root.
+      const minedReceipt = await aztecNode.getTxReceipt(l2UniswapInteractionReceipt.txHash);
+      if (minedReceipt.epochNumber === undefined) {
+        throw new Error('L2 Uniswap interaction tx is not yet in an epoch');
+      }
+      await cheatCodes.rollup.advanceToEpoch(EpochNumber(minedReceipt.epochNumber + 1));
       await waitForProven(aztecNode, l2UniswapInteractionReceipt, { provenTimeout: 300 });
 
       // 5. Consume L2 to L1 message by calling uniswapPortal.swap_private()
@@ -265,11 +269,11 @@ export const uniswapL1L2TestSuite = (
       const daiL1BalanceOfPortalBeforeSwap = await daiCrossChainHarness.getL1BalanceOf(
         daiCrossChainHarness.tokenPortalAddress,
       );
-      const withdrawResult = (await computeL2ToL1MembershipWitness(
-        aztecNode,
-        withdrawLeaf,
-        l2UniswapInteractionReceipt.txHash,
-      ))!;
+      // Fetch the outbox roots once and share them between the two witnesses in this epoch.
+      const epochRoots = await wethCrossChainHarness.outboxContract.getRoots(minedReceipt.epochNumber);
+      const swapResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, swapPrivateLeaf, minedReceipt))!;
+      const { epochNumber: epoch, numCheckpointsInEpoch } = swapResult;
+      const withdrawResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, withdrawLeaf, minedReceipt))!;
 
       const swapPrivateL2MessageIndex = swapResult.leafIndex;
       const swapPrivateSiblingPath = swapResult.siblingPath;
@@ -279,6 +283,7 @@ export const uniswapL1L2TestSuite = (
 
       const withdrawMessageMetadata = {
         _epoch: BigInt(epoch),
+        _numCheckpointsInEpoch: BigInt(withdrawResult.numCheckpointsInEpoch),
         _leafIndex: BigInt(withdrawL2MessageIndex),
         _path: withdrawSiblingPath
           .toBufferArray()
@@ -287,6 +292,7 @@ export const uniswapL1L2TestSuite = (
 
       const swapPrivateMessageMetadata = {
         _epoch: BigInt(epoch),
+        _numCheckpointsInEpoch: BigInt(numCheckpointsInEpoch),
         _leafIndex: BigInt(swapPrivateL2MessageIndex),
         _path: swapPrivateSiblingPath
           .toBufferArray()
@@ -843,9 +849,23 @@ export const uniswapL1L2TestSuite = (
         chainId: new Fr(l1Client.chain.id),
       });
 
-      const swapResult = (await computeL2ToL1MembershipWitness(aztecNode, swapPrivateLeaf, withdrawReceipt.txHash))!;
-      const { epochNumber: epoch } = swapResult;
-      const withdrawResult = (await computeL2ToL1MembershipWitness(aztecNode, withdrawLeaf, withdrawReceipt.txHash))!;
+      // ensure that user's funds were burnt
+      await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
+
+      // Since the outbox is only consumable when the epoch is proven, we need to advance to the next epoch
+      // before we can ask the witness helper for a covering root.
+      const minedReceipt = await aztecNode.getTxReceipt(withdrawReceipt.txHash);
+      if (minedReceipt.epochNumber === undefined) {
+        throw new Error('Withdraw tx is not yet in an epoch');
+      }
+      await cheatCodes.rollup.advanceToEpoch(EpochNumber(minedReceipt.epochNumber + 1));
+      await waitForProven(aztecNode, withdrawReceipt, { provenTimeout: 300 });
+
+      // Fetch the outbox roots once and share them between the two witnesses in this epoch.
+      const epochRoots = await wethCrossChainHarness.outboxContract.getRoots(minedReceipt.epochNumber);
+      const swapResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, swapPrivateLeaf, minedReceipt))!;
+      const { epochNumber: epoch, numCheckpointsInEpoch } = swapResult;
+      const withdrawResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, withdrawLeaf, minedReceipt))!;
 
       const swapPrivateL2MessageIndex = swapResult.leafIndex;
       const swapPrivateSiblingPath = swapResult.siblingPath;
@@ -855,6 +875,7 @@ export const uniswapL1L2TestSuite = (
 
       const withdrawMessageMetadata = {
         _epoch: BigInt(epoch),
+        _numCheckpointsInEpoch: BigInt(withdrawResult.numCheckpointsInEpoch),
         _leafIndex: BigInt(withdrawL2MessageIndex),
         _path: withdrawSiblingPath
           .toBufferArray()
@@ -863,18 +884,12 @@ export const uniswapL1L2TestSuite = (
 
       const swapPrivateMessageMetadata = {
         _epoch: BigInt(epoch),
+        _numCheckpointsInEpoch: BigInt(numCheckpointsInEpoch),
         _leafIndex: BigInt(swapPrivateL2MessageIndex),
         _path: swapPrivateSiblingPath
           .toBufferArray()
           .map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
       };
-
-      // ensure that user's funds were burnt
-      await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
-
-      // Since the outbox is only consumable when the epoch is proven, we need to advance to the next epoch.
-      await cheatCodes.rollup.advanceToEpoch(EpochNumber(epoch + 1));
-      await waitForProven(aztecNode, withdrawReceipt, { provenTimeout: 300 });
 
       // On L1 call swap_public!
       logger.info('call swap_public on L1');
@@ -975,9 +990,23 @@ export const uniswapL1L2TestSuite = (
         chainId: new Fr(l1Client.chain.id),
       });
 
-      const swapResult = (await computeL2ToL1MembershipWitness(aztecNode, swapPublicLeaf, withdrawReceipt.txHash))!;
-      const { epochNumber: epoch } = swapResult;
-      const withdrawResult = (await computeL2ToL1MembershipWitness(aztecNode, withdrawLeaf, withdrawReceipt.txHash))!;
+      // check weth balance of owner on L2 (we first bridged `wethAmountToBridge` into L2 and now withdrew it!)
+      await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, 0n);
+
+      // Since the outbox is only consumable when the epoch is proven, we need to advance to the next epoch
+      // before we can ask the witness helper for a covering root.
+      const minedReceipt = await aztecNode.getTxReceipt(withdrawReceipt.txHash);
+      if (minedReceipt.epochNumber === undefined) {
+        throw new Error('Withdraw tx is not yet in an epoch');
+      }
+      await cheatCodes.rollup.advanceToEpoch(EpochNumber(minedReceipt.epochNumber + 1));
+      await waitForProven(aztecNode, withdrawReceipt, { provenTimeout: 300 });
+
+      // Fetch the outbox roots once and share them between the two witnesses in this epoch.
+      const epochRoots = await wethCrossChainHarness.outboxContract.getRoots(minedReceipt.epochNumber);
+      const swapResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, swapPublicLeaf, minedReceipt))!;
+      const { epochNumber: epoch, numCheckpointsInEpoch } = swapResult;
+      const withdrawResult = (await computeL2ToL1MembershipWitness(aztecNode, epochRoots, withdrawLeaf, minedReceipt))!;
 
       const swapPublicL2MessageIndex = swapResult.leafIndex;
       const swapPublicSiblingPath = swapResult.siblingPath;
@@ -987,6 +1016,7 @@ export const uniswapL1L2TestSuite = (
 
       const withdrawMessageMetadata = {
         _epoch: BigInt(epoch),
+        _numCheckpointsInEpoch: BigInt(withdrawResult.numCheckpointsInEpoch),
         _leafIndex: BigInt(withdrawL2MessageIndex),
         _path: withdrawSiblingPath
           .toBufferArray()
@@ -995,18 +1025,12 @@ export const uniswapL1L2TestSuite = (
 
       const swapPublicMessageMetadata = {
         _epoch: BigInt(epoch),
+        _numCheckpointsInEpoch: BigInt(numCheckpointsInEpoch),
         _leafIndex: BigInt(swapPublicL2MessageIndex),
         _path: swapPublicSiblingPath
           .toBufferArray()
           .map((buf: Buffer) => `0x${buf.toString('hex')}`) as readonly `0x${string}`[],
       };
-
-      // check weth balance of owner on L2 (we first bridged `wethAmountToBridge` into L2 and now withdrew it!)
-      await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, 0n);
-
-      // Since the outbox is only consumable when the epoch is proven, we need to advance to the next epoch.
-      await cheatCodes.rollup.advanceToEpoch(EpochNumber(epoch + 1));
-      await waitForProven(aztecNode, withdrawReceipt, { provenTimeout: 300 });
 
       // Call swap_private on L1
       logger.info('Execute withdraw and swap on the uniswapPortal!');

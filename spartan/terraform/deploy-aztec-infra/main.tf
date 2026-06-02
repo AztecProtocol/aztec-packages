@@ -52,7 +52,7 @@ module "web3signer" {
   VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHERS_PER_REPLICA         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-  PROVER_COUNT                             = tonumber(var.PROVER_REPLICAS)
+  PROVER_COUNT                             = local.prover_agent_replica_capacity
   PUBLISHERS_PER_PROVER                    = tonumber(var.PROVER_PUBLISHERS_PER_PROVER)
   PROVER_PUBLISHER_MNEMONIC_START_INDEX    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
 
@@ -93,6 +93,8 @@ locals {
     repository = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[0]
     tag        = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[1]
   } : local.aztec_image
+
+  prover_agent_replica_capacity = var.PROVER_ENABLED ? (var.PROVER_AGENT_KEDA_ENABLED ? var.PROVER_AGENT_KEDA_MAX_REPLICAS : tonumber(var.PROVER_REPLICAS)) : 0
 
   # Max node count: max of primary (VALIDATOR_REPLICAS) and HA pod counts
   # Determines how many attester keystores and publisher key ranges to generate
@@ -147,7 +149,6 @@ locals {
   p2p_port_rpc           = 40400 + (parseint(substr(md5("${var.NAMESPACE}-rpc"), 0, 4), 16) % 100)
   p2p_port_fisherman     = 40400 + (parseint(substr(md5("${var.NAMESPACE}-fisherman"), 0, 4), 16) % 100)
   p2p_port_full_node     = 40400 + (parseint(substr(md5("${var.NAMESPACE}-full-node"), 0, 4), 16) % 100)
-  p2p_port_archive       = 40400 + (parseint(substr(md5("${var.NAMESPACE}-archive"), 0, 4), 16) % 100)
 
   p2p_port_validators = {
     for idx in range(1 + var.VALIDATOR_HA_REPLICAS) : idx => 40400 + (parseint(substr(md5("${var.NAMESPACE}-validator-${idx}"), 0, 4), 16) % 100)
@@ -286,6 +287,7 @@ locals {
         "snapshots.aztecNodeAdminUrl" = local.internal_rpc_admin_url
         "snapshots.uploadLocation"    = var.STORE_SNAPSHOT_URL
         "snapshots.frequency"         = var.SNAPSHOT_CRON
+        "nodeSelector.node-type"      = "network"
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -317,7 +319,7 @@ locals {
       wait                 = true
     } : null
 
-    prover = {
+    prover = var.PROVER_ENABLED ? {
       name  = "${var.RELEASE_PREFIX}-prover"
       chart = "aztec-prover-stack"
       values = [
@@ -342,6 +344,19 @@ locals {
         agent = {
           node = {
             logLevel = var.LOG_LEVEL
+          }
+          autoscaling = {
+            keda = {
+              enabled         = var.PROVER_AGENT_KEDA_ENABLED && var.PROVER_ENABLED
+              pollingInterval = var.PROVER_AGENT_KEDA_POLLING_INTERVAL_SECONDS
+              cooldownPeriod  = var.PROVER_AGENT_KEDA_COOLDOWN_PERIOD_SECONDS
+              minReplicaCount = var.PROVER_AGENT_KEDA_MIN_REPLICAS
+              maxReplicaCount = var.PROVER_AGENT_KEDA_MAX_REPLICAS
+              scalingBands    = var.PROVER_AGENT_KEDA_SCALING_BANDS
+              prometheus = {
+                serverAddress = var.PROVER_AGENT_KEDA_PROMETHEUS_SERVER_ADDRESS
+              }
+            }
           }
         }
         })], local.is_kind ? [yamlencode({
@@ -377,7 +392,7 @@ locals {
           "agent.node.env.CRS_PATH"                             = "/usr/src/crs"
           "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
           "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
-          "agent.replicaCount"                                  = var.PROVER_REPLICAS
+          "agent.replicaCount"                                  = var.PROVER_AGENT_KEDA_ENABLED ? "0" : var.PROVER_REPLICAS
           "agent.node.env.BOOTSTRAP_NODES"                      = "asdf"
           "agent.node.env.PROVER_AGENT_COUNT"                   = var.PROVER_AGENTS_PER_PROVER
           "agent.node.env.PROVER_TEST_DELAY_TYPE"               = var.PROVER_TEST_DELAY_TYPE
@@ -410,7 +425,7 @@ locals {
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
       wait                 = var.WAIT_FOR_PROVER_DEPLOY
-    }
+    } : null
 
     rpc = {
       name  = "${var.RELEASE_PREFIX}-rpc"
@@ -477,6 +492,7 @@ locals {
         "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
         "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
         "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
+        "node.env.BLOB_FILE_STORE_UPLOAD_URL"         = var.BLOB_FILE_STORE_UPLOAD_URL
         "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
         "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
@@ -571,85 +587,6 @@ locals {
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       // this Helm app will have lots of replicas, if we wait for all to come online we'll surely time out.
       wait = false
-    } : null
-
-    archive = var.DEPLOY_ARCHIVAL_NODE ? {
-      name  = "${var.RELEASE_PREFIX}-archive"
-      chart = "aztec-node"
-      values = [
-        "common.yaml",
-        "archive.yaml",
-        "archive-resources-${var.ARCHIVE_RESOURCE_PROFILE}.yaml"
-      ]
-      inline_values = [yamlencode({
-        service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
-        }
-      })]
-      custom_settings = {
-        "nodeType"                                    = "archive"
-        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
-        "service.p2p.announcePort"                    = local.p2p_port_archive
-        "service.p2p.port"                            = local.p2p_port_archive
-        "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
-        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
-        "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
-        "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
-        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-        "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
-        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
-        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
-        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
-        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
-        "node.env.BLOB_FILE_STORE_URLS"               = var.BLOB_FILE_STORE_URLS
-        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"     = var.SEQ_ENABLE_PROPOSER_PIPELINING
-      }
-      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
-      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
-      wait                 = true
-    } : null
-
-    # Blob sink: uploads blobs to filestore as it syncs
-    blob_sink = var.BLOB_FILE_STORE_UPLOAD_URL != null ? {
-      name  = "${var.RELEASE_PREFIX}-blob-sink"
-      chart = "aztec-node"
-      values = [
-        "common.yaml",
-        "blob-sink.yaml",
-        "blob-sink-resources-${var.BLOB_SINK_RESOURCE_PROFILE}.yaml"
-      ]
-      inline_values = [yamlencode({
-        service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
-        }
-      })]
-      custom_settings = {
-        "nodeType"                                   = "blob-sink"
-        "service.p2p.nodePortEnabled"                = var.P2P_NODEPORT_ENABLED
-        "node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
-        "node.env.BLOB_FILE_STORE_UPLOAD_URL"        = var.BLOB_FILE_STORE_UPLOAD_URL
-        "node.env.AWS_ACCESS_KEY_ID"                 = var.R2_ACCESS_KEY_ID
-        "node.env.AWS_SECRET_ACCESS_KEY"             = var.R2_SECRET_ACCESS_KEY
-        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION" = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"     = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-        "node.env.BLOB_ALLOW_EMPTY_SOURCES"          = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_GOSSIPSUB_D"                   = var.P2P_GOSSIPSUB_D
-        "node.env.P2P_GOSSIPSUB_DLO"                 = var.P2P_GOSSIPSUB_DLO
-        "node.env.P2P_GOSSIPSUB_DHI"                 = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX_CHANCE"                = var.P2P_DROP_TX_CHANCE
-        "node.env.P2P_MAX_PENDING_TX_COUNT"          = var.P2P_MAX_PENDING_TX_COUNT
-        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"       = var.WS_NUM_HISTORIC_CHECKPOINTS
-        "node.env.SEQ_ENABLE_PROPOSER_PIPELINING"    = var.SEQ_ENABLE_PROPOSER_PIPELINING
-      }
-      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
-      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
-      wait                 = true
     } : null
 
     # Optional: transfer bots

@@ -52,6 +52,7 @@ export const DefaultSequencerConfig = {
   secondsBeforeInvalidatingBlockAsNonCommitteeMember: 432, // 36 L1 blocks
   skipCollectingAttestations: false,
   skipInvalidateBlockAsProposer: false,
+  skipWaitForValidParentCheckpointOnL1: false,
   broadcastInvalidBlockProposal: false,
   broadcastInvalidCheckpointProposalOnly: false,
   injectFakeAttestation: false,
@@ -188,6 +189,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Do not invalidate the previous block if invalid when we are the proposer (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.skipInvalidateBlockAsProposer),
   },
+  skipWaitForValidParentCheckpointOnL1: {
+    description:
+      'Bypass the parent checkpoint validity check before submitting a pipelined checkpoint, ' +
+      'allowing the proposer to publish even when the parent landed on L1 with invalid attestations (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.skipWaitForValidParentCheckpointOnL1),
+  },
   broadcastInvalidBlockProposal: {
     description: 'Broadcast invalid block proposals with corrupted state (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.broadcastInvalidBlockProposal),
@@ -243,6 +250,12 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   skipBroadcastProposals: {
     description: 'Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  skipBroadcastCheckpointProposal: {
+    description:
+      'Skip broadcasting only the CheckpointProposal via gossipsub when proposer; the held last block is broadcast ' +
+      'standalone instead so peers still receive it as a proposed-but-uncheckpointed tip (for testing only)',
     ...booleanConfigHelper(false),
   },
   pauseProposingForSlots: {

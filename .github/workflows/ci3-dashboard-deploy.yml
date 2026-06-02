@@ -1,0 +1,35 @@
+name: CI3 Dashboard Deploy
+
+on:
+  push:
+    branches:
+      - next
+    paths:
+      - "ci3/dashboard/**"
+      - ".github/workflows/ci3-dashboard-deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Deploy ci3 dashboard
+        env:
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+          ssh-keyscan -H ci.aztec-labs.com >> ~/.ssh/known_hosts 2>/dev/null
+
+          ./ci3/dashboard/deploy.sh

@@ -1,10 +1,11 @@
-import type { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
-import type { MembershipWitness } from '@aztec/foundation/trees';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import {
   type CircuitSimulator,
@@ -22,16 +23,24 @@ import type { CompleteAddress, ContractInstance, PartialAddress } from '@aztec/s
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { PublicKey, type PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
-import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
+import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
+import { MessageContext, type PendingTaggedLog, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule, IndexedTxEffect, OffchainEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
+import {
+  type BlockHeader,
+  type Capsule,
+  type IndexedTxEffect,
+  type OffchainEffect,
+  TxEffect,
+  type TxHash,
+} from '@aztec/stdlib/tx';
 
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { EventService } from '../../events/event_service.js';
+import type { UtilityCallAuthorizationRequest } from '../../hooks/authorize_utility_call.js';
 import type { ExecutionHooks } from '../../hooks/index.js';
 import { LogService } from '../../logs/log_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
@@ -45,9 +54,13 @@ import type { PrivateEventStore } from '../../storage/private_event_store/privat
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
-import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
-import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
+import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
+import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
+import { Option } from '../noir-structs/option.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
@@ -223,16 +236,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param blockHash - The block hash to find in the archive tree.
    * @returns The membership witness containing the leaf index and sibling path
    */
-  public getBlockHashMembershipWitness(
+  public async getBlockHashMembershipWitness(
     referenceBlockHash: BlockHash,
     blockHash: BlockHash,
-  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+  ): Promise<Option<MembershipWitness<typeof ARCHIVE_HEIGHT>>> {
     // Note that we validate that the reference block hash is at or before the anchor block - we don't test the block
     // hash at all. If the block hash did not exist by the reference block hash, then the node will not return the
     // membership witness as there is none.
-    return this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
+    const witness = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
       this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash),
     );
+    return witness ? Option.some(witness) : Option.none(MembershipWitness.empty(ARCHIVE_HEIGHT));
   }
 
   /**
@@ -321,12 +335,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async getPublicKeysAndPartialAddress(
     account: AztecAddress,
-  ): Promise<{ publicKeys: PublicKeys; partialAddress: PartialAddress } | undefined> {
+  ): Promise<Option<{ publicKeys: PublicKeys; partialAddress: PartialAddress }>> {
     const completeAddress = await this.addressStore.getCompleteAddress(account);
     if (!completeAddress) {
-      return undefined;
+      return Option.none({ publicKeys: PublicKeys.default(), partialAddress: Fr.ZERO });
     }
-    return { publicKeys: completeAddress.publicKeys, partialAddress: completeAddress.partialAddress };
+    return Option.some({ publicKeys: completeAddress.publicKeys, partialAddress: completeAddress.partialAddress });
   }
 
   protected async getCompleteAddressOrFail(account: AztecAddress): Promise<CompleteAddress> {
@@ -389,7 +403,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @returns Array of note data.
    */
   public async getNotes(
-    owner: AztecAddress | undefined,
+    owner: Option<AztecAddress>,
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -404,11 +418,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     limit: number,
     offset: number,
     status: NoteStatus,
-  ): Promise<NoteData[]> {
+    maxNotes: number,
+    packedHintedNoteLength: number,
+  ): Promise<BoundedVec<NoteData>> {
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
 
-    const dbNotes = await noteService.getNotes(this.contractAddress, owner, storageSlot, status, this.scopes);
-    return pickNotes<NoteData>(dbNotes, {
+    const dbNotes = await noteService.getNotes(this.contractAddress, owner.value, storageSlot, status, this.scopes);
+    const picked = pickNotes<NoteData>(dbNotes, {
       selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
         selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
         value: selectValues[i],
@@ -421,6 +437,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       limit,
       offset,
     });
+    return BoundedVec.from({ data: picked, maxLength: maxNotes, elementSize: packedHintedNoteLength });
   }
 
   /**
@@ -534,11 +551,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     logContractMessage(logger, LogLevels[level], strippedMessage, fields);
   }
 
-  /** Fetches pending tagged logs into a freshly allocated ephemeral array and returns its base slot. */
-  public async getPendingTaggedLogs(scope: AztecAddress): Promise<Fr> {
+  /** Fetches pending tagged logs into a freshly allocated ephemeral array and returns it. */
+  public async getPendingTaggedLogs(scope: AztecAddress): Promise<EphemeralArray<PendingTaggedLog>> {
     const logService = this.#createLogService();
     const logs = await logService.fetchTaggedLogs(this.contractAddress, scope);
-    return this.ephemeralArrayService.newArray(logs.map(log => log.toFields()));
+    return EphemeralArray.fromValues(this.ephemeralArrayService, logs);
   }
 
   #createLogService(): LogService {
@@ -556,21 +573,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public async validateAndStoreEnqueuedNotesAndEvents(
-    noteValidationRequestsArrayBaseSlot: Fr,
-    eventValidationRequestsArrayBaseSlot: Fr,
-    maxNotePackedLen: number,
-    maxEventSerializedLen: number,
+    noteValidationRequests: EphemeralArray<NoteValidationRequest>,
+    eventValidationRequests: EphemeralArray<EventValidationRequest>,
     scope: AztecAddress,
   ) {
-    const noteValidationRequests = this.ephemeralArrayService
-      .readArrayAt(noteValidationRequestsArrayBaseSlot)
-      .map(fields => NoteValidationRequest.fromFields(fields, maxNotePackedLen));
-
-    const eventValidationRequests = this.ephemeralArrayService
-      .readArrayAt(eventValidationRequestsArrayBaseSlot)
-      .map(fields => EventValidationRequest.fromFields(fields, maxEventSerializedLen));
-
-    await this.#processValidationRequests(noteValidationRequests, eventValidationRequests, scope);
+    await this.#processValidationRequests(
+      noteValidationRequests.readAll(this.ephemeralArrayService),
+      eventValidationRequests.readAll(this.ephemeralArrayService),
+      scope,
+    );
   }
 
   async #processValidationRequests(
@@ -592,58 +603,54 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     ]);
   }
 
-  public async getLogsByTag(requestArrayBaseSlot: Fr): Promise<Fr> {
-    const logRetrievalRequests = this.ephemeralArrayService
-      .readArrayAt(requestArrayBaseSlot)
-      .map(LogRetrievalRequest.fromFields);
+  public async getLogsByTag(
+    requests: EphemeralArray<LogRetrievalRequest>,
+  ): Promise<EphemeralArray<EphemeralArray<LogRetrievalResponse>>> {
+    const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);
     const logService = this.#createLogService();
 
     const logRetrievalResponses = await logService.fetchLogsByTag(this.contractAddress, logRetrievalRequests);
 
     // Create an inner ephemeral array for each request's matching logs, then wrap all slots in an outer array.
-    const innerSlots = logRetrievalResponses.map(responses =>
-      this.ephemeralArrayService.newArray(responses.map(r => r.toFields())),
+    const innerArrays = logRetrievalResponses.map(responses =>
+      EphemeralArray.fromValues(this.ephemeralArrayService, responses),
     );
 
-    return this.ephemeralArrayService.newArray(innerSlots.map(slot => [slot]));
+    return EphemeralArray.fromValues(this.ephemeralArrayService, innerArrays);
   }
 
-  /** Reads tx hash requests from an ephemeral array, resolves their contexts, and returns the response slot. */
-  public async getMessageContextsByTxHash(requestArrayBaseSlot: Fr): Promise<Fr> {
-    const requestFields = this.ephemeralArrayService.readArrayAt(requestArrayBaseSlot);
-
-    const txHashes = requestFields.map((fields, i) => {
-      if (fields.length !== 1) {
-        throw new Error(
-          `Malformed message context request at index ${i}: expected 1 field (tx hash), got ${fields.length}`,
-        );
-      }
-      return fields[0];
-    });
+  /** Reads tx hash requests from an ephemeral array, resolves their contexts, and returns the response array. */
+  public async getMessageContextsByTxHash(
+    requests: EphemeralArray<Fr>,
+  ): Promise<EphemeralArray<Option<MessageContext>>> {
+    const txHashes = requests.readAll(this.ephemeralArrayService);
 
     const maybeMessageContexts = await this.messageContextService.getMessageContextsByTxHash(
       txHashes,
       this.anchorBlockHeader.getBlockNumber(),
     );
 
-    return this.ephemeralArrayService.newArray(maybeMessageContexts.map(MessageContext.toSerializedOption));
+    const options = maybeMessageContexts.map(mc =>
+      mc ? Option.some(mc) : Option.none<MessageContext>(MessageContext.empty()),
+    );
+    return EphemeralArray.fromValues(this.ephemeralArrayService, options);
   }
 
   /**
    * Fetches the effects of a transaction by its hash. Returns null if the tx is not found or is beyond the anchor
    * block.
    */
-  public async getTxEffect(txHash: TxHash): Promise<TxEffect | null> {
+  public async getTxEffect(txHash: TxHash): Promise<Option<TxEffect>> {
     if (txHash.hash.isZero()) {
       throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
     }
 
     const txEffect = await this.aztecNode.getTxEffect(txHash);
     if (!txEffect || txEffect.l2BlockNumber > this.anchorBlockHeader.getBlockNumber()) {
-      return null;
+      return Option.none(TxEffect.empty());
     }
 
-    return txEffect.data;
+    return Option.some(txEffect.data);
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
@@ -654,12 +661,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.capsuleService.setCapsule(contractAddress, slot, capsule, this.jobId, scope);
   }
 
-  public getCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): Promise<Fr[] | null> {
+  public async getCapsule(
+    contractAddress: AztecAddress,
+    slot: Fr,
+    tSize: number,
+    scope: AztecAddress,
+  ): Promise<Option<Fr[]>> {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
+    const values = await this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
+    return values ? Option.some(values) : Option.none(new Array(tSize).fill(Fr.ZERO));
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
@@ -688,31 +701,41 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Clears cached sync state for a contract for a set of scopes, forcing re-sync on the next query so that newly
    * stored notes or events are discovered.
    */
-  public setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void {
+  public setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: BoundedVec<AztecAddress>): void {
     if (!contractAddress.equals(this.contractAddress)) {
       throw new Error(`Contract ${this.contractAddress} cannot invalidate sync cache of ${contractAddress}`);
     }
-    this.contractSyncService.invalidateContractForScopes(contractAddress, scopes);
+    this.contractSyncService.invalidateContractForScopes(contractAddress, scopes.data);
   }
 
   // TODO(#11849): consider replacing this oracle with a pure Noir implementation of aes decryption.
-  public async decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer | undefined> {
+  public async decryptAes128(
+    ciphertext: BoundedVec<number>,
+    iv: Buffer,
+    symKey: Buffer,
+  ): Promise<Option<BoundedVec<number>>> {
+    const capacity = ciphertext.maxLength;
     try {
       const aes128 = new Aes128();
-      return await aes128.decryptBufferCBC(ciphertext, iv, symKey);
+      const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
+      return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
     } catch {
-      return undefined;
+      return Option.none(BoundedVec.empty<number>({ maxLength: capacity }));
     }
   }
 
   /**
    * Retrieves app-siloed shared secrets for multiple ephemeral public keys stored in an ephemeral array.
    * @param address - The recipient address.
-   * @param ephPksSlot - Ephemeral array slot containing the serialized Points.
+   * @param ephPks - Ephemeral array containing the serialized Points.
    * @param contractAddress - The contract address for app-siloing (validated against execution context).
-   * @returns The slot of a new ephemeral array containing the computed shared secrets.
+   * @returns A new ephemeral array containing the computed shared secrets.
    */
-  public async getSharedSecrets(address: AztecAddress, ephPksSlot: Fr, contractAddress: AztecAddress): Promise<Fr> {
+  public async getSharedSecrets(
+    address: AztecAddress,
+    ephPks: EphemeralArray<Point>,
+    contractAddress: AztecAddress,
+  ): Promise<EphemeralArray<Fr>> {
     if (!contractAddress.equals(this.contractAddress)) {
       throw new Error(
         `getSharedSecrets called with contract address ${contractAddress}, expected ${this.contractAddress}`,
@@ -723,14 +746,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const ivskM = await this.keyStore.getMasterSecretKey(ivpkMHash);
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
 
-    const ephPkFields = this.ephemeralArrayService.readArrayAt(ephPksSlot);
+    const ephPkPoints = ephPks.readAll(this.ephemeralArrayService);
     const secrets = await Promise.all(
-      ephPkFields.map(fields =>
-        deriveAppSiloedSharedSecret(addressSecret, PublicKey.fromFields(fields), this.contractAddress),
-      ),
+      ephPkPoints.map(ephPk => deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress)),
     );
 
-    return this.ephemeralArrayService.newArray(secrets.map(s => [s]));
+    return EphemeralArray.fromValues(this.ephemeralArrayService, secrets);
   }
 
   public pushEphemeral(slot: Fr, elements: Fr[]): number {
@@ -778,13 +799,19 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     if (!targetContractAddress.equals(this.contractAddress)) {
-      const request = {
+      const [callerInstance, targetInstance] = await Promise.all([
+        this.getContractInstance(this.contractAddress),
+        this.getContractInstance(targetContractAddress),
+      ]);
+      const request: UtilityCallAuthorizationRequest = {
         caller: this.contractAddress,
+        callerClassId: callerInstance.currentContractClassId,
         target: targetContractAddress,
+        targetClassId: targetInstance.currentContractClassId,
         functionSelector,
         functionName: targetArtifact.name,
         args,
-        callerContext: ('isPrivate' in this ? 'private' : 'utility') as 'private' | 'utility',
+        callerContext: this.callerContext,
       };
 
       const response = this.hooks
@@ -900,5 +927,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       })(),
     ]);
     return response;
+  }
+
+  /** The execution context of the current call. */
+  protected get callerContext(): 'private' | 'private view' | 'utility' {
+    return 'utility';
   }
 }

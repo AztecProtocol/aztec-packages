@@ -67,10 +67,11 @@ contract MinimalFeeModel {
     uint256 _slotDuration,
     uint256 _epochDuration,
     uint256 _proofSubmissionEpochs,
-    EthPerFeeAssetE12 _initialEthPerFeeAsset
+    EthPerFeeAssetE12 _initialEthPerFeeAsset,
+    EthValue _provingCost
   ) {
     TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
-    FeeLib.initialize(MANA_TARGET, EthValue.wrap(100), _initialEthPerFeeAsset);
+    FeeLib.initialize(MANA_TARGET, _provingCost, _initialEthPerFeeAsset);
     STFLib.initialize(
       GenesisState({vkTreeRoot: bytes32(0), protocolContractsHash: bytes32(0), genesisArchiveRoot: bytes32(0)})
     );
@@ -129,10 +130,6 @@ contract MinimalFeeModel {
       })
     );
     //    FeeLib.writeFeeHeader(++populatedThrough, _oracleInput.feeAssetPriceModifier, _manaUsed, 0, 0);
-  }
-
-  function setProvingCost(EthValue _provingCost) public {
-    FeeLib.updateProvingCostPerMana(_provingCost);
   }
 
   /**

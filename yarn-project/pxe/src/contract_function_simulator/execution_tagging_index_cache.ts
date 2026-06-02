@@ -1,18 +1,14 @@
-import { ExtendedDirectionalAppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
 
-/**
- * A map that stores the tagging index range for a given extended directional app tagging secret.
- * Note: The directional app tagging secret is unique for a (sender, recipient, contract) tuple while the direction
- * of sender -> recipient matters.
- */
+/** A map that stores the tagging index range for a given app tagging secret. */
 export class ExecutionTaggingIndexCache {
   private taggingIndexMap: Map<string, { lowestIndex: number; highestIndex: number }> = new Map();
 
-  public getLastUsedIndex(secret: ExtendedDirectionalAppTaggingSecret): number | undefined {
+  public getLastUsedIndex(secret: AppTaggingSecret): number | undefined {
     return this.taggingIndexMap.get(secret.toString())?.highestIndex;
   }
 
-  public setLastUsedIndex(secret: ExtendedDirectionalAppTaggingSecret, index: number) {
+  public setLastUsedIndex(secret: AppTaggingSecret, index: number) {
     const currentValue = this.taggingIndexMap.get(secret.toString());
     if (currentValue !== undefined && currentValue.highestIndex !== index - 1) {
       throw new Error(`Invalid tagging index update. Current value: ${currentValue.highestIndex}, new value: ${index}`);
@@ -29,7 +25,7 @@ export class ExecutionTaggingIndexCache {
    */
   public getUsedTaggingIndexRanges(): TaggingIndexRange[] {
     return Array.from(this.taggingIndexMap.entries()).map(([secret, { lowestIndex, highestIndex }]) => ({
-      extendedSecret: ExtendedDirectionalAppTaggingSecret.fromString(secret),
+      extendedSecret: AppTaggingSecret.fromString(secret),
       lowestIndex,
       highestIndex,
     }));

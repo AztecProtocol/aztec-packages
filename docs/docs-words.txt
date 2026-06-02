@@ -91,6 +91,7 @@ delegators
 deloying
 depoyment
 deserialise
+devrel
 devtoken
 dialable
 diversifier
@@ -441,4 +442,4 @@ variadic
 Wonderland
 indistinguishability
 unlinkable
-unlinkability
+nightlies

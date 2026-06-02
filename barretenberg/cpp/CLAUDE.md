@@ -206,7 +206,7 @@ Example IVC inputs (msgpack files) for `bb prove --scheme chonk` are pinned to a
 barretenberg/cpp/scripts/chonk_inputs.sh download
 ```
 
-This creates `yarn-project/end-to-end/example-app-ivc-inputs-out/<flow>/ivc-inputs.msgpack`. To intentionally refresh the pinned tarball, use the PR `ci-refresh-chonk` label or put `--ci-refresh-chonk` in the head commit message.
+This creates `barretenberg/cpp/chonk-pinned-flows/<flow>/ivc-inputs.msgpack`. To intentionally refresh the pinned tarball, use the PR `ci-refresh-chonk` label or put `--ci-refresh-chonk` in the head commit message.
 
 ## Memory profiling
 

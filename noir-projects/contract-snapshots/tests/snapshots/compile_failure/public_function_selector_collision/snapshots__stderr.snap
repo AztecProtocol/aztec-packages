@@ -14,10 +14,10 @@ error: Public function selector collision detected between functions 'fn_selecto
     2: aztec
             at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:169:27
     3: generate_public_dispatch
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:20:19
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:52:19
     4: [T]::map
             at std/vector.nr:67:33
     5: generate_public_dispatch
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:32:13
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:64:13
 
 Aborting due to 1 previous error

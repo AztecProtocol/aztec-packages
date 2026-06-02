@@ -19,10 +19,7 @@ use crate::{
         discovery::partial_notes::DeliveredPendingPartialNote,
         encoding::MESSAGE_CIPHERTEXT_LEN,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
-        processing::{
-            log_retrieval_request::LogRetrievalRequest,
-            log_retrieval_response::LogRetrievalResponse,
-        },
+        processing::{log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse},
     },
     oracle::message_processing,
 };
@@ -86,19 +83,17 @@ pub unconstrained fn enqueue_note_for_validation(
     nullifier: Field,
     tx_hash: Field,
 ) {
-    EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
-        NoteValidationRequest {
-            contract_address,
-            owner,
-            storage_slot,
-            randomness,
-            note_nonce,
-            packed_note,
-            note_hash,
-            nullifier,
-            tx_hash,
-        },
-    )
+    EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(NoteValidationRequest::new(
+        contract_address,
+        owner,
+        storage_slot,
+        randomness,
+        note_nonce,
+        packed_note,
+        note_hash,
+        nullifier,
+        tx_hash,
+    ))
 }
 
 /// Enqueues an event for validation and storage by PXE.
@@ -121,16 +116,14 @@ pub unconstrained fn enqueue_event_for_validation(
     event_commitment: Field,
     tx_hash: Field,
 ) {
-    EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(
-        EventValidationRequest {
-            contract_address,
-            event_type_id,
-            randomness,
-            serialized_event,
-            event_commitment,
-            tx_hash,
-        },
-    )
+    EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).push(EventValidationRequest::new(
+        contract_address,
+        event_type_id,
+        randomness,
+        serialized_event,
+        event_commitment,
+        tx_hash,
+    ))
 }
 
 /// Validates and stores all enqueued notes and events.
@@ -142,8 +135,6 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAd
     message_processing::validate_and_store_enqueued_notes_and_events(
         EphemeralArray::at(NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT),
         EphemeralArray::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT),
-        MAX_NOTE_PACKED_LEN as Field,
-        MAX_EVENT_SERIALIZED_LEN as Field,
         scope,
     );
 

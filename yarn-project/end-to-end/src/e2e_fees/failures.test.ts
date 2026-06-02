@@ -17,6 +17,7 @@ import { ExecutionPayload } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 
 import { PIPELINING_SETUP_OPTS, U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { ensureAuthRegistryPublished } from '../fixtures/setup.js';
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
@@ -43,6 +44,7 @@ describe('e2e_fees failures', () => {
     await t.setup({ ...PIPELINING_SETUP_OPTS, aztecProofSubmissionEpochs: 640, aztecEpochDuration: 4 });
     await t.applyFPCSetup();
     ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = t);
+    await ensureAuthRegistryPublished(wallet, aliceAddress);
     aztecNode = t.aztecNode;
 
     // Prove up until the current state by just marking it as proven.

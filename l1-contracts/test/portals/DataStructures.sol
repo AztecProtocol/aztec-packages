@@ -7,6 +7,7 @@ import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 library DataStructures {
   struct OutboxMessageMetadata {
     Epoch _epoch;
+    uint256 _numCheckpointsInEpoch;
     uint256 _leafIndex;
     bytes32[] _path;
   }

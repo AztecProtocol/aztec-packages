@@ -83,6 +83,7 @@ else
 fi
 
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
+docker_hostname=$(echo -n "$instance_name" | tr '_' '-' | cut -c 1-63)
 
 if [ "$use_ssh" -eq 1 ]; then
   echo_header "request build instance (SSH)"
@@ -243,6 +244,11 @@ host_script=$(
   cat <<EOF
 set -euo pipefail
 
+# This runtime guard should be baked into the build image. Unattended upgrades
+# can restart SSM while CI is running, leaving SSM commands stuck InProgress.
+echo "HOST: disabling apt periodic upgrades..."
+sudo systemctl mask --now apt-daily.timer apt-daily-upgrade.timer apt-daily.service apt-daily-upgrade.service unattended-upgrades.service &>/dev/null || true
+
 sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
 sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
@@ -298,7 +304,7 @@ start_build() {
 
   docker run --privileged --rm \${docker_args:-} \
     --name aztec_build \
-    --hostname $instance_name \
+    --hostname $docker_hostname \
     -v bootstrap_ci_local_docker:/var/lib/docker \
     -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
     -v \$HOME/.ssh:/home/aztec-dev/.ssh:ro \

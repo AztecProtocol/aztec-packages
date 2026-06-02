@@ -62,6 +62,11 @@ export interface SequencerConfig {
   skipCollectingAttestations?: boolean;
   /** Do not invalidate the previous block if invalid when we are the proposer (for testing only) */
   skipInvalidateBlockAsProposer?: boolean;
+  /**
+   * Bypass the parent checkpoint validity check before submitting a pipelined checkpoint, allowing
+   * the proposer to publish even when the parent landed on L1 with invalid attestations (for testing only).
+   */
+  skipWaitForValidParentCheckpointOnL1?: boolean;
   /** Broadcast invalid block proposals with corrupted state (for testing only) */
   broadcastInvalidBlockProposal?: boolean;
   /** Broadcast an invalid block proposal only at this indexWithinCheckpoint (for testing only) */
@@ -96,6 +101,14 @@ export interface SequencerConfig {
   skipPublishingCheckpointsPercent?: number;
   /** Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only) */
   skipBroadcastProposals?: boolean;
+  /**
+   * Skip broadcasting only the CheckpointProposal via gossipsub when proposer; the held last block is still broadcast
+   * standalone so peers receive it as a proposed-but-uncheckpointed tip. Used to exercise the orphan-proposed-block
+   * prune path (for testing only). Narrower variant of `skipBroadcastProposals`: when only this flag is set the held
+   * last block is still broadcast standalone, but when `skipBroadcastProposals` is also set neither the block nor the
+   * checkpoint proposal is broadcast.
+   */
+  skipBroadcastCheckpointProposal?: boolean;
   /** List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected. */
   pauseProposingForSlots?: SlotNumber[];
 }
@@ -126,6 +139,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     attestationPropagationTime: z.number().optional(),
     skipCollectingAttestations: z.boolean().optional(),
     skipInvalidateBlockAsProposer: z.boolean().optional(),
+    skipWaitForValidParentCheckpointOnL1: z.boolean().optional(),
     secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
     secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
     broadcastInvalidBlockProposal: z.boolean().optional(),
@@ -143,6 +157,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     minBlocksForCheckpoint: z.number().positive().optional(),
     skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),
     skipBroadcastProposals: z.boolean().optional(),
+    skipBroadcastCheckpointProposal: z.boolean().optional(),
     pauseProposingForSlots: z.array(SlotNumberSchema).optional(),
   }),
 );
@@ -168,6 +183,7 @@ type SequencerConfigOptionalKeys =
   | 'maxDABlockGas'
   | 'redistributeCheckpointBudget'
   | 'skipBroadcastProposals'
+  | 'skipBroadcastCheckpointProposal'
   | 'pauseProposingForSlots';
 
 export type ResolvedSequencerConfig = Prettify<

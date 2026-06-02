@@ -75,6 +75,7 @@ import {
   createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForBlockProposalReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
+import { TxValidationCache } from '../../msg_validators/tx_validator/tx_validation_cache.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { getVersions } from '../../versioning.js';
@@ -202,6 +203,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     private blockMinFeesProvider: BlockMinFeesProvider,
     telemetry: TelemetryClient,
     logger: Logger = createLogger('p2p:libp2p_service'),
+    private txValidationCache?: TxValidationCache,
   ) {
     super(telemetry, 'LibP2PService');
     this.telemetry = telemetry;
@@ -302,6 +304,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry: TelemetryClient;
       logger: Logger;
       packageVersion: string;
+      txValidationCache?: TxValidationCache;
     },
   ) {
     const {
@@ -315,6 +318,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry,
       logger,
       packageVersion,
+      txValidationCache,
     } = deps;
     const { p2pPort, maxPeerCount, listenAddress } = config;
     const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
@@ -522,6 +526,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       blockMinFeesProvider,
       telemetry,
       logger,
+      txValidationCache,
     );
   }
 
@@ -715,10 +720,6 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
     this.allNodesCheckpointReceivedCallback = callback;
-  }
-
-  public async notifyOwnCheckpointProposal(checkpoint: CheckpointProposalCore): Promise<void> {
-    await this.allNodesCheckpointReceivedCallback(checkpoint, this.node.peerId);
   }
 
   /**
@@ -1341,17 +1342,33 @@ export class LibP2PService extends WithTracer implements P2PService {
       TopicType.checkpoint_proposal,
     );
 
+    // Process checkpoint proposal if valid and not equivocated.
+    const processCheckpointFn = () =>
+      result === TopicValidatorResult.Accept && checkpoint && !isEquivocated
+        ? this.processValidCheckpointProposal(checkpoint.toCore(), source)
+        : Promise.resolve();
+
     // If the checkpoint contained a valid last block, we process it even if the checkpoint itself is to be rejected
     // TODO(palla/mbps): Is this ok? Should we be considering a block from a checkpoint that was equivocated?
-    if (processBlock && checkpoint?.getBlockProposal()) {
-      await this.processValidBlockProposal(checkpoint.getBlockProposal()!, source);
-    }
+    const processBlockFn = () =>
+      processBlock && checkpoint && checkpoint.getBlockProposal()
+        ? this.processValidBlockProposal(checkpoint.getBlockProposal()!, source)
+        : Promise.resolve();
 
-    if (result !== TopicValidatorResult.Accept || !checkpoint || isEquivocated) {
+    // A node that skips checkpoint validation attests without re-executing the embedded last block, so run
+    // the checkpoint callback first: this creates and broadcasts the attestation before the block is
+    // processed. Otherwise the block's re-execution — which can stall until the re-execution deadline
+    // waiting for a parent that may never arrive — would delay the attestation past the slot's attestation
+    // window, after which peers reject it as stale.
+    if (this.config.skipCheckpointProposalValidation) {
+      await processCheckpointFn();
+      await processBlockFn();
       return;
     }
 
-    await this.processValidCheckpointProposal(checkpoint.toCore(), source);
+    // Process the block first, since it's required for the checkpoint proposal validation.
+    await processBlockFn();
+    await processCheckpointFn();
   }
 
   /**
@@ -1523,6 +1540,16 @@ export class LibP2PService extends WithTracer implements P2PService {
     peerId: PeerId,
   ): Promise<boolean> {
     try {
+      // A response with archiveRoot=Fr.zero is the documented "I don't have the block" signal from
+      // reqRespBlockTxsHandler (block_txs_handler.ts:54-58): the peer lacked the block in its
+      // attestation pool and archiver, but matched the requested hashes against its tx pool and
+      // shipped what it found. This is legitimate behaviour, not misbehaviour — we just can't verify
+      // membership/order without the block, so we drop the response without penalising the peer.
+      if (response.archiveRoot.isZero()) {
+        this.logger.debug(`Peer ${peerId.toString()} signalled missing block with Fr.zero archive root`);
+        return false;
+      }
+
       if (!response.archiveRoot.equals(request.archiveRoot)) {
         this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
         throw new ValidationError(
@@ -1555,18 +1582,26 @@ export class LibP2PService extends WithTracer implements P2PService {
         );
       }
 
-      // Given proposal (should have locally), ensure returned txs are valid subset and match request indices
+      // To verify membership/order of the returned txs we need the canonical tx hash list for the
+      // block. Prefer the block proposal (held while a block is in flight), but fall back to the
+      // archiver for blocks we only know as mined — e.g. a prover collecting txs to prove a block it
+      // never received a proposal for. This mirrors the responder side (reqRespBlockTxsHandler),
+      // which serves from proposal-or-archiver.
       const proposal = await this.mempools.attestationPool.getBlockProposalByArchive(request.archiveRoot.toString());
-      if (proposal) {
+      const blockTxHashes =
+        proposal?.txHashes ??
+        (await this.archiver.getBlock({ archive: request.archiveRoot }))?.body.txEffects.map(e => e.txHash);
+
+      if (blockTxHashes) {
         // Build intersected indices
         const intersectIdx = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));
 
         // Enforce subset membership and preserve increasing order by index.
-        const hashToIndexInProposal = new Map<string, number>(
-          proposal.txHashes.map((h, i) => [h.toString(), i] as [string, number]),
+        const hashToIndexInBlock = new Map<string, number>(
+          blockTxHashes.map((h, i) => [h.toString(), i] as [string, number]),
         );
         const allowedIndexSet = new Set(intersectIdx);
-        const indices = returnedHashes.map(h => hashToIndexInProposal.get(h));
+        const indices = returnedHashes.map(h => hashToIndexInBlock.get(h));
         const allAllowed = indices.every(idx => idx !== undefined && allowedIndexSet.has(idx));
         const strictlyIncreasing = indices.every((idx, i) => (i === 0 ? idx !== undefined : idx! > indices[i - 1]!));
         if (!allAllowed || !strictlyIncreasing) {
@@ -1574,9 +1609,10 @@ export class LibP2PService extends WithTracer implements P2PService {
           throw new ValidationError('Returned txs do not match expected subset/order for requested indices');
         }
       } else {
-        // No local proposal, cannot check the membership/order of the returned txs
+        // Neither a local proposal nor an archived block: we cannot verify membership/order of the
+        // returned txs. This is a local-state gap, not a peer fault, so we do not penalize.
         this.logger.warn(
-          `Block proposal not found for archive root ${request.archiveRoot.toString()}; cannot validate membership/order of returned txs`,
+          `Block ${request.archiveRoot.toString()} not found in attestation pool or archiver; cannot validate membership/order of returned txs`,
         );
         return false;
       }
@@ -1608,6 +1644,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         l1ChainId: this.config.l1ChainId,
         rollupVersion: this.config.rollupVersion,
         proofVerifier: this.proofVerifier,
+        txValidationCache: this.txValidationCache,
       },
       peerScoring: this.peerManager,
       validateRequestedBlockTxsConsistency: this.validateRequestedBlockTxsConsistency.bind(this),
@@ -1619,6 +1656,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.proofVerifier,
       { l1ChainId: this.config.l1ChainId, rollupVersion: this.config.rollupVersion },
       this.logger.getBindings(),
+      this.txValidationCache,
     );
 
     const results = await Promise.all(

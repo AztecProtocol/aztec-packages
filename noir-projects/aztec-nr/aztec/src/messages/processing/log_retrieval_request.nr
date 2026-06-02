@@ -6,8 +6,7 @@ pub(crate) struct LogSourceEnum {
     pub PUBLIC_AND_PRIVATE: Field,
 }
 
-pub(crate) global LogSource: LogSourceEnum =
-    LogSourceEnum { PRIVATE: 0, PUBLIC: 1, PUBLIC_AND_PRIVATE: 2 };
+pub(crate) global LogSource: LogSourceEnum = LogSourceEnum { PRIVATE: 0, PUBLIC: 1, PUBLIC_AND_PRIVATE: 2 };
 
 /// A request for the `bulk_retrieve_logs` oracle to fetch all logs matching a tag.
 #[derive(Serialize)]

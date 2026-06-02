@@ -16,6 +16,7 @@ import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -33,14 +34,15 @@ export const ARCHIVER_STORE_NAME = 'archiver';
 
 /** Creates an archiver store. */
 export async function createArchiverStore(
-  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
+  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb'> & DataStoreConfig,
+  genesisBlockHash: BlockHash,
 ): Promise<ArchiverDataStores> {
   const config = {
     ...userConfig,
     dataStoreMapSizeKb: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKb,
   };
   const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config);
-  return createArchiverDataStores(store, { logsMaxPageSize: config.maxLogs });
+  return createArchiverDataStores(store, genesisBlockHash);
 }
 
 /**
@@ -60,7 +62,7 @@ export async function createArchiver(
   initialHeader: BlockHeader,
   initialBlockHash: BlockHash,
 ): Promise<Archiver> {
-  const archiverStore = await createArchiverStore(config);
+  const archiverStore = await createArchiverStore(config, initialBlockHash);
   await registerProtocolContracts(archiverStore);
 
   // Create Ethereum clients
@@ -129,6 +131,7 @@ export async function createArchiver(
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: false,
       skipHistoricalLogsCheck: false,
+      orphanProposedBlockPruneGraceSeconds: MIN_EXECUTION_TIME,
     },
     mapArchiverConfig(config),
   );
@@ -179,6 +182,8 @@ export async function createArchiver(
     initialHeader,
     initialBlockHash,
     l2TipsCache,
+    epochCache,
+    deps.dateProvider ?? new DateProvider(),
   );
 
   await archiver.start(opts.blockUntilSync);
