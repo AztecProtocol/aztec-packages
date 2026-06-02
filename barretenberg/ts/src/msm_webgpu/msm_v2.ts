@@ -534,7 +534,7 @@ interface SharedScratch {
   bufB: GPUBuffer;
   l0IdxBuf: GPUBuffer;
   bucketAndSignBuf: GPUBuffer;
-  valIdxBuf: GPUBuffer;
+  valIdxBuf: GPUBufferBinding;
   rowPtrBuf: GPUBuffer;
   planMeta: GPUBuffer;
   pairBlockPlanRing: [GPUBuffer, GPUBuffer];
@@ -551,7 +551,7 @@ interface SharedScratch {
   streamPlannerMeta: GPUBuffer;
   arenas: GPUBuffer[];              // one GPU buffer per arena colour (ARENA_LAYOUT.md §1); mkBind-only scratch carved at 256-B offsets
 
-  size1BucketList: GPUBuffer;
+  size1BucketList: GPUBufferBinding;
   denseBucketList: GPUBuffer;
   denseCountList: GPUBuffer;
   sortedBucketList: GPUBufferBinding;
@@ -566,14 +566,14 @@ interface SharedScratch {
   accBuf: GPUBuffer;
   streamPrefScratch: GPUBuffer;
   // Stream-walker buffers (Plan §3.1 + C's KNOB 2 variant).
-  taskCuts: GPUBuffer;              // (S+1) cut points/thread × 2 u32
+  taskCuts: GPUBufferBinding;       // arena slot — (S+1) cut points/thread × 2 u32
   walkerPartials: GPUBufferBinding; // arena slot — 2*S partial slots/thread (split-start + task-end)
   walkerPartialDest: GPUBuffer;     // bucket_id per partial slot (NO_BUCKET if unused)
   // Optimal walker_combine pipeline buffers.
-  partialCount: GPUBuffer;          // bTotal × atomic<u32> — partials per bucket
+  partialCount: GPUBufferBinding;   // arena slot — bTotal × atomic<u32> — partials per bucket
   partialOffset: GPUBufferBinding;  // arena slot — (bTotal+1) × u32 — exclusive prefix sum
   partialWritePos: GPUBuffer;       // bTotal × atomic<u32> — scatter scratch
-  partialLayout: GPUBuffer;         // max_partials × u32 — dense per-bucket slot indices
+  partialLayout: GPUBufferBinding;  // arena slot — max_partials × u32 — dense per-bucket slot indices
   activeBuckets: GPUBuffer;         // bTotal × u32 — filtered list of count>=2 bucket_ids
   activeCount: GPUBuffer;           // 1 × atomic<u32> — size of active_buckets
   // Counting-sort prepass: groups active_buckets by partial_count so each
@@ -726,7 +726,7 @@ export class MsmV2Pool {
       const s = this._scratch;
       total += s.arenas.reduce((acc, a) => acc + a.size, 0); // arena-resident buffers, counted once per arena
       total += s.bufA.size + s.bufB.size;
-      total += s.l0IdxBuf.size + s.bucketAndSignBuf.size + s.valIdxBuf.size;
+      total += s.l0IdxBuf.size + s.bucketAndSignBuf.size;
       total += s.rowPtrBuf.size + s.planMeta.size;
       total += s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size;
       total += s.scatterPlanRing[0].size + s.scatterPlanRing[1].size;
@@ -735,13 +735,13 @@ export class MsmV2Pool {
       total += s.offsetsBufs[0].size + s.offsetsBufs[1].size;
       total += s.prefScratchBuf.size + s.scalarsRawBuf.size;
       total += s.redBuf.size + s.isPresentBuf.size + s.reducePrefScratch.size;
-      total += s.streamPlannerMeta.size + s.size1BucketList.size;
+      total += s.streamPlannerMeta.size;
       total += s.denseBucketList.size + s.denseCountList.size;
       total += s.sortedCountList.size;
       total += s.cumulativeAdds.size;
       total += s.queueBuf.size + s.partialsBuf.size + s.partialBucketsList.size;
       total += s.accBuf.size + s.streamPrefScratch.size;
-      total += s.taskCuts.size + s.walkerPartialDest.size;
+      total += s.walkerPartialDest.size;
     }
     return total;
   }
@@ -820,10 +820,8 @@ export class MsmV2Pool {
     }
     if (!bucketAndSignBuf || dims.batchSlots > cur.batchSlots) {
       bucketAndSignBuf?.destroy();
-      valIdxBuf?.destroy();
       grow(true, 'batchSlots');
       bucketAndSignBuf = sbuf(cur.batchSlots * 4);
-      valIdxBuf = sbuf(cur.batchSlots * 4);
       grew = true;
     }
     if (!rowPtrBuf || dims.rowPtrLen > cur.rowPtrLen) {
@@ -972,6 +970,10 @@ export class MsmV2Pool {
     reqArena[4] = alignArena(512 * sT * sS) + alignArena(sBTotal * 4) + alignArena(MAX_STREAM_WORKGROUPS * 2 * 4);
     // A5: partialOffset + sortedActiveBuckets
     reqArena[5] = alignArena((sBTotal + 1) * 4) + alignArena(sBTotal * 4);
+    // A2: partialCount + partialLayout + size1BucketList + taskCuts + valIdxBuf
+    reqArena[2] =
+      alignArena(sBTotal * 4) + alignArena(2 * sT * sS * 4) + alignArena(sBTotal * 2 * 4) +
+      alignArena(sT * (sS + 1) * 2 * 4) + alignArena(cur.batchSlots * 4);
     if (!arenas || reqArena.some((r, c) => r > (arenas![c]?.size ?? 0))) {
       const prevArenas = arenas;
       arenas = reqArena.map((r, c) =>
@@ -1001,9 +1003,13 @@ export class MsmV2Pool {
     wgCuts = carve(4, MAX_STREAM_WORKGROUPS * 2 * 4);
     partialOffset = carve(5, (sBTotal + 1) * 4);
     sortedActiveBuckets = carve(5, sBTotal * 4);
+    partialCount = carve(2, sBTotal * 4);
+    partialLayout = carve(2, 2 * sT * sS * 4);
+    size1BucketList = carve(2, sBTotal * 2 * 4);
+    taskCuts = carve(2, sT * (sS + 1) * 2 * 4);
+    valIdxBuf = carve(2, cur.batchSlots * 4);
     if (!streamPlannerMeta || dims.bTotal > cur.bTotal || dims.streamNumThreads > cur.streamNumThreads) {
       streamPlannerMeta?.destroy();
-      size1BucketList?.destroy();
       denseBucketList?.destroy();
       denseCountList?.destroy();
       sortedCountList?.destroy();
@@ -1013,11 +1019,8 @@ export class MsmV2Pool {
       partialBucketsList?.destroy();
       accBuf?.destroy();
       streamPrefScratch?.destroy();
-      taskCuts?.destroy();
       walkerPartialDest?.destroy();
-      partialCount?.destroy();
       partialWritePos?.destroy();
-      partialLayout?.destroy();
       activeBuckets?.destroy();
       activeCount?.destroy();
       binOffsets?.destroy();
@@ -1043,7 +1046,6 @@ export class MsmV2Pool {
       grow(dims.streamQueueEntries > cur.streamQueueEntries, 'streamQueueEntries');
       grow(dims.streamRadixTiles > cur.streamRadixTiles, 'streamRadixTiles');
       streamPlannerMeta = ibuf(Math.max((20 + sT) * 4, 256));
-      size1BucketList = sbuf(sBTotal * 2 * 4);
       denseBucketList = sbuf(sBTotal * 4);
       denseCountList = sbuf(sBTotal * 4);
       sortedCountList = sbuf(sBTotal * 4);
@@ -1061,15 +1063,12 @@ export class MsmV2Pool {
       //   taskCuts:   (S+1) cut points/thread × 2 u32 = (sS+1) × 2 × 4 B/thread
       //   walkerPartials: 2*S slots/thread × PG × 2 vec4 (split-start + task-end)
       //   walkerPartialDest: 2*S u32/thread (bucket_id per partial slot)
-      taskCuts = sbuf(sT * (sS + 1) * 2 * 4);
       // walkerPartials = partials region (8*sT*sS vec4) + pref tail (2*sT*sS vec4)
       // = 10*sT*sS vec4 × 16 B = 160*sT*sS bytes. Coalesced pref layout requires
       // the pref tail to live in the same buffer.
       walkerPartialDest = sbuf(2 * sT * sS * 4);
       // Optimal combine pipeline buffers.
-      partialCount = sbuf(sBTotal * 4);
       partialWritePos = sbuf(sBTotal * 4);
-      partialLayout = sbuf(2 * sT * sS * 4);
       activeBuckets = sbuf(sBTotal * 4);
       activeCount = sbuf(4);
       // Counting-sort buffers. MAX_N = 64 (mirrors WGSL const).
@@ -1326,11 +1325,11 @@ export class MsmV2Pool {
     this.poolY.destroy();
     if (this._scratch) {
       const s = this._scratch;
+      s.arenas.forEach(a => a.destroy()); // arena-resident scratch (valIdxBuf, ptScratch, …)
       s.bufA.destroy();
       s.bufB.destroy();
       s.l0IdxBuf.destroy();
       s.bucketAndSignBuf.destroy();
-      s.valIdxBuf.destroy();
       s.rowPtrBuf.destroy();
       s.planMeta.destroy();
       s.pairBlockPlanRing[0].destroy();
@@ -2647,7 +2646,7 @@ export class MsmV2 {
     // there. Cleared once here too would just be redundant.
     clearSlot(enc, this.pool.scratch!.threadCuts);
     clearSlot(enc, this.pool.scratch!.walkerPartials);
-    enc.clearBuffer(this.pool.scratch!.taskCuts);
+    clearSlot(enc, this.pool.scratch!.taskCuts);
     // Pair-tree alloc counter — claims start from 0 each MSM (legacy v1 buf).
     enc.clearBuffer(this.pool.scratch!.ptAlloc);
     // Pair-tree v2 task counter — pt_dispatch_compute resets it each level,
@@ -2696,7 +2695,7 @@ export class MsmV2 {
       enc.clearBuffer(this.pool.scratch!.cumulativeAdds);
       // walker_combine atomic counters — must be per-batch, not per-MSM.
       // See note above the batch loop for the failure mode if cumulative.
-      enc.clearBuffer(this.pool.scratch!.partialCount);
+      clearSlot(enc, this.pool.scratch!.partialCount);
       enc.clearBuffer(this.pool.scratch!.partialWritePos);
       enc.clearBuffer(this.pool.scratch!.activeCount);
       clearSlot(enc, this.pool.scratch!.countHistogram);
