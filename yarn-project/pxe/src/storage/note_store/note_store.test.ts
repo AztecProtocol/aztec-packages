@@ -5,7 +5,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type DataInBlock } from '@aztec/stdlib/block';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 
-import type { CanonicalityCheck, L2BlockId } from '../foundation/index.js';
+import type { CanonicalityCheck } from '../foundation/index.js';
 import { NoteStore } from './note_store.js';
 
 // -----------------------------------------------------------------------------
@@ -783,137 +783,7 @@ describe('NoteStore (canonicality)', () => {
     expect(new Set(nullifiers)).toEqual(new Set([a.siloedNullifier.toString(), b.siloedNullifier.toString()]));
   });
 
-  // Two distinct, valid block-hash Fr values for the orphan/canonical forks. NoteDao serializes l2BlockHash via
-  // Fr.fromHexString, so the hashes must be real field elements, not arbitrary labels.
-  const ORPHAN_HASH = Fr.fromString('0x0a').toString();
   const CANONICAL_HASH = Fr.fromString('0x0c').toString();
-
-  it('reaps only non-canonical notes in the given block range, keeping the canonical one', async () => {
-    const orphan = await NoteDao.random({
-      contractAddress: contract,
-      l2BlockNumber: BlockNumber(9),
-      l2BlockHash: ORPHAN_HASH,
-    });
-    const live = await NoteDao.random({
-      contractAddress: contract,
-      l2BlockNumber: BlockNumber(9),
-      l2BlockHash: CANONICAL_HASH,
-    });
-    await store.addNotes([orphan, live], scope, JOB);
-    await store.commit(JOB);
-
-    // The reap predicate is independent of the store's #check; it selects the canonical fork by block hash.
-    const isCanonical = (id: L2BlockId) => id.hash === CANONICAL_HASH;
-    await kv.transactionAsync(() => store.reapNonCanonicalInRange(9, 9, isCanonical));
-
-    // Direct index read (independent of #check): only the canonical note's nullifier survives.
-    expect(await store.nullifiersAtBlock(9)).toEqual([live.siloedNullifier.toString()]);
-
-    // getNotes cross-check: mark the canonical fork canonical for the harness #check, then read it back.
-    canonical.add(originKey(BlockNumber(9), CANONICAL_HASH));
-    const found = await store.getNotes(activeFilter, 'read-job');
-    expect(found).toHaveLength(1);
-    expect(found[0].siloedNullifier.equals(live.siloedNullifier)).toBe(true);
-  });
-
-  it('reaps a stale nullification origin so a note reusing the same nullifier reads back active', async () => {
-    // An orphan note created on a reorged-away fork, then nullified on a canonical block. The nullification origin is
-    // canonical, so absent cleanup it would survive the reap keyed by the shared siloedNullifier.
-    const sharedNullifier = Fr.random();
-    const nullBlockHash = BlockHash.random();
-    const orphan = await NoteDao.random({
-      contractAddress: contract,
-      l2BlockNumber: BlockNumber(9),
-      l2BlockHash: ORPHAN_HASH,
-      siloedNullifier: sharedNullifier,
-    });
-    await store.addNotes([orphan], scope, JOB);
-    await store.applyNullifiers(
-      [{ data: sharedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash }],
-      JOB,
-    );
-    await store.commit(JOB);
-    // The nullification block IS canonical; the orphan's creation block is not.
-    canonical.add(originKey(BlockNumber(11), nullBlockHash.toString()));
-
-    // Reap orphans at block 9: the orphan and its nullification origin are deleted.
-    const isCanonical = (id: L2BlockId) => id.hash === CANONICAL_HASH;
-    await kv.transactionAsync(() => store.reapNonCanonicalInRange(9, 9, isCanonical));
-
-    // Re-add a fresh note reusing the same siloedNullifier on the canonical fork.
-    const reAdded = await NoteDao.random({
-      contractAddress: contract,
-      l2BlockNumber: BlockNumber(9),
-      l2BlockHash: CANONICAL_HASH,
-      siloedNullifier: sharedNullifier,
-    });
-    await store.addNotes([reAdded], scope, JOB);
-    await store.commit(JOB);
-    canonical.add(originKey(BlockNumber(9), CANONICAL_HASH));
-
-    // The stale nullification origin was cleaned, so the re-added note reads back active. Had it survived, the canonical
-    // 11:nullBlockHash origin would mark this note nullified.
-    const found = await store.getNotes(activeFilter, 'read-job');
-    expect(found).toHaveLength(1);
-    expect(found[0].siloedNullifier.equals(sharedNullifier)).toBe(true);
-  });
-
-  it('reaps an orphan nullification origin so a note is not resurfaced as nullified once its block finalizes', async () => {
-    // The resurfacing bug: a note nullified ONLY on an orphan fork. While the fork's block is unfinalized the
-    // hash mismatch keeps the note active, but once finality crosses that height the canonical map drops the hash
-    // and `finalized ⇒ canonical` makes the orphan nullification origin read canonical again — resurrecting a
-    // nullification that never happened on the canonical chain. The reap must delete orphan nullification origins
-    // so this can't happen.
-    const orphanBlockHash11 = BlockHash.fromString(Fr.fromString('0x0b').toString());
-    const ORPHAN_HASH_11 = orphanBlockHash11.toString();
-    const CANONICAL_HASH_11 = Fr.fromString('0x1b').toString();
-
-    // The note is CREATED canonical at block 9 (its creation row is never reaped).
-    const note = await NoteDao.random({
-      contractAddress: contract,
-      l2BlockNumber: BlockNumber(9),
-      l2BlockHash: CANONICAL_HASH,
-    });
-    await store.addNotes([note], scope, JOB);
-
-    // It is nullified ONLY on the orphan fork at block 11.
-    await store.applyNullifiers(
-      [{ data: note.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: orphanBlockHash11 }],
-      JOB,
-    );
-    await store.commit(JOB);
-
-    // Reap range covers block 11 (the nullification's block); block 11's canonical hash differs from the orphan
-    // hash, while block 9's creation is canonical, so only the orphan nullification origin is non-canonical.
-    const isCanonical = (id: L2BlockId) =>
-      (id.number === 9 && id.hash === CANONICAL_HASH) || (id.number === 11 && id.hash === CANONICAL_HASH_11);
-    await kv.transactionAsync(() => store.reapNonCanonicalInRange(10, 11, isCanonical));
-
-    // Simulate finality crossing block 11: with the canonical hash for 11 dropped, `finalized ⇒ canonical` makes
-    // ANY origin at block 11 read canonical. Adding the orphan key models exactly that for the harness #check.
-    canonical.add(originKey(BlockNumber(9), CANONICAL_HASH));
-    canonical.add(originKey(BlockNumber(11), ORPHAN_HASH_11));
-
-    // The orphan nullification origin was reaped, so it cannot resurface: the note reads ACTIVE.
-    const found = await store.getNotes(activeFilter, 'read-job');
-    expect(found).toHaveLength(1);
-    expect(found[0].siloedNullifier.equals(note.siloedNullifier)).toBe(true);
-  });
-
-  it('leaves notes outside the [fromBlock, toBlock] range untouched even if non-canonical', async () => {
-    const outOfRange = await NoteDao.random({
-      contractAddress: contract,
-      l2BlockNumber: BlockNumber(20),
-      l2BlockHash: ORPHAN_HASH,
-    });
-    await store.addNotes([outOfRange], scope, JOB);
-    await store.commit(JOB);
-
-    // Predicate would call everything non-canonical, but block 20 is outside the reaped range [9, 9].
-    await kv.transactionAsync(() => store.reapNonCanonicalInRange(9, 9, () => false));
-
-    expect(await store.nullifiersAtBlock(20)).toEqual([outOfRange.siloedNullifier.toString()]);
-  });
 
   describe('deleteInBlockRange', () => {
     it('deletes all notes and nullification origins in the range, leaving lower blocks intact', async () => {

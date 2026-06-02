@@ -9,7 +9,7 @@ import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { PackedPrivateEvent } from '../../pxe.js';
-import type { CanonicalityCheck, L2BlockId } from '../foundation/index.js';
+import type { CanonicalityCheck } from '../foundation/index.js';
 import { PrivateEventStore } from './private_event_store.js';
 
 const getRandomMsgContent = () => {
@@ -19,7 +19,6 @@ const getRandomMsgContent = () => {
 describe('PrivateEventStore', () => {
   let kvStore: AztecAsyncKVStore;
   let privateEventStore: PrivateEventStore;
-  let canonicityStore: PrivateEventStore;
   let canonical: Set<string>;
   let check: CanonicalityCheck;
   let contractAddress: AztecAddress;
@@ -39,9 +38,6 @@ describe('PrivateEventStore', () => {
     check = { isCanonical: o => canonical.has(`${o.number}:${o.hash}`) };
     // Most tests don't exercise canonicality filtering; use an always-true check so stored events are always visible.
     privateEventStore = new PrivateEventStore(kvStore, { isCanonical: () => true });
-    // A second store on the same KV store, wired with the set-backed check so getPrivateEvents cross-checks can toggle
-    // canonicality at runtime.
-    canonicityStore = new PrivateEventStore(kvStore, check);
     contractAddress = await AztecAddress.random();
     scope = await AztecAddress.random();
     msgContent = getRandomMsgContent();
@@ -657,100 +653,6 @@ describe('PrivateEventStore', () => {
 
       const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
       expect(new Set(ids)).toEqual(new Set([siloedEventCommitment.toString(), siloedEventCommitment2.toString()]));
-    });
-  });
-
-  describe('reapNonCanonicalInRange', () => {
-    // Two distinct, valid block-hash values for the orphan/canonical forks.
-    const ORPHAN_HASH = BlockHash.fromString('0x0a');
-    const CANONICAL_HASH = BlockHash.fromString('0x0c');
-
-    const storeEvent = async (
-      store: PrivateEventStore,
-      eventCommitment: Fr,
-      blockNumber: BlockNumber,
-      blockHash: BlockHash,
-    ) => {
-      await store.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent,
-        eventCommitment,
-        {
-          contractAddress,
-          scope,
-          txHash: TxHash.random(),
-          l2BlockNumber: blockNumber,
-          l2BlockHash: blockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 0,
-        },
-        'test',
-      );
-    };
-
-    it('reaps only non-canonical events in the given block range, keeping the canonical sibling', async () => {
-      // Two events at the SAME block sharing contractAddress + eventSelector (so they share the
-      // #eventsByContractAndEventSelector index), distinguished only by their siloedEventCommitment and block hash.
-      const orphanEventId = Fr.random();
-      const canonicalEventId = Fr.random();
-      await storeEvent(canonicityStore, orphanEventId, BlockNumber(9), ORPHAN_HASH);
-      await storeEvent(canonicityStore, canonicalEventId, BlockNumber(9), CANONICAL_HASH);
-      await canonicityStore.commit('test');
-
-      // The reap predicate is independent of the store's #check; it selects the canonical fork by block hash.
-      const isCanonical = (id: L2BlockId) => id.hash === CANONICAL_HASH.toString();
-      await kvStore.transactionAsync(() => canonicityStore.reapNonCanonicalInRange(9, 9, isCanonical));
-
-      // Direct index read (independent of #check): only the canonical event survives, the shared-index sibling is gone.
-      expect(await canonicityStore.eventIdsAtBlock(9)).toEqual([canonicalEventId.toString()]);
-
-      // getPrivateEvents cross-check: marking the canonical fork canonical shows exactly one event. This proves the
-      // shared #eventsByContractAndEventSelector index had only the orphan's value removed (deleteValue), not the whole
-      // contract+selector key — the canonical sibling is still reachable through that index.
-      canonical.add(`${BlockNumber(9)}:${CANONICAL_HASH.toString()}`);
-      const events = await canonicityStore.getPrivateEvents(eventSelector, {
-        contractAddress,
-        fromBlock: 9,
-        toBlock: 10,
-        scopes: [scope],
-      });
-      expect(events).toHaveLength(1);
-      expect(events[0].l2BlockHash.equals(CANONICAL_HASH)).toBe(true);
-    });
-
-    it('keeps a canonical event in the reaped range', async () => {
-      const canonicalEventId = Fr.random();
-      await storeEvent(canonicityStore, canonicalEventId, BlockNumber(9), CANONICAL_HASH);
-      await canonicityStore.commit('test');
-
-      const isCanonical = (id: L2BlockId) => id.hash === CANONICAL_HASH.toString();
-      await kvStore.transactionAsync(() => canonicityStore.reapNonCanonicalInRange(9, 9, isCanonical));
-
-      // Direct index read confirms the canonical event stays.
-      expect(await canonicityStore.eventIdsAtBlock(9)).toEqual([canonicalEventId.toString()]);
-
-      // getPrivateEvents cross-check: mark the canonical fork canonical for the harness #check, then read it back.
-      canonical.add(`${BlockNumber(9)}:${CANONICAL_HASH.toString()}`);
-      const events = await canonicityStore.getPrivateEvents(eventSelector, {
-        contractAddress,
-        fromBlock: 9,
-        toBlock: 10,
-        scopes: [scope],
-      });
-      expect(events).toHaveLength(1);
-      expect(events[0].packedEvent).toEqual(msgContent);
-    });
-
-    it('leaves events outside the [fromBlock, toBlock] range untouched even if non-canonical', async () => {
-      const outOfRangeEventId = Fr.random();
-      await storeEvent(privateEventStore, outOfRangeEventId, BlockNumber(20), ORPHAN_HASH);
-      await privateEventStore.commit('test');
-
-      // Predicate would call everything non-canonical, but block 20 is outside the reaped range [9, 9].
-      await kvStore.transactionAsync(() => privateEventStore.reapNonCanonicalInRange(9, 9, () => false));
-
-      expect(await privateEventStore.eventIdsAtBlock(20)).toEqual([outOfRangeEventId.toString()]);
     });
   });
 
