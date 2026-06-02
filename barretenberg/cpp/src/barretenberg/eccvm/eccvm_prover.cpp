@@ -39,7 +39,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcri
  */
 void ECCVMProver::execute_preamble_round()
 {
-    using VerificationKey = typename Flavor::VerificationKey;
+    using VerificationKey = Flavor::VerificationKey;
 
     // Fiat-Shamir the vk hash
     VerificationKey vk;

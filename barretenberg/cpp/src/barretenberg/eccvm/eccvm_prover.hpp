@@ -18,24 +18,23 @@
 
 namespace bb {
 
-// The prover always runs sumcheck with the short-monomial flavor (faster sumcheck); it produces a proof and VK
-// identical to the legacy ECCVMFlavor, which the native and recursive verifiers consume.
+// The prover always runs sumcheck with the short-monomial flavor (faster sumcheck).
 class ECCVMProver {
   public:
-    using Flavor = ECCVMShortMonomialFlavor;
-    using FF = typename Flavor::FF;
-    using BF = typename Flavor::BF;
-    using Commitment = typename Flavor::Commitment;
-    using CommitmentKey = typename Flavor::CommitmentKey;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using Polynomial = typename Flavor::Polynomial;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Transcript = typename Flavor::Transcript;
+    using Flavor = ECCVMFlavor;
+    using FF = Flavor::FF;
+    using BF = Flavor::BF;
+    using Commitment = Flavor::Commitment;
+    using CommitmentKey = Flavor::CommitmentKey;
+    using ProvingKey = Flavor::ProvingKey;
+    using Polynomial = Flavor::Polynomial;
+    using CommitmentLabels = Flavor::CommitmentLabels;
+    using Transcript = Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations_<FF>;
-    using CircuitBuilder = typename Flavor::CircuitBuilder;
+    using CircuitBuilder = Flavor::CircuitBuilder;
     using ZKData = ZKSumcheckData<Flavor>;
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
-    using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
+    using OpeningClaim = ProverOpeningClaim<Flavor::Curve>;
     using Proof = HonkProof;
 
     explicit ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript);
@@ -58,7 +57,7 @@ class ECCVMProver {
 
     // Final ShplonkProver consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`
-    static constexpr size_t NUM_OPENING_CLAIMS = Flavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
+    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
     std::array<OpeningClaim, NUM_OPENING_CLAIMS> opening_claims;
 
     TranslationEvaluations translation_evaluations;
