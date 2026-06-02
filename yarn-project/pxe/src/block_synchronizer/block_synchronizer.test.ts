@@ -284,6 +284,10 @@ describe('BlockSynchronizer', () => {
       await storeEvent(eventIdB, HASH_B);
       await privateEventStore.commit('event-job');
 
+      // Confirm the seeds landed before the event, so the post-event assertion is a genuine no-change check.
+      expect(await noteStore.nullifiersAtBlock(9)).toHaveLength(2);
+      expect(await privateEventStore.eventIdsAtBlock(9)).toHaveLength(2);
+
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',
         block: { number: BlockNumber(9), hash: HASH_A },
