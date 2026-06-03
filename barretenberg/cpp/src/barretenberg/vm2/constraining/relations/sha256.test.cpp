@@ -743,7 +743,7 @@ TEST(Sha256MemoryConstrainingTest, InputAddrTamperingIsCaughtByConstraint)
     // Step 4: Verify the CONTINUITY_INPUT_ADDR constraint catches the tampering
     // The constraint enforces: input_addr' = input_addr + sel_is_input_round
     EXPECT_THROW_WITH_MESSAGE(check_relation<sha256_mem>(trace, sha256_mem::SR_CONTINUITY_INPUT_ADDR),
-                              "CONTINUITY_INPUT_ADDR");
+                              sha256_mem::get_subrelation_label(sha256_mem::SR_CONTINUITY_INPUT_ADDR));
 }
 
 //////////////////////////////////////////
@@ -814,7 +814,8 @@ TEST(Sha256ConstrainingTest, InitStateTamperingIsCaughtByPropagationConstraint)
     // The PROPAGATE_INIT_A constraint should catch this:
     // perform_round * (init_a' - init_a) = 0
     // On row 0: perform_round=1, init_a'=tampered, init_a=original -> constraint violated
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_PROPAGATE_INIT_A), "PROPAGATE_INIT_A");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_PROPAGATE_INIT_A),
+                              sha256::get_subrelation_label(sha256::SR_PROPAGATE_INIT_A));
 }
 
 //////////////////////////////////////////
@@ -867,7 +868,8 @@ TEST(Sha256ConstrainingTest, RoundsRemainingInitTamperingIsCaught)
     // Tamper with rounds_remaining on the start row: set it to 50 instead of 64.
     trace.set(C::sha256_rounds_remaining, START_ROW, FF(50));
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_ROUNDS_REM_INIT), "ROUNDS_REM_INIT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_ROUNDS_REM_INIT),
+                              sha256::get_subrelation_label(sha256::SR_ROUNDS_REM_INIT));
 }
 
 // Verifies that ROUNDS_REM_DECREMENT (perform_round * (rounds_remaining - rounds_remaining' - 1) = 0)
@@ -916,7 +918,8 @@ TEST(Sha256ConstrainingTest, RoundsRemainingDecrementTamperingIsCaught)
     FF original = trace.get(C::sha256_rounds_remaining, TAMPER_ROW);
     trace.set(C::sha256_rounds_remaining, TAMPER_ROW, original - FF(1));
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_ROUNDS_REM_DECREMENT), "ROUNDS_REM_DECREMENT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<sha256>(trace, sha256::SR_ROUNDS_REM_DECREMENT),
+                              sha256::get_subrelation_label(sha256::SR_ROUNDS_REM_DECREMENT));
 }
 
 } // namespace

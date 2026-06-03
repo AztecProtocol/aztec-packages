@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -122,6 +121,7 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_IS_STATIC_ON_SEL:
             return "IS_STATIC_ON_SEL";
@@ -284,6 +284,7 @@ template <typename FF> class context : public Relation<contextImpl<FF>> {
         case SR_L1_L2_TREE_ROOT_CONTINUITY:
             return "L1_L2_TREE_ROOT_CONTINUITY";
         }
+#endif
         return std::to_string(index);
     }
 };

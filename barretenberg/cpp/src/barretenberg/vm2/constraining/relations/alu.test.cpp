@@ -138,7 +138,8 @@ TEST_F(AluConstrainingTest, NegativeAluWrongOpId)
         },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_DISPATCH_OPERATION), "DISPATCH_OPERATION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_DISPATCH_OPERATION),
+                              alu::get_subrelation_label(alu::SR_DISPATCH_OPERATION));
 }
 
 // Two operation selectors active on the same row must violate the mutual exclusion of the operations.
@@ -153,7 +154,7 @@ TEST_F(AluConstrainingTest, NegativeAluTwoOperationsActive)
     });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_EXACTLY_ONE_OPERATION_ACTIVE),
-                              "EXACTLY_ONE_OPERATION_ACTIVE");
+                              alu::get_subrelation_label(alu::SR_EXACTLY_ONE_OPERATION_ACTIVE));
 }
 
 // On an inactive row (sel == 0), no operation selector may be toggled.
@@ -167,7 +168,7 @@ TEST_F(AluConstrainingTest, NegativeAluOperationActiveOnInactiveRow)
     });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_EXACTLY_ONE_OPERATION_ACTIVE),
-                              "EXACTLY_ONE_OPERATION_ACTIVE");
+                              alu::get_subrelation_label(alu::SR_EXACTLY_ONE_OPERATION_ACTIVE));
 }
 
 // ADD TESTS
@@ -346,7 +347,7 @@ TEST_P(AluAddConstrainingTest, NegativeBasicAdd)
     auto trace = process_basic_add_trace(GetParam());
     check_relation<alu>(trace);
     trace.set(Column::alu_ic, 0, trace.get(Column::alu_ic, 0) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ALU_ADD_SUB));
 }
 
 TEST_P(AluAddConstrainingTest, NegativeAluCarryAdd)
@@ -362,12 +363,12 @@ TEST_P(AluAddConstrainingTest, NegativeAluCarryAdd)
     if (!is_ff) {
         trace.set(Column::alu_cf, 0, 0);
         // If we are overflowing, we need to set the carry flag...
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ALU_ADD_SUB));
 
         trace.set(Column::alu_cf, 0, 1);
         trace.set(Column::alu_max_value, 0, 0);
         // ...and the correct max_value:
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ALU_ADD_SUB));
         EXPECT_THROW_WITH_MESSAGE(check_all_interactions<AluTraceBuilder>(trace), "LOOKUP_ALU_TAG_MAX_BITS_VALUE");
         trace.set(Column::alu_max_value, 0, correct_max_value);
     }
@@ -375,7 +376,7 @@ TEST_P(AluAddConstrainingTest, NegativeAluCarryAdd)
     // TODO(MW): The below should fail the range check on c in memory, but we cannot test this yet.
     // Instead, we assume the carry flag is correct and show an overflow fails:
     trace.set(Column::alu_ic, 0, correct_max_value + 2);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ALU_ADD_SUB));
 }
 
 TEST_P(AluAddConstrainingTest, NegativeAddWrongTagABMismatch)
@@ -388,22 +389,22 @@ TEST_P(AluAddConstrainingTest, NegativeAddWrongTagABMismatch)
     trace.set(Column::alu_ab_tags_diff_inv, 0, 1);
     trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     // If we set the mismatch error, we need to make sure the ALU tag error selector is correct:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_TAG_ERR_CHECK));
     trace.set(Column::alu_sel_tag_err, 0, 1);
     // If we set one error, we need to make sure the overall ALU error selector is correct:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ERR_CHECK));
     trace.set(Column::alu_sel_err, 0, 1);
     // Though the tags don't match, with error handling we can return the error rather than fail:
     check_relation<alu>(trace);
     // Correctly using the error, but injecting the wrong inverse will fail:
     trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_AB_TAGS_CHECK));
     trace.set(Column::alu_ab_tags_diff_inv, 0, 1);
     // Correcting the inverse, but removing the error will fail:
     trace.set(Column::alu_sel_ab_tag_mismatch, 0, 0);
     trace.set(Column::alu_sel_tag_err, 0, 0);
     trace.set(Column::alu_sel_err, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_AB_TAGS_CHECK));
 }
 
 TEST_P(AluAddConstrainingTest, NegativeAddTraceGenWrongTagABMismatch)
@@ -423,7 +424,7 @@ TEST_P(AluAddConstrainingTest, NegativeAddWrongTagCMismatch)
     auto trace = process_basic_add_trace(params);
     check_relation<alu>(trace);
     trace.set(Column::alu_ic_tag, 0, tag - 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "C_TAG_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_C_TAG_CHECK));
 }
 
 // SUB TESTS
@@ -531,7 +532,7 @@ TEST_P(AluSubConstrainingTest, AluSubNegative)
     auto c = trace.get(Column::alu_ic, 0);
 
     trace.set(Column::alu_ic, 0, c + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ALU_ADD_SUB));
 
     trace.set(Column::alu_ic, 0, c);
     check_relation<alu>(trace);
@@ -539,7 +540,7 @@ TEST_P(AluSubConstrainingTest, AluSubNegative)
     // We get the correct underflowed result 'for free' with FF whether cf is on or not
     if (!is_ff) {
         trace.set(Column::alu_cf, 0, trace.get(Column::alu_cf, 0) == 1 ? 0 : 1);
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD_SUB");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ALU_ADD_SUB));
     }
 }
 
@@ -769,7 +770,7 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
     // Below = (a * b mod p) mod 2^128
     auto should_fail_overflowed = MemoryValue::from_tag_truncating(MemoryTag::U128, a.as_ff() * b.as_ff());
     trace.set(Column::alu_ic, 0, should_fail_overflowed);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_MUL_U128");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ALU_MUL_U128));
 }
 
 TEST_P(AluMulConstrainingTest, NegativeAluMul)
@@ -779,7 +780,10 @@ TEST_P(AluMulConstrainingTest, NegativeAluMul)
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
     trace.set(Column::alu_ic, 0, trace.get(Column::alu_ic, 0) + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_MUL");
+    // U128 multiplication is constrained by a dedicated subrelation; all other tags share another.
+    auto expected_subrelation =
+        std::get<0>(GetParam()).get_tag() == MemoryTag::U128 ? alu::SR_ALU_MUL_U128 : alu::SR_ALU_MUL_NON_U128;
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(expected_subrelation));
 }
 
 // DIV TESTS
@@ -1043,14 +1047,14 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
     trace.set(Column::alu_helper1, 0, wrong_remainder);
 
     // ...but we haven't provided a correct decomposition of the new bad c:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DECOMPOSITION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_A_DECOMPOSITION));
 
     auto c_decomp = simulation::decompose_128(c.as<uint128_t>());
     trace.set(Column::alu_a_lo, 0, c_decomp.lo);
     trace.set(Column::alu_a_hi, 0, c_decomp.hi);
 
     // Setting the decomposed values still (correctly) fails:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_DIV_U128");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ALU_DIV_U128_CHECK));
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
@@ -1069,11 +1073,11 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
         trace.set(Column::alu_ib, 0, 0);
         trace.set(Column::alu_b_inv, 0, 0);
         // ...and since we haven't set the error correctly, we expect the below to fail:
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_DIV_0_ERR));
         // We need to set the div_0_err and...
         trace.set(Column::alu_sel_div_0_err, 0, 1);
         trace.set(Column::alu_sel_div_no_err, 0, 0);
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ERR_CHECK));
         // ...the overall sel_err:
         trace.set(Column::alu_sel_err, 0, 1);
         trace.set(Column::alu_sel_int_gt, 0, 0);
@@ -1086,7 +1090,8 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
         trace.set(Column::alu_sel_op_div, 0, 0);
         trace.set(Column::alu_sel_op_mul, 0, 1);
         trace.set(Column::alu_op_id, 0, AVM_EXEC_OP_ID_ALU_MUL);
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace),
+                                  alu::get_subrelation_label(alu::SR_ONLY_RELEVANT_CHECK_DIV_0_ERR_ERROR));
 
         trace.set(Column::alu_sel_op_div, 0, 1);
         trace.set(Column::alu_sel_op_mul, 0, 0);
@@ -1096,7 +1101,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
         // If we try and set b != 0 with div_0_err on, the below should fail:
         trace.set(Column::alu_ib, 0, b);
         trace.set(Column::alu_b_inv, 0, b.as_ff().invert());
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_DIV_0_ERR));
     }
 }
 
@@ -1106,7 +1111,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivFF)
     auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
     auto c = a / b;
     auto trace = process_div_with_tracegen({ a, b, c });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_TAG_ERR_CHECK));
     // This case should be recoverable, so we set the tag err selectors:
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_sel_err, 0, 1);
@@ -1138,7 +1143,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFF)
     // Set b, b_inv to 0 with dividing by 0 errors:
     trace.set(Column::alu_ib, 0, 0);
     trace.set(Column::alu_b_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_DIV_0_ERR));
     trace.set(Column::alu_sel_div_0_err, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
@@ -1162,7 +1167,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
     check_relation<alu>(trace);
     // Setting b to u8 also creates a tag mismatch:
     trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(MemoryTag::U8));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_AB_TAGS_CHECK));
     trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     trace.set(Column::alu_ab_tags_diff_inv,
               0,
@@ -1171,7 +1176,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
     // We can also handle dividing by 0:
     trace.set(Column::alu_ib, 0, 0);
     trace.set(Column::alu_b_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_DIV_0_ERR));
     trace.set(Column::alu_sel_div_0_err, 0, 1);
     trace.set(Column::alu_sel_div_no_err, 0, 0);
     check_relation<alu>(trace);
@@ -1326,10 +1331,10 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZero)
     trace.set(Column::alu_ib, 0, 0);
     trace.set(Column::alu_b_inv, 0, 0);
     // ...and since we haven't set the error correctly, we expect the below to fail:
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_DIV_0_ERR));
     // We need to set the div_0_err and...
     trace.set(Column::alu_sel_div_0_err, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_ERR_CHECK));
     // ...the overall sel_err:
     trace.set(Column::alu_sel_err, 0, 1);
     check_relation<alu>(trace);
@@ -1337,7 +1342,7 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZero)
     // If we try and set b != 0 with div_0_err on, the below should fail:
     trace.set(Column::alu_ib, 0, b);
     trace.set(Column::alu_b_inv, 0, b.as_ff().invert());
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_DIV_0_ERR));
 }
 
 TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
@@ -1389,12 +1394,12 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
     // We un-toggle sel_tag_err and sel_err and expect the following failure:
     trace.set(Column::alu_sel_tag_err, 0, 0);
     trace.set(Column::alu_sel_err, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_TAG_ERR_CHECK));
 
     // We try to cheat by setting the tag diff inverse to 0 and claiming a is FF, but expect the following failure:
     trace.set(Column::alu_tag_ff_diff_inv, 0, 0);
     trace.set(Column::alu_sel_is_ff, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_IS_FF");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_TAG_IS_FF));
 
     // Reset to the correct values:
     trace.set(Column::alu_tag_ff_diff_inv, 0, (FF(tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert());
@@ -1406,7 +1411,7 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
     // For FDIV, we can have both FF and dividing by zero errors:
     trace.set(Column::alu_ib, 0, 0);
     trace.set(Column::alu_b_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_DIV_0_ERR));
     trace.set(Column::alu_sel_div_0_err, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
@@ -1415,7 +1420,7 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
 
     // Setting b to u16 also creates a tag mismatch we can handle with the same selectors:
     trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(MemoryTag::U16));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_AB_TAGS_CHECK));
     trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     trace.set(Column::alu_ab_tags_diff_inv, 0, (FF(tag) - FF(static_cast<uint8_t>(MemoryTag::U16))).invert());
     check_relation<alu>(trace);
@@ -1480,7 +1485,7 @@ TEST_P(AluEQConstrainingTest, NegativeAluEqResult)
         bool c = trace.get(Column::alu_ic, 0) == 1;
         // Swap the result bool:
         trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "EQ_OP_MAIN");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_EQ_OP_MAIN));
     }
 }
 
@@ -1492,7 +1497,7 @@ TEST_P(AluEQConstrainingTest, NegativeAluEqHelper)
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     auto ab_diff_inv = trace.get(Column::alu_ab_diff_inv, 0);
     trace.set(Column::alu_ab_diff_inv, 0, ab_diff_inv + 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "EQ_OP_MAIN");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_EQ_OP_MAIN));
 }
 
 // LT TESTS
@@ -1620,7 +1625,7 @@ TEST_P(AluLTConstrainingTest, NegativeAluLT)
     bool c = trace.get(Column::alu_ic, 0) == 1;
     // Swap the result bool:
     trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "GT_ASSIGN_RESULT_C");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_GT_ASSIGN_RESULT_C));
     trace.set(Column::alu_gt_result_c, 0, static_cast<uint8_t>(!c));
 
     if (is_ff) {
@@ -1772,7 +1777,7 @@ TEST_P(AluLTEConstrainingTest, NegativeAluLTEResult)
         bool c = trace.get(Column::alu_ic, 0) == 1;
         // Swap the result bool:
         trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "GT_ASSIGN_RESULT_C");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_GT_ASSIGN_RESULT_C));
         trace.set(Column::alu_gt_result_c, 0, static_cast<uint8_t>(c));
 
         if (is_ff) {
@@ -1869,7 +1874,7 @@ TEST_P(AluNotConstrainingTest, NegativeAluNotTraceGen)
     trace.set(Column::alu_ib, 0, trace.get(Column::alu_ib, 0) + 1); // Mutate output
     // The FF case <==> tag_err for NOT, so NOT_OP_MAIN is gated:
     if (std::get<0>(params).get_tag() != MemoryTag::FF) {
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "NOT_OP_MAIN");
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_NOT_OP_MAIN));
     }
 }
 
@@ -1881,7 +1886,8 @@ TEST_P(AluNotConstrainingTest, AluNotTraceGenTagError)
         TwoOperandTestParams{ a, MemoryValue::from_tag(TAG_ERROR_TEST_VALUES.at(b.get_tag()), b.as_ff()) }, true);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ONLY_RELEVANT_CHECK_AB_TAGS_ERROR");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace),
+                              alu::get_subrelation_label(alu::SR_ONLY_RELEVANT_CHECK_AB_TAGS_ERROR));
 }
 
 // Supported TAG error when a is of FF type.
@@ -2041,7 +2047,7 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlFF)
     // Disable tag and error selectors:
     trace.set(Column::alu_sel_tag_err, 0, 0);
     trace.set(Column::alu_sel_err, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_TAG_ERR_CHECK));
 }
 
 TEST_F(AluShlConstrainingTest, NegativeAluShlTagMismatchOverflow)
@@ -2058,18 +2064,18 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlTagMismatchOverflow)
     trace.set(Column::alu_sel_err, 0, 0);
     // Disable ab tag mismatch error:
     trace.set(Column::alu_sel_ab_tag_mismatch, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_AB_TAGS_CHECK));
 
     // Second attempt with setting the ab tags diff inverse to zero:
     trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_AB_TAGS_CHECK));
 
     // Reset only ab tag diff related columns:
     trace.set(Column::alu_ab_tags_diff_inv,
               0,
               (FF(static_cast<uint8_t>(MemoryTag::U8)) - FF(static_cast<uint8_t>(MemoryTag::U32))).invert());
     trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_TAG_ERR_CHECK));
 }
 
 // SHR TESTS
@@ -2218,7 +2224,7 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrFF)
     // Disable tag and error selectors:
     trace.set(Column::alu_sel_tag_err, 0, 0);
     trace.set(Column::alu_sel_err, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_TAG_ERR_CHECK));
 }
 
 TEST_F(AluShrConstrainingTest, NegativeAluShrTagMismatchOverflow)
@@ -2234,18 +2240,18 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrTagMismatchOverflow)
     trace.set(Column::alu_sel_err, 0, 0);
     // Disable ab tag mismatch error:
     trace.set(Column::alu_sel_ab_tag_mismatch, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_AB_TAGS_CHECK));
 
     // Second attempt with setting the ab tags diff inverse to zero:
     trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_AB_TAGS_CHECK));
 
     // Reset only ab tag diff related columns:
     trace.set(Column::alu_ab_tags_diff_inv,
               0,
               (FF(static_cast<uint8_t>(MemoryTag::U16)) - FF(static_cast<uint8_t>(MemoryTag::U64))).invert());
     trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_TAG_ERR_CHECK));
 }
 
 // TRUNCATE operation (SET/CAST opcodes)
@@ -2421,10 +2427,10 @@ TEST_P(AluTruncateConstrainingTest, NegativeTruncateWrongTrivialCase)
     check_relation<alu>(trace);
     bool is_trivial = trace.get(Column::alu_sel_trunc_trivial, 0) == 1;
     trace.set(Column::alu_sel_trunc_trivial, 0, static_cast<uint8_t>(!is_trivial));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "SEL_TRUNC");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_SEL_TRUNCATE));
     trace.set(Column::alu_sel_trunc_trivial, 0, static_cast<uint8_t>(is_trivial));
     trace.set(Column::alu_sel_trunc_non_trivial, 0, static_cast<uint8_t>(is_trivial));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "SEL_TRUNC");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_SEL_TRUNC_NON_TRIVIAL));
 }
 
 TEST_P(AluTruncateConstrainingTest, NegativeTruncateWrong128BitsCase)
@@ -2434,12 +2440,12 @@ TEST_P(AluTruncateConstrainingTest, NegativeTruncateWrong128BitsCase)
     check_relation<alu>(trace);
     bool is_lt_128 = trace.get(Column::alu_sel_trunc_lt_128, 0) == 1;
     trace.set(Column::alu_sel_trunc_lt_128, 0, static_cast<uint8_t>(!is_lt_128));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "SEL_TRUNC");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_SEL_TRUNC_NON_TRIVIAL));
     trace.set(Column::alu_sel_trunc_lt_128, 0, static_cast<uint8_t>(is_lt_128));
     check_relation<alu>(trace);
     bool is_gte_128 = trace.get(Column::alu_sel_trunc_gte_128, 0) == 1;
     trace.set(Column::alu_sel_trunc_gte_128, 0, static_cast<uint8_t>(!is_gte_128));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "SEL_TRUNC");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_SEL_TRUNC_NON_TRIVIAL));
 }
 
 TEST_F(AluTruncateConstrainingTest, NegativeTruncateWrongMid)
@@ -2451,7 +2457,8 @@ TEST_F(AluTruncateConstrainingTest, NegativeTruncateWrongMid)
                                    trace);
     check_relation<alu>(trace);
     trace.set(Column::alu_mid, 0, 1234ULL);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TRUNC_LO_128_DECOMPOSITION");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace),
+                              alu::get_subrelation_label(alu::SR_TRUNC_LO_128_DECOMPOSITION));
 }
 
 TEST_F(AluTruncateConstrainingTest, NegativeTruncateWrongMidBits)
@@ -2463,7 +2470,7 @@ TEST_F(AluTruncateConstrainingTest, NegativeTruncateWrongMidBits)
                                    trace);
     check_relation<alu>(trace);
     trace.set(Column::alu_mid_bits, 0, 32);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TRUNC_MID_BITS");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), alu::get_subrelation_label(alu::SR_TRUNC_MID_BITS));
 }
 
 TEST_F(AluTruncateConstrainingTest, NegativeTruncateWrongLo128FromCanonDec)
@@ -2607,7 +2614,7 @@ TEST_F(AluTruncateConstrainingTest, ExploitSetFFTruncationTo128Bits)
     // ---------------------------------------------------------------
 
     // ALU relation constraints pass.
-    EXPECT_THROW_WITH_MESSAGE((check_relation<alu>(trace)), "DEST_FF_IS_TRIVIAL");
+    EXPECT_THROW_WITH_MESSAGE((check_relation<alu>(trace)), alu::get_subrelation_label(alu::SR_DEST_FF_IS_TRIVIAL));
     // check_relation<alu>(trace);
 
     /* EXPLOIT TESTING NOTE:

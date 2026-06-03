@@ -1,5 +1,10 @@
 #pragma once
 
+// For assert builds, we'll enable the debugger.
+#ifndef NDEBUG
+#define AVM_INCLUDE_DEBUGGER
+#endif
+
 #include <string>
 #include <vector>
 
