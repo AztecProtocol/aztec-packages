@@ -247,16 +247,22 @@ export class NoteStore implements StagedStore {
   /**
    * Records nullifier emissions for the given nullifiers without mutating note records.
    *
-   * Each nullifier gets an append-only entry recording the block number at which it was emitted. Nullifications are
-   * recorded only for notes already present in this store; a nullifier with no matching note is ignored (the note may
-   * belong to another account).
+   * Each nullifier gets an append-only entry recording the block number at which it was emitted.
    *
-   * applyNullifiers is idempotent with respect to read visibility: recording the same emission twice does not change
-   * which notes appear active or nullified.
+   * Every nullifier passed must correspond to a note already present in this store. Callers only apply nullifiers for
+   * notes of scopes they track, and a note is always discovered before the nullifier that spends it, so a nullifier
+   * with no matching note signals a bug (broken nonce/index discovery, a sync-ordering error, or store corruption). We
+   * throw rather than silently dropping it, which would hide the bug — and we throw before staging any emission, so the
+   * batch is atomic.
+   *
+   * applyNullifiers is idempotent: a nullifier whose emission is already recorded (committed or staged in this job) is
+   * skipped, so re-applying it neither re-writes the emission, changes note visibility, nor appears in the result.
    *
    * @param nullifiers - Array of nullifiers with their block locations to record
    * @param jobId - The job context for staged writes
-   * @returns Array of NoteDao objects for which a nullifier emission was staged
+   * @returns The notes that transition from active to nullified in this call; already-nullified notes are skipped, so
+   *          a repeat application returns an empty array.
+   * @throws If any nullifier has no matching note in this store, or was emitted at block 0.
    */
   applyNullifiers(nullifiers: DataInBlock<Fr>[], jobId: string): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
@@ -269,23 +275,32 @@ export class NoteStore implements StagedStore {
 
     return this.#withJobLock(jobId, () =>
       this.#store.transactionAsync(async () => {
-        // Kick off all note reads during iteration to keep IndexedDB transaction alive.
-        const noteReadPromises = nullifiers.map(nullifier => ({
-          nullifierInBlock: nullifier,
-          notePromise: this.#readNote(nullifier.data.toString(), jobId),
-        }));
+        // Kick off the note read and the existing-emission read together during the synchronous map so all are in
+        // flight before the first await, which keeps the IndexedDB transaction alive. A missing note violates the
+        // invariant documented above, so we throw here — before the write loop stages anything — keeping the batch
+        // atomic.
+        const resolved = await Promise.all(
+          nullifiers.map(async nullifier => {
+            const key = nullifier.data.toString();
+            const [storedNote, existingEmission] = await Promise.all([
+              this.#readNote(key, jobId),
+              this.#readNullifierEmission(key, jobId),
+            ]);
+            if (!storedNote) {
+              throw new Error(`Attempted to mark a note as nullified which does not exist in PXE DB: ${key}`);
+            }
+            return { nullifier, storedNote, alreadyEmitted: existingEmission !== undefined };
+          }),
+        );
 
-        const notesToNullify = await Promise.all(noteReadPromises.map(({ notePromise }) => notePromise));
-
-        // Await-free tail: stage nullification emissions for found notes.
+        // Await-free tail: record an emission only for notes not already nullified, and return exactly those that
+        // transition active -> nullified in this call. Skipping an already-recorded emission keeps applyNullifiers a
+        // no-op on repeat (matching the returned set) and avoids overwriting the recorded block from a competing fork.
         const affected: NoteDao[] = [];
-        for (let i = 0; i < nullifiers.length; i++) {
-          const nullifier = nullifiers[i];
-          const storedNote = notesToNullify[i];
-          if (!storedNote) {
+        for (const { nullifier, storedNote, alreadyEmitted } of resolved) {
+          if (alreadyEmitted) {
             continue;
           }
-
           this.#writeNullifierEmission(nullifier.data.toString(), nullifier.l2BlockNumber, jobId);
           affected.push(storedNote.noteDao);
         }

@@ -424,16 +424,18 @@ describe('NoteStore', () => {
       );
     });
 
-    it('silently skips unknown nullifiers instead of throwing', async () => {
+    it('throws when applying a nullifier whose note is not in the store', async () => {
       const fakeNullifier = {
         data: Fr.random(),
         l2BlockNumber: BlockNumber(999),
         l2BlockHash: BlockHash.random(),
       };
 
-      // No throw; unknown nullifier is silently skipped
-      const result = await noteStore.applyNullifiers([fakeNullifier], 'test');
-      expect(result).toEqual([]);
+      // A nullifier with no matching note means PXE discovered a nullifier before its note for a tracked scope, which
+      // is an invariant violation rather than a benign skip — it must fail loudly.
+      await expect(noteStore.applyNullifiers([fakeNullifier], 'test')).rejects.toThrow(
+        'Attempted to mark a note as nullified which does not exist in PXE DB',
+      );
     });
 
     it('preserves scope information when nullifying notes', async () => {
@@ -464,8 +466,7 @@ describe('NoteStore', () => {
       });
     });
 
-    it('partial application: known nullifiers are recorded even when batch also contains unknown ones', async () => {
-      // In the new model, unknown nullifiers are skipped rather than aborting the entire batch.
+    it('is atomic — a batch containing an unknown nullifier aborts without recording any emission', async () => {
       const nullifiers = [
         mkNullifier(note2),
         {
@@ -475,19 +476,30 @@ describe('NoteStore', () => {
         },
       ];
 
-      const result = await noteStore.applyNullifiers(nullifiers, 'test');
-      expect(result).toEqual([note2]);
+      await expect(noteStore.applyNullifiers(nullifiers, 'test')).rejects.toThrow(
+        'Attempted to mark a note as nullified which does not exist in PXE DB',
+      );
 
-      const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] }, 'test');
-      expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note1]));
+      // The known nullifier (note2) must NOT have been recorded: the throw happens before any emission is staged, so
+      // both notes stay active across the staged job and after committing it.
+      await verifyAndCommitForEachJob(['test', 'after-job-commit'], noteStore, async (jobId: string) => {
+        const activeNotes = await noteStore.getNotes(
+          { contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] },
+          jobId,
+        );
+        expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note1, note2]));
+      });
     });
 
-    it('applying nullifier a second time is idempotent for note visibility', async () => {
+    it('applying nullifier a second time is a no-op and returns no transitioned notes', async () => {
       await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
       await noteStore.commit('test');
 
-      // Second application records the same origin again (recording it twice does not change visibility)
-      await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
+      // Second application is idempotent: the emission is already recorded, so nothing transitions to nullified. The
+      // result is empty (only notes that flip active -> nullified in this call are returned) and visibility is
+      // unchanged (note1 stays nullified).
+      const result = await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
+      expect(result).toEqual([]);
 
       await verifyAndCommitForEachJob(['test', 'after-job-commit'], noteStore, async (jobId: string) => {
         const activeNotes = await noteStore.getNotes(
@@ -622,8 +634,10 @@ describe('NoteStore', () => {
       // (causing the note to be "re-activated")
       expect(notesAfterSecondAttempt.filter(n => n.siloedNullifier.equals(duplicateNullifier))).toEqual([]);
 
-      // The second applyNullifiers records the same origin again (recording it twice does not change visibility)
-      await noteStore.applyNullifiers([mkNullifier(duplicateNote)], 'duplicate-job');
+      // The second applyNullifiers is a no-op: the emission is already staged, so nothing transitions to nullified and
+      // visibility is unchanged.
+      const secondApply = await noteStore.applyNullifiers([mkNullifier(duplicateNote)], 'duplicate-job');
+      expect(secondApply).toEqual([]);
 
       // Verify the note is nullified and has both scopes
       await verifyAndCommitForEachJob(['duplicate-job', 'after-job-commit'], noteStore, async (jobId: string) => {
