@@ -16,8 +16,20 @@ variable "docker_registry_repository_id" {
   default     = "aztec"
 }
 
+variable "npm_registry_repository_id" {
+  description = "Artifact Registry npm repository ID for internal Aztec packages."
+  type        = string
+  default     = "aztec-npm"
+}
+
 variable "ci_service_account_id" {
-  description = "Service account ID for CI jobs that push images to the Docker registry."
+  description = "Service account ID for CI jobs that publish internal artifacts."
   type        = string
   default     = "aztec-ci"
+}
+
+variable "npm_registry_reader_service_account_id" {
+  description = "Service account ID for CI jobs that install internal npm packages."
+  type        = string
+  default     = "aztec-npm-reader"
 }
