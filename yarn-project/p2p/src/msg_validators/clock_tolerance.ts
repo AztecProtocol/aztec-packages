@@ -55,32 +55,26 @@ export function isWithinClockTolerance(
 /**
  * Checks if a straggler message for the previous target slot should be accepted.
  *
- * Under pipelining, proposals and attestations carry the target slot N. Most of the
- * time the receiver is either still in the build slot N-1 (accepted via the main
- * `slotNumber === targetSlot` match) or in the target slot N (accepted via
- * `slotNumber === nextSlot` when pipelining is disabled, or again via `targetSlot`
- * when the receiver itself is pipelining). Stragglers that arrive after the receiver
- * has rolled past the target slot fall to this check: accept `messageSlot === slotNow`
- * while we're still within the first `windowSeconds + clock-disparity` of the slot.
+ * Proposals and attestations carry the target slot N. Most of the time the receiver is either
+ * still in the build slot N-1 (accepted via the main `slotNumber === targetSlot` match) or in the
+ * target slot N (accepted again via `targetSlot`). Stragglers that arrive after the receiver has
+ * rolled past the target slot fall to this check: accept `messageSlot === slotNow` while we're
+ * still within the first `windowSeconds + clock-disparity` of the slot.
  *
  * Under the early-pipelining schedule `windowSeconds` is small (0 for proposals,
  * `2*p2pPropagationTime` for attestations) since the proposer collects everything
  * before the slot boundary.
  *
  * @param messageSlot - The slot number from the received message
- * @param epochCache - EpochCache to get timing and pipelining state
+ * @param epochCache - EpochCache to get timing state
  * @param windowSeconds - How far into the current slot we still accept previous-target messages
- * @returns true if pipelining is enabled, the message is for the current wallclock slot, and we're within the grace period
+ * @returns true if the message is for the current wallclock slot and we're within the grace period
  */
 function isWithinPipeliningWindow(
   messageSlot: SlotNumber,
   epochCache: EpochCacheInterface,
   windowSeconds: number,
 ): boolean {
-  if (!epochCache.isProposerPipeliningEnabled()) {
-    return false;
-  }
-
   const currentSlot = epochCache.getSlotNow();
   if (messageSlot !== currentSlot) {
     return false;

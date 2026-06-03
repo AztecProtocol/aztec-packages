@@ -79,7 +79,6 @@ describe('veto slash', () => {
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
-        enableProposerPipelining: true,
         inboxLag: 2,
         aztecEpochDuration: EPOCH_DURATION,
         sentinelEnabled: true,

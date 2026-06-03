@@ -3,16 +3,13 @@ import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { OutboxContract, RollupContract, type ViemL2ToL1Msg } from '@aztec/ethereum/contracts';
+import { retryUntil } from '@aztec/foundation/retry';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import {
-  type L2ToL1MembershipWitness,
-  computeL2ToL1MembershipWitness,
-  getL2ToL1MessageLeafId,
-} from '@aztec/stdlib/messaging';
+import { type L2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 import { type TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -350,7 +347,12 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
   async function expectConsumeMessageToSucceed(msg: ReturnType<typeof makeL2ToL1Message>, l2TxHash: TxHash) {
     const msgLeaf = computeMessageLeaf(msg);
-    const result = (await computeL2ToL1MembershipWitness(aztecNode, outbox, msgLeaf, l2TxHash))!;
+    const result = await retryUntil(
+      () => aztecNode.getL2ToL1MembershipWitness(l2TxHash, msgLeaf),
+      'l2 to l1 membership witness',
+      60,
+      1,
+    );
     const { epochNumber: epoch, numCheckpointsInEpoch, ...witness } = result;
     const leafId = getL2ToL1MessageLeafId(witness);
 

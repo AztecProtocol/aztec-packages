@@ -9,7 +9,7 @@ import type { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import type { ContractClassLog, MessageContext, PendingTaggedLog, Tag } from '@aztec/stdlib/logs';
+import type { AppTaggingSecretKind, ContractClassLog, MessageContext, PendingTaggedLog } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import type { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -209,6 +209,6 @@ export interface IPrivateExecutionOracle {
   notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
   isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean>;
   getSenderForTags(): Promise<Option<AztecAddress>>;
-  getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
-  getNextConstrainedTaggingIndex(appSiloedSecret: Fr): Promise<number>;
+  getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Option<Fr>>;
+  getNextTaggingIndex(secret: Fr, kind: AppTaggingSecretKind): Promise<number>;
 }

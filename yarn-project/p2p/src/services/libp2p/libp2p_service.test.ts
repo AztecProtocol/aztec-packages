@@ -1,5 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -317,15 +318,16 @@ describe('LibP2PService', () => {
   });
 
   describe('validateRequestedBlockTxsConsistency', () => {
-    function makeRequest(archiveRoot: Fr, length: number, indices: number[]): BlockTxsRequest {
-      return new BlockTxsRequest(archiveRoot, new TxHashArray(), BitVector.init(length, indices));
+    function makeRequest(archiveRoot: Fr, length: number, indices: number[], txHashes: string[] = []): BlockTxsRequest {
+      const hashes = txHashes.map(h => ({ toString: () => h })) as unknown as TxHashArray;
+      return new BlockTxsRequest(archiveRoot, BitVector.init(length, indices), Buffer32.random(), hashes);
     }
 
-    function makeResponse(archiveRoot: Fr, length: number, indices: number[], txHashes: string[]): BlockTxsResponse {
+    function makeResponse(length: number, indices: number[], txHashes: string[]): BlockTxsResponse {
       const txs = txHashes.map(h => ({
         getTxHash: () => ({ toString: () => h }),
       })) as MockTx[];
-      return new BlockTxsResponse(archiveRoot, txs as TxArray, BitVector.init(length, indices));
+      return new BlockTxsResponse(txs as TxArray, BitVector.init(length, indices));
     }
 
     /** Builds a minimal archived block whose txEffects carry the given tx hashes, for archiver-fallback tests. */
@@ -348,52 +350,20 @@ describe('LibP2PService', () => {
       svc.setAttestationPool(mockAttestationPool);
     }
 
-    it('should penalize and reject on archive root mismatch', async () => {
-      const reqHash = Fr.random();
-      const otherHash = Fr.random();
-      const request = makeRequest(reqHash, 5, [0, 2]);
-      const response = makeResponse(otherHash, 5, [0, 2], []);
-
-      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
-    });
-
-    it('should penalize and reject on bitvector length mismatch', async () => {
-      const hash = Fr.random();
-      const request = makeRequest(hash, 5, [0, 2]);
-      const response = makeResponse(hash, 4, [0, 2], []);
-
-      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
-    });
-
     it('should penalize and reject on duplicate txs', async () => {
       const hash = Fr.random();
       const request = makeRequest(hash, 5, [0, 2, 3]);
-      const response = makeResponse(hash, 5, [0, 2, 3], ['0xaaa', '0xaaa']); // duplicate
+      const response = makeResponse(5, [0, 2, 3], ['0xaaa', '0xaaa']); // duplicate
 
       const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
     });
 
-    it('should penalize and reject when returned txs exceed requested intersect available', async () => {
+    it('should penalize and reject when a returned tx is not part of the block', async () => {
       const hash = Fr.random();
-      // requested indices [0,2], available [0] -> maxReturnable 1, but return 2
-      const request = makeRequest(hash, 3, [0, 2]);
-      const response = makeResponse(hash, 3, [0], ['0x1', '0x2']);
-
-      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
-    });
-
-    it('should penalize and reject when proposal exists and a tx is not part of requested indices of proposal', async () => {
-      const hash = Fr.random();
-      const request = makeRequest(hash, 5, [0, 2, 4]); // requested 0,2,4
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood0', '0xbad']); // one bad
+      const request = makeRequest(hash, 5, [0, 2, 4]);
+      const response = makeResponse(5, [0, 2, 4], ['0xgood0', '0xbad']); // 0xbad is not in the block
 
       setProposalTxHashes(service, ['0xgood0', '0xgood2', '0xgood4', '0xother', '0xother2']);
 
@@ -402,36 +372,38 @@ describe('LibP2PService', () => {
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
 
-    it('should penalize and reject when proposal exists and a tx is from an unrequested index', async () => {
+    it('should penalize and reject when a returned tx is in the block but at an index we did not request', async () => {
       const hash = Fr.random();
-      // Requested indices [0,2,4]; response advertises availability for [0,2,4]
-      const request = makeRequest(hash, 5, [0]);
-      // Return a tx that exists in the proposal but at an unrequested index (1)
-      const response = makeResponse(hash, 5, [0], ['0xother1']);
+      // We only request indices [0, 2], so the allowed set is {0xgood0, 0xgood2}. The peer returns
+      // 0xgood1, which IS part of the block (index 1) but was never requested — neither by index nor
+      // by explicit hash — so it must be rejected.
+      const request = makeRequest(hash, 5, [0, 2]);
+      const response = makeResponse(5, [0, 1], ['0xgood0', '0xgood1']);
 
-      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
+      setProposalTxHashes(service, ['0xgood0', '0xgood1', '0xgood2', '0xgood3', '0xgood4']);
 
       const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
 
-    it('should accept when shapes match, count matches, and order matches proposal/requested indices', async () => {
+    it('should penalize and reject on bitvector length mismatch when the peer has the block', async () => {
       const hash = Fr.random();
-      const request = makeRequest(hash, 5, [0, 2, 4]); // requested 0,2,4
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood0', '0xgood2', '0xgood4']); // all and in order
+      const request = makeRequest(hash, 5, [0, 2]);
+      // Peer claims to have the block (non-empty bitvector) but its length disagrees with the block size.
+      const response = makeResponse(4, [0, 2], []);
 
-      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
+      setProposalTxHashes(service, ['0xgood0', '0xgood1', '0xgood2', '0xgood3', '0xgood4']);
 
       const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
-      expect(ok).toBe(true);
+      expect(ok).toBe(false);
+      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
     });
 
-    it('should accept partial subset when proposal exists and order matches requested indices', async () => {
+    it('should accept when all returned txs belong to the block and the bitvector length matches', async () => {
       const hash = Fr.random();
-      // Request indices [0,2,4] but only return a subset [0,4]
       const request = makeRequest(hash, 5, [0, 2, 4]);
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood0', '0xgood4']); // partial, ordered 0 < 4
+      const response = makeResponse(5, [0, 2, 4], ['0xgood0', '0xgood2', '0xgood4']);
 
       setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
 
@@ -440,11 +412,54 @@ describe('LibP2PService', () => {
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
     });
 
-    it('should accept when requested intersect available is non-empty but zero txs are returned', async () => {
+    it('should accept a partial subset when the peer advertises only the txs it returns', async () => {
       const hash = Fr.random();
-      // requested [0,2], available [0,2] -> intersection size 2, but return 0 txs
+      // We request [0, 2, 4] but the peer only has (and advertises) [0, 4], returning those two.
+      const request = makeRequest(hash, 5, [0, 2, 4]);
+      const response = makeResponse(5, [0, 4], ['0xgood0', '0xgood4']);
+
+      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should accept when the peer returns only the requested txs it has, with more bits set than txs', async () => {
+      const hash = Fr.random();
+      // Block has txs a,b,c,d,e (indices 0..4). We ask for a,b,c ([0,1,2]); the peer has c,d,e
+      // (bitvector [2,3,4]). The only requested-and-available tx is c, so the response carries a
+      // single tx but advertises three available indices.
+      const request = makeRequest(hash, 5, [0, 1, 2]);
+      const response = makeResponse(5, [2, 3, 4], ['0xc']);
+
+      setProposalTxHashes(service, ['0xa', '0xb', '0xc', '0xd', '0xe']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should accept txs requested by explicit hash even when they are not part of the block', async () => {
+      const hash = Fr.random();
+      // Block has a,b,c (indices 0,1,2). We request b via indices ([1]) and d via an explicit tx
+      // hash (d is not part of the block). The peer returns b and d, advertising index 1 for b.
+      const request = makeRequest(hash, 3, [1], ['0xd']);
+      const response = makeResponse(3, [1], ['0xb', '0xd']);
+
+      setProposalTxHashes(service, ['0xa', '0xb', '0xc']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should accept zero txs when the peer has the block but none of the requested indices', async () => {
+      const hash = Fr.random();
+      // We request [0, 2], but the peer only advertises availability for [1, 3] (txs we did not ask
+      // for). The intersection of requested-and-available is empty, so returning zero txs is fine.
       const request = makeRequest(hash, 5, [0, 2]);
-      const response = makeResponse(hash, 5, [0, 2], []); // empty response.txs
+      const response = makeResponse(5, [1, 3], []);
 
       setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xother4']);
 
@@ -453,37 +468,14 @@ describe('LibP2PService', () => {
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
     });
 
-    it('penalizes and rejects when requested intersect available is empty but response returns txs', async () => {
+    it('should penalize and reject when the peer advertises a requested tx but does not return it', async () => {
       const hash = Fr.random();
-      // requested [1], available [] -> intersection 0, but non-empty txs returned
-      const request = makeRequest(hash, 3, [1]);
-      const response = makeResponse(hash, 3, [], ['0xsome']);
+      // We request [0, 2] and the peer claims to have both (bitvector [0, 2]), but only returns the
+      // tx at index 0 — withholding the one at index 2 it advertised.
+      const request = makeRequest(hash, 3, [0, 2]);
+      const response = makeResponse(3, [0, 2], ['0xgood0']);
 
-      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
-    });
-
-    it('should penalize and reject when order does not match proposal/requested indices', async () => {
-      const hash = Fr.random();
-      const request = makeRequest(hash, 5, [0, 2, 4]); // requested 0,2,4
-      // Out of order relative to indices [0,2,4]
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood4', '0xgood0', '0xgood2']);
-
-      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
-
-      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
-    });
-
-    it('should penalize and reject when partial subset is unordered relative to requested indices', async () => {
-      const hash = Fr.random();
-      const request = makeRequest(hash, 5, [0, 2, 4]); // requested 0,2,4
-      // Return only a subset but swap order (4 before 0)
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood4', '0xgood0']);
-
-      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
+      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2']);
 
       const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
@@ -494,10 +486,10 @@ describe('LibP2PService', () => {
       const hash = Fr.random();
       // Simple valid shape that should pass pre-checks
       const request = makeRequest(hash, 3, [0, 2]);
-      const response = makeResponse(hash, 3, [0, 2], ['0xgood0']);
+      const response = makeResponse(3, [0, 2], ['0xgood0']);
 
       // Neither the attestation pool nor the archiver knows this block, so we cannot verify the
-      // membership/order of the returned txs. This is not a peer fault, so no penalty is applied.
+      // membership of the returned txs. This is not a peer fault, so no penalty is applied.
       const mockAttestationPool: MockAttestationPoolForTests = {
         getBlockProposalByArchive: (_: string) => Promise.resolve(undefined),
       };
@@ -516,7 +508,7 @@ describe('LibP2PService', () => {
     it('should accept when the proposal is missing but the block is known via the archiver', async () => {
       const hash = Fr.random();
       const request = makeRequest(hash, 5, [0, 2, 4]);
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood0', '0xgood2', '0xgood4']);
+      const response = makeResponse(5, [0, 2, 4], ['0xgood0', '0xgood2', '0xgood4']);
 
       // No proposal (the prover never received it), but the mined block is in the archiver.
       service.setAttestationPool({ getBlockProposalByArchive: (_: string) => Promise.resolve(undefined) });
@@ -530,19 +522,34 @@ describe('LibP2PService', () => {
       expect(mockArchiver.getBlock).toHaveBeenCalledWith({ archive: hash });
     });
 
-    // The reqresp BLOCK_TXS responder (block_txs_handler.ts:54-58) returns archiveRoot=Fr.ZERO
-    // when it doesn't have the block in either the attestation pool or the archiver, but the
-    // request carried full tx hashes — it matches them against its pool and ships whatever it
-    // finds. This is a documented "I don't have the block" signal, not misbehavior, so the
-    // requester must not penalize the peer for it.
-    it('should not penalize a peer that signals lacking the block with Fr.ZERO archive root', async () => {
+    // Regression test for the former bug: a peer that lacks the block answers with an empty bitvector
+    // (the "I don't have the block" signal from block_txs_handler.ts) but still ships the txs it matched
+    // by hash. The old validator rejected any such response, discarding perfectly good txs. The fix
+    // must accept the response (so the txs are used) while leaving the dumb-marking to the requester.
+    it('should accept (and use) txs from a peer that signals it lacks the block via an empty bitvector', async () => {
       const hash = Fr.random();
       const request = makeRequest(hash, 3, [0, 2]);
-      const response = makeResponse(Fr.ZERO, 0, [], ['0xfound0', '0xfound2']);
+      // Empty bitvector -> peerHasBlock() is false, but the returned txs are valid block txs.
+      const response = makeResponse(0, [], ['0xfound0', '0xfound2']);
 
-      await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      // We know the block locally, so we can still validate that the returned txs belong to it.
+      setProposalTxHashes(service, ['0xfound0', '0xother1', '0xfound2']);
 
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should still penalize a block-lacking peer (empty bitvector) that returns a tx not in the block', async () => {
+      const hash = Fr.random();
+      const request = makeRequest(hash, 3, [0, 2]);
+      const response = makeResponse(0, [], ['0xfound0', '0xbad']); // 0xbad is not part of the block
+
+      setProposalTxHashes(service, ['0xfound0', '0xother1', '0xfound2']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(false);
+      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
   });
 

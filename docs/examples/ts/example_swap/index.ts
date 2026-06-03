@@ -5,7 +5,6 @@ import { SetPublicAuthwitContractInteraction } from "@aztec/aztec.js/authorizati
 import { Fr } from "@aztec/aztec.js/fields";
 import { createAztecNodeClient, waitForNode } from "@aztec/aztec.js/node";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
-import { OutboxContract } from "@aztec/ethereum/contracts";
 import { deployL1Contract } from "@aztec/ethereum/deploy-l1-contract";
 import { sha256ToField } from "@aztec/foundation/crypto/sha256";
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
@@ -14,7 +13,6 @@ import {
   computeL2ToL1MessageHash,
   computeSecretHash,
 } from "@aztec/stdlib/hash";
-import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
 import { decodeEventLog, encodeFunctionData, pad } from "@aztec/viem";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { foundry } from "@aztec/viem/chains";
@@ -446,17 +444,8 @@ const exitMsgLeaf = computeL2ToL1MessageHash({
 // docs:end:consume_l1_messages_setup
 
 // docs:start:consume_l1_messages_witnesses
-// The Outbox is queried to pick the smallest partial-proof root that covers each tx's checkpoint.
-const outbox = new OutboxContract(
-  l1Client,
-  nodeInfo.l1ContractAddresses.outboxAddress,
-);
-const exitWitness = await computeL2ToL1MembershipWitness(
-  node,
-  outbox,
-  exitMsgLeaf,
-  swapReceipt.txHash,
-);
+// The node picks the smallest partial-proof root that covers each tx's checkpoint.
+const exitWitness = await node.getL2ToL1MembershipWitness(swapReceipt.txHash, exitMsgLeaf);
 const exitSiblingPath = exitWitness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
@@ -506,12 +495,7 @@ const swapMsgLeaf = computeL2ToL1MessageHash({
   chainId: new Fr(foundry.id),
 });
 
-const swapWitness = await computeL2ToL1MembershipWitness(
-  node,
-  outbox,
-  swapMsgLeaf,
-  swapReceipt.txHash,
-);
+const swapWitness = await node.getL2ToL1MembershipWitness(swapReceipt.txHash, swapMsgLeaf);
 const swapSiblingPath = swapWitness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);

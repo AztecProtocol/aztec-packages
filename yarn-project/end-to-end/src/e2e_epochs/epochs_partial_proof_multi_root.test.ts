@@ -12,7 +12,12 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
-import { computeEpochOutHash, computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
+import {
+  type L2ToL1MembershipWitness,
+  computeEpochOutHash,
+  computeL2ToL1MembershipWitness,
+  getL2ToL1MessageLeafId,
+} from '@aztec/stdlib/messaging';
 import { type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -53,7 +58,6 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
       // submission window.
       aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
-      enableProposerPipelining: true,
       disableAnvilTestWatcher: true,
     });
     ({ logger } = test);
@@ -210,9 +214,14 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
       expect(onChainRoots[i].isZero()).toBe(true);
     }
 
-    // Consume msg2 against the smallest covering root the helper picks (K=2).
+    // Consume msg2 against the smallest covering root the node picks (K=2).
     {
-      const witness = (await computeL2ToL1MembershipWitness(node, outbox, sends[1].leaf, sends[1].receipt))!;
+      const witness = await retryUntil(
+        () => node.getL2ToL1MembershipWitness(sends[1].receipt.txHash, sends[1].leaf),
+        'K=2 membership witness',
+        30,
+        1,
+      );
       expect(witness).toBeDefined();
       expect(witness.epochNumber).toBe(epoch);
       expect(witness.numCheckpointsInEpoch).toBe(2);
@@ -222,9 +231,9 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
     }
 
     // Negative: msg4 lives in checkpoint at index 3, and the largest covering K we inserted is
-    // K=3 (covers indices 0..2). The helper must return undefined: no covering root yet.
+    // K=3 (covers indices 0..2). The node must return undefined: no covering root yet.
     {
-      const witness = await computeL2ToL1MembershipWitness(node, outbox, sends[3].leaf, sends[3].receipt);
+      const witness = await node.getL2ToL1MembershipWitness(sends[3].receipt.txHash, sends[3].leaf);
       expect(witness).toBeUndefined();
     }
 
@@ -233,15 +242,22 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
     // (by hiding slot 0 of the on-chain roots from the helper so it walks past it) and verify
     // the second consume reverts due to the shared bitmap.
     {
-      // K=1 path (default helper choice).
-      const witnessK1 = (await computeL2ToL1MembershipWitness(node, outbox, sends[0].leaf, sends[0].receipt))!;
+      // K=1 path (default node choice).
+      const witnessK1 = await retryUntil(
+        () => node.getL2ToL1MembershipWitness(sends[0].receipt.txHash, sends[0].leaf),
+        'K=1 membership witness',
+        30,
+        1,
+      );
       expect(witnessK1.numCheckpointsInEpoch).toBe(1);
       expect(witnessK1.root.toString()).toBe(root1.toString());
       await expectConsumeSucceeds(sends[0].msg, sends[0].leaf, witnessK1, epoch);
 
       // K=2 path: feed the helper a roots array with slot 0 zeroed so it picks the next covering
-      // root (K=2). Both K=1 and K=2 cover checkpoint 0, so this is a legitimate witness, but
-      // the shared bitmap (indexed by stable leafId) must prevent a second consume.
+      // root (K=2). This case can't go through the node RPC (which always picks the smallest
+      // covering root for the cached on-chain state), so we use the helper directly with a
+      // synthetic roots array. Both K=1 and K=2 cover checkpoint 0, so this is a legitimate
+      // witness, but the shared bitmap (indexed by stable leafId) must prevent a second consume.
       const rootsWithoutK1: Fr[] = [Fr.ZERO, ...onChainRoots.slice(1)];
       const witnessK2 = (await computeL2ToL1MembershipWitness(node, rootsWithoutK1, sends[0].leaf, sends[0].receipt))!;
       expect(witnessK2.numCheckpointsInEpoch).toBe(2);
@@ -263,7 +279,12 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
 
     // Replay protection: consuming msg2 again (now under any covering root) reverts.
     {
-      const witness = (await computeL2ToL1MembershipWitness(node, outbox, sends[1].leaf, sends[1].receipt))!;
+      const witness = await retryUntil(
+        () => node.getL2ToL1MembershipWitness(sends[1].receipt.txHash, sends[1].leaf),
+        'replay membership witness',
+        30,
+        1,
+      );
       await expect(
         outbox.consume(
           sends[1].msg,
@@ -288,7 +309,12 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
       const root4 = computeEpochOutHash(messagesPerCheckpoint.slice(0, 4));
       await retryUntil(async () => !(await outbox.getRoots(epoch))[3].isZero(), 'K=4 root visible', 10, 0.1);
 
-      const witness = (await computeL2ToL1MembershipWitness(node, outbox, sends[3].leaf, sends[3].receipt))!;
+      const witness = await retryUntil(
+        () => node.getL2ToL1MembershipWitness(sends[3].receipt.txHash, sends[3].leaf),
+        'K=4 membership witness',
+        30,
+        1,
+      );
       expect(witness.numCheckpointsInEpoch).toBe(4);
       expect(witness.root.toString()).toBe(root4.toString());
       await expectConsumeSucceeds(sends[3].msg, sends[3].leaf, witness, epoch);
@@ -302,7 +328,7 @@ describe('e2e_epochs/epochs_partial_proof_multi_root', () => {
   async function expectConsumeSucceeds(
     msg: ViemL2ToL1Msg,
     leaf: Fr,
-    witness: NonNullable<Awaited<ReturnType<typeof computeL2ToL1MembershipWitness>>>,
+    witness: L2ToL1MembershipWitness,
     epoch: EpochNumber,
   ) {
     const txHash = await outbox.consume(

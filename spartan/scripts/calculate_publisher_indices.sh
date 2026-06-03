@@ -9,7 +9,7 @@ set -euo pipefail
 # --- Usage ---
 if [ "$#" -lt 1 ]; then
     echo "Usage: $0 ENVIRONMENT_FILE"
-    echo "Example: $0 staging-public"
+    echo "Example: $0 staging"
     exit 1
 fi
 
