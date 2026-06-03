@@ -8,7 +8,6 @@ import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockId, L2BlockSource } from '@aztec/stdlib/block';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { ChonkProof } from '@aztec/stdlib/proofs';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { BlockHeader, Tx, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
@@ -471,7 +470,7 @@ export class TxPoolV2Impl {
           // a proofless tx would wipe the stored proof.
           const buffer = await this.#txsDB.getAsync(txHashStr);
           if (buffer) {
-            const tx = await this.#attachProof(Tx.fromBuffer(buffer));
+            const tx = await this.#loadTxWithProof(txHashStr, buffer);
             await this.#addTx(tx, { protected: slotNumber });
             softDeletedHits++;
           } else {
@@ -718,12 +717,12 @@ export class TxPoolV2Impl {
   // === Query Methods ===
 
   async getTxByHash(txHash: TxHash, opts: { includeProof?: boolean } = {}): Promise<Tx | undefined> {
-    const buffer = await this.#txsDB.getAsync(txHash.toString());
+    const txHashStr = txHash.toString();
+    const buffer = await this.#txsDB.getAsync(txHashStr);
     if (!buffer) {
       return undefined;
     }
-    const tx = Tx.fromBuffer(buffer);
-    return opts.includeProof === false ? tx : this.#attachProof(tx);
+    return opts.includeProof === false ? Tx.fromBuffer(buffer) : this.#loadTxWithProof(txHashStr, buffer);
   }
 
   async getTxsByHash(txHashes: TxHash[], opts: { includeProof?: boolean } = {}): Promise<(Tx | undefined)[]> {
@@ -734,18 +733,17 @@ export class TxPoolV2Impl {
     return results;
   }
 
-  /** Reattaches the separately-stored proof to a tx loaded from #txsDB. */
-  async #attachProof(tx: Tx): Promise<Tx> {
-    const txHash = tx.getTxHash().toString();
-    const proofBuffer = await this.#proofsDB.getAsync(txHash);
+  /** Deserializes a tx blob loaded from #txsDB together with its separately-stored proof. */
+  async #loadTxWithProof(txHashStr: string, buffer: Buffer): Promise<Tx> {
+    const proofBuffer = await this.#proofsDB.getAsync(txHashStr);
     if (!proofBuffer) {
       // #addTx always writes a proof entry (an empty proof serializes to a 4-byte sentinel), so a missing entry
       // means the blob/proof invariant is broken. Return the proofless tx but flag it, since a consumer that needs
       // the proof (eg serving peers) would otherwise fail far away from the root cause.
-      this.#log.warn(`Missing stored proof for tx ${txHash}`, { txHash });
-      return tx;
+      this.#log.warn(`Missing stored proof for tx ${txHashStr}`, { txHash: txHashStr });
+      return Tx.fromBuffer(buffer);
     }
-    return tx.withProof(ChonkProof.fromBuffer(proofBuffer));
+    return Tx.fromBuffers(buffer, proofBuffer);
   }
 
   hasTxs(txHashes: TxHash[]): boolean[] {
