@@ -24,6 +24,7 @@ import {
   extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
   field as field_funcs,
   field8 as field8_funcs,
+  fr_ops_test as fr_ops_test_shader,
   fr_pow as fr_pow_funcs,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
@@ -47,6 +48,14 @@ import {
   gen_wgsl_limbs_code,
 } from './utils.js';
 import { BN254_CURVE_CONFIG, CurveConfig } from './curve_config.js';
+
+// Which of the curve's two prime fields the rendered shaders operate in.
+// 'base' (default) is the coordinate field F_q used by all EC point math in
+// the MSM pipeline. 'scalar' is F_r, used by the sumcheck Fr kernels — the
+// only change is the modulus; every Montgomery/Barrett constant derives
+// from it, so the same templates emit a correct, identically-structured Fr
+// suite.
+export type FieldChoice = 'base' | 'scalar';
 
 // Modular inverse via extended Euclidean. Returns a^-1 mod m. Both inputs > 0.
 function modinv(a: bigint, m: bigint): bigint {
@@ -123,6 +132,7 @@ export class ShaderManager {
   // a drop-in change at every callsite.
   public mont_product_src: string;
   public curveConfig: CurveConfig;
+  public field: FieldChoice;
   public recompile = '';
 
   constructor(
@@ -130,9 +140,11 @@ export class ShaderManager {
     input_size: number,
     curveConfig: CurveConfig = BN254_CURVE_CONFIG,
     force_recompile = false,
+    field: FieldChoice = 'base',
   ) {
     this.curveConfig = curveConfig;
-    this.p = curveConfig.baseFieldModulus;
+    this.field = field;
+    this.p = field === 'scalar' ? curveConfig.scalarFieldModulus : curveConfig.baseFieldModulus;
     const params = compute_misc_params(this.p, curveConfig.wordSize);
     this.word_size = curveConfig.wordSize;
     this.chunk_size = chunk_size;
@@ -254,6 +266,53 @@ ${packLines.join('\n')}
 }`;
 
     return { unpack, pack };
+  }
+
+  /**
+   * Phase-0 standalone Fr (scalar-field) primitives test kernel. Assembles
+   * the memory-aware field stack — 8x u32 packed live form, native add/sub,
+   * grouped-Karatsuba Montgomery multiply, safegcd inverse — into one module
+   * with five compute entry points (fr_add_main / fr_sub_main / fr_mul_main /
+   * fr_neg_main / fr_inv_main), all sharing the (a_in, b_in, out_buf, params)
+   * binding layout. Field elements are held in Montgomery form as 8 LE u32
+   * each. Construct the manager with field='scalar' so the baked constants
+   * are F_r; the host validates the GPU output against a CPU F_r reference.
+   */
+  public gen_fr_ops_test_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_fr_ops_test_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      fr_ops_test_shader,
+      {
+        workgroup_size,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        field8_funcs,
+        fr_pow_funcs,
+      },
+    );
   }
 
   public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number, packed = false): string {

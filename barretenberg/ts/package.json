@@ -44,6 +44,7 @@
     "test:debug": "NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules ./node_modules/.bin/jest --no-cache --passWithNoTests --runInBand",
     "simple_test": "NODE_NO_WARNINGS=1 node ./src/examples/simple.rawtest.ts",
     "dev:msm-webgpu": "vite --config dev/msm-webgpu/vite.config.ts",
+    "dev:sumcheck-webgpu": "vite --config dev/sumcheck-webgpu/vite.config.ts",
     "serve:chonk-webgpu": "cd ../../yarn-project/ivc-integration && yarn serve:chonk-webgpu",
     "deploy": "npm publish --access public"
   },

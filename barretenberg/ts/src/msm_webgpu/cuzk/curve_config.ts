@@ -1,5 +1,6 @@
 import {
   BN254_BASE_FIELD,
+  BN254_SCALAR_FIELD,
   BN254_ZERO,
   Bn254Point,
   addBn254Points,
@@ -15,6 +16,10 @@ export type CpuPoint = Bn254Point;
 export type CurveConfig = {
   id: CurveId;
   baseFieldModulus: bigint;
+  // The curve's scalar field Fr (prime order of G1). Sumcheck arithmetic
+  // lives entirely in Fr, so the WebGPU Fr Montgomery suite is rendered by
+  // pointing ShaderManager's modulus at this instead of baseFieldModulus.
+  scalarFieldModulus: bigint;
   scalarBitLength: number;
   coordinateBitLength: number;
   coordinateByteLength: number;
@@ -31,6 +36,7 @@ export type CurveConfig = {
 export const BN254_CURVE_CONFIG: CurveConfig = {
   id: "bn254",
   baseFieldModulus: BN254_BASE_FIELD,
+  scalarFieldModulus: BN254_SCALAR_FIELD,
   // 256 is the scalar BUFFER width, not the Fr bit-length (254). Keeping
   // the buffer width here is load-bearing: the decompose shader's
   // top-chunk override formula
