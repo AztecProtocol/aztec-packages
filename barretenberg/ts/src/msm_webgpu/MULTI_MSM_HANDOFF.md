@@ -7,16 +7,22 @@ this doc is the **current state + the exact next-step recipe + traps**. Branch:
 ## TL;DR
 
 - **Step 1 DONE** (host scheduler + bin-packer + batch-of-1 check).
-- **Step 2 + step 4 DONE for HOMOGENEOUS packs** — committed `b8fdde2103`.
-  K MSMs of the **same n/c** run as ONE dispatch over the concatenated union
-  (one `MsmV2.prepareBatch`, `numWindows = Σ NW`). Validated batch-of-K ≡
-  K-separate byte-identical for K=1..4, c=8 and c=13, profiles A/C/D/E, ≤128
-  windows; single-MSM golden + `?varsched` unchanged. See "What step 2+4 landed".
-- **Next: HETEROGENEOUS packs** (different n and/or c) + the bridge wiring +
-  the perf bench. See "Remaining work". The homogeneous path is the plan's named
-  "easy win" and the production path after size-class grouping; heterogeneous
-  adds per-window n / BW / srsOffset.
-- Reduce optimisation is **owned by other agents/worktrees** — do not touch it here.
+- **Step 2 + step 4 DONE for HOMOGENEOUS packs** — `b8fdde2103`. K MSMs of the
+  **same n/c** run as ONE dispatch over the concatenated union (one
+  `MsmV2.prepareBatch`, `numWindows = Σ NW`). Batch-of-K ≡ K-separate byte-
+  identical (K=1..4, c=8/13, profiles A/C/D/E); single-MSM golden + `?varsched`
+  unchanged. Perf: ~1.7–3.4× union vs K-separate (bigger for smaller/structured).
+- **Budget enforced + windowDesc accounted** — `7b1492ab64`. The union runs the
+  same `estimateMem` 160MB gate and throws if a pack overflows (instead of OOM).
+- **128-window cap REMOVED** — `59cfc48c27` (walker) + `979e039299` (rest). It was
+  a binding-count artifact, not memory: `window_desc` is now a storage `array<u32>`
+  in every consumer. The 3 at-cap kernels (walker, combine_filter, combine_batched)
+  bind their colour-arena **monolith** once (A0 / A2 sub-ranges addressed by offset)
+  to free the slot. Validated: a 256-window pack (impossible before) is byte-
+  identical; a 330MiB pack is rejected by the budget gate. The real limit is now
+  the 160MB budget, not a window count.
+- **Next: HETEROGENEOUS packs** (different n and/or c in one union) — the recipe is
+  in "Remaining work". Reduce optimisation is owned elsewhere — don't touch it here.
 
 ## What's done (commits since the plan doc `250f48e02e`)
 
@@ -85,29 +91,43 @@ Validated: K=1..4, c=8 & c=13, profiles A/C/D/E, up to 128 windows; golden 14–
 
 ## Remaining work (next session)
 
-1. **HETEROGENEOUS packs (the big one).** Different n and/or c in one pack:
-   - **Per-window n**: `decompose` `input_size` + `transpose` `row_stride` (and the
-     scatter layout `window*n+point`) assume a single n. Either pad every member to
-     the size-class max n (keeps the layout uniform — simplest, the plan's "group by
-     size class") or go truly ragged via the `pointTiles` work-list + a per-window
-     point-region base in `WindowDesc`.
-   - **Per-window BW** for the `partial_*` sparse hash (`window*BW + mag`): the
-     combine kernels bake one `BW`. Different-c members need per-window BW (or a
-     `BW_max` envelope).
-   - **srsOffset** per window for the point gather: `stream_walker`/`size1` read
-     `point_x[pt]` by absolute index. Homogeneous used the shared SRS prefix
-     (srsOffset 0); a real pack folds each member's `srsOffset` into the point index
-     (at scatter, or add at load via a per-window `WindowDesc` field).
-2. **>128-window packs.** The at-cap consumers' `window_desc` is a
-   `var<uniform> array<vec4,256>` = **128 rows** (`prepareBatch` asserts this). Many
-   tiny MSMs (small c ⇒ large NW) overflow it. Options: widen the uniform (storage-
-   binding budget), second-level batching, or cap K in the packer.
-3. **Bridge wiring + budget gate**: `runBatchMsm` calls `packByBudget` to choose K,
-   then drives the union from ChonkApi's real MSM mix; bench the 505-MSM dump E2E.
-4. **PERF bench (the acceptance criterion).** This session validated CORRECTNESS,
-   not the saturation win. Bench a homogeneous small-MSM pack vs K-separate on
-   M2/phone and confirm the solo-starved stages now saturate — and that profiles
-   D/E (hard rule #0) stay fast under packing.
+1. **HETEROGENEOUS packs — different n and/or c in one union (the big one).**
+   KEY INSIGHT: split-c already made the *geometry* per-window (c, stride, BW=
+   num_columns, work_off, reduce_off all come from the WindowDesc table), so the
+   planner/walker/combine/reduce already handle different-c windows. Heterogeneous
+   reduces to the **point-write stages** + sizing:
+   - **Per-window n + scatter base.** `decompose`/`transpose_count`/
+     `transpose_scatter`/`csr_to_v2_active_sums` use `input_size = n` (uniform) and
+     the layout `bucket_and_sign[window*n + p]`. Add a small **`point_offsets`**
+     buffer = the scatter-base prefix, length `Σ NW + 1` (window w's region starts
+     at `point_offsets[w]`; `n_w = point_offsets[w+1] - point_offsets[w]`). These
+     kernels are NOT at the binding cap, so just add the binding. **Byte-identical
+     at homogeneous** (`point_offsets[w] = w*n` ⇒ same layout, n_w = n) — that's the
+     validation lever. Build it in `planBatch` (and the single-MSM `prepare` fill,
+     = `w*n` prefix). Replace `window*n+p` with `point_offsets[w]+p` and `input_size`
+     with `n_w`.
+   - **Dispatch grids over max_n** (padded; per-window early-out `p >= n_w`).
+     `nXposePts = ceil(max_n/WGI)`, transpose tiles cover max_n, each window clamps
+     to its n_w (already clamps to input_size). Byte-identical at homogeneous.
+   - **Sizing.** When c differs, `bTotal`/`redM` are `Σ` per member (not
+     `numWindows·BW`); the combine `partial_*` hash uses the **envelope BW = max BW**
+     across the pack (the split-c convention). `prepareBatch` builds these from the
+     layout; relax its `m.n === this.n` assertion to per-member geometry.
+   - **srsOffset = 0** for shared-SRS commitment MSMs (every member uses the SRS
+     prefix `[0,n_k)`), so NO srsOffset field is needed for the common case. Only
+     sub-MSMs with a nonzero start_index need it — fold at scatter (write the global
+     point index into val_idx); defer until a real case appears.
+   - Validate: golden byte-identical after each kernel (homogeneous), then a true
+     different-n / different-c union vs K-separate. The harness needs a path that
+     packs members of different n (extend `runBatchCheck` past the `every(n===n0)`
+     guard once the kernels are converted).
+2. **Bridge wiring + budget gate**: `runBatchMsm` calls `packByBudget` (now budget-
+   accurate) to choose K, drives the union from ChonkApi's real MSM mix; bench the
+   505-MSM dump E2E.
+3. **PERF bench on phone/M2** (the acceptance criterion at scale): confirm the
+   solo-starved stages saturate under packing and profiles D/E stay fast (hard
+   rule #0). This session measured ~1.7–3.4× on M2 single-run; the rigorous bench
+   is still open.
 
 ### Validation discipline (the bisection lever)
 
