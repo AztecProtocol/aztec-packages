@@ -1540,81 +1540,69 @@ export class LibP2PService extends WithTracer implements P2PService {
     peerId: PeerId,
   ): Promise<boolean> {
     try {
-      // A response with archiveRoot=Fr.zero is the documented "I don't have the block" signal from
-      // reqRespBlockTxsHandler (block_txs_handler.ts:54-58): the peer lacked the block in its
-      // attestation pool and archiver, but matched the requested hashes against its tx pool and
-      // shipped what it found. This is legitimate behaviour, not misbehaviour — we just can't verify
-      // membership/order without the block, so we drop the response without penalising the peer.
-      if (response.archiveRoot.isZero()) {
-        this.logger.debug(`Peer ${peerId.toString()} signalled missing block with Fr.zero archive root`);
-        return false;
-      }
-
-      if (!response.archiveRoot.equals(request.archiveRoot)) {
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-        throw new ValidationError(
-          `Received block txs for unexpected archive root: expected ${request.archiveRoot.toString()}, got ${response.archiveRoot.toString()}`,
-        );
-      }
-
-      if (response.txIndices.getLength() !== request.txIndices.getLength()) {
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-        throw new ValidationError(
-          `Received block txs with mismatched bitvector length: expected ${request.txIndices.getLength()}, got ${response.txIndices.getLength()}`,
-        );
-      }
-
-      // Check no duplicates and not exceeding returnable count
-      const requestedIndices = new Set(request.txIndices.getTrueIndices());
-      const availableIndices = new Set(response.txIndices.getTrueIndices());
-      const maxReturnable = [...requestedIndices].filter(i => availableIndices.has(i)).length;
-
-      const returnedHashes = await Promise.all(response.txs.map(tx => tx.getTxHash().toString()));
+      // Check for duplicates txs (or hashes) in the response.
+      const returnedHashes = response.txs.map(tx => tx.getTxHash().toString());
       const uniqueReturned = new Set(returnedHashes.map(h => h.toString()));
       if (uniqueReturned.size !== returnedHashes.length) {
         this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
         throw new ValidationError(`Received duplicate txs in block txs response`);
       }
-      if (response.txs.length > maxReturnable) {
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-        throw new ValidationError(
-          `Received more txs (${response.txs.length}) than requested-and-available (${maxReturnable})`,
-        );
-      }
 
-      // To verify membership/order of the returned txs we need the canonical tx hash list for the
-      // block. Prefer the block proposal (held while a block is in flight), but fall back to the
-      // archiver for blocks we only know as mined — e.g. a prover collecting txs to prove a block it
-      // never received a proposal for. This mirrors the responder side (reqRespBlockTxsHandler),
-      // which serves from proposal-or-archiver.
+      // We get the block tx hashes from the proposal or the archiver.
       const proposal = await this.mempools.attestationPool.getBlockProposalByArchive(request.archiveRoot.toString());
       const blockTxHashes =
         proposal?.txHashes ??
         (await this.archiver.getBlock({ archive: request.archiveRoot }))?.body.txEffects.map(e => e.txHash);
 
-      if (blockTxHashes) {
-        // Build intersected indices
-        const intersectIdx = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));
-
-        // Enforce subset membership and preserve increasing order by index.
-        const hashToIndexInBlock = new Map<string, number>(
-          blockTxHashes.map((h, i) => [h.toString(), i] as [string, number]),
-        );
-        const allowedIndexSet = new Set(intersectIdx);
-        const indices = returnedHashes.map(h => hashToIndexInBlock.get(h));
-        const allAllowed = indices.every(idx => idx !== undefined && allowedIndexSet.has(idx));
-        const strictlyIncreasing = indices.every((idx, i) => (i === 0 ? idx !== undefined : idx! > indices[i - 1]!));
-        if (!allAllowed || !strictlyIncreasing) {
-          this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-          throw new ValidationError('Returned txs do not match expected subset/order for requested indices');
-        }
-      } else {
+      // If we don't have the block, we can't verify membership/order of the returned txs.
+      if (!blockTxHashes) {
+        // This shouldn't happen, since we asked for the block (proposal).
         // Neither a local proposal nor an archived block: we cannot verify membership/order of the
         // returned txs. This is a local-state gap, not a peer fault, so we do not penalize.
         this.logger.warn(
           `Block ${request.archiveRoot.toString()} not found in attestation pool or archiver; cannot validate membership/order of returned txs`,
         );
+        // NOTE: We mark the response as invalid, given the limitations of a true/false return value.
         return false;
+      }
+
+      // Verify that the returned tx hashes are a subset of (tx hashes by index) U (explicitly requested tx hashes).
+      const uniqueRequestedHashes = new Set([
+        // tx hashes requested by index.
+        ...request.txIndices.getTrueIndices().map(i => blockTxHashes[i].toString()),
+        // explicitly requested tx hashes.
+        ...request.txHashes.map(h => h.toString()),
+      ]);
+      if (!returnedHashes.every(h => uniqueRequestedHashes.has(h))) {
+        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+        throw new ValidationError(
+          'Returned txs should be a subset of (tx hashes by index) U (explicitly requested tx hashes)',
+        );
+      }
+
+      // Tx indices information is optional, but if present, we need to verify a few things.
+      if (!response.peerHasBlock()) {
+        this.logger.debug(`Peer ${peerId.toString()} signalled missing block`);
+        return true;
+      }
+
+      // If the response has a non-empty bitvector, it needs to be consistent with the number of txs in the block.
+      if (response.txIndices.getLength() !== blockTxHashes.length) {
+        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+        throw new ValidationError(
+          `Received block txs with mismatched bitvector length: expected ${blockTxHashes.length}, got ${response.txIndices.getLength()}`,
+        );
+      }
+
+      // For every index we requested that the peer claims to have (per its bitvector), the
+      // corresponding tx must be present in the response. A peer advertising availability but
+      // withholding the tx is inconsistent.
+      const returnedHashSet = new Set(returnedHashes);
+      const expectedIndices = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));
+      const missingExpected = expectedIndices.some(i => !returnedHashSet.has(blockTxHashes[i].toString()));
+      if (missingExpected) {
+        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+        throw new ValidationError('Peer advertised requested txs via indices but did not return them');
       }
 
       return true;

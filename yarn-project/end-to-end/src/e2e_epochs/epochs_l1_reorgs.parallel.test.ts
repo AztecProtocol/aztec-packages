@@ -79,7 +79,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       anvilSlotsInAnEpoch: 32,
       // Pipelining + multi-blocks-per-slot: 8s blocks fit ~4 blocks per 36s slot, and TX_COUNT=8
       // ensures multiple checkpoints have multiple blocks
-      enableProposerPipelining: true,
       inboxLag: 2,
     });
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);

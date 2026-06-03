@@ -8,9 +8,11 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { FieldReader } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import {
   BoundedVec,
+  DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   EphemeralArray,
@@ -1445,20 +1447,23 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_getNextAppTagAsSender(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
+  async aztec_prv_getAppTaggingSecret(foreignSender: ForeignCallSingle, foreignRecipient: ForeignCallSingle) {
     const sender = AztecAddress.fromField(fromSingle(foreignSender));
     const recipient = AztecAddress.fromField(fromSingle(foreignRecipient));
 
-    const nextAppTag = await this.handlerAsPrivate().getNextAppTagAsSender(sender, recipient);
+    const maybeSecret = await this.handlerAsPrivate().getAppTaggingSecret(sender, recipient);
 
-    return toForeignCallResult([toSingle(nextAppTag.value)]);
+    return maybeSecret.isSome()
+      ? toForeignCallResult([toSingle(1), toSingle(maybeSecret.value)])
+      : toForeignCallResult([toSingle(0), toSingle(0)]);
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_prv_getNextConstrainedTaggingIndex(foreignAppSiloedSecret: ForeignCallSingle) {
-    const appSiloedSecret = fromSingle(foreignAppSiloedSecret);
+  async aztec_prv_getNextTaggingIndex(foreignSecret: ForeignCallSingle, foreignMode: ForeignCallSingle) {
+    const secret = fromSingle(foreignSecret);
+    const mode = DELIVERY_MODE.deserialization!.fn([new FieldReader([fromSingle(foreignMode)])]);
 
-    const index = await this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret);
+    const index = await this.handlerAsPrivate().getNextTaggingIndex(secret, mode);
 
     return toForeignCallResult([toSingle(new Fr(index))]);
   }

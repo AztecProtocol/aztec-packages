@@ -27,13 +27,14 @@ import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import {
+  type AppTaggingSecretKind,
   ContractClassLog,
   ContractClassLogFields,
   FlatPublicLogs,
   MessageContext,
   PendingTaggedLog,
   PrivateLog,
-  Tag,
+  appTaggingSecretKindFromDeliveryMode,
 } from '@aztec/stdlib/logs';
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -94,6 +95,14 @@ export const BYTE: TypeMapping<number> = {
   },
 };
 
+// Noir passes `MessageDelivery` onchain variants here.
+export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
+  deserialization: {
+    fn: readers => appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn(readers)),
+    slots: BYTE.deserialization!.slots,
+  },
+};
+
 /** Reads every field in the slot as a UTF-8 character code. */
 const STR: TypeMapping<string> = {
   serialization: { fn: str => [Array.from(Buffer.from(str, 'utf-8')).map(b => new Fr(b))] },
@@ -132,11 +141,6 @@ const NOTE_SELECTOR: TypeMapping<NoteSelector> = {
 const TX_HASH: TypeMapping<TxHash> = {
   serialization: { fn: v => [v.hash] },
   deserialization: { fn: ([reader]) => TxHash.fromField(reader.readField()), slots: 1 },
-};
-
-const TAG: TypeMapping<Tag> = {
-  serialization: { fn: v => [v.value] },
-  deserialization: { fn: ([reader]) => new Tag(reader.readField()), slots: 1 },
 };
 
 const BLOCK_HEADER: TypeMapping<BlockHeader> = {
@@ -666,16 +670,19 @@ const ORACLE_REGISTRY = {
     returnType: BOOL,
   }),
 
-  aztec_prv_getNextAppTagAsSender: makeEntry({
+  aztec_prv_getAppTaggingSecret: makeEntry({
     params: [
       { name: 'sender', type: AZTEC_ADDRESS },
       { name: 'recipient', type: AZTEC_ADDRESS },
     ],
-    returnType: TAG,
+    returnType: OPTION(FIELD),
   }),
 
-  aztec_prv_getNextConstrainedTaggingIndex: makeEntry({
-    params: [{ name: 'appSiloedSecret', type: FIELD }],
+  aztec_prv_getNextTaggingIndex: makeEntry({
+    params: [
+      { name: 'secret', type: FIELD },
+      { name: 'deliveryMode', type: DELIVERY_MODE },
+    ],
     returnType: U32,
   }),
 
@@ -773,8 +780,11 @@ function makeEntry<const TParams extends RegistryParam[] = [], TReturnValue = vo
           .slice(offset, offset + slotCount)
           .map(slot => new FieldReader(slot.map(hex => Fr.fromString(hex))));
         offset += slotCount;
-        // Delegate to the TypeMapping's deserializer and tag the result with the param name.
-        return { name: param.name, value: param.type.deserialization.fn(readers) };
+        // Delegate to the TypeMapping's deserializer, assert the param's slots are fully consumed, and tag the
+        // result with the param name.
+        const value = param.type.deserialization.fn(readers);
+        assertReadersConsumed(readers);
+        return { name: param.name, value };
       }) as unknown as InferDeserializedParams<TParams>;
     },
     serializeReturn(result: TReturnValue): OutputSlot[] {
@@ -830,7 +840,7 @@ function ARRAY<T>(element: TypeMapping<T>): TypeMapping<T[]> {
  * slot 1: Fr(2)                                  // actual length
  * ```
  */
-function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
+export function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
   return {
     serialization: element.serialization
       ? {
@@ -852,6 +862,9 @@ function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<T>> {
             for (let i = 0; i < length; i++) {
               elements.push(element.deserialization!.fn([storageReader]));
             }
+            // Drain the trailing zero-padding (maxLength - length unused element slots) so the storage reader is
+            // fully consumed.
+            storageReader.skip(storageReader.remainingFields());
             return BoundedVec.from<T>({ data: elements, maxLength });
           },
           slots: 2,
@@ -898,11 +911,14 @@ export function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> {
       : undefined,
     deserialization: inner.deserialization
       ? {
-          fn: readers => {
-            if (readers[0].readField().isZero()) {
+          fn: ([discriminant, ...innerReaders]) => {
+            if (discriminant.readField().isZero()) {
+              // None still carries zero-filled inner slots on the wire; drain them so the inner readers are fully
+              // consumed.
+              innerReaders.forEach(reader => reader.skip(reader.remainingFields()));
               return Option.none<T>(undefined as unknown as T);
             }
-            return Option.some(inner.deserialization!.fn(readers.slice(1)));
+            return Option.some(inner.deserialization!.fn(innerReaders));
           },
           slots: inner.deserialization.slots + 1,
         }
@@ -927,12 +943,26 @@ function BUFFER(bitSize: number): TypeMapping<Buffer> {
 }
 
 export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<EphemeralArray<T>> {
+  // An EphemeralArray param is a single slot; the per-param assert covers that slot but never sees the
+  // per-row readers materialized in readAll(). Assert full consumption per row here.
+  const rowElement: TypeMapping<T> | undefined = element.deserialization
+    ? {
+        deserialization: {
+          fn: readers => {
+            const value = element.deserialization!.fn(readers);
+            assertReadersConsumed(readers);
+            return value;
+          },
+          slots: element.deserialization.slots,
+        },
+      }
+    : undefined;
   return {
     serialization: element.serialization
       ? { fn: ea => [ea.materializeSlot(v => element.serialization!.fn(v).flat() as Fr[])] }
       : undefined,
-    deserialization: element.deserialization
-      ? { fn: ([reader]) => EphemeralArray.fromSlot(reader.readField(), element), slots: 1 }
+    deserialization: rowElement
+      ? { fn: ([reader]) => EphemeralArray.fromSlot(reader.readField(), rowElement), slots: 1 }
       : undefined,
   };
 }
@@ -969,3 +999,16 @@ type InferDeserializedParams<T extends RegistryParam[]> = {
 };
 
 type MaybePromise<T> = T | Promise<T>;
+
+/**
+ * Asserts that every reader was fully consumed by a deserialization, throwing on leftover fields.
+ */
+function assertReadersConsumed(readers: FieldReader[]): void {
+  readers.forEach((reader, slot) => {
+    if (!reader.isFinished()) {
+      throw new Error(
+        `Malformed oracle input: ${reader.remainingFields()} unexpected trailing field(s) in slot ${slot}`,
+      );
+    }
+  });
+}
