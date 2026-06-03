@@ -56,3 +56,4 @@ export { EventValidationRequest } from './noir-structs/event_validation_request.
 export { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
 export { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
 export { NoteValidationRequest } from './noir-structs/note_validation_request.js';
+export { ProvidedSecret } from './noir-structs/provided_secret.js';
