@@ -102,6 +102,7 @@ const gpuKnobs: MsmConfig = (() => {
     budgetMiB: optInt('budgetmib'),
     varSched: q.get('varsched') === '1' || undefined,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
+    sparseReduce: q.get('sparse_reduce') === '1' || undefined,
     forceSplit: (() => {
       const f = q.get('forcesplit');
       if (!f) return undefined;

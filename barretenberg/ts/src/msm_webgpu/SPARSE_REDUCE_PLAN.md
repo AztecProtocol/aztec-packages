@@ -67,11 +67,21 @@ a no-op copy), so dense cost is unchanged; sparse windows pay
 
 ## Stages
 
-1. Host: per-window active-bucket count (reduction over `is_present`), exposed to
-   the reduce dispatch. Low risk, needed for classification + segment sizing.
-2. Kernel `ba_reduce_sparse`: S-slot batched gap-aware segmented scan, one
-   workgroup/window. Validate byte-identical vs the dense tree on a dense MSM,
-   then on the structured wires.
+1. **v0 — correctness reference (DONE, committed behind `?sparse_reduce=1`).**
+   `ba_reduce_sparse.template.wgsl`: one thread per window, gap-aware suffix sum
+   over active buckets, UN-batched (one finv per affine op). Validated
+   byte-identical to the dense tree: golden logN14 `255df40fb6007596` + the real
+   wire dump `wire_n23074` (`0x59e9d999ef00fd22`), both oracle-agree. Slow as
+   expected (reduce 21ms vs 1.9ms) — its only job is to lock the math + the host
+   wiring (pipeline, per-window (base,B) `reduce_meta`, bind, flag, dispatch).
+2. **v1 — batched (NEXT, the perf win).** Replace the un-batched inner loop with
+   the walker's S-slot batched inversion: split the window into S contiguous
+   bucket-segments (one per slot), each slot runs its segment's gap-aware chain,
+   the S affine adds per step share one finv (forward prefix-product / single
+   inverse / backward peel). Combine: `S_w = Σ_s (alg_s + lo_s·seg_sum_s)` — no
+   cross-segment carry (each segment weights by its own absolute magnitude). The
+   `running·gap` and `lo_s·seg_sum_s` scalar-mults are double-and-adds; gap==1
+   short-circuits so dense segments match the dense tree.
 3. Classify dense vs sparse per window; route each to the cheaper path.
 4. Bench the real wire dumps (`?msm_dump=wire_n90325` …) — target: reduce
    6.1ms → ~1.5-2ms on the structured wires, unchanged on all-large.

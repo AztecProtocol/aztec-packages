@@ -273,6 +273,13 @@ export interface MsmConfig {
    */
   splitC?: boolean;
   /**
+   * Use the sparse bucket reduction (skips empty buckets via a gap-aware suffix
+   * sum) instead of the dense table-driven tree. Byte-identical result; wins on
+   * structured/sparse scalar distributions (the production wire commits). v0 is
+   * one-thread-per-window (validation); v1 batches the inversions for speed.
+   */
+  sparseReduce?: boolean;
+  /**
    * Test hook (mirrors the C++ VAR_WINDOW_FORCE_SPLIT env var): force a split at
    * `[b_star, c_lo, c_hi]`, bypassing the cost model. Requires {@link splitC}.
    */
@@ -1533,6 +1540,10 @@ export class MsmV2 {
   private windowCs!: number[];
   /** split-c (Phase 1): build the MSB histogram + run the variable-window decision. */
   private splitC = false;
+  private sparseReduce = false;
+  private reduceSparsePipe?: GPUComputePipeline;
+  private reduceSparseLayout?: GPUBindGroupLayout;
+  private reduceSparseBind?: GPUBindGroup;
   /** split-c test hook: force a split at [b_star, c_lo, c_hi], bypassing the cost model. */
   private forceSplit?: [number, number, number];
   /** Number of Pippenger windows = ceil(NUMBITS / c). Public — the bridge
@@ -1864,6 +1875,7 @@ export class MsmV2 {
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     m.splitC = config?.splitC ?? false;
+    m.sparseReduce = config?.sparseReduce ?? false;
     m.forceSplit = config?.forceSplit;
     m.numBatchesForce = config?.numBatchesOverride ?? 0;
     m.memBudget = config?.budgetMiB ? config.budgetMiB * (1 << 20) : MEM_BUDGET;
@@ -2110,6 +2122,16 @@ export class MsmV2 {
       `reduce-level`,
       m.reduceLevelLayout,
     );
+    if (m.sparseReduce) {
+      // red_buf(rw), is_present(rw — shares an arena buffer with red_buf, so it
+      // can't be read-only in the same pass), cparams(uniform), reduce_meta(ro).
+      m.reduceSparseLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage']);
+      m.reduceSparsePipe = await compile(
+        sm.gen_ba_reduce_sparse_shader(REDUCE_WG, INV_VARIANT),
+        `reduce-sparse`,
+        m.reduceSparseLayout,
+      );
+    }
 
     // --- Streaming planner + accumulator pipelines ---
     // All walker dispatch geometry derives from constants in ba_stream_plan.ts.
@@ -2874,6 +2896,24 @@ export class MsmV2 {
       const lparams = ubuf(new Uint32Array([lv, 0, 0, 0]));
       return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams, schedBuf]);
     });
+    // Sparse reduce: per-window (base, B) meta + bind. base = tight reduce_off,
+    // B = this window's bucket count (2^(c_w-1)). cparams.x = M (red_buf stride).
+    if (this.sparseReduce && this.reduceSparseLayout) {
+      const metaData = new Uint32Array(NUM_WINDOWS * 4);
+      for (let w = 0; w < NUM_WINDOWS; w++) {
+        const cw = w < this.windowCs.length ? this.windowCs[w] : c;
+        metaData[w * 4 + 0] = this.reduceOffsets[w];
+        metaData[w * 4 + 1] = 2 ** (cw - 1);
+      }
+      const metaBuf = device.createBuffer({
+        size: Math.max(16, metaData.byteLength),
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(metaBuf, 0, metaData as BufferSource);
+      this.prepBuffers.push(metaBuf);
+      const cparamsSparse = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
+      this.reduceSparseBind = mkBind(this.reduceSparseLayout, [redBuf, isPresentBuf, cparamsSparse, metaBuf]);
+    }
     this.redBuf = redBuf;
 
     // --- Streaming planner + accumulator bind groups ---
@@ -3048,9 +3088,9 @@ export class MsmV2 {
         // + pair-tree multi-dispatch: 2 (init) + 17 × 3 (build + dispatch + combine) + 1 (finalize) = 54
         passes += 7 + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
       }
-      // Reduce = one dispatch per level (table-driven, all windows). +1 keeps
-      // the historical slack slot.
-      passes += 1 + this.reduceLevelBinds.length;
+      // Reduce = one dispatch per level (table-driven), or a single dispatch for
+      // the sparse path. +1 keeps the historical slack slot.
+      passes += 1 + (this.sparseReduce ? 1 : this.reduceLevelBinds.length);
       // Region-split adds 3 preprocess dispatches (upper decompose/count/scatter).
       if (this.regionSplit) passes += 3;
       this.passCount = passes;
@@ -3371,13 +3411,20 @@ export class MsmV2 {
     // directly via the bid → red_slot mapping. See UNIFIED_COMBINE_PLAN.md.
     // Phase 5: ONE pipeline drives every level (kind branched at runtime
     // off lparams.w). reduceLevelKinds is no longer consulted.
-    const reducePipe = this.reduceLevelPipes[0];
-    // One dispatch per level over all windows; each window reads its own base +
-    // per-level schedule from reduce_sched, so narrow split-c windows no-op the
-    // levels past their shorter schedule (ppw==0) — fewer buckets, same dispatch
-    // count as the uniform reduce.
-    for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
-      dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
+    if (this.sparseReduce && this.reduceSparsePipe && this.reduceSparseBind) {
+      // Sparse path: one dispatch, one workgroup per window; the kernel walks
+      // only the active buckets (gap-aware), skipping empties. Byte-identical to
+      // the dense tree.
+      dispatch(this.reduceSparsePipe, this.reduceSparseBind, this.numWindows, 1);
+    } else {
+      const reducePipe = this.reduceLevelPipes[0];
+      // One dispatch per level over all windows; each window reads its own base +
+      // per-level schedule from reduce_sched, so narrow split-c windows no-op the
+      // levels past their shorter schedule (ppw==0) — fewer buckets, same dispatch
+      // count as the uniform reduce.
+      for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
+        dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
+      }
     }
     // Per-window weighted sum gather. Same SoA stride math as run(), just
     // targeting an external staging buffer at an external offset. The red_buf
