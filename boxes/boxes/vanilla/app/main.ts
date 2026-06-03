@@ -5,6 +5,7 @@ import {
   getContractInstanceFromInstantiationParams,
 } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { EmbeddedWallet } from './embedded-wallet';
 import { PrivateVotingContract } from '../artifacts/PrivateVoting';
@@ -162,7 +163,11 @@ voteButton.addEventListener('click', async (e) => {
     // Send tx
     await votingContract.methods
       .cast_vote({ id: electionId }, candidate)
-      .send({ from: connectedAccount });
+      // PROPOSED (the wallet default) is flaky in boxes CI, so wait for the checkpoint.
+      .send({
+        from: connectedAccount,
+        wait: { waitForStatus: TxStatus.CHECKPOINTED },
+      });
 
     // Update tally
     displayStatusMessage('Updating vote tally...');
@@ -198,7 +203,10 @@ async function updateVoteTally(wallet: Wallet, from: AztecAddress) {
     )
   );
 
-  const { result: batchResult } = await new BatchCall(wallet, payloads).simulate({ from });
+  const { result: batchResult } = await new BatchCall(
+    wallet,
+    payloads
+  ).simulate({ from });
 
   batchResult.forEach(({ result: value }, i) => {
     results[i + 1] = value;
