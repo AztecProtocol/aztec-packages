@@ -202,7 +202,11 @@ function avm_check_circuit_cmds {
   # WARNING: theoretically, transactions could need more CPU and MEM than we allocate by default.
   # In that case, they might start timing out. For now, all of the e2e test txs seem to be relatively
   # small and the AVM can run check-circuit with limited resources.
-  local prefix="$hash:ISOLATE=1:TIMEOUT=30s"
+  # NOTE: these run via `parallelize` with up to 64 concurrent jobs, so the heavier txs (e.g.
+  # e2e_block_building, e2e_multiple_blobs) take ~30-35s of wall time under CPU contention even
+  # though most txs finish in 3-6s. A tight 30s timeout made those heavy txs flake intermittently
+  # (a different tx each run), so give a generous margin while still surfacing a genuinely hung check.
+  local prefix="$hash:ISOLATE=1:TIMEOUT=120s"
 
   # Find all .bin files in the dump directory (handles nested dirs)
   for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
