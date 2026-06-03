@@ -202,9 +202,13 @@ export class EmbeddedWallet extends BaseWallet {
       gasLimits: opts.fee?.gasSettings?.gasLimits ?? estimated.gasLimits,
       teardownGasLimits: opts.fee?.gasSettings?.teardownGasLimits ?? estimated.teardownGasLimits,
     });
-    if (opts.wait !== NO_WAIT) {
-      const waitOpts: WaitOpts = typeof opts.wait === 'object' ? opts.wait : {};
-      if (!waitOpts.waitForStatus) {
+    // NO_WAIT short-circuits the wait in super.sendTx, so forward it as-is; otherwise build a fresh
+    // wait config (without mutating the caller's opts) defaulting the status to PROPOSED.
+    let wait: InteractionWaitOptions = opts.wait;
+    if (wait !== NO_WAIT) {
+      const callerWaitOpts: WaitOpts = typeof wait === 'object' ? wait : {};
+      wait = {
+        ...callerWaitOpts,
         // Default to PROPOSED so the wait returns as soon as the tx lands in a proposed L2 block,
         // rather than waiting until the end of the slot for the checkpoint to be published to L1.
         // This is what makes MBPS (Multiple Blocks Per Slot) actually improve UX: with CHECKPOINTED
@@ -212,13 +216,12 @@ export class EmbeddedWallet extends BaseWallet {
         // The tradeoff is a weaker guarantee — a proposed block only becomes canonical once it (or
         // a later block in the same slot) is checkpointed, so a tx could be re-orged out if the
         // proposer fails to publish to L1 (which should be rare, since they'd get slashed for it).
-        waitOpts.waitForStatus = TxStatus.PROPOSED;
-      }
-      opts.wait = waitOpts as W;
+        waitForStatus: callerWaitOpts.waitForStatus ?? TxStatus.PROPOSED,
+      };
     }
     return super.sendTx(executionPayload, {
       ...opts,
-      wait: opts.wait,
+      wait: wait as W,
       fee: { ...opts.fee, gasSettings },
     });
   }
