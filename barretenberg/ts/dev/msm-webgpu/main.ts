@@ -619,24 +619,15 @@ async function runWebGpuOnce(
 }
 
 /**
- * Multi-MSM batch-check (MULTI_MSM_PLAN.md rollout step 1, runtime side): run K
- * MSMs both solo and packed-through-the-scheduler, and assert each member's
- * per-window GPU output is byte-identical between the two. At K=1 this is the
- * task's stated validation — batch-of-1 ≡ single-MSM — and it PASSES: the packed
- * run drives `encodeIntoBatch` at `planBatch`'s `desc.outBase` offset, so a
- * divergence would localize to the scheduler's layout / staging-offset handling.
- *
- * KNOWN LIMITATION (K>1): the packed pass co-encodes K separate `MsmV2` instances
- * sharing one pool into one command buffer; this currently trips Dawn's "buffer
- * used in submit while destroyed" — an `MsmV2` instance-coexistence issue in the
- * shared-pool/warm-up lifecycle (NOT the scheduler: the solo baselines are correct
- * and `planBatch`'s offsets are unit-verified in batch_scheduler.test.ts). This is
- * a validation-only construct, NOT how real multi-MSM works: steps 2-4 run ONE
- * dispatch over the concatenated union (global-window bid + table-driven kernels),
- * not K instances — so the meaningful batch-of-K validation arrives with step 4's
- * concatenated dispatch and sidesteps multi-instance coexistence entirely. The
- * autorun therefore defaults to K=1; passing `?logns=a,b,...` exercises the K>1
- * construct (and surfaces the lifecycle limit) for future debugging.
+ * Multi-MSM batch-check (MULTI_MSM_PLAN.md step 4, runtime side): run K MSMs both
+ * solo and as ONE concatenated super-MSM through `MsmV2.prepareBatch`, and assert
+ * each member's per-window GPU output is byte-identical between the two. This is
+ * the real multi-MSM path — a SINGLE dispatch over the union of all members'
+ * windows (global-window bid + table-driven kernels), not K coexisting `MsmV2`
+ * instances (which tripped Dawn's submit-while-destroyed lifecycle). At K=1 it is
+ * the batch-of-1 ≡ single-MSM invariant; at K>1 it is batch-of-K ≡ K-separate.
+ * The union packs one size class, so members must be homogeneous (same n) — drive
+ * K>1 with a repeated logN, e.g. `?logns=16,16`.
  */
 async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: string }> {
   if (gpuDevice === null) gpuDevice = await get_device();
@@ -677,60 +668,45 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
   }
   log('info', `[batch-check] ${logNs.length} MSMs n=[${ns.join(', ')}] — solo baselines done`);
 
-  // ── Packed pass on ONE shared pool, bridge-faithful: prepare ALL (descending
-  // n so the largest sizes the pool to high-water first — no later prepare
-  // reallocates it), then encode ALL into one encoder at planBatch's outBase
-  // offsets, one submit. No run() on the shared pool.
-  const pool = await MsmV2Pool.create(device, poolPoints!);
-  const insts: MsmV2[] = ns.map(() => null as unknown as MsmV2);
-  try {
-    // Create ALL instances first (each create() runs a warm-up prepare()+run() on
-    // the shared pool — doing them all up front, largest first, settles the pool
-    // at high-water before any real prepare, so no later warm-up reallocates an
-    // arena an earlier instance's binds reference). Then prepare ALL, then encode.
-    const order = [...ns.keys()].sort((a, b) => ns[b] - ns[a]);
-    for (const k of order) insts[k] = await MsmV2.create(device, ns[k], pool, gpuKnobs);
-    for (const k of order) insts[k].prepare(scalars[k]);
+  // The union packs one size class — all members must share n.
+  const n0 = ns[0];
+  if (!ns.every(x => x === n0)) {
+    return { ok: false, detail: `union path needs homogeneous n; got [${ns.join(', ')}] (use a repeated logN)` };
+  }
 
+  // ── Union pass: ONE MsmV2 prepared over the concatenated super-MSM, one
+  // dispatch over Σ NW windows. Every member uses the shared SRS prefix
+  // (srsOffset 0), so solo and packed see identical points per member.
+  const pool = await MsmV2Pool.create(device, poolPoints!);
+  const inst = await MsmV2.create(device, n0, pool, gpuKnobs);
+  try {
     const plan = planBatch(ns.map(n => ({ n, srsOffset: 0 })));
     log(
       'info',
-      `[batch-check] packed pass — totalWindows=${plan.totalWindows} ` +
-        `totalWindowSumBytes=${plan.totalWindowSumBytes} footprint=${(plan.footprintBytes / (1 << 20)).toFixed(1)}MiB`,
+      `[batch-check] union pass — totalWindows=${plan.totalWindows} ` +
+        `footprint=${(plan.footprintBytes / (1 << 20)).toFixed(1)}MiB`,
     );
-    const staging = device.createBuffer({
-      size: Math.max(4, plan.totalWindowSumBytes),
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-    const enc = device.createCommandEncoder();
-    let cursor = 0;
-    for (let k = 0; k < insts.length; k++) {
-      // Cross-check the scheduler's outBase against the running byte cursor (the
-      // bridge's stagingOffset convention) before using it.
-      if (plan.descs[k].outBase !== cursor) {
-        throw new Error(`outBase mismatch msm ${k}: plan=${plan.descs[k].outBase} cursor=${cursor}`);
-      }
-      insts[k].encodeIntoBatch(enc, staging, plan.descs[k].outBase);
-      cursor += insts[k].windowSumsByteLength;
-    }
-    device.queue.submit([enc.finish()]);
-    await staging.mapAsync(GPUMapMode.READ);
-    const bytes = new Uint8Array(staging.getMappedRange().slice(0));
-    staging.unmap();
-    staging.destroy();
+    // Concatenate the members' scalars at planBatch's byte bases.
+    const concat = new Uint8Array(plan.totalScalarBytes);
+    for (let k = 0; k < scalars.length; k++) concat.set(scalars[k], plan.descs[k].scalarBase);
+    const members = plan.descs.map(d => ({
+      n: d.n,
+      scalarBaseBytes: d.scalarBase,
+      schedOff: d.schedOff,
+      numWindows: d.numWindows,
+    }));
+    inst.prepareBatch(members, concat, plan.windowDescTable, plan.reduceOffsets);
+    const union = (await inst.run()).windowSums; // Σ NW windows; member k at schedOff_k
 
     const diffs: string[] = [];
-    for (let k = 0; k < insts.length; k++) {
-      const packed = insts[k].decodeWindowSumsFromBytes(bytes, plan.descs[k].outBase);
+    for (let k = 0; k < plan.descs.length; k++) {
+      const off = plan.descs[k].schedOff;
       const solo = soloWS[k];
-      if (packed.length !== solo.length) {
-        diffs.push(`msm${k} n=${ns[k]}: window count ${packed.length} != solo ${solo.length}`);
-        continue;
-      }
-      for (let w = 0; w < packed.length; w++) {
-        if (packed[w].x !== solo[w].x || packed[w].y !== solo[w].y) {
+      for (let w = 0; w < solo.length; w++) {
+        const u = union[off + w];
+        if (!u || u.x !== solo[w].x || u.y !== solo[w].y) {
           diffs.push(
-            `msm${k} n=${ns[k]} window ${w}: packed.x=${packed[w].x.toString(16).slice(0, 12)} != solo.x=${solo[w].x.toString(16).slice(0, 12)}`,
+            `msm${k} n=${ns[k]} window ${w}: union.x=${(u?.x ?? 0n).toString(16).slice(0, 12)} != solo.x=${solo[w].x.toString(16).slice(0, 12)}`,
           );
           break;
         }
@@ -740,17 +716,11 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
     return {
       ok,
       detail: ok
-        ? `all ${insts.length} members byte-identical packed≡solo (windows=${plan.totalWindows})`
+        ? `all ${plan.descs.length} members byte-identical union≡solo (windows=${plan.totalWindows})`
         : diffs.slice(0, 5).join(' | '),
     };
   } finally {
-    for (const inst of insts) {
-      try {
-        inst?.destroy();
-      } catch {
-        /* best-effort cleanup */
-      }
-    }
+    inst.destroy();
     pool.destroy();
   }
 }

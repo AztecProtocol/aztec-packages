@@ -45,7 +45,10 @@ const L0_IDX_MASK: u32 = 0x7fffffffu;
 const NO_BUCKET: u32 = 0xffffffffu;
 const BW:     u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
-const M_RED:  u32 = {{ m_red }}u;
+// M_RED (red_buf Y-plane stride = total red slots) is a runtime uniform in
+// batch_offset.z, not a baked const: a concatenated multi-MSM pass sizes red_buf
+// to Σ redM, while a single MSM passes its own redM (byte-identical to the old
+// the old baked M_RED). reduce_level_bench already takes its M from cparams.x.
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -135,7 +138,7 @@ fn store_bucket_sum(bucket_id: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) 
     let bx = PG * red_slot;
     red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
-    let by = PG * M_RED + PG * red_slot;
+    let by = PG * batch_offset.z + PG * red_slot;
     red_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
     red_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
 }

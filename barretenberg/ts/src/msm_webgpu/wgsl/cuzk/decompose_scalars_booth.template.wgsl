@@ -48,9 +48,11 @@ const WORD_BITS: u32 = 32u;
 const WD_STRIDE: u32 = 8u;
 
 // Read `count` (<= 32) bits at absolute bit `bit_off` from scalar `s`,
-// little-endian. Bits past the scalar's words read as 0.
-fn read_bits(s: u32, scalar_words: u32, bit_off: u32, count: u32) -> u32 {
-    let base = s * scalar_words;
+// little-endian. Bits past the scalar's words read as 0. `scalar_base` is the
+// u32-word offset of this window's MSM scalar region in the (possibly
+// concatenated multi-MSM) scalars buffer — 0 for a single MSM.
+fn read_bits(s: u32, scalar_words: u32, scalar_base: u32, bit_off: u32, count: u32) -> u32 {
+    let base = scalar_base + s * scalar_words;
     let word = bit_off / WORD_BITS;
     let off = bit_off % WORD_BITS;
     var v: u32 = 0u;
@@ -81,13 +83,20 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Per-window geometry from the WindowDesc table (uniform fill ⇒ c, w_global·c).
     let c = window_desc[w_global * WD_STRIDE + 0u];       // window_bits
     let bit_base = window_desc[w_global * WD_STRIDE + 1u];
+    // Per-window MSM scalar base (u32 words). Lets one concatenated dispatch span
+    // K MSMs: window w pulls its bits from its own MSM's scalar region. 0 for a
+    // single MSM (the +6 slot is unwritten ⇒ zero), so byte-identical there.
+    let scalar_base = window_desc[w_global * WD_STRIDE + 6u];
 
     // c+1-bit window: the window's c bits, with the lookback bit (top bit
     // of the window below; synthetic 0 for window 0) shifted in as the LSB.
-    let win_bits = read_bits(p, scalar_words, bit_base, c);
+    let win_bits = read_bits(p, scalar_words, scalar_base, bit_base, c);
     var lookback: u32 = 0u;
-    if (w_global > 0u) {
-        lookback = read_bits(p, scalar_words, bit_base - 1u, 1u);
+    // bit_base == 0 marks the bottom window of THIS MSM (it resets per MSM in the
+    // concatenated table), so use it — not w_global — to gate the lookback. For a
+    // single MSM only window 0 has bit_base 0, so this is byte-identical.
+    if (bit_base > 0u) {
+        lookback = read_bits(p, scalar_words, scalar_base, bit_base - 1u, 1u);
     }
     let raw = (win_bits << 1u) | lookback;
 

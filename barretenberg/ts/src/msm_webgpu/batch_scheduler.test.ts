@@ -162,10 +162,21 @@ describe('planBatch concatenates K MSMs', () => {
     expect(layout.windows[0]).toMatchObject({ msmIdx: 0, localWindow: 0, n: 1 << 14, scalarBase: 0 });
   });
 
-  test('reduceOffsets are MSM-local (reset at each MSM boundary)', () => {
+  test('reduceOffsets / work_off are GLOBAL prefixes; bit_base resets per MSM', () => {
+    // reduce_off: MSM 0 starts at redBase 0, MSM 1 continues at Σ redM_0.
     expect(layout.reduceOffsets[gA.numWindows - 1]).toBe((gA.numWindows - 1) * gA.stride); // 31·128
-    expect(layout.reduceOffsets[gA.numWindows]).toBe(0); // MSM 1, window 0 resets
-    expect(layout.reduceOffsets[gA.numWindows + 1]).toBe(gB.stride); // MSM 1, window 1
+    expect(layout.reduceOffsets[gA.numWindows]).toBe(gA.redM); // MSM 1, window 0 = redBase_1
+    expect(layout.reduceOffsets[gA.numWindows + 1]).toBe(gA.redM + gB.stride); // MSM 1, window 1
+    // The table's reduce_off (+4) matches the reduceOffsets array.
+    const row1 = gA.numWindows * 8;
+    expect(layout.windowDescTable[row1 + 4]).toBe(gA.redM);
+    // work_off (+3) is the global CSR prefix: MSM 1 starts at Σ bTotal_0.
+    expect(layout.windowDescTable[row1 + 3]).toBe(gA.bTotal);
+    // bit_base (+1) resets to 0 at each MSM's first window (decodes from bit 0).
+    expect(layout.windowDescTable[row1 + 1]).toBe(0);
+    // scalar_base (+6) is this MSM's u32-word offset into the concatenated scalars.
+    expect(layout.windowDescTable[row1 + 6]).toBe(gA.scalarBytes / 4);
+    expect(layout.windowDescTable[6]).toBe(0); // MSM 0 window 0 → 0
   });
 
   test('the concatenated footprint exceeds either MSM alone but charges SRS once', () => {

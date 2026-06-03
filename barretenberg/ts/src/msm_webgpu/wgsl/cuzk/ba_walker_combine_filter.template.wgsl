@@ -25,7 +25,8 @@
 const PG: u32 = 2u;
 const BW:     u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
-const M_RED:  u32 = {{ m_red }}u;
+// M_RED (red_buf Y-plane stride) is runtime in batch_offset.z (= Σ redM packed,
+// = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -109,7 +110,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 red_buf[bx + 0u] = px0;
                 red_buf[bx + 1u] = px1;
 
-                let by = PG * M_RED + PG * red_slot;
+                let by = PG * batch_offset.z + PG * red_slot;
                 let py0 = partials_buf[PG * M_partials + PG * slot + 0u];
                 let py1 = partials_buf[PG * M_partials + PG * slot + 1u];
                 red_buf[by + 0u] = py0;

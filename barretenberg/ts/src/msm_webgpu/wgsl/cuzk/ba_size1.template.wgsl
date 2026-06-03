@@ -27,7 +27,8 @@ const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const BW:    u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
-const M_RED:  u32 = {{ m_red }}u;
+// M_RED (red_buf Y-plane stride) is runtime in params.z (= Σ redM for a packed
+// multi-MSM pass, = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -90,7 +91,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     red_buf[base_x + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[base_x + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
 
-    let base_y = PG * M_RED + PG * red_slot;
+    let base_y = PG * params.z + PG * red_slot;
     red_buf[base_y + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
     red_buf[base_y + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
 

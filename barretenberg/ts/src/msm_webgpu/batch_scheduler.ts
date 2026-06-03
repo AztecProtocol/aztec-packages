@@ -89,7 +89,7 @@ export interface MsmDesc {
   /** Index of this MSM's first window in the concatenated window space (`Σ_{j<k} NW_j`). */
   schedOff: number;
   /** Slot base of this MSM's buckets in the concatenated red_buf (`Σ_{j<k} redM_j`).
-   *  Consumers of the per-window `reduceOff` (which is MSM-local) add this. */
+   *  Already folded into each window's GLOBAL `reduceOff`; kept for diagnostics. */
   redBase: number;
   numWindows: number;
   /** Split-c upper-region scalar count; `= n` when there is no split. */
@@ -97,11 +97,12 @@ export interface MsmDesc {
   geom: MsmGeom;
 }
 
-/** One row of the concatenated per-global-window table. The first six fields are
- *  the existing 6-field WindowDesc (MSM-local, byte-identical to today's table);
- *  the last four are the per-MSM source tags the plan's step 2 will fold into the
- *  packed bid. `reduceOff` is MSM-local (add the owning desc's `redBase` for the
- *  global red_buf slot). */
+/** One row of the concatenated per-global-window table. `windowBits`/`bitBase`/
+ *  `numBuckets`/`numColumns` are per-window geometry (`bitBase` MSM-local — each
+ *  MSM decodes its scalar from bit 0); `workOff` and `reduceOff` are GLOBAL
+ *  prefixes into the concatenated CSR / red_buf, so the union dispatch indexes
+ *  them directly (no per-MSM base to add). `srsOffset`/`n`/`scalarBase` are the
+ *  per-MSM source tags. At K=1 every base is 0 ⇒ byte-identical to today's table. */
 export interface GlobalWindow {
   globalWindow: number;
   msmIdx: number;
@@ -133,7 +134,8 @@ export interface BatchLayout {
   /** Concatenated WindowDesc rows (`totalWindows · 8` u32), kernel-upload-ready.
    *  MSM-local geometry; byte-identical to the single-MSM table at K=1. */
   windowDescTable: Uint32Array;
-  /** MSM-local reduce_off per global window (resets per MSM; add `desc.redBase`). */
+  /** GLOBAL reduce_off (red_buf slot base) per global window — already includes
+   *  each MSM's `redBase`, so the reduce/gather index red_buf directly. */
   reduceOffsets: number[];
   totalScalarBytes: number;
   totalWindowSumBytes: number;
@@ -180,28 +182,52 @@ export function computeGeom(n: number, config: GeomConfig = {}): MsmGeom {
   };
 }
 
-/** Build the uniform (no region-split) WindowDesc rows and MSM-local reduce
- *  offsets, byte-identical to `msm_v2` prepare()'s uniform fill
- *  (msm_v2.ts ~2738-2756). `reduce_off = w·stride` (envelope spacing) — for
- *  uniform `windowCs` this coincides with the tight prefix `Σ 2^(c_k-1)`. */
-export function buildUniformWindowDesc(geom: MsmGeom): { rows: Uint32Array; reduceOffsets: number[] } {
+/** Base offsets that place one MSM's WindowDesc rows in the concatenated pack
+ *  (all default 0 ⇒ a standalone single-MSM table, byte-identical to `msm_v2`
+ *  prepare()'s uniform fill). `bit_base` is NOT offset — it stays MSM-local
+ *  (each MSM decodes its own scalar from bit 0). */
+export interface WindowDescBases {
+  /** Global CSR-column prefix of all prior MSMs (`Σ_{j<k} bTotal_j`). */
+  workOffBase?: number;
+  /** Global red_buf-slot prefix of all prior MSMs (`Σ_{j<k} redM_j` = `redBase`). */
+  redBase?: number;
+  /** This MSM's scalar base in u32 words (`scalarBaseBytes / 4`); written at +6
+   *  so `decompose` pulls each global window's bits from its own MSM region. */
+  scalarBaseWords?: number;
+}
+
+/** Build the uniform (no region-split) WindowDesc rows and reduce offsets for one
+ *  MSM, placed at the given pack bases (byte-identical to `msm_v2` prepare()'s
+ *  uniform fill at bases 0 — msm_v2.ts ~2738-2756). `work_off`/`reduce_off` are
+ *  emitted as GLOBAL prefixes (base + the MSM-local prefix) so the concatenated
+ *  CSR/red_buf index directly; `reduce_off = redBase + w·stride` (envelope
+ *  spacing — for uniform `windowCs` this coincides with the tight prefix
+ *  `Σ 2^(c_k-1)`). Returned `reduceOffsets` are likewise global. */
+export function buildUniformWindowDesc(
+  geom: MsmGeom,
+  bases: WindowDescBases = {},
+): { rows: Uint32Array; reduceOffsets: number[] } {
   const { windowCs, stride } = geom;
+  const workOffBase = bases.workOffBase ?? 0;
+  const redBase = bases.redBase ?? 0;
+  const scalarBaseWords = bases.scalarBaseWords ?? 0;
   const rows = new Uint32Array(windowCs.length * WD_STRIDE);
   const reduceOffsets: number[] = [];
-  let bitBase = 0; // prefix of window widths
-  let workOff = 0; // prefix of num_columns (packed CSR base)
+  let bitBase = 0; // prefix of window widths — MSM-local (resets per MSM)
+  let workOff = workOffBase; // global prefix of num_columns (packed CSR base)
   for (let w = 0; w < windowCs.length; w++) {
     const cw = windowCs[w];
     const strideW = 2 ** (cw - 1);
     const numCols = Math.ceil((2 ** (cw - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
-    const reduceOff = w * stride;
+    const reduceOff = redBase + w * stride;
     const o = w * WD_STRIDE;
     rows[o + 0] = cw; // window_bits
-    rows[o + 1] = bitBase; // bit_base
+    rows[o + 1] = bitBase; // bit_base (MSM-local)
     rows[o + 2] = strideW; // num_buckets (red slots)
-    rows[o + 3] = workOff; // work_off (CSR column base)
-    rows[o + 4] = reduceOff; // reduce_off (MSM-local)
+    rows[o + 3] = workOff; // work_off (GLOBAL CSR column base)
+    rows[o + 4] = reduceOff; // reduce_off (GLOBAL red_buf slot base)
     rows[o + 5] = numCols; // num_columns
+    rows[o + 6] = scalarBaseWords; // scalar_base (u32 words, MSM-constant)
     reduceOffsets.push(reduceOff);
     bitBase += cw;
     workOff += numCols;
@@ -289,11 +315,16 @@ export function planBatch(
   let outBase = 0;
   let schedOff = 0;
   let redBase = 0;
+  let workOffBase = 0; // global Σ bTotal_j prefix — the concatenated CSR base
 
   inputs.forEach((input, msmIdx) => {
     const geom = computeGeom(input.n, input.geomConfig);
     const srsOffset = input.srsOffset ?? 0;
-    const { rows, reduceOffsets: localReduceOffsets } = buildUniformWindowDesc(geom);
+    const { rows, reduceOffsets: globalReduceOffsets } = buildUniformWindowDesc(geom, {
+      workOffBase,
+      redBase,
+      scalarBaseWords: scalarBase / 4, // scalarBase is bytes; decompose reads u32 words
+    });
 
     const desc: MsmDesc = {
       msmIdx,
@@ -326,7 +357,7 @@ export function planBatch(
         n: geom.n,
         scalarBase,
       });
-      reduceOffsets.push(localReduceOffsets[w]);
+      reduceOffsets.push(globalReduceOffsets[w]);
     }
 
     for (let start = 0; start < geom.n; start += pointTile) {
@@ -337,6 +368,7 @@ export function planBatch(
     outBase += geom.windowSumBytes;
     schedOff += geom.numWindows;
     redBase += geom.redM;
+    workOffBase += geom.bTotal;
   });
 
   // Concatenate the per-MSM WindowDesc chunks into one upload-ready table.

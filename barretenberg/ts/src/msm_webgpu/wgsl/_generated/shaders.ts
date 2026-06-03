@@ -2326,7 +2326,8 @@ const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const BW:    u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
-const M_RED:  u32 = {{ m_red }}u;
+// M_RED (red_buf Y-plane stride) is runtime in params.z (= Σ redM for a packed
+// multi-MSM pass, = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -2389,7 +2390,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     red_buf[base_x + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[base_x + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
 
-    let base_y = PG * M_RED + PG * red_slot;
+    let base_y = PG * params.z + PG * red_slot;
     red_buf[base_y + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
     red_buf[base_y + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
 
@@ -2446,7 +2447,10 @@ const L0_IDX_MASK: u32 = 0x7fffffffu;
 const NO_BUCKET: u32 = 0xffffffffu;
 const BW:     u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
-const M_RED:  u32 = {{ m_red }}u;
+// M_RED (red_buf Y-plane stride = total red slots) is a runtime uniform in
+// batch_offset.z, not a baked const: a concatenated multi-MSM pass sizes red_buf
+// to Σ redM, while a single MSM passes its own redM (byte-identical to the old
+// the old baked M_RED). reduce_level_bench already takes its M from cparams.x.
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -2536,7 +2540,7 @@ fn store_bucket_sum(bucket_id: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) 
     let bx = PG * red_slot;
     red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
-    let by = PG * M_RED + PG * red_slot;
+    let by = PG * batch_offset.z + PG * red_slot;
     red_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
     red_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
 }
@@ -3061,7 +3065,8 @@ const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const BW:     u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
-const M_RED:  u32 = {{ m_red }}u;
+// M_RED (red_buf Y-plane stride) is runtime in batch_offset.z (= Σ redM packed,
+// = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -3118,7 +3123,7 @@ fn store_bucket_sum(bid: u32, x_val: array<u32, 8>, y_val: array<u32, 8>) {
     let bx = PG * red_slot;
     red_buf[bx + 0u] = vec4<u32>(x_val[0], x_val[1], x_val[2], x_val[3]);
     red_buf[bx + 1u] = vec4<u32>(x_val[4], x_val[5], x_val[6], x_val[7]);
-    let by = PG * M_RED + PG * red_slot;
+    let by = PG * batch_offset.z + PG * red_slot;
     red_buf[by + 0u] = vec4<u32>(y_val[0], y_val[1], y_val[2], y_val[3]);
     red_buf[by + 1u] = vec4<u32>(y_val[4], y_val[5], y_val[6], y_val[7]);
     // is_present is pre-marked by combine_filter for all active buckets.
@@ -3342,7 +3347,8 @@ export const ba_walker_combine_filter = `// Optimal walker_combine helper: filte
 const PG: u32 = 2u;
 const BW:     u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
-const M_RED:  u32 = {{ m_red }}u;
+// M_RED (red_buf Y-plane stride) is runtime in batch_offset.z (= Σ redM packed,
+// = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -3426,7 +3432,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 red_buf[bx + 0u] = px0;
                 red_buf[bx + 1u] = px1;
 
-                let by = PG * M_RED + PG * red_slot;
+                let by = PG * batch_offset.z + PG * red_slot;
                 let py0 = partials_buf[PG * M_partials + PG * slot + 0u];
                 let py1 = partials_buf[PG * M_partials + PG * slot + 1u];
                 red_buf[by + 0u] = py0;
@@ -3902,7 +3908,8 @@ const HOT_THRESHOLD: u32 = 8u;
 const PG: u32 = 2u;
 const BW:     u32 = {{ bw }}u;
 const STRIDE: u32 = {{ stride }}u;
-const M_RED:  u32 = {{ m_red }}u;
+// M_RED (red_buf Y-plane stride) is runtime in batch_offset.z (= Σ redM packed,
+// = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -3944,8 +3951,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     red_buf[PG * red_slot + 0u] = x0;
     red_buf[PG * red_slot + 1u] = x1;
-    red_buf[PG * M_RED + PG * red_slot + 0u] = y0;
-    red_buf[PG * M_RED + PG * red_slot + 1u] = y1;
+    red_buf[PG * batch_offset.z + PG * red_slot + 0u] = y0;
+    red_buf[PG * batch_offset.z + PG * red_slot + 1u] = y1;
     is_present[red_slot] = 1u;
 
     {{{ recompile }}}
@@ -4565,9 +4572,11 @@ const WORD_BITS: u32 = 32u;
 const WD_STRIDE: u32 = 8u;
 
 // Read \`count\` (<= 32) bits at absolute bit \`bit_off\` from scalar \`s\`,
-// little-endian. Bits past the scalar's words read as 0.
-fn read_bits(s: u32, scalar_words: u32, bit_off: u32, count: u32) -> u32 {
-    let base = s * scalar_words;
+// little-endian. Bits past the scalar's words read as 0. \`scalar_base\` is the
+// u32-word offset of this window's MSM scalar region in the (possibly
+// concatenated multi-MSM) scalars buffer — 0 for a single MSM.
+fn read_bits(s: u32, scalar_words: u32, scalar_base: u32, bit_off: u32, count: u32) -> u32 {
+    let base = scalar_base + s * scalar_words;
     let word = bit_off / WORD_BITS;
     let off = bit_off % WORD_BITS;
     var v: u32 = 0u;
@@ -4598,13 +4607,20 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Per-window geometry from the WindowDesc table (uniform fill ⇒ c, w_global·c).
     let c = window_desc[w_global * WD_STRIDE + 0u];       // window_bits
     let bit_base = window_desc[w_global * WD_STRIDE + 1u];
+    // Per-window MSM scalar base (u32 words). Lets one concatenated dispatch span
+    // K MSMs: window w pulls its bits from its own MSM's scalar region. 0 for a
+    // single MSM (the +6 slot is unwritten ⇒ zero), so byte-identical there.
+    let scalar_base = window_desc[w_global * WD_STRIDE + 6u];
 
     // c+1-bit window: the window's c bits, with the lookback bit (top bit
     // of the window below; synthetic 0 for window 0) shifted in as the LSB.
-    let win_bits = read_bits(p, scalar_words, bit_base, c);
+    let win_bits = read_bits(p, scalar_words, scalar_base, bit_base, c);
     var lookback: u32 = 0u;
-    if (w_global > 0u) {
-        lookback = read_bits(p, scalar_words, bit_base - 1u, 1u);
+    // bit_base == 0 marks the bottom window of THIS MSM (it resets per MSM in the
+    // concatenated table), so use it — not w_global — to gate the lookback. For a
+    // single MSM only window 0 has bit_base 0, so this is byte-identical.
+    if (bit_base > 0u) {
+        lookback = read_bits(p, scalar_words, scalar_base, bit_base - 1u, 1u);
     }
     let raw = (win_bits << 1u) | lookback;
 

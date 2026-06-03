@@ -1538,6 +1538,37 @@ export class MsmV2Pool {
   }
 }
 
+/** One packed member for {@link MsmV2.prepareBatch}: a slice of the concatenated
+ *  scalars + its place in the global window space. */
+export interface BatchMember {
+  /** Point count (homogeneous pack ⇒ same for every member). */
+  n: number;
+  /** Byte offset of this member's scalars in the concatenated scalars buffer. */
+  scalarBaseBytes: number;
+  /** Index of this member's first window in the concatenated window space. */
+  schedOff: number;
+  /** This member's window count. */
+  numWindows: number;
+}
+
+/** Batch-prepare context (set by {@link MsmV2.prepareBatch}, consumed by the
+ *  `prepare()` injection points). Drives the homogeneous super-MSM: one MsmV2
+ *  sized to the concatenated union, dispatched once over `Σ NW` global windows.
+ *  Null for the single-MSM path, whose behaviour is therefore unchanged. */
+interface BatchPrepCtx {
+  /** `Σ NW_k` — the concatenated window count (becomes `this.numWindows`). */
+  numWindows: number;
+  /** `Σ bTotal_k` — concatenated CSR/bucket columns (becomes `this.bTotal`). */
+  bTotal: number;
+  /** `Σ redM_k` — concatenated red_buf slots (becomes `this.redM` + the M_RED uniform). */
+  redM: number;
+  /** Pre-built global WindowDesc rows (stride-8 u32), one per global window. */
+  windowDescTable: Uint32Array;
+  /** Global reduce_off per global window (red_buf slot base for the gather/reduce). */
+  reduceOffsets: number[];
+  members: BatchMember[];
+}
+
 /**
  * The memory-bounded v2 pair-tree GPU MSM. See the file header for the
  * create / prepare / run lifecycle.
@@ -1764,6 +1795,11 @@ export class MsmV2 {
   private fusedTileSize: number = 0;
   private numBatches = 1;
   private batchWindows = 0;
+  // Non-null only during a prepareBatch() call: makes prepare() build the
+  // concatenated super-MSM (union of K homogeneous members) instead of a single
+  // MSM. Every consumer is `if (this.batchCtx)`-guarded, so the single-MSM path
+  // is byte-identical. See prepareBatch().
+  private batchCtx: BatchPrepCtx | null = null;
   private levels = 0;
   private nXposePts = 0;
   // Number of point-tiles the transpose dispatches across (the X dimension
@@ -2294,6 +2330,42 @@ export class MsmV2 {
    * bind a pool already aligned to their MSM (the dev page) — that path
    * stays byte-identical to the no-offset behavior.
    */
+  /**
+   * Prepare a HOMOGENEOUS pack of K MSMs (same `n`/`c` as this instance) as one
+   * concatenated super-MSM — the multi-MSM "one dispatch over the union" path
+   * (MULTI_MSM_PLAN.md step 4). `scalars` is the concatenated scalar bytes
+   * (member k at `members[k].scalarBaseBytes`); `windowDescTable` / `reduceOffsets`
+   * come from `planBatch` (global work_off/reduce_off + per-window scalarBase).
+   * Drives `prepare()` via {@link batchCtx}; at K=1 it reduces to the single-MSM
+   * prepare byte-identically (the batch-of-1 invariant). Caps at
+   * `VAR_WINDOW_MAX_WINDOWS` global windows (the at-cap consumers' uniform
+   * WindowDesc holds 128 rows).
+   */
+  prepareBatch(members: BatchMember[], scalars: Uint8Array, windowDescTable: Uint32Array, reduceOffsets: number[]): void {
+    const numWindows = members.reduce((a, m) => a + m.numWindows, 0);
+    if (numWindows > VAR_WINDOW_MAX_WINDOWS) {
+      throw new Error(`prepareBatch: ${numWindows} global windows exceeds the ${VAR_WINDOW_MAX_WINDOWS}-row WindowDesc uniform cap`);
+    }
+    // Homogeneous ⇒ every member shares this instance's BW/stride; the union
+    // totals are pure multiples of the window count.
+    this.batchCtx = {
+      numWindows,
+      bTotal: numWindows * this.BW,
+      redM: numWindows * this.stride,
+      windowDescTable,
+      reduceOffsets,
+      members,
+    };
+    // Force the slow path: the cache key is a single-MSM scalarsBuf and the
+    // geometry changed, so a full rebuild is required.
+    this.preparedFor = null;
+    try {
+      this.prepare(scalars, 0);
+    } finally {
+      this.batchCtx = null;
+    }
+  }
+
   prepare(scalarsBuf: Uint8Array, srsOffset: number = 0): void {
     // Cache key includes srsOffset so a re-prepare with same scalars but
     // different offset rewrites the uniform.
@@ -2302,11 +2374,14 @@ export class MsmV2 {
     const device = this.device;
     const n = this.n;
     // Reinterpret the LE byte buffer as packed u32 (no copy when 4-byte aligned).
+    // A batched (concatenated) prepare views all K members' scalars; a single
+    // MSM views just its n·8 words.
+    const scalarWords = this.batchCtx ? scalarsBuf.byteLength >>> 2 : n * 8;
     let scalars: Uint32Array;
     if (scalarsBuf.byteOffset % 4 === 0) {
-      scalars = new Uint32Array(scalarsBuf.buffer, scalarsBuf.byteOffset, n * 8);
+      scalars = new Uint32Array(scalarsBuf.buffer, scalarsBuf.byteOffset, scalarWords);
     } else {
-      scalars = new Uint32Array(n * 8);
+      scalars = new Uint32Array(scalarWords);
       new Uint8Array(scalars.buffer).set(scalarsBuf);
     }
     // split-c (Phase 2C): pick the variable-window schedule from the scalar MSB
@@ -2328,7 +2403,21 @@ export class MsmV2 {
     this.wLo = this.numWindows;
     this.wHi = 0;
     this.nLarge = 0;
-    if (this.splitC && !this.forceSplit) {
+    if (this.batchCtx) {
+      // Concatenated super-MSM: numWindows / bTotal / redM become the union
+      // totals; the per-window widths are this instance's c repeated (homogeneous
+      // pack). No split-c (the union is one uniform-c dispatch). reduce covers all
+      // windows in one stride region.
+      this.windowCs = new Array(this.batchCtx.numWindows).fill(this.c);
+      this.numWindows = this.batchCtx.numWindows;
+      this.bTotal = this.batchCtx.bTotal;
+      this.redM = this.batchCtx.redM;
+      // The radix sort tiles the WHOLE concatenated dense-bucket space — recompute
+      // its tile count from the union bTotal (create() sized it for one member).
+      this.numRadixTiles = Math.ceil(this.bTotal / 2048);
+      this.wLo = this.numWindows;
+      this.wHi = 0;
+    } else if (this.splitC && !this.forceSplit) {
       const hist = computeMsbHistogram(scalars, n);
       const eff = effectiveNumBits(hist);
       const dec = chooseVarWindowSplit(hist, n, eff, pickC, undefined, this.reduceCostWeight, this.maxCLo);
@@ -2388,7 +2477,19 @@ export class MsmV2 {
     // either reuse the existing GPU buffers (fast path) or rebuild. `scalars`
     // (the LE→u32 view) was built at the top of prepare for the split-c decision.
     // Level-0 histogram from the raw bytes — no BigInt in the hot path.
-    const initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
+    // Level-0 histogram. A batched prepare decodes each member from its own
+    // scalar slice (bit_base is MSM-local) and places its NW·BW counts at its
+    // global window base (schedOff·BW) in the concatenated bucket grid.
+    let initCounts: Uint32Array;
+    if (this.batchCtx) {
+      initCounts = new Uint32Array(B_TOTAL);
+      for (const m of this.batchCtx.members) {
+        const slice = scalarsBuf.subarray(m.scalarBaseBytes, m.scalarBaseBytes + m.n * 32);
+        initCounts.set(buildInitCounts(slice, m.n, c, m.numWindows, BW), m.schedOff * BW);
+      }
+    } else {
+      initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
+    }
 
     // Ping-pong two pre-allocated count buffers and fold the wstride1
     // computation into the same walk. Avoids ~18 × ~333 KB allocations per
@@ -2490,8 +2591,13 @@ export class MsmV2 {
     // satisfying count gives the largest feasible bw; if nothing fits by
     // NUM_WINDOWS, proceed best-effort (as the prior wgFits-only loop did).
     let numBatches = 1;
-    while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || estimateMem(numBatches) > this.memBudget)) numBatches++;
-    if (this.numBatchesForce) numBatches = Math.min(NUM_WINDOWS, Math.max(numBatches, this.numBatchesForce));
+    if (!this.batchCtx) {
+      // A batched pack is one dispatch over the whole union (numBatches stays 1);
+      // the bin-packer sized the pack to fit the budget. Single-MSM raises the
+      // window-batch count until each batch fits the wg cap + budget.
+      while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || estimateMem(numBatches) > this.memBudget)) numBatches++;
+      if (this.numBatchesForce) numBatches = Math.min(NUM_WINDOWS, Math.max(numBatches, this.numBatchesForce));
+    }
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;
     const batchSlots = batchWindows * n;
@@ -2524,6 +2630,7 @@ export class MsmV2 {
     // it — if it has, our bind groups reference dead buffers and we MUST
     // rebuild them.
     const fits =
+      !this.batchCtx &&
       this.preparedFor !== null &&
       this.capM1 > 0 &&
       M1 <= this.capM1 &&
@@ -2729,30 +2836,40 @@ export class MsmV2 {
     let wdWorkOff = 0; // prefix of num_columns (packed CSR bucket base)
     let wdReduceOff = 0; // tight prefix of per-window bucket counts (2^(c_w-1))
     this.reduceOffsets = new Array(WD_ROWS);
-    // Tight reduce_off (Σ 2^(c_k-1)) only when the region-split reduce is active:
-    // the upper windows then pack at stride_hi and a stride_hi schedule reduces
-    // them. Otherwise (no-split, or the multi-batch split fallback that can't
-    // region-split) use envelope spacing w*stride_max — a uniform stride_max
-    // reduce over each window's slot, empties skipped by is_present. For uniform
-    // windowCs the two coincide (byte-identical to the pre-split path).
-    for (let w = 0; w < WD_ROWS; w++) {
-      const o = w * WD_STRIDE;
-      // Per-window width: the schedule for real windows, envelope c for the
-      // short-batch padding rows. Uniform fill ⇒ cw == c, byte-identical.
-      const cw = w < this.windowCs.length ? this.windowCs[w] : c;
-      const strideW = 2 ** (cw - 1);
-      const numColsW = Math.ceil((2 ** (cw - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
-      const reduceOff = this.regionSplit ? wdReduceOff : w * this.stride;
-      wdData[o + 0] = cw; // window_bits
-      wdData[o + 1] = wdBitBase; // bit_base (prefix of widths)
-      wdData[o + 2] = strideW; // num_buckets (this window's red slots)
-      wdData[o + 3] = wdWorkOff; // work_off (prefix of num_columns — packed CSR base)
-      wdData[o + 4] = reduceOff;
-      wdData[o + 5] = numColsW; // num_columns (this window's CSR column count)
-      this.reduceOffsets[w] = reduceOff;
-      wdBitBase += cw;
-      wdWorkOff += numColsW;
-      wdReduceOff += strideW;
+    if (this.batchCtx) {
+      // Concatenated super-MSM: the global table (global work_off/reduce_off,
+      // MSM-local bit_base, per-window scalar_base) is prebuilt by planBatch.
+      // Padding rows [numWindows, WD_ROWS) stay zero — never dispatched.
+      wdData.set(this.batchCtx.windowDescTable);
+      for (let w = 0; w < WD_ROWS; w++) {
+        this.reduceOffsets[w] = w < this.batchCtx.reduceOffsets.length ? this.batchCtx.reduceOffsets[w] : 0;
+      }
+    } else {
+      // Tight reduce_off (Σ 2^(c_k-1)) only when the region-split reduce is active:
+      // the upper windows then pack at stride_hi and a stride_hi schedule reduces
+      // them. Otherwise (no-split, or the multi-batch split fallback that can't
+      // region-split) use envelope spacing w*stride_max — a uniform stride_max
+      // reduce over each window's slot, empties skipped by is_present. For uniform
+      // windowCs the two coincide (byte-identical to the pre-split path).
+      for (let w = 0; w < WD_ROWS; w++) {
+        const o = w * WD_STRIDE;
+        // Per-window width: the schedule for real windows, envelope c for the
+        // short-batch padding rows. Uniform fill ⇒ cw == c, byte-identical.
+        const cw = w < this.windowCs.length ? this.windowCs[w] : c;
+        const strideW = 2 ** (cw - 1);
+        const numColsW = Math.ceil((2 ** (cw - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
+        const reduceOff = this.regionSplit ? wdReduceOff : w * this.stride;
+        wdData[o + 0] = cw; // window_bits
+        wdData[o + 1] = wdBitBase; // bit_base (prefix of widths)
+        wdData[o + 2] = strideW; // num_buckets (this window's red slots)
+        wdData[o + 3] = wdWorkOff; // work_off (prefix of num_columns — packed CSR base)
+        wdData[o + 4] = reduceOff;
+        wdData[o + 5] = numColsW; // num_columns (this window's CSR column count)
+        this.reduceOffsets[w] = reduceOff;
+        wdBitBase += cw;
+        wdWorkOff += numColsW;
+        wdReduceOff += strideW;
+      }
     }
     const windowDescBuf = device.createBuffer({
       size: wdData.byteLength,
@@ -2832,7 +2949,11 @@ export class MsmV2 {
       // .x = gwin offset (this batch's first window); .y = work_off subtraction
       // base (= .x here, batch-local). The split-c upper region binds .x=W_lo,
       // .y=0 so its partials continue after the lower region's (no collision).
-      batchWindowBaseBufs.push(ubuf(new Uint32Array([bi * batchWindows, bi * batchWindows, 0, 0])));
+      // .z = M_RED (red_buf Y-plane stride) — the red-slot writers (walker, size1,
+      // combine_filter/batched, pt_finalize) read it as a runtime uniform instead
+      // of a baked const. = this MSM's RED_M for the single-MSM path (byte-
+      // identical); a packed multi-MSM pass overrides it to Σ redM.
+      batchWindowBaseBufs.push(ubuf(new Uint32Array([bi * batchWindows, bi * batchWindows, RED_M, 0])));
     }
 
     this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
