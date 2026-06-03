@@ -4809,16 +4809,29 @@ fn montgomery_product(x_ptr: ptr<function, BigInt>, y_ptr: ptr<function, BigInt>
 // conditional_reduce runs after the unrolled multiply/reduce, when only \`s\`
 // is still live — its local \`var p\` does not overlap the multiply's
 // register peak, so materialising p here is free.
+//
+// The Karatsuba+Yuval reduction does not guarantee an output in [0, 2p): for
+// some inputs the result lands in [2p, 3p), so a SINGLE conditional subtract
+// leaves a non-canonical value in [p, 2p). That is mod-p correct and so was
+// invisible to every consumer that only compares after a final reduction (MSM
+// point math, and any path that reads back via fr::to_buffer / a \`% p\`), but it
+// breaks consumers that feed the raw output straight into a modular subtraction
+// — e.g. the sumcheck short-monomial relations, where \`0 - c\` (mono_neg) and
+// \`a - c\` are only correct for a canonical subtrahend \`c\`. Subtract p until the
+// value is canonical; the output is a small multiple of p, so the loop exits in
+// 0–2 iterations in practice (the bound is a safety cap, not the expected cost).
 fn conditional_reduce(x: ptr<function, BigInt>) -> BigInt {
     var p = get_p();
-    var x_gt_y = bigint_gt(x, &p);
-    var x_eq_y = bigint_eq(x, &p);
-    if (x_gt_y == 1u || x_eq_y) {
-        var res: BigInt;
-        bigint_sub(x, &p, &res);
-        return res;
+    var res: BigInt = *x;
+    for (var i = 0u; i < 4u; i = i + 1u) {
+        if (!bigint_gte(&res, &p)) {
+            break;
+        }
+        var t: BigInt;
+        bigint_sub(&res, &p, &t);
+        res = t;
     }
-    return *x;
+    return res;
 }
 `;
 
