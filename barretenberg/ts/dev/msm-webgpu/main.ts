@@ -674,21 +674,14 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
   }
   log('info', `[batch-check] ${logNs.length} MSMs n=[${ns.join(', ')}] — solo baselines done`);
 
-  // The union packs ONE SIZE CLASS (same c). Members may have DIFFERENT n: the
-  // pack runs at the class's max n, and each smaller member is padded up with
-  // zero scalars — which decode to the zero digit (bucket 0) and contribute
-  // nothing, so the padded member's per-window sums are byte-identical to its
-  // solo run. (This is the plan's "group by size class + pad" strategy; the
-  // no-padding per-window-n path is the efficiency follow-on. Different c — a
-  // different class — still needs per-window geometry and isn't supported here.)
+  // The union packs members of ARBITRARY n and c. The instance is created at the
+  // pack's max n (so its baked BW/stride/c are the envelope maxima); every window
+  // carries its own c/n/scatter-base from the table + point_offsets, so members of
+  // different size pack with no padding. pickC is monotone, so max n ⇒ max c covers
+  // every member.
   const maxN = Math.max(...ns);
-  if (!ns.every(x => pickC(x) === pickC(maxN))) {
-    return {
-      ok: false,
-      detail: `union packs one size class; got mixed c (n=[${ns.join(', ')}] → c=[${ns.map(pickC).join(', ')}])`,
-    };
-  }
   const heterogeneous = !ns.every(x => x === maxN);
+  const mixedC = new Set(ns.map(pickC)).size > 1;
 
   // ── Union pass: ONE MsmV2 prepared over the concatenated super-MSM, one
   // dispatch over Σ NW windows. Every member uses the shared SRS prefix

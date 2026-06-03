@@ -2365,14 +2365,15 @@ export class MsmV2 {
    * WindowDesc holds 128 rows).
    */
   prepareBatch(members: BatchMember[], scalars: Uint8Array, windowDescTable: Uint32Array, reduceOffsets: number[]): void {
-    // Size-class contract: every member shares this instance's c (so BW/stride —
-    // and thus the union totals below — are uniform) and fits this instance's n
-    // (the dispatch grids cover the largest member). Members may differ in n: each
-    // window iterates its own n_w via point_offsets, so smaller members pack with
-    // no padding. A mismatched-c member would silently corrupt, so reject it.
-    if (!members.every(m => pickC(m.n) === this.c && m.n <= this.n)) {
+    // Pack contract: every member fits this instance's envelope — c ≤ this.c and
+    // n ≤ this.n (the instance is created at the pack's max n, so its baked BW/
+    // stride/c are the envelope maxima). Members may differ in BOTH n and c: each
+    // window carries its own c/n/scatter-base from the table + point_offsets, so
+    // there is no padding. A member exceeding the envelope would overrun the baked
+    // buffers, so reject it. (pickC is monotone, so packing at max n covers all.)
+    if (!members.every(m => pickC(m.n) <= this.c && m.n <= this.n)) {
       throw new Error(
-        `prepareBatch: pack must be one size class (c=${this.c}, n≤${this.n}); ` +
+        `prepareBatch: every member must fit the envelope (c≤${this.c}, n≤${this.n}); ` +
           `got n=[${members.map(m => m.n).join(', ')}] c=[${members.map(m => pickC(m.n)).join(', ')}]`,
       );
     }
@@ -2401,12 +2402,19 @@ export class MsmV2 {
     // Same c ⇒ every member shares this instance's BW/stride; the bucket totals are
     // pure multiples of the window count. (Different c — the envelope-BW case — is
     // the follow-on.) The point total Σ n_w sizes the scatter working set.
+    // redM is the TIGHT Σ stride_w (= last window's reduce_off + its stride), not
+    // numWindows·stride — so a different-c pack packs red_buf tightly per window.
+    const lastW = numWindows - 1;
+    const totalRedM = numWindows > 0 ? windowDescTable[lastW * 8 + 4] + windowDescTable[lastW * 8 + 2] : 0;
     this.batchCtx = {
       pointOffsets,
       totalPoints: pAcc,
       numWindows,
+      // Envelope sparse-hash space (this.BW = max BW from the maxN instance); the
+      // per-window num_columns/stride come from the table, so smaller-c windows use
+      // less of it. red_buf packs tight (Σ stride_w).
       bTotal: numWindows * this.BW,
-      redM: numWindows * this.stride,
+      redM: totalRedM,
       windowDescTable,
       reduceOffsets,
       members,
@@ -2459,11 +2467,12 @@ export class MsmV2 {
     this.wHi = 0;
     this.nLarge = 0;
     if (this.batchCtx) {
-      // Concatenated super-MSM: numWindows / bTotal / redM become the union
-      // totals; the per-window widths are this instance's c repeated (homogeneous
-      // pack). No split-c (the union is one uniform-c dispatch). reduce covers all
-      // windows in one stride region.
-      this.windowCs = new Array(this.batchCtx.numWindows).fill(this.c);
+      // Concatenated super-MSM: numWindows / bTotal / redM become the union totals.
+      // Per-window widths come from the prebuilt table's window_bits (+0), so a
+      // pack of different-c members carries each window's own c (and the reduce
+      // schedule + host combine read it per window). bTotal is the envelope
+      // (numWindows · max-BW from the maxN instance); redM is the tight Σ stride_w.
+      this.windowCs = Array.from({ length: this.batchCtx.numWindows }, (_, w) => this.batchCtx!.windowDescTable[w * 8 + 0]);
       this.numWindows = this.batchCtx.numWindows;
       this.bTotal = this.batchCtx.bTotal;
       this.redM = this.batchCtx.redM;
