@@ -23,8 +23,8 @@ type StoredNoteBuffer = Buffer;
  * Nullifier emissions are recorded as separate append-only entries: a map from nullifier to the number of the block
  * that emitted it.
  *
- * Reorgs are handled by delete-on-prune: the `chain-pruned` path physically deletes every note and nullifier row
- * anchored to an orphaned block.
+ * Reorgs are handled by delete-on-prune: the `chain-pruned` event triggers deletion of every note and nullifier
+ * originating on a reorg'd block.
  */
 export class NoteStore implements StagedStore {
   readonly storeName: string = 'note';
@@ -139,7 +139,7 @@ export class NoteStore implements StagedStore {
   /**
    * Retrieves notes based on the provided filter criteria.
    *
-   * A note is considered nullified iff its nullifier emission has been recorded for its nullifier.
+   * A note is considered nullified iff its corresponding nullifier emission has been recorded.
    *
    * All DB reads are kicked off before any await so IndexedDB does not auto-commit the transaction mid-read.
    *
@@ -245,42 +245,38 @@ export class NoteStore implements StagedStore {
   }
 
   /**
-   * Records nullifier emissions for the given nullifiers without mutating note records.
+   * Records emission of the given siloed nullifiers, which causes notes to be considered nullified.
    *
    * Each nullifier gets an append-only entry recording the block number at which it was emitted.
    *
    * Every nullifier passed must correspond to a note already present in this store. Callers only apply nullifiers for
    * notes of scopes they track, and a note is always discovered before the nullifier that spends it, so a nullifier
-   * with no matching note signals a bug (broken nonce/index discovery, a sync-ordering error, or store corruption). We
-   * throw rather than silently dropping it, which would hide the bug — and we throw before staging any emission, so the
-   * batch is atomic.
+   * with no matching note signals a bug (broken nonce/index discovery, a sync-ordering error, store corruption, etc).
    *
-   * applyNullifiers is idempotent: a nullifier whose emission is already recorded (committed or staged in this job) is
+   * `applyNullifiers` is idempotent: a nullifier whose emission is already recorded (committed or staged in this job) is
    * skipped, so re-applying it neither re-writes the emission, changes note visibility, nor appears in the result.
    *
-   * @param nullifiers - Array of nullifiers with their block locations to record
+   * @param siloedNullifiers - Array of nullifiers with their block locations to record
    * @param jobId - The job context for staged writes
    * @returns The notes that transition from active to nullified in this call; already-nullified notes are skipped, so
    *          a repeat application returns an empty array.
    * @throws If any nullifier has no matching note in this store, or was emitted at block 0.
    */
-  applyNullifiers(nullifiers: DataInBlock<Fr>[], jobId: string): Promise<NoteDao[]> {
-    if (nullifiers.length === 0) {
+  applyNullifiers(siloedNullifiers: DataInBlock<Fr>[], jobId: string): Promise<NoteDao[]> {
+    if (siloedNullifiers.length === 0) {
       return Promise.resolve([]);
     }
 
-    if (nullifiers.some(n => n.l2BlockNumber === 0)) {
+    if (siloedNullifiers.some(n => n.l2BlockNumber === 0)) {
       return Promise.reject(new Error('applyNullifiers: nullifiers cannot have been emitted at block 0'));
     }
 
     return this.#withJobLock(jobId, () =>
       this.#store.transactionAsync(async () => {
         // Kick off the note read and the existing-emission read together during the synchronous map so all are in
-        // flight before the first await, which keeps the IndexedDB transaction alive. A missing note violates the
-        // invariant documented above, so we throw here — before the write loop stages anything — keeping the batch
-        // atomic.
+        // flight before the first await, which keeps the IndexedDB transaction alive.
         const resolved = await Promise.all(
-          nullifiers.map(async nullifier => {
+          siloedNullifiers.map(async nullifier => {
             const key = nullifier.data.toString();
             const [storedNote, existingEmission] = await Promise.all([
               this.#readNote(key, jobId),
@@ -294,8 +290,7 @@ export class NoteStore implements StagedStore {
         );
 
         // Await-free tail: record an emission only for notes not already nullified, and return exactly those that
-        // transition active -> nullified in this call. Skipping an already-recorded emission keeps applyNullifiers a
-        // no-op on repeat (matching the returned set) and avoids overwriting the recorded block from a competing fork.
+        // transition active -> nullified in this call.
         const affected: NoteDao[] = [];
         for (const { nullifier, storedNote, alreadyEmitted } of resolved) {
           if (alreadyEmitted) {
@@ -393,11 +388,8 @@ export class NoteStore implements StagedStore {
   }
 
   /**
-   * Rolls the store back to `toBlock`: deletes every note and nullifier emission anchored to a block strictly above it,
-   * as if nothing past that block height ever happened. Used to retract notes and nullifiers on a reorg.
-   *
-   * Deleting an emission above `toBlock` also un-nullifies any surviving note (created at or before `toBlock`) whose
-   * nullification fell in the rolled-back range, which is the whole point of recording emissions separately.
+   * Rolls the store back to `toBlock`: deletes every note and nullifier emission originating on a block strictly above
+   * it, as if nothing past that block height ever happened. Used to retract notes and nullifiers on a reorg.
    *
    * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, because the
    * reorg path wraps it together with other store operations, and IndexedDB has no nested transaction support).
@@ -406,34 +398,39 @@ export class NoteStore implements StagedStore {
     // Snapshot the orphaned (block, nullifier) pairs before mutating so we never delete from the cursor we are
     // iterating. Scanning from `toBlock + 1` upward covers everything above the rollback target without needing to know
     // the chain tip. Each nullifier's rows are independent (nullifiers are globally unique), so the deletes run
-    // concurrently; keeping requests in flight also prevents the IndexedDB transaction from auto-committing mid-way.
-    const orphanedNotes: { block: number; nullifier: string }[] = [];
-    for await (const [block, nullifier] of this.#notesByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
-      orphanedNotes.push({ block, nullifier });
+    // concurrently. Keeping requests in flight also prevents the IndexedDB transaction from auto-committing mid-way.
+    const orphanedNotes: { block: number; siloedNullifier: string }[] = [];
+
+    for await (const [block, siloedNullifier] of this.#notesByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
+      orphanedNotes.push({ block, siloedNullifier: siloedNullifier });
     }
+
     await Promise.all(
-      orphanedNotes.map(async ({ block, nullifier }) => {
-        const buf = await this.#notes.getAsync(nullifier);
+      orphanedNotes.map(async ({ block, siloedNullifier }) => {
+        const buf = await this.#notes.getAsync(siloedNullifier);
         if (!buf) {
           return;
         }
         const stored = StoredNote.fromBuffer(buf);
-        await this.#notes.delete(nullifier);
-        await this.#notesByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), nullifier);
-        await this.#notesByBlockNumber.deleteValue(block, nullifier);
+        await this.#notes.delete(siloedNullifier);
+        await this.#notesByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), siloedNullifier);
+        await this.#notesByBlockNumber.deleteValue(block, siloedNullifier);
       }),
     );
 
-    // A note deleted above also had its nullifier emitted above `toBlock` (an emission can't precede its note's
-    // creation), so this scan covers those emissions too — no need to delete them in the loop above.
-    const orphanedEmissions: { block: number; nullifier: string }[] = [];
-    for await (const [block, nullifier] of this.#nullifierEmissionsByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
-      orphanedEmissions.push({ block, nullifier });
+    // Same procedure, with nullifier emissions
+    const orphanedEmissions: { block: number; siloedNullifier: string }[] = [];
+
+    for await (const [block, siloedNullifier] of this.#nullifierEmissionsByBlockNumber.entriesAsync({
+      start: toBlock + 1,
+    })) {
+      orphanedEmissions.push({ block, siloedNullifier });
     }
+
     await Promise.all(
-      orphanedEmissions.map(async ({ block, nullifier }) => {
-        await this.#nullifierEmissions.delete(nullifier);
-        await this.#nullifierEmissionsByBlockNumber.deleteValue(block, nullifier);
+      orphanedEmissions.map(async ({ block, siloedNullifier }) => {
+        await this.#nullifierEmissions.delete(siloedNullifier);
+        await this.#nullifierEmissionsByBlockNumber.deleteValue(block, siloedNullifier);
       }),
     );
   }
