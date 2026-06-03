@@ -436,6 +436,22 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
   if (srsBuf === null) {
     throw new Error('[gen] SRS not loaded yet — wait for the [srs] ready line');
   }
+  // ?msm_dump=<name> — load real production scalars dumped from bb prove (header
+  // u64 n, then n×32 LE canonical Fr — already the GPU's non-Montgomery format).
+  // Points come from the SRS; arbitrary (non-power-of-2) n. Used to bench/cross-
+  // check the GPU on the actual Chonk wire-commit distributions.
+  const dumpName = new URLSearchParams(window.location.search).get('msm_dump');
+  if (dumpName) {
+    const resp = await fetch(`/dev/msm-webgpu/dumps/${dumpName}.bin`);
+    if (!resp.ok) throw new Error(`[gen] dump '${dumpName}' not found (${resp.status})`);
+    const ab = await resp.arrayBuffer();
+    const dn = Number(new DataView(ab).getBigUint64(0, true));
+    if (dn * 64 > srsBuf.length) throw new Error(`[gen] dump n=${dn} exceeds SRS (${srsBuf.length / 64} pts)`);
+    const scalarsBuf = new Uint8Array(ab.slice(8, 8 + dn * 32));
+    const pointsBuf = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, dn * 64);
+    log('info', `[gen] loaded MSM dump '${dumpName}': n=${dn.toLocaleString()}`);
+    return { n: dn, points: null, scalars: null, pointsBuf, scalarsBuf };
+  }
   if (logN < LOGN_MIN || logN > LOGN_MAX) {
     throw new Error(`[gen] logN=${logN} outside the supported [${LOGN_MIN}, ${LOGN_MAX}] range`);
   }
