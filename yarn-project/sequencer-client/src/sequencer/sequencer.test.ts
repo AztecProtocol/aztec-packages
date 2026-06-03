@@ -450,6 +450,31 @@ describe('sequencer', () => {
       expect(publisher.canProposeAt).not.toHaveBeenCalled();
     });
 
+    it('votes without building if it is past the start deadline for the target slot', async () => {
+      await setupSingleTxBlock();
+
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      const governancePayload = EthAddress.random();
+      sequencer.updateConfig({ governanceProposerPayload: governancePayload });
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+      expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalledWith(
+        governancePayload,
+        SlotNumber(newSlotNumber),
+        expect.any(EthAddress),
+        expect.any(Function),
+      );
+      expect(publisher.sendRequestsAt).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+    });
+
     it('does not retry building the same checkpoint after a deadline abort within the same slot', async () => {
       await setupSingleTxBlock();
 
@@ -763,7 +788,7 @@ describe('sequencer', () => {
     const mockSlashActions = [{ type: 'vote-offenses' as const, round: 1n, votes: [], committees: [] }];
 
     it('should vote on slashing and governance when sync fails and past the start deadline', async () => {
-      // Past start_deadline for the target slot: tryVoteWhenSyncFails should vote instead of waiting to
+      // Past start_deadline for the target slot: tryVoteWhenCannotBuild should vote instead of waiting to
       // build (sync has failed, so building is impossible anyway).
       const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline + 1) * 1000);

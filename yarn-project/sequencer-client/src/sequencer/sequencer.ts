@@ -349,7 +349,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Check all components are synced to latest as seen by the archiver (queries all subsystems)
     const syncedTo = await this.checkSync({ ts, slot });
     if (!syncedTo) {
-      await this.tryVoteWhenSyncFails({ slot, targetSlot, ts });
+      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
       return undefined;
     }
 
@@ -377,7 +377,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // state gate that fired before the proposer check): if we are past the latest useful block-building
     // start for the target slot, abandon building for this slot before doing the proposer check. The
     // proposer prioritizes the ideal L1-publish path and does not plan around the late
-    // consensus-handoff path. Voting still happens via tryVoteWhenSyncFails/escape hatch.
+    // consensus-handoff path. Vote-only paths still run when block building is abandoned.
     const startDeadline = this.timetable.getBuildStartDeadline(targetSlot);
     const nowForStartGate = this.dateProvider.now() / 1000;
     if (this.config.enforceTimeTable && nowForStartGate > startDeadline) {
@@ -386,8 +386,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         nowForStartGate,
         startDeadline,
       });
-      // Mark the slot as attempted so a deadline abort is not retried within the same slot. Voting still
-      // happens via tryVoteWhenSyncFails / the escape-hatch path, which track their own per-slot marker.
+      // Mark the slot as attempted so a deadline abort is not retried within the same slot. Vote-only actions
+      // still need to run because sync can succeed even when it is too late to start building a checkpoint.
+      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
       this.lastSlotForCheckpointProposalJob = targetSlot;
       return undefined;
     }
@@ -912,11 +913,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Tries to vote on slashing actions and governance when the sync check fails but we're past the max time for initializing a proposal.
+   * Tries to vote on slashing actions and governance when we cannot build and are past the block-building window.
    * This allows the sequencer to participate in governance/slashing votes even when it cannot build blocks.
    */
-  @trackSpan('Seqeuencer.tryVoteWhenSyncFails', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
-  protected async tryVoteWhenSyncFails(args: { slot: SlotNumber; targetSlot: SlotNumber; ts: bigint }): Promise<void> {
+  @trackSpan('Sequencer.tryVoteWhenCannotBuild', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
+  protected async tryVoteWhenCannotBuild(args: { slot: SlotNumber; targetSlot: SlotNumber }): Promise<void> {
     const { slot, targetSlot } = args;
 
     // Prevent duplicate attempts in the same slot
@@ -938,7 +939,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    this.log.trace(`Sync for slot ${slot} failed, checking for voting opportunities`, {
+    this.log.trace(`Cannot build for slot ${slot}, checking for voting opportunities`, {
       nowSeconds,
       startDeadline,
     });
@@ -1049,7 +1050,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // the multicall mines in the slot the votes were signed for; otherwise the L1 contract reads
     // `signaler = getCurrentProposer()` against the wrong slot and signature verification fails
     // silently inside Multicall3. Fire-and-forget so we don't block the sequencer's work loop while
-    // waiting for the target slot to start, mirroring tryVoteWhenSyncFails.
+    // waiting for the target slot to start, mirroring tryVoteWhenCannotBuild.
     void publisher.sendRequestsAt(targetSlot).catch(err => {
       this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
     });
