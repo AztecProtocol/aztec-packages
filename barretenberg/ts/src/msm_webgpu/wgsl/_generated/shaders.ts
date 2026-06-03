@@ -2456,29 +2456,42 @@ const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
-@group(0) @binding(1) var<storage, read>       sorted_count_list:  array<u32>;
+// arena_a0: the WHOLE colour-A0 arena (a monolithic block, ARENA_LAYOUT.md). Two
+// of the walker's read-only buffers — sorted_count_list and l0_index — are
+// sub-ranges of it, addressed via the u32 element offsets in \`arena_off\` (.x, .y).
+// Binding the monolith once (instead of two sub-ranges) frees the storage-binding
+// slot that lets \`window_desc\` be a storage buffer (no fixed-size uniform ⇒ no
+// window cap). Memory is unchanged — same arena. (offsets is a standalone buffer,
+// not A0, so it keeps its own binding.)
+@group(0) @binding(1) var<storage, read>       arena_a0:           array<u32>;
 @group(0) @binding(2) var<storage, read>       offsets:            array<u32>;
 @group(0) @binding(3) var<storage, read>       task_cuts:          array<u32>;
-@group(0) @binding(4) var<storage, read>       l0_index:           array<u32>;
-@group(0) @binding(5) var<storage, read>       point_x:            array<vec4<u32>>;
-@group(0) @binding(6) var<storage, read>       point_y:            array<vec4<u32>>;
-@group(0) @binding(7) var<storage, read_write> red_buf:            array<vec4<u32>>;
-@group(0) @binding(8) var<storage, read_write> partials_buf:       array<vec4<u32>>;
-@group(0) @binding(9) var<storage, read_write> partial_dest:       array<u32>;
+@group(0) @binding(4) var<storage, read>       point_x:            array<vec4<u32>>;
+@group(0) @binding(5) var<storage, read>       point_y:            array<vec4<u32>>;
+@group(0) @binding(6) var<storage, read_write> red_buf:            array<vec4<u32>>;
+@group(0) @binding(7) var<storage, read_write> partials_buf:       array<vec4<u32>>;
+@group(0) @binding(8) var<storage, read_write> partial_dest:       array<u32>;
+// WindowDesc as a STORAGE array<u32> (full stride-8 rows): work_off = +3,
+// reduce_off = +4. Storage (not a fixed uniform) ⇒ the global window count is
+// unbounded. The A0-monolith bind above freed the slot for this.
+@group(0) @binding(9) var<storage, read>       window_desc:        array<u32>;
 @group(0) @binding(10) var<uniform>            params:             vec4<u32>;
 // batch_offset.x = bi * batchWindows — added to local window index when
 // computing red_slot so each batch's red_buf writes land in its globally
 // correct window range. red_buf is no longer cleared per batch (only once
 // per encode) so batches accumulate side-by-side.
 @group(0) @binding(11) var<uniform>            batch_offset:       vec4<u32>;
-// WindowDesc as a UNIFORM array<vec4<u32>> (row g = 2 vec4): work_off (u32 +3)
-// = vec4[g*2].w, reduce_off (u32 +4) = vec4[g*2+1].x. Uniform, NOT storage, so
-// the walker stays at the 10-storage-buffer cap noted below.
-@group(0) @binding(12) var<uniform>            window_desc:        array<vec4<u32>, 256>;
-fn wd_work_off(g: u32) -> u32 { return window_desc[g * 2u + 0u].w; }
-fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
+// arena_off: u32 element offsets of the walker's A0 sub-ranges within arena_a0
+// — .x = sorted_count_list, .y = l0_index.
+@group(0) @binding(12) var<uniform>            arena_off:          vec4<u32>;
+const WD_STRIDE: u32 = 8u;
+fn wd_work_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 3u]; }
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
+fn sc_at(i: u32) -> u32 { return arena_a0[arena_off.x + i]; }   // sorted_count_list[i]
+fn off_at(i: u32) -> u32 { return offsets[i]; }                 // standalone offsets[i]
+fn l0_at(i: u32) -> u32 { return arena_a0[arena_off.y + i]; }   // l0_index[i]
 // is_present marking is hoisted into combine_filter; stream_walker stays
-// at 10 storage bindings (M2 cap). combine_filter sees every bucket with
+// within the 10-storage-buffer cap. combine_filter sees every bucket with
 // count >= 1, including those stream_walker whole-retired.
 // pref_scratch lives in the TAIL of partials_buf at PREF_OFFSET (= 4 *
 // M_partials vec4 units, the strictly disjoint tail of the partials
@@ -2498,7 +2511,7 @@ fn flat_bid(bid: u32) -> u32 {
 }
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
-    let packed = l0_index[cursor];
+    let packed = l0_at(cursor);
     let pt = packed & L0_IDX_MASK;
     let q0 = point_x[2u * pt];
     let q1 = point_x[2u * pt + 1u];
@@ -2506,7 +2519,7 @@ fn load_pt_x(cursor: u32) -> array<u32, 8> {
 }
 
 fn load_pt_y(cursor: u32) -> array<u32, 8> {
-    let packed = l0_index[cursor];
+    let packed = l0_at(cursor);
     let pt = packed & L0_IDX_MASK;
     let q0 = point_y[2u * pt];
     let q1 = point_y[2u * pt + 1u];
@@ -2601,8 +2614,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         let eo = task_cuts[cut_base + (k + 1u) * 2u + 1u];
 
         let sb_id = sorted_bucket_list[sb];
-        let sb_base = offsets[flat_bid(sb_id)];
-        let sb_count = sorted_count_list[sb];
+        let sb_base = off_at(flat_bid(sb_id));
+        let sb_count = sc_at(sb);
 
         // Start cursor. so==0 → fresh at the bucket's first point. so in
         // (0,count-1) → continuation beginning at point so+1. so==count-1 →
@@ -2622,8 +2635,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         } else {
             eff_sorted = sb + 1u;
             eff_id = sorted_bucket_list[eff_sorted];
-            eff_base = offsets[flat_bid(eff_id)];
-            eff_count = sorted_count_list[eff_sorted];
+            eff_base = off_at(flat_bid(eff_id));
+            eff_count = sc_at(eff_sorted);
             start_cursor = eff_base;
             split_start_m = split_start_m & ~(1u << k);
         }
@@ -2634,11 +2647,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         var te_cur: u32;
         if (eo > 0u) {
             te_sort = eb;
-            te_cur = offsets[flat_bid(sorted_bucket_list[eb])] + eo + 1u;
+            te_cur = off_at(flat_bid(sorted_bucket_list[eb])) + eo + 1u;
         } else if (eb > 0u) {
             te_sort = eb - 1u;
             let pid = sorted_bucket_list[te_sort];
-            te_cur = offsets[flat_bid(pid)] + sorted_count_list[te_sort];
+            te_cur = off_at(flat_bid(pid)) + sc_at(te_sort);
         } else {
             te_sort = 0u;
             te_cur = 0u;
@@ -2675,10 +2688,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
                 let nxt = eff_sorted + 1u;
                 let nxt_id = sorted_bucket_list[nxt];
-                let nxt_base = offsets[flat_bid(nxt_id)];
+                let nxt_base = off_at(flat_bid(nxt_id));
                 cur_sorted[k] = nxt;
 
-                bucket_end[k] = nxt_base + sorted_count_list[nxt];
+                bucket_end[k] = nxt_base + sc_at(nxt);
                 cursor[k] = nxt_base;
                 split_start_m = split_start_m & ~(1u << k);
                 if (nxt > te_sort) { slot_done_m = slot_done_m | (1u << k); }
@@ -2823,10 +2836,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 // buckets always begin fresh (never split-start).
                 let nxt = cur_sorted[k] + 1u;
                 let nxt_id = sorted_bucket_list[nxt];
-                let nxt_base = offsets[flat_bid(nxt_id)];
+                let nxt_base = off_at(flat_bid(nxt_id));
                 cur_sorted[k] = nxt;
 
-                bucket_end[k] = nxt_base + sorted_count_list[nxt];
+                bucket_end[k] = nxt_base + sc_at(nxt);
                 cursor[k] = nxt_base;
                 is_first_m = is_first_m | (1u << k);
                 split_start_m = split_start_m & ~(1u << k);

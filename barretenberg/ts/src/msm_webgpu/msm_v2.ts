@@ -2101,7 +2101,11 @@ export class MsmV2 {
     //   partition_task: sorted_count_list, cumulative_adds, thread_cuts, planner_meta(rw), task_cuts(rw), params(uniform)
     m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   stream_walker: sorted_bucket_list, sorted_count_list, offsets, task_cuts, l0_index, point_x, point_y, bucket_sums(rw), partials(rw), partial_dest(rw), params(uniform)
-    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'uniform', 'uniform']);
+    // sorted_bucket_list, arena_a0 (whole A0 monolith — covers sorted_count_list +
+    // l0_index), offsets (standalone), task_cuts, point_x, point_y (ro); red_buf,
+    // partials_buf, partial_dest (rw); window_desc (ro storage — no window cap);
+    // params, batch_offset, arena_off (uniform). 10 storage = the buffer cap.
+    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'read-only-storage', 'uniform', 'uniform', 'uniform']);
     // === Optimal walker_combine pipeline layouts ===
     //   count: partial_dest, partial_count(rw), params
     m.combineCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
@@ -3156,10 +3160,20 @@ export class MsmV2 {
       // Walker params: (NUM_THREADS, IDLE_ANCHOR, M_buckets, M_partials).
       const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
       const walkerParams = ubuf(new Uint32Array([this.streamNumThreads, batchSlots, B_TOTAL, M_partials_walker]));
+      // Bind the whole A0 monolith once; sorted_count_list + l0_index are
+      // sub-ranges of it, addressed via these u32 element offsets (.x, .y).
+      // Collapsing the two sub-range bindings into one frees the slot that lets
+      // window_desc be a storage buffer (no fixed uniform ⇒ no window cap). Same
+      // bytes, same arena. offsets is standalone (not A0) ⇒ its own binding.
+      const a0Buf = slotBuf(sc);
+      if (slotBuf(l0IdxBuf) !== a0Buf) {
+        throw new Error('stream_walker: sorted_count_list and l0_index must share arena A0');
+      }
+      const walkerArenaOff = ubuf(new Uint32Array([slotOff(sc) / 4, slotOff(l0IdxBuf) / 4, 0, 0]));
       this.streamWalkerBinds = batchWindowBaseBufs.map(bwb =>
         mkBind(this.streamWalkerLayout, [
-          sb, sc, offsetsBufs[0], taskc, l0IdxBuf, this.pointXBuf, this.pointYBuf,
-          scratch.redBuf, wp, pdest, walkerParams, bwb, windowDescBuf,
+          sb, a0Buf, offsetsBufs[0], taskc, this.pointXBuf, this.pointYBuf,
+          scratch.redBuf, wp, pdest, windowDescBuf, walkerParams, bwb, walkerArenaOff,
         ]),
       );
       const numPartialSlots = M_partials_walker;
