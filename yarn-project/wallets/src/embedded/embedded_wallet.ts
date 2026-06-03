@@ -202,8 +202,6 @@ export class EmbeddedWallet extends BaseWallet {
       gasLimits: opts.fee?.gasSettings?.gasLimits ?? estimated.gasLimits,
       teardownGasLimits: opts.fee?.gasSettings?.teardownGasLimits ?? estimated.teardownGasLimits,
     });
-    // NO_WAIT short-circuits the wait in super.sendTx, so forward it as-is; otherwise build a fresh
-    // wait config (without mutating the caller's opts) defaulting the status to PROPOSED.
     let wait: InteractionWaitOptions = opts.wait;
     if (wait !== NO_WAIT) {
       const callerWaitOpts: WaitOpts = typeof wait === 'object' ? wait : {};
