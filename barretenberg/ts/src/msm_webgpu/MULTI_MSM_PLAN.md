@@ -182,15 +182,20 @@ incrementally via the batch-of-1 invariant:
    (`batch_scheduler.ts`, pure/offline; `batch_scheduler.test.ts` 22 green;
    batch-of-1 footprint byte-exact == single-MSM `estimateMem(1)`; golden 14–17
    unchanged). The runtime batch-of-K harness lands with step 2 (see Status).
-2. **Bid encoding extension** (global window) — validate byte-identical
-   (split-c Phase 0.2 pattern: every bid producer/consumer in one coordinated step).
-3. **EASY + MODERATE stages** on the concatenated tables (reduce, decompose,
-   transpose, csr, size1) — batch-of-1 byte-identical.
-4. **HARD stages** (planner radix/partition, walker, combine, pt) on the
-   concatenated bucket space — batch-of-1 byte-identical, then batch-of-K vs
-   separate. **This is the bulk of the work and the highest risk.**
+2. ✅ **DONE (homogeneous) — bid value + EASY/MODERATE/HARD stages, coupled**
+   (`b8fdde2103`). For a same-n/c pack the super-MSM is one `MsmV2` over `Σ NW`
+   windows: the bid window field is already the global window (`batch_offset.x=0`),
+   and every stage from `decompose` down already indexes the global bucket space,
+   so steps 2–4 collapse into `prepareBatch` + `scalarBase`/`M_RED`/global-table
+   plumbing. Validated batch-of-K ≡ K-separate (K=1..4, c=8/13, profiles A/C/D/E,
+   ≤128 windows). **See `MULTI_MSM_HANDOFF.md`.**
+   - **Remaining for steps 2–4:** HETEROGENEOUS packs (per-window n / BW /
+     srsOffset) and >128-window packs — the genuinely-ragged work the homogeneous
+     case sidesteps.
 5. **Bridge wiring** (`runBatchMsm`) + budget gate; bench the real Chonk MSM mix
-   (the 505-MSM `ecdsar1+transfer_1_recursions` dump) end-to-end.
+   (the 505-MSM `ecdsar1+transfer_1_recursions` dump) end-to-end. Plus the perf
+   bench of the saturation win (the acceptance criterion — homogeneous correctness
+   is done, the perf measurement is not).
 
 ## Open questions / risks
 
