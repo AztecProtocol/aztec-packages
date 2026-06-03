@@ -82,7 +82,25 @@ a no-op copy), so dense cost is unchanged; sparse windows pay
    cross-segment carry (each segment weights by its own absolute magnitude). The
    `running·gap` and `lo_s·seg_sum_s` scalar-mults are double-and-adds; gap==1
    short-circuits so dense segments match the dense tree.
-3. Classify dense vs sparse per window; route each to the cheaper path.
+   **v1 status (DONE, committed, flag-gated): correct but NOT faster.** Parallel
+   (one workgroup/window, WG slots = segments, segment-local + workgroup tree-sum)
+   and validated byte-identical (golden logN14, real `wire_n23074`). But it leaves
+   the inversions un-batched (one safegcd per affine add), and measured SLOWER on
+   the dominant c=13/B=4096 wires: `wire_n90325` reduce 17.9ms vs dense 6.1ms;
+   `wire_n97487` 9.65 vs 6.12. Only wins on tiny B (`wire_n23074` 1.69 vs 1.83).
+   Two causes, both fundamental to the un-batched/per-window-workgroup shape:
+   (a) the safegcd inversion dominates — the dense tree's whole point is batching
+   it (one inverse per chunk), so one-inverse-per-add loses regardless of how many
+   empties are skipped; (b) one workgroup per window = ≤numWindows workgroups
+   resident, and safegcd's register pressure caps occupancy, so the GPU is
+   under-fed. Skipping empties does NOT pay for itself until the inversions are
+   batched AND occupancy is high.
+3. **v2 — batched + high-occupancy (the real win, NOT yet built).** Replace the
+   per-add `finv` with the walker's forward-prefix-product / single-inverse /
+   backward-peel across S slots (one safegcd per S adds), AND raise occupancy
+   beyond one workgroup/window (split each window across multiple workgroups with
+   a cross-workgroup combine, or process many windows per workgroup). This is the
+   perf-critical kernel; v0/v1 are byte-identical oracles to validate it against.
 4. Bench the real wire dumps (`?msm_dump=wire_n90325` …) — target: reduce
    6.1ms → ~1.5-2ms on the structured wires, unchanged on all-large.
 

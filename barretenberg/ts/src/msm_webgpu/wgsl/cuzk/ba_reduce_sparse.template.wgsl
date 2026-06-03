@@ -116,38 +116,78 @@ fn pt_scalar(p: Pt, k: u32) -> Pt {
     return result;
 }
 
+const WG: u32 = {{ workgroup_size }}u;
+
+// Per-slot combine partials. Each slot's contribution = alg_s + lo_s·seg_sum_s.
+var<workgroup> sh_x: array<array<u32, 8>, WG>;
+var<workgroup> sh_y: array<array<u32, 8>, WG>;
+var<workgroup> sh_p: array<u32, WG>;
+
+// v1: one workgroup per window, WG slots. Slot `tid` owns the contiguous
+// bucket-segment [lo, hi) of this window's B magnitudes; lo = tid*seg. Each slot
+// runs the gap-aware suffix sum over ITS segment (skipping empties), yielding the
+// segment-local mag-weighted sum alg_s (magnitudes 1..seg within the segment) and
+// seg_sum_s = Σ active V. Then  S_w = Σ_s (alg_s + lo_s·seg_sum_s)  — no
+// cross-segment carry; each segment weights by its own absolute magnitude via the
+// lo_s shift. A workgroup tree-sum combines the per-slot contributions. Inversions
+// are still per-op (v1 is the parallel-but-un-batched stage); the win over the
+// dense tree is skipping the empty buckets in each segment.
 @compute
 @workgroup_size({{ workgroup_size }})
 fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) lid: vec3<u32>) {
-    if (lid.x != 0u) { return; }            // v0: one thread per window
     let w = wgid.x;
+    let tid = lid.x;
     let M = cparams.x;
     let mrow = reduce_meta[w];
     let base = mrow.x;
     let B = mrow.y;
-    if (B == 0u) { return; }
 
-    var running = Pt(get_r_f8(), get_r_f8(), 0u);
-    var acc = Pt(get_r_f8(), get_r_f8(), 0u);
-    var prev = B;                            // rel just above the top of the window
+    let seg = (B + WG - 1u) / WG;
+    let lo = tid * seg;
+    var hi = lo + seg;
+    if (hi > B) { hi = B; }
 
-    // Descending over magnitudes; rel = mag-1, weight applied via the gap.
-    for (var t: u32 = 0u; t < B; t = t + 1u) {
-        let rel = B - 1u - t;
-        if (is_present[base + rel] != 0u) {
-            let v = load_pt(base + rel, M);
-            // running covers rel' in (rel, prev); contributes running·(prev-rel).
-            acc = pt_add(acc, pt_scalar(running, prev - rel));
-            running = pt_add(running, v);
-            prev = rel;
+    var contrib = Pt(get_r_f8(), get_r_f8(), 0u);
+    if (lo < hi) {
+        // Gap-aware over [lo, hi), magnitudes relative to lo (rel' = rel - lo,
+        // local mag = rel'+1). prev tracks the previous active rel' for the gap.
+        var running = Pt(get_r_f8(), get_r_f8(), 0u);
+        var alg = Pt(get_r_f8(), get_r_f8(), 0u);
+        let span = hi - lo;                  // segment width
+        var prev = span;
+        for (var t: u32 = 0u; t < span; t = t + 1u) {
+            let relp = span - 1u - t;        // local rel descending
+            let rel = lo + relp;
+            if (is_present[base + rel] != 0u) {
+                let v = load_pt(base + rel, M);
+                alg = pt_add(alg, pt_scalar(running, prev - relp));
+                running = pt_add(running, v);
+                prev = relp;
+            }
         }
+        alg = pt_add(alg, pt_scalar(running, prev + 1u)); // tail, local weight
+        // contrib = alg + lo·seg_sum (seg_sum = running). lo·seg_sum lifts the
+        // segment-local magnitudes to absolute magnitudes.
+        contrib = pt_add(alg, pt_scalar(running, lo));
     }
-    // Tail: running (= Σ all V) covers rel' in [0, prev], i.e. weight prev+1.
-    acc = pt_add(acc, pt_scalar(running, prev + 1u));
 
-    // Window sum lands at slot `base` (slot 0 = mag 1), where the gather reads it.
-    if (acc.present != 0u) {
-        store_pt(base, M, acc);
+    // Workgroup tree-sum of contrib over all slots → S_w.
+    sh_x[tid] = contrib.x; sh_y[tid] = contrib.y; sh_p[tid] = contrib.present;
+    workgroupBarrier();
+    var stride = WG >> 1u;
+    loop {
+        if (stride == 0u) { break; }
+        if (tid < stride) {
+            let a = Pt(sh_x[tid], sh_y[tid], sh_p[tid]);
+            let b = Pt(sh_x[tid + stride], sh_y[tid + stride], sh_p[tid + stride]);
+            let s = pt_add(a, b);
+            sh_x[tid] = s.x; sh_y[tid] = s.y; sh_p[tid] = s.present;
+        }
+        workgroupBarrier();
+        stride = stride >> 1u;
+    }
+    if (tid == 0u && sh_p[0] != 0u) {
+        store_pt(base, M, Pt(sh_x[0], sh_y[0], sh_p[0]));
     }
 
     {{{ recompile }}}
