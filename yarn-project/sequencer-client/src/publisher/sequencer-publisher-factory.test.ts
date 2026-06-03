@@ -8,6 +8,7 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NodeKeystoreAdapter } from '@aztec/validator-client';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { SequencerClientConfig } from '../config.js';
@@ -202,6 +203,17 @@ describe('SequencerPublisherFactory', () => {
       expect(result.publisher).toBeDefined();
       expect(mockRollupContract.getSlashingProposer).toHaveBeenCalled();
       expect(result.publisher.slashingProposerContract!.address.equals(mockSlashingProposer.address)).toBe(true);
+    });
+
+    it('should interrupt created publishers during stopAll', async () => {
+      mockNodeKeyStore.getAttestorForPublisher.mockReturnValue(attestorAddress);
+      const { publisher } = await factory.create();
+      const interruptSpy = jest.spyOn(publisher, 'interrupt');
+
+      await factory.stopAll();
+
+      expect(interruptSpy).toHaveBeenCalledTimes(1);
+      expect(mockPublisherManager.stop).toHaveBeenCalledTimes(1);
     });
   });
 });

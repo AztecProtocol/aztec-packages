@@ -25,6 +25,8 @@ export class SequencerPublisherFactory {
   /** Stores the last slot in which every action was carried out by a publisher */
   private lastActions: Partial<Record<Action, SlotNumber>> = {};
 
+  private activePublishers: Array<WeakRef<SequencerPublisher>> = [];
+
   private nodeKeyStore: NodeKeystoreAdapter;
 
   private logger: Logger;
@@ -107,6 +109,8 @@ export class SequencerPublisherFactory {
       lastActions: this.lastActions,
       log: this.logger.createChild('publisher'),
     });
+    this.activePublishers = this.activePublishers.filter(ref => ref.deref() !== undefined);
+    this.activePublishers.push(new WeakRef(publisher));
 
     return {
       attestorAddress,
@@ -116,6 +120,8 @@ export class SequencerPublisherFactory {
 
   /** Stops all publishers managed by this factory. Used during sequencer shutdown. */
   public async stopAll(): Promise<void> {
+    this.activePublishers.forEach(ref => ref.deref()?.interrupt());
+    this.activePublishers = [];
     await this.deps.publisherManager.stop();
   }
 }

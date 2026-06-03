@@ -304,22 +304,22 @@ describe('HA Full Setup', () => {
   });
 
   afterAll(async () => {
-    // Stop all HA peer nodes in parallel with a per-node deadline. A single stuck node can otherwise
-    // block the serial loop long enough to blow the jest hook timeout — e.g. a sequencer.stop() that
-    // awaits an L1 publish whose tx-timeout was computed on a test-warped clock and never fires.
+    // Stop all HA peer nodes before closing pools or dropping tables; validator loops may still touch the HA database.
     if (haNodeServices) {
-      const STOP_DEADLINE_MS = 30_000;
+      const STOP_PROGRESS_LOG_MS = 30_000;
       await Promise.allSettled(
-        haNodeServices.map((service, i) => {
+        haNodeServices.map(async (service, i) => {
           logger.info(`Stopping HA peer node ${i}`);
-          return Promise.race([
-            service.stop().catch(error => {
-              logger.error(`Failed to stop HA peer node ${i}: ${error}`);
-            }),
-            sleep(STOP_DEADLINE_MS).then(() => {
-              logger.error(`HA peer node ${i} stop did not return within ${STOP_DEADLINE_MS}ms; abandoning`);
-            }),
-          ]);
+          const stopProgressLog = setTimeout(() => {
+            logger.warn(`HA peer node ${i} stop still running after ${STOP_PROGRESS_LOG_MS}ms`);
+          }, STOP_PROGRESS_LOG_MS);
+          try {
+            await service.stop();
+          } catch (error) {
+            logger.error(`Failed to stop HA peer node ${i}: ${error}`);
+          } finally {
+            clearTimeout(stopProgressLog);
+          }
         }),
       );
     }
