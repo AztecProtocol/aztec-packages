@@ -2587,10 +2587,12 @@ export class MsmV2 {
       this.msbIdxLargeBind = mkBind(this.msbIdxLargeLayout, [msbPerScalarBuf, decideSummaryBuf, idxLargeBuf, idxLargeCountBuf, idxLargeParams]);
       this.prepBuffers.push(idxLargeBuf, idxLargeCountBuf);
     }
-    // Uniform layout: [num_point_tiles, BW, n, points_per_tile]; consumed by
-    // transpose_count_tiled, transpose_reduce_tiled (only [0] [1]),
-    // transpose_scatter_tiled (all four).
-    const xposeParams = ubuf(new Uint32Array([transposeNumPointTiles, BW, n, pointsPerTile]));
+    // Layout: [num_point_tiles, cci_base, input_size, points_per_tile]. cci_base
+    // (slot 1) is the bucket_and_sign/val_idx region base — 0 for the lower /
+    // no-split region (byte-identical); the split-c upper region binds its own
+    // xposeParams with cci_base=W_lo*n + input_size=n_large. count/scatter read
+    // it; reduce/scan get per-window columns from WindowDesc and ignore it.
+    const xposeParams = ubuf(new Uint32Array([transposeNumPointTiles, 0, n, pointsPerTile]));
     // params[1] = base_offset, written per-prepare() via writeBuffer below.
     // Default 0 — non-bridge callers (the dev page) bind a per-MSM pool
     // starting at index 0 and need no offset.

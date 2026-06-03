@@ -203,6 +203,65 @@ decompose + the 4 transpose kernels are region-split, and reduce + the host gath
 current uniform path; confirm the D/E speedup. Then enable split by default behind
 the budget-aware decision.
 
+## Phase 2C/2D — implementation notes (turnkey)
+
+The decision infra (Phase 1 + 2A + 2B) is done + pushed. Remaining is the
+region-split data path. Note: **a forced split already computes correctly**
+end-to-end (`?split=1&forcesplit=b,clo,chi` → oracle-agree, Increment 3) because
+the existing pipeline runs all `n` over all windows; 2C is (a) make it
+**data-driven** and (b) **region-split** so the upper region iterates only
+`n_large` (the memory/perf win). Keep the default (`splitC` off) byte-identical at
+every commit.
+
+**bucket_and_sign two-region layout.** Lower: `[w·n + p]` for `w∈[0,W_lo)`,
+`p∈[0,n)` (== today). Upper: `[W_lo·n + (w−W_lo)·n_large + j]` for
+`w∈[W_lo,W_lo+W_hi)`, `j∈[0,n_large)`. Total `W_lo·n + W_hi·n_large ≤` unsplit
+`NW·n` — the envelope bound.
+
+**Kernels.**
+- `decompose` (unchanged) runs the lower region + no-split, byte-identical.
+- **NEW `decompose_upper`**: point source `idx_large[j]` (not `j`), writes at the
+  upper base, `input_size=n_large`, global window = `W_lo + w`. Dispatch only when
+  split.
+- `transpose_count`/`transpose_scatter`: repurpose the **unused `params[1]`** as a
+  `cci_base` (bucket_and_sign / val_idx region base): `cci_offset = params[1] +
+  window·params[2]`; lower passes `params[1]=0` (byte-identical), upper passes the
+  upper base + `params[2]=n_large`. `transpose_reduce`/`transpose_scan` are
+  partials-only (work_off from WindowDesc) → no change IF `num_point_tiles` is
+  **uniform across regions** (size it from `n`; the upper region just has empty
+  trailing point-tiles — wasteful but keeps the partials layout `num_point_tiles·
+  work_off_local` consistent).
+- **`val_idx` mapping**: `transpose_scatter` for the upper region must store the
+  ORIGINAL scalar index (`idx_large[j]`), not `j`, so the downstream point gather
+  (`csr_to_v2_active_sums`) stays region-agnostic. Bind `idx_large` into
+  `transpose_scatter` (upper dispatch only) and index through it.
+- `csr_to_v2_meta` uses `params[1]=input_size` + `window·input_size` — make it
+  region-aware (per-region input_size + base), same pattern.
+
+**Sizing / timing.** `create()` with `splitC` sizes buffers to the split
+envelope: `m.c = pickC(n)` (data-independent — `cLo` always == unsplit `c`), and
+`numWindows = ` a cap (e.g. `min(128, 2·ceil(254/c))`). The data-dependent
+schedule is decided at **prepare()** time: run histogram + decide (+ idx_large)
+as a mini-submit, read back the decide summary (9 u32: `numWindows, W_lo, W_hi,
+n_large, b_star, …` — O(windows), NOT O(n)), set `this.windowCs`/`numWindows`,
+fill `windowDescBuf`, build the lower+upper region binds. `run()`/`encodeIntoBatch`
+then dispatches lower (`n × W_lo`) + upper (`n_large × W_hi`) decompose/transpose,
+unchanged bucket kernels, reduce + gather. (Indirect dispatch to remove the
+prepare() readback bubble is a Phase-3 optimization; the schedule readback is tiny.)
+
+**reduce + gather** can keep the envelope `reduce_off = w·stride_max` (uniform,
+`stride_max = 2^(c−1)`) so the reduce kernel + host gather are unchanged; size
+`red_buf` for the envelope `numWindows`. (Tight `Σ stride_k` is a later memory
+optimization that needs per-window `reduce_off` in both reduce + gather.)
+
+**host combine** reads back `windowCs` (already have it from the decide summary)
+for the Horner fold.
+
+**Validation.** Default byte-identical golden at every commit; then `?split=1`
+natural split: profile C + D/E oracle-agree, uniform unchanged. Start with
+`numBatches=1` (logN ≤ 17 — the golden/D/E sizes); multi-batch staging + split is
+a follow-up (the `batchWindows`/`numBatches` interplay is create-time).
+
 ## Invariants / risks
 - **Divide-free hot path** (rule 3) — re-check the compiled WGSL has no integer
   `/`/`%` by a runtime value in walker/combine/size1/reduce.
