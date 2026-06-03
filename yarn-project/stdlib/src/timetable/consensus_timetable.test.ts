@@ -42,6 +42,11 @@ describe('ConsensusTimetable', () => {
     expect(timetable.getExpectedCheckpointLandTime(slot, graceSeconds)).toBe(targetSlotStart - 6);
   });
 
+  it('rounds expected checkpoint land time up for fractional block durations', () => {
+    const fractional = new ConsensusTimetable({ l1Constants: l1Constants(S, E), blockDuration: 5.5 });
+    expect(fractional.getExpectedCheckpointLandTime(slot, 12)).toBe(targetSlotStart - 5);
+  });
+
   it('attestation receive start equals the build frame start (liberal lower bound)', () => {
     expect(timetable.getAttestationReceiveStart(slot)).toBe(buildFrameStart);
   });

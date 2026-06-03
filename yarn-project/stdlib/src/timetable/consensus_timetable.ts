@@ -81,10 +81,11 @@ export class ConsensusTimetable {
 
   /**
    * Wall-clock time by which a checkpoint proposal is expected to have landed locally for its target slot.
-   * Used to prune block-only proposed tips whose enclosing checkpoint never arrived.
+   * Used to prune block-only proposed tips whose enclosing checkpoint never arrived. Rounded up to the next
+   * integer second because L1 timestamps and archiver comparisons are second-granularity.
    */
   public getExpectedCheckpointLandTime(slot: SlotNumber, orphanProposedBlockPruneGraceSeconds: number): number {
-    return this.getCheckpointProposalReceiveDeadline(slot) + orphanProposedBlockPruneGraceSeconds;
+    return Math.ceil(this.getCheckpointProposalReceiveDeadline(slot) + orphanProposedBlockPruneGraceSeconds);
   }
 
   /**
