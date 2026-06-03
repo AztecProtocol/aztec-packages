@@ -24,6 +24,7 @@ import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import {
+  type AppTaggingSecretKind,
   ContractClassLog,
   ContractClassLogFields,
   FlatPublicLogs,
@@ -31,6 +32,7 @@ import {
   PendingTaggedLog,
   PrivateLog,
   Tag,
+  appTaggingSecretKindFromDeliveryMode,
 } from '@aztec/stdlib/logs';
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -137,6 +139,14 @@ export const BYTE: TypeMapping<number> = {
       return Number(value);
     },
     slots: 1,
+  },
+};
+
+// Noir passes `MessageDelivery` onchain variants here.
+export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
+  deserialization: {
+    fn: readers => appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn(readers)),
+    slots: BYTE.deserialization!.slots,
   },
 };
 

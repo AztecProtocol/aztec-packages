@@ -17,6 +17,7 @@ import {
   CALL_PRIVATE_RESULT,
   CONTRACT_CLASS_LOG_INPUT,
   CONTRACT_INSTANCE,
+  DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -58,6 +59,7 @@ export {
   BOUNDED_VEC,
   BUFFER,
   BYTE,
+  DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -434,16 +436,19 @@ export const ORACLE_REGISTRY = {
     returnType: BOOL,
   }),
 
-  aztec_prv_getNextAppTagAsSender: makeEntry({
+  aztec_prv_getAppTaggingSecret: makeEntry({
     params: [
       { name: 'sender', type: AZTEC_ADDRESS },
       { name: 'recipient', type: AZTEC_ADDRESS },
     ],
-    returnType: TAG,
+    returnType: OPTION(FIELD),
   }),
 
-  aztec_prv_getNextConstrainedTaggingIndex: makeEntry({
-    params: [{ name: 'appSiloedSecret', type: FIELD }],
+  aztec_prv_getNextTaggingIndex: makeEntry({
+    params: [
+      { name: 'secret', type: FIELD },
+      { name: 'deliveryMode', type: DELIVERY_MODE },
+    ],
     returnType: U32,
   }),
 

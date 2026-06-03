@@ -1112,20 +1112,20 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_getNextAppTagAsSender(...inputs: ForeignCallArgs) {
+  aztec_prv_getAppTaggingSecret(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_prv_getNextAppTagAsSender',
+      oracle: 'aztec_prv_getAppTaggingSecret',
       inputs,
-      handler: ([sender, recipient]) => this.handlerAsPrivate().getNextAppTagAsSender(sender, recipient),
+      handler: ([sender, recipient]) => this.handlerAsPrivate().getAppTaggingSecret(sender, recipient),
     });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_getNextConstrainedTaggingIndex(...inputs: ForeignCallArgs) {
+  aztec_prv_getNextTaggingIndex(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_prv_getNextConstrainedTaggingIndex',
+      oracle: 'aztec_prv_getNextTaggingIndex',
       inputs,
-      handler: ([appSiloedSecret]) => this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret),
+      handler: ([secret, deliveryMode]) => this.handlerAsPrivate().getNextTaggingIndex(secret, deliveryMode),
     });
   }
 }
