@@ -90,7 +90,7 @@ describe('ProposalHandler checkpoint validation', () => {
       rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
     } as ValidatorClientFullConfig;
 
-    consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants() });
+    consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants(), blockDuration: undefined });
 
     handler = new ProposalHandler(
       checkpointsBuilder,

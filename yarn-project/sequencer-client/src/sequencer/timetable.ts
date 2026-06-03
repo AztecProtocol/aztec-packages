@@ -1,7 +1,14 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import { ProposerTimetable, type SubslotSelection } from '@aztec/stdlib/timetable';
+import {
+  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+  DEFAULT_MIN_BLOCK_DURATION,
+  DEFAULT_P2P_PROPAGATION_TIME,
+  ProposerTimetable,
+  type SubslotSelection,
+} from '@aztec/stdlib/timetable';
 
 /**
  * Proposer-side timetable for the sequencer.
@@ -36,9 +43,10 @@ export class SequencerTimetable {
     this.timetable = new ProposerTimetable({
       l1Constants: opts.l1Constants,
       blockDuration: opts.blockDurationMs !== undefined ? opts.blockDurationMs / 1000 : undefined,
-      minBlockDuration: opts.minBlockDuration,
-      p2pPropagationTime: opts.p2pPropagationTime,
-      checkpointProposalPrepareTime: opts.checkpointProposalPrepareTime,
+      minBlockDuration: opts.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION,
+      p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+      checkpointProposalPrepareTime: opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+      checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
       enforce: opts.enforce,
     });
 

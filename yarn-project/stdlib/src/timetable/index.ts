@@ -53,32 +53,20 @@ type ResolvedTimingBudgets = {
 };
 
 /**
- * Resolves the operational timing budgets from the (possibly undefined) inputs, applying the fast local/e2e
- * profile when `ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION`.
+ * Resolves the operational timing budgets, applying the fast local/e2e profile when
+ * `ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION`.
  *
- * Production profiles (`ethereumSlotDuration` undefined or `>= FAST_PROFILE_ETHEREUM_SLOT_DURATION`) use the
- * production defaults verbatim. Fast profiles clamp `p2pPropagationTime`, `checkpointProposalPrepareTime`,
- * and `minBlockDuration` down to the fast-profile caps so a fast network (mocked p2p) gets a build window
- * sized for local timing rather than the conservative production budgets. The clamp only lowers budgets, so
- * an operator that explicitly configured a smaller value keeps it. `checkpointProposalInitTime` is unchanged
- * by the profile: it is a proposer prologue budget, not a propagation/preparation budget.
+ * Production profiles (`ethereumSlotDuration >= FAST_PROFILE_ETHEREUM_SLOT_DURATION`) use the configured
+ * budgets verbatim. Fast profiles clamp `p2pPropagationTime`, `checkpointProposalPrepareTime`, and
+ * `minBlockDuration` down to the fast-profile caps so a fast network (mocked p2p) gets a build window sized
+ * for local timing rather than the conservative production budgets. The clamp only lowers budgets, so an
+ * operator that explicitly configured a smaller value keeps it. `checkpointProposalInitTime` is unchanged by
+ * the profile: it is a proposer prologue budget, not a propagation/preparation budget.
  */
-function resolveTimingBudgets(
-  ethereumSlotDuration: number | undefined,
-  opts: {
-    minBlockDuration?: number;
-    p2pPropagationTime?: number;
-    checkpointProposalPrepareTime?: number;
-    checkpointProposalInitTime?: number;
-  },
-): ResolvedTimingBudgets {
-  const minBlockDuration = opts.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION;
-  const p2pPropagationTime = opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME;
-  const checkpointProposalPrepareTime = opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME;
-  const checkpointProposalInitTime = opts.checkpointProposalInitTime ?? DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME;
+function resolveTimingBudgets(ethereumSlotDuration: number, opts: ResolvedTimingBudgets): ResolvedTimingBudgets {
+  const { minBlockDuration, p2pPropagationTime, checkpointProposalPrepareTime, checkpointProposalInitTime } = opts;
 
-  const isFastProfile =
-    ethereumSlotDuration !== undefined && ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION;
+  const isFastProfile = ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION;
   if (!isFastProfile) {
     return { minBlockDuration, p2pPropagationTime, checkpointProposalPrepareTime, checkpointProposalInitTime };
   }
@@ -127,7 +115,7 @@ export class ConsensusTimetable {
   /** L1 genesis timestamp in seconds (`genesis`), the anchor all slot timings derive from. */
   public readonly genesisTime: bigint;
 
-  constructor(opts: { l1Constants: SlotTimingConstants; blockDuration?: number }) {
+  constructor(opts: { l1Constants: SlotTimingConstants; blockDuration: number | undefined }) {
     const { l1Constants, blockDuration } = opts;
     if (l1Constants.slotDuration <= 0) {
       throw new Error(`aztecSlotDuration must be positive (got ${l1Constants.slotDuration})`);
@@ -241,18 +229,23 @@ export class ProposerTimetable extends ConsensusTimetable {
 
   constructor(opts: {
     l1Constants: SlotTimingConstants;
-    blockDuration?: number;
-    minBlockDuration?: number;
-    p2pPropagationTime?: number;
-    checkpointProposalPrepareTime?: number;
-    checkpointProposalInitTime?: number;
+    blockDuration: number | undefined;
+    minBlockDuration: number;
+    p2pPropagationTime: number;
+    checkpointProposalPrepareTime: number;
+    checkpointProposalInitTime: number;
     enforce: boolean;
   }) {
     super({ l1Constants: opts.l1Constants, blockDuration: opts.blockDuration });
 
     // Resolve operational budgets, applying the fast local/e2e profile for low ethereum slot durations so a
     // fast network does not inherit the conservative production budgets (which would shrink the build window).
-    const budgets = resolveTimingBudgets(this.ethereumSlotDuration, opts);
+    const budgets = resolveTimingBudgets(this.ethereumSlotDuration, {
+      minBlockDuration: opts.minBlockDuration,
+      p2pPropagationTime: opts.p2pPropagationTime,
+      checkpointProposalPrepareTime: opts.checkpointProposalPrepareTime,
+      checkpointProposalInitTime: opts.checkpointProposalInitTime,
+    });
     this.p2pPropagationTime = budgets.p2pPropagationTime;
     this.checkpointProposalPrepareTime = budgets.checkpointProposalPrepareTime;
     this.checkpointProposalInitTime = budgets.checkpointProposalInitTime;

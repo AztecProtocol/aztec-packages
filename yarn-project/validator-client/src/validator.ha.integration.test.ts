@@ -218,7 +218,10 @@ describe('ValidatorClient HA Integration', () => {
 
     // Create block proposal handler
     const metrics = new ValidatorMetrics(getTelemetryClient());
-    const consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants() });
+    const consensusTimetable = new ConsensusTimetable({
+      l1Constants: epochCache.getL1Constants(),
+      blockDuration: undefined,
+    });
     const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
       txsPermitted: true,
       maxTxsPerBlock: undefined,

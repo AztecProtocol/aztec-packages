@@ -11,6 +11,31 @@ function l1Constants(
   return { l1GenesisTime: 0n, slotDuration, ethereumSlotDuration };
 }
 
+/**
+ * Constructs a {@link ProposerTimetable} with the production operational budgets filled in, letting each
+ * test override only what it cares about. The timetable now requires every budget, so this is the test's
+ * config layer: it supplies the production defaults (minD=2, P=2, prepCp=1, init=1) the cases assert against.
+ */
+function makeProposerTimetable(
+  opts: Omit<
+    ConstructorParameters<typeof ProposerTimetable>[0],
+    'minBlockDuration' | 'p2pPropagationTime' | 'checkpointProposalPrepareTime' | 'checkpointProposalInitTime'
+  > & {
+    minBlockDuration?: number;
+    p2pPropagationTime?: number;
+    checkpointProposalPrepareTime?: number;
+    checkpointProposalInitTime?: number;
+  },
+): ProposerTimetable {
+  return new ProposerTimetable({
+    minBlockDuration: 2,
+    p2pPropagationTime: 2,
+    checkpointProposalPrepareTime: 1,
+    checkpointProposalInitTime: 1,
+    ...opts,
+  });
+}
+
 describe('ConsensusTimetable', () => {
   // Production profile: S=72, E=12, D=6. Use a non-trivial target slot to exercise the slot keying.
   const S = 72;
@@ -46,12 +71,12 @@ describe('ConsensusTimetable', () => {
   });
 
   it('does not require a block duration for the attestation deadline', () => {
-    const single = new ConsensusTimetable({ l1Constants: l1Constants(S, E) });
+    const single = new ConsensusTimetable({ l1Constants: l1Constants(S, E), blockDuration: undefined });
     expect(single.getAttestationDeadline(slot)).toBe(targetSlotStart + 48);
   });
 
   it('drops the D term from the checkpoint proposal receive deadline in single-block mode', () => {
-    const single = new ConsensusTimetable({ l1Constants: l1Constants(S, E) });
+    const single = new ConsensusTimetable({ l1Constants: l1Constants(S, E), blockDuration: undefined });
     expect(() => single.getCheckpointProposalReceiveDeadline(slot)).not.toThrow();
     expect(single.getCheckpointProposalReceiveDeadline(slot)).toBe(targetSlotStart - E);
   });
@@ -64,7 +89,7 @@ describe('ProposerTimetable', () => {
     const slot = SlotNumber(5);
     const targetSlotStart = S * slot;
 
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(S, E),
       blockDuration: 6,
       minBlockDuration: 2,
@@ -107,7 +132,7 @@ describe('ProposerTimetable', () => {
   });
 
   describe('local fast profile (S=36, E=4, D=6, minD=1, P=0.5, prepCp=0.5)', () => {
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(36, 4),
       blockDuration: 6,
       minBlockDuration: 1,
@@ -132,7 +157,7 @@ describe('ProposerTimetable', () => {
   });
 
   describe('local slow-block profile (S=36, E=4, D=8, minD=1, P=0.5, prepCp=0.5)', () => {
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(36, 4),
       blockDuration: 8,
       minBlockDuration: 1,
@@ -154,7 +179,7 @@ describe('ProposerTimetable', () => {
     // The sub-slot grid starts one init (default 1s) after the build frame opens.
     const firstSubslotStart = buildFrameStart + 1;
 
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(S, E),
       blockDuration: 6,
       minBlockDuration: 2,
@@ -207,7 +232,7 @@ describe('ProposerTimetable', () => {
       // Pass production budget defaults to mirror the e2e config that sets only S/E/D; the fast profile
       // (E < 8) clamps p2pPropagationTime to 0.5, checkpointProposalPrepareTime to 0.5, and minBlockDuration
       // to 1, restoring the pre-refactor build-window capacity for fast local networks.
-      const tight = new ProposerTimetable({
+      const tight = makeProposerTimetable({
         l1Constants: l1Constants(tightS, tightE),
         blockDuration: tightD,
         minBlockDuration: 2,
@@ -249,7 +274,7 @@ describe('ProposerTimetable', () => {
   });
 
   describe('non-enforced mode', () => {
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(72, 12),
       blockDuration: 6,
       enforce: false,
@@ -269,8 +294,9 @@ describe('ProposerTimetable', () => {
     const slot = SlotNumber(5);
     const targetSlotStart = S * slot;
 
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(S, E),
+      blockDuration: undefined,
       minBlockDuration: 2,
       enforce: true,
     });
@@ -314,7 +340,7 @@ describe('ProposerTimetable', () => {
 
 describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
   it('matches the production worked example (10 blocks)', () => {
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(72, 12),
       blockDuration: 6,
       p2pPropagationTime: 2,
@@ -325,7 +351,7 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
   });
 
   it('matches the local fast profile (4 blocks)', () => {
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(36, 4),
       blockDuration: 6,
       p2pPropagationTime: 0.5,
@@ -336,7 +362,7 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
   });
 
   it('matches the local slow-block profile (3 blocks)', () => {
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(36, 4),
       blockDuration: 8,
       p2pPropagationTime: 0.5,
@@ -347,7 +373,11 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
   });
 
   it('returns 1 for single-block mode', () => {
-    const timetable = new ProposerTimetable({ l1Constants: l1Constants(72, 12), enforce: true });
+    const timetable = makeProposerTimetable({
+      l1Constants: l1Constants(72, 12),
+      blockDuration: undefined,
+      enforce: true,
+    });
     expect(timetable.getMaxBlocksPerCheckpoint()).toBe(1);
   });
 
@@ -355,7 +385,7 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
   // conservative production budgets, which would shrink the build window and under-pack checkpoints.
   it('applies the fast profile to production-budget inputs on a low ethereum slot duration', () => {
     // S=36, E=4, D=8 with production budgets would derive only 2; the fast profile restores 3.
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(36, 4),
       blockDuration: 8,
       p2pPropagationTime: 2,
@@ -367,7 +397,7 @@ describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
 
   it('does not apply the fast profile at or above the ethereum slot threshold', () => {
     // S=36, E=12, D=6 with P=2: production budgets are kept -> floor((36-1-6-4-1)/6) = 4.
-    const timetable = new ProposerTimetable({
+    const timetable = makeProposerTimetable({
       l1Constants: l1Constants(36, 12),
       blockDuration: 6,
       p2pPropagationTime: 2,
@@ -434,7 +464,7 @@ describe('e2e multi-block-per-checkpoint capacity', () => {
   it.each(cases)(
     '$name derives >= minBlocksForCheckpoint and the expected build-window count',
     ({ S, E, D, budgets, required, expected }) => {
-      const timetable = new ProposerTimetable({
+      const timetable = makeProposerTimetable({
         l1Constants: l1Constants(S, E),
         blockDuration: D,
         enforce: true,

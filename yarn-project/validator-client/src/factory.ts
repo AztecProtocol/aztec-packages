@@ -32,7 +32,10 @@ export function createProposalHandler(
   },
 ) {
   const metrics = new ValidatorMetrics(deps.telemetry);
-  const consensusTimetable = new ConsensusTimetable({ l1Constants: deps.epochCache.getL1Constants() });
+  const consensusTimetable = new ConsensusTimetable({
+    l1Constants: deps.epochCache.getL1Constants(),
+    blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
+  });
   const blockProposalValidator = new BlockProposalValidator(deps.epochCache, consensusTimetable, {
     txsPermitted: !config.disableTransactions,
     maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,

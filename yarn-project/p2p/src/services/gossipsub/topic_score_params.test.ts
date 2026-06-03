@@ -28,12 +28,12 @@ describe('Topic Score Params', () => {
 
   describe('calculateBlocksPerSlot', () => {
     it('returns 1 when blockDurationMs is undefined (single block mode)', () => {
-      expect(calculateBlocksPerSlot(72000, undefined)).toBe(1);
+      expect(calculateBlocksPerSlot(72000, undefined, { ethereumSlotDuration: 12 })).toBe(1);
     });
 
     it('returns 1 when blockDurationMs is 0', () => {
       // Edge case - should treat 0 as undefined
-      expect(calculateBlocksPerSlot(72000, 0)).toBe(1);
+      expect(calculateBlocksPerSlot(72000, 0, { ethereumSlotDuration: 12 })).toBe(1);
     });
 
     it('matches the production worked example (10 blocks)', () => {
@@ -59,7 +59,7 @@ describe('Topic Score Params', () => {
     it('returns 0 for an impossible timing configuration (no room for a full block)', () => {
       // floor((72 - 60 - 2*2 - 1) / 60) = floor(7/60) = 0; the pure fn does not throw, the proposer
       // timetable constructor enforces the >= 1 minimum.
-      expect(calculateBlocksPerSlot(72000, 60000)).toBe(0);
+      expect(calculateBlocksPerSlot(72000, 60000, { ethereumSlotDuration: 12 })).toBe(0);
     });
   });
 

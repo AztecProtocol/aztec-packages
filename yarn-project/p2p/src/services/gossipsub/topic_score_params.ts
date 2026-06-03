@@ -1,5 +1,11 @@
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
-import { ProposerTimetable } from '@aztec/stdlib/timetable';
+import {
+  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+  DEFAULT_MIN_BLOCK_DURATION,
+  DEFAULT_P2P_PROPAGATION_TIME,
+  ProposerTimetable,
+} from '@aztec/stdlib/timetable';
 
 import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 
@@ -32,6 +38,10 @@ export type TopicScoringNetworkParams = {
  * (including the fast local/e2e profile) the sequencer uses, keeping p2p gossipsub scoring consistent with
  * the proposer. `l1GenesisTime` does not affect the block count, so a zero genesis is passed.
  *
+ * This is the p2p-scoring config layer: it fills any operational budget the network params omit with the
+ * shared `DEFAULT_*` values (the same defaults the sequencer config mappings apply) before constructing the
+ * strict timetable, which requires every budget.
+ *
  * @param slotDurationMs - L2 slot duration in milliseconds
  * @param blockDurationMs - Duration per block in milliseconds (undefined = single block mode)
  * @param opts - Shared checkpoint timing inputs used by the sequencer and validators
@@ -40,7 +50,7 @@ export type TopicScoringNetworkParams = {
 export function calculateBlocksPerSlot(
   slotDurationMs: number,
   blockDurationMs: number | undefined,
-  opts?: {
+  opts: {
     ethereumSlotDuration: number;
     p2pPropagationTime?: number;
     checkpointProposalPrepareTime?: number;
@@ -50,11 +60,13 @@ export function calculateBlocksPerSlot(
     l1Constants: {
       l1GenesisTime: 0n,
       slotDuration: slotDurationMs / 1000,
-      ethereumSlotDuration: opts?.ethereumSlotDuration ?? slotDurationMs / 1000,
+      ethereumSlotDuration: opts.ethereumSlotDuration,
     },
     blockDuration: blockDurationMs ? blockDurationMs / 1000 : undefined,
-    p2pPropagationTime: opts?.p2pPropagationTime,
-    checkpointProposalPrepareTime: opts?.checkpointProposalPrepareTime,
+    minBlockDuration: DEFAULT_MIN_BLOCK_DURATION,
+    p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+    checkpointProposalPrepareTime: opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+    checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
     enforce: true,
   });
   return timetable.getMaxBlocksPerCheckpoint();

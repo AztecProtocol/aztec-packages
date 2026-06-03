@@ -4,15 +4,20 @@ import {
   getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  pickConfigMappings,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type SequencerConfig, sharedSequencerConfigMappings } from '@aztec/stdlib/config';
 import { localSignerConfigMappings, validatorHASignerConfigMappings } from '@aztec/stdlib/ha-signing';
 import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
 
 export type { ValidatorClientConfig };
 
-export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
+export const validatorClientConfigMappings: ConfigMappingsType<
+  ValidatorClientConfig & Pick<SequencerConfig, 'blockDurationMs'>
+> = {
+  ...pickConfigMappings(sharedSequencerConfigMappings, ['blockDurationMs']),
   validatorPrivateKeys: {
     env: 'VALIDATOR_PRIVATE_KEYS',
     description: 'List of private keys of the validators participating in attestation duties',
@@ -112,6 +117,8 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
  * Note: If an environment variable is not set, the default value is used.
  * @returns The validator configuration.
  */
-export function getProverEnvVars(): ValidatorClientConfig {
-  return getConfigFromMappings<ValidatorClientConfig>(validatorClientConfigMappings);
+export function getProverEnvVars(): ValidatorClientConfig & Pick<SequencerConfig, 'blockDurationMs'> {
+  return getConfigFromMappings<ValidatorClientConfig & Pick<SequencerConfig, 'blockDurationMs'>>(
+    validatorClientConfigMappings,
+  );
 }
