@@ -4,7 +4,7 @@ import {
   IndexWithinCheckpointSchema,
 } from '@aztec/foundation/branded-types';
 import type { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
-import type { IfFlag, Prettify } from '@aztec/foundation/types';
+import type { PickIfFlag, Prettify } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -73,9 +73,9 @@ export type BlockResponseBase = {
  */
 export type BlockResponse<Opts extends BlockIncludeOptions = BlockIncludeOptions> = Prettify<
   BlockResponseBase &
-    IfFlag<BlockIncludeOptions, Opts, 'includeTransactions', { body: Body }> &
-    IfFlag<BlockIncludeOptions, Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
-    IfFlag<BlockIncludeOptions, Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>
+    PickIfFlag<BlockIncludeOptions, Opts, 'includeTransactions', { body: Body }> &
+    PickIfFlag<BlockIncludeOptions, Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
+    PickIfFlag<BlockIncludeOptions, Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>
 >;
 
 /** Zod schema for the widest {@link BlockResponse} shape (all include-gated fields optional). */

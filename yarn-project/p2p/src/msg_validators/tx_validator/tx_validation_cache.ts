@@ -2,7 +2,7 @@ import { LruMap } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { Tx, TxValidationResult } from '@aztec/stdlib/tx';
 
-import { webcrypto } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 /**
  * Minimal interface consumed by {@link CachedTxValidator}.
@@ -50,12 +50,11 @@ export class TxValidationCache implements ITxValidationCache {
    *
    * Note: the key should NOT use the tx.hash because it can't be trusted at this point.
    */
-  public async key(validatorSymbol: symbol, tx: Tx): Promise<string> {
-    // Hashing the whole tx takes a few milliseconds. So if we have already hashed
-    // this particular object, we avoid rehashing it.
+  public key(validatorSymbol: symbol, tx: Tx): string {
+    // Serializing the tx dominates cost (~5 ms). If we have already hashed this object, skip toBuffer + hash.
     let hash = this.txHashesCache.get(tx);
     if (hash === undefined) {
-      hash = Buffer.from(await webcrypto.subtle.digest('SHA-256', tx.toBuffer())).toString('hex');
+      hash = createHash('sha256').update(tx.toBuffer()).digest('hex');
       this.txHashesCache.set(tx, hash);
     }
     return `${Symbol.keyFor(validatorSymbol) ?? validatorSymbol.toString()}:${hash}`;
@@ -80,12 +79,12 @@ export class TxValidationCache implements ITxValidationCache {
    * Returns the cached promise if present, otherwise calls `validate`, stores its promise
    * immediately (before awaiting), and returns it.
    */
-  public async getOrValidate(
+  public getOrValidate(
     validatorSymbol: symbol,
     tx: Tx,
     validate: () => Promise<TxValidationResult>,
   ): Promise<TxValidationResult> {
-    const key = await this.key(validatorSymbol, tx);
+    const key = this.key(validatorSymbol, tx);
     const cached = this.get(key);
     if (cached !== undefined) {
       this.#log.debug('Returning cached tx validation result', {

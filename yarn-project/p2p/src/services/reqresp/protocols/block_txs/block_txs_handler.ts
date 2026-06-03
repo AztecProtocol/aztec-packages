@@ -1,6 +1,5 @@
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
-import { TxArray } from '@aztec/stdlib/tx';
+import { TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -36,42 +35,45 @@ export function reqRespBlockTxsHandler(
     } catch (err: any) {
       throw new ReqRespStatusError(ReqRespStatus.BADLY_FORMED_REQUEST, { cause: err });
     }
-    // First try attestation pool, then fall back to archiver
-    let txHashes = (await attestationPool.getBlockProposalByArchive(request.archiveRoot.toString()))?.txHashes;
-    if (!txHashes) {
-      txHashes = (await archiver.getBlock({ archive: request.archiveRoot }))?.body.txEffects.map(
+
+    // In principle assume we haven't found the block. This is how that is signaled to the requester.
+    let availableIndicesBitVector: BitVector = BitVector.init(0, []);
+    // We always try to service the explicitly requested tx hashes, even if we don't have the block.
+    const requestedTxsHashes: Set<string> = new Set(request.txHashes.map(h => h.toString()));
+
+    // First try attestation pool, then fall back to archiver.
+    let blockTxHashes = (await attestationPool.getBlockProposalByArchive(request.archiveRoot.toString()))?.txHashes;
+    if (!blockTxHashes) {
+      blockTxHashes = (await archiver.getBlock({ archive: request.archiveRoot }))?.body.txEffects.map(
         effect => effect.txHash,
       );
     }
 
-    let requestedTxsHashes;
-    if (request.txHashes.length > 0) {
-      requestedTxsHashes = request.txHashes;
+    // If we have found the block,
+    if (blockTxHashes) {
+      // First confirm that we are talking about the same block (up to tx hashes and order).
+      // If we are not, then we can't:
+      // 1. Use the indices from the request to get the txs from the pool.
+      // 2. Respond to the peer with the txs we have using indices.
+      const blockTxHashesCommitment = BlockTxsRequest.computeBlockTxHashesCommitment(blockTxHashes);
+      if (blockTxHashesCommitment.equals(request.blockTxHashesCommitment)) {
+        // In that case, we can also get the available indices from the pool.
+        const txsAvailableInPool = await txPool.hasTxs(blockTxHashes);
+        // Map txs in the pool to their indices in the block
+        const availableIndices = txsAvailableInPool.map((hasTx, idx) => (hasTx ? idx : -1)).filter(idx => idx !== -1);
+        availableIndicesBitVector = BitVector.init(blockTxHashes.length, availableIndices);
+
+        // We add the requested tx hashes (by index) to the list of tx hashes we are sending to the peer.
+        const requestedIndices = new Set(request.txIndices.getTrueIndices());
+        blockTxHashes.filter((_, idx) => requestedIndices.has(idx)).forEach(h => requestedTxsHashes.add(h.toString()));
+      }
     }
 
-    // This is scenario in which we don't have this block the peer is requesting from us
-    // But peer has sent requested tx hashes, so we can send them the transactions
-    if (!txHashes && requestedTxsHashes !== undefined) {
-      const responseTxs = (await txPool.getTxsByHash(requestedTxsHashes)).filter(tx => !!tx);
-      const response = new BlockTxsResponse(Fr.zero(), new TxArray(...responseTxs), BitVector.init(0, []));
-      return response.toBuffer();
-    }
-
-    // If we don't have this block and peer has not sent requested tx hashes
-    if (!txHashes) {
-      throw new ReqRespStatusError(ReqRespStatus.NOT_FOUND);
-    }
-
-    const txsAvailableInPool = await txPool.hasTxs(txHashes);
-    // Map txs in the pool to their indices in the block
-    const availableIndices = txsAvailableInPool.map((hasTx, idx) => (hasTx ? idx : -1)).filter(idx => idx !== -1);
-    const responseBitVector = BitVector.init(txHashes.length, availableIndices);
-
-    const requestedIndices = new Set(request.txIndices.getTrueIndices());
-    requestedTxsHashes = txHashes.filter((_, idx) => requestedIndices.has(idx));
-
-    const responseTxs = (await txPool.getTxsByHash(requestedTxsHashes)).filter(tx => !!tx);
-    const response = new BlockTxsResponse(request.archiveRoot, new TxArray(...responseTxs), responseBitVector);
+    // Finally, get the txs from the pool and create the response.
+    const responseTxs = (
+      await txPool.getTxsByHash(Array.from(requestedTxsHashes).map(h => TxHash.fromString(h)))
+    ).filter(tx => !!tx);
+    const response = new BlockTxsResponse(new TxArray(...responseTxs), availableIndicesBitVector);
 
     return response.toBuffer();
   };

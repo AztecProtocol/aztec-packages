@@ -2,7 +2,7 @@ import { BlockNumberSchema, CheckpointNumberSchema } from '@aztec/foundation/bra
 import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
-import type { IfFlag, Prettify } from '@aztec/foundation/types';
+import type { PickIfFlag, Prettify } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -64,9 +64,9 @@ type NestedBlockOpts<Opts> = Opts extends { includeTransactions: true } ? { incl
  */
 export type CheckpointResponse<Opts extends CheckpointIncludeOptions = CheckpointIncludeOptions> = Prettify<
   CheckpointResponseBase &
-    IfFlag<CheckpointIncludeOptions, Opts, 'includeBlocks', { blocks: BlockResponse<NestedBlockOpts<Opts>>[] }> &
-    IfFlag<CheckpointIncludeOptions, Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
-    IfFlag<CheckpointIncludeOptions, Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>
+    PickIfFlag<CheckpointIncludeOptions, Opts, 'includeBlocks', { blocks: BlockResponse<NestedBlockOpts<Opts>>[] }> &
+    PickIfFlag<CheckpointIncludeOptions, Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
+    PickIfFlag<CheckpointIncludeOptions, Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>
 >;
 
 /** Zod schema for the widest {@link CheckpointResponse} shape (all include-gated fields optional). */
