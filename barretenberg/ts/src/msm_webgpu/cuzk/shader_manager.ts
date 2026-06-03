@@ -26,6 +26,8 @@ import {
   field8 as field8_funcs,
   fr_ops_test as fr_ops_test_shader,
   fr_pow as fr_pow_funcs,
+  mono as mono_funcs,
+  mono_ops_test as mono_ops_test_shader,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
@@ -311,6 +313,47 @@ ${packLines.join('\n')}
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
+      },
+    );
+  }
+
+  /**
+   * Phase-2 step-1 standalone test kernel for the short-monomial (Mono)
+   * arithmetic the sumcheck relations are built from — the WGSL mirror of
+   * UnivariateCoefficientBasis. Assembles structs/bigint/montgomery/field8/mono
+   * into one module with one entry point per primitive (mul/sqr/add/sub/scalar/
+   * neg/promote), each writing 7 Lagrange evaluations the host diffs against a
+   * CPU polynomial reference. Construct with field='scalar' for F_r.
+   */
+  public gen_mono_ops_test_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_mono_ops_test_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      mono_ops_test_shader,
+      {
+        workgroup_size,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field8_funcs,
+        mono_funcs,
       },
     );
   }

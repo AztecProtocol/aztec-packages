@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>BN254 Fr short-monomial (Mono) WebGPU arithmetic — correctness</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; }
+      h1 { font-size: 1.4rem; }
+      .controls { display: flex; gap: 0.75rem; align-items: center; margin: 1rem 0; }
+      input[type="number"] { width: 9ch; padding: 0.25rem 0.4rem; }
+      button { padding: 0.4rem 0.9rem; cursor: pointer; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      #log { background: #0b1020; color: #e6e6e6; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 0.75rem; border-radius: 6px; white-space: pre-wrap; overflow-x: auto; min-height: 14rem; }
+      .ok { color: #6ee7b7; } .err { color: #fca5a5; } .warn { color: #fde68a; } .muted { color: #93a4c3; }
+      code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; }
+      a { color: #93c5fd; }
+    </style>
+  </head>
+  <body>
+    <h1>BN254 F<sub>r</sub> short-monomial (Mono) WebGPU arithmetic</h1>
+    <p class="muted">
+      Phase-2 step 1. Runs the short-monomial kernels (<code>mono_mul</code>, <code>mono_sqr</code>,
+      <code>mono_add</code>/<code>sub</code>/<code>neg</code>, scalar ops, edge promotion) — the
+      <code>UnivariateCoefficientBasis</code> arithmetic the sumcheck relations are built from — and diffs each
+      result's 7 promoted Lagrange evaluations against a CPU polynomial reference.
+      (<a href="/dev/sumcheck-webgpu/index.html">Fr primitives page →</a>)
+    </p>
+    <div class="controls">
+      <label>count 2^<input id="logn" type="number" value="14" min="4" max="20" /></label>
+      <button id="run">Run</button>
+    </div>
+    <div id="log"></div>
+    <script type="module" src="/dev/sumcheck-webgpu/mono_main.ts"></script>
+  </body>
+</html>
