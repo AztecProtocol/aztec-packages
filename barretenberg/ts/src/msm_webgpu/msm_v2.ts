@@ -33,7 +33,14 @@ import {
   STREAM_WALKER_TPB,
   STREAM_S as STREAM_S_PLAN,
 } from './cuzk/ba_stream_plan.js';
-import { buildVarWindowSchedule, type SplitDecision } from './var_window_split.js';
+import {
+  buildVarWindowSchedule,
+  chooseVarWindowSplit,
+  computeMsbHistogram,
+  effectiveNumBits,
+  VAR_WINDOW_MAX_WINDOWS,
+  type SplitDecision,
+} from './var_window_split.js';
 
 const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
@@ -1664,6 +1671,11 @@ export class MsmV2 {
   private capLevels: number = 0;
   private capNumBatches: number = 0;
   private capMAXC: number = 0;
+  // numWindows the cached buffers were sized for. split-c can change numWindows
+  // between prepares (warmup decides no-split, a later prepare splits), so the
+  // fast path MUST rebind when it differs or the gather/redStaging (sized to the
+  // old numWindows) overflow → gpu=0.
+  private capNumWindows: number = 0;
   // Pair-block tile size (derived from capTotalPairBlocks); persists so run()
   // can skip dispatching tiles past the current plan's totalPairBlocks.
   private fusedTileSize: number = 0;
@@ -1803,6 +1815,19 @@ export class MsmV2 {
     m.stride = 2 ** (m.c - 1);
     m.redM = m.numWindows * m.stride;
     if (!m.windowCs) m.windowCs = new Array(m.numWindows).fill(m.c);
+    // split-c (Phase 2C): size redM (the red_buf Y-plane base, baked into
+    // size1/stream_walker/combine_*/pt_finalize below) and bTotal for the SPLIT
+    // ENVELOPE — 2× the unsplit window count — so a data-dependent split decided
+    // in prepare() fits the baked kernels + red_buf with no re-bake. numWindows
+    // stays the unsplit count; prepare() sets the actual decided count for
+    // dispatch (≤ envelope) and never shrinks redM/bTotal. The decision falls
+    // back to no-split if it would exceed the envelope. Default / forceSplit /
+    // varSched keep exact sizing.
+    if (m.splitC && !config?.forceSplit && !config?.varSched) {
+      const envW = Math.min(VAR_WINDOW_MAX_WINDOWS, 2 * Math.ceil(NUMBITS / m.c));
+      m.redM = envW * m.stride;
+      m.bTotal = envW * m.BW;
+    }
     // Walker thread-count lever (sT = MPW·256). Budget-aware by default so a
     // working set that would exceed the 160 MB budget drops sT — the §8
     // priority-1 lever — before anything else; an explicit config overrides.
@@ -2164,6 +2189,38 @@ export class MsmV2 {
 
     const device = this.device;
     const n = this.n;
+    // Reinterpret the LE byte buffer as packed u32 (no copy when 4-byte aligned).
+    let scalars: Uint32Array;
+    if (scalarsBuf.byteOffset % 4 === 0) {
+      scalars = new Uint32Array(scalarsBuf.buffer, scalarsBuf.byteOffset, n * 8);
+    } else {
+      scalars = new Uint32Array(n * 8);
+      new Uint8Array(scalars.buffer).set(scalarsBuf);
+    }
+    // split-c (Phase 2C): pick the variable-window schedule from the scalar MSB
+    // distribution and fill this.windowCs (the per-window WIDTHS) PADDED to the
+    // create-time envelope numWindows. numWindows / bTotal / redM / the baked
+    // kernels stay the envelope (set in create), so the data-dependent schedule
+    // needs no re-baking; padding windows (beyond the actual schedule) cover zero
+    // scalar bits ⇒ no contribution, and the host combine skips them (empty).
+    // The host histogram here is a correctness-first stepping stone — the GPU
+    // histogram+decide kernels (Phase 2A/2B, validated) swap in for full
+    // GPU-residence (SPLIT_C_PLAN.md Phase 2C/2D). forceSplit keeps its
+    // create-time schedule. m.c == pickC(n) == cLo, so all widths are ≤ c.
+    if (this.splitC && !this.forceSplit) {
+      const hist = computeMsbHistogram(scalars, n);
+      const eff = effectiveNumBits(hist);
+      const dec = chooseVarWindowSplit(hist, n, eff, pickC);
+      const envW = Math.min(VAR_WINDOW_MAX_WINDOWS, 2 * Math.ceil(NUMBITS / this.c));
+      let sched = dec.isSplit ? buildVarWindowSchedule(dec, eff) : [];
+      // Fall back to no-split if the split would exceed the create-time envelope
+      // (redM/bTotal were baked for envW windows; more would overflow red_buf).
+      if (sched.length === 0 || sched.length > envW) {
+        sched = new Array(Math.ceil(NUMBITS / this.c)).fill(this.c);
+      }
+      this.windowCs = sched;
+      this.numWindows = sched.length;
+    }
     const c = this.c;
     const NUM_WINDOWS = this.numWindows;
     const BW = this.BW;
@@ -2174,21 +2231,8 @@ export class MsmV2 {
     // --- Host: scalars (canonical) -> 8×u32 + Booth-decode -> level-0 counts.
     // The Booth decompose + per-level planLevel walk is cheap (~1 ms for
     // n=88_899). We run it on every prepare to compute dispatch sizes, then
-    // either reuse the existing GPU buffers (fast path) or rebuild.
-    // Reinterpret the LE byte buffer as a packed u32 array — same data, no
-    // copy and no per-scalar BigInt construction. Browsers guarantee
-    // little-endian byte order in TypedArray views, so byte [0..4) reads back
-    // as u32[0]. The byteOffset is always 4-byte aligned for the
-    // wasmSliceCopy/Booth buffers we ever pass here (Uint8Array.slice and
-    // ArrayBuffer allocations land on 8-byte boundaries), but fall back to a
-    // memcpy if some caller hands us a misaligned view.
-    let scalars: Uint32Array;
-    if (scalarsBuf.byteOffset % 4 === 0) {
-      scalars = new Uint32Array(scalarsBuf.buffer, scalarsBuf.byteOffset, n * 8);
-    } else {
-      scalars = new Uint32Array(n * 8);
-      new Uint8Array(scalars.buffer).set(scalarsBuf);
-    }
+    // either reuse the existing GPU buffers (fast path) or rebuild. `scalars`
+    // (the LE→u32 view) was built at the top of prepare for the split-c decision.
     // Level-0 histogram from the raw bytes — no BigInt in the hot path.
     const initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
 
@@ -2322,6 +2366,7 @@ export class MsmV2 {
       maxTotalCarries <= this.capTotalCarries &&
       levels <= this.capLevels &&
       numBatches === this.capNumBatches &&
+      NUM_WINDOWS === this.capNumWindows &&
       MAXC <= this.capMAXC &&
       this.boundEpoch === this.pool.scratchEpoch;
     if (fits) {
@@ -2366,6 +2411,7 @@ export class MsmV2 {
     this.capLevels = levels;
     this.capNumBatches = numBatches;
     this.capMAXC = MAXC;
+    this.capNumWindows = NUM_WINDOWS;
 
     // Only uniform buffers are per-instance now — the big storage buffers
     // live in `pool.scratch` and are shared across every MsmV2 bound to
