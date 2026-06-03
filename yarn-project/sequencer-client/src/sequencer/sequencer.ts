@@ -20,7 +20,7 @@ import type {
 } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getEpochAtSlot, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -30,6 +30,7 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
+import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
@@ -729,7 +730,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       (l2Tips.proposedCheckpoint.checkpoint.number !== blockData.checkpointNumber ||
         proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber)
     ) {
-      this.log.warn(`Sequencer sync check failed: proposed block has no matching proposed checkpoint`, {
+      const logCtx = {
         blockCheckpointNumber: blockData.checkpointNumber,
         checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
         proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
@@ -738,7 +739,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         blockSlot: blockData.header.getSlot(),
         syncedL2Slot,
         ...args,
-      });
+      };
+
+      // Under pipelining the block proposal for a checkpoint leads its checkpoint proposal by up to one
+      // slot, so a world-state tip sitting in an as-yet-unproposed checkpoint is the expected steady state
+      // until that checkpoint is due. Only treat it as abnormal — and warn — once the checkpoint is overdue
+      // by the same deadline the archiver uses to prune the orphan block (see pruneOrphanProposedBlocks).
+      // Before then this is normal pipelining and we wait it out quietly.
+      if (this.isProposedCheckpointOverdue(blockData.header.getSlot())) {
+        this.log.warn(`Sequencer sync check failed: proposed block has no matching proposed checkpoint`, logCtx);
+      } else {
+        this.log.debug(`Waiting for proposed checkpoint to catch up with reexecuted block`, logCtx);
+      }
       return undefined;
     }
 
@@ -787,6 +799,21 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       syncedL2Slot,
       pendingChainValidationStatus,
     };
+  }
+
+  /**
+   * Whether the enclosing checkpoint of a reexecuted block is overdue: past the deadline by which a
+   * well-behaved proposer should have published it. Mirrors the archiver's orphan-prune deadline (the
+   * start of the slot after the block's build slot, plus a grace period) so the sequencer only warns
+   * about a missing proposed checkpoint once the archiver itself would prune the orphan block. The grace
+   * is derived from the block build duration the same way the archiver defaults it at node wiring.
+   */
+  private isProposedCheckpointOverdue(blockSlot: SlotNumber): boolean {
+    const expectedBySlot = SlotNumber(Number(blockSlot) - PROPOSER_PIPELINING_SLOT_OFFSET + 1);
+    const graceSeconds =
+      this.config.blockDurationMs !== undefined ? Math.ceil(this.config.blockDurationMs / 1000) : MIN_EXECUTION_TIME;
+    const expectedByTime = getTimestampForSlot(expectedBySlot, this.l1Constants) + BigInt(graceSeconds);
+    return BigInt(this.dateProvider.nowInSeconds()) >= expectedByTime;
   }
 
   /**
