@@ -208,7 +208,7 @@ describe('NoteStore', () => {
 
     it('filters notes by status, returning ACTIVE by default and both ACTIVE and NULLIFIED when requested', async () => {
       const nullifiers = [mkNullifier(note2)];
-      await noteStore.applyNullifiers(nullifiers, 'test');
+      await expect(noteStore.applyNullifiers(nullifiers, 'test')).resolves.toEqual([note2]);
 
       const activeNotes = await noteStore.getNotes({ contractAddress: CONTRACT_A, scopes: [SCOPE_1, SCOPE_2] }, 'test');
       expect(nullifierSet(activeNotes)).toEqual(nullifierSet([note1]));
@@ -239,7 +239,7 @@ describe('NoteStore', () => {
 
     it('applies scope filtering to nullified notes', async () => {
       const nullifiers = [mkNullifier(note3)];
-      await noteStore.applyNullifiers(nullifiers, 'test');
+      await expect(noteStore.applyNullifiers(nullifiers, 'test')).resolves.toEqual([note3]);
 
       // Query for contractB, but with the wrong scope (scope1)
       const wrongScopeNotes = await noteStore.getNotes(
