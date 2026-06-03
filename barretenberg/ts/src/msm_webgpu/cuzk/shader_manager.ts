@@ -63,6 +63,7 @@ import {
   ba_fused_super_bench as ba_fused_super_bench_shader,
   ba_carry_copy_bench as ba_carry_copy_bench_shader,
   ba_finalize_copy_bench as ba_finalize_copy_bench_shader,
+  ba_finalize_accumulate_bench as ba_finalize_accumulate_bench_shader,
   ba_reduce_init_bench as ba_reduce_init_bench_shader,
   ba_planner_v2_emit as ba_planner_v2_emit_shader,
   ba_planner_v2_offsets as ba_planner_v2_offsets_shader,
@@ -665,6 +666,45 @@ ${packLines.join('\n')}
         dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
       },
       { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
+    );
+  }
+
+  /**
+   * Finalize-ACCUMULATE for the point-chunked pair-tree: like
+   * gen_ba_finalize_copy_bench_shader but a bucket finalized by more than one
+   * chunk affine-adds its partials into the single running bucket_result
+   * (gated by a per-bucket `touched` flag). Pulls in the full field + safegcd
+   * stack for the one inversion the affine add needs.
+   */
+  public gen_ba_finalize_accumulate_bench_shader(
+    workgroup_size: number,
+    l0_index_mode = false,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_finalize_accumulate_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_finalize_accumulate_bench_shader,
+      {
+        workgroup_size, l0_index_mode, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
     );
   }
 

@@ -397,7 +397,8 @@ interface LevelBind {
   plannerBBind: GPUBindGroup;
   fusedTiles: { bind: GPUBindGroup; nx: number }[];
   carryBind: GPUBindGroup;
-  finalizeBinds: GPUBindGroup[]; // one per window-batch
+  finalizeBinds: GPUBindGroup[]; // one per window-batch (overwrite finalize)
+  finalizeAccumBinds: GPUBindGroup[]; // one per window-batch (accumulate finalize, chunked)
   nCarry: number;
 }
 
@@ -936,6 +937,11 @@ export class MsmHighMemory {
   // Per-MSM scratch budget (bytes) the batch-count / chunk solver targets.
   // Defaults to MEM_BUDGET; config.memBudgetMB overrides.
   private memBudget = MEM_BUDGET;
+  // Point-chunk size M (config.chunkPoints). Each window batch is processed in
+  // chunks of at most M points so the pair-tree A/B is bounded to O(M). Default
+  // is effectively unbounded (one chunk = legacy behaviour). The budget solver
+  // (increment D) may lower it.
+  private chunkPoints = Number.MAX_SAFE_INTEGER;
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
   private pointXBuf!: GPUBuffer;
@@ -951,6 +957,11 @@ export class MsmHighMemory {
   private fusedPipeL0!: GPUComputePipeline;
   private carryPipeL0!: GPUComputePipeline;
   private finalizePipeL0!: GPUComputePipeline;
+  // Point-chunked finalize: accumulates (affine-add) a chunk's bucket partial
+  // into the running bucket_result via a per-bucket `touched` flag, instead of
+  // overwriting. Used in place of finalizePipe when chunking is active.
+  private finalizeAccumPipe!: GPUComputePipeline;
+  private finalizeAccumPipeL0!: GPUComputePipeline;
   private decomposePipe!: GPUComputePipeline;
   private xposeCountPipe!: GPUComputePipeline;
   private xposeReducePipe!: GPUComputePipeline;
@@ -987,6 +998,8 @@ export class MsmHighMemory {
   private carryLayoutL0!: GPUBindGroupLayout;
   private finalizeLayout!: GPUBindGroupLayout;
   private finalizeLayoutL0!: GPUBindGroupLayout;
+  private finalizeAccumLayout!: GPUBindGroupLayout;
+  private finalizeAccumLayoutL0!: GPUBindGroupLayout;
   private decomposeLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
   private xposeReduceLayout!: GPUBindGroupLayout;
@@ -1063,6 +1076,10 @@ export class MsmHighMemory {
   private tsStagingBuf: GPUBuffer | null = null;
   private passCount = 0;
   private passPhases: string[] = [];
+  // Per-bucket first-touch flag for the accumulate-finalize (chunked path).
+  // u32 × B_TOTAL; cleared once before the chunk loop, set by the first chunk
+  // to finalize each bucket so later chunks affine-add instead of overwrite.
+  private touchedBuf!: GPUBuffer;
   private decomposeBinds!: GPUBindGroup[];
   private xposeCountBind!: GPUBindGroup;
   private xposeReduceBind!: GPUBindGroup;
@@ -1138,6 +1155,8 @@ export class MsmHighMemory {
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
     m.memBudget = config?.memBudgetMB !== undefined ? config.memBudgetMB * (1 << 20) : MEM_BUDGET;
+    m.chunkPoints =
+      config?.chunkPoints !== undefined && config.chunkPoints > 0 ? config.chunkPoints : Number.MAX_SAFE_INTEGER;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -1243,6 +1262,27 @@ export class MsmHighMemory {
       'read-only-storage',
       'read-only-storage',
     ]);
+    // Accumulate-finalize layouts: finalize layout + a read_write `touched`
+    // storage at index 5 (the per-bucket first-touch flag). The L0 variant
+    // shifts point_x/point_y to indices 6/7.
+    m.finalizeAccumLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'storage',
+    ]);
+    m.finalizeAccumLayoutL0 = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'storage',
+      'read-only-storage',
+      'read-only-storage',
+    ]);
     // 4 bindings: scalars (read), bucket_and_sign (write), params, batch.
     // (Previously 5 — separate signs buffer collapsed into the bucket_and_sign pack.)
     m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform']);
@@ -1295,6 +1335,16 @@ export class MsmHighMemory {
       sm.gen_ba_finalize_copy_bench_shader(WGI, true),
       `finalize-l0`,
       m.finalizeLayoutL0,
+    );
+    m.finalizeAccumPipe = await compile(
+      sm.gen_ba_finalize_accumulate_bench_shader(WGI, false),
+      `finalize-accum`,
+      m.finalizeAccumLayout,
+    );
+    m.finalizeAccumPipeL0 = await compile(
+      sm.gen_ba_finalize_accumulate_bench_shader(WGI, true),
+      `finalize-accum-l0`,
+      m.finalizeAccumLayoutL0,
     );
     m.decomposePipe = await compile(sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
     // Tiled counting-sort transpose: count + scatter dispatch across point-
@@ -1749,6 +1799,15 @@ export class MsmHighMemory {
     this.bufB = bufB;
     this.bucketResultBuf = scratch.bucketResultBuf;
     const bucketResult = scratch.bucketResultBuf;
+    // Per-bucket first-touch flag for the accumulate-finalize. One u32 per
+    // global bucket (B_TOTAL); chunk-invariant, so it sizes off B_TOTAL not M.
+    // Owned by the instance (lives in prepBuffers) — it is per-MSM scratch.
+    const touchedBuf = device.createBuffer({
+      size: Math.max(16, B_TOTAL * 4),
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    this.prepBuffers.push(touchedBuf);
+    this.touchedBuf = touchedBuf;
     const l0IdxBuf = scratch.l0IdxBuf;
     // L0 seed pad-trio — three index slots at [batchSlots, batchSlots+1,
     // batchSlots+2] that l0-mode shaders use as a "self-pad anchor". The
@@ -2011,6 +2070,26 @@ export class MsmHighMemory {
           }
           return device.createBindGroup({ layout: isL0 ? this.finalizeLayoutL0 : this.finalizeLayout, entries: fe });
         }),
+        finalizeAccumBinds: finalizeParamsBufs.map(fp => {
+          const fe: GPUBindGroupEntry[] = [
+            { binding: 0, resource: { buffer: countsBufs[inIdx] } },
+            { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
+            { binding: 2, resource: { buffer: activeIn } },
+            { binding: 3, resource: { buffer: bucketResult } },
+            { binding: 4, resource: { buffer: fp } },
+            { binding: 5, resource: { buffer: touchedBuf } },
+          ];
+          if (isL0) {
+            fe.push(
+              { binding: 6, resource: { buffer: this.pointXBuf } },
+              { binding: 7, resource: { buffer: this.pointYBuf } },
+            );
+          }
+          return device.createBindGroup({
+            layout: isL0 ? this.finalizeAccumLayoutL0 : this.finalizeAccumLayout,
+            entries: fe,
+          });
+        }),
         nCarry: Math.ceil(plan.totalCarries / WGI),
       });
     }
@@ -2206,7 +2285,12 @@ export class MsmHighMemory {
     enc.clearBuffer(this.bufA, this.planeBytes, this.padXOffset);
     enc.clearBuffer(this.bufB, 0, this.padXOffset);
     enc.clearBuffer(this.bufB, this.planeBytes, this.padXOffset);
+    // bucketResult + touched are accumulation targets across all chunks — clear
+    // ONCE here, never per chunk. The accumulate-finalize uses `touched` to
+    // distinguish the first chunk to finalize a bucket (copy) from later chunks
+    // (affine-add into the running sum).
     enc.clearBuffer(this.bucketResultBuf);
+    enc.clearBuffer(this.touchedBuf);
 
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
@@ -2226,7 +2310,11 @@ export class MsmHighMemory {
         const lb = this.levelBinds[lv];
         const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
         const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
-        const flp = lv === 0 ? this.finalizePipeL0 : this.finalizePipe;
+        // Accumulate-finalize: sums this (chunk's) bucket partials into the
+        // running bucket_result via the touched flag. With a single chunk every
+        // bucket is first-touch, so the behaviour is identical to the overwrite
+        // finalize; with multiple chunks the partials affine-add.
+        const flp = lv === 0 ? this.finalizeAccumPipeL0 : this.finalizeAccumPipe;
         setPhase('planner');
         dispatch(this.plannerAPipe, lb.plannerABind, this.batchWindows, 1);
         dispatch(this.plannerBPipe, lb.plannerBBind, Math.ceil(this.BW / 256), this.batchWindows);
@@ -2237,7 +2325,7 @@ export class MsmHighMemory {
         setPhase('carry');
         dispatch(cp, lb.carryBind, lb.nCarry, 1);
         setPhase('finalize');
-        dispatch(flp, lb.finalizeBinds[bi], this.numWgsFinalize, 1);
+        dispatch(flp, lb.finalizeAccumBinds[bi], this.numWgsFinalize, 1);
       }
     }
     setPhase('reduce_init');

@@ -139,6 +139,15 @@ export interface MsmConfig {
    * backend sets this to 100.
    */
   memBudgetMB?: number;
+  /**
+   * Point-chunk size M for the high-memory backend's pair-tree. Each window
+   * batch is processed in chunks of at most M points; the pair-tree A/B
+   * ping-pong is then bounded to O(M) regardless of scalar distribution (the
+   * profile-E giant-bucket case costs the same as uniform). The finalize
+   * accumulates each chunk's bucket partials into the running bucket buffer.
+   * Default: large (≥ n, i.e. single chunk = unchanged behaviour).
+   */
+  chunkPoints?: number;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */

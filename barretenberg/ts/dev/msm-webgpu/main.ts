@@ -123,6 +123,9 @@ const gpuKnobs: MsmConfig = (() => {
     // High-memory backend per-MSM scratch budget (MiB). The batch/chunk solver
     // raises numBatches (and, once one-window, the point-chunk count) to fit it.
     memBudgetMB: optInt('membudget'),
+    // High-memory backend point-chunk size M (?chunkpts=). Bounds the pair-tree
+    // A/B to O(M) points regardless of scalar distribution.
+    chunkPoints: optInt('chunkpts'),
   };
 })();
 
