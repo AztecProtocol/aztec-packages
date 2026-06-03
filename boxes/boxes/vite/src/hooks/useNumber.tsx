@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Contract } from '@aztec/aztec.js/contracts';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import { toast } from 'react-toastify';
 import { deployerEnv } from '../config';
 
@@ -28,7 +29,10 @@ export function useNumber({ contract }: { contract: Contract }) {
       const value = BigInt(el.value);
       const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
       await toast.promise(
-        contract!.methods.setNumber(value, defaultAccountAddress).send({ from: defaultAccountAddress }),
+        // PROPOSED (the wallet default) is flaky in boxes CI, so wait for the checkpoint.
+        contract!.methods
+          .setNumber(value, defaultAccountAddress)
+          .send({ from: defaultAccountAddress, wait: { waitForStatus: TxStatus.CHECKPOINTED } }),
         {
           pending: 'Setting number...',
           success: `Number set to: ${value}`,
