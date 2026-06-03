@@ -316,6 +316,15 @@ export class Tx extends Gossipable {
   }
 
   /**
+   * Returns a copy of this tx with the given proof attached. Inverse of {@link Tx.withoutProof}, used to reattach a
+   * proof that is stored separately from the rest of the tx.
+   * @returns A new tx carrying the given proof.
+   */
+  withProof(proof: ChonkProof): Tx {
+    return new Tx(this.txHash, this.data, proof, this.contractClassLogFields, this.publicFunctionCalldata);
+  }
+
+  /**
    * Creates a random tx.
    * @param randomProof - Whether to create a random proof - this will be random bytes of the full size.
    * @returns A random tx.

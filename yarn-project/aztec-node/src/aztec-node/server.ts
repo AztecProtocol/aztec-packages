@@ -98,6 +98,7 @@ import type {
   CheckpointIncludeOptions,
   CheckpointParameter,
   CheckpointResponse,
+  GetTxByHashOptions,
 } from '@aztec/stdlib/interfaces/client';
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
@@ -1314,21 +1315,25 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   /**
-   * Method to retrieve a single tx from the mempool or unfinalized chain.
+   * Method to retrieve a single tx from the mempool or unfinalized chain. The tx's proof is only loaded and returned
+   * when `includeProof` is set.
    * @param txHash - The transaction hash to return.
+   * @param options - Options for the returned tx (eg whether to include its proof).
    * @returns - The tx if it exists.
    */
-  public getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
+  public getTxByHash(txHash: TxHash, options?: GetTxByHashOptions): Promise<Tx | undefined> {
+    return this.p2pClient!.getTxByHashFromPool(txHash, { includeProof: !!options?.includeProof });
   }
 
   /**
-   * Method to retrieve txs from the mempool or unfinalized chain.
+   * Method to retrieve txs from the mempool or unfinalized chain. The txs' proofs are only loaded and returned when
+   * `includeProof` is set.
    * @param txHash - The transaction hash to return.
+   * @param options - Options for the returned txs (eg whether to include their proofs).
    * @returns - The txs if it exists.
    */
-  public async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
-    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
+  public async getTxsByHash(txHashes: TxHash[], options?: GetTxByHashOptions): Promise<Tx[]> {
+    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash, options))));
   }
 
   public async findLeavesIndexes(

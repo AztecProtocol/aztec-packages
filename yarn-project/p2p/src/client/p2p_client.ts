@@ -480,19 +480,21 @@ export class P2PClient extends WithTracer implements P2P {
   /**
    * Returns a transaction in the transaction pool by its hash.
    * @param txHash - Hash of the transaction to look for in the pool.
+   * @param opts - Set `includeProof: false` to skip loading the tx proof from the DB.
    * @returns A single tx or undefined.
    */
-  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined> {
-    return this.txPool.getTxByHash(txHash);
+  getTxByHashFromPool(txHash: TxHash, opts?: { includeProof?: boolean }): Promise<Tx | undefined> {
+    return this.txPool.getTxByHash(txHash, opts);
   }
 
   /**
    * Returns transactions in the transaction pool by hash.
    * @param txHashes - Hashes of the transactions to look for.
+   * @param opts - Set `includeProof: false` to skip loading tx proofs from the DB.
    * @returns The txs found, in the same order as the requested hashes. If a tx is not found, it will be undefined.
    */
-  getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return this.txPool.getTxsByHash(txHashes);
+  getTxsByHashFromPool(txHashes: TxHash[], opts?: { includeProof?: boolean }): Promise<(Tx | undefined)[]> {
+    return this.txPool.getTxsByHash(txHashes, opts);
   }
 
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
