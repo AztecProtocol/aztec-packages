@@ -109,7 +109,7 @@ unconstrained fn get_handshake_logs_in_range(
     from_block: Option<u32>,
     to_block: Option<u32>,
 ) -> EphemeralArray<LogRetrievalResponse> {
-    let requests = EphemeralArray::at(LOG_RETRIEVAL_REQUEST_ARRAY_SLOT).clear();
+    let requests = EphemeralArray::empty_at(LOG_RETRIEVAL_REQUEST_ARRAY_SLOT);
     requests.push(
         LogRetrievalRequest {
             contract_address,
