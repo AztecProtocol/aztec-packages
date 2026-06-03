@@ -39,7 +39,7 @@ import {
   MAX_PRIVATE_EVENTS_PER_TXE_QUERY,
   MAX_PRIVATE_EVENT_LEN,
 } from '../constants.js';
-import type { ForeignCallArgs, ForeignCallResult } from '../util/encoding.js';
+import type { ForeignCallArgs, ForeignCallResult } from '../utils/encoding.js';
 
 const GAS_SETTINGS: TypeMapping<GasSettings> = {
   serialization: { fn: v => v.toFields() },
@@ -342,6 +342,10 @@ export const TXE_ORACLE_REGISTRY = {
     returnType: CONTRACT_INSTANCE_MEMBER,
   }),
   aztec_avm_getContractInstanceInitializationHash: makeEntry({
+    params: [{ name: 'address', type: AZTEC_ADDRESS }],
+    returnType: CONTRACT_INSTANCE_MEMBER,
+  }),
+  aztec_avm_getContractInstanceImmutablesHash: makeEntry({
     params: [{ name: 'address', type: AZTEC_ADDRESS }],
     returnType: CONTRACT_INSTANCE_MEMBER,
   }),

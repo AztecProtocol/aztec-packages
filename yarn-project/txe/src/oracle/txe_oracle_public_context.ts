@@ -137,6 +137,10 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     return this.getContractInstanceMember(address, i => i.initializationHash);
   }
 
+  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
+    return this.getContractInstanceMember(address, i => i.immutablesHash);
+  }
+
   private async getContractInstanceMember(
     address: AztecAddress,
     accessor: (instance: ContractInstanceWithAddress) => Fr,
