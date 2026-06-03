@@ -1,25 +1,35 @@
-import { FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import { MAX_L2_TO_L1_MSGS_PER_TX } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { ScopedL2ToL1Message, computeBlockOutHash } from '@aztec/stdlib/messaging';
+import { makeScopedL2ToL1Message } from '@aztec/stdlib/testing';
 
-import { TestContext } from '../mocks/test_context.js';
+import { TestContext, makeTestDeferredJobQueue } from '../mocks/test_context.js';
 import { CheckpointSubTreeOrchestrator } from './checkpoint-sub-tree-orchestrator.js';
-import { EpochProvingContext } from './epoch-proving-context.js';
+import { ChonkCache } from './chonk-cache.js';
 
 const logger = createLogger('prover-client:test:checkpoint-sub-tree-orchestrator');
 
+/** A full tx-worth of L2-to-L1 messages, padded to the per-tx maximum. */
+const makeL2ToL1Messages = (count: number) =>
+  padArrayEnd(
+    Array.from({ length: count }, (_, i) => makeScopedL2ToL1Message((i + 1) * 789)),
+    ScopedL2ToL1Message.empty(),
+    MAX_L2_TO_L1_MSGS_PER_TX,
+  );
+
 describe('prover/orchestrator/checkpoint-sub-tree', () => {
   let context: TestContext;
-  let epochContext: EpochProvingContext;
+  let chonkCache: ChonkCache;
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
-    epochContext = new EpochProvingContext(context.prover, EpochNumber(1));
+    chonkCache = new ChonkCache();
   });
 
   afterEach(async () => {
-    epochContext.stop();
     await context.cleanup();
   });
 
@@ -34,9 +44,10 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       context.worldState,
       context.prover,
       EthAddress.ZERO,
-      epochContext,
+      chonkCache,
+      EpochNumber(1),
       false,
-      10,
+      makeTestDeferredJobQueue(),
       constants,
       l1ToL2Messages,
       numBlocks,
@@ -74,9 +85,10 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       context.worldState,
       context.prover,
       EthAddress.ZERO,
-      epochContext,
+      chonkCache,
+      EpochNumber(1),
       false,
-      10,
+      makeTestDeferredJobQueue(),
       constants,
       l1ToL2Messages,
       numBlocks,
@@ -101,47 +113,97 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
     }
   });
 
-  it('throws when startNewEpoch is called explicitly', async () => {
-    const { constants, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
+  it('proves a checkpoint carrying L1-to-L2 messages', async () => {
+    // Cross-chain messages flow into the checkpoint's first block via the L1-to-L2
+    // message tree; the sub-tree must prove them through without error (A-1039).
+    const numBlocks = 1;
+    const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(numBlocks, {
+      numTxsPerBlock: 1,
+      numL1ToL2Messages: 3,
+    });
+    expect(l1ToL2Messages.length).toBe(3);
+
     const subTree = await CheckpointSubTreeOrchestrator.start(
       context.worldState,
       context.prover,
       EthAddress.ZERO,
-      epochContext,
+      chonkCache,
+      EpochNumber(1),
       false,
-      10,
+      makeTestDeferredJobQueue(),
       constants,
       l1ToL2Messages,
-      1,
+      numBlocks,
       previousBlockHeader,
     );
     try {
-      expect(() => subTree.startNewEpoch(EpochNumber(2), 1, FinalBlobBatchingChallenges.empty())).toThrow(
-        /starts its epoch in the constructor/,
-      );
+      const resultPromise = subTree.getSubTreeResult();
+
+      for (const block of blocks) {
+        const { blockNumber, timestamp } = block.header.globalVariables;
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
+        if (block.txs.length > 0) {
+          await subTree.addTxs(block.txs);
+        }
+        await subTree.setBlockCompleted(blockNumber, block.header);
+      }
+
+      const result = await resultPromise;
+      expect(result.blockProofOutputs).toHaveLength(1);
+      expect(result.blockProofOutputs[0].proof).toBeDefined();
     } finally {
       await subTree.stop();
     }
   });
 
-  it('throws when startNewCheckpoint is called explicitly', async () => {
-    const { constants, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
+  it('proves a checkpoint whose txs emit L2-to-L1 messages', async () => {
+    // L2-to-L1 (cross-chain) messages are carried on the public tx effects; the sub-tree
+    // must prove them through the base/block rollups without error (A-1039).
+    const numBlocks = 1;
+    const { constants, blocks, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(numBlocks, {
+      numTxsPerBlock: 1,
+      makeProcessedTxOpts: () => ({
+        privateOnly: false,
+        avmAccumulatedData: { l2ToL1Msgs: makeL2ToL1Messages(2) },
+      }),
+    });
+    // Confirm the fixture actually attached the messages.
+    expect(blocks[0].txs[0].txEffect.l2ToL1Msgs.length).toBe(2);
+
     const subTree = await CheckpointSubTreeOrchestrator.start(
       context.worldState,
       context.prover,
       EthAddress.ZERO,
-      epochContext,
+      chonkCache,
+      EpochNumber(1),
       false,
-      10,
+      makeTestDeferredJobQueue(),
       constants,
       l1ToL2Messages,
-      1,
+      numBlocks,
       previousBlockHeader,
     );
     try {
-      await expect(subTree.startNewCheckpoint(0, constants, l1ToL2Messages, 1, previousBlockHeader)).rejects.toThrow(
-        /drives its single checkpoint in `start`/,
-      );
+      const resultPromise = subTree.getSubTreeResult();
+
+      for (const block of blocks) {
+        const { blockNumber, timestamp } = block.header.globalVariables;
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
+        if (block.txs.length > 0) {
+          await subTree.addTxs(block.txs);
+        }
+        await subTree.setBlockCompleted(blockNumber, block.header);
+      }
+
+      const result = await resultPromise;
+      expect(result.blockProofOutputs).toHaveLength(1);
+      expect(result.blockProofOutputs[0].proof).toBeDefined();
+
+      // The messages flow through the base/block rollups and end up in the block's outHash.
+      const messagesPerTx = blocks[0].txs.map(tx => tx.txEffect.l2ToL1Msgs);
+      const expectedOutHash = computeBlockOutHash(messagesPerTx);
+      expect(expectedOutHash.isZero()).toBe(false); // sanity: the fixture really did carry messages
+      expect(result.blockProofOutputs[0].inputs.outHash).toEqual(expectedOutHash);
     } finally {
       await subTree.stop();
     }
