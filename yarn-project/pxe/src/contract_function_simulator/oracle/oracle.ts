@@ -483,20 +483,20 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_getNextAppTagAsSender(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+  aztec_prv_getAppTaggingSecret(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
     return callHandler({
-      oracle: 'aztec_prv_getNextAppTagAsSender',
+      oracle: 'aztec_prv_getAppTaggingSecret',
       inputs,
-      handler: ([sender, recipient]) => this.handlerAsPrivate().getNextAppTagAsSender(sender, recipient),
+      handler: ([sender, recipient]) => this.handlerAsPrivate().getAppTaggingSecret(sender, recipient),
     });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_getNextConstrainedTaggingIndex(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+  aztec_prv_getNextTaggingIndex(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
     return callHandler({
-      oracle: 'aztec_prv_getNextConstrainedTaggingIndex',
+      oracle: 'aztec_prv_getNextTaggingIndex',
       inputs,
-      handler: ([appSiloedSecret]) => this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret),
+      handler: ([secret, mode]) => this.handlerAsPrivate().getNextTaggingIndex(secret, mode),
     });
   }
 
@@ -505,7 +505,7 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_getPendingTaggedLogs',
       inputs,
-      handler: ([scope]) => this.handlerAsUtility().getPendingTaggedLogs(scope),
+      handler: ([scope, providedSecrets]) => this.handlerAsUtility().getPendingTaggedLogs(scope, providedSecrets),
     });
   }
 
