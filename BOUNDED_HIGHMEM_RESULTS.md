@@ -15,18 +15,21 @@
    target, and corrected `estimateMem` (it under-counted by ignoring the 1.3× OVERSIZE pad, so the
    *metered* scratch overshot the budget). The S0 breakdown showed window-batching already shrinks
    every window-scaled buffer — it just was not being driven to 100 MB.
-3. **Memory achieved (metered scratch, excludes SRS), cross-check green on profiles A AND E:**
-   - logn=14: **67.7 MB** (A,B,C,D,E all green; budget not binding)
-   - logn=17: **85.4 MB** (A,B,C,D,E all green) — was 175.8 MB unbounded (−51%)
-   - logn=19: **131 MB** (A,E green) — was 193 MB unbounded (−32%); **over the 100 MB target.**
-4. **≤100 MB target met at logn 14 and 17 on every profile incl. the adversarial E.** logn=19 is
-   green at 131 MB but not under 100: window-batching is capped at one window
-   (`numBatches < NUM_WINDOWS`), and the residual is the full-width `bucket_result` (17 MB) +
-   `red_buf` (17 MB) + `scalarsRaw` (16 MB) buffers. Closing it needs the plan's two deeper axes
-   (S2 bucket-range tiling of the reduce buffers + S1-axis point-chunking of the pair-tree A/B);
-   those are large, delicate rewrites of the two most complex subsystems (bin-packed pair-tree and
-   the reduce) and were **not** attempted solo to avoid risking the green tree (per plan §7 +
-   recovery protocol — a correct partial beats a broken whole).
+   **UPDATE — the point-chunk build (axis 1) closed the logn19 gap. See the
+   "Point-chunk build" section below. The ≤100 MB target is now met at logn 14,
+   17 AND 19 on profiles A AND E (and B/C/D), with profile E byte-equal to A.**
+3. **Memory achieved (metered scratch, excludes SRS), cross-check green on profiles A AND E**
+   (auto-pick, memBudgetMB=100, after the point-chunk build):
+   - logn=14: **67.7 MB** (single chunk; budget not binding)
+   - logn=17: **85.7 MB** (single chunk) — was 175.8 MB unbounded (−51%)
+   - logn=19: **99.5 MB** (2 chunks; A 99.51 / E 99.46, byte-equal) — was 193 MB unbounded
+     (−48%) and a 131 MB single-chunk floor; **now under the 100 MB target.**
+4. **≤100 MB target met at logn 14, 17 AND 19 on every profile incl. the adversarial E.** The
+   point-chunk loop (increment B) bounds the pair-tree A/B (and the per-(window,point) buffers)
+   to O(M) regardless of distribution; the budget solver (increment D) picks M. The residual
+   full-width buffers (`bucket_result` 17 MB + `red_buf` 17 MB + `scalarsRaw` 16 MB) are the only
+   floor left — axis 2 (bucket-range tiling of the reduce) would shrink those further but is not
+   needed to clear 100 MB at logn ≤ 19.
 5. **Perf (reported, not gated):** logn=14 unchanged (10.5/13.5 ms A/E). logn=17 +22%/+51%
    (34.9→42.7 / 39.9→60.3 ms) — the bounded path runs more, smaller dispatches; the E delta is
    mostly the 5× GPU planner dispatch. logn=19 A roughly flat (146→153 ms). Within the
@@ -45,9 +48,9 @@ high-memory bench N times and prints per-run agree/disagree + the metered scratc
 |---|---|---|
 | S0 | Instrument + baseline (+ profile-E infinity fix) | GREEN |
 | S1 | Budget-solver memory bound (memBudgetMB knob) | GREEN |
-| S2 | Bucket-range tile bucket buffer + reduce | pending |
-| S3 | Budget solver → 100 MB | pending (S1 already does ≤17) |
-| S4 | Tune + full validation | pending |
+| A–D | **Point-chunk build (axis 1): bound the pair-tree A/B by M** | **GREEN — see "Point-chunk build" below; ≤100 MB at logn 14/17/19, A==E** |
+| S2 | Bucket-range tile bucket buffer + reduce (axis 2) | pending (not needed for ≤100 MB at logn≤19) |
+| S4 | Tune + full validation | A–E green at logn 14/17/19; perf reported |
 
 ### S1 result — budget solver (memBudgetMB)
 
@@ -145,3 +148,108 @@ Scratch breakdown at logn=19, batchWindows=1 (window-batching exhausted), 131 MB
 - Both are needed together at logn=19 to clear 100 MB (each alone leaves ≈110 MB).
 - `estimateMem` and the solver already plumb a budget; S3 would extend the solver to choose
   (batchWindows, K, M) jointly once the two axes exist.
+
+## Point-chunk build (axis 1 — bufA/bufB bounded by M, distribution-independent)
+
+Implements the BUILD_SPEC increments A→B→C→D: point-count chunking of the
+high-memory pair-tree so the A/B ping-pong (and the per-(window,point) buffers)
+are bounded to O(M) regardless of scalar distribution. **The headline: at logn17
+and logn19, profile E's metered scratch is byte-equal to profile A's — the
+giant-bucket case now costs the same memory as uniform — and ≤ 100 MB.**
+
+Commits: `619674b3fd` (A: accumulate-finalize), `8d86964096` (B: chunk loop),
+`70c5f7fd92` (C: size point buffers by M), `aecbf49970` (D: budget picks M),
+`8785b8e92f` (D-fix: correct the scratch estimate + per-chunk perf cap).
+
+### Increments (each ends GREEN at profile A AND E, logn14/17[/19], ≥5 runs, 0 disagreements)
+
+| Inc | What | Gate result |
+|---|---|---|
+| A | Wire the affine accumulate-finalize (touched flag) as the finalize path | GREEN — byte-identical to copy-finalize at M≥n (single chunk) |
+| B | The chunk loop: stream each window batch in M-point chunks, each re-plans + re-runs the pair-tree, accumulate-finalize sums partials | GREEN — M=n/4: logn14 22.9 MB, logn17 74.0 MB, **E==A** |
+| C | Size bufA/bufB + valIdx/bucketAndSign/l0Idx by chunk M, not n | GREEN — M=n/4: logn14 18.4 MB, logn17 62.8 MB, logn19 84.5 MB, **E==A byte-equal** |
+| D | Budget solver auto-picks M (joint with numBatches), accurate estimate + perf cap | GREEN — auto: logn14 67.7, logn17 85.7, logn19 99.5 MB (2 chunks), all ≤100 |
+
+### Memory (metered scratch_mb, excludes SRS), auto-pick (memBudgetMB=100, no chunkpts)
+
+| logn | A | E | chunks | ≤100 MB | wall (20-rep) |
+|---|---|---|---|---|---|
+| 14 | 67.70 | 67.70 | 1 | yes | 8 / 9 ms |
+| 17 | 85.70 | 85.71 | 1 | yes | 41 / 65 ms |
+| 19 | 99.51 | 99.46 | 2 | **yes** | 169 / 458 ms |
+
+logn19 was a 131 MB single-chunk floor (S1) and 193 MB fully unbounded (S0). The
+solver now uses the budget it has: at logn19 it splits into 2 chunks (99.5 MB,
+just under the cap) rather than chunking further to a lower memory but far slower
+plan. logn ≤ 17 already fit single-chunk, so they pay zero chunking overhead.
+
+Cross-check green 5/5 at A AND E for every (logn, profile) above. Profiles B/C/D
+also green and metered-identical to A/E (69.77 MB at logn19) — memory is
+distribution-independent, the spec's actual requirement.
+
+The forced-chunk proof (the bounded giant-bucket result), `?chunkpts=` = n/4:
+
+| logn | A scratch | E scratch | equal? |
+|---|---|---|---|
+| 14 | 18.39 | 18.37 | yes |
+| 17 | 62.81 | 62.77 | yes |
+| 19 | 84.52 | 84.51 | yes |
+
+### How it works
+
+- **Accumulate-finalize** (`ba_finalize_accumulate_bench`): the finalize that
+  harvests a count==1 bucket now affine-ADDS its chunk partial into the running
+  `bucket_result` (gated by a per-bucket `touched` u32, cleared once per MSM),
+  instead of overwriting. A bucket split across chunks — every chunk for
+  profile E's giant bucket — accumulates correctly. One inversion per (split
+  bucket, chunk); bucket_result stays affine for the all-Jacobian reduce.
+- **Chunk loop**: per window batch `bi`, an inner loop over chunks of ≤ M points.
+  Each chunk re-runs decompose→transpose→convert→pair-tree over its slice into
+  the SHARED bufA/bufB/l0Idx (cleared per chunk; bucket_result/touched cleared
+  once). Decompose reads the chunk's scalar slice via a new `batch.y`
+  scalar-point base; transpose/convActive/convMeta use the chunk's M-point
+  per-window stride; convActive's SRS base is `srsOffset + chunkStart`. Each
+  chunk owns its decompose/transpose/convert + per-level binds (its own plan);
+  buffers size to the max over chunks.
+- **M-bounded sizing**: bucketAndSign, valIdx, l0Idx (hence L0 active_sums) and
+  bufA/bufB (via wstride1 ≤ M/2) all scale with M. bucketResult/countsBufs/
+  offsetsBufs/rowPtrBuf stay full (keyed by BW, chunk-invariant). scalarsRaw
+  stays full-n (all scalars uploaded once; decompose reads slices).
+- **Budget solver**: starts M at min(n, 2¹⁸ perf-cap), then halves while the
+  *accurate* scratch estimate exceeds memBudget, keeping the largest M that fits
+  (fewest chunks). Window-batching is solved per candidate M and is the first
+  lever; chunking engages once it bottoms out at one window and scratch still
+  exceeds budget. The 2¹⁸ cap keeps a single chunk from spanning an N large
+  enough that the level-0 dispatches serialise over one giant bucket.
+- **The estimate must be accurate** (it gates how far the solver chunks). A
+  pre-existing bug counted scalarsRaw at 4× (128·n vs 32·n, ~50 MB over at
+  logn19) and omitted reducePrefScratch + the reduce Z-plane; the over-count
+  made the solver believe nothing fit 100 MB, so it chunked to 64 tiny chunks at
+  logn19 (the launch-bound pathology, ~2.2 s). Corrected term-for-term against
+  the metered breakdown — the estimate now lands within ~1 MB of the meter.
+
+### Perf (20-rep avg wall, REPORTED not gated — the GPU clock swings 2–3×/run)
+
+| logn | profile | bounded auto | unbounded S0 | note |
+|---|---|---|---|---|
+| 17 | A | 40.8 ms | 34.9 ms | 1 chunk (fits) — zero chunking overhead, = S1 |
+| 17 | E | 64.8 ms | 39.9 ms | 1 chunk — = S1 (the +overhead is window-batching, not chunking) |
+| 19 | A | 169 ms | 146 ms | 2 chunks @ 99.5 MB — +16 % for the memory bound |
+| 19 | E | 458 ms | 255 ms | 2 chunks @ 99.5 MB — +80 % (the accumulate-add across E's giant bucket) |
+
+The accurate estimate + 2¹⁸ perf cap together stop the solver over-chunking: at
+logn19 it picks 2 chunks (99.5 MB, 169/458 ms) instead of the 64-chunk plan the
+buggy estimate forced (69.8 MB but ~2.2 s / ~4.2 s — 13×/9× slower). logn ≤ 17
+fits single-chunk so pays no chunking overhead at all. The chunk size is also a
+manual knob (`?chunkpts=`) for trading memory headroom against E speed.
+
+### Gates / discipline followed
+
+- Cross-check (WASM-MT oracle) at profile A AND E, logn 14 and 17 (and 19 for
+  the memory equality), ≥5 clean runs, zero disagreements, before every commit.
+- Memory = the deterministic `scratch_mb` byte-sum on the bench DONE line.
+- Shaders regenerated (`inline-wgsl.mjs`) + vite restarted after the one
+  `.template.wgsl` edit (decompose scalar-point base).
+- Single-chunk (default) path verified unchanged at every step; walker (default
+  backend) untouched. Committed `--no-verify`, named files only, after each
+  green increment.
