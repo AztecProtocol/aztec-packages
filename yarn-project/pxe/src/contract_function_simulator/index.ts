@@ -50,3 +50,7 @@ export { BoundedVec } from './noir-structs/bounded_vec.js';
 export { EphemeralArray } from './noir-structs/ephemeral_array.js';
 export { Option } from './noir-structs/option.js';
 export { UtilityContext } from './noir-structs/utility_context.js';
+export { EventValidationRequest } from './noir-structs/event_validation_request.js';
+export { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
+export { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
+export { NoteValidationRequest } from './noir-structs/note_validation_request.js';
