@@ -431,8 +431,6 @@ describe('NoteStore', () => {
         l2BlockHash: BlockHash.random(),
       };
 
-      // A nullifier with no matching note means PXE discovered a nullifier before its note for a tracked scope, which
-      // is an invariant violation rather than a benign skip — it must fail loudly.
       await expect(noteStore.applyNullifiers([fakeNullifier], 'test')).rejects.toThrow(
         'Attempted to mark a note as nullified which does not exist in PXE DB',
       );
@@ -491,11 +489,14 @@ describe('NoteStore', () => {
       });
     });
 
+    // This test ensures applyNullifiers is idempotent: the same nullifier can be applied multiple times
+    // without error. This relaxes constraints on usage of NoteService#validateAndStoreNote, which can then be
+    // run concurrently in a Promise.all context without risking unnecessarily defensive checks failing.
     it('applying nullifier a second time is a no-op and returns no transitioned notes', async () => {
       await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
       await noteStore.commit('test');
 
-      // Second application is idempotent: the emission is already recorded, so nothing transitions to nullified. The
+      // Second application is idempotent: the emission is already recorded, so no note transitions to nullified. The
       // result is empty (only notes that flip active -> nullified in this call are returned) and visibility is
       // unchanged (note1 stays nullified).
       const result = await noteStore.applyNullifiers([mkNullifier(note1)], 'test');
@@ -651,7 +652,7 @@ describe('NoteStore', () => {
   });
 });
 
-describe('NoteStore (nullification & reorg)', () => {
+describe('NoteStore.rollback', () => {
   const JOB = 'note-store-test-job';
   const scope = AztecAddress.fromBigInt(1n);
   const contract = AztecAddress.fromBigInt(100n);
@@ -798,7 +799,7 @@ describe('NoteStore (nullification & reorg)', () => {
       expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
     });
 
-    it('un-nullifies a note whose nullification fell above the target (append-only payoff)', async () => {
+    it('restores notes that were nullified after the rollback block', async () => {
       // Note B created at block 10; nullified at block 20. Rolling back to block 16 orphans the nullification while
       // leaving the creation row intact — so B becomes active again with no inversion logic.
       const noteB = await NoteDao.random({

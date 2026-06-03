@@ -29,9 +29,10 @@ type PrivateEventMetadata = InTx & {
 };
 
 /**
- * Stores decrypted private event logs. Append-only: events are never deleted during normal operation. Reorgs are
- * handled by delete-on-prune, which physically removes every event anchored to an orphaned block, so the store holds
- * only canonical rows by construction and reads need no canonicality check.
+ * Stores decrypted private event logs.
+ *
+ * Append-only: events are never deleted during normal operation. Reorgs are handled by delete-on-prune, which removes
+ * every event originating on a reorg'd block.
  */
 export class PrivateEventStore implements StagedStore {
   readonly storeName: string = 'private_event';
