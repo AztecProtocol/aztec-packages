@@ -1,14 +1,17 @@
-// Headless driver for the Fr-primitives correctness page. Loads it with
-// ?autorun=fr-ops, waits for the autorun to finish, prints the log, and exits
-// non-zero on any failure.
-//   node dev/sumcheck-webgpu/drive-fr.mjs                 # default logn=14
-//   node dev/sumcheck-webgpu/drive-fr.mjs --headed 'index.html?autorun=fr-ops&logn=16'
+// Headless driver for the sumcheck-webgpu test dashboard. Runs a suite (default
+// "all") via ?autorun=<id>, waits for the [autorun] state marker, prints the
+// log, and exits non-zero on any failure.
+//   node dev/sumcheck-webgpu/drive.mjs              # all suites
+//   node dev/sumcheck-webgpu/drive.mjs mono         # one suite (fr | mono | arith)
+//   node dev/sumcheck-webgpu/drive.mjs --headed all
+//   LOGN=16 node dev/sumcheck-webgpu/drive.mjs
 import { chromium } from 'playwright-core';
 
 const argv = process.argv.slice(2);
 const headed = argv.includes('--headed');
-let target = argv.find(a => !a.startsWith('--')) ?? 'index.html?autorun=fr-ops&logn=14';
-if (!/^https?:/.test(target)) target = `http://localhost:5173/dev/sumcheck-webgpu/${target}`;
+const which = argv.find(a => !a.startsWith('--')) ?? 'all';
+const logn = process.env.LOGN ?? '14';
+const target = `http://localhost:5173/dev/sumcheck-webgpu/index.html?autorun=${which}&logn=${logn}`;
 
 const browser = await chromium.launch({
   channel: 'chrome',
@@ -43,6 +46,6 @@ const logText = await page.evaluate(() => {
 });
 console.log('─'.repeat(64));
 if (runnerErr) console.log(`runner: ${runnerErr}`);
-for (const l of logText.split('\n').slice(-40)) console.log(l);
+for (const l of logText.split('\n').slice(-50)) console.log(l);
 await browser.close();
 process.exit(runnerErr || state !== 'ok' ? 1 : 0);

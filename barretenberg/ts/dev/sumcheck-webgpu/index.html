@@ -2,49 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>BN254 Fr (scalar field) WebGPU primitives — correctness</title>
+    <title>sumcheck-webgpu — F_r / Mono / relation test dashboard</title>
     <style>
-      body {
-        font-family: ui-sans-serif, system-ui, sans-serif;
-        max-width: 900px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-        line-height: 1.45;
-      }
+      body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; }
       h1 { font-size: 1.4rem; }
-      .controls { display: flex; gap: 0.75rem; align-items: center; margin: 1rem 0; }
+      .controls { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
+      #controls { display: flex; gap: 0.5rem; flex-wrap: wrap; }
       input[type="number"] { width: 9ch; padding: 0.25rem 0.4rem; }
       button { padding: 0.4rem 0.9rem; cursor: pointer; }
       button:disabled { opacity: 0.5; cursor: not-allowed; }
-      #log {
-        background: #0b1020;
-        color: #e6e6e6;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 12px;
-        padding: 0.75rem;
-        border-radius: 6px;
-        white-space: pre-wrap;
-        overflow-x: auto;
-        min-height: 14rem;
-      }
-      .ok { color: #6ee7b7; }
-      .err { color: #fca5a5; }
-      .warn { color: #fde68a; }
-      .muted { color: #93a4c3; }
+      #log { background: #0b1020; color: #e6e6e6; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 0.75rem; border-radius: 6px; white-space: pre-wrap; overflow-x: auto; min-height: 16rem; }
+      .ok { color: #6ee7b7; } .err { color: #fca5a5; } .warn { color: #fde68a; } .muted { color: #93a4c3; }
       code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; }
     </style>
   </head>
   <body>
-    <h1>BN254 F<sub>r</sub> WebGPU primitives — correctness check</h1>
+    <h1>sumcheck-webgpu test dashboard <span class="muted" style="font-size:0.8rem">(BN254 F<sub>r</sub>)</span></h1>
     <p class="muted">
-      Runs the Phase-0 Fr Montgomery kernels (<code>fr_add</code>, <code>fr_sub</code>,
-      <code>fr_mul</code>, <code>fr_neg</code>, <code>fr_inv</code>) on the GPU over random +
-      edge-case scalars and diffs every result against the CPU <code>bn254ScalarField</code>
-      reference. Field elements live in the memory-aware 8×u32 Montgomery form.
+      WebGPU correctness checks for the sumcheck port, diffed against CPU references: the F<sub>r</sub> Montgomery
+      primitives, the short-monomial (<code>Mono</code>) arithmetic, and the relation accumulate kernels. Pick a suite
+      or <strong>Run All</strong>. Runs on the shared GPU device; needs no WASM build.
     </p>
     <div class="controls">
       <label>count 2^<input id="logn" type="number" value="14" min="4" max="20" /></label>
-      <button id="run">Run</button>
+      <div id="controls"></div>
     </div>
     <div id="log"></div>
     <script type="module" src="/dev/sumcheck-webgpu/main.ts"></script>
