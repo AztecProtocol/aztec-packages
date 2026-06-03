@@ -34,12 +34,12 @@ function test_cmds {
   fi
   echo "$prefix:TIMEOUT=25m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
   echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
-
-
+  echo "$prefix:TIMEOUT=15m:NAME=e2e_epochs/epochs_long_proving_time $run_test_script simple src/e2e_epochs/epochs_long_proving_time.test.ts"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
-    src/e2e_!(prover)/*.test.ts
+    src/e2e_!(prover|epochs)/*.test.ts
+    src/e2e_epochs/!(epochs_long_proving_time).test.ts
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|avm_simulator).test.ts
   )
