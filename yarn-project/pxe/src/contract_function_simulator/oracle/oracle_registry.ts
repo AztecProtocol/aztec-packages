@@ -27,13 +27,14 @@ import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import {
+  type AppTaggingSecretKind,
   ContractClassLog,
   ContractClassLogFields,
   FlatPublicLogs,
   MessageContext,
   PendingTaggedLog,
   PrivateLog,
-  Tag,
+  appTaggingSecretKindFromDeliveryMode,
 } from '@aztec/stdlib/logs';
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -94,6 +95,14 @@ export const BYTE: TypeMapping<number> = {
   },
 };
 
+// Noir passes `MessageDelivery` onchain variants here.
+export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
+  deserialization: {
+    fn: readers => appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn(readers)),
+    slots: BYTE.deserialization!.slots,
+  },
+};
+
 /** Reads every field in the slot as a UTF-8 character code. */
 const STR: TypeMapping<string> = {
   serialization: { fn: str => [Array.from(Buffer.from(str, 'utf-8')).map(b => new Fr(b))] },
@@ -132,11 +141,6 @@ const NOTE_SELECTOR: TypeMapping<NoteSelector> = {
 const TX_HASH: TypeMapping<TxHash> = {
   serialization: { fn: v => [v.hash] },
   deserialization: { fn: ([reader]) => TxHash.fromField(reader.readField()), slots: 1 },
-};
-
-const TAG: TypeMapping<Tag> = {
-  serialization: { fn: v => [v.value] },
-  deserialization: { fn: ([reader]) => new Tag(reader.readField()), slots: 1 },
 };
 
 const BLOCK_HEADER: TypeMapping<BlockHeader> = {
@@ -666,16 +670,19 @@ const ORACLE_REGISTRY = {
     returnType: BOOL,
   }),
 
-  aztec_prv_getNextAppTagAsSender: makeEntry({
+  aztec_prv_getAppTaggingSecret: makeEntry({
     params: [
       { name: 'sender', type: AZTEC_ADDRESS },
       { name: 'recipient', type: AZTEC_ADDRESS },
     ],
-    returnType: TAG,
+    returnType: OPTION(FIELD),
   }),
 
-  aztec_prv_getNextConstrainedTaggingIndex: makeEntry({
-    params: [{ name: 'appSiloedSecret', type: FIELD }],
+  aztec_prv_getNextTaggingIndex: makeEntry({
+    params: [
+      { name: 'secret', type: FIELD },
+      { name: 'deliveryMode', type: DELIVERY_MODE },
+    ],
     returnType: U32,
   }),
 
