@@ -582,7 +582,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics,
       this.checkpointProposalJobMetrics.createRecorder(),
       this,
-      this.setState.bind(this),
+      (state, slot, timeReferenceSlot) => this.setState(state, slot, { timeReferenceSlot }),
       this.tracer,
       this.log.getBindings(),
       proposedCheckpointData,
@@ -599,13 +599,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /**
    * Internal helper for setting the sequencer state and checks if we have enough time left in the slot to transition to the new state.
    * @param proposedState - The new state to transition to.
-   * @param slotNumber - The current slot number.
+   * @param slotNumber - The logical slot associated with the new state.
    * @param force - Whether to force the transition even if the sequencer is stopped.
+   * @param timeReferenceSlot - The slot to use for deadline checks when it differs from the logical slot.
    */
   protected setState(
     proposedState: SequencerState,
     slotNumber: SlotNumber | undefined,
-    opts: { force?: boolean } = {},
+    opts: { force?: boolean; timeReferenceSlot?: SlotNumber } = {},
   ): void {
     if (this.state === SequencerState.STOPPING && proposedState !== SequencerState.STOPPED && !opts.force) {
       this.log.warn(`Cannot set sequencer to ${proposedState} as it is stopping.`);
@@ -616,8 +617,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
     let secondsIntoSlot = undefined;
-    if (slotNumber !== undefined) {
-      secondsIntoSlot = this.getSecondsIntoSlot(slotNumber);
+    const timeReferenceSlot = opts.timeReferenceSlot ?? slotNumber;
+    if (timeReferenceSlot !== undefined) {
+      secondsIntoSlot = this.getSecondsIntoSlot(timeReferenceSlot);
       this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
     }
 
@@ -634,6 +636,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       oldState,
       newState: proposedState,
       slotNumber,
+      timeReferenceSlot,
       stateSlotNumber: oldStateSlotNumber,
       secondsIntoSlot,
       ...(stateChanged && { stateDurationMs: Math.ceil(stateDurationMs) }),
@@ -644,6 +647,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       newState: proposedState,
       secondsIntoSlot,
       slot: slotNumber,
+      timeReferenceSlot,
     });
     if (stateChanged) {
       this.metrics.recordStateDuration(stateDurationMs, oldState);

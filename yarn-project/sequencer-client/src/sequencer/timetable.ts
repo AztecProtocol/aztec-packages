@@ -75,8 +75,8 @@ export class SequencerTimetable {
   public readonly maxNumberOfBlocks: number;
 
   /**
-   * How far into the target slot attestation collection can extend when pipelining.
-   * Covers validator re-execution (one block duration) plus one-way attestation return.
+   * How far into the target slot assembly and attestation collection can start when pipelining.
+   * Production-like timing keeps this at zero; fast local publishing profiles can use the attestation window.
    */
   public readonly pipeliningAttestationGracePeriod: number;
 

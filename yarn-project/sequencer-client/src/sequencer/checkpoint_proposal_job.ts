@@ -149,7 +149,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly metrics: SequencerMetrics,
     private readonly checkpointMetrics: CheckpointProposalJobMetricsRecorder,
     protected readonly eventEmitter: TypedEventEmitter<SequencerEvents>,
-    private readonly setStateFn: (state: SequencerState, slot?: SlotNumber) => void,
+    private readonly setStateFn: (state: SequencerState, slot?: SlotNumber, timeReferenceSlot?: SlotNumber) => void,
     public readonly tracer: Tracer,
     bindings?: LoggerBindings,
     private readonly proposedCheckpointData?: ProposedCheckpointData,
@@ -328,7 +328,8 @@ export class CheckpointProposalJob implements Traceable {
   private async enqueueCheckpointForSubmission(result: CheckpointProposalResult): Promise<void> {
     const { checkpoint, attestations, attestationsSignature } = result;
 
-    this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.targetSlot);
+    // Build-frame deadlines are measured against `slotNow`; observers still see `targetSlot`.
+    this.setStateFn(SequencerState.PUBLISHING_CHECKPOINT, this.targetSlot, this.slotNow);
     const aztecSlotDuration = this.l1Constants.slotDuration;
     const submissionSlotStart = Number(getTimestampForSlot(this.targetSlot, this.l1Constants));
     const txTimeoutAt = new Date((submissionSlotStart + aztecSlotDuration) * 1000);
@@ -518,7 +519,7 @@ export class CheckpointProposalJob implements Traceable {
       const feeRecipient = this.validatorClient.getFeeRecipientForAttestor(this.attestorAddress);
 
       // Start the checkpoint
-      this.setStateFn(SequencerState.INITIALIZING_CHECKPOINT, this.targetSlot);
+      this.setStateFn(SequencerState.INITIALIZING_CHECKPOINT, this.targetSlot, this.slotNow);
       this.logCheckpointEvent('slot-started', `Starting checkpoint proposal for slot ${this.targetSlot}`, {
         buildSlot: this.slotNow,
         submissionSlot: this.targetSlot,
@@ -671,7 +672,7 @@ export class CheckpointProposalJob implements Traceable {
 
       // Assemble and broadcast the checkpoint proposal, including the last block that was not
       // broadcasted yet, and wait to collect the committee attestations.
-      this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.targetSlot);
+      this.setStateFn(SequencerState.ASSEMBLING_CHECKPOINT, this.targetSlot, this.slotNow);
       const checkpoint = await checkpointBuilder.completeCheckpoint();
 
       // Final validation: per-block limits are only checked if the operator set them explicitly.
@@ -963,7 +964,7 @@ export class CheckpointProposalJob implements Traceable {
   /** Sleeps until it is time to produce the next block in the slot */
   @trackSpan('CheckpointProposalJob.waitUntilNextSubslot')
   private async waitUntilNextSubslot(nextSubslotStart: number) {
-    this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.targetSlot);
+    this.setStateFn(SequencerState.WAITING_UNTIL_NEXT_BLOCK, this.targetSlot, this.slotNow);
     this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s into slot`, {
       slot: this.targetSlot,
     });
@@ -1034,7 +1035,7 @@ export class CheckpointProposalJob implements Traceable {
         `Building block ${blockNumber} at index ${indexWithinCheckpoint} for slot ${this.targetSlot} with ${availableTxs} available txs`,
         { slot: this.targetSlot, blockNumber, indexWithinCheckpoint },
       );
-      this.setStateFn(SequencerState.CREATING_BLOCK, this.targetSlot);
+      this.setStateFn(SequencerState.CREATING_BLOCK, this.targetSlot, this.slotNow);
 
       // Per-block limits are operator overrides (from SEQ_MAX_L2_BLOCK_GAS etc.) further capped
       // by remaining checkpoint-level budgets inside CheckpointBuilder before each block is built.
@@ -1205,7 +1206,7 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Wait a bit before checking again
-      this.setStateFn(SequencerState.WAITING_FOR_TXS, this.targetSlot);
+      this.setStateFn(SequencerState.WAITING_FOR_TXS, this.targetSlot, this.slotNow);
       this.log.verbose(
         `Waiting for enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (have ${availableTxs} but need ${minTxs})`,
         { blockNumber, slot: this.targetSlot, indexWithinCheckpoint },
@@ -1221,7 +1222,7 @@ export class CheckpointProposalJob implements Traceable {
     broadcast: CheckpointProposalBroadcast,
   ): Promise<{ attestations: CommitteeAttestationsAndSigners; attestationsSignature: Signature } | undefined> {
     const { proposal, blockProposedAt } = broadcast;
-    this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.targetSlot);
+    this.setStateFn(SequencerState.COLLECTING_ATTESTATIONS, this.targetSlot, this.slotNow);
     const attestations = await this.waitForAttestations(proposal);
     if (!attestations) {
       return undefined;
