@@ -1243,14 +1243,34 @@ export class MsmHighMemory {
       `reduce-jac-finalize`,
       m.jacFinalizeLayout,
     );
-    // Small c: collapse the whole reduce into one workgroup-cooperative
-    // dispatch (one workgroup = STRIDE threads per window). STRIDE <= 128 keeps
-    // the per-window buckets within the 32 KB workgroup-memory budget.
-    m.useCoopReduce = STRIDE <= 128;
+    // Small c: a single workgroup-cooperative dispatch (one workgroup per
+    // window) computing the window's weighted bucket sum via a 2N segmented
+    // running-sum in shared memory. OFF by default: the cooperative
+    // shared-memory handoff (array<array<u32,8>> + barrier + cross-thread read)
+    // is unreliable on M2/Metal — ~7-50% of runs produce a wrong window sum,
+    // scaling with workgroup size, independent of the reduction structure (four
+    // kernel variants all flaked; the global-memory multi-dispatch reduce
+    // sharing the same jac_add is 12/12 reliable). Opt in via config.coopReduce
+    // on backends where threadgroup arrays-of-arrays are reliable.
+    m.useCoopReduce = config?.coopReduce === true && STRIDE <= 128;
     if (m.useCoopReduce) {
-      m.coopReduceLayout = lt(['storage', 'read-only-storage', 'uniform']); // red_buf, is_present, cparams
+      // SS = buckets per segment (each thread's serial running-sum), snapped to
+      // a power of two in [1, STRIDE]; G = STRIDE/SS = workgroup size = segments
+      // per window. SS=1 degenerates to a pure (tot,ws) tree; SS=STRIDE to one
+      // serial thread per window. Tunable via config.coopSeg.
+      //
+      // Default SS targets G = 8 threads/window. Larger G has more occupancy
+      // (faster) but the (tot,ws) tree's correctness degrades with depth on M2
+      // (G=8 -> 8/8 green, G=16 -> 7/8, G=32 -> ~5/10) — a Metal/Tint
+      // workgroup-memory issue, not the algorithm (the multi-dispatch reduce
+      // shares jac_add and is reliable). G=8 (a 3-level tree) is the reliable
+      // point and still beats the multi-dispatch reduce on wall.
+      const ssReq = config?.coopSeg ?? Math.max(1, STRIDE / 8);
+      const ss = Math.min(STRIDE, Math.max(1, 2 ** Math.round(Math.log2(ssReq))));
+      const coopG = STRIDE / ss;
+      m.coopReduceLayout = lt(['storage', 'storage', 'read-only-storage', 'uniform']); // red_buf, red_z, is_present, cparams
       m.coopReducePipe = await compile(
-        sm.gen_ba_reduce_coop_shader(STRIDE, INV_VARIANT),
+        sm.gen_ba_reduce_coop_shader(STRIDE, coopG, INV_VARIANT),
         `reduce-coop`,
         m.coopReduceLayout,
       );
@@ -1719,7 +1739,7 @@ export class MsmHighMemory {
     if (this.useCoopReduce) {
       // cparams = (M (red_buf stride), _, num_windows, _)
       const coopParams = ubuf(new Uint32Array([RED_M, 0, this.numWindows, 0]));
-      this.coopReduceBind = mkBind(this.coopReduceLayout, [redBuf, isPresentBuf, coopParams]);
+      this.coopReduceBind = mkBind(this.coopReduceLayout, [redBuf, this.redZBuf, isPresentBuf, coopParams]);
     }
     this.redBuf = redBuf;
     this.redStaging = device.createBuffer({
@@ -1870,7 +1890,7 @@ export class MsmHighMemory {
       }
       // reduceInit + the reduce. Coop path: reduceInit + 1 cooperative dispatch.
       // All-Jacobian path: reduceInit + zInit + jacLevel×N + jacFinalize.
-      passes += this.useCoopReduce ? 2 : 3 + this.reducePasses.length;
+      passes += this.useCoopReduce ? 3 : 3 + this.reducePasses.length;
       this.passCount = passes;
       this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
       this.tsResolveBuf = device.createBuffer({
@@ -2083,9 +2103,13 @@ export class MsmHighMemory {
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
     if (this.useCoopReduce) {
       // Small c: one workgroup per window does the entire weighted bucket sum
-      // (Z-seed + suffix-scan + sum-reduce + affine convert) in shared memory.
+      // (Z-seed + segmented running-sum + (tot,ws) tree) in shared memory,
+      // leaving the Jacobian sum at slot w*stride; jacFinalize does the one
+      // inversion per window to affine.
       setPhase('reduce_coop');
       dispatch(this.coopReducePipe, this.coopReduceBind, this.numWindows, 1);
+      setPhase('reduce_jacfinal');
+      dispatch(this.jacFinalizePipe, this.jacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
     } else {
       // All-Jacobian (inversion-free) bucket reduction: seed the Z-plane from
       // is_present, run the runtime-kind Jacobian level kernel per schedule

@@ -36,6 +36,17 @@ export interface MsmConfig {
   invVariant?: 'loop' | 'pk';
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
+  /**
+   * Enable the single-dispatch cooperative bucket reduce for small c (high
+   * memory backend, STRIDE <= 128). Default false — it is unreliable on
+   * M2/Metal (the threadgroup array-of-arrays handoff corrupts ~7-50% of runs).
+   * Opt in on backends where workgroup arrays-of-arrays are reliable.
+   */
+  coopReduce?: boolean;
+  /** Cooperative reduce: buckets per segment (each thread's serial running-sum),
+   * snapped to a power of two in [1, STRIDE]. G = STRIDE/coopSeg is the
+   * workgroup size. Default targets G=8. coopSeg=1 is a pure (tot,ws) tree. */
+  coopSeg?: number;
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */

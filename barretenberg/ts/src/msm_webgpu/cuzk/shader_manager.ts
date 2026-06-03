@@ -835,10 +835,15 @@ ${packLines.join('\n')}
   // workgroup (= STRIDE threads) per window does the entire weighted bucket
   // sum in shared memory (suffix-scan + sum-reduce, one inversion at the end),
   // collapsing reduceInit -> zInit -> jacLevel*N -> jacFinalize into one dispatch.
-  public gen_ba_reduce_coop_shader(stride: number, variant: 'loop' | 'pk' = 'pk'): string {
+  public gen_ba_reduce_coop_shader(stride: number, g: number, variant: 'loop' | 'pk' = 'pk'): string {
     if (stride <= 0 || !Number.isInteger(stride) || (stride & (stride - 1)) !== 0) {
       throw new Error(`gen_ba_reduce_coop_shader: stride (${stride}) must be a positive power of two`);
     }
+    if (g <= 0 || !Number.isInteger(g) || (g & (g - 1)) !== 0 || g > stride) {
+      throw new Error(`gen_ba_reduce_coop_shader: g (${g}) must be a power of two in [1, stride]`);
+    }
+    const ss = stride / g; // buckets per segment (power of two)
+    const log2_ss = Math.log2(ss);
     const dec = this.decoupledPackUnpackWgsl();
     const inverse_funcs = by_inverse_loop_funcs;
     const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
@@ -846,7 +851,7 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_reduce_coop_shader,
       {
-        workgroup_size: stride, stride, inv_fn,
+        workgroup_size: g, stride, ss, log2_ss, inv_fn,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
