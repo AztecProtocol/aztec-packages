@@ -93,7 +93,7 @@ export type GetTxByHashOptions = {
 };
 
 /** Zod schema for {@link GetTxByHashOptions}. */
-const GetTxByHashOptionsSchema: ZodFor<GetTxByHashOptions> = z.object({
+export const GetTxByHashOptionsSchema: ZodFor<GetTxByHashOptions> = z.object({
   includeProof: z.boolean().optional(),
 });
 
@@ -427,10 +427,13 @@ export interface AztecNode {
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
-   * Method to retrieve pending txs.
+   * Method to retrieve pending txs. The txs' proofs are stripped unless `includeProof` is set.
+   * @param limit - The number of items to return.
+   * @param after - The last known pending tx. Used for pagination.
+   * @param options - Options for the returned txs (eg whether to include their proofs).
    * @returns The pending txs.
    */
-  getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]>;
+  getPendingTxs(limit?: number, after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]>;
 
   /**
    * Retrieves the number of pending txs
@@ -670,6 +673,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     input: z.tuple([
       optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)),
       optional(TxHash.schema),
+      optional(GetTxByHashOptionsSchema),
     ]),
     output: z.array(Tx.schema),
   }),

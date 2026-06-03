@@ -1306,8 +1306,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @param after - The last known pending tx. Used for pagination
    * @returns - The pending txs.
    */
-  public getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
-    return this.p2pClient!.getPendingTxs(limit, after);
+  public getPendingTxs(limit?: number, after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]> {
+    return this.p2pClient!.getPendingTxs(limit, after, options);
   }
 
   public getPendingTxCount(): Promise<number> {

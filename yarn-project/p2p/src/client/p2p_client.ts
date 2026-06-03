@@ -25,7 +25,7 @@ import {
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
+import { type GetTxByHashOptions, type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -432,7 +432,7 @@ export class P2PClient extends WithTracer implements P2P {
     this.p2pService.registerCheckpointAttestationCallback(callback);
   }
 
-  public async getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
+  public async getPendingTxs(limit?: number, after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]> {
     if (limit !== undefined && limit <= 0) {
       throw new TypeError('limit must be greater than 0');
     }
@@ -451,7 +451,9 @@ export class P2PClient extends WithTracer implements P2P {
     const endIndex = limit !== undefined ? startIndex + limit : undefined;
     txHashes = txHashes.slice(startIndex, endIndex);
 
-    const maybeTxs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
+    // This is a public-facing API (exposed via both the node and the p2p RPC), so proofs are opt-in.
+    const includeProof = !!options?.includeProof;
+    const maybeTxs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash, { includeProof })));
     return maybeTxs.filter((tx): tx is Tx => !!tx);
   }
 

@@ -324,6 +324,10 @@ describe('AztecNodeApiSchema', () => {
   it('getPendingTxs', async () => {
     const response = await context.client.getPendingTxs();
     expect(response).toEqual([expect.any(Tx)]);
+    expect(response[0].chonkProof.isEmpty()).toBe(true);
+
+    const responseWithProof = await context.client.getPendingTxs(undefined, undefined, { includeProof: true });
+    expect(responseWithProof[0].chonkProof.isEmpty()).toBe(false);
   });
 
   it('getPendingTxCount', async () => {
@@ -792,8 +796,9 @@ class MockAztecNode implements AztecNode {
       slotNumber: SlotNumber(1),
     };
   }
-  getPendingTxs(): Promise<Tx[]> {
-    return Promise.resolve([Tx.random()]);
+  getPendingTxs(_limit?: number, _after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]> {
+    const tx = Tx.random({ randomProof: true });
+    return Promise.resolve([options?.includeProof ? tx : tx.withoutProof()]);
   }
   getPendingTxCount(): Promise<number> {
     return Promise.resolve(BlockNumber(1));
