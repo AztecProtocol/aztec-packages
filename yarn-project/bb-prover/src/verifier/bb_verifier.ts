@@ -89,9 +89,8 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   /** Verify a Chonk (IVC) proof from a transaction via bb.js API. */
   public async verifyProof(tx: Tx): Promise<IVCProofVerificationResult> {
     const proofType = 'Chonk';
+    const totalTimer = new Timer();
     try {
-      const totalTimer = new Timer();
-
       const circuit: ClientProtocolArtifact = tx.data.forPublic ? 'HidingKernelToPublic' : 'HidingKernelToRollup';
       const verificationKey = this.getVerificationKeyData(circuit);
 
@@ -103,7 +102,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       const { verified, durationMs } = await instance.verifyChonkProof(fieldsAsBuffers, verificationKey.keyAsBytes);
 
       if (!verified) {
-        throw new Error(`Failed to verify ${proofType} proof for ${circuit}!`);
+        return { valid: false, durationMs, totalDurationMs: totalTimer.ms() };
       }
 
       this.logger.debug(`${proofType} verification successful`, {
@@ -116,7 +115,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       return { valid: true, durationMs, totalDurationMs: totalTimer.ms() };
     } catch (err) {
       this.logger.warn(`Failed to verify ${proofType} proof for tx ${tx.getTxHash().toString()}: ${String(err)}`);
-      return { valid: false, durationMs: 0, totalDurationMs: 0 };
+      return { valid: false, durationMs: 0, totalDurationMs: totalTimer.ms() };
     }
   }
 }

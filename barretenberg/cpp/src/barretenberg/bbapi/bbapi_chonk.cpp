@@ -204,7 +204,7 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
         const size_t expected_proof_size =
             static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
         if (proof.size() != expected_proof_size) {
-            info("ChonkVerify: proof has wrong size: expected ", expected_proof_size, ", got ", proof.size());
+            vinfo("ChonkVerify: proof has wrong size: expected ", expected_proof_size, ", got ", proof.size());
             return { .valid = false };
         }
 
@@ -215,10 +215,10 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
 
         return { .valid = verified };
     } catch (const std::exception& e) {
-        info("ChonkVerify: malformed input: ", BBAPI_CHONK_EXCEPTION_WHAT(e));
+        vinfo("ChonkVerify: malformed input: ", BBAPI_CHONK_EXCEPTION_WHAT(e));
         return { .valid = false };
     } catch (...) {
-        info("ChonkVerify: malformed input: unknown exception");
+        vinfo("ChonkVerify: malformed input: unknown exception");
         return { .valid = false };
     }
 }
@@ -239,10 +239,10 @@ ChonkVerifyFromFields::Response ChonkVerifyFromFields::execute(const BBApiReques
         const size_t expected_field_count =
             static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
         if (proof.size() != expected_field_count) {
-            info("ChonkVerifyFromFields: proof has wrong field count: expected ",
-                 expected_field_count,
-                 ", got ",
-                 proof.size());
+            vinfo("ChonkVerifyFromFields: proof has wrong field count: expected ",
+                  expected_field_count,
+                  ", got ",
+                  proof.size());
             return { .valid = false };
         }
 
@@ -255,10 +255,10 @@ ChonkVerifyFromFields::Response ChonkVerifyFromFields::execute(const BBApiReques
 
         return { .valid = verified };
     } catch (const std::exception& e) {
-        info("ChonkVerifyFromFields: malformed input: ", BBAPI_CHONK_EXCEPTION_WHAT(e));
+        vinfo("ChonkVerifyFromFields: malformed input: ", BBAPI_CHONK_EXCEPTION_WHAT(e));
         return { .valid = false };
     } catch (...) {
-        info("ChonkVerifyFromFields: malformed input: unknown exception");
+        vinfo("ChonkVerifyFromFields: malformed input: unknown exception");
         return { .valid = false };
     }
 }
@@ -294,12 +294,12 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
             const size_t expected_proof_size =
                 static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
             if (proofs[i].size() != expected_proof_size) {
-                info("ChonkBatchVerify: proof[",
-                     i,
-                     "] has wrong size: expected ",
-                     expected_proof_size,
-                     ", got ",
-                     proofs[i].size());
+                vinfo("ChonkBatchVerify: proof[",
+                      i,
+                      "] has wrong size: expected ",
+                      expected_proof_size,
+                      ", got ",
+                      proofs[i].size());
                 return { .valid = false };
             }
 
@@ -319,10 +319,10 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
 
         return { .valid = verified };
     } catch (const std::exception& e) {
-        info("ChonkBatchVerify: malformed input: ", BBAPI_CHONK_EXCEPTION_WHAT(e));
+        vinfo("ChonkBatchVerify: malformed input: ", BBAPI_CHONK_EXCEPTION_WHAT(e));
         return { .valid = false };
     } catch (...) {
-        info("ChonkBatchVerify: malformed input: unknown exception");
+        vinfo("ChonkBatchVerify: malformed input: unknown exception");
         return { .valid = false };
     }
 }

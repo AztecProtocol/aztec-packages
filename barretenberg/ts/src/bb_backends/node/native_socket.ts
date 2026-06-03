@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { IMsgpackBackendAsync } from '../interface.js';
-import readline from 'readline';
+import readline, { type Interface as ReadlineInterface } from 'readline';
 import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
@@ -27,6 +27,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private socketPath: string;
   private connectionPromise: Promise<void>;
   private connectionTimeout: NodeJS.Timeout | null = null;
+  private logReaders: ReadlineInterface[] = [];
 
   // Queue of pending callbacks for pipelined requests
   // Responses come back in FIFO order, so we match them with queued callbacks
@@ -78,8 +79,8 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
 
     if (logger) {
       logger("Logger attached to bb process. DON'T FORGET TO DESTROY THE BACKEND to allow Node.js to exit.");
-      readline.createInterface({ input: this.process.stdout! }).on('line', logger);
-      readline.createInterface({ input: this.process.stderr! }).on('line', logger);
+      this.logReaders.push(readline.createInterface({ input: this.process.stdout! }).on('line', logger));
+      this.logReaders.push(readline.createInterface({ input: this.process.stderr! }).on('line', logger));
       if (unref) {
         (this.process.stdout as any)?.unref?.();
         (this.process.stderr as any)?.unref?.();
@@ -102,6 +103,8 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
         this.socket.destroy();
         this.socket = null;
       }
+      this.closeLogReaders();
+      this.closeProcessPipes();
     });
 
     this.process.on('exit', (code, signal) => {
@@ -127,6 +130,8 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
         this.socket.destroy();
         this.socket = null;
       }
+      this.closeLogReaders();
+      this.closeProcessPipes();
     });
 
     // Wait for bb to create socket file, then connect
@@ -349,6 +354,9 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       this.connectionTimeout = null;
     }
 
+    this.closeLogReaders();
+    this.closeProcessPipes();
+
     // Remove process event listeners and unref to not block event loop
     this.process.removeAllListeners();
     // this.process.unref();
@@ -360,5 +368,19 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
     this.cleanup();
     this.process.kill('SIGTERM');
     this.process.removeAllListeners();
+  }
+
+  private closeProcessPipes(): void {
+    this.process.stdout?.destroy();
+    this.process.stderr?.destroy();
+    this.process.stdin?.destroy();
+  }
+
+  private closeLogReaders(): void {
+    for (const reader of this.logReaders) {
+      reader.removeAllListeners();
+      reader.close();
+    }
+    this.logReaders = [];
   }
 }
