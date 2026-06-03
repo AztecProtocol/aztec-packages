@@ -130,8 +130,10 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
         pageError = error;
       });
 
-      // Navigate to test page
-      await page.goto(`${serverUrl}/test.html`, { waitUntil: 'networkidle0', timeout: 10000 });
+      // Navigate to test page. The bundle is large (~12MB of JS chunks plus wasm), and under heavy CI load
+      // (this test only gets a fraction of the host CPUs) reaching network idle can take well over 10s, so we
+      // allow a generous timeout that still leaves headroom within the overall 5-minute jest budget.
+      await page.goto(`${serverUrl}/test.html`, { waitUntil: 'networkidle0', timeout: 60000 });
       logger.info(`Navigated to test page`);
 
       // Check for page errors before waiting
@@ -139,8 +141,9 @@ describe('Chonk Integration - Browser with Puppeteer', () => {
         throw new Error(`Page error during load: ${String(pageError)}`);
       }
 
-      // Wait for test environment to be ready
-      await page.waitForFunction('typeof window.runIVCTest !== "undefined"', { timeout: 10000 });
+      // Wait for test environment to be ready. Bundle execution is also CPU-bound under load, so give it the
+      // same generous headroom as the navigation above.
+      await page.waitForFunction('typeof window.runIVCTest !== "undefined"', { timeout: 60000 });
       logger.info('Test environment ready');
 
       // Run the test in the browser
