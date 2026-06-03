@@ -24,17 +24,36 @@
   two `export`s (`arenaColourSizes`, `pickReduceWg`) — golden re-validated PASS
   (14–17 byte-identical, oracle-agree). Batch-of-1 ≡ single-MSM holds **by
   construction** at step 1: `run()` is `encodeIntoBatch(…, 0)`, no kernel changed.
-- **Next action: ROLLOUT step 2** (global-window bid, task #9) — flip the bid to
-  `(global_window << K) | mag` across every producer/consumer. Build the **runtime
-  batch-of-K harness** (planned as task 8c) alongside it — that is where the
-  byte-identical bisection lever first has an adapted stage to catch. **Caveat for
-  8c:** driving K `MsmV2` instances on one pool must handle `ensureScratch`'s
-  monotonic realloc + `_scratchEpoch` bump invalidating earlier instances' bind
-  groups (prepare all, largest-footprint first, or re-prepare after the high-water
-  realloc) — the bridge mixed-N path (`bridge/main.ts runBatchMsm`) already solves
-  this; copy its prepare-all-then-encode-all ordering. Optional cleanup (task 8b,
-  low priority, guarded by the pinning test): rewire create()/prepare() to call
-  `computeGeom`/`buildUniformWindowDesc` so there is one geometry source of truth.
+- **DONE — runtime batch-of-1 check** (`dev/msm-webgpu/main.ts`,
+  `?autorun=msm-batch-check`): runs the scheduler-driven packed path at the
+  `planBatch` `outBase` offset and asserts the per-window GPU output is
+  byte-identical to the solo run. PASSES at logN 14/16 (`state=done`). This is
+  task #8's stated validation. **K>1 finding:** co-encoding K separate `MsmV2`
+  instances on one shared pool trips Dawn's "buffer used in submit while
+  destroyed" (an `MsmV2` instance-coexistence issue in the warm-up/shared-pool
+  lifecycle — NOT the scheduler; solos are correct and offsets are unit-verified).
+  This multi-instance construct is **not how real multi-MSM works** — steps 2-4
+  run ONE dispatch over the concatenated union (global bid + table-driven kernels),
+  not K instances — so batch-of-K validation arrives with step 4 and sidesteps
+  multi-instance coexistence. The autorun defaults to K=1; `?logns=a,b,...`
+  exercises the K>1 construct for future debugging.
+- **Next action: ROLLOUT step 2** (global-window bid, task #9). KEY (from the
+  bid-lifecycle audit): split-c Phase 0 ALREADY made the bid's window field a
+  global-within-MSM index via `batch_window_base.x` (`gwin = batch-local +
+  batch_window_base.x`), and the 17-bit window field already holds any realistic
+  pack's window space — so the bid BIT LAYOUT does not change. What "goes global"
+  is the VALUE fed via `batch_window_base.x` (adding each MSM's `schedOff`) plus
+  sizing the window-indexed sparse-hash scratch (`partial_*`, `window*BW_max+mag`)
+  and red_buf (`M_RED`, the compile-time constant — ARENA §7) for the concatenated
+  space. These are NO-OPS at K=1 (schedOff=0, pack size == single), so golden stays
+  byte-identical — but they are also UNOBSERVABLE until step 4's concatenated
+  dispatch exists, and a half-flip "silently computes the wrong MSM" (memory note
+  [[msm-webgpu-bid-lifecycle]]). **Implication: do step 2 coupled with step 4's
+  concatenated dispatch** (the bid/scratch/M_RED change + the one-dispatch-over-the-
+  union path land together), validated by batch-of-K via that dispatch — not in
+  isolation. Run `?varsched=1` after any bid/geometry change. Optional cleanup
+  (task 8b, low priority, pinning-test-guarded): rewire create()/prepare() to call
+  `computeGeom`/`buildUniformWindowDesc` for one geometry source of truth.
 - **Open follow-on, separate & lower priority:** split-c large-`c_lo` buffer sizing
   (region-split buffers are sized for `c_w ≤ pickC`; the decision lever is gated
   behind a fits-guard until they're sized). Does NOT block multi-MSM.

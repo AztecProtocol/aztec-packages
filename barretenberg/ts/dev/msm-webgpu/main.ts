@@ -25,6 +25,7 @@ import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
 import { MsmV2, MsmV2Pool, type MsmConfig, pickC } from '../../src/msm_webgpu/msm_v2.js';
+import { planBatch } from '../../src/msm_webgpu/batch_scheduler.js';
 import {
   computeMsbHistogram,
   chooseVarWindowSplit,
@@ -615,6 +616,143 @@ async function runWebGpuOnce(
   // MsmV2 does not emit a per-pass GPU profile; the breakdown table skips
   // a null-profile capture, so the GPU column there simply renders empty.
   return { ms, xy: gpu, capture: { profile: null } };
+}
+
+/**
+ * Multi-MSM batch-check (MULTI_MSM_PLAN.md rollout step 1, runtime side): run K
+ * MSMs both solo and packed-through-the-scheduler, and assert each member's
+ * per-window GPU output is byte-identical between the two. At K=1 this is the
+ * task's stated validation — batch-of-1 ≡ single-MSM — and it PASSES: the packed
+ * run drives `encodeIntoBatch` at `planBatch`'s `desc.outBase` offset, so a
+ * divergence would localize to the scheduler's layout / staging-offset handling.
+ *
+ * KNOWN LIMITATION (K>1): the packed pass co-encodes K separate `MsmV2` instances
+ * sharing one pool into one command buffer; this currently trips Dawn's "buffer
+ * used in submit while destroyed" — an `MsmV2` instance-coexistence issue in the
+ * shared-pool/warm-up lifecycle (NOT the scheduler: the solo baselines are correct
+ * and `planBatch`'s offsets are unit-verified in batch_scheduler.test.ts). This is
+ * a validation-only construct, NOT how real multi-MSM works: steps 2-4 run ONE
+ * dispatch over the concatenated union (global-window bid + table-driven kernels),
+ * not K instances — so the meaningful batch-of-K validation arrives with step 4's
+ * concatenated dispatch and sidesteps multi-instance coexistence entirely. The
+ * autorun therefore defaults to K=1; passing `?logns=a,b,...` exercises the K>1
+ * construct (and surfaces the lifecycle limit) for future debugging.
+ */
+async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: string }> {
+  if (gpuDevice === null) gpuDevice = await get_device();
+  const device = gpuDevice;
+
+  // Inputs per MSM (scalars + n); the largest's SRS slice is retained to back the
+  // shared packed pool — every MSM uses its first-n prefix (srsOffset 0), so solo
+  // and packed see identical points per member.
+  const ns: number[] = [];
+  const scalars: Uint8Array[] = [];
+  let poolPoints: Uint8Array | null = null;
+  let poolPointsN = -1;
+  const soloWS: { x: bigint; y: bigint }[][] = [];
+
+  // ── Solo baselines on ISOLATED pools (one pool+instance per MSM, fully
+  // independent). This avoids the shared-pool lifecycle entirely for the
+  // reference: prepare()'s slow path destroys+recreates the instance's own
+  // prepBuffers (incl. redStaging), so a run() on a pool shared with not-yet-
+  // encoded instances is unsafe — the packed pass below mirrors the bridge
+  // (prepare-all-then-encode-all, no run()) instead.
+  for (const logN of logNs) {
+    const inp = await generateInputs(logN, false);
+    ns.push(inp.n);
+    scalars.push(inp.scalarsBuf);
+    if (inp.n > poolPointsN) {
+      poolPoints = inp.pointsBuf;
+      poolPointsN = inp.n;
+    }
+    const soloPool = await MsmV2Pool.create(device, inp.pointsBuf);
+    const soloInst = await MsmV2.create(device, inp.n, soloPool, gpuKnobs);
+    try {
+      soloInst.prepare(inp.scalarsBuf);
+      soloWS.push((await soloInst.run()).windowSums);
+    } finally {
+      soloInst.destroy();
+      soloPool.destroy();
+    }
+  }
+  log('info', `[batch-check] ${logNs.length} MSMs n=[${ns.join(', ')}] — solo baselines done`);
+
+  // ── Packed pass on ONE shared pool, bridge-faithful: prepare ALL (descending
+  // n so the largest sizes the pool to high-water first — no later prepare
+  // reallocates it), then encode ALL into one encoder at planBatch's outBase
+  // offsets, one submit. No run() on the shared pool.
+  const pool = await MsmV2Pool.create(device, poolPoints!);
+  const insts: MsmV2[] = ns.map(() => null as unknown as MsmV2);
+  try {
+    // Create ALL instances first (each create() runs a warm-up prepare()+run() on
+    // the shared pool — doing them all up front, largest first, settles the pool
+    // at high-water before any real prepare, so no later warm-up reallocates an
+    // arena an earlier instance's binds reference). Then prepare ALL, then encode.
+    const order = [...ns.keys()].sort((a, b) => ns[b] - ns[a]);
+    for (const k of order) insts[k] = await MsmV2.create(device, ns[k], pool, gpuKnobs);
+    for (const k of order) insts[k].prepare(scalars[k]);
+
+    const plan = planBatch(ns.map(n => ({ n, srsOffset: 0 })));
+    log(
+      'info',
+      `[batch-check] packed pass — totalWindows=${plan.totalWindows} ` +
+        `totalWindowSumBytes=${plan.totalWindowSumBytes} footprint=${(plan.footprintBytes / (1 << 20)).toFixed(1)}MiB`,
+    );
+    const staging = device.createBuffer({
+      size: Math.max(4, plan.totalWindowSumBytes),
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+    const enc = device.createCommandEncoder();
+    let cursor = 0;
+    for (let k = 0; k < insts.length; k++) {
+      // Cross-check the scheduler's outBase against the running byte cursor (the
+      // bridge's stagingOffset convention) before using it.
+      if (plan.descs[k].outBase !== cursor) {
+        throw new Error(`outBase mismatch msm ${k}: plan=${plan.descs[k].outBase} cursor=${cursor}`);
+      }
+      insts[k].encodeIntoBatch(enc, staging, plan.descs[k].outBase);
+      cursor += insts[k].windowSumsByteLength;
+    }
+    device.queue.submit([enc.finish()]);
+    await staging.mapAsync(GPUMapMode.READ);
+    const bytes = new Uint8Array(staging.getMappedRange().slice(0));
+    staging.unmap();
+    staging.destroy();
+
+    const diffs: string[] = [];
+    for (let k = 0; k < insts.length; k++) {
+      const packed = insts[k].decodeWindowSumsFromBytes(bytes, plan.descs[k].outBase);
+      const solo = soloWS[k];
+      if (packed.length !== solo.length) {
+        diffs.push(`msm${k} n=${ns[k]}: window count ${packed.length} != solo ${solo.length}`);
+        continue;
+      }
+      for (let w = 0; w < packed.length; w++) {
+        if (packed[w].x !== solo[w].x || packed[w].y !== solo[w].y) {
+          diffs.push(
+            `msm${k} n=${ns[k]} window ${w}: packed.x=${packed[w].x.toString(16).slice(0, 12)} != solo.x=${solo[w].x.toString(16).slice(0, 12)}`,
+          );
+          break;
+        }
+      }
+    }
+    const ok = diffs.length === 0;
+    return {
+      ok,
+      detail: ok
+        ? `all ${insts.length} members byte-identical packed≡solo (windows=${plan.totalWindows})`
+        : diffs.slice(0, 5).join(' | '),
+    };
+  } finally {
+    for (const inst of insts) {
+      try {
+        inst?.destroy();
+      } catch {
+        /* best-effort cleanup */
+      }
+    }
+    pool.destroy();
+  }
 }
 
 // Decode + upload the inputs into the WASM worker's native point/scalar
@@ -1837,6 +1975,29 @@ function hideProgress(): void {
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
+    }
+  } else if (autorun === 'msm-batch-check') {
+    // Multi-MSM batch-of-K ≡ K-separate byte-identical check (MULTI_MSM_PLAN.md
+    // step 1 runtime side). GPU-only — gates on SRS readiness, not WASM.
+    const logNs = (qp.get('logns') ?? '16')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 7 && x <= 17);
+    log('info', `[batch-check] autorun logns=${logNs.join(',')}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const res = await runBatchCheck(logNs);
+      log(res.ok ? 'ok' : 'err', `[batch-check] state=${res.ok ? 'done' : 'error'} ${res.detail}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[batch-check] state=error FATAL: ${msg}`);
     }
   }
 })();
