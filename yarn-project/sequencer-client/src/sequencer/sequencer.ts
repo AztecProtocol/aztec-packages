@@ -20,7 +20,7 @@ import type {
 } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -848,18 +848,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /**
    * Whether the enclosing checkpoint of a reexecuted block is overdue: past the deadline by which a
-   * well-behaved proposer should have published it. Mirrors the archiver's orphan-prune deadline (the
-   * start of the slot after the block's build slot, plus a grace period) so the sequencer only warns
-   * about a missing proposed checkpoint once the archiver itself would prune the orphan block. The grace
-   * is derived from the block build duration the same way the archiver defaults it at node wiring.
+   * well-behaved proposer should have published it. Mirrors the archiver's orphan-prune deadline
+   * so the sequencer only warns about a missing proposed checkpoint once the archiver itself would
+   * prune the orphan block. The grace is read from the shared archiver config when set, otherwise it
+   * is derived from twice the block build duration, matching the archiver default at node wiring.
    */
   private isProposedCheckpointOverdue(blockSlot: SlotNumber): boolean {
-    const expectedBySlot = SlotNumber(Number(blockSlot) - PROPOSER_PIPELINING_SLOT_OFFSET + 1);
     const graceSeconds =
-      this.config.blockDurationMs !== undefined
-        ? Math.ceil(this.config.blockDurationMs / 1000)
-        : (this.config.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION);
-    const expectedByTime = getTimestampForSlot(expectedBySlot, this.l1Constants) + BigInt(graceSeconds);
+      this.config.orphanProposedBlockPruneGraceSeconds ??
+      (this.config.blockDurationMs !== undefined
+        ? 2 * Math.ceil(this.config.blockDurationMs / 1000)
+        : 2 * DEFAULT_MIN_BLOCK_DURATION);
+    const expectedByTime = BigInt(this.timetable.getExpectedCheckpointLandTime(blockSlot, graceSeconds));
     return BigInt(this.dateProvider.nowInSeconds()) >= expectedByTime;
   }
 

@@ -80,6 +80,14 @@ export class ConsensusTimetable {
   }
 
   /**
+   * Wall-clock time by which a checkpoint proposal is expected to have landed locally for its target slot.
+   * Used to prune block-only proposed tips whose enclosing checkpoint never arrived.
+   */
+  public getExpectedCheckpointLandTime(slot: SlotNumber, orphanProposedBlockPruneGraceSeconds: number): number {
+    return this.getCheckpointProposalReceiveDeadline(slot) + orphanProposedBlockPruneGraceSeconds;
+  }
+
+  /**
    * Earliest acceptable arrival for an attestation: `target_slot_start - S - E` (the build frame
    * opening). Deliberately liberal; attestations are attributed by content, not timing.
    */

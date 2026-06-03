@@ -1,5 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
+import { EpochCache } from '@aztec/epoch-cache';
 import { BlockTagTooOldError, OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
@@ -31,6 +31,7 @@ import {
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 import type { L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
@@ -102,6 +103,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   /** In-memory cache for L2 chain tips. */
   private readonly l2TipsCache: L2TipsCache;
 
+  /** Consensus timing model used for proposed-checkpoint arrival expectations. */
+  private readonly timetable: ConsensusTimetable;
+
   public readonly tracer: Tracer;
 
   private readonly instrumentation: ArchiverInstrumentation;
@@ -148,6 +152,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       skipHistoricalLogsCheck?: boolean;
       orphanProposedBlockPruneGraceSeconds: number;
       enableOrphanProposedBlockPruning: boolean;
+      blockDuration: number | undefined;
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
@@ -171,6 +176,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     this.synchronizer = synchronizer;
     this.events = events;
     this.l2TipsCache = l2TipsCache;
+    this.timetable = new ConsensusTimetable({ l1Constants, blockDuration: this.config.blockDuration });
     this.updater = new ArchiverDataStoreUpdater(this.dataStores, this.l2TipsCache, {
       rollupManaLimit: l1Constants.rollupManaLimit,
     });
@@ -412,7 +418,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     }
     const tips = await this.getL2Tips();
     const now = BigInt(this.dateProvider.nowInSeconds());
-    const pipeliningOffset = PROPOSER_PIPELINING_SLOT_OFFSET;
 
     // The proposed tip is a proposed-checkpointed block, so there are no orphan proposed blocks to prune
     if (tips.proposedCheckpoint.block.number === tips.proposed.number) {
@@ -441,12 +446,11 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
       lastSlotChecked = blockSlot;
 
-      // The proposed checkpoint should have landed by the start of the slot after the block's build slot
-      // (build slot = blockSlot - pipeliningOffset). Wait a grace period beyond that to tolerate propagation.
-      const expectedCheckpointedBySlot = SlotNumber(Number(blockSlot) - pipeliningOffset + 1);
-      const expectedCheckpointedByTime =
-        getTimestampForSlot(expectedCheckpointedBySlot, this.l1Constants) +
-        BigInt(this.config.orphanProposedBlockPruneGraceSeconds);
+      // The proposed checkpoint should have landed by its consensus receive deadline plus a grace period
+      // to tolerate local validation/re-execution and archiver ingestion delay.
+      const expectedCheckpointedByTime = BigInt(
+        this.timetable.getExpectedCheckpointLandTime(blockSlot, this.config.orphanProposedBlockPruneGraceSeconds),
+      );
 
       // If it's not checkpointed by the expected time, prune it along with all blocks after it.
       if (now >= expectedCheckpointedByTime) {
@@ -459,8 +463,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
             blockCheckpointNumber: blockData.checkpointNumber,
             blockNumber,
             blockSlot,
-            pipeliningOffset,
-            expectedCheckpointedBySlot,
             expectedCheckpointedByTime,
             now,
           },

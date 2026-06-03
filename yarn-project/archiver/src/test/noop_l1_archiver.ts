@@ -95,6 +95,7 @@ export class NoopL1Archiver extends Archiver {
         skipHistoricalLogsCheck: true, // Skip historical logs validation
         orphanProposedBlockPruneGraceSeconds: 2,
         enableOrphanProposedBlockPruning: true,
+        blockDuration: 2,
       },
       blobClient,
       instrumentation,

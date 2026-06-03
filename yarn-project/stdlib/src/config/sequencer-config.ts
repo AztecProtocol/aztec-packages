@@ -28,6 +28,7 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
   Pick<
     SequencerConfig,
     | 'blockDurationMs'
+    | 'orphanProposedBlockPruneGraceSeconds'
     | 'expectedBlockProposalsPerSlot'
     | 'maxTxsPerBlock'
     | 'attestationPropagationTime'
@@ -49,6 +50,12 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
       'Expected number of block proposals per slot for P2P peer scoring. ' +
       '0 (default) disables block proposal scoring. Set to a positive value to enable.',
     ...numberConfigHelper(0),
+  },
+  orphanProposedBlockPruneGraceSeconds: {
+    env: 'ARCHIVER_ORPHAN_PROPOSED_BLOCK_PRUNE_GRACE_SECONDS',
+    description:
+      'Grace period in seconds used by the archiver to prune orphan proposed blocks and by the sequencer to warn on orphan tips.',
+    ...optionalNumberConfigHelper(),
   },
   maxTxsPerBlock: {
     env: 'SEQ_MAX_TX_PER_BLOCK',

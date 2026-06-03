@@ -36,6 +36,12 @@ describe('ConsensusTimetable', () => {
     expect(timetable.getCheckpointProposalReceiveDeadline(slot)).toBe(targetSlotStart - 18);
   });
 
+  it('expected checkpoint land time is the receive deadline plus orphan-prune grace', () => {
+    const graceSeconds = 2 * D;
+    expect(timetable.getExpectedCheckpointLandTime(slot, graceSeconds)).toBe(targetSlotStart - E - D + graceSeconds);
+    expect(timetable.getExpectedCheckpointLandTime(slot, graceSeconds)).toBe(targetSlotStart - 6);
+  });
+
   it('attestation receive start equals the build frame start (liberal lower bound)', () => {
     expect(timetable.getAttestationReceiveStart(slot)).toBe(buildFrameStart);
   });

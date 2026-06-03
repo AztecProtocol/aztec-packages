@@ -97,6 +97,7 @@ describe('Archiver Store', () => {
       ethereumAllowNoDebugHosts: true,
       orphanProposedBlockPruneGraceSeconds: 2,
       enableOrphanProposedBlockPruning: true,
+      blockDuration: 2,
     };
 
     const events = new EventEmitter() as ArchiverEmitter;

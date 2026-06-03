@@ -64,9 +64,9 @@ export type ArchiverSpecificConfig = {
   skipPromoteProposedCheckpointDuringL1Sync?: boolean;
 
   /**
-   * Grace period in seconds, measured from the end of a proposed block's build slot, after which a
-   * proposed block whose enclosing checkpoint was never proposed is pruned as an orphan. Defaults
-   * from `blockDurationMs / 1000` at the node wiring layer, falling back to the timetable minimum
+   * Grace period in seconds, measured from the checkpoint proposal receive deadline, after which a proposed
+   * block whose enclosing checkpoint was never proposed is pruned as an orphan. Defaults from
+   * `2 * blockDurationMs / 1000` at the node wiring layer, falling back to twice the timetable minimum
    * execution time.
    */
   orphanProposedBlockPruneGraceSeconds?: number;

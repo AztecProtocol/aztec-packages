@@ -8,7 +8,7 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
-import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
 
 /**
@@ -22,7 +22,8 @@ export type ArchiverConfig = ArchiverSpecificConfig &
   L1ReaderConfig &
   L1ContractsConfig &
   BlobClientConfig &
-  ChainConfig;
+  ChainConfig &
+  Pick<SequencerConfig, 'blockDurationMs'>;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   ...blobClientConfigMapping,
@@ -40,6 +41,12 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'ARCHIVER_STORE_MAP_SIZE_KB',
     ...optionalNumberConfigHelper(),
     description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.',
+  },
+  blockDurationMs: {
+    env: 'SEQ_BLOCK_DURATION_MS',
+    description:
+      'Duration per block in milliseconds when building multiple blocks per slot. Used to derive orphan proposed block pruning timing.',
+    ...optionalNumberConfigHelper(),
   },
   skipValidateCheckpointAttestations: {
     description: 'Skip validating checkpoint attestations (for testing purposes only)',
@@ -69,9 +76,9 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   orphanProposedBlockPruneGraceSeconds: {
     env: 'ARCHIVER_ORPHAN_PROPOSED_BLOCK_PRUNE_GRACE_SECONDS',
     description:
-      'Grace period in seconds, measured from the end of a proposed block build slot, after which a ' +
-      'proposed block with no matching proposed checkpoint is pruned as an orphan. Defaults from the ' +
-      'sequencer block duration at the node wiring layer when unset.',
+      'Grace period in seconds, measured from the checkpoint proposal receive deadline, after which ' +
+      'a proposed block with no matching proposed checkpoint is pruned as an orphan. Defaults to twice ' +
+      'the sequencer block duration at the node wiring layer when unset.',
     ...optionalNumberConfigHelper(),
   },
   ...chainConfigMappings,

@@ -591,9 +591,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const started: { stop?(): Promise<void> | void }[] = [];
     try {
       // Default the orphan-prune grace window from the block build duration when unset, so the archiver
-      // waits roughly one build slot for a proposed checkpoint to arrive before pruning a block-only tip.
+      // waits roughly two build slots for validation/re-execution and ingestion before pruning a block-only tip.
       config.orphanProposedBlockPruneGraceSeconds ??=
-        config.blockDurationMs !== undefined ? Math.ceil(config.blockDurationMs / 1000) : DEFAULT_MIN_BLOCK_DURATION;
+        config.blockDurationMs !== undefined
+          ? 2 * Math.ceil(config.blockDurationMs / 1000)
+          : 2 * DEFAULT_MIN_BLOCK_DURATION;
 
       // Create world-state first so we can retrieve the initial header before constructing the archiver.
       const nativeWs = await createWorldState(config, options.genesis);

@@ -42,7 +42,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { DEFAULT_MIN_BLOCK_DURATION } from '@aztec/stdlib/timetable';
+import { ConsensusTimetable, DEFAULT_MIN_BLOCK_DURATION } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
@@ -824,10 +824,7 @@ describe('sequencer', () => {
       expect(publisher.sendRequestsAt).toHaveBeenCalled();
     });
 
-    it('should not vote when sync fails and within time limit', async () => {
-      // At or before the build start deadline for the target slot there is still time to build, so the
-      // sync-failure vote gate (now a plain `now <= start_deadline` check, no next-L1-slot look-ahead) does
-      // not give up the slot to vote.
+    it('should vote when sync fails even within the build time limit', async () => {
       const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline - 1) * 1000);
 
@@ -840,8 +837,12 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      // Should not attempt to enqueue slashing actions when within time limit
-      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalledWith(
+        mockSlashActions,
+        SlotNumber(newSlotNumber),
+        expect.any(EthAddress),
+        expect.any(Function),
+      );
     });
 
     it('should not vote when sync fails but not a proposer', async () => {
@@ -1427,10 +1428,13 @@ describe('sequencer', () => {
       l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpointData);
     };
 
-    // The orphan block sits at slot 3; with pipelining offset 1 and a grace of DEFAULT_MIN_BLOCK_DURATION
-    // (no blockDurationMs configured) its enclosing checkpoint is due at l1GenesisTime + 3 * slotDuration + 2.
-    const orphanCheckpointDueSeconds = () =>
-      Number(l1Constants.l1GenesisTime) + 3 * slotDuration + DEFAULT_MIN_BLOCK_DURATION;
+    // The orphan block sits at slot 3. With no explicit orphan grace configured, the sequencer mirrors
+    // the archiver default of twice DEFAULT_MIN_BLOCK_DURATION.
+    const orphanCheckpointDueSeconds = (graceSeconds = 2 * DEFAULT_MIN_BLOCK_DURATION) =>
+      new ConsensusTimetable({ l1Constants, blockDuration: undefined }).getExpectedCheckpointLandTime(
+        SlotNumber(3),
+        graceSeconds,
+      );
 
     it('returns undefined and warns once the missing proposed checkpoint is overdue', async () => {
       // Local tip is a block at checkpoint 3, but the checkpointed and proposed-checkpoint tips are
@@ -1474,6 +1478,26 @@ describe('sequencer', () => {
         proposedCheckpointData: undefined,
       });
       dateProvider.setTime((orphanCheckpointDueSeconds() - 1) * 1000);
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
+
+      expect(result).toBeUndefined();
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('uses explicit orphan-prune grace config for the overdue warning threshold', async () => {
+      const configuredGraceSeconds = 12;
+      sequencer.updateConfig({ orphanProposedBlockPruneGraceSeconds: configuredGraceSeconds });
+      setupSyncedToBlock({
+        blockNumber: BlockNumber(3),
+        blockSlot: SlotNumber(3),
+        blockCheckpointNumber: CheckpointNumber(3),
+        checkpointedCheckpointNumber: CheckpointNumber(2),
+        proposedCheckpointTipNumber: CheckpointNumber(2),
+        proposedCheckpointData: undefined,
+      });
+      dateProvider.setTime((orphanCheckpointDueSeconds(configuredGraceSeconds) - 1) * 1000);
       const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
 
       const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });

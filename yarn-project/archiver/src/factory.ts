@@ -132,8 +132,12 @@ export async function createArchiver(
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: false,
       skipHistoricalLogsCheck: false,
-      orphanProposedBlockPruneGraceSeconds: DEFAULT_MIN_BLOCK_DURATION,
+      orphanProposedBlockPruneGraceSeconds:
+        config.blockDurationMs !== undefined
+          ? 2 * Math.ceil(config.blockDurationMs / 1000)
+          : 2 * DEFAULT_MIN_BLOCK_DURATION,
       enableOrphanProposedBlockPruning: opts.enableOrphanProposedBlockPruning ?? true,
+      blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
     },
     mapArchiverConfig(config),
   );

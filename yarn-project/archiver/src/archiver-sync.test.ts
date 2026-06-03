@@ -26,6 +26,7 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -91,6 +92,7 @@ describe('Archiver Sync', () => {
       skipHistoricalLogsCheck: true,
       orphanProposedBlockPruneGraceSeconds: 2,
       enableOrphanProposedBlockPruning: true,
+      blockDuration: 2,
       ...configOverrides,
     };
 
@@ -2152,8 +2154,9 @@ describe('Archiver Sync', () => {
 
     // Slot the orphan block targets. With slotDuration=24, slot S starts at l1GenesisTime + S*24.
     const orphanSlot = SlotNumber(1);
-    // Grace period configured for these tests (see the `config` object above).
+    // Grace period and block duration configured for these tests (see the `config` object above).
     const graceSeconds = 2;
+    const blockDuration = 2;
 
     beforeEach(() => {
       pruneSpy = jest.fn();
@@ -2164,9 +2167,11 @@ describe('Archiver Sync', () => {
       archiver.events.off(L2BlockSourceEvents.L2PruneUncheckpointed, pruneSpy);
     });
 
-    // Wall-clock time (seconds) at which the orphan tip becomes prunable: start(orphanSlot) + grace.
-    const pruneDeadline = () => now + Number(orphanSlot) * l1Constants.slotDuration + graceSeconds;
-    const pruneDeadlineForSlot = (slot: SlotNumber) => now + Number(slot) * l1Constants.slotDuration + graceSeconds;
+    // Wall-clock time (seconds) at which the orphan tip becomes prunable: the checkpoint receive
+    // deadline plus the orphan-prune grace.
+    const pruneDeadlineForSlot = (slot: SlotNumber) =>
+      new ConsensusTimetable({ l1Constants, blockDuration }).getExpectedCheckpointLandTime(slot, graceSeconds);
+    const pruneDeadline = () => pruneDeadlineForSlot(orphanSlot);
 
     // Syncs checkpoint 1 (slot 0), then writes uncheckpointed blocks for slot 1 (checkpoint 2) straight
     // into the store as a block-only tip with no matching proposed checkpoint. L1 is held at slot 1 so

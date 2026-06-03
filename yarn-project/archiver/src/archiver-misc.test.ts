@@ -83,6 +83,7 @@ describe('Archiver misc', () => {
         maxAllowedEthClientDriftSeconds: 300,
         orphanProposedBlockPruneGraceSeconds: 2,
         enableOrphanProposedBlockPruning: true,
+        blockDuration: 2,
       },
       blobClient,
       instrumentation,
