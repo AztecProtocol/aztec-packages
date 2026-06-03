@@ -10,9 +10,31 @@
   operator's (no starvation of the solo-small-MSM-starved stages); the mechanism
   (concatenated super-MSM, one dispatch over the pack, adapt-don't-rewrite) is the
   proposed means and is justified below.
-- **Next action: ROLLOUT step 1** — batch scheduler + per-global-window tables +
-  arena layout for K packed MSMs + budget bin-packer. Validate via the
-  **batch-of-1 ≡ single-MSM byte-identical** invariant (the bisection lever).
+- **DONE — ROLLOUT step 1 host infra** (`batch_scheduler.ts` +
+  `batch_scheduler.test.ts`, pure/offline). The host pack model: `computeGeom`
+  (per-MSM geometry, matches `msm_v2` create()), `buildUniformWindowDesc` (matches
+  prepare()'s uniform fill), `planBatch` (concatenates K MSMs → `MsmDesc[]` with
+  `scalarBase`/`outBase`/`schedOff`/`redBase`, the global WindowDesc table tagged
+  with `msm_idx`/`srsOffset`/`n`/`scalar_base`, MSM-local `reduceOffsets`, ragged
+  point-tiles), `batchFootprintBytes` (pack footprint = the one `arenaColourSizes`
+  source of truth fed concatenated per-MSM terms; points/SRS + sT/sS THREAD counted
+  ONCE), and `packByBudget` (greedy bin-packer; too-big stages solo). 22 jest tests
+  green; **batch-of-1 footprint is byte-exact == single-MSM `estimateMem(1)`** at
+  logN 14/15/16/17; geometry matches ARENA §3 exactly. Only `msm_v2.ts` change is
+  two `export`s (`arenaColourSizes`, `pickReduceWg`) — golden re-validated PASS
+  (14–17 byte-identical, oracle-agree). Batch-of-1 ≡ single-MSM holds **by
+  construction** at step 1: `run()` is `encodeIntoBatch(…, 0)`, no kernel changed.
+- **Next action: ROLLOUT step 2** (global-window bid, task #9) — flip the bid to
+  `(global_window << K) | mag` across every producer/consumer. Build the **runtime
+  batch-of-K harness** (planned as task 8c) alongside it — that is where the
+  byte-identical bisection lever first has an adapted stage to catch. **Caveat for
+  8c:** driving K `MsmV2` instances on one pool must handle `ensureScratch`'s
+  monotonic realloc + `_scratchEpoch` bump invalidating earlier instances' bind
+  groups (prepare all, largest-footprint first, or re-prepare after the high-water
+  realloc) — the bridge mixed-N path (`bridge/main.ts runBatchMsm`) already solves
+  this; copy its prepare-all-then-encode-all ordering. Optional cleanup (task 8b,
+  low priority, guarded by the pinning test): rewire create()/prepare() to call
+  `computeGeom`/`buildUniformWindowDesc` so there is one geometry source of truth.
 - **Open follow-on, separate & lower priority:** split-c large-`c_lo` buffer sizing
   (region-split buffers are sized for `c_w ≤ pickC`; the decision lever is gated
   behind a fits-guard until they're sized). Does NOT block multi-MSM.
@@ -184,8 +206,10 @@ The pipeline is a chain (a multi-MSM reduce needs a multi-MSM walker upstream), 
 build the concatenation framing for the whole pipeline but land + validate
 incrementally via the batch-of-1 invariant:
 
-1. **Scheduler + per-global-window tables + arena layout + bin-packer** (infra;
-   batch-of-1 reproduces the single-MSM path exactly).
+1. ✅ **DONE — Scheduler + per-global-window tables + arena layout + bin-packer**
+   (`batch_scheduler.ts`, pure/offline; `batch_scheduler.test.ts` 22 green;
+   batch-of-1 footprint byte-exact == single-MSM `estimateMem(1)`; golden 14–17
+   unchanged). The runtime batch-of-K harness lands with step 2 (see Status).
 2. **Bid encoding extension** (global window) — validate byte-identical
    (split-c Phase 0.2 pattern: every bid producer/consumer in one coordinated step).
 3. **EASY + MODERATE stages** on the concatenated tables (reduce, decompose,

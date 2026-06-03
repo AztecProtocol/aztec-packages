@@ -69,7 +69,7 @@ const MEM_BUDGET = 160 * (1 << 20); // phone GPU-buffer budget (ARENA_LAYOUT.md 
  *
  * `soaSize(M) = 2·PG·M·4·4`. Sizes round up to 256-B arena alignment, min 4.
  */
-function arenaColourSizes(p: {
+export function arenaColourSizes(p: {
   sT: number;
   sS: number;
   sBTotal: number;
@@ -661,7 +661,7 @@ function pickS(n: number): number {
 // Bucket-reduction workgroup size per c. Tracks the reduction stride: small c
 // stays near the GPU subgroup width (32); large c needs the full 128 to cover
 // its wide phases. bench-msm-v2 (c=8 -> 32, c=10 -> 64, c=13 -> 128).
-function pickReduceWg(c: number): number {
+export function pickReduceWg(c: number): number {
   return c <= 9 ? 32 : c <= 12 ? 64 : 128;
 }
 
