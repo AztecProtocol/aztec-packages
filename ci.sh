@@ -165,7 +165,7 @@ case "$cmd" in
       'a1-fast arm64 ci-fast'
     ;;
   merge-queue-heavy)
-    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan PRs.
+    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan and merge-train/spartan-v5 PRs.
     multi_job_run \
       'x'{1..10}'-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'

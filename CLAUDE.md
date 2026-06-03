@@ -40,6 +40,8 @@ Otherwise infer from the component being worked in:
 | `barretenberg/cpp/src/barretenberg/vm2/**` | `merge-train/avm` |
 | everything else | `next` |
 
+The bases above target the `next` line. For work scoped to the v5 release line, use `merge-train/spartan-v5` (which targets `v5-next`) in place of `merge-train/spartan`.
+
 Use the discovered base in `git diff origin/<base>...HEAD` and `git log origin/<base>..HEAD`. Always `git fetch` before creating branches so the base is not stale.
 </critical_never_assume_master>
 
