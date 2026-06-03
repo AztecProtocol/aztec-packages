@@ -29,6 +29,25 @@ export function isErrorClass<T extends Error>(value: unknown, errorClass: new (.
   return value instanceof errorClass || (value instanceof Error && value.name === errorClass.name);
 }
 
+const MAX_ERR_DEPTH = 10;
+
+/** Returns the first error in the cause chain matching the given error class. */
+export function getErrorCause<T extends Error>(err: unknown, errorClass: new (...args: any[]) => T): T | undefined {
+  let current = err;
+  for (let i = 0; current !== undefined && current !== null && i < MAX_ERR_DEPTH; i++) {
+    if (isErrorClass(current, errorClass)) {
+      return current;
+    }
+
+    if (typeof current === 'object' && Object.hasOwn(current, 'cause')) {
+      current = (current as { cause: unknown }).cause;
+    } else {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 /** Resolves a record-like type. Lifted from viem. */
 export type Prettify<T> = {
   [K in keyof T]: T[K];
