@@ -10,12 +10,16 @@ export function useNumber({ contract }: { contract: Contract }) {
     e.preventDefault();
 
     setWait(true);
-    const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
-    const { result } = await contract!.methods
-      .getNumber(defaultAccountAddress)
-      .simulate({ from: defaultAccountAddress });
-    toast(`Number is: ${result}`);
-    setWait(false);
+    try {
+      const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
+      const { result } = await contract!.methods
+        .getNumber(defaultAccountAddress)
+        .simulate({ from: defaultAccountAddress });
+      const value = typeof result === 'object' && result !== null && 'value' in result ? result.value : result;
+      toast(`Number is: ${value}`);
+    } finally {
+      setWait(false);
+    }
   };
 
   const setNumber = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -24,18 +28,20 @@ export function useNumber({ contract }: { contract: Contract }) {
     const el = e.currentTarget.elements.namedItem('numberToSet') as HTMLInputElement;
     if (el) {
       setWait(true);
-
-      const value = BigInt(el.value);
-      const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
-      await toast.promise(
-        contract!.methods.setNumber(value, defaultAccountAddress).send({ from: defaultAccountAddress }),
-        {
-          pending: 'Setting number...',
-          success: `Number set to: ${value}`,
-          error: 'Error setting number',
-        },
-      );
-      setWait(false);
+      try {
+        const value = BigInt(el.value);
+        const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
+        await toast.promise(
+          contract!.methods.setNumber(value, defaultAccountAddress).send({ from: defaultAccountAddress }),
+          {
+            pending: 'Setting number...',
+            success: `Number set to: ${value}`,
+            error: 'Error setting number',
+          },
+        );
+      } finally {
+        setWait(false);
+      }
     }
   };
 
