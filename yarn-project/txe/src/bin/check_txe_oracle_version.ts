@@ -4,7 +4,7 @@ import { getOracleInterfaceSignature, readNumericGlobal } from '@aztec/pxe/bin';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
-import { TXE_ORACLE_INTERFACE_HASH, TXE_ORACLE_VERSION_MAJOR } from '../txe_oracle_version.js';
+import { TXE_ORACLE_INTERFACE_HASH, TXE_ORACLE_VERSION_MAJOR } from '../oracle/txe_oracle_version.js';
 
 /**
  * Verifies that the TXE oracle interfaces match the expected interface hash.
@@ -29,7 +29,7 @@ function assertTxeOracleInterfaceMatches(): void {
   const txeOracleInterfaceHash = keccak256String(txeOracleInterfaceSignature);
   if (txeOracleInterfaceHash !== TXE_ORACLE_INTERFACE_HASH) {
     throw new Error(
-      `The TXE oracle interface has changed. Update TXE_ORACLE_INTERFACE_HASH to ${txeOracleInterfaceHash} in txe/src/txe_oracle_version.ts and bump the TXE oracle version (TXE_ORACLE_VERSION_MAJOR for breaking changes, TXE_ORACLE_VERSION_MINOR for oracle additions).`,
+      `The TXE oracle interface has changed. Update TXE_ORACLE_INTERFACE_HASH to ${txeOracleInterfaceHash} in txe/src/oracle/txe_oracle_version.ts and bump the TXE oracle version (TXE_ORACLE_VERSION_MAJOR for breaking changes, TXE_ORACLE_VERSION_MINOR for oracle additions).`,
     );
   }
 }

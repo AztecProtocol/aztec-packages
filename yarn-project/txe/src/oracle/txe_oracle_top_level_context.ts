@@ -82,7 +82,7 @@ import {
 import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
-import { DEFAULT_ADDRESS } from '../constants.js';
+import { DEFAULT_ADDRESS, MAX_PRIVATE_EVENTS_PER_TXE_QUERY, MAX_PRIVATE_EVENT_LEN } from '../constants.js';
 import type { TXEStateMachine } from '../state_machine/index.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
 import type { TXEAccountStore } from '../utils/txe_account_store.js';
@@ -213,7 +213,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress) {
-    return (
+    const events = (
       await this.privateEventStore.getPrivateEvents(selector, {
         contractAddress,
         scopes: [scope],
@@ -221,6 +221,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         toBlock: (await this.getLastBlockNumber()) + 1,
       })
     ).map(e => e.packedEvent);
+
+    if (events.length > MAX_PRIVATE_EVENTS_PER_TXE_QUERY) {
+      throw new Error(`Array of length ${events.length} larger than maxLen ${MAX_PRIVATE_EVENTS_PER_TXE_QUERY}`);
+    }
+    if (events.some(e => e.length > MAX_PRIVATE_EVENT_LEN)) {
+      throw new Error(`Some private event has length larger than maxLen ${MAX_PRIVATE_EVENT_LEN}`);
+    }
+
+    return events;
   }
 
   async advanceBlocksBy(blocks: number) {
