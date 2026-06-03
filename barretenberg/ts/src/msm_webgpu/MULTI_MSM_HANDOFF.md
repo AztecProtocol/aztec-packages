@@ -21,8 +21,14 @@ this doc is the **current state + the exact next-step recipe + traps**. Branch:
   to free the slot. Validated: a 256-window pack (impossible before) is byte-
   identical; a 330MiB pack is rejected by the budget gate. The real limit is now
   the 160MB budget, not a window count.
-- **Next: HETEROGENEOUS packs** (different n and/or c in one union) — the recipe is
-  in "Remaining work". Reduce optimisation is owned elsewhere — don't touch it here.
+- **HETEROGENEOUS-n DONE (same size class)** — `373cfd8d30`. MSMs of different n
+  but the same c pack in one union by padding each to the class max n with zero
+  scalars (zero digit ⇒ contributes nothing ⇒ byte-identical). Validated
+  logN16+logN17. Wasteful (≤2× within a class) — the no-padding per-window-n path
+  below removes the waste AND handles different c.
+- **Next: DIFFERENT-c heterogeneous** (vastly different sizes in one union, no
+  padding) — the per-window-n recipe is in "Remaining work" item 1. Reduce
+  optimisation is owned elsewhere — don't touch it here.
 
 ## What's done (commits since the plan doc `250f48e02e`)
 
