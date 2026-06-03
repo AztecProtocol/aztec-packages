@@ -163,7 +163,9 @@ async function runChonkOnce(
     // Cold-start warm-up: a fresh backend wrapper per prove (cheap — bb is reused,
     // so the bridge's GPU pool + compiled shaders persist), discarded.
     for (let w = 0; w < warmupRuns; w++) {
-      baseLog(`[trace] warm-up prove ${w + 1}/${warmupRuns} (discarded — pays GPU cold-start so the measured prove is warm)`);
+      baseLog(
+        `[trace] warm-up prove ${w + 1}/${warmupRuns} (discarded — pays GPU cold-start so the measured prove is warm)`,
+      );
       const warmBackend = new AztecClientBackend(bytecodes, bb, functionNames);
       await warmBackend.prove(witnessStack, vks);
     }
@@ -1466,9 +1468,7 @@ async function runChonkWebGpuTrace(
 
   // The C++ bench buffer can't be cleared between proves, so a warm-up trace holds both proves'
   // events; slice to the measured (last) prove before mapping/extraction.
-  const benchTraceJson = warmupRuns
-    ? clipBenchTraceJsonToLastProve(out.benchTraceJson ?? '')
-    : out.benchTraceJson;
+  const benchTraceJson = warmupRuns ? clipBenchTraceJsonToLastProve(out.benchTraceJson ?? '') : out.benchTraceJson;
 
   const bridgeAnchors: AlignAnchor[] = win.__bridge_align_anchors?.() ?? [];
   const anchors = [...preAnchors, ...bridgeAnchors, ...postAnchors];
@@ -2580,9 +2580,10 @@ function setupChonkWebGpuPage(): void {
       }
       e2e += `</div>`;
     }
-    const hint = w && g
-      ? ''
-      : `<div style="color:#8b949e;font-size:12px;margin-bottom:8px;"><em>run the other side — Per-circuit comparison traces WASM then WebGPU</em></div>`;
+    const hint =
+      w && g
+        ? ''
+        : `<div style="color:#8b949e;font-size:12px;margin-bottom:8px;"><em>run the other side — Per-circuit comparison traces WASM then WebGPU</em></div>`;
     pcTable.innerHTML =
       e2e +
       hint +
@@ -2609,8 +2610,7 @@ function setupChonkWebGpuPage(): void {
     }
     // Join by phase name in run order (both modes share the same phase sequence).
     const order = (g ?? w)!.map(p => p.name);
-    const byName = (rows: PhaseRow[] | undefined): Map<string, PhaseRow> =>
-      new Map((rows ?? []).map(p => [p.name, p]));
+    const byName = (rows: PhaseRow[] | undefined): Map<string, PhaseRow> => new Map((rows ?? []).map(p => [p.name, p]));
     const wm = byName(w);
     const gm = byName(g);
     const td = (s: string, extra = ''): string =>
@@ -2649,9 +2649,10 @@ function setupChonkWebGpuPage(): void {
     body +=
       `<tr style="font-weight:600;">${td('e2e prove (sum of phases)', tb)}${td(w ? fmtMs(totW) : '—', tb)}` +
       `${td(g ? fmtMs(totG) : '—', tb)}${td(totTxt, tb + totColor)}${td('', tb)}</tr>`;
-    const hint = w && g
-      ? ''
-      : `<div style="color:#8b949e;font-size:12px;margin-bottom:8px;"><em>run the other side — Per-circuit comparison traces WASM then WebGPU</em></div>`;
+    const hint =
+      w && g
+        ? ''
+        : `<div style="color:#8b949e;font-size:12px;margin-bottom:8px;"><em>run the other side — Per-circuit comparison traces WASM then WebGPU</em></div>`;
     phTable.innerHTML =
       hint +
       `<table style="border-collapse:collapse;font-size:12.5px;font-family:ui-monospace,monospace;width:100%;">` +
@@ -2776,7 +2777,10 @@ function setupChonkWebGpuPage(): void {
   warmUp?.addEventListener('click', async () => {
     setBusy(true, 'Warming up WASM backend (16-thread WASM + CRS)…');
     try {
-      append('▶ Warm up: building the WASM backend (16 threads + CRS) so the first Run WASM skips the ~13s init', 'info');
+      append(
+        '▶ Warm up: building the WASM backend (16 threads + CRS) so the first Run WASM skips the ~13s init',
+        'info',
+      );
       const r = await (window as any).ensureWarmBackend(false);
       append(
         r.reused
@@ -2898,6 +2902,101 @@ function setupChonkWebGpuPage(): void {
 }
 
 (window as any).setupChonkWebGpuPage = setupChonkWebGpuPage;
+
+/**
+ * Headless autorun entry point for remote real-device benchmarking (BrowserStack
+ * and equivalents). A remote device can only navigate to a URL — it can't be
+ * driven by `page.evaluate` like the local Puppeteer harness — so when the page
+ * is opened with `?autorun=chonk-bench`, this runs the Chonk prove on load and
+ * POSTs progress heartbeats plus a final result row to the serving host
+ * (scripts/serve-chonk-webgpu.mjs appends them as JSONL to CHONK_PROGRESS_FILE /
+ * CHONK_RESULTS_FILE, which the runner tails).
+ *
+ * Query params:
+ *   autorun  gate; any truthy value enables autorun (canonical value `chonk-bench`).
+ *   flow     pinned flow name (default: the canonical ecdsar1 transfer).
+ *   mode     `off-on` (default, off-vs-on comparison) | `on-only` | `off-only`.
+ *   target   opaque label echoed back into every row (the runner's preset key).
+ *
+ * The result row is normalised to { state, mode, adapter, swiftshaderDetected,
+ * off?, on?, vksMatch? } so the runner/report read consistent fields across modes.
+ * Everything is wrapped in try/catch: a device OOM / WebGPU crash still POSTs a
+ * `state:"error"` row instead of stalling the remote watchdog into a blind timeout.
+ */
+async function maybeAutorunChonkBench(): Promise<void> {
+  const params = new URLSearchParams(location.search);
+  if (!params.get('autorun')) {
+    return;
+  }
+  const flow = params.get('flow') || 'ecdsar1+transfer_1_recursions+sponsored_fpc';
+  const mode = (params.get('mode') || 'off-on') as 'off-on' | 'on-only' | 'off-only';
+  const target = params.get('target') || '';
+  const runId =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `run-${performance.now()}-${Math.floor(performance.now() * 1000) % 1000000}`;
+
+  // Best-effort JSONL sink POST — a sink hiccup must never abort the bench.
+  const post = (path: string, payload: Record<string, unknown>): void => {
+    void fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ runId, ts: new Date().toISOString(), target, flow, ...payload }),
+    }).catch(() => {});
+  };
+  const progress = (phase: string, pct: number): void => post('/progress', { phase, pct });
+
+  // Time-based heartbeat so the remote idle/stall watchdogs never trip during a
+  // multi-minute prove. The page main thread is free while proving (bb.js proves
+  // in workers), so the interval keeps firing.
+  const heartbeat = window.setInterval(() => progress('proving', -1), 7000);
+
+  try {
+    progress('loaded', 0);
+    logger.info(`[autorun] runId=${runId} flow=${flow} mode=${mode} target=${target || '(none)'}`);
+
+    progress('proving-off', 10);
+    let row: Record<string, unknown>;
+    if (mode === 'off-on') {
+      const r = await runChonkWebGpuBench(flow);
+      row = {
+        adapter: r.adapter,
+        swiftshaderDetected: r.swiftshaderDetected,
+        numCreatorApps: r.numCreatorApps,
+        off: r.off,
+        on: r.on,
+        vksMatch: r.vksMatch,
+      };
+    } else if (mode === 'on-only') {
+      const r = await runChonkSingleMode('webgpu', flow);
+      row = { adapter: r.adapter, swiftshaderDetected: /swiftshader/i.test(r.adapter), on: r.result };
+    } else {
+      const r = await runChonkSingleMode('wasm', flow);
+      row = { adapter: r.adapter, swiftshaderDetected: false, off: r.result };
+    }
+    progress('done', 100);
+
+    clearInterval(heartbeat);
+    post('/results', { state: 'done', mode, ...row });
+    logger.info(`[autorun] done runId=${runId}`);
+  } catch (e) {
+    clearInterval(heartbeat);
+    const error = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
+    post('/results', { state: 'error', mode, error });
+    logger.error(`[autorun] error runId=${runId}: ${error}`);
+  }
+}
+
+(window as any).maybeAutorunChonkBench = maybeAutorunChonkBench;
+
+// Kick off the headless autorun once the DOM is ready. No-ops unless the page was
+// opened with `?autorun=…`, so the interactive page and the Puppeteer test.html
+// (driven by page.evaluate, no autorun param) are unaffected.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => void maybeAutorunChonkBench());
+} else {
+  void maybeAutorunChonkBench();
+}
 
 // Function to set up the output element and redirect all console output
 function setupConsoleOutput() {

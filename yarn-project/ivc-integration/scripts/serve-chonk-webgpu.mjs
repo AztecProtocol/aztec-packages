@@ -23,7 +23,7 @@
 // hardware WebGPU available. Apple Safari has no WebGPU shipped yet (as
 // of 2026-05); use Chrome with `chrome://flags/#enable-unsafe-webgpu`
 // enabled on macOS.
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +44,35 @@ const { values: argv } = parseArgs({
 
 const port = parseInt(argv.port, 10);
 const host = argv.host;
+
+// JSONL sinks for the headless autorun protocol (see serve.ts maybeAutorunChonkBench).
+// The page POSTs one progress heartbeat per phase and a single final result row; the
+// BrowserStack runner tails these files. Paths come from env so the runner can isolate
+// each device's run; defaults keep manual `node serve-chonk-webgpu.mjs` runs working.
+const progressFile = process.env.CHONK_PROGRESS_FILE ?? '/tmp/zac-webgpu/chonk-bs-progress.jsonl';
+const resultsFile = process.env.CHONK_RESULTS_FILE ?? '/tmp/zac-webgpu/chonk-bs-results.jsonl';
+
+// Append one already-serialized JSON object as a JSONL line. Body is the raw POST
+// payload (already carries runId/ts), so we append it verbatim with a trailing newline.
+function appendJsonl(file, body) {
+  mkdirSync(dirname(file), { recursive: true });
+  appendFileSync(file, body.endsWith('\n') ? body : body + '\n');
+}
+
+// Collect a POST body (bounded) then hand it to `onEnd`. Mirrors the /msm-phase sink.
+function collectBody(req, res, maxBytes, onEnd) {
+  let body = '';
+  req.setEncoding('utf8');
+  req.on('data', chunk => {
+    body += chunk;
+    if (body.length > maxBytes) {
+      res.writeHead(413);
+      res.end('payload too large');
+      req.destroy();
+    }
+  });
+  req.on('end', () => onEnd(body));
+}
 
 if (!existsSync(join(distPath, 'index.html'))) {
   console.error(`error: ${distPath}/index.html not found. Run \`yarn webpack\` first.`);
@@ -94,6 +123,41 @@ const server = createServer((req, res) => {
   res.on('finish', () => {
     process.stdout.write(`  ${res.statusCode} ${req.method} ${url}  (${Date.now() - reqStart} ms)\n`);
   });
+
+  // Headless autorun progress heartbeat sink. One small JSON row per phase, appended
+  // as JSONL to CHONK_PROGRESS_FILE. The runner tails this to detect the runId and to
+  // keep its first-progress / stall watchdogs satisfied during a long prove.
+  if (req.method === 'POST' && url.split('?')[0] === '/progress') {
+    collectBody(req, res, 64 * 1024, body => {
+      try {
+        appendJsonl(progressFile, body);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(String(e));
+      }
+    });
+    return;
+  }
+
+  // Headless autorun final-result sink. One JSON row per run (state=done|error with the
+  // normalised off/on metrics), appended as JSONL to CHONK_RESULTS_FILE. Its appearance
+  // is the runner's completion signal.
+  if (req.method === 'POST' && url.split('?')[0] === '/results') {
+    collectBody(req, res, 4 * 1024 * 1024, body => {
+      try {
+        appendJsonl(resultsFile, body);
+        process.stdout.write(`  saved chonk autorun result: ${body.length} bytes → ${resultsFile}\n`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, bytes: body.length, path: resultsFile }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(String(e));
+      }
+    });
+    return;
+  }
 
   // GPU MSM phase-breakdown sink: the page POSTs the aggregated prepare-vs-GPU-
   // compute breakdown (JSON) here. Default sink is /tmp/zac-webgpu/chonk-msm-phase.json;
@@ -196,8 +260,10 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // Root → index.html.
-  if (url === '/' || url === '/index.html') {
+  // Root → index.html. Strip the query string first so the autorun URL
+  // (/?autorun=chonk-bench&…) still resolves to the page.
+  const pathOnly = url.split('?')[0];
+  if (pathOnly === '/' || pathOnly === '/index.html') {
     serveFile(res, join(distPath, 'index.html'));
     return;
   }
@@ -244,6 +310,8 @@ server.listen(port, host, () => {
   console.log(`chonk-webgpu page listening on http://${host}:${port}/`);
   console.log(`  dist:          ${distPath}`);
   console.log(`  pinned inputs: ${pinnedInputsRoot}`);
+  console.log(`  progress sink: ${progressFile}`);
+  console.log(`  results sink:  ${resultsFile}`);
   console.log('');
   console.log('Open the URL above in Chrome / Chromium (WebGPU enabled).');
   console.log('Press Ctrl+C to stop.');
