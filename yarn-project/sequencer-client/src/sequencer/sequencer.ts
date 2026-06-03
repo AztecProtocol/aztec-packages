@@ -926,18 +926,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    // Only vote (instead of waiting to build) once we are past the latest useful block-building start
-    // for the target slot. Before then, there is still time to build, so do not give up the slot.
+    // Vote-only actions do not give up the slot: if sync recovers, a later work-loop iteration can still build.
+    // Under proposer pipelining the work loop reasons about the next L1 slot, so waiting for the target slot's
+    // build-start deadline can miss the whole fallback window when the target advances with the clock.
     const nowSeconds = this.dateProvider.now() / 1000;
     const startDeadline = this.timetable.getBuildStartDeadline(targetSlot);
-
-    if (this.config.enforceTimeTable && nowSeconds <= startDeadline) {
-      this.log.trace(`Not attempting to vote since there is still time for block building`, {
-        nowSeconds,
-        startDeadline,
-      });
-      return;
-    }
 
     this.log.trace(`Cannot build for slot ${slot}, checking for voting opportunities`, {
       nowSeconds,
