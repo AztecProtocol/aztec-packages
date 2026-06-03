@@ -11,7 +11,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockSink, L2BlockSource, ProposedCheckpointSink } from '@aztec/stdlib/block';
-import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
   BlockBuilderOptions,
@@ -301,8 +301,9 @@ describe('CheckpointProposalJob Timing Tests', () => {
   }
 
   /** Create a TimingTestCheckpointProposalJob with current mocks */
-  function createJob(): TimingTestCheckpointProposalJob {
-    const setStateFn = jest.fn();
+  function createJob(
+    setStateFn: (state: SequencerState, slot?: SlotNumber, timeReferenceSlot?: SlotNumber) => void = jest.fn(),
+  ): TimingTestCheckpointProposalJob {
     const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
 
     return new TimingTestCheckpointProposalJob(
@@ -1136,6 +1137,91 @@ describe('CheckpointProposalJob Timing Tests', () => {
 
       // ...and the L1 submission is delayed to (and mines in) the target slot.
       expect(publisher.sendRequestsAt).toHaveBeenCalledWith(targetSlot);
+    });
+  });
+
+  describe('Build-frame deadline enforcement', () => {
+    // Regression coverage for the frame bug: build-frame state deadlines must be measured against
+    // the build slot (`slotNow`), not the target slot. Passing `targetSlot` shifted every deadline a
+    // full Aztec slot into the future (frame B), so they never fired.
+
+    // States the job owns and sets while building inside the build frame. Their deadlines must be
+    // enforced against `slotNow`.
+    const buildFrameStates = [
+      SequencerState.INITIALIZING_CHECKPOINT,
+      SequencerState.WAITING_FOR_TXS,
+      SequencerState.CREATING_BLOCK,
+      SequencerState.WAITING_UNTIL_NEXT_BLOCK,
+      SequencerState.ASSEMBLING_CHECKPOINT,
+      SequencerState.COLLECTING_ATTESTATIONS,
+      SequencerState.PUBLISHING_CHECKPOINT,
+    ];
+
+    it('passes the target slot to observers and the build slot to deadline checks for build-frame states', async () => {
+      const { blocks, txs } = await createTestBlocksAndTxs(2);
+      mockP2pWithTxs(txs);
+      // Force a single WAITING_FOR_TXS poll before the first block by reporting no pending txs once.
+      p2p.getPendingTxCount.mockResolvedValueOnce(0);
+      checkpointBuilder.seedBlocks(
+        blocks,
+        blocks.map((_, i) => [txs[i]]),
+      );
+      checkpointBuilder.setExecutionDurations([5, 5]);
+
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(blocks[1]));
+
+      setTimeInSlot(1);
+
+      const observedSlots = new Map<
+        SequencerState,
+        { slot: SlotNumber | undefined; timeReferenceSlot: SlotNumber | undefined }
+      >();
+      const setStateFn = jest.fn((state: SequencerState, slot?: SlotNumber, timeReferenceSlot?: SlotNumber) => {
+        observedSlots.set(state, { slot, timeReferenceSlot });
+      });
+
+      const job = createJob(setStateFn);
+      await job.execute();
+      await job.awaitPendingSubmission();
+
+      // The build and target slot differ, so the bug would be observable.
+      expect(Number(targetSlot)).toBe(Number(slotNumber) + PROPOSER_PIPELINING_SLOT_OFFSET);
+
+      for (const state of buildFrameStates) {
+        expect(observedSlots.has(state)).toBe(true);
+        expect(observedSlots.get(state)?.slot).toBe(targetSlot);
+        expect(observedSlots.get(state)?.timeReferenceSlot).toBe(slotNumber);
+      }
+    });
+
+    it('abandons the slot when a build-frame deadline is missed (assembly past the build-slot boundary)', async () => {
+      const { blocks, txs } = await createTestBlocksAndTxs(1);
+      mockP2pWithTxs(txs);
+      checkpointBuilder.seedBlocks(blocks, [[txs[0]]]);
+      // Single block runs 50s -> 80s (in the build frame), so ASSEMBLING_CHECKPOINT is entered at
+      // ~80s into the build frame, past its deadline (checkpointAssemblyDeadline = 72s in frame A).
+      checkpointBuilder.setExecutionDurations([30]);
+
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(blocks[0]));
+
+      setTimeInSlot(50);
+
+      // Enforcing setStateFn mirroring Sequencer.setState: measures the deadline against the
+      // explicit time reference slot when one is provided.
+      const setStateFn = (state: SequencerState, slot?: SlotNumber, timeReferenceSlot?: SlotNumber) => {
+        const slotForTiming = timeReferenceSlot ?? slot;
+        if (slotForTiming !== undefined) {
+          const ref = getSlotStartBuildTimestamp(slotForTiming, l1Constants);
+          timetable.assertTimeLeft(state, dateProvider.nowInSeconds() - ref);
+        }
+      };
+
+      const job = createJob(setStateFn);
+      const checkpoint = await job.execute();
+
+      // Past the build-frame assembly deadline: the SequencerTooSlowError is caught inside
+      // proposeCheckpoint, which returns undefined, so no checkpoint is produced.
+      expect(checkpoint).toBeUndefined();
     });
   });
 });

@@ -408,9 +408,13 @@ describe('sequencer-timetable', () => {
           expect(availableTime).toBeGreaterThanOrEqual(requiredTimeForValidators);
         });
 
-        it('sets the publish deadline into the target slot minus l1PublishingTime', () => {
+        it('sets the publish deadline to 12s (one Ethereum slot) before the last L1 block of the target slot', () => {
+          // The publish deadline is the latest the checkpoint can be submitted and still land on L1
+          // in the target slot: one Ethereum slot before the last L1 block. It is derived from
+          // ethereumSlotDuration (L1 geometry), NOT l1PublishingTime (the send lead). Here
+          // ETHEREUM_SLOT_DURATION === L1_PUBLISHING_TIME, so the numeric value coincides.
           const publishDeadline = timetable.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT);
-          expect(publishDeadline).toBe(2 * AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME);
+          expect(publishDeadline).toBe(2 * AZTEC_SLOT_DURATION - ETHEREUM_SLOT_DURATION);
         });
 
         it('should fit all build-slot operations within slot duration', () => {
@@ -553,6 +557,23 @@ describe('sequencer-timetable', () => {
       });
 
       expect(tt.pipeliningAttestationGracePeriod).toBe(0);
+    });
+
+    it('allows fast local publishing profiles to enter assembly and attestation collection in the target slot', () => {
+      const PLAYGROUND_AZTEC_SLOT_DURATION = 72;
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: PLAYGROUND_AZTEC_SLOT_DURATION,
+        l1PublishingTime: 1,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      expect(tt.pipeliningAttestationGracePeriod).toBe(48);
+      expect(tt.getMaxAllowedTime(SequencerState.ASSEMBLING_CHECKPOINT)).toBe(120);
+      expect(tt.getMaxAllowedTime(SequencerState.COLLECTING_ATTESTATIONS)).toBe(120);
+      expect(tt.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT)).toBe(132);
+      expect(() => tt.assertTimeLeft(SequencerState.ASSEMBLING_CHECKPOINT, 84.7)).not.toThrow();
+      expect(() => tt.assertTimeLeft(SequencerState.COLLECTING_ATTESTATIONS, 84.7)).not.toThrow();
     });
 
     it('uses separate pipelined deadlines for attestation start vs publish cutoff', () => {
