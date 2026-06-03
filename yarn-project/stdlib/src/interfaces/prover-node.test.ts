@@ -85,11 +85,12 @@ class MockProverNode implements ProverNodeApi {
   getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]> {
     return Promise.resolve([
       { uuid: 'uuid1', status: 'initialized', epochNumber: 10 },
-      { uuid: 'uuid2', status: 'processing', epochNumber: 10 },
-      { uuid: 'uuid3', status: 'awaiting-prover', epochNumber: 10 },
+      { uuid: 'uuid2', status: 'awaiting-checkpoints', epochNumber: 10 },
+      { uuid: 'uuid3', status: 'awaiting-predecessor', epochNumber: 10 },
       { uuid: 'uuid4', status: 'publishing-proof', epochNumber: 10 },
       { uuid: 'uuid5', status: 'completed', epochNumber: 10 },
-      { uuid: 'uuid6', status: 'failed', epochNumber: 10 },
+      { uuid: 'uuid6', status: 'superseded', epochNumber: 10 },
+      { uuid: 'uuid7', status: 'failed', epochNumber: 10 },
     ]);
   }
 
