@@ -105,6 +105,13 @@ fn mono_add_lin(a: Mono, b: Mono) -> Mono {
   return Mono(fr_add_f8(a.c0, b.c0), fr_add_f8(a.c1, b.c1), a.c2);
 }
 
+// Subtract a degree-1 monomial `b` from a degree-2 monomial `a`, touching only
+// the constant and linear terms — the sub counterpart of mono_add_lin. `a`'s c2
+// (its X^2 coeff) is preserved.
+fn mono_sub_lin(a: Mono, b: Mono) -> Mono {
+  return Mono(fr_sub_f8(a.c0, b.c0), fr_sub_f8(a.c1, b.c1), a.c2);
+}
+
 // === monomial-scalar ops. ===
 // add/sub touch only the constant term (c0); scale touches every coefficient.
 fn mono_add_scalar(a: Mono, s: array<u32, 8>) -> Mono {

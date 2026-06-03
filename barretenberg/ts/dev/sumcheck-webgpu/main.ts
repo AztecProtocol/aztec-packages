@@ -17,8 +17,10 @@ import { arithSuite } from './suite_arith.js';
 import { deltaSuite } from './suite_delta.js';
 import { eccSuite } from './suite_ecc.js';
 import { pos2InitSuite } from './suite_pos2init.js';
+import { nnfSuite } from './suite_nnf.js';
+import { ellipticSuite } from './suite_elliptic.js';
 
-const REGISTRY: Suite[] = [frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite];
+const REGISTRY: Suite[] = [frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite, nnfSuite, ellipticSuite];
 
 const $log = document.getElementById('log') as HTMLDivElement;
 const $logn = document.getElementById('logn') as HTMLInputElement;

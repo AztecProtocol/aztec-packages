@@ -26,6 +26,8 @@ import {
   delta_range_relation_test as delta_range_relation_test_shader,
   ecc_op_queue_relation_test as ecc_op_queue_relation_test_shader,
   poseidon2_initial_relation_test as poseidon2_initial_relation_test_shader,
+  non_native_field_relation_test as non_native_field_relation_test_shader,
+  elliptic_relation_test as elliptic_relation_test_shader,
   field as field_funcs,
   field8 as field8_funcs,
   fr_ops_test as fr_ops_test_shader,
@@ -497,6 +499,33 @@ ${packLines.join('\n')}
     return mustache.render(
       poseidon2_initial_relation_test_shader,
       this.relationView(workgroup_size),
+      this.relationPartials,
+    );
+  }
+
+  /**
+   * NonNativeFieldRelation accumulate test kernel
+   * (relations/non_native_field_relation.hpp). One length-6 subrelation; bakes
+   * 2^68 and 2^14. One thread per edge writes the 6-Fr contribution.
+   */
+  public gen_non_native_field_relation_test_shader(workgroup_size: number): string {
+    return mustache.render(
+      non_native_field_relation_test_shader,
+      { ...this.relationView(workgroup_size), limb_size_csv: this.montWords8(1n << 68n), sublimb_csv: this.montWords8(1n << 14n) },
+      this.relationPartials,
+    );
+  }
+
+  /**
+   * EllipticRelation accumulate test kernel (relations/elliptic_relation.hpp).
+   * Two length-6 subrelations (x/y coordinate, add + double branches); bakes the
+   * Grumpkin curve constant b = -17. One thread per edge writes the 12-Fr
+   * contribution.
+   */
+  public gen_elliptic_relation_test_shader(workgroup_size: number): string {
+    return mustache.render(
+      elliptic_relation_test_shader,
+      { ...this.relationView(workgroup_size), curve_b_csv: this.montWords8(-17n) },
       this.relationPartials,
     );
   }
