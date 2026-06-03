@@ -655,11 +655,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
-     * @brief Batch verify multiple IPA proofs with batched SRS MSMs.
+     * @brief Batch verify multiple IPA proofs with a single batched SRS MSM.
      *
      * @details For N proofs, IPA verification's dominant cost is the SRS MSM (pippenger over poly_length points).
-     * By combining N proofs via random linear combinations, we replace per-proof MSMs with a constant number of batched
-     * MSMs.
+     * By combining N proofs via random linear combinations, we replace per-proof MSMs with a single batched SRS MSM.
      *
      * Two families of equations are enforced over the SRS: the main IPA relation
      *   \f$\sum \alpha^i C_{0,i} = \langle \sum \alpha^i a_{0,i} \vec{s}_i, \vec{G} \rangle
@@ -751,13 +750,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         Commitment batched_commitment = scalar_multiplication::pippenger_unsafe<Curve>(
             combined_msm_scalars, { &srs_elements[0], /*size*/ poly_length });
 
-        // gamma-weighted sum of the prover-supplied G_0 values.
+        // beta-weighted sum of the prover-supplied G_0 values (gamma is applied in the final check).
         GroupElement prover_g_zero_batch = G_zeros_from_prover[0] * beta_pows[0];
         for (size_t i = 1; i < num_claims; i++) {
             prover_g_zero_batch += G_zeros_from_prover[i] * beta_pows[i];
         }
 
-        // Combined LHS: C_batch = \sum \alpha^i * C_zero_i
+        // Batched claim commitment: C_batch = \sum \alpha^i * C_zero_i
         GroupElement C_batch = C_zeros[0];
         for (size_t i = 1; i < num_claims; i++) {
             C_batch = C_batch + C_zeros[i] * alpha_pows[i];
