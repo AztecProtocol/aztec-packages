@@ -556,6 +556,7 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
     methods: [
       'getL1ToL2MessageMembershipWitness',
       'getL1ToL2MessageCheckpoint',
+      'getL2ToL1MembershipWitness',
       'getL2ToL1Messages',
     ],
   },

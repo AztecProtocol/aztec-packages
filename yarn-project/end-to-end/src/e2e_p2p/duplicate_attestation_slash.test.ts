@@ -89,7 +89,6 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
         slashDuplicateProposalPenalty: slashingUnit,
         slashDuplicateAttestationPenalty: slashingUnit,
         slashingOffsetInRounds: 1,
-        enableProposerPipelining: true,
         inboxLag: 2,
       },
     });
@@ -224,7 +223,7 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
     // Find an epoch where the malicious proposer is selected, stopping one epoch before
     // so we have time to start sequencers before the target epoch arrives
     const epochCache = (honestNode1 as TestAztecNodeService).epochCache;
-    const { targetEpoch } = await advanceToEpochBeforeProposer({
+    const { targetEpoch, targetSlot } = await advanceToEpochBeforeProposer({
       epochCache,
       cheatCodes: t.ctx.cheatCodes.rollup,
       targetProposer: maliciousProposerAddress,
@@ -235,9 +234,14 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
     t.logger.warn('Starting all sequencers');
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
 
-    // Now warp to the target epoch — sequencers are already running
-    t.logger.warn(`Advancing to target epoch ${targetEpoch}`);
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch);
+    // Now warp to one slot before the target epoch — sequencers are already running. The helper
+    // picks a target slot at least one slot into the epoch, so warping here (rather than to the
+    // epoch start) leaves the freshly-started sequencers a full warm-up slot before the pipelined
+    // build for the malicious slot begins. Without that margin the duplicate proposals serialize
+    // past the slot boundary and receivers reject them as late, so the malicious nodes never get to
+    // attest to both and no duplicate attestation is produced.
+    t.logger.warn(`Advancing to one slot before target epoch ${targetEpoch} (target slot ${targetSlot})`);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch, { offset: -AZTEC_SLOT_DURATION });
 
     // Wait for offenses to be detected
     // We expect BOTH duplicate proposal AND duplicate attestation offenses

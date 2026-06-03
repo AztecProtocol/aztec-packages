@@ -27,10 +27,6 @@ class TestEpochCache extends EpochCache {
   public setCacheSize(size: number): void {
     this.config.cacheSize = size;
   }
-
-  public setProposerPipelining(enabled: boolean): void {
-    this.enableProposerPipelining = enabled;
-  }
 }
 
 describe('EpochCache', () => {
@@ -507,16 +503,7 @@ describe('EpochCache', () => {
   });
 
   describe('proposer pipelining', () => {
-    it('getTargetSlot() returns slotNow when pipelining disabled', () => {
-      const initialTime = Number(l1GenesisTime) * 1000;
-      jest.setSystemTime(initialTime);
-
-      expect(epochCache.isProposerPipeliningEnabled()).toBe(false);
-      expect(epochCache.getTargetSlot()).toEqual(epochCache.getSlotNow());
-    });
-
-    it('getTargetSlot() returns slotNow + 1 when pipelining enabled', () => {
-      epochCache.setProposerPipelining(true);
+    it('getTargetSlot() returns slotNow + 1', () => {
       const initialTime = Number(l1GenesisTime) * 1000;
       jest.setSystemTime(initialTime);
 
@@ -524,8 +511,7 @@ describe('EpochCache', () => {
       expect(epochCache.getTargetSlot()).toEqual(SlotNumber(slotNow + PROPOSER_PIPELINING_SLOT_OFFSET));
     });
 
-    it('getTargetEpoch() returns epoch for slotNow + 1 when pipelining enabled', () => {
-      epochCache.setProposerPipelining(true);
+    it('getTargetEpoch() returns epoch for slotNow + 1', () => {
       // Set time to mid-epoch 0
       const midEpochSlot = 5;
       const initialTime = (Number(l1GenesisTime) + midEpochSlot * SLOT_DURATION) * 1000;
@@ -535,8 +521,7 @@ describe('EpochCache', () => {
       expect(epochCache.getTargetEpoch()).toEqual(EpochNumber(0));
     });
 
-    it('getTargetEpochAndSlotInNextL1Slot() returns nextL1Slot + 1 when pipelining enabled', () => {
-      epochCache.setProposerPipelining(true);
+    it('getTargetEpochAndSlotInNextL1Slot() returns nextL1Slot + 1', () => {
       const initialTime = Number(l1GenesisTime) * 1000;
       jest.setSystemTime(initialTime);
 
@@ -547,7 +532,6 @@ describe('EpochCache', () => {
     });
 
     it('getTargetEpochAndSlotInNextL1Slot() handles epoch boundary', () => {
-      epochCache.setProposerPipelining(true);
       // Set time to last slot of epoch 0 (slot EPOCH_DURATION - 1)
       const lastSlot = EPOCH_DURATION - 1;
       const initialTime = (Number(l1GenesisTime) + lastSlot * SLOT_DURATION) * 1000;
@@ -560,21 +544,7 @@ describe('EpochCache', () => {
       expect(targetResult.epoch).toEqual(EpochNumber(1));
     });
 
-    it('getTargetAndNextSlot() returns same as getCurrentAndNextSlot when pipelining disabled', () => {
-      const initialTime = Number(l1GenesisTime) * 1000;
-      jest.setSystemTime(initialTime);
-
-      expect(epochCache.isProposerPipeliningEnabled()).toBe(false);
-
-      const { currentSlot, nextSlot: currentNext } = epochCache.getCurrentAndNextSlot();
-      const { targetSlot, nextSlot: targetNext } = epochCache.getTargetAndNextSlot();
-
-      expect(targetSlot).toEqual(currentSlot);
-      expect(targetNext).toEqual(currentNext);
-    });
-
-    it('getTargetAndNextSlot() applies pipeline offset when enabled', () => {
-      epochCache.setProposerPipelining(true);
+    it('getTargetAndNextSlot() applies pipeline offset', () => {
       const initialTime = Number(l1GenesisTime) * 1000;
       jest.setSystemTime(initialTime);
 

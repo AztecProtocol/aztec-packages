@@ -4829,6 +4829,7 @@ describe('TxPoolV2', () => {
               l2BlockHash: await block.hash(),
               data: block.body.txEffects[0],
               txIndexInBlock: 0,
+              slotNumber: SlotNumber(1),
             };
           }
           return undefined;

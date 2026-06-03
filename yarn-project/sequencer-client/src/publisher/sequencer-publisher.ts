@@ -401,10 +401,10 @@ export class SequencerPublisher {
 
   /**
    * Sends all requests that are still valid.
-   * @param targetSlot - The target L2 slot for this send. When provided (pipelined path via
-   *   sendRequestsAt), it is threaded into bundleSimulate so the block.timestamp override
-   *   matches the slot the propose is built for. When omitted, falls back to
-   *   getCurrentL2Slot() for the non-pipelined callers in Sequencer.doWork.
+   * @param targetSlot - The target L2 slot for this send. When provided (the production path, via
+   *   sendRequestsAt), it is threaded into bundleSimulate so the block.timestamp override matches
+   *   the slot the propose is built for. When omitted, falls back to getCurrentL2Slot() for the
+   *   AutomineSequencer, which publishes synchronously within the current slot.
    * @returns one of:
    * - A receipt and stats if the tx succeeded
    * - a receipt and errorMsg if it failed on L1
@@ -684,8 +684,7 @@ export class SequencerPublisher {
     // skip the proposal; we do NOT treat these as bugs.
     const expectedErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
-    const pipelined = this.epochCache.isProposerPipeliningEnabled();
-    const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
+    const slotOffset = this.aztecSlotDuration;
     const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
 
     return this.rollupContract

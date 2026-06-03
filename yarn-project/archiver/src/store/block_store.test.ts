@@ -1853,6 +1853,7 @@ describe('BlockStore', () => {
         l2BlockNumber: block.number,
         l2BlockHash: await block.header.hash(),
         txIndexInBlock,
+        slotNumber: block.header.globalVariables.slotNumber,
       };
       const actualTx = await blockStore.getTxEffect(data.txHash);
       expect(actualTx).toEqual(expectedTx);

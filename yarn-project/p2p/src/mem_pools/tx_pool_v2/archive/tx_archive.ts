@@ -1,6 +1,5 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import { ChonkProof } from '@aztec/stdlib/proofs';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 /**
@@ -70,7 +69,7 @@ export class TxArchive {
           }
 
           // Archive the transaction with stripped proof
-          const archivedTx = this.stripProof(tx);
+          const archivedTx = tx.withoutProof();
           const txHash = tx.getTxHash().toString();
           await this.#txs.set(txHash, archivedTx.toBuffer());
           await this.#indices.set(headIdx, txHash);
@@ -99,13 +98,6 @@ export class TxArchive {
     const head = await this.getHeadIndex();
     const tail = await this.getTailIndex();
     return head - tail;
-  }
-
-  /**
-   * Strips the proof from a transaction for archival.
-   */
-  private stripProof(tx: Tx): Tx {
-    return new Tx(tx.txHash, tx.data, ChonkProof.empty(), tx.contractClassLogFields, tx.publicFunctionCalldata);
   }
 
   private async getHeadIndex(): Promise<number> {
