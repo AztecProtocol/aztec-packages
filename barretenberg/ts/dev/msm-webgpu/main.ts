@@ -1626,7 +1626,12 @@ function hideProgress(): void {
           log('info', `[scratch-breakdown] ${top}`);
         }
         const pi = (window as unknown as { __lastPlanInfo?: Record<string, number> }).__lastPlanInfo;
-        if (pi) log('info', `[plan-info] numBatches=${pi.numBatches} batchWindows=${pi.batchWindows}/${pi.numWindows} estMB=${pi.estMB?.toFixed(1)} budgetMB=${pi.budgetMB?.toFixed(0)}`);
+        if (pi)
+          log(
+            'info',
+            `[plan-info] numBatches=${pi.numBatches} batchWindows=${pi.batchWindows}/${pi.numWindows} ` +
+              `chunkM=${pi.chunkM} numChunks=${pi.numChunks} estMB=${pi.estMB?.toFixed(1)} budgetMB=${pi.budgetMB?.toFixed(0)}`,
+          );
       }
       log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
         `min_wall=${minWall.toFixed(2)}ms avg_wall=${avgWall.toFixed(2)}ms cpu_fold=${avgCpuFold.toFixed(2)}ms gpu_ts=${avgGpu.toFixed(1)}ms ` +

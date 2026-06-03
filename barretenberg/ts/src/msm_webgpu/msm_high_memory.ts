@@ -1676,10 +1676,14 @@ export class MsmHighMemory {
         partialStrideMax,
       };
     };
+    // The reduce working-set width (MAXC) is purely a function of reducePasses
+    // (instance-invariant), so the estimate can read it before the solver runs.
+    let MAXC0 = 1;
+    for (const p of this.reducePasses) MAXC0 = Math.max(MAXC0, Math.ceil(p.ppw / REDUCE_WG));
     // Scratch byte estimate for a chunk plan at window-batch count nb. Must match
     // the slow-path allocation so the metered budget is honoured. nb (window
     // batching) and M (point chunking) both shrink the point-scaled buffers; the
-    // full-width terms (bucketResult, redBuf, scalarsRaw) are the floor.
+    // full-width terms (bucketResult, redBuf, scalarsRaw, reducePref) are the floor.
     const estimateMemFor = (mp: MPlan, nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
       const m1 = Math.ceil(bw * mp.wstride1 * OVERSIZE_FACTOR) + 3;
@@ -1689,17 +1693,17 @@ export class MsmHighMemory {
       const carries = Math.ceil(bw * mp.maxCarriesPerWindow * OVERSIZE_FACTOR);
       const tile = Math.min(Math.ceil((1 << 16) / WGI) * WGI, Math.max(WGI, Math.ceil(tc / WGI) * WGI));
       return (
-        2 * 64 * m1 +
-        64 * B_TOTAL +
-        4 * 4 * bBuckets +
-        4 * (bSlots + 3) +
-        2 * (3 * tc * S + 2 * carries) * 4 +
-        tile * S * 8 * 4 +
-        3 * 4 * bSlots +
-        4 * bw * (BW + 1) +
-        4 * bBuckets +
-        4 * 32 * n +
-        68 * RED_M
+        2 * 64 * m1 + // bufA + bufB (SoA: 2 planes × 32 B per element)
+        64 * B_TOTAL + // bucketResult (SoA over all global buckets)
+        4 * 4 * bBuckets + // countsBufs(2) + offsetsBufs(2), 4 B each
+        4 * (bSlots + 3) + // l0Idx (1 u32 per slot)
+        2 * 4 * bSlots + // bucketAndSign + valIdx (1 u32 per slot each)
+        2 * (3 * tc * S + 2 * carries) * 4 + // pairBlock + scatter + carry plan rings
+        tile * S * 8 * 4 + // pair-tree prefScratch
+        4 * bw * (BW + 1) + // rowPtr
+        32 * n + // scalarsRaw (n scalars × 32 B; uploaded whole, read per-chunk)
+        100 * RED_M + // redBuf(64) + redZ(32) + isPresent(4), per reduce slot
+        NUM_WINDOWS * REDUCE_WG * MAXC0 * 2 * 16 // reducePrefScratch
       );
     };
     // The decompose / convActive dispatch is per chunk = bw×Mmax threads.
@@ -1725,13 +1729,20 @@ export class MsmHighMemory {
       mp = walkAtM(Math.min(this.chunkPoints, n));
       numBatches = solveBatches(mp);
     } else {
-      // Halve M from n down; stop at the largest M that fits, else the smallest
-      // (the floor — full-width buffers can exceed budget at any M, and we still
-      // want the tightest point-buffer bound in that case).
-      let candM = n;
+      // Start from the largest M that is both ≤ n and ≤ a per-chunk perf cap,
+      // then halve for memory. The perf cap matters because a single chunk that
+      // spans all n points makes the level-0 pair-tree dispatches enormous — for
+      // profile E's one giant bucket that serialises ~log₂(n) deep over a working
+      // set of ~n/2 pairs, which on M-series measures ~13× slower at logn19 than
+      // a 2-chunk plan that still fits the budget. Capping the chunk point count
+      // keeps each chunk's dispatches GPU-friendly. The cap is generous (2^18):
+      // it leaves logn ≤ 17 (n ≤ 131072) as a single chunk and only bites at the
+      // largest N. "Prefer larger M" (the budget lever) still holds below the cap.
+      const M_PERF_CAP = 1 << 18;
+      const MIN_CHUNK = Math.max(1024, Math.ceil(BW / 2)); // don't chunk below ~one bucket-row
+      let candM = Math.min(n, Math.max(MIN_CHUNK, M_PERF_CAP));
       mp = walkAtM(candM);
       numBatches = solveBatches(mp);
-      const MIN_CHUNK = Math.max(1024, Math.ceil(BW / 2)); // don't chunk below ~one bucket-row
       while (estimateMemFor(mp, numBatches) > this.memBudget && candM > MIN_CHUNK) {
         candM = Math.max(MIN_CHUNK, Math.floor(candM / 2));
         const nextMp = walkAtM(candM);
