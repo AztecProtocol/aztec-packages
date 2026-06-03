@@ -37,12 +37,8 @@ import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagg
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
-<<<<<<< HEAD
-import { UtilityExecutionOracle } from './utility_execution_oracle.js';
-=======
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
-import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
->>>>>>> 11fdf87237
+import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
@@ -357,6 +353,7 @@ describe('Utility Execution test suite', () => {
         scopes: [scope],
         l2TipsStore,
         simulator,
+        utilityExecutor: () => Promise.resolve(),
       });
     });
 
@@ -425,6 +422,7 @@ describe('Utility Execution test suite', () => {
           scopes: [scope],
           l2TipsStore,
           simulator,
+          utilityExecutor: () => Promise.resolve(),
         });
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
@@ -556,6 +554,7 @@ describe('Utility Execution test suite', () => {
             scopes: [],
             l2TipsStore,
             simulator,
+            utilityExecutor: () => Promise.resolve(),
           });
 
         const oracleA = makeOracle(contractAddressA);

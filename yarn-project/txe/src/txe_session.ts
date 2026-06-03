@@ -649,6 +649,7 @@ export class TXESession implements TXESessionStateHandler {
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
       simulator: new WASMSimulator(),
+      utilityExecutor: this.utilityExecutorForContractSync(anchorBlockHeader),
     });
 
     this.state = { name: 'UTILITY' };
@@ -748,6 +749,7 @@ export class TXESession implements TXESessionStateHandler {
           jobId: this.currentJobId,
           scopes,
           simulator,
+          utilityExecutor: this.utilityExecutorForContractSync(anchorBlock),
         });
         await simulator
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

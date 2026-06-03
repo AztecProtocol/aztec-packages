@@ -81,7 +81,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
   private readonly callContext: CallContext;
-  private readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
@@ -100,7 +99,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.argsHash = args.argsHash;
     this.txContext = args.txContext;
     this.callContext = args.callContext;
-    this.utilityExecutor = args.utilityExecutor;
     this.executionCache = args.executionCache;
     this.noteCache = args.noteCache;
     this.taggingIndexCache = args.taggingIndexCache;

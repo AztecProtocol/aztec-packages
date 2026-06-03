@@ -15,7 +15,7 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
@@ -91,6 +91,8 @@ export type UtilityExecutionOracleArgs = {
   scopes: AztecAddress[];
   simulator: CircuitSimulator;
   hooks?: ExecutionHooks;
+  /** Needed to trigger contract synchronization before nested cross-contract calls. */
+  utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
 };
 
 /**
@@ -129,6 +131,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly scopes: AztecAddress[];
   protected readonly simulator: CircuitSimulator;
   protected readonly hooks: ExecutionHooks | undefined;
+  protected readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
 
   constructor(args: UtilityExecutionOracleArgs) {
     this.contractAddress = args.contractAddress;
@@ -152,6 +155,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.scopes = args.scopes;
     this.simulator = args.simulator;
     this.hooks = args.hooks;
+    this.utilityExecutor = args.utilityExecutor;
   }
 
   public assertCompatibleOracleVersion(major: number, minor: number): void {
@@ -822,6 +826,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
             `See https://docs.aztec.network/errors/11`,
         );
       }
+
+      await this.contractSyncService.ensureContractSynced(
+        targetContractAddress,
+        functionSelector,
+        this.utilityExecutor,
+        this.anchorBlockHeader,
+        this.jobId,
+        this.scopes,
+      );
     }
 
     this.logger.debug(
@@ -849,6 +862,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       scopes: this.scopes,
       simulator: this.simulator,
       hooks: this.hooks,
+      utilityExecutor: this.utilityExecutor,
       log: this.logger,
     });
 

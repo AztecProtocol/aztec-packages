@@ -313,8 +313,6 @@ describe('syncSenderTaggingIndexes', () => {
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(pendingAndFinalizedIndex);
   });
 
-<<<<<<< HEAD
-=======
   /**
    * Covers the dominant wallet-resimulation scenario: a tx was sent (or previously discovered) in an earlier sync,
    * so the pending entry is already in the store. A subsequent sync against an anchor block where that tx is now
@@ -486,7 +484,6 @@ describe('syncSenderTaggingIndexes', () => {
     expect(aztecNode.getTxReceipt).toHaveBeenCalledWith(pendingTxHash);
   });
 
->>>>>>> 11fdf87237
   it('handles a partially reverted transaction', async () => {
     await setUp();
 

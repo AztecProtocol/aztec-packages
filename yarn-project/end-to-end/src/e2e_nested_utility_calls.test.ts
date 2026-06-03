@@ -167,8 +167,6 @@ describe('authorizeUtilityCall hook', () => {
       callerContext: 'private',
     });
   });
-<<<<<<< HEAD
-=======
 
   it('denies cross-contract utility call from view function when hook returns false', async () => {
     await expect(
@@ -215,5 +213,4 @@ describe('authorizeUtilityCall hook', () => {
       .simulate({ from: defaultAccountAddress });
     expect(crossContractResult).toEqual(2n ** 10n);
   });
->>>>>>> 11fdf87237
 });

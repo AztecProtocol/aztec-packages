@@ -214,6 +214,7 @@ describe('Oracle Version Check test suite', () => {
         scopes: [],
         l2TipsStore,
         simulator,
+        utilityExecutor: () => Promise.resolve(),
       });
     });
 
