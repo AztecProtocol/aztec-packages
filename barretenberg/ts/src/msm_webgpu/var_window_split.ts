@@ -188,3 +188,96 @@ export function effectiveNumBits(msbHist: Uint32Array | number[]): number {
   }
   return NUM_BITS_MAX;
 }
+
+const WD_STRIDE = 8;
+const PLANNER_TPB = 256;
+
+export interface DecideSummary {
+  isSplit: number;
+  bStar: number;
+  cLo: number;
+  cHi: number;
+  nLarge: number;
+  wLo: number;
+  wHi: number;
+  numWindows: number;
+  effNumBits: number;
+}
+
+// Reference for the ba_decide_window_split kernel: produces the exact WindowDesc
+// rows + summary the GPU kernel should write, given the same histogram and envelope
+// c. Used to unit-test the kernel by readback (split-c Phase 2 exit criterion). The
+// fill must stay byte-identical to both the kernel and the host WindowDesc fill in
+// msm_v2.ts (envelope reduce_off = w*stride_max; NO_SPLIT = uniform ceil(254/c)).
+export function buildWindowDescReference(
+  msbHist: Uint32Array | number[],
+  n: number,
+  cEnv: number,
+  wdRows: number,
+  pickC: CPicker,
+): { windowDesc: Uint32Array; summary: DecideSummary } {
+  const eff = effectiveNumBits(msbHist);
+  const dec = chooseVarWindowSplit(msbHist, n, eff, pickC);
+  const strideMax = 2 ** (cEnv - 1);
+  const wd = new Uint32Array(wdRows * WD_STRIDE);
+  let w = 0;
+  let bitBase = 0;
+  let workOff = 0;
+  const emit = (cw: number) => {
+    const strideW = 2 ** (cw - 1);
+    const numCols = Math.ceil((strideW + 1) / PLANNER_TPB) * PLANNER_TPB;
+    const o = w * WD_STRIDE;
+    wd[o + 0] = cw;
+    wd[o + 1] = bitBase;
+    wd[o + 2] = strideW;
+    wd[o + 3] = workOff;
+    wd[o + 4] = w * strideMax;
+    wd[o + 5] = numCols;
+    bitBase += cw;
+    workOff += numCols;
+    w++;
+  };
+  const cUnsplit = pickC(n);
+  let wLo = 0;
+  let wHi = 0;
+  let nLarge = 0;
+  if (!dec.isSplit) {
+    const nw = Math.ceil(NUM_BITS_MAX / cUnsplit);
+    while (w < nw && w < VAR_WINDOW_MAX_WINDOWS) emit(cUnsplit);
+    wLo = w;
+  } else {
+    const totalBits = eff + 2;
+    const lowerBits = Math.min(dec.bStar, totalBits);
+    let remaining = lowerBits;
+    while (remaining > 0 && w < VAR_WINDOW_MAX_WINDOWS) {
+      const cw = Math.min(dec.cLo, remaining);
+      emit(cw);
+      remaining -= cw;
+    }
+    wLo = w;
+    remaining = totalBits - lowerBits;
+    while (remaining > 0 && w < VAR_WINDOW_MAX_WINDOWS) {
+      const cw = Math.min(dec.cHi, remaining);
+      emit(cw);
+      remaining -= cw;
+    }
+    wHi = w - wLo;
+    for (let i = dec.bStar; i < 256; i++) nLarge += msbHist[i];
+  }
+  const numWindows = w;
+  while (w < wdRows && w < VAR_WINDOW_MAX_WINDOWS) emit(cEnv);
+  return {
+    windowDesc: wd,
+    summary: {
+      isSplit: dec.isSplit ? 1 : 0,
+      bStar: dec.bStar,
+      cLo: dec.cLo,
+      cHi: dec.cHi,
+      nLarge,
+      wLo,
+      wHi,
+      numWindows,
+      effNumBits: eff,
+    },
+  };
+}

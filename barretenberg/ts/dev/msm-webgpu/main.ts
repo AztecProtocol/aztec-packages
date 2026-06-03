@@ -30,6 +30,7 @@ import {
   chooseVarWindowSplit,
   buildVarWindowSchedule,
   effectiveNumBits,
+  buildWindowDescReference,
 } from '../../src/msm_webgpu/var_window_split.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
@@ -1669,6 +1670,21 @@ function hideProgress(): void {
         log('info', `[msbhist] decision: SPLIT b*=${dec.bStar} cLo=${dec.cLo} cHi=${dec.cHi} → ${widths.length} windows (effNumBits=${enb})`);
       } else {
         log('info', `[msbhist] decision: NO_SPLIT (effNumBits=${enb}, c=${pickC(inputs.n)})`);
+      }
+      // Validate the GPU decide kernel: its WindowDesc + summary must match the
+      // reference exactly (the Phase 2 exit criterion — unit-test the kernel).
+      const { windowDesc: gpuWd, summary: gpuSummary } = await msm.debugDecideWindowSplit();
+      const ref = buildWindowDescReference(hist, inputs.n, pickC(inputs.n), 128, pickC);
+      const nW = ref.summary.numWindows;
+      const sumExp = [ref.summary.isSplit, ref.summary.bStar, ref.summary.cLo, ref.summary.cHi, ref.summary.nLarge, ref.summary.wLo, ref.summary.wHi, ref.summary.numWindows, ref.summary.effNumBits];
+      let sumBad = -1;
+      for (let i = 0; i < sumExp.length; i++) if (gpuSummary[i] !== sumExp[i]) { sumBad = i; break; }
+      let rowBad = -1;
+      for (let i = 0; i < nW * 8 && rowBad < 0; i++) if (gpuWd[i] !== ref.windowDesc[i]) rowBad = i;
+      if (sumBad < 0 && rowBad < 0) {
+        log('ok', `[msbhist] decide PASS — WindowDesc(${nW}w) + summary match reference (isSplit=${gpuSummary[0]})`);
+      } else {
+        log('error', `[msbhist] decide FAIL — summary field ${sumBad} (gpu=${gpuSummary.slice(0, 9)} ref=${sumExp}), row word ${rowBad}`);
       }
     } catch (e) {
       log('error', `[msbhist] ERROR: ${e instanceof Error ? e.message : String(e)}`);

@@ -1526,6 +1526,7 @@ export class MsmV2 {
   private finalizePipeL0!: GPUComputePipeline;
   private decomposePipe!: GPUComputePipeline;
   private msbHistPipe!: GPUComputePipeline;
+  private msbDecidePipe!: GPUComputePipeline;
   private xposeCountPipe!: GPUComputePipeline;
   private xposeReducePipe!: GPUComputePipeline;
   private xposeScanPipe!: GPUComputePipeline;
@@ -1568,6 +1569,7 @@ export class MsmV2 {
   private finalizeLayoutL0!: GPUBindGroupLayout;
   private decomposeLayout!: GPUBindGroupLayout;
   private msbHistLayout!: GPUBindGroupLayout;
+  private msbDecideLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
   private xposeReduceLayout!: GPUBindGroupLayout;
   private xposeScanLayout!: GPUBindGroupLayout;
@@ -1690,6 +1692,11 @@ export class MsmV2 {
   private msbHistBind?: GPUBindGroup;
   private msbHistBuf?: GPUBuffer;
   private msbPerScalarBuf?: GPUBuffer;
+  // split-c decide kernel (Phase 2). Writes a dedicated WindowDesc + a 16-u32
+  // schedule summary; validated by readback against buildWindowDescReference.
+  private msbDecideBind?: GPUBindGroup;
+  private decideWindowDescBuf?: GPUBuffer;
+  private decideSummaryBuf?: GPUBuffer;
   private xposeCountBinds!: GPUBindGroup[];
   private xposeReduceBinds!: GPUBindGroup[];
   private xposeScanBinds!: GPUBindGroup[];
@@ -1902,6 +1909,8 @@ export class MsmV2 {
     m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
     // msb_histogram: scalars(read), msb_hist(rw), msb_per_scalar(rw), params(uniform).
     m.msbHistLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
+    // decide_window_split: msb_hist(read), window_desc(rw), summary(rw), params(uniform).
+    m.msbDecideLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.xposeReduceLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform', 'read-only-storage', 'uniform']);
@@ -1966,6 +1975,7 @@ export class MsmV2 {
       pool.cache.getPipeline(code, layout, label);
     m.decomposePipe = await compile(sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
     m.msbHistPipe = await compile(sm.gen_ba_msb_histogram_shader(), `msb_histogram`, m.msbHistLayout);
+    m.msbDecidePipe = await compile(sm.gen_ba_decide_window_split_shader(), `decide_window_split`, m.msbDecideLayout);
     // Tiled counting-sort transpose: count + scatter dispatch across point-
     // chunks (not just windows) so the GPU stays saturated; reduce folds the
     // per-chunk partials; scan is the unchanged per-window prefix sum. Only
@@ -2531,6 +2541,24 @@ export class MsmV2 {
       this.msbPerScalarBuf = msbPerScalarBuf;
       this.msbHistBind = mkBind(this.msbHistLayout, [scalarsRawBuf, msbHistBuf, msbPerScalarBuf, msbHistParams]);
       this.prepBuffers.push(msbHistBuf, msbPerScalarBuf);
+
+      // Decide kernel: a dedicated WindowDesc (WD_ROWS rows) + a 16-u32 summary,
+      // written from the histogram. Separate from windowDescBuf so it's validated
+      // standalone (readback) without disturbing the consumed table; region-split
+      // (Phase 2C) will switch the pipeline to consume this directly.
+      const decideWindowDescBuf = device.createBuffer({
+        size: WD_ROWS * WD_STRIDE * 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+      });
+      const decideSummaryBuf = device.createBuffer({
+        size: 16 * 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+      });
+      const decideParams = ubuf(new Uint32Array([n, c, WD_ROWS, 0]));
+      this.decideWindowDescBuf = decideWindowDescBuf;
+      this.decideSummaryBuf = decideSummaryBuf;
+      this.msbDecideBind = mkBind(this.msbDecideLayout, [msbHistBuf, decideWindowDescBuf, decideSummaryBuf, decideParams]);
+      this.prepBuffers.push(decideWindowDescBuf, decideSummaryBuf);
     }
     // Uniform layout: [num_point_tiles, BW, n, points_per_tile]; consumed by
     // transpose_count_tiled, transpose_reduce_tiled (only [0] [1]),
@@ -3161,6 +3189,34 @@ export class MsmV2 {
     const hist = await readbackU32(this.device, this.msbHistBuf, 256 * 4);
     const msbPerScalar = await readbackU32(this.device, this.msbPerScalarBuf, this.n * 4);
     return { hist, msbPerScalar };
+  }
+
+  /**
+   * Run histogram + decide kernels and read back the GPU-built WindowDesc + the
+   * 16-u32 schedule summary (split-c Phase 2A validation). Requires `splitC` + a
+   * prior `prepare()`. Compare against {@link buildWindowDescReference}.
+   */
+  async debugDecideWindowSplit(): Promise<{ windowDesc: Uint32Array; summary: Uint32Array }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugDecideWindowSplit: call prepare() first');
+    if (!this.msbHistBind || !this.msbHistBuf || !this.msbDecideBind || !this.decideWindowDescBuf || !this.decideSummaryBuf) {
+      throw new Error('MsmV2.debugDecideWindowSplit: requires splitC=true');
+    }
+    const enc = this.device.createCommandEncoder();
+    enc.clearBuffer(this.msbHistBuf);
+    const hp = enc.beginComputePass();
+    hp.setPipeline(this.msbHistPipe);
+    hp.setBindGroup(0, this.msbHistBind);
+    hp.dispatchWorkgroups(Math.ceil(this.n / 256), 1, 1);
+    hp.end();
+    const dp = enc.beginComputePass();
+    dp.setPipeline(this.msbDecidePipe);
+    dp.setBindGroup(0, this.msbDecideBind);
+    dp.dispatchWorkgroups(1, 1, 1);
+    dp.end();
+    this.device.queue.submit([enc.finish()]);
+    const windowDesc = await readbackU32(this.device, this.decideWindowDescBuf, this.decideWindowDescBuf.size);
+    const summary = await readbackU32(this.device, this.decideSummaryBuf, 16 * 4);
+    return { windowDesc, summary };
   }
 
   async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null; windowSums: Pt[]; c: number }> {
