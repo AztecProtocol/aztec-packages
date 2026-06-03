@@ -70,6 +70,34 @@ function check(name: string, cond: boolean, detail = ''): void {
   const wLo = Math.ceil(dec.bStar / dec.cLo);
   check('bimodal: lower windows use cLo', widths.slice(0, wLo - 1).every(w => w === dec.cLo), JSON.stringify(widths));
   console.log(`       bimodal decision: ${JSON.stringify(dec)} → ${widths.length} windows [${widths.join(',')}]`);
+
+}
+
+// ── Large-c_lo lever (the walker-cut path). A wide dense region (most scalars
+// reach msb≈120, a minority msb≈250) + a cheap reduce (low alphaBucket) + raised
+// maxCLo lets the decision widen c_lo past pickC(n), cutting the lower-window
+// count and so the walker passes over all n scalars. The default reduce weight
+// keeps c_lo == pickC(n) (no-op); the lever only engages near the free-reduce
+// limit, because the cost model's dense-reduce penalty (T·2^(c-1)) is steep — the
+// natural decision needs GPU calibration against the real fast reduce to engage
+// at realistic weights, so today the shape is forced via config.
+{
+  const n = 1 << 17;
+  const hist = new Uint32Array(256);
+  hist[11] = Math.floor(n * 0.2); // msb 10 (small)
+  hist[121] = Math.floor(n * 0.5); // msb 120 (medium — the wide dense region)
+  hist[251] = n - hist[11] - hist[121]; // msb 250 (large minority)
+  const enb = effectiveNumBits(hist);
+  const decDefault = chooseVarWindowSplit(hist, n, enb, pickC); // default weight
+  check('wide-dense: default keeps cLo == pickC(n)', decDefault.cLo === pickC(n), JSON.stringify(decDefault));
+  // Cheap-reduce limit: maxCLo=16, alphaBucket≈0.
+  const decWide = chooseVarWindowSplit(hist, n, enb, pickC, undefined, /*alphaBucket=*/ 0, /*maxCLo=*/ 16);
+  check('large-c_lo: IS split', decWide.isSplit === true, JSON.stringify(decWide));
+  check('large-c_lo: cLo > pickC(n)', decWide.cLo > pickC(n), JSON.stringify(decWide));
+  const wLoDefault = Math.ceil(decDefault.bStar / decDefault.cLo) || Math.ceil((enb + 2) / pickC(n));
+  const wLoWide = Math.ceil(decWide.bStar / decWide.cLo);
+  check('large-c_lo: fewer lower windows than default', wLoWide < wLoDefault, `wide=${wLoWide} default=${wLoDefault}`);
+  console.log(`       large-c_lo: default ${JSON.stringify(decDefault)} (wLo ${wLoDefault}) vs cheap-reduce ${JSON.stringify(decWide)} (wLo ${wLoWide})`);
 }
 
 // ── Profile E: all scalars in [0,16) (msb 0..3) → NO split (no sparse high region).

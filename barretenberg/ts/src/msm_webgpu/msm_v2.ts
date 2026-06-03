@@ -284,6 +284,24 @@ export interface MsmConfig {
    * `[b_star, c_lo, c_hi]`, bypassing the cost model. Requires {@link splitC}.
    */
   forceSplit?: [number, number, number];
+  /**
+   * Reduce-cost weight (the cost model's `alphaBucket`) for the split decision.
+   * Default 4 models the dense reduce: wide windows are heavily penalised, so the
+   * lower region keeps the unsplit width. Lower it as the reduce is optimised to
+   * let the decision widen `c_lo` (fewer lower windows → fewer walker passes over
+   * all n scalars). At realistic "fast-but-not-free" weights the steep
+   * `2^(c-1)` bucket term still dominates — engaging large `c_lo` needs this
+   * calibrated against the optimised reduce's true cost.
+   */
+  reduceCostWeight?: number;
+  /**
+   * Max lower-region window width the split decision may choose (the walker-cut
+   * lever). Default 0 = `pickC(n)` (no widening, byte-identical). Capped at 15 by
+   * the packed-window bid (K=15). A wider `c_lo` only takes effect if the
+   * create-time red_buf / CSR envelope can hold its larger per-window stride;
+   * otherwise the schedule safely falls back to the unsplit width.
+   */
+  maxCLo?: number;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
@@ -1546,6 +1564,10 @@ export class MsmV2 {
   private reduceSparseBind?: GPUBindGroup;
   /** split-c test hook: force a split at [b_star, c_lo, c_hi], bypassing the cost model. */
   private forceSplit?: [number, number, number];
+  /** Reduce-cost weight (alphaBucket) for the split decision. Default 4 (dense reduce). */
+  private reduceCostWeight = 4;
+  /** Max lower-region window width the split decision may pick (0 = pickC(n)). */
+  private maxCLo = 0;
   /** Number of Pippenger windows = ceil(NUMBITS / c). Public — the bridge
    *  reads it when packing per-MSM staging buffers. */
   numWindows!: number;
@@ -1877,6 +1899,8 @@ export class MsmV2 {
     m.splitC = config?.splitC ?? false;
     m.sparseReduce = config?.sparseReduce ?? false;
     m.forceSplit = config?.forceSplit;
+    m.reduceCostWeight = config?.reduceCostWeight ?? 4;
+    m.maxCLo = config?.maxCLo ?? 0;
     m.numBatchesForce = config?.numBatchesOverride ?? 0;
     m.memBudget = config?.budgetMiB ? config.budgetMiB * (1 << 20) : MEM_BUDGET;
     const wantProfile = config?.profile ?? false;
@@ -2307,12 +2331,21 @@ export class MsmV2 {
     if (this.splitC && !this.forceSplit) {
       const hist = computeMsbHistogram(scalars, n);
       const eff = effectiveNumBits(hist);
-      const dec = chooseVarWindowSplit(hist, n, eff, pickC);
+      const dec = chooseVarWindowSplit(hist, n, eff, pickC, undefined, this.reduceCostWeight, this.maxCLo);
       const envW = Math.min(VAR_WINDOW_MAX_WINDOWS, 2 * Math.ceil(NUMBITS / this.c));
       let sched = dec.isSplit ? buildVarWindowSchedule(dec, eff) : [];
-      // Fall back to no-split if the split would exceed the create-time envelope
-      // (redM/bTotal were baked for envW windows; more would overflow red_buf).
-      if (sched.length === 0 || sched.length > envW) {
+      // Fall back to the unsplit schedule unless the decision stays inside the
+      // regime the region-split data path is validated for. Two guards:
+      //  (1) window count ≤ the create-time envelope (redM/bTotal baked for envW), and
+      //  (2) every window width ≤ pickC(n). The region-split buffers (red_buf, CSR,
+      //      partials, and the size1/walker/combine kernels that bake the pickC
+      //      stride) are sized for c_w ≤ pickC; a wider c_lo silently overruns them
+      //      (verified: it corrupts the result). Sizing those envelopes for a wider
+      //      c_lo is the follow-on that lets the walker-cut lever actually execute —
+      //      until then maxCLo widens the *decision* but the schedule safely
+      //      collapses back here, so the knob can never produce a wrong result.
+      const maxCw = sched.length > 0 ? Math.max(...sched) : 0;
+      if (sched.length === 0 || sched.length > envW || maxCw > this.c) {
         sched = new Array(Math.ceil(NUMBITS / this.c)).fill(this.c);
       } else if (dec.isSplit) {
         // Region-split: the upper W_hi windows iterate only the n_large scalars

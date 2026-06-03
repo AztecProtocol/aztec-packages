@@ -18,6 +18,13 @@ const NUM_BITS_MAX = 254;
 
 export const VAR_WINDOW_MAX_WINDOWS = 128;
 
+// Hard cap on any window width. The packed-window bid encodes the bucket
+// magnitude in K=15 bits ((window<<15)|mag), so mag < 2^15 requires the window
+// stride 2^(c-1) ≤ 2^15, i.e. c ≤ 16 — but mag ranges up to 2^(c-1) inclusive at
+// the boundary, so c=16 overflows the field and corrupts the bid. c ≤ 15 is the
+// safe ceiling (verified: c=16 produces wrong output; c=15 is byte-identical).
+export const MAX_WINDOW_BITS = 15;
+
 // b_star candidate grid (C++ SPLIT_GRID): lower/upper region boundary bit
 // positions to try; step 16 keeps the search to 14 candidates.
 export const SPLIT_GRID = [16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224];
@@ -43,6 +50,12 @@ export type CPicker = (nPoints: number) => number;
 // (point, window)), the bucket-accumulate cost (with the trivial-stride 1.6×
 // penalty when B ≤ 2T+1, where the strided bucket reduce loses cross-window
 // inversion amortisation), and the per-window dispatch/barrier overhead.
+// `alphaBucket` weights the per-bucket reduce cost against the scan (walker)
+// cost. It is the reduce's price per bucket-slot: with the dense reduce this is
+// high (default 4), so wide windows are penalised and the lower region keeps the
+// unsplit width. Lowering it (a cheaper reduce) tips the balance toward fewer,
+// wider windows — fewer walker passes. This is the single knob that lets a
+// faster reduce unlock the large-c_lo, walker-cutting schedule.
 export function predictScheduleCost(
   n: number,
   nLarge: number,
@@ -51,9 +64,9 @@ export function predictScheduleCost(
   cLo: number,
   cHi: number,
   T: number,
+  alphaBucket: number = 4,
 ): number {
   const ALPHA_SCAN = 1;
-  const ALPHA_BUCKET = 4;
   const ALPHA_PER_WINDOW = 256;
   const bucketCost = (W: number, c: number): number => {
     if (W === 0) return 0;
@@ -64,7 +77,7 @@ export function predictScheduleCost(
   const scan = n * wLo + nLarge * wHi;
   const bucket = T * (bucketCost(wLo, cLo) + bucketCost(wHi, cHi));
   const perWindow = T * ALPHA_PER_WINDOW * (wLo + wHi);
-  return ALPHA_SCAN * scan + ALPHA_BUCKET * bucket + perWindow;
+  return ALPHA_SCAN * scan + alphaBucket * bucket + perWindow;
 }
 
 // Port of choose_var_window_split (:721). `msbHist` is the 256-bin MSB histogram:
@@ -77,6 +90,8 @@ export function chooseVarWindowSplit(
   numBits: number,
   pickC: CPicker,
   T: number = VAR_WINDOW_COST_T,
+  alphaBucket: number = 4,
+  maxCLo: number = 0,
 ): SplitDecision {
   const out: SplitDecision = { isSplit: false, bStar: 0, cLo: 0, cHi: 0 };
   if (n === 0 || numBits === 0 || numBits > NUM_BITS_MAX) return out;
@@ -92,7 +107,7 @@ export function chooseVarWindowSplit(
   const nActive = n - msbHist[0];
   const cUnsplit = pickC(n);
   const wUnsplit = Math.ceil((numBits + 2) / cUnsplit);
-  const costUnsplit = predictScheduleCost(n, 0, wUnsplit, 0, cUnsplit, cUnsplit, T);
+  const costUnsplit = predictScheduleCost(n, 0, wUnsplit, 0, cUnsplit, cUnsplit, T, alphaBucket);
 
   let bestCost = costUnsplit;
   let bestB = 0;
@@ -111,21 +126,29 @@ export function chooseVarWindowSplit(
     if (nSmallActive * 10 < n) continue;
     if (nLarge < 64 || nLarge * 20 < nActive) continue;
     if (b + 32 > numBits) continue;
-    // GPU window-bits: pickC(n) for the lower region (all n points), pickC(nLarge)
-    // for the upper. Lower c == unsplit c, so the split only narrows the high bits.
-    const cLo = pickC(n);
+    // GPU window-bits: the upper region uses pickC(nLarge) (the minority large
+    // population). The lower region sweeps c_lo from the unsplit width up to
+    // maxCLo: a wider c_lo means fewer lower windows → fewer walker passes over
+    // all n scalars, paid for by a larger lower-region reduce. With the default
+    // reduce weight that trade loses, so the sweep collapses to the unsplit width
+    // (byte-identical); a cheaper reduce (low alphaBucket) lets a wider c_lo win.
     const cHi = pickC(nLarge);
-    if (cLo === 0 || cHi === 0 || cHi >= cLo) continue;
-    const wLo = Math.ceil(b / cLo);
-    const wHi = Math.ceil((numBits - b) / cHi);
-    if (wLo + wHi > VAR_WINDOW_MAX_WINDOWS) continue;
-    const cost = predictScheduleCost(n, nLarge, wLo, wHi, cLo, cHi, T);
-    if (cost < bestCost) {
-      bestCost = cost;
-      bestB = b;
-      bestCLo = cLo;
-      bestCHi = cHi;
-      found = true;
+    if (cHi === 0) continue;
+    const cLoBase = pickC(n);
+    const cLoCap = Math.min(MAX_WINDOW_BITS, Math.max(cLoBase, maxCLo));
+    for (let cLo = cLoBase; cLo <= cLoCap; cLo++) {
+      if (cLo === 0 || cHi >= cLo) continue;
+      const wLo = Math.ceil(b / cLo);
+      const wHi = Math.ceil((numBits - b) / cHi);
+      if (wLo + wHi > VAR_WINDOW_MAX_WINDOWS) continue;
+      const cost = predictScheduleCost(n, nLarge, wLo, wHi, cLo, cHi, T, alphaBucket);
+      if (cost < bestCost) {
+        bestCost = cost;
+        bestB = b;
+        bestCLo = cLo;
+        bestCHi = cHi;
+        found = true;
+      }
     }
   }
   // Require ≤85% of unsplit so marginal candidates inside cost-model noise don't fire.

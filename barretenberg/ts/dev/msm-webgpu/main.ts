@@ -89,6 +89,12 @@ const gpuKnobs: MsmConfig = (() => {
     const v = Number(raw);
     return Number.isInteger(v) && v > 0 ? v : undefined;
   };
+  const optNum = (k: string): number | undefined => {
+    const raw = q.get(k);
+    if (raw === null) return undefined;
+    const v = Number(raw);
+    return Number.isFinite(v) && v >= 0 ? v : undefined;
+  };
   return {
     c: optInt('c'),
     s: optInt('s'),
@@ -103,6 +109,8 @@ const gpuKnobs: MsmConfig = (() => {
     varSched: q.get('varsched') === '1' || undefined,
     splitC: q.get('split') === '1' || q.get('autorun') === 'msm-msbhist' || undefined,
     sparseReduce: q.get('sparse_reduce') === '1' || undefined,
+    reduceCostWeight: optNum('reduce_cost_weight'),
+    maxCLo: optInt('max_clo'),
     forceSplit: (() => {
       const f = q.get('forcesplit');
       if (!f) return undefined;
