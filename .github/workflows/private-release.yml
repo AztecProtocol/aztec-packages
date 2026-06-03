@@ -1,0 +1,76 @@
+# Private release pipeline.
+#
+# Runs the standard release flow with PRIVATE_RELEASE=1, which publishes docker images and npm
+# packages to our internal GCP Artifact Registry (the registry GKE/staging pulls from), dry-runs
+# every other release source (github releases, crates.io, l1-contract branch pushes, the
+# aztec-up/playground S3 installers), and finally uploads the npm tarballs to S3 so a local
+# verdaccio can be seeded for aztec-kit testing.
+#
+# Gated on the PRIVATE_RELEASE repository variable so this only fires in the private repo: the file
+# is mirrored to the public repo too, but `vars.PRIVATE_RELEASE` is only set to '1' on
+# AztecProtocol/aztec-packages-private.
+name: Private Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v5.0.0-staging.1)"
+        required: true
+
+concurrency:
+  group: private-release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  private-release:
+    # Only run where the private-release variable is set (the private repo).
+    if: vars.PRIVATE_RELEASE == '1'
+    runs-on: ubuntu-latest
+    environment: master
+    permissions:
+      id-token: write   # required for OIDC assume-role with AWS (EC2 + S3)
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: private-release-${{ github.run_id }}
+          role-duration-seconds: 7200
+
+      - name: Release
+        env:
+          CI: "1"
+          PRIVATE_RELEASE: "1"
+          REF_NAME: ${{ github.event.inputs.tag || github.ref_name }}
+          RUN_ID: ${{ github.run_id }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          # GCP service-account key + project: used to authenticate docker and npm against the
+          # internal Artifact Registry. The SA must hold roles/artifactregistry.writer.
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          # Internal Artifact Registry coordinates (same docker registry deploy-network.yml consumes).
+          # INTERNAL_DOCKER_REGISTRY e.g. us-west1-docker.pkg.dev/<project>/aztec
+          # INTERNAL_NPM_REGISTRY    e.g. https://us-west1-npm.pkg.dev/<project>/aztec-npm/
+          INTERNAL_DOCKER_REGISTRY: ${{ secrets.INTERNAL_DOCKER_REGISTRY }}
+          INTERNAL_NPM_REGISTRY: ${{ secrets.INTERNAL_NPM_REGISTRY }}
+          # S3 destination for the final npm-tarball upload (verdaccio seeding). Optional; defaults
+          # to s3://aztec-ci-artifacts/private-releases in bootstrap.sh.
+          PRIVATE_RELEASE_S3_BUCKET: ${{ vars.PRIVATE_RELEASE_S3_BUCKET }}
+          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
+          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
+          AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+        run: ./.github/ci3.sh release

@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Authenticate docker and npm against our internal GCP Artifact Registry, used by PRIVATE_RELEASE builds.
+#
+# In a private release we publish the docker images and npm packages to the same internal Artifact
+# Registry that GKE/staging pulls from (the INTERNAL_DOCKER_REGISTRY consumed by deploy-network.yml),
+# instead of to Docker Hub / npmjs.org. Authentication reuses the CI service-account key already in the
+# environment as GCP_SA_KEY (the same key .github/ci3.sh stores at GOOGLE_APPLICATION_CREDENTIALS).
+#
+# Effects (both persist on disk, so this is safe to call from separate ci3 subprocesses):
+#   - configures docker to push to the Artifact Registry host via the gcloud credential helper
+#   - writes a short-lived-token .npmrc to $GCP_NPMRC (deploy_npm points NPM_CONFIG_GLOBALCONFIG at it)
+#
+# Access tokens are short-lived (~1h), so callers invoke this immediately before pushing/publishing.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+: "${INTERNAL_DOCKER_REGISTRY:?INTERNAL_DOCKER_REGISTRY required for a private release}"
+
+# Ensure a service-account key is on disk, mirroring .github/ci3.sh's setup_environment.
+if [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] || [ ! -f "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
+  : "${GCP_SA_KEY:?GCP_SA_KEY or GOOGLE_APPLICATION_CREDENTIALS required for a private release}"
+  export GOOGLE_APPLICATION_CREDENTIALS=$(mktemp)
+  (umask 077; printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS")
+fi
+
+set +x  # Never echo the access token.
+gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
+[ -n "${GCP_PROJECT_ID:-}" ] && gcloud config set project "$GCP_PROJECT_ID" >/dev/null
+
+# docker: register the gcloud credential helper for the registry host (e.g. us-west1-docker.pkg.dev).
+registry_host=${INTERNAL_DOCKER_REGISTRY%%/*}
+gcloud auth configure-docker "$registry_host" --quiet >/dev/null
+
+# npm: Artifact Registry npm repos authenticate with an OAuth2 bearer token in place of a password.
+# Write a fresh .npmrc that points at the internal registry; deploy_npm consumes it via GCP_NPMRC.
+if [ -n "${INTERNAL_NPM_REGISTRY:-}" ]; then
+  token=$(gcloud auth print-access-token)
+  registry_no_scheme=${INTERNAL_NPM_REGISTRY#https:}
+  umask 077
+  cat > "${GCP_NPMRC:-/tmp/aztec-gcp.npmrc}" <<EOF
+registry=$INTERNAL_NPM_REGISTRY
+${registry_no_scheme}:_authToken=$token
+${registry_no_scheme}:always-auth=true
+EOF
+fi

@@ -515,6 +515,13 @@ function release {
   echo_header "release all"
   set -x
 
+  # A private release (PRIVATE_RELEASE=1, set when releasing from the private repo) publishes only the
+  # artifacts the private staging network needs and dry-runs everything else. See private_release.
+  if [ "${PRIVATE_RELEASE:-0}" = 1 ]; then
+    private_release
+    return
+  fi
+
   # Ensure we have a github release in AztecProtocol/barretenberg for bb artifacts.
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
@@ -545,6 +552,53 @@ function release {
 
 function release_dryrun {
   DRY_RUN=1 release
+}
+
+function private_release {
+  # Release flow for the private repo. We publish docker images and npm packages to our internal GCP
+  # Artifact Registry (the INTERNAL_DOCKER_REGISTRY / INTERNAL_NPM_REGISTRY that GKE/staging pulls
+  # from), and dry-run every other release source — github releases, crates.io, l1-contract branch
+  # pushes, and the aztec-up/playground S3 installers — so we exercise the full pipeline without
+  # publishing publicly. The npm tarballs are then uploaded to S3 as a final step so a local verdaccio
+  # can be seeded for aztec-kit testing.
+  echo_header "private release"
+
+  : "${INTERNAL_DOCKER_REGISTRY:?INTERNAL_DOCKER_REGISTRY required for a private release}"
+
+  # No public bb github release in a private release.
+  DRY_RUN=1 release_bb_github
+
+  # docker (release-image) and npm (barretenberg/ts, noir, yarn-project) publish for real, to GCP.
+  local publish=(barretenberg/ts noir yarn-project release-image)
+  # Everything else is exercised as a dry run.
+  local dryrun=(barretenberg/cpp barretenberg/rust l1-contracts noir-projects/aztec-nr boxes aztec-up playground)
+  if [ $(arch) == arm64 ]; then
+    # On arm64 the public flow only builds and publishes release-image; match that here.
+    publish=(release-image)
+    dryrun=()
+  fi
+
+  for project in "${dryrun[@]}"; do
+    DRY_RUN=1 $project/bootstrap.sh release
+  done
+  for project in "${publish[@]}"; do
+    $project/bootstrap.sh release
+  done
+
+  upload_release_tarballs_to_s3
+}
+
+function upload_release_tarballs_to_s3 {
+  # Final private-release step: upload the npm tarballs staged by deploy_npm to S3, so they can be
+  # pulled down and served from a local verdaccio for aztec-kit / aztec-up flow testing.
+  local stage_dir=${PRIVATE_RELEASE_TARBALLS:-$root/release-tarballs}
+  if [ ! -d "$stage_dir" ] || [ -z "$(ls -A "$stage_dir" 2>/dev/null)" ]; then
+    echo "No npm tarballs staged in $stage_dir; skipping S3 upload."
+    return 0
+  fi
+  local dest="${PRIVATE_RELEASE_S3_BUCKET:-s3://aztec-ci-artifacts/private-releases}/${REF_NAME#v}"
+  echo_header "private release: uploading npm tarballs to $dest"
+  do_or_dryrun aws s3 cp "$stage_dir/" "$dest/" --recursive --exclude '*' --include '*.tgz'
 }
 
 function release_compat_e2e {

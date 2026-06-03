@@ -276,7 +276,12 @@ function release_packages {
     local package_name=$(jq -r .name "$package/package.json")
     package_list+=("$package_name@$1")
   done
-  # Smoke test the deployed packages.
+  # Smoke test the deployed packages. Skipped for private releases: the packages are published to the
+  # internal Artifact Registry, so a plain `npm install` from the public registry can't resolve them.
+  if [ "${PRIVATE_RELEASE:-0}" = 1 ]; then
+    echo "PRIVATE_RELEASE: skipping public npm install smoke test."
+    return 0
+  fi
   local dir=$(mktemp -d)
   cd "$dir"
   do_or_dryrun npm init -y

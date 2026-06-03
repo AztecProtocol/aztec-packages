@@ -14,8 +14,18 @@ else
   npm_tag="latest"
 fi
 
-# Point .npmrc config to one that relies on 'NPM_TOKEN' in the environment.
-export NPM_CONFIG_GLOBALCONFIG="$root/ci3/npm/.npmrc"
+# In a private release we publish to our internal GCP Artifact Registry instead of npmjs.org.
+# gcp_artifact_login writes a token-bearing .npmrc to $GCP_NPMRC; otherwise use the npmjs.org
+# .npmrc that relies on 'NPM_TOKEN' in the environment.
+if [ "${PRIVATE_RELEASE:-0}" = 1 ]; then
+  export GCP_NPMRC=${GCP_NPMRC:-/tmp/aztec-gcp.npmrc}
+  gcp_artifact_login
+  export NPM_CONFIG_GLOBALCONFIG="$GCP_NPMRC"
+  npm_registry_args="--registry $INTERNAL_NPM_REGISTRY"
+else
+  export NPM_CONFIG_GLOBALCONFIG="$root/ci3/npm/.npmrc"
+  npm_registry_args="--access public"
+fi
 
 package_name=$(jq -r '.name' package.json)
 echo_header "publishing $package_name"
@@ -49,9 +59,17 @@ cd package
 # Replace workspace:^ with concrete versions.
 release_prep_package_json $version
 
+# In a private release, stage the prepared tarball (with concrete versions) so the final release
+# step can upload it to S3 for local verdaccio seeding / aztec-kit testing.
+if [ "${PRIVATE_RELEASE:-0}" = 1 ]; then
+  stage_dir=${PRIVATE_RELEASE_TARBALLS:-$root/release-tarballs}
+  mkdir -p "$stage_dir"
+  npm pack --pack-destination "$stage_dir" --quiet
+fi
+
 # Publish from temp dir
 if [ "$dry_run" -eq 1 ]; then
-  denoise "npm publish --ignore-scripts --dry-run --tag $npm_tag --access public"
+  denoise "npm publish --ignore-scripts --dry-run --tag $npm_tag $npm_registry_args"
 else
   # Check if version exists.
   if npm view "$package_name@$version" version >/dev/null 2>&1; then
@@ -59,6 +77,6 @@ else
     npm dist-tag add $package_name@$version $npm_tag
   else
     # Publish new version.
-    denoise "npm publish --ignore-scripts --tag $npm_tag --access public"
+    denoise "npm publish --ignore-scripts --tag $npm_tag $npm_registry_args"
   fi
 fi
