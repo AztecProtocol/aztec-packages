@@ -41,7 +41,6 @@ import {
   PUBLIC_DATA_WITNESS,
   PUBLIC_KEYS_AND_PARTIAL_ADDRESS,
   STR,
-  TAG,
   TX_EFFECT,
   TX_HASH,
   type TypeMapping,
