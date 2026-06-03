@@ -736,8 +736,16 @@ export class TxPoolV2Impl {
 
   /** Reattaches the separately-stored proof to a tx loaded from #txsDB. */
   async #attachProof(tx: Tx): Promise<Tx> {
-    const proofBuffer = await this.#proofsDB.getAsync(tx.getTxHash().toString());
-    return proofBuffer ? tx.withProof(ChonkProof.fromBuffer(proofBuffer)) : tx;
+    const txHash = tx.getTxHash().toString();
+    const proofBuffer = await this.#proofsDB.getAsync(txHash);
+    if (!proofBuffer) {
+      // #addTx always writes a proof entry (an empty proof serializes to a 4-byte sentinel), so a missing entry
+      // means the blob/proof invariant is broken. Return the proofless tx but flag it, since a consumer that needs
+      // the proof (eg serving peers) would otherwise fail far away from the root cause.
+      this.#log.warn(`Missing stored proof for tx ${txHash}`, { txHash });
+      return tx;
+    }
+    return tx.withProof(ChonkProof.fromBuffer(proofBuffer));
   }
 
   hasTxs(txHashes: TxHash[]): boolean[] {
