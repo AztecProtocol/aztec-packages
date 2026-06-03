@@ -6,24 +6,26 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
 
 const EpochProvingJobState = [
   'initialized',
-  'processing',
-  'awaiting-prover',
+  'awaiting-checkpoints',
+  'awaiting-predecessor',
   'publishing-proof',
   'completed',
+  'superseded',
   'failed',
   'stopped',
+  'cancelled',
   'timed-out',
-  'reorg',
 ] as const;
 
 export type EpochProvingJobState = (typeof EpochProvingJobState)[number];
 
 export const EpochProvingJobTerminalState: EpochProvingJobState[] = [
   'completed',
+  'superseded',
   'failed',
   'stopped',
+  'cancelled',
   'timed-out',
-  'reorg',
 ] as const;
 
 export type EpochProvingJobTerminalState = (typeof EpochProvingJobTerminalState)[number];

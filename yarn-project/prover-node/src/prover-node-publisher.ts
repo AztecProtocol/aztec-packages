@@ -38,7 +38,6 @@ export type L1SubmitEpochProofArgs = {
 };
 
 export class ProverNodePublisher {
-  private interrupted = false;
   private metrics: ProverNodePublisherMetrics;
 
   protected log: Logger;
@@ -69,23 +68,6 @@ export class ProverNodePublisher {
     return this.rollupContract;
   }
 
-  /**
-   * Calling `interrupt` will cause any in progress call to `publishRollup` to return `false` asap.
-   * Be warned, the call may return false even if the tx subsequently gets successfully mined.
-   * In practice this shouldn't matter, as we'll only ever be calling `interrupt` when we know it's going to fail.
-   * A call to `restart` is required before you can continue publishing.
-   */
-  public interrupt() {
-    this.interrupted = true;
-    this.l1TxUtils.interrupt();
-  }
-
-  /** Restarts the publisher after calling `interrupt`. */
-  public restart() {
-    this.interrupted = false;
-    this.l1TxUtils.restart();
-  }
-
   public getSenderAddress() {
     return this.l1TxUtils.getSenderAddress();
   }
@@ -102,55 +84,51 @@ export class ProverNodePublisher {
     const { epochNumber, fromCheckpoint, toCheckpoint } = args;
     const ctx = { epochNumber, fromCheckpoint, toCheckpoint };
 
-    if (!this.interrupted) {
-      if (!(await this.waitUntilStartBuildsOnProven(args))) {
-        this.log.verbose('Checkpoint data syncing interrupted', ctx);
-        return false;
-      }
-
-      const timer = new Timer();
-      // Validate epoch proof range and hashes are correct before submitting
-      await this.validateEpochProofSubmission(args);
-
-      const txReceipt = await this.sendSubmitEpochProofTx(args);
-      if (!txReceipt) {
-        this.log.error(`Failed to mine submitEpochProof tx`, undefined, ctx);
-        return false;
-      }
-
-      try {
-        this.metrics.recordSenderBalance(
-          await this.l1TxUtils.getSenderBalance(),
-          this.l1TxUtils.getSenderAddress().toString(),
-        );
-      } catch (err) {
-        this.log.warn(`Failed to record the ETH balance of the prover node: ${err}`);
-      }
-
-      // Tx was mined successfully
-      if (txReceipt.status === 'success') {
-        const tx = await this.l1TxUtils.getTransactionStats(txReceipt.transactionHash);
-        const stats: L1PublishProofStats = {
-          gasPrice: txReceipt.effectiveGasPrice,
-          gasUsed: txReceipt.gasUsed,
-          transactionHash: txReceipt.transactionHash,
-          calldataGas: tx!.calldataGas,
-          calldataSize: tx!.calldataSize,
-          sender: tx!.sender,
-          blobDataGas: 0n,
-          blobGasUsed: 0n,
-          eventName: 'proof-published-to-l1',
-        };
-        this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });
-        this.metrics.recordSubmitProof(timer.ms(), stats);
-        return true;
-      }
-
-      this.metrics.recordFailedTx();
-      this.log.error(`Rollup submitEpochProof tx reverted ${txReceipt.transactionHash}`, undefined, ctx);
+    if (!(await this.waitUntilStartBuildsOnProven(args))) {
+      this.log.verbose('Timed out waiting for proven checkpoint to reach proof start', ctx);
+      return false;
     }
 
-    this.log.verbose('Checkpoint data syncing interrupted', ctx);
+    const timer = new Timer();
+    // Validate epoch proof range and hashes are correct before submitting
+    await this.validateEpochProofSubmission(args);
+
+    const txReceipt = await this.sendSubmitEpochProofTx(args);
+    if (!txReceipt) {
+      this.log.error(`Failed to mine submitEpochProof tx`, undefined, ctx);
+      return false;
+    }
+
+    try {
+      this.metrics.recordSenderBalance(
+        await this.l1TxUtils.getSenderBalance(),
+        this.l1TxUtils.getSenderAddress().toString(),
+      );
+    } catch (err) {
+      this.log.warn(`Failed to record the ETH balance of the prover node: ${err}`);
+    }
+
+    // Tx was mined successfully
+    if (txReceipt.status === 'success') {
+      const tx = await this.l1TxUtils.getTransactionStats(txReceipt.transactionHash);
+      const stats: L1PublishProofStats = {
+        gasPrice: txReceipt.effectiveGasPrice,
+        gasUsed: txReceipt.gasUsed,
+        transactionHash: txReceipt.transactionHash,
+        calldataGas: tx!.calldataGas,
+        calldataSize: tx!.calldataSize,
+        sender: tx!.sender,
+        blobDataGas: 0n,
+        blobGasUsed: 0n,
+        eventName: 'proof-published-to-l1',
+      };
+      this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });
+      this.metrics.recordSubmitProof(timer.ms(), stats);
+      return true;
+    }
+
+    this.metrics.recordFailedTx();
+    this.log.error(`Rollup submitEpochProof tx reverted ${txReceipt.transactionHash}`, undefined, ctx);
     return false;
   }
 
@@ -171,10 +149,6 @@ export class ProverNodePublisher {
 
     await retryUntil(
       async () => {
-        if (this.interrupted) {
-          return true;
-        }
-
         const proven = await this.getProvenCheckpoint();
         this.log.verbose(`Proven checkpoint is at ${proven} (waiting for ${fromCheckpoint - 1})`, { epochNumber });
         return this.isStartBuildingOnProven(fromCheckpoint, proven) ? true : undefined;
@@ -184,7 +158,7 @@ export class ProverNodePublisher {
       4,
     );
 
-    return !this.interrupted;
+    return true;
   }
 
   private async getProvenCheckpoint() {
