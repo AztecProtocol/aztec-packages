@@ -1,7 +1,8 @@
-use crate::HandshakeRegistry;
+use crate::{HandshakeRegistry, MAX_HANDSHAKES_PER_PAGE};
 
 use aztec::{
     messages::message_delivery::{ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
+    oracle::shared_secret::get_shared_secret,
     protocol::{
         address::AztecAddress,
         constants::{DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, PRIVATE_LOG_SIZE_IN_FIELDS},
@@ -10,6 +11,8 @@ use aztec::{
     },
     test::helpers::{test_environment::{CallPrivateOptions, TestEnvironment}, txe_oracles},
 };
+
+use std::test::OracleMock;
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();
@@ -442,4 +445,130 @@ unconstrained fn non_interactive_handshake_rejects_unknown_mode() {
     let registry = HandshakeRegistry::at(registry_address);
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, 99));
+}
+
+#[test]
+unconstrained fn non_interactive_handshake_is_discovered_by_recipient() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let returned_secret =
+        env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED));
+
+    let discovered = env.execute_utility(registry.get_handshakes(recipient, 0));
+
+    assert_eq(discovered.items.len(), 1);
+    assert_eq(discovered.total_count, 1);
+
+    // The recipient derives the same app-siloed secret from the discovered eph_pk via ECDH.
+    let eph_pk = discovered.items.get(0);
+    let recipient_secret = env.utility_context_at(sender, |_| get_shared_secret(recipient, eph_pk, sender));
+    assert_eq(recipient_secret, returned_secret);
+
+    // The custom sync hook falls through to `do_sync_state`, so default note discovery still works.
+    let utility_secret = env
+        .execute_utility(registry.get_app_siloed_secret(sender, recipient, ONCHAIN_UNCONSTRAINED, sender))
+        .expect(f"handshake secret should be present");
+    assert_eq(utility_secret, returned_secret);
+}
+
+#[test]
+unconstrained fn handshake_to_one_recipient_not_discovered_by_another() {
+    let (env, registry_address, sender, recipient_a, recipient_b) = setup_with_two_recipients();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a, ONCHAIN_UNCONSTRAINED));
+
+    let discovered_a = env.execute_utility(registry.get_handshakes(recipient_a, 0));
+    let discovered_b = env.execute_utility(registry.get_handshakes(recipient_b, 0));
+
+    assert_eq(discovered_a.items.len(), 1);
+    assert_eq(discovered_b.items.len(), 0);
+}
+
+#[test]
+unconstrained fn repeated_sync_does_not_refetch_logs() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED));
+
+    let after_first = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(after_first.items.len(), 1);
+
+    // Mock the log-retrieval oracle so we can assert it is never called on re-sync.
+    let log_oracle = OracleMock::mock("aztec_utl_getLogsByTag");
+    let _ = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(log_oracle.times_called(), 0);
+    log_oracle.clear();
+}
+
+#[test]
+unconstrained fn later_handshake_appends_after_cursor_advances() {
+    let (env, registry_address, sender, other_sender, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED));
+
+    let after_first = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(after_first.items.len(), 1);
+
+    let _ = env.call_private(
+        other_sender,
+        registry.non_interactive_handshake(other_sender, recipient, ONCHAIN_UNCONSTRAINED),
+    );
+    let after_second = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(after_second.items.len(), 2);
+}
+
+// All senders to a recipient post under the same recipient-keyed tag, so a single sync discovers every handshake.
+#[test]
+unconstrained fn multiple_senders_discovered_for_same_recipient() {
+    let (env, registry_address, sender, other_sender, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED));
+    let _ = env.call_private(
+        other_sender,
+        registry.non_interactive_handshake(other_sender, recipient, ONCHAIN_UNCONSTRAINED),
+    );
+
+    let discovered = env.execute_utility(registry.get_handshakes(recipient, 0));
+
+    assert_eq(discovered.items.len(), 2);
+    assert(
+        discovered.items.get(0).x != discovered.items.get(1).x,
+        "distinct senders should produce distinct ephemeral public keys",
+    );
+}
+
+#[test]
+unconstrained fn get_handshakes_paginates_across_full_pages() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let total_handshakes = MAX_HANDSHAKES_PER_PAGE + 3;
+    for _ in 0..total_handshakes {
+        let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED));
+    }
+
+    let page_0 = env.execute_utility(registry.get_handshakes(recipient, 0));
+    let page_1 = env.execute_utility(registry.get_handshakes(recipient, MAX_HANDSHAKES_PER_PAGE));
+
+    assert_eq(page_0.items.len(), MAX_HANDSHAKES_PER_PAGE);
+    assert_eq(page_0.total_count, total_handshakes);
+    assert_eq(page_1.items.len(), 3);
+    assert_eq(page_1.total_count, total_handshakes);
+}
+
+#[test]
+unconstrained fn get_handshakes_out_of_bounds_offset_returns_empty() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED));
+
+    let page = env.execute_utility(registry.get_handshakes(recipient, 999));
+    assert_eq(page.items.len(), 0);
+    assert_eq(page.total_count, 1);
 }
