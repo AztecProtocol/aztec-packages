@@ -192,10 +192,19 @@ and drives the pipeline (profile C → 26-window split oracle-agree; A/D/E no-sp
 default byte-identical). Two create-vs-prepare hazards fixed: redM/bTotal are baked
 for the SPLIT ENVELOPE (2× unsplit) since size1/walker/combine/pt_finalize bake
 redM at create; and the fast-path fits-check gained `capNumWindows`.
-*Remaining (2C-ii, perf/memory):* the upper windows still iterate ALL `n` (correct
-but wasteful — 80% of points contribute 0; so split is currently NOT a perf win,
-hence off by default). Region-split them to iterate only `idx_large` (`n_large`
-points). **Kernels DONE** (`24d4b0074c`): `decompose_scalars_booth_upper` (point
+**Region-split DONE** (`af261c4017`): the upper W_hi windows now iterate only
+`n_large` (idx_large), not all `n`. decompose + transpose count/scatter run as two
+regions (lower over `n×W_lo`, upper over `n_large×W_hi` via `decompose_upper` +
+`transpose_scatter_tiled_upper`); reduce/scan/classify/etc. stay unified. Validated:
+profile C region-splits + oracle-agrees at logN 15/16/17 & multiple seeds; D/E/B
+agree; default byte-identical. Gated to `numBatches==1`; the region/batch boundary
++ the GPU-residence swap (host idx_large → GPU kernels) + the profile-breakdown
+timestamp accounting for the new passes are the remaining follow-ups. The three
+offset bugs fixed along the way: transpose work_off base (`.y`) vs gwin offset
+(`.x`); `cci_offset`/`ccp_offset` +`(.x-.y)` for the global window; sign carried in
+`val_idx` bit 31 so `csr_to_v2_active_sums` stays region-agnostic.
+
+(historical) The kernels themselves landed first in `24d4b0074c`: `decompose_scalars_booth_upper` (point
 source `idx_large[j]`, cci_base `W_lo·n`, row stride `n_large`) +
 `transpose_scatter_tiled_upper` (stores the ORIGINAL `idx_large[i]` so the gather
 stays region-agnostic), both naga-valid + unwired. **Remaining WIRING** (the
