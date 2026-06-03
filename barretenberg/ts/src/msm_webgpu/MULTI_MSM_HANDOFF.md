@@ -21,14 +21,16 @@ this doc is the **current state + the exact next-step recipe + traps**. Branch:
   to free the slot. Validated: a 256-window pack (impossible before) is byte-
   identical; a 330MiB pack is rejected by the budget gate. The real limit is now
   the 160MB budget, not a window count.
-- **HETEROGENEOUS-n DONE (same size class)** — `373cfd8d30`. MSMs of different n
-  but the same c pack in one union by padding each to the class max n with zero
-  scalars (zero digit ⇒ contributes nothing ⇒ byte-identical). Validated
-  logN16+logN17. Wasteful (≤2× within a class) — the no-padding per-window-n path
-  below removes the waste AND handles different c.
-- **Next: DIFFERENT-c heterogeneous** (vastly different sizes in one union, no
-  padding) — the per-window-n recipe is in "Remaining work" item 1. Reduce
-  optimisation is owned elsewhere — don't touch it here.
+- **FULL HETEROGENEOUS DONE — arbitrary n AND c in one union, no padding**
+  (`fdc602c1ae` per-window-n + `5946df0cd0` different-c). A `point_offsets` table
+  gives each global window its own scatter base + n_w (decompose/transpose/convMeta
+  read it); the instance is created at the pack's max n so its baked BW/stride/c are
+  the envelope maxima; `windowCs` comes from the table (per-window c); `bTotal` is
+  the envelope (numWindows·max-BW), `redM` the tight Σ stride_w. Byte-identical at
+  homogeneous (`point_offsets[w]=w·n`), so golden + `?varsched` stayed byte-identical
+  through every kernel. Validated union≡solo: different n (logN16+17), different c
+  (14+16, 14+17), THREE different c (14+15+16), all + profile E (hard rule #0).
+- Reduce optimisation is owned elsewhere — don't touch it here.
 
 ## What's done (commits since the plan doc `250f48e02e`)
 
@@ -97,43 +99,29 @@ Validated: K=1..4, c=8 & c=13, profiles A/C/D/E, up to 128 windows; golden 14–
 
 ## Remaining work (next session)
 
-1. **HETEROGENEOUS packs — different n and/or c in one union (the big one).**
-   KEY INSIGHT: split-c already made the *geometry* per-window (c, stride, BW=
-   num_columns, work_off, reduce_off all come from the WindowDesc table), so the
-   planner/walker/combine/reduce already handle different-c windows. Heterogeneous
-   reduces to the **point-write stages** + sizing:
-   - **Per-window n + scatter base.** `decompose`/`transpose_count`/
-     `transpose_scatter`/`csr_to_v2_active_sums` use `input_size = n` (uniform) and
-     the layout `bucket_and_sign[window*n + p]`. Add a small **`point_offsets`**
-     buffer = the scatter-base prefix, length `Σ NW + 1` (window w's region starts
-     at `point_offsets[w]`; `n_w = point_offsets[w+1] - point_offsets[w]`). These
-     kernels are NOT at the binding cap, so just add the binding. **Byte-identical
-     at homogeneous** (`point_offsets[w] = w*n` ⇒ same layout, n_w = n) — that's the
-     validation lever. Build it in `planBatch` (and the single-MSM `prepare` fill,
-     = `w*n` prefix). Replace `window*n+p` with `point_offsets[w]+p` and `input_size`
-     with `n_w`.
-   - **Dispatch grids over max_n** (padded; per-window early-out `p >= n_w`).
-     `nXposePts = ceil(max_n/WGI)`, transpose tiles cover max_n, each window clamps
-     to its n_w (already clamps to input_size). Byte-identical at homogeneous.
-   - **Sizing.** When c differs, `bTotal`/`redM` are `Σ` per member (not
-     `numWindows·BW`); the combine `partial_*` hash uses the **envelope BW = max BW**
-     across the pack (the split-c convention). `prepareBatch` builds these from the
-     layout; relax its `m.n === this.n` assertion to per-member geometry.
-   - **srsOffset = 0** for shared-SRS commitment MSMs (every member uses the SRS
-     prefix `[0,n_k)`), so NO srsOffset field is needed for the common case. Only
-     sub-MSMs with a nonzero start_index need it — fold at scatter (write the global
-     point index into val_idx); defer until a real case appears.
-   - Validate: golden byte-identical after each kernel (homogeneous), then a true
-     different-n / different-c union vs K-separate. The harness needs a path that
-     packs members of different n (extend `runBatchCheck` past the `every(n===n0)`
-     guard once the kernels are converted).
-2. **Bridge wiring + budget gate**: `runBatchMsm` calls `packByBudget` (now budget-
-   accurate) to choose K, drives the union from ChonkApi's real MSM mix; bench the
-   505-MSM dump E2E.
-3. **PERF bench on phone/M2** (the acceptance criterion at scale): confirm the
+The union pipeline is now feature-complete for correctness (homogeneous → full
+heterogeneous, n and c). What's left is wiring it into production + perf + a couple
+of efficiency refinements:
+
+1. **Bridge wiring + budget gate**: `runBatchMsm` calls `packByBudget` to choose K,
+   drives the union from ChonkApi's real MSM mix; bench the 505-MSM dump E2E. NOTE:
+   `packByBudget`/`batchFootprintBytes` (host) and the runtime `estimateMem` (prepare)
+   don't fully agree for heterogeneous packs — the host under-counts the l0/partials
+   matrix (it's dispatch-sized from the class max n, not Σ n_w) while the runtime
+   counts it. Reconcile them so the packer's choice always passes the runtime gate.
+2. **PERF bench on phone/M2** (the acceptance criterion at scale): confirm the
    solo-starved stages saturate under packing and profiles D/E stay fast (hard
    rule #0). This session measured ~1.7–3.4× on M2 single-run; the rigorous bench
    is still open.
+3. **Efficiency refinements (optional):**
+   - The combine `partial_*` sparse hash uses the **envelope BW = max BW** across the
+     pack, so a skewed pack (one big-c member + many small-c) over-allocates that
+     hash + the CSR buffers. A per-window-BW (work_off-based) partial hash would
+     tighten it — but it touches the combine `flat_bid` and the count/scatter/sort.
+   - **srsOffset** is assumed 0 (every member uses the SRS prefix `[0,n_k)`), true
+     for commitment MSMs. A sub-MSM with a nonzero start_index needs it folded into
+     the point index at scatter (write the global index into val_idx); defer until
+     a real case appears.
 
 ### Validation discipline (the bisection lever)
 
