@@ -43,7 +43,7 @@ contract Tmnt333Test is StakingBase {
       bootstrapFlushSize: 125,
       normalFlushSizeMin: 1,
       normalFlushSizeQuotient: 2048,
-      maxQueueFlushSize: 8
+      maxQueueFlushSize: 125
     });
     Rollup rollup = Rollup(address(registry.getCanonicalRollup()));
     vm.prank(rollup.owner());

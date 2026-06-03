@@ -1,6 +1,6 @@
 import { PARTIAL_STATE_REFERENCE_LENGTH } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -88,8 +88,13 @@ export class PartialStateReference {
     );
   }
 
-  toBuffer() {
-    return serializeToBuffer(this.noteHashTree, this.nullifierTree, this.publicDataTree);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.noteHashTree, this.nullifierTree, this.publicDataTree);
   }
 
   toFields() {

@@ -13,6 +13,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { SiblingPath } from '@aztec/aztec.js/trees';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { OutboxContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
@@ -166,6 +167,7 @@ export class CrossChainTestHarness {
 
   private readonly l1TokenManager: L1TokenManager;
   private readonly l1TokenPortalManager: L1TokenPortalManager;
+  public readonly outboxContract: OutboxContract;
 
   constructor(
     /** Aztec node instance. */
@@ -206,6 +208,7 @@ export class CrossChainTestHarness {
       this.logger,
     );
     this.l1TokenManager = this.l1TokenPortalManager.getTokenManager();
+    this.outboxContract = new OutboxContract(this.l1Client, this.l1ContractAddresses.outboxAddress);
   }
 
   async mintTokensOnL1(amount: bigint) {
@@ -319,10 +322,18 @@ export class CrossChainTestHarness {
   withdrawFundsFromBridgeOnL1(
     amount: bigint,
     epochNumber: EpochNumber,
+    numCheckpointsInEpoch: number,
     messageIndex: bigint,
     siblingPath: SiblingPath<number>,
   ) {
-    return this.l1TokenPortalManager.withdrawFunds(amount, this.ethAccount, epochNumber, messageIndex, siblingPath);
+    return this.l1TokenPortalManager.withdrawFunds(
+      amount,
+      this.ethAccount,
+      epochNumber,
+      numCheckpointsInEpoch,
+      messageIndex,
+      siblingPath,
+    );
   }
 
   async transferToPrivateOnL2(shieldAmount: bigint) {
