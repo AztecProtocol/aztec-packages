@@ -43,6 +43,13 @@ export interface MsmConfig {
    * Opt in on backends where workgroup arrays-of-arrays are reliable.
    */
   coopReduce?: boolean;
+  /**
+   * Enable the segmented-global bucket reduce for small c (high memory backend,
+   * STRIDE <= 128). Default false — it is reliable but slower than the default
+   * all-Jacobian reduce (its per-window phase-2 combine is latency-bound). Kept
+   * for reference. Mutually exclusive with coopReduce. Shares config.coopSeg.
+   */
+  segReduce?: boolean;
   /** Cooperative reduce: buckets per segment (each thread's serial running-sum),
    * snapped to a power of two in [1, STRIDE]. G = STRIDE/coopSeg is the
    * workgroup size. Default targets G=8. coopSeg=1 is a pure (tot,ws) tree. */

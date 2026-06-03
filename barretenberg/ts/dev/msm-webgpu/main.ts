@@ -104,6 +104,7 @@ const gpuKnobs: MsmConfig = (() => {
     convChunk: optInt('convc'),
     convertBound: optInt('convbound'),
     coopReduce: q.get('coopreduce') === '1' || undefined,
+    segReduce: q.get('segreduce') === '1' || undefined,
     coopSeg: optInt('coopseg'),
     // GPU/CPU split: the GPU hands off to the CPU after this many reduce levels;
     // the CPU always does the rest of the reduce + the Horner window fold. Default

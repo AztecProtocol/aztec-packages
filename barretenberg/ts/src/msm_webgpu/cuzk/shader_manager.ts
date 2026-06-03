@@ -7,6 +7,8 @@ import {
   ba_reduce_z_init as ba_reduce_z_init_shader,
   ba_reduce_jac_finalize as ba_reduce_jac_finalize_shader,
   ba_reduce_coop as ba_reduce_coop_shader,
+  ba_reduce_seg1 as ba_reduce_seg1_shader,
+  ba_reduce_seg2 as ba_reduce_seg2_shader,
   ba_reduce_jac_to_affine as ba_reduce_jac_to_affine_shader,
   ba_reduce_gather_canonical as ba_reduce_gather_canonical_shader,
   ba_planner_classify as ba_planner_classify_shader,
@@ -852,6 +854,59 @@ ${packLines.join('\n')}
       ba_reduce_coop_shader,
       {
         workgroup_size: g, stride, ss, log2_ss, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  // Segmented-global reduce, phase 1: one thread per (window, segment) does a
+  // serial running-sum over SS contiguous buckets -> (seg_tot, seg_ws) written
+  // to global seg_buf. No shared memory (reliable replacement for the coop).
+  public gen_ba_reduce_seg1_shader(stride: number, g: number, workgroup_size: number): string {
+    this.assertSegParams('gen_ba_reduce_seg1_shader', stride, g, workgroup_size);
+    return this.renderSegShader(ba_reduce_seg1_shader, stride, g, workgroup_size);
+  }
+
+  // Segmented-global reduce, phase 2: one thread per window combines the G
+  // partials -> Jacobian window sum at slot w*stride (jacFinalize inverts).
+  public gen_ba_reduce_seg2_shader(stride: number, g: number, workgroup_size: number): string {
+    this.assertSegParams('gen_ba_reduce_seg2_shader', stride, g, workgroup_size);
+    return this.renderSegShader(ba_reduce_seg2_shader, stride, g, workgroup_size);
+  }
+
+  private assertSegParams(fn: string, stride: number, g: number, workgroup_size: number): void {
+    if (stride <= 0 || !Number.isInteger(stride) || (stride & (stride - 1)) !== 0) {
+      throw new Error(`${fn}: stride (${stride}) must be a positive power of two`);
+    }
+    if (g <= 0 || !Number.isInteger(g) || (g & (g - 1)) !== 0 || g > stride) {
+      throw new Error(`${fn}: g (${g}) must be a power of two in [1, stride]`);
+    }
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`${fn}: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+  }
+
+  private renderSegShader(template: string, stride: number, g: number, workgroup_size: number): string {
+    const ss = stride / g;
+    const log2_ss = Math.log2(ss);
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      template,
+      {
+        workgroup_size, stride, ss, g, log2_ss,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
