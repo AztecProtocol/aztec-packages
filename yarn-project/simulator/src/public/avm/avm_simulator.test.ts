@@ -315,6 +315,44 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.output.readAll()).toEqual([expectedResult.x, expectedResult.y]);
     });
 
+    it('reverts off-curve points', async () => {
+      const calldata = new CallDataArray([
+        /* px */ new Fr(1),
+        /* py */ new Fr(1),
+        /* scalar lo */ new Fr(3),
+        /* scalar hi */ new Fr(0),
+        /* scalar2 lo */ new Fr(20),
+        /* scalar2 hi */ new Fr(0),
+      ]);
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+      const bytecode = getAvmTestContractBytecode('variable_base_msm_with_point');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(true);
+      expect(results.revertReason?.message).toMatch(/not on the curve/);
+    });
+
+    it('reverts off-curve points with a zero', async () => {
+      // Native/Brillig multi_scalar_mul validates every input point regardless of its scalar,
+      // so the off-curve point must be rejected rather than skipped (which would return infinity).
+      const calldata = new CallDataArray([
+        /* px */ new Fr(1),
+        /* py */ new Fr(1),
+        /* scalar lo */ new Fr(0),
+        /* scalar hi */ new Fr(0),
+        /* scalar2 lo */ new Fr(20),
+        /* scalar2 hi */ new Fr(0),
+      ]);
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+      const bytecode = getAvmTestContractBytecode('variable_base_msm_with_point');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(true);
+      expect(results.revertReason?.message).toMatch(/not on the curve/);
+    });
+
     const fqToLimbs = (fq: Fq): [bigint, bigint] => {
       const asBigint = fq.toBigInt();
       // Return lo, hi limbs of 128 bits
