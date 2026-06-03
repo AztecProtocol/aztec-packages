@@ -1,25 +1,19 @@
 # Block Building Timetable Spec
 
-This document specifies the timing model for pipelined block building, checkpoint validation, attestation collection, and
-L1 publishing.
+This document specifies the timing model for pipelined block building, checkpoint validation, attestation collection, and L1 publishing.
 
 ## Goals
 
 The timetable has these goals:
 
 - schedule block sub-slots so the proposer produces a checkpoint at a predictable cadence;
-- enforce consensus-critical deadlines so validators and the next proposer agree on the proposed chain, by agreeing on
-  when a proposal is too late to build on;
-- maximize the time available for the L1 publish transaction by making the payload ready before the ideal L1 send time,
-  which is one Ethereum slot before the target L2 slot;
-- accept late checkpoint proposals until the next-proposer handoff deadline, and late attestations until the latest useful
-  L1 publish deadline.
+- enforce consensus-critical deadlines so validators and the next proposer agree on the proposed chain, by agreeing on when a proposal is too late to build on;
+- maximize the time available for the L1 publish transaction by making the payload ready before the ideal L1 send time, which is one Ethereum slot before the target L2 slot;
+- accept late checkpoint proposals until the next-proposer handoff deadline, and late attestations until the latest useful L1 publish deadline.
 
-Pipelining is the only production mode. For target slot `target_slot`, the proposer builds during the preceding `build_slot`
-and the L1 transaction is meant to land inside `target_slot`.
+Pipelining is the only production mode. For target slot `target_slot`, the proposer builds during the preceding `build_slot` and the L1 transaction is meant to land inside `target_slot`.
 
-This model does not describe deterministic automine or other synchronous local-mining modes. Those modes may publish
-inside the same slot and do not use the pipelined build-slot/target-slot timetable.
+This model does not describe deterministic automine or other synchronous local-mining modes. Those modes may publish inside the same slot and do not use the pipelined build-slot/target-slot timetable.
 
 ## Example
 
@@ -27,8 +21,7 @@ This example uses the production-like values proposed below: `aztec_slot_duratio
 `ethereum_slot_duration = 12s`, `block_duration = 6s`, `p2p_propagation_time = 2s`,
 `checkpoint_proposal_prepare_time = 1s`, and `checkpoint_proposal_init_time = 1s`.
 
-All times are offsets from `build_frame_start`. Rows are ordered by the ideal path; deadline-path values show late
-acceptance cutoffs for the same activity.
+All times are offsets from `build_frame_start`. Rows are ordered by the ideal path; deadline-path values show late acceptance cutoffs for the same activity.
 
 | Step | Ideal path | Deadline path |
 | --- | ---: | ---: |
@@ -46,15 +39,11 @@ acceptance cutoffs for the same activity.
 | Next proposer build frame opens | +72s (`next_proposer_build_frame_start`) | +72s (`next_proposer_build_frame_start`) |
 | L1 publish tx sent / latest useful send | +72s (`l1_publish_ideal_time`) | +132s (`attestation_deadline`) |
 
-The ideal path is the proposer scheduling target for maximizing L1 publishing time. The deadline path is the latest
-consensus-safe path: validators and the next proposer use `checkpoint_proposal_receive_deadline`, which depends only on
-the target slot timing and `block_duration`.
+The ideal path is the proposer scheduling target for maximizing L1 publishing time. The deadline path is the latest consensus-safe path: validators and the next proposer use `checkpoint_proposal_receive_deadline`, which depends only on the target slot timing and `block_duration`.
 
 ### Example timeline diagram
 
-The diagram highlights the most relevant steps from the table above, as offsets from `build_frame_start`
-(`target_slot_start - aztec_slot_duration - ethereum_slot_duration`). Blue marks build/structural deadlines, green marks
-the ideal path, and red marks the late-acceptance deadlines. Dashed lines are slot boundaries.
+The diagram highlights the most relevant steps from the table above, as offsets from `build_frame_start` (`target_slot_start - aztec_slot_duration - ethereum_slot_duration`). Blue marks build/structural deadlines, green marks the ideal path, and red marks the late-acceptance deadlines. Dashed lines are slot boundaries.
 
 _Mermaid version (evenly spaced):_
 
@@ -106,8 +95,7 @@ same network should use the same values for coordinated proposer and validator b
 | `checkpoint_proposal_prepare_time` | Local time between the last block build finishing and the checkpoint proposal being ready for p2p send. |
 | `checkpoint_proposal_init_time` | Proposer budget reserved at the start of the build frame for sync, the proposer check, and checkpoint initialization before the first block sub-slot opens. |
 
-`checkpoint_proposal_prepare_time` includes `completeCheckpoint`, local checkpoint validation, header validation
-simulation, checkpoint proposal signing, proposed-checkpoint archiver sync, and the immediate call into p2p broadcast.
+`checkpoint_proposal_prepare_time` includes `completeCheckpoint`, local checkpoint validation, header validation simulation, checkpoint proposal signing, proposed-checkpoint archiver sync, and the immediate call into p2p broadcast.
 
 ### Parameters
 
@@ -143,8 +131,7 @@ The model distinguishes an ideal L1 send time from a single hard attestation dea
 l1_publish_ideal_time = target_slot_start - ethereum_slot_duration
 ```
 
-This is the time by which we want the L1 transaction ready and submitted to maximize the chance of inclusion in the
-first Ethereum block of `target_slot`.
+This is the time by which we want the L1 transaction ready and submitted to maximize the chance of inclusion in the first Ethereum block of `target_slot`.
 
 ```text
 last_ethereum_block_in_target_slot = target_slot_start + aztec_slot_duration - ethereum_slot_duration
@@ -152,9 +139,7 @@ last_ethereum_block_in_target_slot = target_slot_start + aztec_slot_duration - e
 attestation_deadline = last_ethereum_block_in_target_slot - ethereum_slot_duration
 ```
 
-`attestation_deadline` is the hard deadline by which validators must have completed re-execution/validation and signed
-their attestation. It is also the latest useful L1 send time if the only requirement is for the tx to land in the final
-Ethereum block inside `target_slot`.
+`attestation_deadline` is the hard deadline by which validators must have completed re-execution/validation and signed their attestation. It is also the latest useful L1 send time if the only requirement is for the tx to land in the final Ethereum block inside `target_slot`.
 
 This deadline is consensus-driven, not operational. It is used for inactivity/slashing decisions, so all nodes must agree
 on it. It is derived only from slot timing protocol constants.
@@ -175,28 +160,21 @@ The timetable has two rails:
 - **Ideal times** describe when work should complete on the happy path to maximize the L1 publishing window.
 - **Deadlines** describe the latest time work can complete under the rule that applies to that activity.
 
-The proposer should schedule block production and checkpoint proposal sending against ideal L1 publishing. Validators and
-p2p should enforce consensus deadlines, late attestation deadlines, and small clock-disparity tolerances. This lets
-delayed validators contribute attestations while keeping the proposer from planning around the slow path.
+The proposer should schedule block production and checkpoint proposal sending against ideal L1 publishing. Validators and p2p should enforce consensus deadlines, late attestation deadlines, and small clock-disparity tolerances. This lets delayed validators contribute attestations while keeping the proposer from planning around the slow path.
 
-Checkpoint proposal timing has both an ideal target and a hard deadline. The ideal target is derived from the L1 publish
-path and is not a consensus gate. The hard receive deadline is derived only from the next-proposer handoff constraint.
+Checkpoint proposal timing has both an ideal target and a hard deadline. The ideal target is derived from the L1 publish path and is not a consensus gate. The hard receive deadline is derived only from the next-proposer handoff constraint.
 
 ## Checkpoint Proposal Deadlines
 
-The checkpoint proposal affects consensus: it determines the proposed checkpoint the next proposer may build on top of.
-For that reason, the receive deadline used for validation must not depend on operational budgets such as p2p propagation
-or L1 publish preparation time.
+The checkpoint proposal affects consensus: it determines the proposed checkpoint the next proposer may build on top of. For that reason, the receive deadline used for validation must not depend on operational budgets such as p2p propagation or L1 publish preparation time.
 
-The ideal receive time is a proposer scheduling target. It is the receive time that leaves enough room for validators to
-re-execute the checkpoint and send attestations back by `l1_publish_ideal_time`:
+The ideal receive time is a proposer scheduling target. It is the receive time that leaves enough room for validators to re-execute the checkpoint and send attestations back by `l1_publish_ideal_time`:
 
 ```text
 checkpoint_proposal_receive_ideal_time = proposal_validation_ideal_time - block_duration
 ```
 
-The hard receive deadline is the consensus gate. Validators reject checkpoint proposals that arrive after this time, and
-the next proposer does not build on them. It is derived from the next proposer's own build frame:
+The hard receive deadline is the consensus gate. Validators reject checkpoint proposals that arrive after this time, and the next proposer does not build on them. It is derived from the next proposer's own build frame:
 
 ```text
 checkpoint_proposal_receive_deadline = next_proposer_build_frame_start - block_duration
@@ -208,9 +186,7 @@ The send time is proposer-owned and is derived by subtracting one propagation ho
 checkpoint_proposal_send_time = checkpoint_proposal_receive_ideal_time - p2p_propagation_time
 ```
 
-The sequencer does not need to wait for this send time. It should send the checkpoint proposal as soon as the final block
-and local checkpoint proposal preparation are complete. The proposer schedules block building only against the ideal L1
-publish path:
+The sequencer does not need to wait for this send time. It should send the checkpoint proposal as soon as the final block and local checkpoint proposal preparation are complete. The proposer schedules block building only against the ideal L1 publish path:
 
 ```text
 last_block_build_time = checkpoint_proposal_send_time - checkpoint_proposal_prepare_time
@@ -220,12 +196,9 @@ The first consensus boundary for the checkpoint proposal is `checkpoint_proposal
 
 ## Proposal Validation and Attestation Times
 
-The relevant validator-side activity is proposal validation: receiving proposals, collecting transactions if needed,
-re-executing blocks, validating the checkpoint, and then signing an attestation.
+The relevant validator-side activity is proposal validation: receiving proposals, collecting transactions if needed, re-executing blocks, validating the checkpoint, and then signing an attestation.
 
-For intermediate block proposals within the checkpoint, the same principle applies at each sub-slot: validators should
-receive the proposal, collect any missing transactions, and re-execute the block within the block's validation budget.
-For the final checkpoint proposal, `proposal_validation_ideal_time` is the aggregate end-of-checkpoint validation target.
+For intermediate block proposals within the checkpoint, the same principle applies at each sub-slot: validators should receive the proposal, collect any missing transactions, and re-execute the block within the block's validation budget. For the final checkpoint proposal, `proposal_validation_ideal_time` is the aggregate end-of-checkpoint validation target.
 
 Ideal validation completion is computed from the ideal L1 send time:
 
@@ -248,30 +221,15 @@ The ideal difference between validation completion and attestation receipt is on
 attestation_receive_ideal_time - proposal_validation_ideal_time = p2p_propagation_time
 ```
 
-The proposer should aim to have enough attestations by `attestation_receive_ideal_time`. Validators may still validate
-blocks, validate the checkpoint, and sign attestations until `attestation_deadline`. This deadline is the same for all
-block proposals and the final checkpoint proposal. It must be consensus-driven because inactivity/slashing checks use it
-to decide whether a validator failed to attest on time.
+The proposer should aim to have enough attestations by `attestation_receive_ideal_time`. Validators may still validate blocks, validate the checkpoint, and sign attestations until `attestation_deadline`. This deadline is the same for all block proposals and the final checkpoint proposal. It must be consensus-driven because inactivity/slashing checks use it to decide whether a validator failed to attest on time.
 
-The `attestation_deadline` above is a validation/re-execution deadline, not an arrival gate. Arrival at the p2p layer is
-gated separately and more tightly: intermediate block proposals share the checkpoint proposal's receive window as their
-arrival gate. Every block proposal for a slot is sent before that slot's checkpoint proposal, so nothing legitimate can
-arrive after `checkpoint_proposal_receive_deadline`. A block proposal arriving after that deadline is therefore rejected
-at p2p ingress, exactly as a late checkpoint proposal would be. The `attestation_deadline` remains the validation/
-re-execution deadline for any block or checkpoint proposal that did arrive in time.
+The `attestation_deadline` above is a validation/re-execution deadline, not an arrival gate. Arrival at the p2p layer is gated separately and more tightly: intermediate block proposals share the checkpoint proposal's receive window as their arrival gate. Every block proposal for a slot is sent before that slot's checkpoint proposal, so nothing legitimate can arrive after `checkpoint_proposal_receive_deadline`. A block proposal arriving after that deadline is therefore rejected at p2p ingress, exactly as a late checkpoint proposal would be. The `attestation_deadline` remains the validation/re-execution deadline for any block or checkpoint proposal that did arrive in time.
 
 ## Block Sub-Slots
 
-Block sub-slots are fixed windows counted from the first sub-slot start, which sits one
-`checkpoint_proposal_init_time` after `build_frame_start`. `min_block_duration` is the spec name for the minimum
-execution headroom currently called `minExecutionTime`.
+Block sub-slots are fixed windows counted from the first sub-slot start, which sits one `checkpoint_proposal_init_time` after `build_frame_start`. `min_block_duration` is the spec name for the minimum execution headroom currently called `minExecutionTime`.
 
-`checkpoint_proposal_init_time` is the proposer budget reserved at the start of the build frame for sync, the proposer
-check, and checkpoint initialization. The proposer rarely begins building exactly at `build_frame_start` — it enters the
-build loop only after that prologue completes — so the sub-slot grid is offset by this budget. Without it, any non-zero
-prologue eats into the first sub-slot, and when `min_block_duration` equals `block_duration` (tight fast profiles) the
-first sub-slot becomes unstartable, leaving the checkpoint under-packed. This is an operational proposer budget, so it
-lives in the proposer timetable and does not affect any consensus-acceptance deadline.
+`checkpoint_proposal_init_time` is the proposer budget reserved at the start of the build frame for sync, the proposer check, and checkpoint initialization. The proposer rarely begins building exactly at `build_frame_start` — it enters the build loop only after that prologue completes — so the sub-slot grid is offset by this budget. Without it, any non-zero prologue eats into the first sub-slot, and when `min_block_duration` equals `block_duration` (tight fast profiles) the first sub-slot becomes unstartable, leaving the checkpoint under-packed. This is an operational proposer budget, so it lives in the proposer timetable and does not affect any consensus-acceptance deadline.
 
 ```text
 first_subslot_start = build_frame_start + checkpoint_proposal_init_time
@@ -283,9 +241,7 @@ block_build_deadline(block_index) = first_subslot_start + (block_index + 1) * bl
 
 where `block_index` is zero-based.
 
-Sub-slot starts and deadlines do not move when earlier blocks finish early or late. If block `k` finishes early, the
-proposer waits until `block_build_deadline(k)` before attempting block `k + 1`. If block `k` finishes late, the next
-sub-slot keeps its original deadline and therefore has less remaining headroom.
+Sub-slot starts and deadlines do not move when earlier blocks finish early or late. If block `k` finishes early, the proposer waits until `block_build_deadline(k)` before attempting block `k + 1`. If block `k` finishes late, the next sub-slot keeps its original deadline and therefore has less remaining headroom.
 
 The maximum number of full-duration block sub-slots is:
 
@@ -293,8 +249,7 @@ The maximum number of full-duration block sub-slots is:
 max_blocks_per_checkpoint = floor((last_block_build_time - first_subslot_start) / block_duration)
 ```
 
-The start deadline is the latest time at which the proposer can still squeeze one minimum-duration block and make the
-ideal L1 publish path:
+The start deadline is the latest time at which the proposer can still squeeze one minimum-duration block and make the ideal L1 publish path:
 
 ```text
 start_deadline = last_block_build_time - min_block_duration
@@ -352,17 +307,14 @@ The sub-slot schedule is fixed, so timing variation changes how much headroom re
 - If the proposer initializes early, the first block gets extra time before its fixed deadline.
 - If the proposer initializes late but the current sub-slot still has at least `min_block_duration` remaining, it may
   build in that sub-slot.
-- If initialization or a previous block overrun leaves less than `min_block_duration` before the current sub-slot
-  deadline, that sub-slot is skipped.
+- If initialization or a previous block overrun leaves less than `min_block_duration` before the current sub-slot deadline, that sub-slot is skipped.
 - If a block finishes early, the proposer waits until the next sub-slot boundary before attempting the next block.
 - If a block finishes late, the next block may still start if some later sub-slot has enough remaining headroom.
-- If a block cannot be built because there are not enough txs, the current sub-slot is dropped and the proposer retries
-  at the next available sub-slot, unless the dropped sub-slot was the final one.
+- If a block cannot be built because there are not enough txs, the current sub-slot is dropped and the proposer retries at the next available sub-slot, unless the dropped sub-slot was the final one.
 
 ## Dead Zone
 
-The dead zone is the time between the previous proposer finishing its final block and the next proposer starting its own
-build frame. During this interval no proposer is actively building new blocks.
+The dead zone is the time between the previous proposer finishing its final block and the next proposer starting its own build frame. During this interval no proposer is actively building new blocks.
 
 ```text
 dead_zone = next_proposer_build_frame_start - last_block_build_time
@@ -382,14 +334,11 @@ The two `p2p_propagation_time` terms are different hops:
 - checkpoint proposal propagation from proposer to validators;
 - attestation propagation from validators back to the proposer.
 
-The dead zone is deliberate. It buys enough time to assemble and broadcast the checkpoint proposal, let validators
-re-execute it, and receive attestations back before `l1_publish_ideal_time`. A later checkpoint proposal may still satisfy
-the consensus handoff deadline, but the proposer does not size block production around that fallback.
+The dead zone is deliberate. It buys enough time to assemble and broadcast the checkpoint proposal, let validators re-execute it, and receive attestations back before `l1_publish_ideal_time`. A later checkpoint proposal may still satisfy the consensus handoff deadline, but the proposer does not size block production around that fallback.
 
 ## Next-Proposer Handoff
 
-The next proposer must have enough time to receive and re-execute the previous checkpoint before its own build frame
-starts. This is the consensus-critical receive deadline:
+The next proposer must have enough time to receive and re-execute the previous checkpoint before its own build frame starts. This is the consensus-critical receive deadline:
 
 ```text
 next_proposer_handoff_deadline = checkpoint_proposal_receive_deadline + block_duration
@@ -419,8 +368,7 @@ The ideal handoff margin is:
 next_proposer_build_frame_start - next_proposer_handoff_ideal_time =   p2p_propagation_time
 ```
 
-The consensus handoff deadline is `p2p_propagation_time` later than the ideal handoff target. That slack is for accepting
-otherwise valid late checkpoint proposals, not for sizing normal block production.
+The consensus handoff deadline is `p2p_propagation_time` later than the ideal handoff target. That slack is for accepting otherwise valid late checkpoint proposals, not for sizing normal block production.
 
 ## Constraints
 
@@ -541,8 +489,7 @@ actual_attestation_signed_time <= attestation_deadline
 
 ## Suggested Constants
 
-These are proposed values for the new model. They intentionally separate production settings from local e2e settings
-with mocked p2p networks.
+These are proposed values for the new model. They intentionally separate production settings from local e2e settings with mocked p2p networks.
 
 ### Production
 
@@ -571,21 +518,14 @@ dead_zone = 11s
 max_blocks_per_checkpoint = 10
 ```
 
-The ideal publish path is the normal scheduling target: it reserves one attestation propagation hop, validator
-re-execution time, one checkpoint proposal propagation hop, and local checkpoint proposal preparation. The hard checkpoint
-proposal receive deadline is later and is used for consensus acceptance.
+The ideal publish path is the normal scheduling target: it reserves one attestation propagation hop, validator re-execution time, one checkpoint proposal propagation hop, and local checkpoint proposal preparation. The hard checkpoint proposal receive deadline is later and is used for consensus acceptance.
 
 ### Local e2e with mocked p2p
 
 For mocked p2p networks, local profiles can use shorter propagation and preparation budgets. A fast profile should still
 preserve the same ordering constraints as production.
 
-These fast-profile budgets are applied automatically when `ethereum_slot_duration` is below
-`FAST_PROFILE_ETHEREUM_SLOT_DURATION` (8s): the timetable clamps `p2p_propagation_time`,
-`checkpoint_proposal_prepare_time`, and `min_block_duration` down to the fast values below. Without this, a fast network
-would inherit the conservative production budgets (e.g. `p2p_propagation_time = 2s`), which shrink the per-checkpoint
-build window and under-pack checkpoints. The clamp only lowers budgets, so an operator that explicitly configures a
-smaller value keeps it; `checkpoint_proposal_init_time` is a proposer prologue budget and is not affected by the profile.
+These fast-profile budgets are applied automatically when `ethereum_slot_duration` is below `FAST_PROFILE_ETHEREUM_SLOT_DURATION` (8s): the timetable clamps `p2p_propagation_time`, `checkpoint_proposal_prepare_time`, and `min_block_duration` down to the fast values below. Without this, a fast network would inherit the conservative production budgets (e.g. `p2p_propagation_time = 2s`), which shrink the per-checkpoint build window and under-pack checkpoints. The clamp only lowers budgets, so an operator that explicitly configures a smaller value keeps it; `checkpoint_proposal_init_time` is a proposer prologue budget and is not affected by the profile.
 
 Recommended fast local profile:
 
