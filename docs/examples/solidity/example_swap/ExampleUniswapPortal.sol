@@ -33,6 +33,7 @@ contract ExampleUniswapPortal {
         outbox = rollup.getOutbox();
         rollupVersion = rollup.getVersion();
     }
+
     // docs:end:example_uniswap_portal
 
     // docs:start:swap_public
@@ -49,19 +50,15 @@ contract ExampleUniswapPortal {
         bytes32 _secretHashForL1ToL2Message,
         // Outbox message metadata for the two L2->L1 messages
         Epoch[2] calldata _epochs,
+        uint256[2] calldata _numCheckpointsInEpochs,
         uint256[2] calldata _leafIndices,
         bytes32[][2] calldata _paths
     ) external returns (bytes32, uint256) {
         IERC20 outputAsset = ExampleTokenPortal(_outputTokenPortal).underlying();
 
         // Message 1: Consume the token bridge exit message (withdraw input tokens)
-        ExampleTokenPortal(_inputTokenPortal).withdraw(
-            address(this),
-            _inAmount,
-            _epochs[0],
-            _leafIndices[0],
-            _paths[0]
-        );
+        ExampleTokenPortal(_inputTokenPortal)
+            .withdraw(address(this), _inAmount, _epochs[0], _numCheckpointsInEpochs[0], _leafIndices[0], _paths[0]);
 
         // Message 2: Consume the uniswap swap intent message
         bytes32 contentHash = Hash.sha256ToField(
@@ -84,6 +81,7 @@ contract ExampleUniswapPortal {
                 content: contentHash
             }),
             _epochs[1],
+            _numCheckpointsInEpochs[1],
             _leafIndices[1],
             _paths[1]
         );
@@ -94,12 +92,10 @@ contract ExampleUniswapPortal {
 
         // Approve output token portal and deposit back to Aztec
         outputAsset.approve(_outputTokenPortal, amountOut);
-        return ExampleTokenPortal(_outputTokenPortal).depositToAztecPublic(
-            _aztecRecipient,
-            amountOut,
-            _secretHashForL1ToL2Message
-        );
+        return ExampleTokenPortal(_outputTokenPortal)
+            .depositToAztecPublic(_aztecRecipient, amountOut, _secretHashForL1ToL2Message);
     }
+
     // docs:end:swap_public
 
     // docs:start:swap_private
@@ -113,19 +109,15 @@ contract ExampleUniswapPortal {
         bytes32 _secretHashForL1ToL2Message,
         // Outbox message metadata for the two L2->L1 messages
         Epoch[2] calldata _epochs,
+        uint256[2] calldata _numCheckpointsInEpochs,
         uint256[2] calldata _leafIndices,
         bytes32[][2] calldata _paths
     ) external returns (bytes32, uint256) {
         IERC20 outputAsset = ExampleTokenPortal(_outputTokenPortal).underlying();
 
         // Message 1: Consume the token bridge exit message (withdraw input tokens)
-        ExampleTokenPortal(_inputTokenPortal).withdraw(
-            address(this),
-            _inAmount,
-            _epochs[0],
-            _leafIndices[0],
-            _paths[0]
-        );
+        ExampleTokenPortal(_inputTokenPortal)
+            .withdraw(address(this), _inAmount, _epochs[0], _numCheckpointsInEpochs[0], _leafIndices[0], _paths[0]);
 
         // Message 2: Consume the uniswap swap intent message
         bytes32 contentHash = Hash.sha256ToField(
@@ -147,6 +139,7 @@ contract ExampleUniswapPortal {
                 content: contentHash
             }),
             _epochs[1],
+            _numCheckpointsInEpochs[1],
             _leafIndices[1],
             _paths[1]
         );
@@ -157,10 +150,7 @@ contract ExampleUniswapPortal {
 
         // Approve output token portal and deposit back to Aztec privately
         outputAsset.approve(_outputTokenPortal, amountOut);
-        return ExampleTokenPortal(_outputTokenPortal).depositToAztecPrivate(
-            amountOut,
-            _secretHashForL1ToL2Message
-        );
+        return ExampleTokenPortal(_outputTokenPortal).depositToAztecPrivate(amountOut, _secretHashForL1ToL2Message);
     }
     // docs:end:swap_private
 }

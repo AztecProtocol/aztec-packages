@@ -144,7 +144,18 @@ function build {
 
   if [ "$#" -eq 0 ]; then
     rm -rf target
+    mkdir -p target
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
+
+    # If a pinned standard-contracts archive is present, extract it into target/ and skip
+    # recompilation of those contracts. The archive pins the canonical standard-contract
+    # artifacts so their deterministic addresses can never silently drift; when it is absent,
+    # everything compiles fresh.
+    if [ -f pinned-standard-contracts.tar.gz ]; then
+      echo_stderr "Using pinned-standard-contracts.tar.gz for pinned standard contracts."
+      tar xzf pinned-standard-contracts.tar.gz -C target
+      contracts=$(echo "$contracts" | grep -vE "^standard/")
+    fi
   else
     local contracts="$@"
   fi
@@ -217,6 +228,23 @@ function format {
   $NARGO fmt
 }
 
+# Force-builds standard contracts and tar-balls their artifacts into pinned-standard-contracts.tar.gz.
+# Run this to (re)pin the standard-contract artifacts, then commit the resulting tarball. Re-run and
+# re-commit whenever the canonical standard-contract artifacts are intended to change.
+# Mirrors the v4 `pin-build` mechanism that pins protocol contracts.
+function pin-standard-build {
+  rm -f pinned-standard-contracts.tar.gz
+  local standard_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^standard/")
+  build $standard_contracts || { echo_stderr "Build failed; refusing to create tarball."; return 1; }
+  local standard_artifacts=$(jq -r '.[]' standard_contracts.json | sed 's/$/.json/')
+  for a in $standard_artifacts; do
+    [ -f "target/$a" ] || { echo_stderr "Missing artifact target/$a; refusing to create tarball."; return 1; }
+  done
+  echo_stderr "Creating pinned-standard-contracts.tar.gz..."
+  (cd target && tar czf ../pinned-standard-contracts.tar.gz $standard_artifacts)
+  echo_stderr "Done. pinned-standard-contracts.tar.gz created. Commit it to pin these artifacts."
+}
+
 case "$cmd" in
   "clean-keys")
     for artifact in target/*.json; do
@@ -230,6 +258,9 @@ case "$cmd" in
     ;;
   "compile")
     VERBOSE=${VERBOSE:-1} build "$@"
+    ;;
+  "pin-standard-build")
+    pin-standard-build
     ;;
   *)
     default_cmd_handler "$@"

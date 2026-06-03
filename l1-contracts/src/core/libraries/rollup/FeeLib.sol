@@ -71,6 +71,29 @@ uint256 constant MAGIC_CONGESTION_VALUE_MULTIPLIER = 854_700_854;
 uint256 constant BLOB_GAS_PER_BLOB = 2 ** 17;
 uint256 constant BLOBS_PER_CHECKPOINT = 3;
 
+/*
+ * Proving-cost rate limit
+ *
+ * `setProvingCostPerMana` can move the rollup's fee model materially, so the value is
+ * constrained to a bounded multiplicative step per cooldown instead of unconstrained writes.
+ *
+ *   - PROVING_COST_UPDATE_INTERVAL: minimum time between updates (acts as the anti-multicall guard).
+ *   - PROVING_COST_STEP_NUM / _DEN: multiplicative step cap applied against the live value.
+ *   - MIN_PROVING_COST_PER_MANA: floor that keeps the ratio algebra useful (0 and 1 freeze).
+ *
+ * With 3/2 per 30 days, the value requires ~170 days to move 10x and ~340 days to move 100x.
+ * `provingCostLastUpdate == 0` after `initialize`, so the first post-init update is not gated
+ * by the cooldown; the 30-day cadence engages after that.
+ */
+uint256 constant PROVING_COST_UPDATE_INTERVAL = 30 days;
+uint256 constant PROVING_COST_STEP_NUM = 3;
+uint256 constant PROVING_COST_STEP_DEN = 2;
+uint256 constant MIN_PROVING_COST_PER_MANA = 2;
+// Initial-only ceiling. Prevents a mistaken deployment from setting a value that will take a long
+// time to correct from. At the time of this writing, deployed value is 2.5e7, and it is expected
+// that proving costs will go down.
+uint256 constant MAX_INITIAL_PROVING_COST_PER_MANA = 2e8;
+
 struct OracleInput {
   int256 feeAssetPriceModifier;
 }
@@ -85,6 +108,7 @@ struct ManaMinFeeComponents {
 struct FeeStore {
   CompressedFeeConfig config;
   L1GasOracleValues l1GasOracleValues;
+  uint64 provingCostLastUpdate;
 }
 
 library FeeLib {
@@ -118,6 +142,21 @@ library FeeLib {
 
     // Computes and ensures that limit is within sane bounds
     computeManaLimit(_manaTarget);
+
+    // The rate-limit algebra in updateProvingCostPerMana assumes `current >= 2`; initializing
+    // below the floor would permanently freeze the proving-cost update path.
+    uint256 provingCost = EthValue.unwrap(_provingCostPerMana);
+    require(
+      provingCost >= MIN_PROVING_COST_PER_MANA,
+      Errors.FeeLib__ProvingCostBelowFloor(provingCost, MIN_PROVING_COST_PER_MANA)
+    );
+    // The uint64 cap inside FeeConfigLib.compress is a storage-shape bound, not an economic
+    // bound. Enforce a separate initial ceiling so a deploy cannot strand the rollup at a value
+    // that takes years to drift back to normal operating ranges via the rate-limited updater.
+    require(
+      provingCost <= MAX_INITIAL_PROVING_COST_PER_MANA,
+      Errors.FeeLib__ProvingCostAboveCeiling(provingCost, MAX_INITIAL_PROVING_COST_PER_MANA)
+    );
 
     // Validate initial ETH per fee asset is within bounds
     uint256 initialPrice = EthPerFeeAssetE12.unwrap(_initialEthPerFeeAsset);
@@ -158,8 +197,27 @@ library FeeLib {
   function updateProvingCostPerMana(EthValue _provingCostPerMana) internal {
     FeeStore storage feeStore = getStorage();
     FeeConfig memory config = feeStore.config.decompress();
+
+    uint256 current = EthValue.unwrap(config.provingCostPerMana);
+    uint256 newV = EthValue.unwrap(_provingCostPerMana);
+
+    require(newV >= MIN_PROVING_COST_PER_MANA, Errors.FeeLib__ProvingCostBelowFloor(newV, MIN_PROVING_COST_PER_MANA));
+
+    uint256 nextAllowed = uint256(feeStore.provingCostLastUpdate) + PROVING_COST_UPDATE_INTERVAL;
+    require(
+      feeStore.provingCostLastUpdate == 0 || block.timestamp >= nextAllowed,
+      Errors.FeeLib__ProvingCostCooldown(nextAllowed)
+    );
+
+    require(
+      newV * PROVING_COST_STEP_DEN <= current * PROVING_COST_STEP_NUM
+        && newV * PROVING_COST_STEP_NUM >= current * PROVING_COST_STEP_DEN,
+      Errors.FeeLib__ProvingCostStepExceeded(current, newV)
+    );
+
     config.provingCostPerMana = _provingCostPerMana;
     feeStore.config = config.compress();
+    feeStore.provingCostLastUpdate = uint64(block.timestamp);
   }
 
   function updateL1GasFeeOracle() internal {

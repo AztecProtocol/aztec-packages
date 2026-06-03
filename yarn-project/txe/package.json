@@ -2,7 +2,12 @@
   "name": "@aztec/txe",
   "version": "0.0.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    "./server": {
+      "types": "./dest/rpc_server.d.ts",
+      "import": "./dest/server.bundle.js"
+    }
+  },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {
     "entryPoints": [
@@ -12,7 +17,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && ../scripts/tsc.sh",
+    "build": "yarn clean && ../scripts/tsc.sh && node ./esbuild.config.mjs",
     "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
@@ -21,7 +26,8 @@
     "check_txe_oracle_version": "node ./dest/bin/check_txe_oracle_version.js"
   },
   "inherits": [
-    "../package.common.json"
+    "../package.common.json",
+    "./package.local.json"
   ],
   "jest": {
     "moduleNameMapper": {
@@ -67,6 +73,7 @@
     "@aztec/aztec-node": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/bb-prover": "workspace:^",
+    "@aztec/bb.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
@@ -77,6 +84,7 @@
     "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/world-state": "workspace:^",
+    "msgpackr": "^1.11.2",
     "zod": "^4"
   },
   "devDependencies": {
@@ -84,17 +92,23 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "@typescript/native-preview": "7.0.0-dev.20260113.1",
+    "esbuild": "^0.27.0",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"
   },
   "files": [
+    "dest/bin/index.js",
+    "dest/worker.bundle.js",
+    "dest/server.bundle.js",
+    "dest/chunk-*.js",
+    "dest/*-*.js",
+    "dest/rpc_server.d.ts",
     "dest",
     "src",
     "!*.test.*"
   ],
-  "types": "./dest/index.d.ts",
   "engines": {
     "node": ">=20.10"
   }

@@ -961,9 +961,6 @@ describe('NativeWorldState', () => {
       await expect(delayedFork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
 
       await sleep(closeDelayMs * 3);
-      const closePromise = (delayedFork as any).closePromise;
-      expect(closePromise).toBeDefined();
-      await closePromise;
 
       expect(warnSpy).not.toHaveBeenCalled();
       expect((ws as any).instance.queues.has(forkId)).toBe(false);

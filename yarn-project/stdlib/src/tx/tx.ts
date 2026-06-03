@@ -2,14 +2,18 @@ import { DA_GAS_PER_FIELD, TX_DA_GAS_OVERHEAD } from '@aztec/constants';
 import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ZodFor } from '@aztec/foundation/schemas';
-import { BufferReader, serializeArrayOfBufferableToVector, serializeToBuffer } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  BufferSink,
+  serializeArrayOfBufferableToVector,
+  serializeArrayToSink,
+  serializeToSink,
+} from '@aztec/foundation/serialize';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
 import type { GasSettings } from '../gas/gas_settings.js';
-import type { GetPublicLogsResponse } from '../interfaces/get_logs_response.js';
-import type { L2LogsSource } from '../interfaces/l2_logs_source.js';
 import type { PublicCallRequest } from '../kernel/index.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class_log.js';
@@ -20,6 +24,14 @@ import type { TxStats } from '../stats/stats.js';
 import { HashedValues } from './hashed_values.js';
 import { PublicCallRequestWithCalldata } from './public_call_request_with_calldata.js';
 import { TxHash } from './tx_hash.js';
+
+// Static presize hint for the BufferSink the no-sink Tx.toBuffer() path allocates. Empirically a
+// public-with-enqueued-calls Tx serialized by the bootstrapped bench (yarn-project/stdlib/src/tx/
+// tx_bench.test.ts) is ~129128 bytes; a private-only Tx is ~81763 bytes. 128 KiB covers both shapes
+// without a single doubling-growth `ensure()` resize on the cold path. Real-world Txs that happen to
+// exceed this still serialize correctly — the sink falls back to its standard doubling growth — just
+// with the existing cost.
+const TX_SINK_PRESIZE_BYTES = 131072;
 
 /**
  * The interface of an L2 transaction.
@@ -127,14 +139,15 @@ export class Tx extends Gossipable {
    * Serializes the Tx object into a Buffer.
    * @returns Buffer representation of the Tx object.
    */
-  toBuffer() {
-    return serializeToBuffer([
-      this.txHash,
-      this.data,
-      this.chonkProof,
-      serializeArrayOfBufferableToVector(this.contractClassLogFields, 1),
-      serializeArrayOfBufferableToVector(this.publicFunctionCalldata, 1),
-    ]);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this, TX_SINK_PRESIZE_BYTES);
+    }
+    serializeToSink(sink, this.txHash, this.data, this.chonkProof);
+    serializeArrayToSink(sink, this.contractClassLogFields, 1);
+    serializeArrayToSink(sink, this.publicFunctionCalldata, 1);
   }
 
   static get schema(): ZodFor<Tx> {
@@ -178,15 +191,6 @@ export class Tx extends Gossipable {
   async validateTxHash(): Promise<boolean> {
     const expectedHash = await Tx.computeTxHash(this);
     return this.txHash.equals(expectedHash);
-  }
-
-  /**
-   * Gets public logs emitted by this tx.
-   * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
-   * @returns The requested logs.
-   */
-  public getPublicLogs(logsSource: L2LogsSource): Promise<GetPublicLogsResponse> {
-    return logsSource.getPublicLogs({ txHash: this.getTxHash() });
   }
 
   getContractClassLogs(): ContractClassLog[] {
@@ -345,7 +349,12 @@ export class TxArray extends Array<Tx> {
     }
   }
 
-  public toBuffer(): Buffer {
-    return serializeArrayOfBufferableToVector(this);
+  public toBuffer(): Buffer;
+  public toBuffer(sink: BufferSink): void;
+  public toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return serializeArrayOfBufferableToVector(this);
+    }
+    serializeArrayToSink(sink, [...this]);
   }
 }

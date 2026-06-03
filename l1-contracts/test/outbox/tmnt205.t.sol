@@ -34,7 +34,7 @@ contract Tmnt205Test is Test {
     $root = _buildWonkyTree();
     vm.prank(rollup);
 
-    outbox.insert(DEFAULT_EPOCH, $root);
+    outbox.insert(DEFAULT_EPOCH, 1, $root);
   }
 
   function test_replays_exact() public {
@@ -61,12 +61,12 @@ contract Tmnt205Test is Test {
     uint256 leafId = leafIndex + (1 << path.length);
 
     vm.expectEmit(true, true, true, true, address(outbox));
-    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, $root, message.sha256ToField(), leafId);
-    outbox.consume(message, DEFAULT_EPOCH, leafIndex, path);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, $root, message.sha256ToField(), leafId, 1);
+    outbox.consume(message, DEFAULT_EPOCH, 1, leafIndex, path);
 
     // It should always revert, here, either incorrect values or already used.
     vm.expectRevert();
-    outbox.consume(message, DEFAULT_EPOCH, leafIndex2, path);
+    outbox.consume(message, DEFAULT_EPOCH, 1, leafIndex2, path);
   }
 
   function test_overrides() public {
@@ -93,7 +93,7 @@ contract Tmnt205Test is Test {
 
     // The outbox should revert earlier to that due to the index beyond boundary
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__LeafIndexOutOfBounds.selector, a_leafIndex, a_path.length));
-    outbox.consume(a_message, DEFAULT_EPOCH, a_leafIndex, a_path);
+    outbox.consume(a_message, DEFAULT_EPOCH, 1, a_leafIndex, a_path);
 
     // Real message
     DataStructures.L2ToL1Msg memory r_message = $msgs[4];
@@ -105,7 +105,7 @@ contract Tmnt205Test is Test {
     leftSubTree.insertLeaf($txOutHashes[0]);
     leftSubTree.insertLeaf($txOutHashes[1]);
     r_path[2] = leftSubTree.computeRoot();
-    outbox.consume(r_message, DEFAULT_EPOCH, r_leafIndex, r_path);
+    outbox.consume(r_message, DEFAULT_EPOCH, 1, r_leafIndex, r_path);
   }
 
   function _fakeMessage(address _recipient, uint256 _content) internal view returns (DataStructures.L2ToL1Msg memory) {

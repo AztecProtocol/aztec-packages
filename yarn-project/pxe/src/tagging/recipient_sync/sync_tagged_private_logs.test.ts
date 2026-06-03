@@ -1,10 +1,17 @@
 import { MAX_TX_LIFETIME } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { type AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
-import { randomAppTaggingSecret, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
+import {
+  type AppTaggingSecret,
+  AppTaggingSecretKind,
+  type PrivateLogsQuery,
+  SiloedTag,
+  type TagQuery,
+  randomLogResult,
+} from '@aztec/stdlib/logs';
+import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -25,8 +32,15 @@ describe('syncTaggedPrivateLogs', () => {
     return SiloedTag.compute({ extendedSecret: secret, index });
   }
 
-  function makeLog(blockNumber: number, blockTimestamp: bigint, tag: Fr) {
-    return randomTxScopedPrivateL2Log({ blockNumber, blockTimestamp, tag });
+  function makeLog(blockNumber: number, blockTimestamp: bigint, _tag: Fr) {
+    return { ...randomLogResult(/* includeEffects */ true), blockNumber: BlockNumber(blockNumber), blockTimestamp };
+  }
+
+  /**
+   * Extracts the bare-tag set from a query, defaulting `afterLog`-wrapped entries to their inner tag.
+   */
+  function extractTags(query: PrivateLogsQuery): SiloedTag[] {
+    return query.tags.map((entry: TagQuery<SiloedTag>) => (entry instanceof SiloedTag ? entry : entry.tag));
   }
 
   beforeEach(async () => {
@@ -43,7 +57,8 @@ describe('syncTaggedPrivateLogs', () => {
 
   it('returns empty array when no logs found for any secret', async () => {
     const secrets = await makeSecrets(3);
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(tags.map(() => []));
     });
 
@@ -63,7 +78,8 @@ describe('syncTaggedPrivateLogs', () => {
     const secrets = await makeSecrets(3);
     const finalizedBlockNumber = BlockNumber(10);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(tags.map(() => []));
     });
 
@@ -82,7 +98,8 @@ describe('syncTaggedPrivateLogs', () => {
     const log1Tag = await computeSiloedTagForIndex(secrets[0], log1Index);
     const log2Tag = await computeSiloedTagForIndex(secrets[1], log2Index);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(log1Tag)) {
@@ -122,7 +139,8 @@ describe('syncTaggedPrivateLogs', () => {
     const logIndex = 5;
     const logTag = await computeSiloedTagForIndex(secret, logIndex);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) =>
           t.equals(logTag) ? [makeLog(Number(finalizedBlockNumber), logBlockTimestamp, logTag.value)] : [],
@@ -150,7 +168,8 @@ describe('syncTaggedPrivateLogs', () => {
     const newWindowIndex = lastIndexInInitialWindow + 3;
     const log2Tag = await computeSiloedTagForIndex(secret, newWindowIndex);
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) => {
           if (t.equals(log1Tag)) {
@@ -186,11 +205,13 @@ describe('syncTaggedPrivateLogs', () => {
     await taggingStore.updateHighestAgedIndex(secret, existingAgedIndex, JOB_ID);
     await taggingStore.updateHighestFinalizedIndex(secret, existingFinalizedIndex, JOB_ID);
 
-    aztecNode.getPrivateLogsByTags.mockResolvedValue([]);
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) =>
+      Promise.resolve(query.tags.map(() => [])),
+    );
 
     await syncTaggedPrivateLogs([secret], aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, finalizedBlockNumber, JOB_ID);
 
-    const calledTags = aztecNode.getPrivateLogsByTags.mock.calls[0][0];
+    const calledTags = extractTags(aztecNode.getPrivateLogsByTags.mock.calls[0][0]);
 
     // The query window must start at existingAgedIndex+1 and end at existingFinalizedIndex+WINDOW_LEN (inclusive).
     const expectedStart = existingAgedIndex + 1;
@@ -213,7 +234,8 @@ describe('syncTaggedPrivateLogs', () => {
     const logTag = await computeSiloedTagForIndex(secret, logIndex);
 
     // Two logs returned for the same tag
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
       return Promise.resolve(
         tags.map((t: SiloedTag) =>
           t.equals(logTag)
@@ -238,7 +260,7 @@ describe('syncTaggedPrivateLogs', () => {
     expect(logs).toHaveLength(2);
   });
 
-  it('filters out logs from blocks after the anchor block', async () => {
+  it('caps the node query at anchorBlockNumber + 1 (toBlock exclusive)', async () => {
     const [secret] = await makeSecrets(1);
     const anchorBlock = BlockNumber(10);
     const header = BlockHeader.random({ blockNumber: anchorBlock, timestamp: CURRENT_TIMESTAMP });
@@ -248,25 +270,29 @@ describe('syncTaggedPrivateLogs', () => {
     const logIndex = 3;
     const logTag = await computeSiloedTagForIndex(secret, logIndex);
 
-    // Three logs: one before anchor, one at anchor, one after anchor
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => {
+    // The mock simulates the node honoring `toBlock` (exclusive). Recipient sync now relies on the node
+    // for this filter rather than dropping post-anchor logs client-side.
+    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+      const tags = extractTags(query);
+      const toBlockExclusive = Number(query.toBlock ?? Infinity);
+      const allCandidates = [
+        makeLog(Number(anchorBlock) - 1, logBlockTimestamp, logTag.value),
+        makeLog(Number(anchorBlock), logBlockTimestamp, logTag.value),
+        makeLog(Number(anchorBlock) + 1, logBlockTimestamp, logTag.value),
+      ];
       return Promise.resolve(
         tags.map((t: SiloedTag) =>
-          t.equals(logTag)
-            ? [
-                makeLog(Number(anchorBlock) - 1, logBlockTimestamp, logTag.value),
-                makeLog(Number(anchorBlock), logBlockTimestamp, logTag.value),
-                makeLog(Number(anchorBlock) + 1, logBlockTimestamp, logTag.value),
-              ]
-            : [],
+          t.equals(logTag) ? allCandidates.filter(l => Number(l.blockNumber) < toBlockExclusive) : [],
         ),
       );
     });
 
     const logs = await syncTaggedPrivateLogs([secret], aztecNode, taggingStore, header, finalizedBlockNumber, JOB_ID);
 
-    // Only logs at or before the anchor block should be included
+    // Only logs at or before the anchor block should be included — node-side filter drops the post-anchor log.
     expect(logs).toHaveLength(2);
+    // Verify the node was called with toBlock = anchorBlock + 1 (exclusive upper bound).
+    expect(aztecNode.getPrivateLogsByTags.mock.calls[0][0].toBlock).toBe(BlockNumber(Number(anchorBlock) + 1));
   });
 });
 

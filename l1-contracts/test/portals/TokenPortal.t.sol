@@ -206,7 +206,7 @@ contract TokenPortalTest is Test {
     bytes32 treeRoot = tree.computeRoot();
     // Insert messages into the outbox (impersonating the rollup contract)
     vm.prank(address(rollup));
-    outbox.insert(_epoch, treeRoot);
+    outbox.insert(_epoch, 1, treeRoot);
 
     return (l2ToL1Message, siblingPath, treeRoot);
   }
@@ -224,15 +224,15 @@ contract TokenPortalTest is Test {
 
     vm.startPrank(_caller);
     vm.expectEmit(true, true, true, true);
-    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, treeRoot, l2ToL1Message, leafId);
-    tokenPortal.withdraw(recipient, withdrawAmount, false, DEFAULT_EPOCH, leafIndex, siblingPath);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, treeRoot, l2ToL1Message, leafId, 1);
+    tokenPortal.withdraw(recipient, withdrawAmount, false, DEFAULT_EPOCH, 1, leafIndex, siblingPath);
 
     // Should have received 654 RNA tokens
     assertEq(testERC20.balanceOf(recipient), withdrawAmount);
 
     // Should not be able to withdraw again
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__AlreadyNullified.selector, DEFAULT_EPOCH, leafId));
-    tokenPortal.withdraw(recipient, withdrawAmount, false, DEFAULT_EPOCH, leafIndex, siblingPath);
+    tokenPortal.withdraw(recipient, withdrawAmount, false, DEFAULT_EPOCH, 1, leafIndex, siblingPath);
     vm.stopPrank();
   }
 
@@ -246,13 +246,13 @@ contract TokenPortalTest is Test {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot, l2ToL1MessageHash, 0)
     );
-    tokenPortal.withdraw(recipient, withdrawAmount, true, DEFAULT_EPOCH, 0, siblingPath);
+    tokenPortal.withdraw(recipient, withdrawAmount, true, DEFAULT_EPOCH, 1, 0, siblingPath);
 
     (l2ToL1MessageHash, consumedRoot) = _createWithdrawMessageForOutbox(address(0));
     vm.expectRevert(
       abi.encodeWithSelector(Errors.MerkleLib__InvalidRoot.selector, treeRoot, consumedRoot, l2ToL1MessageHash, 0)
     );
-    tokenPortal.withdraw(recipient, withdrawAmount, false, DEFAULT_EPOCH, 0, siblingPath);
+    tokenPortal.withdraw(recipient, withdrawAmount, false, DEFAULT_EPOCH, 1, 0, siblingPath);
     vm.stopPrank();
   }
 
@@ -265,8 +265,8 @@ contract TokenPortalTest is Test {
     uint256 leafId = 2 ** siblingPath.length + leafIndex;
 
     vm.expectEmit(true, true, true, true);
-    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, treeRoot, l2ToL1Message, leafId);
-    tokenPortal.withdraw(recipient, withdrawAmount, true, DEFAULT_EPOCH, leafIndex, siblingPath);
+    emit IOutbox.MessageConsumed(DEFAULT_EPOCH, treeRoot, l2ToL1Message, leafId, 1);
+    tokenPortal.withdraw(recipient, withdrawAmount, true, DEFAULT_EPOCH, 1, leafIndex, siblingPath);
 
     // Should have received 654 RNA tokens
     assertEq(testERC20.balanceOf(recipient), withdrawAmount);

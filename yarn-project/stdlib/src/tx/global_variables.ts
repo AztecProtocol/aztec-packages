@@ -4,13 +4,7 @@ import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import {
-  BufferReader,
-  FieldReader,
-  bigintToUInt64BE,
-  serializeToBuffer,
-  serializeToFields,
-} from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, FieldReader, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -149,17 +143,15 @@ export class GlobalVariables {
     ] as const;
   }
 
-  toBuffer() {
-    return serializeToBuffer([
-      this.chainId,
-      this.version,
-      this.blockNumber,
-      this.slotNumber,
-      bigintToUInt64BE(this.timestamp),
-      this.coinbase,
-      this.feeRecipient,
-      this.gasFees,
-    ]);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.chainId, this.version, this.blockNumber, this.slotNumber);
+    sink.writeUInt64(this.timestamp);
+    serializeToSink(sink, this.coinbase, this.feeRecipient, this.gasFees);
   }
 
   toFields() {
