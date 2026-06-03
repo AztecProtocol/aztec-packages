@@ -47,6 +47,7 @@ export interface P2PConfig
       | 'maxTxsPerBlock'
       | 'attestationPropagationTime'
       | 'checkpointProposalPrepareTime'
+      | 'minBlockDuration'
       | 'maxBlocksPerCheckpoint'
     > {
   /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
@@ -149,6 +150,13 @@ export interface P2PConfig
 
   /** How long to keep message IDs in the seen cache (ms). */
   gossipsubSeenTTL: number;
+
+  /**
+   * Maximum clock-disparity tolerance (ms) applied to proposal/attestation gossip receive windows. Both
+   * ends of each acceptance window are widened by this much so peers are not penalized for messages valid
+   * when sent but arriving slightly early or late due to clock skew (Ethereum's MAXIMUM_GOSSIP_CLOCK_DISPARITY).
+   */
+  maxGossipClockDisparityMs: number;
 
   /** The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it. */
   doubleSpendSeverePeerPenaltyWindow: number;
@@ -438,6 +446,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_GOSSIPSUB_SEEN_TTL',
     description: 'How long to keep message IDs in the seen cache.',
     ...numberConfigHelper(20 * 60 * 1000),
+  },
+  maxGossipClockDisparityMs: {
+    env: 'P2P_MAX_GOSSIP_CLOCK_DISPARITY_MS',
+    description:
+      'Maximum clock-disparity tolerance (ms) applied to both ends of proposal/attestation gossip receive windows.',
+    ...numberConfigHelper(500),
   },
   gossipsubTxTopicWeight: {
     env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',

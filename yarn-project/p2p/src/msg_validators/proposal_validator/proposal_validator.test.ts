@@ -19,6 +19,9 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProposalValidator } from './proposal_validator.js';
 
+/** Clock-disparity tolerance (ms) the validators are configured with in these tests. */
+const TEST_CLOCK_DISPARITY_MS = 500;
+
 /** Builds a multi-block timetable (S=72, E=12, D=6) matching the test's mocked l1 constants. */
 function makeTimetable(blockDurationMs: number | undefined = 6000) {
   return new ConsensusTimetable({
@@ -67,6 +70,7 @@ describe('ProposalValidator', () => {
         txsPermitted: true,
         maxTxsPerBlock: undefined,
         signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+        clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
       },
       'test',
     );
@@ -372,7 +376,11 @@ describe('ProposalValidator', () => {
       validator = new ProposalValidator(
         epochCache,
         makeTimetable(undefined),
-        { txsPermitted: true, signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT },
+        {
+          txsPermitted: true,
+          signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
+        },
         'test',
       );
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
@@ -395,6 +403,55 @@ describe('ProposalValidator', () => {
     });
   });
 
+  describe('clock-disparity widening of the proposal receive window', () => {
+    // Proposal receive window for slot 100 is [buildFrameStart, proposalDeadline] = [7116, 7182]s,
+    // widened by TEST_CLOCK_DISPARITY_MS (0.5s) on both ends. These pin the exact widened boundaries.
+    const signer = Secp256k1Signer.random();
+    const buildFrameStart = 100 * 72 - 72 - 12; // 7116
+    const proposalDeadline = 100 * 72 - 12 - 6; // 7182
+    const deltaSeconds = TEST_CLOCK_DISPARITY_MS / 1000;
+
+    beforeEach(() => {
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+    });
+
+    async function validateAt(nowSeconds: number) {
+      const proposal = await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
+        signer,
+      });
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: currentSlot,
+        ts: BigInt(Math.floor(nowSeconds)),
+        nowMs: BigInt(Math.round(nowSeconds * 1000)),
+      });
+      return validator.validate(proposal);
+    }
+
+    it('accepts at the build frame start minus the disparity', async () => {
+      expect(await validateAt(buildFrameStart - deltaSeconds)).toEqual({ result: 'accept' });
+    });
+
+    it('rejects just before the build frame start minus the disparity', async () => {
+      expect(await validateAt(buildFrameStart - deltaSeconds - 0.001)).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+      });
+    });
+
+    it('accepts at the receive deadline plus the disparity', async () => {
+      expect(await validateAt(proposalDeadline + deltaSeconds)).toEqual({ result: 'accept' });
+    });
+
+    it('rejects just after the receive deadline plus the disparity', async () => {
+      expect(await validateAt(proposalDeadline + deltaSeconds + 0.001)).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+      });
+    });
+  });
+
   describe('validateTxs', () => {
     describe('txsPermitted', () => {
       it('rejects proposal with txHashes when txs not permitted', async () => {
@@ -405,6 +462,7 @@ describe('ProposalValidator', () => {
             txsPermitted: false,
             maxTxsPerBlock: undefined,
             signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+            clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
           },
           'test',
         );
@@ -422,6 +480,7 @@ describe('ProposalValidator', () => {
             txsPermitted: false,
             maxTxsPerBlock: undefined,
             signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+            clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
           },
           'test',
         );
@@ -471,6 +530,7 @@ describe('ProposalValidator', () => {
             txsPermitted: true,
             maxTxsPerBlock: 2,
             signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+            clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
           },
           'test',
         );
@@ -488,6 +548,7 @@ describe('ProposalValidator', () => {
             txsPermitted: true,
             maxTxsPerBlock: 2,
             signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+            clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
           },
           'test',
         );
@@ -516,6 +577,7 @@ describe('ProposalValidator', () => {
           txsPermitted: true,
           maxBlocksPerCheckpoint: 5,
           signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
         },
         'test',
       );

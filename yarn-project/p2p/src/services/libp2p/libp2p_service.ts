@@ -24,7 +24,13 @@ import {
   getTopicsForConfig,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
-import { ConsensusTimetable } from '@aztec/stdlib/timetable';
+import {
+  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+  DEFAULT_MIN_BLOCK_DURATION,
+  DEFAULT_P2P_PROPAGATION_TIME,
+  ProposerTimetable,
+} from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -117,6 +123,28 @@ import type {
   PeerDiscoveryService,
 } from '../service.js';
 import { P2PInstrumentation } from './instrumentation.js';
+
+/**
+ * Builds the proposer timetable used by both the gossip validators (for receive-window bounds) and
+ * gossipsub topic scoring (for max-blocks-per-checkpoint). Operational budgets come from p2p config,
+ * falling back to the shared stdlib defaults; `enforce` is true so the block-sub-slot count matches the
+ * proposer. `checkpointProposalInitTime` is not config-mapped, so the stdlib default is used here, the
+ * same way the sequencer sources it.
+ */
+function buildProposerTimetable(
+  config: P2PConfig,
+  l1Constants: ReturnType<EpochCacheInterface['getL1Constants']>,
+): ProposerTimetable {
+  return new ProposerTimetable({
+    l1Constants,
+    blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
+    minBlockDuration: config.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION,
+    p2pPropagationTime: config.attestationPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+    checkpointProposalPrepareTime: config.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+    checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+    enforce: true,
+  });
+}
 
 interface ValidationResult {
   name: string;
@@ -234,13 +262,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.protocolVersion,
     );
 
-    // Build the consensus timetable once from protocol slot-timing constants plus the block duration, and
-    // inject it into every validator so they share one set of receive-window bounds (built once, passed
-    // around per the timetable refactor).
-    const consensusTimetable = new ConsensusTimetable({
-      l1Constants: epochCache.getL1Constants(),
-      blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
-    });
+    // Build the proposer timetable once from protocol slot-timing constants plus the operational budgets
+    // sourced from p2p config, and inject it into every validator so they share one set of receive-window
+    // bounds. A ProposerTimetable also satisfies every ConsensusTimetable consumer and lets gossipsub
+    // scoring derive the same max-blocks-per-checkpoint the proposer uses.
+    const consensusTimetable = buildProposerTimetable(config, epochCache.getL1Constants());
     const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
@@ -250,6 +276,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         chainId: config.l1ChainId,
         rollupAddress: config.rollupAddress,
       },
+      clockDisparityMs: config.maxGossipClockDisparityMs,
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(
@@ -259,6 +286,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     );
     const attestationValidatorOpts = {
       signatureContext: proposalValidatorOpts.signatureContext,
+      clockDisparityMs: config.maxGossipClockDisparityMs,
     };
     this.checkpointAttestationValidator = config.fishermanMode
       ? new FishermanAttestationValidator(
@@ -379,16 +407,15 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     const announceTcpMultiaddr = config.p2pIp ? [convertToMultiaddr(config.p2pIp, p2pPort, 'tcp')] : [];
 
-    // Create dynamic topic score params based on network configuration
+    // Create dynamic topic score params based on network configuration. The scoring derives its
+    // max-blocks-per-checkpoint from the same ProposerTimetable budgets the proposer uses, so p2p
+    // gossipsub scoring stays consistent with block production.
     const l1Constants = epochCache.getL1Constants();
     const topicScoreParams = createAllTopicScoreParams(protocolVersion, {
       slotDurationMs: l1Constants.slotDuration * 1000,
-      ethereumSlotDuration: l1Constants.ethereumSlotDuration,
       heartbeatIntervalMs: config.gossipsubInterval,
       targetCommitteeSize: l1Constants.targetCommitteeSize,
-      blockDurationMs: config.blockDurationMs,
-      p2pPropagationTime: config.attestationPropagationTime,
-      checkpointProposalPrepareTime: config.checkpointProposalPrepareTime,
+      timetable: buildProposerTimetable(config, l1Constants),
       expectedBlockProposalsPerSlot: config.expectedBlockProposalsPerSlot,
     });
 

@@ -12,6 +12,7 @@ import type { TelemetryClient } from '@aztec/telemetry-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import { DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS } from './config.js';
 import { ValidatorMetrics } from './metrics.js';
 import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
@@ -44,6 +45,7 @@ export function createProposalHandler(
       chainId: config.l1ChainId,
       rollupAddress: config.rollupAddress,
     },
+    clockDisparityMs: config.maxGossipClockDisparityMs ?? DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS,
   });
   return new ProposalHandler(
     deps.checkpointsBuilder,

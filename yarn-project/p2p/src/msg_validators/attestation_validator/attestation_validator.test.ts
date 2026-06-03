@@ -11,6 +11,9 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { CheckpointAttestationValidator } from './attestation_validator.js';
 
+/** Clock-disparity tolerance (ms) the validator is configured with in these tests. */
+const TEST_CLOCK_DISPARITY_MS = 500;
+
 /** Builds a multi-block timetable (S=72, E=12, D=6) matching the test's mocked l1 constants. */
 function makeTimetable() {
   return new ConsensusTimetable({
@@ -34,6 +37,7 @@ describe('CheckpointAttestationValidator', () => {
     } as any);
     validator = new CheckpointAttestationValidator(epochCache, makeTimetable(), {
       signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+      clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
     });
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
@@ -317,5 +321,50 @@ describe('CheckpointAttestationValidator', () => {
 
     const result = await validator.validate(mockAttestation);
     expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
+  });
+
+  describe('clock-disparity widening of the attestation receive window', () => {
+    // Attestation window for slot 100 is [buildFrameStart, attestationDeadline] = [7116, 7248]s,
+    // widened by TEST_CLOCK_DISPARITY_MS (0.5s) on both ends. These pin the exact widened boundaries.
+    const buildFrameStart = 100 * 72 - 72 - 12; // 7116
+    const attestationDeadline = 100 * 72 + 72 - 2 * 12; // 7248
+    const deltaSeconds = TEST_CLOCK_DISPARITY_MS / 1000;
+
+    function validateAt(nowSeconds: number) {
+      const header = CheckpointHeader.random({ slotNumber: SlotNumber(100) });
+      const mockAttestation = makeCheckpointAttestation({ header, attesterSigner: attester, proposerSigner: proposer });
+      epochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot: SlotNumber(100), nextSlot: SlotNumber(101) });
+      epochCache.isInCommittee.mockResolvedValue(true);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
+      epochCache.getEpochAndSlotNow.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(100),
+        ts: BigInt(Math.floor(nowSeconds)),
+        nowMs: BigInt(Math.round(nowSeconds * 1000)),
+      });
+      return validator.validate(mockAttestation);
+    }
+
+    it('accepts at the build frame start minus the disparity', async () => {
+      expect(await validateAt(buildFrameStart - deltaSeconds)).toEqual({ result: 'accept' });
+    });
+
+    it('rejects just before the build frame start minus the disparity', async () => {
+      expect(await validateAt(buildFrameStart - deltaSeconds - 0.001)).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+      });
+    });
+
+    it('accepts at the attestation deadline plus the disparity', async () => {
+      expect(await validateAt(attestationDeadline + deltaSeconds)).toEqual({ result: 'accept' });
+    });
+
+    it('rejects just after the attestation deadline plus the disparity', async () => {
+      expect(await validateAt(attestationDeadline + deltaSeconds + 0.001)).toEqual({
+        result: 'reject',
+        severity: PeerErrorSeverity.HighToleranceError,
+      });
+    });
   });
 });

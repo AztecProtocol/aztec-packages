@@ -1,11 +1,5 @@
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
-import {
-  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
-  DEFAULT_MIN_BLOCK_DURATION,
-  DEFAULT_P2P_PROPAGATION_TIME,
-  ProposerTimetable,
-} from '@aztec/stdlib/timetable';
+import type { ProposerTimetable } from '@aztec/stdlib/timetable';
 
 import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 
@@ -15,62 +9,18 @@ import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 export type TopicScoringNetworkParams = {
   /** L2 slot duration in milliseconds */
   slotDurationMs: number;
-  /** L1 slot duration in seconds */
-  ethereumSlotDuration: number;
   /** Gossipsub heartbeat interval in milliseconds */
   heartbeatIntervalMs: number;
   /** Target committee size (number of validators expected to attest per slot) */
   targetCommitteeSize: number;
-  /** Duration per block in milliseconds when building multiple blocks per slot. If undefined, single block mode. */
-  blockDurationMs?: number;
-  /** One-way proposal/attestation propagation budget in seconds. */
-  p2pPropagationTime?: number;
-  /** Local checkpoint proposal preparation budget in seconds. */
-  checkpointProposalPrepareTime?: number;
+  /**
+   * Proposer timetable, shared with the gossip validators. Provides the max-blocks-per-checkpoint used to
+   * derive expected per-slot message rates, so scoring stays consistent with block production.
+   */
+  timetable: ProposerTimetable;
   /** Expected number of block proposals per slot for scoring override. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
   expectedBlockProposalsPerSlot?: number;
 };
-
-/**
- * Calculates the number of blocks per slot based on timing parameters.
- *
- * Constructs a {@link ProposerTimetable} so the block count goes through the same budget resolution
- * (including the fast local/e2e profile) the sequencer uses, keeping p2p gossipsub scoring consistent with
- * the proposer. `l1GenesisTime` does not affect the block count, so a zero genesis is passed.
- *
- * This is the p2p-scoring config layer: it fills any operational budget the network params omit with the
- * shared `DEFAULT_*` values (the same defaults the sequencer config mappings apply) before constructing the
- * strict timetable, which requires every budget.
- *
- * @param slotDurationMs - L2 slot duration in milliseconds
- * @param blockDurationMs - Duration per block in milliseconds (undefined = single block mode)
- * @param opts - Shared checkpoint timing inputs used by the sequencer and validators
- * @returns Number of blocks per slot
- */
-export function calculateBlocksPerSlot(
-  slotDurationMs: number,
-  blockDurationMs: number | undefined,
-  opts: {
-    ethereumSlotDuration: number;
-    p2pPropagationTime?: number;
-    checkpointProposalPrepareTime?: number;
-  },
-): number {
-  const timetable = new ProposerTimetable({
-    l1Constants: {
-      l1GenesisTime: 0n,
-      slotDuration: slotDurationMs / 1000,
-      ethereumSlotDuration: opts.ethereumSlotDuration,
-    },
-    blockDuration: blockDurationMs ? blockDurationMs / 1000 : undefined,
-    minBlockDuration: DEFAULT_MIN_BLOCK_DURATION,
-    p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
-    checkpointProposalPrepareTime: opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
-    checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
-    enforce: true,
-  });
-  return timetable.getMaxBlocksPerCheckpoint();
-}
 
 /**
  * Determines the decay window in slots based on expected message frequency.
@@ -317,14 +267,11 @@ export class TopicScoreParamsFactory {
   };
 
   constructor(private readonly params: TopicScoringNetworkParams) {
-    const { slotDurationMs, heartbeatIntervalMs, blockDurationMs } = params;
+    const { slotDurationMs, heartbeatIntervalMs } = params;
 
-    // Compute values that are the same for all topics
-    this.blocksPerSlot = calculateBlocksPerSlot(slotDurationMs, blockDurationMs, {
-      ethereumSlotDuration: params.ethereumSlotDuration,
-      p2pPropagationTime: params.p2pPropagationTime,
-      checkpointProposalPrepareTime: params.checkpointProposalPrepareTime,
-    });
+    // Compute values that are the same for all topics. The block count comes straight from the shared
+    // proposer timetable, so gossipsub scoring agrees with the proposer's max blocks per checkpoint.
+    this.blocksPerSlot = params.timetable.getMaxBlocksPerCheckpoint();
     this.heartbeatsPerSlot = slotDurationMs / heartbeatIntervalMs;
     this.invalidDecay = computeDecay(heartbeatIntervalMs, slotDurationMs, INVALID_DECAY_WINDOW_SLOTS);
 

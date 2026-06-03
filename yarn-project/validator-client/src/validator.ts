@@ -58,6 +58,7 @@ import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import { DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
@@ -260,6 +261,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         chainId: config.l1ChainId,
         rollupAddress: config.rollupAddress,
       },
+      clockDisparityMs: config.maxGossipClockDisparityMs ?? DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS,
     });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,

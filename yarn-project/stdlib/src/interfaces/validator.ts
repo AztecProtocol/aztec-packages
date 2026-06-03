@@ -100,6 +100,12 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
      * @remarks This should match the property in P2PConfig. It's not picked from there to avoid circular dependencies.
      */
     disableTransactions?: boolean;
+
+    /**
+     * Maximum clock-disparity tolerance (ms) applied to proposal/attestation receive windows.
+     * @remarks Mirrors the property in P2PConfig. It's not picked from there to avoid circular dependencies.
+     */
+    maxGossipClockDisparityMs?: number;
   };
 
 export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>()(
@@ -134,6 +140,7 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
     slashDuplicateAttestationPenalty: schemas.BigInt,
     slashAttestInvalidCheckpointProposalPenalty: schemas.BigInt,
     disableTransactions: z.boolean().optional(),
+    maxGossipClockDisparityMs: z.number().optional(),
   }),
 );
 

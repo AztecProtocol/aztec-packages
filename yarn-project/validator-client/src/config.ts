@@ -14,6 +14,12 @@ import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
 
 export type { ValidatorClientConfig };
 
+/**
+ * Default clock-disparity tolerance (ms) for proposal/attestation receive windows, mirroring the p2p config
+ * default. Used by the validator-client validators when the merged node config does not carry the value.
+ */
+export const DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS = 500;
+
 export const validatorClientConfigMappings: ConfigMappingsType<
   ValidatorClientConfig & Pick<SequencerConfig, 'blockDurationMs'>
 > = {

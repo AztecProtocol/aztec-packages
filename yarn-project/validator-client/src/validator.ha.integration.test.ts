@@ -226,6 +226,7 @@ describe('ValidatorClient HA Integration', () => {
       txsPermitted: true,
       maxTxsPerBlock: undefined,
       signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+      clockDisparityMs: 500,
     });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,

@@ -904,27 +904,21 @@ export class ProposalHandler {
     // the target slot. Keeping validation/attestation alive until then lets validators keep attesting
     // right up to the proposer's real publish cutoff.
     const deadline = this.getReexecutionDeadline(slot);
-    const remainingMs = deadline.getTime() - this.dateProvider.now();
 
-    // Wait for last block to sync by archive. Try once immediately, then keep retrying only while time
-    // remains before the deadline (passed to retryUntil as the absolute deadline so the remaining budget
-    // is derived from the date provider rather than a manually computed fractional timeout).
+    // Wait for last block to sync by archive. The deadline is passed to retryUntil as an absolute date so
+    // the remaining budget is derived from the date provider; a deadline already in the past times out
+    // after a single attempt instead of looping (the immediate-timeout semantics of the deadline overload).
     let lastBlockData;
     try {
-      const fetchBlock = async () => {
-        await this.blockSource.syncImmediate();
-        return await this.blockSource.getBlockData({ archive: proposal.archive });
-      };
-      lastBlockData =
-        (await fetchBlock()) ??
-        (remainingMs <= 0
-          ? undefined
-          : await retryUntil(
-              fetchBlock,
-              `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
-              { deadline, dateProvider: this.dateProvider },
-              0.5,
-            ));
+      lastBlockData = await retryUntil(
+        async () => {
+          await this.blockSource.syncImmediate();
+          return await this.blockSource.getBlockData({ archive: proposal.archive });
+        },
+        `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
+        { deadline, dateProvider: this.dateProvider },
+        0.5,
+      );
     } catch (err) {
       if (err instanceof TimeoutError) {
         this.log.warn(`Timed out waiting for block with archive matching checkpoint proposal`, proposalInfo);

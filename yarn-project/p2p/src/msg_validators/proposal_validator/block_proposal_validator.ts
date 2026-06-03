@@ -16,6 +16,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       maxBlocksPerCheckpoint?: number;
       skipSlotValidation?: boolean;
       signatureContext: CoordinationSignatureContext;
+      clockDisparityMs: number;
     },
   ) {
     this.proposalValidator = new ProposalValidator(epochCache, timetable, opts, 'p2p:block_proposal_validator');

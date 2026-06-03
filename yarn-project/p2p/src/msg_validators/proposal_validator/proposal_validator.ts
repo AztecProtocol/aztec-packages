@@ -11,8 +11,6 @@ import {
 } from '@aztec/stdlib/p2p';
 import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 
-import { getProposalReceiveWindow, isWithinClockWindow } from '../clock_tolerance.js';
-
 /** Validates header-level and tx-level fields of block and checkpoint proposals. */
 export class ProposalValidator {
   private epochCache: EpochCacheInterface;
@@ -23,6 +21,7 @@ export class ProposalValidator {
   private maxBlocksPerCheckpoint?: number;
   private skipSlotValidation: boolean;
   private signatureContext: CoordinationSignatureContext;
+  private clockDisparityMs: number;
 
   constructor(
     epochCache: EpochCacheInterface,
@@ -33,6 +32,7 @@ export class ProposalValidator {
       maxBlocksPerCheckpoint?: number;
       skipSlotValidation?: boolean;
       signatureContext: CoordinationSignatureContext;
+      clockDisparityMs: number;
     },
     loggerName: string,
   ) {
@@ -43,6 +43,7 @@ export class ProposalValidator {
     this.maxBlocksPerCheckpoint = opts.maxBlocksPerCheckpoint;
     this.skipSlotValidation = opts.skipSlotValidation ?? false;
     this.signatureContext = opts.signatureContext;
+    this.clockDisparityMs = opts.clockDisparityMs;
     this.logger = createLogger(loggerName);
   }
 
@@ -69,9 +70,15 @@ export class ProposalValidator {
       // validation deadline downstream, not their arrival gate.
       const slotNumber = proposal.slotNumber;
       if (!this.skipSlotValidation) {
-        const { startSeconds, deadlineSeconds } = getProposalReceiveWindow(this.timetable, slotNumber);
+        // Proposal receive window: [checkpoint_proposal_receive_start, checkpoint_proposal_receive_deadline],
+        // widened by the configured clock-disparity tolerance on both ends.
+        const startSeconds = this.timetable.getCheckpointProposalReceiveStart(slotNumber);
+        const deadlineSeconds = this.timetable.getCheckpointProposalReceiveDeadline(slotNumber);
         const nowMs = Number(this.epochCache.getEpochAndSlotNow().nowMs);
-        if (!isWithinClockWindow(nowMs, startSeconds, deadlineSeconds)) {
+        if (
+          nowMs < startSeconds * 1000 - this.clockDisparityMs ||
+          nowMs > deadlineSeconds * 1000 + this.clockDisparityMs
+        ) {
           this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, {
             slotNumber,
             nowMs,

@@ -29,6 +29,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
     telemetryClient: TelemetryClient,
     opts: {
       signatureContext: CoordinationSignatureContext;
+      clockDisparityMs: number;
     },
   ) {
     super(epochCache, timetable, opts);

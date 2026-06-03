@@ -44,6 +44,7 @@ describe('FishermanAttestationValidator', () => {
     attestationPool = mock<AttestationPool>();
     validator = new FishermanAttestationValidator(epochCache, makeTimetable(), attestationPool, getTelemetryClient(), {
       signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+      clockDisparityMs: 500,
     });
     // Default now sits inside slot 100's attestation window [7116, 7248]s, so slot-100 attestations pass
     // the receive-window gate and reach committee/payload checks. The slot-97 test overrides this.
