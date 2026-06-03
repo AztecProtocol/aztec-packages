@@ -51,6 +51,7 @@ import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, type PXECreationOptions, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { HandshakeRegistryArtifact, getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
 import { PublicChecksArtifact, getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
 import { ARTIFACT_VERSION_BEFORE_INJECTION } from '@aztec/stdlib/abi';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -929,6 +930,22 @@ export async function ensurePublicChecksPublished(wallet: Wallet, from: AztecAdd
     await publishInstance(wallet, instance).send({ from });
   }
   await wallet.registerContract(instance, PublicChecksArtifact);
+}
+
+/**
+ * Registers the handshake_registry contract class and publishes its standard instance if not
+ * already present, and registers the artifact with PXE. Required for constrained-delivery flows
+ * that call into the HandshakeRegistry at its well-known address.
+ */
+export async function ensureHandshakeRegistryPublished(wallet: Wallet, from: AztecAddress) {
+  const { instance, contractClass } = await getStandardHandshakeRegistry();
+  if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
+    await (await publishContractClass(wallet, HandshakeRegistryArtifact)).send({ from });
+  }
+  if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
+    await publishInstance(wallet, instance).send({ from });
+  }
+  await wallet.registerContract(instance, HandshakeRegistryArtifact);
 }
 
 /**

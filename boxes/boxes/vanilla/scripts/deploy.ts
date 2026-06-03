@@ -8,7 +8,6 @@ import {
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { PublicKeys } from '@aztec/aztec.js/keys';
-import { TxStatus } from '@aztec/aztec.js/tx';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
 import { type AztecNode } from '@aztec/aztec.js/node';
@@ -61,8 +60,7 @@ async function createAccount(wallet: EmbeddedWallet) {
     },
     skipClassPublication: true,
     skipInstancePublication: true,
-    // PROPOSED (the wallet default) is flaky in boxes CI, so wait for the checkpoint.
-    wait: { timeout: 120, waitForStatus: TxStatus.CHECKPOINTED },
+    wait: { timeout: 120 },
   };
   await deployMethod.send(deployOpts);
 
@@ -83,8 +81,7 @@ async function deployContract(wallet: Wallet, deployer: AztecAddress) {
         sponsoredPFCContract.address
       ),
     },
-    // PROPOSED (the wallet default) is flaky in CI, so wait for the checkpoint.
-    wait: { timeout: 120, waitForStatus: TxStatus.CHECKPOINTED },
+    wait: { timeout: 120 },
   });
 
   const electionId = new Fr(42);
@@ -96,8 +93,7 @@ async function deployContract(wallet: Wallet, deployer: AztecAddress) {
         sponsoredPFCContract.address
       ),
     },
-    // PROPOSED (the wallet default) is flaky in CI, so wait for the checkpoint.
-    wait: { timeout: 120, waitForStatus: TxStatus.CHECKPOINTED },
+    wait: { timeout: 120 },
   });
 
   return {

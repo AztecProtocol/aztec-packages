@@ -3,7 +3,6 @@ import { deployerEnv } from '../config';
 
 import { Contract } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { TxStatus } from '@aztec/aztec.js/tx';
 import { toast } from 'react-toastify';
 
 export function useContract() {
@@ -21,8 +20,6 @@ export function useContract() {
 
     const deploymentPromise = BoxReactContract.deploy(wallet, Fr.random(), defaultAccountAddress).send({
       from: defaultAccountAddress,
-      // PROPOSED (the wallet default) is flaky in boxes CI, so wait for the checkpoint.
-      wait: { waitForStatus: TxStatus.CHECKPOINTED },
     });
 
     const { contract } = await toast.promise(deploymentPromise, {

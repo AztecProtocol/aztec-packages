@@ -6,7 +6,6 @@ import {
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
-import { TxStatus } from '@aztec/aztec.js/tx';
 import { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import {
@@ -144,8 +143,7 @@ export class EmbeddedWallet extends EmbeddedWalletBase {
       },
       skipClassPublication: true,
       skipInstancePublication: true,
-      // PROPOSED (the wallet default) is flaky in boxes CI, so wait for the checkpoint.
-      wait: { timeout: 120, waitForStatus: TxStatus.CHECKPOINTED },
+      wait: { timeout: 120 },
     };
 
     const { receipt } = await deployMethod.send(deployOpts);

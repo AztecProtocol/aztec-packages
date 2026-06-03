@@ -10,7 +10,8 @@
     "./*/lazy": "./dest/*/lazy.js",
     "./auth-registry/constants": "./dest/auth-registry/constants.js",
     "./public-checks/constants": "./dest/public-checks/constants.js",
-    "./multi-call-entrypoint/constants": "./dest/multi-call-entrypoint/constants.js"
+    "./multi-call-entrypoint/constants": "./dest/multi-call-entrypoint/constants.js",
+    "./handshake-registry/constants": "./dest/handshake-registry/constants.js"
   },
   "typedocOptions": {
     "entryPoints": [

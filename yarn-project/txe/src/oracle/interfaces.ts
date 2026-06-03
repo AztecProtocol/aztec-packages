@@ -1,6 +1,4 @@
-import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import { CompleteAddress } from '@aztec/aztec.js/addresses';
-import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
@@ -60,9 +58,16 @@ export interface ITxeExecutionOracle {
   getNextBlockTimestamp(): Promise<UInt64>;
   advanceBlocksBy(blocks: number): Promise<void>;
   advanceTimestampBy(duration: UInt64): void;
-  deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: Fr): Promise<void>;
+  deploy(
+    contractPath: string,
+    initializer: string,
+    args: Fr[],
+    secret: Fr,
+    salt: Fr,
+    deployer: AztecAddress,
+  ): Promise<Fr[]>;
   createAccount(secret: Fr): Promise<CompleteAddress>;
-  addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr): Promise<CompleteAddress>;
+  addAccount(secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{
