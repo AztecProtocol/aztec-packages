@@ -4415,23 +4415,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
 export const decompose_scalars_booth_upper = `// Upper-region scalar decompose for split-c region-split (Phase 2C-ii).
 //
-// Identical Booth signed-window decode to decompose_scalars_booth, with two
-// differences that let the W_hi narrow upper windows skip the n - n_large small
-// scalars that contribute zero there:
-//   1. point source = idx_large[j] (the indices whose MSB reaches the upper
-//      region), not the dense index — so it iterates only n_large scalars.
-//   2. output is written at the upper-region base (cci_base, in point-entry
-//      units = W_lo*n) with row stride n_large, so the lower region
-//      ([w*n + p], all n) and this region tile bucket_and_sign disjointly.
-// The global window index is W_lo + w (batch.x), so the per-window geometry
-// (window_bits / bit_base) comes from WindowDesc exactly as the lower region.
+// Identical Booth signed-window decode to decompose_scalars_booth, except the
+// point source is idx_large[j] (the indices whose MSB reaches the upper region),
+// so the W_hi narrow upper windows iterate only the n_large scalars instead of
+// all n — the n - n_large small scalars contribute zero in the upper bits. The
+// output uses the SAME bucket_and_sign layout as the lower region —
+// [window_global*row_stride + j], row_stride = n — so the only difference from
+// the lower region is the point source + the n_large iteration bound; the
+// transpose/gather read it region-agnostically. The unused [n_large, n) slots of
+// each upper window are never written or read. Global window = W_lo + w (batch.x),
+// so per-window geometry (window_bits/bit_base) comes from WindowDesc as usual.
 
 @group(0) @binding(0) var<storage, read>       scalars:         array<u32>;
 @group(0) @binding(1) var<storage, read_write> bucket_and_sign: array<u32>;
 @group(0) @binding(2) var<uniform>             params:          vec4<u32>;
-// params.x = n_large (upper input size / row stride)  params.y = W_hi (upper window count)
-// params.z = cci_base (bucket_and_sign upper base, point-entry units = W_lo*n)
-// params.w = scalar_words
+// params.x = n_large (points to iterate)  params.y = W_hi (upper window count)
+// params.z = row_stride (bucket_and_sign window stride, = n)  params.w = scalar_words
 @group(0) @binding(3) var<uniform>             batch:           vec4<u32>;
 // batch.x = W_lo (global index of the first upper window)
 @group(0) @binding(4) var<storage, read>       window_desc:     array<u32>;
@@ -4464,6 +4463,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let w = gid.y;          // upper-region window index (relative to W_lo)
     let n_large = params.x;
     let w_hi = params.y;
+    let row_stride = params.z;
     if (j >= n_large || w >= w_hi) {
         return;
     }
@@ -4485,7 +4485,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let encode = (raw + 1u) >> 1u;
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
-    let idx = params.z + w * n_large + j; // cci_base + w*n_large + j
+    let idx = w_global * row_stride + j; // standard layout: [window*n + j]
     bucket_and_sign[idx] = bucket | (neg << 31u);
 
     {{{ recompile }}}
@@ -4764,9 +4764,9 @@ var<storage, read_write> partials: array<u32>;
 
 @group(0) @binding(2)
 var<uniform> params: vec4<u32>;
-// params[0] = num_point_tiles  params[1] = cci_base (bucket_and_sign region base;
-// 0 for the lower/no-split region, W_lo*n for the split-c upper region)
-// params[2] = n (per-region input_size: n lower, n_large upper)  params[3] = points_per_tile
+// params[0] = num_point_tiles  params[1] = input_size (points to iterate: n for
+// the lower/no-split region, n_large for the split-c upper region)  params[2] =
+// row_stride (bucket_and_sign window stride, always n)  params[3] = points_per_tile
 
 // WindowDesc (SPLIT_C_PLAN.md): per-GLOBAL-window geometry, stride 8 u32.
 // num_columns at +5 (CSR column count), work_off at +3 (prefix of num_columns).
@@ -4787,7 +4787,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let n = params[2];
+    let input_size = params[1]; // points to iterate (n lower, n_large upper)
+    let row_stride = params[2]; // bucket_and_sign window stride (always n)
     let points_per_tile = params[3];
 
     // Per-window CSR geometry from WindowDesc (global window = batch-local +
@@ -4799,11 +4800,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
                        - window_desc[batch_window_base.x * WD_STRIDE + 3u];
 
-    let cci_offset = params[1] + window * n; // params[1] = region base (0 lower)
+    let cci_offset = window * row_stride; // bucket_and_sign[window*n + point]
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
-    if (tile_point_hi > n) { tile_point_hi = n; }
+    if (tile_point_hi > input_size) { tile_point_hi = input_size; }
 
     // Sub-tile loop: shared histogram has fixed capacity TILE entries, so if
     // the bucket count BW exceeds TILE, cover BW in ceil(BW/TILE) sub-tiles,
@@ -5065,9 +5066,9 @@ var<storage, read_write> all_csc_val_idxs: array<u32>;
 
 @group(0) @binding(4)
 var<uniform> params: vec4<u32>;
-// params[0] = num_point_tiles  params[1] = cci_base (bucket_and_sign / val_idx
-// region base; 0 for the lower/no-split region, W_lo*n for the split-c upper)
-// params[2] = n (per-region input_size)  params[3] = points_per_tile
+// params[0] = num_point_tiles  params[1] = input_size (points to iterate: n
+// lower/no-split, n_large upper)  params[2] = row_stride (val_idx/bucket window
+// stride, always n)  params[3] = points_per_tile
 
 // WindowDesc (SPLIT_C_PLAN.md): num_columns at +5, work_off (prefix) at +3.
 @group(0) @binding(5)
@@ -5087,7 +5088,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let n = params[2];
+    let input_size = params[1]; // points to iterate (n lower, n_large upper)
+    let row_stride = params[2]; // val_idx/bucket window stride (always n)
     let points_per_tile = params[3];
 
     // Per-window CSR geometry from WindowDesc (batch-local work_off = global
@@ -5097,12 +5099,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
                        - window_desc[batch_window_base.x * WD_STRIDE + 3u];
 
-    let cci_offset = params[1] + window * n; // params[1] = region base (0 lower)
+    let cci_offset = window * row_stride; // val_idx/bucket[window*n + point]
     let ccp_offset = work_off_local + window;
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
-    if (tile_point_hi > n) { tile_point_hi = n; }
+    if (tile_point_hi > input_size) { tile_point_hi = input_size; }
 
     // Sub-tile loop over buckets: shared \`curr\` cursor has fixed capacity
     // TILE entries, so for large BW we cover BW in ceil(BW/TILE) sub-tiles,
@@ -5140,10 +5142,10 @@ export const transpose_scatter_tiled_upper = `// Upper-region transpose scatter 
 //
 // Identical to transpose_scatter_tiled EXCEPT the value written into the CSC is
 // the ORIGINAL (dense) scalar index idx_large[i], not the region-local index i.
-// The upper region iterates n_large compacted points; storing the original index
-// keeps the downstream point gather region-agnostic (it fetches point[val_idx]
-// without knowing the region). params[1] (cci_base = W_lo*n) places both the
-// bucket_and_sign reads and the val_idx writes in the upper region.
+// The upper region iterates n_large compacted points (input_size = n_large) over
+// the SAME [window*n + point] layout as the lower region; storing the original
+// index keeps the downstream point gather region-agnostic (it fetches
+// point[val_idx] without knowing the region).
 
 const WG: u32 = {{ workgroup_size }}u;
 const TILE: u32 = {{ tile }}u;
@@ -5154,8 +5156,8 @@ const WD_STRIDE: u32 = 8u;
 @group(0) @binding(2) var<storage, read>       partials:         array<u32>;
 @group(0) @binding(3) var<storage, read_write> all_csc_val_idxs: array<u32>;
 @group(0) @binding(4) var<uniform>             params:           vec4<u32>;
-// params[0] = num_point_tiles  params[1] = cci_base (W_lo*n)  params[2] = n_large
-// params[3] = points_per_tile
+// params[0] = num_point_tiles  params[1] = input_size (n_large)  params[2] =
+// row_stride (= n)  params[3] = points_per_tile
 @group(0) @binding(5) var<storage, read>       window_desc:      array<u32>;
 @group(0) @binding(6) var<uniform>             batch_window_base: vec4<u32>;
 @group(0) @binding(7) var<storage, read>       idx_large:        array<u32>;
@@ -5171,7 +5173,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let n = params[2]; // n_large for the upper region
+    let input_size = params[1]; // n_large
+    let row_stride = params[2]; // = n
     let points_per_tile = params[3];
 
     let gwin = window + batch_window_base.x;
@@ -5179,12 +5182,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
                        - window_desc[batch_window_base.x * WD_STRIDE + 3u];
 
-    let cci_offset = params[1] + window * n; // upper region base + window*n_large
+    let cci_offset = window * row_stride; // standard [window*n + point] layout
     let ccp_offset = work_off_local + window;
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
-    if (tile_point_hi > n) { tile_point_hi = n; }
+    if (tile_point_hi > input_size) { tile_point_hi = input_size; }
 
     let num_bucket_subtiles = (n_cols + TILE - 1u) / TILE;
     for (var t: u32 = 0u; t < num_bucket_subtiles; t = t + 1u) {

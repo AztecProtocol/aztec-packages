@@ -36,9 +36,9 @@ var<storage, read_write> all_csc_val_idxs: array<u32>;
 
 @group(0) @binding(4)
 var<uniform> params: vec4<u32>;
-// params[0] = num_point_tiles  params[1] = cci_base (bucket_and_sign / val_idx
-// region base; 0 for the lower/no-split region, W_lo*n for the split-c upper)
-// params[2] = n (per-region input_size)  params[3] = points_per_tile
+// params[0] = num_point_tiles  params[1] = input_size (points to iterate: n
+// lower/no-split, n_large upper)  params[2] = row_stride (val_idx/bucket window
+// stride, always n)  params[3] = points_per_tile
 
 // WindowDesc (SPLIT_C_PLAN.md): num_columns at +5, work_off (prefix) at +3.
 @group(0) @binding(5)
@@ -58,7 +58,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let n = params[2];
+    let input_size = params[1]; // points to iterate (n lower, n_large upper)
+    let row_stride = params[2]; // val_idx/bucket window stride (always n)
     let points_per_tile = params[3];
 
     // Per-window CSR geometry from WindowDesc (batch-local work_off = global
@@ -68,12 +69,12 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
                        - window_desc[batch_window_base.x * WD_STRIDE + 3u];
 
-    let cci_offset = params[1] + window * n; // params[1] = region base (0 lower)
+    let cci_offset = window * row_stride; // val_idx/bucket[window*n + point]
     let ccp_offset = work_off_local + window;
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
-    if (tile_point_hi > n) { tile_point_hi = n; }
+    if (tile_point_hi > input_size) { tile_point_hi = input_size; }
 
     // Sub-tile loop over buckets: shared `curr` cursor has fixed capacity
     // TILE entries, so for large BW we cover BW in ceil(BW/TILE) sub-tiles,

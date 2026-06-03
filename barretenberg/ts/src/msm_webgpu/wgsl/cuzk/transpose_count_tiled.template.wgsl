@@ -30,9 +30,9 @@ var<storage, read_write> partials: array<u32>;
 
 @group(0) @binding(2)
 var<uniform> params: vec4<u32>;
-// params[0] = num_point_tiles  params[1] = cci_base (bucket_and_sign region base;
-// 0 for the lower/no-split region, W_lo*n for the split-c upper region)
-// params[2] = n (per-region input_size: n lower, n_large upper)  params[3] = points_per_tile
+// params[0] = num_point_tiles  params[1] = input_size (points to iterate: n for
+// the lower/no-split region, n_large for the split-c upper region)  params[2] =
+// row_stride (bucket_and_sign window stride, always n)  params[3] = points_per_tile
 
 // WindowDesc (SPLIT_C_PLAN.md): per-GLOBAL-window geometry, stride 8 u32.
 // num_columns at +5 (CSR column count), work_off at +3 (prefix of num_columns).
@@ -53,7 +53,8 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let n = params[2];
+    let input_size = params[1]; // points to iterate (n lower, n_large upper)
+    let row_stride = params[2]; // bucket_and_sign window stride (always n)
     let points_per_tile = params[3];
 
     // Per-window CSR geometry from WindowDesc (global window = batch-local +
@@ -65,11 +66,11 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
                        - window_desc[batch_window_base.x * WD_STRIDE + 3u];
 
-    let cci_offset = params[1] + window * n; // params[1] = region base (0 lower)
+    let cci_offset = window * row_stride; // bucket_and_sign[window*n + point]
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
-    if (tile_point_hi > n) { tile_point_hi = n; }
+    if (tile_point_hi > input_size) { tile_point_hi = input_size; }
 
     // Sub-tile loop: shared histogram has fixed capacity TILE entries, so if
     // the bucket count BW exceeds TILE, cover BW in ceil(BW/TILE) sub-tiles,

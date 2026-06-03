@@ -2633,12 +2633,13 @@ export class MsmV2 {
       this.msbIdxLargeBind = mkBind(this.msbIdxLargeLayout, [msbPerScalarBuf, decideSummaryBuf, idxLargeBuf, idxLargeCountBuf, idxLargeParams]);
       this.prepBuffers.push(idxLargeBuf, idxLargeCountBuf);
     }
-    // Layout: [num_point_tiles, cci_base, input_size, points_per_tile]. cci_base
-    // (slot 1) is the bucket_and_sign/val_idx region base — 0 for the lower /
-    // no-split region (byte-identical); the split-c upper region binds its own
-    // xposeParams with cci_base=W_lo*n + input_size=n_large. count/scatter read
-    // it; reduce/scan get per-window columns from WindowDesc and ignore it.
-    const xposeParams = ubuf(new Uint32Array([transposeNumPointTiles, 0, n, pointsPerTile]));
+    // Layout: [num_point_tiles, input_size, row_stride, points_per_tile].
+    // input_size (slot 1) = points the count/scatter iterate (n for the lower /
+    // no-split region; the split-c upper region binds its own xposeParamsUpper
+    // with input_size=n_large). row_stride (slot 2, always n) is the
+    // bucket_and_sign/val_idx window stride, so cci_offset = window*n for every
+    // region. reduce/scan get per-window columns from WindowDesc and ignore both.
+    const xposeParams = ubuf(new Uint32Array([transposeNumPointTiles, n, n, pointsPerTile]));
     // params[1] = base_offset, written per-prepare() via writeBuffer below.
     // Default 0 — non-bridge callers (the dev page) bind a per-MSM pool
     // starting at index 0 and need no offset.

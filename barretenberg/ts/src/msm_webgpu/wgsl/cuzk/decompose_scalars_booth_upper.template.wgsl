@@ -1,22 +1,21 @@
 // Upper-region scalar decompose for split-c region-split (Phase 2C-ii).
 //
-// Identical Booth signed-window decode to decompose_scalars_booth, with two
-// differences that let the W_hi narrow upper windows skip the n - n_large small
-// scalars that contribute zero there:
-//   1. point source = idx_large[j] (the indices whose MSB reaches the upper
-//      region), not the dense index — so it iterates only n_large scalars.
-//   2. output is written at the upper-region base (cci_base, in point-entry
-//      units = W_lo*n) with row stride n_large, so the lower region
-//      ([w*n + p], all n) and this region tile bucket_and_sign disjointly.
-// The global window index is W_lo + w (batch.x), so the per-window geometry
-// (window_bits / bit_base) comes from WindowDesc exactly as the lower region.
+// Identical Booth signed-window decode to decompose_scalars_booth, except the
+// point source is idx_large[j] (the indices whose MSB reaches the upper region),
+// so the W_hi narrow upper windows iterate only the n_large scalars instead of
+// all n — the n - n_large small scalars contribute zero in the upper bits. The
+// output uses the SAME bucket_and_sign layout as the lower region —
+// [window_global*row_stride + j], row_stride = n — so the only difference from
+// the lower region is the point source + the n_large iteration bound; the
+// transpose/gather read it region-agnostically. The unused [n_large, n) slots of
+// each upper window are never written or read. Global window = W_lo + w (batch.x),
+// so per-window geometry (window_bits/bit_base) comes from WindowDesc as usual.
 
 @group(0) @binding(0) var<storage, read>       scalars:         array<u32>;
 @group(0) @binding(1) var<storage, read_write> bucket_and_sign: array<u32>;
 @group(0) @binding(2) var<uniform>             params:          vec4<u32>;
-// params.x = n_large (upper input size / row stride)  params.y = W_hi (upper window count)
-// params.z = cci_base (bucket_and_sign upper base, point-entry units = W_lo*n)
-// params.w = scalar_words
+// params.x = n_large (points to iterate)  params.y = W_hi (upper window count)
+// params.z = row_stride (bucket_and_sign window stride, = n)  params.w = scalar_words
 @group(0) @binding(3) var<uniform>             batch:           vec4<u32>;
 // batch.x = W_lo (global index of the first upper window)
 @group(0) @binding(4) var<storage, read>       window_desc:     array<u32>;
@@ -49,6 +48,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let w = gid.y;          // upper-region window index (relative to W_lo)
     let n_large = params.x;
     let w_hi = params.y;
+    let row_stride = params.z;
     if (j >= n_large || w >= w_hi) {
         return;
     }
@@ -70,7 +70,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let encode = (raw + 1u) >> 1u;
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
-    let idx = params.z + w * n_large + j; // cci_base + w*n_large + j
+    let idx = w_global * row_stride + j; // standard layout: [window*n + j]
     bucket_and_sign[idx] = bucket | (neg << 31u);
 
     {{{ recompile }}}
