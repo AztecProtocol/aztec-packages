@@ -47,11 +47,6 @@ export interface SequencerConfig {
   /** Whether to enforce the time table when building blocks */
   enforceTimeTable?: boolean;
   /**
-   * @deprecated Vestigial under the pipelined timetable: the L1 send lead is exactly one Ethereum slot
-   * (`ethereum_slot_duration`). How much time (in seconds) we allow in the slot for publishing the L1 tx.
-   */
-  l1PublishingTime?: number;
-  /**
    * Minimum block-building time (`min_block_duration`) still worth allocating if the proposer starts
    * late, in seconds.
    */
@@ -145,7 +140,6 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     acvmBinaryPath: z.string().optional(),
     txPublicSetupAllowListExtend: z.array(AllowedElementSchema).optional(),
     governanceProposerPayload: schemas.EthAddress.optional(),
-    l1PublishingTime: z.number().optional(),
     minBlockDuration: z.number().positive().optional(),
     checkpointProposalPrepareTime: z.number().nonnegative().optional(),
     enforceTimeTable: z.boolean().optional(),
@@ -187,7 +181,6 @@ type SequencerConfigOptionalKeys =
   | 'acvmBinaryPath'
   | 'fakeProcessingDelayPerTxMs'
   | 'fakeThrowAfterProcessingTxCount'
-  | 'l1PublishingTime'
   | 'minBlockDuration'
   | 'checkpointProposalPrepareTime'
   | 'txPublicSetupAllowListExtend'

@@ -20,7 +20,7 @@ import type {
 } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getEpochAtSlot, getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -30,7 +30,13 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
-import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
+import {
+  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+  DEFAULT_MIN_BLOCK_DURATION,
+  DEFAULT_P2P_PROPAGATION_TIME,
+  ProposerTimetable,
+} from '@aztec/stdlib/timetable';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
@@ -47,7 +53,6 @@ import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
 import { SequencerMetrics } from './metrics.js';
-import { SequencerTimetable } from './timetable.js';
 import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
 
@@ -75,7 +80,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private runningPromise?: RunningPromise;
   private state = SequencerState.STOPPED;
   private stateSlotNumber: SlotNumber | undefined;
-  private stateEnteredAtMs = performance.now();
+  /** Wall-clock time (ms, via the date provider) at which the current state was entered. */
+  private stateEnteredAtMs: number;
   private metrics: SequencerMetrics;
   private checkpointProposalJobMetrics: CheckpointProposalJobMetrics;
   private readonly stateLog: Logger;
@@ -87,7 +93,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private lastSlotForNoCommitteeWarning: SlotNumber | undefined;
 
   /** The last slot for which we triggered a checkpoint proposal job, to prevent duplicate attempts. */
-  private lastSlotForCheckpointProposalJob: SlotNumber | undefined;
+  protected lastSlotForCheckpointProposalJob: SlotNumber | undefined;
 
   /** Last successful checkpoint proposed */
   private lastCheckpointProposed: Checkpoint | undefined;
@@ -98,8 +104,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /** The last checkpoint proposal job, tracked so we can await its pending L1 submission during shutdown. */
   protected lastCheckpointProposalJob: CheckpointProposalJob | undefined;
 
-  /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
-  protected timetable!: SequencerTimetable;
+  /** Proposer schedule and block sub-slot timetable for the sequencer, rebuilt on every config update. */
+  protected timetable!: ProposerTimetable;
 
   /** Config for the sequencer */
   protected config: ResolvedSequencerConfig = DefaultSequencerConfig;
@@ -125,6 +131,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   ) {
     super();
     this.stateLog = log.createChild('state');
+    this.stateEnteredAtMs = this.dateProvider.now();
 
     // Add [FISHERMAN] prefix to logger if in fisherman mode
     if (config.fishermanMode) {
@@ -145,17 +152,49 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const filteredConfig = pickFromSchema(config, SequencerConfigSchema);
     this.log.info(`Updated sequencer config`, omit(filteredConfig, 'txPublicSetupAllowListExtend'));
     this.config = merge(this.config, filteredConfig);
-    this.timetable = new SequencerTimetable(
+    this.timetable = this.buildTimetable();
+  }
+
+  /**
+   * Builds the proposer timetable from the current config and L1 constants. The fast local/e2e profile and
+   * budget clamping happen inside {@link ProposerTimetable}; here we only fill the operational budgets the
+   * config leaves unset with the shared `DEFAULT_*` values (the config layer owns the defaults).
+   */
+  private buildTimetable(): ProposerTimetable {
+    const timetable = new ProposerTimetable({
+      l1Constants: this.l1Constants,
+      blockDuration: this.config.blockDurationMs !== undefined ? this.config.blockDurationMs / 1000 : undefined,
+      minBlockDuration: this.config.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION,
+      p2pPropagationTime: this.config.attestationPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+      checkpointProposalPrepareTime:
+        this.config.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+      checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+      enforce: this.config.enforceTimeTable,
+    });
+
+    const maxNumberOfBlocks = timetable.getMaxBlocksPerCheckpoint();
+    this.log.info(
+      `Sequencer timetable initialized with ${maxNumberOfBlocks} blocks per slot (${timetable.enforce ? 'enforced' : 'not enforced'})`,
       {
-        l1Constants: this.l1Constants,
-        blockDurationMs: this.config.blockDurationMs,
-        minBlockDuration: this.config.minBlockDuration,
-        p2pPropagationTime: this.config.attestationPropagationTime,
-        checkpointProposalPrepareTime: this.config.checkpointProposalPrepareTime,
-        enforce: this.config.enforceTimeTable,
+        aztecSlotDuration: timetable.aztecSlotDuration,
+        ethereumSlotDuration: timetable.ethereumSlotDuration,
+        blockDuration: timetable.blockDuration,
+        minBlockDuration: timetable.minBlockDuration,
+        p2pPropagationTime: timetable.p2pPropagationTime,
+        checkpointProposalPrepareTime: timetable.checkpointProposalPrepareTime,
+        maxNumberOfBlocks,
+        enforce: timetable.enforce,
       },
-      this.log,
     );
+
+    if (maxNumberOfBlocks < 1) {
+      throw new Error(
+        `Invalid timing configuration: derived ${maxNumberOfBlocks} blocks per checkpoint for slot duration ` +
+          `${timetable.aztecSlotDuration}s and block duration ${timetable.blockDuration}s.`,
+      );
+    }
+
+    return timetable;
   }
 
   /** Initializes the sequencer (precomputes tables). Takes about 3s. */
@@ -339,7 +378,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // start for the target slot, abandon building for this slot before doing the proposer check. The
     // proposer prioritizes the ideal L1-publish path and does not plan around the late
     // consensus-handoff path. Voting still happens via tryVoteWhenSyncFails/escape hatch.
-    const startDeadline = this.timetable.getStartDeadline(targetSlot);
+    const startDeadline = this.timetable.getBuildStartDeadline(targetSlot);
     const nowForStartGate = this.dateProvider.now() / 1000;
     if (this.config.enforceTimeTable && nowForStartGate > startDeadline) {
       this.log.debug(`Past start deadline for slot ${targetSlot}, abandoning block building`, {
@@ -347,6 +386,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         nowForStartGate,
         startDeadline,
       });
+      // Mark the slot as attempted so a deadline abort is not retried within the same slot. Voting still
+      // happens via tryVoteWhenSyncFails / the escape-hatch path, which track their own per-slot marker.
+      this.lastSlotForCheckpointProposalJob = targetSlot;
       return undefined;
     }
 
@@ -626,7 +668,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const oldState = this.state;
     const oldStateSlotNumber = this.stateSlotNumber;
     const stateChanged = proposedState !== oldState;
-    const transitionAtMs = performance.now();
+    // Wall-clock time spent in the previous state: the delta between consecutive state-changing setState
+    // calls, read from the date provider so it tracks simulated time under a test/manual clock.
+    const transitionAtMs = this.dateProvider.now();
     const stateDurationMs = transitionAtMs - this.stateEnteredAtMs;
 
     const boringStates = [SequencerState.IDLE, SequencerState.SYNCHRONIZING];
@@ -811,7 +855,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private isProposedCheckpointOverdue(blockSlot: SlotNumber): boolean {
     const expectedBySlot = SlotNumber(Number(blockSlot) - PROPOSER_PIPELINING_SLOT_OFFSET + 1);
     const graceSeconds =
-      this.config.blockDurationMs !== undefined ? Math.ceil(this.config.blockDurationMs / 1000) : MIN_EXECUTION_TIME;
+      this.config.blockDurationMs !== undefined
+        ? Math.ceil(this.config.blockDurationMs / 1000)
+        : (this.config.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION);
     const expectedByTime = getTimestampForSlot(expectedBySlot, this.l1Constants) + BigInt(graceSeconds);
     return BigInt(this.dateProvider.nowInSeconds()) >= expectedByTime;
   }
@@ -882,9 +928,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Only vote (instead of waiting to build) once we are past the latest useful block-building start
     // for the target slot. Before then, there is still time to build, so do not give up the slot.
     const nowSeconds = this.dateProvider.now() / 1000;
-    const startDeadline = this.timetable.getStartDeadline(targetSlot);
+    const startDeadline = this.timetable.getBuildStartDeadline(targetSlot);
 
-    if (this.config.enforceTimeTable && !this.isPastBuildStartDeadline(targetSlot)) {
+    if (this.config.enforceTimeTable && nowSeconds <= startDeadline) {
       this.log.trace(`Not attempting to vote since there is still time for block building`, {
         nowSeconds,
         startDeadline,
@@ -1133,29 +1179,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     });
   }
 
-  private getSlotStartBuildTimestamp(slotNumber: SlotNumber): number {
-    return getSlotStartBuildTimestamp(slotNumber, this.l1Constants);
-  }
-
   private getSecondsIntoSlot(slotNumber: SlotNumber): number {
-    const slotStartTimestamp = this.getSlotStartBuildTimestamp(slotNumber);
-    return Number((this.dateProvider.now() / 1000 - slotStartTimestamp).toFixed(3));
-  }
-
-  /**
-   * Whether we are past the latest useful block-building start for `targetSlot`, used by the
-   * sync-failure vote fallback to decide it can stop waiting to build and cast votes instead.
-   *
-   * The target slot is derived from the slot at the *next* L1 block (a one-`ethereumSlotDuration`
-   * look-ahead, see {@link getSlotContextInNextL1Slot}). The start deadline is an absolute time anchored
-   * to the target slot, so the wall-clock used to test it must include the same look-ahead — otherwise
-   * the gate is never reached for the current target slot, since the look-ahead advances `targetSlot`
-   * before `now` catches up to its start deadline, and the fallback would never vote.
-   */
-  private isPastBuildStartDeadline(targetSlot: SlotNumber): boolean {
-    const startDeadline = this.timetable.getStartDeadline(targetSlot);
-    const nowAtNextL1Slot = this.dateProvider.now() / 1000 + this.l1Constants.ethereumSlotDuration;
-    return nowAtNextL1Slot > startDeadline;
+    const buildFrameStart = this.timetable.getBuildFrameStart(slotNumber);
+    return Number((this.dateProvider.now() / 1000 - buildFrameStart).toFixed(3));
   }
 
   public get aztecSlotDuration() {
@@ -1185,10 +1211,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   public getConfig() {
     return this.config;
-  }
-
-  private get l1PublishingTime(): number {
-    return this.config.l1PublishingTime ?? this.l1Constants.ethereumSlotDuration;
   }
 }
 

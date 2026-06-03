@@ -119,7 +119,7 @@ import {
   appendL1ToL2MessagesToTree,
 } from '@aztec/stdlib/messaging';
 import type { Offense } from '@aztec/stdlib/slashing';
-import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
+import { DEFAULT_MIN_BLOCK_DURATION } from '@aztec/stdlib/timetable';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -593,7 +593,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       // Default the orphan-prune grace window from the block build duration when unset, so the archiver
       // waits roughly one build slot for a proposed checkpoint to arrive before pruning a block-only tip.
       config.orphanProposedBlockPruneGraceSeconds ??=
-        config.blockDurationMs !== undefined ? Math.ceil(config.blockDurationMs / 1000) : MIN_EXECUTION_TIME;
+        config.blockDurationMs !== undefined ? Math.ceil(config.blockDurationMs / 1000) : DEFAULT_MIN_BLOCK_DURATION;
 
       // Create world-state first so we can retrieve the initial header before constructing the archiver.
       const nativeWs = await createWorldState(config, options.genesis);

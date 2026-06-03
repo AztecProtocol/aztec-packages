@@ -42,7 +42,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
+import { DEFAULT_MIN_BLOCK_DURATION } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
@@ -441,13 +441,35 @@ describe('sequencer', () => {
       // start_deadline (single-block, S=8 E=4 P=2 prepCp=1 minD=2) = target_slot_start - E - 2P - prepCp
       // - minD = target_slot_start - 11. Set the clock past it so block building is abandoned before the
       // proposer check, without throwing (setState is now pure).
-      const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline + 1) * 1000);
       await expect(sequencer.work()).resolves.not.toThrow();
 
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
       expect(publisher.canProposeAt).not.toHaveBeenCalled();
+    });
+
+    it('does not retry building the same checkpoint after a deadline abort within the same slot', async () => {
+      await setupSingleTxBlock();
+
+      // Past the build start deadline: the build-entry gate abandons block building. It must mark the slot
+      // as attempted so a subsequent work() tick in the same slot does not re-enter and rebuild it.
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      await sequencer.work();
+      expect(sequencer.getLastSlotForCheckpointProposalJob()).toEqual(SlotNumber(newSlotNumber));
+
+      // A second tick in the same slot is short-circuited by the already-processed guard: no checkpoint is
+      // built and no proposer/L1 check is attempted again.
+      l2BlockSource.getSyncedL2SlotNumber.mockClear();
+      await sequencer.work();
+
+      expect(l2BlockSource.getSyncedL2SlotNumber).not.toHaveBeenCalled();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+      expect(publisher.canProposeAt).not.toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
     });
 
     it('builds a checkpoint when it is their turn', async () => {
@@ -743,7 +765,7 @@ describe('sequencer', () => {
     it('should vote on slashing and governance when sync fails and past the start deadline', async () => {
       // Past start_deadline for the target slot: tryVoteWhenSyncFails should vote instead of waiting to
       // build (sync has failed, so building is impossible anyway).
-      const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline + 1) * 1000);
 
       // Mock slashing actions
@@ -778,11 +800,11 @@ describe('sequencer', () => {
     });
 
     it('should not vote when sync fails and within time limit', async () => {
-      // Before start_deadline for the target slot: there is still time to build, so do not vote. The gate
-      // applies a one-`ethereumSlotDuration` look-ahead (the target slot is derived from the next L1
-      // slot), so the clock must be at least that far before the start deadline to be "within time".
-      const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
-      dateProvider.setTime((startDeadline - ethereumSlotDuration - 1) * 1000);
+      // At or before the build start deadline for the target slot there is still time to build, so the
+      // sync-failure vote gate (now a plain `now <= start_deadline` check, no next-L1-slot look-ahead) does
+      // not give up the slot to vote.
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline - 1) * 1000);
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
@@ -799,7 +821,7 @@ describe('sequencer', () => {
 
     it('should not vote when sync fails but not a proposer', async () => {
       // Set time past the start deadline for the target slot.
-      const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline + 1) * 1000);
 
       // Mock slashing actions
@@ -817,7 +839,7 @@ describe('sequencer', () => {
 
     it('should not attempt to vote twice in the same slot', async () => {
       // Set time past the start deadline for the target slot.
-      const startDeadline = sequencer.getTimeTable().getStartDeadline(SlotNumber(newSlotNumber));
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline + 1) * 1000);
 
       // Mock slashing actions
@@ -1380,9 +1402,10 @@ describe('sequencer', () => {
       l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpointData);
     };
 
-    // The orphan block sits at slot 3; with pipelining offset 1 and a grace of MIN_EXECUTION_TIME (no
-    // blockDurationMs configured) its enclosing checkpoint is due at l1GenesisTime + 3 * slotDuration + 2.
-    const orphanCheckpointDueSeconds = () => Number(l1Constants.l1GenesisTime) + 3 * slotDuration + MIN_EXECUTION_TIME;
+    // The orphan block sits at slot 3; with pipelining offset 1 and a grace of DEFAULT_MIN_BLOCK_DURATION
+    // (no blockDurationMs configured) its enclosing checkpoint is due at l1GenesisTime + 3 * slotDuration + 2.
+    const orphanCheckpointDueSeconds = () =>
+      Number(l1Constants.l1GenesisTime) + 3 * slotDuration + DEFAULT_MIN_BLOCK_DURATION;
 
     it('returns undefined and warns once the missing proposed checkpoint is overdue', async () => {
       // Local tip is a block at checkpoint 3, but the checkpointed and proposed-checkpoint tips are
@@ -1480,6 +1503,10 @@ class TestSequencer extends Sequencer {
 
   public getTimeTable() {
     return this.timetable;
+  }
+
+  public getLastSlotForCheckpointProposalJob() {
+    return this.lastSlotForCheckpointProposalJob;
   }
 
   public setL1GenesisTime(l1GenesisTime: number) {

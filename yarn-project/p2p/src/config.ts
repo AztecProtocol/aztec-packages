@@ -44,7 +44,6 @@ export interface P2PConfig
       SequencerConfig,
       | 'blockDurationMs'
       | 'expectedBlockProposalsPerSlot'
-      | 'l1PublishingTime'
       | 'maxTxsPerBlock'
       | 'attestationPropagationTime'
       | 'checkpointProposalPrepareTime'
@@ -563,11 +562,6 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'DEBUG_P2P_INSTRUMENT_MESSAGES',
     description: 'Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY',
     ...booleanConfigHelper(false),
-  },
-  l1PublishingTime: {
-    env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
-    description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    ...optionalNumberConfigHelper(),
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',

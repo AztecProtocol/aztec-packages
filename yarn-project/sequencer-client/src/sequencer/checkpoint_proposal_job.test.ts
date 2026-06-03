@@ -44,7 +44,7 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockProposal, CheckpointProposal, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import type { SubslotSelection } from '@aztec/stdlib/timetable';
+import type { ProposerTimetable, SubslotSelection } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
@@ -66,6 +66,7 @@ import {
   MockCheckpointsBuilder,
   createCheckpointAttestation,
   makeBlock,
+  makeProposerTimetable,
   makeTx,
   mockPendingTxs,
   mockTxIterator,
@@ -76,7 +77,6 @@ import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
-import { SequencerTimetable } from './timetable.js';
 
 describe('CheckpointProposalJob', () => {
   let publisher: MockProxy<SequencerPublisher>;
@@ -96,7 +96,7 @@ describe('CheckpointProposalJob', () => {
   let checkpointMetrics: MockProxy<CheckpointProposalJobMetricsRecorder>;
   let job: TestCheckpointProposalJob;
 
-  let timetable: SequencerTimetable;
+  let timetable: ProposerTimetable;
   let l1Constants: L1RollupConstants;
   let config: ResolvedSequencerConfig;
 
@@ -345,7 +345,7 @@ describe('CheckpointProposalJob', () => {
       shuffleAttestationOrdering: false,
     };
 
-    timetable = new SequencerTimetable({
+    timetable = makeProposerTimetable({
       l1Constants,
       enforce: config.enforceTimeTable,
     });
@@ -356,8 +356,10 @@ describe('CheckpointProposalJob', () => {
   // selectNextSubslot now returns absolute wall-clock sub-slot deadlines (seconds). The build loop
   // converts them back to seconds-into-slot before calling waitUntilTimeInSlot, so tests express
   // deadlines as offsets from the build frame start and assert waitUntilTimeInSlot with those offsets.
+  // The build frame for the target slot opens at target_slot_start - S - E, i.e. anchored at the slot
+  // before the target slot (getBuildFrameStart(targetSlot) === getSlotStartBuildTimestamp(targetSlot - 1)).
   const buildFrameStartSeconds = () =>
-    Number(l1Constants.l1GenesisTime) + newSlotNumber * slotDuration - ethereumSlotDuration;
+    Number(l1Constants.l1GenesisTime) + (newSlotNumber - 1) * slotDuration - ethereumSlotDuration;
   const subslot = (offset: number, index: number, isLastBlock: boolean): SubslotSelection => ({
     canStart: true,
     index,
@@ -375,7 +377,7 @@ describe('CheckpointProposalJob', () => {
     beforeEach(() => {
       // Single block mode: no blockDurationMs set
       job.setTimetable(
-        new SequencerTimetable({
+        makeProposerTimetable({
           l1Constants,
           enforce: config.enforceTimeTable,
         }),
@@ -502,7 +504,7 @@ describe('CheckpointProposalJob', () => {
       checkpointNumber = CheckpointNumber(3);
       job = createCheckpointProposalJob();
       job.setTimetable(
-        new SequencerTimetable({
+        makeProposerTimetable({
           l1Constants,
           enforce: config.enforceTimeTable,
         }),
@@ -537,7 +539,7 @@ describe('CheckpointProposalJob', () => {
       checkpointNumber = CheckpointNumber(2);
       job = createCheckpointProposalJob();
       job.setTimetable(
-        new SequencerTimetable({
+        makeProposerTimetable({
           l1Constants,
           enforce: config.enforceTimeTable,
         }),
@@ -580,7 +582,7 @@ describe('CheckpointProposalJob', () => {
 
       job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch });
       job.setTimetable(
-        new SequencerTimetable({
+        makeProposerTimetable({
           l1Constants,
           enforce: config.enforceTimeTable,
         }),
@@ -623,7 +625,7 @@ describe('CheckpointProposalJob', () => {
         proposedCheckpointData,
       });
       job.setTimetable(
-        new SequencerTimetable({
+        makeProposerTimetable({
           l1Constants,
           enforce: config.enforceTimeTable,
         }),
@@ -666,7 +668,7 @@ describe('CheckpointProposalJob', () => {
 
       job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch, proposedCheckpointData });
       job.setTimetable(
-        new SequencerTimetable({
+        makeProposerTimetable({
           l1Constants,
           enforce: config.enforceTimeTable,
         }),
@@ -1333,7 +1335,7 @@ describe('CheckpointProposalJob', () => {
       // Keep the real L1 publish budget and use the largest block duration that fits a 24s slot
       // under the stricter timing guards.
       job.setTimetable(
-        new SequencerTimetable({
+        makeProposerTimetable({
           l1Constants,
           blockDurationMs: 3000,
           enforce: true,
@@ -1777,7 +1779,7 @@ describe('CheckpointProposalJob', () => {
 
       // Create job first
       job.setTimetable(
-        new SequencerTimetable({
+        makeProposerTimetable({
           l1Constants,
           blockDurationMs: 3000,
           enforce: true,
@@ -1816,7 +1818,7 @@ describe('CheckpointProposalJob', () => {
 
       // Create job first
       job.setTimetable(
-        new SequencerTimetable({
+        makeProposerTimetable({
           l1Constants,
           blockDurationMs: 3000,
           enforce: true,
@@ -1872,12 +1874,12 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   }
 
   /** Set timetable for testing - allows tests to modify timetable after job creation */
-  public setTimetable(newTimetable: SequencerTimetable): void {
+  public setTimetable(newTimetable: ProposerTimetable): void {
     this.timetable = newTimetable;
   }
 
   /** Get timetable for testing - allows tests to spy on methods */
-  public getTimetable(): SequencerTimetable {
+  public getTimetable(): ProposerTimetable {
     return this.timetable;
   }
 
