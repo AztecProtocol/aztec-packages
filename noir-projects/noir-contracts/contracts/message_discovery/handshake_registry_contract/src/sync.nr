@@ -1,4 +1,4 @@
-use ::aztec::{
+use aztec::{
     capsules::CapsuleArray,
     context::UtilityContext,
     ephemeral::EphemeralArray,
@@ -64,7 +64,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
         // Store all valid handshakes
         let handshakes = CapsuleArray::at(contract_address, HANDSHAKES_CAPSULE_SLOT, scope);
         logs.for_each(|_i, log| {
-            let ciphertext = ::aztec::utils::array::subbvec(log.log_payload, 0);
+            let ciphertext = aztec::utils::array::subbvec(log.log_payload, 0);
 
             let _ = AES128::decrypt(ciphertext, scope, contract_address)
                 .and_then(|pt| point_from_x_coord_and_sign(pt.get(0), true))
@@ -109,7 +109,7 @@ unconstrained fn get_handshake_logs_in_range(
     from_block: Option<u32>,
     to_block: Option<u32>,
 ) -> EphemeralArray<LogRetrievalResponse> {
-    let requests = EphemeralArray::at(LOG_RETRIEVAL_REQUEST_ARRAY_SLOT);
+    let requests = EphemeralArray::at(LOG_RETRIEVAL_REQUEST_ARRAY_SLOT).clear();
     requests.push(
         LogRetrievalRequest {
             contract_address,
@@ -120,9 +120,5 @@ unconstrained fn get_handshake_logs_in_range(
         },
     );
 
-    let responses = message_processing::get_logs_by_tag(requests);
-
-    let _ = requests.clear();
-
-    responses.get(0)
+    message_processing::get_logs_by_tag(requests).get(0)
 }

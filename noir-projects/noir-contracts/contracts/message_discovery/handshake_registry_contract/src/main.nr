@@ -174,14 +174,12 @@ pub contract HandshakeRegistry {
     unconstrained fn get_handshakes(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
         let handshakes = get_all_handshakes(self.context.this_address(), recipient);
         let total_count = handshakes.len();
-        let end = if page_offset + MAX_HANDSHAKES_PER_PAGE < total_count {
-            page_offset + MAX_HANDSHAKES_PER_PAGE
-        } else {
-            total_count
-        };
+        let offset = std::cmp::min(page_offset, total_count);
+        let page_len = std::cmp::min(MAX_HANDSHAKES_PER_PAGE, total_count - offset);
+
         let mut items = BoundedVec::new();
-        for i in page_offset..end {
-            items.push(handshakes.get(i));
+        for i in 0..page_len {
+            items.push(handshakes.get(offset + i));
         }
         HandshakePage { items, total_count }
     }

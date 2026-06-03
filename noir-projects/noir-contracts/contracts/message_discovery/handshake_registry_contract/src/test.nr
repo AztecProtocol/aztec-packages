@@ -504,6 +504,25 @@ unconstrained fn repeated_sync_does_not_refetch_logs() {
 }
 
 #[test]
+unconstrained fn later_handshake_appends_after_cursor_advances() {
+    let (env, registry_address, sender, other_sender, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED));
+
+    let after_first = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(after_first.items.len(), 1);
+
+    let _ = env.call_private(
+        other_sender,
+        registry.non_interactive_handshake(other_sender, recipient, ONCHAIN_UNCONSTRAINED),
+    );
+    let after_second = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(after_second.items.len(), 2);
+}
+
+// All senders to a recipient post under the same recipient-keyed tag, so a single sync discovers every handshake.
+#[test]
 unconstrained fn multiple_senders_discovered_for_same_recipient() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
@@ -540,4 +559,16 @@ unconstrained fn get_handshakes_paginates_across_full_pages() {
     assert_eq(page_0.total_count, total_handshakes);
     assert_eq(page_1.items.len(), 3);
     assert_eq(page_1.total_count, total_handshakes);
+}
+
+#[test]
+unconstrained fn get_handshakes_out_of_bounds_offset_returns_empty() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED));
+
+    let page = env.execute_utility(registry.get_handshakes(recipient, 999));
+    assert_eq(page.items.len(), 0);
+    assert_eq(page.total_count, 1);
 }
