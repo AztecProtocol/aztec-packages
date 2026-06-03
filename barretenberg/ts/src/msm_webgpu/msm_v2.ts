@@ -2096,7 +2096,8 @@ export class MsmV2 {
     m.cumsumLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.partitionWgLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     m.partitionThreadLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-    m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform', 'storage', 'uniform']);
+    // binding 8 (window_desc) is read-only-storage now (size1 has slot headroom) → no window cap.
+    m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform', 'storage', 'read-only-storage']);
     // Stream-walker layouts (C's KNOB 2 variant).
     //   partition_task: sorted_count_list, cumulative_adds, thread_cuts, planner_meta(rw), task_cuts(rw), params(uniform)
     m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
@@ -2114,9 +2115,16 @@ export class MsmV2 {
     //   scatter: partial_dest, partial_offset, partial_write_pos(rw), partial_layout(rw), params
     m.combineScatterLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     //   filter: sorted_bucket_list, partial_count, partial_offset, partial_layout, partials_buf, bucket_sums(rw), active_buckets(rw), active_count(rw), params, planner_meta
-    m.combineFilterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'storage', 'uniform', 'uniform']);
+    // sorted_bucket_list, arena_a2 (monolith — partial_count + partial_layout),
+    // partial_offset, partials_buf (ro); red_buf, active_buckets, active_count (rw);
+    // params; planner_meta (ro); is_present (rw); batch_offset; window_desc (ro
+    // storage — no cap); arena_off. 10 storage = the cap.
+    m.combineFilterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     //   batched: active_buckets, active_count, partial_count, partial_offset, partial_layout, l0_index, point_x, point_y, partials_buf(rw), bucket_sums(rw), params
-    m.combineBatchedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform', 'uniform', 'uniform']);
+    // active_buckets, active_count, arena_a2 (monolith — partial_count +
+    // partial_layout), partial_offset, l0_index, point_x, point_y (ro); partials_buf,
+    // red_buf (rw); window_desc (ro storage — no cap); params, batch_offset, arena_off.
+    m.combineBatchedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'read-only-storage', 'uniform', 'uniform', 'uniform']);
     //   sort-count:   active_buckets, active_count, partial_count, count_histogram(rw)
     m.sortCountLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage']);
     //   sort-scan:    count_histogram, bin_offsets(rw), bin_write_pos(rw), pt_dispatch_args(rw), pt_persistent_args(rw)
@@ -2135,7 +2143,8 @@ export class MsmV2 {
     //   pt-combine: pt_tasks, pt_total_tasks, pt_buf(rw), params
     m.ptCombineLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     //   pt-finalize: sorted_active, bin_offsets, active_count, pt_off, pt_buf, bucket_sums(rw), params
-    m.ptFinalizeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage', 'uniform', 'uniform']);
+    // binding 9 (window_desc) is read-only-storage now (pt_finalize has slot headroom) → no window cap.
+    m.ptFinalizeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage', 'uniform', 'read-only-storage']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -2357,8 +2366,14 @@ export class MsmV2 {
       );
     }
     const numWindows = members.reduce((a, m) => a + m.numWindows, 0);
-    if (numWindows > VAR_WINDOW_MAX_WINDOWS) {
-      throw new Error(`prepareBatch: ${numWindows} global windows exceeds the ${VAR_WINDOW_MAX_WINDOWS}-row WindowDesc uniform cap`);
+    // window_desc is a storage buffer in every consumer now (the at-cap kernels
+    // bind their colour arena monolithically), so there is no fixed-size uniform
+    // cap. The only structural bound is the packed-window bid `(window << 15)|mag`,
+    // whose window field is 17 bits; the 160MB budget and the 65k-workgroup
+    // dispatch cap (both enforced in prepare()) are the limits that bite first.
+    const WBID_WINDOW_MAX = 1 << 17;
+    if (numWindows > WBID_WINDOW_MAX) {
+      throw new Error(`prepareBatch: ${numWindows} global windows exceeds the ${WBID_WINDOW_MAX}-window packed-bid field`);
     }
     // Homogeneous ⇒ every member shares this instance's BW/stride; the union
     // totals are pure multiples of the window count.
@@ -3192,10 +3207,18 @@ export class MsmV2 {
       this.combineScanBind = mkBind(this.combineScanLayout, [pcount, poffset, combineScanParams]);
       // scatter: params.x = num_partial_slots
       this.combineScatterBind = mkBind(this.combineScatterLayout, [pdest, poffset, pwpos, playout, countParams]);
+      // arena_a2 monolith: partial_count + partial_layout are A2 sub-ranges; bind
+      // the whole arena once and address them by offset (shared by both at-cap
+      // combine kernels), freeing the slot that lets window_desc be storage (no cap).
+      const a2Buf = slotBuf(pcount);
+      if (slotBuf(playout) !== a2Buf) {
+        throw new Error('combine: partial_count and partial_layout must share arena A2');
+      }
+      const combineArenaOff = ubuf(new Uint32Array([slotOff(pcount) / 4, slotOff(playout) / 4, 0, 0]));
       // filter: params = (num_dense, M_buckets, M_partials, _)
       const filterParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, M_partials_walker, 0]));
       this.combineFilterBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.combineFilterLayout, [sb, pcount, poffset, playout, wp, scratch.redBuf, abkts, acnt, filterParams, scratch.streamPlannerMeta, scratch.isPresentBuf, bwb, windowDescBuf]),
+        mkBind(this.combineFilterLayout, [sb, a2Buf, poffset, wp, scratch.redBuf, abkts, acnt, filterParams, scratch.streamPlannerMeta, scratch.isPresentBuf, bwb, windowDescBuf, combineArenaOff]),
       );
       // batched: params = (NUM_ACTIVE — dynamic, set at runtime, IDLE_ANCHOR, M_buckets, M_partials)
       // For now, we'll use 0 for NUM_ACTIVE here and update before dispatch (or dispatch ceil(B_TOTAL/S) and gate internally).
@@ -3251,7 +3274,7 @@ export class MsmV2 {
       // combine_batched now reads sorted_active_buckets at binding 0 → zero
       // tail divergence per S=8 thread group.
       this.combineBatchedBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.combineBatchedLayout, [sabkts, acnt, pcount, poffset, playout, l0IdxBuf, this.pointXBuf, this.pointYBuf, wp, scratch.redBuf, walkerParams, bwb, windowDescBuf]),
+        mkBind(this.combineBatchedLayout, [sabkts, acnt, a2Buf, poffset, l0IdxBuf, this.pointXBuf, this.pointYBuf, wp, scratch.redBuf, windowDescBuf, walkerParams, bwb, combineArenaOff]),
       );
     }
 

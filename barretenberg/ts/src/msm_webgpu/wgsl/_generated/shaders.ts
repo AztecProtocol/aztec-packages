@@ -2344,12 +2344,12 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 // numBatches == 1.
 @group(0) @binding(6) var<uniform>             params:            vec4<u32>;
 @group(0) @binding(7) var<storage, read_write> is_present:        array<u32>;
-// WindowDesc as a uniform array<vec4<u32>> (row g = 2 vec4): reduce_off
-// (red_buf base for GLOBAL window g) = u32 +4 = vec4[g*2+1].x. Uniform (not
-// storage) keeps the at-cap consumers within the 10-storage-buffer limit; used
-// here too for one consistent decode across all bid consumers.
-@group(0) @binding(8) var<uniform> window_desc: array<vec4<u32>, 256>;
-fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
+// WindowDesc as a STORAGE array<u32> (full stride-8 rows): reduce_off (red_buf
+// base for GLOBAL window g) = u32 +4. size1 has storage-binding headroom, so it
+// reads the table directly — no fixed-size uniform ⇒ no window-count cap.
+@group(0) @binding(8) var<storage, read> window_desc: array<u32>;
+const WD_STRIDE: u32 = 8u;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -3091,21 +3091,28 @@ fn flat_bid(bid: u32) -> u32 {
 
 @group(0) @binding(0) var<storage, read>       active_buckets:  array<u32>;
 @group(0) @binding(1) var<storage, read>       active_count:    array<u32>;
-@group(0) @binding(2) var<storage, read>       partial_count:   array<u32>;
+// arena_a2: the WHOLE colour-A2 arena (monolith). partial_count and partial_layout
+// are read-only sub-ranges of it, addressed via arena_off (.x, .y) — one binding
+// for two buffers frees the slot that lets window_desc be storage (no window cap).
+@group(0) @binding(2) var<storage, read>       arena_a2:        array<u32>;
 @group(0) @binding(3) var<storage, read>       partial_offset:  array<u32>;
-@group(0) @binding(4) var<storage, read>       partial_layout:  array<u32>;
-@group(0) @binding(5) var<storage, read>       l0_index:        array<u32>;
-@group(0) @binding(6) var<storage, read>       point_x:         array<vec4<u32>>;
-@group(0) @binding(7) var<storage, read>       point_y:         array<vec4<u32>>;
-@group(0) @binding(8) var<storage, read_write> partials_buf:    array<vec4<u32>>;
-@group(0) @binding(9) var<storage, read_write> red_buf:         array<vec4<u32>>;
+@group(0) @binding(4) var<storage, read>       l0_index:        array<u32>;
+@group(0) @binding(5) var<storage, read>       point_x:         array<vec4<u32>>;
+@group(0) @binding(6) var<storage, read>       point_y:         array<vec4<u32>>;
+@group(0) @binding(7) var<storage, read_write> partials_buf:    array<vec4<u32>>;
+@group(0) @binding(8) var<storage, read_write> red_buf:         array<vec4<u32>>;
+// WindowDesc as a STORAGE array<u32> (full stride-8 rows): reduce_off = u32 +4.
+// Storage (the A2-monolith bind freed the slot) ⇒ no fixed-size window cap.
+@group(0) @binding(9) var<storage, read>       window_desc:     array<u32>;
 @group(0) @binding(10) var<uniform>            params:          vec4<u32>;
 // batch_offset.x = bi * batchWindows — added to local window index for red_slot.
 @group(0) @binding(11) var<uniform>            batch_offset:    vec4<u32>;
-// WindowDesc as uniform array<vec4<u32>> (row g = 2 vec4): reduce_off (u32 +4)
-// = vec4[g*2+1].x. Uniform because this kernel is at the 10-storage-buffer cap.
-@group(0) @binding(12) var<uniform>            window_desc:     array<vec4<u32>, 256>;
-fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
+// arena_off: u32 element offsets within arena_a2 — .x = partial_count, .y = partial_layout.
+@group(0) @binding(12) var<uniform>            arena_off:       vec4<u32>;
+const WD_STRIDE: u32 = 8u;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
+fn pc_at(i: u32) -> u32 { return arena_a2[arena_off.x + i]; }   // pc_at(i)
+fn pl_at(i: u32) -> u32 { return arena_a2[arena_off.y + i]; }   // partial_layout[i]
 // is_present marking is hoisted into combine_filter to keep this kernel
 // at 10 storage bindings (M2's maxStorageBuffersPerShaderStage = 10).
 
@@ -3177,14 +3184,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         }
         bid[k] = active_buckets[task_id];
         let fb = flat_bid(bid[k]);
-        cnt[k] = partial_count[fb];
+        cnt[k] = pc_at(fb);
         if (cnt[k] > HOT_THRESHOLD) {
             slot_done[k] = 1u;
             continue;
         }
         off[k] = partial_offset[fb];
         pos[k] = 0u;
-        let slot0 = partial_layout[off[k]];
+        let slot0 = pl_at(off[k]);
         acc_x[k] = load_partial_x(slot0);
         acc_y[k] = load_partial_y(slot0, M_partials);
         slot_done[k] = 0u;
@@ -3215,7 +3222,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 p_rx = load_pt_x(IDLE_ANCHOR + 1u);
             } else {
                 p_lx = acc_x[k];
-                p_rx = load_partial_x(partial_layout[off[k] + pos[k] + 1u]);
+                p_rx = load_partial_x(pl_at(off[k] + pos[k] + 1u));
             }
             let dx = fr_sub_f8(p_rx, p_lx);
             if (k == 0u) {
@@ -3245,7 +3252,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
                 p_rx = load_pt_x(IDLE_ANCHOR + 1u);
             } else {
                 p_lx = acc_x[k];
-                p_rx = load_partial_x(partial_layout[off[k] + pos[k] + 1u]);
+                p_rx = load_partial_x(pl_at(off[k] + pos[k] + 1u));
             }
 
             // Phase 2: derive inv_dx[k] in register; advance running inv.
@@ -3263,7 +3270,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             if (slot_done[k] == 1u) { continue; }
 
             // Phase 4: load operand Y for the affine add.
-            let next_slot = partial_layout[off[k] + pos[k] + 1u];
+            let next_slot = pl_at(off[k] + pos[k] + 1u);
             let p_ly = acc_y[k];
             let p_ry = load_partial_y(next_slot, M_partials);
 
@@ -3374,22 +3381,30 @@ fn flat_bid(bid: u32) -> u32 {
 }
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
-@group(0) @binding(1) var<storage, read>       partial_count:      array<u32>;
+// arena_a2: the WHOLE colour-A2 arena (monolith). partial_count and partial_layout
+// are read-only sub-ranges of it, addressed via arena_off (.x, .y). Binding the
+// monolith once (vs two sub-ranges) frees the slot that lets window_desc be a
+// storage buffer ⇒ no window cap. Same arena bytes. (partial_offset is A5 ⇒ kept.)
+@group(0) @binding(1) var<storage, read>       arena_a2:           array<u32>;
 @group(0) @binding(2) var<storage, read>       partial_offset:     array<u32>;
-@group(0) @binding(3) var<storage, read>       partial_layout:     array<u32>;
-@group(0) @binding(4) var<storage, read>       partials_buf:       array<vec4<u32>>;
-@group(0) @binding(5) var<storage, read_write> red_buf:            array<vec4<u32>>;
-@group(0) @binding(6) var<storage, read_write> active_buckets:     array<u32>;
-@group(0) @binding(7) var<storage, read_write> active_count:       atomic<u32>;
-@group(0) @binding(8) var<uniform>             params:             vec4<u32>;
-@group(0) @binding(9) var<storage, read>       planner_meta:       array<u32>;
-@group(0) @binding(10) var<storage, read_write> is_present:        array<u32>;
+@group(0) @binding(3) var<storage, read>       partials_buf:       array<vec4<u32>>;
+@group(0) @binding(4) var<storage, read_write> red_buf:            array<vec4<u32>>;
+@group(0) @binding(5) var<storage, read_write> active_buckets:     array<u32>;
+@group(0) @binding(6) var<storage, read_write> active_count:       atomic<u32>;
+@group(0) @binding(7) var<uniform>             params:             vec4<u32>;
+@group(0) @binding(8) var<storage, read>       planner_meta:       array<u32>;
+@group(0) @binding(9) var<storage, read_write> is_present:        array<u32>;
 // batch_offset.x = bi * batchWindows — added to local window index for red_slot.
-@group(0) @binding(11) var<uniform>             batch_offset:      vec4<u32>;
-// WindowDesc as uniform array<vec4<u32>> (row g = 2 vec4): reduce_off (u32 +4)
-// = vec4[g*2+1].x. Uniform because this kernel is at the 10-storage-buffer cap.
-@group(0) @binding(12) var<uniform>             window_desc:       array<vec4<u32>, 256>;
-fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
+@group(0) @binding(10) var<uniform>             batch_offset:      vec4<u32>;
+// WindowDesc as a STORAGE array<u32> (full stride-8 rows): reduce_off = u32 +4.
+// Storage (the A2-monolith bind freed the slot) ⇒ no fixed-size window cap.
+@group(0) @binding(11) var<storage, read>      window_desc:        array<u32>;
+// arena_off: u32 element offsets within arena_a2 — .x = partial_count, .y = partial_layout.
+@group(0) @binding(12) var<uniform>            arena_off:          vec4<u32>;
+const WD_STRIDE: u32 = 8u;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
+fn pc_at(i: u32) -> u32 { return arena_a2[arena_off.x + i]; }   // pc_at(i)
+fn pl_at(i: u32) -> u32 { return arena_a2[arena_off.y + i]; }   // partial_layout[i]
 
 // Workgroup-shared buffer for collecting active bucket ids locally.
 // Single global atomic per workgroup (NOT per active bucket) — friendly to
@@ -3417,7 +3432,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     if (t < num_dense) {
         let bid = sorted_bucket_list[t];
         let fb = flat_bid(bid);
-        let count = partial_count[fb];
+        let count = pc_at(fb);
 
         // Magnitude (bid & WBID_MAG_MASK) is guaranteed in [1, STRIDE] —
         // ba_planner_classify filters out zero-digit and BW-padding buckets
@@ -3437,7 +3452,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             if (count == 1u) {
                 // Single partial — copy directly to red_buf.
                 let M_partials = params.y;
-                let slot = partial_layout[partial_offset[fb]];
+                let slot = pl_at(partial_offset[fb]);
 
                 let bx = PG * red_slot;
                 let px0 = partials_buf[PG * slot + 0u];
@@ -3937,10 +3952,11 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(7) var<storage, read_write> is_present:     array<u32>;
 // batch_offset.x = bi * batchWindows — added to local window index for red_slot.
 @group(0) @binding(8) var<uniform>             batch_offset:   vec4<u32>;
-// WindowDesc as uniform array<vec4<u32>> (row g = 2 vec4): reduce_off (u32 +4)
-// = vec4[g*2+1].x. See ba_size1 for why this is a uniform.
-@group(0) @binding(9) var<uniform>             window_desc:    array<vec4<u32>, 256>;
-fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
+// WindowDesc as a STORAGE array<u32> (full stride-8 rows): reduce_off = u32 +4.
+// pt_finalize has storage-binding headroom ⇒ read it directly, no window cap.
+@group(0) @binding(9) var<storage, read>       window_desc:    array<u32>;
+const WD_STRIDE: u32 = 8u;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
 
 @compute @workgroup_size({{ workgroup_size }})
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {

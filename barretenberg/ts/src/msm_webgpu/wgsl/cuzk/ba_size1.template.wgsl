@@ -45,12 +45,12 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 // numBatches == 1.
 @group(0) @binding(6) var<uniform>             params:            vec4<u32>;
 @group(0) @binding(7) var<storage, read_write> is_present:        array<u32>;
-// WindowDesc as a uniform array<vec4<u32>> (row g = 2 vec4): reduce_off
-// (red_buf base for GLOBAL window g) = u32 +4 = vec4[g*2+1].x. Uniform (not
-// storage) keeps the at-cap consumers within the 10-storage-buffer limit; used
-// here too for one consistent decode across all bid consumers.
-@group(0) @binding(8) var<uniform> window_desc: array<vec4<u32>, 256>;
-fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * 2u + 1u].x; }
+// WindowDesc as a STORAGE array<u32> (full stride-8 rows): reduce_off (red_buf
+// base for GLOBAL window g) = u32 +4. size1 has storage-binding headroom, so it
+// reads the table directly — no fixed-size uniform ⇒ no window-count cap.
+@group(0) @binding(8) var<storage, read> window_desc: array<u32>;
+const WD_STRIDE: u32 = 8u;
+fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
