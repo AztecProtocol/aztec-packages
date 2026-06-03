@@ -1,6 +1,4 @@
-import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import { CompleteAddress } from '@aztec/aztec.js/addresses';
-import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
@@ -38,6 +36,10 @@ export interface IAvmExecutionOracle {
   nullifierExists(siloedNullifier: Fr): Promise<boolean>;
   storageWrite(slot: Fr, value: Fr): Promise<void>;
   storageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr>;
+  getContractInstanceDeployer(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
+  getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
+  getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
+  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
   returndataSize(): Promise<Fr>;
   returndataCopy(rdOffset: number, copySize: number): Promise<Fr[]>;
   call(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<Fr[]>;
@@ -56,9 +58,16 @@ export interface ITxeExecutionOracle {
   getNextBlockTimestamp(): Promise<UInt64>;
   advanceBlocksBy(blocks: number): Promise<void>;
   advanceTimestampBy(duration: UInt64): void;
-  deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: Fr): Promise<void>;
+  deploy(
+    contractPath: string,
+    initializer: string,
+    args: Fr[],
+    secret: Fr,
+    salt: Fr,
+    deployer: AztecAddress,
+  ): Promise<Fr[]>;
   createAccount(secret: Fr): Promise<CompleteAddress>;
-  addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr): Promise<CompleteAddress>;
+  addAccount(secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{
