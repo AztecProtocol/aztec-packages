@@ -46,7 +46,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     let gwin = window + batch_window_base.x;
     let n_cols = window_desc[gwin * WD_STRIDE + 5u];
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
-                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+                       - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
     if (bucket >= n_cols) { return; }
 
     let win_part = num_point_tiles * work_off_local;

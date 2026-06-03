@@ -4148,10 +4148,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (slot >= params[0]) {
         return;
     }
-    let pt_idx = val_idx[slot];
-    let window = slot / params[2];
-    // Sign bit lives at bit 31 of the packed entry; constant-shift extract.
-    let neg = bucket_and_sign[window * params[3] + pt_idx] >> 31u;
+    // val_idx packs the point index (low 31 bits) + the digit sign (bit 31), set
+    // by the transpose scatter. Reading the sign here (not via bucket_and_sign)
+    // keeps this region-agnostic: the split-c upper region stores ORIGINAL
+    // indices (idx_large[i]) that differ from the bucket_and_sign slot i.
+    let packed = val_idx[slot];
+    let pt_idx = packed & 0x7FFFFFFFu;
+    let neg = packed >> 31u;
     // Bake the SRS base_offset into the index BEFORE storing — downstream L0
     // shaders (ba_fused_super, ba_carry_copy, ba_finalize) gather points via
     // \`point_x[2 * (active_sums[idx] & L0_IDX_MASK)]\` without touching the
@@ -4798,9 +4801,13 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let gwin = window + batch_window_base.x;
     let n_cols = window_desc[gwin * WD_STRIDE + 5u];
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
-                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+                       - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
 
-    let cci_offset = window * row_stride; // bucket_and_sign[window*n + point]
+    // bucket_and_sign[(global window)*n + point]. The dispatch numbers windows
+    // from .x; the buffer is global-indexed from .y, so the buffer window =
+    // window + (.x - .y). Lower / no-split (.x == .y) ⇒ window (byte-identical);
+    // split-c upper (.x=W_lo, .y=0) ⇒ window + W_lo = global window.
+    let cci_offset = (window + batch_window_base.x - batch_window_base.y) * row_stride;
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
@@ -4907,7 +4914,7 @@ fn main(
     let gwin = subtask_idx + batch_window_base.x;
     let n = window_desc[gwin * WD_STRIDE + 5u];
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
-                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+                       - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
     let n_plus_1 = n + 1u;
     let base = work_off_local + subtask_idx;
 
@@ -5009,7 +5016,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     let gwin = window + batch_window_base.x;
     let n_cols = window_desc[gwin * WD_STRIDE + 5u];
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
-                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+                       - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
     if (bucket >= n_cols) { return; }
 
     let win_part = num_point_tiles * work_off_local;
@@ -5097,10 +5104,17 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let gwin = window + batch_window_base.x;
     let n_cols = window_desc[gwin * WD_STRIDE + 5u];
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
-                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+                       - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
 
-    let cci_offset = window * row_stride; // val_idx/bucket[window*n + point]
-    let ccp_offset = work_off_local + window;
+    // val_idx/bucket[(global window)*n + point]; buffer window = window + (.x - .y)
+    // (lower/no-split ⇒ window, byte-identical; upper ⇒ window + W_lo).
+    let cci_offset = (window + batch_window_base.x - batch_window_base.y) * row_stride;
+    // col_ptr base = work_off + the window's index in the col_ptr buffer. The
+    // buffer is numbered from its first global window (.y); the dispatch numbers
+    // from .x — so the buffer-local index is window + (.x - .y). For the lower /
+    // no-split region (.x == .y) this is just \`window\` (byte-identical); the
+    // split-c upper region (.x=W_lo, .y=0) gets window + W_lo = global window.
+    let ccp_offset = work_off_local + window + (batch_window_base.x - batch_window_base.y);
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
@@ -5124,11 +5138,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         // bucket sub-tile. Mask off bit 31 (sign) — only the bucket index
         // addresses the CSC.
         for (var i: u32 = tile_point_lo + tid; i < tile_point_hi; i = i + WG) {
-            let col = bucket_and_sign[cci_offset + i] & 0x7FFFFFFFu;
+            let entry = bucket_and_sign[cci_offset + i];
+            let col = entry & 0x7FFFFFFFu;
             if (col >= bucket_subtile_lo && col < bucket_subtile_hi) {
                 let local_slot = atomicAdd(&curr[col - bucket_subtile_lo], 1u);
                 let base = all_csc_col_ptr[ccp_offset + col] + partials[part_offset + col];
-                all_csc_val_idxs[cci_offset + base + local_slot] = i;
+                // Carry the sign (bit 31) into val_idx so csr_to_v2_active_sums
+                // reads it directly — keeps it region-agnostic when the upper
+                // region stores ORIGINAL indices (idx_large[i] != slot i).
+                all_csc_val_idxs[cci_offset + base + local_slot] = i | (entry & 0x80000000u);
             }
         }
         workgroupBarrier();
@@ -5180,10 +5198,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let gwin = window + batch_window_base.x;
     let n_cols = window_desc[gwin * WD_STRIDE + 5u];
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
-                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+                       - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
 
-    let cci_offset = window * row_stride; // standard [window*n + point] layout
-    let ccp_offset = work_off_local + window;
+    // val_idx/bucket[(global window)*n + point]; buffer window = window + (.x - .y)
+    // = window + W_lo for the upper region (.x=W_lo, .y=0).
+    let cci_offset = (window + batch_window_base.x - batch_window_base.y) * row_stride;
+    // col_ptr base in the global col_ptr buffer: window + (.x - .y) = global window
+    // (.x=W_lo, .y=0 for the upper region) so it reads the col_ptr the all-windows
+    // reduce/scan wrote at the global index.
+    let ccp_offset = work_off_local + window + (batch_window_base.x - batch_window_base.y);
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
@@ -5200,12 +5223,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         workgroupBarrier();
 
         for (var i: u32 = tile_point_lo + tid; i < tile_point_hi; i = i + WG) {
-            let col = bucket_and_sign[cci_offset + i] & 0x7FFFFFFFu;
+            let entry = bucket_and_sign[cci_offset + i];
+            let col = entry & 0x7FFFFFFFu;
             if (col >= bucket_subtile_lo && col < bucket_subtile_hi) {
                 let local_slot = atomicAdd(&curr[col - bucket_subtile_lo], 1u);
                 let base = all_csc_col_ptr[ccp_offset + col] + partials[part_offset + col];
-                // Store the ORIGINAL scalar index so the gather is region-agnostic.
-                all_csc_val_idxs[cci_offset + base + local_slot] = idx_large[i];
+                // Store the ORIGINAL scalar index (region-agnostic gather) + the
+                // sign (bit 31) read at this slot, since the slot i differs from
+                // the original index idx_large[i].
+                all_csc_val_idxs[cci_offset + base + local_slot] = idx_large[i] | (entry & 0x80000000u);
             }
         }
         workgroupBarrier();

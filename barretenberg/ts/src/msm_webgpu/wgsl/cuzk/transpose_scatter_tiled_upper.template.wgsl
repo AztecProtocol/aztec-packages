@@ -40,10 +40,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let gwin = window + batch_window_base.x;
     let n_cols = window_desc[gwin * WD_STRIDE + 5u];
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
-                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+                       - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
 
-    let cci_offset = window * row_stride; // standard [window*n + point] layout
-    let ccp_offset = work_off_local + window;
+    // val_idx/bucket[(global window)*n + point]; buffer window = window + (.x - .y)
+    // = window + W_lo for the upper region (.x=W_lo, .y=0).
+    let cci_offset = (window + batch_window_base.x - batch_window_base.y) * row_stride;
+    // col_ptr base in the global col_ptr buffer: window + (.x - .y) = global window
+    // (.x=W_lo, .y=0 for the upper region) so it reads the col_ptr the all-windows
+    // reduce/scan wrote at the global index.
+    let ccp_offset = work_off_local + window + (batch_window_base.x - batch_window_base.y);
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
@@ -60,12 +65,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         workgroupBarrier();
 
         for (var i: u32 = tile_point_lo + tid; i < tile_point_hi; i = i + WG) {
-            let col = bucket_and_sign[cci_offset + i] & 0x7FFFFFFFu;
+            let entry = bucket_and_sign[cci_offset + i];
+            let col = entry & 0x7FFFFFFFu;
             if (col >= bucket_subtile_lo && col < bucket_subtile_hi) {
                 let local_slot = atomicAdd(&curr[col - bucket_subtile_lo], 1u);
                 let base = all_csc_col_ptr[ccp_offset + col] + partials[part_offset + col];
-                // Store the ORIGINAL scalar index so the gather is region-agnostic.
-                all_csc_val_idxs[cci_offset + base + local_slot] = idx_large[i];
+                // Store the ORIGINAL scalar index (region-agnostic gather) + the
+                // sign (bit 31) read at this slot, since the slot i differs from
+                // the original index idx_large[i].
+                all_csc_val_idxs[cci_offset + base + local_slot] = idx_large[i] | (entry & 0x80000000u);
             }
         }
         workgroupBarrier();

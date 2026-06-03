@@ -64,9 +64,13 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let gwin = window + batch_window_base.x;
     let n_cols = window_desc[gwin * WD_STRIDE + 5u];
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
-                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+                       - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
 
-    let cci_offset = window * row_stride; // bucket_and_sign[window*n + point]
+    // bucket_and_sign[(global window)*n + point]. The dispatch numbers windows
+    // from .x; the buffer is global-indexed from .y, so the buffer window =
+    // window + (.x - .y). Lower / no-split (.x == .y) ⇒ window (byte-identical);
+    // split-c upper (.x=W_lo, .y=0) ⇒ window + W_lo = global window.
+    let cci_offset = (window + batch_window_base.x - batch_window_base.y) * row_stride;
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;

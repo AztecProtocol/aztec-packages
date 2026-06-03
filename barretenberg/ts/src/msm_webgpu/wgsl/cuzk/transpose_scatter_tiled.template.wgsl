@@ -67,10 +67,17 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let gwin = window + batch_window_base.x;
     let n_cols = window_desc[gwin * WD_STRIDE + 5u];
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
-                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+                       - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
 
-    let cci_offset = window * row_stride; // val_idx/bucket[window*n + point]
-    let ccp_offset = work_off_local + window;
+    // val_idx/bucket[(global window)*n + point]; buffer window = window + (.x - .y)
+    // (lower/no-split ⇒ window, byte-identical; upper ⇒ window + W_lo).
+    let cci_offset = (window + batch_window_base.x - batch_window_base.y) * row_stride;
+    // col_ptr base = work_off + the window's index in the col_ptr buffer. The
+    // buffer is numbered from its first global window (.y); the dispatch numbers
+    // from .x — so the buffer-local index is window + (.x - .y). For the lower /
+    // no-split region (.x == .y) this is just `window` (byte-identical); the
+    // split-c upper region (.x=W_lo, .y=0) gets window + W_lo = global window.
+    let ccp_offset = work_off_local + window + (batch_window_base.x - batch_window_base.y);
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
@@ -94,11 +101,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
         // bucket sub-tile. Mask off bit 31 (sign) — only the bucket index
         // addresses the CSC.
         for (var i: u32 = tile_point_lo + tid; i < tile_point_hi; i = i + WG) {
-            let col = bucket_and_sign[cci_offset + i] & 0x7FFFFFFFu;
+            let entry = bucket_and_sign[cci_offset + i];
+            let col = entry & 0x7FFFFFFFu;
             if (col >= bucket_subtile_lo && col < bucket_subtile_hi) {
                 let local_slot = atomicAdd(&curr[col - bucket_subtile_lo], 1u);
                 let base = all_csc_col_ptr[ccp_offset + col] + partials[part_offset + col];
-                all_csc_val_idxs[cci_offset + base + local_slot] = i;
+                // Carry the sign (bit 31) into val_idx so csr_to_v2_active_sums
+                // reads it directly — keeps it region-agnostic when the upper
+                // region stores ORIGINAL indices (idx_large[i] != slot i).
+                all_csc_val_idxs[cci_offset + base + local_slot] = i | (entry & 0x80000000u);
             }
         }
         workgroupBarrier();

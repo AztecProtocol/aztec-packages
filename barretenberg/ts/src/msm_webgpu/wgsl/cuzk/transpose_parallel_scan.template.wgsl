@@ -57,7 +57,7 @@ fn main(
     let gwin = subtask_idx + batch_window_base.x;
     let n = window_desc[gwin * WD_STRIDE + 5u];
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
-                       - window_desc[batch_window_base.x * WD_STRIDE + 3u];
+                       - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
     let n_plus_1 = n + 1u;
     let base = work_off_local + subtask_idx;
 

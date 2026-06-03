@@ -51,10 +51,13 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (slot >= params[0]) {
         return;
     }
-    let pt_idx = val_idx[slot];
-    let window = slot / params[2];
-    // Sign bit lives at bit 31 of the packed entry; constant-shift extract.
-    let neg = bucket_and_sign[window * params[3] + pt_idx] >> 31u;
+    // val_idx packs the point index (low 31 bits) + the digit sign (bit 31), set
+    // by the transpose scatter. Reading the sign here (not via bucket_and_sign)
+    // keeps this region-agnostic: the split-c upper region stores ORIGINAL
+    // indices (idx_large[i]) that differ from the bucket_and_sign slot i.
+    let packed = val_idx[slot];
+    let pt_idx = packed & 0x7FFFFFFFu;
+    let neg = packed >> 31u;
     // Bake the SRS base_offset into the index BEFORE storing — downstream L0
     // shaders (ba_fused_super, ba_carry_copy, ba_finalize) gather points via
     // `point_x[2 * (active_sums[idx] & L0_IDX_MASK)]` without touching the

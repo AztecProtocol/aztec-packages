@@ -1535,6 +1535,8 @@ export class MsmV2 {
   private msbHistPipe!: GPUComputePipeline;
   private msbDecidePipe!: GPUComputePipeline;
   private msbIdxLargePipe!: GPUComputePipeline;
+  private decomposeUpperPipe!: GPUComputePipeline;
+  private xposeScatterUpperPipe!: GPUComputePipeline;
   private xposeCountPipe!: GPUComputePipeline;
   private xposeReducePipe!: GPUComputePipeline;
   private xposeScanPipe!: GPUComputePipeline;
@@ -1579,6 +1581,8 @@ export class MsmV2 {
   private msbHistLayout!: GPUBindGroupLayout;
   private msbDecideLayout!: GPUBindGroupLayout;
   private msbIdxLargeLayout!: GPUBindGroupLayout;
+  private decomposeUpperLayout!: GPUBindGroupLayout;
+  private scatterUpperLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
   private xposeReduceLayout!: GPUBindGroupLayout;
   private xposeScanLayout!: GPUBindGroupLayout;
@@ -1716,6 +1720,16 @@ export class MsmV2 {
   private msbIdxLargeBind?: GPUBindGroup;
   private idxLargeBuf?: GPUBuffer;
   private idxLargeCountBuf?: GPUBuffer;
+  // split-c region-split (Phase 2C-ii): when the schedule splits and numBatches==1,
+  // the upper W_hi windows iterate only n_large compacted points (idx_large) via a
+  // second decompose/count/scatter pass. wLo/wHi are the lower/upper window counts.
+  private regionSplit = false;
+  private wLo = 0;
+  private wHi = 0;
+  private nLarge = 0;
+  private decomposeUpperBind?: GPUBindGroup;
+  private xposeCountUpperBind?: GPUBindGroup;
+  private xposeScatterUpperBind?: GPUBindGroup;
   private xposeCountBinds!: GPUBindGroup[];
   private xposeReduceBinds!: GPUBindGroup[];
   private xposeScanBinds!: GPUBindGroup[];
@@ -1946,6 +1960,10 @@ export class MsmV2 {
     // idx_large_compact: msb_per_scalar(read), summary(read), idx_large(rw),
     // idx_large_count(rw atomic), params(uniform).
     m.msbIdxLargeLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
+    // decompose_upper: scalars(read), bucket_and_sign(write), params, batch, window_desc, idx_large(read).
+    m.decomposeUpperLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform', 'read-only-storage', 'read-only-storage']);
+    // transpose_scatter_upper: scatter layout (7) + idx_large(read).
+    m.scatterUpperLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform', 'read-only-storage']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.xposeReduceLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform', 'read-only-storage', 'uniform']);
@@ -2012,6 +2030,10 @@ export class MsmV2 {
     m.msbHistPipe = await compile(sm.gen_ba_msb_histogram_shader(), `msb_histogram`, m.msbHistLayout);
     m.msbDecidePipe = await compile(sm.gen_ba_decide_window_split_shader(), `decide_window_split`, m.msbDecideLayout);
     m.msbIdxLargePipe = await compile(sm.gen_ba_idx_large_compact_shader(), `idx_large_compact`, m.msbIdxLargeLayout);
+    m.decomposeUpperPipe = await compile(sm.gen_decompose_scalars_booth_upper_shader(WGI), `decompose_upper`, m.decomposeUpperLayout);
+    m.xposeScatterUpperPipe = await compile(
+      sm.gen_transpose_scatter_tiled_upper_shader(256, Math.min(m.BW, 8192)),
+      `xpose-scatter-upper`, m.scatterUpperLayout);
     // Tiled counting-sort transpose: count + scatter dispatch across point-
     // chunks (not just windows) so the GPU stays saturated; reduce folds the
     // per-chunk partials; scan is the unchanged per-window prefix sum. Only
@@ -2207,6 +2229,15 @@ export class MsmV2 {
     // histogram+decide kernels (Phase 2A/2B, validated) swap in for full
     // GPU-residence (SPLIT_C_PLAN.md Phase 2C/2D). forceSplit keeps its
     // create-time schedule. m.c == pickC(n) == cLo, so all widths are ≤ c.
+    // idx_large for region-split: the dense indices whose MSB reaches the upper
+    // region (host-computed stepping stone; the GPU idx_large kernel swaps in for
+    // residence). Survives to the bind block below where it's uploaded.
+    let idxLargeHost: Uint32Array | null = null;
+    let wantRegionSplit = false;
+    this.regionSplit = false;
+    this.wLo = this.numWindows;
+    this.wHi = 0;
+    this.nLarge = 0;
     if (this.splitC && !this.forceSplit) {
       const hist = computeMsbHistogram(scalars, n);
       const eff = effectiveNumBits(hist);
@@ -2217,9 +2248,33 @@ export class MsmV2 {
       // (redM/bTotal were baked for envW windows; more would overflow red_buf).
       if (sched.length === 0 || sched.length > envW) {
         sched = new Array(Math.ceil(NUMBITS / this.c)).fill(this.c);
+      } else if (dec.isSplit) {
+        // Region-split: the upper W_hi windows iterate only the n_large scalars
+        // whose msb >= b_star-1 (the small majority contributes zero there).
+        const wLo = Math.ceil(Math.min(dec.bStar, eff + 2) / dec.cLo);
+        const wHi = sched.length - wLo;
+        if (wHi > 0) {
+          const threshold = dec.bStar - 1;
+          const idx = new Uint32Array(n);
+          let cnt = 0;
+          for (let i = 0; i < n; i++) {
+            const base = i * 8;
+            let msb = -1;
+            for (let w = 7; w >= 0; w--) {
+              if (scalars[base + w] !== 0) { msb = w * 32 + (31 - Math.clz32(scalars[base + w])); break; }
+            }
+            if (msb >= threshold) { idx[cnt++] = i; }
+          }
+          idxLargeHost = idx.subarray(0, cnt);
+          this.wLo = wLo;
+          this.wHi = wHi;
+          this.nLarge = cnt;
+          wantRegionSplit = true;
+        }
       }
       this.windowCs = sched;
       this.numWindows = sched.length;
+      if (!wantRegionSplit) this.wLo = this.numWindows;
     }
     const c = this.c;
     const NUM_WINDOWS = this.numWindows;
@@ -2341,6 +2396,10 @@ export class MsmV2 {
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;
     const batchSlots = batchWindows * n;
+    // Region-split only when a single batch holds all windows (the region/batch
+    // boundary interaction is a follow-up). Multi-batch splits fall back to the
+    // unified all-n decompose/transpose (correct, just not the perf win yet).
+    this.regionSplit = wantRegionSplit && numBatches === 1;
     for (const p of levelPlans) {
       p.totalPairBlocks = batchWindows * p.pairBlocksPerWindow;
       p.totalCarries = batchWindows * p.carriesPerWindow;
@@ -2621,7 +2680,7 @@ export class MsmV2 {
       // (the unsplit envelope upper bound on n_large); the count is GPU-resident.
       const idxLargeBuf = device.createBuffer({
         size: n * 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
       });
       const idxLargeCountBuf = device.createBuffer({
         size: 4,
@@ -2648,7 +2707,10 @@ export class MsmV2 {
     const convMetaParams = ubuf(new Uint32Array([this.batchWindows, n, 0, 0]));
     const batchWindowBaseBufs: GPUBuffer[] = [];
     for (let bi = 0; bi < numBatches; bi++) {
-      batchWindowBaseBufs.push(ubuf(new Uint32Array([bi * batchWindows, 0, 0, 0])));
+      // .x = gwin offset (this batch's first window); .y = work_off subtraction
+      // base (= .x here, batch-local). The split-c upper region binds .x=W_lo,
+      // .y=0 so its partials continue after the lower region's (no collision).
+      batchWindowBaseBufs.push(ubuf(new Uint32Array([bi * batchWindows, bi * batchWindows, 0, 0])));
     }
 
     this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
@@ -2675,6 +2737,19 @@ export class MsmV2 {
         windowDescBuf,
         bwb,
       ]));
+    // Region-split (Phase 2C-ii): upper-region binds. The upper W_hi windows
+    // iterate only n_large compacted points via decompose_upper + count/scatter
+    // over input_size=n_large, batch_window_base = W_lo. idx_large is uploaded
+    // host-side (stepping stone). Built only when this.regionSplit.
+    if (this.regionSplit && idxLargeHost && this.idxLargeBuf) {
+      device.queue.writeBuffer(this.idxLargeBuf, 0, idxLargeHost as BufferSource);
+      const upperBwb = ubuf(new Uint32Array([this.wLo, 0, 0, 0]));
+      const decomposeUpperParams = ubuf(new Uint32Array([this.nLarge, this.wHi, n, 8]));
+      const xposeParamsUpper = ubuf(new Uint32Array([transposeNumPointTiles, this.nLarge, n, pointsPerTile]));
+      this.decomposeUpperBind = mkBind(this.decomposeUpperLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeUpperParams, upperBwb, windowDescBuf, this.idxLargeBuf]);
+      this.xposeCountUpperBind = mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParamsUpper, windowDescBuf, upperBwb]);
+      this.xposeScatterUpperBind = mkBind(this.scatterUpperLayout, [bucketAndSignBuf, rowPtrBuf, partialsBuf, valIdxBuf, xposeParamsUpper, windowDescBuf, upperBwb, this.idxLargeBuf]);
+    }
     this.convActiveBind = mkBind(this.convActiveLayout, [valIdxBuf, l0IdxBuf, convActiveParams, bucketAndSignBuf]);
     this.convMetaBinds = batchWindowBaseBufs.map(bwb =>
       mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams, windowDescBuf, bwb]));
@@ -3038,12 +3113,30 @@ export class MsmV2 {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
       const tSlots = tbw * this.n;
       setPhase('preprocess');
-      dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
-      clearSlot(enc, this.rowPtrBuf);
-      dispatch(this.xposeCountPipe, this.xposeCountBinds[bi], this.transposeNumPointTiles, tbw);
-      dispatch(this.xposeReducePipe, this.xposeReduceBinds[bi], Math.ceil(this.BW / 256), tbw);
-      dispatch(this.xposeScanPipe, this.xposeScanBinds[bi], tbw, 1);
-      dispatch(this.xposeScatterPipe, this.xposeScatterBinds[bi], this.transposeNumPointTiles, tbw);
+      // Region-split (Phase 2C-ii, numBatches==1 only): decompose + count +
+      // scatter run as two regions — lower W_lo windows over all n, upper W_hi
+      // windows over only n_large compacted points (idx_large). reduce + scan
+      // stay over all tbw windows (they work on the CSR, point-count-agnostic).
+      // No-split / multi-batch: the single unified all-n pass (= today).
+      if (this.regionSplit) {
+        const nXLarge = Math.ceil(this.nLarge / WGI);
+        dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, this.wLo);
+        dispatch(this.decomposeUpperPipe, this.decomposeUpperBind!, nXLarge, this.wHi);
+        clearSlot(enc, this.rowPtrBuf);
+        dispatch(this.xposeCountPipe, this.xposeCountBinds[bi], this.transposeNumPointTiles, this.wLo);
+        dispatch(this.xposeCountPipe, this.xposeCountUpperBind!, this.transposeNumPointTiles, this.wHi);
+        dispatch(this.xposeReducePipe, this.xposeReduceBinds[bi], Math.ceil(this.BW / 256), tbw);
+        dispatch(this.xposeScanPipe, this.xposeScanBinds[bi], tbw, 1);
+        dispatch(this.xposeScatterPipe, this.xposeScatterBinds[bi], this.transposeNumPointTiles, this.wLo);
+        dispatch(this.xposeScatterUpperPipe, this.xposeScatterUpperBind!, this.transposeNumPointTiles, this.wHi);
+      } else {
+        dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
+        clearSlot(enc, this.rowPtrBuf);
+        dispatch(this.xposeCountPipe, this.xposeCountBinds[bi], this.transposeNumPointTiles, tbw);
+        dispatch(this.xposeReducePipe, this.xposeReduceBinds[bi], Math.ceil(this.BW / 256), tbw);
+        dispatch(this.xposeScanPipe, this.xposeScanBinds[bi], tbw, 1);
+        dispatch(this.xposeScatterPipe, this.xposeScatterBinds[bi], this.transposeNumPointTiles, tbw);
+      }
       dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1);
       dispatch(this.convMetaPipe, this.convMetaBinds[bi], Math.ceil(this.BW / this.wgi), this.batchWindows);
       setPhase('planner');
