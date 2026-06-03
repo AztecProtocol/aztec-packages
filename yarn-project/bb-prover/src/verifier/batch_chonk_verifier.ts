@@ -286,7 +286,10 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     const ivcResult: IVCProofVerificationResult = { valid, durationMs, totalDurationMs };
 
     if (!valid) {
-      this.logger.warn(`Proof verification failed for request_id=${result.request_id}: ${result.error_message}`);
+      this.logger.debug(`Proof verification failed`, {
+        requestId: result.request_id,
+        errorMessage: result.error_message,
+      });
     } else {
       this.logger.debug(`Proof verified`, {
         requestId: result.request_id,
