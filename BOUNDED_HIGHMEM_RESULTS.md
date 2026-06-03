@@ -253,3 +253,62 @@ manual knob (`?chunkpts=`) for trading memory headroom against E speed.
 - Single-chunk (default) path verified unchanged at every step; walker (default
   backend) untouched. Committed `--no-verify`, named files only, after each
   green increment.
+
+## Batch-efficiency fix (real Chonk wire dumps, not profile E)
+
+The bounded backend was correct + ≤100 MB but paid +41–45 % wall on real prover
+data. Root cause (phase breakdown, `?msm_dump=`): wall scales ~linearly with the
+window-batch count `numBatches` — wall ≈ unbounded + ~6.7 ms·(numBatches−1) — and
+`numBatches` is set by how much non-`bufA` scratch the budget solver reserves
+(`bufA`+`bufB` ≈ numBatches·n/2 elements dominates the 100 MB cap). Every extra
+batch re-runs the per-level planner + fused/carry/finalize at lower per-dispatch
+occupancy.
+
+Note: the front-half + planner *hoist* (run-once-full-width) was evaluated and
+**rejected** — it makes the L0 metadata + plan rings full-width (+~28 MB), which
+pushes `numBatches` *up* for these dumps, a net loss. Point-chunking was likewise
+worse (its per-chunk finalize-accumulate merge costs ~5 ms/chunk). The effective
+lever is to **shrink the reserved scratch so the solver fits more windows/batch**:
+
+- **Adaptive fused tile** (`pickFusedTile`): `pref_scratch` is sized to the budget
+  headroom remaining at the chosen `numBatches` (not the fixed ~10–16 MB natural
+  tile), floored at `MIN_FUSED_TILE=8192` (a smaller tile splits L0 into launch-
+  bound sub-dispatches — a 976-block tile on a 40 k-block L0 ran ~10× slower) and
+  capped at the natural one-tile size. Headroom is measured vs a distribution-
+  independent `synthMp` (≈0.52·n active/window for any distribution; carries ≤ BW)
+  so the warm-up, the real run, and profile E pick the SAME (numBatches, tile) —
+  required because the shared pool's buffers only grow.
+- **Accurate + conservative estimate**: count the per-instance `touched`/`redStaging`
+  buffers + a uniform-rounding slack, and bound the fixed term by `synthMp`, so
+  `estMB ≥ metered` for any distribution (profile E inherits the heavier warm-up
+  pool). `OVERSIZE_FACTOR 1.3 → 1.0` (the ~n/2 bounded working set is stable to
+  <0.1 %, so the realloc pad was pure waste at the 100 MB edge; the default backend
+  is the walker, so high_memory's tighter fast-path tolerance is not in production).
+
+### Results (M2, reps=20 `min_wall`, bounded = default 100 MB; all cross-check green)
+
+| dump | bounded before | bounded after | unbounded | before / after / unbounded |
+|---|---|---|---|---|
+| wire_n90325  | 42.6 ms | **37.5 ms** (−12 %) | 28.8 ms | 1.45× → **1.30×** |
+| wire_n131071 | 46.9 ms | **43.6 ms** (−7 %)  | 33.3 ms | 1.41× → **1.31×** |
+| wire_n23074  | 15.1 ms | **13.2 ms** (−13 %) | 13.9 ms | fits in 1 batch |
+
+| dump | numBatches (before→after) | dispatches (before→after→unbounded) | scratch_mb (before→after) |
+|---|---|---|---|
+| wire_n90325  | 3 → 2 | 329 → 248 → 136 | 99.2 → 98.4 |
+| wire_n131071 | 5 → 4 | 448 → 366 → 123 | 85.7 → 85.0 |
+| wire_n23074  | 1 → 1 | 110 → 110 → 110 | 94.8 → 75.3 |
+
+All three dumps ≤ 100 MB, deterministic (`scratch_mb` identical across runs),
+cross-check green; profiles A and E green and ≤ 100 MB at logn 14/17; the walker
+default path is unchanged.
+
+### Irreducible floor (honest)
+
+The unbounded ratio stays ~1.30× (not the ≤1.05× target). At a strict 100 MB cap,
+`bufA`/`bufB` ≈ numBatches·n/2 forces `numBatches ≥ 2` for n ≈ 90 k–131 k, and the
+remaining gap is the per-batch planner+fused dispatch overhead, which is intrinsic
+to processing the windows in batches (the fused writes the bounded `bufA`/`bufB`,
+so it cannot span all windows in one dispatch). Phase split at n90325 nb=2:
+planner ~5 ms + fused ~24 ms are the batched cost; the reduce (~7 ms) and front
+(~1 ms) run once. Minimizing `numBatches` (this change) is the available lever.
