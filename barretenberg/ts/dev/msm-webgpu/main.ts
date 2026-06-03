@@ -674,25 +674,36 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
   }
   log('info', `[batch-check] ${logNs.length} MSMs n=[${ns.join(', ')}] — solo baselines done`);
 
-  // The union packs one size class — all members must share n.
-  const n0 = ns[0];
-  if (!ns.every(x => x === n0)) {
-    return { ok: false, detail: `union path needs homogeneous n; got [${ns.join(', ')}] (use a repeated logN)` };
+  // The union packs ONE SIZE CLASS (same c). Members may have DIFFERENT n: the
+  // pack runs at the class's max n, and each smaller member is padded up with
+  // zero scalars — which decode to the zero digit (bucket 0) and contribute
+  // nothing, so the padded member's per-window sums are byte-identical to its
+  // solo run. (This is the plan's "group by size class + pad" strategy; the
+  // no-padding per-window-n path is the efficiency follow-on. Different c — a
+  // different class — still needs per-window geometry and isn't supported here.)
+  const maxN = Math.max(...ns);
+  if (!ns.every(x => pickC(x) === pickC(maxN))) {
+    return {
+      ok: false,
+      detail: `union packs one size class; got mixed c (n=[${ns.join(', ')}] → c=[${ns.map(pickC).join(', ')}])`,
+    };
   }
+  const heterogeneous = !ns.every(x => x === maxN);
 
   // ── Union pass: ONE MsmV2 prepared over the concatenated super-MSM, one
   // dispatch over Σ NW windows. Every member uses the shared SRS prefix
   // (srsOffset 0), so solo and packed see identical points per member.
   const pool = await MsmV2Pool.create(device, poolPoints!);
-  const inst = await MsmV2.create(device, n0, pool, gpuKnobs);
+  const inst = await MsmV2.create(device, maxN, pool, gpuKnobs);
   try {
-    const plan = planBatch(ns.map(n => ({ n, srsOffset: 0 })));
+    // Pack every member at the class max n (padding each to maxN with zeros).
+    const plan = planBatch(ns.map(() => ({ n: maxN, srsOffset: 0 })));
     log(
       'info',
       `[batch-check] union pass — totalWindows=${plan.totalWindows} ` +
-        `footprint=${(plan.footprintBytes / (1 << 20)).toFixed(1)}MiB`,
+        `footprint=${(plan.footprintBytes / (1 << 20)).toFixed(1)}MiB${heterogeneous ? ` (heterogeneous n=[${ns.join(', ')}] padded to ${maxN})` : ''}`,
     );
-    // Concatenate the members' scalars at planBatch's byte bases.
+    // Concatenate the members' (zero-padded) scalars at planBatch's byte bases.
     const concat = new Uint8Array(plan.totalScalarBytes);
     for (let k = 0; k < scalars.length; k++) concat.set(scalars[k], plan.descs[k].scalarBase);
     const members = plan.descs.map(d => ({
