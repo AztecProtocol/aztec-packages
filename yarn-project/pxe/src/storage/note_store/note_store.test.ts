@@ -711,7 +711,7 @@ describe('NoteStore (nullification & reorg)', () => {
     const note = await noteAt(BlockNumber(9));
     await store.addNotes([note], scope, JOB);
     await store.commit(JOB);
-    const nullifiers = await store.nullifiersAtBlock(9);
+    const nullifiers = await store.nullifiersOfNotesAtBlock(9);
     expect(nullifiers).toEqual([note.siloedNullifier.toString()]);
   });
 
@@ -720,7 +720,7 @@ describe('NoteStore (nullification & reorg)', () => {
     const b = await noteAt(BlockNumber(9));
     await store.addNotes([a, b], scope, JOB);
     await store.commit(JOB);
-    const nullifiers = await store.nullifiersAtBlock(9);
+    const nullifiers = await store.nullifiersOfNotesAtBlock(9);
     expect(new Set(nullifiers)).toEqual(new Set([a.siloedNullifier.toString(), b.siloedNullifier.toString()]));
   });
 
@@ -752,9 +752,9 @@ describe('NoteStore (nullification & reorg)', () => {
       await kv.transactionAsync(() => store.deleteInBlockRange(10, 11));
 
       // Only note A survives.
-      expect(await store.nullifiersAtBlock(9)).toEqual([noteA.siloedNullifier.toString()]);
-      expect(await store.nullifiersAtBlock(10)).toHaveLength(0);
-      expect(await store.nullifiersAtBlock(11)).toHaveLength(0);
+      expect(await store.nullifiersOfNotesAtBlock(9)).toEqual([noteA.siloedNullifier.toString()]);
+      expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
+      expect(await store.nullifiersOfNotesAtBlock(11)).toHaveLength(0);
 
       const found = await store.getNotes(activeFilter, 'read-job');
       expect(found).toHaveLength(1);
@@ -780,7 +780,7 @@ describe('NoteStore (nullification & reorg)', () => {
       await kv.transactionAsync(() => store.deleteInBlockRange(16, 20));
 
       // The creation row at block 10 is untouched.
-      expect(await store.nullifiersAtBlock(10)).toEqual([noteB.siloedNullifier.toString()]);
+      expect(await store.nullifiersOfNotesAtBlock(10)).toEqual([noteB.siloedNullifier.toString()]);
 
       // The note should read back ACTIVE again (nullification row gone).
       const found = await store.getNotes(activeFilter, 'read-job');
@@ -798,11 +798,11 @@ describe('NoteStore (nullification & reorg)', () => {
       await store.commit(JOB);
 
       await kv.transactionAsync(() => store.deleteInBlockRange(10, 10));
-      expect(await store.nullifiersAtBlock(10)).toHaveLength(0);
+      expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
 
       // Second run over the same now-empty range hits the missing-row guard: no throw, state unchanged.
       await kv.transactionAsync(() => store.deleteInBlockRange(10, 10));
-      expect(await store.nullifiersAtBlock(10)).toHaveLength(0);
+      expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
     });
   });
 

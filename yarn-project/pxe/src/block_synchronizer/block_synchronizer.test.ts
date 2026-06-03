@@ -234,13 +234,13 @@ describe('BlockSynchronizer', () => {
       });
 
       // Rows at blocks 4 and 5 must be gone.
-      expect(await noteStore.nullifiersAtBlock(4)).toHaveLength(0);
-      expect(await noteStore.nullifiersAtBlock(5)).toHaveLength(0);
+      expect(await noteStore.nullifiersOfNotesAtBlock(4)).toHaveLength(0);
+      expect(await noteStore.nullifiersOfNotesAtBlock(5)).toHaveLength(0);
       expect(await privateEventStore.eventIdsAtBlock(4)).toHaveLength(0);
       expect(await privateEventStore.eventIdsAtBlock(5)).toHaveLength(0);
 
       // Rows at block 3 (the fork point, not an orphan) must survive.
-      expect(await noteStore.nullifiersAtBlock(3)).toEqual([noteAt3.siloedNullifier.toString()]);
+      expect(await noteStore.nullifiersOfNotesAtBlock(3)).toEqual([noteAt3.siloedNullifier.toString()]);
       expect(await privateEventStore.eventIdsAtBlock(3)).toEqual([eventIdAt3.toString()]);
     });
 
@@ -268,8 +268,8 @@ describe('BlockSynchronizer', () => {
       });
 
       // Finalization is a no-op for storage under delete-on-prune, every row at and below the tip survives.
-      expect(await noteStore.nullifiersAtBlock(8)).toEqual([note8.siloedNullifier.toString()]);
-      expect(await noteStore.nullifiersAtBlock(9)).toEqual([note9.siloedNullifier.toString()]);
+      expect(await noteStore.nullifiersOfNotesAtBlock(8)).toEqual([note8.siloedNullifier.toString()]);
+      expect(await noteStore.nullifiersOfNotesAtBlock(9)).toEqual([note9.siloedNullifier.toString()]);
       expect(await privateEventStore.eventIdsAtBlock(8)).toEqual([eventId8.toString()]);
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventId9.toString()]);
     });
@@ -308,11 +308,11 @@ describe('BlockSynchronizer', () => {
       });
 
       // Blocks 2 and 3 deleted.
-      expect(await noteStore.nullifiersAtBlock(2)).toHaveLength(0);
-      expect(await noteStore.nullifiersAtBlock(3)).toHaveLength(0);
+      expect(await noteStore.nullifiersOfNotesAtBlock(2)).toHaveLength(0);
+      expect(await noteStore.nullifiersOfNotesAtBlock(3)).toHaveLength(0);
 
       // Block 1 note still present and visible via getNotes.
-      expect(await noteStore.nullifiersAtBlock(1)).toEqual([noteAt1.siloedNullifier.toString()]);
+      expect(await noteStore.nullifiersOfNotesAtBlock(1)).toEqual([noteAt1.siloedNullifier.toString()]);
       const found = await noteStore.getNotes(
         { contractAddress: contract, scopes: [scope], status: NoteStatus.ACTIVE },
         'read-job',

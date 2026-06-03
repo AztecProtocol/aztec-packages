@@ -355,7 +355,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       await noteStore.addNotes([note2], scopeX, jobId);
       await noteStore.addNotes([note3], scopeX, jobId);
 
-      // Nullify note3 within the same job. `applyNullifiers` stages a nullification origin for the note; `commit`
+      // Nullify note3 within the same job. `applyNullifiers` stages the emission block number for the note; `commit`
       // then flushes it to disk into `note_nullifications_by_nullifier`.
       await noteStore.applyNullifiers(
         [{ data: note3.siloedNullifier, l2BlockNumber: BlockNumber(223), l2BlockHash: BlockHash.ZERO }],
@@ -370,7 +370,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         kvStore.openMultiMap<string, string>('note_nullifiers_by_contract'),
       ),
       note_nullifications_by_nullifier: await snapshotMap(
-        kvStore.openMap<string, string>('note_nullifications_by_nullifier'),
+        kvStore.openMap<string, number>('note_nullifications_by_nullifier'),
       ),
       note_nullifiers_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('note_nullifiers_by_block')),
       note_nullifications_by_block: await snapshotMap(
