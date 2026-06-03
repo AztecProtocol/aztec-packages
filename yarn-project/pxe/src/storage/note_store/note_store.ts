@@ -10,13 +10,23 @@ import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
 import type { NotesFilter } from '../../notes_filter.js';
 import { StoredNote } from './stored_note.js';
 
+/// Alias types for kv map readability
+type SiloedNullifier = string;
+type JobId = string;
+type AddressStr = string;
+type BlockNum = number;
+type BlockId = string;
+type StoredNoteBuffer = Buffer;
+
 /**
  * NoteStore manages the storage and retrieval of notes using an append-only model.
  *
- * Notes are written once (keyed by siloedNullifier) and never mutated or deleted. Nullifications are recorded as
- * separate append-only entries: a multimap from nullifier to origin strings encoding the block that nullified it.
- * Reorgs are handled by delete-on-prune: the `chain-pruned` path physically deletes every row anchored to an orphaned
- * block, so the store holds only canonical rows by construction and reads need no canonicality check.
+ * Notes are written once (keyed by siloedNullifier) and never mutated. They might be deleted in case of reorg though.
+ * Nullifications are recorded as separate append-only entries: a map from nullifier to the origin string encoding
+ * what block emitted the nullifier.
+
+ * Reorgs are handled by delete-on-prune: the `chain-pruned` path physically deletes every note and nullifier row
+ * anchored to an orphaned block.
  */
 export class NoteStore implements StagedStore {
   readonly storeName: string = 'note';
@@ -27,49 +37,50 @@ export class NoteStore implements StagedStore {
 
   // Main storage for notes. Avoid performing full scans on it as it contains all notes PXE knows, use
   // #nullifiersByContractAddress to find relevant note nullifiers that can be used to read into this map instead.
+  //
   // nullifier => StoredNote (serialized)
-  #notes: AztecAsyncMap<string, Buffer>;
+  #notes: AztecAsyncMap<SiloedNullifier, StoredNoteBuffer>;
 
   // Indexes which notes (via their nullifiers) belong to a contract. Used in `getNotes` to reduce the amount of notes
   // checked.
+  //
   // contract address => nullifier
-  #nullifiersByContractAddress: AztecAsyncMultiMap<string, string>;
+  #nullifiersByContractAddress: AztecAsyncMultiMap<AddressStr, SiloedNullifier>;
 
   // block number => nullifier
-  #nullifiersByBlockNumber: AztecAsyncMultiMap<number, string>;
+  #nullifiersByBlockNumber: AztecAsyncMultiMap<BlockNum, SiloedNullifier>;
 
-  // Stores all nullification origins for each nullifier. Multiple origins can arise when competing forks nullify the
-  // same note at different block hashes; orphaned-fork origins are removed by delete-on-prune, so any origin present
-  // here reflects the canonical chain.
+  // Records, for each nullified note, the canonical block that nullified it. A nullifier is emitted by exactly one
+  // block on the canonical chain, and delete-on-prune removes orphaned-fork rows, so there is at most one origin per
+  // nullifier. Reads only check presence (a recorded origin means the note is nullified); the stored origin is kept
+  // self-describing for debugging.
   // nullifier => originStr ("<number>:<hash>")
-  #nullificationsByNullifier: AztecAsyncMultiMap<string, string>;
+  #nullificationsByNullifier: AztecAsyncMap<SiloedNullifier, BlockId>;
 
-  // Locates nullification origins by the block that recorded them, so delete-on-prune can find and delete orphan
-  // origins anchored to a pruned block. The value packs both the nullifier (to locate the #nullificationsByNullifier
-  // key) and the originStr (the specific value to delete) as "<nullifier>|<originStr>"; '|' is a safe delimiter since
-  // nullifiers are hex "0x…" strings and originStr is "<decimal>:<0xhex>".
-  // nullification block number => "<nullifier>|<originStr>"
-  #nullificationsByBlockNumber: AztecAsyncMultiMap<number, string>;
+  // Reverse index from the block that recorded a nullification to the nullifier(s) it nullified, so delete-on-prune
+  // can find and remove the origins anchored to a pruned block.
+  // nullification block number => nullifier
+  #nullificationsByBlockNumber: AztecAsyncMultiMap<BlockNum, SiloedNullifier>;
 
   // In-memory changes performed during a not-yet committed job. When `commit` is called with said job's id, these
   // changes are persisted in the DB maps specified above and cleared.
   // jobId => nullifier => StoredNote
-  #notesForJob: Map<string, Map<string, StoredNote>>;
+  #notesForJob: Map<JobId, Map<SiloedNullifier, StoredNote>>;
 
   // Staged nullification origins per job.
-  // jobId => nullifier => Set<originStr>
-  #nullificationsForJob: Map<string, Map<string, Set<string>>>;
+  // jobId => nullifier => originStr
+  #nullificationsForJob: Map<JobId, Map<SiloedNullifier, BlockId>>;
 
   // Per job locks to prevent multiple concurrent writes to affect each other.
   // jobId => lock
-  #jobLocks: Map<string, Semaphore>;
+  #jobLocks: Map<JobId, Semaphore>;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
     this.#notes = store.openMap('notes');
     this.#nullifiersByContractAddress = store.openMultiMap('note_nullifiers_by_contract');
     this.#nullifiersByBlockNumber = store.openMultiMap('note_nullifiers_by_block');
-    this.#nullificationsByNullifier = store.openMultiMap('note_nullifications_by_nullifier');
+    this.#nullificationsByNullifier = store.openMap('note_nullifications_by_nullifier');
     this.#nullificationsByBlockNumber = store.openMultiMap('note_nullifications_by_block');
 
     this.#jobLocks = new Map();
@@ -141,7 +152,7 @@ export class NoteStore implements StagedStore {
       // starts with no pending read requests, so both promises must be started during the synchronous iteration.
       const candidates = new Map<
         string,
-        { notePromise: Promise<StoredNote | undefined>; nullificationPromise: Promise<string[]> }
+        { notePromise: Promise<StoredNote | undefined>; nullificationPromise: Promise<string | undefined> }
       >();
 
       // Committed notes indexed by contract address
@@ -150,7 +161,7 @@ export class NoteStore implements StagedStore {
       )) {
         candidates.set(nullifier, {
           notePromise: this.#readNote(nullifier, jobId),
-          nullificationPromise: this.#collectNullificationOrigins(nullifier),
+          nullificationPromise: this.#nullificationsByNullifier.getAsync(nullifier),
         });
       }
 
@@ -161,7 +172,7 @@ export class NoteStore implements StagedStore {
           if (!candidates.has(nullifier)) {
             candidates.set(nullifier, {
               notePromise: Promise.resolve(storedNote),
-              nullificationPromise: this.#collectNullificationOrigins(nullifier),
+              nullificationPromise: this.#nullificationsByNullifier.getAsync(nullifier),
             });
           }
         }
@@ -170,14 +181,12 @@ export class NoteStore implements StagedStore {
       // Await all DB reads together before the await-free tail.
       const entries = [...candidates.entries()];
       const notes = await Promise.all(entries.map(([, { notePromise }]) => notePromise));
-      const nullificationOriginArrays = await Promise.all(
-        entries.map(([, { nullificationPromise }]) => nullificationPromise),
-      );
+      const committedOrigins = await Promise.all(entries.map(([, { nullificationPromise }]) => nullificationPromise));
 
-      // Build a lookup: nullifier => committed origins
-      const committedOriginsMap = new Map<string, string[]>();
+      // Build a lookup: nullifier => committed nullification origin (undefined if not nullified)
+      const committedOriginByNullifier = new Map<string, string | undefined>();
       for (let i = 0; i < entries.length; i++) {
-        committedOriginsMap.set(entries[i][0], nullificationOriginArrays[i]);
+        committedOriginByNullifier.set(entries[i][0], committedOrigins[i]);
       }
 
       // Await-free tail: filter and sort. No DB ops from here on.
@@ -191,11 +200,11 @@ export class NoteStore implements StagedStore {
 
         const nullifierStr = note.noteDao.siloedNullifier.toString();
 
-        // A note is nullified once any nullification origin is recorded for it (committed or staged). Orphaned-fork
+        // A note is nullified once a nullification origin is recorded for it (committed or staged). Orphaned-fork
         // origins are removed by delete-on-prune, so a recorded origin always reflects the canonical chain.
-        const committedOrigins = committedOriginsMap.get(nullifierStr) ?? [];
-        const stagedOrigins = this.#getNullificationsForJob(jobId).get(nullifierStr);
-        const nullified = committedOrigins.length > 0 || (stagedOrigins?.size ?? 0) > 0;
+        const committedOrigin = committedOriginByNullifier.get(nullifierStr);
+        const stagedOrigin = this.#getNullificationsForJob(jobId).get(nullifierStr);
+        const nullified = committedOrigin !== undefined || stagedOrigin !== undefined;
 
         if (targetStatus === NoteStatus.ACTIVE && nullified) {
           continue;
@@ -303,12 +312,10 @@ export class NoteStore implements StagedStore {
       await this.#nullifiersByBlockNumber.set(storedNote.noteDao.l2BlockNumber, nullifier);
     }
 
-    for (const [nullifier, originSet] of this.#getNullificationsForJob(jobId)) {
-      for (const originStr of originSet) {
-        await this.#nullificationsByNullifier.set(nullifier, originStr);
-        const blockNumber = this.#parseOrigin(originStr).number;
-        await this.#nullificationsByBlockNumber.set(blockNumber, `${nullifier}|${originStr}`);
-      }
+    for (const [nullifier, originStr] of this.#getNullificationsForJob(jobId)) {
+      await this.#nullificationsByNullifier.set(nullifier, originStr);
+      const blockNumber = this.#parseOrigin(originStr).number;
+      await this.#nullificationsByBlockNumber.set(blockNumber, nullifier);
     }
 
     this.#clearJobData(jobId);
@@ -353,7 +360,7 @@ export class NoteStore implements StagedStore {
     return notesForJob;
   }
 
-  #getNullificationsForJob(jobId: string): Map<string, Set<string>> {
+  #getNullificationsForJob(jobId: string): Map<string, string> {
     let nullificationsForJob = this.#nullificationsForJob.get(jobId);
     if (!nullificationsForJob) {
       nullificationsForJob = new Map();
@@ -363,13 +370,8 @@ export class NoteStore implements StagedStore {
   }
 
   #stageNullification(nullifier: string, originStr: string, jobId: string): void {
-    const forJob = this.#getNullificationsForJob(jobId);
-    let origins = forJob.get(nullifier);
-    if (!origins) {
-      origins = new Set();
-      forJob.set(nullifier, origins);
-    }
-    origins.add(originStr);
+    // A nullifier is nullified by exactly one canonical block, so the latest staged origin wins.
+    this.#getNullificationsForJob(jobId).set(nullifier, originStr);
   }
 
   #originStr(o: L2BlockId): string {
@@ -379,15 +381,6 @@ export class NoteStore implements StagedStore {
   #parseOrigin(s: string): L2BlockId {
     const idx = s.indexOf(':');
     return { number: BlockNumber(Number(s.slice(0, idx))), hash: s.slice(idx + 1) };
-  }
-
-  /** Collects all committed nullification origin strings for a nullifier into an array. */
-  async #collectNullificationOrigins(nullifier: string): Promise<string[]> {
-    const origins: string[] = [];
-    for await (const origin of this.#nullificationsByNullifier.getValuesAsync(nullifier)) {
-      origins.push(origin);
-    }
-    return origins;
   }
 
   /** Returns the nullifiers (note ids) of all notes created at the given block number. Used by delete-on-prune. */
@@ -423,25 +416,20 @@ export class NoteStore implements StagedStore {
         await this.#notes.delete(nullifier);
         await this.#nullifiersByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), nullifier);
         await this.#nullifiersByBlockNumber.deleteValue(block, nullifier);
-        // Drop the note's whole nullification-origin set. Safe under this method's tail-truncation contract (toBlock is
-        // the anchor tip): no nullification origin can exist above the deleted range, so the per-block composites for
-        // these origins all fall within the loop's range and none is left dangling in #nullificationsByBlockNumber.
+        // Drop the note's nullification origin, if any. Safe under this method's tail-truncation contract (toBlock is
+        // the anchor tip): no nullification can exist above the deleted range, so the reverse-index entry for this
+        // origin falls within the loop's range and is not left dangling in #nullificationsByBlockNumber.
         await this.#nullificationsByNullifier.delete(nullifier);
       }
 
-      const composites: string[] = [];
-      for await (const composite of this.#nullificationsByBlockNumber.getValuesAsync(block)) {
-        composites.push(composite);
+      // Snapshot before mutating so we never delete from the multimap we are iterating.
+      const nullifiedAtBlock: string[] = [];
+      for await (const nullifier of this.#nullificationsByBlockNumber.getValuesAsync(block)) {
+        nullifiedAtBlock.push(nullifier);
       }
-      for (const composite of composites) {
-        const sep = composite.indexOf('|');
-        if (sep === -1) {
-          throw new Error(`Malformed nullification index entry: ${composite}`);
-        }
-        const nullifier = composite.slice(0, sep);
-        const originStr = composite.slice(sep + 1);
-        await this.#nullificationsByNullifier.deleteValue(nullifier, originStr);
-        await this.#nullificationsByBlockNumber.deleteValue(block, composite);
+      for (const nullifier of nullifiedAtBlock) {
+        await this.#nullificationsByNullifier.delete(nullifier);
+        await this.#nullificationsByBlockNumber.deleteValue(block, nullifier);
       }
     }
   }

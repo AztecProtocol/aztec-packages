@@ -370,7 +370,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         kvStore.openMultiMap<string, string>('note_nullifiers_by_contract'),
       ),
       note_nullifications_by_nullifier: await snapshotMap(
-        kvStore.openMultiMap<string, string>('note_nullifications_by_nullifier'),
+        kvStore.openMap<string, string>('note_nullifications_by_nullifier'),
       ),
       note_nullifiers_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('note_nullifiers_by_block')),
       note_nullifications_by_block: await snapshotMap(

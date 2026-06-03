@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 8,
+  "schemaVersion": 7,
   "stores": [
     {
       "name": "address_book",
@@ -63,7 +63,7 @@
     },
     {
       "name": "note_nullifications_by_nullifier",
-      "kind": "multimap"
+      "kind": "map"
     },
     {
       "name": "note_nullifiers_by_block",
