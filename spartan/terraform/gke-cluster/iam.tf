@@ -48,6 +48,12 @@ resource "google_service_account" "ci" {
   description  = "Service account for CI jobs that publish Docker images"
 }
 
+resource "google_service_account" "npm_registry_reader" {
+  account_id   = var.npm_registry_reader_service_account_id
+  display_name = "npm Registry Reader Service Account"
+  description  = "Service account for CI jobs that install internal npm packages"
+}
+
 # Service account for External Secrets Operator
 resource "google_service_account" "eso" {
   account_id   = "external-secrets-operator"
@@ -79,4 +85,3 @@ data "google_iam_policy" "all_users_storage_read" {
     ]
   }
 }
-
