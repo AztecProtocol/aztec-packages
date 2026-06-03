@@ -7,6 +7,16 @@
 import { ShaderManager } from '../../src/msm_webgpu/cuzk/shader_manager.js';
 import { BN254_CURVE_CONFIG } from '../../src/msm_webgpu/cuzk/curve_config.js';
 import { BN254_SCALAR_FIELD } from '../../src/msm_webgpu/cuzk/bn254.js';
+import {
+  create_and_write_sb,
+  create_and_write_ub,
+  create_sb,
+  create_bind_group_layout,
+  create_bind_group,
+  create_compute_pipeline,
+  execute_pipeline,
+  read_from_gpu,
+} from '../../src/msm_webgpu/cuzk/gpu.js';
 
 export const P = BN254_SCALAR_FIELD;
 export const WG = 64; // workgroup size used by every test kernel
@@ -89,6 +99,91 @@ export const evalSet = (a: Poly, L: number): bigint[] =>
 
 export type Level = 'info' | 'ok' | 'err' | 'warn' | 'muted';
 export type Logger = (level: Level, msg: string) => void;
+
+// ---- relation-kernel dispatch + diff (shared by every relation suite) ----
+
+// Run a single-entry relation kernel: one read-only input SB, one storage output
+// SB (n*outLen Fr), one Params{n} uniform; one thread per edge. Returns the raw
+// output bytes and the GPU compute+readback time.
+export async function dispatchRelation(
+  device: GPUDevice,
+  n: number,
+  code: string,
+  entry: string,
+  inBytes: Uint8Array,
+  outLen: number,
+): Promise<{ bytes: Uint8Array; ms: number }> {
+  const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform']);
+  const inBuf = create_and_write_sb(device, inBytes);
+  const outBuf = create_sb(device, n * outLen * 32);
+  const params = new Uint8Array(16);
+  new DataView(params.buffer).setUint32(0, n, true);
+  const bg = create_bind_group(device, layout, [inBuf, outBuf, create_and_write_ub(device, params)]);
+  const pipeline = await create_compute_pipeline(device, [layout], code, entry, entry);
+  const t0 = performance.now();
+  const enc = device.createCommandEncoder();
+  await execute_pipeline(enc, pipeline, bg, Math.ceil(n / WG));
+  const [bytes] = await read_from_gpu(device, enc, [outBuf]);
+  return { bytes, ms: performance.now() - t0 };
+}
+
+export interface EdgeRow {
+  e: bigint[][]; // numEdges entity edges, each [v0, v1]
+  s: bigint; // scaling factor
+}
+
+// Pack n rows of (numEdges edges {v0,v1} + 1 scaling scalar) into a Montgomery
+// 8x u32 input buffer of stride inLen Fr: edge j at slots 2j/2j+1, scaling last.
+export function packEdgeRows(
+  n: number,
+  inLen: number,
+  numEdges: number,
+  build: (i: number) => EdgeRow,
+): { inBytes: Uint8Array; inputs: EdgeRow[] } {
+  const inBytes = new Uint8Array(n * inLen * 32);
+  const inputs: EdgeRow[] = [];
+  for (let i = 0; i < n; i++) {
+    const row = build(i);
+    inputs.push(row);
+    for (let j = 0; j < numEdges; j++) {
+      inBytes.set(biToLe32(toMont(row.e[j][0])), (i * inLen + 2 * j) * 32);
+      inBytes.set(biToLe32(toMont(row.e[j][1])), (i * inLen + 2 * j + 1) * 32);
+    }
+    inBytes.set(biToLe32(toMont(row.s)), (i * inLen + numEdges * 2) * 32);
+  }
+  return { inBytes, inputs };
+}
+
+// Diff a relation kernel's output (Montgomery, 8x u32) against a per-row Fr
+// reference. `ref(i)` returns the outLen expected canonical Fr for edge i.
+export function diffRelation(
+  bytes: Uint8Array,
+  n: number,
+  outLen: number,
+  ref: (i: number) => bigint[],
+  log: Logger,
+  label: string,
+  ms: number,
+): boolean {
+  let mism = 0;
+  let first = '';
+  for (let i = 0; i < n; i++) {
+    const want = ref(i);
+    for (let k = 0; k < outLen; k++) {
+      const got = fromMont(le32ToBi(bytes, (i * outLen + k) * 32));
+      if (got !== want[k]) {
+        mism++;
+        if (mism <= 4) first += `\n    i=${i} k=${k} got=${got} want=${want[k]}`;
+      }
+    }
+  }
+  if (mism === 0) {
+    log('ok', `  ${label.padEnd(12)} ✓  ${n}×${outLen} match  (${ms.toFixed(1)} ms)`);
+    return true;
+  }
+  log('err', `  ${label.padEnd(12)} ✗  ${mism}/${n * outLen} MISMATCH${first}`);
+  return false;
+}
 export interface SuiteCtx {
   device: GPUDevice;
   n: number;

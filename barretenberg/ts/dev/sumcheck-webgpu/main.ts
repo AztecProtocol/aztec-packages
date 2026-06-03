@@ -14,8 +14,11 @@ import { type Suite, type Level, P } from './harness.js';
 import { frSuite } from './suite_fr.js';
 import { monoSuite } from './suite_mono.js';
 import { arithSuite } from './suite_arith.js';
+import { deltaSuite } from './suite_delta.js';
+import { eccSuite } from './suite_ecc.js';
+import { pos2InitSuite } from './suite_pos2init.js';
 
-const REGISTRY: Suite[] = [frSuite, monoSuite, arithSuite];
+const REGISTRY: Suite[] = [frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite];
 
 const $log = document.getElementById('log') as HTMLDivElement;
 const $logn = document.getElementById('logn') as HTMLInputElement;

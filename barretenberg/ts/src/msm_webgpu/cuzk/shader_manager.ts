@@ -23,6 +23,9 @@ import {
   decompress_g1_bn254 as decompress_g1_bn254_shader,
   extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
   arithmetic_relation_test as arithmetic_relation_test_shader,
+  delta_range_relation_test as delta_range_relation_test_shader,
+  ecc_op_queue_relation_test as ecc_op_queue_relation_test_shader,
+  poseidon2_initial_relation_test as poseidon2_initial_relation_test_shader,
   field as field_funcs,
   field8 as field8_funcs,
   fr_ops_test as fr_ops_test_shader,
@@ -412,6 +415,89 @@ ${packLines.join('\n')}
         mono_funcs,
         lag_funcs,
       },
+    );
+  }
+
+  /** Common Mustache view shared by every relation-accumulate test shader. */
+  private relationView(workgroup_size: number): Record<string, unknown> {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`relation shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return {
+      workgroup_size,
+      p8_consts,
+      r8_csv,
+      f8_words,
+      word_size: this.word_size,
+      num_words: this.num_words,
+      n0: this.n0,
+      p_limbs: this.p_limbs,
+      mask: this.mask,
+      two_pow_word_size: this.two_pow_word_size,
+      p_inv_mod_2w: this.p_inv_mod_2w,
+      dec_unpack: dec.unpack,
+      dec_pack: dec.pack,
+    };
+  }
+
+  /** Mono + Lagrange partial set shared by every relation-accumulate shader. */
+  private get relationPartials(): Record<string, string> {
+    return {
+      structs,
+      bigint_funcs,
+      montgomery_product_funcs: this.mont_product_src,
+      field8_funcs,
+      mono_funcs,
+      lag_funcs,
+    };
+  }
+
+  /** A field constant in Montgomery form, as a CSV of 8 little-endian u32 words. */
+  private montWords8(x: bigint): string {
+    let v = (((x % this.p) + this.p) % this.p) * this.r % this.p;
+    const out: string[] = [];
+    for (let i = 0; i < 8; i++) {
+      out.push(`${(Number(v & 0xffffffffn) >>> 0).toString()}u`);
+      v >>= 32n;
+    }
+    return out.join(', ');
+  }
+
+  /**
+   * DeltaRangeConstraintRelation accumulate test kernel
+   * (relations/delta_range_constraint_relation.hpp). Four length-6 subrelations;
+   * bakes FF(2)/FF(3). One thread per edge writes the 24-Fr contribution.
+   */
+  public gen_delta_range_relation_test_shader(workgroup_size: number): string {
+    return mustache.render(
+      delta_range_relation_test_shader,
+      { ...this.relationView(workgroup_size), c2_csv: this.montWords8(2n), c3_csv: this.montWords8(3n) },
+      this.relationPartials,
+    );
+  }
+
+  /**
+   * EccOpQueueRelation accumulate test kernel
+   * (relations/ecc_op_queue_relation.hpp). Eight length-3 subrelations; no field
+   * constants. One thread per edge writes the 24-Fr contribution.
+   */
+  public gen_ecc_op_queue_relation_test_shader(workgroup_size: number): string {
+    return mustache.render(ecc_op_queue_relation_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  }
+
+  /**
+   * Poseidon2InitialExternalRelation accumulate test kernel
+   * (relations/poseidon2_initial_external_relation.hpp). Four length-3
+   * subrelations; the external matrix is applied by repeated addition (no field
+   * constants). One thread per edge writes the 12-Fr contribution.
+   */
+  public gen_poseidon2_initial_relation_test_shader(workgroup_size: number): string {
+    return mustache.render(
+      poseidon2_initial_relation_test_shader,
+      this.relationView(workgroup_size),
+      this.relationPartials,
     );
   }
 
