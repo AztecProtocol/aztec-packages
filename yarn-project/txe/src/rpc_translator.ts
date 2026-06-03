@@ -569,7 +569,7 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_getPendingTaggedLogs',
       inputs,
-      handler: ([scope]) => this.handlerAsUtility().getPendingTaggedLogs(scope),
+      handler: ([scope, providedSecrets]) => this.handlerAsUtility().getPendingTaggedLogs(scope, providedSecrets),
     });
   }
 
