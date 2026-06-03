@@ -1083,13 +1083,8 @@ export class MsmHighMemory {
   private numBatches = 1;
   private batchWindows = 0;
   private levels = 0;
-  private nXposePts = 0;
-  // Number of point-tiles the transpose dispatches across (the X dimension
-  // of the count/scatter dispatches). The n points of each window are
-  // partitioned into `transposeNumPointTiles` tiles of ~`pointsPerTile` each
-  // so the count/scatter kernels saturate the GPU instead of running one
-  // workgroup per window.
-  private transposeNumPointTiles = 1;
+  // Per-chunk dispatch geometry (point dispatch count + transpose tile count)
+  // lives on each ChunkPlan; the encode loop reads it from there.
   private nConvMeta = 0;
   private nReduceInit = 0;
   private numWgsFinalize = 0;
