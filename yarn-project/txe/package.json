@@ -23,6 +23,7 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
     "dev": "LOG_LEVEL=\"debug; trace: simulator:state_manager; info: json-rpc:proxy\" node ./dest/bin/index.js",
     "start": "node --no-warnings ./dest/bin/index.js",
+    "start:oracle-test-resolver": "node --no-warnings ./dest/bin/oracle_test_server.js",
     "check_txe_oracle_version": "node ./dest/bin/check_txe_oracle_version.js"
   },
   "inherits": [

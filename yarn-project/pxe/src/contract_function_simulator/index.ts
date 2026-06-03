@@ -2,6 +2,7 @@ export {
   ORACLE_REGISTRY,
   callHandler,
   makeEntry,
+  type NamedValue,
   type OracleRegistryEntry,
   type ParamTypes,
 } from './oracle/oracle_registry.js';

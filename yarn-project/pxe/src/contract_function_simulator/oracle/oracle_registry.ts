@@ -545,7 +545,7 @@ interface RegistryParam<TName extends string = string, T = any> {
 }
 
 /** One named param entry from a deserializeParams result. */
-type NamedValue<TName extends string = string, TValue = any> = { readonly name: TName; readonly value: TValue };
+export type NamedValue<TName extends string = string, TValue = any> = { readonly name: TName; readonly value: TValue };
 
 /**
  * Extracts the positional type tuple from a {@link OracleRegistryEntry.deserializeParams} result,
