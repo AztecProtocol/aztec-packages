@@ -30,7 +30,7 @@ pub contract HandshakeRegistry {
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
         messages::{
-            delivery::{MessageDelivery, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
+            delivery::{MessageDelivery, OnchainDeliveryMode},
             encryption::{aes128::AES128, message_encryption::MessageEncryption},
         },
         protocol::{
@@ -55,14 +55,15 @@ pub contract HandshakeRegistry {
     struct Storage<Context> {
         /// One current [`HandshakeNote`] per `(recipient, sender, mode)` tuple. Re-handshaking for the same tuple
         /// replaces the prior sender-owned note, so only the latest handshake remains valid for that mode.
-        handshakes: Map<AztecAddress, Map<u8, Owned<PrivateMutable<HandshakeNote, Context>, Context>, Context>, Context>,
+        handshakes: Map<AztecAddress, Map<OnchainDeliveryMode, Owned<PrivateMutable<HandshakeNote, Context>, Context>, Context>, Context>,
     }
 
     /// Performs a non-interactive handshake from `sender` to `recipient` and returns the app-siloed shared secret
     /// for the calling contract.
     ///
-    /// `mode` sets the delivery mode for messages tagged with this handshake ([`ONCHAIN_UNCONSTRAINED`] or
-    /// [`ONCHAIN_CONSTRAINED`]); the handshake note itself is always stored onchain.
+    /// `mode` sets the delivery mode for messages tagged with this handshake
+    /// ([`MessageDelivery::onchain_unconstrained`] or [`MessageDelivery::onchain_constrained`]); the handshake note
+    /// itself is always stored onchain.
     ///
     /// Generates a fresh ephemeral key pair `(eph_sk, eph_pk)`, computes the raw ECDH shared secret point
     /// `S = eph_sk * recipient_address_point`, and produces three effects:
@@ -82,8 +83,8 @@ pub contract HandshakeRegistry {
     /// protect, and a fallback would insert a permanent note recording a handshake with an invalid recipient,
     /// polluting registry state.
     #[external("private")]
-    fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress, mode: u8) -> Field {
-        assert((mode == ONCHAIN_UNCONSTRAINED) | (mode == ONCHAIN_CONSTRAINED), "unrecognized delivery mode");
+    fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress, mode: OnchainDeliveryMode) -> Field {
+        assert(mode.is_recognized(), "unrecognized delivery mode");
 
         let recipient_point = recipient.to_address_point().expect(f"recipient address is not on the curve");
 
@@ -123,8 +124,13 @@ pub contract HandshakeRegistry {
     /// If no stored handshake for `(sender, recipient, mode)` silos to `app_siloed_secret` under the calling
     /// contract's address.
     #[external("private")]
-    fn validate_handshake(sender: AztecAddress, recipient: AztecAddress, mode: u8, app_siloed_secret: Field) {
-        assert((mode == ONCHAIN_UNCONSTRAINED) | (mode == ONCHAIN_CONSTRAINED), "unrecognized delivery mode");
+    fn validate_handshake(
+        sender: AztecAddress,
+        recipient: AztecAddress,
+        mode: OnchainDeliveryMode,
+        app_siloed_secret: Field,
+    ) {
+        assert(mode.is_recognized(), "unrecognized delivery mode");
 
         let caller = self.msg_sender();
         let replacement_note_message = self.storage.handshakes.at(recipient).at(mode).at(sender).get_note();
@@ -150,13 +156,13 @@ pub contract HandshakeRegistry {
     unconstrained fn get_app_siloed_secret(
         sender: AztecAddress,
         recipient: AztecAddress,
-        mode: u8,
+        mode: OnchainDeliveryMode,
         // TODO(F-671): replace with `self.msg_sender()` once utility context exposes it. The
         // explicit param forces hooks to also gate on the caller; otherwise any contract that
         // can authorize (target, selector) can read another caller's siloed secret.
         caller: AztecAddress,
     ) -> Option<Field> {
-        assert((mode == ONCHAIN_UNCONSTRAINED) | (mode == ONCHAIN_CONSTRAINED), "unrecognized delivery mode");
+        assert(mode.is_recognized(), "unrecognized delivery mode");
 
         let handshake = self.storage.handshakes.at(recipient).at(mode).at(sender);
 

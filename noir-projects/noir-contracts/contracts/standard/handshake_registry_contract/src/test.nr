@@ -1,18 +1,22 @@
 use crate::{HandshakeRegistry, MAX_HANDSHAKES_PER_PAGE};
 
 use aztec::{
-    messages::delivery::{ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
+    messages::delivery::OnchainDeliveryMode,
     oracle::shared_secret::get_shared_secret,
     protocol::{
         address::AztecAddress,
         constants::{DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, PRIVATE_LOG_SIZE_IN_FIELDS},
         hash::{compute_log_tag, compute_siloed_private_log_first_field},
-        traits::{FromField, ToField},
+        traits::{Deserialize, FromField, ToField},
     },
     test::helpers::{test_environment::{CallPrivateOptions, TestEnvironment}, txe_oracles},
 };
 
 use std::test::OracleMock;
+
+// The raw mode discriminants are crate-private to aztec-nr, so the tests source them through the typed delivery API.
+global ONCHAIN_UNCONSTRAINED: OnchainDeliveryMode = OnchainDeliveryMode::onchain_unconstrained();
+global ONCHAIN_CONSTRAINED: OnchainDeliveryMode = OnchainDeliveryMode::onchain_constrained();
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();
@@ -444,7 +448,9 @@ unconstrained fn non_interactive_handshake_rejects_unknown_mode() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, 99));
+    // A garbage mode can only arrive across the ABI; the typed API constructs recognized modes only.
+    let invalid_mode = OnchainDeliveryMode::deserialize([99]);
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, invalid_mode));
 }
 
 #[test]
