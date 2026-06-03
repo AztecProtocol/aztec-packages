@@ -6265,6 +6265,10 @@ export const decompose_scalars_booth = `// Carry-free signed-Booth window decomp
 // index of this batch's first window. Window bits are sliced from the
 // scalar at the GLOBAL window index (gid.y + batch_window_base);
 // bucket_and_sign is written at the batch-local index (gid.y).
+// Point chunking: batch.y = scalar_point_base, the index of this chunk's
+// first point. Scalar bits are read from the GLOBAL point (gid.x +
+// scalar_point_base); bucket_and_sign is written at the chunk-local index
+// (gid.x), so input_size (params.x) is the chunk's point count.
 @group(0) @binding(3) var<uniform>             batch:           vec4<u32>;
 
 const WORD_BITS: u32 = 32u;
@@ -6301,13 +6305,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let c = params.z;
     let scalar_words = params.w;
     let w_global = w + batch.x;
+    // Point-chunk base: read the scalar of the GLOBAL point, write at the
+    // chunk-local output index \`p\`.
+    let p_global = p + batch.y;
 
     // c+1-bit window: the window's c bits, with the lookback bit (top bit
     // of the window below; synthetic 0 for window 0) shifted in as the LSB.
-    let win_bits = read_bits(p, scalar_words, w_global * c, c);
+    let win_bits = read_bits(p_global, scalar_words, w_global * c, c);
     var lookback: u32 = 0u;
     if (w_global > 0u) {
-        lookback = read_bits(p, scalar_words, w_global * c - 1u, 1u);
+        lookback = read_bits(p_global, scalar_words, w_global * c - 1u, 1u);
     }
     let raw = (win_bits << 1u) | lookback;
 

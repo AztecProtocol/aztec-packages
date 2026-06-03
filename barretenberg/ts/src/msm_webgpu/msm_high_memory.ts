@@ -403,6 +403,33 @@ interface LevelBind {
 }
 
 /**
+ * Per-point-chunk dispatch state. The pair-tree A/B ping-pong is bounded to
+ * O(M) points by streaming each window batch in chunks of `mC` points. Each
+ * chunk re-plans the pair-tree over its own point slice (different scalar
+ * distribution => different per-level pair/carry counts), so it owns its level
+ * binds + the decompose/transpose/convert uniforms keyed to its point count and
+ * scalar/SRS base offsets. Buffers are sized to the max over chunks; the
+ * accumulate-finalize sums each chunk's bucket partials into the shared
+ * bucket_result.
+ */
+interface ChunkPlan {
+  chunkStart: number; // index of this chunk's first point within the n-point set
+  mC: number; // this chunk's point count (<= chunkPoints)
+  levels: number; // pair-tree level count for this chunk
+  nXposePts: number; // ceil(mC / WGI), decompose/scatter point dispatch
+  transposeNumPointTiles: number; // tiled-transpose point-tile count for mC
+  // Per-window-batch decompose binds (scalar base = chunkStart, window base = bi).
+  decomposeBinds: GPUBindGroup[];
+  xposeCountBind: GPUBindGroup;
+  xposeReduceBind: GPUBindGroup;
+  xposeScanBind: GPUBindGroup;
+  xposeScatterBind: GPUBindGroup;
+  convActiveBind: GPUBindGroup;
+  convMetaBind: GPUBindGroup;
+  levelBinds: LevelBind[];
+}
+
+/**
  * Per-pool memoization of bind-group layouts + compiled compute pipelines.
  *
  * Compiling a WGSL shader to a GPU pipeline is the dominant per-MsmHighMemory.create
@@ -1127,6 +1154,11 @@ export class MsmHighMemory {
   private seg2Bind!: GPUBindGroup;
   private segBuf!: GPUBuffer;
   private levelBinds: LevelBind[] = [];
+  // Point-chunk dispatch plans (one per chunk of `chunkPoints` points). The
+  // chunk loop in encodeIntoBatch iterates these; each carries its own level
+  // binds + decompose/transpose/convert binds. A single chunk spanning all n
+  // points reproduces the unchunked path.
+  private chunkPlans: ChunkPlan[] = [];
 
   private constructor() {}
 
@@ -1522,36 +1554,41 @@ export class MsmHighMemory {
       scalars = new Uint32Array(n * 8);
       new Uint8Array(scalars.buffer).set(scalarsBuf);
     }
-    // Level-0 histogram from the raw bytes — no BigInt in the hot path.
-    const initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
+    // --- Point chunking. Stream the n points in chunks of `chunkPoints` (M).
+    // Each chunk runs its own pair-tree over its M-point slice and the
+    // accumulate-finalize sums the chunk partials into bucket_result. The
+    // per-chunk plan walk derives each chunk's per-level pair/carry counts and
+    // per-window stride from its OWN level-0 histogram; buffers are sized to the
+    // max over chunks, so the pair-tree A/B is bounded to O(M) regardless of how
+    // points fall across buckets (profile E's one giant bucket costs the same as
+    // uniform). M >= n collapses to a single chunk = the unchunked path.
+    const M = Math.min(this.chunkPoints, n);
+    const numChunks = Math.max(1, Math.ceil(n / M));
+    const chunkSizes: number[] = [];
+    const chunkStarts: number[] = [];
+    for (let cIdx = 0; cIdx < numChunks; cIdx++) {
+      const start = cIdx * M;
+      chunkStarts.push(start);
+      chunkSizes.push(Math.min(M, n - start));
+    }
 
-    // Ping-pong two pre-allocated count buffers and fold the wstride1
-    // computation into the same walk. Avoids ~18 × ~333 KB allocations per
-    // prepare (>5 ms of GC churn for n=88_899) and removes the second pass
-    // over `levelCounts` that wstride1 used to do.
-    const levelPlans: LevelPlan[] = [];
-    let wstride1 = 1;
-    {
-      // Two scratch arrays, indexed by inIdx = lv & 1. Level 0 reads
-      // initCounts directly; subsequent levels write into and read from
-      // the ping-pong slots.
-      let countsCur: Uint32Array = initCounts;
-      const countsAlt = new Uint32Array(B_TOTAL);
-      const countsPing = new Uint32Array(B_TOTAL);
-      // Slot allocation: level lv reads `countsCur` and writes `countsNext`.
-      // lv=0 reads initCounts, writes countsAlt.
-      // lv=1 reads countsAlt, writes countsPing.
-      // lv=2 reads countsPing, writes countsAlt.
-      // …
+    // Per-chunk Booth walk: level-0 histogram over the chunk's scalar slice,
+    // then the same monotonic pair/carry walk. Returns the chunk's per-level
+    // plans and its peak per-window stride. Reuses two scratch count arrays
+    // across chunks to avoid per-chunk GC churn.
+    const countsAlt = new Uint32Array(B_TOTAL);
+    const countsPing = new Uint32Array(B_TOTAL);
+    const walkChunk = (chunkInit: Uint32Array): { levelPlans: LevelPlan[]; wstride1: number } => {
+      const levelPlans: LevelPlan[] = [];
+      let wstride1 = 1;
+      let countsCur: Uint32Array = chunkInit;
       let countsNext: Uint32Array = countsAlt;
       const swap = (): void => {
         const tmp = countsCur;
         countsCur = countsNext;
-        countsNext = tmp === initCounts ? countsPing : tmp;
+        countsNext = tmp === chunkInit ? countsPing : tmp;
       };
       for (let lv = 0; lv < 64; lv++) {
-        // Check active + compute next-level counts + per-window stride in
-        // a single fused pass over the bucket grid.
         let anyActive = false;
         let pairBlocksPerWindow = 1;
         let carriesPerWindow = 1;
@@ -1564,8 +1601,6 @@ export class MsmHighMemory {
             const g = base + bl;
             const cnt = countsCur[g];
             if (cnt > 0) anyActive = true;
-            // bucketSplit inlined: pc = floor(cnt/2), cf = (cnt===1?0:cnt&1),
-            // nc = pc + cf.
             const pc = cnt >>> 1;
             const cf = cnt === 1 ? 0 : cnt & 1;
             const nc = pc + cf;
@@ -1583,12 +1618,41 @@ export class MsmHighMemory {
         levelPlans.push({ pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0 });
         swap();
       }
+      return { levelPlans, wstride1 };
+    };
+
+    // Walk every chunk; keep each chunk's plan and track the max sizing.
+    const chunkWalks: { levelPlans: LevelPlan[]; wstride1: number; mC: number; chunkStart: number }[] = [];
+    let wstride1 = 1; // max per-window stride over chunks (sizes M1 / bufA-B)
+    let levels = 0; // max level count over chunks
+    let maxPairBlocksPerWindow = 1;
+    let maxCarriesPerWindow = 1;
+    for (let cIdx = 0; cIdx < numChunks; cIdx++) {
+      const mC = chunkSizes[cIdx];
+      const chunkStart = chunkStarts[cIdx];
+      const chunkInit = buildInitCounts(
+        scalarsBuf.subarray(chunkStart * 32, (chunkStart + mC) * 32),
+        mC,
+        c,
+        NUM_WINDOWS,
+        BW,
+      );
+      const w = walkChunk(chunkInit);
+      chunkWalks.push({ levelPlans: w.levelPlans, wstride1: w.wstride1, mC, chunkStart });
+      if (w.wstride1 > wstride1) wstride1 = w.wstride1;
+      if (w.levelPlans.length > levels) levels = w.levelPlans.length;
+      for (const p of w.levelPlans) {
+        if (p.pairBlocksPerWindow > maxPairBlocksPerWindow) maxPairBlocksPerWindow = p.pairBlocksPerWindow;
+        if (p.carriesPerWindow > maxCarriesPerWindow) maxCarriesPerWindow = p.carriesPerWindow;
+      }
     }
-    const levels = levelPlans.length;
+    // The window-batch solver and the buffer sizing below were written against a
+    // single full-n plan named `levelPlans` (the unchunked path). Use chunk 0's
+    // plan as that representative for the per-level uniform skeleton; per-chunk
+    // values are written into each chunk's own binds in the chunk-build loop.
+    const levelPlans = chunkWalks[0].levelPlans;
 
     // --- Lever G: budget-driven window-batch count.
-    const maxPairBlocksPerWindow = Math.max(1, ...levelPlans.map(p => p.pairBlocksPerWindow));
-    const maxCarriesPerWindow = Math.max(1, ...levelPlans.map(p => p.carriesPerWindow));
     const RED_M = this.redM;
     const estimateMem = (nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
@@ -1629,15 +1693,19 @@ export class MsmHighMemory {
     }
     const batchBuckets = batchWindows * BW;
     const batchSlots = batchWindows * n;
-    for (const p of levelPlans) {
-      p.totalPairBlocks = batchWindows * p.pairBlocksPerWindow;
-      p.totalCarries = batchWindows * p.carriesPerWindow;
+    // Fill each chunk's per-level totals (batchWindows × per-window count).
+    for (const cw of chunkWalks) {
+      for (const p of cw.levelPlans) {
+        p.totalPairBlocks = batchWindows * p.pairBlocksPerWindow;
+        p.totalCarries = batchWindows * p.carriesPerWindow;
+      }
     }
     // `let` so the slow path can apply OVERSIZE_FACTOR padding without
-    // re-binding through a parallel set of names.
+    // re-binding through a parallel set of names. Buffers size to the max over
+    // ALL chunks (each chunk re-runs the level loop into the same buffers).
     let M1 = batchWindows * wstride1 + 3;
-    let maxTotalPairBlocks = Math.max(...levelPlans.map(p => p.totalPairBlocks));
-    let maxTotalCarries = Math.max(1, ...levelPlans.map(p => p.totalCarries));
+    let maxTotalPairBlocks = batchWindows * maxPairBlocksPerWindow;
+    let maxTotalCarries = Math.max(1, batchWindows * maxCarriesPerWindow);
 
     // Reduction: compute MAXC up-front (needed for fit-check and uniform write).
     let MAXC = 1;
@@ -1652,8 +1720,16 @@ export class MsmHighMemory {
     // that the pool's shared scratch hasn't grown since we last bound to
     // it — if it has, our bind groups reference dead buffers and we MUST
     // rebuild them.
+    // The fast path rewrites a single full-n plan's uniforms in place; it has
+    // no notion of per-chunk plans. Restrict it to the single-chunk case (both
+    // now and as cached) — chunked prepares always take the slow path, which
+    // rebuilds the per-chunk binds. Bench reps over one input re-hit the
+    // scalarsBuf identity cache above and skip prepare entirely, so the chunked
+    // path pays the slow rebuild only on the first prepare per input.
     const fits =
       this.preparedFor !== null &&
+      numChunks === 1 &&
+      this.chunkPlans.length === 1 &&
       this.capM1 > 0 &&
       M1 <= this.capM1 &&
       maxTotalPairBlocks <= this.capTotalPairBlocks &&
@@ -1730,9 +1806,9 @@ export class MsmHighMemory {
       });
 
     const l0Slots = batchSlots + 3;
-    const WSTRIDE = n;
 
-    // Tiled-transpose geometry: split each window's n points into
+    // Worst-case tiled-transpose geometry (full n in one chunk): split each
+    // window's points into
     // `transposeNumPointTiles` tiles of ~`pointsPerTile` each so the
     // count/scatter dispatch saturates the GPU instead of running one
     // workgroup per window. The tile count is capped at floor(n/BW) so the
@@ -1836,45 +1912,18 @@ export class MsmHighMemory {
     const poolM1 = scratch.poolM1;
     const padParams0Buf = ubuf(new Uint32Array([batchSlots, batchSlots + 1, poolM1 - 1, 0]));
     const padParams1Buf = ubuf(new Uint32Array([poolM1 - 3, poolM1 - 2, poolM1 - 1, 0]));
-    const decomposeParams = ubuf(new Uint32Array([n, batchWindows, c, 8]));
-    // Uniform layout: [num_point_tiles, BW, n, points_per_tile]; consumed by
-    // transpose_count_tiled, transpose_reduce_tiled (only [0] [1]),
-    // transpose_scatter_tiled (all four).
-    const xposeParams = ubuf(new Uint32Array([transposeNumPointTiles, BW, n, pointsPerTile]));
-    // params[1] = base_offset, written per-prepare() via writeBuffer below.
-    // Default 0 — non-bridge callers (the dev page) bind a per-MSM pool
-    // starting at index 0 and need no offset.
-    const convActiveParams = ubuf(new Uint32Array([batchSlots, 0, WSTRIDE, n]));
-    this.convActiveParamsBuf = convActiveParams;
-    const convMetaParams = ubuf(new Uint32Array([BW, batchBuckets, n, 0]));
-    const batchWindowBaseBufs: GPUBuffer[] = [];
-    for (let bi = 0; bi < numBatches; bi++) {
-      batchWindowBaseBufs.push(ubuf(new Uint32Array([bi * batchWindows, 0, 0, 0])));
-    }
-
-    this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.decomposeLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeParams, bwb]),
-    );
     // The transpose borrows l0IdxBuf as the per-chunk partials matrix. Its
     // [0, batchSlots) region is dormant until convActive (which runs strictly
     // after the transpose, per batch) overwrites it; the level-0 seed trio
     // sits above batchSlots and is never touched by the partials region.
     const partialsBuf = l0IdxBuf;
-    this.xposeCountBind = mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParams]);
-    this.xposeReduceBind = mkBind(this.xposeReduceLayout, [partialsBuf, rowPtrBuf, xposeParams]);
-    this.xposeScanBind = mkBind(this.xposeScanLayout, [rowPtrBuf, xposeParams]);
-    this.xposeScatterBind = mkBind(this.xposeScatterLayout, [
-      bucketAndSignBuf,
-      rowPtrBuf,
-      partialsBuf,
-      valIdxBuf,
-      xposeParams,
-    ]);
-    this.convActiveBind = mkBind(this.convActiveLayout, [valIdxBuf, l0IdxBuf, convActiveParams, bucketAndSignBuf]);
-    this.convMetaBind = mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams]);
     this.rowPtrBuf = rowPtrBuf;
-    this.nXposePts = Math.ceil(n / WGI);
     this.nConvMeta = Math.ceil(batchBuckets / WGI);
+    // The decompose / transpose / convert binds + the per-level binds are built
+    // per chunk in the chunk-build loop below (after the reduction setup, since
+    // the level binds need finalizeParamsBufs). chunk 0's convActiveParams is
+    // exposed as convActiveParamsBuf so the single-chunk fast path can rewrite
+    // the SRS base in place.
 
     // --- Reduction ---
     // MAXC was already computed above (needed for the fits-check) and saved
@@ -1962,135 +2011,207 @@ export class MsmHighMemory {
       throw new Error(`planner: valIdxBuf (${batchSlots}) too small for carry_off (${B_TOTAL})`);
     }
     const carryOffBuf = valIdxBuf;
-    // Pre-size per-level state so fast-path rewrite has a stable index.
+    // Pre-size per-level state so fast-path rewrite has a stable index. These
+    // track chunk 0's plan (the only chunk the single-chunk fast path serves).
     this.levelTotalPairBlocks = new Array(levels).fill(0);
     this.levelTotalCarries = new Array(levels).fill(0);
-    for (let lv = 0; lv < levels; lv++) {
-      const plan = levelPlans[lv];
-      this.levelTotalPairBlocks[lv] = plan.totalPairBlocks;
-      this.levelTotalCarries[lv] = plan.totalCarries;
-      const isL0 = lv === 0;
-      const inIdx = lv & 1;
-      const outIdx = inIdx ^ 1;
-      const ring = lv & 1;
-      const activeOut = inIdx === 0 ? bufB : bufA;
-      const activeIn = isL0 ? l0IdxBuf : inIdx === 0 ? bufA : bufB;
-      // Per-level uniform buffers cached on the instance so fastPathRewrite()
-      // can rewrite their contents in place on subsequent prepares (avoiding
-      // ~40 createBuffer calls per MSM that today dominate wall time).
-      const plannerParams = ubuf(new Uint32Array([plan.pairBlocksPerWindow, plan.carriesPerWindow, WGI, wstride1]));
-      // carryParams[1] = M_old (stride of bufA/bufB) — must use pool's M1.
-      const carryParams = ubuf(new Uint32Array([plan.totalCarries, poolM1, poolM1, 0]));
-      this.plannerParamsBufs[lv] = plannerParams;
-      this.carryParamsBufs[lv] = carryParams;
-      const fusedTiles: { bind: GPUBindGroup; nx: number }[] = [];
-      const levelTileBufs: GPUBuffer[] = [];
-      for (let tileBase = 0; tileBase < plan.totalPairBlocks; tileBase += FUSED_TILE) {
-        const tileThreads = Math.min(FUSED_TILE, plan.totalPairBlocks - tileBase);
-        // tileParams[1] = M_old, [2] = M_new (both = bufA/bufB stride) — pool's M1.
-        const tileParams = ubuf(new Uint32Array([plan.totalPairBlocks, poolM1, poolM1, tileBase]));
-        levelTileBufs.push(tileParams);
-        const entries: GPUBindGroupEntry[] = [
-          { binding: 0, resource: { buffer: pairBlockPlanRing[ring] } },
-          { binding: 1, resource: { buffer: scatterPlanRing[ring] } },
-          { binding: 2, resource: { buffer: activeIn } },
-          { binding: 3, resource: { buffer: activeOut } },
-          { binding: 4, resource: { buffer: tileParams } },
-          { binding: 5, resource: { buffer: prefScratchBuf } },
-        ];
-        if (isL0) {
-          entries.push(
-            { binding: 6, resource: { buffer: this.pointXBuf } },
-            { binding: 7, resource: { buffer: this.pointYBuf } },
-          );
+
+    // --- Per-chunk build. Each chunk owns its decompose/transpose/convert
+    // binds (keyed to its point count + scalar/SRS base) and its per-level
+    // pair-tree binds (keyed to its own plan). All chunks share the storage
+    // buffers (countsBufs ping-pong, bufA/bufB, l0IdxBuf, plan rings) — those
+    // are reset per chunk by the convMeta/clears in encodeIntoBatch — and the
+    // accumulate-finalize sums each chunk's bucket partials into bucket_result.
+    this.chunkPlans = [];
+    for (let cIdx = 0; cIdx < numChunks; cIdx++) {
+      const cw = chunkWalks[cIdx];
+      const mC = cw.mC;
+      const chunkStart = cw.chunkStart;
+      const cLevelPlans = cw.levelPlans;
+      const cLevels = cLevelPlans.length;
+      // Per-chunk tiled-transpose geometry (point-tile count scales with mC).
+      const cTiles = Math.max(1, Math.floor(mC / BW));
+      const cPointsPerTile = Math.ceil(mC / cTiles);
+      // Decompose: input_size = mC (chunk-local point count). batch.x = window
+      // base (per bi), batch.y = scalarStart (this chunk's first global point).
+      const decomposeParams = ubuf(new Uint32Array([mC, batchWindows, c, 8]));
+      const decomposeBinds: GPUBindGroup[] = [];
+      for (let bi = 0; bi < numBatches; bi++) {
+        const batchBuf = ubuf(new Uint32Array([bi * batchWindows, chunkStart, 0, 0]));
+        decomposeBinds.push(mkBind(this.decomposeLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeParams, batchBuf]));
+      }
+      // Transpose: per-window stride = mC; point range = mC.
+      const xposeParams = ubuf(new Uint32Array([cTiles, BW, mC, cPointsPerTile]));
+      const xposeCountBind = mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParams]);
+      const xposeReduceBind = mkBind(this.xposeReduceLayout, [partialsBuf, rowPtrBuf, xposeParams]);
+      const xposeScanBind = mkBind(this.xposeScanLayout, [rowPtrBuf, xposeParams]);
+      const xposeScatterBind = mkBind(this.xposeScatterLayout, [
+        bucketAndSignBuf,
+        rowPtrBuf,
+        partialsBuf,
+        valIdxBuf,
+        xposeParams,
+      ]);
+      // convActive: total_slots cap = batchWindows*mC; SRS base = srsOffset +
+      // chunkStart (so the L0 gather hits pool[pt_local + srsOffset + chunkStart]);
+      // wstride / input_size = mC. params[1] (base) is rewritten per prepare for
+      // the SRS offset; chunk 0's buffer is exposed for the fast path.
+      const convActiveParams = ubuf(new Uint32Array([batchWindows * mC, srsOffset + chunkStart, mC, mC]));
+      const convActiveBind = mkBind(this.convActiveLayout, [valIdxBuf, l0IdxBuf, convActiveParams, bucketAndSignBuf]);
+      // convMeta: input_size = mC globalises the per-bucket offsets into the
+      // chunk's mC-strided active_sums slot space.
+      const convMetaParams = ubuf(new Uint32Array([BW, batchBuckets, mC, 0]));
+      const convMetaBind = mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams]);
+      if (cIdx === 0) {
+        // chunk 0's convActiveParams drives the single-chunk fast path's SRS
+        // base rewrite. (Fast path is disabled when numChunks > 1.)
+        this.convActiveParamsBuf = convActiveParams;
+      }
+
+      const levelBinds: LevelBind[] = [];
+      for (let lv = 0; lv < cLevels; lv++) {
+        const plan = cLevelPlans[lv];
+        const isL0 = lv === 0;
+        const inIdx = lv & 1;
+        const outIdx = inIdx ^ 1;
+        const ring = lv & 1;
+        const activeOut = inIdx === 0 ? bufB : bufA;
+        const activeIn = isL0 ? l0IdxBuf : inIdx === 0 ? bufA : bufB;
+        // Per-(chunk, level) uniform buffers. For chunk 0 they are also cached on
+        // the instance so the single-chunk fast path can rewrite them in place.
+        const plannerParams = ubuf(new Uint32Array([plan.pairBlocksPerWindow, plan.carriesPerWindow, WGI, wstride1]));
+        // carryParams[1] = M_old (stride of bufA/bufB) — must use pool's M1.
+        const carryParams = ubuf(new Uint32Array([plan.totalCarries, poolM1, poolM1, 0]));
+        if (cIdx === 0) {
+          this.plannerParamsBufs[lv] = plannerParams;
+          this.carryParamsBufs[lv] = carryParams;
+          this.levelTotalPairBlocks[lv] = plan.totalPairBlocks;
+          this.levelTotalCarries[lv] = plan.totalCarries;
         }
-        fusedTiles.push({
-          bind: device.createBindGroup({ layout: isL0 ? this.fusedLayoutL0 : this.fusedLayout, entries }),
-          nx: Math.ceil(tileThreads / WGI),
-        });
-      }
-      this.tileParamsBufs[lv] = levelTileBufs;
-      const carryEntries: GPUBindGroupEntry[] = [
-        { binding: 0, resource: { buffer: carryPlanRing[ring] } },
-        { binding: 1, resource: { buffer: activeIn } },
-        { binding: 2, resource: { buffer: activeOut } },
-        { binding: 3, resource: { buffer: carryParams } },
-      ];
-      if (isL0) {
-        carryEntries.push(
-          { binding: 4, resource: { buffer: this.pointXBuf } },
-          { binding: 5, resource: { buffer: this.pointYBuf } },
-        );
-      }
-      this.levelBinds.push({
-        plannerABind: device.createBindGroup({
-          layout: this.plannerALayout,
-          entries: [
-            { binding: 0, resource: { buffer: countsBufs[inIdx] } },
-            { binding: 1, resource: { buffer: carryOffBuf } },
-            { binding: 2, resource: { buffer: countsBufs[outIdx] } },
-            { binding: 3, resource: { buffer: offsetsBufs[outIdx] } },
-            { binding: 4, resource: { buffer: planMeta } },
-            { binding: 5, resource: { buffer: plannerParams } },
-          ],
-        }),
-        plannerBBind: device.createBindGroup({
-          layout: this.plannerBLayout,
-          entries: [
-            { binding: 0, resource: { buffer: countsBufs[inIdx] } },
-            { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
-            { binding: 2, resource: { buffer: carryOffBuf } },
-            { binding: 3, resource: { buffer: offsetsBufs[outIdx] } },
-            { binding: 4, resource: { buffer: planMeta } },
-            { binding: 5, resource: { buffer: pairBlockPlanRing[ring] } },
-            { binding: 6, resource: { buffer: scatterPlanRing[ring] } },
-            { binding: 7, resource: { buffer: carryPlanRing[ring] } },
-            { binding: 8, resource: { buffer: plannerParams } },
-            { binding: 9, resource: { buffer: isL0 ? padParams0Buf : padParams1Buf } },
-          ],
-        }),
-        fusedTiles,
-        carryBind: device.createBindGroup({
-          layout: isL0 ? this.carryLayoutL0 : this.carryLayout,
-          entries: carryEntries,
-        }),
-        finalizeBinds: finalizeParamsBufs.map(fp => {
-          const fe: GPUBindGroupEntry[] = [
-            { binding: 0, resource: { buffer: countsBufs[inIdx] } },
-            { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
+        const fusedTiles: { bind: GPUBindGroup; nx: number }[] = [];
+        const levelTileBufs: GPUBuffer[] = [];
+        for (let tileBase = 0; tileBase < plan.totalPairBlocks; tileBase += FUSED_TILE) {
+          const tileThreads = Math.min(FUSED_TILE, plan.totalPairBlocks - tileBase);
+          // tileParams[1] = M_old, [2] = M_new (both = bufA/bufB stride) — pool's M1.
+          const tileParams = ubuf(new Uint32Array([plan.totalPairBlocks, poolM1, poolM1, tileBase]));
+          levelTileBufs.push(tileParams);
+          const entries: GPUBindGroupEntry[] = [
+            { binding: 0, resource: { buffer: pairBlockPlanRing[ring] } },
+            { binding: 1, resource: { buffer: scatterPlanRing[ring] } },
             { binding: 2, resource: { buffer: activeIn } },
-            { binding: 3, resource: { buffer: bucketResult } },
-            { binding: 4, resource: { buffer: fp } },
+            { binding: 3, resource: { buffer: activeOut } },
+            { binding: 4, resource: { buffer: tileParams } },
+            { binding: 5, resource: { buffer: prefScratchBuf } },
           ];
           if (isL0) {
-            fe.push(
-              { binding: 5, resource: { buffer: this.pointXBuf } },
-              { binding: 6, resource: { buffer: this.pointYBuf } },
-            );
-          }
-          return device.createBindGroup({ layout: isL0 ? this.finalizeLayoutL0 : this.finalizeLayout, entries: fe });
-        }),
-        finalizeAccumBinds: finalizeParamsBufs.map(fp => {
-          const fe: GPUBindGroupEntry[] = [
-            { binding: 0, resource: { buffer: countsBufs[inIdx] } },
-            { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
-            { binding: 2, resource: { buffer: activeIn } },
-            { binding: 3, resource: { buffer: bucketResult } },
-            { binding: 4, resource: { buffer: fp } },
-            { binding: 5, resource: { buffer: touchedBuf } },
-          ];
-          if (isL0) {
-            fe.push(
+            entries.push(
               { binding: 6, resource: { buffer: this.pointXBuf } },
               { binding: 7, resource: { buffer: this.pointYBuf } },
             );
           }
-          return device.createBindGroup({
-            layout: isL0 ? this.finalizeAccumLayoutL0 : this.finalizeAccumLayout,
-            entries: fe,
+          fusedTiles.push({
+            bind: device.createBindGroup({ layout: isL0 ? this.fusedLayoutL0 : this.fusedLayout, entries }),
+            nx: Math.ceil(tileThreads / WGI),
           });
-        }),
-        nCarry: Math.ceil(plan.totalCarries / WGI),
+        }
+        if (cIdx === 0) this.tileParamsBufs[lv] = levelTileBufs;
+        const carryEntries: GPUBindGroupEntry[] = [
+          { binding: 0, resource: { buffer: carryPlanRing[ring] } },
+          { binding: 1, resource: { buffer: activeIn } },
+          { binding: 2, resource: { buffer: activeOut } },
+          { binding: 3, resource: { buffer: carryParams } },
+        ];
+        if (isL0) {
+          carryEntries.push(
+            { binding: 4, resource: { buffer: this.pointXBuf } },
+            { binding: 5, resource: { buffer: this.pointYBuf } },
+          );
+        }
+        levelBinds.push({
+          plannerABind: device.createBindGroup({
+            layout: this.plannerALayout,
+            entries: [
+              { binding: 0, resource: { buffer: countsBufs[inIdx] } },
+              { binding: 1, resource: { buffer: carryOffBuf } },
+              { binding: 2, resource: { buffer: countsBufs[outIdx] } },
+              { binding: 3, resource: { buffer: offsetsBufs[outIdx] } },
+              { binding: 4, resource: { buffer: planMeta } },
+              { binding: 5, resource: { buffer: plannerParams } },
+            ],
+          }),
+          plannerBBind: device.createBindGroup({
+            layout: this.plannerBLayout,
+            entries: [
+              { binding: 0, resource: { buffer: countsBufs[inIdx] } },
+              { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
+              { binding: 2, resource: { buffer: carryOffBuf } },
+              { binding: 3, resource: { buffer: offsetsBufs[outIdx] } },
+              { binding: 4, resource: { buffer: planMeta } },
+              { binding: 5, resource: { buffer: pairBlockPlanRing[ring] } },
+              { binding: 6, resource: { buffer: scatterPlanRing[ring] } },
+              { binding: 7, resource: { buffer: carryPlanRing[ring] } },
+              { binding: 8, resource: { buffer: plannerParams } },
+              { binding: 9, resource: { buffer: isL0 ? padParams0Buf : padParams1Buf } },
+            ],
+          }),
+          fusedTiles,
+          carryBind: device.createBindGroup({
+            layout: isL0 ? this.carryLayoutL0 : this.carryLayout,
+            entries: carryEntries,
+          }),
+          finalizeBinds: finalizeParamsBufs.map(fp => {
+            const fe: GPUBindGroupEntry[] = [
+              { binding: 0, resource: { buffer: countsBufs[inIdx] } },
+              { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
+              { binding: 2, resource: { buffer: activeIn } },
+              { binding: 3, resource: { buffer: bucketResult } },
+              { binding: 4, resource: { buffer: fp } },
+            ];
+            if (isL0) {
+              fe.push(
+                { binding: 5, resource: { buffer: this.pointXBuf } },
+                { binding: 6, resource: { buffer: this.pointYBuf } },
+              );
+            }
+            return device.createBindGroup({ layout: isL0 ? this.finalizeLayoutL0 : this.finalizeLayout, entries: fe });
+          }),
+          finalizeAccumBinds: finalizeParamsBufs.map(fp => {
+            const fe: GPUBindGroupEntry[] = [
+              { binding: 0, resource: { buffer: countsBufs[inIdx] } },
+              { binding: 1, resource: { buffer: offsetsBufs[inIdx] } },
+              { binding: 2, resource: { buffer: activeIn } },
+              { binding: 3, resource: { buffer: bucketResult } },
+              { binding: 4, resource: { buffer: fp } },
+              { binding: 5, resource: { buffer: touchedBuf } },
+            ];
+            if (isL0) {
+              fe.push(
+                { binding: 6, resource: { buffer: this.pointXBuf } },
+                { binding: 7, resource: { buffer: this.pointYBuf } },
+              );
+            }
+            return device.createBindGroup({
+              layout: isL0 ? this.finalizeAccumLayoutL0 : this.finalizeAccumLayout,
+              entries: fe,
+            });
+          }),
+          nCarry: Math.ceil(plan.totalCarries / WGI),
+        });
+      }
+      this.chunkPlans.push({
+        chunkStart,
+        mC,
+        levels: cLevels,
+        nXposePts: Math.ceil(mC / WGI),
+        transposeNumPointTiles: cTiles,
+        decomposeBinds,
+        xposeCountBind,
+        xposeReduceBind,
+        xposeScanBind,
+        xposeScatterBind,
+        convActiveBind,
+        convMetaBind,
+        levelBinds,
       });
     }
 
@@ -2103,8 +2224,10 @@ export class MsmHighMemory {
     if (this.profile) {
       let passes = 0;
       for (let bi = 0; bi < numBatches; bi++) {
-        passes += 7; // decompose + xpose x4 + conv x2
-        for (let lv = 0; lv < levels; lv++) passes += 4 + this.levelBinds[lv].fusedTiles.length;
+        for (const cp of this.chunkPlans) {
+          passes += 7; // decompose + xpose x4 + conv x2 (per chunk)
+          for (let lv = 0; lv < cp.levels; lv++) passes += 4 + cp.levelBinds[lv].fusedTiles.length;
+        }
       }
       // reduceInit + the reduce. Coop path: reduceInit + 1 cooperative dispatch.
       // All-Jacobian path: reduceInit + zInit + jacLevel×N + jacFinalize.
@@ -2159,9 +2282,12 @@ export class MsmHighMemory {
     if (srsOffset !== this.preparedSrsOffset) {
       device.queue.writeBuffer(this.convActiveParamsBuf, 4, new Uint32Array([srsOffset]));
     }
+    // The fast path is gated on the single-chunk case, so chunk 0 holds the
+    // pair-tree level binds and `this.plannerParamsBufs`/etc. alias its uniforms.
+    const ck = this.chunkPlans[0];
     // Per-level uniforms. We loop over `levels` (the new plan's level count
-    // ≤ cap) — extra cached levels past `this.levels` are simply skipped at
-    // run() time below via the updated this.levels.
+    // ≤ cap) — extra cached levels past `ck.levels` are simply skipped at
+    // run() time below via the updated ck.levels.
     for (let lv = 0; lv < levels; lv++) {
       const plan = levelPlans[lv];
       // plannerParams = [pairBlocksPerWindow, carriesPerWindow, WGI, wstride1].
@@ -2185,11 +2311,11 @@ export class MsmHighMemory {
         device.queue.writeBuffer(tileBufs[t], 0, new Uint32Array([plan.totalPairBlocks]));
       }
       // Update dispatch count for this level's carry pass.
-      this.levelBinds[lv].nCarry = Math.ceil(plan.totalCarries / WGI);
+      ck.levelBinds[lv].nCarry = Math.ceil(plan.totalCarries / WGI);
       // Update each fused tile's dispatch count. Tiles past the new
       // plan.totalPairBlocks naturally dispatch 0 workgroups; we skip them entirely
       // in run() to save the encoder overhead.
-      const fts = this.levelBinds[lv].fusedTiles;
+      const fts = ck.levelBinds[lv].fusedTiles;
       for (let t = 0; t < fts.length; t++) {
         const tileBase = t * FUSED_TILE;
         const tileThreads = Math.max(0, Math.min(FUSED_TILE, plan.totalPairBlocks - tileBase));
@@ -2198,7 +2324,8 @@ export class MsmHighMemory {
       this.levelTotalPairBlocks[lv] = plan.totalPairBlocks;
       this.levelTotalCarries[lv] = plan.totalCarries;
     }
-    // run() iterates `levels` levels; the per-call value comes from this.levels.
+    // The encode loop iterates `ck.levels` levels for the single chunk.
+    ck.levels = levels;
     this.levels = levels;
   }
 
@@ -2273,59 +2400,59 @@ export class MsmHighMemory {
       enc.copyBufferToBuffer(scalarsSrcBuf, scalarsSrcByteOff, this.scalarsRawBuf, 0, this.n * 32);
     }
 
-    // Reset active-sums + bucket-result buffers. The pad-trio at slots
-    // [M1-3, M1-2, M1-1] of each plane must survive (planner anchor) —
-    // so we clearBuffer only the NON-pad regions of each plane. The 192
-    // bytes of pad data were written once at slow-path setup and never
-    // touched again. Two clearBuffer calls per buffer = 4 total, each
-    // negligible on every driver. Replaces the old 64×M1 byte
-    // copyBufferToBuffer from a persistent padTemplateBuf — saves
-    // 64×M1 bytes of GPU memory (~52 MB at n=131k).
-    enc.clearBuffer(this.bufA, 0, this.padXOffset);
-    enc.clearBuffer(this.bufA, this.planeBytes, this.padXOffset);
-    enc.clearBuffer(this.bufB, 0, this.padXOffset);
-    enc.clearBuffer(this.bufB, this.planeBytes, this.padXOffset);
-    // bucketResult + touched are accumulation targets across all chunks — clear
-    // ONCE here, never per chunk. The accumulate-finalize uses `touched` to
-    // distinguish the first chunk to finalize a bucket (copy) from later chunks
-    // (affine-add into the running sum).
+    // bucketResult + touched are accumulation targets across ALL chunks and
+    // window batches — clear ONCE here, never per chunk. The accumulate-finalize
+    // uses `touched` to distinguish the first chunk to finalize a bucket (copy)
+    // from later chunks (affine-add into the running sum).
     enc.clearBuffer(this.bucketResultBuf);
     enc.clearBuffer(this.touchedBuf);
 
     for (let bi = 0; bi < this.numBatches; bi++) {
       const tbw = Math.min(this.batchWindows, this.numWindows - bi * this.batchWindows);
-      const tSlots = tbw * this.n;
-      setPhase('decompose');
-      dispatch(this.decomposePipe, this.decomposeBinds[bi], this.nXposePts, tbw);
-      enc.clearBuffer(this.rowPtrBuf);
-      setPhase('transpose');
-      dispatch(this.xposeCountPipe, this.xposeCountBind, this.transposeNumPointTiles, tbw);
-      dispatch(this.xposeReducePipe, this.xposeReduceBind, Math.ceil(this.BW / 256), tbw);
-      dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1);
-      dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.transposeNumPointTiles, tbw);
-      setPhase('convert');
-      dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1);
-      dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1);
-      for (let lv = 0; lv < this.levels; lv++) {
-        const lb = this.levelBinds[lv];
-        const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
-        const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
-        // Accumulate-finalize: sums this (chunk's) bucket partials into the
-        // running bucket_result via the touched flag. With a single chunk every
-        // bucket is first-touch, so the behaviour is identical to the overwrite
-        // finalize; with multiple chunks the partials affine-add.
-        const flp = lv === 0 ? this.finalizeAccumPipeL0 : this.finalizeAccumPipe;
-        setPhase('planner');
-        dispatch(this.plannerAPipe, lb.plannerABind, this.batchWindows, 1);
-        dispatch(this.plannerBPipe, lb.plannerBBind, Math.ceil(this.BW / 256), this.batchWindows);
-        setPhase('fused');
-        for (const tile of lb.fusedTiles) {
-          if (tile.nx > 0) dispatch(fp, tile.bind, tile.nx, 1);
+      // Inner point-chunk loop: each chunk re-runs the full transpose + pair
+      // tree over its M-point slice into the SHARED bufA/bufB/l0Idx, then the
+      // accumulate-finalize sums its bucket partials into bucket_result. bufA/B
+      // (non-pad) + rowPtr are reset per chunk; bucketResult/touched are not.
+      for (const ck of this.chunkPlans) {
+        const tSlots = tbw * ck.mC;
+        // Reset the pair-tree A/B ping-pong for this chunk. The pad-trio at
+        // [M1-3, M1-2, M1-1] of each plane must survive (planner anchor), so
+        // clear only the NON-pad regions of each plane.
+        enc.clearBuffer(this.bufA, 0, this.padXOffset);
+        enc.clearBuffer(this.bufA, this.planeBytes, this.padXOffset);
+        enc.clearBuffer(this.bufB, 0, this.padXOffset);
+        enc.clearBuffer(this.bufB, this.planeBytes, this.padXOffset);
+        setPhase('decompose');
+        dispatch(this.decomposePipe, ck.decomposeBinds[bi], ck.nXposePts, tbw);
+        enc.clearBuffer(this.rowPtrBuf);
+        setPhase('transpose');
+        dispatch(this.xposeCountPipe, ck.xposeCountBind, ck.transposeNumPointTiles, tbw);
+        dispatch(this.xposeReducePipe, ck.xposeReduceBind, Math.ceil(this.BW / 256), tbw);
+        dispatch(this.xposeScanPipe, ck.xposeScanBind, this.batchWindows, 1);
+        dispatch(this.xposeScatterPipe, ck.xposeScatterBind, ck.transposeNumPointTiles, tbw);
+        setPhase('convert');
+        dispatch(this.convActivePipe, ck.convActiveBind, Math.ceil(tSlots / WGI), 1);
+        dispatch(this.convMetaPipe, ck.convMetaBind, this.nConvMeta, 1);
+        for (let lv = 0; lv < ck.levels; lv++) {
+          const lb = ck.levelBinds[lv];
+          const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
+          const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
+          // Accumulate-finalize: sums this chunk's bucket partials into the
+          // running bucket_result via the touched flag. The first chunk to
+          // finalize a bucket copies; later chunks affine-add.
+          const flp = lv === 0 ? this.finalizeAccumPipeL0 : this.finalizeAccumPipe;
+          setPhase('planner');
+          dispatch(this.plannerAPipe, lb.plannerABind, this.batchWindows, 1);
+          dispatch(this.plannerBPipe, lb.plannerBBind, Math.ceil(this.BW / 256), this.batchWindows);
+          setPhase('fused');
+          for (const tile of lb.fusedTiles) {
+            if (tile.nx > 0) dispatch(fp, tile.bind, tile.nx, 1);
+          }
+          setPhase('carry');
+          dispatch(cp, lb.carryBind, lb.nCarry, 1);
+          setPhase('finalize');
+          dispatch(flp, lb.finalizeAccumBinds[bi], this.numWgsFinalize, 1);
         }
-        setPhase('carry');
-        dispatch(cp, lb.carryBind, lb.nCarry, 1);
-        setPhase('finalize');
-        dispatch(flp, lb.finalizeAccumBinds[bi], this.numWgsFinalize, 1);
       }
     }
     setPhase('reduce_init');
