@@ -1029,9 +1029,7 @@ identities; the proof obligations are the lemmas stated in the main text.
   at `d=3,4` and numerically verifies low-tail dense ranks.
 
 The endpoint $E=N$ is included in the same argument: then
-$
-ho=N-1mod 2^{d-2}=2^{d-2}-1$, so the $
-ho$-anti-symmetry reduces to the
+$\rho=N-1\bmod 2^{d-2}=2^{d-2}-1$, so the $\rho$-anti-symmetry reduces to the
 usual top-pair anti-symmetry.
 
 ## Appendix B: degenerate d=3 low-tail case
