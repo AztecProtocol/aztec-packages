@@ -52,7 +52,7 @@ export class EpochTestSettler {
 
     const outHash = computeEpochOutHash(messagesInEpoch);
     if (!outHash.isZero()) {
-      await this.rollupCheatCodes.insertOutbox(epoch, outHash.toBigInt());
+      await this.rollupCheatCodes.insertOutbox(epoch, messagesInEpoch.length, outHash.toBigInt());
     } else {
       this.log.info(`No L2 to L1 messages in epoch ${epoch}`);
     }

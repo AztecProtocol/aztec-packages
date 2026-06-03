@@ -1,5 +1,6 @@
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { SendOptions } from '@aztec/aztec.js/wallet';
+import { BarretenbergSync } from '@aztec/bb.js';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import type { ApiSchema, Fr } from '@aztec/foundation/schemas';
@@ -19,6 +20,9 @@ try {
 
   logger.info('Initializing worker wallet', { nodeUrl });
   const node = createAztecNodeClient(nodeUrl);
+  if (pxeConfig?.proverEnabled) {
+    await BarretenbergSync.initSingleton();
+  }
   const wallet = await TestWallet.create(node, pxeConfig);
   logger.info('Worker wallet initialized');
 

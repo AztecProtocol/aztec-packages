@@ -436,7 +436,7 @@ Great! You can expand the L2 contract to add features like NFT transfers. For no
 
 #include_code exit_from_l2 /docs/examples/ts/token_bridge/index.ts typescript
 
-Just like in the L1 → L2 flow, you need to know what to claim on L1. Where in the message tree is the message you want to claim? Use the utility `computeL2ToL1MembershipWitness`, which provides the leaf and the sibling path of the message:
+Just like in the L1 → L2 flow, you need to know what to claim on L1. Where in the message tree is the message you want to claim? Use `node.getL2ToL1MembershipWitness`, which provides the leaf and the sibling path of the message:
 
 #include_code get_withdrawal_witness /docs/examples/ts/token_bridge/index.ts typescript
 

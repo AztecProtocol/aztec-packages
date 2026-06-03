@@ -119,12 +119,11 @@ grafana:
     server:
       domain:
   env:
-    PRODUCTION_NAMESPACES_REGEX: "v2-testnet|staging-public"
-    STAGING_PUBLIC_REGEX: "staging-public"
+    STAGING_REGEX: "^staging$"
     NEXT_SCENARIO_REGEX: "v[0-9]+-scenario|next-scenario"
     NEXT_NET_REGEX: "next-net"
     TESTNET_NAMESPACES_REGEX: "testnet|v[0-9]+-testnet"
-    MAINNET_NAMESPACES_REGEX: "mainnet|v[0-9]+-mainnet|ignition"
+    MAINNET_NAMESPACES_REGEX: "mainnet|v[0-9]+-mainnet"
     DEVNET_NAMESPACES_REGEX: ".*devnet.*"
   datasources:
     datasources.yaml:

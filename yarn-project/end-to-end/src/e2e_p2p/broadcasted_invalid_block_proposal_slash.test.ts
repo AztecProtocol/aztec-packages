@@ -63,7 +63,6 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
-        enableProposerPipelining: true,
         inboxLag: 2,
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         slashInactivityConsecutiveEpochThreshold: 32, // effectively do not slash for inactivity

@@ -31,7 +31,7 @@ import { OffenseType, WANT_TO_CLEAR_SLASH_EVENT, WANT_TO_SLASH_EVENT } from '@az
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type BlockData, BlockHash, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import { type Checkpoint, CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
-import { type getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
@@ -130,12 +130,16 @@ describe('ValidatorClient', () => {
     epochCache = mock<EpochCache>();
 
     epochCache.filterInCommittee.mockImplementation((_slot, addresses) => Promise.resolve(addresses));
-    epochCache.getL1Constants.mockReturnValue({ epochDuration: 8 } satisfies Parameters<
-      typeof getEpochAtSlot
-    >[1] as any);
+    // Includes the L1 geometry fields read by the checkpoint-validation publish deadline
+    // (getLastL1SlotTimestampForL2Slot needs l1GenesisTime/slotDuration/ethereumSlotDuration), kept
+    // consistent with checkpointsBuilder.getConfig() above.
+    epochCache.getL1Constants.mockReturnValue({
+      epochDuration: 8,
+      l1GenesisTime: 1n,
+      slotDuration: 24,
+      ethereumSlotDuration: 12,
+    } as any);
     epochCache.getSlotNow.mockReturnValue(SlotNumber(1));
-    epochCache.pipeliningOffset.mockReturnValue(0);
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(1),
@@ -646,8 +650,6 @@ describe('ValidatorClient', () => {
 
     it('uses the next wall-clock slot as the tx collection deadline for pipelined proposals', async () => {
       const pipelineOffsetInSlots = 1;
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
-      epochCache.pipeliningOffset.mockReturnValue(pipelineOffsetInSlots);
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
 
       const futureSlot = SlotNumber(proposal.slotNumber + 20);
@@ -850,6 +852,11 @@ describe('ValidatorClient', () => {
 
     it('should wait for previous block to sync', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+      // The proposal targets slot 100, which under pipelining is built during slot 99. Set the wall
+      // clock to the start of the build slot so the reexecution deadline (start of the target slot)
+      // is still in the future, leaving a retry window for the parent-block archive lookup.
+      const buildSlotTime = 1n + BigInt(proposal.slotNumber - 1) * BigInt(checkpointsBuilder.getConfig().slotDuration);
+      dateProvider.setTime(Number(buildSlotTime * 1000n));
       blockSource.getBlockData.mockResolvedValueOnce(undefined);
       blockSource.getBlockData.mockResolvedValueOnce(undefined);
       blockSource.getBlockData.mockResolvedValueOnce(undefined);
@@ -1342,6 +1349,9 @@ describe('ValidatorClient', () => {
         ts: 0n,
         nowMs: 0n,
       });
+      // Keep the wall-clock slot consistent with the "now" set above so the always-on pipelining
+      // acceptance window correctly treats the proposal's slot as stale (not the current slot).
+      epochCache.getSlotNow.mockReturnValue(SlotNumber(proposal.slotNumber + 20));
       epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
         epoch: EpochNumber(1),
         slot: SlotNumber(proposal.slotNumber + 20),

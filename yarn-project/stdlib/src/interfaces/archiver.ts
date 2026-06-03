@@ -23,16 +23,13 @@ import {
   ContractInstanceWithAddressSchema,
 } from '../contract/index.js';
 import { L1RollupConstantsSchema } from '../epoch-helpers/index.js';
-import { LogFilterSchema } from '../logs/log_filter.js';
-import { SiloedTag } from '../logs/siloed_tag.js';
-import { Tag } from '../logs/tag.js';
-import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
+import { LogResultSchema } from '../logs/log_result.js';
+import { PrivateLogsQuerySchema, PublicLogsQuerySchema } from '../logs/logs_query.js';
 import type { L1ToL2MessageSource } from '../messaging/l1_to_l2_message_source.js';
+import { L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { optional, schemas } from '../schemas/schemas.js';
 import { indexedTxSchema } from '../tx/indexed_tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { TxReceipt } from '../tx/tx_receipt.js';
-import { GetContractClassLogsResponseSchema, GetPublicLogsResponseSchema } from './get_logs_response.js';
 import type { L2LogsSource } from './l2_logs_source.js';
 
 /**
@@ -47,9 +44,6 @@ export type ArchiverSpecificConfig = {
 
   /** The polling interval viem uses in ms */
   viemPollingIntervalMS?: number;
-
-  /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
-  maxLogs?: number;
 
   /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb. */
   archiverStoreMapSizeKb?: number;
@@ -68,19 +62,27 @@ export type ArchiverSpecificConfig = {
 
   /** Skip promoting proposed checkpoints during L1 sync (for testing purposes only) */
   skipPromoteProposedCheckpointDuringL1Sync?: boolean;
+
+  /**
+   * Grace period in seconds, measured from the end of a proposed block's build slot, after which a
+   * proposed block whose enclosing checkpoint was never proposed is pruned as an orphan. Defaults
+   * from `blockDurationMs / 1000` at the node wiring layer, falling back to the timetable minimum
+   * execution time.
+   */
+  orphanProposedBlockPruneGraceSeconds?: number;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
   archiverPollingIntervalMS: schemas.Integer.optional(),
   archiverBatchSize: schemas.Integer.optional(),
   viemPollingIntervalMS: schemas.Integer.optional(),
-  maxLogs: schemas.Integer.optional(),
   archiverStoreMapSizeKb: schemas.Integer.optional(),
   maxAllowedEthClientDriftSeconds: schemas.Integer.optional(),
   ethereumAllowNoDebugHosts: z.boolean().optional(),
   archiverSkipHistoricalLogsCheck: z.boolean().optional(),
   skipValidateCheckpointAttestations: z.boolean().optional(),
   skipPromoteProposedCheckpointDuringL1Sync: z.boolean().optional(),
+  orphanProposedBlockPruneGraceSeconds: schemas.Integer.optional(),
 });
 
 export type ArchiverApi = Omit<
@@ -98,27 +100,26 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getCheckpointData: z.function({ input: z.tuple([CheckpointQuerySchema]), output: CheckpointDataSchema.optional() }),
   getCheckpointsData: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(CheckpointDataSchema) }),
   getTxEffect: z.function({ input: z.tuple([TxHash.schema]), output: indexedTxSchema().optional() }),
-  getSettledTxReceipt: z.function({ input: z.tuple([TxHash.schema]), output: TxReceipt.schema.optional() }),
+  // Reads Outbox roots lazily, pinned to the node's synced L1 block. Caveat: cached roots that are
+  // sealed and L1-finalized are not re-validated, so a reorg deeper than L1 finality could leave the
+  // node serving a witness against a no-longer-canonical root.
+  getL2ToL1MembershipWitness: z.function({
+    input: z.tuple([TxHash.schema, schemas.Fr, optional(schemas.Integer)]),
+    output: L2ToL1MembershipWitnessSchema.optional(),
+  }),
   getSyncedL2SlotNumber: z.function({ input: z.tuple([]), output: schemas.SlotNumber.optional() }),
   getSyncedL2EpochNumber: z.function({ input: z.tuple([]), output: EpochNumberSchema.optional() }),
   getBlocksForSlot: z.function({ input: z.tuple([schemas.SlotNumber]), output: z.array(L2Block.schema) }),
   isEpochComplete: z.function({ input: z.tuple([EpochNumberSchema]), output: z.boolean() }),
   getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
   getPrivateLogsByTags: z.function({
-    input: z.tuple([z.array(SiloedTag.schema), optional(z.number().gte(0)), optional(BlockNumberSchema)]),
-    output: z.array(z.array(TxScopedL2Log.schema)),
+    input: z.tuple([PrivateLogsQuerySchema]),
+    output: z.array(z.array(LogResultSchema)),
   }),
-  getPublicLogsByTagsFromContract: z.function({
-    input: z.tuple([
-      schemas.AztecAddress,
-      z.array(Tag.schema),
-      optional(z.number().gte(0)),
-      optional(BlockNumberSchema),
-    ]),
-    output: z.array(z.array(TxScopedL2Log.schema)),
+  getPublicLogsByTags: z.function({
+    input: z.tuple([PublicLogsQuerySchema]),
+    output: z.array(z.array(LogResultSchema)),
   }),
-  getPublicLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetPublicLogsResponseSchema }),
-  getContractClassLogs: z.function({ input: z.tuple([LogFilterSchema]), output: GetContractClassLogsResponseSchema }),
   getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
   getBytecodeCommitment: z.function({ input: z.tuple([schemas.Fr]), output: schemas.Fr }),
   getContract: z.function({

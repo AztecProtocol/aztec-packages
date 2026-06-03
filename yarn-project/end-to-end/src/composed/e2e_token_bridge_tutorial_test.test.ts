@@ -8,6 +8,7 @@ import { createLogger } from '@aztec/aztec.js/log';
 import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
+import { retryUntil } from '@aztec/foundation/retry';
 import {
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
@@ -19,7 +20,6 @@ import {
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
-import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getContract } from 'viem';
@@ -210,15 +210,18 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
       .simulate({ from: ownerAztecAddress });
     logger.info(`New L2 balance of ${ownerAztecAddress} is ${newL2Balance}`);
 
-    const result = await computeL2ToL1MembershipWitness(node, l2ToL1Message, l2TxReceipt.txHash);
-    if (!result) {
-      throw new Error('L2 to L1 message not found');
-    }
+    const result = await retryUntil(
+      () => node.getL2ToL1MembershipWitness(l2TxReceipt.txHash, l2ToL1Message),
+      'l2 to l1 membership witness',
+      60,
+      1,
+    );
 
     await l1PortalManager.withdrawFunds(
       withdrawAmount,
       EthAddress.fromString(ownerEthAddress),
       result.epochNumber,
+      result.numCheckpointsInEpoch,
       result.leafIndex,
       result.siblingPath,
     );

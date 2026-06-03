@@ -10,7 +10,6 @@ import {
   computeL2ToL1MessageHash,
   computeSecretHash,
 } from "@aztec/stdlib/hash";
-import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { decodeEventLog, pad } from "@aztec/viem";
 import { foundry } from "@aztec/viem/chains";
@@ -303,13 +302,11 @@ while (provenBlockNumber < exitReceipt.blockNumber!) {
 
 console.log("Block proven!\n");
 
-// Compute the membership witness using the message hash and the L2 tx hash
-const witness = await computeL2ToL1MembershipWitness(
-  node,
-  msgLeaf,
-  exitReceipt.txHash,
-);
+// Compute the membership witness using the message hash and the L2 tx hash.
+// The node picks the smallest partial-proof root that covers the tx's checkpoint.
+const witness = await node.getL2ToL1MembershipWitness(exitReceipt.txHash, msgLeaf);
 const epoch = witness!.epochNumber;
+const numCheckpointsInEpoch = witness!.numCheckpointsInEpoch;
 console.log(`   Epoch for block ${exitReceipt.blockNumber}: ${epoch}`);
 
 const siblingPathHex = witness!.siblingPath
@@ -324,7 +321,13 @@ const withdrawHash = await l1Client.writeContract({
   address: portalAddress.toString() as `0x${string}`,
   abi: NFTPortal.abi,
   functionName: "withdraw",
-  args: [tokenId, BigInt(epoch), BigInt(witness!.leafIndex), siblingPathHex],
+  args: [
+    tokenId,
+    BigInt(epoch),
+    BigInt(numCheckpointsInEpoch),
+    BigInt(witness!.leafIndex),
+    siblingPathHex,
+  ],
 });
 await l1Client.waitForTransactionReceipt({ hash: withdrawHash });
 console.log("NFT withdrawn to L1\n");

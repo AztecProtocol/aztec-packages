@@ -10,6 +10,7 @@ export type SequencerEvents = {
     newState: SequencerState;
     secondsIntoSlot?: number;
     slot?: SlotNumber;
+    timeReferenceSlot?: SlotNumber;
   }) => void;
   /**
    * Emitted by the sequencer once it has decided it is going to attempt to build a

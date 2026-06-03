@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
@@ -18,7 +18,16 @@ import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { MessageContext } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
-import { BlockHeader, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  Capsule,
+  GlobalVariables,
+  MinedTxReceipt,
+  TxEffect,
+  TxExecutionResult,
+  TxHash,
+  TxStatus,
+} from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
@@ -35,7 +44,9 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
@@ -87,7 +98,7 @@ describe('Utility Execution test suite', () => {
     senderAddressBookStore.getSenders.mockResolvedValue([]);
 
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: any[]) => Promise.resolve(tags.map(() => [])));
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
 
     capsuleStore.setCapsuleArray.mockImplementation((address, slot, content) => {
       capsuleArrays.set(`${address.toString()}:${slot.toString()}`, content);
@@ -423,14 +434,15 @@ describe('Utility Execution test suite', () => {
     });
 
     describe('getMessageContextsByTxHash', () => {
-      it('sets null in response for zero tx hashes', async () => {
-        const requestSlot = Fr.random();
-        utilityExecutionOracle.pushEphemeral(requestSlot, [Fr.ZERO]);
+      const service = new EphemeralArrayService();
 
-        const responseSlot = await utilityExecutionOracle.getMessageContextsByTxHash(requestSlot);
-        const responseFields = utilityExecutionOracle.getEphemeral(responseSlot, 0);
-        expect(responseFields).toEqual(MessageContext.toSerializedOption(null));
-        expect(aztecNode.getTxEffect).not.toHaveBeenCalled();
+      it('sets null in response for zero tx hashes', async () => {
+        const requests = EphemeralArray.fromValues(service, [Fr.ZERO]);
+
+        const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
+        const [responseValue] = response.readAll(service);
+        expect(responseValue.isNone()).toBe(true);
+        expect(aztecNode.getTxReceipt).not.toHaveBeenCalled();
       });
 
       it('resolves a valid tx hash into a MessageContext', async () => {
@@ -438,60 +450,68 @@ describe('Utility Execution test suite', () => {
         const noteHash = Fr.random();
         const firstNullifier = Fr.random();
 
-        aztecNode.getTxEffect.mockResolvedValueOnce({
-          l2BlockNumber: BlockNumber(syncedBlockNumber - 1),
-          l2BlockHash: BlockHash.random(),
-          txIndexInBlock: 0,
-          data: { txHash, noteHashes: [noteHash], nullifiers: [firstNullifier] },
-        } as any);
+        aztecNode.getTxReceipt.mockResolvedValueOnce(
+          new MinedTxReceipt(
+            txHash,
+            TxStatus.PROPOSED,
+            TxExecutionResult.SUCCESS,
+            0n,
+            BlockHash.random(),
+            BlockNumber(syncedBlockNumber - 1),
+            SlotNumber(0),
+            0,
+            EpochNumber(1),
+            TxEffect.from({
+              ...(await TxEffect.random()),
+              txHash,
+              noteHashes: [noteHash],
+              nullifiers: [firstNullifier],
+            }),
+          ),
+        );
 
-        const requestSlot = Fr.random();
-        utilityExecutionOracle.pushEphemeral(requestSlot, [txHash.hash]);
+        const requests = EphemeralArray.fromValues(service, [txHash.hash]);
 
-        const responseSlot = await utilityExecutionOracle.getMessageContextsByTxHash(requestSlot);
-        const responseFields = utilityExecutionOracle.getEphemeral(responseSlot, 0);
-        const expected = MessageContext.toSerializedOption(new MessageContext(txHash, [noteHash], firstNullifier));
-        expect(responseFields).toEqual(expected);
+        const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
+        const [responseValue] = response.readAll(service);
+        expect(responseValue.isSome()).toBe(true);
+        expect(responseValue.value).toEqual(new MessageContext(txHash, [noteHash], firstNullifier));
       });
 
       it('sets null in response for tx effects beyond anchor block', async () => {
         const txHash = TxHash.random();
 
-        aztecNode.getTxEffect.mockResolvedValueOnce({
-          l2BlockNumber: BlockNumber(syncedBlockNumber + 1),
-          l2BlockHash: BlockHash.random(),
-          txIndexInBlock: 0,
-          data: { txHash, noteHashes: [], nullifiers: [Fr.random()] },
-        } as any);
-
-        const requestSlot = Fr.random();
-        utilityExecutionOracle.pushEphemeral(requestSlot, [txHash.hash]);
-
-        const responseSlot = await utilityExecutionOracle.getMessageContextsByTxHash(requestSlot);
-        const responseFields = utilityExecutionOracle.getEphemeral(responseSlot, 0);
-        expect(responseFields).toEqual(MessageContext.toSerializedOption(null));
-      });
-
-      it('throws on empty ephemeral entry', async () => {
-        const requestSlot = Fr.random();
-        utilityExecutionOracle.pushEphemeral(requestSlot, []);
-
-        await expect(utilityExecutionOracle.getMessageContextsByTxHash(requestSlot)).rejects.toThrow(
-          'Malformed message context request at index 0: expected 1 field (tx hash), got 0',
+        aztecNode.getTxReceipt.mockResolvedValueOnce(
+          new MinedTxReceipt(
+            txHash,
+            TxStatus.PROPOSED,
+            TxExecutionResult.SUCCESS,
+            0n,
+            BlockHash.random(),
+            BlockNumber(syncedBlockNumber + 1),
+            SlotNumber(0),
+            0,
+            EpochNumber(1),
+            TxEffect.from({
+              ...(await TxEffect.random()),
+              txHash,
+              noteHashes: [],
+              nullifiers: [Fr.random()],
+            }),
+          ),
         );
-      });
 
-      it('throws on ephemeral entry with extra fields', async () => {
-        const requestSlot = Fr.random();
-        utilityExecutionOracle.pushEphemeral(requestSlot, [Fr.random(), Fr.random()]);
+        const requests = EphemeralArray.fromValues(service, [txHash.hash]);
 
-        await expect(utilityExecutionOracle.getMessageContextsByTxHash(requestSlot)).rejects.toThrow(
-          'Malformed message context request at index 0: expected 1 field (tx hash), got 2',
-        );
+        const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
+        const [responseValue] = response.readAll(service);
+        expect(responseValue.isNone()).toBe(true);
       });
     });
 
     describe('getSharedSecrets', () => {
+      const service = new EphemeralArrayService();
+
       it('returns different shared secrets for different contract addresses', async () => {
         // Generate a deterministic ephemeral public key
         const ephSk = GrumpkinScalar.random();
@@ -513,15 +533,12 @@ describe('Utility Execution test suite', () => {
         const oracleA = makeOracle({ contractAddress: contractAddressA });
         const oracleB = makeOracle({ contractAddress: contractAddressB });
 
-        const slotA = Fr.random();
-        oracleA.pushEphemeral(slotA, ephPk.toFields());
-        const responseSlotA = await oracleA.getSharedSecrets(owner, slotA, contractAddressA);
-        const [secretA] = oracleA.getEphemeral(responseSlotA, 0);
+        const ephPksArray = EphemeralArray.fromValues(service, [ephPk]);
+        const responseA = await oracleA.getSharedSecrets(owner, ephPksArray, contractAddressA);
+        const [secretA] = responseA.readAll(service);
 
-        const slotB = Fr.random();
-        oracleB.pushEphemeral(slotB, ephPk.toFields());
-        const responseSlotB = await oracleB.getSharedSecrets(owner, slotB, contractAddressB);
-        const [secretB] = oracleB.getEphemeral(responseSlotB, 0);
+        const responseB = await oracleB.getSharedSecrets(owner, ephPksArray, contractAddressB);
+        const [secretB] = responseB.readAll(service);
 
         // After app-siloing, different contracts must get different shared secrets for the same
         // (address, ephPk) pair. This prevents cross-contract decryption attacks.
@@ -535,10 +552,11 @@ describe('Utility Execution test suite', () => {
         const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
         keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
 
-        const slot = Fr.random();
-        utilityExecutionOracle.pushEphemeral(slot, ephPk.toFields());
+        const ephPksArray = EphemeralArray.fromValues(service, [ephPk]);
         const wrongAddress = await AztecAddress.random();
-        await expect(utilityExecutionOracle.getSharedSecrets(owner, slot, wrongAddress)).rejects.toThrow(/expected/);
+        await expect(utilityExecutionOracle.getSharedSecrets(owner, ephPksArray, wrongAddress)).rejects.toThrow(
+          /expected/,
+        );
       });
     });
 

@@ -9,6 +9,21 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `set_sender_for_tags` oracle removed
+
+The `set_sender_for_tags` oracle has been removed. Contracts that used it to override the sender for discovery tag derivation should now use the `with_sender` builder method on `MessageDelivery`:
+
+```diff
+- use aztec::oracle::notes::set_sender_for_tags;
++ use aztec::messages::message_delivery::MessageDelivery;
+
+- unsafe { set_sender_for_tags(some_address) };
+- note.deliver(MessageDelivery::onchain_constrained());
++ note.deliver(MessageDelivery::onchain_constrained().with_sender(some_address));
+```
+
+When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender.
+
 ### [Aztec.nr] `MessageDelivery` API syntax change
 
 `MessageDelivery` variants are now accessed via constructor functions instead of dot notation:
@@ -23,6 +38,32 @@ Aztec is in active development. Each version may introduce breaking changes that
 - MessageDelivery.ONCHAIN_CONSTRAINED
 + MessageDelivery::onchain_constrained()
 ```
+
+### [Aztec.js] `getTxReceipt` returns a lifecycle union and takes `GetTxReceiptOptions`
+
+`AztecNode.getTxReceipt` now takes an optional `GetTxReceiptOptions` argument and returns a `PendingTxReceipt | DroppedTxReceipt | MinedTxReceipt` union instead of a single `TxReceipt` class. Mined-only fields (`transactionFee`, `blockHash`, `blockNumber`, `txIndexInBlock`, and the execution result) are only guaranteed once the transaction is mined, so narrow with `isMined()`, `isPending()`, or `isDropped()` before reading variant-specific fields. The full `TxEffect` is attached only when you request it via `{ includeTxEffect: true }`.
+
+`AztecNode.getTxEffect` is deprecated. Replace direct calls with `getTxReceipt(txHash, { includeTxEffect: true })` and read the `.txEffect` field.
+
+`TxReceipt.empty()` and `TxReceipt.schema` no longer exist, since `TxReceipt` is now a union type rather than a class. Use `DroppedTxReceipt.empty()` and `TxReceiptSchema` instead.
+
+```diff
+- const effect = await node.getTxEffect(txHash);
+- if (effect) {
+-   console.log(effect.data.nullifiers.length);
+- }
++ const receipt = await node.getTxReceipt(txHash, { includeTxEffect: true });
++ if (receipt.isMined() && receipt.txEffect) {
++   console.log(receipt.txEffect.nullifiers.length);
++ }
+
+- const empty = TxReceipt.empty();
+- const schema = TxReceipt.schema;
++ const empty = DroppedTxReceipt.empty();
++ const schema = TxReceiptSchema;
+```
+
+**Impact**: This is a breaking change to the public node RPC with no wire back-compat. Callers that read mined fields off a bare receipt must narrow with the `is*` guards first, callers of `getTxEffect` should migrate to `getTxReceipt`, and references to `TxReceipt.empty()` / `TxReceipt.schema` must move to `DroppedTxReceipt.empty()` / `TxReceiptSchema`.
 
 ### [Aztec.js] `ExtendedDirectionalAppTaggingSecret` renamed to `AppTaggingSecret`
 
@@ -40,6 +81,35 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 **Impact**: Code importing or referencing `ExtendedDirectionalAppTaggingSecret` should update to `AppTaggingSecret`.
 
+### [Protocol] Remaining protocol-contract addresses compacted to 1-3
+
+After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
+
+### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
+
+`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE *preloads*: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
+
+To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
+
+```ts
+const wallet = await EmbeddedWallet.create(node, {
+  pxe: {
+    preloadedContractsProvider: {
+      // EmbeddedWallet's built-in default preloads only MultiCallEntrypoint + AuthRegistry.
+      // A custom provider REPLACES that default (it is not additive), so re-list the ones you
+      // still want and add the extras — here, PublicChecks.
+      getPreloadedContracts: async () => [
+        await getStandardMultiCallEntrypoint(),
+        await getStandardAuthRegistry(),
+        await getStandardPublicChecks(),
+      ],
+    },
+  },
+});
+```
+
+The provider *replaces* the default list (it is not additive), so include every standard contract you want available.
+
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
 `public_checks` is no longer a protocol contract. Its address is now derived from its artifact rather than hardcoded at `6`. The aztec-nr constant has moved and been renamed:
@@ -49,10 +119,10 @@ Aztec is in active development. Each version may introduce breaking changes that
 + use crate::standard_addresses::STANDARD_PUBLIC_CHECKS_ADDRESS;
 ```
 
-If your contract uses `privately_check_timestamp` or `privately_check_block_number`, you must deploy `PublicChecks` on your network and register it with PXE:
+Unlike MultiCallEntrypoint and AuthRegistry, `PublicChecks` is **not** preloaded by `createPXE` or `EmbeddedWallet`. If your contract uses `privately_check_timestamp` or `privately_check_block_number`, `PublicChecks` must be deployed and made available to your PXE — either include it in a custom `preloadedContractsProvider` (see the `multi_call_entrypoint` note above) or register it directly:
 
 ```ts
-import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
+import { getStandardPublicChecks } from "@aztec/standard-contracts/public-checks";
 
 const { instance, artifact } = await getStandardPublicChecks();
 await pxe.registerContract({ instance, artifact });
@@ -71,10 +141,10 @@ Deploy `PublicChecks` once per fresh rollup: `aztec-wallet deploy public_checks_
 + use crate::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
 ```
 
-PXE no longer auto-registers `AuthRegistry` on startup. If your wallet needs it, register it explicitly (as the `EmbeddedWallet` entrypoints do):
+PXE no longer auto-registers `AuthRegistry` on startup. `EmbeddedWallet` preloads it automatically (alongside the MultiCallEntrypoint — see the `multi_call_entrypoint` note above), so apps using the standard wallet need no changes. If you use a PXE setup that doesn't preload it, add it to a custom `preloadedContractsProvider` or register it explicitly:
 
 ```ts
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardAuthRegistry } from "@aztec/standard-contracts/auth-registry";
 
 const { instance, artifact } = await getStandardAuthRegistry();
 await pxe.registerContract({ instance, artifact });
@@ -92,6 +162,87 @@ The `privately_check_timestamp`, `privately_check_block_number`, and related cal
 - use public_checks::utils::privately_check_timestamp;
 + use aztec::public_checks::privately_check_timestamp;
 ```
+
+### [Aztec Node / Aztec.js / CLI] Log retrieval API consolidated to two tag-based methods
+
+The four log-retrieval methods on `AztecNode` have been collapsed into two. `getContractClassLogs` and the `LogFilter`-shaped `getPublicLogs` are removed entirely; the surviving methods are `getPrivateLogsByTags(query)` and `getPublicLogsByTags(query)`, both taking a single query object and returning `LogResult[][]` (one inner array per requested tag, in input order).
+
+**Removed methods on `AztecNode`:**
+
+| Removed                                                                   | Replacement                                           |
+| ------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `getPublicLogs(filter: LogFilter)`                                        | `getPublicLogsByTags({ contractAddress, tags, ... })` |
+| `getContractClassLogs(filter: LogFilter)`                                 | none — RPC removed; no production consumer existed    |
+| `getPrivateLogsByTags(tags, page?, referenceBlock?)`                      | `getPrivateLogsByTags({ tags, ... })`                 |
+| `getPublicLogsByTagsFromContract(contract, tags, page?, referenceBlock?)` | `getPublicLogsByTags({ contractAddress, tags, ... })` |
+
+**New query and response shapes:**
+
+```ts
+// Query
+type TagQuery<T> = T | { tag: T; afterLog?: LogCursor };
+
+type LogsQueryBase = {
+  fromBlock?: BlockNumber; // inclusive
+  toBlock?: BlockNumber; // exclusive
+  txHash?: TxHash; // mutually exclusive with fromBlock/toBlock
+  referenceBlock?: BlockHash; // reorg-safety anchor; throws if missing
+  includeEffects?: boolean; // attach noteHashes + all nullifiers
+};
+
+type PrivateLogsQuery = LogsQueryBase & { tags: TagQuery<SiloedTag>[] };
+type PublicLogsQuery = LogsQueryBase & {
+  contractAddress: AztecAddress;
+  tags: TagQuery<Tag>[];
+};
+
+// Response (per log)
+type LogResult = {
+  logData: Fr[];
+  blockNumber: BlockNumber;
+  blockHash: BlockHash;
+  blockTimestamp: UInt64;
+  txHash: TxHash;
+  logIndexWithinTx: number;
+  noteHashes?: Fr[]; // present only when includeEffects is set
+  nullifiers?: Fr[]; // all nullifiers of the tx, not just the first
+};
+```
+
+**Public queries now require a contract address.** Tag-only / contract-less public queries are no longer supported (the public log index is keyed on `(contract, tag)`).
+
+**Per-tag `afterLog` cursors replace the global `page` argument.** Each tag advances independently — pass `{ tag, afterLog: LogCursor.fromLog(lastLog) }` to resume that tag, and omit it for tags that are already exhausted.
+
+**Aztec.js wallet — `PublicEventFilter.contractAddress` is now required, and `afterLog` is a `LogCursor`:**
+
+```diff
+- type PublicEventFilter = EventFilterBase & { contractAddress?: AztecAddress };
++ type PublicEventFilter = EventFilterBase & { contractAddress: AztecAddress };
+
+  type EventFilterBase = {
+    txHash?: TxHash;
+    fromBlock?: BlockNumber;
+    toBlock?: BlockNumber;
+-   afterLog?: LogId;
++   afterLog?: LogCursor;
+  };
+```
+
+`LogId`, `LogFilter`, `TxScopedL2Log`, `ExtendedPublicLog`, `ExtendedContractClassLog`, `GetPublicLogsResponse`, and `GetContractClassLogsResponse` are no longer exported from `@aztec/aztec.js`. Build cursors with `LogCursor.fromLog(log)` and decode public-event payloads from `result.logData.slice(1)` (the tag is field 0).
+
+**CLI — `aztec get-logs` now requires `--contract-address` and `--tag`:**
+
+```diff
+- aztec get-logs [--tx-hash <tx>] [--from-block <n>] [--to-block <n>] [--after-log <id>]
++ aztec get-logs --contract-address <address> --tag <tag> \
++               [--tx-hash <tx>] [--from-block <n>] [--to-block <n>] [--after-log <cursor>]
+```
+
+`--after-log` now takes a `LogCursor` of the form `<blockNumber>-<txIndexWithinBlock>-<logIndexWithinTx>` (formerly a `LogId`).
+
+**Mutual exclusion**: setting both `txHash` and `fromBlock`/`toBlock` is rejected (a `txHash` already pins a block). `txHash` + `afterLog` is allowed and paginates within the tx's logs for a tag.
+
+**Impact**: Any consumer of `getPublicLogs(LogFilter)`, `getContractClassLogs`, the old tag-based methods, `PublicEventFilter` without a `contractAddress`, or `EventFilterBase.afterLog: LogId` must be updated. The CLI rejects calls missing `--contract-address` or `--tag`.
 
 ### [Aztec.js] `AccountManager.create` takes an options bag
 
@@ -834,6 +985,8 @@ The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
 
 **Impact**: any scripts, CI jobs, or onboarding docs that ran `aztec init` expecting an empty contract starting point now get the Counter example. Use `aztec new <NAME>` for the blank scaffold. The existing Counter tutorial under [`docs/tutorials/contract_tutorials`](../tutorials/contract_tutorials/counter_contract.md) is unaffected because it uses `aztec new`.
 
+## 4.3.0
+
 ### `aztec new` and `aztec init` now create a 2-crate workspace
 
 `aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
@@ -1313,23 +1466,22 @@ This change requires no input from your side unless you were testing or relying 
 
 `TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
 
-### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
+### [Aztec.js] Use `getL2ToL1MembershipWitness` for L2-to-L1 message witnesses
 
-The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
+The node now computes L2-to-L1 membership witnesses directly, resolving the epoch and Outbox root internally from the transaction hash. Use `getL2ToL1MembershipWitness` instead of fetching raw epoch messages and computing the witness client-side.
 
 **Migration:**
 
 ```diff
-- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
-- // epoch was passed in by the caller
-+ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
-+ // epoch is now available on the returned witness
+- const messages = await aztecNode.getL2ToL1Messages(epochNumber);
+- // compute the witness client-side from the epoch messages
++ const witness = await aztecNode.getL2ToL1MembershipWitness(txHash, messageHash);
 + const epoch = witness.epochNumber;
 ```
 
-The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
+The return type `L2ToL1MembershipWitness` includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the third argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
 
-**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
+**Impact**: Call sites that compute L2-to-L1 membership witnesses should use the node method and extract `epochNumber` from the result.
 
 ### [Aztec.js] `getPublicEvents` now returns an object instead of an array
 
@@ -2682,31 +2834,17 @@ Note: current node softwares still produce exactly one L2 block per checkpoint, 
 
 ### [L1 Contracts] L2-to-L1 messages are now grouped by epoch.
 
-L2-to-L1 messages are now aggregated and organized per epoch rather than per block. This change affects how you compute membership witnesses for consuming messages on L1. You now need to know the epoch number in which the message was emitted to retrieve and consume the message.
+L2-to-L1 messages are aggregated and organized per epoch rather than per block, but callers should now ask the node to compute the membership witness directly from the emitting transaction hash. The node resolves the epoch and Outbox root internally.
 
 **Note**: This is only an API change. The protocol behavior remains the same - messages can still only be consumed once an epoch is proven as before.
 
 #### What changed
 
-Previously, you might have computed the membership witness without explicitly needing the epoch:
+Previously, callers fetched epoch messages and computed the witness client-side. Now, call `getL2ToL1MembershipWitness` on the node:
 
 ```typescript
-const witness = await computeL2ToL1MembershipWitness(
-  node,
-  l2TxReceipt.blockNumber,
-  l2ToL1Message,
-);
-```
-
-Now, you should provide the epoch number:
-
-```typescript
-const epoch = await rollup.getEpochNumberForCheckpoint(
-  CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber),
-);
-const witness = await computeL2ToL1MembershipWitness(
-  node,
-  epoch,
+const witness = await node.getL2ToL1MembershipWitness(
+  l2TxReceipt.txHash,
   l2ToL1Message,
 );
 ```

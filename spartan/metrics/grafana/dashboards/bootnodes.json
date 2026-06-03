@@ -554,8 +554,8 @@
       {
         "current": {
           "selected": false,
-          "text": "staging-public",
-          "value": "staging-public"
+          "text": "testnet",
+          "value": "testnet"
         },
         "datasource": {
           "type": "prometheus",
