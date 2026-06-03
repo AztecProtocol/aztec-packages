@@ -15,13 +15,14 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointData, ProposedCheckpointData, ProposedCheckpointInput } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
+import type { L2ToL1MembershipWitness } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
-import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { BlockData } from './block_data.js';
 import { BlockHash } from './block_hash.js';
 import { BlockTagWithoutLatestSchema, type NormalizedBlockParameter } from './block_parameter.js';
@@ -161,11 +162,21 @@ export interface L2BlockSource {
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
-   * Gets a receipt of a settled tx.
-   * @param txHash - The hash of a tx we try to get the receipt for.
-   * @returns The requested tx receipt (or undefined if not found).
+   * Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`, built against the
+   * smallest partial-proof root on the Outbox that covers the tx's checkpoint.
+   *
+   * The Outbox roots are read lazily, pinned to the node's synced L1 block, so the witness reflects
+   * the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering
+   * root has landed on L1 as of the synced block.
+   *
+   * Caveat: cached roots that are sealed and L1-finalized are not re-validated. A reorg deeper than
+   * L1 finality could leave the node serving a witness against a no-longer-canonical root.
    */
-  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
+  getL2ToL1MembershipWitness(
+    txHash: TxHash,
+    message: Fr,
+    messageIndexInTx?: number,
+  ): Promise<L2ToL1MembershipWitness | undefined>;
 
   /**
    * Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint.
@@ -284,6 +295,19 @@ export interface L2BlockSink {
 }
 
 /**
+ * Interface for classes that can receive and store proposed (not-yet-L1-confirmed) checkpoints.
+ */
+export interface ProposedCheckpointSink {
+  /**
+   * Adds a proposed checkpoint to the store. The archive and checkpointOutHash are computed
+   * internally from the already-stored blocks, so every block in the checkpoint must be added
+   * (via {@link L2BlockSink.addBlock}) before calling this.
+   * @param checkpoint - The proposed checkpoint metadata.
+   */
+  addProposedCheckpoint(checkpoint: ProposedCheckpointInput): Promise<void>;
+}
+
+/**
  * L2BlockSource that emits events upon pending / proven chain changes.
  * see L2BlockSourceEvents for the events emitted.
  */
@@ -294,6 +318,9 @@ export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
   [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
   [L2BlockSourceEvents.CheckpointEquivocationDetected]: (args: CheckpointEquivocationDetectedEvent) => void;
+  [L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected]: (
+    args: DescendentOfInvalidAttestationsCheckpointEvent,
+  ) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource {
   events: ArchiverEmitter;
@@ -376,6 +403,7 @@ export enum L2BlockSourceEvents {
   L2BlocksCheckpointed = 'l2BlocksCheckpointed',
   InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
   CheckpointEquivocationDetected = 'checkpointEquivocationDetected',
+  DescendentOfInvalidAttestationsCheckpointDetected = 'descendentOfInvalidAttestationsCheckpointDetected',
 }
 
 export type L2BlockProvenEvent = {
@@ -417,4 +445,20 @@ export type CheckpointEquivocationDetectedEvent = {
   checkpointNumber: CheckpointNumber;
   l1ArchiveRoot: Fr;
   proposedArchiveRoot: Fr;
+};
+
+/**
+ * Emitted when the archiver observes a checkpoint that builds on a previously-rejected
+ * ancestor (typically one with insufficient/invalid attestations). The descendant itself may
+ * have valid attestations, but it cannot be ingested because the chain it extends was
+ * skipped. The slasher uses this to slash the proposer of the descendant.
+ */
+export type DescendentOfInvalidAttestationsCheckpointEvent = {
+  type: 'descendentOfInvalidAttestationsCheckpointDetected';
+  /** The descendant checkpoint being rejected. */
+  checkpoint: CheckpointInfo;
+  /** Archive root of the rejected ancestor this descendant builds on. */
+  ancestorArchiveRoot: Fr;
+  /** Checkpoint number of the rejected ancestor. */
+  ancestorCheckpointNumber: CheckpointNumber;
 };

@@ -89,7 +89,6 @@ describe('e2e_epochs/epochs_mbps', () => {
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
-      enableProposerPipelining: true,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       startProverNode: true,

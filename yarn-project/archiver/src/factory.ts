@@ -1,7 +1,7 @@
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { makeL1HttpTransport } from '@aztec/ethereum/client';
-import { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
+import { InboxContract, OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import { pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -16,6 +16,7 @@ import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -33,14 +34,15 @@ export const ARCHIVER_STORE_NAME = 'archiver';
 
 /** Creates an archiver store. */
 export async function createArchiverStore(
-  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
+  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb'> & DataStoreConfig,
+  genesisBlockHash: BlockHash,
 ): Promise<ArchiverDataStores> {
   const config = {
     ...userConfig,
     dataStoreMapSizeKb: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKb,
   };
   const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config);
-  return createArchiverDataStores(store, { logsMaxPageSize: config.maxLogs });
+  return createArchiverDataStores(store, genesisBlockHash);
 }
 
 /**
@@ -56,11 +58,11 @@ export async function createArchiverStore(
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
   deps: ArchiverDeps,
-  opts: { blockUntilSync: boolean } = { blockUntilSync: true },
+  opts: { blockUntilSync: boolean; enableOrphanProposedBlockPruning?: boolean } = { blockUntilSync: true },
   initialHeader: BlockHeader,
   initialBlockHash: BlockHash,
 ): Promise<Archiver> {
-  const archiverStore = await createArchiverStore(config);
+  const archiverStore = await createArchiverStore(config, initialBlockHash);
   await registerProtocolContracts(archiverStore);
 
   // Create Ethereum clients
@@ -83,6 +85,7 @@ export async function createArchiver(
   // Create L1 contract instances
   const rollup = new RollupContract(publicClient, config.rollupAddress);
   const inbox = new InboxContract(publicClient, config.inboxAddress);
+  const outbox = new OutboxContract(publicClient, config.outboxAddress);
 
   // Fetch L1 constants from rollup contract
   const [
@@ -129,6 +132,8 @@ export async function createArchiver(
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: false,
       skipHistoricalLogsCheck: false,
+      orphanProposedBlockPruneGraceSeconds: MIN_EXECUTION_TIME,
+      enableOrphanProposedBlockPruning: opts.enableOrphanProposedBlockPruning ?? true,
     },
     mapArchiverConfig(config),
   );
@@ -168,6 +173,7 @@ export async function createArchiver(
     publicClient,
     debugClient,
     rollup,
+    outbox,
     { ...pickL1ContractAddresses(config), slashingProposerAddress },
     archiverStore,
     archiverConfig,
@@ -179,6 +185,7 @@ export async function createArchiver(
     initialHeader,
     initialBlockHash,
     l2TipsCache,
+    deps.dateProvider ?? new DateProvider(),
   );
 
   await archiver.start(opts.blockUntilSync);

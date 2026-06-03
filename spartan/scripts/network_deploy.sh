@@ -28,6 +28,7 @@ gcp_auth
 # Second pass: source environment with GCP secret processing
 source_network_env "$env_file"
 
+
 # Optional: provision per-network IP + managed cert (+ DNS record in the delegated
 # rpc.aztec-labs.com zone) via the network-frontend terraform module. The module's
 # outputs are exported as env vars that deploy_network.sh already consumes.

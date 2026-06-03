@@ -31,7 +31,7 @@ describe('addresses', () => {
     const address = await CompleteAddress.random();
     const otherAddress = await CompleteAddress.create(
       address.address,
-      new PublicKeys(Fr.random(), await Point.random(), Fr.random(), Fr.random()),
+      new PublicKeys(Fr.random(), await Point.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()),
       address.partialAddress,
     );
 

@@ -30,7 +30,6 @@ import {
   type ProposedCheckpointInput,
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
@@ -38,8 +37,6 @@ import {
   type IndexedTxEffect,
   TxEffect,
   TxHash,
-  TxReceipt,
-  TxStatus,
   deserializeIndexedTxEffect,
   serializeIndexedTxEffect,
 } from '@aztec/stdlib/tx';
@@ -61,7 +58,7 @@ import {
   ProposedCheckpointPromotionNotSequentialError,
 } from '../errors.js';
 
-export { TxReceipt, type TxEffect, type TxHash } from '@aztec/stdlib/tx';
+export type { TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -71,6 +68,41 @@ type BlockStorage = {
   archive: Buffer;
   checkpointNumber: number;
   indexWithinCheckpoint: number;
+};
+
+/** Reason a checkpoint was rejected during sync. */
+export type RejectedCheckpointReason = 'invalid-attestations' | 'descends-from-invalid-attestations';
+
+/**
+ * A checkpoint observed on L1 that the archiver decided not to ingest, recorded so that
+ * any descendant that builds on top of it can also be skipped (rather than throwing
+ * `InitialCheckpointNumberNotSequentialError` and looping). An entry is dropped via
+ * {@link BlockStore.removeRejectedCheckpointByArchiveRoot} once a checkpoint with the same
+ * archive root is later ingested as valid (e.g. it gathered enough attestations), which
+ * re-enables its descendants.
+ */
+export type RejectedCheckpoint = {
+  /** Checkpoint number this entry represents. */
+  checkpointNumber: CheckpointNumber;
+  /** Archive root produced by this rejected checkpoint (matched against descendants' `lastArchiveRoot`). */
+  archiveRoot: Fr;
+  /** `lastArchiveRoot` from this checkpoint's header (the ancestor it built on). */
+  parentArchiveRoot: Fr;
+  /** Slot number of the rejected checkpoint. */
+  slotNumber: SlotNumber;
+  /** L1 publication data for the rejected checkpoint (block number, hash, timestamp). */
+  l1: L1PublishedData;
+  /** Why the entry was recorded. */
+  reason: RejectedCheckpointReason;
+};
+
+type RejectedCheckpointStorage = {
+  checkpointNumber: number;
+  archiveRoot: Buffer;
+  parentArchiveRoot: Buffer;
+  slotNumber: number;
+  l1: Buffer;
+  reason: RejectedCheckpointReason;
 };
 
 /** Checkpoint Storage shared between Checkpoints + Proposed Checkpoints */
@@ -153,6 +185,12 @@ export class BlockStore {
   /** Index mapping block archive to block number */
   #blockArchiveIndex: AztecAsyncMap<string, number>;
 
+  /** Map rejected checkpoints (due to invalid attestations) by archive root */
+  #rejectedCheckpoints: AztecAsyncMap<string, RejectedCheckpointStorage>;
+
+  /** Index mapping a rejected checkpoint's number to its archive root, so the latest can be read in reverse order */
+  #rejectedCheckpointsByNumber: AztecAsyncMap<number, string>;
+
   #log = createLogger('archiver:block_store');
 
   constructor(private db: AztecAsyncKVStore) {
@@ -169,6 +207,8 @@ export class BlockStore {
     this.#checkpoints = db.openMap('archiver_checkpoints');
     this.#slotToCheckpoint = db.openMap('archiver_slot_to_checkpoint');
     this.#proposedCheckpoints = db.openMap('archiver_proposed_checkpoints');
+    this.#rejectedCheckpoints = db.openMap('archiver_rejected_checkpoints');
+    this.#rejectedCheckpointsByNumber = db.openMap('archiver_rejected_checkpoints_by_number');
   }
 
   /**
@@ -340,9 +380,13 @@ export class BlockStore {
 
         // Remove proposed checkpoint if it exists, since L1 is authoritative
         await this.#proposedCheckpoints.delete(checkpoint.checkpoint.number);
+
+        // Drop any rejected entry for this archive root: a checkpoint that was previously rejected
+        // (e.g. invalid attestations) is now being ingested as valid, so its descendants are allowed.
+        await this.removeRejectedCheckpointByArchiveRoot(checkpoint.checkpoint.archive.root);
       }
 
-      await this.#lastSynchedL1Block.set(checkpoints[checkpoints.length - 1].l1.blockNumber);
+      await this.advanceSynchedL1BlockNumber(checkpoints[checkpoints.length - 1].l1.blockNumber);
       return true;
     });
   }
@@ -387,7 +431,7 @@ export class BlockStore {
         feeAssetPriceModifier: incoming.checkpoint.feeAssetPriceModifier.toString(),
       });
       // Update the sync point to reflect the new L1 block
-      await this.#lastSynchedL1Block.set(incoming.l1.blockNumber);
+      await this.advanceSynchedL1BlockNumber(incoming.l1.blockNumber);
     }
     return checkpoints.slice(i);
   }
@@ -474,6 +518,7 @@ export class BlockStore {
         l2BlockNumber: block.number,
         l2BlockHash: blockHash,
         txIndexInBlock: i,
+        slotNumber: block.header.globalVariables.slotNumber,
       };
       await this.#txEffects.set(txEffect.data.txHash.toString(), serializeIndexedTxEffect(txEffect));
     }
@@ -776,8 +821,12 @@ export class BlockStore {
       // Remove only this pending entry — remaining entries N+1, N+2, ... stay valid
       await this.#proposedCheckpoints.delete(proposed.checkpointNumber);
 
+      // Drop any rejected entry for this archive root: a checkpoint that was previously rejected
+      // (e.g. invalid attestations) is now being promoted as valid, so its descendants are allowed.
+      await this.removeRejectedCheckpointByArchiveRoot(proposed.archive.root);
+
       // Update the last synced L1 block
-      await this.#lastSynchedL1Block.set(l1.blockNumber);
+      await this.advanceSynchedL1BlockNumber(l1.blockNumber);
     });
   }
 
@@ -1042,56 +1091,6 @@ export class BlockStore {
   }
 
   /**
-   * Gets a receipt of a settled tx.
-   * @param txHash - The hash of a tx we try to get the receipt for.
-   * @returns The requested tx receipt (or undefined if not found).
-   */
-  async getSettledTxReceipt(
-    txHash: TxHash,
-    l1Constants?: Pick<L1RollupConstants, 'epochDuration'>,
-  ): Promise<TxReceipt | undefined> {
-    const txEffect = await this.getTxEffect(txHash);
-    if (!txEffect) {
-      return undefined;
-    }
-
-    const blockNumber = BlockNumber(txEffect.l2BlockNumber);
-
-    // Use existing archiver methods to determine finalization level
-    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber, blockData] = await Promise.all([
-      this.getProvenBlockNumber(),
-      this.getCheckpointedL2BlockNumber(),
-      this.getFinalizedL2BlockNumber(),
-      this.getBlockData({ number: blockNumber }),
-    ]);
-
-    let status: TxStatus;
-    if (blockNumber <= finalizedBlockNumber) {
-      status = TxStatus.FINALIZED;
-    } else if (blockNumber <= provenBlockNumber) {
-      status = TxStatus.PROVEN;
-    } else if (blockNumber <= checkpointedBlockNumber) {
-      status = TxStatus.CHECKPOINTED;
-    } else {
-      status = TxStatus.PROPOSED;
-    }
-
-    const epochNumber =
-      blockData && l1Constants ? getEpochAtSlot(blockData.header.globalVariables.slotNumber, l1Constants) : undefined;
-
-    return new TxReceipt(
-      txHash,
-      status,
-      TxReceipt.executionResultFromRevertCode(txEffect.data.revertCode),
-      undefined,
-      txEffect.data.transactionFee.toBigInt(),
-      txEffect.l2BlockHash,
-      blockNumber,
-      epochNumber,
-    );
-  }
-
-  /**
    * Looks up which block included the requested tx effect.
    * @param txHash - The txHash of the tx.
    * @returns The block number and index of the tx.
@@ -1101,8 +1100,43 @@ export class BlockStore {
     if (!txEffect) {
       return undefined;
     }
-    const { l2BlockNumber, txIndexInBlock } = deserializeIndexedTxEffect(txEffect);
+    // Read only the IndexedTxEffect header (`blockHash(32) + l2BlockNumber(4) + txIndexInBlock(4)`); the
+    // large tail (the full TxEffect with logs etc.) is irrelevant here.
+    const view = Buffer.from(txEffect.buffer, txEffect.byteOffset, txEffect.byteLength);
+    const l2BlockNumber = view.readUInt32BE(32);
+    const txIndexInBlock = view.readUInt32BE(36);
     return [l2BlockNumber, txIndexInBlock];
+  }
+
+  /**
+   * Batched, partial deserializer that fetches `noteHashes` and `nullifiers` (all of them) for the given
+   * txs. For each input txHash, returns a `[noteHashes, nullifiers]` tuple. Returns `[[], []]` for any
+   * unknown txHash. Preserves input order. Used by the log read path when `includeEffects` is set to
+   * attach effect data on demand without paying for a full {@link TxEffect} deserialization.
+   *
+   * The on-disk `IndexedTxEffect` layout starts with a fixed-length header
+   * (`blockHash(32) + l2BlockNumber(4) + txIndexInBlock(4) + slotNumber(4) + revertCode(1) + txHash(32) +
+   * transactionFee(32)` = 109 bytes), followed by `noteHashes` and `nullifiers` (both u8-length-prefixed `Fr`
+   * vectors). We
+   * skip the header, then read the two vectors, and stop — the large tail (`l2ToL1Msgs`,
+   * `publicDataWrites`, `privateLogs`, `publicLogs`, `contractClassLogs`) is never touched.
+   */
+  public getNoteHashesAndNullifiers(txHashes: TxHash[]): Promise<[Fr[], Fr[]][]> {
+    return Promise.all(
+      txHashes.map(async (txHash): Promise<[Fr[], Fr[]]> => {
+        const buffer = await this.#txEffects.getAsync(txHash.toString());
+        if (!buffer) {
+          return [[], []];
+        }
+        const reader = BufferReader.asReader(buffer);
+        // Skip the fixed-length header: blockHash + l2BlockNumber + txIndexInBlock + slotNumber + revertCode +
+        // txHash + transactionFee.
+        reader.readBytes(32 + 4 + 4 + 4 + 1 + 32 + 32);
+        const noteHashes = reader.readVectorUint8Prefix(Fr);
+        const nullifiers = reader.readVectorUint8Prefix(Fr);
+        return [noteHashes, nullifiers];
+      }),
+    );
   }
 
   /**
@@ -1426,5 +1460,81 @@ export class BlockStore {
     } else {
       await this.#pendingChainValidationStatus.delete();
     }
+  }
+
+  /** Records a rejected-checkpoint entry, keyed by its own archive root. */
+  async addRejectedCheckpoint(entry: RejectedCheckpoint): Promise<void> {
+    const archiveRootHex = entry.archiveRoot.toString();
+    await this.#rejectedCheckpoints.set(archiveRootHex, {
+      checkpointNumber: entry.checkpointNumber,
+      archiveRoot: entry.archiveRoot.toBuffer(),
+      parentArchiveRoot: entry.parentArchiveRoot.toBuffer(),
+      slotNumber: entry.slotNumber,
+      l1: entry.l1.toBuffer(),
+      reason: entry.reason,
+    });
+    await this.#rejectedCheckpointsByNumber.set(entry.checkpointNumber, archiveRootHex);
+    await this.advanceSynchedL1BlockNumber(entry.l1.blockNumber);
+  }
+
+  /** Returns the rejected-checkpoint entry with the given archive root, or undefined if not present. */
+  async getRejectedCheckpointByArchiveRoot(archiveRoot: Fr): Promise<RejectedCheckpoint | undefined> {
+    const stored = await this.#rejectedCheckpoints.getAsync(archiveRoot.toString());
+    return stored ? this.rejectedCheckpointFromStorage(stored) : undefined;
+  }
+
+  /** Returns the rejected-checkpoint entry recorded for the given checkpoint number, or undefined if none. */
+  async getRejectedCheckpointByNumber(checkpointNumber: CheckpointNumber): Promise<RejectedCheckpoint | undefined> {
+    const archiveRootHex = await this.#rejectedCheckpointsByNumber.getAsync(checkpointNumber);
+    if (archiveRootHex === undefined) {
+      return undefined;
+    }
+    const stored = await this.#rejectedCheckpoints.getAsync(archiveRootHex);
+    return stored ? this.rejectedCheckpointFromStorage(stored) : undefined;
+  }
+
+  /** Returns the highest checkpoint number recorded across all rejected entries, or `INITIAL_CHECKPOINT_NUMBER - 1` if none. */
+  async getLatestRejectedCheckpointNumber(): Promise<CheckpointNumber> {
+    const [latest] = await toArray(this.#rejectedCheckpointsByNumber.keysAsync({ reverse: true, limit: 1 }));
+    return CheckpointNumber(latest ?? INITIAL_CHECKPOINT_NUMBER - 1);
+  }
+
+  /** Removes a rejected-checkpoint entry by its archive root (used when an entry no longer matches L1). */
+  async removeRejectedCheckpointByArchiveRoot(archiveRoot: Fr): Promise<void> {
+    const archiveRootHex = archiveRoot.toString();
+    const stored = await this.#rejectedCheckpoints.getAsync(archiveRootHex);
+    await this.#rejectedCheckpoints.delete(archiveRootHex);
+    if (stored) {
+      // Only clear the by-number index if it still points at this archive root, so a distinct
+      // entry that shares the checkpoint number (e.g. an L1 reorg replacement) is not dropped.
+      const indexed = await this.#rejectedCheckpointsByNumber.getAsync(stored.checkpointNumber);
+      if (indexed === archiveRootHex) {
+        await this.#rejectedCheckpointsByNumber.delete(stored.checkpointNumber);
+      }
+    }
+  }
+
+  /**
+   * Advances the stored last-synched L1 block number to `l1BlockNumber` only if it is strictly
+   * greater than the current value. Use this whenever ingesting checkpoint-shaped data so the
+   * sync pointer never walks backwards on out-of-order writes (e.g. an invalid checkpoint
+   * advance followed by a valid-checkpoint commit landing at an earlier L1 block).
+   */
+  private async advanceSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void> {
+    const current = await this.#lastSynchedL1Block.getAsync();
+    if (current === undefined || l1BlockNumber > current) {
+      await this.#lastSynchedL1Block.set(l1BlockNumber);
+    }
+  }
+
+  private rejectedCheckpointFromStorage(stored: RejectedCheckpointStorage): RejectedCheckpoint {
+    return {
+      checkpointNumber: CheckpointNumber(stored.checkpointNumber),
+      archiveRoot: Fr.fromBuffer(stored.archiveRoot),
+      parentArchiveRoot: Fr.fromBuffer(stored.parentArchiveRoot),
+      slotNumber: SlotNumber(stored.slotNumber),
+      l1: L1PublishedData.fromBuffer(stored.l1),
+      reason: stored.reason,
+    };
   }
 }

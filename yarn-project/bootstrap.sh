@@ -138,10 +138,14 @@ function compile_all {
     noir-test-contracts.js \
     noir-protocol-circuits-types \
     protocol-contracts \
-    pxe
+    pxe \
+    standard-contracts
   cat joblog.txt
 
   get_projects | compile_project
+
+  cd txe && yarn build
+  cd ..
 
   # Run oracle version checks after compilation
   cd pxe && yarn check_oracle_version

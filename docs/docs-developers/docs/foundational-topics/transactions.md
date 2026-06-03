@@ -120,7 +120,7 @@ The setup phase runs before the user's application logic. Fee-related bookkeepin
 - The fee payer is nominated via a call to the protocol's `set_as_fee_payer()` function. An FPC typically calls this in its entrypoint; a user paying directly with Fee Juice does it implicitly via the default entrypoint.
 - `end_setup()` is called to mark the boundary between the non-revertible and revertible phases. Everything committed before `end_setup()` stands regardless of whether later phases revert.
 
-Because the setup phase is non-revertible, the protocol restricts which public function calls are allowed during it. The default allowlist permits only protocol-contract setup functions (for example those on `AuthRegistry` and `FeeJuice`); in v4.2.0, public token functions such as `transfer_in_public` and `_increase_public_balance` were removed from it. See the [migration note](../resources/migration_notes.md#custom-token-fpcs-removed-from-default-public-setup-allowlist) for details.
+Because the setup phase is non-revertible, the protocol restricts which public function calls are allowed during it. The default allowlist permits a small set of trusted setup functions (for example those on `AuthRegistry` and `FeeJuice`); in v4.2.0, public token functions such as `transfer_in_public` and `_increase_public_balance` were removed from it. See the [migration note](../resources/migration_notes.md#custom-token-fpcs-removed-from-default-public-setup-allowlist) for details.
 
 Practical consequences:
 

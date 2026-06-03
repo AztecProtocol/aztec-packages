@@ -14,7 +14,7 @@ import {
   toArray,
   toForeignCallResult,
   toSingle,
-} from './util/encoding.js';
+} from './utils/encoding.js';
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -1141,5 +1141,14 @@ export class RPCTranslator {
       inputs,
       handler: ([sender, recipient]) => this.handlerAsPrivate().getNextAppTagAsSender(sender, recipient),
     });
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_prv_getNextConstrainedTaggingIndex(foreignAppSiloedSecret: ForeignCallSingle) {
+    const appSiloedSecret = fromSingle(foreignAppSiloedSecret);
+
+    const index = await this.handlerAsPrivate().getNextConstrainedTaggingIndex(appSiloedSecret);
+
+    return toForeignCallResult([toSingle(new Fr(index))]);
   }
 }

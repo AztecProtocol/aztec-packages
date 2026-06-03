@@ -284,21 +284,24 @@ describe('e2e_multi_validator_node', () => {
       deployL1ContractsValues,
       aztecNode,
       sequencer: sequencerClient,
-    } = await setup(1, {
-      ...PIPELINING_SETUP_OPTS,
-      initialValidators,
-      aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      keyStoreDirectory,
-      minTxsPerBlock: 1,
-      maxTxsPerBlock: 1,
-      archiverPollingIntervalMS: 200,
-      sequencerPollingIntervalMS: 200,
-      worldStateBlockCheckIntervalMS: 200,
-      blockCheckIntervalMS: 200,
-      startProverNode: true,
-      aztecEpochDuration: 8,
-      aztecProofSubmissionEpochs: 4,
-    }));
+    } = await setup(
+      1,
+      {
+        ...PIPELINING_SETUP_OPTS,
+        initialValidators,
+        aztecTargetCommitteeSize: COMMITTEE_SIZE,
+        keyStoreDirectory,
+        maxTxsPerBlock: 1,
+        archiverPollingIntervalMS: 200,
+        sequencerPollingIntervalMS: 200,
+        worldStateBlockCheckIntervalMS: 200,
+        blockCheckIntervalMS: 200,
+        startProverNode: true,
+        aztecEpochDuration: 8,
+        aztecProofSubmissionEpochs: 4,
+      },
+      { syncChainTip: 'checkpointed' },
+    ));
 
     sequencer = (sequencerClient! as TestSequencerClient).getSequencer();
     publisherFactory = (sequencer as TestSequencer).publisherFactory;

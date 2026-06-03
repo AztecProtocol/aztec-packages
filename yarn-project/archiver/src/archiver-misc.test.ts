@@ -1,15 +1,15 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import type { RollupContract } from '@aztec/ethereum/contracts';
+import type { OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import type { L2Tips } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, type L2Tips } from '@aztec/stdlib/block';
 import type { CheckpointData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -55,12 +55,10 @@ describe('Archiver misc', () => {
     const publicClient = mock<ViemPublicClient>();
     const blobClient = mock<BlobClientInterface>();
     const rollupContract = mock<RollupContract>();
-    const epochCache = mock<EpochCache>();
-    epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
 
     const tracer = getTelemetryClient().getTracer('');
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'), { logsMaxPageSize: 1000 });
+    const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'), GENESIS_BLOCK_HEADER_HASH);
     const events = new EventEmitter() as ArchiverEmitter;
     const initialHeader = BlockHeader.empty();
     const initialBlockHash = await initialHeader.hash();
@@ -70,6 +68,7 @@ describe('Archiver misc', () => {
       publicClient,
       publicClient,
       rollupContract,
+      mock<OutboxContract>(),
       {
         rollupAddress: EthAddress.random(),
         registryAddress: EthAddress.random(),
@@ -78,7 +77,13 @@ describe('Archiver misc', () => {
         slashingProposerAddress: EthAddress.random(),
       },
       archiverStore,
-      { pollingIntervalMs: 1000, batchSize: 1000, maxAllowedEthClientDriftSeconds: 300 },
+      {
+        pollingIntervalMs: 1000,
+        batchSize: 1000,
+        maxAllowedEthClientDriftSeconds: 300,
+        orphanProposedBlockPruneGraceSeconds: 2,
+        enableOrphanProposedBlockPruning: true,
+      },
       blobClient,
       instrumentation,
       l1Constants,
@@ -87,6 +92,7 @@ describe('Archiver misc', () => {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
+      new DateProvider(),
     );
   });
 

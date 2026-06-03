@@ -10,6 +10,8 @@ import type { ACVMWitness } from './acvm/acvm_types.js';
 import type { ACVMSuccess } from './acvm_native.js';
 import { type CircuitSimulator, enrichNoirError } from './circuit_simulator.js';
 
+let wasmInitPromise: Promise<unknown> | undefined;
+
 export class WASMSimulator implements CircuitSimulator {
   protected log: Logger;
 
@@ -23,7 +25,8 @@ export class WASMSimulator implements CircuitSimulator {
     // is a no-op.
     if (typeof initAbi === 'function') {
       /** @ts-expect-error The node bundle doesn't include these default imports, so TS complains */
-      await Promise.all([initAbi(), initACVM()]);
+      wasmInitPromise ??= Promise.all([initAbi(), initACVM()]);
+      await wasmInitPromise;
     }
   }
 

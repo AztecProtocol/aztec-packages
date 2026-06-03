@@ -8,7 +8,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { P2PClient, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointProposalCore } from '@aztec/stdlib/p2p';
-import { OffenseType } from '@aztec/stdlib/slashing';
+import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
 
@@ -89,10 +89,6 @@ export class BroadcastedInvalidCheckpointProposalWatcher
    * `currentSlot` at the archiver's last synced L2 slot.
    */
   public async scan(): Promise<void> {
-    if (this.config.slashBroadcastedInvalidCheckpointProposalPenalty <= 0n) {
-      return;
-    }
-
     const currentSlot = (await this.l2BlockSource.getSyncedL2SlotNumber()) ?? this.epochCache.getSlotNow();
     if (currentSlot <= SlotNumber(SCAN_SLOT_LAG)) {
       return;
@@ -111,10 +107,6 @@ export class BroadcastedInvalidCheckpointProposalWatcher
 
   /** Scans a single slot. Public for tests. */
   public async scanSlot(slot: SlotNumber): Promise<void> {
-    if (this.config.slashBroadcastedInvalidCheckpointProposalPenalty <= 0n) {
-      return;
-    }
-
     const proposals = await this.p2pClient.getProposalsForSlot(slot);
     const slashArgs = this.getSlashArgsForProposals(slot, proposals).filter(args => this.markAsNewOffense(args));
     if (slashArgs.length === 0) {
@@ -125,7 +117,8 @@ export class BroadcastedInvalidCheckpointProposalWatcher
       slot,
       offenses: slashArgs.map(args => ({
         validator: args.validator.toString(),
-        offenseType: args.offenseType,
+        amount: args.amount,
+        offenseType: getOffenseTypeName(args.offenseType),
         epochOrSlot: args.epochOrSlot,
       })),
     });

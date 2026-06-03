@@ -1,5 +1,5 @@
 import { getKzg } from '@aztec/blob-lib';
-import type { EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
@@ -11,10 +11,16 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
-import type { BlockData, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import type {
+  BlockData,
+  L2BlockSink,
+  L2BlockSource,
+  ProposedCheckpointSink,
+  ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -24,6 +30,7 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
+import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
@@ -45,6 +52,16 @@ import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
 
 export { SequencerState };
+
+/** Slot snapshot used to prepare a checkpoint proposal. */
+type SequencerSlotContext = {
+  slot: SlotNumber;
+  targetSlot: SlotNumber;
+  epoch: EpochNumber;
+  targetEpoch: EpochNumber;
+  ts: bigint;
+  nowSeconds: bigint;
+};
 
 /**
  * Sequencer client
@@ -95,7 +112,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected p2pClient: P2P,
     protected worldState: WorldStateSynchronizer,
     protected slasherClient: SlasherClientInterface | undefined,
-    protected l2BlockSource: L2BlockSource & L2BlockSink,
+    protected l2BlockSource: L2BlockSource & L2BlockSink & ProposedCheckpointSink,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
     protected checkpointsBuilder: FullNodeCheckpointsBuilder,
     protected l1Constants: SequencerRollupConstants,
@@ -137,7 +154,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         p2pPropagationTime,
         blockDurationMs: this.config.blockDurationMs,
         enforce: this.config.enforceTimeTable,
-        pipelining: this.epochCache.isProposerPipeliningEnabled(),
       },
       this.metrics,
       this.log,
@@ -214,8 +230,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   @trackSpan('Sequencer.work')
   protected async work() {
     this.setState(SequencerState.SYNCHRONIZING, undefined);
-    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
-    const { slot: targetSlot, epoch: targetEpoch } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
+    const { slot, targetSlot, epoch, targetEpoch, ts, nowSeconds } = this.getSlotContextInNextL1Slot();
 
     // Check if we are synced and it's our slot, grab a publisher, check previous block invalidation, etc
     const checkpointProposalJob = await this.prepareCheckpointProposal(
@@ -251,6 +266,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     return checkpoint;
+  }
+
+  /** Returns slot and target slot from a single clock snapshot. */
+  protected getSlotContextInNextL1Slot(): SequencerSlotContext {
+    const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const targetSlot = SlotNumber(slot + PROPOSER_PIPELINING_SLOT_OFFSET);
+    return { slot, targetSlot, epoch, targetEpoch: getEpochAtSlot(targetSlot, this.l1Constants), ts, nowSeconds };
   }
 
   /**
@@ -374,13 +396,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerForPublisher);
     this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
 
-    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need).
     // Only simulate invalidation when there's no proposed parent, since we assume the proposed parent
     // will invalidate the currently invalid checkpoint on L1.
     const invalidateCheckpoint =
-      (isPipelining && syncedTo.hasProposedCheckpoint) || syncedTo.pendingChainValidationStatus.valid
+      syncedTo.hasProposedCheckpoint || syncedTo.pendingChainValidationStatus.valid
         ? undefined
         : await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
 
@@ -389,7 +409,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // When invalidating or pipelining, the local archive may differ from L1's, so we adjust accordingly.
     let archiveForCheck = syncedTo.archive;
 
-    if (isPipelining && syncedTo.hasProposedCheckpoint) {
+    if (syncedTo.hasProposedCheckpoint) {
       this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
       this.log.verbose(
         `Building on top of proposed checkpoint (pending=${syncedTo.proposedCheckpointData?.checkpointNumber}) for target slot ${targetSlot}`,
@@ -415,8 +435,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // plus the parent checkpoint cell and fee header when pipelining.
     const simulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
       checkpointNumber,
-      proposedCheckpointData:
-        isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
+      proposedCheckpointData: syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
       invalidateToPendingCheckpointNumber: invalidateCheckpoint?.forcePendingCheckpointNumber,
       checkpointedCheckpointNumber: syncedTo.checkpointedCheckpointNumber,
       rollup: this.rollupContract,
@@ -440,7 +459,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.emit('preparing-checkpoint', {
       targetSlot,
       checkpointNumber,
-      hadProposedParent: this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint,
+      hadProposedParent: syncedTo.hasProposedCheckpoint,
       provenOverride,
       simulatedPending: simulationOverridesPlan?.chainTipsOverride?.pending,
     });
@@ -502,7 +521,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         ...logCtx,
         ...proposeContext,
         proposer,
-        pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
       },
     );
 
@@ -564,7 +582,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics,
       this.checkpointProposalJobMetrics.createRecorder(),
       this,
-      this.setState.bind(this),
+      (state, slot, timeReferenceSlot) => this.setState(state, slot, { timeReferenceSlot }),
       this.tracer,
       this.log.getBindings(),
       proposedCheckpointData,
@@ -581,13 +599,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /**
    * Internal helper for setting the sequencer state and checks if we have enough time left in the slot to transition to the new state.
    * @param proposedState - The new state to transition to.
-   * @param slotNumber - The current slot number.
+   * @param slotNumber - The logical slot associated with the new state.
    * @param force - Whether to force the transition even if the sequencer is stopped.
+   * @param timeReferenceSlot - The slot to use for deadline checks when it differs from the logical slot.
    */
   protected setState(
     proposedState: SequencerState,
     slotNumber: SlotNumber | undefined,
-    opts: { force?: boolean } = {},
+    opts: { force?: boolean; timeReferenceSlot?: SlotNumber } = {},
   ): void {
     if (this.state === SequencerState.STOPPING && proposedState !== SequencerState.STOPPED && !opts.force) {
       this.log.warn(`Cannot set sequencer to ${proposedState} as it is stopping.`);
@@ -598,8 +617,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
     let secondsIntoSlot = undefined;
-    if (slotNumber !== undefined) {
-      secondsIntoSlot = this.getSecondsIntoSlot(slotNumber);
+    const timeReferenceSlot = opts.timeReferenceSlot ?? slotNumber;
+    if (timeReferenceSlot !== undefined) {
+      secondsIntoSlot = this.getSecondsIntoSlot(timeReferenceSlot);
       this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
     }
 
@@ -616,6 +636,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       oldState,
       newState: proposedState,
       slotNumber,
+      timeReferenceSlot,
       stateSlotNumber: oldStateSlotNumber,
       secondsIntoSlot,
       ...(stateChanged && { stateDurationMs: Math.ceil(stateDurationMs) }),
@@ -626,6 +647,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       newState: proposedState,
       secondsIntoSlot,
       slot: slotNumber,
+      timeReferenceSlot,
     });
     if (stateChanged) {
       this.metrics.recordStateDuration(stateDurationMs, oldState);
@@ -699,6 +721,41 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
+    // Refuse to build a checkpoint on top of a proposed block whose enclosing checkpoint was never
+    // proposed. Under pipelining we may have received and reexecuted such a block locally — advancing
+    // our world-state tip past the checkpointed tip — while the proposing node never published the
+    // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
+    // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
+    // once their build slot ends; this guard is the correctness barrier during the grace window before.
+    if (
+      blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
+      (l2Tips.proposedCheckpoint.checkpoint.number !== blockData.checkpointNumber ||
+        proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber)
+    ) {
+      const logCtx = {
+        blockCheckpointNumber: blockData.checkpointNumber,
+        checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
+        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
+        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+        blockNumber: blockData.header.getBlockNumber(),
+        blockSlot: blockData.header.getSlot(),
+        syncedL2Slot,
+        ...args,
+      };
+
+      // Under pipelining the block proposal for a checkpoint leads its checkpoint proposal by up to one
+      // slot, so a world-state tip sitting in an as-yet-unproposed checkpoint is the expected steady state
+      // until that checkpoint is due. Only treat it as abnormal — and warn — once the checkpoint is overdue
+      // by the same deadline the archiver uses to prune the orphan block (see pruneOrphanProposedBlocks).
+      // Before then this is normal pipelining and we wait it out quietly.
+      if (this.isProposedCheckpointOverdue(blockData.header.getSlot())) {
+        this.log.warn(`Sequencer sync check failed: proposed block has no matching proposed checkpoint`, logCtx);
+      } else {
+        this.log.debug(`Waiting for proposed checkpoint to catch up with reexecuted block`, logCtx);
+      }
+      return undefined;
+    }
+
     const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
 
     // The l2Tips and proposedCheckpointData reads above come from independent archiver snapshots
@@ -744,6 +801,21 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       syncedL2Slot,
       pendingChainValidationStatus,
     };
+  }
+
+  /**
+   * Whether the enclosing checkpoint of a reexecuted block is overdue: past the deadline by which a
+   * well-behaved proposer should have published it. Mirrors the archiver's orphan-prune deadline (the
+   * start of the slot after the block's build slot, plus a grace period) so the sequencer only warns
+   * about a missing proposed checkpoint once the archiver itself would prune the orphan block. The grace
+   * is derived from the block build duration the same way the archiver defaults it at node wiring.
+   */
+  private isProposedCheckpointOverdue(blockSlot: SlotNumber): boolean {
+    const expectedBySlot = SlotNumber(Number(blockSlot) - PROPOSER_PIPELINING_SLOT_OFFSET + 1);
+    const graceSeconds =
+      this.config.blockDurationMs !== undefined ? Math.ceil(this.config.blockDurationMs / 1000) : MIN_EXECUTION_TIME;
+    const expectedByTime = getTimestampForSlot(expectedBySlot, this.l1Constants) + BigInt(graceSeconds);
+    return BigInt(this.dateProvider.nowInSeconds()) >= expectedByTime;
   }
 
   /**
@@ -908,8 +980,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Under proposer pipelining, the multicall is expected to mine in `targetSlot` (slot + 1).
     // Governance and slashing votes are EIP-712-signed against the slot they will mine in, and the
     // L1 contract checks `msg.sender == getCurrentProposer()` using the mining slot. So we must
-    // sign for `targetSlot` and delay submission to the start of `targetSlot`. When pipelining is
-    // disabled `targetSlot == slot` and `sendRequestsAt` resolves with no extra sleep.
+    // sign for `targetSlot` and delay submission to the start of `targetSlot`.
     const voter = new CheckpointVoter(
       targetSlot,
       publisher,

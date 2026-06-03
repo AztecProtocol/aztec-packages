@@ -150,8 +150,8 @@ describe('e2e_deploy_contract deploy method', () => {
     const { receipt } = await contract.methods
       .emit_public(arbitraryTag, arbitraryValue)
       .send({ from: defaultAccountAddress });
-    const logs = await aztecNode.getPublicLogs({ txHash: receipt.txHash });
-    expect(logs.logs[0].log.getEmittedFields()).toEqual([new Fr(arbitraryTag), new Fr(arbitraryValue)]);
+    const txEffect = await aztecNode.getTxEffect(receipt.txHash);
+    expect(txEffect?.data.publicLogs[0].getEmittedFields()).toEqual([new Fr(arbitraryTag), new Fr(arbitraryValue)]);
   });
 
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {

@@ -16,7 +16,7 @@ describe('e2e_epochs/epochs_partial_proof', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({ aztecEpochDuration: 1000, enableProposerPipelining: true });
+    test = await EpochsTestContext.setup({ aztecEpochDuration: 1000 });
     ({ monitor, logger } = test);
   });
 

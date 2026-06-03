@@ -15,6 +15,7 @@ import {
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { type ACVMField, fromUintArray, toACVMField } from '@aztec/simulator/client';
@@ -25,11 +26,24 @@ import { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { ContractClassLog, ContractClassLogFields, FlatPublicLogs, PrivateLog, Tag } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  ContractClassLogFields,
+  FlatPublicLogs,
+  MessageContext,
+  PendingTaggedLog,
+  PrivateLog,
+  Tag,
+} from '@aztec/stdlib/logs';
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
+import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import type { NoteData } from './interfaces.js';
@@ -259,6 +273,48 @@ const NOTE: TypeMapping<NoteData> = {
   },
 };
 
+export const POINT: TypeMapping<Point> = {
+  serialization: { fn: p => [p.toFields()] },
+  deserialization: {
+    fn: ([reader]) => Point.fromFields([reader.readField(), reader.readField()]),
+    slots: 1,
+  },
+};
+
+export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = {
+  serialization: { fn: log => [log.toFields()] },
+};
+
+export const NOTE_VALIDATION_REQUEST: TypeMapping<NoteValidationRequest> = {
+  deserialization: {
+    fn: ([reader]) => NoteValidationRequest.fromFields(reader),
+    slots: 1,
+  },
+};
+
+export const EVENT_VALIDATION_REQUEST: TypeMapping<EventValidationRequest> = {
+  deserialization: {
+    fn: ([reader]) => EventValidationRequest.fromFields(reader),
+    slots: 1,
+  },
+};
+
+export const LOG_RETRIEVAL_REQUEST: TypeMapping<LogRetrievalRequest> = {
+  serialization: { fn: req => [req.toFields()] },
+  deserialization: {
+    fn: ([reader]) => LogRetrievalRequest.fromFields(reader),
+    slots: 1,
+  },
+};
+
+export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = {
+  serialization: { fn: resp => [resp.toFields()] },
+};
+
+export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = {
+  serialization: { fn: mc => [mc.toFields()] },
+};
+
 export const ORACLE_REGISTRY = {
   aztec_utl_assertCompatibleOracleVersion: makeEntry({
     params: [
@@ -394,27 +450,25 @@ export const ORACLE_REGISTRY = {
 
   aztec_utl_getPendingTaggedLogs: makeEntry({
     params: [{ name: 'scope', type: AZTEC_ADDRESS }],
-    returnType: FIELD,
+    returnType: EPHEMERAL_ARRAY(PENDING_TAGGED_LOG),
   }),
 
   aztec_utl_validateAndStoreEnqueuedNotesAndEvents: makeEntry({
     params: [
-      { name: 'noteValidationRequestsArrayBaseSlot', type: FIELD },
-      { name: 'eventValidationRequestsArrayBaseSlot', type: FIELD },
-      { name: 'maxNotePackedLen', type: U32 },
-      { name: 'maxEventSerializedLen', type: U32 },
+      { name: 'noteValidationRequests', type: EPHEMERAL_ARRAY(NOTE_VALIDATION_REQUEST) },
+      { name: 'eventValidationRequests', type: EPHEMERAL_ARRAY(EVENT_VALIDATION_REQUEST) },
       { name: 'scope', type: AZTEC_ADDRESS },
     ],
   }),
 
   aztec_utl_getLogsByTag: makeEntry({
-    params: [{ name: 'requestArrayBaseSlot', type: FIELD }],
-    returnType: FIELD,
+    params: [{ name: 'requests', type: EPHEMERAL_ARRAY(LOG_RETRIEVAL_REQUEST) }],
+    returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)),
   }),
 
   aztec_utl_getMessageContextsByTxHash: makeEntry({
-    params: [{ name: 'requestArrayBaseSlot', type: FIELD }],
-    returnType: FIELD,
+    params: [{ name: 'requests', type: EPHEMERAL_ARRAY(FIELD) }],
+    returnType: EPHEMERAL_ARRAY(OPTION(MESSAGE_CONTEXT)),
   }),
 
   aztec_utl_getTxEffect: makeEntry({
@@ -471,10 +525,10 @@ export const ORACLE_REGISTRY = {
   aztec_utl_getSharedSecrets: makeEntry({
     params: [
       { name: 'address', type: AZTEC_ADDRESS },
-      { name: 'ephPksSlot', type: FIELD },
+      { name: 'ephPks', type: EPHEMERAL_ARRAY(POINT) },
       { name: 'contractAddress', type: AZTEC_ADDRESS },
     ],
-    returnType: FIELD,
+    returnType: EPHEMERAL_ARRAY(FIELD),
   }),
 
   aztec_utl_setContractSyncCacheInvalid: makeEntry({
@@ -625,11 +679,12 @@ export const ORACLE_REGISTRY = {
     returnType: TAG,
   }),
 
-  aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
-
-  aztec_prv_setSenderForTags: makeEntry({
-    params: [{ name: 'senderForTags', type: AZTEC_ADDRESS }],
+  aztec_prv_getNextConstrainedTaggingIndex: makeEntry({
+    params: [{ name: 'appSiloedSecret', type: FIELD }],
+    returnType: U32,
   }),
+
+  aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
 } satisfies Record<string, OracleRegistryEntry>;
 
 /**
@@ -723,8 +778,11 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
           .slice(offset, offset + slotCount)
           .map(slot => new FieldReader(slot.map(hex => Fr.fromString(hex))));
         offset += slotCount;
-        // Delegate to the TypeMapping's deserializer and tag the result with the param name.
-        return { name: param.name, value: param.type.deserialization.fn(readers) };
+        // Delegate to the TypeMapping's deserializer, assert the param's slots are fully consumed, and tag the
+        // result with the param name.
+        const value = param.type.deserialization.fn(readers);
+        assertReadersConsumed(readers);
+        return { name: param.name, value };
       }) as unknown as InferDeserializedParams<TParams>;
     },
     serializeReturn(result: TReturnValue): OutputSlot[] {
@@ -802,6 +860,9 @@ export function BOUNDED_VEC<T>(element: TypeMapping<T>): TypeMapping<BoundedVec<
             for (let i = 0; i < length; i++) {
               elements.push(element.deserialization!.fn([storageReader]));
             }
+            // Drain the trailing zero-padding (maxLength - length unused element slots) so the storage reader is
+            // fully consumed.
+            storageReader.skip(storageReader.remainingFields());
             return BoundedVec.from<T>({ data: elements, maxLength });
           },
           slots: 2,
@@ -848,11 +909,14 @@ export function OPTION<T>(inner: TypeMapping<T>): TypeMapping<Option<T>> {
       : undefined,
     deserialization: inner.deserialization
       ? {
-          fn: readers => {
-            if (readers[0].readField().isZero()) {
+          fn: ([discriminant, ...innerReaders]) => {
+            if (discriminant.readField().isZero()) {
+              // None still carries zero-filled inner slots on the wire; drain them so the inner readers are fully
+              // consumed.
+              innerReaders.forEach(reader => reader.skip(reader.remainingFields()));
               return Option.none<T>(undefined as unknown as T);
             }
-            return Option.some(inner.deserialization!.fn(readers.slice(1)));
+            return Option.some(inner.deserialization!.fn(innerReaders));
           },
           slots: inner.deserialization.slots + 1,
         }
@@ -873,6 +937,31 @@ export function BUFFER(bitSize: number): TypeMapping<Buffer> {
       },
       slots: 1,
     },
+  };
+}
+
+export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<EphemeralArray<T>> {
+  // An EphemeralArray param is a single slot; the per-param assert covers that slot but never sees the
+  // per-row readers materialized in readAll(). Assert full consumption per row here.
+  const rowElement: TypeMapping<T> | undefined = element.deserialization
+    ? {
+        deserialization: {
+          fn: readers => {
+            const value = element.deserialization!.fn(readers);
+            assertReadersConsumed(readers);
+            return value;
+          },
+          slots: element.deserialization.slots,
+        },
+      }
+    : undefined;
+  return {
+    serialization: element.serialization
+      ? { fn: ea => [ea.materializeSlot(v => element.serialization!.fn(v).flat() as Fr[])] }
+      : undefined,
+    deserialization: rowElement
+      ? { fn: ([reader]) => EphemeralArray.fromSlot(reader.readField(), rowElement), slots: 1 }
+      : undefined,
   };
 }
 
@@ -908,3 +997,16 @@ type InferDeserializedParams<T extends RegistryParam[]> = {
 };
 
 export type MaybePromise<T> = T | Promise<T>;
+
+/**
+ * Asserts that every reader was fully consumed by a deserialization, throwing on leftover fields.
+ */
+function assertReadersConsumed(readers: FieldReader[]): void {
+  readers.forEach((reader, slot) => {
+    if (!reader.isFinished()) {
+      throw new Error(
+        `Malformed oracle input: ${reader.remainingFields()} unexpected trailing field(s) in slot ${slot}`,
+      );
+    }
+  });
+}

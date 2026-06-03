@@ -98,7 +98,6 @@ describe('sentinel', () => {
     });
     epochCache.getSlotNow.mockReturnValue(slot);
     epochCache.getEpochNow.mockReturnValue(epoch);
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
     sentinel = new TestSentinel(epochCache, archiver, p2p, store, reexecutionTracker, config, blockStream);
@@ -980,6 +979,24 @@ describe('sentinel', () => {
           {
             validator: validator1,
             amount: config.slashInactivityPenalty,
+            offenseType: OffenseType.INACTIVITY,
+            epochOrSlot: 5n,
+          },
+        ]);
+      });
+
+      it('emits zero-amount inactivity offenses when the penalty is zero', async () => {
+        sentinel.updateConfig({ slashInactivityPenalty: 0n, slashInactivityConsecutiveEpochThreshold: 1 });
+        const emitSpy = jest.spyOn(sentinel, 'emit');
+
+        await sentinel.handleEpochPerformance(EpochNumber(5), {
+          [validator1.toString()]: { missed: 8, total: 10 },
+        });
+
+        expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+          {
+            validator: validator1,
+            amount: 0n,
             offenseType: OffenseType.INACTIVITY,
             epochOrSlot: 5n,
           },

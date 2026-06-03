@@ -75,6 +75,7 @@ import {
   createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForBlockProposalReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
+import { TxValidationCache } from '../../msg_validators/tx_validator/tx_validation_cache.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { getVersions } from '../../versioning.js';
@@ -202,6 +203,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     private blockMinFeesProvider: BlockMinFeesProvider,
     telemetry: TelemetryClient,
     logger: Logger = createLogger('p2p:libp2p_service'),
+    private txValidationCache?: TxValidationCache,
   ) {
     super(telemetry, 'LibP2PService');
     this.telemetry = telemetry;
@@ -302,6 +304,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry: TelemetryClient;
       logger: Logger;
       packageVersion: string;
+      txValidationCache?: TxValidationCache;
     },
   ) {
     const {
@@ -315,6 +318,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       telemetry,
       logger,
       packageVersion,
+      txValidationCache,
     } = deps;
     const { p2pPort, maxPeerCount, listenAddress } = config;
     const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
@@ -522,6 +526,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       blockMinFeesProvider,
       telemetry,
       logger,
+      txValidationCache,
     );
   }
 
@@ -715,10 +720,6 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
     this.allNodesCheckpointReceivedCallback = callback;
-  }
-
-  public async notifyOwnCheckpointProposal(checkpoint: CheckpointProposalCore): Promise<void> {
-    await this.allNodesCheckpointReceivedCallback(checkpoint, this.node.peerId);
   }
 
   /**
@@ -1341,17 +1342,33 @@ export class LibP2PService extends WithTracer implements P2PService {
       TopicType.checkpoint_proposal,
     );
 
+    // Process checkpoint proposal if valid and not equivocated.
+    const processCheckpointFn = () =>
+      result === TopicValidatorResult.Accept && checkpoint && !isEquivocated
+        ? this.processValidCheckpointProposal(checkpoint.toCore(), source)
+        : Promise.resolve();
+
     // If the checkpoint contained a valid last block, we process it even if the checkpoint itself is to be rejected
     // TODO(palla/mbps): Is this ok? Should we be considering a block from a checkpoint that was equivocated?
-    if (processBlock && checkpoint?.getBlockProposal()) {
-      await this.processValidBlockProposal(checkpoint.getBlockProposal()!, source);
-    }
+    const processBlockFn = () =>
+      processBlock && checkpoint && checkpoint.getBlockProposal()
+        ? this.processValidBlockProposal(checkpoint.getBlockProposal()!, source)
+        : Promise.resolve();
 
-    if (result !== TopicValidatorResult.Accept || !checkpoint || isEquivocated) {
+    // A node that skips checkpoint validation attests without re-executing the embedded last block, so run
+    // the checkpoint callback first: this creates and broadcasts the attestation before the block is
+    // processed. Otherwise the block's re-execution — which can stall until the re-execution deadline
+    // waiting for a parent that may never arrive — would delay the attestation past the slot's attestation
+    // window, after which peers reject it as stale.
+    if (this.config.skipCheckpointProposalValidation) {
+      await processCheckpointFn();
+      await processBlockFn();
       return;
     }
 
-    await this.processValidCheckpointProposal(checkpoint.toCore(), source);
+    // Process the block first, since it's required for the checkpoint proposal validation.
+    await processBlockFn();
+    await processCheckpointFn();
   }
 
   /**
@@ -1523,62 +1540,69 @@ export class LibP2PService extends WithTracer implements P2PService {
     peerId: PeerId,
   ): Promise<boolean> {
     try {
-      if (!response.archiveRoot.equals(request.archiveRoot)) {
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-        throw new ValidationError(
-          `Received block txs for unexpected archive root: expected ${request.archiveRoot.toString()}, got ${response.archiveRoot.toString()}`,
-        );
-      }
-
-      if (response.txIndices.getLength() !== request.txIndices.getLength()) {
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
-        throw new ValidationError(
-          `Received block txs with mismatched bitvector length: expected ${request.txIndices.getLength()}, got ${response.txIndices.getLength()}`,
-        );
-      }
-
-      // Check no duplicates and not exceeding returnable count
-      const requestedIndices = new Set(request.txIndices.getTrueIndices());
-      const availableIndices = new Set(response.txIndices.getTrueIndices());
-      const maxReturnable = [...requestedIndices].filter(i => availableIndices.has(i)).length;
-
-      const returnedHashes = await Promise.all(response.txs.map(tx => tx.getTxHash().toString()));
+      // Check for duplicates txs (or hashes) in the response.
+      const returnedHashes = response.txs.map(tx => tx.getTxHash().toString());
       const uniqueReturned = new Set(returnedHashes.map(h => h.toString()));
       if (uniqueReturned.size !== returnedHashes.length) {
         this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
         throw new ValidationError(`Received duplicate txs in block txs response`);
       }
-      if (response.txs.length > maxReturnable) {
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+
+      // We get the block tx hashes from the proposal or the archiver.
+      const proposal = await this.mempools.attestationPool.getBlockProposalByArchive(request.archiveRoot.toString());
+      const blockTxHashes =
+        proposal?.txHashes ??
+        (await this.archiver.getBlock({ archive: request.archiveRoot }))?.body.txEffects.map(e => e.txHash);
+
+      // If we don't have the block, we can't verify membership/order of the returned txs.
+      if (!blockTxHashes) {
+        // This shouldn't happen, since we asked for the block (proposal).
+        // Neither a local proposal nor an archived block: we cannot verify membership/order of the
+        // returned txs. This is a local-state gap, not a peer fault, so we do not penalize.
+        this.logger.warn(
+          `Block ${request.archiveRoot.toString()} not found in attestation pool or archiver; cannot validate membership/order of returned txs`,
+        );
+        // NOTE: We mark the response as invalid, given the limitations of a true/false return value.
+        return false;
+      }
+
+      // Verify that the returned tx hashes are a subset of (tx hashes by index) U (explicitly requested tx hashes).
+      const uniqueRequestedHashes = new Set([
+        // tx hashes requested by index.
+        ...request.txIndices.getTrueIndices().map(i => blockTxHashes[i].toString()),
+        // explicitly requested tx hashes.
+        ...request.txHashes.map(h => h.toString()),
+      ]);
+      if (!returnedHashes.every(h => uniqueRequestedHashes.has(h))) {
+        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
         throw new ValidationError(
-          `Received more txs (${response.txs.length}) than requested-and-available (${maxReturnable})`,
+          'Returned txs should be a subset of (tx hashes by index) U (explicitly requested tx hashes)',
         );
       }
 
-      // Given proposal (should have locally), ensure returned txs are valid subset and match request indices
-      const proposal = await this.mempools.attestationPool.getBlockProposalByArchive(request.archiveRoot.toString());
-      if (proposal) {
-        // Build intersected indices
-        const intersectIdx = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));
+      // Tx indices information is optional, but if present, we need to verify a few things.
+      if (!response.peerHasBlock()) {
+        this.logger.debug(`Peer ${peerId.toString()} signalled missing block`);
+        return true;
+      }
 
-        // Enforce subset membership and preserve increasing order by index.
-        const hashToIndexInProposal = new Map<string, number>(
-          proposal.txHashes.map((h, i) => [h.toString(), i] as [string, number]),
+      // If the response has a non-empty bitvector, it needs to be consistent with the number of txs in the block.
+      if (response.txIndices.getLength() !== blockTxHashes.length) {
+        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+        throw new ValidationError(
+          `Received block txs with mismatched bitvector length: expected ${blockTxHashes.length}, got ${response.txIndices.getLength()}`,
         );
-        const allowedIndexSet = new Set(intersectIdx);
-        const indices = returnedHashes.map(h => hashToIndexInProposal.get(h));
-        const allAllowed = indices.every(idx => idx !== undefined && allowedIndexSet.has(idx));
-        const strictlyIncreasing = indices.every((idx, i) => (i === 0 ? idx !== undefined : idx! > indices[i - 1]!));
-        if (!allAllowed || !strictlyIncreasing) {
-          this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
-          throw new ValidationError('Returned txs do not match expected subset/order for requested indices');
-        }
-      } else {
-        // No local proposal, cannot check the membership/order of the returned txs
-        this.logger.warn(
-          `Block proposal not found for archive root ${request.archiveRoot.toString()}; cannot validate membership/order of returned txs`,
-        );
-        return false;
+      }
+
+      // For every index we requested that the peer claims to have (per its bitvector), the
+      // corresponding tx must be present in the response. A peer advertising availability but
+      // withholding the tx is inconsistent.
+      const returnedHashSet = new Set(returnedHashes);
+      const expectedIndices = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));
+      const missingExpected = expectedIndices.some(i => !returnedHashSet.has(blockTxHashes[i].toString()));
+      if (missingExpected) {
+        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+        throw new ValidationError('Peer advertised requested txs via indices but did not return them');
       }
 
       return true;
@@ -1608,6 +1632,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         l1ChainId: this.config.l1ChainId,
         rollupVersion: this.config.rollupVersion,
         proofVerifier: this.proofVerifier,
+        txValidationCache: this.txValidationCache,
       },
       peerScoring: this.peerManager,
       validateRequestedBlockTxsConsistency: this.validateRequestedBlockTxsConsistency.bind(this),
@@ -1619,6 +1644,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.proofVerifier,
       { l1ChainId: this.config.l1ChainId, rollupVersion: this.config.rollupVersion },
       this.logger.getBindings(),
+      this.txValidationCache,
     );
 
     const results = await Promise.all(

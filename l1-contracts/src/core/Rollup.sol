@@ -210,6 +210,16 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getStorage().slasher;
   }
 
+  function getPendingSlasher() external view override(IStaking) returns (address slasher, Timestamp readyAt) {
+    slasher = StakingLib.getStorage().pendingSlasher;
+    readyAt = StakingLib.getStorage().pendingSlasherReadyAt.decompress();
+  }
+
+  function getLegacySlasher() external view override(IStaking) returns (address slasher, Timestamp authorizedUntil) {
+    slasher = StakingLib.getStorage().legacySlasher;
+    authorizedUntil = StakingLib.getStorage().legacySlasherAuthorizedUntil.decompress();
+  }
+
   function getLocalEjectionThreshold() external view override(IStaking) returns (uint256) {
     return StakingLib.getStorage().localEjectionThreshold;
   }
@@ -592,6 +602,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getEntryQueueAt(uint256 _index) external view override(IStaking) returns (DepositArgs memory) {
     return ValidatorOperationsExtLib.getEntryQueueAt(_index);
+  }
+
+  function getSlasherExecutionDelay() external pure override(IStaking) returns (uint256) {
+    return StakingLib.SLASHER_EXECUTION_DELAY;
+  }
+
+  function getLegacySlasherDrainWindow() external pure override(IStaking) returns (uint256) {
+    return StakingLib.LEGACY_SLASHER_DRAIN_WINDOW;
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {

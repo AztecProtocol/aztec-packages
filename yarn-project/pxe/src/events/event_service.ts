@@ -74,8 +74,8 @@ export class EventService {
     const txEffect = txEffects.get(txHash.toString());
     if (!txEffect) {
       // We error out instead of just logging a warning and skipping the event because this would indicate a bug. This
-      // is because the node has already served info about this tx either when obtaining the log (TxScopedL2Log contain
-      // tx info) or when getting metadata for the offchain message (before the message got passed to `process_log`).
+      // is because the node has already served info about this tx either when obtaining the log (LogResult carries
+      // the tx info) or when getting metadata for the offchain message (before the message got passed to `process_log`).
       throw new Error(`Could not find tx effect for tx hash ${txHash} when processing an event.`);
     }
 

@@ -83,9 +83,9 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
 
     address rollupOwner = Ownable(address(rollup)).owner();
     vm.expectEmit(true, true, true, true, address(rollup));
-    emit IValidatorSelectionCore.EscapeHatchUpdated(address(escapeHatch));
+    emit IValidatorSelectionCore.EscapeHatchSet(address(escapeHatch));
     vm.prank(rollupOwner);
-    rollup.updateEscapeHatch(address(escapeHatch));
+    rollup.setEscapeHatch(address(escapeHatch));
   }
 
   /**

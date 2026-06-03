@@ -119,10 +119,12 @@ struct PublicKeysHint {
     AffinePoint ivpk_m;
     FF ovpk_m_hash;
     FF tpk_m_hash;
+    FF mspk_m_hash;
+    FF fbpk_m_hash;
 
     bool operator==(const PublicKeysHint& other) const = default;
 
-    MSGPACK_CAMEL_CASE_FIELDS(npk_m_hash, ivpk_m, ovpk_m_hash, tpk_m_hash);
+    MSGPACK_CAMEL_CASE_FIELDS(npk_m_hash, ivpk_m, ovpk_m_hash, tpk_m_hash, mspk_m_hash, fbpk_m_hash);
 };
 
 struct ContractInstanceHint {

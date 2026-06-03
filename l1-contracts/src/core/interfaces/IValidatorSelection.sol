@@ -21,11 +21,11 @@ struct ValidatorSelectionStorage {
 }
 
 interface IValidatorSelectionCore {
-  event EscapeHatchUpdated(address escapeHatch);
+  event EscapeHatchSet(address escapeHatch);
 
   function setupEpoch() external;
   function checkpointRandao() external;
-  function updateEscapeHatch(address _escapeHatch) external;
+  function setEscapeHatch(address _escapeHatch) external;
 }
 
 interface IValidatorSelection is IValidatorSelectionCore, IEmperor {

@@ -33,7 +33,7 @@ export async function checkTx(
 // dependency when dropping PXE JSON RPC Server.
 
 async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash, log: LogFn) {
-  const [receipt, effectsInBlock] = await Promise.all([aztecNode.getTxReceipt(txHash), aztecNode.getTxEffect(txHash)]);
+  const receipt = await aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
   // Base tx data
   log(`Tx ${txHash.toString()}`);
   log(` Status: ${receipt.status}`);
@@ -44,11 +44,11 @@ async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash
     log(` Error: ${receipt.error}`);
   }
 
-  if (!effectsInBlock) {
+  if (!receipt.isMined() || !receipt.txEffect) {
     return;
   }
 
-  const effects = effectsInBlock.data;
+  const effects = receipt.txEffect;
   const artifactMap = await getKnownArtifacts(wallet);
 
   log(` Block: ${receipt.blockNumber} (${receipt.blockHash?.toString()})`);

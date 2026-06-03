@@ -180,8 +180,8 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     ///     let from = self.msg_sender();
     ///
     ///     let message: EventMessage = self.emit(Transfer { from, to, amount });
-    ///     message.deliver_to(from, MessageDelivery.OFFCHAIN);
-    ///     message.deliver_to(to, MessageDelivery.ONCHAIN_CONSTRAINED);
+    ///     message.deliver_to(from, MessageDelivery::offchain());
+    ///     message.deliver_to(to, MessageDelivery::onchain_constrained());
     /// }
     /// ```
     ///
