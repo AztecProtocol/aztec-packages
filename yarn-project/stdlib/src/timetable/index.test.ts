@@ -191,17 +191,22 @@ describe('ProposerTimetable', () => {
       expect(result.deadline).toBeUndefined();
     });
 
-    // Regression: with a tight fast profile where minD == D, the first sub-slot used to be anchored at
-    // build_frame_start, so any non-zero proposer prologue starved it (deadline - now < minD) and the
-    // checkpoint under-packed to a single block. The init offset gives the first sub-slot its full
-    // duration once the prologue completes, so a realistic late start still packs both sub-slots.
-    describe('packs minimum blocks with a realistic late proposer start (minD == D)', () => {
+    // Regression: with a tight profile the first sub-slot used to be anchored at build_frame_start, so any
+    // non-zero proposer prologue starved it (deadline - now < minD) and the checkpoint under-packed. The init
+    // offset gives the first sub-slot its full duration once the prologue completes, so a realistic late start
+    // still packs the minimum. This mirrors the l2_to_l1 e2e config (S=12, E=4, D=2): the timetable receives
+    // the production budget defaults (P=2, prepCp=1, minD=2) because the test does not override them, but the
+    // fast local profile (E < 8) clamps them down to fast values so the build window matches local timing.
+    describe('packs minimum blocks with a realistic late proposer start (l2_to_l1 12/4/2 fast profile)', () => {
       const tightS = 12;
       const tightE = 4;
       const tightD = 2;
       const tightSlot = SlotNumber(11);
       const tightBuildFrameStart = tightS * tightSlot - tightS - tightE;
 
+      // Pass production budget defaults to mirror the e2e config that sets only S/E/D; the fast profile
+      // (E < 8) clamps p2pPropagationTime to 0.5, checkpointProposalPrepareTime to 0.5, and minBlockDuration
+      // to 1, restoring the pre-refactor build-window capacity for fast local networks.
       const tight = new ProposerTimetable({
         l1Constants: l1Constants(tightS, tightE),
         blockDuration: tightD,
@@ -211,8 +216,15 @@ describe('ProposerTimetable', () => {
         enforce: true,
       });
 
-      it('derives two sub-slots', () => {
-        expect(tight.getMaxBlocksPerCheckpoint()).toBe(2);
+      it('clamps budgets to the fast profile', () => {
+        expect(tight.p2pPropagationTime).toBe(0.5);
+        expect(tight.checkpointProposalPrepareTime).toBe(0.5);
+        expect(tight.minBlockDuration).toBe(1);
+      });
+
+      it('derives three sub-slots (fast profile, not the production-budget two)', () => {
+        // floor((12 - init(1) - D(2) - 2*P(0.5) - prepCp(0.5)) / 2) = floor(7.5 / 2) = 3.
+        expect(tight.getMaxBlocksPerCheckpoint()).toBe(3);
       });
 
       it('selects sub-slot 0 (not 1) when starting just after the build frame opens', () => {
@@ -224,12 +236,13 @@ describe('ProposerTimetable', () => {
         expect(result.isLastBlock).toBe(false);
       });
 
-      it('selects the final sub-slot for the second block after the first finishes', () => {
-        // After building block 0 the proposer waits until sub-slot 0's deadline, then selects sub-slot 1.
-        const subslot0Deadline = tight.getBlockBuildDeadline(tightSlot, 0);
-        const result = tight.selectNextSubslot(tightSlot, subslot0Deadline);
+      it('selects the final sub-slot after the earlier blocks finish', () => {
+        // After building block 1 (index 1) the proposer waits until its deadline, then selects the final
+        // sub-slot (index 2).
+        const subslot1Deadline = tight.getBlockBuildDeadline(tightSlot, 1);
+        const result = tight.selectNextSubslot(tightSlot, subslot1Deadline);
         expect(result.canStart).toBe(true);
-        expect(result.index).toBe(1);
+        expect(result.index).toBe(2);
         expect(result.isLastBlock).toBe(true);
       });
     });
@@ -333,4 +346,104 @@ describe('calculateMaxBlocksPerSlot', () => {
   it('returns 1 for single-block mode', () => {
     expect(calculateMaxBlocksPerSlot(72, undefined)).toBe(1);
   });
+
+  // The fast local profile (E < 8) clamps the operational budgets so a fast network does not inherit the
+  // conservative production budgets, which would shrink the build window and under-pack checkpoints.
+  it('applies the fast profile to production-budget inputs on a low ethereum slot duration', () => {
+    // S=36, E=4, D=8 with production budgets would derive only 2; the fast profile restores 3.
+    expect(
+      calculateMaxBlocksPerSlot(36, 8, {
+        ethereumSlotDuration: 4,
+        p2pPropagationTime: 2,
+        checkpointProposalPrepareTime: 1,
+      }),
+    ).toBe(3);
+  });
+
+  it('does not apply the fast profile at or above the ethereum slot threshold', () => {
+    // S=36, E=12, D=6 with P=2: production budgets are kept -> floor((36-1-6-4-1)/6) = 4.
+    expect(
+      calculateMaxBlocksPerSlot(36, 6, {
+        ethereumSlotDuration: 12,
+        p2pPropagationTime: 2,
+        checkpointProposalPrepareTime: 1,
+      }),
+    ).toBe(4);
+  });
+});
+
+// Guards the per-checkpoint build capacity for the enforced-timetable multi-block e2e configs. Each config
+// only sets a subset of timing budgets; the rest fall back to production defaults, which on fast local
+// networks (E < 8) are clamped to the fast profile. These assertions pin the derived capacity to the value
+// required by the test's minBlocksForCheckpoint and to the expected build-window count, so a future
+// budget/profile change cannot silently under-pack these checkpoints again.
+describe('e2e multi-block-per-checkpoint capacity', () => {
+  // name, S, E, D, budgets the e2e config sets, required (minBlocksForCheckpoint), expected derived count.
+  const cases: Array<{
+    name: string;
+    S: number;
+    E: number;
+    D: number;
+    budgets: { p2pPropagationTime?: number; checkpointProposalPrepareTime?: number; minBlockDuration?: number };
+    required: number;
+    expected: number;
+  }> = [
+    // attested_invalid_proposal: sets attestationPropagationTime=0.5 only.
+    {
+      name: 'attested_invalid_proposal 36/4/8',
+      S: 36,
+      E: 4,
+      D: 8,
+      budgets: { p2pPropagationTime: 0.5 },
+      required: 3,
+      expected: 3,
+    },
+    // epochs_l1_reorgs: sets no timing budgets -> inherits production defaults, clamped by the fast profile.
+    { name: 'epochs_l1_reorgs 36/4/8', S: 36, E: 4, D: 8, budgets: {}, required: 2, expected: 3 },
+    // l2_to_l1: sets no timing budgets -> inherits production defaults, clamped by the fast profile. Derives
+    // 3 (the spec fast profile uses P=0.5; pre-refactor used P=0 and derived 4). Both exceed the required 2.
+    { name: 'l2_to_l1 12/4/2', S: 12, E: 4, D: 2, budgets: {}, required: 2, expected: 3 },
+    // epochs_high_tps_block_building: E=12 (>= threshold), sets attestationPropagationTime=1.
+    {
+      name: 'epochs_high_tps 36/12/6',
+      S: 36,
+      E: 12,
+      D: 6,
+      budgets: { p2pPropagationTime: 1 },
+      required: 2,
+      expected: 4,
+    },
+    // Production profile.
+    {
+      name: 'production 72/12/6',
+      S: 72,
+      E: 12,
+      D: 6,
+      budgets: { p2pPropagationTime: 2, checkpointProposalPrepareTime: 1, minBlockDuration: 2 },
+      required: 10,
+      expected: 10,
+    },
+  ];
+
+  it.each(cases)(
+    '$name derives >= minBlocksForCheckpoint and the expected build-window count',
+    ({ S, E, D, budgets, required, expected }) => {
+      const timetable = new ProposerTimetable({
+        l1Constants: l1Constants(S, E),
+        blockDuration: D,
+        enforce: true,
+        ...budgets,
+      });
+      const derived = timetable.getMaxBlocksPerCheckpoint();
+      expect(derived).toBeGreaterThanOrEqual(required);
+      expect(derived).toBe(expected);
+      // The shared pure function (used by p2p scoring) must agree with the proposer timetable.
+      expect(
+        calculateMaxBlocksPerSlot(S, D, {
+          ethereumSlotDuration: E,
+          ...budgets,
+        }),
+      ).toBe(derived);
+    },
+  );
 });

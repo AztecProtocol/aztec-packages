@@ -573,6 +573,13 @@ proposal receive deadline is later and is used for consensus acceptance.
 For mocked p2p networks, local profiles can use shorter propagation and preparation budgets. A fast profile should still
 preserve the same ordering constraints as production.
 
+These fast-profile budgets are applied automatically when `ethereum_slot_duration` is below
+`FAST_PROFILE_ETHEREUM_SLOT_DURATION` (8s): the timetable clamps `p2p_propagation_time`,
+`checkpoint_proposal_prepare_time`, and `min_block_duration` down to the fast values below. Without this, a fast network
+would inherit the conservative production budgets (e.g. `p2p_propagation_time = 2s`), which shrink the per-checkpoint
+build window and under-pack checkpoints. The clamp only lowers budgets, so an operator that explicitly configures a
+smaller value keeps it; `checkpoint_proposal_init_time` is a proposer prologue budget and is not affected by the profile.
+
 Recommended fast local profile:
 
 | Input | Proposed value | Rationale |

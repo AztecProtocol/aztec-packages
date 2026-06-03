@@ -23,6 +23,78 @@ export const DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME = 1;
 export const DEFAULT_L1_PUBLISHING_TIME = 12;
 
 /**
+ * Ethereum slot duration (seconds) below which a network is treated as a fast local/e2e profile with mocked
+ * p2p. Profiles at or above this keep the production operational budgets. Mainnet is 12s; fast anvil-style
+ * local profiles run at 4s.
+ */
+export const FAST_PROFILE_ETHEREUM_SLOT_DURATION = 8;
+
+/**
+ * Operational timing budgets for the fast local/e2e profile (mocked p2p), per the README's "Local e2e with
+ * mocked p2p" section. When `ethereum_slot_duration < FAST_PROFILE_ETHEREUM_SLOT_DURATION`, these cap the
+ * proposer's operational budgets so a fast network does not inherit the conservative production budgets,
+ * which would shrink the per-checkpoint build window and under-pack checkpoints. Explicitly configured
+ * budgets below these caps are kept as-is (the budgets are clamped down, never raised).
+ */
+export const FAST_PROFILE_P2P_PROPAGATION_TIME = 0.5;
+
+/** Fast-profile checkpoint proposal preparation budget (seconds). See {@link FAST_PROFILE_P2P_PROPAGATION_TIME}. */
+export const FAST_PROFILE_CHECKPOINT_PROPOSAL_PREPARE_TIME = 0.5;
+
+/** Fast-profile minimum block-building budget (seconds). See {@link FAST_PROFILE_P2P_PROPAGATION_TIME}. */
+export const FAST_PROFILE_MIN_BLOCK_DURATION = 1;
+
+/** Resolved operational timing budgets used to size the proposer build window. */
+type ResolvedTimingBudgets = {
+  minBlockDuration: number;
+  p2pPropagationTime: number;
+  checkpointProposalPrepareTime: number;
+  checkpointProposalInitTime: number;
+};
+
+/**
+ * Resolves the operational timing budgets from the (possibly undefined) inputs, applying the fast local/e2e
+ * profile when `ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION`.
+ *
+ * Production profiles (`ethereumSlotDuration` undefined or `>= FAST_PROFILE_ETHEREUM_SLOT_DURATION`) use the
+ * production defaults verbatim. Fast profiles clamp `p2pPropagationTime`, `checkpointProposalPrepareTime`,
+ * and `minBlockDuration` down to the fast-profile caps so a fast network (mocked p2p) gets a build window
+ * sized for local timing rather than the conservative production budgets. The clamp only lowers budgets, so
+ * an operator that explicitly configured a smaller value keeps it. `checkpointProposalInitTime` is unchanged
+ * by the profile: it is a proposer prologue budget, not a propagation/preparation budget.
+ */
+function resolveTimingBudgets(
+  ethereumSlotDuration: number | undefined,
+  opts: {
+    minBlockDuration?: number;
+    p2pPropagationTime?: number;
+    checkpointProposalPrepareTime?: number;
+    checkpointProposalInitTime?: number;
+  },
+): ResolvedTimingBudgets {
+  const minBlockDuration = opts.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION;
+  const p2pPropagationTime = opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME;
+  const checkpointProposalPrepareTime = opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME;
+  const checkpointProposalInitTime = opts.checkpointProposalInitTime ?? DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME;
+
+  const isFastProfile =
+    ethereumSlotDuration !== undefined && ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION;
+  if (!isFastProfile) {
+    return { minBlockDuration, p2pPropagationTime, checkpointProposalPrepareTime, checkpointProposalInitTime };
+  }
+
+  return {
+    minBlockDuration: Math.min(minBlockDuration, FAST_PROFILE_MIN_BLOCK_DURATION),
+    p2pPropagationTime: Math.min(p2pPropagationTime, FAST_PROFILE_P2P_PROPAGATION_TIME),
+    checkpointProposalPrepareTime: Math.min(
+      checkpointProposalPrepareTime,
+      FAST_PROFILE_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+    ),
+    checkpointProposalInitTime,
+  };
+}
+
+/**
  * @deprecated Use {@link DEFAULT_MIN_BLOCK_DURATION} (`min_block_duration`) instead. Retained for the
  * archiver/aztec-node grace periods that still key off the old `minExecutionTime` constant.
  */
@@ -176,15 +248,19 @@ export class ProposerTimetable extends ConsensusTimetable {
   }) {
     super({ l1Constants: opts.l1Constants, blockDuration: opts.blockDuration });
 
-    this.p2pPropagationTime = opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME;
-    this.checkpointProposalPrepareTime = opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME;
-    this.checkpointProposalInitTime = opts.checkpointProposalInitTime ?? DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME;
+    // Resolve operational budgets, applying the fast local/e2e profile for low ethereum slot durations so a
+    // fast network does not inherit the conservative production budgets (which would shrink the build window).
+    const budgets = resolveTimingBudgets(this.ethereumSlotDuration, opts);
+    this.p2pPropagationTime = budgets.p2pPropagationTime;
+    this.checkpointProposalPrepareTime = budgets.checkpointProposalPrepareTime;
+    this.checkpointProposalInitTime = budgets.checkpointProposalInitTime;
     this.enforce = opts.enforce;
 
     // Clamp min block duration to the block duration so a single sub-slot is always startable.
-    const minBlockDuration = opts.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION;
     this.minBlockDuration =
-      this.blockDuration !== undefined ? Math.min(minBlockDuration, this.blockDuration) : minBlockDuration;
+      this.blockDuration !== undefined
+        ? Math.min(budgets.minBlockDuration, this.blockDuration)
+        : budgets.minBlockDuration;
 
     this.maxBlocksPerCheckpoint = calculateMaxBlocksPerSlot(this.aztecSlotDuration, this.blockDuration, {
       ethereumSlotDuration: this.ethereumSlotDuration,
@@ -314,7 +390,9 @@ export class ProposerTimetable extends ConsensusTimetable {
  * where the first sub-slot starts one `checkpoint_proposal_init_time` (`init`) after `build_frame_start`, so it
  * simplifies to `floor((S - init - D - 2P - prepCp) / D)`. Used by both the proposer timetable and p2p
  * gossipsub scoring (which does not construct a proposer timetable). Single-block mode (`blockDuration`
- * undefined) returns 1.
+ * undefined) returns 1. The operational budgets are resolved via {@link resolveTimingBudgets}, so a fast
+ * local/e2e profile (`ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION`) sizes the window with the
+ * fast-profile budgets rather than the conservative production ones.
  *
  * @param aztecSlotDurationSec - Aztec slot duration (`S`) in seconds.
  * @param blockDurationSec - Block sub-slot duration (`D`) in seconds (undefined = single block mode).
@@ -335,9 +413,12 @@ export function calculateMaxBlocksPerSlot(
     return 1;
   }
 
-  const p2pPropagationTime = opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME;
-  const checkpointProposalPrepareTime = opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME;
-  const checkpointProposalInitTime = opts.checkpointProposalInitTime ?? DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME;
+  // Resolve budgets through the same fast/production profile selection the proposer uses, so p2p gossipsub
+  // scoring (which calls this without constructing a ProposerTimetable) derives the same block count.
+  const { p2pPropagationTime, checkpointProposalPrepareTime, checkpointProposalInitTime } = resolveTimingBudgets(
+    opts.ethereumSlotDuration,
+    opts,
+  );
 
   // last_block_build_time - (build_frame_start + init) = S - init - D - 2P - prepCp.
   const timeAvailableForBlocks =
