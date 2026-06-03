@@ -359,7 +359,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const isEscapeHatchOpen = await this.epochCache.isEscapeHatchOpen(targetEpoch);
 
     if (isEscapeHatchOpen) {
-      this.setState(SequencerState.PROPOSER_CHECK, slot);
+      this.setState(SequencerState.PROPOSER_CHECK, targetSlot);
       const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
       if (canPropose) {
         await this.tryVoteWhenEscapeHatchOpen({ slot, targetSlot, proposer });
@@ -406,7 +406,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     };
 
     // Check that we are a proposer for the target slot.
-    this.setState(SequencerState.PROPOSER_CHECK, slot);
+    this.setState(SequencerState.PROPOSER_CHECK, targetSlot);
     const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
 
     // If we are not a proposer check if we should invalidate an invalid checkpoint, and bail

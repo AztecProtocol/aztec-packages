@@ -55,4 +55,12 @@ describe('ConsensusTimetable', () => {
     expect(() => single.getCheckpointProposalReceiveDeadline(slot)).not.toThrow();
     expect(single.getCheckpointProposalReceiveDeadline(slot)).toBe(targetSlotStart - E);
   });
+
+  it('handles slot 0 without throwing (p2p validators evaluate windows for peer-supplied slots)', () => {
+    const zero = SlotNumber.ZERO;
+    expect(() => timetable.getBuildFrameStart(zero)).not.toThrow();
+    expect(timetable.getBuildFrameStart(zero)).toBe(-S - E);
+    expect(timetable.getCheckpointProposalReceiveDeadline(zero)).toBe(-E - D);
+    expect(timetable.getAttestationDeadline(zero)).toBe(S - 2 * E);
+  });
 });

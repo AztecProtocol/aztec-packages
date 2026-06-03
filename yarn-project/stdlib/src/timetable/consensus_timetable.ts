@@ -1,6 +1,6 @@
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
 
-import { type L1RollupConstants, getSlotStartBuildTimestamp, getTimestampForSlot } from '../epoch-helpers/index.js';
+import { type L1RollupConstants, getTimestampForSlot } from '../epoch-helpers/index.js';
 
 /** Slot-timing protocol constants the timetables derive wall-clock times from. */
 export type SlotTimingConstants = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
@@ -48,11 +48,12 @@ export class ConsensusTimetable {
   }
 
   /**
-   * Build-frame start for the target slot: `target_slot_start - S - E`, equal to
-   * `getSlotStartBuildTimestamp(slot - 1)`. Anchors all sub-slot timings.
+   * Build-frame start for the target slot: `target_slot_start - S - E`. Anchors all sub-slot timings.
+   * Computed directly (not via a `slot - 1` hop) so it is well-defined for slot 0, whose build frame
+   * predates genesis; p2p validators evaluate acceptance windows for arbitrary peer-supplied slots.
    */
   public getBuildFrameStart(slot: SlotNumber): number {
-    return getSlotStartBuildTimestamp(SlotNumber(slot - 1), this.getL1Constants());
+    return this.getTargetSlotStart(slot) - this.aztecSlotDuration - this.ethereumSlotDuration;
   }
 
   /** Start of the target slot: `genesis + slot * S`. */

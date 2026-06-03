@@ -131,7 +131,7 @@ This flow introduces two failure modes that block building has to handle:
    - Calls `publisher.canProposeAt(...)` — if L1 rejects the simulated propose, abort early.
 3. Constructs a `CheckpointProposalJob` and calls `.execute()`, parking the returned `pendingL1Submission` on the sequencer so `stop()` can await it without re-entering the loop.
 
-Each state transition flows through `setState()`, which calls `timetable.assertTimeLeft()`. If the slot has advanced past the deadline for the new state, this throws `SequencerTooSlowError` and the slot is abandoned.
+Each state transition flows through `setState()`, which records the state, emits `state-changed`, and updates metrics — nothing else. Timing is not enforced through states: the work loop and the job query explicit deadlines from the `ProposerTimetable` (the build-entry gate via `getBuildStartDeadline`, sub-slot selection via `selectNextSubslot`, attestation collection and L1 publishing bounded by `getAttestationDeadline`). When a deadline is hit, the slot is abandoned and marked as attempted so it is not retried.
 
 The sequencer is a `TypedEventEmitter<SequencerEvents>`. The most useful events are:
 
@@ -189,7 +189,7 @@ The per-block loop is the heart of the building flow:
 
 ```
 loop:
-  timing = timetable.canStartNextBlock(secondsIntoSlot)
+  timing = timetable.selectNextSubslot(targetSlot, now)
   if !timing.canStart:                       break
   if blocksBuilt >= maxBlocksPerCheckpoint:  break
 
@@ -216,16 +216,17 @@ loop:
   waitUntilNextSubSlot(timing.deadline)
 ```
 
-The deadlines passed to `CheckpointBuilder.buildBlock` are absolute timestamps (`slotStart + timing.deadline`). The builder uses these as hard caps on tx execution, so a slow block cannot eat into the next sub-slot.
+The deadlines passed to `CheckpointBuilder.buildBlock` are absolute timestamps. The builder uses these as hard caps on tx execution, so a slow block cannot eat into the next sub-slot.
 
-`maxBlocksPerCheckpoint` (the timetable's `maxNumberOfBlocks`) and `perBlockAllocationMultiplier` (default 1.2) are passed in opts so that the builder can redistribute the remaining checkpoint budget (L2 gas, DA gas, blob fields, tx count) across the remaining blocks. See [validator-client/README.md § Block Building Limits](../validator-client/README.md#block-building-limits) for the redistribution math; the sequencer only sets the inputs.
+`maxBlocksPerCheckpoint` (bounded by the timetable's `getMaxBlocksPerCheckpoint()` and the configured cap) and `perBlockAllocationMultiplier` (default 1.2) are passed in opts so that the builder can redistribute the remaining checkpoint budget (L2 gas, DA gas, blob fields, tx count) across the remaining blocks. See [validator-client/README.md § Block Building Limits](../validator-client/README.md#block-building-limits) for the redistribution math; the sequencer only sets the inputs.
 
 ### Timetable
 
-`SequencerTimetable` (`src/sequencer/timetable.ts`) is a thin wrapper around `CheckpointTiming` (from `@aztec/stdlib/timetable`). It owns two responsibilities:
+The sequencer builds a `ProposerTimetable` (from `@aztec/stdlib/timetable`) directly from its config and the L1 constants. Key getters:
 
-- **Sub-slot scheduling**: `canStartNextBlock(secondsIntoSlot)` finds the next sub-slot with at least `minExecutionTime` remaining and returns its deadline and whether it is the last sub-slot. If we are running late, sub-slots are skipped; we never start a block we cannot finish.
-- **Per-state deadlines**: `getMaxAllowedTime(state)` returns the latest seconds-into-slot value a state is allowed to be entered; `assertTimeLeft()` enforces it.
+- **Sub-slot scheduling**: `selectNextSubslot(slot, now)` finds the next sub-slot with at least `minBlockDuration` remaining and returns its absolute deadline and whether it is the last sub-slot. If we are running late, sub-slots are skipped; we never start a block we cannot finish.
+- **Build-entry gate**: `getBuildStartDeadline(slot)` is the latest useful time to start building for a target slot; past it, the work loop abandons the slot without building.
+- **Consensus bounds**: the inherited `ConsensusTimetable` getters (`getAttestationDeadline`, the proposal/attestation receive windows) bound attestation collection, L1 publishing, and p2p ingress.
 
 See the [Block Building Timetable Spec](../stdlib/src/timetable/README.md) for the full timing model, including the
 ideal/deadline split for checkpoint proposals, the consensus-only receive deadline, and the failure-mode walkthroughs.
@@ -281,7 +282,6 @@ The configuration object is `SequencerConfig` (`src/sequencer/config.ts` + `src/
 | `blockDurationMs` / `SEQ_BLOCK_DURATION_MS` | unset | Length of one sub-slot in ms. `undefined` falls back to single-block-per-slot mode (used by tests / sandbox). |
 | `enforceTimeTable` / `SEQ_ENFORCE_TIME_TABLE` | true | If false, deadlines are not enforced and a single block is built with unbounded time. |
 | `attestationPropagationTime` / `SEQ_ATTESTATION_PROPAGATION_TIME` | 2 s | One-way p2p estimate fed to the timetable. |
-| `l1PublishingTime` / `SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT` | full L1 slot | Late-publish allowance used to derive `attestation_deadline`. |
 | `sequencerPollingIntervalMS` / `SEQ_POLLING_INTERVAL_MS` | 500 | Work-loop tick rate. |
 
 ### Behavior
@@ -305,7 +305,7 @@ The full list (including test/fault-injection hooks like `pauseProposingForSlots
 - **Out of sync**: `checkSync` fails → governance/slashing votes still go out via `tryVoteWhenSyncFails`, but no block is built.
 - **Insufficient txs in a sub-slot**: `CheckpointBuilder.buildBlock` returns `insufficient-txs`. The sub-slot is skipped without committing state; the next sub-slot retries. On the last sub-slot, if `buildCheckpointIfEmpty` is true, the block is still built with whatever is available (possibly zero txs).
 - **Sub-slot deadline exceeded**: `CheckpointBuilder` enforces the deadline and stops executing further txs. The block is finalized with whatever fit.
-- **Timetable deadline exceeded**: `assertTimeLeft` throws `SequencerTooSlowError`. The current slot is abandoned and the loop resets to `IDLE`.
+- **Build start deadline exceeded**: the work loop abandons the slot before building and marks it as attempted so the same checkpoint is not retried. Inside the job, sub-slot and attestation deadlines bound their own phases.
 - **Pipelined parent fails on L1**: `waitForValidParentCheckpointOnL1` returns false. The whole proposal is discarded (`pipelined-checkpoint-discarded`), the parent is enqueued for invalidation, and the L1 submission for *this* checkpoint is not sent.
 - **L1 submission reverts or expires**: `checkpoint-publish-failed` is emitted with the individual action results so observability can break down which actions in the Multicall3 went through and which didn't.
 
@@ -336,5 +336,5 @@ The integration tests of interest are:
 - `src/sequencer/sequencer.test.ts` — work-loop behavior, escape-hatch and invalidation fallbacks.
 - `src/sequencer/checkpoint_proposal_job.test.ts` — full per-slot job, including pipelined parent validation and discard paths.
 - `src/sequencer/checkpoint_proposal_job.timing.test.ts` — sub-slot timing and skip behavior under simulated clock drift.
-- `src/sequencer/timetable.test.ts` — pure math against `CheckpointTiming`.
+- `stdlib/src/timetable/*.test.ts` — pure math against `ConsensusTimetable` / `ProposerTimetable`.
 - `src/publisher/sequencer-publisher.test.ts` — request ordering, `sendRequestsAt`, preCheck re-runs.
