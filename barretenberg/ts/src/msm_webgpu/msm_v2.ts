@@ -154,6 +154,45 @@ const DEFAULT_WGI = 128; // generic kernel workgroup size
 const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
 const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
 
+type ReducePass = { isDouble: boolean; shaderPhase: number; p2x: number; p2y: number; ppw: number };
+
+// The recursive affine bucket reduction's data-independent 4-phase schedule for
+// a region of `stride` (= 2^(c-1)) buckets per window. Pure function of stride +
+// l0Log, so split-c builds one schedule for the lower region (stride_max) and a
+// separate, shorter one for the sparse upper region (stride_hi = 2^(c_hi-1)) —
+// the upper region's work scales with stride_hi, not the envelope.
+function buildReducePasses(stride: number, l0Log: number): ReducePass[] {
+  const C0 = Math.max(1, Math.min(l0Log, Math.log2(stride) - 1));
+  const L0 = 1 << C0;
+  const D = stride / L0;
+  const passes: ReducePass[] = [];
+  const push = (isDouble: boolean, shaderPhase: number, p2x: number, p2y: number, ppw: number) =>
+    passes.push({ isDouble, shaderPhase, p2x, p2y, ppw });
+  for (let l = L0 - 1; l >= 1; l--) push(false, 0, L0, l, D);
+  for (let L1 = L0; L1 < stride; L1 *= 2) push(false, 1, L0, L1, stride / (2 * L1));
+  for (let j = 0; j < C0; j++) push(true, 2, L0, 0, D - 1);
+  for (let L1 = 2 * L0; L1 < stride; L1 *= 2) push(true, 2, L1, 0, stride / L1 - 1);
+  for (let mm = 1; mm < stride; mm *= 2) push(false, 2, L0, mm, stride / (2 * mm));
+  if (passes.length > 64) throw new Error(`reduction schedule too long: ${passes.length} > 64`);
+  return passes;
+}
+
+// Flatten a reduce schedule into the per-level lparams rows the reduce kernel
+// reads: (pa, pb, ppw, kind). kind: 0 = suffix-add, 1 = tree-add, 2 = double.
+function flattenReduceSchedule(passes: ReducePass[]): Uint32Array {
+  const schedule = new Uint32Array(64 * 4);
+  passes.forEach((p, i) => {
+    const kind = p.isDouble ? 2 : p.shaderPhase === 0 ? 0 : 1;
+    const a = !p.isDouble && p.shaderPhase !== 0 ? p.p2y : p.p2x;
+    const b = !p.isDouble && p.shaderPhase === 0 ? p.p2y : 0;
+    schedule[i * 4 + 0] = kind;
+    schedule[i * 4 + 1] = a;
+    schedule[i * 4 + 2] = b;
+    schedule[i * 4 + 3] = p.ppw;
+  });
+  return schedule;
+}
+
 /**
  * Tuning knobs for {@link MsmV2}. Every field is optional and defaults to the
  * value that reproduces current behaviour, so `{}` (or omitting it) is a no-op
@@ -1680,6 +1719,13 @@ export class MsmV2 {
   // fast path MUST rebind when it differs or the gather/redStaging (sized to the
   // old numWindows) overflow → gpu=0.
   private capNumWindows: number = 0;
+  // Whether the cached buffers/binds were built for a region-split prepare. The
+  // fast path only re-uploads scalars — it does NOT refresh idx_large (the
+  // scalar-specific compacted large-scalar indices), the upper decompose's
+  // nLarge uniforms, or the tight reduceGroups. So a region-split prepare can
+  // never share the fast path with a different scalar set: force the slow rebuild
+  // whenever either the cached or the incoming prepare is region-split.
+  private capRegionSplit = false;
   // Pair-block tile size (derived from capTotalPairBlocks); persists so run()
   // can skip dispatching tiles past the current plan's totalPairBlocks.
   private fusedTileSize: number = 0;
@@ -1727,6 +1773,11 @@ export class MsmV2 {
   private wLo = 0;
   private wHi = 0;
   private nLarge = 0;
+  // Tight red_buf base slot per window — the running prefix of per-window bucket
+  // counts (2^(c_w-1)). For no-split (uniform stride) this equals w*stride; for
+  // split-c the upper windows pack at stride_hi after the lower's stride_max,
+  // so the reduction touches Σ 2^(c_w-1) slots, not numWindows*stride_max.
+  private reduceOffsets: number[] = [];
   private decomposeUpperBind?: GPUBindGroup;
   private xposeCountUpperBind?: GPUBindGroup;
   private xposeScatterUpperBind?: GPUBindGroup;
@@ -1765,6 +1816,9 @@ export class MsmV2 {
   private padYOffset: number = 0; // Y plane pad start = 2*planeBytes - padBytesPerPlane
   private convMetaBinds!: GPUBindGroup[];
   private reduceInitBind!: GPUBindGroup;
+  // One bind per reduce level (lparams = level index); all share the per-window
+  // schedule table so a single dispatch per level reduces every window at its
+  // own stride. Length = max_levels (the stride_max schedule length).
   private reduceLevelBinds: GPUBindGroup[] = [];
   private levelBinds: LevelBind[] = [];
 
@@ -1883,20 +1937,10 @@ export class MsmV2 {
     for (let j = 0; j < 3; j++) m.padPts.push({ x: randomBelow(FP, rng), y: randomBelow(FP, rng) });
     if (m.padPts[0].x === m.padPts[1].x) m.padPts[1].x = (m.padPts[1].x + 1n) % FP;
 
-    // The reduction's data-independent 4-phase schedule.
-    const STRIDE = m.stride;
-    const C0 = Math.max(1, Math.min(L0_LOG, Math.log2(STRIDE) - 1));
-    const L0 = 1 << C0;
-    const D = STRIDE / L0;
-    m.reducePasses = [];
-    const push = (isDouble: boolean, shaderPhase: number, p2x: number, p2y: number, ppw: number) =>
-      m.reducePasses.push({ isDouble, shaderPhase, p2x, p2y, ppw });
-    for (let l = L0 - 1; l >= 1; l--) push(false, 0, L0, l, D);
-    for (let L1 = L0; L1 < STRIDE; L1 *= 2) push(false, 1, L0, L1, STRIDE / (2 * L1));
-    for (let j = 0; j < C0; j++) push(true, 2, L0, 0, D - 1);
-    for (let L1 = 2 * L0; L1 < STRIDE; L1 *= 2) push(true, 2, L1, 0, STRIDE / L1 - 1);
-    for (let mm = 1; mm < STRIDE; mm *= 2) push(false, 2, L0, mm, STRIDE / (2 * mm));
-    if (m.reducePasses.length > 64) throw new Error(`reduction schedule too long: ${m.reducePasses.length} > 64`);
+    // The reduction's data-independent 4-phase schedule (envelope stride_max).
+    // Split-c builds a second, shorter schedule for the upper region at prepare()
+    // time (stride_hi is data-dependent on n_large).
+    m.reducePasses = buildReducePasses(m.stride, L0_LOG);
     // --- Layouts (pool-cached: same `types` shape → same GPUBindGroupLayout
     // across every MsmV2 instance bound to this pool) ---
     const lt = (types: GPUBufferBindingType[]): GPUBindGroupLayout => pool.cache.getLayout(types);
@@ -1970,7 +2014,7 @@ export class MsmV2 {
     m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
     m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
-    m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform']);
+    m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
     // Streaming planner + accumulator layouts
     m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.metaFixupLayout = lt(['storage']);
@@ -2400,6 +2444,13 @@ export class MsmV2 {
     // boundary interaction is a follow-up). Multi-batch splits fall back to the
     // unified all-n decompose/transpose (correct, just not the perf win yet).
     this.regionSplit = wantRegionSplit && numBatches === 1;
+    // When the region-split can't run (no split, or multi-batch fallback), the
+    // reduce covers every window in one stride_max region — reset wLo/wHi so the
+    // lower dispatch spans all numWindows and no upper dispatch is issued.
+    if (!this.regionSplit) {
+      this.wLo = this.numWindows;
+      this.wHi = 0;
+    }
     for (const p of levelPlans) {
       p.totalPairBlocks = batchWindows * p.pairBlocksPerWindow;
       p.totalCarries = batchWindows * p.carriesPerWindow;
@@ -2427,6 +2478,10 @@ export class MsmV2 {
       numBatches === this.capNumBatches &&
       NUM_WINDOWS === this.capNumWindows &&
       MAXC <= this.capMAXC &&
+      // Region-split state (idx_large, upper nLarge uniforms, tight reduceGroups)
+      // is scalar-specific and the fast path doesn't refresh it. Never share it.
+      !this.regionSplit &&
+      !this.capRegionSplit &&
       this.boundEpoch === this.pool.scratchEpoch;
     if (fits) {
       this.fastPathRewrite(scalars, srsOffset, levelPlans, levels);
@@ -2471,6 +2526,7 @@ export class MsmV2 {
     this.capNumBatches = numBatches;
     this.capMAXC = MAXC;
     this.capNumWindows = NUM_WINDOWS;
+    this.capRegionSplit = this.regionSplit;
 
     // Only uniform buffers are per-instance now — the big storage buffers
     // live in `pool.scratch` and are shared across every MsmV2 bound to
@@ -2616,6 +2672,14 @@ export class MsmV2 {
     const wdData = new Uint32Array(WD_ROWS * WD_STRIDE);
     let wdBitBase = 0; // prefix of window widths
     let wdWorkOff = 0; // prefix of num_columns (packed CSR bucket base)
+    let wdReduceOff = 0; // tight prefix of per-window bucket counts (2^(c_w-1))
+    this.reduceOffsets = new Array(WD_ROWS);
+    // Tight reduce_off (Σ 2^(c_k-1)) only when the region-split reduce is active:
+    // the upper windows then pack at stride_hi and a stride_hi schedule reduces
+    // them. Otherwise (no-split, or the multi-batch split fallback that can't
+    // region-split) use envelope spacing w*stride_max — a uniform stride_max
+    // reduce over each window's slot, empties skipped by is_present. For uniform
+    // windowCs the two coincide (byte-identical to the pre-split path).
     for (let w = 0; w < WD_ROWS; w++) {
       const o = w * WD_STRIDE;
       // Per-window width: the schedule for real windows, envelope c for the
@@ -2623,14 +2687,17 @@ export class MsmV2 {
       const cw = w < this.windowCs.length ? this.windowCs[w] : c;
       const strideW = 2 ** (cw - 1);
       const numColsW = Math.ceil((2 ** (cw - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
+      const reduceOff = this.regionSplit ? wdReduceOff : w * this.stride;
       wdData[o + 0] = cw; // window_bits
       wdData[o + 1] = wdBitBase; // bit_base (prefix of widths)
       wdData[o + 2] = strideW; // num_buckets (this window's red slots)
       wdData[o + 3] = wdWorkOff; // work_off (prefix of num_columns — packed CSR base)
-      wdData[o + 4] = w * this.stride; // reduce_off (PADDED to envelope stride)
+      wdData[o + 4] = reduceOff;
       wdData[o + 5] = numColsW; // num_columns (this window's CSR column count)
+      this.reduceOffsets[w] = reduceOff;
       wdBitBase += cw;
       wdWorkOff += numColsW;
+      wdReduceOff += strideW;
     }
     const windowDescBuf = device.createBuffer({
       size: wdData.byteLength,
@@ -2756,34 +2823,56 @@ export class MsmV2 {
     this.rowPtrBuf = rowPtrBuf;
     this.nXposePts = Math.ceil(n / WGI);
 
-    // --- Reduction ---
-    // MAXC was already computed above (needed for the fits-check) and saved
-    // into capMAXC; the schedule is purely a function of reducePasses so it's
-    // also instance-invariant.
-    const schedule = new Uint32Array(64 * 4);
-    this.reducePasses.forEach((p, i) => {
-      const kind = p.isDouble ? 2 : p.shaderPhase === 0 ? 0 : 1;
-      const a = !p.isDouble && p.shaderPhase !== 0 ? p.p2y : p.p2x;
-      const b = !p.isDouble && p.shaderPhase === 0 ? p.p2y : 0;
-      schedule[i * 4 + 0] = kind;
-      schedule[i * 4 + 1] = a;
-      schedule[i * 4 + 2] = b;
-      schedule[i * 4 + 3] = p.ppw;
-    });
+    // --- Reduction (table-driven, single dispatch-set) ---
+    // MAXC was computed above (the fits-check needs it). max_levels is the row
+    // stride of the per-window schedule table — the longest group's schedule
+    // length, which is the stride_max schedule (this.reducePasses). ONE dispatch
+    // per level covers every window: each reads its own base + per-level
+    // (pa,pb,ppw,kind) from reduce_sched, so a narrow c_hi window reduces only
+    // 2^(c_hi-1) buckets and no-ops the levels past its shorter schedule while
+    // the wide stride_max windows run all max_levels. No extra dispatches for the
+    // split — the reduce work drops with c_hi without adding dispatch latency.
     const redBuf = scratch.redBuf;
     const isPresentBuf = scratch.isPresentBuf;
     const reducePrefScratch = scratch.reducePrefScratch;
-    // Phase 5: lparams now carries the kind as the 4th slot so the unified
-    // reduce kernel can branch on it at runtime. cparams are level-invariant.
-    const cparams = ubuf(new Uint32Array([RED_M, this.capMAXC, this.stride, 0]));
-    this.reduceLevelBinds = this.reducePasses.map((_, i) => {
-      const lparams = ubuf(new Uint32Array([
-        schedule[i * 4 + 1], // pa
-        schedule[i * 4 + 2], // pb
-        schedule[i * 4 + 3], // ppw
-        schedule[i * 4 + 0], // kind (was 0/unused before Phase 5)
-      ]));
-      return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams]);
+    const maxLevels = this.reducePasses.length;
+    // Per-window schedule table: row w = [base, 0,0,0] then max_levels × (pa, pb,
+    // ppw, kind). capMAXC (from the widest stride_max schedule) bounds every
+    // window's per-thread scratch use, so the shared reducePrefScratch fits.
+    const rowVec4 = 1 + maxLevels;
+    const schedTable = new Uint32Array(this.numWindows * rowVec4 * 4);
+    const schedCache = new Map<number, { flat: Uint32Array; nLev: number }>();
+    for (let w = 0; w < this.numWindows; w++) {
+      const cw = this.windowCs[w];
+      const strideW = 2 ** (cw - 1);
+      const rowU32 = w * rowVec4 * 4;
+      schedTable[rowU32 + 0] = this.reduceOffsets[w]; // base = tight/envelope reduce_off
+      // stride 1 (cw==1) needs no reduction (the lone bucket already sits at base
+      // and is the window sum), and the schedule recurrence needs stride >= 2 —
+      // leave the whole row as no-ops (ppw==0).
+      if (strideW >= 2) {
+        let entry = schedCache.get(strideW);
+        if (!entry) {
+          const passes = strideW === this.stride ? this.reducePasses : buildReducePasses(strideW, this.l0Log);
+          entry = { flat: flattenReduceSchedule(passes), nLev: passes.length };
+          schedCache.set(strideW, entry);
+        }
+        for (let lv = 0; lv < entry.nLev; lv++) {
+          const o = rowU32 + (1 + lv) * 4;
+          schedTable[o + 0] = entry.flat[lv * 4 + 1]; // pa
+          schedTable[o + 1] = entry.flat[lv * 4 + 2]; // pb
+          schedTable[o + 2] = entry.flat[lv * 4 + 3]; // ppw
+          schedTable[o + 3] = entry.flat[lv * 4 + 0]; // kind
+        }
+      }
+    }
+    const schedBuf = device.createBuffer({ size: schedTable.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    device.queue.writeBuffer(schedBuf, 0, schedTable as BufferSource);
+    this.prepBuffers.push(schedBuf);
+    const cparams = ubuf(new Uint32Array([RED_M, this.capMAXC, maxLevels, 0]));
+    this.reduceLevelBinds = Array.from({ length: maxLevels }, (_, lv) => {
+      const lparams = ubuf(new Uint32Array([lv, 0, 0, 0]));
+      return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams, schedBuf]);
     });
     this.redBuf = redBuf;
 
@@ -2959,7 +3048,11 @@ export class MsmV2 {
         // + pair-tree multi-dispatch: 2 (init) + 17 × 3 (build + dispatch + combine) + 1 (finalize) = 54
         passes += 7 + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
       }
-      passes += 1 + this.reducePasses.length;
+      // Reduce = one dispatch per level (table-driven, all windows). +1 keeps
+      // the historical slack slot.
+      passes += 1 + this.reduceLevelBinds.length;
+      // Region-split adds 3 preprocess dispatches (upper decompose/count/scatter).
+      if (this.regionSplit) passes += 3;
       this.passCount = passes;
       this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
       this.tsResolveBuf = device.createBuffer({
@@ -3279,14 +3372,20 @@ export class MsmV2 {
     // Phase 5: ONE pipeline drives every level (kind branched at runtime
     // off lparams.w). reduceLevelKinds is no longer consulted.
     const reducePipe = this.reduceLevelPipes[0];
+    // One dispatch per level over all windows; each window reads its own base +
+    // per-level schedule from reduce_sched, so narrow split-c windows no-op the
+    // levels past their shorter schedule (ppw==0) — fewer buckets, same dispatch
+    // count as the uniform reduce.
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
       dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
     }
     // Per-window weighted sum gather. Same SoA stride math as run(), just
-    // targeting an external staging buffer at an external offset.
+    // targeting an external staging buffer at an external offset. The red_buf
+    // Y-plane stays at the envelope redM (the baked M_RED the writers use); the
+    // per-window base is the tight reduceOffsets prefix.
     const yPlane = 32 * this.redM;
     for (let w = 0; w < this.numWindows; w++) {
-      const g = 32 * w * this.stride;
+      const g = 32 * this.reduceOffsets[w];
       enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + g, dstStaging, dstByteOff + w * 64, 32);
       enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + yPlane + g, dstStaging, dstByteOff + w * 64 + 32, 32);
     }

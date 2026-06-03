@@ -41,9 +41,19 @@ const KIND_DOUBLE:  u32 = 2u;   // slot = 2*slot, slot = base + (j2+1)*pa
 @group(0) @binding(2) var<storage, read_write> pref_scratch: array<vec4<u32>>;
 @group(0) @binding(3) var<uniform>             cparams:      vec4<u32>;
 @group(0) @binding(4) var<uniform>             lparams:      vec4<u32>;
-// cparams = (M (red_buf element stride), maxc (pref slots/thread), STRIDE, _)
-//   — constant across all levels.
-// lparams = (pa, pb, ppw, kind) — this level's flattened schedule entry.
+@group(0) @binding(5) var<storage, read>       reduce_sched: array<vec4<u32>>;
+// cparams = (M (red_buf element stride), maxc (pref slots/thread), max_levels,
+//   _) — constant across all levels. max_levels is the per-window row stride in
+//   reduce_sched (the longest group's schedule length, = the stride_max length).
+// lparams = (lv, _, _, _) — the level index this dispatch executes.
+//
+// reduce_sched is the per-window schedule table, row stride (1 + max_levels)
+// vec4: row[0].x = base (this window's first red_buf slot — the tight reduce_off
+// prefix), row[1 + lv] = (pa, pb, ppw, kind) for level lv. Each window carries
+// its OWN stride's schedule, so a narrow split-c window (c_hi) reduces only
+// 2^(c_hi-1) buckets and no-ops (ppw==0) the levels past its shorter schedule,
+// while the wide stride_max windows run all max_levels — one dispatch per level
+// covers every window at its own stride, with no extra dispatches for the split.
 
 fn load_x(idx: u32, M: u32) -> array<u32, 8> {
     let base = PG * idx;
@@ -101,12 +111,15 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
     let tid = lid.x;      // thread within the workgroup
     let M = cparams.x;
     let maxc = cparams.y;
-    let stride = cparams.z;
-    let pa = lparams.x;
-    let pb = lparams.y;
-    let ppw = lparams.z;
-    let kind = lparams.w;
-    let base = w * stride;
+    let max_levels = cparams.z;
+    let lv = lparams.x;
+    let row = w * (1u + max_levels);
+    let base = reduce_sched[row].x;          // window's first red_buf slot (tight reduce_off)
+    let e = reduce_sched[row + 1u + lv];
+    let pa = e.x;
+    let pb = e.y;
+    let ppw = e.z;
+    let kind = e.w;
     let scratch_base = (w * WG + tid) * maxc;
     // Candidates per thread this level — uniform across the workgroup.
     let C = (ppw + WG - 1u) / WG;
