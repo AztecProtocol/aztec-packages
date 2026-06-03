@@ -1,9 +1,12 @@
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 
-import { mock } from 'jest-mock-extended';
-
-import { MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS, PipeliningWindow } from './clock_tolerance.js';
+import {
+  MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS,
+  getAttestationReceiveWindow,
+  getProposalReceiveWindow,
+  isWithinClockWindow,
+} from './clock_tolerance.js';
 
 describe('clock_tolerance', () => {
   describe('MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS', () => {
@@ -19,98 +22,82 @@ describe('clock_tolerance', () => {
   const S = 72;
   const E = 12;
   const D = 6;
-  const SLOT = 100;
-  const buildFrameStart = SLOT * S - S - E; // 100*72 - 84 = 7116
-  const proposalDeadline = SLOT * S - E - D; // 7182
-  const attestationDeadline = SLOT * S + S - 2 * E; // 7248
+  const SLOT = SlotNumber(100);
+  const buildFrameStart = 100 * S - S - E; // 7116
+  const proposalDeadline = 100 * S - E - D; // 7182
+  const attestationDeadline = 100 * S + S - 2 * E; // 7248
+  const delta = MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS / 1000;
 
-  /** Mocks the wall-clock time used by PipeliningWindow (epochCache.getEpochAndSlotNow().nowMs). */
-  function mockNow(epochCache: ReturnType<typeof mock<EpochCacheInterface>>, nowSeconds: number) {
-    epochCache.getEpochAndSlotNow.mockReturnValue({
-      epoch: 1 as any,
-      slot: SlotNumber(SLOT),
-      ts: BigInt(Math.floor(nowSeconds)),
-      nowMs: BigInt(Math.round(nowSeconds * 1000)),
-    });
-  }
+  const timetable = new ConsensusTimetable({
+    l1Constants: { l1GenesisTime: 0n, slotDuration: S, ethereumSlotDuration: E },
+    blockDuration: D,
+  });
 
-  describe('PipeliningWindow.acceptsProposal', () => {
-    let epochCache: ReturnType<typeof mock<EpochCacheInterface>>;
-    let pipeliningWindow: PipeliningWindow;
-
-    beforeEach(() => {
-      epochCache = mock<EpochCacheInterface>();
-      epochCache.getL1Constants.mockReturnValue({
-        l1GenesisTime: 0n,
-        slotDuration: S,
-        ethereumSlotDuration: E,
-      } as any);
-      pipeliningWindow = new PipeliningWindow(epochCache, { blockDurationMs: D * 1000 });
+  describe('getProposalReceiveWindow', () => {
+    it('returns the tight checkpoint proposal receive bounds', () => {
+      expect(getProposalReceiveWindow(timetable, SLOT)).toEqual({
+        startSeconds: buildFrameStart,
+        deadlineSeconds: proposalDeadline,
+      });
     });
 
-    it('accepts a proposal arriving inside the receive window', () => {
-      mockNow(epochCache, buildFrameStart + 1);
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(SLOT))).toBe(true);
+    it('accepts a proposal arriving inside the window', () => {
+      const { startSeconds, deadlineSeconds } = getProposalReceiveWindow(timetable, SLOT);
+      expect(isWithinClockWindow((buildFrameStart + 1) * 1000, startSeconds, deadlineSeconds)).toBe(true);
     });
 
     it('accepts a proposal at the build frame start minus clock disparity', () => {
-      mockNow(epochCache, buildFrameStart - MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS / 1000);
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(SLOT))).toBe(true);
+      const { startSeconds, deadlineSeconds } = getProposalReceiveWindow(timetable, SLOT);
+      expect(isWithinClockWindow((buildFrameStart - delta) * 1000, startSeconds, deadlineSeconds)).toBe(true);
     });
 
-    it('rejects a proposal arriving before the receive window opens', () => {
-      mockNow(epochCache, buildFrameStart - 1);
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(SLOT))).toBe(false);
+    it('rejects a proposal arriving before the window opens', () => {
+      const { startSeconds, deadlineSeconds } = getProposalReceiveWindow(timetable, SLOT);
+      expect(isWithinClockWindow((buildFrameStart - 1) * 1000, startSeconds, deadlineSeconds)).toBe(false);
     });
 
     it('accepts a proposal at the receive deadline plus clock disparity', () => {
-      mockNow(epochCache, proposalDeadline + MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS / 1000);
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(SLOT))).toBe(true);
+      const { startSeconds, deadlineSeconds } = getProposalReceiveWindow(timetable, SLOT);
+      expect(isWithinClockWindow((proposalDeadline + delta) * 1000, startSeconds, deadlineSeconds)).toBe(true);
     });
 
     it('rejects a proposal arriving after the receive deadline plus clock disparity', () => {
-      mockNow(epochCache, proposalDeadline + 1);
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(SLOT))).toBe(false);
+      const { startSeconds, deadlineSeconds } = getProposalReceiveWindow(timetable, SLOT);
+      expect(isWithinClockWindow((proposalDeadline + 1) * 1000, startSeconds, deadlineSeconds)).toBe(false);
     });
   });
 
-  describe('PipeliningWindow.acceptsAttestation', () => {
-    let epochCache: ReturnType<typeof mock<EpochCacheInterface>>;
-    let pipeliningWindow: PipeliningWindow;
-
-    beforeEach(() => {
-      epochCache = mock<EpochCacheInterface>();
-      epochCache.getL1Constants.mockReturnValue({
-        l1GenesisTime: 0n,
-        slotDuration: S,
-        ethereumSlotDuration: E,
-      } as any);
-      pipeliningWindow = new PipeliningWindow(epochCache, { blockDurationMs: D * 1000 });
+  describe('getAttestationReceiveWindow', () => {
+    it('returns the liberal attestation receive bounds', () => {
+      expect(getAttestationReceiveWindow(timetable, SLOT)).toEqual({
+        startSeconds: buildFrameStart,
+        deadlineSeconds: attestationDeadline,
+      });
     });
 
     it('accepts an attestation arriving early (at the build frame start)', () => {
-      mockNow(epochCache, buildFrameStart);
-      expect(pipeliningWindow.acceptsAttestation(SlotNumber(SLOT))).toBe(true);
+      const { startSeconds, deadlineSeconds } = getAttestationReceiveWindow(timetable, SLOT);
+      expect(isWithinClockWindow(buildFrameStart * 1000, startSeconds, deadlineSeconds)).toBe(true);
     });
 
     it('accepts an attestation arriving well into the target slot (liberal window)', () => {
-      mockNow(epochCache, SLOT * S + 30); // 30s into the target slot
-      expect(pipeliningWindow.acceptsAttestation(SlotNumber(SLOT))).toBe(true);
+      const { startSeconds, deadlineSeconds } = getAttestationReceiveWindow(timetable, SLOT);
+      expect(isWithinClockWindow((100 * S + 30) * 1000, startSeconds, deadlineSeconds)).toBe(true);
     });
 
     it('accepts an attestation at the attestation deadline plus clock disparity', () => {
-      mockNow(epochCache, attestationDeadline + MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS / 1000);
-      expect(pipeliningWindow.acceptsAttestation(SlotNumber(SLOT))).toBe(true);
+      const { startSeconds, deadlineSeconds } = getAttestationReceiveWindow(timetable, SLOT);
+      expect(isWithinClockWindow((attestationDeadline + delta) * 1000, startSeconds, deadlineSeconds)).toBe(true);
     });
 
     it('rejects an attestation arriving after the attestation deadline plus clock disparity', () => {
-      mockNow(epochCache, attestationDeadline + 1);
-      expect(pipeliningWindow.acceptsAttestation(SlotNumber(SLOT))).toBe(false);
+      const { startSeconds, deadlineSeconds } = getAttestationReceiveWindow(timetable, SLOT);
+      expect(isWithinClockWindow((attestationDeadline + 1) * 1000, startSeconds, deadlineSeconds)).toBe(false);
     });
 
     it('rejects an attestation arriving before the receive window opens', () => {
-      mockNow(epochCache, buildFrameStart - 1);
-      expect(pipeliningWindow.acceptsAttestation(SlotNumber(SLOT))).toBe(false);
+      const { startSeconds, deadlineSeconds } = getAttestationReceiveWindow(timetable, SLOT);
+      expect(isWithinClockWindow((buildFrameStart - 1) * 1000, startSeconds, deadlineSeconds)).toBe(false);
     });
   });
 });

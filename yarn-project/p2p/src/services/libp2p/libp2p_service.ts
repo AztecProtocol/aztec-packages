@@ -24,6 +24,7 @@ import {
   getTopicsForConfig,
   metricsTopicStrToLabels,
 } from '@aztec/stdlib/p2p';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -233,26 +234,41 @@ export class LibP2PService extends WithTracer implements P2PService {
       this.protocolVersion,
     );
 
+    // Build the consensus timetable once from protocol slot-timing constants plus the block duration, and
+    // inject it into every validator so they share one set of receive-window bounds (built once, passed
+    // around per the timetable refactor).
+    const consensusTimetable = new ConsensusTimetable({
+      l1Constants: epochCache.getL1Constants(),
+      blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
+    });
     const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
-      blockDurationMs: config.blockDurationMs,
       skipSlotValidation: config.skipProposalSlotValidation,
       signatureContext: {
         chainId: config.l1ChainId,
         rollupAddress: config.rollupAddress,
       },
     };
-    this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
-    this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
+    this.blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, proposalValidatorOpts);
+    this.checkpointProposalValidator = new CheckpointProposalValidator(
+      epochCache,
+      consensusTimetable,
+      proposalValidatorOpts,
+    );
     const attestationValidatorOpts = {
-      blockDurationMs: config.blockDurationMs,
       signatureContext: proposalValidatorOpts.signatureContext,
     };
     this.checkpointAttestationValidator = config.fishermanMode
-      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, attestationValidatorOpts)
-      : new CheckpointAttestationValidator(epochCache, attestationValidatorOpts);
+      ? new FishermanAttestationValidator(
+          epochCache,
+          consensusTimetable,
+          mempools.attestationPool,
+          telemetry,
+          attestationValidatorOpts,
+        )
+      : new CheckpointAttestationValidator(epochCache, consensusTimetable, attestationValidatorOpts);
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 

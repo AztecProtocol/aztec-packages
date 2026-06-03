@@ -11,12 +11,21 @@ import {
   makeCheckpointHeader,
   makeCheckpointProposal,
 } from '@aztec/stdlib/testing';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProposalValidator } from './proposal_validator.js';
+
+/** Builds a multi-block timetable (S=72, E=12, D=6) matching the test's mocked l1 constants. */
+function makeTimetable(blockDurationMs: number | undefined = 6000) {
+  return new ConsensusTimetable({
+    l1Constants: { l1GenesisTime: 0n, slotDuration: 72, ethereumSlotDuration: 12 },
+    blockDuration: blockDurationMs !== undefined ? blockDurationMs / 1000 : undefined,
+  });
+}
 
 describe('ProposalValidator', () => {
   const currentSlot = SlotNumber(100);
@@ -53,10 +62,10 @@ describe('ProposalValidator', () => {
     } as any);
     validator = new ProposalValidator(
       epochCache,
+      makeTimetable(),
       {
         txsPermitted: true,
         maxTxsPerBlock: undefined,
-        blockDurationMs: 6000,
         signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
       },
       'test',
@@ -114,8 +123,8 @@ describe('ProposalValidator', () => {
     });
 
     it('rejects with high tolerance error if slot is outside its receive window', async () => {
-      // Proposal for slot 99 (previous). Past slot 99's widest receive window (block window upper bound
-      // = 99*72 + 48 = 7176s) so both block and checkpoint proposals are rejected.
+      // Proposal for slot 99 (previous). Past slot 99's checkpoint receive deadline (99*72 - E - D =
+      // 7110s) so both block and checkpoint proposals, which share that window, are rejected.
       const proposal = await factory(previousSlot, Secp256k1Signer.random());
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
@@ -243,8 +252,8 @@ describe('ProposalValidator', () => {
 
     it('accepts proposal for current slot within its pipelined receive window', async () => {
       // Pipelining: targetSlot = 101, proposal is for slot 100 (current wallclock slot). Slot 100's
-      // checkpoint receive window is [100*72-84, 100*72-18] = [7116, 7182]s; the block window is wider
-      // ([7116, 7248]). now sits inside both.
+      // proposal receive window is [100*72-84, 100*72-18] = [7116, 7182]s, shared by block and checkpoint
+      // proposals. now = 7150 sits inside it.
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: SlotNumber(101),
         nextSlot: SlotNumber(102),
@@ -266,9 +275,9 @@ describe('ProposalValidator', () => {
       expect(result).toEqual({ result: 'accept' });
     });
 
-    it('rejects proposal for current slot past its widest receive window', async () => {
-      // Past slot 100's widest receive window (block window upper bound = 100*72 + 48 = 7248s) so both
-      // block and checkpoint proposals are rejected.
+    it('rejects proposal for current slot past its receive window', async () => {
+      // Past slot 100's proposal receive deadline (100*72 - E - D = 7182s) so both block and checkpoint
+      // proposals, which share that window, are rejected.
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: SlotNumber(101),
         nextSlot: SlotNumber(102),
@@ -337,9 +346,10 @@ describe('ProposalValidator', () => {
       expect(result).toEqual({ result: 'accept' });
     });
 
-    it('still accepts a block proposal for the target slot past the (tighter) checkpoint deadline', async () => {
-      // Block proposals use the looser build-frame-to-attestation-deadline window [7116, 7248]s, so the
-      // checkpoint receive deadline (7182) does not gate them.
+    it('rejects a block proposal for the target slot arriving after the checkpoint receive deadline', async () => {
+      // Block proposals share the checkpoint proposal receive window [7116, 7182]s. Every block proposal
+      // for the slot precedes the checkpoint proposal, so a block proposal arriving after the checkpoint
+      // receive deadline (7182) is rejected at ingress just like the checkpoint proposal would be.
       const proposal = await makeBlockProposal({
         blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
         signer,
@@ -353,7 +363,7 @@ describe('ProposalValidator', () => {
       });
 
       const result = await validator.validate(proposal);
-      expect(result).toEqual({ result: 'accept' });
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.HighToleranceError });
     });
 
     it('does not throw and accepts a checkpoint proposal in single-block mode (no blockDuration)', async () => {
@@ -361,6 +371,7 @@ describe('ProposalValidator', () => {
       // target_slot_start - E = 7188s. Window [7116, 7188]; now = 7150 is inside.
       validator = new ProposalValidator(
         epochCache,
+        makeTimetable(undefined),
         { txsPermitted: true, signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT },
         'test',
       );
@@ -389,6 +400,7 @@ describe('ProposalValidator', () => {
       it('rejects proposal with txHashes when txs not permitted', async () => {
         validator = new ProposalValidator(
           epochCache,
+          makeTimetable(),
           {
             txsPermitted: false,
             maxTxsPerBlock: undefined,
@@ -405,6 +417,7 @@ describe('ProposalValidator', () => {
       it('accepts proposal with no txHashes when txs not permitted', async () => {
         validator = new ProposalValidator(
           epochCache,
+          makeTimetable(),
           {
             txsPermitted: false,
             maxTxsPerBlock: undefined,
@@ -453,6 +466,7 @@ describe('ProposalValidator', () => {
       it('rejects when txHashes exceed maxTxsPerBlock', async () => {
         validator = new ProposalValidator(
           epochCache,
+          makeTimetable(),
           {
             txsPermitted: true,
             maxTxsPerBlock: 2,
@@ -469,6 +483,7 @@ describe('ProposalValidator', () => {
       it('accepts when txHashes count equals maxTxsPerBlock', async () => {
         validator = new ProposalValidator(
           epochCache,
+          makeTimetable(),
           {
             txsPermitted: true,
             maxTxsPerBlock: 2,
@@ -496,6 +511,7 @@ describe('ProposalValidator', () => {
     beforeEach(() => {
       validator = new ProposalValidator(
         epochCache,
+        makeTimetable(),
         {
           txsPermitted: true,
           maxBlocksPerCheckpoint: 5,

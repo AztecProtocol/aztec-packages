@@ -9,42 +9,38 @@ import {
   type ValidationResult,
   hasValidSignatureContext,
 } from '@aztec/stdlib/p2p';
+import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 
-import { PipeliningWindow } from '../clock_tolerance.js';
-
-/** Type guard for checkpoint proposals (which carry a checkpoint header) vs plain block proposals. */
-function isCheckpointProposal(proposal: BlockProposal | CheckpointProposalCore): proposal is CheckpointProposalCore {
-  return 'checkpointHeader' in proposal;
-}
+import { getProposalReceiveWindow, isWithinClockWindow } from '../clock_tolerance.js';
 
 /** Validates header-level and tx-level fields of block and checkpoint proposals. */
 export class ProposalValidator {
   private epochCache: EpochCacheInterface;
+  private timetable: ConsensusTimetable;
   private logger: Logger;
   private txsPermitted: boolean;
   private maxTxsPerBlock?: number;
   private maxBlocksPerCheckpoint?: number;
-  private pipeliningWindow: PipeliningWindow;
   private skipSlotValidation: boolean;
   private signatureContext: CoordinationSignatureContext;
 
   constructor(
     epochCache: EpochCacheInterface,
+    timetable: ConsensusTimetable,
     opts: {
       txsPermitted: boolean;
       maxTxsPerBlock?: number;
       maxBlocksPerCheckpoint?: number;
-      blockDurationMs?: number;
       skipSlotValidation?: boolean;
       signatureContext: CoordinationSignatureContext;
     },
     loggerName: string,
   ) {
     this.epochCache = epochCache;
+    this.timetable = timetable;
     this.txsPermitted = opts.txsPermitted;
     this.maxTxsPerBlock = opts.maxTxsPerBlock;
     this.maxBlocksPerCheckpoint = opts.maxBlocksPerCheckpoint;
-    this.pipeliningWindow = new PipeliningWindow(epochCache, { blockDurationMs: opts.blockDurationMs });
     this.skipSlotValidation = opts.skipSlotValidation ?? false;
     this.signatureContext = opts.signatureContext;
     this.logger = createLogger(loggerName);
@@ -64,22 +60,24 @@ export class ProposalValidator {
         return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
       }
 
-      // Slot check: the explicit receive window is the sole acceptance gate, enforced unconditionally
-      // (the window itself bounds which slots are valid, so far/wrong slots fall outside it; no need to
-      // special-case the build/target slots). Checkpoint proposals use the tight consensus receive
-      // window (`[receiveStart - δ, target_slot_start - E - D + δ]`), which gates the next-proposer
-      // handoff and must reject proposals that arrive after the checkpoint receive deadline even on the
-      // common `messageSlot === targetSlot` path under pipelining. Block proposals use the looser
-      // build-frame-to-attestation-deadline window.
-      const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
-
+      // Slot check: the tight checkpoint proposal receive window (`[receiveStart - δ, target_slot_start -
+      // E - D + δ]`) is the sole acceptance gate, applied to both block and checkpoint proposals. The
+      // window itself bounds which slots are valid, so far/wrong slots fall outside it. Every block
+      // proposal for slot N is sent before the checkpoint proposal for slot N, so nothing legitimate can
+      // arrive after the checkpoint receive deadline; gating block proposals on the same window rejects
+      // late block proposals at p2p ingress. The attestation deadline remains their re-execution/
+      // validation deadline downstream, not their arrival gate.
       const slotNumber = proposal.slotNumber;
       if (!this.skipSlotValidation) {
-        const withinWindow = isCheckpointProposal(proposal)
-          ? this.pipeliningWindow.acceptsProposal(slotNumber)
-          : this.pipeliningWindow.acceptsAttestation(slotNumber);
-        if (!withinWindow) {
-          this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, { targetSlot, nextSlot });
+        const { startSeconds, deadlineSeconds } = getProposalReceiveWindow(this.timetable, slotNumber);
+        const nowMs = Number(this.epochCache.getEpochAndSlotNow().nowMs);
+        if (!isWithinClockWindow(nowMs, startSeconds, deadlineSeconds)) {
+          this.logger.warn(`Penalizing peer for invalid slot number ${slotNumber}`, {
+            slotNumber,
+            nowMs,
+            windowStartSeconds: startSeconds,
+            windowDeadlineSeconds: deadlineSeconds,
+          });
           return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
         }
       }

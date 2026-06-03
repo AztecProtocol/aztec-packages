@@ -253,6 +253,13 @@ blocks, validate the checkpoint, and sign attestations until `attestation_deadli
 block proposals and the final checkpoint proposal. It must be consensus-driven because inactivity/slashing checks use it
 to decide whether a validator failed to attest on time.
 
+The `attestation_deadline` above is a validation/re-execution deadline, not an arrival gate. Arrival at the p2p layer is
+gated separately and more tightly: intermediate block proposals share the checkpoint proposal's receive window as their
+arrival gate. Every block proposal for a slot is sent before that slot's checkpoint proposal, so nothing legitimate can
+arrive after `checkpoint_proposal_receive_deadline`. A block proposal arriving after that deadline is therefore rejected
+at p2p ingress, exactly as a late checkpoint proposal would be. The `attestation_deadline` remains the validation/
+re-execution deadline for any block or checkpoint proposal that did arrive in time.
+
 ## Block Sub-Slots
 
 Block sub-slots are fixed windows counted from the first sub-slot start, which sits one

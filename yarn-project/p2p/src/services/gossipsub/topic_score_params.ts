@@ -1,5 +1,5 @@
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
-import { calculateMaxBlocksPerSlot } from '@aztec/stdlib/timetable';
+import { ProposerTimetable } from '@aztec/stdlib/timetable';
 
 import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 
@@ -27,7 +27,10 @@ export type TopicScoringNetworkParams = {
 
 /**
  * Calculates the number of blocks per slot based on timing parameters.
- * Uses the shared calculation from @aztec/stdlib/timetable.
+ *
+ * Constructs a {@link ProposerTimetable} so the block count goes through the same budget resolution
+ * (including the fast local/e2e profile) the sequencer uses, keeping p2p gossipsub scoring consistent with
+ * the proposer. `l1GenesisTime` does not affect the block count, so a zero genesis is passed.
  *
  * @param slotDurationMs - L2 slot duration in milliseconds
  * @param blockDurationMs - Duration per block in milliseconds (undefined = single block mode)
@@ -43,11 +46,18 @@ export function calculateBlocksPerSlot(
     checkpointProposalPrepareTime?: number;
   },
 ): number {
-  return calculateMaxBlocksPerSlot(slotDurationMs / 1000, blockDurationMs ? blockDurationMs / 1000 : undefined, {
-    ethereumSlotDuration: opts?.ethereumSlotDuration,
+  const timetable = new ProposerTimetable({
+    l1Constants: {
+      l1GenesisTime: 0n,
+      slotDuration: slotDurationMs / 1000,
+      ethereumSlotDuration: opts?.ethereumSlotDuration ?? slotDurationMs / 1000,
+    },
+    blockDuration: blockDurationMs ? blockDurationMs / 1000 : undefined,
     p2pPropagationTime: opts?.p2pPropagationTime,
     checkpointProposalPrepareTime: opts?.checkpointProposalPrepareTime,
+    enforce: true,
   });
+  return timetable.getMaxBlocksPerCheckpoint();
 }
 
 /**

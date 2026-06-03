@@ -5,10 +5,19 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { TEST_COORDINATION_SIGNATURE_CONTEXT, makeCheckpointAttestation } from '@aztec/stdlib/testing';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { CheckpointAttestationValidator } from './attestation_validator.js';
+
+/** Builds a multi-block timetable (S=72, E=12, D=6) matching the test's mocked l1 constants. */
+function makeTimetable() {
+  return new ConsensusTimetable({
+    l1Constants: { l1GenesisTime: 0n, slotDuration: 72, ethereumSlotDuration: 12 },
+    blockDuration: 6,
+  });
+}
 
 describe('CheckpointAttestationValidator', () => {
   let epochCache: MockProxy<EpochCacheInterface>;
@@ -23,8 +32,7 @@ describe('CheckpointAttestationValidator', () => {
       slotDuration: 72,
       ethereumSlotDuration: 12,
     } as any);
-    validator = new CheckpointAttestationValidator(epochCache, {
-      blockDurationMs: 6000,
+    validator = new CheckpointAttestationValidator(epochCache, makeTimetable(), {
       signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
     });
     proposer = Secp256k1Signer.random();
@@ -45,7 +53,7 @@ describe('CheckpointAttestationValidator', () => {
     expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
   });
 
-  it('returns high tolerance error if slot number is not current or next slot and outside its receive window', async () => {
+  it('returns high tolerance error if slot number is outside its receive window', async () => {
     // Attestation for slot 97 (target 98). Slot 97 attestation deadline = 97*72 + 48 = 7032s; set now
     // just past it so the message falls outside its liberal receive window.
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(97) });
@@ -194,6 +202,13 @@ describe('CheckpointAttestationValidator', () => {
       targetSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
+    // Slot 100 attestation window [7116, 7248]s; now inside so the committee check is reached.
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(100),
+      ts: 7150n,
+      nowMs: 7150_000n,
+    });
     epochCache.isInCommittee.mockResolvedValue(false);
 
     const result = await validator.validate(mockAttestation);
@@ -211,6 +226,13 @@ describe('CheckpointAttestationValidator', () => {
     epochCache.getTargetAndNextSlot.mockReturnValue({
       targetSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
+    });
+    // Slot 100 attestation window [7116, 7248]s; now sits inside it.
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(100),
+      ts: 7150n,
+      nowMs: 7150_000n,
     });
     epochCache.isInCommittee.mockResolvedValue(true);
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
@@ -230,6 +252,13 @@ describe('CheckpointAttestationValidator', () => {
     epochCache.getTargetAndNextSlot.mockReturnValue({
       targetSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
+    });
+    // Slot 101 attestation window [7188, 7320]s; now sits inside it.
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(101),
+      ts: 7250n,
+      nowMs: 7250_000n,
     });
     epochCache.isInCommittee.mockResolvedValue(true);
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
@@ -251,6 +280,13 @@ describe('CheckpointAttestationValidator', () => {
       targetSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
     });
+    // Slot 100 attestation window [7116, 7248]s; now inside so the proposer check is reached.
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(100),
+      ts: 7150n,
+      nowMs: 7150_000n,
+    });
     epochCache.isInCommittee.mockResolvedValue(true);
 
     const result = await validator.validate(mockAttestation);
@@ -268,6 +304,13 @@ describe('CheckpointAttestationValidator', () => {
     epochCache.getTargetAndNextSlot.mockReturnValue({
       targetSlot: SlotNumber(100),
       nextSlot: SlotNumber(101),
+    });
+    // Slot 100 attestation window [7116, 7248]s; now inside so the committee lookup is reached.
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(100),
+      ts: 7150n,
+      nowMs: 7150_000n,
     });
     epochCache.isInCommittee.mockResolvedValue(true);
     epochCache.getProposerAttesterAddressInSlot.mockRejectedValue(new NoCommitteeError());

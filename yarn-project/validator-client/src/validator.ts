@@ -42,6 +42,7 @@ import {
   type CoordinationSignatureContext,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
@@ -246,7 +247,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     slashingProtectionDb?: SlashingProtectionDatabase,
   ) {
     const metrics = new ValidatorMetrics(telemetry);
-    const blockProposalValidator = new BlockProposalValidator(epochCache, {
+    const consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants() });
+    const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
@@ -264,6 +266,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       txProvider,
       blockProposalValidator,
       epochCache,
+      consensusTimetable,
       config,
       blobClient,
       reexecutionTracker,

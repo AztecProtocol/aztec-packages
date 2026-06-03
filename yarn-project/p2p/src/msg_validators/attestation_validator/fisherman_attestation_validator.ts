@@ -5,6 +5,7 @@ import {
   PeerErrorSeverity,
   type ValidationResult,
 } from '@aztec/stdlib/p2p';
+import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { Attributes, Metrics, type TelemetryClient, createUpDownCounterWithDefault } from '@aztec/telemetry-client';
 
 import type { AttestationPoolApi } from '../../mem_pools/attestation_pool/attestation_pool.js';
@@ -23,14 +24,14 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
 
   constructor(
     epochCache: EpochCacheInterface,
+    timetable: ConsensusTimetable,
     private attestationPool: AttestationPoolApi,
     telemetryClient: TelemetryClient,
     opts: {
-      blockDurationMs?: number;
       signatureContext: CoordinationSignatureContext;
     },
   ) {
-    super(epochCache, opts);
+    super(epochCache, timetable, opts);
     this.logger = this.logger.createChild('[FISHERMAN]');
 
     const meter = telemetryClient.getMeter('FishermanAttestationValidator');

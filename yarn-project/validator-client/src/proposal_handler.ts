@@ -31,7 +31,7 @@ import {
   computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
-import { ConsensusTimetable } from '@aztec/stdlib/timetable';
+import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { CheckpointGlobalVariables, FailedTx, Tx } from '@aztec/stdlib/tx';
 import {
@@ -183,6 +183,7 @@ export class ProposalHandler {
     private txProvider: ITxProvider,
     private blockProposalValidator: BlockProposalValidator,
     private epochCache: EpochCache,
+    private timetable: ConsensusTimetable,
     private config: ValidatorClientFullConfig,
     private blobClient: BlobClientInterface,
     private reexecutionTracker: CheckpointReexecutionTracker,
@@ -687,8 +688,7 @@ export class ProposalHandler {
    * next-wall-clock-slot-boundary bound (see the timetable spec / refactor notes).
    */
   private getReexecutionDeadline(slotNumber: SlotNumber): Date {
-    const timetable = new ConsensusTimetable({ l1Constants: this.epochCache.getL1Constants() });
-    return new Date(timetable.getAttestationDeadline(slotNumber) * 1000);
+    return new Date(this.timetable.getAttestationDeadline(slotNumber) * 1000);
   }
 
   private getReexecuteFailureReason(err: any): BlockProposalValidationFailureReason {

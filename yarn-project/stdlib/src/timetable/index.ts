@@ -124,7 +124,8 @@ export class ConsensusTimetable {
   /** Block sub-slot duration (`D`) in seconds, or undefined in single-block mode. */
   public readonly blockDuration: number | undefined;
 
-  private readonly genesisTime: bigint;
+  /** L1 genesis timestamp in seconds (`genesis`), the anchor all slot timings derive from. */
+  public readonly genesisTime: bigint;
 
   constructor(opts: { l1Constants: SlotTimingConstants; blockDuration?: number }) {
     const { l1Constants, blockDuration } = opts;
@@ -149,12 +150,12 @@ export class ConsensusTimetable {
    * `getSlotStartBuildTimestamp(slot - 1)`. Anchors all sub-slot timings.
    */
   public getBuildFrameStart(slot: SlotNumber): number {
-    return getSlotStartBuildTimestamp(SlotNumber(slot - 1), this.l1Constants());
+    return getSlotStartBuildTimestamp(SlotNumber(slot - 1), this.getL1Constants());
   }
 
   /** Start of the target slot: `genesis + slot * S`. */
   public getTargetSlotStart(slot: SlotNumber): number {
-    return Number(getTimestampForSlot(slot, this.l1Constants()));
+    return Number(getTimestampForSlot(slot, this.getL1Constants()));
   }
 
   /**
@@ -192,7 +193,8 @@ export class ConsensusTimetable {
     return this.getTargetSlotStart(slot) + this.aztecSlotDuration - 2 * this.ethereumSlotDuration;
   }
 
-  private l1Constants(): SlotTimingConstants {
+  /** Slot-timing protocol constants this timetable derives wall-clock times from. */
+  public getL1Constants(): SlotTimingConstants {
     return {
       l1GenesisTime: this.genesisTime,
       slotDuration: this.aztecSlotDuration,
@@ -262,12 +264,29 @@ export class ProposerTimetable extends ConsensusTimetable {
         ? Math.min(budgets.minBlockDuration, this.blockDuration)
         : budgets.minBlockDuration;
 
-    this.maxBlocksPerCheckpoint = calculateMaxBlocksPerSlot(this.aztecSlotDuration, this.blockDuration, {
-      ethereumSlotDuration: this.ethereumSlotDuration,
-      p2pPropagationTime: this.p2pPropagationTime,
-      checkpointProposalPrepareTime: this.checkpointProposalPrepareTime,
-      checkpointProposalInitTime: this.checkpointProposalInitTime,
-    });
+    this.maxBlocksPerCheckpoint = this.computeMaxBlocksPerCheckpoint();
+  }
+
+  /**
+   * Computes the maximum number of full-duration block sub-slots in a checkpoint from the already-resolved
+   * budgets. Derived from the spec's `max_blocks_per_checkpoint = floor((last_block_build_time -
+   * first_subslot_start) / D)`, where the first sub-slot starts one `checkpoint_proposal_init_time` (`init`)
+   * after `build_frame_start`, so it simplifies to `floor((S - init - D - 2P - prepCp) / D)`. Single-block
+   * mode (`blockDuration` undefined) returns 1.
+   */
+  private computeMaxBlocksPerCheckpoint(): number {
+    if (this.blockDuration === undefined) {
+      return 1;
+    }
+
+    // last_block_build_time - (build_frame_start + init) = S - init - D - 2P - prepCp.
+    const timeAvailableForBlocks =
+      this.aztecSlotDuration -
+      this.checkpointProposalInitTime -
+      this.blockDuration -
+      2 * this.p2pPropagationTime -
+      this.checkpointProposalPrepareTime;
+    return Math.floor(timeAvailableForBlocks / this.blockDuration);
   }
 
   /**
@@ -381,51 +400,4 @@ export class ProposerTimetable extends ConsensusTimetable {
     }
     return this.blockDuration;
   }
-}
-
-/**
- * Calculates the maximum number of full-duration block sub-slots in a checkpoint.
- *
- * Derived from the spec's `max_blocks_per_checkpoint = floor((last_block_build_time - first_subslot_start) / D)`,
- * where the first sub-slot starts one `checkpoint_proposal_init_time` (`init`) after `build_frame_start`, so it
- * simplifies to `floor((S - init - D - 2P - prepCp) / D)`. Used by both the proposer timetable and p2p
- * gossipsub scoring (which does not construct a proposer timetable). Single-block mode (`blockDuration`
- * undefined) returns 1. The operational budgets are resolved via {@link resolveTimingBudgets}, so a fast
- * local/e2e profile (`ethereumSlotDuration < FAST_PROFILE_ETHEREUM_SLOT_DURATION`) sizes the window with the
- * fast-profile budgets rather than the conservative production ones.
- *
- * @param aztecSlotDurationSec - Aztec slot duration (`S`) in seconds.
- * @param blockDurationSec - Block sub-slot duration (`D`) in seconds (undefined = single block mode).
- * @param opts - Init, propagation and preparation budgets used to size the build window inside the build slot.
- * @returns Maximum number of blocks per checkpoint (>= 1).
- */
-export function calculateMaxBlocksPerSlot(
-  aztecSlotDurationSec: number,
-  blockDurationSec: number | undefined,
-  opts: {
-    ethereumSlotDuration?: number;
-    p2pPropagationTime?: number;
-    checkpointProposalPrepareTime?: number;
-    checkpointProposalInitTime?: number;
-  } = {},
-): number {
-  if (!blockDurationSec) {
-    return 1;
-  }
-
-  // Resolve budgets through the same fast/production profile selection the proposer uses, so p2p gossipsub
-  // scoring (which calls this without constructing a ProposerTimetable) derives the same block count.
-  const { p2pPropagationTime, checkpointProposalPrepareTime, checkpointProposalInitTime } = resolveTimingBudgets(
-    opts.ethereumSlotDuration,
-    opts,
-  );
-
-  // last_block_build_time - (build_frame_start + init) = S - init - D - 2P - prepCp.
-  const timeAvailableForBlocks =
-    aztecSlotDurationSec -
-    checkpointProposalInitTime -
-    blockDurationSec -
-    2 * p2pPropagationTime -
-    checkpointProposalPrepareTime;
-  return Math.floor(timeAvailableForBlocks / blockDurationSec);
 }

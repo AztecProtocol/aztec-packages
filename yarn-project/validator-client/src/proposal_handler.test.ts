@@ -22,6 +22,7 @@ import {
   makeCheckpointHeader,
   makeCheckpointProposal,
 } from '@aztec/stdlib/testing';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -51,6 +52,7 @@ describe('ProposalHandler checkpoint validation', () => {
   let dateProvider: TestDateProvider;
   let metrics: MockProxy<ValidatorMetrics>;
   let config: ValidatorClientFullConfig;
+  let consensusTimetable: ConsensusTimetable;
 
   const proposalInfo = {};
 
@@ -88,6 +90,8 @@ describe('ProposalHandler checkpoint validation', () => {
       rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
     } as ValidatorClientFullConfig;
 
+    consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants() });
+
     handler = new ProposalHandler(
       checkpointsBuilder,
       mock<WorldStateSynchronizer>(),
@@ -96,6 +100,7 @@ describe('ProposalHandler checkpoint validation', () => {
       mock<ITxProvider>(),
       mock<BlockProposalValidator>(),
       epochCache,
+      consensusTimetable,
       config,
       mock<BlobClientInterface>(),
       new CheckpointReexecutionTracker(),
@@ -166,6 +171,7 @@ describe('ProposalHandler checkpoint validation', () => {
         mock<ITxProvider>(),
         mock<BlockProposalValidator>(),
         epochCache,
+        consensusTimetable,
         config,
         mock<BlobClientInterface>(),
         new CheckpointReexecutionTracker(),

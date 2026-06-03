@@ -1,7 +1,7 @@
 import { SlotNumber } from '@aztec/foundation/branded-types';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
-import { ConsensusTimetable, ProposerTimetable, calculateMaxBlocksPerSlot } from './index.js';
+import { ConsensusTimetable, ProposerTimetable } from './index.js';
 
 /** Builds slot-timing L1 constants with genesis at 0 so absolute times equal offsets from genesis. */
 function l1Constants(
@@ -312,63 +312,69 @@ describe('ProposerTimetable', () => {
   });
 });
 
-describe('calculateMaxBlocksPerSlot', () => {
+describe('ProposerTimetable.getMaxBlocksPerCheckpoint', () => {
   it('matches the production worked example (10 blocks)', () => {
-    expect(
-      calculateMaxBlocksPerSlot(72, 6, {
-        ethereumSlotDuration: 12,
-        p2pPropagationTime: 2,
-        checkpointProposalPrepareTime: 1,
-      }),
-    ).toBe(10);
+    const timetable = new ProposerTimetable({
+      l1Constants: l1Constants(72, 12),
+      blockDuration: 6,
+      p2pPropagationTime: 2,
+      checkpointProposalPrepareTime: 1,
+      enforce: true,
+    });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
   });
 
   it('matches the local fast profile (4 blocks)', () => {
-    expect(
-      calculateMaxBlocksPerSlot(36, 6, {
-        ethereumSlotDuration: 4,
-        p2pPropagationTime: 0.5,
-        checkpointProposalPrepareTime: 0.5,
-      }),
-    ).toBe(4);
+    const timetable = new ProposerTimetable({
+      l1Constants: l1Constants(36, 4),
+      blockDuration: 6,
+      p2pPropagationTime: 0.5,
+      checkpointProposalPrepareTime: 0.5,
+      enforce: true,
+    });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
   });
 
   it('matches the local slow-block profile (3 blocks)', () => {
-    expect(
-      calculateMaxBlocksPerSlot(36, 8, {
-        ethereumSlotDuration: 4,
-        p2pPropagationTime: 0.5,
-        checkpointProposalPrepareTime: 0.5,
-      }),
-    ).toBe(3);
+    const timetable = new ProposerTimetable({
+      l1Constants: l1Constants(36, 4),
+      blockDuration: 8,
+      p2pPropagationTime: 0.5,
+      checkpointProposalPrepareTime: 0.5,
+      enforce: true,
+    });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(3);
   });
 
   it('returns 1 for single-block mode', () => {
-    expect(calculateMaxBlocksPerSlot(72, undefined)).toBe(1);
+    const timetable = new ProposerTimetable({ l1Constants: l1Constants(72, 12), enforce: true });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(1);
   });
 
   // The fast local profile (E < 8) clamps the operational budgets so a fast network does not inherit the
   // conservative production budgets, which would shrink the build window and under-pack checkpoints.
   it('applies the fast profile to production-budget inputs on a low ethereum slot duration', () => {
     // S=36, E=4, D=8 with production budgets would derive only 2; the fast profile restores 3.
-    expect(
-      calculateMaxBlocksPerSlot(36, 8, {
-        ethereumSlotDuration: 4,
-        p2pPropagationTime: 2,
-        checkpointProposalPrepareTime: 1,
-      }),
-    ).toBe(3);
+    const timetable = new ProposerTimetable({
+      l1Constants: l1Constants(36, 4),
+      blockDuration: 8,
+      p2pPropagationTime: 2,
+      checkpointProposalPrepareTime: 1,
+      enforce: true,
+    });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(3);
   });
 
   it('does not apply the fast profile at or above the ethereum slot threshold', () => {
     // S=36, E=12, D=6 with P=2: production budgets are kept -> floor((36-1-6-4-1)/6) = 4.
-    expect(
-      calculateMaxBlocksPerSlot(36, 6, {
-        ethereumSlotDuration: 12,
-        p2pPropagationTime: 2,
-        checkpointProposalPrepareTime: 1,
-      }),
-    ).toBe(4);
+    const timetable = new ProposerTimetable({
+      l1Constants: l1Constants(36, 12),
+      blockDuration: 6,
+      p2pPropagationTime: 2,
+      checkpointProposalPrepareTime: 1,
+      enforce: true,
+    });
+    expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
   });
 });
 
@@ -437,13 +443,6 @@ describe('e2e multi-block-per-checkpoint capacity', () => {
       const derived = timetable.getMaxBlocksPerCheckpoint();
       expect(derived).toBeGreaterThanOrEqual(required);
       expect(derived).toBe(expected);
-      // The shared pure function (used by p2p scoring) must agree with the proposer timetable.
-      expect(
-        calculateMaxBlocksPerSlot(S, D, {
-          ethereumSlotDuration: E,
-          ...budgets,
-        }),
-      ).toBe(derived);
     },
   );
 });

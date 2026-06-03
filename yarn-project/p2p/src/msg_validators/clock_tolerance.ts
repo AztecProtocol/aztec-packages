@@ -1,59 +1,47 @@
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { SlotNumber } from '@aztec/foundation/branded-types';
-import { ConsensusTimetable } from '@aztec/stdlib/timetable';
+import type { SlotNumber } from '@aztec/foundation/branded-types';
+import type { ConsensusTimetable } from '@aztec/stdlib/timetable';
 
 /**
  * Maximum clock disparity tolerance for P2P message validation (in milliseconds).
  *
  * Acceptance windows are widened by this much on both ends so peers are not penalized for messages
  * that were valid when sent but arrived slightly early or late due to clock skew. This follows
- * Ethereum's MAXIMUM_GOSSIP_CLOCK_DISPARITY approach.
+ * Ethereum's MAXIMUM_GOSSIP_CLOCK_DISPARITY approach. This is a gossip concern, not a consensus one,
+ * so it lives in p2p rather than in the stdlib timetable.
  */
 export const MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS = 500;
 
 /**
- * Computes explicit absolute acceptance windows for pipelined proposals and attestations.
- *
- * A message for target slot `N` is accepted iff `now ∈ [receiveStart(N) − δ, deadline(N) + δ]`, where
- * `δ = MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS`. Both lower bounds are the build-frame start (nothing
- * legitimate for slot `N` exists before its build frame opens). The two cases differ in the upper bound:
- * - Checkpoint proposals use `getCheckpointProposalReceiveDeadline` (`target_slot_start − E − D`), a tight
- *   non-overlapping window so a received proposal maps unambiguously to one target slot.
- * - Attestations use `getAttestationDeadline` (`target_slot_start + S − 2E`), a deliberately liberal
- *   window; attestations are attributed by content (`(slot, checkpoint)` in the signature), not timing.
+ * Tests whether `nowMs` falls within `[startSeconds·1000 − δ, deadlineSeconds·1000 + δ]`, where
+ * `δ = MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS`. The seconds bounds come from a {@link ConsensusTimetable}
+ * getter; this is the single acceptance gate validators apply to proposals and attestations.
  */
-export class PipeliningWindow {
-  private readonly timetable: ConsensusTimetable;
+export function isWithinClockWindow(nowMs: number, startSeconds: number, deadlineSeconds: number): boolean {
+  const lowerMs = startSeconds * 1000 - MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
+  const upperMs = deadlineSeconds * 1000 + MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
+  return nowMs >= lowerMs && nowMs <= upperMs;
+}
 
-  constructor(
-    private readonly epochCache: EpochCacheInterface,
-    opts: { blockDurationMs?: number } = {},
-  ) {
-    const l1Constants = epochCache.getL1Constants();
-    this.timetable = new ConsensusTimetable({
-      l1Constants,
-      blockDuration: opts.blockDurationMs !== undefined ? opts.blockDurationMs / 1000 : undefined,
-    });
-  }
+/** Bounds of a per-slot acceptance window in seconds, plus the disparity-widened millisecond gate. */
+export type ClockWindowBounds = {
+  /** Lower bound of the receive window in seconds (before clock-disparity widening). */
+  startSeconds: number;
+  /** Upper bound of the receive window in seconds (before clock-disparity widening). */
+  deadlineSeconds: number;
+};
 
-  /** Accepts a checkpoint or block proposal for `messageSlot` iff within its proposal receive window. */
-  public acceptsProposal(messageSlot: SlotNumber): boolean {
-    const start = this.timetable.getCheckpointProposalReceiveStart(messageSlot);
-    const deadline = this.timetable.getCheckpointProposalReceiveDeadline(messageSlot);
-    return this.isWithinWindow(start, deadline);
-  }
+/** Proposal receive window for `slot`: `[checkpoint_proposal_receive_start, checkpoint_proposal_receive_deadline]`. */
+export function getProposalReceiveWindow(timetable: ConsensusTimetable, slot: SlotNumber): ClockWindowBounds {
+  return {
+    startSeconds: timetable.getCheckpointProposalReceiveStart(slot),
+    deadlineSeconds: timetable.getCheckpointProposalReceiveDeadline(slot),
+  };
+}
 
-  /** Accepts an attestation for `messageSlot` iff within its (liberal) attestation receive window. */
-  public acceptsAttestation(messageSlot: SlotNumber): boolean {
-    const start = this.timetable.getAttestationReceiveStart(messageSlot);
-    const deadline = this.timetable.getAttestationDeadline(messageSlot);
-    return this.isWithinWindow(start, deadline);
-  }
-
-  private isWithinWindow(startSeconds: number, deadlineSeconds: number): boolean {
-    const nowMs = Number(this.epochCache.getEpochAndSlotNow().nowMs);
-    const lowerMs = startSeconds * 1000 - MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
-    const upperMs = deadlineSeconds * 1000 + MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
-    return nowMs >= lowerMs && nowMs <= upperMs;
-  }
+/** Attestation receive window for `slot`: `[attestation_receive_start, attestation_deadline]` (deliberately liberal). */
+export function getAttestationReceiveWindow(timetable: ConsensusTimetable, slot: SlotNumber): ClockWindowBounds {
+  return {
+    startSeconds: timetable.getAttestationReceiveStart(slot),
+    deadlineSeconds: timetable.getAttestationDeadline(slot),
+  };
 }
