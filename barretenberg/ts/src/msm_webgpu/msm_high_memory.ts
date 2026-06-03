@@ -1562,16 +1562,6 @@ export class MsmHighMemory {
     // max over chunks, so the pair-tree A/B is bounded to O(M) regardless of how
     // points fall across buckets (profile E's one giant bucket costs the same as
     // uniform). M >= n collapses to a single chunk = the unchunked path.
-    const M = Math.min(this.chunkPoints, n);
-    const numChunks = Math.max(1, Math.ceil(n / M));
-    const chunkSizes: number[] = [];
-    const chunkStarts: number[] = [];
-    for (let cIdx = 0; cIdx < numChunks; cIdx++) {
-      const start = cIdx * M;
-      chunkStarts.push(start);
-      chunkSizes.push(Math.min(M, n - start));
-    }
-
     // Per-chunk Booth walk: level-0 histogram over the chunk's scalar slice,
     // then the same monotonic pair/carry walk. Returns the chunk's per-level
     // plans and its peak per-window stride. Reuses two scratch count arrays
@@ -1621,55 +1611,82 @@ export class MsmHighMemory {
       return { levelPlans, wstride1 };
     };
 
-    // Walk every chunk; keep each chunk's plan and track the max sizing.
-    const chunkWalks: { levelPlans: LevelPlan[]; wstride1: number; mC: number; chunkStart: number }[] = [];
-    let wstride1 = 1; // max per-window stride over chunks (sizes M1 / bufA-B)
-    let levels = 0; // max level count over chunks
-    let maxPairBlocksPerWindow = 1;
-    let maxCarriesPerWindow = 1;
-    for (let cIdx = 0; cIdx < numChunks; cIdx++) {
-      const mC = chunkSizes[cIdx];
-      const chunkStart = chunkStarts[cIdx];
-      const chunkInit = buildInitCounts(
-        scalarsBuf.subarray(chunkStart * 32, (chunkStart + mC) * 32),
-        mC,
-        c,
-        NUM_WINDOWS,
-        BW,
-      );
-      const w = walkChunk(chunkInit);
-      chunkWalks.push({ levelPlans: w.levelPlans, wstride1: w.wstride1, mC, chunkStart });
-      if (w.wstride1 > wstride1) wstride1 = w.wstride1;
-      if (w.levelPlans.length > levels) levels = w.levelPlans.length;
-      for (const p of w.levelPlans) {
-        if (p.pairBlocksPerWindow > maxPairBlocksPerWindow) maxPairBlocksPerWindow = p.pairBlocksPerWindow;
-        if (p.carriesPerWindow > maxCarriesPerWindow) maxCarriesPerWindow = p.carriesPerWindow;
-      }
-    }
-    // The window-batch solver and the buffer sizing below were written against a
-    // single full-n plan named `levelPlans` (the unchunked path). Use chunk 0's
-    // plan as that representative for the per-level uniform skeleton; per-chunk
-    // values are written into each chunk's own binds in the chunk-build loop.
-    const levelPlans = chunkWalks[0].levelPlans;
-
-    // --- Lever G: budget-driven window-batch count.
     const RED_M = this.redM;
-    // Largest chunk's point count — the per-(window, point) buffers (l0Idx,
-    // bucketAndSign, valIdx) and L0 active_sums size by batchWindows×Mmax, not
-    // batchWindows×n, so the estimate must too (it gates the metered budget).
-    const Mmax0 = chunkSizes[0];
-    const partialStrideMax0 = Math.max(1, Math.floor(Mmax0 / BW)) * BW;
-    const estimateMem = (nb: number): number => {
+    type ChunkWalk = { levelPlans: LevelPlan[]; wstride1: number; mC: number; chunkStart: number };
+    interface MPlan {
+      M: number;
+      numChunks: number;
+      chunkSizes: number[];
+      chunkStarts: number[];
+      chunkWalks: ChunkWalk[];
+      wstride1: number; // max per-window stride over chunks (sizes M1 / bufA-B)
+      levels: number; // max level count over chunks
+      maxPairBlocksPerWindow: number;
+      maxCarriesPerWindow: number;
+      Mmax: number; // largest chunk's point count (sizes the point buffers)
+      partialStrideMax: number;
+    }
+    // Walk all chunks for a given chunk size M and aggregate the max sizing.
+    const walkAtM = (M: number): MPlan => {
+      const numChunks = Math.max(1, Math.ceil(n / M));
+      const chunkSizes: number[] = [];
+      const chunkStarts: number[] = [];
+      for (let cIdx = 0; cIdx < numChunks; cIdx++) {
+        const start = cIdx * M;
+        chunkStarts.push(start);
+        chunkSizes.push(Math.min(M, n - start));
+      }
+      const chunkWalks: ChunkWalk[] = [];
+      let wstride1 = 1;
+      let levels = 0;
+      let maxPairBlocksPerWindow = 1;
+      let maxCarriesPerWindow = 1;
+      for (let cIdx = 0; cIdx < numChunks; cIdx++) {
+        const mC = chunkSizes[cIdx];
+        const chunkStart = chunkStarts[cIdx];
+        const chunkInit = buildInitCounts(
+          scalarsBuf.subarray(chunkStart * 32, (chunkStart + mC) * 32),
+          mC,
+          c,
+          NUM_WINDOWS,
+          BW,
+        );
+        const w = walkChunk(chunkInit);
+        chunkWalks.push({ levelPlans: w.levelPlans, wstride1: w.wstride1, mC, chunkStart });
+        if (w.wstride1 > wstride1) wstride1 = w.wstride1;
+        if (w.levelPlans.length > levels) levels = w.levelPlans.length;
+        for (const p of w.levelPlans) {
+          if (p.pairBlocksPerWindow > maxPairBlocksPerWindow) maxPairBlocksPerWindow = p.pairBlocksPerWindow;
+          if (p.carriesPerWindow > maxCarriesPerWindow) maxCarriesPerWindow = p.carriesPerWindow;
+        }
+      }
+      const Mmax = chunkSizes[0];
+      const partialStrideMax = Math.max(1, Math.floor(Mmax / BW)) * BW;
+      return {
+        M,
+        numChunks,
+        chunkSizes,
+        chunkStarts,
+        chunkWalks,
+        wstride1,
+        levels,
+        maxPairBlocksPerWindow,
+        maxCarriesPerWindow,
+        Mmax,
+        partialStrideMax,
+      };
+    };
+    // Scratch byte estimate for a chunk plan at window-batch count nb. Must match
+    // the slow-path allocation so the metered budget is honoured. nb (window
+    // batching) and M (point chunking) both shrink the point-scaled buffers; the
+    // full-width terms (bucketResult, redBuf, scalarsRaw) are the floor.
+    const estimateMemFor = (mp: MPlan, nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
-      // M1, pair-block and carry counts get the OVERSIZE_FACTOR pad in the slow
-      // path; apply it here so the estimate matches the real allocation.
-      const m1 = Math.ceil(bw * wstride1 * OVERSIZE_FACTOR) + 3;
-      // Point-scaled slot extent (matches the slow-path `batchSlots`): bounded
-      // by Mmax, never below B_TOTAL or the transpose partials matrix.
-      const bSlots = Math.max(bw * Mmax0, B_TOTAL, bw * partialStrideMax0);
+      const m1 = Math.ceil(bw * mp.wstride1 * OVERSIZE_FACTOR) + 3;
+      const bSlots = Math.max(bw * mp.Mmax, B_TOTAL, bw * mp.partialStrideMax);
       const bBuckets = bw * BW;
-      const tc = Math.ceil(bw * maxPairBlocksPerWindow * OVERSIZE_FACTOR);
-      const carries = Math.ceil(bw * maxCarriesPerWindow * OVERSIZE_FACTOR);
+      const tc = Math.ceil(bw * mp.maxPairBlocksPerWindow * OVERSIZE_FACTOR);
+      const carries = Math.ceil(bw * mp.maxCarriesPerWindow * OVERSIZE_FACTOR);
       const tile = Math.min(Math.ceil((1 << 16) / WGI) * WGI, Math.max(WGI, Math.ceil(tc / WGI) * WGI));
       return (
         2 * 64 * m1 +
@@ -1686,16 +1703,60 @@ export class MsmHighMemory {
       );
     };
     // The decompose / convActive dispatch is per chunk = bw×Mmax threads.
-    const wgFits = (nb: number): boolean =>
-      Math.ceil((Math.ceil(NUM_WINDOWS / nb) * Mmax0) / WGI) < 65000;
-    let numBatches = 1;
-    while (numBatches < NUM_WINDOWS && (estimateMem(numBatches) > this.memBudget || !wgFits(numBatches))) numBatches++;
+    const wgFitsFor = (mp: MPlan, nb: number): boolean =>
+      Math.ceil((Math.ceil(NUM_WINDOWS / nb) * mp.Mmax) / WGI) < 65000;
+    // Window-batch solver for a fixed chunk plan: raise nb until the estimate
+    // fits the budget (or nb maxes at NUM_WINDOWS = batchWindows 1).
+    const solveBatches = (mp: MPlan): number => {
+      let nb = 1;
+      while (nb < NUM_WINDOWS && (estimateMemFor(mp, nb) > this.memBudget || !wgFitsFor(mp, nb))) nb++;
+      return nb;
+    };
+
+    // --- Joint budget solver: pick M (point chunk size) and numBatches (window
+    // batches). Window-batching is the cheaper lever (no per-chunk re-plan +
+    // finalize-add overhead), so for each candidate M we first solve numBatches;
+    // we prefer the LARGEST M whose solved plan fits the budget (fewest chunks =
+    // least launch overhead). If the user pinned chunkPoints, honour it exactly.
+    const autoChunk = this.chunkPoints >= n; // default (unset) ⇒ MAX_SAFE_INTEGER ≥ n
+    let mp: MPlan;
+    let numBatches: number;
+    if (!autoChunk) {
+      mp = walkAtM(Math.min(this.chunkPoints, n));
+      numBatches = solveBatches(mp);
+    } else {
+      // Halve M from n down; stop at the largest M that fits, else the smallest
+      // (the floor — full-width buffers can exceed budget at any M, and we still
+      // want the tightest point-buffer bound in that case).
+      let candM = n;
+      mp = walkAtM(candM);
+      numBatches = solveBatches(mp);
+      const MIN_CHUNK = Math.max(1024, Math.ceil(BW / 2)); // don't chunk below ~one bucket-row
+      while (estimateMemFor(mp, numBatches) > this.memBudget && candM > MIN_CHUNK) {
+        candM = Math.max(MIN_CHUNK, Math.floor(candM / 2));
+        const nextMp = walkAtM(candM);
+        const nextNb = solveBatches(nextMp);
+        mp = nextMp;
+        numBatches = nextNb;
+        if (candM === MIN_CHUNK) break;
+      }
+    }
+    const { chunkSizes, chunkStarts, chunkWalks, levels, maxPairBlocksPerWindow, maxCarriesPerWindow } = mp;
+    // `let` so the slow path can apply the OVERSIZE_FACTOR pad in place.
+    let wstride1 = mp.wstride1;
+    const numChunks = mp.numChunks;
+    // Representative full-plan alias for the per-level uniform skeleton (chunk 0);
+    // per-chunk values are written into each chunk's own binds below.
+    const levelPlans = chunkWalks[0].levelPlans;
+    const estimateMem = (nb: number): number => estimateMemFor(mp, nb);
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     if (typeof window !== 'undefined') {
       (window as unknown as { __lastPlanInfo?: Record<string, number> }).__lastPlanInfo = {
         numBatches,
         batchWindows,
         numWindows: NUM_WINDOWS,
+        chunkM: mp.M,
+        numChunks,
         estMB: estimateMem(numBatches) / (1 << 20),
         budgetMB: this.memBudget / (1 << 20),
       };
