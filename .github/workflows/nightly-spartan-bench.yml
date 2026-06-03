@@ -306,6 +306,7 @@ jobs:
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          gh-repository: github.com/AztecProtocol/benchmark-page-data
           auto-push: true
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           alert-threshold: "120%"
