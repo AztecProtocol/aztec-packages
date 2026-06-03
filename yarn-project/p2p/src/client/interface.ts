@@ -158,11 +158,17 @@ export type P2P = P2PClient & {
    */
   getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined>;
 
-  /** Returns an iterator over pending txs on the mempool. */
-  iteratePendingTxs(): AsyncIterableIterator<Tx>;
+  /**
+   * Returns an iterator over pending txs on the mempool.
+   * Set `includeProof: false` to skip loading tx proofs from the DB.
+   */
+  iteratePendingTxs(opts?: { includeProof?: boolean }): AsyncIterableIterator<Tx>;
 
-  /** Returns an iterator over pending txs that have been in the pool long enough to be eligible for block building. */
-  iterateEligiblePendingTxs(): AsyncIterableIterator<Tx>;
+  /**
+   * Returns an iterator over pending txs that have been in the pool long enough to be eligible for block building.
+   * Set `includeProof: false` to skip loading tx proofs from the DB.
+   */
+  iterateEligiblePendingTxs(opts?: { includeProof?: boolean }): AsyncIterableIterator<Tx>;
 
   /** Returns the number of pending txs in the mempool. */
   getPendingTxCount(): Promise<number>;

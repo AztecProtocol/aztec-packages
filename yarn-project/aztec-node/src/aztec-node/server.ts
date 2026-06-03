@@ -1115,7 +1115,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
-    for await (const tx of this.p2pClient.iteratePendingTxs()) {
+    for await (const tx of this.p2pClient.iteratePendingTxs({ includeProof: false })) {
       return tx.getGasSettings().maxPriorityFeesPerGas;
     }
 
