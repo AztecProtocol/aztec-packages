@@ -1853,6 +1853,7 @@ describe('BlockStore', () => {
         l2BlockNumber: block.number,
         l2BlockHash: await block.header.hash(),
         txIndexInBlock,
+        slotNumber: block.header.globalVariables.slotNumber,
       };
       const actualTx = await blockStore.getTxEffect(data.txHash);
       expect(actualTx).toEqual(expectedTx);
@@ -1892,6 +1893,75 @@ describe('BlockStore', () => {
       await blockStore.removeCheckpointsAfter(CheckpointNumber(0));
       done = true;
       expect(await blockStore.getTxEffect(txEffect.txHash)).toEqual(undefined);
+    });
+  });
+
+  describe('getTxLocation', () => {
+    beforeEach(async () => {
+      await blockStore.addCheckpoints(publishedCheckpoints);
+    });
+
+    it.each([
+      [1, 0],
+      [3, 1],
+      [9, 3],
+      [5, 2],
+    ])('returns (blockNumber, txIndex) for known tx at block %i tx-index %i', async (blockIdx, txIdx) => {
+      const block = publishedCheckpoints[blockIdx - 1].checkpoint.blocks[0];
+      const txEffect = block.body.txEffects[txIdx];
+
+      const loc = await blockStore.getTxLocation(txEffect.txHash);
+      expect(loc).toEqual([block.number, txIdx]);
+    });
+
+    it('returns undefined for an unknown tx hash', async () => {
+      await expect(blockStore.getTxLocation(TxHash.random())).resolves.toBeUndefined();
+    });
+  });
+
+  describe('getNoteHashesAndNullifiers', () => {
+    beforeEach(async () => {
+      await blockStore.addCheckpoints(publishedCheckpoints);
+    });
+
+    it('returns one [noteHashes, nullifiers] tuple per input txHash in input order', async () => {
+      const txEffects = [
+        publishedCheckpoints[0].checkpoint.blocks[0].body.txEffects[0],
+        publishedCheckpoints[5].checkpoint.blocks[0].body.txEffects[2],
+        publishedCheckpoints[9].checkpoint.blocks[0].body.txEffects[1],
+      ];
+      const result = await blockStore.getNoteHashesAndNullifiers(txEffects.map(tx => tx.txHash));
+
+      expect(result.length).toBe(txEffects.length);
+      for (let i = 0; i < txEffects.length; i++) {
+        const [noteHashes, nullifiers] = result[i];
+        expect(noteHashes).toEqual(txEffects[i].noteHashes);
+        expect(nullifiers).toEqual(txEffects[i].nullifiers);
+      }
+    });
+
+    it('returns [[], []] for unknown txHashes (preserves input order)', async () => {
+      const known = publishedCheckpoints[2].checkpoint.blocks[0].body.txEffects[0];
+      const unknown = TxHash.random();
+      const result = await blockStore.getNoteHashesAndNullifiers([unknown, known.txHash, unknown]);
+
+      expect(result.length).toBe(3);
+      expect(result[0]).toEqual([[], []]);
+      expect(result[1][0]).toEqual(known.noteHashes);
+      expect(result[1][1]).toEqual(known.nullifiers);
+      expect(result[2]).toEqual([[], []]);
+    });
+
+    it('returns [] for an empty input array', async () => {
+      await expect(blockStore.getNoteHashesAndNullifiers([])).resolves.toEqual([]);
+    });
+
+    it('the partial deserializer matches the full getTxEffect for noteHashes/nullifiers', async () => {
+      const tx = publishedCheckpoints[4].checkpoint.blocks[0].body.txEffects[2];
+      const [[noteHashes, nullifiers]] = await blockStore.getNoteHashesAndNullifiers([tx.txHash]);
+      const full = await blockStore.getTxEffect(tx.txHash);
+      expect(noteHashes).toEqual(full!.data.noteHashes);
+      expect(nullifiers).toEqual(full!.data.nullifiers);
     });
   });
 
@@ -2831,6 +2901,89 @@ describe('BlockStore', () => {
       expect(await blockStore.getLatestL2BlockNumber()).toBe(0);
       expect(await blockStore.getBlock({ number: BlockNumber(1) })).toBeUndefined();
       expect(await blockStore.getBlock({ number: BlockNumber(2) })).toBeUndefined();
+    });
+  });
+
+  describe('rejected checkpoints', () => {
+    const makeEntry = (overrides: { archiveRoot?: Fr; l1BlockNumber?: number; checkpointNumber?: number } = {}) => ({
+      checkpointNumber: CheckpointNumber(overrides.checkpointNumber ?? 1),
+      archiveRoot: overrides.archiveRoot ?? Fr.random(),
+      parentArchiveRoot: Fr.random(),
+      slotNumber: SlotNumber(1),
+      l1: makeL1PublishedData(overrides.l1BlockNumber ?? 100),
+      reason: 'invalid-attestations' as const,
+    });
+
+    it('returns an empty result when no rejected checkpoints have been recorded', async () => {
+      expect(await blockStore.getRejectedCheckpointByArchiveRoot(Fr.random())).toBeUndefined();
+      expect(await blockStore.getLatestRejectedCheckpointNumber()).toEqual(
+        CheckpointNumber(INITIAL_CHECKPOINT_NUMBER - 1),
+      );
+    });
+
+    it('round-trips an added rejected entry', async () => {
+      const entry = makeEntry();
+      await blockStore.addRejectedCheckpoint(entry);
+
+      const stored = await blockStore.getRejectedCheckpointByArchiveRoot(entry.archiveRoot);
+      expect(stored).toBeDefined();
+      expect(stored!.checkpointNumber).toEqual(entry.checkpointNumber);
+      expect(stored!.archiveRoot.toString()).toEqual(entry.archiveRoot.toString());
+      expect(stored!.parentArchiveRoot.toString()).toEqual(entry.parentArchiveRoot.toString());
+      expect(stored!.slotNumber).toEqual(entry.slotNumber);
+      expect(stored!.l1.blockNumber).toEqual(entry.l1.blockNumber);
+      expect(stored!.l1.blockHash).toEqual(entry.l1.blockHash);
+      expect(stored!.reason).toEqual(entry.reason);
+    });
+
+    it('updates an existing entry when re-added with the same archive root', async () => {
+      const archiveRoot = Fr.random();
+      await blockStore.addRejectedCheckpoint(makeEntry({ archiveRoot, l1BlockNumber: 100 }));
+      await blockStore.addRejectedCheckpoint(makeEntry({ archiveRoot, l1BlockNumber: 110 }));
+
+      const stored = await blockStore.getRejectedCheckpointByArchiveRoot(archiveRoot);
+      expect(stored).toBeDefined();
+      expect(stored!.l1.blockNumber).toEqual(110n);
+    });
+
+    it('preserves the descends-from-invalid-attestations reason', async () => {
+      const entry = {
+        ...makeEntry(),
+        reason: 'descends-from-invalid-attestations' as const,
+      };
+      await blockStore.addRejectedCheckpoint(entry);
+      const stored = await blockStore.getRejectedCheckpointByArchiveRoot(entry.archiveRoot);
+      expect(stored!.reason).toEqual('descends-from-invalid-attestations');
+    });
+
+    it('returns the latest rejected checkpoint number across all entries', async () => {
+      await blockStore.addRejectedCheckpoint(makeEntry({ checkpointNumber: 1 }));
+      await blockStore.addRejectedCheckpoint(makeEntry({ checkpointNumber: 5 }));
+      await blockStore.addRejectedCheckpoint(makeEntry({ checkpointNumber: 3 }));
+
+      expect(await blockStore.getLatestRejectedCheckpointNumber()).toEqual(CheckpointNumber(5));
+    });
+
+    it('looks up a rejected entry by checkpoint number', async () => {
+      const entry = makeEntry({ checkpointNumber: 7 });
+      await blockStore.addRejectedCheckpoint(entry);
+
+      const stored = await blockStore.getRejectedCheckpointByNumber(CheckpointNumber(7));
+      expect(stored?.archiveRoot.toString()).toEqual(entry.archiveRoot.toString());
+      expect(await blockStore.getRejectedCheckpointByNumber(CheckpointNumber(8))).toBeUndefined();
+    });
+
+    it('removes a rejected entry by archive root', async () => {
+      const entry = makeEntry({ checkpointNumber: 4 });
+      await blockStore.addRejectedCheckpoint(entry);
+      expect(await blockStore.getRejectedCheckpointByArchiveRoot(entry.archiveRoot)).toBeDefined();
+
+      await blockStore.removeRejectedCheckpointByArchiveRoot(entry.archiveRoot);
+      expect(await blockStore.getRejectedCheckpointByArchiveRoot(entry.archiveRoot)).toBeUndefined();
+      expect(await blockStore.getRejectedCheckpointByNumber(CheckpointNumber(4))).toBeUndefined();
+      expect(await blockStore.getLatestRejectedCheckpointNumber()).toEqual(
+        CheckpointNumber(INITIAL_CHECKPOINT_NUMBER - 1),
+      );
     });
   });
 });

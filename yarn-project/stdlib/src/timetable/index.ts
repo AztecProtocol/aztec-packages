@@ -34,7 +34,6 @@ export type CheckpointTimingConfig = {
   l1PublishingTime?: number;
   minExecutionTime?: number;
   p2pPropagationTime?: number;
-  pipelining?: boolean;
 };
 
 export interface CheckpointTiming {
@@ -64,13 +63,15 @@ export interface PipelinedCheckpointTiming extends CheckpointTiming {
 }
 
 /**
- * Shared base for checkpoint timing implementations.
+ * Checkpoint timing model for proposer pipelining.
  *
- * This class owns the common inputs and formulas used by both pipelined and
- * non-pipelined scheduling. Variant-specific deadline math is delegated to the
- * concrete subclasses below.
+ * The build work starts at the wall-clock slot boundary and the checkpoint
+ * proposal is broadcast early enough that attestations complete by the end of
+ * the build slot. L1 submission can then be sent at the boundary of the target
+ * slot. The target-slot window getters are intended for consumers such as P2P
+ * validators that need to validate pipelined messages against wallclock time.
  */
-abstract class BaseCheckpointTiming implements CheckpointTiming {
+class CheckpointTimingModel implements PipelinedCheckpointTiming {
   public readonly aztecSlotDuration: number;
   public readonly blockDuration: number | undefined;
   public readonly checkpointAssembleTime: number;
@@ -78,6 +79,7 @@ abstract class BaseCheckpointTiming implements CheckpointTiming {
   public readonly l1PublishingTime: number;
   public readonly minExecutionTime: number;
   public readonly p2pPropagationTime: number;
+  private readonly ethereumSlotDuration: number;
 
   constructor(opts: CheckpointTimingConfig) {
     this.aztecSlotDuration = opts.aztecSlotDuration;
@@ -88,6 +90,7 @@ abstract class BaseCheckpointTiming implements CheckpointTiming {
     this.l1PublishingTime = opts.l1PublishingTime ?? DEFAULT_L1_PUBLISHING_TIME;
     this.minExecutionTime = opts.minExecutionTime ?? MIN_EXECUTION_TIME;
     this.p2pPropagationTime = opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME;
+    this.ethereumSlotDuration = opts.ethereumSlotDuration ?? this.l1PublishingTime;
   }
 
   public get checkpointFinalizationTime(): number {
@@ -98,78 +101,6 @@ abstract class BaseCheckpointTiming implements CheckpointTiming {
     return this.checkpointAssembleTime + this.p2pPropagationTime * 2 + this.l1PublishingTime;
   }
 
-  public get pipeliningAttestationGracePeriod(): number {
-    // Allow enough time to
-    // - build the block
-    // - pass it back over p2p
-    return (this.blockDuration ?? 0) + this.p2pPropagationTime;
-  }
-
-  public abstract get timeReservedAtEnd(): number;
-  public abstract get minimumBuildSlotWork(): number;
-
-  public get initializeDeadline(): number {
-    return this.aztecSlotDuration - this.minimumBuildSlotWork;
-  }
-
-  public abstract get checkpointAssemblyDeadline(): number;
-
-  public get checkpointAttestationStartDeadline(): number {
-    return this.checkpointAssemblyDeadline;
-  }
-
-  public abstract get checkpointAttestationDeadline(): number;
-  public abstract get checkpointPublishingDeadline(): number;
-
-  public calculateMaxBlocksPerSlot(): number {
-    if (!this.blockDuration) {
-      return 1;
-    }
-
-    const timeAvailableForBlocks = this.aztecSlotDuration - this.checkpointInitializationTime - this.timeReservedAtEnd;
-    return Math.floor(timeAvailableForBlocks / this.blockDuration);
-  }
-}
-
-/**
- * Checkpoint timing model for the non-pipelined sequencer flow.
- *
- * In this mode, checkpoint assembly, attestation collection, and L1 publishing
- * must all complete within the current Aztec slot.
- */
-class StandardCheckpointTimingModel extends BaseCheckpointTiming {
-  public get timeReservedAtEnd(): number {
-    return (this.blockDuration ?? 0) + this.checkpointFinalizationTime;
-  }
-
-  public get minimumBuildSlotWork(): number {
-    return this.checkpointInitializationTime + this.minExecutionTime * 2 + this.checkpointFinalizationTime;
-  }
-
-  public get checkpointAssemblyDeadline(): number {
-    return this.aztecSlotDuration - this.l1PublishingTime - 2 * this.p2pPropagationTime;
-  }
-
-  public get checkpointAttestationDeadline(): number {
-    return this.aztecSlotDuration - this.l1PublishingTime;
-  }
-
-  public get checkpointPublishingDeadline(): number {
-    return this.aztecSlotDuration - this.l1PublishingTime;
-  }
-}
-
-/**
- * Checkpoint timing model for proposer pipelining.
- *
- * In this mode, the build work starts at the wall-clock slot boundary and the
- * checkpoint proposal is broadcast early enough that attestations complete by
- * the end of the build slot. L1 submission can then be sent at the boundary of
- * the target slot. The extra target-slot window getters are intended for
- * consumers such as P2P validators that need to validate pipelined messages
- * against wallclock time.
- */
-class PipelinedCheckpointTimingModel extends BaseCheckpointTiming implements PipelinedCheckpointTiming {
   public get proposalWindowIntoTargetSlot(): number {
     // Proposals no longer spill into the target slot: they are broadcast early
     // enough in the build slot that attestations complete before the boundary.
@@ -178,15 +109,18 @@ class PipelinedCheckpointTimingModel extends BaseCheckpointTiming implements Pip
   }
 
   public get attestationWindowIntoTargetSlot(): number {
-    // Straggler grace: attestations aim to complete by build-slot end. Allow a
-    // small window into the target slot for late arrivals (round-trip p2p).
-    return 2 * this.p2pPropagationTime;
+    // Span from the target-slot start to the L1 publish deadline (12s before the last L1 block of
+    // the target slot). The p2p layer accepts slot-N attestations until right before the publish
+    // deadline so the proposer can keep collecting useful attestations up to the latest moment the
+    // checkpoint can still land on L1 in the target slot.
+    return Math.max(0, this.aztecSlotDuration - 2 * this.ethereumSlotDuration);
   }
 
-  public override get pipeliningAttestationGracePeriod(): number {
-    // Under the early-pipelining regime attestations complete inside the build
-    // slot itself, so there is no extra grace into the target slot.
-    return 0;
+  public get pipeliningAttestationGracePeriod(): number {
+    // Under the early-pipelining regime attestations complete inside the build slot itself. Local
+    // networks can publish much faster than the Ethereum slot geometry, so they may use the target
+    // slot attestation window without moving the L1 publish cutoff.
+    return this.l1PublishingTime < this.ethereumSlotDuration ? this.attestationWindowIntoTargetSlot : 0;
   }
 
   public get timeReservedAtEnd(): number {
@@ -201,54 +135,65 @@ class PipelinedCheckpointTimingModel extends BaseCheckpointTiming implements Pip
     return this.checkpointInitializationTime + this.minExecutionTime * 2;
   }
 
+  public get initializeDeadline(): number {
+    return this.aztecSlotDuration - this.minimumBuildSlotWork;
+  }
+
   public get checkpointAssemblyDeadline(): number {
     // Allow enough time to build all blocks and receive attestations. With
     // `pipeliningAttestationGracePeriod = 0` this equals `aztecSlotDuration`.
     return this.aztecSlotDuration + this.pipeliningAttestationGracePeriod;
   }
 
+  public get checkpointAttestationStartDeadline(): number {
+    return this.checkpointAssemblyDeadline;
+  }
+
   public get checkpointAttestationDeadline(): number {
-    // Allowed to be into the next wallclock slot minus the allocated l1 publishing time
-    return this.aztecSlotDuration * 2 - this.l1PublishingTime;
+    // L1 publish deadline — 12s (one Ethereum slot) before the last L1 block of the target L2 slot;
+    // the latest the checkpoint can be submitted and still land on L1 in the target slot. This is an
+    // L1-geometry bound (ethereumSlotDuration), matching the publisher's send lead in sendRequestsAt
+    // (which also targets one Ethereum slot before the target slot start).
+    return this.aztecSlotDuration * 2 - this.ethereumSlotDuration;
   }
 
   public get checkpointPublishingDeadline(): number {
-    // Allowed to be into the next wallclock slot minus the allocated l1 Publishing time
-    return this.aztecSlotDuration * 2 - this.l1PublishingTime;
+    // L1 publish deadline — 12s (one Ethereum slot) before the last L1 block of the target L2 slot;
+    // the latest the checkpoint can be submitted and still land on L1 in the target slot.
+    return this.aztecSlotDuration * 2 - this.ethereumSlotDuration;
+  }
+
+  public calculateMaxBlocksPerSlot(): number {
+    if (!this.blockDuration) {
+      return 1;
+    }
+
+    const timeAvailableForBlocks = this.aztecSlotDuration - this.checkpointInitializationTime - this.timeReservedAtEnd;
+    return Math.floor(timeAvailableForBlocks / this.blockDuration);
   }
 }
 
 /**
- * Creates a checkpoint timing model for the requested scheduling mode.
+ * Creates a checkpoint timing model.
  *
  * Most callers should use this factory and depend only on the shared
- * `CheckpointTiming` interface. The returned implementation is selected from
- * `opts.pipelining`.
+ * `CheckpointTiming` interface.
  */
 export function createCheckpointTimingModel(opts: CheckpointTimingConfig): CheckpointTiming {
-  validateCheckpointTimingConfig(opts);
-  const normalizedOpts = normalizeCheckpointTimingConfig(opts);
-
-  const timing = normalizedOpts.pipelining
-    ? new PipelinedCheckpointTimingModel(normalizedOpts)
-    : new StandardCheckpointTimingModel(normalizedOpts);
-  validateCheckpointTimingModel(timing);
-  return timing;
+  return createPipelinedCheckpointTimingModel(opts);
 }
 
 /**
- * Creates a pipelined checkpoint timing model with target-slot window accessors.
+ * Creates a checkpoint timing model exposing the target-slot window accessors.
  *
- * Use this when the caller specifically needs the pipelined-only timing surface,
- * such as proposal or attestation acceptance windows into the target slot.
+ * Use this when the caller specifically needs the pipelined timing surface, such
+ * as proposal or attestation acceptance windows into the target slot.
  */
-export function createPipelinedCheckpointTimingModel(
-  opts: Omit<CheckpointTimingConfig, 'pipelining'>,
-): PipelinedCheckpointTiming {
+export function createPipelinedCheckpointTimingModel(opts: CheckpointTimingConfig): PipelinedCheckpointTiming {
   validateCheckpointTimingConfig(opts);
   const normalizedOpts = normalizeCheckpointTimingConfig(opts);
 
-  const timing = new PipelinedCheckpointTimingModel(normalizedOpts);
+  const timing = new CheckpointTimingModel(normalizedOpts);
   validateCheckpointTimingModel(timing);
   return timing;
 }
@@ -270,7 +215,6 @@ export function calculateMaxBlocksPerSlot(
     checkpointAssembleTime?: number;
     p2pPropagationTime?: number;
     l1PublishingTime?: number;
-    pipelining?: boolean;
   } = {},
 ): number {
   return createCheckpointTimingModel({
@@ -280,7 +224,6 @@ export function calculateMaxBlocksPerSlot(
     checkpointInitializationTime: opts.checkpointInitializationTime,
     l1PublishingTime: opts.l1PublishingTime,
     p2pPropagationTime: opts.p2pPropagationTime,
-    pipelining: opts.pipelining,
   }).calculateMaxBlocksPerSlot();
 }
 

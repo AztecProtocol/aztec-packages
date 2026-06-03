@@ -2,7 +2,7 @@ import { NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr, fromBuffer } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { type ZodFor, bufferSchemaFor, hexSchemaFor } from '@aztec/foundation/schemas';
-import { type BufferReader, FieldReader } from '@aztec/foundation/serialize';
+import { type BufferReader, type BufferSink, FieldReader } from '@aztec/foundation/serialize';
 import { hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
@@ -137,8 +137,13 @@ export class AztecAddress {
     return Point.fromXAndSign(this.xCoord, true);
   }
 
-  toBuffer() {
-    return this.xCoord.toBuffer();
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return this.xCoord.toBuffer();
+    }
+    this.xCoord.toBuffer(sink);
   }
 
   toBigInt() {

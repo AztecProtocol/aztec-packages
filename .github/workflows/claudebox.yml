@@ -129,6 +129,10 @@ jobs:
           AUTHOR: ${{ github.event.comment.user.login || github.actor }}
           SLACK_CHANNEL: ${{ inputs.slack_channel || '' }}
           SLACK_THREAD_TS: ${{ inputs.slack_thread_ts || '' }}
+          # Public mode grants the session read-write access to public repos
+          # (aztec-packages). Without it the session only gets the group's
+          # unscoped repos and cannot open PRs against aztec-packages.
+          CLAUDEBOX_MODE: ${{ vars.CLAUDEBOX_MODE || 'public' }}
         run: |
           if [ -z "${CLAUDEBOX_API_SECRET:-}" ]; then
             echo "ERROR: CLAUDEBOX_API_SECRET is not set; cannot dispatch ClaudeBox v2"
@@ -145,7 +149,8 @@ jobs:
             --arg link "$CLAUDEBOX_LINK" \
             --arg slack_channel "$SLACK_CHANNEL" \
             --arg slack_thread_ts "$SLACK_THREAD_TS" \
-            '{prompt: $prompt, user: $user, repo: $repo, run_url: $run_url, link: $link, slack_channel: $slack_channel, slack_thread_ts: $slack_thread_ts}
+            --arg mode "$CLAUDEBOX_MODE" \
+            '{prompt: $prompt, user: $user, repo: $repo, run_url: $run_url, link: $link, slack_channel: $slack_channel, slack_thread_ts: $slack_thread_ts, mode: $mode}
              + (if $comment_id != "" then {comment_id: ($comment_id | tonumber)} else {} end)
              + (if $run_comment_id != "" then {run_comment_id: ($run_comment_id | tonumber)} else {} end)')
 
@@ -203,6 +208,7 @@ jobs:
           RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           REPO: ${{ github.repository }}
+          CLAUDEBOX_MODE: ${{ vars.CLAUDEBOX_MODE || 'public' }}
         run: |
           if [ -z "${CLAUDEBOX_API_SECRET:-}" ]; then
             echo "ERROR: CLAUDEBOX_API_SECRET is not set; cannot dispatch ClaudeBox v2"
@@ -226,7 +232,8 @@ jobs:
             --arg repo "$REPO" \
             --arg run_url "$RUN_URL" \
             --arg link "$PR_URL" \
-            '{prompt: $prompt, user: $user, repo: $repo, run_url: $run_url, link: $link}
+            --arg mode "$CLAUDEBOX_MODE" \
+            '{prompt: $prompt, user: $user, repo: $repo, run_url: $run_url, link: $link, mode: $mode}
              + (if $run_comment_id != "" then {run_comment_id: ($run_comment_id | tonumber)} else {} end)')
 
           RESPONSE=$(curl -sS -w "\n%{http_code}" \

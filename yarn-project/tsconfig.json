@@ -51,6 +51,7 @@
     { "path": "ivc-integration/tsconfig.json" },
     { "path": "p2p/tsconfig.json" },
     { "path": "p2p-bootstrap/tsconfig.json" },
+    { "path": "standard-contracts/tsconfig.json" },
     { "path": "protocol-contracts/tsconfig.json" },
     { "path": "prover-client/tsconfig.json" },
     { "path": "prover-node/tsconfig.json" },

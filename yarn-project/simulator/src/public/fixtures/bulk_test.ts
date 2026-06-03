@@ -25,6 +25,7 @@ export async function bulkTest(
   // Register multiple different protocol contracts (to ensure we don't dedup bytecode hashing events):
   await tester.registerAuthContract();
   await tester.registerInstanceRegistryContract();
+  await tester.registerClassRegistryContract();
 
   // Get a deployed contract instance to pass to the contract
   // for it to use as "expected" values when testing contract instance retrieval.

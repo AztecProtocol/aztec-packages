@@ -50,7 +50,6 @@ describe('e2e_p2p_validators_sentinel', () => {
         slashingRoundSizeInEpochs: 2,
         sentinelEnabled: true,
         slashInactivityPenalty: 0n, // Set to 0 to disable
-        enableProposerPipelining: true,
         inboxLag: 2,
       },
     });

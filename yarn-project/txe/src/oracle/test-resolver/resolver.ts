@@ -4,7 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { withHexPrefix, withoutHexPrefix } from '@aztec/foundation/string';
 import type { InputSlot, OracleRegistryEntry } from '@aztec/pxe/simulator';
 
-import type { ForeignCallArgs, ForeignCallResult } from '../../util/encoding.js';
+import type { ForeignCallArgs, ForeignCallResult } from '../../utils/encoding.js';
 import type { OracleTestScenario } from './fixtures.js';
 
 /** Name of the meta-oracle that Noir tests call to select a fixture scenario by name. */

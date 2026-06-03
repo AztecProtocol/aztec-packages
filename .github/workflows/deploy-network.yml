@@ -6,7 +6,7 @@ on:
   workflow_call:
     inputs:
       network:
-        description: "Network to deploy (e.g., staging-public, testnet, next-net)"
+        description: "Network to deploy (e.g., staging, testnet, next-net)"
         required: true
         type: string
       semver:
@@ -46,12 +46,12 @@ on:
   workflow_dispatch:
     inputs:
       network:
-        description: "Network to deploy (e.g., staging-public, testnet, next-net)"
+        description: "Network to deploy (e.g., staging, testnet, next-net)"
         required: true
         type: choice
         options:
           - next-net
-          - staging-public
+          - staging
           - testnet
           - mainnet
       semver:
@@ -108,10 +108,12 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ steps.checkout-ref.outputs.ref }}
-          fetch-depth: 1
+          # Full history so recursive submodules can checkout pinned commits (not only branch tips).
+          fetch-depth: 0
+          lfs: true
           persist-credentials: false
           submodules: recursive # Initialize git submodules for l1-contracts dependencies
 

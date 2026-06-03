@@ -13,8 +13,12 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import { type ContractClassLog, ExtendedDirectionalAppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
-import { Tag } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  AppTaggingSecretKind,
+  type ContractClassLog,
+  type TaggingIndexRange,
+} from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   CallContext,
@@ -79,10 +83,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly senderTaggingStore: SenderTaggingStore;
   private totalPublicCalldataCount: number;
   private readonly initialSideEffectCounter: number;
-  /** Sender for tags passed in at oracle construction time. Returned by `getSenderForTags` unless overridden. */
+  /** Sender for tags passed in at oracle construction time. Returned by `getSenderForTags`. */
   private readonly defaultSenderForTags: AztecAddress | undefined;
-  /** Per-call sender-for-tags override, set by `setSenderForTags`. Takes precedence over `defaultSenderForTags`. */
-  private currentSenderForTags: AztecAddress | undefined;
 
   constructor(args: PrivateExecutionOracleArgs) {
     super({
@@ -175,71 +177,62 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * Returns `currentSenderForTags` if set (via `setSenderForTags`), otherwise `defaultSenderForTags`.
+   * Returns the wallet-supplied default sender for tags, or `None` if no default was provided.
    */
   public getSenderForTags(): Promise<Option<AztecAddress>> {
-    const sender = this.currentSenderForTags ?? this.defaultSenderForTags;
-    return Promise.resolve(sender ? Option.some(sender) : Option.none(AztecAddress.ZERO));
-  }
-
-  /**
-   * Set the sender for tags.
-   *
-   * This unconstrained value is used as the sender when computing an unconstrained shared secret
-   * for a tag in order to emit a log. Constrained tagging should not use this as there is no
-   * guarantee that the recipient knows about the sender, and hence about the shared secret.
-   *
-   * Overrides `defaultSenderForTags` for the remainder of this call. Each oracle instance is
-   * independent, so this has no effect on any other call in the execution.
-   */
-  public setSenderForTags(senderForTags: AztecAddress): Promise<void> {
-    this.logger.debug(
-      `Sender for tags switched to ${senderForTags} by contract ${this.contractAddress} (default was ${this.defaultSenderForTags})`,
+    return Promise.resolve(
+      this.defaultSenderForTags ? Option.some(this.defaultSenderForTags) : Option.none(AztecAddress.ZERO),
     );
-    this.currentSenderForTags = senderForTags;
-    return Promise.resolve();
   }
 
   /**
-   * Returns the next app tag for a given sender and recipient pair.
+   * Returns the sender-side app tagging secret for a `(sender, recipient)` pair.
+   *
+   * The caller obtains an index via {@link getNextTaggingIndex} and computes the final tag itself.
+   * The only expected `None` case is an invalid recipient address; missing sender data fails while deriving.
+   *
    * @param sender - The address sending the log
    * @param recipient - The address receiving the log
-   * @returns An app tag to be used in a log.
+   * @returns The app tagging secret, or `None` if the recipient is invalid.
    */
-  public async getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
-    const extendedSecret = await this.#calculateExtendedDirectionalAppTaggingSecret(
-      this.contractAddress,
-      sender,
-      recipient,
-    );
+  public async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Option<Fr>> {
+    const extendedSecret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);
 
     if (!extendedSecret) {
-      // We'd only fail to compute an extended secret if the recipient is an invalid address. To prevent
-      // king-of-the-hill attacks, instead of failing we use a random tag. By including a correct-looking tag in the
-      // log, the transaction shape is preserved and no privacy is leaked, even if the tag is bogus.
-      this.logger.warn(`Computing a tag for invalid recipient ${recipient} - returning a random tag instead`, {
+      this.logger.warn(`Computing a tagging secret for invalid recipient ${recipient} - returning no secret`, {
         contractAddress: this.contractAddress,
       });
-      return Tag.random();
+      return Option.none(Fr.ZERO);
     }
 
-    const index = await this.#getIndexToUseForSecret(extendedSecret);
-    this.logger.debug(
-      `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
-    );
-    this.taggingIndexCache.setLastUsedIndex(extendedSecret, index);
-
-    return Tag.compute({ extendedSecret, index });
+    return Option.some(extendedSecret.secret);
   }
 
-  async #calculateExtendedDirectionalAppTaggingSecret(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ) {
+  /**
+   * Returns the next sender-side tagging index for a given secret and delivery mode.
+   *
+   * @param secret - The tagging secret to allocate an index for.
+   * @param kind - The sender-side index namespace.
+   * @returns The next index to use for this secret.
+   */
+  public async getNextTaggingIndex(secret: Fr, kind: AppTaggingSecretKind): Promise<number> {
+    const appTaggingSecret = new AppTaggingSecret(secret, this.contractAddress, kind);
+    const index = await this.#reserveNextIndexForSecret(appTaggingSecret);
+    this.logger.debug(`Incrementing ${kind} tagging index for secret in contract ${this.contractAddress} to ${index}`);
+    return index;
+  }
+
+  /** Resolves the next index for a given tagging secret, syncing from chain if it is missing from the in-tx cache. */
+  async #reserveNextIndexForSecret(secret: AppTaggingSecret): Promise<number> {
+    const index = await this.#getIndexToUseForSecret(secret);
+    this.taggingIndexCache.setLastUsedIndex(secret, index);
+    return index;
+  }
+
+  async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return ExtendedDirectionalAppTaggingSecret.compute(
+    return AppTaggingSecret.computeUnconstrained(
       senderCompleteAddress,
       senderIvsk,
       recipient,
@@ -248,7 +241,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     );
   }
 
-  async #getIndexToUseForSecret(secret: ExtendedDirectionalAppTaggingSecret): Promise<number> {
+  async #getIndexToUseForSecret(secret: AppTaggingSecret): Promise<number> {
     // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
     const lastUsedIndexInTx = this.taggingIndexCache.getLastUsedIndex(secret);
 
@@ -665,5 +658,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   public getDebugFunctionName() {
     return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+  }
+
+  protected override get callerContext() {
+    return this.callContext.isStaticCall ? 'private view' : 'private';
   }
 }

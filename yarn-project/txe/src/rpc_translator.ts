@@ -1,5 +1,4 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from '@aztec/pxe/simulator';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 
@@ -9,12 +8,11 @@ import type { TXESessionStateHandler } from './txe_session.js';
 import {
   type ForeignCallArgs,
   type ForeignCallSingle,
-  addressFromSingle,
   fromSingle,
   toArray,
   toForeignCallResult,
   toSingle,
-} from './util/encoding.js';
+} from './utils/encoding.js';
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -608,18 +606,10 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents',
       inputs,
-      handler: ([
-        noteValidationRequestsArrayBaseSlot,
-        eventValidationRequestsArrayBaseSlot,
-        maxNotePackedLen,
-        maxEventSerializedLen,
-        scope,
-      ]) =>
+      handler: ([noteValidationRequests, eventValidationRequests, scope]) =>
         this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
-          noteValidationRequestsArrayBaseSlot,
-          eventValidationRequestsArrayBaseSlot,
-          maxNotePackedLen,
-          maxEventSerializedLen,
+          noteValidationRequests,
+          eventValidationRequests,
           scope,
         ),
     });
@@ -851,16 +841,12 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_avm_getContractInstanceImmutablesHash(foreignAddress: ForeignCallSingle) {
-    const address = addressFromSingle(foreignAddress);
-
-    const instance = await this.handlerAsUtility().getContractInstance(address);
-
-    return toForeignCallResult([
-      toSingle(instance.immutablesHash),
-      // AVM requires an extra boolean indicating the instance was found
-      toSingle(new Fr(1)),
-    ]);
+  aztec_avm_getContractInstanceImmutablesHash(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_avm_getContractInstanceImmutablesHash',
+      inputs,
+      handler: ([address]) => this.handlerAsAvm().getContractInstanceImmutablesHash(address),
+    });
   }
 
   // eslint-disable-next-line camelcase
@@ -1126,20 +1112,20 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_setSenderForTags(...inputs: ForeignCallArgs) {
+  aztec_prv_getAppTaggingSecret(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_prv_setSenderForTags',
+      oracle: 'aztec_prv_getAppTaggingSecret',
       inputs,
-      handler: ([senderForTags]) => this.handlerAsPrivate().setSenderForTags(senderForTags),
+      handler: ([sender, recipient]) => this.handlerAsPrivate().getAppTaggingSecret(sender, recipient),
     });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_getNextAppTagAsSender(...inputs: ForeignCallArgs) {
+  aztec_prv_getNextTaggingIndex(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_prv_getNextAppTagAsSender',
+      oracle: 'aztec_prv_getNextTaggingIndex',
       inputs,
-      handler: ([sender, recipient]) => this.handlerAsPrivate().getNextAppTagAsSender(sender, recipient),
+      handler: ([secret, deliveryMode]) => this.handlerAsPrivate().getNextTaggingIndex(secret, deliveryMode),
     });
   }
 }

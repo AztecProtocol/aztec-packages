@@ -28,6 +28,9 @@
       "path": "../pxe"
     },
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../stdlib"
     },
     {

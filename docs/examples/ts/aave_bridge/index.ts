@@ -10,7 +10,6 @@ import {
   computeL2ToL1MessageHash,
   computeSecretHash,
 } from "@aztec/stdlib/hash";
-import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { decodeEventLog, pad, toFunctionSelector } from "@aztec/viem";
 import { foundry } from "@aztec/viem/chains";
@@ -278,13 +277,11 @@ while (provenBlockNumber < exitBlockNumber) {
 }
 console.log("Block proven!\n");
 
-// Compute the membership witness using the message hash and the L2 tx hash
-const witness = await computeL2ToL1MembershipWitness(
-  node,
-  msgLeaf,
-  exitReceipt.txHash,
-);
+// Compute the membership witness using the message hash and the L2 tx hash.
+// The node picks the smallest partial-proof root that covers the tx's checkpoint.
+const witness = await node.getL2ToL1MembershipWitness(exitReceipt.txHash, msgLeaf);
 const epoch = witness!.epochNumber;
+const numCheckpointsInEpoch = witness!.numCheckpointsInEpoch;
 
 const siblingPathHex = witness!.siblingPath
   .toBufferArray()
@@ -304,6 +301,7 @@ const depositToAaveHash = await l1Client.writeContract({
     amountToDeposit,
     false, // withCaller = false (matches caller_on_l1 = address(0))
     BigInt(epoch),
+    BigInt(numCheckpointsInEpoch),
     BigInt(witness!.leafIndex),
     siblingPathHex,
   ],

@@ -47,6 +47,7 @@ ivc-integration/artifacts
 ivc-integration/src/types/
 protocol-contracts/artifacts
 protocol-contracts/src/protocol_contract_data.ts
+standard-contracts/artifacts
 scripts/tmp
 noir-contracts.js/src
 noir-contracts.js/artifacts/

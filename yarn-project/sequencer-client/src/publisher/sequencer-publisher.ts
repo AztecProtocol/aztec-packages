@@ -45,7 +45,11 @@ import { EmpireBaseAbi, ErrorsAbi, RollupAbi, SlashingProposerAbi } from '@aztec
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { getNextL1SlotTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import {
+  getLastL1SlotTimestampForL2Slot,
+  getNextL1SlotTimestamp,
+  getTimestampForSlot,
+} from '@aztec/stdlib/epoch-helpers';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -397,10 +401,10 @@ export class SequencerPublisher {
 
   /**
    * Sends all requests that are still valid.
-   * @param targetSlot - The target L2 slot for this send. When provided (pipelined path via
-   *   sendRequestsAt), it is threaded into bundleSimulate so the block.timestamp override
-   *   matches the slot the propose is built for. When omitted, falls back to
-   *   getCurrentL2Slot() for the non-pipelined callers in Sequencer.doWork.
+   * @param targetSlot - The target L2 slot for this send. When provided (the production path, via
+   *   sendRequestsAt), it is threaded into bundleSimulate so the block.timestamp override matches
+   *   the slot the propose is built for. When omitted, falls back to getCurrentL2Slot() for the
+   *   AutomineSequencer, which publishes synchronously within the current slot.
    * @returns one of:
    * - A receipt and stats if the tx succeeded
    * - a receipt and errorMsg if it failed on L1
@@ -680,8 +684,7 @@ export class SequencerPublisher {
     // skip the proposal; we do NOT treat these as bugs.
     const expectedErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
-    const pipelined = this.epochCache.isProposerPipeliningEnabled();
-    const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
+    const slotOffset = this.aztecSlotDuration;
     const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
 
     return this.rollupContract
@@ -727,7 +730,7 @@ export class SequencerPublisher {
     ] as const;
 
     const l1Constants = this.epochCache.getL1Constants();
-    const ts = getTimestampForSlot(header.slotNumber, l1Constants);
+    const ts = getLastL1SlotTimestampForL2Slot(header.slotNumber, l1Constants);
     const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
     let balance = 0n;
     if (this.config.fishermanMode) {

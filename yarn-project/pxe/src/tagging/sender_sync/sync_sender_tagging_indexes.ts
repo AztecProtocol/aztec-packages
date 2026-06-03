@@ -1,6 +1,6 @@
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import type { ExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
+import type { AppTaggingSecret } from '@aztec/stdlib/logs';
 
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
@@ -14,8 +14,7 @@ import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_taggin
 /**
  * Syncs tagging indexes. This function needs to be called whenever a private log is being sent.
  *
- * @param secret - The secret that's unique for (sender, recipient, app) tuple while the direction of
- * sender -> recipient matters.
+ * @param secret - The sender-side tagging `AppTaggingSecret`.
  * @remarks When syncing the indexes as sender we don't care about the log contents - we only care about the highest
  * pending and highest finalized indexes as that guides the next index choice when sending a log. The next index choice
  * is simply the highest pending index plus one (or finalized if pending is undefined).
@@ -23,7 +22,7 @@ import { loadAndStoreNewTaggingIndexes } from './utils/load_and_store_new_taggin
  * updates its status accordingly.
  */
 export async function syncSenderTaggingIndexes(
-  secret: ExtendedDirectionalAppTaggingSecret,
+  secret: AppTaggingSecret,
   aztecNode: AztecNode,
   taggingStore: SenderTaggingStore,
   anchorBlockHash: BlockHash,
@@ -94,17 +93,17 @@ export async function syncSenderTaggingIndexes(
     await taggingStore.finalizePendingIndexes(txHashesToFinalize, jobId);
 
     if (txHashesWithExecutionReverted.length > 0) {
-      const indexedTxEffects = await Promise.all(
-        txHashesWithExecutionReverted.map(txHash => aztecNode.getTxEffect(txHash)),
+      const receipts = await Promise.all(
+        txHashesWithExecutionReverted.map(txHash => aztecNode.getTxReceipt(txHash, { includeTxEffect: true })),
       );
-      for (const indexedTxEffect of indexedTxEffects) {
-        if (indexedTxEffect === undefined) {
+      for (const receipt of receipts) {
+        if (!receipt.isMined() || !receipt.txEffect) {
           throw new Error(
             'TxEffect not found for execution-reverted tx. This is either a bug or a reorg has occurred.',
           );
         }
 
-        await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(indexedTxEffect.data, jobId);
+        await taggingStore.finalizePendingIndexesOfAPartiallyRevertedTx(receipt.txEffect, jobId);
       }
     }
 

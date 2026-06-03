@@ -50,6 +50,8 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, type PXECreationOptions, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { PublicChecksArtifact, getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
 import { ARTIFACT_VERSION_BEFORE_INJECTION } from '@aztec/stdlib/abi';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
@@ -543,14 +545,16 @@ export async function setup(
       throw new Error('minTxsPerBlock is undefined in e2e test setup');
     }
 
-    // Only set minTxsPerBlock=1 if we're going to deploy accounts and need reliable block inclusion
+    // Whether we're deploying accounts (and therefore need reliable block inclusion past genesis)
     const shouldDeployAccounts = numberOfAccounts > 0 && !opts.skipAccountDeployment;
     // Only set minTxsPerBlock=0 if we need an empty block (no accounts at all, not skipped deployment)
     const needsEmptyBlock = numberOfAccounts === 0 && !opts.skipAccountDeployment;
-    // Under proposer pipelining the sequencer builds during slot N-1 for slot N. A tx submitted at
-    // slot N start is too late -- it arrives after the build. Forcing minTxsPerBlock=1 then stalls
-    // the chain on alternating slots, so allow empty checkpoints under pipelining.
-    const accountsDeployMinTxs = config.enableProposerPipelining ? 0 : 1;
+    // Pipelining is always on: the proposer builds during slot N-1 for slot N. A tx submitted at
+    // slot N start arrives after that build, so forcing minTxsPerBlock=1 would stall the chain on
+    // alternating slots -- hence empty checkpoints are allowed (minTxsPerBlock=0) for account
+    // deployment. Automine is unaffected: its runBuild clamps mempool builds to
+    // Math.max(minTxsPerBlock ?? 1, 1) and still requires minValidTxs: 1.
+    const accountsDeployMinTxs = 0;
     config.minTxsPerBlock = shouldDeployAccounts ? accountsDeployMinTxs : needsEmptyBlock ? 0 : originalMinTxsPerBlock;
 
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
@@ -650,7 +654,7 @@ export async function setup(
       logger.info('Sequencer not started on initial node, skipping block progression');
     } else if (shouldDeployAccounts) {
       logger.info(
-        `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by setting minTxsPerBlock to 1 and waiting for the accounts to be deployed`,
+        `${numberOfAccounts} accounts are being deployed. Reliably progressing past genesis by waiting for the accounts to be deployed`,
       );
       const accountsData = initialFundedAccounts.slice(0, numberOfAccounts);
       const accountManagers = await deployFundedSchnorrAccounts(wallet, accountsData);
@@ -890,6 +894,41 @@ export async function expectMappingDelta<K, V extends number | bigint>(
   const diffs = outputs.map((output, i) => output - initialValues[i]);
 
   expect(diffs).toEqual(expectedDiffs);
+}
+
+/**
+ * Registers the auth_registry contract class and publishes its standard instance if not already
+ * present, and registers the artifact with PXE. Publishing is required before exercising the public
+ * authwit path (which relies on the AVM's deployment-nullifier check); the PXE-side registration is
+ * required so revert messages from AuthRegistry calls can be enriched (otherwise assertion strings
+ * surface as generic "Assertion failed:" and tests that match on the real message fail).
+ */
+export async function ensureAuthRegistryPublished(wallet: Wallet, from: AztecAddress) {
+  const { instance, contractClass } = await getStandardAuthRegistry();
+  if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
+    await (await publishContractClass(wallet, AuthRegistryArtifact)).send({ from });
+  }
+  if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
+    await publishInstance(wallet, instance).send({ from });
+  }
+  await wallet.registerContract(instance, AuthRegistryArtifact);
+}
+
+/**
+ * Registers the public_checks contract class and publishes its standard instance if not already
+ * present, and registers the artifact with PXE. Required for any contract that calls
+ * `privately_check_timestamp` / `privately_check_block_number` (which dispatch into the
+ * deployed PublicChecks contract via an enqueued public call).
+ */
+export async function ensurePublicChecksPublished(wallet: Wallet, from: AztecAddress) {
+  const { instance, contractClass } = await getStandardPublicChecks();
+  if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
+    await (await publishContractClass(wallet, PublicChecksArtifact)).send({ from });
+  }
+  if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
+    await publishInstance(wallet, instance).send({ from });
+  }
+  await wallet.registerContract(instance, PublicChecksArtifact);
 }
 
 /**

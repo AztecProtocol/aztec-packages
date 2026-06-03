@@ -32,10 +32,10 @@ import type { WorkerWallet } from '../test-wallet/worker_wallet.js';
 import { type WorkerWalletWrapper, createWorkerWalletClient } from './setup_test_wallets.js';
 import { ProvingMetrics } from './tx_metrics.js';
 import {
+  type ServiceEndpoint,
+  getEthereumEndpoint,
   getExternalIP,
-  scaleProverAgents,
   setupEnvironment,
-  startPortForwardForEthereum,
   startPortForwardForPrometeheus,
 } from './utils.js';
 
@@ -47,7 +47,6 @@ if (!Number.isFinite(TARGET_TPS)) {
 }
 
 const NUM_WALLETS = config.REAL_VERIFIER ? TARGET_TPS * 11 : 1; // add an extra wallet for each 1TPS in order to be able to maintain target TPS. This is assuming tx creation takes 9-10s
-const TARGET_PROVER_AGENTS = parseInt(process.env.TARGET_PROVER_AGENTS ?? '200');
 const SLOTS_BUFFER = 1;
 
 const epochDurationSlots = config.AZTEC_EPOCH_DURATION;
@@ -130,6 +129,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
   let metrics: ProvingMetrics;
   let childProcesses: ChildProcess[];
   let rollupCheatCodes: RollupCheatCodes;
+  let ethEndpoint: ServiceEndpoint | undefined;
   let metricsStartSnapshot: MetricsSnapshot | undefined;
 
   afterAll(async () => {
@@ -249,10 +249,11 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     logger.info('Metrics snapshot captured');
 
     // Setup Ethereum connection for RollupCheatCodes
-    const { process: ethProcess, port: ethPort } = await startPortForwardForEthereum(config.NAMESPACE);
-    childProcesses.push(ethProcess);
-    const ethereumHost = `http://127.0.0.1:${ethPort}`;
-    const ethCheatCodes = new EthCheatCodesWithState([ethereumHost], new DateProvider());
+    ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
+    if (ethEndpoint.process) {
+      childProcesses.push(ethEndpoint.process);
+    }
+    const ethCheatCodes = new EthCheatCodesWithState([ethEndpoint.url], new DateProvider());
     const l1ContractAddresses = await aztecNode.getNodeInfo().then(n => n.l1ContractAddresses);
     rollupCheatCodes = new RollupCheatCodes(ethCheatCodes, l1ContractAddresses);
 
@@ -384,17 +385,16 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
         `Waiting ${formatDuration(secondsToWait)} (${slotsToWait} slots) until ${SLOTS_BUFFER} slot(s) before epoch boundary (until ${endTime.toISOString()})...`,
       );
       await sleep(secondsToWait * 1000);
-    }
 
-    // scale to 10 agents in order to be able to prove the current epoch which contains up to 10 account contracts and the benchmark contract
-    await scaleProverAgents(config.NAMESPACE, 10, logger);
-  });
-
-  afterAll(async () => {
-    try {
-      await scaleProverAgents(config.NAMESPACE, 2, logger);
-    } catch (err) {
-      logger.error(`Failed to scale prover agents: ${err}`);
+      // Port-forward to L1 may have died during the wait; re-establish before using rollupCheatCodes.
+      ethEndpoint?.process?.kill();
+      ethEndpoint = await getEthereumEndpoint(config.NAMESPACE);
+      if (ethEndpoint.process) {
+        childProcesses.push(ethEndpoint.process);
+      }
+      const freshEthCheatCodes = new EthCheatCodesWithState([ethEndpoint.url], new DateProvider());
+      const freshL1Addresses = await aztecNode.getNodeInfo().then(n => n.l1ContractAddresses);
+      rollupCheatCodes = new RollupCheatCodes(freshEthCheatCodes, freshL1Addresses);
     }
   });
 
@@ -412,19 +412,9 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     const sentTxs: TxHash[] = [];
     const sendStartTime = performance.now();
     const sendDeadline = sendStartTime + sendDurationMs;
-    const scaleUpTime = sendDeadline - 8 * slotDurationSeconds * 1000;
-    let scaledUp = false;
     let i = 0;
 
     while (performance.now() < sendDeadline) {
-      if (!scaledUp && performance.now() >= scaleUpTime) {
-        scaledUp = true;
-        logger.info(`Scaling prover agents to ${TARGET_PROVER_AGENTS} (8 slots before end of tx sending)`);
-        void scaleProverAgents(config.NAMESPACE, TARGET_PROVER_AGENTS, logger).catch(err =>
-          logger.error(`Failed to scale prover agents: ${err}`),
-        );
-      }
-
       const loopStart = performance.now();
 
       // look for a wallet with an available tx

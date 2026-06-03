@@ -1,5 +1,5 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
+import { type EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -26,6 +26,7 @@ import {
   L2Block,
   type L2BlockSink,
   type L2BlockSource,
+  type ProposedCheckpointSink,
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
@@ -41,11 +42,12 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
 
-import { expect } from '@jest/globals';
+import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -65,7 +67,7 @@ describe('sequencer', () => {
   let worldState: MockProxy<WorldStateSynchronizer>;
   let checkpointsBuilder: MockCheckpointsBuilder;
   let checkpointBuilder: MockCheckpointBuilder;
-  let l2BlockSource: MockProxy<L2BlockSource & L2BlockSink>;
+  let l2BlockSource: MockProxy<L2BlockSource & L2BlockSink & ProposedCheckpointSink>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let slasherClient: MockProxy<SlasherClientInterface>;
   let publisherFactory: MockProxy<SequencerPublisherFactory>;
@@ -84,13 +86,14 @@ describe('sequencer', () => {
   let globalVariables: GlobalVariables;
   let l1Constants: Pick<
     L1RollupConstants,
-    'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration' | 'rollupManaLimit'
+    'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration' | 'rollupManaLimit' | 'epochDuration'
   >;
 
   let sequencer: TestSequencer;
 
   const slotDuration = 8;
   const ethereumSlotDuration = 4;
+  const epochDuration = 16;
 
   const chainId = new Fr(12345);
   const version = Fr.ZERO;
@@ -172,7 +175,11 @@ describe('sequencer', () => {
     feeRecipient = await AztecAddress.random();
     lastBlockNumber = BlockNumber.ZERO;
     newBlockNumber = BlockNumber(lastBlockNumber + 1);
-    newSlotNumber = newBlockNumber;
+    // Pipelining is always on: the proposer builds during the wall-clock (build) slot for the
+    // target slot one ahead. The mocked next-L1-slot lookup reports build slot 1 (see
+    // getEpochAndSlotInNextL1Slot below), so the checkpoint the sequencer builds — and the slot
+    // `canProposeAt` must report — is the target slot, build + PROPOSER_PIPELINING_SLOT_OFFSET.
+    newSlotNumber = newBlockNumber + PROPOSER_PIPELINING_SLOT_OFFSET;
     hash = Fr.ZERO.toString();
 
     globalVariables = new GlobalVariables(
@@ -187,7 +194,13 @@ describe('sequencer', () => {
     );
 
     const l1GenesisTime = BigInt(Math.floor(Date.now() / 1000));
-    l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration, rollupManaLimit: Number.MAX_SAFE_INTEGER };
+    l1Constants = {
+      l1GenesisTime,
+      slotDuration,
+      ethereumSlotDuration,
+      epochDuration,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
+    };
 
     epochCache = mockDeep<EpochCache>();
     epochCache.isEscapeHatchOpen.mockResolvedValue(false);
@@ -197,15 +210,14 @@ describe('sequencer', () => {
       ts: 1000n,
       nowSeconds: 1000n,
     }));
-    epochCache.getTargetSlot.mockReturnValue(SlotNumber(1));
+    epochCache.getTargetSlot.mockReturnValue(SlotNumber(newSlotNumber));
     epochCache.getTargetEpoch.mockReturnValue(EpochNumber(1));
     epochCache.getTargetEpochAndSlotInNextL1Slot.mockImplementation(() => ({
       epoch: EpochNumber(1),
-      slot: SlotNumber(1),
+      slot: SlotNumber(newSlotNumber),
       ts: 1000n,
       nowSeconds: 1000n,
     }));
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
     epochCache.getCommittee.mockResolvedValue({
       committee,
       seed: 1n,
@@ -292,7 +304,7 @@ describe('sequencer', () => {
     // Use blockProvider so the mock returns whatever `block` is set to at call time
     checkpointBuilder.setBlockProvider(() => block);
 
-    l2BlockSource = mock<L2BlockSource & L2BlockSink>({
+    l2BlockSource = mock<L2BlockSource & L2BlockSink & ProposedCheckpointSink>({
       getBlockData: mockFn().mockResolvedValue({
         header: BlockHeader.empty(),
         archive: AppendOnlyTreeSnapshot.empty(),
@@ -426,8 +438,10 @@ describe('sequencer', () => {
     it('does not build a block if it does not have enough time left in the slot', async () => {
       await setupSingleTxBlock();
 
-      // Deadline for initializing proposal is 1s, so we go 2s past it
-      expect(sequencer.getTimeTable().initializeDeadline).toEqual(1);
+      // Deadline for initializing proposal is 5.5s into the slot; the build slot starts at
+      // l1GenesisTime + slotDuration - ethereumSlotDuration, so setting the clock to
+      // l1GenesisTime + slotDuration + 2 puts us at 6s into the slot, past the deadline.
+      expect(sequencer.getTimeTable().initializeDeadline).toEqual(5.5);
       const l1TsForL2Slot1 = Number(l1Constants.l1GenesisTime) + slotDuration;
       dateProvider.setTime((l1TsForL2Slot1 + 2) * 1000);
       await expect(sequencer.work()).rejects.toThrow(
@@ -500,8 +514,9 @@ describe('sequencer', () => {
       await sequencer.work();
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
 
-      // Archiver reports synced to slot 0, which satisfies syncedL2Slot + 1 >= slot (slot=1)
-      l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(0));
+      // Archiver reports synced to the build slot, satisfying both the pre-build sync gate
+      // (syncedL2Slot + 1 >= slot) and the pipelined parent-checkpoint wait (synced >= slotNow).
+      l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(1));
       await sequencer.work();
       await sequencer.awaitLastProposalSubmission();
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalled();
@@ -603,19 +618,20 @@ describe('sequencer', () => {
           ts: 1000n,
           nowSeconds: 1000n,
         });
-      epochCache.getTargetSlot.mockReset().mockReturnValueOnce(SlotNumber(1)).mockReturnValueOnce(SlotNumber(2));
+      // Target slots are one ahead of the build slots above (build 1 -> target 2, build 2 -> target 3).
+      epochCache.getTargetSlot.mockReset().mockReturnValueOnce(SlotNumber(2)).mockReturnValueOnce(SlotNumber(3));
       epochCache.getTargetEpoch.mockReturnValue(EpochNumber(1));
       epochCache.getTargetEpochAndSlotInNextL1Slot
         .mockReset()
         .mockReturnValueOnce({
           epoch: EpochNumber(1),
-          slot: SlotNumber(1),
+          slot: SlotNumber(2),
           ts: 1000n,
           nowSeconds: 1000n,
         })
         .mockReturnValueOnce({
           epoch: EpochNumber(1),
-          slot: SlotNumber(2),
+          slot: SlotNumber(3),
           ts: 1000n,
           nowSeconds: 1000n,
         });
@@ -673,7 +689,7 @@ describe('sequencer', () => {
       await sequencer.work();
 
       // Vote-only path should run
-      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(1));
+      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
       expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
       expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalled();
       // Submission goes through sendRequestsAt so the bundle simulate's block.timestamp
@@ -731,12 +747,12 @@ describe('sequencer', () => {
     const mockSlashActions = [{ type: 'vote-offenses' as const, round: 1n, votes: [], committees: [] }];
 
     it('should vote on slashing and governance when sync fails and past initialize deadline', async () => {
-      // Set time to be past the initializeDeadline (which is 1s based on test config)
+      // Set time to be past the initializeDeadline (5.5s for this test config)
       // Build start is: l1GenesisTime + slotNumber * slotDuration - ethereumSlotDuration
       // For slot 1: l1GenesisTime + 1 * 8 - 4 = l1GenesisTime + 4
-      expect(sequencer.getTimeTable().initializeDeadline).toEqual(1);
+      expect(sequencer.getTimeTable().initializeDeadline).toEqual(5.5);
       const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
-      dateProvider.setTime((buildStartTime + 2) * 1000); // 2 seconds after build start, past the 1s deadline
+      dateProvider.setTime((buildStartTime + 6) * 1000); // 6 seconds after build start, past the 5.5s deadline
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
@@ -757,11 +773,11 @@ describe('sequencer', () => {
 
       // We're testing the new behavior - that we try to vote even when sync fails
       // when we're past the time we could build a block
-      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(1));
+      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
       expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
       expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalledWith(
         governancePayload,
-        SlotNumber(1),
+        SlotNumber(newSlotNumber),
         expect.any(EthAddress),
         expect.any(Function),
       );
@@ -793,7 +809,7 @@ describe('sequencer', () => {
     it('should not vote when sync fails but not a proposer', async () => {
       // Set time to be past the max allowed time
       const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
-      dateProvider.setTime((buildStartTime + 2) * 1000); // 2s after build start, past 1s deadline
+      dateProvider.setTime((buildStartTime + 6) * 1000); // 6s after build start, past 5.5s deadline
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
@@ -811,7 +827,7 @@ describe('sequencer', () => {
     it('should not attempt to vote twice in the same slot', async () => {
       // Set time to be past the max allowed time
       const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
-      dateProvider.setTime((buildStartTime + 2) * 1000); // 2s after build start, past 1s deadline
+      dateProvider.setTime((buildStartTime + 6) * 1000); // 6s after build start, past 5.5s deadline
 
       // Mock slashing actions
       slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
@@ -1031,7 +1047,6 @@ describe('sequencer', () => {
       sequencer.skipExecute = true;
 
       // Set up a pipelining scenario: slot.now=1, slot.pipeline=2
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
       epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
         epoch: EpochNumber(1),
         slot: SlotNumber(1),
@@ -1059,6 +1074,34 @@ describe('sequencer', () => {
 
     afterEach(() => {
       sequencer.skipExecute = false;
+    });
+
+    it('derives the pipelined target slot from the same next-L1-slot snapshot', async () => {
+      await setupSingleTxBlock();
+
+      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(6),
+        ts: 1780066804n,
+        nowSeconds: 1780066811n,
+      });
+      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
+        epoch: EpochNumber(1),
+        slot: SlotNumber(8),
+        ts: 1780066816n,
+        nowSeconds: 1780066812n,
+      });
+      publisher.canProposeAt.mockResolvedValue({
+        slot: SlotNumber(7),
+        checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
+        timeOfNextL1Slot: 1780066816n,
+      });
+
+      await sequencer.work();
+
+      expect(epochCache.getTargetEpochAndSlotInNextL1Slot).not.toHaveBeenCalled();
+      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(7));
+      expect(p2p.prepareForSlot).toHaveBeenCalledWith(SlotNumber(7));
     });
 
     it('skips L1 check when proposed checkpoint exists', async () => {
@@ -1199,31 +1242,6 @@ describe('sequencer', () => {
       expect(plan?.pendingCheckpointState).toBeUndefined();
     });
 
-    it('pins both chain tips to the on-chain pending snapshot when not pipelining', async () => {
-      await setupSingleTxBlock();
-
-      // Override back to non-pipelining
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
-      epochCache.getEpochAndSlotInNextL1Slot.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(1),
-        ts: 1000n,
-        nowSeconds: 1000n,
-      });
-      publisher.canProposeAt.mockResolvedValue({
-        slot: SlotNumber(1),
-        checkpointNumber: CheckpointNumber.fromBlockNumber(newBlockNumber),
-        timeOfNextL1Slot: 1000n,
-      });
-
-      await sequencer.work();
-
-      const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
-      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber.ZERO);
-      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber.ZERO);
-      expect(plan?.pendingCheckpointState).toBeUndefined();
-    });
-
     it('mirrors pending onto proven when the caller overrides pending via pipelining', async () => {
       await setupSingleTxBlock();
 
@@ -1312,28 +1330,151 @@ describe('sequencer', () => {
     });
   });
 
+  describe('checkSync orphan-block guard', () => {
+    // Mocks all sync sources so checkSync passes its earlier equality checks and reaches the orphan
+    // guard, with the world-state tip at `blockNumber` (in `blockCheckpointNumber`) while the
+    // checkpointed and proposed-checkpoint tips sit at the given checkpoint numbers.
+    const setupSyncedToBlock = (opts: {
+      blockNumber: BlockNumber;
+      blockSlot: SlotNumber;
+      blockCheckpointNumber: CheckpointNumber;
+      checkpointedCheckpointNumber: CheckpointNumber;
+      proposedCheckpointTipNumber: CheckpointNumber;
+      proposedCheckpointData: ProposedCheckpointData | undefined;
+    }) => {
+      const hash = Fr.random().toString();
+      const checkpointHash = Fr.random().toString();
+      const proposedCheckpointHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: opts.blockNumber,
+          latestBlockHash: hash,
+          finalizedBlockNumber: BlockNumber.ZERO,
+          oldestHistoricBlockNumber: BlockNumber.ZERO,
+          treesAreSynched: true,
+        },
+      } satisfies WorldStateSynchronizerStatus);
+      const tips = {
+        proposed: { number: opts.blockNumber, hash },
+        proposedCheckpoint: {
+          block: { number: opts.blockNumber, hash },
+          checkpoint: { number: opts.proposedCheckpointTipNumber, hash: proposedCheckpointHash },
+        },
+        checkpointed: {
+          block: { number: opts.blockNumber, hash },
+          checkpoint: { number: opts.checkpointedCheckpointNumber, hash: checkpointHash },
+        },
+        proven: {
+          block: { number: opts.blockNumber, hash },
+          checkpoint: { number: opts.checkpointedCheckpointNumber, hash: checkpointHash },
+        },
+        finalized: {
+          block: { number: opts.blockNumber, hash },
+          checkpoint: { number: opts.checkpointedCheckpointNumber, hash: checkpointHash },
+        },
+      };
+      l2BlockSource.getL2Tips.mockResolvedValue(tips);
+      l1ToL2MessageSource.getL2Tips.mockResolvedValue(tips);
+      p2p.getStatus.mockResolvedValue({ syncedToL2Block: { number: opts.blockNumber, hash } } as any);
+      l2BlockSource.getBlockData.mockResolvedValue({
+        header: BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: opts.blockNumber, slotNumber: opts.blockSlot }),
+        }),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        blockHash: BlockHash.ZERO,
+        checkpointNumber: opts.blockCheckpointNumber,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      } satisfies BlockData);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpointData);
+    };
+
+    // The orphan block sits at slot 3; with pipelining offset 1 and a grace of MIN_EXECUTION_TIME (no
+    // blockDurationMs configured) its enclosing checkpoint is due at l1GenesisTime + 3 * slotDuration + 2.
+    const orphanCheckpointDueSeconds = () => Number(l1Constants.l1GenesisTime) + 3 * slotDuration + MIN_EXECUTION_TIME;
+
+    it('returns undefined and warns once the missing proposed checkpoint is overdue', async () => {
+      // Local tip is a block at checkpoint 3, but the checkpointed and proposed-checkpoint tips are
+      // still at checkpoint 2 and no proposed checkpoint 3 exists: an orphan block-only tip whose
+      // enclosing checkpoint should have been proposed by now.
+      setupSyncedToBlock({
+        blockNumber: BlockNumber(3),
+        blockSlot: SlotNumber(3),
+        blockCheckpointNumber: CheckpointNumber(3),
+        checkpointedCheckpointNumber: CheckpointNumber(2),
+        proposedCheckpointTipNumber: CheckpointNumber(2),
+        proposedCheckpointData: undefined,
+      });
+      dateProvider.setTime((orphanCheckpointDueSeconds() + 1) * 1000);
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
+
+      expect(result).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Sequencer sync check failed: proposed block has no matching proposed checkpoint',
+        expect.objectContaining({
+          blockCheckpointNumber: CheckpointNumber(3),
+          checkpointedCheckpointNumber: CheckpointNumber(2),
+          proposedCheckpointTipNumber: CheckpointNumber(2),
+          proposedCheckpointDataNumber: undefined,
+        }),
+      );
+    });
+
+    it('returns undefined without warning while the proposed checkpoint is not yet overdue', async () => {
+      // Same orphan-shaped tip, but we are still within the normal pipelining window: the block proposal
+      // for checkpoint 3 has arrived ahead of its checkpoint proposal, which is not yet due. This is the
+      // happy-path steady state and must not warn.
+      setupSyncedToBlock({
+        blockNumber: BlockNumber(3),
+        blockSlot: SlotNumber(3),
+        blockCheckpointNumber: CheckpointNumber(3),
+        checkpointedCheckpointNumber: CheckpointNumber(2),
+        proposedCheckpointTipNumber: CheckpointNumber(2),
+        proposedCheckpointData: undefined,
+      });
+      dateProvider.setTime((orphanCheckpointDueSeconds() - 1) * 1000);
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
+
+      expect(result).toBeUndefined();
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('proceeds when a matching proposed checkpoint exists for the block', async () => {
+      setupSyncedToBlock({
+        blockNumber: BlockNumber(3),
+        blockSlot: SlotNumber(3),
+        blockCheckpointNumber: CheckpointNumber(3),
+        checkpointedCheckpointNumber: CheckpointNumber(2),
+        proposedCheckpointTipNumber: CheckpointNumber(3),
+        proposedCheckpointData: {
+          checkpointNumber: CheckpointNumber(3),
+          header: CheckpointHeader.empty(),
+          archive: AppendOnlyTreeSnapshot.empty(),
+          checkpointOutHash: Fr.ZERO,
+          startBlock: BlockNumber(3),
+          blockCount: 1,
+          totalManaUsed: 0n,
+          feeAssetPriceModifier: 0n,
+        } satisfies ProposedCheckpointData,
+      });
+
+      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
+
+      expect(result).toBeDefined();
+      expect(result?.checkpointNumber).toEqual(CheckpointNumber(3));
+      expect(result?.checkpointedCheckpointNumber).toEqual(CheckpointNumber(2));
+    });
+  });
+
   describe('view-based proposer lookup', () => {
     it('passes target slot to getProposerAttesterAddressInSlot', async () => {
       const proposer = signer.address;
       validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
       epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
-
-      await sequencer.checkCanProposeForTest(SlotNumber(2));
-
-      expect(epochCache.getProposerAttesterAddressInSlot).toHaveBeenCalledWith(SlotNumber(2));
-    });
-
-    it('when pipelining enabled, checkCanPropose receives target slot with pipeline offset', async () => {
-      const proposer = signer.address;
-      validatorClient.getValidatorAddresses.mockReturnValue([proposer]);
-      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer);
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
-      epochCache.getTargetEpochAndSlotInNextL1Slot.mockReturnValue({
-        epoch: EpochNumber(1),
-        slot: SlotNumber(2),
-        ts: 1000n,
-        nowSeconds: 1000n,
-      });
 
       await sequencer.checkCanProposeForTest(SlotNumber(2));
 
@@ -1358,8 +1499,7 @@ class TestSequencer extends Sequencer {
     this.setState(SequencerState.IDLE, undefined, { force: true });
     if (this.skipExecute) {
       this.setState(SequencerState.SYNCHRONIZING, undefined);
-      const { slot, ts, nowSeconds, epoch } = this.epochCache.getEpochAndSlotInNextL1Slot();
-      const { slot: targetSlot, epoch: targetEpoch } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
+      const { slot, targetSlot, epoch, targetEpoch, ts, nowSeconds } = this.getSlotContextInNextL1Slot();
       await this.prepareCheckpointProposal(slot, targetSlot, epoch, targetEpoch, ts, nowSeconds);
       return;
     }
@@ -1372,5 +1512,13 @@ class TestSequencer extends Sequencer {
 
   public checkCanProposeForTest(slot: SlotNumber) {
     return this.checkCanPropose(slot);
+  }
+
+  public checkSyncForTest(args: { ts: bigint; slot: SlotNumber }) {
+    return this.checkSync(args);
+  }
+
+  public getLogger() {
+    return this.log;
   }
 }

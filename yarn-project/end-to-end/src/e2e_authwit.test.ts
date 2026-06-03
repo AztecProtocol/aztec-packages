@@ -4,13 +4,18 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
 import { AuthWitTestContract } from '@aztec/noir-test-contracts.js/AuthWitTest';
 import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { STANDARD_AUTH_REGISTRY_ADDRESS } from '@aztec/standard-contracts/auth-registry';
 
 import { jest } from '@jest/globals';
 
 import { sendThroughAuthwitProxy } from './fixtures/authwit_proxy.js';
 import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
-import { type EndToEndContext, ensureAccountContractsPublished, setup } from './fixtures/utils.js';
+import {
+  type EndToEndContext,
+  ensureAccountContractsPublished,
+  ensureAuthRegistryPublished,
+  setup,
+} from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 300_000;
@@ -33,6 +38,7 @@ describe('e2e_authwit_tests', () => {
       accounts: [account1Address, account2Address],
     } = await setup(2, { ...AUTOMINE_E2E_OPTS }));
     await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
+    await ensureAuthRegistryPublished(wallet, account1Address);
 
     ({ contract: auth } = await AuthWitTestContract.deploy(wallet).send({ from: account1Address }));
     ({ contract: authwitProxy } = await GenericProxyContract.deploy(wallet).send({ from: account1Address }));
@@ -110,7 +116,7 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: true,
         });
 
-        const registry = AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
+        const registry = AuthRegistryContract.at(STANDARD_AUTH_REGISTRY_ADDRESS, wallet);
         await registry.methods.consume(account1Address, innerHash).send({ from: account2Address });
 
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
@@ -147,7 +153,7 @@ describe('e2e_authwit_tests', () => {
             isValidInPublic: false,
           });
 
-          const registry = AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
+          const registry = AuthRegistryContract.at(STANDARD_AUTH_REGISTRY_ADDRESS, wallet);
           await expect(
             registry.methods.consume(account1Address, innerHash).simulate({ from: account2Address }),
           ).rejects.toThrow(/unauthorized/);

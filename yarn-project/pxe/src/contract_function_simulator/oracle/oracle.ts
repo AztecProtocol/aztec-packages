@@ -483,11 +483,20 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_getNextAppTagAsSender(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+  aztec_prv_getAppTaggingSecret(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
     return callHandler({
-      oracle: 'aztec_prv_getNextAppTagAsSender',
+      oracle: 'aztec_prv_getAppTaggingSecret',
       inputs,
-      handler: ([sender, recipient]) => this.handlerAsPrivate().getNextAppTagAsSender(sender, recipient),
+      handler: ([sender, recipient]) => this.handlerAsPrivate().getAppTaggingSecret(sender, recipient),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_prv_getNextTaggingIndex(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+    return callHandler({
+      oracle: 'aztec_prv_getNextTaggingIndex',
+      inputs,
+      handler: ([secret, mode]) => this.handlerAsPrivate().getNextTaggingIndex(secret, mode),
     });
   }
 
@@ -505,18 +514,10 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents',
       inputs,
-      handler: ([
-        noteValidationRequestsArrayBaseSlot,
-        eventValidationRequestsArrayBaseSlot,
-        maxNotePackedLen,
-        maxEventSerializedLen,
-        scope,
-      ]) =>
+      handler: ([noteValidationRequests, eventValidationRequests, scope]) =>
         this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
-          noteValidationRequestsArrayBaseSlot,
-          eventValidationRequestsArrayBaseSlot,
-          maxNotePackedLen,
-          maxEventSerializedLen,
+          noteValidationRequests,
+          eventValidationRequests,
           scope,
         ),
     });
@@ -527,7 +528,7 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_getLogsByTag',
       inputs,
-      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getLogsByTag(requestArrayBaseSlot),
+      handler: ([requests]) => this.handlerAsUtility().getLogsByTag(requests),
     });
   }
 
@@ -536,7 +537,7 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_getMessageContextsByTxHash',
       inputs,
-      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getMessageContextsByTxHash(requestArrayBaseSlot),
+      handler: ([requests]) => this.handlerAsUtility().getMessageContextsByTxHash(requests),
     });
   }
 
@@ -674,8 +675,8 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_getSharedSecrets',
       inputs,
-      handler: ([address, ephPksSlot, contractAddress]) =>
-        this.handlerAsUtility().getSharedSecrets(address, ephPksSlot, contractAddress),
+      handler: ([address, ephPks, contractAddress]) =>
+        this.handlerAsUtility().getSharedSecrets(address, ephPks, contractAddress),
     });
   }
 
@@ -705,15 +706,6 @@ export class Oracle {
       oracle: 'aztec_prv_getSenderForTags',
       inputs: [],
       handler: () => this.handlerAsPrivate().getSenderForTags(),
-    });
-  }
-
-  // eslint-disable-next-line camelcase
-  aztec_prv_setSenderForTags(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
-    return callHandler({
-      oracle: 'aztec_prv_setSenderForTags',
-      inputs,
-      handler: ([senderForTags]) => this.handlerAsPrivate().setSenderForTags(senderForTags),
     });
   }
 }

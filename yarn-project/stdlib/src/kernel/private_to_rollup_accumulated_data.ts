@@ -10,7 +10,7 @@ import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, type Tuple, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
@@ -79,8 +79,13 @@ export class PrivateToRollupAccumulatedData {
     return this.toBuffer();
   }
 
-  toBuffer() {
-    return serializeToBuffer(...PrivateToRollupAccumulatedData.getFields(this));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, ...PrivateToRollupAccumulatedData.getFields(this));
   }
 
   toString() {

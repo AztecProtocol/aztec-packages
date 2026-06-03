@@ -124,7 +124,7 @@ impl UintNote {
             || encode_partial_note_private_message(private_log_content, owner, randomness, commitment),
             Option::none(),
             recipient,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         let partial_note = PartialUintNote { commitment };

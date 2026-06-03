@@ -14,7 +14,7 @@ import path from 'path';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
-import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
+import { advanceToEpochBeforeProposer, awaitCommitteeExists } from './shared.js';
 
 const TEST_TIMEOUT = 1_000_000;
 
@@ -63,7 +63,6 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
-        enableProposerPipelining: true,
         inboxLag: 2,
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         slashInactivityConsecutiveEpochThreshold: 32, // effectively do not slash for inactivity
@@ -141,7 +140,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
 
     // Create remaining honest nodes, also with sequencers stopped, for the same reason.
     const honestNodes = await createNodes(
-      { ...t.ctx.aztecNodeConfig, dontStartSequencer: true },
+      { ...t.ctx.aztecNodeConfig, dontStartSequencer: true, skipBroadcastProposals: true },
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS - 1,
@@ -183,18 +182,8 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
 
     // Wait for offense to be detected. Under proposer pipelining, the invalid block proposal is
     // broadcast at the slot boundary while a receiver's wall clock may have already advanced
-    // past the build slot — when that happens, the honest node rejects the gossip with "invalid
-    // slot number" before slashing logic runs. Collect offenses from every node so we catch
-    // whichever node managed to process the proposal while still in the build slot.
-    await awaitOffenseDetected({
-      epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
-      logger: t.logger,
-      nodeAdmin: nodes[1], // Use honest node to check for offenses
-      slashingRoundSize,
-      waitUntilOffenseCount: 1,
-      timeoutSeconds: AZTEC_SLOT_DURATION * 16,
-    });
-
+    // past the build slot. Honest sequencers are running so their validator clients emit offenses,
+    // but they do not broadcast proposals until after the offense is detected.
     const invalidBlockOffenses = await retryUntil(
       async () => {
         const allOffenses = (await Promise.all(nodes.map(n => n.getSlashOffenses('all')))).flat();
@@ -204,7 +193,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
         }
       },
       'broadcasted invalid block proposal offense',
-      AZTEC_SLOT_DURATION * 4,
+      AZTEC_SLOT_DURATION * 16,
     );
 
     t.logger.warn(`Collected broadcasted invalid block proposal offenses`, { invalidBlockOffenses });
@@ -219,6 +208,10 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
       t.logger.warn(`Slashed ${args.attester.toString()}`);
       slashPromise.resolve(args);
     });
+
+    t.logger.warn('Re-enabling honest proposal broadcasts');
+    await Promise.all(honestNodes.map(n => n.setConfig({ skipBroadcastProposals: false })));
+
     const { amount, attester } = await slashPromise.promise;
     expect(invalidProposerAddress.toString()).toEqual(attester.toString());
     expect(amount).toEqual(slashingAmount);

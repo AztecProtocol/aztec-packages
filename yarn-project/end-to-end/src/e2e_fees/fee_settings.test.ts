@@ -32,7 +32,6 @@ describe('e2e_fees fee settings', () => {
   // (Test-body txs explicitly call `wallet.setMinFeePadding(...)` so they don't use the wallet default.)
   const AZTEC_SLOT_DURATION = 12;
   const t = new FeesTest('fee_juice', 1, {
-    enableProposerPipelining: true,
     inboxLag: 2,
     minTxsPerBlock: 0,
     aztecSlotDuration: AZTEC_SLOT_DURATION,
@@ -218,6 +217,10 @@ describe('e2e_fees fee settings', () => {
     });
 
     it('reproduces the stale fee snapshot race deterministically', async () => {
+      // The previous test bumped the proving cost, setting FeeLib's provingCostLastUpdate.
+      // Clear the 30-day cooldown so bumpL2Fees below can land.
+      await cheatCodes.rollup.clearProvingCostCooldown();
+
       const lowerMinFees = await getCurrentMinFeesAfterCheckpoint(testContractDeployBlock);
       // `higherMinFees` is the synthetic "stale" snapshot the wallet supposedly took before the
       // real L2 fee bumped — it only needs to stay above the realized `bumpedMinFees` so that

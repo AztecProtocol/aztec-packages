@@ -16,9 +16,9 @@ import { CompleteAddress, SerializableContractInstance } from '@aztec/stdlib/con
 import { GasFees } from '@aztec/stdlib/gas';
 import { PublicKey, PublicKeys } from '@aztec/stdlib/keys';
 import {
+  AppTaggingSecret,
   ContractClassLog,
   ContractClassLogFields,
-  ExtendedDirectionalAppTaggingSecret,
   PrivateLog,
   PublicLog,
   type TaggingIndexRange,
@@ -193,10 +193,17 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           originalContractClassId: new Fr(89n),
           initializationHash: new Fr(97n),
           immutablesHash: new Fr(103n),
-          // Only `ivpk_m` is exposed as a curve point; the other three master keys
-          // are exposed as `hash_public_key` digests. Constructor signature is now
-          // `(npkMHash, ivpkM, ovpkMHash, tpkMHash)`.
-          publicKeys: new PublicKeys(new Fr(41n), new PublicKey(new Fr(47n), new Fr(53n)), new Fr(59n), new Fr(67n)),
+          // Only `ivpk_m` is exposed as a curve point; the other master keys
+          // are exposed as `hash_public_key` digests. Constructor signature is
+          // `(npkMHash, ivpkM, ovpkMHash, tpkMHash, mspkMHash, fbpkMHash)`.
+          publicKeys: new PublicKeys(
+            new Fr(41n),
+            new PublicKey(new Fr(47n), new Fr(53n)),
+            new Fr(59n),
+            new Fr(67n),
+            new Fr(71n),
+            new Fr(73n),
+          ),
         }).withAddress(AztecAddress.fromBigInt(101n)),
       );
     },
@@ -478,8 +485,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const recipientTaggingStore = new RecipientTaggingStore(kvStore);
 
       const jobId = 'fixture-job';
-      const secretA = new ExtendedDirectionalAppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
-      const secretB = new ExtendedDirectionalAppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
+      const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
+      const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
 
       await recipientTaggingStore.updateHighestFinalizedIndex(secretA, 11, jobId);
       await recipientTaggingStore.updateHighestAgedIndex(secretA, 13, jobId);
@@ -512,9 +519,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const senderTaggingStore = new SenderTaggingStore(kvStore);
 
       const jobId = 'fixture-job';
-      const secretA = new ExtendedDirectionalAppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
-      const secretB = new ExtendedDirectionalAppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
-      const secretC = new ExtendedDirectionalAppTaggingSecret(new Fr(11n), AztecAddress.fromBigInt(13n));
+      const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
+      const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
+      const secretC = new AppTaggingSecret(new Fr(11n), AztecAddress.fromBigInt(13n));
       const txHashA = TxHash.fromBigInt(17n);
       const txHashB = TxHash.fromBigInt(19n);
       const txHashC = TxHash.fromBigInt(23n);

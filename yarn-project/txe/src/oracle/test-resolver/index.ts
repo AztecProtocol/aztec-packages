@@ -6,7 +6,7 @@ import { zodFor } from '@aztec/stdlib/schemas';
 
 import { z } from 'zod';
 
-import { ForeignCallArgsSchema, type ForeignCallResult, ForeignCallResultSchema } from '../../util/encoding.js';
+import { ForeignCallArgsSchema, type ForeignCallResult, ForeignCallResultSchema } from '../../utils/encoding.js';
 import { TXE_ORACLE_REGISTRY } from '../txe_oracle_registry.js';
 import { ORACLE_TEST_FIXTURES } from './fixtures.js';
 import { type OracleTestCallInput, OracleTestResolver } from './resolver.js';
