@@ -8,10 +8,10 @@ affinity:
       - weight: 100
         preference:
           matchExpressions:
-            - key: cloud.google.com/gke-nodepool
+            - key: cores
               operator: In
               values:
-                - aztec-gke-private-2core
+                - "2"
 
 replicaCount: 1
 

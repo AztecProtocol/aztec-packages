@@ -12,10 +12,6 @@ bot:
           - matchExpressions:
               - key: cloud.google.com/gke-spot
                 operator: Exists
-              - key: cloud.google.com/gke-nodepool
-                operator: NotIn
-                values:
-                  - aztec-gke-private-32core-spot
 
   tolerations:
     - key: "cloud.google.com/gke-spot"
