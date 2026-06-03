@@ -2593,7 +2593,10 @@ export class MsmV2 {
       }).reduce((acc, b) => acc + b, 0);
       const countsOffsetsBytes = 4 * (bw * BW) * 4; // countsBufs[2] + offsetsBufs[2]
       const planMetaBytes = (3 * NUM_WINDOWS + 6) * 4;
-      return srsBytes + arenaBytes + countsOffsetsBytes + planMetaBytes;
+      // windowDescBuf: WD_ROWS (≥128) rows × 8 u32. Tiny per single MSM, but it
+      // scales with the pack's window count, so the budget must count it.
+      const windowDescBytes = Math.max(NUM_WINDOWS, 128) * 8 * 4;
+      return srsBytes + arenaBytes + countsOffsetsBytes + planMetaBytes + windowDescBytes;
     };
     const wgFits = (nb: number): boolean => Math.ceil((Math.ceil(NUM_WINDOWS / nb) * n) / WGI) < 65000;
     // Raise the batch count until each batch fits both the 65k-workgroup cap and
@@ -2607,6 +2610,21 @@ export class MsmV2 {
       // window-batch count until each batch fits the wg cap + budget.
       while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || estimateMem(numBatches) > this.memBudget)) numBatches++;
       if (this.numBatchesForce) numBatches = Math.min(NUM_WINDOWS, Math.max(numBatches, this.numBatchesForce));
+    } else {
+      // Union: one dispatch over the whole pack (no window-staging). The same
+      // 160MB accounting still applies — the host packer (packByBudget) sizes the
+      // pack to fit, so a union that overflows is a packer bug. Surface it loudly
+      // via the identical arenaColourSizes-based estimate instead of OOMing the GPU.
+      const footprint = estimateMem(1);
+      if (footprint > this.memBudget) {
+        throw new Error(
+          `prepareBatch: union footprint ${(footprint / (1 << 20)).toFixed(1)}MiB exceeds the ` +
+            `${(this.memBudget / (1 << 20)).toFixed(0)}MiB budget (${NUM_WINDOWS} windows, ${B_TOTAL} buckets). Pack fewer members.`,
+        );
+      }
+      if (!wgFits(1)) {
+        throw new Error(`prepareBatch: union exceeds the 65k-workgroup dispatch cap (${NUM_WINDOWS} windows × ${n} points). Pack fewer members.`);
+      }
     }
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;

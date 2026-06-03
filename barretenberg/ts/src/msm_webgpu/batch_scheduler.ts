@@ -265,6 +265,7 @@ export function batchFootprintBytes(geoms: MsmGeom[], opts: { sT?: number; sS?: 
   let l0Slots = 0;
   let countsOffsetsBytes = 0;
   let planMetaBytes = 0;
+  let totalWindows = 0;
   for (const g of geoms) {
     sBTotal += g.bTotal;
     batchSlots += g.numWindows * g.n;
@@ -275,7 +276,11 @@ export function batchFootprintBytes(geoms: MsmGeom[], opts: { sT?: number; sS?: 
     l0Slots += g.numWindows * g.n;
     countsOffsetsBytes += 4 * (g.numWindows * g.BW) * 4; // countsBufs[2] + offsetsBufs[2]
     planMetaBytes += (3 * g.numWindows + 6) * 4;
+    totalWindows += g.numWindows;
   }
+  // windowDescBuf is one pack-level table of Σ NW rows (≥128) × 8 u32 — mirrors
+  // `msm_v2` estimateMem so host packing and the runtime budget gate agree.
+  const windowDescBytes = Math.max(totalWindows, 128) * 8 * 4;
   const arenaBytes = arenaColourSizes({
     sT,
     sS,
@@ -288,7 +293,7 @@ export function batchFootprintBytes(geoms: MsmGeom[], opts: { sT?: number; sS?: 
     scalarsBytes,
     l0Slots: l0Slots + 3, // single +3 guard for the transpose-partials matrix
   }).reduce((acc, b) => acc + b, 0);
-  return srsBytes + arenaBytes + countsOffsetsBytes + planMetaBytes;
+  return srsBytes + arenaBytes + countsOffsetsBytes + planMetaBytes + windowDescBytes;
 }
 
 /** Build the complete {@link BatchLayout} for one pack of MSMs.

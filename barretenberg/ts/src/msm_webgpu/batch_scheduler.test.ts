@@ -87,7 +87,8 @@ function estimateMemSingle(g: MsmGeom, sT: number, sS: number, srsBytes: number)
   }).reduce((a, b) => a + b, 0);
   const countsOffsets = 4 * (bw * g.BW) * 4;
   const planMeta = (3 * g.numWindows + 6) * 4;
-  return srsBytes + arena + countsOffsets + planMeta;
+  const windowDesc = Math.max(g.numWindows, 128) * 8 * 4; // WD_ROWS × 8 u32
+  return srsBytes + arena + countsOffsets + planMeta + windowDesc;
 }
 
 // ── Footprint: batch-of-1 == single-MSM estimateMem(1), byte-exact.
