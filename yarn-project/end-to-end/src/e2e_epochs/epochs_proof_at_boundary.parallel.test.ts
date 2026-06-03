@@ -57,7 +57,6 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
       startProverNode: false,
       enforceTimeTable: true,
       skipInitialSequencer: true,
-      enableProposerPipelining: true,
       inboxLag: 2,
       ...overrides,
     });

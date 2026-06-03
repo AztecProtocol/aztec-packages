@@ -69,7 +69,6 @@ L2 to L1 messages are only available after the epoch proof is submitted to L1. S
 Compute the witness for the L2 to L1 message in TypeScript:
 
 ```ts
-import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
 import { computeL2ToL1MessageHash } from "@aztec/stdlib/hash";
 
 const l2ToL1Message = computeL2ToL1MessageHash({
@@ -80,9 +79,8 @@ const l2ToL1Message = computeL2ToL1MessageHash({
   chainId: new Fr(chainId),
 });
 
-const witness = await computeL2ToL1MembershipWitness(
-  aztecNode,
-  txReceipt.blockNumber!,
+const witness = await aztecNode.getL2ToL1MembershipWitness(
+  txReceipt.txHash,
   l2ToL1Message
 );
 

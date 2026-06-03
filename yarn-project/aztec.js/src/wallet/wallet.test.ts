@@ -10,11 +10,11 @@ import { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
+  DroppedTxReceipt,
   ExecutionPayload,
   type OffchainEffect,
   TxHash,
   TxProfileResult,
-  TxReceipt,
   TxSimulationResult,
   UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
@@ -243,7 +243,7 @@ describe('WalletSchema', () => {
       from: await AztecAddress.random(),
       sendMessagesAs,
     });
-    expect(resultWithWait.receipt).toBeInstanceOf(TxReceipt);
+    expect(resultWithWait.receipt).toBeInstanceOf(DroppedTxReceipt);
     expect(resultWithWait.offchainEffects).toEqual([]);
     expect(handler.lastSendOpts?.sendMessagesAs).toBeInstanceOf(AztecAddress);
     expect(handler.lastSendOpts?.sendMessagesAs?.equals(sendMessagesAs)).toBe(true);
@@ -406,7 +406,7 @@ describe('WalletSchema', () => {
     expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
     expect(results[11]).toEqual({
       name: 'sendTx',
-      result: { receipt: expect.any(TxReceipt), offchainEffects: [], offchainMessages: [] },
+      result: { receipt: expect.any(DroppedTxReceipt), offchainEffects: [], offchainMessages: [] },
     });
     expect(results[12]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
   });
@@ -517,7 +517,7 @@ class MockWallet implements Wallet {
       }) as Promise<SendReturn<W>>;
     }
     return Promise.resolve({
-      receipt: TxReceipt.empty(),
+      receipt: DroppedTxReceipt.empty(),
       offchainEffects: [] as OffchainEffect[],
       offchainMessages: [] as OffchainMessage[],
     }) as Promise<SendReturn<W>>;

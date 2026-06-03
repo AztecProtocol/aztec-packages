@@ -97,7 +97,8 @@ describe('CheckpointAttestationValidator', () => {
 
   it('accepts attestation for current slot inside the straggler window', async () => {
     // Attestation is for slot 98 (current wallclock slot), but targetSlot is 99 (pipelining).
-    // attestationWindowIntoTargetSlot = 2*p2p = 4s ⇒ straggler grace 4s+500ms disparity.
+    // attestationWindowIntoTargetSlot now spans target-slot start to the L1 publish deadline:
+    // aztecSlotDuration - 2*ethereumSlotDuration = 72 - 24 = 48s ⇒ straggler grace 48s+500ms.
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
     const mockAttestation = makeCheckpointAttestation({
       header,
@@ -110,7 +111,6 @@ describe('CheckpointAttestationValidator', () => {
       nextSlot: SlotNumber(100),
     });
     epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
     epochCache.getL1Constants.mockReturnValue({
       slotDuration: 72,
       ethereumSlotDuration: 12,
@@ -120,7 +120,39 @@ describe('CheckpointAttestationValidator', () => {
       epoch: EpochNumber(1),
       slot: SlotNumber(98),
       ts: 1000n,
-      nowMs: 1003000n, // 3000ms elapsed, within 4500ms straggler grace
+      nowMs: 1003000n, // 3000ms elapsed, within 48500ms straggler grace
+    });
+    epochCache.isInCommittee.mockResolvedValue(true);
+    epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
+
+    const result = await validator.validate(mockAttestation);
+    expect(result).toEqual({ result: 'accept' });
+  });
+
+  it('accepts attestation arriving well into the target slot (previously rejected past ~4.5s)', async () => {
+    // 30s into the target slot — past the old 4.5s window, well within the new 48.5s window.
+    const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
+    const mockAttestation = makeCheckpointAttestation({
+      header,
+      attesterSigner: attester,
+      proposerSigner: proposer,
+    });
+
+    epochCache.getTargetAndNextSlot.mockReturnValue({
+      targetSlot: SlotNumber(99),
+      nextSlot: SlotNumber(100),
+    });
+    epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
+
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(98),
+      ts: 1000n,
+      nowMs: 1030000n, // 30s elapsed — accepted now, would have been rejected pre-fix
     });
     epochCache.isInCommittee.mockResolvedValue(true);
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
@@ -143,7 +175,6 @@ describe('CheckpointAttestationValidator', () => {
     });
     epochCache.getTargetSlot.mockReturnValue(SlotNumber(99));
     epochCache.getSlotNow.mockReturnValue(SlotNumber(98));
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
     epochCache.getL1Constants.mockReturnValue({
       slotDuration: 72,
       ethereumSlotDuration: 12,
@@ -153,7 +184,7 @@ describe('CheckpointAttestationValidator', () => {
       epoch: EpochNumber(1),
       slot: SlotNumber(99),
       ts: 1000n,
-      nowMs: 1005000n, // 5000ms elapsed, past 4500ms straggler cutoff
+      nowMs: 1049000n, // 49s elapsed, past the 48.5s straggler cutoff (48s window + 500ms disparity)
     });
     epochCache.isInCommittee.mockResolvedValue(true);
 
