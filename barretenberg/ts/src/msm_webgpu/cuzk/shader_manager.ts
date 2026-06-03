@@ -6,6 +6,7 @@ import {
   ba_reduce_segmented as ba_reduce_segmented_shader,
   ba_reduce_z_init as ba_reduce_z_init_shader,
   ba_reduce_jac_finalize as ba_reduce_jac_finalize_shader,
+  ba_reduce_coop as ba_reduce_coop_shader,
   ba_reduce_jac_to_affine as ba_reduce_jac_to_affine_shader,
   ba_reduce_gather_canonical as ba_reduce_gather_canonical_shader,
   ba_planner_classify as ba_planner_classify_shader,
@@ -814,6 +815,38 @@ ${packLines.join('\n')}
       ba_reduce_jac_finalize_shader,
       {
         workgroup_size, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  // Single-dispatch cooperative reduce for small c (STRIDE <= 128): one
+  // workgroup (= STRIDE threads) per window does the entire weighted bucket
+  // sum in shared memory (suffix-scan + sum-reduce, one inversion at the end),
+  // collapsing reduceInit -> zInit -> jacLevel*N -> jacFinalize into one dispatch.
+  public gen_ba_reduce_coop_shader(stride: number, variant: 'loop' | 'pk' = 'pk'): string {
+    if (stride <= 0 || !Number.isInteger(stride) || (stride & (stride - 1)) !== 0) {
+      throw new Error(`gen_ba_reduce_coop_shader: stride (${stride}) must be a positive power of two`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_reduce_coop_shader,
+      {
+        workgroup_size: stride, stride, inv_fn,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
