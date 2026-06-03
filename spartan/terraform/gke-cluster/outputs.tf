@@ -6,9 +6,28 @@ output "eso_service_account_email" {
   value = google_service_account.eso.email
 }
 
+output "ci_service_account_email" {
+  value = google_service_account.ci.email
+}
+
 output "region" {
   description = "Google cloud region"
   value       = var.region
+}
+
+output "docker_registry_hostname" {
+  description = "Artifact Registry Docker hostname"
+  value       = "${var.region}-docker.pkg.dev"
+}
+
+output "docker_registry_repository" {
+  description = "Artifact Registry Docker repository resource name"
+  value       = google_artifact_registry_repository.docker_registry.name
+}
+
+output "docker_registry_repository_url" {
+  description = "Artifact Registry Docker repository URL prefix for image names"
+  value       = "${var.region}-docker.pkg.dev/${var.project}/${google_artifact_registry_repository.docker_registry.repository_id}"
 }
 
 output "devnet_network_rpc_ips" {
