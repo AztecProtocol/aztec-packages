@@ -726,11 +726,20 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
         }
       }
     }
+    // The per-member union≡solo check only exercises scalarBase if the members
+    // actually have distinct scalars — otherwise member k reading member 0's
+    // region would pass vacuously. Assert distinctness so the validation is real.
+    const distinct =
+      plan.descs.length < 2 ||
+      soloWS.some(ws => ws[0].x !== soloWS[0][0].x || ws[0].y !== soloWS[0][0].y);
+    if (!distinct) {
+      return { ok: false, detail: `members had identical scalars — scalarBase NOT exercised (re-run without a fixed scalar_seed)` };
+    }
     const ok = diffs.length === 0;
     return {
       ok,
       detail: ok
-        ? `all ${plan.descs.length} members byte-identical union≡solo (windows=${plan.totalWindows})`
+        ? `all ${plan.descs.length} members byte-identical union≡solo (windows=${plan.totalWindows}, distinct scalars)`
         : diffs.slice(0, 5).join(' | '),
     };
   } finally {
