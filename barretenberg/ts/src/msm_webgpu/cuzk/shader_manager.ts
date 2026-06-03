@@ -28,6 +28,7 @@ import {
   poseidon2_initial_relation_test as poseidon2_initial_relation_test_shader,
   non_native_field_relation_test as non_native_field_relation_test_shader,
   elliptic_relation_test as elliptic_relation_test_shader,
+  permutation_relation_test as permutation_relation_test_shader,
   field as field_funcs,
   field8 as field8_funcs,
   fr_ops_test as fr_ops_test_shader,
@@ -528,6 +529,16 @@ ${packLines.join('\n')}
       { ...this.relationView(workgroup_size), curve_b_csv: this.montWords8(-17n) },
       this.relationPartials,
     );
+  }
+
+  /**
+   * UltraPermutationRelation accumulate test kernel
+   * (relations/permutation_relation.hpp). Subrelations 6/3/3; no baked constants
+   * (beta/gamma/public_input_delta arrive at runtime via the binding(3) params
+   * buffer). One thread per edge writes the 12-Fr contribution.
+   */
+  public gen_permutation_relation_test_shader(workgroup_size: number): string {
+    return mustache.render(permutation_relation_test_shader, this.relationView(workgroup_size), this.relationPartials);
   }
 
   public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number, packed = false): string {

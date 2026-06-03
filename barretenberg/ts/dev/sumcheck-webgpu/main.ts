@@ -19,8 +19,11 @@ import { eccSuite } from './suite_ecc.js';
 import { pos2InitSuite } from './suite_pos2init.js';
 import { nnfSuite } from './suite_nnf.js';
 import { ellipticSuite } from './suite_elliptic.js';
+import { permSuite } from './suite_perm.js';
 
-const REGISTRY: Suite[] = [frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite, nnfSuite, ellipticSuite];
+const REGISTRY: Suite[] = [
+  frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite, nnfSuite, ellipticSuite, permSuite,
+];
 
 const $log = document.getElementById('log') as HTMLDivElement;
 const $logn = document.getElementById('logn') as HTMLInputElement;

@@ -103,7 +103,9 @@ export type Logger = (level: Level, msg: string) => void;
 // ---- relation-kernel dispatch + diff (shared by every relation suite) ----
 
 // Run a single-entry relation kernel: one read-only input SB, one storage output
-// SB (n*outLen Fr), one Params{n} uniform; one thread per edge. Returns the raw
+// SB (n*outLen Fr), one Params{n} uniform; one thread per edge. When `relParams`
+// is given (the relation_parameters, e.g. beta/gamma — Montgomery 8x u32, one
+// per Fr) it is bound at @group(0) @binding(3) as a read-only SB. Returns the raw
 // output bytes and the GPU compute+readback time.
 export async function dispatchRelation(
   device: GPUDevice,
@@ -112,19 +114,32 @@ export async function dispatchRelation(
   entry: string,
   inBytes: Uint8Array,
   outLen: number,
+  relParams?: Uint8Array,
 ): Promise<{ bytes: Uint8Array; ms: number }> {
-  const layout = create_bind_group_layout(device, ['read-only-storage', 'storage', 'uniform']);
+  const types = ['read-only-storage', 'storage', 'uniform'];
+  if (relParams) types.push('read-only-storage');
+  const layout = create_bind_group_layout(device, types);
   const inBuf = create_and_write_sb(device, inBytes);
   const outBuf = create_sb(device, n * outLen * 32);
   const params = new Uint8Array(16);
   new DataView(params.buffer).setUint32(0, n, true);
-  const bg = create_bind_group(device, layout, [inBuf, outBuf, create_and_write_ub(device, params)]);
+  const bufs = [inBuf, outBuf, create_and_write_ub(device, params)];
+  if (relParams) bufs.push(create_and_write_sb(device, relParams));
+  const bg = create_bind_group(device, layout, bufs);
   const pipeline = await create_compute_pipeline(device, [layout], code, entry, entry);
   const t0 = performance.now();
   const enc = device.createCommandEncoder();
   await execute_pipeline(enc, pipeline, bg, Math.ceil(n / WG));
   const [bytes] = await read_from_gpu(device, enc, [outBuf]);
   return { bytes, ms: performance.now() - t0 };
+}
+
+// Pack a list of canonical Fr params into a Montgomery 8x u32 buffer for the
+// binding(3) relation-parameters SB.
+export function packParams(vals: bigint[]): Uint8Array {
+  const out = new Uint8Array(vals.length * 32);
+  vals.forEach((v, i) => out.set(biToLe32(toMont(v)), i * 32));
+  return out;
 }
 
 export interface EdgeRow {
