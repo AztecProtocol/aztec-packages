@@ -113,13 +113,14 @@ class CheckpointTimingModel implements PipelinedCheckpointTiming {
     // the target slot). The p2p layer accepts slot-N attestations until right before the publish
     // deadline so the proposer can keep collecting useful attestations up to the latest moment the
     // checkpoint can still land on L1 in the target slot.
-    return this.aztecSlotDuration - 2 * this.ethereumSlotDuration;
+    return Math.max(0, this.aztecSlotDuration - 2 * this.ethereumSlotDuration);
   }
 
   public get pipeliningAttestationGracePeriod(): number {
-    // Under the early-pipelining regime attestations complete inside the build
-    // slot itself, so there is no extra grace into the target slot.
-    return 0;
+    // Under the early-pipelining regime attestations complete inside the build slot itself. Local
+    // networks can publish much faster than the Ethereum slot geometry, so they may use the target
+    // slot attestation window without moving the L1 publish cutoff.
+    return this.l1PublishingTime < this.ethereumSlotDuration ? this.attestationWindowIntoTargetSlot : 0;
   }
 
   public get timeReservedAtEnd(): number {

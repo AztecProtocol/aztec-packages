@@ -108,6 +108,25 @@ describe('timetable validation', () => {
     expect(timing.checkpointAttestationDeadline).toBe(132);
   });
 
+  it('allows fast local publishing profiles to assemble into the target-slot attestation window', () => {
+    const timing = createPipelinedCheckpointTimingModel({
+      aztecSlotDuration: 72,
+      ethereumSlotDuration: 12,
+      blockDuration: 8,
+      checkpointInitializationTime: 1,
+      checkpointAssembleTime: 1,
+      p2pPropagationTime: 2,
+      l1PublishingTime: 1,
+    });
+
+    expect(timing.attestationWindowIntoTargetSlot).toBe(48);
+    expect(timing.pipeliningAttestationGracePeriod).toBe(48);
+    expect(timing.checkpointAssemblyDeadline).toBe(120);
+    expect(timing.checkpointAttestationStartDeadline).toBe(120);
+    expect(timing.checkpointPublishingDeadline).toBe(132);
+    expect(timing.checkpointAttestationDeadline).toBe(132);
+  });
+
   it('allows single-block mode without blockDuration', () => {
     const timing = createCheckpointTimingModel({
       aztecSlotDuration: 10,

@@ -559,6 +559,23 @@ describe('sequencer-timetable', () => {
       expect(tt.pipeliningAttestationGracePeriod).toBe(0);
     });
 
+    it('allows fast local publishing profiles to enter assembly and attestation collection in the target slot', () => {
+      const PLAYGROUND_AZTEC_SLOT_DURATION = 72;
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: PLAYGROUND_AZTEC_SLOT_DURATION,
+        l1PublishingTime: 1,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      expect(tt.pipeliningAttestationGracePeriod).toBe(48);
+      expect(tt.getMaxAllowedTime(SequencerState.ASSEMBLING_CHECKPOINT)).toBe(120);
+      expect(tt.getMaxAllowedTime(SequencerState.COLLECTING_ATTESTATIONS)).toBe(120);
+      expect(tt.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT)).toBe(132);
+      expect(() => tt.assertTimeLeft(SequencerState.ASSEMBLING_CHECKPOINT, 84.7)).not.toThrow();
+      expect(() => tt.assertTimeLeft(SequencerState.COLLECTING_ATTESTATIONS, 84.7)).not.toThrow();
+    });
+
     it('uses separate pipelined deadlines for attestation start vs publish cutoff', () => {
       const tt = new SequencerTimetable({
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
