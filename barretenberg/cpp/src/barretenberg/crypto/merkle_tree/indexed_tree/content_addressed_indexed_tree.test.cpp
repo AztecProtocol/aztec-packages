@@ -2894,6 +2894,39 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_prefilled_public_data)
     EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), leaf_3);
 }
 
+// Regression: a low leaf whose value is zero (the head of the list) must not be treated as padding when it
+// is re-hashed. Inserting into the gap beneath such a head leaf previously zeroed its hash and corrupted
+// the root. The leaf only hashes to zero when its next pointers are also zero (i.e. the true padding leaf).
+TEST_F(PersistedContentAddressedIndexedTreeTest, low_leaf_with_zero_value_is_not_treated_as_padding)
+{
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 4;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+
+    // index 0 = {nullifier=0, nextIndex=1, nextKey=1000}, index 1 = {nullifier=1000, nextIndex=0, nextKey=0}
+    index_t initial_size = 2;
+    std::vector<NullifierLeafValue> prefilled_values = { NullifierLeafValue(1000) };
+    auto tree = TreeType(std::move(store), workers, initial_size, prefilled_values);
+
+    // Insert into the (0, 1000) gap; index 0 (value 0) is selected as the low leaf and re-hashed.
+    add_value(tree, NullifierLeafValue(500));
+
+    // Expected post-insert leaves.
+    IndexedNullifierLeafType expected_leaf_0 = create_indexed_nullifier_leaf(0, 2, 500);
+    IndexedNullifierLeafType expected_leaf_1 = create_indexed_nullifier_leaf(1000, 0, 0);
+    IndexedNullifierLeafType expected_leaf_2 = create_indexed_nullifier_leaf(500, 1, 1000);
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 0), expected_leaf_0);
+
+    // Independently compute the expected root; the low leaf must contribute its real hash, not zero.
+    MemoryTree<HashPolicy> expected(depth);
+    expected.update_element(0, HashPolicy::hash(expected_leaf_0.get_hash_inputs()));
+    expected.update_element(1, HashPolicy::hash(expected_leaf_1.get_hash_inputs()));
+    expected.update_element(2, HashPolicy::hash(expected_leaf_2.get_hash_inputs()));
+    check_root(tree, expected.root());
+}
+
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_full_prefilled_public_data)
 {
     ThreadPoolPtr workers = make_thread_pool(1);
