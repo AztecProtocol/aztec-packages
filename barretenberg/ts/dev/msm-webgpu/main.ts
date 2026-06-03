@@ -1686,6 +1686,26 @@ function hideProgress(): void {
       } else {
         log('error', `[msbhist] decide FAIL — summary field ${sumBad} (gpu=${gpuSummary.slice(0, 9)} ref=${sumExp}), row word ${rowBad}`);
       }
+      // Validate idx_large compaction: count == n_large, every entry has msb >= b_star-1.
+      const { count: idxCount, idxLarge } = await msm.debugIdxLarge();
+      const bStar = ref.summary.bStar;
+      let idxBad = -1;
+      if (bStar > 0) {
+        for (let k = 0; k < idxCount && idxBad < 0; k++) {
+          const i = idxLarge[k];
+          const base = i * 8;
+          let msb = -1;
+          for (let w = 7; w >= 0; w--) {
+            if (scalarsU32[base + w] !== 0) { msb = w * 32 + (31 - Math.clz32(scalarsU32[base + w])); break; }
+          }
+          if (msb < bStar - 1) idxBad = k;
+        }
+      }
+      if (idxCount === ref.summary.nLarge && idxBad < 0) {
+        log('ok', `[msbhist] idx_large PASS — count=${idxCount}=n_large, all msb>=${bStar > 0 ? bStar - 1 : 0}`);
+      } else {
+        log('error', `[msbhist] idx_large FAIL — count=${idxCount} n_large=${ref.summary.nLarge}, badEntry=${idxBad}`);
+      }
     } catch (e) {
       log('error', `[msbhist] ERROR: ${e instanceof Error ? e.message : String(e)}`);
     }

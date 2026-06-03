@@ -1527,6 +1527,7 @@ export class MsmV2 {
   private decomposePipe!: GPUComputePipeline;
   private msbHistPipe!: GPUComputePipeline;
   private msbDecidePipe!: GPUComputePipeline;
+  private msbIdxLargePipe!: GPUComputePipeline;
   private xposeCountPipe!: GPUComputePipeline;
   private xposeReducePipe!: GPUComputePipeline;
   private xposeScanPipe!: GPUComputePipeline;
@@ -1570,6 +1571,7 @@ export class MsmV2 {
   private decomposeLayout!: GPUBindGroupLayout;
   private msbHistLayout!: GPUBindGroupLayout;
   private msbDecideLayout!: GPUBindGroupLayout;
+  private msbIdxLargeLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
   private xposeReduceLayout!: GPUBindGroupLayout;
   private xposeScanLayout!: GPUBindGroupLayout;
@@ -1697,6 +1699,11 @@ export class MsmV2 {
   private msbDecideBind?: GPUBindGroup;
   private decideWindowDescBuf?: GPUBuffer;
   private decideSummaryBuf?: GPUBuffer;
+  // split-c idx_large compaction (Phase 2B). idx_large holds the upper-region
+  // scalar indices (msb >= b_star-1); count ends == decide summary n_large.
+  private msbIdxLargeBind?: GPUBindGroup;
+  private idxLargeBuf?: GPUBuffer;
+  private idxLargeCountBuf?: GPUBuffer;
   private xposeCountBinds!: GPUBindGroup[];
   private xposeReduceBinds!: GPUBindGroup[];
   private xposeScanBinds!: GPUBindGroup[];
@@ -1911,6 +1918,9 @@ export class MsmV2 {
     m.msbHistLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     // decide_window_split: msb_hist(read), window_desc(rw), summary(rw), params(uniform).
     m.msbDecideLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
+    // idx_large_compact: msb_per_scalar(read), summary(read), idx_large(rw),
+    // idx_large_count(rw atomic), params(uniform).
+    m.msbIdxLargeLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.xposeReduceLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform', 'read-only-storage', 'uniform']);
@@ -1976,6 +1986,7 @@ export class MsmV2 {
     m.decomposePipe = await compile(sm.gen_decompose_scalars_booth_shader(WGI), `decompose`, m.decomposeLayout);
     m.msbHistPipe = await compile(sm.gen_ba_msb_histogram_shader(), `msb_histogram`, m.msbHistLayout);
     m.msbDecidePipe = await compile(sm.gen_ba_decide_window_split_shader(), `decide_window_split`, m.msbDecideLayout);
+    m.msbIdxLargePipe = await compile(sm.gen_ba_idx_large_compact_shader(), `idx_large_compact`, m.msbIdxLargeLayout);
     // Tiled counting-sort transpose: count + scatter dispatch across point-
     // chunks (not just windows) so the GPU stays saturated; reduce folds the
     // per-chunk partials; scan is the unchanged per-window prefix sum. Only
@@ -2559,6 +2570,22 @@ export class MsmV2 {
       this.decideSummaryBuf = decideSummaryBuf;
       this.msbDecideBind = mkBind(this.msbDecideLayout, [msbHistBuf, decideWindowDescBuf, decideSummaryBuf, decideParams]);
       this.prepBuffers.push(decideWindowDescBuf, decideSummaryBuf);
+
+      // idx_large compaction (Phase 2B): upper-region scalar indices. Sized to n
+      // (the unsplit envelope upper bound on n_large); the count is GPU-resident.
+      const idxLargeBuf = device.createBuffer({
+        size: n * 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      });
+      const idxLargeCountBuf = device.createBuffer({
+        size: 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+      });
+      const idxLargeParams = ubuf(new Uint32Array([n, 0, 0, 0]));
+      this.idxLargeBuf = idxLargeBuf;
+      this.idxLargeCountBuf = idxLargeCountBuf;
+      this.msbIdxLargeBind = mkBind(this.msbIdxLargeLayout, [msbPerScalarBuf, decideSummaryBuf, idxLargeBuf, idxLargeCountBuf, idxLargeParams]);
+      this.prepBuffers.push(idxLargeBuf, idxLargeCountBuf);
     }
     // Uniform layout: [num_point_tiles, BW, n, points_per_tile]; consumed by
     // transpose_count_tiled, transpose_reduce_tiled (only [0] [1]),
@@ -3217,6 +3244,42 @@ export class MsmV2 {
     const windowDesc = await readbackU32(this.device, this.decideWindowDescBuf, this.decideWindowDescBuf.size);
     const summary = await readbackU32(this.device, this.decideSummaryBuf, 16 * 4);
     return { windowDesc, summary };
+  }
+
+  /**
+   * Run histogram + decide + idx_large compaction and read back idx_large + its
+   * count (split-c Phase 2B validation). The count must equal the decide summary's
+   * n_large, and every returned index must have msb >= b_star-1.
+   */
+  async debugIdxLarge(): Promise<{ count: number; idxLarge: Uint32Array; summary: Uint32Array }> {
+    if (this.preparedFor === null) throw new Error('MsmV2.debugIdxLarge: call prepare() first');
+    if (!this.msbHistBind || !this.msbHistBuf || !this.msbDecideBind || !this.msbIdxLargeBind || !this.idxLargeBuf || !this.idxLargeCountBuf || !this.decideSummaryBuf) {
+      throw new Error('MsmV2.debugIdxLarge: requires splitC=true');
+    }
+    const enc = this.device.createCommandEncoder();
+    enc.clearBuffer(this.msbHistBuf);
+    const hp = enc.beginComputePass();
+    hp.setPipeline(this.msbHistPipe);
+    hp.setBindGroup(0, this.msbHistBind);
+    hp.dispatchWorkgroups(Math.ceil(this.n / 256), 1, 1);
+    hp.end();
+    const dp = enc.beginComputePass();
+    dp.setPipeline(this.msbDecidePipe);
+    dp.setBindGroup(0, this.msbDecideBind);
+    dp.dispatchWorkgroups(1, 1, 1);
+    dp.end();
+    enc.clearBuffer(this.idxLargeCountBuf);
+    const ip = enc.beginComputePass();
+    ip.setPipeline(this.msbIdxLargePipe);
+    ip.setBindGroup(0, this.msbIdxLargeBind);
+    ip.dispatchWorkgroups(Math.ceil(this.n / 256), 1, 1);
+    ip.end();
+    this.device.queue.submit([enc.finish()]);
+    const countArr = await readbackU32(this.device, this.idxLargeCountBuf, 4);
+    const count = countArr[0];
+    const summary = await readbackU32(this.device, this.decideSummaryBuf, 16 * 4);
+    const idxLarge = await readbackU32(this.device, this.idxLargeBuf, this.n * 4);
+    return { count, idxLarge, summary };
   }
 
   async run(): Promise<{ x: bigint; y: bigint; profile: ProfileBreakdown | null; windowSums: Pt[]; c: number }> {
