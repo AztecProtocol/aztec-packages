@@ -1048,7 +1048,11 @@ export class MsmHighMemory {
     m.n = n;
     m.c = config?.c ?? pickC(n);
     m.s = config?.s ?? pickS(n);
-    m.wgi = config?.wgi ?? DEFAULT_WGI;
+    // Small N is occupancy-bound (too few buckets/points to hide montmul
+    // latency), so smaller workgroups pack more resident on Apple → measurably
+    // faster fused phase (logn=10: fused ~5.7 vs 6.1 ms at WG 64 vs 128, clean
+    // across rounds). Large N saturates regardless, so keep the wider default.
+    m.wgi = config?.wgi ?? (n <= 4096 ? 64 : DEFAULT_WGI);
     m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
