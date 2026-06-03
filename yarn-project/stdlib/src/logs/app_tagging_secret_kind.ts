@@ -5,6 +5,7 @@ export const AppTaggingSecretKind = {
 
 export type AppTaggingSecretKind = (typeof AppTaggingSecretKind)[keyof typeof AppTaggingSecretKind];
 
+// Keep in sync with aztec::messages::message_delivery::{ONCHAIN_UNCONSTRAINED, ONCHAIN_CONSTRAINED}.
 const ONCHAIN_UNCONSTRAINED_DELIVERY_MODE = 2;
 const ONCHAIN_CONSTRAINED_DELIVERY_MODE = 3;
 

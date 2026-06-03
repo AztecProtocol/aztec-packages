@@ -19,16 +19,17 @@ pub(crate) fn compute_discovery_tag(recipient: AztecAddress, sender_override: Op
                 f"Sender for tags is not set when emitting a private log and no override is set. Ensure the wallet provides a default sender.",
             )
         });
-        let secret = get_app_tagging_secret(sender, recipient);
-        if secret.is_some() {
-            let secret = secret.unwrap_unchecked();
-            let index = get_next_tagging_index(secret, ONCHAIN_UNCONSTRAINED);
-            poseidon2_hash([secret, index as Field])
-        } else {
-            // The oracle returns `None` for invalid recipients. To prevent king-of-the-hill attacks, emit a random
-            // tag instead of failing: the log shape is preserved, even though no recipient can discover the note.
-            random()
-        }
+        get_app_tagging_secret(sender, recipient).map_or_else(
+            || {
+                // The oracle returns `None` for invalid recipients. To prevent king-of-the-hill attacks, emit a random
+                // tag instead of failing: the log shape is preserved, even though no recipient can discover the note.
+                random()
+            },
+            |secret| {
+                let index = get_next_tagging_index(secret, ONCHAIN_UNCONSTRAINED);
+                poseidon2_hash([secret, index as Field])
+            },
+        )
     }
 }
 
