@@ -231,14 +231,34 @@ function buildPadBuf(Mb: number, padPts: Pt[], R: bigint): Uint32Array {
 // Window combine: Horner fold of the per-window weighted sums into the final
 // MSM point — acc = Σ_w L_w · 2^(w·c). The fold runs in Jacobian coordinates
 // (a = 0) so every step is inversion-free; one inverse converts back to affine.
+//
+// Empty windows (no point lands in any non-zero bucket — every window above the
+// top digit on a small-scalar distribution like profile E) reduce to the point
+// at infinity, which the GPU encodes as the affine sentinel (0, 0) ((0,0) is not
+// on y² = x³ + 3, so it never collides with a real point). The Horner fold must
+// treat such windows as the additive identity: seed from the highest *finite*
+// window, skip infinity addends, and return the (0,0) sentinel if the whole MSM
+// is infinity — never feed Z = 0 to modInverse.
 function hostWindowCombine(L: Pt[], c: number): Pt {
   const fadd = (a: bigint, b: bigint): bigint => (a + b) % FP;
-  // acc in Jacobian (X, Y, Z); the seed window is affine, so Z = 1.
-  let X = L[L.length - 1].x;
-  let Y = L[L.length - 1].y;
+  const isInf = (p: Pt): boolean => p.x === 0n && p.y === 0n;
+  const INF: Pt = { x: 0n, y: 0n };
+
+  // Seed from the highest finite window; everything above it is infinity and the
+  // place-value doublings of infinity stay infinity, so they can be skipped.
+  let seed = L.length - 1;
+  while (seed >= 0 && isInf(L[seed])) seed--;
+  if (seed < 0) return INF; // every window empty ⇒ MSM is the point at infinity.
+
+  // acc in Jacobian (X, Y, Z); the seed window is affine, so Z = 1. `accInf`
+  // tracks whether acc is currently the point at infinity (Z = 0).
+  let X = L[seed].x;
+  let Y = L[seed].y;
   let Z = 1n;
-  for (let w = L.length - 2; w >= 0; w--) {
+  let accInf = false;
+  for (let w = seed - 1; w >= 0; w--) {
     for (let d = 0; d < c; d++) {
+      if (accInf) break; // 2·∞ = ∞.
       // Jacobian doubling, a = 0 (EFD dbl-2009-l).
       const A = fmul(X, X);
       const B = fmul(Y, Y);
@@ -253,6 +273,16 @@ function hostWindowCombine(L: Pt[], c: number): Pt {
       Y = fsub(fmul(E, fsub(D, X3)), fadd(Bsq4, Bsq4));
       Z = fadd(yz, yz);
       X = X3;
+      if (Z === 0n) accInf = true;
+    }
+    if (isInf(L[w])) continue; // acc + ∞ = acc.
+    if (accInf) {
+      // ∞ + affine = affine: re-seed acc from this window.
+      X = L[w].x;
+      Y = L[w].y;
+      Z = 1n;
+      accInf = false;
+      continue;
     }
     // Jacobian + affine mixed addition (EFD madd-2007-bl).
     const Z1Z1 = fmul(Z, Z);
@@ -270,7 +300,9 @@ function hostWindowCombine(L: Pt[], c: number): Pt {
     Y = fsub(fmul(r, fsub(V, X3)), fadd(yJ, yJ));
     Z = fsub(fsub(fmul(zH, zH), Z1Z1), HH);
     X = X3;
+    if (Z === 0n) accInf = true; // acc + addend = ∞ (mutual inverses).
   }
+  if (accInf || Z === 0n) return INF;
   const zInv = modInverse(Z, FP);
   const zInv2 = fmul(zInv, zInv);
   return { x: fmul(X, zInv2), y: fmul(Y, fmul(zInv2, zInv)) };
@@ -578,6 +610,16 @@ export class MsmHighMemoryPool {
       total += s.redBuf.size + s.isPresentBuf.size + s.reducePrefScratch.size;
     }
     return total;
+  }
+
+  /**
+   * Per-MSM scratch bytes only: the shared working-set buffers, excluding the
+   * SRS point coordinates (`poolX`/`poolY`), which live in the shared pool and
+   * are not counted against the bounded-memory scratch budget. This is the
+   * quantity the bounded high-memory backend caps.
+   */
+  scratchBytes(): number {
+    return this.statsBytes() - this.poolX.size - this.poolY.size;
   }
 
   /**

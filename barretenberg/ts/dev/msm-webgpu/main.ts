@@ -611,6 +611,14 @@ async function runWebGpuOnce(
     const msHm = performance.now() - t0hm;
     (window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number }).__lastWallMs = msHm;
     (window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number }).__lastCpuFoldMs = 0;
+    // Per-MSM scratch byte-sum (excludes the SRS pool): the bounded-memory
+    // budget the high-memory backend caps. Pool scratch + instance uniforms.
+    {
+      const pool = msmV2Pool as unknown as { scratchBytes?: () => number } | null;
+      const inst = msm as unknown as { statsBytes?: () => number };
+      const scratch = (pool?.scratchBytes?.() ?? 0) + (inst.statsBytes?.() ?? 0);
+      (window as unknown as { __lastScratchBytes?: number }).__lastScratchBytes = scratch;
+    }
     log('info', `[gpu] returned in ${msHm.toFixed(1)} ms (backend=high_memory)`);
     return { ms: msHm, xy: { x: r.x, y: r.y }, capture: { profile: null } };
   }
@@ -1589,8 +1597,13 @@ function hideProgress(): void {
       for (const key of allPhaseKeys) avgPhases[key] = avg(samples.map(s => s.phases[key] ?? 0));
       const avgPhaseStr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
       (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
+      // Per-MSM scratch byte-sum published by runWebGpuOnce (high-memory backend
+      // only; 0 / absent on the walker). Deterministic across reps — report it
+      // on the DONE line so the memory gate can grep it.
+      const scratchBytes = (window as unknown as { __lastScratchBytes?: number }).__lastScratchBytes ?? 0;
       log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
-        `min_wall=${minWall.toFixed(2)}ms avg_wall=${avgWall.toFixed(2)}ms cpu_fold=${avgCpuFold.toFixed(2)}ms gpu_ts=${avgGpu.toFixed(1)}ms ${avgPhaseStr}`);
+        `min_wall=${minWall.toFixed(2)}ms avg_wall=${avgWall.toFixed(2)}ms cpu_fold=${avgCpuFold.toFixed(2)}ms gpu_ts=${avgGpu.toFixed(1)}ms ` +
+        `scratch_bytes=${scratchBytes} scratch_mb=${(scratchBytes / (1024 * 1024)).toFixed(2)} ${avgPhaseStr}`);
       // Detailed where-does-the-time-go breakdown: per-phase GPU ms + dispatch
       // count + us/dispatch (so launch overhead vs real compute is visible),
       // plus the wall-minus-gpu_ts gap (driver gaps + Chrome mapAsync polling).
