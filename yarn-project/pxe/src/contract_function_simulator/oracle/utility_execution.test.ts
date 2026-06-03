@@ -15,7 +15,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
-import { MessageContext } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, AppTaggingSecretKind, MessageContext, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
 import {
@@ -47,6 +47,7 @@ import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
@@ -557,6 +558,35 @@ describe('Utility Execution test suite', () => {
         await expect(utilityExecutionOracle.getSharedSecrets(owner, ephPksArray, wrongAddress)).rejects.toThrow(
           /expected/,
         );
+      });
+    });
+
+    describe('getPendingTaggedLogs', () => {
+      const service = new EphemeralArrayService();
+
+      it('searches tags derived from provided secrets', async () => {
+        // Capture every tag the node is queried with so we can assert the provided secret was searched.
+        const queriedTags: Fr[] = [];
+        aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+          for (const entry of query.tags) {
+            queriedTags.push('tag' in entry ? entry.tag.value : entry.value);
+          }
+          return Promise.resolve(query.tags.map(() => []));
+        });
+
+        const providedSecret = Fr.random();
+        const providedSecrets = EphemeralArray.fromValues(service, [
+          new ProvidedSecret(providedSecret, AppTaggingSecretKind.UNCONSTRAINED),
+        ]);
+
+        await utilityExecutionOracle.getPendingTaggedLogs(owner, providedSecrets);
+
+        // The first-window tag of the provided secret must appear among the tags queried against the node.
+        const expectedTag = await SiloedTag.compute({
+          extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
+          index: 0,
+        });
+        expect(queriedTags.map(tag => tag.toString())).toContain(expectedTag.value.toString());
       });
     });
 
