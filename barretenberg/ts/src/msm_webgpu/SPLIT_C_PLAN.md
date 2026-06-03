@@ -168,17 +168,36 @@ variable-window-correct. `?varsched=1` is the variable-geometry regression test.
 *Next:* Phase 1 (the GPU decision kernel that CHOOSES the schedule — replaces the
 host `buildVarSchedule` fixture).
 
-**Phase 1 — GPU decision + schedule.** `histogram` kernel (+`msb_per_scalar`),
-`decide` kernel (port `choose_var_window_split`/`build_var_window_schedule`/
-`predict_schedule_cost`, incl. budget-awareness: reject schedules whose envelope
-bytes > the device budget). Fill `WindowDesc` from the schedule. NO_SPLIT path
-stays byte-identical; force a SPLIT schedule on a known input and check
-oracle-agree. *Exit:* the decision matches the C++ reference on a fixed histogram
-(unit-test the kernel against `choose_var_window_split` outputs).
+**Phase 1 — GPU decision + schedule. DONE.** The decision was ported to TS
+(`var_window_split.ts`) and to a GPU `decide` kernel, BOTH adapted to use the
+GPU's `pickC` for window bits instead of the CPU `choose_window_bits` (so a
+split's lower region == the unsplit `c` and NO_SPLIT is byte-identical). Pieces:
+- `ba_msb_histogram` (`1d848a3be9`) — 256-bin MSB histogram + `msb_per_scalar`;
+  matches the host oracle (A/C/E).
+- `var_window_split.ts` (`1d848a3be9`) — `predictScheduleCost` /
+  `chooseVarWindowSplit` / `buildVarWindowSchedule` + `buildWindowDescReference`;
+  unit-tested (`var_window_split.test.ts`).
+- forced-split create-time schedule (`03f41c3b83`) — oracle-agree at logN17
+  A + profile-E empty-window stress; natural decision validated on real GPU data
+  (A→no-split, C→split, D→no-split).
+- `ba_decide_window_split` (`0b007749df`) — single-workgroup WGSL decision; its
+  WindowDesc + summary match `buildWindowDescReference` exactly on A/C/D/E
+  (the *exit criterion*). The 85% gate uses 17/20 to stay in u32.
+Budget-awareness (reject schedules over the device budget) is deferred to Phase 3.
 
-**Phase 2 — two populations.** `idx_large` GPU compaction (reuse `msb_per_scalar`);
-region-split + indirect-dispatch the decompose/transpose by `n` / `n_large`.
-*Exit:* D/E oracle-agree, uniform unchanged.
+**Phase 2 — two populations.** `idx_large` GPU compaction **DONE** (`28595a8d2f`,
+`ba_idx_large_compact`): compacts `msb >= b_star-1` via `msb_per_scalar`; count ==
+decide `n_large`, every entry `msb >= b_star-1` (profile C), 0 for no-split.
+*Remaining (2C/2D):* region-split + indirect-dispatch the decompose/transpose by
+`n` / `n_large`, consume the decide kernel's WindowDesc at run time, switch
+reduce/gather to per-window geometry, read back `windowCs` for the host combine.
+*Exit:* D/E oracle-agree, uniform unchanged. **Key architectural note:** the
+envelope `c` is always `pickC(n)` (data-independent → red_buf sizing stays
+static); region-split is what keeps `bucket_and_sign` (`W_lo·n + W_hi·n_large`)
+within the unsplit envelope; the bucket kernels (classify/radix/walker/combine/pt)
+are already unified + indirect + window-agnostic so they need no change — only
+decompose + the 4 transpose kernels are region-split, and reduce + the host gather
+(which today hard-assume uniform `w·stride`) must read per-window geometry.
 
 **Phase 3 — validate + bench.** Profiles A–E correctness + same-M2 perf vs the
 current uniform path; confirm the D/E speedup. Then enable split by default behind
