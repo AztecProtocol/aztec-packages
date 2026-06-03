@@ -180,8 +180,7 @@ where
 ///
 /// The secret is resolved by the simulator rather than computed by the contract.
 ///
-/// Returns `None` for an invalid recipient address. Other sender-side lookup failures are simulator errors and fail
-/// before this wrapper returns.
+/// Returns `None` for an invalid recipient address.
 pub unconstrained fn get_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
     get_app_tagging_secret_oracle(sender, recipient)
 }
