@@ -131,6 +131,14 @@ export interface MsmConfig {
    * the C++ hook does the combine in native `bb::g1`.
    */
   combineOnHost?: boolean;
+  /**
+   * Per-MSM scratch budget in MiB for the high-memory backend's batch-count
+   * solver. The solver raises `numBatches` (window-batching) and, once that
+   * bottoms out at one window, the point-chunk count, until the metered scratch
+   * fits this budget. Default 248 (legacy lever-G target). The bounded-memory
+   * backend sets this to 100.
+   */
+  memBudgetMB?: number;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */

@@ -120,6 +120,9 @@ const gpuKnobs: MsmConfig = (() => {
     // Which backend algorithm to run: ?msm=highmem selects the transpose-based
     // high-memory MSM; absent/anything else = the stream-walker (default).
     backend: q.get('msm') === 'highmem' || q.get('msm') === 'high_memory' ? 'high_memory' : undefined,
+    // High-memory backend per-MSM scratch budget (MiB). The batch/chunk solver
+    // raises numBatches (and, once one-window, the point-chunk count) to fit it.
+    memBudgetMB: optInt('membudget'),
   };
 })();
 
@@ -580,7 +583,13 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<Msm> {
     // own scratch lives in the BackendPool. The high-memory backend host-folds
     // in run() (combineOnHost); the stream-walker keeps the CPU reduce-tail path.
     srsPool = await createMsmPool(gpuDevice, inputs.pointsBuf);
-    const cfg = gpuKnobs.backend === 'high_memory' ? { ...gpuKnobs, combineOnHost: true } : gpuKnobs;
+    // The high-memory backend is the bounded-memory backend under test: default
+    // its per-MSM scratch budget to 100 MiB (overridable with ?membudget=) so the
+    // dev bench exercises the bounded path. combineOnHost: true gives the bench
+    // the affine point directly.
+    const cfg = gpuKnobs.backend === 'high_memory'
+      ? { ...gpuKnobs, combineOnHost: true, memBudgetMB: gpuKnobs.memBudgetMB ?? 100 }
+      : gpuKnobs;
     const built = await createMsm(gpuDevice, inputs.n, srsPool, cfg);
     msmV2 = built.msm;
     msmV2Pool = built.pool;
@@ -614,10 +623,15 @@ async function runWebGpuOnce(
     // Per-MSM scratch byte-sum (excludes the SRS pool): the bounded-memory
     // budget the high-memory backend caps. Pool scratch + instance uniforms.
     {
-      const pool = msmV2Pool as unknown as { scratchBytes?: () => number } | null;
+      const pool = msmV2Pool as unknown as {
+        scratchBytes?: () => number;
+        scratchBreakdown?: () => Record<string, number> | null;
+      } | null;
       const inst = msm as unknown as { statsBytes?: () => number };
       const scratch = (pool?.scratchBytes?.() ?? 0) + (inst.statsBytes?.() ?? 0);
       (window as unknown as { __lastScratchBytes?: number }).__lastScratchBytes = scratch;
+      (window as unknown as { __lastScratchBreakdown?: Record<string, number> | null }).__lastScratchBreakdown =
+        pool?.scratchBreakdown?.() ?? null;
     }
     log('info', `[gpu] returned in ${msHm.toFixed(1)} ms (backend=high_memory)`);
     return { ms: msHm, xy: { x: r.x, y: r.y }, capture: { profile: null } };
@@ -1601,6 +1615,16 @@ function hideProgress(): void {
       // only; 0 / absent on the walker). Deterministic across reps — report it
       // on the DONE line so the memory gate can grep it.
       const scratchBytes = (window as unknown as { __lastScratchBytes?: number }).__lastScratchBytes ?? 0;
+      {
+        const bd = (window as unknown as { __lastScratchBreakdown?: Record<string, number> | null }).__lastScratchBreakdown;
+        if (bd) {
+          const top = Object.entries(bd).sort((a, b) => b[1] - a[1]).slice(0, 8)
+            .map(([k, v]) => `${k}=${(v / (1024 * 1024)).toFixed(2)}MB`).join(' ');
+          log('info', `[scratch-breakdown] ${top}`);
+        }
+        const pi = (window as unknown as { __lastPlanInfo?: Record<string, number> }).__lastPlanInfo;
+        if (pi) log('info', `[plan-info] numBatches=${pi.numBatches} batchWindows=${pi.batchWindows}/${pi.numWindows} estMB=${pi.estMB?.toFixed(1)} budgetMB=${pi.budgetMB?.toFixed(0)}`);
+      }
       log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
         `min_wall=${minWall.toFixed(2)}ms avg_wall=${avgWall.toFixed(2)}ms cpu_fold=${avgCpuFold.toFixed(2)}ms gpu_ts=${avgGpu.toFixed(1)}ms ` +
         `scratch_bytes=${scratchBytes} scratch_mb=${(scratchBytes / (1024 * 1024)).toFixed(2)} ${avgPhaseStr}`);

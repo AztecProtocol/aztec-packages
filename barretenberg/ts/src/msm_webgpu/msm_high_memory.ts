@@ -36,6 +36,12 @@ const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per wind
 const FP = BN254_BASE_FIELD;
 const NUMBITS = 254; // scalar field bit length
 const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
+// Slow-path buffer padding: bufA/bufB (via M1) and the pair-block / carry plan
+// rings are oversized by this factor so small per-prepare scalar-distribution
+// variance stays on the fast path. The batch-count solver's estimate must apply
+// the same factor to those terms, else it under-counts and the metered scratch
+// exceeds the budget (the bounded-memory gate measures the real allocation).
+const OVERSIZE_FACTOR = 1.3;
 
 // Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
 // `reduceWg` are instead chosen per problem size — by pickC / pickS /
@@ -622,6 +628,33 @@ export class MsmHighMemoryPool {
     return this.statsBytes() - this.poolX.size - this.poolY.size;
   }
 
+  /** Per-buffer scratch byte breakdown (diagnostic). Null until first
+   * ensureScratch. Excludes the SRS pool. */
+  scratchBreakdown(): Record<string, number> | null {
+    if (!this._scratch) return null;
+    const s = this._scratch;
+    return {
+      bufA: s.bufA.size,
+      bufB: s.bufB.size,
+      bucketResult: s.bucketResultBuf.size,
+      l0Idx: s.l0IdxBuf.size,
+      bucketAndSign: s.bucketAndSignBuf.size,
+      valIdx: s.valIdxBuf.size,
+      rowPtr: s.rowPtrBuf.size,
+      planMeta: s.planMeta.size,
+      pairBlockPlanRing: s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size,
+      scatterPlanRing: s.scatterPlanRing[0].size + s.scatterPlanRing[1].size,
+      carryPlanRing: s.carryPlanRing[0].size + s.carryPlanRing[1].size,
+      counts: s.countsBufs[0].size + s.countsBufs[1].size,
+      offsets: s.offsetsBufs[0].size + s.offsetsBufs[1].size,
+      prefScratch: s.prefScratchBuf.size,
+      scalarsRaw: s.scalarsRawBuf.size,
+      redBuf: s.redBuf.size,
+      isPresent: s.isPresentBuf.size,
+      reducePrefScratch: s.reducePrefScratch.size,
+    };
+  }
+
   /**
    * Grow shared scratch buffers as needed to fit `dims`. Idempotent — if
    * every dimension already fits, no buffer is touched and `scratchEpoch`
@@ -900,6 +933,9 @@ export class MsmHighMemory {
   private profile = false;
   private jacobianCrossover = 0;
   private combineOnHost = true;
+  // Per-MSM scratch budget (bytes) the batch-count / chunk solver targets.
+  // Defaults to MEM_BUDGET; config.memBudgetMB overrides.
+  private memBudget = MEM_BUDGET;
   private stride!: number; // reduction STRIDE = 2^(c-1)
   private redM!: number;
   private pointXBuf!: GPUBuffer;
@@ -1101,6 +1137,7 @@ export class MsmHighMemory {
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
     m.combineOnHost = config?.combineOnHost ?? true;
+    m.memBudget = config?.memBudgetMB !== undefined ? config.memBudgetMB * (1 << 20) : MEM_BUDGET;
     const wantProfile = config?.profile ?? false;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -1505,17 +1542,20 @@ export class MsmHighMemory {
     const RED_M = this.redM;
     const estimateMem = (nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
-      const m1 = bw * wstride1 + 3;
+      // M1, pair-block and carry counts get the OVERSIZE_FACTOR pad in the slow
+      // path; apply it here so the estimate matches the real allocation.
+      const m1 = Math.ceil(bw * wstride1 * OVERSIZE_FACTOR) + 3;
       const bSlots = bw * n;
       const bBuckets = bw * BW;
-      const tc = bw * maxPairBlocksPerWindow;
+      const tc = Math.ceil(bw * maxPairBlocksPerWindow * OVERSIZE_FACTOR);
+      const carries = Math.ceil(bw * maxCarriesPerWindow * OVERSIZE_FACTOR);
       const tile = Math.min(Math.ceil((1 << 16) / WGI) * WGI, Math.max(WGI, Math.ceil(tc / WGI) * WGI));
       return (
         2 * 64 * m1 +
         64 * B_TOTAL +
         4 * 4 * bBuckets +
         4 * (bSlots + 3) +
-        2 * (3 * tc * S + 2 * bw * maxCarriesPerWindow) * 4 +
+        2 * (3 * tc * S + 2 * carries) * 4 +
         tile * S * 8 * 4 +
         3 * 4 * bSlots +
         4 * bw * (BW + 1) +
@@ -1526,8 +1566,17 @@ export class MsmHighMemory {
     };
     const wgFits = (nb: number): boolean => Math.ceil((Math.ceil(NUM_WINDOWS / nb) * n) / WGI) < 65000;
     let numBatches = 1;
-    while (numBatches < NUM_WINDOWS && (estimateMem(numBatches) > MEM_BUDGET || !wgFits(numBatches))) numBatches++;
+    while (numBatches < NUM_WINDOWS && (estimateMem(numBatches) > this.memBudget || !wgFits(numBatches))) numBatches++;
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __lastPlanInfo?: Record<string, number> }).__lastPlanInfo = {
+        numBatches,
+        batchWindows,
+        numWindows: NUM_WINDOWS,
+        estMB: estimateMem(numBatches) / (1 << 20),
+        budgetMB: this.memBudget / (1 << 20),
+      };
+    }
     const batchBuckets = batchWindows * BW;
     const batchSlots = batchWindows * n;
     for (const p of levelPlans) {
@@ -1587,8 +1636,8 @@ export class MsmHighMemory {
     // intervening slots stay zero (no-op for level shaders). M1 is
     // derived from the padded wstride1 so pad-trio indices (M1-3/-2/-1)
     // sit at the tail of the padded region and stay consistent across
-    // all fast-path runs against this instance.
-    const OVERSIZE_FACTOR = 1.3;
+    // all fast-path runs against this instance. OVERSIZE_FACTOR is the
+    // module constant the batch-count estimate also applies.
     wstride1 = Math.ceil(wstride1 * OVERSIZE_FACTOR);
     M1 = batchWindows * wstride1 + 3;
     maxTotalPairBlocks = Math.ceil(maxTotalPairBlocks * OVERSIZE_FACTOR);
