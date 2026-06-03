@@ -532,8 +532,7 @@ export class ProposalHandler {
     }
 
     const deadline = this.getReexecutionDeadline(proposal.slotNumber);
-    const currentTime = this.dateProvider.now();
-    const timeoutDurationMs = deadline.getTime() - currentTime;
+    const timeoutDurationMs = deadline.getTime() - this.dateProvider.now();
 
     try {
       return (
@@ -544,7 +543,7 @@ export class ProposalHandler {
               () =>
                 this.blockSource.syncImmediate().then(() => this.blockSource.getBlockData({ archive: parentArchive })),
               'force archiver sync',
-              timeoutDurationMs / 1000,
+              { deadline, dateProvider: this.dateProvider },
               0.5,
             ))
       );
@@ -908,9 +907,8 @@ export class ProposalHandler {
     const remainingMs = deadline.getTime() - this.dateProvider.now();
 
     // Wait for last block to sync by archive. Try once immediately, then keep retrying only while time
-    // remains before the deadline. The retry timeout must be a strictly-positive fractional value:
-    // retryUntil treats a timeout of 0 as "never time out" (so Math.floor on a sub-second budget would
-    // make it hang past the consensus deadline), and compares timer.s() > timeout in fractional seconds.
+    // remains before the deadline (passed to retryUntil as the absolute deadline so the remaining budget
+    // is derived from the date provider rather than a manually computed fractional timeout).
     let lastBlockData;
     try {
       const fetchBlock = async () => {
@@ -924,7 +922,7 @@ export class ProposalHandler {
           : await retryUntil(
               fetchBlock,
               `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
-              remainingMs / 1000,
+              { deadline, dateProvider: this.dateProvider },
               0.5,
             ));
     } catch (err) {
