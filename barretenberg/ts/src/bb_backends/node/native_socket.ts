@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { IMsgpackBackendAsync } from '../interface.js';
-import readline from 'readline';
+import readline, { type Interface as ReadlineInterface } from 'readline';
 import { threadId } from 'worker_threads';
 
 let instanceCounter = 0;
@@ -27,7 +27,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
   private socketPath: string;
   private connectionPromise: Promise<void>;
   private connectionTimeout: NodeJS.Timeout | null = null;
-  private logReaders: readline.Interface[] = [];
+  private logReaders: ReadlineInterface[] = [];
 
   // Queue of pending callbacks for pipelined requests
   // Responses come back in FIFO order, so we match them with queued callbacks
