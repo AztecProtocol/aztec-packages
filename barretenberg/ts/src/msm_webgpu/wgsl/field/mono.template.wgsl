@@ -95,6 +95,16 @@ fn mono_neg(a: Mono) -> Mono {
   return Mono(fr_sub_f8(z, a.c0), fr_sub_f8(z, a.c1), fr_sub_f8(z, a.c2));
 }
 
+// Add a degree-1 monomial `b` into a degree-2 monomial `a`, touching only the
+// constant and linear terms — `a`'s c2 (its X^2 coeff) is preserved, since a
+// degree-1 operand has no X^2 term. Mirrors the C++ UnivariateCoefficientBasis
+// operator+ for (domain_end=3, other_domain_end=2). Use this instead of mono_add
+// when folding a degree-1 term into a degree-2 accumulator — mono_add would add
+// b's c2 (for a deg-1 b that is its stale (a0+a1) cache), corrupting the result.
+fn mono_add_lin(a: Mono, b: Mono) -> Mono {
+  return Mono(fr_add_f8(a.c0, b.c0), fr_add_f8(a.c1, b.c1), a.c2);
+}
+
 // === monomial-scalar ops. ===
 // add/sub touch only the constant term (c0); scale touches every coefficient.
 fn mono_add_scalar(a: Mono, s: array<u32, 8>) -> Mono {

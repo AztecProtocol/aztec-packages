@@ -22,10 +22,12 @@ import {
   decompose_scalars_booth as decompose_scalars_booth_shader,
   decompress_g1_bn254 as decompress_g1_bn254_shader,
   extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
+  arithmetic_relation_test as arithmetic_relation_test_shader,
   field as field_funcs,
   field8 as field8_funcs,
   fr_ops_test as fr_ops_test_shader,
   fr_pow as fr_pow_funcs,
+  lag as lag_funcs,
   mono as mono_funcs,
   mono_ops_test as mono_ops_test_shader,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
@@ -354,6 +356,61 @@ ${packLines.join('\n')}
         montgomery_product_funcs: this.mont_product_src,
         field8_funcs,
         mono_funcs,
+      },
+    );
+  }
+
+  /**
+   * Phase-2 step-2 test kernel for the MegaFlavor ArithmeticRelation accumulate
+   * (relations/ultra_arithmetic_relation.hpp). Assembles the Mono + Lagrange
+   * stack and bakes the Montgomery-form constants the relation uses (FF(1/2/3)
+   * and -1/2). One entry point `arithmetic_main`; one thread per edge writes the
+   * 11-Fr per-edge contribution. Construct with field='scalar' for F_r.
+   */
+  public gen_arithmetic_relation_test_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_arithmetic_relation_test_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    const words8 = (v: bigint): string => {
+      const out: string[] = [];
+      let x = v;
+      for (let i = 0; i < 8; i++) {
+        out.push(`${(Number(x & 0xffffffffn) >>> 0).toString()}u`);
+        x >>= 32n;
+      }
+      return out.join(', ');
+    };
+    const toMont = (x: bigint): bigint => ((((x % this.p) + this.p) % this.p) * this.r) % this.p;
+    return mustache.render(
+      arithmetic_relation_test_shader,
+      {
+        workgroup_size,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        c1_csv: words8(toMont(1n)),
+        c2_csv: words8(toMont(2n)),
+        c3_csv: words8(toMont(3n)),
+        neg_half_csv: words8(toMont((this.p - 1n) / 2n)),
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field8_funcs,
+        mono_funcs,
+        lag_funcs,
       },
     );
   }
