@@ -41,7 +41,26 @@ const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
 // variance stays on the fast path. The batch-count solver's estimate must apply
 // the same factor to those terms, else it under-counts and the metered scratch
 // exceeds the budget (the bounded-memory gate measures the real allocation).
-const OVERSIZE_FACTOR = 1.3;
+const OVERSIZE_FACTOR = 1.0;
+// Held-back budget headroom for the byte estimate's residual imprecision (buffer-
+// size rounding, the per-buffer `max(bytes,4)` floors). Since the fused-tile sizer
+// fills pref_scratch up to the budget, this margin keeps the metered scratch — the
+// actual ≤100 MB gate — under budget despite the ~1 MB estimate optimism.
+const BUDGET_MARGIN = 0;
+// Floor on the fused pair-block tile. Each level-0 fused dispatch covers one tile,
+// so a tile far below the level's block count splits L0 into many launch-bound
+// dispatches (a ~1k-block tile on a ~40k-block L0 = ~40 tiny dispatches/level/batch
+// → ~10× slower). The budget solver may not shrink the tile below this; it spends
+// a window batch instead. pref_scratch at the floor ≈ 8192·S·8·4 = 2 MB; a 40k L0
+// then splits into ~5 still-high-occupancy tiles (≈3 ms over the single-tile case).
+const MIN_FUSED_TILE = 8192;
+// Upper bound on the fused pair-block tile size (pair_blocks per dispatch). The
+// pair-tree's `pref_scratch` is sized to one tile (FUSED_TILE × S × 8 × u32), so
+// a smaller cap directly shrinks that scratch — at the cost of splitting a heavy
+// level-0 into a few extra (high-occupancy, cheap) tiles. Capping it frees memory
+// for the bounded bufA/bufB so the budget solver fits more windows per batch
+// (fewer numBatches = the dominant wall cost). 8192 keeps pref_scratch ≤ 2 MB.
+const FUSED_TILE_CAP = Math.ceil((1 << 16) / 128) * 128;
 
 // Defaults for the size-independent knobs (see MsmConfig). `c`, `s` and
 // `reduceWg` are instead chosen per problem size — by pickC / pickS /
@@ -1675,18 +1694,21 @@ export class MsmHighMemory {
     // (instance-invariant), so the estimate can read it before the solver runs.
     let MAXC0 = 1;
     for (const p of this.reducePasses) MAXC0 = Math.max(MAXC0, Math.ceil(p.ppw / REDUCE_WG));
-    // Scratch byte estimate for a chunk plan at window-batch count nb. Must match
-    // the slow-path allocation so the metered budget is honoured. nb (window
-    // batching) and M (point chunking) both shrink the point-scaled buffers; the
-    // full-width terms (bucketResult, redBuf, scalarsRaw, reducePref) are the floor.
-    const estimateMemFor = (mp: MPlan, nb: number): number => {
+    // Scratch byte estimate at window-batch count nb, EXCLUDING the pair-tree
+    // pref_scratch (sized to one fused tile; chosen separately below). Splitting it
+    // out lets the budget solver fit the fewest batches assuming a minimal tile,
+    // then spend leftover budget on a larger tile (higher fused occupancy).
+    // Must match the slow-path allocation so the metered budget is honoured. nb
+    // (window batching) and M (point chunking) both shrink the point-scaled
+    // buffers; the full-width terms (bucketResult, redBuf, scalarsRaw, reducePref)
+    // are the floor.
+    const fixedMemFor = (mp: MPlan, nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
       const m1 = Math.ceil(bw * mp.wstride1 * OVERSIZE_FACTOR) + 3;
       const bSlots = Math.max(bw * mp.Mmax, B_TOTAL, bw * mp.partialStrideMax);
       const bBuckets = bw * BW;
       const tc = Math.ceil(bw * mp.maxPairBlocksPerWindow * OVERSIZE_FACTOR);
       const carries = Math.ceil(bw * mp.maxCarriesPerWindow * OVERSIZE_FACTOR);
-      const tile = Math.min(Math.ceil((1 << 16) / WGI) * WGI, Math.max(WGI, Math.ceil(tc / WGI) * WGI));
       return (
         2 * 64 * m1 + // bufA + bufB (SoA: 2 planes × 32 B per element)
         64 * B_TOTAL + // bucketResult (SoA over all global buckets)
@@ -1694,13 +1716,98 @@ export class MsmHighMemory {
         4 * (bSlots + 3) + // l0Idx (1 u32 per slot)
         2 * 4 * bSlots + // bucketAndSign + valIdx (1 u32 per slot each)
         2 * (3 * tc * S + 2 * carries) * 4 + // pairBlock + scatter + carry plan rings
-        tile * S * 8 * 4 + // pair-tree prefScratch
         4 * bw * (BW + 1) + // rowPtr
         32 * n + // scalarsRaw (n scalars × 32 B; uploaded whole, read per-chunk)
         100 * RED_M + // redBuf(64) + redZ(32) + isPresent(4), per reduce slot
-        NUM_WINDOWS * REDUCE_WG * MAXC0 * 2 * 16 // reducePrefScratch
+        NUM_WINDOWS * REDUCE_WG * MAXC0 * 2 * 16 + // reducePrefScratch
+        // Per-instance buffers not part of the shared pool but counted by the
+        // metered scratch (statsBytes): the accumulate-finalize touched flag, the
+        // per-window result staging target, and a slack for the dozens of small
+        // per-level/per-tile uniform buffers (each rounded up to 16 B) + the
+        // SoA `max(bytes,4)` floors. Keeps estMB a true upper bound on the meter,
+        // so the budget solver never picks an nb the real allocation overshoots.
+        4 * B_TOTAL + // touchedBuf
+        64 * NUM_WINDOWS + // redStaging
+        (1 << 18) // small-uniform + rounding slack (~256 KB)
       );
     };
+    // pref_scratch bytes for a tile of `tile` pair-blocks (S pairs each, 8×u32).
+    const prefBytesForTile = (tile: number): number => tile * S * 8 * 4;
+    // Distribution-INDEPENDENT fixed-memory upper bound at nb, used to size the
+    // fused tile. Booth gives ~n/2 active points per window for ANY distribution,
+    // so a synthetic MPlan keyed only on (n, nb, c) tracks the real fixed memory
+    // to within the OVERSIZE pad. Sizing the tile from THIS (not the real per-
+    // prepare plan) makes the create()-time warm-up (random scalars) and the real
+    // prepare pick the SAME tile — without it the warm-up's lighter plan picks a
+    // larger tile, the pool grows to it (pool buffers only grow), and the metered
+    // scratch overshoots the budget on the real run.
+    // Booth's per-window active count is Σ ceil(count_b/2) ≈ n/2 plus a small
+    // ceil surplus; 0.52·n upper-bounds it across distributions with margin, so a
+    // plan keyed on it never under-bounds the real per-prepare wstride1 (which
+    // would let the solver pick an nb the real allocation then overshoots).
+    const halfN = Math.ceil(0.52 * n);
+    const synthMp = (): MPlan => ({
+      M: n,
+      numChunks: 1,
+      chunkSizes: [n],
+      chunkStarts: [0],
+      chunkWalks: [],
+      wstride1: halfN,
+      levels: 0,
+      maxPairBlocksPerWindow: Math.ceil(halfN / S),
+      // Carries = one leftover per odd-count bucket, so ≤ BW per window for ANY n
+      // (NOT ~n/2 — that over-bounds the carry plan ring ~10× and would force an
+      // extra window batch). BW is the true per-window carry ceiling.
+      maxCarriesPerWindow: BW,
+      Mmax: n,
+      partialStrideMax: Math.max(1, Math.floor(n / BW)) * BW,
+    });
+    // The natural (occupancy-optimal) tile = one tile covering the whole level's
+    // pair-blocks, so the heaviest level-0 fused runs as a single high-occupancy
+    // dispatch. Capped at the WGSL grid limit. Distribution-independent (synthMp).
+    const naturalTileFor = (nb: number): number => {
+      const bw = Math.ceil(NUM_WINDOWS / nb);
+      return Math.min(
+        FUSED_TILE_CAP,
+        Math.max(WGI, Math.ceil((bw * synthMp().maxPairBlocksPerWindow * OVERSIZE_FACTOR) / WGI) * WGI),
+      );
+    };
+    // The minimum tile we will ever allocate at nb: the MIN_FUSED_TILE floor, but
+    // never larger than the natural size (no point exceeding the work present).
+    const floorTileFor = (nb: number): number => Math.min(naturalTileFor(nb), MIN_FUSED_TILE);
+    // Tile sized to fill the budget headroom AT nb (for higher fused occupancy),
+    // clamped to [floor, natural]. The headroom is measured against the distribution-
+    // INDEPENDENT synthMp fixed memory — so the chosen tile depends only on
+    // (n, c, budget, nb), never on the per-prepare scalar distribution. Combined
+    // with the synthMp-bounded nb selection (estimateMemFor below — which makes
+    // every distribution at a given N pick the SAME nb), the create()-time warm-up
+    // (random scalars), the real prepare, and a degenerate one (profile E) all pick
+    // identical (nb, tile). That matters because the shared pool's pref_scratch only
+    // grows: a warm-up that picked a larger tile would grow the pool and make a later
+    // real run's metered scratch overshoot the budget.
+    const budgetTileFor = (nb: number): number => {
+      const leftover = this.memBudget - BUDGET_MARGIN - fixedMemFor(synthMp(), nb);
+      if (leftover <= 0) return WGI;
+      return Math.max(WGI, Math.floor(leftover / (S * 8 * 4) / WGI) * WGI);
+    };
+    const pickFusedTile = (nb: number): number => {
+      const natural = naturalTileFor(nb);
+      const floor = floorTileFor(nb);
+      return Math.min(natural, Math.max(floor, budgetTileFor(nb)));
+    };
+    // Total scratch at nb = fixed + the tile we will actually allocate, plus the
+    // margin. The fit-check the solver uses; ≤ budget ⇒ nb is viable. The fixed
+    // term takes the MAX of this prepare's real plan and the distribution-
+    // independent synthMp bound, because the shared pool's bufA/rings only grow:
+    // the metered scratch is max(create()-warm-up allocation, this allocation), and
+    // the warm-up's random scalars track synthMp (≈ uniform, ~0.52·n active per
+    // window). Bounding by synthMp keeps estMB a true upper bound on the meter for
+    // ANY distribution — including a lighter real one (profile E) that inherits the
+    // heavier warm-up pool — so the solver never picks an nb the meter then
+    // overshoots. (synthMp.maxCarriesPerWindow = BW avoids a ~10× carry over-bound
+    // that would otherwise force a needless extra batch.)
+    const estimateMemFor = (mp: MPlan, nb: number): number =>
+      Math.max(fixedMemFor(mp, nb), fixedMemFor(synthMp(), nb)) + prefBytesForTile(pickFusedTile(nb)) + BUDGET_MARGIN;
     // The decompose / convActive dispatch is per chunk = bw×Mmax threads.
     const wgFitsFor = (mp: MPlan, nb: number): boolean =>
       Math.ceil((Math.ceil(NUM_WINDOWS / nb) * mp.Mmax) / WGI) < 65000;
@@ -1765,6 +1872,11 @@ export class MsmHighMemory {
         numChunks,
         estMB: estimateMem(numBatches) / (1 << 20),
         budgetMB: this.memBudget / (1 << 20),
+        wstride1: mp.wstride1,
+        maxPairBlocksPerWindow: mp.maxPairBlocksPerWindow,
+        maxCarriesPerWindow: mp.maxCarriesPerWindow,
+        BW,
+        levels: mp.levels,
       };
     }
     const batchBuckets = batchWindows * BW;
@@ -1906,8 +2018,12 @@ export class MsmHighMemory {
       );
     }
 
+    // Tile = the budget-aware size from pickFusedTile (distribution-independent,
+    // so the create()-time warm-up and the real prepare agree and the shared pool
+    // can't over-grow pref_scratch), but never larger than this plan's actual
+    // pair-block count (no point sizing pref_scratch past the work present).
     const FUSED_TILE = Math.min(
-      Math.ceil((1 << 16) / WGI) * WGI,
+      pickFusedTile(numBatches),
       Math.max(WGI, Math.ceil(this.capTotalPairBlocks / WGI) * WGI),
     );
     this.fusedTileSize = FUSED_TILE;

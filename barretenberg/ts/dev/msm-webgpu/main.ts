@@ -158,6 +158,7 @@ const WASM_MEM_MAX_PAGES = 16384; // 1 GiB
 // observed to break the WebGPU MSM in this dev page (see the original
 // vite.config.ts comment); they're also unrelated to the WebGPU path.
 const COI_REQUESTED = /[?&]coi=1\b/.test(window.location.search);
+if (/[?&]hmdbg=1\b/.test(window.location.search)) (window as unknown as { __hmDbg?: boolean }).__hmDbg = true;
 const COI_ACTIVE = (self as any).crossOriginIsolated === true;
 const WASM_AVAILABLE = COI_ACTIVE;
 
@@ -455,6 +456,23 @@ function readSrsPointAt(buf: Uint8Array, i: number): { x: bigint; y: bigint } {
 async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<TestInputs> {
   if (srsBuf === null) {
     throw new Error('[gen] SRS not loaded yet — wait for the [srs] ready line');
+  }
+  // ?msm_dump=<name> — load real production scalars dumped from bb prove
+  // (ChonkApi::Prove wire commitments). Header u64 n, then n×32 LE canonical Fr
+  // (already the GPU's non-Montgomery format). Points come from the SRS; n is
+  // arbitrary (non-power-of-2). Tests/benches the GPU on the actual Chonk wire
+  // distributions instead of the synthetic profiles.
+  const dumpName = new URLSearchParams(window.location.search).get('msm_dump');
+  if (dumpName) {
+    const resp = await fetch(`/dev/msm-webgpu/dumps/${dumpName}.bin`);
+    if (!resp.ok) throw new Error(`[gen] dump '${dumpName}' not found (${resp.status})`);
+    const ab = await resp.arrayBuffer();
+    const dn = Number(new DataView(ab).getBigUint64(0, true));
+    if (dn * 64 > srsBuf.length) throw new Error(`[gen] dump n=${dn} exceeds SRS (${srsBuf.length / 64} pts)`);
+    const scalarsBuf = new Uint8Array(ab.slice(8, 8 + dn * 32));
+    const pointsBuf = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, dn * 64);
+    log('info', `[gen] loaded MSM dump '${dumpName}': n=${dn.toLocaleString()}`);
+    return { n: dn, points: null, scalars: null, pointsBuf, scalarsBuf };
   }
   if (logN < LOGN_MIN || logN > LOGN_MAX) {
     throw new Error(`[gen] logN=${logN} outside the supported [${LOGN_MIN}, ${LOGN_MAX}] range`);
@@ -1630,7 +1648,8 @@ function hideProgress(): void {
           log(
             'info',
             `[plan-info] numBatches=${pi.numBatches} batchWindows=${pi.batchWindows}/${pi.numWindows} ` +
-              `chunkM=${pi.chunkM} numChunks=${pi.numChunks} estMB=${pi.estMB?.toFixed(1)} budgetMB=${pi.budgetMB?.toFixed(0)}`,
+              `chunkM=${pi.chunkM} numChunks=${pi.numChunks} estMB=${pi.estMB?.toFixed(1)} budgetMB=${pi.budgetMB?.toFixed(0)} ` +
+              `wstride1=${pi.wstride1} BW=${pi.BW} levels=${pi.levels} maxPB/w=${pi.maxPairBlocksPerWindow} maxCarry/w=${pi.maxCarriesPerWindow}`,
           );
       }
       log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
