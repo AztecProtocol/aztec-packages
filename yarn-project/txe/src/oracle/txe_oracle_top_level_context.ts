@@ -28,7 +28,6 @@ import {
   ExecutionNoteCache,
   ExecutionTaggingIndexCache,
   HashedValuesCache,
-  type IMiscOracle,
   Oracle,
   PrivateExecutionOracle,
   UtilityExecutionOracle,
@@ -64,6 +63,7 @@ import {
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
 import { hashPublicKey } from '@aztec/stdlib/keys';
+import type { PrivateLog } from '@aztec/stdlib/logs';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -90,8 +90,7 @@ import type { TXEArtifactResolver } from '../utils/txe_artifact_resolver.js';
 import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
 
-export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
-  isMisc = true as const;
+export class TXEOracleTopLevelContext implements ITxeExecutionOracle {
   isTxe = true as const;
 
   private logger: Logger;
@@ -147,7 +146,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   // We instruct users to debug contracts via this oracle, so it makes sense that they'd expect it to also work in tests
-  log(level: number, message: string, fields: Fr[]): Promise<void> {
+  log(level: number, message: string, _fieldsSize: number, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
       throw new Error(`Invalid log level: ${level}`);
     }
@@ -173,7 +172,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
-  async getLastTxEffects() {
+  async getLastTxEffects(): Promise<{
+    txHash: TxHash;
+    noteHashes: Fr[];
+    nullifiers: Fr[];
+    privateLogs: PrivateLog[];
+  }> {
     const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
     const block = await this.stateMachine.archiver.getBlock({ number: latestBlockNumber });
 

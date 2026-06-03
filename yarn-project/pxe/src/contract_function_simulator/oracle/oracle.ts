@@ -1,7 +1,7 @@
 import type { ACIRCallback, ACVMField } from '@aztec/simulator/client';
 
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
-import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
+import type { IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { callHandler } from './oracle_registry.js';
 
 export class UnavailableOracleError extends Error {
@@ -33,15 +33,7 @@ export class UnavailableOracleError extends Error {
  *   - Standalone verbs (`delete`, `copy`, `decrypt`, `log`, etc) are used when no generic verb fits.
  */
 export class Oracle {
-  constructor(private handler: IMiscOracle | IUtilityExecutionOracle | IPrivateExecutionOracle) {}
-
-  private handlerAsMisc(): IMiscOracle {
-    if (!('isMisc' in this.handler)) {
-      throw new UnavailableOracleError('Misc');
-    }
-
-    return this.handler;
-  }
+  constructor(private handler: IUtilityExecutionOracle | IPrivateExecutionOracle) {}
 
   private handlerAsUtility(): IUtilityExecutionOracle {
     if (!('isUtility' in this.handler)) {
@@ -60,14 +52,7 @@ export class Oracle {
   }
 
   toACIRCallback(): ACIRCallback {
-    const excludedProps = [
-      'handler',
-      'constructor',
-      'toACIRCallback',
-      'handlerAsMisc',
-      'handlerAsUtility',
-      'handlerAsPrivate',
-    ] as const;
+    const excludedProps = ['handler', 'constructor', 'toACIRCallback', 'handlerAsUtility', 'handlerAsPrivate'] as const;
 
     // Get all the oracle function names
     const oracleNames = Object.getOwnPropertyNames(Oracle.prototype).filter(
@@ -155,7 +140,7 @@ export class Oracle {
       oracle: 'aztec_utl_assertCompatibleOracleVersion',
       inputs,
       handler: ([major, minor]) => {
-        this.handlerAsMisc().assertCompatibleOracleVersion(major, minor);
+        this.handlerAsUtility().assertCompatibleOracleVersion(major, minor);
       },
     });
   }
@@ -165,7 +150,7 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_getRandomField',
       inputs: [],
-      handler: () => this.handlerAsMisc().getRandomField(),
+      handler: () => this.handlerAsUtility().getRandomField(),
     });
   }
 
@@ -432,7 +417,8 @@ export class Oracle {
     return callHandler({
       oracle: 'aztec_utl_log',
       inputs,
-      handler: ([level, message, _, fields]) => this.handlerAsMisc().log(level, message, fields),
+      handler: ([level, message, fieldsSize, fields]) =>
+        this.handlerAsUtility().log(level, message, fieldsSize, fields),
     });
   }
 

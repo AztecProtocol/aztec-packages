@@ -64,12 +64,13 @@ import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
+import type { IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { Oracle } from './oracle.js';
 
@@ -104,8 +105,7 @@ export type UtilityExecutionOracleArgs = {
 /**
  * The oracle for an execution of utility contract functions.
  */
-export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOracle {
-  isMisc = true as const;
+export class UtilityExecutionOracle implements IUtilityExecutionOracle {
   isUtility = true as const;
 
   private contractLogger: Logger | undefined;
@@ -546,7 +546,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.aztecnrLogger;
   }
 
-  public async log(level: number, message: string, fields: Fr[]): Promise<void> {
+  public async log(level: number, message: string, _fieldsSize: number, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
       throw new Error(`Invalid log level: ${level}`);
     }

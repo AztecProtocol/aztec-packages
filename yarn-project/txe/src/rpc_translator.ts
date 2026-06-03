@@ -1,4 +1,4 @@
-import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from '@aztec/pxe/simulator';
+import type { IPrivateExecutionOracle, IUtilityExecutionOracle } from '@aztec/pxe/simulator';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { callTxeHandler } from './oracle/txe_oracle_registry.js';
@@ -24,7 +24,6 @@ export class RPCTranslator {
   constructor(
     private stateHandler: TXESessionStateHandler,
     private oracleHandler:
-      | IMiscOracle
       | IUtilityExecutionOracle
       | IPrivateExecutionOracle
       | IAvmExecutionOracle
@@ -33,14 +32,6 @@ export class RPCTranslator {
 
   // Note: If you rename the following functions to not start with "handlerAs", you must also update the validation
   // check in `TXESession.processFunction`.
-
-  private handlerAsMisc(): IMiscOracle {
-    if (!('isMisc' in this.oracleHandler)) {
-      throw new UnavailableOracleError('Misc');
-    }
-
-    return this.oracleHandler;
-  }
 
   private handlerAsUtility(): IUtilityExecutionOracle {
     if (!('isUtility' in this.oracleHandler)) {
@@ -217,7 +208,7 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_assertCompatibleOracleVersion',
       inputs,
-      handler: ([major, minor]) => this.handlerAsMisc().assertCompatibleOracleVersion(major, minor),
+      handler: ([major, minor]) => this.handlerAsUtility().assertCompatibleOracleVersion(major, minor),
     });
   }
 
@@ -226,7 +217,7 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_getRandomField',
       inputs: [],
-      handler: () => this.handlerAsMisc().getRandomField(),
+      handler: () => this.handlerAsUtility().getRandomField(),
     });
   }
 
@@ -311,7 +302,8 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_log',
       inputs,
-      handler: ([level, message, _, fields]) => this.handlerAsMisc().log(level, message, fields),
+      handler: ([level, message, fieldsSize, fields]) =>
+        this.handlerAsUtility().log(level, message, fieldsSize, fields),
     });
   }
 

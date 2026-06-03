@@ -110,7 +110,7 @@ type MethodNames<T> = {
  */
 export type TXEOracleFunctionName = Exclude<
   MethodNames<RPCTranslator>,
-  'constructor' | 'handlerAsMisc' | 'handlerAsUtility' | 'handlerAsPrivate' | 'handlerAsAvm' | 'handlerAsTxe'
+  'constructor' | 'handlerAsUtility' | 'handlerAsPrivate' | 'handlerAsAvm' | 'handlerAsTxe'
 >;
 
 export interface TXESessionStateHandler {
