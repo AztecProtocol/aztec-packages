@@ -1654,12 +1654,19 @@ export class MsmHighMemory {
 
     // --- Lever G: budget-driven window-batch count.
     const RED_M = this.redM;
+    // Largest chunk's point count — the per-(window, point) buffers (l0Idx,
+    // bucketAndSign, valIdx) and L0 active_sums size by batchWindows×Mmax, not
+    // batchWindows×n, so the estimate must too (it gates the metered budget).
+    const Mmax0 = chunkSizes[0];
+    const partialStrideMax0 = Math.max(1, Math.floor(Mmax0 / BW)) * BW;
     const estimateMem = (nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
       // M1, pair-block and carry counts get the OVERSIZE_FACTOR pad in the slow
       // path; apply it here so the estimate matches the real allocation.
       const m1 = Math.ceil(bw * wstride1 * OVERSIZE_FACTOR) + 3;
-      const bSlots = bw * n;
+      // Point-scaled slot extent (matches the slow-path `batchSlots`): bounded
+      // by Mmax, never below B_TOTAL or the transpose partials matrix.
+      const bSlots = Math.max(bw * Mmax0, B_TOTAL, bw * partialStrideMax0);
       const bBuckets = bw * BW;
       const tc = Math.ceil(bw * maxPairBlocksPerWindow * OVERSIZE_FACTOR);
       const carries = Math.ceil(bw * maxCarriesPerWindow * OVERSIZE_FACTOR);
@@ -1678,7 +1685,9 @@ export class MsmHighMemory {
         68 * RED_M
       );
     };
-    const wgFits = (nb: number): boolean => Math.ceil((Math.ceil(NUM_WINDOWS / nb) * n) / WGI) < 65000;
+    // The decompose / convActive dispatch is per chunk = bw×Mmax threads.
+    const wgFits = (nb: number): boolean =>
+      Math.ceil((Math.ceil(NUM_WINDOWS / nb) * Mmax0) / WGI) < 65000;
     let numBatches = 1;
     while (numBatches < NUM_WINDOWS && (estimateMem(numBatches) > this.memBudget || !wgFits(numBatches))) numBatches++;
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
@@ -1692,7 +1701,18 @@ export class MsmHighMemory {
       };
     }
     const batchBuckets = batchWindows * BW;
-    const batchSlots = batchWindows * n;
+    // Point-scaled slot extent. The per-(window, point) buffers (bucketAndSign,
+    // valIdx, l0Idx) and the L0 active_sums only ever hold one chunk's
+    // batchWindows×Mmax points at a time, so size them by the largest chunk's
+    // point count (Mmax) instead of n. The bound never drops below B_TOTAL
+    // (valIdx is also borrowed as the planner's carry-prefix array, indexed by
+    // global bucket id) nor below the transpose partials matrix
+    // (batchWindows×num_point_tiles×BW). Mmax = chunk 0's size = min(M, n); the
+    // last chunk is never larger. Single chunk (M ≥ n) ⇒ Mmax = n = unchunked.
+    const Mmax = chunkSizes[0];
+    const xposeTilesMax = Math.max(1, Math.floor(Mmax / BW));
+    const partialStrideMax = xposeTilesMax * BW;
+    const batchSlots = Math.max(batchWindows * Mmax, B_TOTAL, batchWindows * partialStrideMax);
     // Fill each chunk's per-level totals (batchWindows × per-window count).
     for (const cw of chunkWalks) {
       for (const p of cw.levelPlans) {
@@ -1807,23 +1827,17 @@ export class MsmHighMemory {
 
     const l0Slots = batchSlots + 3;
 
-    // Worst-case tiled-transpose geometry (full n in one chunk): split each
-    // window's points into
-    // `transposeNumPointTiles` tiles of ~`pointsPerTile` each so the
-    // count/scatter dispatch saturates the GPU instead of running one
-    // workgroup per window. The tile count is capped at floor(n/BW) so the
-    // partials matrix (transposeNumPointTiles*BW per window) is <= batchSlots
-    // and fits the borrowed l0IdxBuf buffer.
-    const transposeNumPointTiles = Math.max(1, Math.floor(n / BW));
-    const pointsPerTile = Math.ceil(n / transposeNumPointTiles);
-    const partialStride = transposeNumPointTiles * BW;
-    if (l0Slots < batchWindows * partialStride) {
+    // The tiled transpose borrows l0IdxBuf as the per-chunk partials matrix
+    // (batchWindows × num_point_tiles × BW). The largest chunk (Mmax points)
+    // tiles into partialStrideMax columns/window; batchSlots was sized to bound
+    // both that and the L0 active_sums, so the borrow fits the l0IdxBuf buffer.
+    // Per-chunk tile counts are derived in the chunk-build loop.
+    if (l0Slots < batchWindows * partialStrideMax) {
       throw new Error(
         `tiled transpose: l0IdxBuf (${l0Slots}) too small for the ` +
-          `partials matrix (${batchWindows * partialStride})`,
+          `partials matrix (${batchWindows * partialStrideMax})`,
       );
     }
-    this.transposeNumPointTiles = transposeNumPointTiles;
 
     const FUSED_TILE = Math.min(
       Math.ceil((1 << 16) / WGI) * WGI,
@@ -2234,17 +2248,33 @@ export class MsmHighMemory {
       // reduce passes: coop = init+coop+jacfinal (3); segGlobal =
       // init+seg1+seg2+jacfinal (4); all-Jacobian = init+zinit+jacfinal + levels.
       passes += this.useCoopReduce ? 3 : this.useSegGlobal ? 4 : 3 + this.reducePasses.length;
-      this.passCount = passes;
-      this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
-      this.tsResolveBuf = device.createBuffer({
-        size: passes * 16,
-        usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
-      });
-      this.tsStagingBuf = device.createBuffer({
-        size: passes * 16,
-        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-      });
-      this.prepBuffers.push(this.tsResolveBuf, this.tsStagingBuf);
+      // A timestamp QuerySet is capped (Dawn allows ≤ 4096 entries = 2048
+      // passes). The point-chunk loop multiplies the per-batch pass count by the
+      // chunk count, which can blow past that at large N. Per-pass GPU profiling
+      // is a diagnostic, never a correctness gate — so when the budget would
+      // overflow the QuerySet, skip it (leaves querySet null ⇒ the dispatch
+      // helper omits timestampWrites) rather than minting an invalid QuerySet
+      // that poisons the whole command buffer.
+      const MAX_QUERY_ENTRIES = 4096;
+      if (passes * 2 > MAX_QUERY_ENTRIES) {
+        this.passCount = 0;
+        console.warn(
+          `[MsmHighMemory] ${passes} profiled passes exceed the QuerySet cap ` +
+            `(${MAX_QUERY_ENTRIES / 2}); per-pass GPU profiling disabled this prepare.`,
+        );
+      } else {
+        this.passCount = passes;
+        this.querySet = device.createQuerySet({ type: 'timestamp', count: passes * 2 });
+        this.tsResolveBuf = device.createBuffer({
+          size: passes * 16,
+          usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+        });
+        this.tsStagingBuf = device.createBuffer({
+          size: passes * 16,
+          usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        });
+        this.prepBuffers.push(this.tsResolveBuf, this.tsStagingBuf);
+      }
     }
 
     // Write the per-prepare base_offset into the conv-active uniform at
