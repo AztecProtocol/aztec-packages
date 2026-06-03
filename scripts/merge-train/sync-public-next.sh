@@ -66,7 +66,7 @@ if [[ "$DRY_RUN" == "1" ]]; then
   exit 1
 fi
 
-if git merge "$upstream_ref" --no-edit -m "chore: sync public-next with upstream next"; then
+if git merge "$upstream_ref" --no-edit -m "chore: sync ${PUBLIC_BRANCH} with upstream ${UPSTREAM_BRANCH}"; then
   git push "$REMOTE" "$PUBLIC_BRANCH"
   echo "Pushed $PUBLIC_BRANCH sync commit $(git rev-parse HEAD)"
   exit 0
