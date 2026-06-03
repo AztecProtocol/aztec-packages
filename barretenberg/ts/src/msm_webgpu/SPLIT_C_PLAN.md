@@ -185,13 +185,21 @@ split's lower region == the unsplit `c` and NO_SPLIT is byte-identical). Pieces:
   (the *exit criterion*). The 85% gate uses 17/20 to stay in u32.
 Budget-awareness (reject schedules over the device budget) is deferred to Phase 3.
 
-**Phase 2 — two populations.** `idx_large` GPU compaction **DONE** (`28595a8d2f`,
-`ba_idx_large_compact`): compacts `msb >= b_star-1` via `msb_per_scalar`; count ==
-decide `n_large`, every entry `msb >= b_star-1` (profile C), 0 for no-split.
-*Remaining (2C/2D):* region-split + indirect-dispatch the decompose/transpose by
-`n` / `n_large`, consume the decide kernel's WindowDesc at run time, switch
-reduce/gather to per-window geometry, read back `windowCs` for the host combine.
-*Exit:* D/E oracle-agree, uniform unchanged. **Key architectural note:** the
+**Phase 2 — two populations.** `idx_large` GPU compaction **DONE** (`28595a8d2f`).
+Region-capable transpose base **DONE** (`1272a1c6e9`). **Data-driven split DONE**
+(`386ce0aa30`): the schedule is chosen at prepare() from the scalar MSB histogram
+and drives the pipeline (profile C → 26-window split oracle-agree; A/D/E no-split;
+default byte-identical). Two create-vs-prepare hazards fixed: redM/bTotal are baked
+for the SPLIT ENVELOPE (2× unsplit) since size1/walker/combine/pt_finalize bake
+redM at create; and the fast-path fits-check gained `capNumWindows`.
+*Remaining (2C-ii, perf/memory):* the upper windows still iterate ALL `n` (correct
+but wasteful — 80% of points contribute 0). region-split them to iterate only
+`idx_large` (`n_large` points) via a `decompose_upper` (point source `idx_large[j]`,
+cci_base `W_lo·n`, input_size `n_large`) + the upper transpose dispatch (the
+transpose region base is in place; `transpose_scatter` must store the ORIGINAL
+`idx_large[j]` index so the point gather stays region-agnostic). The decision is
+host-histogram-driven (stepping stone); the GPU decide kernel swaps in for full
+GPU-residence. *Exit:* D/E oracle-agree at reduced work, uniform unchanged. **Key architectural note:** the
 envelope `c` is always `pickC(n)` (data-independent → red_buf sizing stays
 static); region-split is what keeps `bucket_and_sign` (`W_lo·n + W_hi·n_large`)
 within the unsplit envelope; the bucket kernels (classify/radix/walker/combine/pt)
