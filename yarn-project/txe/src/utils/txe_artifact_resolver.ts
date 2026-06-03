@@ -109,7 +109,16 @@ export class TXEArtifactResolver {
       .join('-')}-${publicKeysHash}-${salt}-${deployer}-${fileHash}`;
 
     return this.#deployments.getOrCompute(cacheKey, () =>
-      this.#computeDeployArtifact(artifactPath, fileHash, initializer, args, salt, publicKeys, publicKeysHash, deployer),
+      this.#computeDeployArtifact(
+        artifactPath,
+        fileHash,
+        initializer,
+        args,
+        salt,
+        publicKeys,
+        publicKeysHash,
+        deployer,
+      ),
     );
   }
 
@@ -141,7 +150,9 @@ export class TXEArtifactResolver {
       this.contractStore.getContractClassWithPreimage(this.schnorrClassId),
     ]);
     if (!artifactFromStore || !classWithPreimage) {
-      throw new Error(`SchnorrAccount not found in shared contract store at class id ${this.schnorrClassId.toString()}`);
+      throw new Error(
+        `SchnorrAccount not found in shared contract store at class id ${this.schnorrClassId.toString()}`,
+      );
     }
     const artifact: ContractArtifactWithHash = { ...artifactFromStore, artifactHash: classWithPreimage.artifactHash };
     const keys = await deriveKeys(secret);
