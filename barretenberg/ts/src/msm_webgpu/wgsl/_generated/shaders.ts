@@ -4513,6 +4513,11 @@ var<storage, read> window_desc: array<u32>;
 // batch_window_base.x = global index of this batch's first window.
 @group(0) @binding(5)
 var<uniform> batch_window_base: vec4<u32>;
+// point_offsets: per-window val_idx base. active_offsets globalises the CSR begin
+// by this window's base (= w·n uniform, byte-identical; Σ n_w for a heterogeneous
+// union — val_idx is packed window-by-window at point_offsets[w]).
+@group(0) @binding(6)
+var<storage, read> point_offsets: array<u32>;
 
 // 2D dispatch (bucket_local = gid.x, window = gid.y). Each window reads its own
 // bucket count from WindowDesc, so windows of different widths (split-c) are
@@ -4531,7 +4536,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (bucket_local >= num_columns) {
         return;
     }
-    let input_size = params[1];
 
     // Batch-local CSR base for this window: global work_off prefix minus the
     // batch's base work_off. The row_ptr stride is num_columns+1, so the
@@ -4545,7 +4549,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let end = row_ptr[rp_offset + bucket_local + 1u];
 
     active_counts[id] = end - begin;
-    active_offsets[id] = window * input_size + begin;
+    active_offsets[id] = point_offsets[window] + begin;
 
     {{{ recompile }}}
 }
@@ -4596,6 +4600,11 @@ export const decompose_scalars_booth = `// Carry-free signed-Booth window decomp
 // variable schedule. Read here (not params.z) so the per-window c/bit-offset is
 // table-driven — \`read_bits\` already takes a runtime count, so variable c is free.
 @group(0) @binding(4) var<storage, read>       window_desc:     array<u32>;
+// point_offsets: per-window scatter base. Window w's points occupy
+// [point_offsets[w], point_offsets[w+1]); n_w = the difference. Uniform-n fill is
+// w·n (byte-identical to the old \`w*input_size\`); a heterogeneous union supplies
+// the real Σ n_w prefix so members of different n pack with no padding.
+@group(0) @binding(5) var<storage, read>       point_offsets:   array<u32>;
 
 const WORD_BITS: u32 = 32u;
 const WD_STRIDE: u32 = 8u;
@@ -4626,8 +4635,11 @@ fn read_bits(s: u32, scalar_words: u32, scalar_base: u32, bit_off: u32, count: u
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let p = gid.x;
     let w = gid.y;
-    let input_size = params.x;
     let num_windows = params.y;
+    // Per-window scatter base + point count (n_w). Uniform-n ⇒ scatter_base = w·n,
+    // input_size = n (byte-identical); heterogeneous ⇒ this window's own n_w.
+    let scatter_base = point_offsets[w];
+    let input_size = point_offsets[w + 1u] - scatter_base;
     if (p >= input_size || w >= num_windows) {
         return;
     }
@@ -4661,7 +4673,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let encode = (raw + 1u) >> 1u;
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
-    let idx = w * input_size + p;
+    let idx = scatter_base + p;
     // Pack: bucket in low bits, sign in bit 31. Constant shift — works on
     // Adreno (see header).
     bucket_and_sign[idx] = bucket | (neg << 31u);
@@ -5032,6 +5044,11 @@ var<storage, read> window_desc: array<u32>;
 // batch_window_base.x = global index of this batch's first window (Lever G).
 @group(0) @binding(4)
 var<uniform> batch_window_base: vec4<u32>;
+// point_offsets: per-window scatter base into bucket_and_sign. Window w's points
+// occupy [point_offsets[w], point_offsets[w+1]); uniform-n fill is w·n (byte-
+// identical). Replaces \`buf_win * row_stride\` so members of different n pack.
+@group(0) @binding(5)
+var<storage, read> point_offsets: array<u32>;
 
 var<workgroup> hist: array<atomic<u32>, {{ tile }}>;
 
@@ -5044,8 +5061,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let input_size = params[1]; // points to iterate (n lower, n_large upper)
-    let row_stride = params[2]; // bucket_and_sign window stride (always n)
     let points_per_tile = params[3];
 
     // Per-window CSR geometry from WindowDesc (global window = batch-local +
@@ -5057,11 +5072,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
                        - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
 
-    // bucket_and_sign[(global window)*n + point]. The dispatch numbers windows
-    // from .x; the buffer is global-indexed from .y, so the buffer window =
-    // window + (.x - .y). Lower / no-split (.x == .y) ⇒ window (byte-identical);
-    // split-c upper (.x=W_lo, .y=0) ⇒ window + W_lo = global window.
-    let cci_offset = (window + batch_window_base.x - batch_window_base.y) * row_stride;
+    // bucket_and_sign scatter base for this (buffer) window. The dispatch numbers
+    // windows from .x; the buffer is global-indexed from .y, so the buffer window =
+    // window + (.x - .y). point_offsets gives each window's base (= w·n uniform,
+    // byte-identical; Σ n_w for a heterogeneous union). input_size (points to
+    // iterate) is n_w = the window's span, unless params[1] overrides it for the
+    // split-c upper region (which iterates n_large compacted points).
+    let buf_win = window + batch_window_base.x - batch_window_base.y;
+    let cci_offset = point_offsets[buf_win];
+    let input_size = select(point_offsets[buf_win + 1u] - cci_offset, params[1], params[1] != 0u);
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;
@@ -5337,6 +5356,11 @@ var<storage, read> window_desc: array<u32>;
 // batch_window_base.x = global index of this batch's first window.
 @group(0) @binding(6)
 var<uniform> batch_window_base: vec4<u32>;
+// point_offsets: per-window scatter base into val_idx/bucket_and_sign. Window w's
+// points occupy [point_offsets[w], point_offsets[w+1]); uniform-n is w·n (byte-
+// identical). Replaces \`buf_win * row_stride\` so members of different n pack.
+@group(0) @binding(7)
+var<storage, read> point_offsets: array<u32>;
 
 var<workgroup> curr: array<atomic<u32>, {{ tile }}>;
 
@@ -5349,8 +5373,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let input_size = params[1]; // points to iterate (n lower, n_large upper)
-    let row_stride = params[2]; // val_idx/bucket window stride (always n)
     let points_per_tile = params[3];
 
     // Per-window CSR geometry from WindowDesc (batch-local work_off = global
@@ -5360,9 +5382,13 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
                        - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
 
-    // val_idx/bucket[(global window)*n + point]; buffer window = window + (.x - .y)
-    // (lower/no-split ⇒ window, byte-identical; upper ⇒ window + W_lo).
-    let cci_offset = (window + batch_window_base.x - batch_window_base.y) * row_stride;
+    // val_idx/bucket scatter base for this (buffer) window = window + (.x - .y).
+    // point_offsets gives each window's base (w·n uniform, byte-identical; Σ n_w
+    // heterogeneous); input_size = n_w unless params[1] overrides it (split-c upper
+    // region iterates n_large compacted points).
+    let buf_win = window + batch_window_base.x - batch_window_base.y;
+    let cci_offset = point_offsets[buf_win];
+    let input_size = select(point_offsets[buf_win + 1u] - cci_offset, params[1], params[1] != 0u);
     // col_ptr base = work_off + the window's index in the col_ptr buffer. The
     // buffer is numbered from its first global window (.y); the dispatch numbers
     // from .x — so the buffer-local index is window + (.x - .y). For the lower /

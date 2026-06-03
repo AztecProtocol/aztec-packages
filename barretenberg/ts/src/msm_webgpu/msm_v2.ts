@@ -1566,6 +1566,12 @@ interface BatchPrepCtx {
   windowDescTable: Uint32Array;
   /** Global reduce_off per global window (red_buf slot base for the gather/reduce). */
   reduceOffsets: number[];
+  /** Per-global-window scatter-base prefix (Σ n_w), length `Σ NW + 1`. Absent ⇒
+   *  uniform n (the homogeneous union, where w·n suffices). Present ⇒ members of
+   *  different n pack with no padding. */
+  pointOffsets?: Uint32Array;
+  /** Σ n_w — the concatenated point/scatter total (the scatter working-set size). */
+  totalPoints?: number;
   members: BatchMember[];
 }
 
@@ -2068,7 +2074,8 @@ export class MsmV2 {
     ]);
     // 4 bindings: scalars (read), bucket_and_sign (write), params, batch.
     // (Previously 5 — separate signs buffer collapsed into the bucket_and_sign pack.)
-    m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+    // scalars, bucket_and_sign(rw), params, batch, window_desc, point_offsets.
+    m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform', 'read-only-storage', 'read-only-storage']);
     // msb_histogram: scalars(read), msb_hist(rw), msb_per_scalar(rw), params(uniform).
     m.msbHistLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     // decide_window_split: msb_hist(read), window_desc(rw), summary(rw), params(uniform).
@@ -2080,12 +2087,15 @@ export class MsmV2 {
     m.decomposeUpperLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform', 'read-only-storage', 'read-only-storage']);
     // transpose_scatter_upper: scatter layout (7) + idx_large(read).
     m.scatterUpperLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform', 'read-only-storage']);
-    m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
+    // bucket_and_sign, partials(rw), params, window_desc, batch_window_base, point_offsets.
+    m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform', 'read-only-storage']);
     m.xposeReduceLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform', 'read-only-storage', 'uniform']);
-    m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
+    // bucket_and_sign, col_ptr, partials, val_idx(rw), params, window_desc, batch_window_base, point_offsets.
+    m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform', 'read-only-storage']);
     m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
-    m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
+    // row_ptr, active_counts(rw), active_offsets(rw), params, window_desc, batch_window_base, point_offsets.
+    m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'uniform', 'read-only-storage']);
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
     // Streaming planner + accumulator layouts
     m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
@@ -2355,14 +2365,15 @@ export class MsmV2 {
    * WindowDesc holds 128 rows).
    */
   prepareBatch(members: BatchMember[], scalars: Uint8Array, windowDescTable: Uint32Array, reduceOffsets: number[]): void {
-    // Homogeneous-pack contract: every member shares this instance's n (⇒ same
-    // c/BW/stride), which is what makes the union totals below pure multiples of
-    // the window count and the prebuilt table consistent with this instance's
-    // geometry. A mismatched member would silently corrupt, so reject it.
-    if (!members.every(m => m.n === this.n)) {
+    // Size-class contract: every member shares this instance's c (so BW/stride —
+    // and thus the union totals below — are uniform) and fits this instance's n
+    // (the dispatch grids cover the largest member). Members may differ in n: each
+    // window iterates its own n_w via point_offsets, so smaller members pack with
+    // no padding. A mismatched-c member would silently corrupt, so reject it.
+    if (!members.every(m => pickC(m.n) === this.c && m.n <= this.n)) {
       throw new Error(
-        `prepareBatch: heterogeneous pack — every member must have n=${this.n}; ` +
-          `got [${members.map(m => m.n).join(', ')}]`,
+        `prepareBatch: pack must be one size class (c=${this.c}, n≤${this.n}); ` +
+          `got n=[${members.map(m => m.n).join(', ')}] c=[${members.map(m => pickC(m.n)).join(', ')}]`,
       );
     }
     const numWindows = members.reduce((a, m) => a + m.numWindows, 0);
@@ -2375,9 +2386,24 @@ export class MsmV2 {
     if (numWindows > WBID_WINDOW_MAX) {
       throw new Error(`prepareBatch: ${numWindows} global windows exceeds the ${WBID_WINDOW_MAX}-window packed-bid field`);
     }
-    // Homogeneous ⇒ every member shares this instance's BW/stride; the union
-    // totals are pure multiples of the window count.
+    // Per-global-window scatter-base prefix (Σ n_w) + sentinel total. Member m's
+    // NW windows each span n_m points, so each window's base advances by n_m. Used
+    // by decompose/transpose/convMeta so different-n members pack with no padding.
+    const pointOffsets = new Uint32Array(numWindows + 1);
+    let pAcc = 0;
+    for (const m of members) {
+      for (let j = 0; j < m.numWindows; j++) {
+        pointOffsets[m.schedOff + j] = pAcc;
+        pAcc += m.n;
+      }
+    }
+    pointOffsets[numWindows] = pAcc;
+    // Same c ⇒ every member shares this instance's BW/stride; the bucket totals are
+    // pure multiples of the window count. (Different c — the envelope-BW case — is
+    // the follow-on.) The point total Σ n_w sizes the scatter working set.
     this.batchCtx = {
+      pointOffsets,
+      totalPoints: pAcc,
       numWindows,
       bTotal: numWindows * this.BW,
       redM: numWindows * this.stride,
@@ -2598,16 +2624,22 @@ export class MsmV2 {
     const srsBytes = this.pool.poolX.size + this.pool.poolY.size;
     const estimateMem = (nb: number): number => {
       const bw = Math.ceil(NUM_WINDOWS / nb);
+      // A different-n union sizes the scatter zone (bucket_and_sign/val_idx) to the
+      // real point total Σ n_w and the scalars to the concatenated bytes, not the
+      // class max — that's the no-padding saving. l0Slots stays the bw·n upper bound
+      // (the partials matrix is dispatch-sized from the class max n).
+      const scatterSlots = this.batchCtx?.totalPoints ?? bw * n;
+      const scalarsBytes = this.batchCtx ? scalarsBuf.byteLength : 32 * n;
       const arenaBytes = arenaColourSizes({
         sT: this.streamNumThreads,
         sS: this.streamS,
         sBTotal: B_TOTAL,
         sRadixTiles: this.numRadixTiles,
-        batchSlots: bw * n,
+        batchSlots: scatterSlots,
         redM: RED_M,
         rowPtrLen: bw * (BW + 1),
         reducePrefBytes,
-        scalarsBytes: 32 * n,
+        scalarsBytes,
         l0Slots: bw * n + 3,
       }).reduce((acc, b) => acc + b, 0);
       const countsOffsetsBytes = 4 * (bw * BW) * 4; // countsBufs[2] + offsetsBufs[2]
@@ -2647,7 +2679,9 @@ export class MsmV2 {
     }
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
     const batchBuckets = batchWindows * BW;
-    const batchSlots = batchWindows * n;
+    // Scatter working-set size = Σ_w n_w. Uniform-n ⇒ batchWindows·n; a different-n
+    // union supplies the real total via point_offsets so smaller members don't pad.
+    const batchSlots = this.batchCtx?.totalPoints ?? batchWindows * n;
     // Region-split only when a single batch holds all windows (the region/batch
     // boundary interaction is a follow-up). Multi-batch splits fall back to the
     // unified all-n decompose/transpose (correct, just not the perf win yet).
@@ -2762,24 +2796,25 @@ export class MsmV2 {
         })),
       });
 
-    const l0Slots = batchSlots + 3;
     const WSTRIDE = n;
 
     // Tiled-transpose geometry: split each window's n points into
     // `transposeNumPointTiles` tiles of ~`pointsPerTile` each so the
     // count/scatter dispatch saturates the GPU instead of running one
-    // workgroup per window. The tile count is capped at floor(n/BW) so the
-    // partials matrix (transposeNumPointTiles*BW per window) is <= batchSlots
-    // and fits the borrowed l0IdxBuf buffer.
+    // workgroup per window. The tile count is floor(n/BW) (n = the class max in a
+    // union, so it covers the largest window; smaller windows leave trailing tiles
+    // empty).
     const transposeNumPointTiles = Math.max(1, Math.floor(n / BW));
     const pointsPerTile = Math.ceil(n / transposeNumPointTiles);
     const partialStride = transposeNumPointTiles * BW;
-    if (l0Slots < batchWindows * partialStride) {
-      throw new Error(
-        `tiled transpose: l0IdxBuf (${l0Slots}) too small for the ` +
-          `partials matrix (${batchWindows * partialStride})`,
-      );
-    }
+    // l0IdxBuf doubles as the transpose partials matrix (batchWindows·partialStride,
+    // dispatch-sized from the class max n) AND the level-0 point-index input (the
+    // first batchSlots = Σ n_w entries). The self-pad trio sits ABOVE both at PAD,
+    // so the transpose can't clobber it. For a uniform pack PAD = batchSlots (the
+    // partials matrix is ≤ batchSlots) ⇒ byte-identical; a different-n union makes
+    // the partials matrix the binding term (the scatter buffers stay Σ n_w).
+    const l0PadAnchor = Math.max(batchSlots, batchWindows * partialStride);
+    const l0Slots = l0PadAnchor + 3;
     this.transposeNumPointTiles = transposeNumPointTiles;
 
     const FUSED_TILE = Math.min(
@@ -2835,12 +2870,11 @@ export class MsmV2 {
     this.bufA = bufA;
     this.bufB = bufB;
     const l0IdxBuf = scratch.l0IdxBuf;
-    // L0 seed pad-trio — three index slots at [batchSlots, batchSlots+1,
-    // batchSlots+2] that l0-mode shaders use as a "self-pad anchor". The
-    // pool's ensureScratch sizes l0IdxBuf to fit l0Slots = batchSlots+3
-    // but doesn't initialize these slots (varies per N), so we write them
-    // here at the per-prepare batchSlots offset.
-    writeSlot(device.queue, l0IdxBuf, batchSlots * 4, new Uint32Array([0, 1, 2]));
+    // L0 seed pad-trio — three index slots at [l0PadAnchor, +1, +2] that l0-mode
+    // shaders use as a "self-pad anchor" (the walker's IDLE_ANCHOR). It sits ABOVE
+    // the transpose partials matrix so the transpose can't clobber it; for a uniform
+    // pack l0PadAnchor == batchSlots (byte-identical).
+    writeSlot(device.queue, l0IdxBuf, l0PadAnchor * 4, new Uint32Array([0, 1, 2]));
     const countsBufs = scratch.countsBufs;
     const offsetsBufs = scratch.offsetsBufs;
     const planMeta = scratch.planMeta;
@@ -2925,6 +2959,27 @@ export class MsmV2 {
     device.queue.writeBuffer(windowDescBuf, 0, wdData as BufferSource);
     this.prepBuffers.push(windowDescBuf);
 
+    // point_offsets: per-(dispatch-window) scatter base — window w's points occupy
+    // [point_offsets[w], point_offsets[w+1]) of the (window,point) scatter region,
+    // so decompose/transpose iterate each window's own n_w = point_offsets[w+1] -
+    // point_offsets[w] and place it at point_offsets[w]. Uniform-n ⇒ w·n (byte-
+    // identical to the old `w*input_size` layout); a heterogeneous union supplies the
+    // real per-window prefix (Σ n_w) via batchCtx so members of different n pack with
+    // no padding. Indexed by the dispatch window (gid.y), so batch-local for a single
+    // MSM, global for the union (numBatches=1). Length batchWindows+1 (+ sentinel).
+    const pointOffsets = new Uint32Array(batchWindows + 1);
+    if (this.batchCtx?.pointOffsets) {
+      pointOffsets.set(this.batchCtx.pointOffsets.subarray(0, batchWindows + 1));
+    } else {
+      for (let w = 0; w <= batchWindows; w++) pointOffsets[w] = w * n;
+    }
+    const pointOffsetsBuf = device.createBuffer({
+      size: Math.max(16, pointOffsets.byteLength),
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(pointOffsetsBuf, 0, pointOffsets as BufferSource);
+    this.prepBuffers.push(pointOffsetsBuf);
+
     // split-c MSB histogram resources (Phase 1) — only when the decision is on.
     // msbHistBuf: 256 u32 bins (cleared before each dispatch). msbPerScalarBuf:
     // n u32 (per-scalar msb, reused by Phase 2 idx_large). Both standalone so
@@ -2984,7 +3039,10 @@ export class MsmV2 {
     // with input_size=n_large). row_stride (slot 2, always n) is the
     // bucket_and_sign/val_idx window stride, so cci_offset = window*n for every
     // region. reduce/scan get per-window columns from WindowDesc and ignore both.
-    const xposeParams = ubuf(new Uint32Array([transposeNumPointTiles, n, n, pointsPerTile]));
+    // params[1] = 0 is the sentinel for "iterate each window's own n_w from
+    // point_offsets" (the main / union path); the split-c upper region overrides it
+    // with n_large. reduce/scan ignore params[1] (they read WindowDesc columns).
+    const xposeParams = ubuf(new Uint32Array([transposeNumPointTiles, 0, n, pointsPerTile]));
     // params[1] = base_offset, written per-prepare() via writeBuffer below.
     // Default 0 — non-bridge callers (the dev page) bind a per-MSM pool
     // starting at index 0 and need no offset.
@@ -3004,7 +3062,7 @@ export class MsmV2 {
     }
 
     this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.decomposeLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeParams, bwb, windowDescBuf]),
+      mkBind(this.decomposeLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeParams, bwb, windowDescBuf, pointOffsetsBuf]),
     );
     // The transpose borrows l0IdxBuf as the per-chunk partials matrix. Its
     // [0, batchSlots) region is dormant until convActive (which runs strictly
@@ -3012,7 +3070,7 @@ export class MsmV2 {
     // sits above batchSlots and is never touched by the partials region.
     const partialsBuf = l0IdxBuf;
     this.xposeCountBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParams, windowDescBuf, bwb]));
+      mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParams, windowDescBuf, bwb, pointOffsetsBuf]));
     this.xposeReduceBinds = batchWindowBaseBufs.map(bwb =>
       mkBind(this.xposeReduceLayout, [partialsBuf, rowPtrBuf, xposeParams, windowDescBuf, bwb]));
     this.xposeScanBinds = batchWindowBaseBufs.map(bwb =>
@@ -3026,6 +3084,7 @@ export class MsmV2 {
         xposeParams,
         windowDescBuf,
         bwb,
+        pointOffsetsBuf,
       ]));
     // Region-split (Phase 2C-ii): upper-region binds. The upper W_hi windows
     // iterate only n_large compacted points via decompose_upper + count/scatter
@@ -3037,12 +3096,12 @@ export class MsmV2 {
       const decomposeUpperParams = ubuf(new Uint32Array([this.nLarge, this.wHi, n, 8]));
       const xposeParamsUpper = ubuf(new Uint32Array([transposeNumPointTiles, this.nLarge, n, pointsPerTile]));
       this.decomposeUpperBind = mkBind(this.decomposeUpperLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeUpperParams, upperBwb, windowDescBuf, this.idxLargeBuf]);
-      this.xposeCountUpperBind = mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParamsUpper, windowDescBuf, upperBwb]);
+      this.xposeCountUpperBind = mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParamsUpper, windowDescBuf, upperBwb, pointOffsetsBuf]);
       this.xposeScatterUpperBind = mkBind(this.scatterUpperLayout, [bucketAndSignBuf, rowPtrBuf, partialsBuf, valIdxBuf, xposeParamsUpper, windowDescBuf, upperBwb, this.idxLargeBuf]);
     }
     this.convActiveBind = mkBind(this.convActiveLayout, [valIdxBuf, l0IdxBuf, convActiveParams, bucketAndSignBuf]);
     this.convMetaBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams, windowDescBuf, bwb]));
+      mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams, windowDescBuf, bwb, pointOffsetsBuf]));
     this.rowPtrBuf = rowPtrBuf;
     this.nXposePts = Math.ceil(n / WGI);
 
@@ -3174,7 +3233,7 @@ export class MsmV2 {
       this.partitionTaskBind = mkBind(this.partitionTaskLayout, [sc, ca, tc, sp, taskc, ptaskParams]);
       // Walker params: (NUM_THREADS, IDLE_ANCHOR, M_buckets, M_partials).
       const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
-      const walkerParams = ubuf(new Uint32Array([this.streamNumThreads, batchSlots, B_TOTAL, M_partials_walker]));
+      const walkerParams = ubuf(new Uint32Array([this.streamNumThreads, l0PadAnchor, B_TOTAL, M_partials_walker]));
       // Bind the whole A0 monolith once; sorted_count_list + l0_index are
       // sub-ranges of it, addressed via these u32 element offsets (.x, .y).
       // Collapsing the two sub-range bindings into one frees the slot that lets

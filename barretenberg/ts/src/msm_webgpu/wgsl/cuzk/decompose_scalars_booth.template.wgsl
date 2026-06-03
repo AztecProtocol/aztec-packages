@@ -43,6 +43,11 @@
 // variable schedule. Read here (not params.z) so the per-window c/bit-offset is
 // table-driven — `read_bits` already takes a runtime count, so variable c is free.
 @group(0) @binding(4) var<storage, read>       window_desc:     array<u32>;
+// point_offsets: per-window scatter base. Window w's points occupy
+// [point_offsets[w], point_offsets[w+1]); n_w = the difference. Uniform-n fill is
+// w·n (byte-identical to the old `w*input_size`); a heterogeneous union supplies
+// the real Σ n_w prefix so members of different n pack with no padding.
+@group(0) @binding(5) var<storage, read>       point_offsets:   array<u32>;
 
 const WORD_BITS: u32 = 32u;
 const WD_STRIDE: u32 = 8u;
@@ -73,8 +78,11 @@ fn read_bits(s: u32, scalar_words: u32, scalar_base: u32, bit_off: u32, count: u
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let p = gid.x;
     let w = gid.y;
-    let input_size = params.x;
     let num_windows = params.y;
+    // Per-window scatter base + point count (n_w). Uniform-n ⇒ scatter_base = w·n,
+    // input_size = n (byte-identical); heterogeneous ⇒ this window's own n_w.
+    let scatter_base = point_offsets[w];
+    let input_size = point_offsets[w + 1u] - scatter_base;
     if (p >= input_size || w >= num_windows) {
         return;
     }
@@ -108,7 +116,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let encode = (raw + 1u) >> 1u;
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
-    let idx = w * input_size + p;
+    let idx = scatter_base + p;
     // Pack: bucket in low bits, sign in bit 31. Constant shift — works on
     // Adreno (see header).
     bucket_and_sign[idx] = bucket | (neg << 31u);

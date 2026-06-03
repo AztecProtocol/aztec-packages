@@ -696,14 +696,15 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
   const pool = await MsmV2Pool.create(device, poolPoints!);
   const inst = await MsmV2.create(device, maxN, pool, gpuKnobs);
   try {
-    // Pack every member at the class max n (padding each to maxN with zeros).
-    const plan = planBatch(ns.map(() => ({ n: maxN, srsOffset: 0 })));
+    // Pack each member at its REAL n (no padding): point_offsets gives every window
+    // its own n_w, and the dispatch grids cover the class max n.
+    const plan = planBatch(ns.map(n => ({ n, srsOffset: 0 })));
     log(
       'info',
       `[batch-check] union pass — totalWindows=${plan.totalWindows} ` +
-        `footprint=${(plan.footprintBytes / (1 << 20)).toFixed(1)}MiB${heterogeneous ? ` (heterogeneous n=[${ns.join(', ')}] padded to ${maxN})` : ''}`,
+        `footprint=${(plan.footprintBytes / (1 << 20)).toFixed(1)}MiB${heterogeneous ? ` (heterogeneous n=[${ns.join(', ')}], no padding)` : ''}`,
     );
-    // Concatenate the members' (zero-padded) scalars at planBatch's byte bases.
+    // Concatenate the members' scalars at planBatch's byte bases (real n, no padding).
     const concat = new Uint8Array(plan.totalScalarBytes);
     for (let k = 0; k < scalars.length; k++) concat.set(scalars[k], plan.descs[k].scalarBase);
     const members = plan.descs.map(d => ({

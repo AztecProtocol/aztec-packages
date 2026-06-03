@@ -46,6 +46,11 @@ var<storage, read> window_desc: array<u32>;
 // batch_window_base.x = global index of this batch's first window.
 @group(0) @binding(6)
 var<uniform> batch_window_base: vec4<u32>;
+// point_offsets: per-window scatter base into val_idx/bucket_and_sign. Window w's
+// points occupy [point_offsets[w], point_offsets[w+1]); uniform-n is w·n (byte-
+// identical). Replaces `buf_win * row_stride` so members of different n pack.
+@group(0) @binding(7)
+var<storage, read> point_offsets: array<u32>;
 
 var<workgroup> curr: array<atomic<u32>, {{ tile }}>;
 
@@ -58,8 +63,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let input_size = params[1]; // points to iterate (n lower, n_large upper)
-    let row_stride = params[2]; // val_idx/bucket window stride (always n)
     let points_per_tile = params[3];
 
     // Per-window CSR geometry from WindowDesc (batch-local work_off = global
@@ -69,9 +72,13 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
                        - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
 
-    // val_idx/bucket[(global window)*n + point]; buffer window = window + (.x - .y)
-    // (lower/no-split ⇒ window, byte-identical; upper ⇒ window + W_lo).
-    let cci_offset = (window + batch_window_base.x - batch_window_base.y) * row_stride;
+    // val_idx/bucket scatter base for this (buffer) window = window + (.x - .y).
+    // point_offsets gives each window's base (w·n uniform, byte-identical; Σ n_w
+    // heterogeneous); input_size = n_w unless params[1] overrides it (split-c upper
+    // region iterates n_large compacted points).
+    let buf_win = window + batch_window_base.x - batch_window_base.y;
+    let cci_offset = point_offsets[buf_win];
+    let input_size = select(point_offsets[buf_win + 1u] - cci_offset, params[1], params[1] != 0u);
     // col_ptr base = work_off + the window's index in the col_ptr buffer. The
     // buffer is numbered from its first global window (.y); the dispatch numbers
     // from .x — so the buffer-local index is window + (.x - .y). For the lower /

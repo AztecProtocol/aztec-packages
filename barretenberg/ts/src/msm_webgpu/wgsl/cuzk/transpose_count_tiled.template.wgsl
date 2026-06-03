@@ -41,6 +41,11 @@ var<storage, read> window_desc: array<u32>;
 // batch_window_base.x = global index of this batch's first window (Lever G).
 @group(0) @binding(4)
 var<uniform> batch_window_base: vec4<u32>;
+// point_offsets: per-window scatter base into bucket_and_sign. Window w's points
+// occupy [point_offsets[w], point_offsets[w+1]); uniform-n fill is w·n (byte-
+// identical). Replaces `buf_win * row_stride` so members of different n pack.
+@group(0) @binding(5)
+var<storage, read> point_offsets: array<u32>;
 
 var<workgroup> hist: array<atomic<u32>, {{ tile }}>;
 
@@ -53,8 +58,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let window = wid.y;
 
     let num_point_tiles = params[0];
-    let input_size = params[1]; // points to iterate (n lower, n_large upper)
-    let row_stride = params[2]; // bucket_and_sign window stride (always n)
     let points_per_tile = params[3];
 
     // Per-window CSR geometry from WindowDesc (global window = batch-local +
@@ -66,11 +69,15 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     let work_off_local = window_desc[gwin * WD_STRIDE + 3u]
                        - window_desc[batch_window_base.y * WD_STRIDE + 3u]; // .y = work_off base (global batch base; differs from .x gwin offset for the split-c upper region)
 
-    // bucket_and_sign[(global window)*n + point]. The dispatch numbers windows
-    // from .x; the buffer is global-indexed from .y, so the buffer window =
-    // window + (.x - .y). Lower / no-split (.x == .y) ⇒ window (byte-identical);
-    // split-c upper (.x=W_lo, .y=0) ⇒ window + W_lo = global window.
-    let cci_offset = (window + batch_window_base.x - batch_window_base.y) * row_stride;
+    // bucket_and_sign scatter base for this (buffer) window. The dispatch numbers
+    // windows from .x; the buffer is global-indexed from .y, so the buffer window =
+    // window + (.x - .y). point_offsets gives each window's base (= w·n uniform,
+    // byte-identical; Σ n_w for a heterogeneous union). input_size (points to
+    // iterate) is n_w = the window's span, unless params[1] overrides it for the
+    // split-c upper region (which iterates n_large compacted points).
+    let buf_win = window + batch_window_base.x - batch_window_base.y;
+    let cci_offset = point_offsets[buf_win];
+    let input_size = select(point_offsets[buf_win + 1u] - cci_offset, params[1], params[1] != 0u);
     let part_offset = num_point_tiles * work_off_local + point_tile * n_cols;
     let tile_point_lo = point_tile * points_per_tile;
     var tile_point_hi = tile_point_lo + points_per_tile;

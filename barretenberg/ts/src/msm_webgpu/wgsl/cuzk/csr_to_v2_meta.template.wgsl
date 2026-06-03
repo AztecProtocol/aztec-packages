@@ -32,6 +32,11 @@ var<storage, read> window_desc: array<u32>;
 // batch_window_base.x = global index of this batch's first window.
 @group(0) @binding(5)
 var<uniform> batch_window_base: vec4<u32>;
+// point_offsets: per-window val_idx base. active_offsets globalises the CSR begin
+// by this window's base (= w·n uniform, byte-identical; Σ n_w for a heterogeneous
+// union — val_idx is packed window-by-window at point_offsets[w]).
+@group(0) @binding(6)
+var<storage, read> point_offsets: array<u32>;
 
 // 2D dispatch (bucket_local = gid.x, window = gid.y). Each window reads its own
 // bucket count from WindowDesc, so windows of different widths (split-c) are
@@ -50,7 +55,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (bucket_local >= num_columns) {
         return;
     }
-    let input_size = params[1];
 
     // Batch-local CSR base for this window: global work_off prefix minus the
     // batch's base work_off. The row_ptr stride is num_columns+1, so the
@@ -64,7 +68,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let end = row_ptr[rp_offset + bucket_local + 1u];
 
     active_counts[id] = end - begin;
-    active_offsets[id] = window * input_size + begin;
+    active_offsets[id] = point_offsets[window] + begin;
 
     {{{ recompile }}}
 }
