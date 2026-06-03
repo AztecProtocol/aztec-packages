@@ -34,6 +34,9 @@ import {
   // apply_matrix). Hosts BylMat, byl_divsteps, byl_apply_matrix, the
   // byl_reduce_to_canonical chain, and the fr_inv_by_loop driver.
   by_inverse_loop as by_inverse_loop_funcs,
+  // Fully-expanded, mustache-free packed 13-bit safegcd inverse (the LIVE pk
+  // path: fr_inv_by_loop_pk + pk_* + byl_divsteps + BylMat). Hand-editable.
+  by_inverse_loop_pk_native as by_inverse_loop_pk_native_funcs,
   by_inverse_loop_pk_wg as by_inverse_loop_pk_wg_funcs,
   // 15-bit sibling: BATCH=30, 18-limb BY state, 2-word (macc) apply_matrix.
   // Selected at word_size=15 (host-validated bit-exact in cios15n/by15_*.mjs).
@@ -558,9 +561,11 @@ ${packLines.join('\n')}
     if (this.word_size !== 13) {
       return { invFn: 'fr_pow_inv', inverseFuncs: '', bigintByFuncs: '' };
     }
+    // pk path uses the fully-expanded, hand-editable packed inverse; the
+    // (unused) 'loop' path keeps the templated by_inverse_loop source.
     return {
       invFn: variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop',
-      inverseFuncs: by_inverse_loop_funcs,
+      inverseFuncs: variant === 'pk' ? by_inverse_loop_pk_native_funcs : by_inverse_loop_funcs,
       bigintByFuncs: bigint_by_funcs,
     };
   }
