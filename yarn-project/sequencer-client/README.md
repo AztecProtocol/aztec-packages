@@ -227,8 +227,8 @@ The deadlines passed to `CheckpointBuilder.buildBlock` are absolute timestamps (
 - **Sub-slot scheduling**: `canStartNextBlock(secondsIntoSlot)` finds the next sub-slot with at least `minExecutionTime` remaining and returns its deadline and whether it is the last sub-slot. If we are running late, sub-slots are skipped; we never start a block we cannot finish.
 - **Per-state deadlines**: `getMaxAllowedTime(state)` returns the latest seconds-into-slot value a state is allowed to be entered; `assertTimeLeft()` enforces it.
 
-See [`src/sequencer/README.md`](src/sequencer/README.md) for the full timing model, including the ideal/deadline split
-for checkpoint proposals, the consensus-only receive deadline, and the failure-mode walkthroughs.
+See the [Block Building Timetable Spec](../stdlib/src/timetable/README.md) for the full timing model, including the
+ideal/deadline split for checkpoint proposals, the consensus-only receive deadline, and the failure-mode walkthroughs.
 
 ### SequencerPublisher
 
@@ -315,7 +315,7 @@ The full list (including test/fault-injection hooks like `pauseProposingForSlots
 | --- | --- |
 | How does the work loop decide whether to propose? | `src/sequencer/sequencer.ts` → `prepareCheckpointProposal`, `checkCanPropose` |
 | How does a checkpoint get built block-by-block? | `src/sequencer/checkpoint_proposal_job.ts` → `proposeCheckpoint`, `buildBlocksForCheckpoint` |
-| How do sub-slot deadlines work? | `src/sequencer/timetable.ts` + `src/sequencer/README.md` |
+| How do sub-slot deadlines work? | `@aztec/stdlib` `ProposerTimetable` + [`stdlib/src/timetable/README.md`](../stdlib/src/timetable/README.md) |
 | How does an L1 transaction get scheduled and submitted? | `src/publisher/sequencer-publisher.ts` → `sendRequestsAt` |
 | How does pipelining wait for the parent to land? | `src/sequencer/checkpoint_proposal_job.ts` → `waitForValidParentCheckpointOnL1` |
 | How do governance and slashing votes get into the L1 tx? | `src/sequencer/checkpoint_voter.ts` |

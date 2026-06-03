@@ -1,4 +1,4 @@
-# Pipelined Sequencer Timetable Spec
+# Block Building Timetable Spec
 
 This document specifies the timing model for pipelined block building, checkpoint validation, attestation collection, and
 L1 publishing.
