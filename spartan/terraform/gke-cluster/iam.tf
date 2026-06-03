@@ -41,6 +41,13 @@ resource "google_project_iam_member" "helm_sa_roles" {
   member  = "serviceAccount:${google_service_account.helm_sa.email}"
 }
 
+# Create a service account for CI
+resource "google_service_account" "ci" {
+  account_id   = var.ci_service_account_id
+  display_name = "CI Service Account"
+  description  = "Service account for CI jobs that publish Docker images"
+}
+
 # Service account for External Secrets Operator
 resource "google_service_account" "eso" {
   account_id   = "external-secrets-operator"
