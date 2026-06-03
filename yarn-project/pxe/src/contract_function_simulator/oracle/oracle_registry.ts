@@ -38,6 +38,7 @@ import {
   type OutputSlot,
   PENDING_TAGGED_LOG,
   POINT,
+  PROVIDED_SECRET,
   PUBLIC_DATA_WITNESS,
   PUBLIC_KEYS_AND_PARTIAL_ADDRESS,
   STR,
@@ -71,6 +72,7 @@ export {
   OPTION,
   PENDING_TAGGED_LOG,
   POINT,
+  PROVIDED_SECRET,
   STR,
   U32,
   type InputSlot,
@@ -213,7 +215,10 @@ export const ORACLE_REGISTRY = {
   }),
 
   aztec_utl_getPendingTaggedLogs: makeEntry({
-    params: [{ name: 'scope', type: AZTEC_ADDRESS }],
+    params: [
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'providedSecrets', type: EPHEMERAL_ARRAY(PROVIDED_SECRET) },
+    ],
     returnType: EPHEMERAL_ARRAY(PENDING_TAGGED_LOG),
   }),
 

@@ -10,6 +10,7 @@ pub use note_validation_request::NoteValidationRequest;
 pub(crate) mod log_retrieval_request;
 pub(crate) mod log_retrieval_response;
 pub(crate) mod pending_tagged_log;
+pub(crate) mod provided_secret;
 
 use crate::{
     capsules::CapsuleArray,
