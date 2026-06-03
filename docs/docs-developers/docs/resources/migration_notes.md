@@ -961,7 +961,7 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 
 ### [Aztec Node] `getTxByHash`, `getTxsByHash` and `getPendingTxs` no longer return tx proofs by default
 
-`AztecNode.getTxByHash`, `AztecNode.getTxsByHash` and `AztecNode.getPendingTxs` (also exposed on the P2P API) now take an optional `GetTxByHashOptions` argument with an `includeProof` flag. The proof is stripped from returned txs unless `includeProof: true` is passed, cutting roughly 35-52KB per tx over the wire. This matches the `includeProof` semantics of `GetTxReceiptOptions` in `getTxReceipt`.
+`AztecNode.getTxByHash`, `AztecNode.getTxsByHash` and `AztecNode.getPendingTxs` (also exposed on the P2P API) now take an optional `GetTxByHashOptions` argument with an `includeProof` flag. The proof is stripped from returned txs unless `includeProof: true` is passed, cutting roughly 35-52KB per tx over the wire.
 
 **Migration:**
 
