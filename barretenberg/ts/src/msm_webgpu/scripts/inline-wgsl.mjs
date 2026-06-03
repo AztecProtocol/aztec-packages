@@ -20,6 +20,10 @@ async function walk(dir) {
     if (entry.name === "_generated") continue;
     const p = join(dir, entry.name);
     if (entry.isDirectory()) out.push(...(await walk(p)));
+    // `*.wip.wgsl` is a parked variant (stashed, not compiled) — to test one you
+    // copy it over a `.template.wgsl` first. Skip it so the scan doesn't choke on
+    // the `.wip.` infix (and so parked work-in-progress never reaches the build).
+    else if (entry.name.endsWith(".wip.wgsl")) continue;
     else if (entry.name.endsWith(".wgsl")) out.push(p);
   }
   return out;
