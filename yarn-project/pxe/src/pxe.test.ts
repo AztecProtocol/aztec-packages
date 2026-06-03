@@ -226,10 +226,9 @@ describe('PXE', () => {
     expect(node.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
   });
 
-  // These tests are meant to quickly exercise PXE as a
-  // frontier API so we don't need to rely on slower E2E
-  // tests (which in turn are more meaningful for acceptance).
-  // For finer grained tests check out storage/private_event_store.test.ts
+  // These tests are meant to quickly exercise PXE as a frontier API so we don't need to rely on slower E2E tests
+  // (which in turn are more meaningful for acceptance). For finer grained tests check out
+  // storage/private_event_store.test.ts
   describe('getPrivateEvents', () => {
     let contractAddress: AztecAddress;
     let eventSelector: EventSelector;
@@ -266,12 +265,6 @@ describe('PXE', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
       };
 
-      // The block synchronizer's real L2BlockStream walks back from the source tip to find the first block where its
-      // local L2TipsKVStore agrees with the source. That store was seeded at PXE creation with the genesis header hash
-      // (`node.getBlock(0)` was undefined then, so it fell back to `GENESIS_BLOCK_HEADER_HASH`), and the stream computes
-      // the source-side genesis hash from `getBlock(0).header.hash()`. We therefore answer block 0 with a header that
-      // hashes to that same genesis constant so the walk agrees at genesis; every other height returns the block-42
-      // response the events are anchored to.
       const genesisHeader = { hash: () => Promise.resolve(GENESIS_BLOCK_HEADER_HASH) } as unknown as BlockHeader;
       const genesisBlockResponse: BlockResponse = {
         header: genesisHeader,
@@ -281,8 +274,10 @@ describe('PXE', () => {
         indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
         number: BlockNumber.ZERO,
       };
+
       const isBlockZeroQuery = (query: Parameters<AztecNode['getBlock']>[0]) =>
         query === 0 || (typeof query === 'object' && 'number' in query && query.number === 0);
+
       node.getBlock.mockImplementation((query => {
         return Promise.resolve(isBlockZeroQuery(query) ? genesisBlockResponse : blockResponse);
       }) as AztecNode['getBlock']);

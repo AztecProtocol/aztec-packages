@@ -726,22 +726,22 @@ describe('NoteStore (nullification & reorg)', () => {
 
   const FIXED_BLOCK_HASH = Fr.fromString('0x0c').toString();
 
-  describe('deleteInBlockRange', () => {
-    it('deletes all notes and nullification origins in the range, leaving lower blocks intact', async () => {
-      // Note A created at block 9 (below the delete range — must survive).
+  describe('rollback', () => {
+    it('deletes notes and nullifier emissions above the target block, leaving lower blocks intact', async () => {
+      // Note A created at block 9 (at/below the rollback target — must survive).
       const noteA = await NoteDao.random({
         contractAddress: contract,
         l2BlockNumber: BlockNumber(9),
         l2BlockHash: FIXED_BLOCK_HASH,
       });
-      // Note B created at block 10 (inside the range — must be deleted).
+      // Note B created at block 10 (above the target — must be deleted).
       const noteB = await NoteDao.random({
         contractAddress: contract,
         l2BlockNumber: BlockNumber(10),
         l2BlockHash: FIXED_BLOCK_HASH,
       });
       await store.addNotes([noteA, noteB], scope, JOB);
-      // Nullify B at block 11 (also inside the range).
+      // Nullify B at block 11 (also above the target).
       const nullBlockHash = BlockHash.fromString(Fr.fromString('0x0b').toString());
       await store.applyNullifiers(
         [{ data: noteB.siloedNullifier, l2BlockNumber: BlockNumber(11), l2BlockHash: nullBlockHash }],
@@ -749,7 +749,7 @@ describe('NoteStore (nullification & reorg)', () => {
       );
       await store.commit(JOB);
 
-      await kv.transactionAsync(() => store.deleteInBlockRange(10, 11));
+      await kv.transactionAsync(() => store.rollback(9));
 
       // Only note A survives.
       expect(await store.nullifiersOfNotesAtBlock(9)).toEqual([noteA.siloedNullifier.toString()]);
@@ -761,9 +761,32 @@ describe('NoteStore (nullification & reorg)', () => {
       expect(found[0].siloedNullifier.equals(noteA.siloedNullifier)).toBe(true);
     });
 
-    it('un-nullifies a note whose nullification fell in the deleted range (append-only payoff)', async () => {
-      // Note B created at block 10; nullified at block 20. Deleting only [16, 20] orphans the nullification
-      // while leaving the creation row intact — so B becomes active again with no inversion logic.
+    it('sweeps every block above the target, including non-contiguous ones', async () => {
+      // Notes at blocks 10 and 50 with a gap between them: rolling back to 9 must delete both, proving the scan
+      // covers everything above the target rather than a contiguous expected range.
+      const noteLow = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(10),
+        l2BlockHash: FIXED_BLOCK_HASH,
+      });
+      const noteHigh = await NoteDao.random({
+        contractAddress: contract,
+        l2BlockNumber: BlockNumber(50),
+        l2BlockHash: FIXED_BLOCK_HASH,
+      });
+      await store.addNotes([noteLow, noteHigh], scope, JOB);
+      await store.commit(JOB);
+
+      await kv.transactionAsync(() => store.rollback(9));
+
+      expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
+      expect(await store.nullifiersOfNotesAtBlock(50)).toHaveLength(0);
+      expect(await store.getNotes(activeFilter, 'read-job')).toHaveLength(0);
+    });
+
+    it('un-nullifies a note whose nullification fell above the target (append-only payoff)', async () => {
+      // Note B created at block 10; nullified at block 20. Rolling back to block 16 orphans the nullification while
+      // leaving the creation row intact — so B becomes active again with no inversion logic.
       const noteB = await NoteDao.random({
         contractAddress: contract,
         l2BlockNumber: BlockNumber(10),
@@ -777,7 +800,7 @@ describe('NoteStore (nullification & reorg)', () => {
       );
       await store.commit(JOB);
 
-      await kv.transactionAsync(() => store.deleteInBlockRange(16, 20));
+      await kv.transactionAsync(() => store.rollback(16));
 
       // The creation row at block 10 is untouched.
       expect(await store.nullifiersOfNotesAtBlock(10)).toEqual([noteB.siloedNullifier.toString()]);
@@ -788,7 +811,7 @@ describe('NoteStore (nullification & reorg)', () => {
       expect(found[0].siloedNullifier.equals(noteB.siloedNullifier)).toBe(true);
     });
 
-    it('is idempotent — re-running over an already-deleted range is a no-op', async () => {
+    it('is idempotent — re-running an already-applied rollback is a no-op', async () => {
       const noteB = await NoteDao.random({
         contractAddress: contract,
         l2BlockNumber: BlockNumber(10),
@@ -797,11 +820,11 @@ describe('NoteStore (nullification & reorg)', () => {
       await store.addNotes([noteB], scope, JOB);
       await store.commit(JOB);
 
-      await kv.transactionAsync(() => store.deleteInBlockRange(10, 10));
+      await kv.transactionAsync(() => store.rollback(9));
       expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
 
-      // Second run over the same now-empty range hits the missing-row guard: no throw, state unchanged.
-      await kv.transactionAsync(() => store.deleteInBlockRange(10, 10));
+      // Second run hits the missing-row guard: no throw, state unchanged.
+      await kv.transactionAsync(() => store.rollback(9));
       expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
     });
   });

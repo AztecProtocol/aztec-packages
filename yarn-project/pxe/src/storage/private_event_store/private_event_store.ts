@@ -228,31 +228,32 @@ export class PrivateEventStore implements StagedStore {
   }
 
   /**
-   * Deletes every event anchored to a block in `[fromBlock, toBlock]`. Used by the reorg (`chain-pruned`) path to
-   * truncate the orphaned tail: at prune time every row in this range is on the orphaned fork, so deletion is
-   * unconditional.
+   * Rolls the store back to `toBlock`: deletes every event anchored to a block strictly above it, as if nothing past
+   * that block height ever happened. Used by the reorg (`chain-pruned`) path to truncate the orphaned tail. Scanning
+   * from `toBlock + 1` upward covers everything above the rollback target without needing to know the chain tip.
    *
    * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own — the reorg
    * path wraps it together with the anchor update, and IndexedDB has no nested transactions). Idempotent and
-   * resumable: re-running over the same range hits the missing-buffer guard and does nothing.
+   * resumable: re-running hits the missing-buffer guard and does nothing.
    */
-  public async deleteInBlockRange(fromBlock: number, toBlock: number): Promise<void> {
-    for (let block = fromBlock; block <= toBlock; block++) {
-      // Snapshot before mutating so we never delete from the multimap we are iterating.
-      const eventIds = await this.eventIdsAtBlock(block);
-      for (const eventId of eventIds) {
-        const buf = await this.#events.getAsync(eventId);
-        if (!buf) {
-          continue;
-        }
-        const stored = StoredPrivateEvent.fromBuffer(buf);
-        await this.#events.delete(eventId);
-        await this.#eventsByContractAndEventSelector.deleteValue(
-          this.#keyFor(stored.contractAddress, stored.eventSelector),
-          eventId,
-        );
-        await this.#eventsByBlockNumber.deleteValue(block, eventId);
+  public async rollback(toBlock: number): Promise<void> {
+    // Snapshot before mutating so we never delete from the multimap we are iterating.
+    const orphaned: { block: number; eventId: string }[] = [];
+    for await (const [block, eventId] of this.#eventsByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
+      orphaned.push({ block, eventId });
+    }
+    for (const { block, eventId } of orphaned) {
+      const buf = await this.#events.getAsync(eventId);
+      if (!buf) {
+        continue;
       }
+      const stored = StoredPrivateEvent.fromBuffer(buf);
+      await this.#events.delete(eventId);
+      await this.#eventsByContractAndEventSelector.deleteValue(
+        this.#keyFor(stored.contractAddress, stored.eventSelector),
+        eventId,
+      );
+      await this.#eventsByBlockNumber.deleteValue(block, eventId);
     }
   }
 

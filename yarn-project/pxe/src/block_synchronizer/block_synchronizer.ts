@@ -129,8 +129,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
         // Operations are wrapped in a single transaction to ensure atomicity.
         await this.store.transactionAsync(async () => {
-          await this.noteStore.deleteInBlockRange(event.block.number + 1, currentAnchorBlockNumber);
-          await this.privateEventStore.deleteInBlockRange(event.block.number + 1, currentAnchorBlockNumber);
+          await this.noteStore.rollback(event.block.number);
+          await this.privateEventStore.rollback(event.block.number);
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;

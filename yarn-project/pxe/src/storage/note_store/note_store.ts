@@ -378,48 +378,48 @@ export class NoteStore implements StagedStore {
   }
 
   /**
-   * Deletes every note and nullifier emitted by a block in `[fromBlock, toBlock]`.
+   * Rolls the store back to `toBlock`: deletes every note and nullifier emission anchored to a block strictly above it,
+   * as if nothing past that block height ever happened. Used to retract notes and nullifiers on a reorg.
    *
-   * Used to retract notes and nullifiers in case of a reorg.
+   * Deleting an emission above `toBlock` also un-nullifies any surviving note (created at or before `toBlock`) whose
+   * nullification fell in the rolled-back range, which is the whole point of recording emissions separately.
    *
    * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, because the
    * reorg path wraps it together with other store operations, and IndexedDB has no nested transaction support).
    */
-  public async deleteInBlockRange(fromBlock: number, toBlock: number): Promise<void> {
-    for (let block = fromBlock; block <= toBlock; block++) {
-      // Snapshot before mutating so we never delete from the cursor we are iterating. Each nullifier's rows are
-      // independent (nullifiers are globally unique), so the per-nullifier deletes run concurrently. Issuing all
-      // requests up front also keeps the IndexedDB transaction alive: it only auto-commits at a microtask boundary
-      // with nothing in flight, which concurrent in-flight requests make impossible.
-      const noteNullifiers = await this.nullifiersOfNotesAtBlock(block);
-      await Promise.all(
-        noteNullifiers.map(async nullifier => {
-          const buf = await this.#notes.getAsync(nullifier);
-          if (!buf) {
-            return;
-          }
-          const stored = StoredNote.fromBuffer(buf);
-          await this.#notes.delete(nullifier);
-          await this.#notesByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), nullifier);
-          await this.#notesByBlockNumber.deleteValue(block, nullifier);
-          // Drop the note's nullifier emission, if any. Safe under this method's tail-truncation contract (toBlock is
-          // the anchor tip): no emission can exist above the deleted range, so the reverse-index entry for this
-          // emission falls within the loop's range and is not left dangling in #nullifierEmissionsByBlockNumber.
-          await this.#nullifierEmissions.delete(nullifier);
-        }),
-      );
-
-      // Snapshot before mutating so we never delete from the cursor we are iterating.
-      const emittedNullifiers: string[] = [];
-      for await (const nullifier of this.#nullifierEmissionsByBlockNumber.getValuesAsync(block)) {
-        emittedNullifiers.push(nullifier);
-      }
-      await Promise.all(
-        emittedNullifiers.map(async nullifier => {
-          await this.#nullifierEmissions.delete(nullifier);
-          await this.#nullifierEmissionsByBlockNumber.deleteValue(block, nullifier);
-        }),
-      );
+  public async rollback(toBlock: number): Promise<void> {
+    // Snapshot the orphaned (block, nullifier) pairs before mutating so we never delete from the cursor we are
+    // iterating. Scanning from `toBlock + 1` upward covers everything above the rollback target without needing to know
+    // the chain tip. Each nullifier's rows are independent (nullifiers are globally unique), so the deletes run
+    // concurrently; keeping requests in flight also prevents the IndexedDB transaction from auto-committing mid-way.
+    const orphanedNotes: { block: number; nullifier: string }[] = [];
+    for await (const [block, nullifier] of this.#notesByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
+      orphanedNotes.push({ block, nullifier });
     }
+    await Promise.all(
+      orphanedNotes.map(async ({ block, nullifier }) => {
+        const buf = await this.#notes.getAsync(nullifier);
+        if (!buf) {
+          return;
+        }
+        const stored = StoredNote.fromBuffer(buf);
+        await this.#notes.delete(nullifier);
+        await this.#notesByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), nullifier);
+        await this.#notesByBlockNumber.deleteValue(block, nullifier);
+      }),
+    );
+
+    // A note deleted above also had its nullifier emitted above `toBlock` (an emission can't precede its note's
+    // creation), so this scan covers those emissions too — no need to delete them in the loop above.
+    const orphanedEmissions: { block: number; nullifier: string }[] = [];
+    for await (const [block, nullifier] of this.#nullifierEmissionsByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
+      orphanedEmissions.push({ block, nullifier });
+    }
+    await Promise.all(
+      orphanedEmissions.map(async ({ block, nullifier }) => {
+        await this.#nullifierEmissions.delete(nullifier);
+        await this.#nullifierEmissionsByBlockNumber.deleteValue(block, nullifier);
+      }),
+    );
   }
 }

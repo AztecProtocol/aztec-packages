@@ -616,11 +616,11 @@ describe('PrivateEventStore', () => {
     });
   });
 
-  describe('deleteInBlockRange', () => {
+  describe('rollback', () => {
     const BLOCK_HASH_9 = BlockHash.fromString(Fr.fromString('0x09').toString());
     const BLOCK_HASH_10 = BlockHash.fromString(Fr.fromString('0x0a').toString());
 
-    it('deletes every event in the range, leaving lower blocks intact', async () => {
+    it('deletes every event above the target block, leaving lower blocks intact', async () => {
       const eventAt9 = Fr.random();
       const eventAt10 = Fr.random();
 
@@ -658,7 +658,7 @@ describe('PrivateEventStore', () => {
       );
       await privateEventStore.commit('test');
 
-      await kvStore.transactionAsync(() => privateEventStore.deleteInBlockRange(10, 10));
+      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
 
       // Block 9 event survives; block 10 event is gone.
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventAt9.toString()]);
