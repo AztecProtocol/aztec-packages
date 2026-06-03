@@ -574,7 +574,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Create and return the checkpoint proposal job
     return this.createCheckpointProposalJob(
-      slot,
       targetSlot,
       targetEpoch,
       checkpointNumber,
@@ -589,7 +588,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   protected createCheckpointProposalJob(
-    slot: SlotNumber,
     targetSlot: SlotNumber,
     targetEpoch: EpochNumber,
     checkpointNumber: CheckpointNumber,
@@ -602,7 +600,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     proposedCheckpointData?: ProposedCheckpointData,
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
-      slot,
       targetSlot,
       targetEpoch,
       checkpointNumber,
@@ -648,7 +645,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Internal helper for setting the sequencer state. Pure: sets the state, emits `state-changed`, and
    * records metrics. Timing deadlines are queried explicitly at the relevant call sites, not gated here.
    * @param proposedState - The new state to transition to.
-   * @param slotNumber - The current slot number (informational; included in the event payload).
+   * @param slotNumber - The target slot being proposed for, emitted as `targetSlot` on the event payload
+   * and used to anchor `secondsIntoBuildFrame`. Undefined for lifecycle states with no associated slot.
    * @param force - Whether to force the transition even if the sequencer is stopped.
    */
   protected setState(
@@ -664,7 +662,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log.warn(`Cannot set sequencer from ${this.state} to ${proposedState} as it is stopped.`);
       return;
     }
-    const secondsIntoSlot = slotNumber !== undefined ? this.getSecondsIntoSlot(slotNumber) : undefined;
+    const secondsIntoBuildFrame = slotNumber !== undefined ? this.getSecondsIntoBuildFrame(slotNumber) : undefined;
 
     const oldState = this.state;
     const oldStateSlotNumber = this.stateSlotNumber;
@@ -682,15 +680,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       newState: proposedState,
       slotNumber,
       stateSlotNumber: oldStateSlotNumber,
-      secondsIntoSlot,
+      secondsIntoBuildFrame,
       ...(stateChanged && { stateDurationMs: Math.ceil(stateDurationMs) }),
     });
 
     this.emit('state-changed', {
       oldState,
       newState: proposedState,
-      secondsIntoSlot,
-      slot: slotNumber,
+      secondsIntoBuildFrame,
+      targetSlot: slotNumber,
     });
     if (stateChanged) {
       this.metrics.recordStateDuration(stateDurationMs, oldState);
@@ -1173,8 +1171,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     });
   }
 
-  private getSecondsIntoSlot(slotNumber: SlotNumber): number {
-    const buildFrameStart = this.timetable.getBuildFrameStart(slotNumber);
+  /**
+   * Wall-clock seconds elapsed since the build-frame start of the given target slot
+   * (`now − getBuildFrameStart(targetSlot)`). May be negative if called before the build frame opens.
+   */
+  private getSecondsIntoBuildFrame(targetSlot: SlotNumber): number {
+    const buildFrameStart = this.timetable.getBuildFrameStart(targetSlot);
     return Number((this.dateProvider.now() / 1000 - buildFrameStart).toFixed(3));
   }
 

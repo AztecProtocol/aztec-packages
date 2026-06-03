@@ -48,7 +48,7 @@ jest.setTimeout(1000 * 60 * 10);
 //                (pipelining override needs hasProposedCheckpoint, which is sourced from L1 and
 //                 is false while CP_N+1's tx sits in mempool during the pause).
 //
-// Test signal: state-changed with newState=INITIALIZING_CHECKPOINT && slot=N+2 (target slot).
+// Test signal: state-changed with newState=INITIALIZING_CHECKPOINT && targetSlot=N+2.
 //   - INITIALIZING_CHECKPOINT is reached only after `checkSync` returns syncedTo and the
 //     proposer check passes (sequencer.ts ~line 290/410), so observing the N+1 wall-clock cycle's
 //     target slot directly proves the bug fix: without the fix, checkSync would block on slot N+1
@@ -203,7 +203,7 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     const sequencer = context.sequencer!.getSequencer();
     // The bug-fix cycle runs at wall-clock slot N+1 (= nextSlotNumber) and builds the checkpoint that
     // commits to target slot N+2 (= targetSlotForBugFixCycle). Sequencer state events report the target
-    // slot (the checkpoint job calls setStateFn(state, targetSlot)), not the wall-clock build slot.
+    // slot (the checkpoint job sets state against its own targetSlot), not the wall-clock build slot.
     const targetSlotForBugFixCycle = SlotNumber(nextSlotNumber + 1);
 
     logger.info(
@@ -213,8 +213,11 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     await executeTimeout(
       signal =>
         new Promise<void>((res, rej) => {
-          const stateListener = (args: { newState: SequencerState; slot?: SlotNumber }) => {
-            if (args.newState === SequencerState.INITIALIZING_CHECKPOINT && args.slot === targetSlotForBugFixCycle) {
+          const stateListener = (args: { newState: SequencerState; targetSlot?: SlotNumber }) => {
+            if (
+              args.newState === SequencerState.INITIALIZING_CHECKPOINT &&
+              args.targetSlot === targetSlotForBugFixCycle
+            ) {
               sequencer.off('state-changed', stateListener);
               res();
             }

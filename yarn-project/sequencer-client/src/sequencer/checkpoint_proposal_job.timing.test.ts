@@ -308,7 +308,6 @@ describe('CheckpointProposalJob Timing Tests', () => {
     return new TimingTestCheckpointProposalJob(
       dateProvider,
       getSecondsIntoSlot,
-      slotNumber,
       targetSlot,
       epoch,
       checkpointNumber,

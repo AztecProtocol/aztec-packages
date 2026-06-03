@@ -570,17 +570,16 @@ describe('CheckpointProposalJob', () => {
     it('uses targetEpoch for previousCheckpointOutHashes when pipelining crosses epoch boundary', async () => {
       // Pipelining scenario: wall-clock is in epoch 0, but target slot is in epoch 1.
       const targetEpoch = EpochNumber(1);
-      // Target slot is first slot of epoch 1 (epochDuration = 16)
+      // Target slot is first slot of epoch 1 (epochDuration = 16); the wall-clock build slot is the
+      // last slot of epoch 0 (targetSlot - 1).
       const targetSlot = SlotNumber(l1Constants.epochDuration);
-      // Wall-clock slot is the last slot of epoch 0
-      const slotNow = SlotNumber(l1Constants.epochDuration - 1);
 
       checkpointNumber = CheckpointNumber(2);
       const previousCheckpoint = await Checkpoint.random(CheckpointNumber(1));
 
       l2BlockSource.getCheckpointsData.mockResolvedValue([toCheckpointData(previousCheckpoint)]);
 
-      job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch });
+      job = createCheckpointProposalJob({ targetSlot, targetEpoch });
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
@@ -647,14 +646,15 @@ describe('CheckpointProposalJob', () => {
       // checkpoint of the new epoch, so the parent's outHash must NOT contribute to our epochOutHash.
       const targetEpoch = EpochNumber(1);
       const targetSlot = SlotNumber(l1Constants.epochDuration);
-      const slotNow = SlotNumber(l1Constants.epochDuration - 1);
+      // Wall-clock build slot is the last slot of the previous epoch (targetSlot - 1).
+      const buildSlot = SlotNumber(l1Constants.epochDuration - 1);
 
       checkpointNumber = CheckpointNumber(2);
 
       l2BlockSource.getCheckpointsData.mockResolvedValue([]);
 
       const parentHeader = CheckpointHeader.empty();
-      parentHeader.slotNumber = slotNow; // last slot of previous epoch
+      parentHeader.slotNumber = buildSlot; // last slot of previous epoch
       const proposedCheckpointData: ProposedCheckpointData = {
         checkpointNumber: CheckpointNumber(1),
         header: parentHeader,
@@ -666,7 +666,7 @@ describe('CheckpointProposalJob', () => {
         feeAssetPriceModifier: 100n,
       };
 
-      job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch, proposedCheckpointData });
+      job = createCheckpointProposalJob({ targetSlot, targetEpoch, proposedCheckpointData });
       job.setTimetable(
         makeProposerTimetable({
           l1Constants,
@@ -758,7 +758,6 @@ describe('CheckpointProposalJob', () => {
    * to modify config after creation.
    */
   function createCheckpointProposalJob(overrides?: {
-    slotNow?: SlotNumber;
     targetSlot?: SlotNumber;
     targetEpoch?: EpochNumber;
     proposedCheckpointData?: ProposedCheckpointData;
@@ -767,7 +766,6 @@ describe('CheckpointProposalJob', () => {
     const eventEmitter = new EventEmitter() as TypedEventEmitter<SequencerEvents>;
 
     return new TestCheckpointProposalJob(
-      overrides?.slotNow ?? SlotNumber(newSlotNumber),
       overrides?.targetSlot ?? SlotNumber(newSlotNumber),
       overrides?.targetEpoch ?? epoch,
       checkpointNumber,

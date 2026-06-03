@@ -120,7 +120,6 @@ export class CheckpointProposalJob implements Traceable {
   }
 
   constructor(
-    private readonly slotNow: SlotNumber,
     private readonly targetSlot: SlotNumber,
     private readonly targetEpoch: EpochNumber,
     private readonly checkpointNumber: CheckpointNumber,
@@ -156,12 +155,20 @@ export class CheckpointProposalJob implements Traceable {
   ) {
     this.log = createLogger('sequencer:checkpoint-proposal', {
       ...bindings,
-      instanceId: `slot-${this.slotNow}`,
+      instanceId: `slot-${this.getBuildSlot()}`,
     });
     this.checkpointEventLog = createLogger('sequencer:checkpoint-events', {
       ...bindings,
-      instanceId: `slot-${this.slotNow}`,
+      instanceId: `slot-${this.getBuildSlot()}`,
     });
+  }
+
+  /**
+   * The wall-clock slot during which this job builds, i.e. the slot one before {@link targetSlot} under
+   * proposer pipelining. Also the slot of the parent checkpoint this job builds on top of.
+   */
+  private getBuildSlot(): SlotNumber {
+    return SlotNumber(this.targetSlot - 1);
   }
 
   /**
@@ -268,7 +275,7 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // If we failed to collect attestations, at least check if we need to issue an invalidation
-      if (!signedAttestations && (await this.waitForSyncedL2SlotNumber(this.slotNow))) {
+      if (!signedAttestations && (await this.waitForSyncedL2SlotNumber(this.getBuildSlot()))) {
         const validationStatus = await this.l2BlockSource.getPendingChainValidationStatus();
         if (!validationStatus.valid) {
           this.log.warn(
@@ -417,8 +424,8 @@ export class CheckpointProposalJob implements Traceable {
 
     const parentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 1);
 
-    // Wait until archiver has synced L1 past the parent's slot (slotNow)
-    if (!(await this.waitForSyncedL2SlotNumber(this.slotNow))) {
+    // Wait until archiver has synced L1 past the parent's slot (the build slot, one before targetSlot)
+    if (!(await this.waitForSyncedL2SlotNumber(this.getBuildSlot()))) {
       return false;
     }
 
@@ -525,7 +532,7 @@ export class CheckpointProposalJob implements Traceable {
         // Measure against the wall-clock slot whose build window we are currently using.
         // In pipelining mode `targetSlot` is intentionally one slot ahead, which makes the
         // target-slot boundary a full slot away from the actual build start time.
-        const slotBoundaryMs = Number(getTimestampForSlot(this.slotNow, this.l1Constants)) * 1000;
+        const slotBoundaryMs = Number(getTimestampForSlot(this.getBuildSlot(), this.l1Constants)) * 1000;
         this.checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary(now - slotBoundaryMs);
       }
       this.checkpointMetrics.startCheckpointTiming(now);
@@ -537,7 +544,7 @@ export class CheckpointProposalJob implements Traceable {
       // Start the checkpoint
       this.setState(SequencerState.INITIALIZING_CHECKPOINT);
       this.logCheckpointEvent('slot-started', `Starting checkpoint proposal for slot ${this.targetSlot}`, {
-        buildSlot: this.slotNow,
+        buildSlot: this.getBuildSlot(),
         submissionSlot: this.targetSlot,
         slot: this.targetSlot,
         checkpointNumber: this.checkpointNumber,
@@ -709,7 +716,7 @@ export class CheckpointProposalJob implements Traceable {
           reason: 'invalid_checkpoint',
           checkpoint: checkpoint.header.toInspect(),
         });
-        this.log.error(`Built an invalid checkpoint at slot ${this.slotNow} (skipping proposal)`, err, {
+        this.log.error(`Built an invalid checkpoint at slot ${this.targetSlot} (skipping proposal)`, err, {
           slot: this.targetSlot,
           checkpointNumber: this.checkpointNumber,
           blocksBuilt: blocksInCheckpoint.length,
@@ -728,7 +735,7 @@ export class CheckpointProposalJob implements Traceable {
       );
       this.logCheckpointEvent('built', `Checkpoint built for slot ${this.targetSlot}`, {
         slot: this.targetSlot,
-        buildSlot: this.slotNow,
+        buildSlot: this.getBuildSlot(),
         checkpointNumber: this.checkpointNumber,
         proposer: this.proposer?.toString(),
         attestorAddress: this.attestorAddress.toString(),
@@ -1144,7 +1151,7 @@ export class CheckpointProposalJob implements Traceable {
         checkpointNumber: this.checkpointNumber,
         indexWithinCheckpoint: block.indexWithinCheckpoint,
         slot: this.targetSlot,
-        buildSlot: this.slotNow,
+        buildSlot: this.getBuildSlot(),
       });
       this.metrics.recordBuiltBlock(blockBuildDuration, block.header.totalManaUsed.toNumberUnsafe(), this.targetSlot);
 
