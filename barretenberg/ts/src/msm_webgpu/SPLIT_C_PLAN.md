@@ -193,13 +193,30 @@ default byte-identical). Two create-vs-prepare hazards fixed: redM/bTotal are ba
 for the SPLIT ENVELOPE (2× unsplit) since size1/walker/combine/pt_finalize bake
 redM at create; and the fast-path fits-check gained `capNumWindows`.
 *Remaining (2C-ii, perf/memory):* the upper windows still iterate ALL `n` (correct
-but wasteful — 80% of points contribute 0). region-split them to iterate only
-`idx_large` (`n_large` points) via a `decompose_upper` (point source `idx_large[j]`,
-cci_base `W_lo·n`, input_size `n_large`) + the upper transpose dispatch (the
-transpose region base is in place; `transpose_scatter` must store the ORIGINAL
-`idx_large[j]` index so the point gather stays region-agnostic). The decision is
-host-histogram-driven (stepping stone); the GPU decide kernel swaps in for full
-GPU-residence. *Exit:* D/E oracle-agree at reduced work, uniform unchanged. **Key architectural note:** the
+but wasteful — 80% of points contribute 0; so split is currently NOT a perf win,
+hence off by default). Region-split them to iterate only `idx_large` (`n_large`
+points). **Kernels DONE** (`24d4b0074c`): `decompose_scalars_booth_upper` (point
+source `idx_large[j]`, cci_base `W_lo·n`, row stride `n_large`) +
+`transpose_scatter_tiled_upper` (stores the ORIGINAL `idx_large[i]` so the gather
+stays region-agnostic), both naga-valid + unwired. **Remaining WIRING** (the
+monolithic step, all in `encodeIntoBatch` + the gather):
+1. Run `ba_idx_large_compact` in the pipeline (needs `b_star` host→GPU + an
+   `n_large` readback to size the upper dispatch — or indirect dispatch).
+2. Dual-region dispatch: `decompose` over lower windows `[0,W_lo)`×`n` +
+   `decompose_upper` over `[W_lo,NW)`×`n_large`; each of transpose
+   count/reduce/scan likewise (reuse the existing kernels via the `cci_base`
+   param = `W_lo·n`, `input_size = n_large`), and `transpose_scatter` (lower) +
+   `transpose_scatter_upper` (upper). Use a UNIFORM `num_point_tiles` (sized from
+   `n`) across both regions so the partials layout (`num_point_tiles·work_off`)
+   stays consistent — the upper region just has empty trailing point-tiles.
+3. `bucket_and_sign` two-region layout: lower `[w·n + p]`, upper
+   `[W_lo·n + (w−W_lo)·n_large + j]` (total ≤ unsplit `NW·n`).
+4. The val_idx point gather (`csr_to_v2_active_sums`) must read the upper region's
+   `cci_offset` (`W_lo·n + (w−W_lo)·n_large`), not `w·n`, for upper windows.
+Keep no-split byte-identical (W_hi=0 ⇒ only the lower region runs = today). Focus
+`numBatches=1` (logN ≤ 17) first; the region/batch-boundary interaction is a
+follow-up. *Exit:* D/E oracle-agree at reduced work, uniform unchanged. Then
+Phase 3: bench A–E + swap the host-histogram for the GPU decide kernel. **Key architectural note:** the
 envelope `c` is always `pickC(n)` (data-independent → red_buf sizing stays
 static); region-split is what keeps `bucket_and_sign` (`W_lo·n + W_hi·n_large`)
 within the unsplit envelope; the bucket kernels (classify/radix/walker/combine/pt)
