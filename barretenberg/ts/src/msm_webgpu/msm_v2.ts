@@ -2342,6 +2342,16 @@ export class MsmV2 {
    * WindowDesc holds 128 rows).
    */
   prepareBatch(members: BatchMember[], scalars: Uint8Array, windowDescTable: Uint32Array, reduceOffsets: number[]): void {
+    // Homogeneous-pack contract: every member shares this instance's n (⇒ same
+    // c/BW/stride), which is what makes the union totals below pure multiples of
+    // the window count and the prebuilt table consistent with this instance's
+    // geometry. A mismatched member would silently corrupt, so reject it.
+    if (!members.every(m => m.n === this.n)) {
+      throw new Error(
+        `prepareBatch: heterogeneous pack — every member must have n=${this.n}; ` +
+          `got [${members.map(m => m.n).join(', ')}]`,
+      );
+    }
     const numWindows = members.reduce((a, m) => a + m.numWindows, 0);
     if (numWindows > VAR_WINDOW_MAX_WINDOWS) {
       throw new Error(`prepareBatch: ${numWindows} global windows exceeds the ${VAR_WINDOW_MAX_WINDOWS}-row WindowDesc uniform cap`);

@@ -641,6 +641,8 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
   let poolPoints: Uint8Array | null = null;
   let poolPointsN = -1;
   const soloWS: { x: bigint; y: bigint }[][] = [];
+  // Σ of each member's own run() (warm), the K-separate cost the union must beat.
+  let soloRunMs = 0;
 
   // ── Solo baselines on ISOLATED pools (one pool+instance per MSM, fully
   // independent). This avoids the shared-pool lifecycle entirely for the
@@ -660,7 +662,11 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
     const soloInst = await MsmV2.create(device, inp.n, soloPool, gpuKnobs);
     try {
       soloInst.prepare(inp.scalarsBuf);
-      soloWS.push((await soloInst.run()).windowSums);
+      await soloInst.run(); // warm-up: first-touch zero-init out of the timed window
+      const t0 = performance.now();
+      const ws = (await soloInst.run()).windowSums;
+      soloRunMs += performance.now() - t0;
+      soloWS.push(ws);
     } finally {
       soloInst.destroy();
       soloPool.destroy();
@@ -696,7 +702,15 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
       numWindows: d.numWindows,
     }));
     inst.prepareBatch(members, concat, plan.windowDescTable, plan.reduceOffsets);
+    await inst.run(); // warm-up: first-touch out of the timed window
+    const tU = performance.now();
     const union = (await inst.run()).windowSums; // Σ NW windows; member k at schedOff_k
+    const unionRunMs = performance.now() - tU;
+    log(
+      'info',
+      `[batch-check] perf: union 1 dispatch=${unionRunMs.toFixed(2)}ms vs ${plan.descs.length}× solo run=${soloRunMs.toFixed(2)}ms ` +
+        `(speedup ${(soloRunMs / unionRunMs).toFixed(2)}×)`,
+    );
 
     const diffs: string[] = [];
     for (let k = 0; k < plan.descs.length; k++) {

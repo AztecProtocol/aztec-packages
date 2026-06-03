@@ -2450,7 +2450,7 @@ const STRIDE: u32 = {{ stride }}u;
 // M_RED (red_buf Y-plane stride = total red slots) is a runtime uniform in
 // batch_offset.z, not a baked const: a concatenated multi-MSM pass sizes red_buf
 // to Σ redM, while a single MSM passes its own redM (byte-identical to the old
-// the old baked M_RED). reduce_level_bench already takes its M from cparams.x.
+// baked M_RED). reduce_level_bench already takes its M from cparams.x.
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
