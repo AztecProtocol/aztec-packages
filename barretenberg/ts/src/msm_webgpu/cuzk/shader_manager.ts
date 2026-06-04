@@ -38,6 +38,7 @@ import {
   databus_lookup_relation_test as databus_lookup_relation_test_shader,
   field as field_funcs,
   field8 as field8_funcs,
+  fold_test as fold_test_shader,
   fr_ops_test as fr_ops_test_shader,
   fr_pow as fr_pow_funcs,
   lag as lag_funcs,
@@ -427,6 +428,15 @@ ${packLines.join('\n')}
         lag_funcs,
       },
     );
+  }
+
+  /**
+   * Sumcheck fold (partially_evaluate) test kernel (sumcheck/sumcheck.hpp:670).
+   * Halves every polynomial column by dest[k] = src[2k] + u*(src[2k+1]-src[2k]).
+   * One thread per output element.
+   */
+  public gen_fold_test_shader(workgroup_size: number): string {
+    return mustache.render(fold_test_shader, this.relationView(workgroup_size), this.relationPartials);
   }
 
   /** Common Mustache view shared by every relation-accumulate test shader. */
