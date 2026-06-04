@@ -28,6 +28,13 @@ type PrivateEventMetadata = InTx & {
   eventIndexInTx: number;
 };
 
+/// Alias types for kv map readability
+type EventId = string; // the siloedEventCommitment, stringified
+type JobId = string;
+type ContractAndSelectorKey = string;
+type BlockNum = number;
+type StoredEventBuffer = Buffer;
+
 /**
  * Stores decrypted private event logs.
  *
@@ -39,17 +46,17 @@ export class PrivateEventStore implements StagedStore {
 
   #store: AztecAsyncKVStore;
   /** Actual private event log entries, keyed by siloedEventCommitment */
-  #events: AztecAsyncMap<string, Buffer>;
+  #events: AztecAsyncMap<EventId, StoredEventBuffer>;
   /** Multi-map from contractAddress_eventSelector to siloedEventCommitment for efficient lookup */
-  #eventsByContractAndEventSelector: AztecAsyncMultiMap<string, string>;
+  #eventsByContractAndEventSelector: AztecAsyncMultiMap<ContractAndSelectorKey, EventId>;
   /** Multi-map from block number to siloedEventCommitment, for delete-on-prune. */
-  #eventsByBlockNumber: AztecAsyncMultiMap<number, string>;
+  #eventsByBlockNumber: AztecAsyncMultiMap<BlockNum, EventId>;
 
   /** jobId => eventId (event siloed nullifier) => StoredPrivateEvent */
-  #eventsForJob: Map<string, Map<string, StoredPrivateEvent>>;
+  #eventsForJob: Map<JobId, Map<EventId, StoredPrivateEvent>>;
 
   /** Per-job locks to prevent concurrent writes from affecting each other. */
-  #jobLocks: Map<string, Semaphore>;
+  #jobLocks: Map<JobId, Semaphore>;
 
   logger = createLogger('private_event_store');
 
