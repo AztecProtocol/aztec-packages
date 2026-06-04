@@ -12,6 +12,6 @@ error: User-defined 'sync_state' is not allowed. Use AztecConfig::custom_sync_st
     1: #[aztec]
             at src/main.nr:5:1
     2: aztec
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:148:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
 
 Aborting due to 1 previous error

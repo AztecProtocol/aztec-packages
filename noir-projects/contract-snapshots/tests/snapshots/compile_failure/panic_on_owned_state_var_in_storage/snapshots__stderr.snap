@@ -12,12 +12,12 @@ error: Type PrivateImmutable<Field, Context> implements OwnedStateVariable and h
     1: PanicOnOwnedStateVarInStorage::#[storage]
             at src/main.nr:8:5
     2: storage
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:49:17
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
 
 error: Could not resolve 'init' in path
-   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:35:36
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
    │
-35 │             let storage = Storage::init(&mut context);
+<line> │             let storage = Storage::init(&mut context);
    │                                    ----
    │
    ┌─ src/main.nr:4:1
@@ -27,9 +27,9 @@ error: Could not resolve 'init' in path
    │
 
 error: Type annotation needed
-   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:61:56
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
    │
-61 │             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+<line> │             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
    │                                                        --- Could not determine the type of the generic argument `Storage` declared on the struct `ContractSelfPrivate`
    │
    ┌─ src/main.nr:4:1

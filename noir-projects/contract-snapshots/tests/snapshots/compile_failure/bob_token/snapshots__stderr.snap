@@ -12,7 +12,7 @@ error: The #[internal] attribute cannot be applied to external functions - trans
     1: ?
             at src/main.nr:53:5
     2: internal
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:375:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 error: A function marked as #[external("private")] or #[internal("private")] must not have public Noir visibility - transfer_private's visibility is 'pub'
   ┌─ std/panic.nr:8:12
@@ -24,9 +24,9 @@ error: A function marked as #[external("private")] or #[internal("private")] mus
     1: ?
             at src/main.nr:85:5
     2: external
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:349:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
     3: assert_valid_private
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:398:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 error: The #[view] attribute can only be applied to #[external("private")] or #[external("public")] functions - _assert_is_owner is neither
   ┌─ std/panic.nr:8:12
@@ -38,7 +38,7 @@ error: The #[view] attribute can only be applied to #[external("private")] or #[
     1: ?
             at src/main.nr:107:5
     2: view
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:283:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 error: #[external("private")] or #[internal("private")] functions must not be unconstrained - mint_private is
   ┌─ std/panic.nr:8:12
@@ -50,9 +50,9 @@ error: #[external("private")] or #[internal("private")] functions must not be un
     1: ?
             at src/main.nr:113:5
     2: external
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:349:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
     3: assert_valid_private
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:405:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 error: Function _assert_is_owner must be marked as either #[external(...)], #[internal(...)], or #[test]
   ┌─ std/panic.nr:8:12
@@ -64,9 +64,9 @@ error: Function _assert_is_owner must be marked as either #[external(...)], #[in
     1: #[aztec]
             at src/main.nr:18:1
     2: aztec
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:109:5
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
     3: check_each_fn_macroified
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:346:13
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:<line>:<col>
 
 error: cannot find `self` in this scope
    ┌─ src/main.nr:41:9
