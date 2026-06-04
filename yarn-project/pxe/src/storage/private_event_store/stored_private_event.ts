@@ -1,9 +1,8 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, type L2BlockId } from '@aztec/stdlib/block';
+import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 /** Serializable private event entry with scope tracking. */
@@ -20,10 +19,6 @@ export class StoredPrivateEvent {
     readonly eventSelector: EventSelector,
     readonly scopes: Set<string>,
   ) {}
-
-  get creationOrigin(): L2BlockId {
-    return { number: BlockNumber(this.l2BlockNumber), hash: this.l2BlockHash.toString() };
-  }
 
   addScope(scope: string) {
     this.scopes.add(scope);
