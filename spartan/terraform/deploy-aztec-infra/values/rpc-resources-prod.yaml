@@ -1,7 +1,17 @@
 nodeSelector:
   local-ssd: "false"
   node-type: "network"
-  cores: "2"
+
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: cores
+              operator: In
+              values:
+                - "2"
 
 replicaCount: 1
 

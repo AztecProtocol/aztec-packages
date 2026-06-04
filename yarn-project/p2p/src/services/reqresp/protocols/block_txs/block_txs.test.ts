@@ -1,4 +1,5 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockProposal, MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
@@ -25,12 +26,14 @@ describe('BlockTxRequest', () => {
     const archiveRoot = Fr.random();
     const missing = new TxHashArray(...Array.from({ length: 4 }, () => TxHash.random()));
     const txIndices = BitVector.init(16, [0, 5, 10, 15]);
+    const commitment = Buffer32.random();
 
-    const original = new BlockTxsRequest(archiveRoot, missing, txIndices);
+    const original = new BlockTxsRequest(archiveRoot, txIndices, commitment, missing);
     const buffer = original.toBuffer();
     const deserialized = BlockTxsRequest.fromBuffer(buffer);
 
     expect(deserialized.archiveRoot).toEqual(original.archiveRoot);
+    expect(deserialized.blockTxHashesCommitment).toEqual(original.blockTxHashesCommitment);
     expect(deserialized.txHashes.length).toBe(original.txHashes.length);
     expect(deserialized.txHashes).toEqual(original.txHashes);
     expect(deserialized.txIndices.getLength()).toBe(original.txIndices.getLength());
@@ -41,7 +44,7 @@ describe('BlockTxRequest', () => {
     const archiveRoot = Fr.random();
     const txIndices = BitVector.init(8, []);
 
-    const original = new BlockTxsRequest(archiveRoot, new TxHashArray(), txIndices);
+    const original = new BlockTxsRequest(archiveRoot, txIndices, Buffer32.random(), new TxHashArray());
     const buffer = original.toBuffer();
     const deserialized = BlockTxsRequest.fromBuffer(buffer);
 
@@ -62,6 +65,8 @@ describe('BlockTxRequest', () => {
     expect(request!.txHashes).toEqual(new TxHashArray(...missingHashes));
     expect(request!.txIndices.getTrueIndices()).toEqual([1, 3]);
     expect(request!.txIndices.getLength()).toBe(5);
+    // The commitment is over the full set of block tx hashes, not just the missing ones.
+    expect(request!.blockTxHashesCommitment).toEqual(BlockTxsRequest.computeBlockTxHashesCommitment(allTxHashes));
   });
 
   it('should create request without tx hashes when includeFullTxHashes=false', async () => {
@@ -121,6 +126,7 @@ describe('BlockTxRequest', () => {
     const deserialized = BlockTxsRequest.fromBuffer(buffer);
 
     expect(deserialized.archiveRoot).toEqual(original.archiveRoot);
+    expect(deserialized.blockTxHashesCommitment).toEqual(original.blockTxHashesCommitment);
     expect(deserialized.txHashes).toEqual(original.txHashes);
     expect(deserialized.txIndices.getTrueIndices()).toEqual(original.txIndices.getTrueIndices());
   });
@@ -142,18 +148,17 @@ describe('BlockTxRequest', () => {
 
 describe('BlockTxResponse', () => {
   it('should serialize and deserialize correctly', async () => {
-    const archiveRoot = Fr.random();
     const txs = new TxArray(await mockTx(), await mockTx(), await mockTx());
     const txIndices = BitVector.init(8, [0, 2, 5]);
 
-    const original = new BlockTxsResponse(archiveRoot, txs, txIndices);
+    const original = new BlockTxsResponse(txs, txIndices);
     const buffer = original.toBuffer();
     const deserialized = BlockTxsResponse.fromBuffer(buffer);
 
-    expect(deserialized.archiveRoot).toEqual(original.archiveRoot);
     expect(deserialized.txs.length).toBe(original.txs.length);
     expect(deserialized.txIndices.getLength()).toBe(original.txIndices.getLength());
     expect(deserialized.txIndices.getTrueIndices()).toEqual(original.txIndices.getTrueIndices());
+    expect(deserialized.peerHasBlock()).toBe(true);
 
     // Make sure we calculate transaction hashes before comparison
     await Promise.all([...original.txs.map(tx => tx.getTxHash()), ...deserialized.txs.map(tx => tx.getTxHash())]);
@@ -163,17 +168,24 @@ describe('BlockTxResponse', () => {
   });
 
   it('should handle empty response', () => {
-    const archiveRoot = Fr.random();
     const txs = new TxArray(); // No transactions
     const txIndices = BitVector.init(10, []); // No indices
 
-    const original = new BlockTxsResponse(archiveRoot, txs, txIndices);
+    const original = new BlockTxsResponse(txs, txIndices);
     const buffer = original.toBuffer();
     const deserialized = BlockTxsResponse.fromBuffer(buffer);
 
-    expect(deserialized.archiveRoot).toEqual(archiveRoot);
     expect(deserialized.txs.length).toBe(0);
     expect(deserialized.txIndices.getTrueIndices()).toEqual([]);
+    // A non-empty bitvector (length 10) still signals the peer has the block, just none of these txs.
+    expect(deserialized.peerHasBlock()).toBe(true);
+  });
+
+  it('peerHasBlock is false when the bitvector is empty', () => {
+    // This is the "I don't have the block but matched your hashes" signal from the responder.
+    const response = new BlockTxsResponse(new TxArray(), BitVector.init(0, []));
+    expect(response.peerHasBlock()).toBe(false);
+    expect(BlockTxsResponse.empty().peerHasBlock()).toBe(false);
   });
 });
 
@@ -181,7 +193,7 @@ describe('calculateBlockTxsResponseSize', () => {
   it('should return correct size based on requested tx indices', () => {
     const archiveRoot = Fr.random();
     const txIndices = BitVector.init(16, [0, 5, 10, 15]); // 4 txs requested
-    const request = new BlockTxsRequest(archiveRoot, new TxHashArray(), txIndices);
+    const request = new BlockTxsRequest(archiveRoot, txIndices, Buffer32.random(), new TxHashArray());
     const buffer = request.toBuffer();
 
     expect(calculateBlockTxsResponseSize(buffer)).toBe(4 * MAX_TX_SIZE_KB + 1);
@@ -190,7 +202,7 @@ describe('calculateBlockTxsResponseSize', () => {
   it('should return correct size for a single requested tx', () => {
     const archiveRoot = Fr.random();
     const txIndices = BitVector.init(8, [3]); // 1 tx requested
-    const request = new BlockTxsRequest(archiveRoot, new TxHashArray(), txIndices);
+    const request = new BlockTxsRequest(archiveRoot, txIndices, Buffer32.random(), new TxHashArray());
     const buffer = request.toBuffer();
 
     expect(calculateBlockTxsResponseSize(buffer)).toBe(MAX_TX_SIZE_KB + 1);
@@ -199,7 +211,7 @@ describe('calculateBlockTxsResponseSize', () => {
   it('should return overhead-only for request with no indices set', () => {
     const archiveRoot = Fr.random();
     const txIndices = BitVector.init(8, []); // 0 txs requested
-    const request = new BlockTxsRequest(archiveRoot, new TxHashArray(), txIndices);
+    const request = new BlockTxsRequest(archiveRoot, txIndices, Buffer32.random(), new TxHashArray());
     const buffer = request.toBuffer();
 
     expect(calculateBlockTxsResponseSize(buffer)).toBe(1); // just overhead
@@ -210,7 +222,7 @@ describe('calculateBlockTxsResponseSize', () => {
     const allIndices = Array.from({ length: count }, (_, i) => i);
     const archiveRoot = Fr.random();
     const txIndices = BitVector.init(count, allIndices);
-    const request = new BlockTxsRequest(archiveRoot, new TxHashArray(), txIndices);
+    const request = new BlockTxsRequest(archiveRoot, txIndices, Buffer32.random(), new TxHashArray());
     const buffer = request.toBuffer();
 
     expect(calculateBlockTxsResponseSize(buffer)).toBe(count * MAX_TX_SIZE_KB + 1);

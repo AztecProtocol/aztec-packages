@@ -1,6 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
-import { RollupContract } from '@aztec/ethereum/contracts';
+import { type OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import {
   BlockNumber,
@@ -44,7 +43,6 @@ describe('Archiver Store', () => {
   let debugClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobClient: MockProxy<BlobClientInterface>;
-  let epochCache: MockProxy<EpochCache>;
   let archiverStore: ArchiverDataStores;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
   let initialHeader: BlockHeader;
@@ -62,9 +60,6 @@ describe('Archiver Store', () => {
     publicClient = mock<ViemPublicClient>();
     debugClient = publicClient;
     blobClient = mock<BlobClientInterface>();
-    epochCache = mock<EpochCache>();
-    epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
-    epochCache.pipeliningOffset.mockReturnValue(0);
 
     const rollupContract = mock<RollupContract>();
     Object.defineProperty(rollupContract, 'address', { value: rollupAddress.toString(), writable: true });
@@ -101,6 +96,7 @@ describe('Archiver Store', () => {
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
       orphanProposedBlockPruneGraceSeconds: 2,
+      enableOrphanProposedBlockPruning: true,
     };
 
     const events = new EventEmitter() as ArchiverEmitter;
@@ -112,6 +108,7 @@ describe('Archiver Store', () => {
       publicClient,
       debugClient,
       rollupContract,
+      mock<OutboxContract>(),
       contractAddresses,
       archiverStore,
       config,
@@ -123,7 +120,6 @@ describe('Archiver Store', () => {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
-      epochCache,
       new DateProvider(),
     );
   });

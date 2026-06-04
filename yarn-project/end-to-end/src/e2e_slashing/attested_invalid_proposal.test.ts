@@ -186,7 +186,6 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
         blockDurationMs: BLOCK_DURATION_MS,
         l1PublishingTime: 2,
         attestationPropagationTime: 0.5,
-        enableProposerPipelining: true,
         slashDuplicateProposalPenalty: 1n,
       },
     });

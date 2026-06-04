@@ -15,10 +15,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
   DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
-  type PipelineConfig,
   type SequencerConfig,
   chainConfigMappings,
-  pipelineConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
@@ -75,7 +73,6 @@ export type SequencerClientConfig = SequencerPublisherConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
-  PipelineConfig &
   Pick<P2PConfig, 'txPublicSetupAllowListExtend'> &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
@@ -273,7 +270,6 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...l1ReaderConfigMappings,
   ...sequencerTxSenderConfigMappings,
   ...sequencerPublisherConfigMappings,
-  ...pipelineConfigMappings,
   ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 

@@ -29,13 +29,43 @@ export function isErrorClass<T extends Error>(value: unknown, errorClass: new (.
   return value instanceof errorClass || (value instanceof Error && value.name === errorClass.name);
 }
 
+const MAX_ERR_DEPTH = 10;
+
+/** Returns the first error in the cause chain matching the given error class. */
+export function getErrorCause<T extends Error>(err: unknown, errorClass: new (...args: any[]) => T): T | undefined {
+  let current = err;
+  for (let i = 0; current !== undefined && current !== null && i < MAX_ERR_DEPTH; i++) {
+    if (isErrorClass(current, errorClass)) {
+      return current;
+    }
+
+    if (typeof current === 'object' && Object.hasOwn(current, 'cause')) {
+      current = (current as { cause: unknown }).cause;
+    } else {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 /** Resolves a record-like type. Lifted from viem. */
 export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
+/** Returns a type T based on a flag: T if true, undefined if false, optional otherwise. */
+export type DefineIfFlag<Opts, Key extends keyof Opts, T> = Opts extends {
+  [K in Key]: true;
+}
+  ? T
+  : Opts extends { [K in Key]: false }
+    ? never
+    : Opts extends { [K in Key]?: boolean }
+      ? T | undefined
+      : never;
+
 /** Returns a type with fields conditionally required based on a flag */
-export type IfFlag<
+export type PickIfFlag<
   OptsSchema,
   Opts extends OptsSchema,
   Key extends keyof OptsSchema,
@@ -47,6 +77,9 @@ export type IfFlag<
     : Opts extends { [K in Key]?: boolean }
       ? Partial<Field>
       : {};
+
+/** Picks only the defined (non-undefined) properties of a type. */
+export type PickDefined<T> = Prettify<Pick<T, { [K in keyof T]: T[K] extends undefined ? never : K }[keyof T]>>;
 
 /**
  * Type-safe Event Emitter type

@@ -2,7 +2,6 @@ validator:
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
-    cores: "2"
   node:
     resources:
       requests:

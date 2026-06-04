@@ -19,8 +19,8 @@ jobs:
     strategy:
       matrix:
         workflow_id:
-          - '.github/workflows/ci3.yaml'
-          - '.github/workflows/ci3-external.yaml'
+          - '.github/workflows/ci3.yml'
+          - '.github/workflows/ci3-external.yml'
 
     steps:
       - name: Cancel active PR runs for ${{ matrix.workflow_id }}

@@ -55,14 +55,6 @@ export class MockEpochCache implements EpochCacheInterface {
     return this.getEpochAndSlotInNextL1Slot();
   }
 
-  isProposerPipeliningEnabled(): boolean {
-    return false;
-  }
-
-  pipeliningOffset(): number {
-    return 0;
-  }
-
   getProposerIndexEncoding(_epoch: EpochNumber, _slot: SlotNumber, _seed: bigint): `0x${string}` {
     return '0x00';
   }

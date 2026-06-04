@@ -674,7 +674,6 @@ const INFRASTRUCTURE_ROLE_PATTERNS = [
 // show e.g. "pool=20k vs pool=1000" alongside two compared runs. Anything not
 // in this list is excluded — full env would be huge and mostly uninteresting.
 const AZTEC_CONFIG_KEYS = [
-  "SEQ_ENABLE_PROPOSER_PIPELINING",
   "SEQ_BLOCK_DURATION_MS",
   "SEQ_MAX_TX_PER_BLOCK",
   "SEQ_MAX_TX_PER_CHECKPOINT",

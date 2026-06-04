@@ -8,12 +8,7 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
-import {
-  type ChainConfig,
-  type PipelineConfig,
-  chainConfigMappings,
-  pipelineConfigMappings,
-} from '@aztec/stdlib/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
 
 /**
@@ -26,13 +21,11 @@ import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
 export type ArchiverConfig = ArchiverSpecificConfig &
   L1ReaderConfig &
   L1ContractsConfig &
-  PipelineConfig & // required to pass through to epoch cache
   BlobClientConfig &
   ChainConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   ...blobClientConfigMapping,
-  ...pipelineConfigMappings,
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',

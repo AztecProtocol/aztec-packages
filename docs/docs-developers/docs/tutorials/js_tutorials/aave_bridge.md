@@ -369,7 +369,6 @@ import {
   computeL2ToL1MessageHash,
   computeSecretHash,
 } from "@aztec/stdlib/hash";
-import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { decodeEventLog, pad, toFunctionSelector } from "@aztec/viem";
 import { foundry } from "@aztec/viem/chains";

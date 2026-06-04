@@ -1,11 +1,14 @@
 import { MAX_CHECKPOINTS_PER_EPOCH, OUT_HASH_TREE_LEAF_COUNT } from '@aztec/constants';
-import type { EpochNumber } from '@aztec/foundation/branded-types';
+import { type EpochNumber, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SiblingPath, UnbalancedMerkleTreeCalculator, computeUnbalancedShaRoot } from '@aztec/foundation/trees';
 
+import { z } from 'zod';
+
 import type { AztecNode } from '../interfaces/aztec-node.js';
+import { schemas } from '../schemas/schemas.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { TxReceipt } from '../tx/tx_receipt.js';
+import type { TxReceipt } from '../tx/tx_receipt.js';
 
 /**
  * Provides access to the L1 Outbox's per-epoch roots so the witness helper can pick the smallest
@@ -124,6 +127,19 @@ export type L2ToL1MembershipWitness = {
 };
 
 /**
+ * Zod schema for {@link L2ToL1MembershipWitness}. The sibling-path length varies with the shape of
+ * the per-epoch tree, so we use the unsized `SiblingPath.schema` here rather than a fixed-height
+ * `schemaFor`.
+ */
+export const L2ToL1MembershipWitnessSchema = z.object({
+  epochNumber: EpochNumberSchema,
+  numCheckpointsInEpoch: schemas.Integer,
+  root: schemas.Fr,
+  leafIndex: schemas.BigInt,
+  siblingPath: SiblingPath.schema,
+}) as unknown as z.ZodType<L2ToL1MembershipWitness>;
+
+/**
  * Computes the L2 to L1 membership witness for a given message in a transaction.
  *
  * Queries the L1 Outbox to find the smallest partial-proof root that covers the tx's checkpoint,
@@ -144,26 +160,27 @@ export type L2ToL1MembershipWitness = {
  *   If not provided, the message is found by scanning the tx's messages (throws if duplicates exist).
  */
 export async function computeL2ToL1MembershipWitness(
-  node: Pick<AztecNode, 'getL2ToL1Messages' | 'getTxReceipt' | 'getTxEffect' | 'getBlock' | 'getCheckpointsData'>,
+  node: Pick<AztecNode, 'getL2ToL1Messages' | 'getTxReceipt' | 'getBlock' | 'getCheckpointsData'>,
   outboxOrRoots: OutboxRootsReader | Fr[],
   message: Fr,
-  txHashOrReceipt: TxHash | Pick<TxReceipt, 'txHash' | 'epochNumber' | 'blockNumber'>,
+  txHashOrReceipt: TxHash | Pick<TxReceipt, 'txHash' | 'epochNumber' | 'blockNumber' | 'txIndexInBlock'>,
   messageIndexInTx?: number,
 ): Promise<L2ToL1MembershipWitness | undefined> {
-  const receipt = 'txHash' in txHashOrReceipt ? txHashOrReceipt : await node.getTxReceipt(txHashOrReceipt);
-  const { txHash, epochNumber, blockNumber } = receipt;
-  if (epochNumber === undefined || blockNumber === undefined) {
+  const receipt =
+    'txHash' in txHashOrReceipt ? txHashOrReceipt : await node.getTxReceipt(txHashOrReceipt, { includeTxEffect: true });
+
+  const { epochNumber, blockNumber, txIndexInBlock } = receipt;
+  if (epochNumber === undefined || blockNumber === undefined || txIndexInBlock === undefined) {
     return undefined;
   }
 
-  const [messagesInEpoch, block, txEffect, checkpointsData] = await Promise.all([
+  const [messagesInEpoch, block, checkpointsData] = await Promise.all([
     node.getL2ToL1Messages(epochNumber),
     node.getBlock(blockNumber),
-    node.getTxEffect(txHash),
     node.getCheckpointsData({ epoch: epochNumber }),
   ]);
 
-  if (messagesInEpoch.length === 0 || !block || !txEffect) {
+  if (messagesInEpoch.length === 0 || !block) {
     return undefined;
   }
 
@@ -173,7 +190,7 @@ export async function computeL2ToL1MembershipWitness(
   }
 
   const blockIndex = block.indexWithinCheckpoint;
-  const txIndex = txEffect.txIndexInBlock;
+  const txIndex = txIndexInBlock;
 
   // Pick the smallest partial-proof root on the Outbox that covers checkpointIndex. The Outbox
   // stores roots keyed by `numCheckpointsInEpoch - 1`, so to cover a tx in checkpoint at index

@@ -22,7 +22,7 @@ import { createPublicClient, encodeAbiParameters, keccak256 } from 'viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
-/** When proposer pipelining is enabled, the proposer builds one slot ahead. */
+/** The proposer pipelines by building one slot ahead. */
 export const PROPOSER_PIPELINING_SLOT_OFFSET = 1;
 
 /** Flat return type for compound epoch/slot getters. */
@@ -68,8 +68,6 @@ export interface EpochCacheInterface {
   getEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint };
   /** Returns epoch/slot info for the next L1 slot with pipeline offset applied. */
   getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint };
-  isProposerPipeliningEnabled(): boolean;
-  pipeliningOffset(): number;
   isEscapeHatchOpen(epoch: EpochNumber): Promise<boolean>;
   isEscapeHatchOpenAtSlot(slot: SlotTag): Promise<boolean>;
   getProposerIndexEncoding(epoch: EpochNumber, slot: SlotNumber, seed: bigint): `0x${string}`;
@@ -102,8 +100,6 @@ export class EpochCache implements EpochCacheInterface {
   private lastValidatorRefresh = 0;
   private readonly log: Logger = createLogger('epoch-cache');
 
-  protected enableProposerPipelining: boolean;
-
   constructor(
     private rollup: RollupContract,
     private readonly l1constants: L1RollupConstants & {
@@ -111,12 +107,10 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForRandao: number;
     },
     private readonly dateProvider: DateProvider = new DateProvider(),
-    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60, enableProposerPipelining: false },
+    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60 },
   ) {
-    this.enableProposerPipelining = this.config.enableProposerPipelining;
     this.log.debug(`Initialized EpochCache`, {
       l1constants,
-      enableProposerPipelining: this.enableProposerPipelining,
     });
   }
 
@@ -179,20 +173,11 @@ export class EpochCache implements EpochCacheInterface {
     return new EpochCache(rollup, l1RollupConstants, deps.dateProvider, {
       cacheSize: 12,
       validatorRefreshIntervalSeconds: 60,
-      enableProposerPipelining: config.enableProposerPipelining,
     });
   }
 
   public getL1Constants(): L1RollupConstants {
     return this.l1constants;
-  }
-
-  public isProposerPipeliningEnabled(): boolean {
-    return this.enableProposerPipelining;
-  }
-
-  public pipeliningOffset(): number {
-    return this.enableProposerPipelining ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
   }
 
   public getSlotNow(): SlotNumber {
@@ -201,7 +186,7 @@ export class EpochCache implements EpochCacheInterface {
 
   public getTargetSlot(): SlotNumber {
     const slotNow = this.getSlotNow();
-    const offset = this.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
+    const offset = PROPOSER_PIPELINING_SLOT_OFFSET;
     return SlotNumber(slotNow + offset);
   }
 
@@ -230,10 +215,6 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   public getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
-    if (!this.isProposerPipeliningEnabled()) {
-      return this.getEpochAndSlotInNextL1Slot();
-    }
-
     const result = this.getEpochAndSlotInNextL1Slot();
     const offset = PROPOSER_PIPELINING_SLOT_OFFSET;
     const targetSlot = SlotNumber(result.slot + offset);
@@ -506,7 +487,7 @@ export class EpochCache implements EpochCacheInterface {
   /** Returns the target and next L2 slot in the next L1 slot. */
   public getTargetAndNextSlot(): { targetSlot: SlotNumber; nextSlot: SlotNumber } {
     const nowSeconds = BigInt(this.dateProvider.nowInSeconds());
-    const offset = this.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
+    const offset = PROPOSER_PIPELINING_SLOT_OFFSET;
 
     const currentSlot = getSlotAtTimestamp(nowSeconds, this.l1constants);
     const targetSlot = SlotNumber(currentSlot + offset);
