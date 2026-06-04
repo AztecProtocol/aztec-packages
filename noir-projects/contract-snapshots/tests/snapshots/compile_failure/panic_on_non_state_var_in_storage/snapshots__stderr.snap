@@ -17,7 +17,7 @@ error: Type NonStateVar does not implement StateVariable and hence cannot be pla
 error: Could not resolve 'init' in path
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
    │
-<line> │             let storage = Storage::init(&mut context);
+   │             let storage = Storage::init(&mut context);
    │                                    ----
    │
    ┌─ src/main.nr:4:1
@@ -29,7 +29,7 @@ error: Could not resolve 'init' in path
 error: Type annotation needed
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
    │
-<line> │             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+   │             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
    │                                                        --- Could not determine the type of the generic argument `Storage` declared on the struct `ContractSelfPrivate`
    │
    ┌─ src/main.nr:4:1

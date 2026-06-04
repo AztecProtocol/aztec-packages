@@ -5,7 +5,7 @@ expression: stderr
 error: Trait crate::authwit::authorization_interface::AuthorizationInterface not found
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
    │
-<line> │     let authorization_interface = quote { crate::authwit::authorization_interface::AuthorizationInterface };
+   │     let authorization_interface = quote { crate::authwit::authorization_interface::AuthorizationInterface };
    │                                           ---------------------------------------------------------------
    │
    ┌─ src/main.nr:24:5
@@ -17,7 +17,7 @@ error: Trait crate::authwit::authorization_interface::AuthorizationInterface not
 error: Could not resolve 'authwit' in path
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
    │
-<line> │     let authorization_selector_type = quote { crate::authwit::AuthorizationSelector };
+   │     let authorization_selector_type = quote { crate::authwit::AuthorizationSelector };
    │                                                      -------
    │
    ┌─ src/main.nr:24:5
@@ -29,7 +29,7 @@ error: Could not resolve 'authwit' in path
 error: check_trait_impl_where_clause_matches_trait_where_clause: missing trait ID
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
    │
-<line> │     let name = s.name();
+   │     let name = s.name();
    │                --------
    │
    ┌─ src/main.nr:24:5
@@ -41,7 +41,7 @@ error: check_trait_impl_where_clause_matches_trait_where_clause: missing trait I
 error: check_trait_impl_method_matches_declaration: missing trait impl
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
    │
-<line> │             fn get_authorization_selector(self) -> $authorization_selector_type {
+   │             fn get_authorization_selector(self) -> $authorization_selector_type {
    │                --------------------------
    │
    ┌─ src/main.nr:24:5

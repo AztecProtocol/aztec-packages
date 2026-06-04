@@ -5,10 +5,10 @@ expression: stderr
 error: event's serialized length exceeds the maximum allowed for private events
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/messages/logs/event.nr:<line>:<col>
    │  
-<line> │ ╭     std::static_assert(
-<line> │ │         <Event as Serialize>::N <= MAX_EVENT_SERIALIZED_LEN,
-<line> │ │         "event's serialized length exceeds the maximum allowed for private events",
-<line> │ │     );
+   │ ╭     std::static_assert(
+   │ │         <Event as Serialize>::N <= MAX_EVENT_SERIALIZED_LEN,
+   │ │         "event's serialized length exceeds the maximum allowed for private events",
+   │ │     );
    │ ╰─────'
    │  
    = Call stack:

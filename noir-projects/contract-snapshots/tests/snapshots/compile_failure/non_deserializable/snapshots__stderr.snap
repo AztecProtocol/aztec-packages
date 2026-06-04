@@ -5,7 +5,7 @@ expression: stderr
 error: Contract function 'bad_private_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
-<line> │             return_type.implements(deserialize_constraint),
+    │             return_type.implements(deserialize_constraint),
     │             ---------------------------------------------- Assertion failed
     │
     = Call stack:
@@ -17,7 +17,7 @@ error: Contract function 'bad_private_return' returns a value of type NotDeseria
 error: Parameter '_p' of contract function 'bad_private_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
-<line> │             param_type.implements(deserialize_constraint),
+    │             param_type.implements(deserialize_constraint),
     │             --------------------------------------------- Assertion failed
     │
     = Call stack:
@@ -29,7 +29,7 @@ error: Parameter '_p' of contract function 'bad_private_param' has type NotDeser
 error: Contract function 'bad_public_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
-<line> │             return_type.implements(deserialize_constraint),
+    │             return_type.implements(deserialize_constraint),
     │             ---------------------------------------------- Assertion failed
     │
     = Call stack:
@@ -41,7 +41,7 @@ error: Contract function 'bad_public_return' returns a value of type NotDeserial
 error: Parameter '_p' of contract function 'bad_public_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
-<line> │             param_type.implements(deserialize_constraint),
+    │             param_type.implements(deserialize_constraint),
     │             --------------------------------------------- Assertion failed
     │
     = Call stack:
@@ -53,7 +53,7 @@ error: Parameter '_p' of contract function 'bad_public_param' has type NotDeseri
 error: Contract function 'bad_utility_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
-<line> │             return_type.implements(deserialize_constraint),
+    │             return_type.implements(deserialize_constraint),
     │             ---------------------------------------------- Assertion failed
     │
     = Call stack:
@@ -65,7 +65,7 @@ error: Contract function 'bad_utility_return' returns a value of type NotDeseria
 error: Parameter '_p' of contract function 'bad_utility_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>
     │
-<line> │             param_type.implements(deserialize_constraint),
+    │             param_type.implements(deserialize_constraint),
     │             --------------------------------------------- Assertion failed
     │
     = Call stack:

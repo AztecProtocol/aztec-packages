@@ -39,8 +39,8 @@ fn nargo(dir: &Path) -> Command {
 /// 2. Replaces the absolute repo prefix with `<repo>` so call-stack lines
 ///    pointing into `aztec-nr/aztec/src/macros/...` are stable across machines.
 /// 3. Replaces `:line:col` suffixes on `<repo>` lines with `:<line>:<col>`, and
-///    code-frame gutter numbers in frames headed by a `<repo>` path with
-///    `<line>`. Any macro edit shifts these positions, which would churn every
+///    blanks code-frame gutter numbers in frames headed by a `<repo>` path.
+///    Any macro edit shifts these positions, which would churn every
 ///    snapshot with diffs that carry no signal: the tests verify error text,
 ///    user-code locations and call-stack shape, not exact positions inside the
 ///    macro sources. Locations in the test program itself (`src/main.nr`) and
@@ -63,7 +63,7 @@ fn scrub_stderr(s: String) -> String {
             if l.contains("<repo>/") {
                 scrub_location_suffix(&l)
             } else if in_repo_frame {
-                scrub_gutter_number(trimmed).unwrap_or(l)
+                scrub_gutter_number(&l).unwrap_or(l)
             } else {
                 l
             }
@@ -88,13 +88,19 @@ fn scrub_location_suffix(l: &str) -> String {
     l.to_string()
 }
 
-/// `164 │ some code` -> `<line> │ some code` for code-frame gutter lines.
-fn scrub_gutter_number(trimmed: &str) -> Option<String> {
+/// ` 164 │ some code` -> `     │ some code` for code-frame gutter lines.
+fn scrub_gutter_number(l: &str) -> Option<String> {
+    let trimmed = l.trim_start();
+    let indent = l.len() - trimmed.len();
     let digits = trimmed.find(|c: char| !c.is_ascii_digit())?;
     if digits == 0 || !trimmed[digits..].starts_with(" │") {
         return None;
     }
-    Some(format!("<line>{}", &trimmed[digits..]))
+    Some(format!(
+        "{}{}",
+        " ".repeat(indent + digits),
+        &trimmed[digits..]
+    ))
 }
 
 /// Asserts `nargo compile` fails for `dir` and snapshots scrubbed stderr

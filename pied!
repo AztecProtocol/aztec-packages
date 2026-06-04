@@ -1,0 +1,279 @@
+[1mdiff --git a/noir-projects/contract-snapshots/tests/snapshots.rs b/noir-projects/contract-snapshots/tests/snapshots.rs[m
+[1mindex 6943c09556..a0b8c005ae 100644[m
+[1m--- a/noir-projects/contract-snapshots/tests/snapshots.rs[m
+[1m+++ b/noir-projects/contract-snapshots/tests/snapshots.rs[m
+[36m@@ -39,8 +39,8 @@[m [mfn nargo(dir: &Path) -> Command {[m
+ /// 2. Replaces the absolute repo prefix with `<repo>` so call-stack lines[m
+ ///    pointing into `aztec-nr/aztec/src/macros/...` are stable across machines.[m
+ /// 3. Replaces `:line:col` suffixes on `<repo>` lines with `:<line>:<col>`, and[m
+[31m-///    code-frame gutter numbers in frames headed by a `<repo>` path with[m
+[31m-///    `<line>`. Any macro edit shifts these positions, which would churn every[m
+[32m+[m[32m///    blanks code-frame gutter numbers in frames headed by a `<repo>` path.[m
+[32m+[m[32m///    Any macro edit shifts these positions, which would churn every[m
+ ///    snapshot with diffs that carry no signal: the tests verify error text,[m
+ ///    user-code locations and call-stack shape, not exact positions inside the[m
+ ///    macro sources. Locations in the test program itself (`src/main.nr`) and[m
+[36m@@ -63,7 +63,7 @@[m [mfn scrub_stderr(s: String) -> String {[m
+             if l.contains("<repo>/") {[m
+                 scrub_location_suffix(&l)[m
+             } else if in_repo_frame {[m
+[31m-                scrub_gutter_number(trimmed).unwrap_or(l)[m
+[32m+[m[32m                scrub_gutter_number(&l).unwrap_or(l)[m
+             } else {[m
+                 l[m
+             }[m
+[36m@@ -88,13 +88,19 @@[m [mfn scrub_location_suffix(l: &str) -> String {[m
+     l.to_string()[m
+ }[m
+ [m
+[31m-/// `164 │ some code` -> `<line> │ some code` for code-frame gutter lines.[m
+[31m-fn scrub_gutter_number(trimmed: &str) -> Option<String> {[m
+[32m+[m[32m/// ` 164 │ some code` -> `     │ some code` for code-frame gutter lines.[m
+[32m+[m[32mfn scrub_gutter_number(l: &str) -> Option<String> {[m
+[32m+[m[32m    let trimmed = l.trim_start();[m
+[32m+[m[32m    let indent = l.len() - trimmed.len();[m
+     let digits = trimmed.find(|c: char| !c.is_ascii_digit())?;[m
+     if digits == 0 || !trimmed[digits..].starts_with(" │") {[m
+         return None;[m
+     }[m
+[31m-    Some(format!("<line>{}", &trimmed[digits..]))[m
+[32m+[m[32m    Some(format!([m
+[32m+[m[32m        "{}{}",[m
+[32m+[m[32m        " ".repeat(indent + digits),[m
+[32m+[m[32m        &trimmed[digits..][m
+[32m+[m[32m    ))[m
+ }[m
+ [m
+ /// Asserts `nargo compile` fails for `dir` and snapshots scrubbed stderr[m
+[1mdiff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/authorization_selector_collision/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/authorization_selector_collision/snapshots__stderr.snap[m
+[1mindex 3dbb48f793..973c4afeb9 100644[m
+[1m--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/authorization_selector_collision/snapshots__stderr.snap[m
+[1m+++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/authorization_selector_collision/snapshots__stderr.snap[m
+[36m@@ -5,7 +5,7 @@[m [mexpression: stderr[m
+ error: Trait crate::authwit::authorization_interface::AuthorizationInterface not found[m
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>[m
+    │[m
+[31m-<line> │     let authorization_interface = quote { crate::authwit::authorization_interface::AuthorizationInterface };[m
+[32m+[m[32m   │     let authorization_interface = quote { crate::authwit::authorization_interface::AuthorizationInterface };[m
+    │                                           ---------------------------------------------------------------[m
+    │[m
+    ┌─ src/main.nr:24:5[m
+[36m@@ -17,7 +17,7 @@[m [merror: Trait crate::authwit::authorization_interface::AuthorizationInterface not[m
+ error: Could not resolve 'authwit' in path[m
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>[m
+    │[m
+[31m-<line> │     let authorization_selector_type = quote { crate::authwit::AuthorizationSelector };[m
+[32m+[m[32m   │     let authorization_selector_type = quote { crate::authwit::AuthorizationSelector };[m
+    │                                                      -------[m
+    │[m
+    ┌─ src/main.nr:24:5[m
+[36m@@ -29,7 +29,7 @@[m [merror: Could not resolve 'authwit' in path[m
+ error: check_trait_impl_where_clause_matches_trait_where_clause: missing trait ID[m
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>[m
+    │[m
+[31m-<line> │     let name = s.name();[m
+[32m+[m[32m   │     let name = s.name();[m
+    │                --------[m
+    │[m
+    ┌─ src/main.nr:24:5[m
+[36m@@ -41,7 +41,7 @@[m [merror: check_trait_impl_where_clause_matches_trait_where_clause: missing trait I[m
+ error: check_trait_impl_method_matches_declaration: missing trait impl[m
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>[m
+    │[m
+[31m-<line> │             fn get_authorization_selector(self) -> $authorization_selector_type {[m
+[32m+[m[32m   │             fn get_authorization_selector(self) -> $authorization_selector_type {[m
+    │                --------------------------[m
+    │[m
+    ┌─ src/main.nr:24:5[m
+[1mdiff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/invalid_event/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/invalid_event/snapshots__stderr.snap[m
+[1mindex 7c8af6cff9..a78791b9af 100644[m
+[1m--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/invalid_event/snapshots__stderr.snap[m
+[1m+++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/invalid_event/snapshots__stderr.snap[m
+[36m@@ -5,10 +5,10 @@[m [mexpression: stderr[m
+ error: event's serialized length exceeds the maximum allowed for private events[m
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/messages/logs/event.nr:<line>:<col>[m
+    │  [m
+[31m-<line> │ ╭     std::static_assert([m
+[31m-<line> │ │         <Event as Serialize>::N <= MAX_EVENT_SERIALIZED_LEN,[m
+[31m-<line> │ │         "event's serialized length exceeds the maximum allowed for private events",[m
+[31m-<line> │ │     );[m
+[32m+[m[32m   │ ╭     std::static_assert([m
+[32m+[m[32m   │ │         <Event as Serialize>::N <= MAX_EVENT_SERIALIZED_LEN,[m
+[32m+[m[32m   │ │         "event's serialized length exceeds the maximum allowed for private events",[m
+[32m+[m[32m   │ │     );[m
+    │ ╰─────'[m
+    │  [m
+    = Call stack:[m
+[1mdiff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/invalid_note/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/invalid_note/snapshots__stderr.snap[m
+[1mindex 5ec6ccf000..0e2fc50290 100644[m
+[1m--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/invalid_note/snapshots__stderr.snap[m
+[1m+++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/invalid_note/snapshots__stderr.snap[m
+[36m@@ -5,7 +5,7 @@[m [mexpression: stderr[m
+ error: InvalidNote has a packed length of 9 fields, which exceeds the maximum allowed length of 8 fields. See https://docs.aztec.network/errors/4[m
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/notes.nr:<line>:<col>[m
+    │[m
+[31m-<line> │                 std::static_assert(note_packed_len <= $max_note_packed_len, f"{note_type_name} has a packed length of {note_packed_len} fields, which exceeds the maximum allowed length of {max_note_packed_len} fields. See https://docs.aztec.network/errors/4");[m
+[32m+[m[32m   │                 std::static_assert(note_packed_len <= $max_note_packed_len, f"{note_type_name} has a packed length of {note_packed_len} fields, which exceeds the maximum allowed length of {max_note_packed_len} fields. See https://docs.aztec.network/errors/4");[m
+    │                 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------[m
+    │[m
+    = Call stack:[m
+[1mdiff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/non_deserializable/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/non_deserializable/snapshots__stderr.snap[m
+[1mindex c177cfe046..dace39f79e 100644[m
+[1m--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/non_deserializable/snapshots__stderr.snap[m
+[1m+++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/non_deserializable/snapshots__stderr.snap[m
+[36m@@ -5,7 +5,7 @@[m [mexpression: stderr[m
+ error: Contract function 'bad_private_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             return_type.implements(deserialize_constraint),[m
+[32m+[m[32m    │             return_type.implements(deserialize_constraint),[m
+     │             ---------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[36m@@ -17,7 +17,7 @@[m [merror: Contract function 'bad_private_return' returns a value of type NotDeseria[m
+ error: Parameter '_p' of contract function 'bad_private_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             param_type.implements(deserialize_constraint),[m
+[32m+[m[32m    │             param_type.implements(deserialize_constraint),[m
+     │             --------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[36m@@ -29,7 +29,7 @@[m [merror: Parameter '_p' of contract function 'bad_private_param' has type NotDeser[m
+ error: Contract function 'bad_public_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             return_type.implements(deserialize_constraint),[m
+[32m+[m[32m    │             return_type.implements(deserialize_constraint),[m
+     │             ---------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[36m@@ -41,7 +41,7 @@[m [merror: Contract function 'bad_public_return' returns a value of type NotDeserial[m
+ error: Parameter '_p' of contract function 'bad_public_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             param_type.implements(deserialize_constraint),[m
+[32m+[m[32m    │             param_type.implements(deserialize_constraint),[m
+     │             --------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[36m@@ -53,7 +53,7 @@[m [merror: Parameter '_p' of contract function 'bad_public_param' has type NotDeseri[m
+ error: Contract function 'bad_utility_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             return_type.implements(deserialize_constraint),[m
+[32m+[m[32m    │             return_type.implements(deserialize_constraint),[m
+     │             ---------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[36m@@ -65,7 +65,7 @@[m [merror: Contract function 'bad_utility_return' returns a value of type NotDeseria[m
+ error: Parameter '_p' of contract function 'bad_utility_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             param_type.implements(deserialize_constraint),[m
+[32m+[m[32m    │             param_type.implements(deserialize_constraint),[m
+     │             --------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[1mdiff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/non_serializable/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/non_serializable/snapshots__stderr.snap[m
+[1mindex 8862456884..26555b3870 100644[m
+[1m--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/non_serializable/snapshots__stderr.snap[m
+[1m+++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/non_serializable/snapshots__stderr.snap[m
+[36m@@ -5,7 +5,7 @@[m [mexpression: stderr[m
+ error: Contract function 'bad_private_return' returns a value of type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             return_type.implements(serialize_constraint),[m
+[32m+[m[32m    │             return_type.implements(serialize_constraint),[m
+     │             -------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[36m@@ -17,7 +17,7 @@[m [merror: Contract function 'bad_private_return' returns a value of type NotSeriali[m
+ error: Parameter '_p' of contract function 'bad_private_param' has type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             param_type.implements(serialize_constraint),[m
+[32m+[m[32m    │             param_type.implements(serialize_constraint),[m
+     │             ------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[36m@@ -29,7 +29,7 @@[m [merror: Parameter '_p' of contract function 'bad_private_param' has type NotSeria[m
+ error: Contract function 'bad_public_return' returns a value of type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             return_type.implements(serialize_constraint),[m
+[32m+[m[32m    │             return_type.implements(serialize_constraint),[m
+     │             -------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[36m@@ -41,7 +41,7 @@[m [merror: Contract function 'bad_public_return' returns a value of type NotSerializ[m
+ error: Parameter '_p' of contract function 'bad_public_param' has type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             param_type.implements(serialize_constraint),[m
+[32m+[m[32m    │             param_type.implements(serialize_constraint),[m
+     │             ------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[36m@@ -53,7 +53,7 @@[m [merror: Parameter '_p' of contract function 'bad_public_param' has type NotSerial[m
+ error: Contract function 'bad_utility_return' returns a value of type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             return_type.implements(serialize_constraint),[m
+[32m+[m[32m    │             return_type.implements(serialize_constraint),[m
+     │             -------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[36m@@ -65,7 +65,7 @@[m [merror: Contract function 'bad_utility_return' returns a value of type NotSeriali[m
+ error: Parameter '_p' of contract function 'bad_utility_param' has type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.[m
+     ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/utils.nr:<line>:<col>[m
+     │[m
+[31m-<line> │             param_type.implements(serialize_constraint),[m
+[32m+[m[32m    │             param_type.implements(serialize_constraint),[m
+     │             ------------------------------------------- Assertion failed[m
+     │[m
+     = Call stack:[m
+[1mdiff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_non_state_var_in_storage/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_non_state_var_in_storage/snapshots__stderr.snap[m
+[1mindex a11cb7d9d0..0d6a73af50 100644[m
+[1m--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_non_state_var_in_storage/snapshots__stderr.snap[m
+[1m+++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_non_state_var_in_storage/snapshots__stderr.snap[m
+[36m@@ -17,7 +17,7 @@[m [merror: Type NonStateVar does not implement StateVariable and hence cannot be pla[m
+ error: Could not resolve 'init' in path[m
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>[m
+    │[m
+[31m-<line> │             let storage = Storage::init(&mut context);[m
+[32m+[m[32m   │             let storage = Storage::init(&mut context);[m
+    │                                    ----[m
+    │[m
+    ┌─ src/main.nr:4:1[m
+[36m@@ -29,7 +29,7 @@[m [merror: Could not resolve 'init' in path[m
+ error: Type annotation needed[m
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>[m
+    │[m
+[31m-<line> │             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)[m
+[32m+[m[32m   │             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)[m
+    │                                                        --- Could not determine the type of the generic argument `Storage` declared on the struct `ContractSelfPrivate`[m
+    │[m
+    ┌─ src/main.nr:4:1[m
+[1mdiff --git a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_owned_state_var_in_storage/snapshots__stderr.snap b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_owned_state_var_in_storage/snapshots__stderr.snap[m
+[1mindex 5ff06d62a1..dc05876667 100644[m
+[1m--- a/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_owned_state_var_in_storage/snapshots__stderr.snap[m
+[1m+++ b/noir-projects/contract-snapshots/tests/snapshots/compile_failure/panic_on_owned_state_var_in_storage/snapshots__stderr.snap[m
+[36m@@ -17,7 +17,7 @@[m [merror: Type PrivateImmutable<Field, Context> implements OwnedStateVariable and h[m
+ error: Could not resolve 'init' in path[m
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>[m
+    │[m
+[31m-<line> │             let storage = Storage::init(&mut context);[m
+[32m+[m[32m   │             let storage = Storage::init(&mut context);[m
+    │                                    ----[m
+    │[m
+    ┌─ src/main.nr:4:1[m
+[36m@@ -29,7 +29,7 @@[m [merror: Could not resolve 'init' in path[m
+ error: Type annotation needed[m
+    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>[m
+    │[m
+[31m-<line> │             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)[m
+[32m+[m[32m   │             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)[m
+    │                                                        --- Could not determine the type of the generic argument `Storage` declared on the struct `ContractSelfPrivate`[m
+    │[m
+    ┌─ src/main.nr:4:1[m
