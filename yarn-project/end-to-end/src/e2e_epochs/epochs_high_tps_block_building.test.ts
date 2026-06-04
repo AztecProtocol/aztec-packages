@@ -101,7 +101,6 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 100,
       skipInitialSequencer: true,
-      enableProposerPipelining: true,
       inboxLag: 2,
     });
 

@@ -740,7 +740,7 @@ export class P2PClient extends WithTracer implements P2P {
     const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
 
     let slot;
-    if (this.epochCache.isProposerPipeliningEnabled() && hasProposedCheckpoint) {
+    if (hasProposedCheckpoint) {
       const { targetSlot } = this.epochCache.getTargetAndNextSlot();
       slot = targetSlot;
     } else {

@@ -1,4 +1,4 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
@@ -15,10 +15,19 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
-import { MessageContext } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, AppTaggingSecretKind, MessageContext, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
-import { BlockHeader, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  Capsule,
+  GlobalVariables,
+  MinedTxReceipt,
+  TxEffect,
+  TxExecutionResult,
+  TxHash,
+  TxStatus,
+} from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
@@ -38,7 +47,12 @@ import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+<<<<<<< HEAD
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
+=======
+import { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
+>>>>>>> origin/public-next
 
 describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
@@ -471,7 +485,7 @@ describe('Utility Execution test suite', () => {
         const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
         const [responseValue] = response.readAll(service);
         expect(responseValue.isNone()).toBe(true);
-        expect(aztecNode.getTxEffect).not.toHaveBeenCalled();
+        expect(aztecNode.getTxReceipt).not.toHaveBeenCalled();
       });
 
       it('resolves a valid tx hash into a MessageContext', async () => {
@@ -479,12 +493,25 @@ describe('Utility Execution test suite', () => {
         const noteHash = Fr.random();
         const firstNullifier = Fr.random();
 
-        aztecNode.getTxEffect.mockResolvedValueOnce({
-          l2BlockNumber: BlockNumber(syncedBlockNumber - 1),
-          l2BlockHash: BlockHash.random(),
-          txIndexInBlock: 0,
-          data: { txHash, noteHashes: [noteHash], nullifiers: [firstNullifier] },
-        } as any);
+        aztecNode.getTxReceipt.mockResolvedValueOnce(
+          new MinedTxReceipt(
+            txHash,
+            TxStatus.PROPOSED,
+            TxExecutionResult.SUCCESS,
+            0n,
+            BlockHash.random(),
+            BlockNumber(syncedBlockNumber - 1),
+            SlotNumber(0),
+            0,
+            EpochNumber(1),
+            TxEffect.from({
+              ...(await TxEffect.random()),
+              txHash,
+              noteHashes: [noteHash],
+              nullifiers: [firstNullifier],
+            }),
+          ),
+        );
 
         const requests = EphemeralArray.fromValues(service, [txHash.hash]);
 
@@ -497,12 +524,25 @@ describe('Utility Execution test suite', () => {
       it('sets null in response for tx effects beyond anchor block', async () => {
         const txHash = TxHash.random();
 
-        aztecNode.getTxEffect.mockResolvedValueOnce({
-          l2BlockNumber: BlockNumber(syncedBlockNumber + 1),
-          l2BlockHash: BlockHash.random(),
-          txIndexInBlock: 0,
-          data: { txHash, noteHashes: [], nullifiers: [Fr.random()] },
-        } as any);
+        aztecNode.getTxReceipt.mockResolvedValueOnce(
+          new MinedTxReceipt(
+            txHash,
+            TxStatus.PROPOSED,
+            TxExecutionResult.SUCCESS,
+            0n,
+            BlockHash.random(),
+            BlockNumber(syncedBlockNumber + 1),
+            SlotNumber(0),
+            0,
+            EpochNumber(1),
+            TxEffect.from({
+              ...(await TxEffect.random()),
+              txHash,
+              noteHashes: [],
+              nullifiers: [Fr.random()],
+            }),
+          ),
+        );
 
         const requests = EphemeralArray.fromValues(service, [txHash.hash]);
 
@@ -586,5 +626,64 @@ describe('Utility Execution test suite', () => {
         );
       });
     });
+<<<<<<< HEAD
+=======
+
+    describe('getPendingTaggedLogs', () => {
+      const service = new EphemeralArrayService();
+
+      it('searches tags derived from provided secrets', async () => {
+        // Capture every tag the node is queried with so we can assert the provided secret was searched.
+        const queriedTags: Fr[] = [];
+        aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+          for (const entry of query.tags) {
+            queriedTags.push('tag' in entry ? entry.tag.value : entry.value);
+          }
+          return Promise.resolve(query.tags.map(() => []));
+        });
+
+        const providedSecret = Fr.random();
+        const providedSecrets = EphemeralArray.fromValues(service, [
+          new ProvidedSecret(providedSecret, AppTaggingSecretKind.UNCONSTRAINED),
+        ]);
+
+        await utilityExecutionOracle.getPendingTaggedLogs(owner, providedSecrets);
+
+        // The first-window tag of the provided secret must appear among the tags queried against the node.
+        const expectedTag = await SiloedTag.compute({
+          extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
+          index: 0,
+        });
+        expect(queriedTags.map(tag => tag.toString())).toContain(expectedTag.value.toString());
+      });
+    });
+
+    const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs>) => {
+      const scopes = overrides?.scopes ?? [];
+      return new UtilityExecutionOracle({
+        contractAddress,
+        authWitnesses: [],
+        capsules: [],
+        anchorBlockHeader,
+        contractStore,
+        noteStore,
+        keyStore,
+        addressStore,
+        aztecNode,
+        recipientTaggingStore,
+        senderAddressBookStore,
+        capsuleService: new CapsuleService(capsuleStore, scopes),
+        privateEventStore,
+        messageContextService,
+        contractSyncService,
+        jobId: 'test-job-id',
+        scopes,
+        l2TipsStore,
+        simulator,
+        utilityExecutor: () => Promise.resolve(),
+        ...overrides,
+      });
+    };
+>>>>>>> origin/public-next
   });
 });

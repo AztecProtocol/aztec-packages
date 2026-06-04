@@ -582,7 +582,31 @@ curl -X POST http://localhost:8080 \
   -d '{"jsonrpc":"2.0","method":"node_getL1ToL2MessageCheckpoint","params":["0x1234..."],"id":1}'
 ```
 
+### node_getL2ToL1MembershipWitness
+
+Returns the L2-to-L1 membership witness for a message emitted by a transaction.
+
+**Parameters**:
+
+1. `txHash` - `TxHash` - The transaction that emitted the L2-to-L1 message.
+2. `message` - `Fr` - The message hash to prove inclusion of.
+3. `messageIndexInTx` - `number` - Optional index of the message within the transaction. Use this when the same message hash appears multiple times in the transaction.
+
+**Returns**: `L2ToL1MembershipWitness | undefined` - The membership witness, or undefined if the transaction is not settled or no covering Outbox root is available yet.
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H "Content-Type: application/json" \
+  -d "{\"jsonrpc\":\"2.0\",\"method\":\"node_getL2ToL1MembershipWitness\",\"params\":[\"0x1234...\",\"0xabcd...\"],\"id\":1}"
+```
+
 ### node_getL2ToL1Messages
+
+:::warning Deprecated
+Use `node_getL2ToL1MembershipWitness` to get an L2-to-L1 message witness directly.
+:::
 
 Returns all the L2 to L1 messages in an epoch.
 

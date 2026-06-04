@@ -148,12 +148,21 @@ export async function awaitCommitteeExists({
 }
 
 /**
- * Advance epochs until we find one where the target proposer is selected for at least one slot,
- * then stop one epoch before it. This leaves time for the caller to start sequencers before
- * warping to the target epoch, avoiding the race where the target epoch passes before sequencers
- * are ready.
+ * Advance epochs until we find one where the target proposer is selected for a slot at least
+ * `warmupSlots` into the epoch, then stop one epoch before it. This leaves time for the caller to
+ * start sequencers before warping to the target epoch, avoiding the race where the target epoch
+ * passes before sequencers are ready.
  *
- * Returns the target epoch number so the caller can warp to it after starting sequencers.
+ * The first `warmupSlots` slots of the epoch are skipped on purpose. Callers warp to one slot
+ * before the target epoch and, under proposer pipelining, the proposer begins building one slot
+ * before its proposal slot. If the proposer were in the first slot of the epoch, that build would
+ * begin at the exact instant of the warp, leaving the freshly-started sequencer no warm-up margin;
+ * it then serializes its (often AVM-heavy) proposal past the slot boundary and honest receivers
+ * reject it as late. Picking a slot at least `warmupSlots` into the epoch guarantees that many full
+ * slots of wall-clock between the warp and the start of the proposer's build.
+ *
+ * Returns the target epoch and the concrete target slot so the caller can warp to it after starting
+ * sequencers.
  */
 export async function advanceToEpochBeforeProposer({
   epochCache,
@@ -161,13 +170,15 @@ export async function advanceToEpochBeforeProposer({
   targetProposer,
   logger,
   maxAttempts = 20,
+  warmupSlots = 1,
 }: {
   epochCache: EpochCacheInterface;
   cheatCodes: RollupCheatCodes;
   targetProposer: EthAddress;
   logger: Logger;
   maxAttempts?: number;
-}): Promise<{ targetEpoch: EpochNumber }> {
+  warmupSlots?: number;
+}): Promise<{ targetEpoch: EpochNumber; targetSlot: SlotNumber }> {
   const { epochDuration } = await cheatCodes.getConfig();
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -175,8 +186,11 @@ export async function advanceToEpochBeforeProposer({
     // Check the NEXT epoch's slots so we stay one epoch before the target,
     // giving the caller time to start sequencers before the target epoch arrives.
     const nextEpoch = Number(currentEpoch) + 1;
-    const startSlot = nextEpoch * Number(epochDuration);
-    const endSlot = startSlot + Number(epochDuration);
+    const epochStartSlot = nextEpoch * Number(epochDuration);
+    // Skip the first `warmupSlots` slots so the caller keeps a warm-up margin after warping to one
+    // slot before the epoch (see the doc comment above).
+    const startSlot = epochStartSlot + warmupSlots;
+    const endSlot = epochStartSlot + Number(epochDuration);
 
     logger.info(
       `Checking next epoch ${nextEpoch} (slots ${startSlot}-${endSlot - 1}) for proposer ${targetProposer} (current epoch: ${currentEpoch})`,
@@ -188,7 +202,7 @@ export async function advanceToEpochBeforeProposer({
         logger.warn(
           `Found target proposer ${targetProposer} in slot ${s} of epoch ${nextEpoch}. Staying at epoch ${currentEpoch} to allow sequencer startup.`,
         );
-        return { targetEpoch: EpochNumber(nextEpoch) };
+        return { targetEpoch: EpochNumber(nextEpoch), targetSlot: SlotNumber(s) };
       }
     }
 

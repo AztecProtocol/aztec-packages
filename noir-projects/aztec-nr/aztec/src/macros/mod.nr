@@ -14,3 +14,4 @@ pub mod notes;
 pub mod storage;
 pub mod events;
 pub mod authorization;
+pub(crate) mod oracle_testing;

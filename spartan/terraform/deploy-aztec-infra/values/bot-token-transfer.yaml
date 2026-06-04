@@ -10,6 +10,10 @@ bot:
   stopIfUnhealthy: true
   botPrivateKey: "0xcafe01"
 
+  node:
+    env:
+      OTEL_SERVICE_NAME: "bot-transfers"
+
   persistence:
     enabled: true
   statefulSet:

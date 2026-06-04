@@ -30,7 +30,7 @@ import {
   SimulationOverrides,
   TxHash,
   TxProfileResult,
-  TxReceipt,
+  TxReceiptSchema,
   UtilityExecutionResult,
   inTxSchema,
 } from '@aztec/stdlib/tx';
@@ -610,7 +610,7 @@ const WalletMethodSchemas = {
     input: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]),
     output: z.union([
       z.object({ txHash: TxHash.schema }).merge(OffchainOutputSchema),
-      z.object({ receipt: TxReceipt.schema }).merge(OffchainOutputSchema),
+      z.object({ receipt: TxReceiptSchema }).merge(OffchainOutputSchema),
     ]),
   }),
   createAuthWit: z.function({

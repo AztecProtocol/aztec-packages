@@ -74,12 +74,9 @@ export class SequencerTimetable {
   /** Maximum number of blocks that can be built in this slot configuration */
   public readonly maxNumberOfBlocks: number;
 
-  /** Whether pipelining is enabled (checkpoint finalization deferred to next slot). */
-  public readonly pipelining: boolean;
-
   /**
-   * How far into the target slot attestation collection can extend when pipelining.
-   * Covers validator re-execution (one block duration) plus one-way attestation return.
+   * How far into the target slot assembly and attestation collection can start when pipelining.
+   * Production-like timing keeps this at zero; fast local publishing profiles can use the attestation window.
    */
   public readonly pipeliningAttestationGracePeriod: number;
 
@@ -91,7 +88,6 @@ export class SequencerTimetable {
       p2pPropagationTime?: number;
       blockDurationMs?: number;
       enforce: boolean;
-      pipelining?: boolean;
     },
     private readonly metrics?: SequencerMetrics,
     private readonly log?: Logger,
@@ -101,7 +97,6 @@ export class SequencerTimetable {
     this.l1PublishingTime = opts.l1PublishingTime;
     this.blockDuration = opts.blockDurationMs ? opts.blockDurationMs / 1000 : undefined;
     this.enforce = opts.enforce;
-    this.pipelining = opts.pipelining ?? false;
 
     this.checkpointTiming = createCheckpointTimingModel({
       aztecSlotDuration: this.aztecSlotDuration,
@@ -109,7 +104,6 @@ export class SequencerTimetable {
       blockDuration: this.blockDuration,
       l1PublishingTime: this.l1PublishingTime,
       p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
-      pipelining: this.pipelining,
     });
 
     this.p2pPropagationTime = this.checkpointTiming.p2pPropagationTime;
@@ -137,7 +131,6 @@ export class SequencerTimetable {
         blockAssembleTime: this.checkpointAssembleTime,
         initializeDeadline: this.initializeDeadline,
         enforce: this.enforce,
-        pipelining: this.pipelining,
         pipeliningAttestationGracePeriod: this.pipeliningAttestationGracePeriod,
         minWorkToDo: this.checkpointTiming.minimumBuildSlotWork,
         blockDuration: this.blockDuration,

@@ -337,35 +337,50 @@ function start_txes {
   # Until Kev's kzg lib stops using Tokio.
   export TOKIO_WORKER_THREADS=1
 
-  # Starting txe servers with incrementing port numbers.
-  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
-  local txe_base_port=14730
-  for i in $(seq 0 $((NUM_TXES-1))); do
-    port=$((txe_base_port + i))
-    existing_pid=$(lsof -ti :$port || true)
+  kill_port() {
+    local port=$1
+    local existing_pid=$(lsof -ti :$port || true)
     if [ -n "$existing_pid" ]; then
       echo "Killing existing process $existing_pid on port: $port"
       check_port $port
       kill -9 $existing_pid &>/dev/null || true
       while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
+  }
+
+  # Starting txe servers with incrementing port numbers.
+  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
+  local txe_base_port=14730
+  for i in $(seq 0 $((NUM_TXES-1))); do
+    port=$((txe_base_port + i))
+    kill_port $port
     dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
-  echo "Waiting for TXE's to start..."
+  # Start the oracle test resolver for __oracle_test__-prefixed tests.
+  local resolver_port=14830
+  kill_port $resolver_port
+  dump_fail "LOG_LEVEL=error ORACLE_TEST_PORT=$resolver_port node --no-warnings ./yarn-project/txe/dest/bin/oracle_test_server.js" &
+  txe_pids+="$! "
+
+  wait_for_port() {
+    local port=$1 name=$2 j=0
+    echo "Waiting for $name to start..."
+    while ! nc -z 127.0.0.1 $port &>/dev/null; do
+      if [ $j == 60 ]; then
+        echo_stderr "$name failed to start on port $port after 60s."
+        check_port $port
+        exit 1
+      fi
+      sleep 1
+      j=$((j+1))
+    done
+  }
   for i in $(seq 0 $((NUM_TXES-1))); do
-      local j=0
-      while ! nc -z 127.0.0.1 $((txe_base_port + i)) &>/dev/null; do
-        if [ $j == 60 ]; then
-          echo_stderr "TXE $i failed to start on port $((txe_base_port + i)) after 60s."
-          check_port $((txe_base_port + i))
-          exit 1
-        fi
-        sleep 1
-        j=$((j+1))
-      done
+    wait_for_port $((txe_base_port + i)) "TXE $i"
   done
+  wait_for_port $resolver_port "oracle test resolver"
 }
 
 function stop_txes {

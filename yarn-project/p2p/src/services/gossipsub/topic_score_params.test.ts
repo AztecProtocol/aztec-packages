@@ -37,9 +37,8 @@ describe('Topic Score Params', () => {
     });
 
     it('calculates correct blocks per slot for MBPS mode', () => {
-      // With 72s slot and 10s block duration
-      // Using timetable formula: floor((72 - 1 - 10 - (1 + 2*2 + 12)) / 10)
-      // = floor((72 - 1 - 10 - 17) / 10) = floor(44 / 10) = 4
+      // With 72s slot and 10s block duration under pipelining:
+      // reserved = assemble(1) + 2*p2p(2) + block(10) = 15; available = 72 - 1 - 15 = 56; floor(56/10) = 5
       const result = calculateBlocksPerSlot(72000, 10000);
       expect(result).toBeGreaterThanOrEqual(1);
     });
@@ -55,7 +54,7 @@ describe('Topic Score Params', () => {
 
     it('throws for an impossible timing configuration', () => {
       expect(() => calculateBlocksPerSlot(72000, 60000)).toThrow(
-        'Invalid timing configuration: only -6s available for block building, which is less than one blockDuration (60s).',
+        'Invalid timing configuration: only 6s available for block building, which is less than one blockDuration (60s).',
       );
     });
   });

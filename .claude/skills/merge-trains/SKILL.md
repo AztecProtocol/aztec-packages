@@ -19,6 +19,9 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 | `merge-train/docs` | Documentation | `#dev-rels` |
 | `merge-train/fairies` | aztec-nr | `#team-fairies` |
 | `merge-train/spartan` | Spartan / infra / yarn-project sequencer and prover orchestration | `#team-alpha` |
+| `merge-train/spartan-v5` | Same as `merge-train/spartan` but for the v5 release line (targets `v5-next` instead of `next`) | `#team-alpha` |
+
+> Every train targets `next` except `merge-train/spartan-v5`, which targets `v5-next`.
 
 ## How to Use a Merge Train
 
@@ -39,7 +42,7 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 ## CI Behavior for Merge Trains
 
 - **Specialized CI modes**: PRs targeting `merge-train/docs` run docs-only CI. PRs targeting `merge-train/barretenberg` run barretenberg-only CI. This avoids running the full test suite for domain-specific changes.
-- **Merge-queue mode**: When the merge-train PR enters GitHub's merge queue, it runs the full `merge-queue` CI mode (4 parallel grind runs on AMD64 + 1 ARM64). `merge-train/spartan` uses the heavier `merge-queue-heavy` mode (10 grind runs).
+- **Merge-queue mode**: When the merge-train PR enters GitHub's merge queue, it runs the full `merge-queue` CI mode (4 parallel grind runs on AMD64 + 1 ARM64). `merge-train/spartan` and `merge-train/spartan-v5` use the heavier `merge-queue-heavy` mode (10 grind runs).
 - **Full concurrency**: Merge-train PRs get unique CI concurrency groups (using `github.run_id`), so multiple CI runs can proceed in parallel without cancelling each other.
 - **Test history tracking**: Test results are tracked for merge-train PRs, same as merge-queue runs.
 

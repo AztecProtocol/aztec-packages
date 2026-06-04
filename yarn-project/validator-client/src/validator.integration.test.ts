@@ -2,7 +2,7 @@ import { createArchiverStore, registerProtocolContracts } from '@aztec/archiver'
 import { makeInboxMessages } from '@aztec/archiver/test';
 import { type NoopL1Archiver, createNoopL1Archiver } from '@aztec/archiver/test/noop-l1';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import type { EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { TestEpochCache } from '@aztec/epoch-cache/test';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -70,7 +70,6 @@ describe('ValidatorClient Integration', () => {
   };
 
   let slotNumber: SlotNumber;
-  let timestamp: bigint;
   let chainId: Fr;
   let version: Fr;
 
@@ -94,6 +93,14 @@ describe('ValidatorClient Integration', () => {
   let proposer: ValidatorContext;
 
   const mockPeerId = { toString: () => 'test-peer' } as PeerId;
+
+  const getBuildSlot = (targetSlot: SlotNumber) => SlotNumber(targetSlot - PROPOSER_PIPELINING_SLOT_OFFSET);
+
+  const setBuildTimeForSlot = (targetSlot: SlotNumber) => {
+    const buildSlot = getBuildSlot(targetSlot);
+    dateProvider.setTime(Number(getTimestampForSlot(buildSlot, l1Constants)) * 1000);
+    epochCache.setCurrentSlot(buildSlot);
+  };
 
   /** Creates a new validator and dependencies */
   const createValidatorContext = async (privateKey: Hex<32>): Promise<ValidatorContext> => {
@@ -124,6 +131,7 @@ describe('ValidatorClient Integration', () => {
       { ...l1Constants, genesisArchiveRoot },
       undefined,
       worldStateDb.getInitialHeader(),
+      dateProvider,
     );
     await archiver.start();
 
@@ -228,7 +236,8 @@ describe('ValidatorClient Integration', () => {
     l1ToL2Messages: Fr[] = [],
   ): Promise<{ block: L2Block; proposal: BlockProposal }> => {
     const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, timestamp, {
+    const blockTimestamp = getTimestampForSlot(checkpointBuilder.getConstantData().slotNumber, l1Constants);
+    const { block, usedTxs } = await checkpointBuilder.buildBlock(txs, blockNumber, blockTimestamp, {
       isBuildingProposal: true,
       maxBlocksPerCheckpoint: 1,
       perBlockAllocationMultiplier: 1.2,
@@ -351,7 +360,6 @@ describe('ValidatorClient Integration', () => {
   beforeEach(async () => {
     // Setup common values
     slotNumber = SlotNumber(1);
-    timestamp = getTimestampForSlot(slotNumber, l1Constants);
     chainId = new Fr(1);
     version = new Fr(1);
 
@@ -365,14 +373,14 @@ describe('ValidatorClient Integration', () => {
     logger = createLogger('validator:test');
     rollupAddress = EthAddress.random();
     dateProvider = new TestDateProvider();
-    dateProvider.setTime(Number(timestamp) * 1000);
     txProvider = new TestTxProvider();
     blobClient = mock<BlobClientInterface>();
     blobClient.canUpload.mockReturnValue(false);
     epochCache = new TestEpochCache(l1Constants)
       .setCommittee([validatorSigner.address])
       .setProposer(proposerSigner.address)
-      .setCurrentSlot(slotNumber);
+      .setCurrentSlot(getBuildSlot(slotNumber));
+    setBuildTimeForSlot(slotNumber);
 
     // Generate fee payer addresses and pre-fund them
     feePayerAddresses = await Promise.all(Array.from({ length: 10 }, () => AztecAddress.random()));
@@ -489,8 +497,7 @@ describe('ValidatorClient Integration', () => {
 
       // Advance to slot 2
       const slot2 = SlotNumber(2);
-      dateProvider.setTime(Number(getTimestampForSlot(slot2, l1Constants)) * 1000);
-      epochCache.setCurrentSlot(slot2);
+      setBuildTimeForSlot(slot2);
 
       // Build second checkpoint referencing the first
       const { blocks: blocks2, proposal: proposal2 } = await buildCheckpoint(

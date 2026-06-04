@@ -7,6 +7,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { retryFastUntil, retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
+import { getErrorCause } from '@aztec/foundation/types';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -16,6 +17,8 @@ import {
   type BlockTag,
   type GetTransactionParameters,
   type Hex,
+  MethodNotFoundRpcError,
+  RpcRequestError,
   TransactionNotFoundError,
   type TransactionSerializable,
   createPublicClient,
@@ -25,7 +28,7 @@ import {
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { createExtendedL1Client, getPublicClient } from '../client.js';
+import { L1RpcError, createExtendedL1Client, getPublicClient } from '../client.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';
 import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
@@ -904,28 +907,15 @@ describe('L1TxUtils', () => {
           value: 0n,
         });
         fail('Should have thrown');
-      } catch (err: any) {
-        const res = err;
-        const { message } = res;
-        // Verify the error contains actual newlines, not escaped \n
-        expect(message).not.toContain('\\n');
-        expect(message.split('\n').length).toBeGreaterThan(1);
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(Error);
+        expect((err as Error).message).toContain('L1 RPC request failed');
 
-        // Check that we have the key error information
-        expect(message).toContain('max fee per gas less than block base fee');
+        const rpcError = getErrorCause(err, RpcRequestError);
+        expect(rpcError?.details).toContain('max fee per gas less than block base fee');
 
-        // Check request body formatting if present
-        if (message.includes('Request body:')) {
-          const bodyStart = message.indexOf('Request body:');
-          const body = message.slice(bodyStart);
-          expect(body).toContain('eth_sendRawTransaction');
-
-          // TODO: Fix this test. We no longer generate an error that gets truncated
-          // Check params are truncated if too long
-          // if (body.includes('0x')) {
-          //   expect(body).toContain('...');
-          // }
-        }
+        const metaMessages = rpcError?.metaMessages?.join('\n') ?? '';
+        expect(metaMessages).toContain('eth_sendRawTransaction');
       }
     }, 10_000);
 
@@ -1902,6 +1892,25 @@ describe('L1TxUtils', () => {
       expect(readOnlyUtils).not.toHaveProperty('sendTransaction');
       expect(readOnlyUtils).not.toHaveProperty('monitorTransaction');
       expect(readOnlyUtils).not.toHaveProperty('sendAndMonitorTransaction');
+    });
+
+    it('uses fallback gas estimate when wrapped simulateBlocks error reports unsupported method', async () => {
+      const readOnlyUtils = new ReadOnlyL1TxUtils(publicClient, logger, dateProvider);
+      using _simulateBlocksSpy = jest.spyOn(publicClient, 'simulateBlocks').mockRejectedValue(
+        new L1RpcError('L1 RPC request failed', {
+          cause: new MethodNotFoundRpcError(new Error('method not found'), { method: 'eth_simulateV1' }),
+        }),
+      );
+
+      await expect(
+        readOnlyUtils.simulate(
+          { to: '0x1234567890123456789012345678901234567890', data: '0xabcdef', value: 0n },
+          undefined,
+          undefined,
+          undefined,
+          { fallbackGasEstimate: 123n },
+        ),
+      ).resolves.toEqual({ gasUsed: 123n, result: '0x' });
     });
 
     it('L1TxUtils can be instantiated with wallet client and has write methods', () => {

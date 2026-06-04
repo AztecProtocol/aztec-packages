@@ -1,7 +1,35 @@
 nodeSelector:
   local-ssd: "false"
   node-type: "network"
-  cores: "2"
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: cores
+              operator: NotIn
+              values:
+                - "32"
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+            - key: cores
+              operator: In
+              values:
+                - "2"
+            - key: pool
+              operator: In
+              values:
+                - spot
+
+tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
 replicaCount: 1
 
 node:
