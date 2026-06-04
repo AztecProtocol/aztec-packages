@@ -10,7 +10,6 @@ import { BN254_SCALAR_FIELD } from '../../src/msm_webgpu/cuzk/bn254.js';
 import {
   create_and_write_sb,
   create_and_write_ub,
-  create_sb,
   create_bind_group_layout,
   create_bind_group,
   create_compute_pipeline,
@@ -55,6 +54,10 @@ export function le32ToBi(bytes: Uint8Array, off: number): bigint {
   for (let i = 31; i >= 0; i--) v = (v << 8n) | BigInt(bytes[off + i]);
   return v;
 }
+
+// The all-0xff output sentinel (see dispatchRelation): a slot still holding this
+// after a dispatch was never written by the kernel.
+export const UNWRITTEN = (1n << 256n) - 1n;
 
 // Deterministic 254-bit LCG; each suite takes its own stream so failing runs
 // are reproducible and suites don't perturb each other's inputs.
@@ -116,11 +119,27 @@ export async function dispatchRelation(
   outLen: number,
   relParams?: Uint8Array,
 ): Promise<{ bytes: Uint8Array; ms: number }> {
+  // Guard against IN_LEN/OUT_LEN drift: each kernel compiles its own consts while
+  // the suite passes its own copies, and a mismatch would silently misalign the
+  // input/output strides instead of failing cleanly.
+  const outConst = /const\s+OUT_LEN\s*:\s*u32\s*=\s*(\d+)u/.exec(code);
+  if (outConst && Number(outConst[1]) !== outLen) {
+    throw new Error(`OUT_LEN mismatch: kernel ${outConst[1]} vs suite ${outLen}`);
+  }
+  const inConst = /const\s+IN_LEN\s*:\s*u32\s*=\s*(\d+)u/.exec(code);
+  if (inConst && inBytes.length !== n * Number(inConst[1]) * 32) {
+    throw new Error(`IN_LEN mismatch: kernel ${inConst[1]} expects ${n * Number(inConst[1]) * 32} input bytes, got ${inBytes.length}`);
+  }
+
   const types = ['read-only-storage', 'storage', 'uniform'];
   if (relParams) types.push('read-only-storage');
   const layout = create_bind_group_layout(device, types);
   const inBuf = create_and_write_sb(device, inBytes);
-  const outBuf = create_sb(device, n * outLen * 32);
+  // Pre-fill the output with a sentinel (0xff bytes = 2^256-1, larger than any
+  // Montgomery field value a kernel can write) so a row the kernel fails to write
+  // reads back as detectably "unwritten" rather than as a valid 0 — which would
+  // otherwise mask a skipped write on the rows whose reference is zero.
+  const outBuf = create_and_write_sb(device, new Uint8Array(n * outLen * 32).fill(0xff));
   const params = new Uint8Array(16);
   new DataView(params.buffer).setUint32(0, n, true);
   const bufs = [inBuf, outBuf, create_and_write_ub(device, params)];
@@ -185,10 +204,11 @@ export function diffRelation(
   for (let i = 0; i < n; i++) {
     const want = ref(i);
     for (let k = 0; k < outLen; k++) {
-      const got = fromMont(le32ToBi(bytes, (i * outLen + k) * 32));
+      const raw = le32ToBi(bytes, (i * outLen + k) * 32);
+      const got = raw === UNWRITTEN ? null : fromMont(raw);
       if (got !== want[k]) {
         mism++;
-        if (mism <= 4) first += `\n    i=${i} k=${k} got=${got} want=${want[k]}`;
+        if (mism <= 4) first += `\n    i=${i} k=${k} got=${got === null ? '(unwritten)' : got} want=${want[k]}`;
       }
     }
   }

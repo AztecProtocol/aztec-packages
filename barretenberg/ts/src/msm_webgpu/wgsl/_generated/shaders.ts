@@ -5545,6 +5545,10 @@ fn mono_add_scalar(a: Mono, s: array<u32, 8>) -> Mono {
 fn mono_sub_scalar(a: Mono, s: array<u32, 8>) -> Mono {
   return Mono(fr_sub_f8(a.c0, s), a.c1, a.c2);
 }
+// scale touches every coefficient: exact for a degree-2 operand. For a degree-1
+// operand c2 is scaled too (harmless — c2 is then the unused/cache slot), but the
+// result stays degree-1, so it must be promoted with lag_from_mono2 (reads c0/c1),
+// never lag_from_mono3 (which reads c2 as an X^2 coefficient).
 fn mono_mul_scalar(a: Mono, s: array<u32, 8>) -> Mono {
   return Mono(montgomery_product_f8(a.c0, s), montgomery_product_f8(a.c1, s), montgomery_product_f8(a.c2, s));
 }

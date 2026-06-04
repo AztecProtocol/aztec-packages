@@ -39,9 +39,22 @@ describe('Poseidon2 quad constants', () => {
     }
   });
 
-  it('forward_vandermonde_lhs row 0 is the (1,1,1) weighted sum of out_1..3', () => {
-    for (let i = 0; i < 7; i++) {
-      expect(C.forward_vandermonde_lhs[0][i]).toBe(mod(C.closed_form[1][i] + C.closed_form[2][i] + C.closed_form[3][i]));
+  it('forward_vandermonde_lhs rows 0..2 are the 1/D/D^2-weighted sums of out_1..3', () => {
+    const [d2, d3, d4] = C.A_one.map(a => mod(a - 2n)); // A_one_j = D_{j+1} + 2
+    const weights = [
+      [1n, 1n, 1n],
+      [d2, d3, d4],
+      [mod(d2 * d2), mod(d3 * d3), mod(d4 * d4)],
+    ];
+    for (let row = 0; row < 3; row++) {
+      for (let i = 0; i < 7; i++) {
+        const want = mod(
+          weights[row][0] * C.closed_form[1][i] +
+            weights[row][1] * C.closed_form[2][i] +
+            weights[row][2] * C.closed_form[3][i],
+        );
+        expect(C.forward_vandermonde_lhs[row][i]).toBe(want);
+      }
     }
   });
 
