@@ -787,8 +787,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       // Under pipelining the block proposal for a checkpoint leads its checkpoint proposal by up to one
       // slot, so a world-state tip sitting in an as-yet-unproposed checkpoint is the expected steady state
       // until that checkpoint is due. Only treat it as abnormal — and warn — once the checkpoint is overdue
-      // by the same deadline the archiver uses to prune the orphan block (see pruneOrphanProposedBlocks).
-      // Before then this is normal pipelining and we wait it out quietly.
+      // by its expected land time. This is an earlier, soft signal than the archiver's destructive orphan
+      // prune (which waits for the attestation deadline); before then this is normal pipelining and we wait
+      // it out quietly.
       if (this.isProposedCheckpointOverdue(blockData.header.getSlot())) {
         this.log.warn(`Sequencer sync check failed: proposed block has no matching proposed checkpoint`, logCtx);
       } else {
@@ -845,11 +846,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Whether the enclosing checkpoint of a reexecuted block is overdue: past the deadline by which a
-   * well-behaved proposer should have published it. Mirrors the archiver's orphan-prune deadline
-   * so the sequencer only warns about a missing proposed checkpoint once the archiver itself would
-   * prune the orphan block. The grace is read from the shared archiver config when set, otherwise it
-   * is derived from twice the block build duration, matching the archiver default at node wiring.
+   * Whether the enclosing checkpoint of a reexecuted block is overdue: past the expected land time by which a
+   * well-behaved proposer should have published it. This is a soft diagnostic signal, deliberately earlier than
+   * the archiver's destructive orphan-prune (which waits for the attestation deadline). A checkpoint that lands
+   * between this time and its attestation deadline is still valid, so the warning may fire while the tip is
+   * legitimately still in flight — that is acceptable for a log signal but not for tearing down state. The grace
+   * is read from the shared archiver config when set, otherwise it is derived from twice the block build
+   * duration, matching the archiver default at node wiring.
    */
   private isProposedCheckpointOverdue(blockSlot: SlotNumber): boolean {
     const graceSeconds =
@@ -859,7 +862,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         : 2 * DEFAULT_MIN_BLOCK_DURATION);
     const expectedByTime = BigInt(this.timetable.getExpectedCheckpointLandTime(blockSlot, graceSeconds));
     // Overdue only strictly past the expected land time: the checkpoint may still legitimately land at exactly
-    // that instant, mirroring the archiver's orphan-prune boundary so the two agree.
+    // that instant, so the soft warning holds off until it has fully elapsed.
     return BigInt(this.dateProvider.nowInSeconds()) > expectedByTime;
   }
 

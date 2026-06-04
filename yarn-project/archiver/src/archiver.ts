@@ -446,16 +446,17 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
       lastSlotChecked = blockSlot;
 
-      // The proposed checkpoint should have landed by its consensus receive deadline plus a grace period
-      // to tolerate local validation/re-execution and archiver ingestion delay.
-      const expectedCheckpointedByTime = BigInt(
-        this.timetable.getExpectedCheckpointLandTime(blockSlot, this.config.orphanProposedBlockPruneGraceSeconds),
-      );
+      // Destructive pruning is gated on the attestation deadline, not the earlier checkpoint receive
+      // deadline: until the attestation deadline the proposed checkpoint can still arrive over p2p or land
+      // on L1 (promoting these blocks into a confirmed checkpoint during L1 sync), and validators may still
+      // be re-executing the proposals. Tearing down the proposed tip before then discards state that is
+      // still within its valid window and breaks in-flight re-execution.
+      const attestationDeadline = BigInt(this.timetable.getAttestationDeadline(blockSlot));
 
-      // If it's still not checkpointed once strictly past the expected time, prune it along with all blocks
-      // after it. The checkpoint may still legitimately land at exactly its expected land time, so the tip is
+      // If it's still not checkpointed once strictly past the attestation deadline, prune it along with all
+      // blocks after it. The checkpoint may still legitimately land at exactly its deadline, so the tip is
       // only orphaned once that instant has fully elapsed.
-      if (now > expectedCheckpointedByTime) {
+      if (now > attestationDeadline) {
         const pruneAfterBlockNumber = BlockNumber(blockNumber - 1);
         this.log.warn(
           `Pruning orphan blocks after block ${pruneAfterBlockNumber}: block at slot ${blockSlot} belongs to ` +
@@ -465,7 +466,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
             blockCheckpointNumber: blockData.checkpointNumber,
             blockNumber,
             blockSlot,
-            expectedCheckpointedByTime,
+            attestationDeadline,
             now,
           },
         );
@@ -482,9 +483,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
     }
 
-    this.log.trace('No orphan proposed blocks to prune: all uncheckpointed blocks are still within the grace period', {
-      blocksWithoutProposedCheckpoint: blocksWithoutProposedCheckpoint.map(b => b.header.toInspect()),
-    });
+    this.log.trace(
+      'No orphan proposed blocks to prune: all uncheckpointed blocks are still within their attestation deadline',
+      { blocksWithoutProposedCheckpoint: blocksWithoutProposedCheckpoint.map(b => b.header.toInspect()) },
+    );
   }
 
   private async syncFromL1() {

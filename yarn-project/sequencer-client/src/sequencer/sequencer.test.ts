@@ -1467,8 +1467,8 @@ describe('sequencer', () => {
 
     it('does not warn at exactly the expected checkpoint land time', async () => {
       // The checkpoint may still legitimately land at exactly its expected land time, so the tip is not yet
-      // overdue at that instant. This mirrors the archiver's orphan-prune boundary, which prunes only once
-      // strictly past the deadline.
+      // overdue at that instant. This soft warning fires strictly past the expected land time, deliberately
+      // earlier than the archiver's destructive orphan prune (which waits for the attestation deadline).
       setupSyncedToBlock({
         blockNumber: BlockNumber(3),
         blockSlot: SlotNumber(3),
