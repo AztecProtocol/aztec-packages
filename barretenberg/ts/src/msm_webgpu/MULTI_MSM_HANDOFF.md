@@ -34,12 +34,23 @@ this doc is the **current state + the exact next-step recipe + traps**. Branch:
 
 ## What's done (commits since the plan doc `250f48e02e`)
 
-- **`6496810343`** — `batch_scheduler.ts` (pure host) + `batch_scheduler.test.ts`
-  (22 tests). `msm_v2.ts`: `export`-only for `arenaColourSizes`/`pickReduceWg`.
-- **`d0125e504c`** — runtime batch-of-1 check (`dev/msm-webgpu/main.ts`,
-  `?autorun=msm-batch-check`).
-- Golden logN 14–17 byte-identical + oracle-agree throughout (the `export`-only
-  edits are runtime-inert).
+Step 1 (host scheduler):
+- **`6496810343`** — `batch_scheduler.ts` + `.test.ts` (22 tests).
+- **`d0125e504c`** — runtime batch-of-1 check (`?autorun=msm-batch-check`).
+
+Steps 2+4 + cap + heterogeneous (this session, newest last):
+- **`b8fdde2103`** — homogeneous union (scalarBase, M_RED→`.z`, global table,
+  `prepareBatch`/`batchCtx`).
+- **`7b1492ab64`** — union budget gate + `windowDesc` accounted.
+- **`59cfc48c27`** + **`979e039299`** — 128-window cap removed (`window_desc` →
+  storage; at-cap kernels bind the A0/A2 arena monolith).
+- **`373cfd8d30`** — heterogeneous-n via padding (superseded by ↓).
+- **`fdc602c1ae`** — per-window-n (no padding): `point_offsets` through
+  decompose/transpose/convMeta.
+- **`5946df0cd0`** — different-c: envelope sizing, `windowCs` from table, tight `redM`.
+
+Golden logN 14–17 + `?varsched` byte-identical + oracle-agree throughout (the
+byte-identical-at-homogeneous invariant was validated after every kernel).
 
 ## The scheduler API (host model — the input to step 4)
 
@@ -49,10 +60,11 @@ this doc is the **current state + the exact next-step recipe + traps**. Branch:
 - `buildUniformWindowDesc(geom)` → the 8-u32 WindowDesc rows (matches prepare()).
 - `planBatch(inputs, opts?)` → **`BatchLayout`**: `descs[]` with
   `scalarBase`/`outBase`/`schedOff`/`redBase` per MSM; `windowDescTable`
-  (concatenated rows); `windows[]` (each global window tagged
-  `msmIdx`/`srsOffset`/`n`/`scalarBase`); `reduceOffsets` (MSM-local — add
-  `desc.redBase` for the global slot); `pointTiles` (ragged); `totalRedM`,
-  `totalScalarBytes`, `totalWindowSumBytes`, `footprintBytes`.
+  (concatenated rows, GLOBAL `work_off`/`reduce_off` + `scalarBase` at +6,
+  MSM-local `bit_base`); `windows[]`; `reduceOffsets` (GLOBAL — already includes
+  each MSM's `redBase`); `totalRedM`, `totalScalarBytes`, `footprintBytes`.
+  `buildUniformWindowDesc(geom, bases?)` takes optional `{workOffBase, redBase,
+  scalarBaseWords}` (default 0 ⇒ standalone single-MSM table).
 - `batchFootprintBytes(geoms, {sT,sS,srsBytes})` — pack footprint via the one
   `arenaColourSizes` source of truth with per-MSM terms summed; `sT`/`sS`/SRS once.
 - `packByBudget(candidates, {budgetBytes,srsBytes})` — greedy; too-big stages solo.
@@ -61,6 +73,10 @@ this doc is the **current state + the exact next-step recipe + traps**. Branch:
 in the test). This is the invariant step 4 preserves.
 
 ## What step 2+4 landed (homogeneous union) — commit `b8fdde2103`
+
+> This section is the FIRST landing (homogeneous). It was later extended by the cap
+> removal (`window_desc` → storage) and full heterogeneity (`point_offsets` +
+> envelope sizing) — see the TL;DR. Two claims below are superseded and flagged.
 
 The big realisation: for a **homogeneous** pack (same n/c) the super-MSM is just a
 single `MsmV2` with `numWindows = Σ NW`, concatenated scalars, where the only
@@ -75,8 +91,9 @@ concatenated columns) and `batch_offset.x = 0`.
 What actually changed:
 - **`decompose`** reads per-window `scalar_base` (u32 words) from `WindowDesc[+6]`;
   lookback gates on `bit_base>0` (the MSM-local bottom window) — byte-identical for
-  a single MSM. (The other point stages need no change: scatter layout is
-  `global_window*n + point`, uniform because n is the same per member.)
+  a single MSM. (~~The other point stages need no change~~ — SUPERSEDED: they now
+  read a per-window `point_offsets` table for the scatter base + n_w, which is what
+  lets members of different n/c pack with no padding. See the TL;DR.)
 - **`M_RED` → runtime uniform** in the 5 writers (`stream_walker`, `size1`,
   `combine_filter`, `combine_batched`, `pt_finalize`) via the spare **`.z`** of the
   `batch_offset`/`params` uniform each already binds (`.z` was provably unread).
@@ -94,8 +111,9 @@ What actually changed:
   construct that tripped Dawn's submit-while-destroyed), asserting each member's
   per-window sums are byte-identical union vs solo.
 
-Validated: K=1..4, c=8 & c=13, profiles A/C/D/E, up to 128 windows; golden 14–17 +
-`?varsched` unchanged; `batch_scheduler.test.ts` 22/22.
+Validated (at that commit): K=1..4, c=8 & c=13, profiles A/C/D/E; golden 14–17 +
+`?varsched` unchanged; `batch_scheduler.test.ts` 22/22. (The ~~128-window~~ limit
+that applied here was removed later — `window_desc` is storage now.)
 
 ## Remaining work (next session)
 
@@ -128,9 +146,15 @@ of efficiency refinements:
 - Single-MSM byte-identical after any shared-path change: golden 14–17
   (`msm-arena-validate.sh`) **and `?varsched=1`** (uniform-only golden does not
   exercise per-window geometry).
-- Multi-MSM: `msm-batch-check?logns=a,a,...` (repeated logN — homogeneous) asserts
-  batch-of-K ≡ K-separate per member. Add `&scalar_dist=profile&profile=E` for the
-  giant-bucket path. (Heterogeneous logns currently returns "needs homogeneous n".)
+- Multi-MSM: `msm-batch-check?logns=a,b,...` asserts batch-of-K ≡ K-separate per
+  member (each member's per-window sums byte-identical union-vs-solo; the solo runs
+  are golden/oracle-validated, so this is transitively oracle-agree). `logns` may
+  mix sizes freely: repeated (`16,16` homogeneous), same-c different-n (`16,17`),
+  different-c (`14,16`, `14,17`), or three c's (`14,15,16`). Add
+  `&scalar_dist=profile&profile=E` for the giant-bucket path (hard rule #0). The
+  harness also asserts the members have **distinct scalars** so `scalarBase`/
+  `point_offsets` aren't validated vacuously. A pack over 160MB is rejected by the
+  runtime budget gate ("exceeds the …MiB budget").
 
 ## Environment & commands
 
@@ -141,7 +165,8 @@ of efficiency refinements:
 - **golden**: `bash /Users/zac/localclaudebox/msm-arena-validate.sh 5210`
 - **batch-of-K union check** (the real one-dispatch path via `prepareBatch`):
   `node dev/msm-webgpu/drive-persist.mjs "http://127.0.0.1:5210/dev/msm-webgpu/index.html?coi=1&autorun=msm-batch-check&logns=16,16"`
-  (`logns` = repeated logN for a homogeneous K-pack; add `&scalar_dist=profile&profile=E`)
+  (`logns` is any comma-list — `16,16` homogeneous, `16,17` same-c diff-n, `14,16`
+  diff-c, `14,15,16` three c's; add `&scalar_dist=profile&profile=E` for giant buckets)
 - **unit tests**: `yarn test src/msm_webgpu/batch_scheduler.test.ts`
   (`msm_v2.ts` imports cleanly under jest — probe-verified — so test imports from it are fine)
 - **bench via `drive-persist.mjs`** (warm SRS in the persistent profile), never
@@ -150,28 +175,49 @@ of efficiency refinements:
 ## Traps (hard-won)
 
 - **WGSL is inlined at build.** Edit `.template.wgsl` → run `inline-wgsl.mjs` →
-  then bench. Skipping regen silently runs the stale shader.
-- **A half-flipped bid is a deterministic WRONG answer.** Flip the producer and
-  every consumer (list above) in one commit.
-- **`ba_stream_walker` is at the M2 10-storage-binding cap** → any new table access
-  there must be `var<uniform>`.
-- **`prepare()` identity-caches on `scalarsBuf` *reference*** (msm_v2 ~2300) and
-  skips the epoch check; `create()` runs a warm-up prepare+run; the slow path
-  destroys `prepBuffers` (incl. `redStaging`). These make multi-instance-on-one-
-  pool fragile — **moot for step 4** (one dispatch, no multiple instances).
+  then bench. Skipping regen silently runs the stale shader. (Every commit this
+  session regenerated `wgsl/_generated/shaders.ts` before validating.)
+- **The 10-storage-buffer cap is real, but `window_desc` is no longer uniform.**
+  The walker / combine_filter / combine_batched sat at 10; they now bind their
+  colour-arena **monolith** once (A0 holds sorted_count_list+l0_index for the
+  walker; A2 holds partial_count+partial_layout for the combines — addressed via an
+  `arena_off` uniform), freeing the slot so `window_desc` is `var<storage,read>
+  array<u32>` (full stride-8 rows, work_off=+3 / reduce_off=+4). A *new* storage
+  binding in an at-cap kernel needs the same monolith trick (and a guard that the
+  buffers actually share that arena colour — `offsets`/`partial_offset` are
+  standalone/A5, not A0/A2). `slotBuf`/`slotOff` give the arena handle + element
+  offset.
+- **Byte-identical-at-homogeneous is the bisection lever.** Every shared-path change
+  (M_RED uniform, scalarBase, point_offsets, the arena rebinds) was built to be
+  byte-identical when the pack is one MSM (`point_offsets[w]=w·n`, `scalarBase=0`,
+  `.z=redM`), so golden 14–17 + `?varsched` catch a mistake on the FIRST kernel,
+  long before any K>1 run. Keep this property when extending.
+- **`prepare()` identity-caches on `scalarsBuf` *reference*** (msm_v2 ~2300);
+  `prepareBatch()` sets `this.preparedFor = null` to force the slow rebuild.
 
 ## Key files / anchors
 
 - `batch_scheduler.ts` / `.test.ts` — host scheduler (global table + scalarBase).
-- `msm_v2.ts` — `MsmV2`/`MsmV2Pool`: `BatchMember`/`BatchPrepCtx` interfaces +
-  `batchCtx` field (the union switch), **`prepareBatch()`** (just before
-  `prepare()`), the 6 `if (this.batchCtx)` injection points in `prepare()`
-  (scalars view, geometry+`numRadixTiles` override / skip split-c, per-member
-  init-counts, force `numBatches=1`, skip fast-path, WindowDesc from layout).
-- `dev/msm-webgpu/main.ts` — `runBatchCheck` (union via `prepareBatch`) +
-  `msm-batch-check` autorun; `generateInputs` (profiles A–E), `?varsched=1`.
+- `msm_v2.ts` — `MsmV2`/`MsmV2Pool`. The union is driven entirely by the
+  **`batchCtx`** field (`BatchPrepCtx` = numWindows/bTotal/redM/windowDescTable/
+  reduceOffsets/`pointOffsets`/`totalPoints`/members); **`prepareBatch(members,
+  scalars, windowDescTable, reduceOffsets)`** sets it (builds `point_offsets` from
+  member n, `redM` = tight Σ stride_w, asserts c≤this.c & n≤this.n) and calls
+  `prepare()`. Every `if (this.batchCtx)` branch in `prepare()` is the union path
+  (grep it): scalars view, geometry override (numWindows/bTotal=envelope/redM/
+  `windowCs` from table/`numRadixTiles`), per-member init-counts, `batchSlots`=
+  `totalPoints`, force `numBatches=1`/no split/no fast-path, WindowDesc + the
+  `point_offsets` buffer (also bound by decompose/transpose/convMeta), `estimateMem`
+  union terms + the budget throw. Single-MSM (batchCtx=null) is unchanged.
+- WGSL: `point_offsets` is read by `decompose_scalars_booth`, `transpose_count_tiled`,
+  `transpose_scatter_tiled` (the `params[1]==0` sentinel = "use point_offsets"; the
+  split-c upper region passes n_large), `csr_to_v2_meta`. `window_desc` is storage in
+  all consumers; the at-cap kernels bind the arena monolith + `arena_off`.
+- `dev/msm-webgpu/main.ts` — `runBatchCheck` (union via `prepareBatch`, any logns
+  mix) + `msm-batch-check` autorun; `generateInputs` (profiles A–E), `?varsched=1`.
 - `MULTI_MSM_PLAN.md` — full design. `ARENA_LAYOUT.md` — arenas/budget; §7 = the
-  `M_RED`/batch-local-`redBuf` reduce restructure (route (a) `batch_offset.y`).
+  `M_RED` restructure (the doc says route (a) `batch_offset.y`; the impl used
+  `batch_offset.z` / `params.z`, the provably-unread field — same idea).
 - Memory: `msm-webgpu-bid-lifecycle` (bid producers/consumers + the sort trap),
   `msm-webgpu-arena-refactor`.
 
