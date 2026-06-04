@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
 import type { Fr } from '@aztec/foundation/schemas';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
@@ -28,6 +29,8 @@ type StoredNoteBuffer = Buffer;
  */
 export class NoteStore implements StagedStore {
   readonly storeName: string = 'note';
+
+  logger = createLogger('note_store');
 
   #store: AztecAsyncKVStore;
 
@@ -405,6 +408,7 @@ export class NoteStore implements StagedStore {
       orphanedNotes.push({ block, siloedNullifier: siloedNullifier });
     }
 
+    let removedNotes = 0;
     await Promise.all(
       orphanedNotes.map(async ({ block, siloedNullifier }) => {
         const buf = await this.#notes.getAsync(siloedNullifier);
@@ -415,6 +419,7 @@ export class NoteStore implements StagedStore {
         await this.#notes.delete(siloedNullifier);
         await this.#notesByContractAddress.deleteValue(stored.noteDao.contractAddress.toString(), siloedNullifier);
         await this.#notesByBlockNumber.deleteValue(block, siloedNullifier);
+        removedNotes++;
       }),
     );
 
@@ -433,5 +438,11 @@ export class NoteStore implements StagedStore {
         await this.#nullifierEmissionsByBlockNumber.deleteValue(block, siloedNullifier);
       }),
     );
+
+    this.logger.verbose('rolled back notes and nullifier emissions', {
+      removedNotes,
+      removedNullifierEmissions: orphanedEmissions.length,
+      toBlock,
+    });
   }
 }

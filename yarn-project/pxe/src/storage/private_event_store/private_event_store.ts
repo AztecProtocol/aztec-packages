@@ -250,6 +250,7 @@ export class PrivateEventStore implements StagedStore {
     for await (const [block, eventId] of this.#eventsByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
       orphaned.push({ block, eventId });
     }
+    let removedCount = 0;
     for (const { block, eventId } of orphaned) {
       const buf = await this.#events.getAsync(eventId);
       if (!buf) {
@@ -262,7 +263,9 @@ export class PrivateEventStore implements StagedStore {
         eventId,
       );
       await this.#eventsByBlockNumber.deleteValue(block, eventId);
+      removedCount++;
     }
+    this.logger.verbose('rolled back private events', { removedCount, toBlock });
   }
 
   /**
