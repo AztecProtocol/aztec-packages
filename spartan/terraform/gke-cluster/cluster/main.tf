@@ -191,6 +191,12 @@ resource "google_container_node_pool" "aztec_nodes-8core-hi-mem" {
       hi-mem    = "true"
     }
     tags = ["aztec-gke-node", "aztec"]
+
+    taint {
+      key    = "hi-mem"
+      value  = "true"
+      effect = "NO_SCHEDULE"
+    }
   }
 
   # Management configuration

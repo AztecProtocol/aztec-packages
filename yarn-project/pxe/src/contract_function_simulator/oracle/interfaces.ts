@@ -9,7 +9,7 @@ import type { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import type { ContractClassLog, MessageContext, PendingTaggedLog, Tag } from '@aztec/stdlib/logs';
+import type { AppTaggingSecretKind, ContractClassLog, MessageContext, PendingTaggedLog } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import type { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -21,6 +21,7 @@ import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import type { Option } from '../noir-structs/option.js';
+import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -122,7 +123,10 @@ export interface IUtilityExecutionOracle {
     startStorageSlot: Fr,
     numberOfElements: number,
   ): Promise<Fr[]>;
-  getPendingTaggedLogs(scope: AztecAddress): Promise<EphemeralArray<PendingTaggedLog>>;
+  getPendingTaggedLogs(
+    scope: AztecAddress,
+    providedSecrets: EphemeralArray<ProvidedSecret>,
+  ): Promise<EphemeralArray<PendingTaggedLog>>;
   validateAndStoreEnqueuedNotesAndEvents(
     noteValidationRequests: EphemeralArray<NoteValidationRequest>,
     eventValidationRequests: EphemeralArray<EventValidationRequest>,
@@ -205,6 +209,6 @@ export interface IPrivateExecutionOracle {
   notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
   isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean>;
   getSenderForTags(): Promise<Option<AztecAddress>>;
-  getNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
-  getNextConstrainedTaggingIndex(appSiloedSecret: Fr): Promise<number>;
+  getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Option<Fr>>;
+  getNextTaggingIndex(secret: Fr, kind: AppTaggingSecretKind): Promise<number>;
 }

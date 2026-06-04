@@ -6,6 +6,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { getErrorCause } from '@aztec/foundation/types';
 import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
@@ -13,11 +14,14 @@ import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import chunk from 'lodash.chunk';
 import {
   type Account,
+  ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
   type Log,
+  RpcRequestError,
   type StateOverride,
   type WatchContractEventReturnType,
+  decodeErrorResult,
   encodeAbiParameters,
   encodeFunctionData,
   getContract,
@@ -229,6 +233,32 @@ export type CheckpointProposedArgs = {
 
 /** Log type for CheckpointProposed events. */
 export type CheckpointProposedLog = L1EventLog<CheckpointProposedArgs>;
+
+const INSUFFICIENT_VALIDATOR_SET_SIZE_ERROR = 'ValidatorSelection__InsufficientValidatorSetSize';
+
+function isValidatorSelectionError(err: unknown, errorName: string): boolean {
+  return (
+    getErrorCause(err, ContractFunctionRevertedError)?.data?.errorName === errorName ||
+    decodeRpcRequestErrorName(err) === errorName
+  );
+}
+
+function decodeRpcRequestErrorName(err: unknown): string | undefined {
+  const data = getErrorCause(err, RpcRequestError)?.data;
+  if (!isHexString(data)) {
+    return undefined;
+  }
+
+  try {
+    return decodeErrorResult({ abi: RollupAbi, data }).errorName;
+  } catch {
+    return undefined;
+  }
+}
+
+function isHexString(value: unknown): value is Hex {
+  return typeof value === 'string' && value.startsWith('0x');
+}
 
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
@@ -588,7 +618,7 @@ export class RollupContract {
         args: [timestamp],
       })
       .catch(e => {
-        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientValidatorSetSize')) {
+        if (isValidatorSelectionError(e, INSUFFICIENT_VALIDATOR_SET_SIZE_ERROR)) {
           return { result: undefined };
         }
         throw e;
@@ -618,7 +648,7 @@ export class RollupContract {
         args: [],
       })
       .catch(e => {
-        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientValidatorSetSize')) {
+        if (isValidatorSelectionError(e, INSUFFICIENT_VALIDATOR_SET_SIZE_ERROR)) {
           return { result: undefined };
         }
         throw e;

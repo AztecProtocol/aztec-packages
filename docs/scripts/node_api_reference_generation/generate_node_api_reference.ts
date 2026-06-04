@@ -180,7 +180,7 @@ function parseSchemaObject(
     const name = prop.name?.getText(sourceFile);
     if (!name) continue;
 
-    // The value is a Zod expression like z.function().args(...).returns(...)
+    // The value is a Zod expression like z.function({ input: z.tuple([...]), output: ... })
     const exprText = prop.initializer.getText(sourceFile);
     const info = parseZodFunctionExpr(exprText);
     result.set(name, info);
@@ -190,19 +190,49 @@ function parseSchemaObject(
 /**
  * Parse a Zod function expression string to extract simplified parameter types and return type.
  *
+ * Handles the Zod 4 object form used by the schemas, and falls back to the legacy Zod 3
+ * `.args().returns()` chain so older versioned-docs schemas still regenerate.
+ *
  * Examples:
- *   "z.function().args(BlockParameterSchema, schemas.Fr).returns(schemas.Fr)"
- *   "z.function().returns(z.boolean())"
- *   "z.function().args(z.number(), optional(z.boolean())).returns(z.void())"
+ *   "z.function({ input: z.tuple([BlockParameterSchema, schemas.Fr]), output: schemas.Fr })"
+ *   "z.function({ input: z.tuple([]), output: z.boolean() })"
+ *   "z.function().args(z.number(), optional(z.boolean())).returns(z.void())"  // legacy
  */
 function parseZodFunctionExpr(expr: string): { paramTypes: string[]; returnType: string } {
-  const paramTypes: string[] = [];
-  let returnType = 'void';
-
   // Normalize whitespace (multi-line expressions use \n + indentation)
   const normalized = expr.replace(/\s+/g, ' ').trim();
 
-  // Extract .args(...) content — match balanced parens for args
+  // Zod 4 form: z.function({ input: z.tuple([...]), output: <expr> })
+  const fnStart = normalized.indexOf('z.function(');
+  if (fnStart !== -1) {
+    const objStart = normalized.indexOf('{', fnStart);
+    if (objStart !== -1) {
+      const objEnd = findMatchingBracket(normalized, objStart);
+      if (objEnd !== -1) {
+        let inputExpr: string | undefined;
+        let outputExpr: string | undefined;
+        for (const entry of splitTopLevelArgs(normalized.substring(objStart + 1, objEnd))) {
+          const colon = findTopLevelColon(entry);
+          if (colon === -1) continue;
+          const key = entry.substring(0, colon).trim();
+          const value = entry.substring(colon + 1).trim();
+          if (key === 'input') inputExpr = value;
+          else if (key === 'output') outputExpr = value;
+        }
+        if (inputExpr !== undefined || outputExpr !== undefined) {
+          return {
+            paramTypes: inputExpr ? parseInputArgs(inputExpr) : [],
+            returnType: outputExpr ? simplifyZodType(outputExpr) : 'void',
+          };
+        }
+      }
+    }
+  }
+
+  // Legacy Zod 3 form: z.function().args(...).returns(...)
+  const paramTypes: string[] = [];
+  let returnType = 'void';
+
   const argsStart = normalized.indexOf('.args(');
   if (argsStart !== -1) {
     const argsContentStart = argsStart + '.args('.length;
@@ -215,7 +245,6 @@ function parseZodFunctionExpr(expr: string): { paramTypes: string[]; returnType:
     }
   }
 
-  // Extract .returns(...) content — match balanced parens for returns
   const returnsStart = normalized.indexOf('.returns(');
   if (returnsStart !== -1) {
     const returnsContentStart = returnsStart + '.returns('.length;
@@ -226,6 +255,34 @@ function parseZodFunctionExpr(expr: string): { paramTypes: string[]; returnType:
   }
 
   return { paramTypes, returnType };
+}
+
+/**
+ * Extract the parameter type list from a Zod 4 `input:` value, which is normally a
+ * `z.tuple([...])`. Each tuple element is simplified independently so per-parameter docs
+ * (names + types) line up with the interface signature.
+ */
+function parseInputArgs(inputExpr: string): string[] {
+  const e = inputExpr.trim();
+
+  const optionalWrapperMatch = e.match(/^optional\(([\s\S]+)\)$/);
+  if (optionalWrapperMatch) return parseInputArgs(optionalWrapperMatch[1]);
+
+  const tupleStart = e.indexOf('z.tuple(');
+  if (tupleStart !== -1) {
+    const bracketOpen = e.indexOf('[', tupleStart);
+    if (bracketOpen !== -1) {
+      const bracketClose = findMatchingBracket(e, bracketOpen);
+      if (bracketClose !== -1) {
+        const inner = e.substring(bracketOpen + 1, bracketClose).trim();
+        if (!inner) return [];
+        return splitTopLevelArgs(inner).map(simplifyZodType);
+      }
+    }
+  }
+
+  // Non-tuple input (rare) — treat the whole expression as a single parameter.
+  return [simplifyZodType(e)];
 }
 
 /**
@@ -240,6 +297,37 @@ function findMatchingParen(text: string, openPos: number): number {
       depth--;
       if (depth === 0) return i;
     }
+  }
+  return -1;
+}
+
+/**
+ * Find the index of the bracket matching the opener at `openPos` (one of `(` `[` `{`).
+ * Returns the index of the matching closer, or -1 if not found.
+ */
+function findMatchingBracket(text: string, openPos: number): number {
+  const open = text[openPos];
+  const close = open === '(' ? ')' : open === '[' ? ']' : open === '{' ? '}' : '';
+  if (!close) return -1;
+  let depth = 0;
+  for (let i = openPos; i < text.length; i++) {
+    if (text[i] === open) depth++;
+    else if (text[i] === close) {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/** Index of the first top-level `:` (depth 0 across `()`, `[]`, `{}`), or -1. */
+function findTopLevelColon(text: string): number {
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '(' || c === '[' || c === '{') depth++;
+    else if (c === ')' || c === ']' || c === '}') depth--;
+    else if (c === ':' && depth === 0) return i;
   }
   return -1;
 }
@@ -468,6 +556,7 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
     methods: [
       'getL1ToL2MessageMembershipWitness',
       'getL1ToL2MessageCheckpoint',
+      'getL2ToL1MembershipWitness',
       'getL2ToL1Messages',
     ],
   },

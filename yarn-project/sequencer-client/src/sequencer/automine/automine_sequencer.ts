@@ -414,6 +414,9 @@ export class AutomineSequencer {
     });
 
     await this.publisher.enqueueProposeCheckpoint(checkpoint, emptyAttestations, emptyAttestationsSignature);
+    // Automine publishes synchronously in the current slot via `sendRequests`. It must NOT use the
+    // production `sendRequestsAt` (or `canProposeAt`), which always apply the one-slot pipelining
+    // offset — automine is the deliberate non-pipelined exception and builds/publishes in place.
     const result = await this.publisher.sendRequests(SlotNumber(targetSlot));
 
     const successful = result?.successfulActions?.find(a => a === 'propose');

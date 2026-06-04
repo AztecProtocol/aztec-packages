@@ -110,10 +110,10 @@ because the slot number is mixed into the hash.
 
 ### Proposer Pipelining
 
-When proposer pipelining is enabled, the proposer builds for the *next* slot
-rather than the current one (`PROPOSER_PIPELINING_SLOT_OFFSET = 1`). This gives
-the proposer a full slot of lead time to assemble and propagate the block. The
-"target slot" methods on the epoch cache apply this offset automatically.
+The proposer always builds for the *next* slot rather than the current one
+(`PROPOSER_PIPELINING_SLOT_OFFSET = 1`). This gives the proposer a full slot of
+lead time to assemble and propagate the block. The "target slot" methods on the
+epoch cache apply this offset automatically.
 
 ### Empty Committees
 
@@ -205,7 +205,6 @@ used to check validator registration status independently of committee membershi
 |-----------|---------|---------|
 | `cacheSize` | 12 | Max number of epoch committee entries to keep |
 | `validatorRefreshIntervalSeconds` | 60 | How often to refresh the full validator list |
-| `enableProposerPipelining` | false | Build for next slot instead of current |
 | `lagInEpochsForValidatorSet` | (from L1) | How far back to snapshot the validator set |
 | `lagInEpochsForRandao` | (from L1) | How far back to sample the RANDAO seed |
 | `targetCommitteeSize` | (from L1) | Number of validators to select per epoch |

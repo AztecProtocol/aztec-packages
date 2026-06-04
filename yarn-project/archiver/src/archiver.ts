@@ -1,6 +1,6 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { EpochCache } from '@aztec/epoch-cache';
-import { BlockTagTooOldError, RollupContract } from '@aztec/ethereum/contracts';
+import { EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
+import { BlockTagTooOldError, OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -30,7 +30,8 @@ import {
   getTimestampForSlot,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
@@ -41,6 +42,7 @@ import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
+import { OutboxTreesResolver } from './modules/outbox_trees_resolver.js';
 import { type ArchiverDataStores, backupArchiverDataStores, getArchiverSynchPoint } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 
@@ -85,6 +87,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   /** L1 synchronizer that handles fetching checkpoints and messages from L1. */
   private readonly synchronizer: ArchiverL1Synchronizer;
 
+  /** Resolver for L2-to-L1 message membership witnesses, built over this archiver's read view. */
+  private readonly outboxTreesResolver: OutboxTreesResolver;
+
   private initialSyncComplete: boolean = false;
   private initialSyncPromise: PromiseWithResolvers<void>;
 
@@ -106,6 +111,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param debugClient - A client for interacting with the Ethereum node for debug/trace methods.
    * @param rollup - Rollup contract instance.
+   * @param outbox - Outbox contract instance, used to read per-epoch L2-to-L1 message roots.
    * @param inbox - Inbox contract instance.
    * @param l1Addresses - L1 contract addresses (registry, governance proposer, slashing proposer).
    * @param dataStores - Archiver substores for storage & retrieval of blocks, encrypted logs & contract data.
@@ -118,7 +124,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param initialHeader - Genesis block header.
    * @param initialBlockHash - Precomputed hash of the genesis block header.
    * @param l2TipsCache - In-memory cache for L2 chain tips.
-   * @param epochCache - Cache used to compute the proposer pipelining offset.
    * @param dateProvider - Provider for current date/time, used for wall-clock orphan-block pruning.
    * @param log - A logger.
    */
@@ -126,6 +131,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     private readonly publicClient: ViemPublicClient,
     private readonly debugClient: ViemPublicDebugClient,
     private readonly rollup: RollupContract,
+    private readonly outbox: OutboxContract,
     private readonly l1Addresses: Pick<
       L1ContractAddresses,
       'rollupAddress' | 'registryAddress' | 'inboxAddress' | 'governanceProposerAddress'
@@ -141,6 +147,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       ethereumAllowNoDebugHosts?: boolean;
       skipHistoricalLogsCheck?: boolean;
       orphanProposedBlockPruneGraceSeconds: number;
+      enableOrphanProposedBlockPruning: boolean;
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
@@ -153,7 +160,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     initialHeader: BlockHeader,
     initialBlockHash: BlockHash,
     l2TipsCache: L2TipsCache,
-    private readonly epochCache: EpochCache,
     private readonly dateProvider: DateProvider,
     private readonly log: Logger = createLogger('archiver'),
   ) {
@@ -169,6 +175,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       rollupManaLimit: l1Constants.rollupManaLimit,
     });
 
+    // The resolver reads its witness data from this archiver and pins its lazy Outbox-root fetches
+    // to the archiver's synced L1 block. No method on `this` is invoked during construction.
+    this.outboxTreesResolver = new OutboxTreesResolver(
+      this.outbox,
+      this,
+      () => Promise.resolve(this.getL1BlockNumber()),
+      l1Constants.epochDuration,
+    );
+
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.
     this.runningPromise = new RunningPromise(
@@ -177,6 +192,27 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       this.config.pollingIntervalMs / 10,
       makeLoggingErrorHandler(this.log, NoBlobBodiesFoundError, BlockTagTooOldError),
     );
+  }
+
+  /**
+   * Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`. The node selects
+   * the smallest partial-proof root on the Outbox that covers the tx's checkpoint and builds the
+   * witness against it.
+   *
+   * The node reads the Outbox roots lazily, pinned to its synced L1 block, so the witness reflects
+   * the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering
+   * root has landed on L1 as of the synced block.
+   *
+   * Caveat: roots are cached only for the current synced L1 block and re-fetched once the node
+   * advances, so a reorg is picked up on the next synced-block advance rather than re-validated per
+   * request.
+   */
+  public getL2ToL1MembershipWitness(
+    txHash: TxHash,
+    message: Fr,
+    messageIndexInTx?: number,
+  ): Promise<L2ToL1MembershipWitness | undefined> {
+    return this.outboxTreesResolver.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx);
   }
 
   /** Updates archiver config */
@@ -366,15 +402,17 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * place; the first block not covered by a proposed checkpoint starts the orphan suffix to prune.
    */
   private async pruneOrphanProposedBlocks(): Promise<void> {
-    const tips = await this.getL2Tips();
-    const now = BigInt(this.dateProvider.nowInSeconds());
-    const pipeliningOffset = this.epochCache.pipeliningOffset();
-
-    // This only applies under pipelining
-    if (pipeliningOffset === 0) {
-      this.log.trace(`Pipelining offset is 0, skipping orphan proposed block pruning`);
+    // Orphan pruning is a pipelining-only liveness mechanism: it cleans up block-only proposals
+    // whose enclosing checkpoint never arrived over gossip. The test-only automine sequencer is
+    // non-pipelined — it publishes each checkpoint synchronously in the slot it builds — so it
+    // never produces orphan proposed blocks. Running the prune there would race its two-step local
+    // push (addBlock then addProposedCheckpoint) and delete the block before its checkpoint attaches.
+    if (!this.config.enableOrphanProposedBlockPruning) {
       return;
     }
+    const tips = await this.getL2Tips();
+    const now = BigInt(this.dateProvider.nowInSeconds());
+    const pipeliningOffset = PROPOSER_PIPELINING_SLOT_OFFSET;
 
     // The proposed tip is a proposed-checkpointed block, so there are no orphan proposed blocks to prune
     if (tips.proposedCheckpoint.block.number === tips.proposed.number) {

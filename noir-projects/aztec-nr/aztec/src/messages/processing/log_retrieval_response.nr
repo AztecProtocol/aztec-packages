@@ -12,7 +12,7 @@ pub(crate) global MAX_LOG_CONTENT_LEN: u32 = std::cmp::max(
 /// plaintext for public logs and ciphertext for private), plus contextual information about the transaction in which
 /// the log was emitted. This is the data required in order to discover notes that are being delivered in a log.
 #[derive(Deserialize, Eq)]
-pub(crate) struct LogRetrievalResponse {
+pub struct LogRetrievalResponse {
     pub log_payload: BoundedVec<Field, MAX_LOG_CONTENT_LEN>,
     pub tx_hash: Field,
     /// The array of new note hashes created by `tx_hash`

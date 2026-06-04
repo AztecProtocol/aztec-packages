@@ -28,8 +28,10 @@ pub struct MessageDelivery {
 }
 
 global OFFCHAIN: u8 = 1;
-global ONCHAIN_UNCONSTRAINED: u8 = 2;
-global ONCHAIN_CONSTRAINED: u8 = 3;
+/// Delivery variant identifier for on-chain message delivery without constrained encryption/tagging.
+pub global ONCHAIN_UNCONSTRAINED: u8 = 2;
+/// Delivery variant identifier for on-chain message delivery with constrained encryption/tagging.
+pub global ONCHAIN_CONSTRAINED: u8 = 3;
 
 impl MessageDelivery {
     /// Delivers the message fully off-chain, with no guarantees whatsoever.

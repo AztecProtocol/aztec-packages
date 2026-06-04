@@ -77,6 +77,8 @@ bot:
             name: "{{ .Release.Name }}-env"
 
   node:
+    env:
+      OTEL_SERVICE_NAME: "bot"
     configMap:
       envEnabled: true
     secret:

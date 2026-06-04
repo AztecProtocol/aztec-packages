@@ -71,8 +71,8 @@ locals {
     "devnet",
     "ignition-sepolia",
     "next-net",
+    "staging",
     "staging-ignition",
-    "staging-public",
   ])
 
   snapshots_only_folders = toset([
