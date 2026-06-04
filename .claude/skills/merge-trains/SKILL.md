@@ -20,8 +20,9 @@ A merge train is an automated batching system (inspired by [Rust rollups](https:
 | `merge-train/fairies` | aztec-nr | `#team-fairies` |
 | `merge-train/spartan` | Spartan / infra / yarn-project sequencer and prover orchestration | `#team-alpha` |
 | `merge-train/spartan-v5` | Same as `merge-train/spartan` but for the v5 release line (targets `v5-next` instead of `next`) | `#team-alpha` |
+| `merge-train/fairies-v5` | Same as `merge-train/fairies` (aztec-nr) but for the v5 release line (targets `v5-next` instead of `next`) | `#team-fairies` |
 
-> Every train targets `next` except `merge-train/spartan-v5`, which targets `v5-next`.
+> Trains target `next`, except the `-v5` trains (`merge-train/spartan-v5`, `merge-train/fairies-v5`), which target `v5-next`. Train PRs that target `v5-next` are auto-labeled `private-port-next` in addition to `ci-no-squash`.
 
 ## How to Use a Merge Train
 
