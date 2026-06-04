@@ -214,14 +214,18 @@ struct ConstantineSliceParamsU32 {
 // On WASM the explicit `wasm_v128_store` is used because earlier codegen for
 // the equivalent struct-wrapper assignment was observed to round-trip the
 // vector through 4 scalar memory slots; the intrinsic guarantees the
-// `i32x4.store` opcode. On native the `vector_size` store lowers directly to
-// SSE2 `movdqu` / NEON `st1`.
+// `i32x4.store` opcode. On native we store via `memcpy`: `dst` is an arbitrary
+// `uint32_t*` (only 4-byte aligned), but `SimdU32x4` carries 16-byte alignment,
+// so `*reinterpret_cast<SimdU32x4*>(dst) = v` emits an alignment-requiring
+// `movaps`/`movdqa` and segfaults whenever `dst` is not 16-byte aligned (e.g. a
+// `std::array<uint32_t, 4>` on the stack). `memcpy` lowers to the intended
+// unaligned `movdqu` / NEON `st1` with no alignment precondition.
 [[gnu::always_inline]] inline void simd_u32x4_store(uint32_t* dst, SimdU32x4 v) noexcept
 {
 #ifdef __wasm_simd128__
     wasm_v128_store(dst, reinterpret_cast<v128_t>(v));
 #else
-    *reinterpret_cast<SimdU32x4*>(dst) = v;
+    __builtin_memcpy(dst, &v, sizeof(v));
 #endif
 }
 
