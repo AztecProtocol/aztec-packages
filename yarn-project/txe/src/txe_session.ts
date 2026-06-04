@@ -2,7 +2,8 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
   AnchorBlockStore,
@@ -23,6 +24,7 @@ import {
   HashedValuesCache,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
+  Option,
   Oracle,
   UtilityExecutionOracle,
 } from '@aztec/pxe/simulator';
@@ -34,8 +36,7 @@ import {
   resolveAssertionMessageFromError,
   toACVMWitness,
 } from '@aztec/simulator/client';
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
-import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
+import { STANDARD_AUTH_REGISTRY_ADDRESS } from '@aztec/standard-contracts/auth-registry/constants';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -51,15 +52,16 @@ import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFEC
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
+import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './oracle/txe_oracle_version.js';
 import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
-import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './txe_oracle_version.js';
-import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
-import { TXEAccountStore } from './util/txe_account_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
+import type { ForeignCallArgs, ForeignCallResult } from './utils/encoding.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
+import { TXEAccountStore } from './utils/txe_account_store.js';
+import type { TXEArtifactResolver } from './utils/txe_artifact_resolver.js';
 
 /**
  * A TXE Session can be in one of four states, which change as the test progresses and different oracles are called.
@@ -116,13 +118,13 @@ export interface TXESessionStateHandler {
   setTxeOracleVersion(major: number, minor: number): void;
 
   enterTopLevelState(): Promise<void>;
-  enterPublicState(contractAddress?: AztecAddress): Promise<void>;
+  enterPublicState(contractAddress: Option<AztecAddress>): Promise<void>;
   enterPrivateState(
-    contractAddress: AztecAddress | undefined,
-    anchorBlockNumber: BlockNumber | undefined,
+    contractAddress: Option<AztecAddress>,
+    anchorBlockNumber: Option<BlockNumber>,
     gasSettings: GasSettings,
   ): Promise<PrivateContextInputs>;
-  enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
+  enterUtilityState(contractAddress: Option<AztecAddress>): Promise<void>;
 
   // TODO(F-335): Exposing the job info is abstraction breakage - drop the following 2 functions.
   cycleJob(): Promise<string>;
@@ -198,8 +200,11 @@ export class TXESession implements TXESessionStateHandler {
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
+  private disposed = false;
+
   constructor(
     private logger: Logger,
+    private sessionStore: AztecAsyncKVStore,
     private stateMachine: TXEStateMachine,
     private oracleHandler:
       | IUtilityExecutionOracle
@@ -221,10 +226,43 @@ export class TXESession implements TXESessionStateHandler {
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
+    private readonly artifactResolver: TXEArtifactResolver,
+    private readonly rootPath: string,
+    private readonly packageName: string,
   ) {}
 
-  static async init(contractStore: ContractStore) {
-    const store = await openTmpStore('txe-session');
+  /**
+   * Closes the per-session `txe-session` LMDB and the `NativeWorldStateService` .
+   * Called via IPC when the dispatcher detects the end of a test. Idempotent.
+   */
+  async dispose(): Promise<void> {
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    try {
+      await this.stateMachine.synchronizer.nativeWorldStateService.close();
+    } catch (err) {
+      this.logger.warn(`Error closing native world state during session dispose`, err);
+    }
+    try {
+      await this.sessionStore.close();
+    } catch (err) {
+      this.logger.warn(`Error closing session LMDB during dispose`, err);
+    }
+  }
+
+  static async init(
+    contractStore: ContractStore,
+    artifactResolver: TXEArtifactResolver,
+    rootPath: string,
+    packageName: string,
+  ) {
+    // Size LMDB's reader slots to the libuv pool (capped to 2 in bin/index.ts via
+    // HARDWARE_CONCURRENCY): each native LMDB read needs a libuv worker thread to run, so any
+    // slot beyond the pool size would sit idle while still consuming a semaphore + reader-table
+    // entry per session.
+    const store = await openEphemeralStore('txe-session', undefined, 2);
 
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
@@ -236,7 +274,6 @@ export class TXESession implements TXESessionStateHandler {
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
 
-    // Create job coordinator and register staged stores
     const jobCoordinator = new JobCoordinator(store);
     jobCoordinator.registerStores([
       capsuleStore,
@@ -274,22 +311,16 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
+      artifactResolver,
+      rootPath,
+      packageName,
     );
-    // Standard contracts (auth registry, public checks) were previously protocol contracts and thus implicitly
-    // deployed. Since their demotion they are ordinary deterministic-address contracts that must be published in each
-    // environment. Aztec.nr hardcodes their canonical addresses (e.g. public authwit calls the auth registry), so we
-    // deploy them here to keep them available to every test without explicit setup.
-    //
-    // Their deployment nullifiers are folded into the single baseline block that TXE mines on startup rather than mined
-    // in extra blocks of their own, so the test-visible block counter is unchanged: `next_block_number()` after init is
-    // still 2, as block-number-hardcoded tests (e.g. deployment_proofs) require.
-    await topLevelOracleHandler.deployManyInSingleBlock([
-      await getStandardAuthRegistry(),
-      await getStandardPublicChecks(),
-    ]);
+
+    await topLevelOracleHandler.mineDeploymentNullifiers([STANDARD_AUTH_REGISTRY_ADDRESS]);
 
     return new TXESession(
       logger,
+      store,
       stateMachine,
       topLevelOracleHandler,
       contractStore,
@@ -307,6 +338,9 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       nextBlockTimestamp,
+      artifactResolver,
+      rootPath,
+      packageName,
     );
   }
 
@@ -483,6 +517,9 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
+      this.artifactResolver,
+      this.rootPath,
+      this.packageName,
     );
 
     this.state = { name: 'TOP_LEVEL' };
@@ -490,10 +527,12 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   async enterPrivateState(
-    contractAddress: AztecAddress = DEFAULT_ADDRESS,
-    anchorBlockNumber: BlockNumber | undefined,
+    contractAddressOpt: Option<AztecAddress>,
+    anchorBlockNumberOpt: Option<BlockNumber>,
     gasSettings: GasSettings,
   ): Promise<PrivateContextInputs> {
+    const contractAddress = contractAddressOpt?.value ?? DEFAULT_ADDRESS;
+    const anchorBlockNumber = anchorBlockNumberOpt?.value;
     this.exitTopLevelState();
     this.resetLastCall();
 
@@ -565,7 +604,8 @@ export class TXESession implements TXESessionStateHandler {
     return (this.oracleHandler as TXEPrivateExecutionOracle).getPrivateContextInputs();
   }
 
-  async enterPublicState(contractAddress?: AztecAddress) {
+  async enterPublicState(contractAddressOpt: Option<AztecAddress>) {
+    const contractAddress = contractAddressOpt?.value ?? DEFAULT_ADDRESS;
     this.exitTopLevelState();
     this.resetLastCall();
 
@@ -580,10 +620,11 @@ export class TXESession implements TXESessionStateHandler {
     });
 
     this.oracleHandler = new TXEOraclePublicContext(
-      contractAddress ?? DEFAULT_ADDRESS,
+      contractAddress,
       await this.stateMachine.synchronizer.nativeWorldStateService.fork(),
       getSingleTxBlockRequestHash(globalVariables.blockNumber),
       globalVariables,
+      this.contractStore,
     );
 
     this.state = { name: 'PUBLIC' };
@@ -593,7 +634,8 @@ export class TXESession implements TXESessionStateHandler {
     this.setLastCallContext(Fr.ZERO, latestHeader.globalVariables.timestamp);
   }
 
-  async enterUtilityState(contractAddress: AztecAddress = DEFAULT_ADDRESS) {
+  async enterUtilityState(contractAddressOpt: Option<AztecAddress>) {
+    const contractAddress = contractAddressOpt?.value ?? DEFAULT_ADDRESS;
     this.exitTopLevelState();
     this.resetLastCall();
 

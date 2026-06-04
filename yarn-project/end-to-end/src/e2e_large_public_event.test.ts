@@ -41,6 +41,7 @@ describe('LargePublicEvent', () => {
     const { receipt: tx } = await contract.methods.emit_large_event(data).send({ from: accountAddress });
 
     const { events } = await getPublicEvents<LargeEvent>(aztecNode, LargePublicEventContract.events.LargeEvent, {
+      contractAddress: contract.address,
       fromBlock: BlockNumber(tx.blockNumber!),
       toBlock: BlockNumber(tx.blockNumber! + 1),
     });

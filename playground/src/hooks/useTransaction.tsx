@@ -9,7 +9,7 @@ import {
   type DeployOptions,
   NO_WAIT,
 } from '@aztec/aztec.js/contracts';
-import { TxHash, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
+import { PendingTxReceipt, TxHash, type TxReceipt } from '@aztec/aztec.js/tx';
 import { TimeoutError } from '@aztec/foundation/error';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { TX_TIMEOUT } from '../constants';
@@ -85,7 +85,7 @@ export function useTransaction() {
       });
     } catch (e) {
       if (e instanceof TimeoutError) {
-        const txReceipt = new TxReceipt(txHash, TxStatus.PENDING, undefined, e.message);
+        const txReceipt = new PendingTxReceipt(txHash, undefined);
         await playgroundDB.storeTx({
           contractAddress,
           txHash,

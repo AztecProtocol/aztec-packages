@@ -1,11 +1,11 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import { EpochCache } from '@aztec/epoch-cache';
-import { BlockTagTooOldError, RollupContract } from '@aztec/ethereum/contracts';
+import { EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
+import { BlockTagTooOldError, OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { merge } from '@aztec/foundation/collection';
+import { merge, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -17,6 +17,7 @@ import {
   type BlockHash,
   L2Block,
   type L2BlockSink,
+  L2BlockSourceEvents,
   type L2Tips,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
@@ -29,7 +30,8 @@ import {
   getTimestampForSlot,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
@@ -40,6 +42,7 @@ import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
+import { OutboxTreesResolver } from './modules/outbox_trees_resolver.js';
 import { type ArchiverDataStores, backupArchiverDataStores, getArchiverSynchPoint } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 
@@ -84,6 +87,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
   /** L1 synchronizer that handles fetching checkpoints and messages from L1. */
   private readonly synchronizer: ArchiverL1Synchronizer;
 
+  /** Resolver for L2-to-L1 message membership witnesses, built over this archiver's read view. */
+  private readonly outboxTreesResolver: OutboxTreesResolver;
+
   private initialSyncComplete: boolean = false;
   private initialSyncPromise: PromiseWithResolvers<void>;
 
@@ -105,20 +111,27 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param debugClient - A client for interacting with the Ethereum node for debug/trace methods.
    * @param rollup - Rollup contract instance.
+   * @param outbox - Outbox contract instance, used to read per-epoch L2-to-L1 message roots.
    * @param inbox - Inbox contract instance.
    * @param l1Addresses - L1 contract addresses (registry, governance proposer, slashing proposer).
    * @param dataStores - Archiver substores for storage & retrieval of blocks, encrypted logs & contract data.
    * @param config - Archiver configuration options.
    * @param blobClient - Client for retrieving blob data.
-   * @param dateProvider - Provider for current date/time.
    * @param instrumentation - Instrumentation for metrics and tracing.
    * @param l1Constants - L1 rollup constants.
+   * @param synchronizer - L1 synchronizer that handles fetching checkpoints and messages from L1.
+   * @param events - Event emitter shared with the synchronizer.
+   * @param initialHeader - Genesis block header.
+   * @param initialBlockHash - Precomputed hash of the genesis block header.
+   * @param l2TipsCache - In-memory cache for L2 chain tips.
+   * @param dateProvider - Provider for current date/time, used for wall-clock orphan-block pruning.
    * @param log - A logger.
    */
   constructor(
     private readonly publicClient: ViemPublicClient,
     private readonly debugClient: ViemPublicDebugClient,
     private readonly rollup: RollupContract,
+    private readonly outbox: OutboxContract,
     private readonly l1Addresses: Pick<
       L1ContractAddresses,
       'rollupAddress' | 'registryAddress' | 'inboxAddress' | 'governanceProposerAddress'
@@ -133,6 +146,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       maxAllowedEthClientDriftSeconds: number;
       ethereumAllowNoDebugHosts?: boolean;
       skipHistoricalLogsCheck?: boolean;
+      orphanProposedBlockPruneGraceSeconds: number;
+      enableOrphanProposedBlockPruning: boolean;
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
@@ -145,6 +160,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     initialHeader: BlockHeader,
     initialBlockHash: BlockHash,
     l2TipsCache: L2TipsCache,
+    private readonly dateProvider: DateProvider,
     private readonly log: Logger = createLogger('archiver'),
   ) {
     super(dataStores, l1Constants, initialHeader, initialBlockHash, l1Constants.genesisArchiveRoot);
@@ -159,6 +175,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       rollupManaLimit: l1Constants.rollupManaLimit,
     });
 
+    // The resolver reads its witness data from this archiver and pins its lazy Outbox-root fetches
+    // to the archiver's synced L1 block. No method on `this` is invoked during construction.
+    this.outboxTreesResolver = new OutboxTreesResolver(
+      this.outbox,
+      this,
+      () => Promise.resolve(this.getL1BlockNumber()),
+      l1Constants.epochDuration,
+    );
+
     // Running promise starts with a small interval inbetween runs, so all iterations needed for the initial sync
     // are done as fast as possible. This then gets updated once the initial sync completes.
     this.runningPromise = new RunningPromise(
@@ -167,6 +192,27 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       this.config.pollingIntervalMs / 10,
       makeLoggingErrorHandler(this.log, NoBlobBodiesFoundError, BlockTagTooOldError),
     );
+  }
+
+  /**
+   * Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`. The node selects
+   * the smallest partial-proof root on the Outbox that covers the tx's checkpoint and builds the
+   * witness against it.
+   *
+   * The node reads the Outbox roots lazily, pinned to its synced L1 block, so the witness reflects
+   * the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering
+   * root has landed on L1 as of the synced block.
+   *
+   * Caveat: roots are cached only for the current synced L1 block and re-fetched once the node
+   * advances, so a reorg is picked up on the next synced-block advance rather than re-validated per
+   * request.
+   */
+  public getL2ToL1MembershipWitness(
+    txHash: TxHash,
+    message: Fr,
+    messageIndexInTx?: number,
+  ): Promise<L2ToL1MembershipWitness | undefined> {
+    return this.outboxTreesResolver.getL2ToL1MembershipWitness(txHash, message, messageIndexInTx);
   }
 
   /** Updates archiver config */
@@ -338,6 +384,103 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await this.processInboundQueue();
     // Now perform L1 sync
     await this.syncFromL1();
+    // Prune proposed blocks with no corresponding proposed checkpoint by the end of their build slot.
+    await this.pruneOrphanProposedBlocks();
+  }
+
+  /**
+   * Prunes a block-only local tip that was built atop a checkpoint that was never itself proposed.
+   *
+   * Under pipelining, a proposer publishes the blocks for a checkpoint (block-only proposals) before
+   * assembling and publishing the enclosing proposed checkpoint at the end of the build slot. A node
+   * that received those blocks but never the proposed checkpoint is left with an orphan tip it must
+   * not build on. We prune it once enough wall-clock time has elapsed that the proposed checkpoint
+   * should have arrived. This runs on wall-clock time (not L1 block advancement) so it fires during
+   * quiet L1 periods, and is the liveness counterpart to the sequencer's checkSync guard.
+   *
+   * The uncheckpointed suffix is scanned in order. Blocks covered by proposed checkpoints are left in
+   * place; the first block not covered by a proposed checkpoint starts the orphan suffix to prune.
+   */
+  private async pruneOrphanProposedBlocks(): Promise<void> {
+    // Orphan pruning is a pipelining-only liveness mechanism: it cleans up block-only proposals
+    // whose enclosing checkpoint never arrived over gossip. The test-only automine sequencer is
+    // non-pipelined — it publishes each checkpoint synchronously in the slot it builds — so it
+    // never produces orphan proposed blocks. Running the prune there would race its two-step local
+    // push (addBlock then addProposedCheckpoint) and delete the block before its checkpoint attaches.
+    if (!this.config.enableOrphanProposedBlockPruning) {
+      return;
+    }
+    const tips = await this.getL2Tips();
+    const now = BigInt(this.dateProvider.nowInSeconds());
+    const pipeliningOffset = PROPOSER_PIPELINING_SLOT_OFFSET;
+
+    // The proposed tip is a proposed-checkpointed block, so there are no orphan proposed blocks to prune
+    if (tips.proposedCheckpoint.block.number === tips.proposed.number) {
+      this.log.trace(
+        `No orphan proposed blocks to prune: proposed tip ${tips.proposed.number} is checkpointed`,
+        pick(tips, 'proposed', 'proposedCheckpoint'),
+      );
+      return;
+    }
+
+    // Load the blocks that are candidates for pruning (ie blocks without a proposed checkpoint covering them)
+    const blocksWithoutProposedCheckpoint = await this.stores.blocks.getBlocksData({
+      from: BlockNumber(tips.proposedCheckpoint.block.number + 1),
+      limit: tips.proposed.number - tips.proposedCheckpoint.block.number,
+    });
+
+    // Iterate through them in order, the first one with a slot that should have received a proposed checkpoint
+    // is the first orphan block, and all blocks after it are also orphaned and should be pruned.
+    let lastSlotChecked = undefined;
+    for (const blockData of blocksWithoutProposedCheckpoint) {
+      // No need to recheck if this block had the same slot as the previous one.
+      const blockSlot = blockData.header.getSlot();
+      const blockNumber = blockData.header.getBlockNumber();
+      if (lastSlotChecked !== undefined && blockSlot === lastSlotChecked) {
+        continue;
+      }
+      lastSlotChecked = blockSlot;
+
+      // The proposed checkpoint should have landed by the start of the slot after the block's build slot
+      // (build slot = blockSlot - pipeliningOffset). Wait a grace period beyond that to tolerate propagation.
+      const expectedCheckpointedBySlot = SlotNumber(Number(blockSlot) - pipeliningOffset + 1);
+      const expectedCheckpointedByTime =
+        getTimestampForSlot(expectedCheckpointedBySlot, this.l1Constants) +
+        BigInt(this.config.orphanProposedBlockPruneGraceSeconds);
+
+      // If it's not checkpointed by the expected time, prune it along with all blocks after it.
+      if (now >= expectedCheckpointedByTime) {
+        const pruneAfterBlockNumber = BlockNumber(blockNumber - 1);
+        this.log.warn(
+          `Pruning orphan blocks after block ${pruneAfterBlockNumber}: block at slot ${blockSlot} belongs to ` +
+            `checkpoint ${blockData.checkpointNumber} which has no matching proposed checkpoint`,
+          {
+            firstUncheckpointedBlockHeader: blockData.header.toInspect(),
+            blockCheckpointNumber: blockData.checkpointNumber,
+            blockNumber,
+            blockSlot,
+            pipeliningOffset,
+            expectedCheckpointedBySlot,
+            expectedCheckpointedByTime,
+            now,
+          },
+        );
+
+        const prunedBlocks = await this.updater.removeBlocksWithoutProposedCheckpointAfter(pruneAfterBlockNumber);
+        if (prunedBlocks.length > 0) {
+          this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
+            type: L2BlockSourceEvents.L2PruneUncheckpointed,
+            slotNumber: blockSlot,
+            blocks: prunedBlocks,
+          });
+        }
+        return;
+      }
+    }
+
+    this.log.trace('No orphan proposed blocks to prune: all uncheckpointed blocks are still within the grace period', {
+      blocksWithoutProposedCheckpoint: blocksWithoutProposedCheckpoint.map(b => b.header.toInspect()),
+    });
   }
 
   private async syncFromL1() {

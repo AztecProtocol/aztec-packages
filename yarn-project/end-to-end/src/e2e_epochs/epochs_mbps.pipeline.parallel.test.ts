@@ -38,8 +38,8 @@ const TX_COUNT = 34;
 
 /**
  * E2E tests for proposer pipelining with Multiple Blocks Per Slot (MBPS).
- * Verifies that with pipelining enabled, the block proposer in slot N is the validator
- * scheduled on L1 for slot N+1 (the proposer view uses a +1 slot offset).
+ * Verifies that the block proposer in slot N is the validator scheduled on L1 for slot N+1
+ * (the proposer view uses a +1 slot offset).
  */
 describe('e2e_epochs/epochs_mbps_pipeline', () => {
   let context: EndToEndContext;
@@ -71,7 +71,6 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
-      enableProposerPipelining: true, // <- yehaw
       mockGossipSubNetwork: true,
       mockGossipSubNetworkLatency: 500, // adverse network conditions
       disableAnvilTestWatcher: true,
@@ -325,12 +324,12 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     await test.waitUntilCheckpointNumber(CheckpointNumber(1), checkpointTimeout);
     const checkpointedBlockNumber = await archiver.getBlockNumber();
     logger.warn(`Baseline established: checkpoint 1 reached at block ${checkpointedBlockNumber}`);
-    // Find the next proposer and prevent it from publishing checkpoints
+    // Target a submission slot whose pipelined build has not started yet.
     const { slot: currentSlot } = test.epochCache.getEpochAndSlotNow();
     const { proposerIndex, slot: proposerSlotToNotPublish } = await findNextProposerIndex(
       test.epochCache,
       validators,
-      SlotNumber(currentSlot + 1),
+      SlotNumber(currentSlot + 2),
     );
     logger.warn(
       `Will skip checkpoint publishing for proposer ${proposerIndex} in slot ${proposerSlotToNotPublish} - current slot ${currentSlot}`,

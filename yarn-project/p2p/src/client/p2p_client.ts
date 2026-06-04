@@ -377,8 +377,6 @@ export class P2PClient extends WithTracer implements P2P {
         throw new Error(`Attempted to broadcast a duplicate checkpoint proposal for slot ${proposal.slotNumber}`);
       }
     }
-    // Gossipsub doesn't deliver own messages, so fire the all-nodes handler locally
-    await this.p2pService.notifyOwnCheckpointProposal(checkpointCore);
     return this.p2pService.propagate(proposal);
   }
 
@@ -742,7 +740,7 @@ export class P2PClient extends WithTracer implements P2P {
     const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
 
     let slot;
-    if (this.epochCache.isProposerPipeliningEnabled() && hasProposedCheckpoint) {
+    if (hasProposedCheckpoint) {
       const { targetSlot } = this.epochCache.getTargetAndNextSlot();
       slot = targetSlot;
     } else {

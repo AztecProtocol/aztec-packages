@@ -196,6 +196,16 @@ After registration, you can interact with it using `aztec-wallet send` and `azte
 
 The Sponsored FPC is convenient for getting started, but you can also pay fees directly by bridging Fee Juice from Ethereum Sepolia. See [Paying Fees](./docs/aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1) for details on bridging and other fee payment methods.
 
+## Getting Fee Juice from the faucet
+
+If you want to pay fees directly instead of using the Sponsored FPC, you can request **Fee Juice** from the testnet faucet:
+
+- [Aztec Fee Juice Faucet](https://aztec-faucet.nethermind.io/) - dispenses testnet Fee Juice to your account
+
+:::note Fee Juice is not the AZTEC token
+This faucet dispenses **Fee Juice**, the asset used to pay transaction fees (gas) on Aztec. Fee Juice lives on Aztec (L2) and is only used to pay fees. It is **not** the AZTEC token, which is a separate asset that lives on Ethereum (L1). This faucet does not dispense AZTEC tokens.
+:::
+
 ## Testnet information
 
 For complete testnet technical details including contract addresses and network configuration, see the [Networks page](/networks#testnet).
@@ -205,3 +215,7 @@ For complete testnet technical details including contract addresses and network 
 - Check out the [Tutorials](./docs/tutorials/contract_tutorials/counter_contract.md) for building more complex contracts
 - Learn about [paying fees](./docs/aztec-js/how_to_pay_fees.md) with different methods
 - Explore [Aztec Playground](https://play.aztec.network/) for an interactive development experience
+
+:::tip Need help?
+If something does not work, see the [support guide](./support.md). It tells you when to ask in [Discord](https://discord.gg/aztec) or the [forum](https://forum.aztec.network), when to [open a GitHub issue](https://github.com/AztecProtocol/aztec-packages/issues/new?template=bug_report.yml), and how to disclose security issues responsibly.
+:::

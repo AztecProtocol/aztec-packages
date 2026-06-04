@@ -18,7 +18,7 @@ export class EventValidationRequest {
     public txHash: TxHash,
   ) {}
 
-  static fromFields(fields: Fr[]): EventValidationRequest {
+  static fromFields(fields: Fr[] | FieldReader): EventValidationRequest {
     const reader = FieldReader.asReader(fields);
 
     const contractAddress = AztecAddress.fromField(reader.readField());
@@ -36,7 +36,7 @@ export class EventValidationRequest {
 
     if (reader.remainingFields() !== 0) {
       throw new Error(
-        `Error converting array of fields to EventValidationRequest: expected ${reader.cursor} fields but received ${fields.length} (maxEventSerializedLen=${maxEventSerializedLen}).`,
+        `Error converting array of fields to EventValidationRequest: expected ${reader.cursor} fields but received ${reader.cursor + reader.remainingFields()} (maxEventSerializedLen=${maxEventSerializedLen}).`,
       );
     }
 

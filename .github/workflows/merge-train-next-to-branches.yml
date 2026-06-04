@@ -4,14 +4,15 @@ on:
   push:
     branches:
       - next
+      - v5-next
 
 jobs:
   merge-to-trains:
-    name: Merge next to merge-train branches
+    name: Merge base branch into merge-train branches
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -26,7 +27,14 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
-          for branch in merge-train/avm merge-train/barretenberg merge-train/ci merge-train/docs merge-train/fairies merge-train/spartan; do
-            ./scripts/merge-train/merge-next.sh "$branch" || true
-          done
+          # The spartan-v5 train tracks the v5 release line (v5-next); every
+          # other train tracks next. Sync only the trains fed by the branch
+          # that was just pushed.
+          if [[ "${{ github.ref_name }}" == "v5-next" ]]; then
+            ./scripts/merge-train/merge-next.sh merge-train/spartan-v5 v5-next || true
+          else
+            for branch in merge-train/avm merge-train/barretenberg merge-train/ci merge-train/docs merge-train/fairies merge-train/spartan; do
+              ./scripts/merge-train/merge-next.sh "$branch" || true
+            done
+          fi
 

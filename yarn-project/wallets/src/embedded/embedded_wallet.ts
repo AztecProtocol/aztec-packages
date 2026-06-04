@@ -1,6 +1,12 @@
 import { type Account, NO_FROM } from '@aztec/aztec.js/account';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
-import { type InteractionWaitOptions, type SendReturn, type WaitOpts, getGasLimits } from '@aztec/aztec.js/contracts';
+import {
+  type InteractionWaitOptions,
+  NO_WAIT,
+  type SendReturn,
+  type WaitOpts,
+  getGasLimits,
+} from '@aztec/aztec.js/contracts';
 import type {
   Aliased,
   ExecuteUtilityOptions,
@@ -51,8 +57,12 @@ export function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
   if (!pxe) {
     return { config: {}, creation: {} };
   }
-  const { loggers, loggerActorLabel, proverOrOptions, store, simulator, ...config } = pxe;
-  return { config, creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator } };
+  const { loggers, loggerActorLabel, proverOrOptions, store, simulator, hooks, preloadedContractsProvider, ...config } =
+    pxe;
+  return {
+    config,
+    creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator, hooks, preloadedContractsProvider },
+  };
 }
 
 /** Options for the EmbeddedWallet's own DB (accounts, senders — distinct from PXE state). */
@@ -192,20 +202,24 @@ export class EmbeddedWallet extends BaseWallet {
       gasLimits: opts.fee?.gasSettings?.gasLimits ?? estimated.gasLimits,
       teardownGasLimits: opts.fee?.gasSettings?.teardownGasLimits ?? estimated.teardownGasLimits,
     });
-    const waitOpts: WaitOpts = typeof opts.wait === 'object' ? opts.wait : {};
-
-    if (!waitOpts?.waitForStatus) {
-      // Default to PROPOSED so the wait returns as soon as the tx lands in a proposed L2 block,
-      // rather than waiting until the end of the slot for the checkpoint to be published to L1.
-      // This is what makes MBPS (Multiple Blocks Per Slot) actually improve UX: with CHECKPOINTED
-      // we'd block until L1 inclusion regardless of how early in the slot the tx was sequenced.
-      // The tradeoff is a weaker guarantee — a proposed block only becomes canonical once it (or
-      // a later block in the same slot) is checkpointed, so a tx could be re-orged out if the
-      // proposer fails to publish to L1 (which should be rare, since they'd get slashed for it).
-      waitOpts!.waitForStatus = TxStatus.PROPOSED;
+    let wait: InteractionWaitOptions = opts.wait;
+    if (wait !== NO_WAIT) {
+      const callerWaitOpts: WaitOpts = typeof wait === 'object' ? wait : {};
+      wait = {
+        ...callerWaitOpts,
+        // Default to PROPOSED so the wait returns as soon as the tx lands in a proposed L2 block,
+        // rather than waiting until the end of the slot for the checkpoint to be published to L1.
+        // This is what makes MBPS (Multiple Blocks Per Slot) actually improve UX: with CHECKPOINTED
+        // we'd block until L1 inclusion regardless of how early in the slot the tx was sequenced.
+        // The tradeoff is a weaker guarantee — a proposed block only becomes canonical once it (or
+        // a later block in the same slot) is checkpointed, so a tx could be re-orged out if the
+        // proposer fails to publish to L1 (which should be rare, since they'd get slashed for it).
+        waitForStatus: callerWaitOpts.waitForStatus ?? TxStatus.PROPOSED,
+      };
     }
     return super.sendTx(executionPayload, {
       ...opts,
+      wait: wait as W,
       fee: { ...opts.fee, gasSettings },
     });
   }
@@ -272,16 +286,6 @@ export class EmbeddedWallet extends BaseWallet {
     this.stubClassIds.set('schnorr', schnorrClassId);
     this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
     this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
-  }
-
-  async registerAuthRegistry(
-    getStandardAuthRegistry: () => Promise<{
-      instance: ContractInstanceWithAddress;
-      artifact: ContractArtifact;
-    }>,
-  ): Promise<void> {
-    const { instance, artifact } = await getStandardAuthRegistry();
-    await this.pxe.registerContract({ instance, artifact });
   }
 
   /**

@@ -30,7 +30,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
+import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -81,7 +81,6 @@ describe('e2e_p2p_add_rollup', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         governanceProposerRoundSize: 10,
-        enableProposerPipelining: true,
         // Allow validators to build empty checkpoints under pipelining so the chain keeps
         // advancing while we wait for L1->L2 messages to land in the next checkpoint's inbox tree.
         minTxsPerBlock: 0,
@@ -364,14 +363,23 @@ describe('e2e_p2p_add_rollup', () => {
           chainId: new Fr(l1Client.chain.id),
         });
 
-        const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, leaf, l2OutgoingReceipt.txHash))!;
-        const { epochNumber: epoch, ...l2ToL1MessageWitness } = l2ToL1MessageResult;
-        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageWitness);
-
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.
         const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
-        await cheatcodes.advanceToEpoch(EpochNumber(epoch + 1));
+        const minedReceipt = await node.getTxReceipt(l2OutgoingReceipt.txHash);
+        if (minedReceipt.epochNumber === undefined) {
+          throw new Error('Outgoing tx is not yet in an epoch');
+        }
+        await cheatcodes.advanceToEpoch(EpochNumber(minedReceipt.epochNumber + 1));
         await waitForProven(node, l2OutgoingReceipt, { provenTimeout: 300 });
+
+        const l2ToL1MessageResult = await retryUntil(
+          () => node.getL2ToL1MembershipWitness(minedReceipt.txHash, leaf),
+          'l2 to l1 membership witness',
+          60,
+          1,
+        );
+        const { epochNumber: epoch, numCheckpointsInEpoch, ...l2ToL1MessageWitness } = l2ToL1MessageResult;
+        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageWitness);
 
         // Then we want to go and comsume it!
         const outbox = getContract({
@@ -388,6 +396,7 @@ describe('e2e_p2p_add_rollup', () => {
             args: [
               l2ToL1Message,
               BigInt(epoch),
+              BigInt(numCheckpointsInEpoch),
               BigInt(l2ToL1MessageWitness.leafIndex),
               l2ToL1MessageWitness.siblingPath
                 .toBufferArray()
@@ -412,6 +421,7 @@ describe('e2e_p2p_add_rollup', () => {
             root: `0x${string}`;
             messageHash: `0x${string}`;
             leafId: bigint;
+            numCheckpointsInEpoch: bigint;
           };
         };
 

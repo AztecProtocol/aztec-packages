@@ -27,6 +27,7 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { TopicType } from '@aztec/stdlib/p2p';
 import { OffenseType } from '@aztec/stdlib/slashing';
 import { TxStatus } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
@@ -263,6 +264,30 @@ describe('HA Full Setup', () => {
     }
 
     logger.info(`All ${NODE_COUNT} HA peer nodes started and coordinating via PostgreSQL database`);
+    logger.info('Waiting for HA peer nodes to join the tx gossip mesh before deploying the test account');
+    await retryUntil(
+      async () => {
+        const meshStates = await Promise.all(
+          haNodeServices.map(async (service, nodeIndex) => {
+            const p2p = service.getP2P();
+            const [peers, txMeshPeerCount] = await Promise.all([
+              p2p.getPeers(),
+              p2p.getGossipMeshPeerCount(TopicType.tx),
+            ]);
+
+            return { nodeIndex, peerCount: peers.length, txMeshPeerCount };
+          }),
+        );
+
+        logger.debug('HA tx gossip mesh status', { meshStates });
+        return meshStates.every(({ peerCount, txMeshPeerCount }) => peerCount > 0 && txMeshPeerCount > 0)
+          ? true
+          : undefined;
+      },
+      'HA tx gossip mesh readiness',
+      60,
+      1,
+    );
 
     // Now deploy the account - blocks can be built by the HA nodes
     logger.info('Deploying test account now that validators are running');

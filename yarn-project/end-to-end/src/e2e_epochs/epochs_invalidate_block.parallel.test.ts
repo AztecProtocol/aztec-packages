@@ -85,7 +85,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       skipInitialSequencer: true,
-      enableProposerPipelining: true,
       inboxLag: 2,
     });
 
@@ -661,9 +660,12 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // P1 must have landed with insufficient attestations (the trigger for the archiver skip).
     await assertCheckpointInsufficientAttestations(p1Checkpoint);
 
-    // Restore P2 to a healthy config so a later proposer (or P2 in a future slot) can resume
-    // the chain by invalidating P1 and posting fresh checkpoints.
-    await p2Node.setConfig({ skipWaitForValidParentCheckpointOnL1: false, skipInvalidateBlockAsProposer: false });
+    // Restore the bad proposers to a healthy config so later slots can resume the chain by
+    // invalidating P1 and posting fresh checkpoints.
+    await Promise.all([
+      p1Node.setConfig({ skipCollectingAttestations: false, skipInvalidateBlockAsProposer: false }),
+      p2Node.setConfig({ skipWaitForValidParentCheckpointOnL1: false, skipInvalidateBlockAsProposer: false }),
+    ]);
 
     // The archiver should no longer stall: wait for the chain to advance past P2 within a
     // handful of slots. Note we wait on local checkpoint progress here (i.e. for the chain to
