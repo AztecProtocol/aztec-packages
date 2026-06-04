@@ -147,7 +147,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     }
 
     // Check 2: SIMD x4 path agrees with scalar path lane-by-lane.
-    std::array<uint32_t, 4> simd_out{};
+    alignas(16) std::array<uint32_t, 4> simd_out{};
     production_simd(scalars, bit_offset, window_bits, simd_out);
     for (size_t lane = 0; lane < 4; ++lane) {
         const uint32_t want = production_scalar(scalars[lane].data(), bit_offset, window_bits);
