@@ -759,19 +759,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 3 * 1] = args.serialize();
             let serialized_member_len: u32 = <[Field; 3] as Serialize<N = 3 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = with_selector.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3853740100_Field);
@@ -790,19 +784,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = _a.serialize();
             let serialized_member_len: u32 = <u8 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 3 * 1] = _fields.serialize();
             let serialized_member_len: u32 = <[Field; 3] as Serialize<N = 3 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1608415988_Field);
@@ -845,19 +833,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = msg_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = msg_leaf_index.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3972971575_Field);
@@ -870,19 +852,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = to.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = amount.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2606877757_Field);
@@ -895,82 +871,55 @@ pub contract AvmTest {
             let serialized_member: [Field; 10 * 1] = args_field.serialize();
             let serialized_member_len: u32 = <[Field; 10] as Serialize<N = 10 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 10 * 1] = args_u8.serialize();
             let serialized_member_len: u32 = <[u8; 10] as Serialize<N = 10 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = get_instance_for_address.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_deployer.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_class_id.serialize();
             let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_4: u32 = i + offset;
-                    serialized_params[i_4] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_5: u32 = i + offset;
-                    serialized_params[i_5] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_6: u32 = i + offset;
-                    serialized_params[i_6] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 7 * 1] = schnorr_inputs.serialize();
             let serialized_member_len: u32 = <[Field; 7] as Serialize<N = 7 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_7: u32 = i + offset;
-                    serialized_params[i_7] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = skip_strictly_limited_side_effects.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_8: u32 = i + offset;
-                    serialized_params[i_8] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(585772300_Field);
@@ -983,37 +932,25 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = scalar_lo.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = scalar_hi.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = scalar2_lo.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = scalar2_hi.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2931784034_Field);
@@ -1026,19 +963,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2858633377_Field);
@@ -1051,46 +982,31 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = address.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_deployer.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_class_id.serialize();
             let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_4: u32 = i + offset;
-                    serialized_params[i_4] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(729846477_Field);
@@ -1115,19 +1031,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1745164739_Field);
@@ -1140,19 +1050,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = x.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = y.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2484465428_Field);
@@ -1183,19 +1087,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(290442984_Field);
@@ -1220,19 +1118,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1362946309_Field);
@@ -1311,19 +1203,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = recipient.serialize();
             let serialized_member_len: u32 = <EthAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = content.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3409962923_Field);
@@ -1342,19 +1228,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 300 * 1] = args.serialize();
             let serialized_member_len: u32 = <[Field; 300] as Serialize<N = 300 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = with_selector.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2293565755_Field);
@@ -1379,19 +1259,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 2] = lhs.serialize();
             let serialized_member_len: u32 = <EmbeddedCurvePoint as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 2] = rhs.serialize();
             let serialized_member_len: u32 = <EmbeddedCurvePoint as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(4272482712_Field);
@@ -1416,28 +1290,19 @@ pub contract AvmTest {
             let serialized_member: [Field; 1 * 1] = x.serialize();
             let serialized_member_len: u32 = <[Field; 1] as Serialize<N = 1 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1 * 1] = y.serialize();
             let serialized_member_len: u32 = <[Field; 1] as Serialize<N = 1 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = b.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2633971407_Field);
@@ -1468,37 +1333,25 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = l2_gas.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = da_gas.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3561659563_Field);
@@ -1511,19 +1364,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = nestedAddress.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = nullifier.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1630216043_Field);
@@ -1614,19 +1461,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(94115833_Field);
@@ -1645,19 +1486,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = recipient.serialize();
             let serialized_member_len: u32 = <EthAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = content.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2709402942_Field);
@@ -1670,19 +1505,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = note_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = leaf_index.serialize();
             let serialized_member_len: u32 = <u64 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(671085844_Field);
@@ -1719,19 +1548,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1563037608_Field);
@@ -1756,19 +1579,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = to.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = amount.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1756672898_Field);
@@ -1793,19 +1610,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = nestedAddress.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = nullifier.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1050471208_Field);
@@ -1830,19 +1641,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = a.serialize();
             let serialized_member_len: u32 = <u128 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = b.serialize();
             let serialized_member_len: u32 = <u128 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1408352185_Field);
@@ -1936,19 +1741,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 3 * 1] = args.serialize();
             let serialized_member_len: u32 = <[Field; 3] as Serialize<N = 3 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = with_selector.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3853740100_Field);
@@ -1973,19 +1772,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = _a.serialize();
             let serialized_member_len: u32 = <u8 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 3 * 1] = _fields.serialize();
             let serialized_member_len: u32 = <[Field; 3] as Serialize<N = 3 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1608415988_Field);
@@ -2046,19 +1839,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = msg_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = msg_leaf_index.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3972971575_Field);
@@ -2074,19 +1861,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = to.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = amount.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2606877757_Field);
@@ -2102,82 +1883,55 @@ pub contract AvmTest {
             let serialized_member: [Field; 10 * 1] = args_field.serialize();
             let serialized_member_len: u32 = <[Field; 10] as Serialize<N = 10 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 10 * 1] = args_u8.serialize();
             let serialized_member_len: u32 = <[u8; 10] as Serialize<N = 10 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = get_instance_for_address.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_deployer.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_class_id.serialize();
             let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_4: u32 = i + offset;
-                    serialized_params[i_4] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_5: u32 = i + offset;
-                    serialized_params[i_5] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_6: u32 = i + offset;
-                    serialized_params[i_6] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 7 * 1] = schnorr_inputs.serialize();
             let serialized_member_len: u32 = <[Field; 7] as Serialize<N = 7 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_7: u32 = i + offset;
-                    serialized_params[i_7] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = skip_strictly_limited_side_effects.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_8: u32 = i + offset;
-                    serialized_params[i_8] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(585772300_Field);
@@ -2193,37 +1947,25 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = scalar_lo.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = scalar_hi.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = scalar2_lo.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = scalar2_hi.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2931784034_Field);
@@ -2239,19 +1981,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2858633377_Field);
@@ -2267,46 +2003,31 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = address.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_deployer.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_class_id.serialize();
             let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_4: u32 = i + offset;
-                    serialized_params[i_4] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(729846477_Field);
@@ -2340,19 +2061,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1745164739_Field);
@@ -2368,19 +2083,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = x.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = y.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2484465428_Field);
@@ -2423,19 +2132,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(290442984_Field);
@@ -2469,19 +2172,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1362946309_Field);
@@ -2596,19 +2293,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = recipient.serialize();
             let serialized_member_len: u32 = <EthAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = content.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3409962923_Field);
@@ -2633,19 +2324,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 300 * 1] = args.serialize();
             let serialized_member_len: u32 = <[Field; 300] as Serialize<N = 300 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = with_selector.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2293565755_Field);
@@ -2670,19 +2355,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 2] = lhs.serialize();
             let serialized_member_len: u32 = <EmbeddedCurvePoint as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 2] = rhs.serialize();
             let serialized_member_len: u32 = <EmbeddedCurvePoint as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(4272482712_Field);
@@ -2716,28 +2395,19 @@ pub contract AvmTest {
             let serialized_member: [Field; 1 * 1] = x.serialize();
             let serialized_member_len: u32 = <[Field; 1] as Serialize<N = 1 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1 * 1] = y.serialize();
             let serialized_member_len: u32 = <[Field; 1] as Serialize<N = 1 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = b.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2633971407_Field);
@@ -2780,37 +2450,25 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = l2_gas.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = da_gas.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3561659563_Field);
@@ -2826,19 +2484,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = nestedAddress.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = nullifier.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1630216043_Field);
@@ -2962,19 +2614,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(94115833_Field);
@@ -2999,19 +2645,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = recipient.serialize();
             let serialized_member_len: u32 = <EthAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = content.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2709402942_Field);
@@ -3027,19 +2667,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = note_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = leaf_index.serialize();
             let serialized_member_len: u32 = <u64 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(671085844_Field);
@@ -3091,19 +2725,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1563037608_Field);
@@ -3137,19 +2765,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = to.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = amount.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1756672898_Field);
@@ -3183,19 +2805,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = nestedAddress.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = nullifier.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1050471208_Field);
@@ -3229,19 +2845,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = a.serialize();
             let serialized_member_len: u32 = <u128 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = b.serialize();
             let serialized_member_len: u32 = <u128 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1408352185_Field);
@@ -3336,19 +2946,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 3 * 1] = args.serialize();
             let serialized_member_len: u32 = <[Field; 3] as Serialize<N = 3 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = with_selector.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3853740100_Field);
@@ -3373,19 +2977,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = _a.serialize();
             let serialized_member_len: u32 = <u8 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 3 * 1] = _fields.serialize();
             let serialized_member_len: u32 = <[Field; 3] as Serialize<N = 3 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1608415988_Field);
@@ -3446,19 +3044,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = msg_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = msg_leaf_index.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3972971575_Field);
@@ -3474,19 +3066,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = to.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = amount.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2606877757_Field);
@@ -3502,82 +3088,55 @@ pub contract AvmTest {
             let serialized_member: [Field; 10 * 1] = args_field.serialize();
             let serialized_member_len: u32 = <[Field; 10] as Serialize<N = 10 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 10 * 1] = args_u8.serialize();
             let serialized_member_len: u32 = <[u8; 10] as Serialize<N = 10 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = get_instance_for_address.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_deployer.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_class_id.serialize();
             let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_4: u32 = i + offset;
-                    serialized_params[i_4] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_5: u32 = i + offset;
-                    serialized_params[i_5] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_6: u32 = i + offset;
-                    serialized_params[i_6] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 7 * 1] = schnorr_inputs.serialize();
             let serialized_member_len: u32 = <[Field; 7] as Serialize<N = 7 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_7: u32 = i + offset;
-                    serialized_params[i_7] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = skip_strictly_limited_side_effects.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_8: u32 = i + offset;
-                    serialized_params[i_8] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(585772300_Field);
@@ -3593,19 +3152,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2858633377_Field);
@@ -3621,37 +3174,25 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = scalar_lo.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = scalar_hi.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = scalar2_lo.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = scalar2_hi.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2931784034_Field);
@@ -3667,46 +3208,31 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = address.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_deployer.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_class_id.serialize();
             let serialized_member_len: u32 = <ContractClassId as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_initialization_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = expected_immutables_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_4: u32 = i + offset;
-                    serialized_params[i_4] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(729846477_Field);
@@ -3740,19 +3266,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1745164739_Field);
@@ -3768,19 +3288,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = x.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = y.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2484465428_Field);
@@ -3823,19 +3337,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(290442984_Field);
@@ -3869,19 +3377,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1362946309_Field);
@@ -3996,19 +3498,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = recipient.serialize();
             let serialized_member_len: u32 = <EthAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = content.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3409962923_Field);
@@ -4033,19 +3529,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 300 * 1] = args.serialize();
             let serialized_member_len: u32 = <[Field; 300] as Serialize<N = 300 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = with_selector.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2293565755_Field);
@@ -4070,19 +3560,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 2] = lhs.serialize();
             let serialized_member_len: u32 = <EmbeddedCurvePoint as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 2] = rhs.serialize();
             let serialized_member_len: u32 = <EmbeddedCurvePoint as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(4272482712_Field);
@@ -4125,28 +3609,19 @@ pub contract AvmTest {
             let serialized_member: [Field; 1 * 1] = x.serialize();
             let serialized_member_len: u32 = <[Field; 1] as Serialize<N = 1 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1 * 1] = y.serialize();
             let serialized_member_len: u32 = <[Field; 1] as Serialize<N = 1 * 1>>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = b.serialize();
             let serialized_member_len: u32 = <bool as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2633971407_Field);
@@ -4180,37 +3655,25 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = l2_gas.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_2: u32 = i + offset;
-                    serialized_params[i_2] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = da_gas.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_3: u32 = i + offset;
-                    serialized_params[i_3] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(3561659563_Field);
@@ -4226,19 +3689,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = nestedAddress.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = nullifier.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1630216043_Field);
@@ -4362,19 +3819,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(94115833_Field);
@@ -4399,19 +3850,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = recipient.serialize();
             let serialized_member_len: u32 = <EthAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = content.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(2709402942_Field);
@@ -4427,19 +3872,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = note_hash.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = leaf_index.serialize();
             let serialized_member_len: u32 = <u64 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(671085844_Field);
@@ -4491,19 +3930,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = arg_a.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = arg_b.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1563037608_Field);
@@ -4537,19 +3970,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = to.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = amount.serialize();
             let serialized_member_len: u32 = <u32 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1756672898_Field);
@@ -4583,19 +4010,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = nestedAddress.serialize();
             let serialized_member_len: u32 = <AztecAddress as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = nullifier.serialize();
             let serialized_member_len: u32 = <Field as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1050471208_Field);
@@ -4629,19 +4050,13 @@ pub contract AvmTest {
             let serialized_member: [Field; 1] = a.serialize();
             let serialized_member_len: u32 = <u128 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let serialized_member: [Field; 1] = b.serialize();
             let serialized_member_len: u32 = <u128 as Serialize>::N;
             for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
+                serialized_params[i + offset] = serialized_member[i];
             };
             offset = offset + serialized_member_len;
             let selector: FunctionSelector = FunctionSelector::from_field(1408352185_Field);
@@ -6886,19 +6301,13 @@ mod note {
             let packed_member: [Field; 1] = self.a.pack();
             let packed_member_len: u32 = <Field as Packable>::N;
             for i in 0_u32..packed_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    result[i_0] = packed_member[i];
-                }
+                result[i + offset] = packed_member[i];
             };
             offset = offset + packed_member_len;
             let packed_member: [Field; 1] = self.b.pack();
             let packed_member_len: u32 = <Field as Packable>::N;
             for i in 0_u32..packed_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    result[i_1] = packed_member[i];
-                }
+                result[i + offset] = packed_member[i];
             };
             offset = offset + packed_member_len;
             result
