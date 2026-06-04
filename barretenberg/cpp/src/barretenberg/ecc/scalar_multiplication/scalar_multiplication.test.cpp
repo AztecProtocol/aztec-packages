@@ -1203,6 +1203,233 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
             EXPECT_EQ(AffineElement(actual), AffineElement(expected)) << "misaligned external arena (n=" << n << ")";
         }
     }
+
+    // ============================================================================
+    // Degenerate-input edge cases for the `handle_edge_cases=true` (Jacobian) path,
+    // at LARGE N and forced multi-threading.
+    //
+    // `scalar_multiplication_safe_mode.test.cpp` already covers point-at-infinity,
+    // P/-P negation, and all-infinity — but only at tiny N (≤ 60 points), which on
+    // native stays single-threaded (the Jacobian path multi-threads only at
+    // n ≥ 512). These tests push the same degenerate inputs through the
+    // multi-threaded Jacobian split + cross-thread reduction, where a per-slice
+    // infinity / equal-x collision is folded into a per-thread partial before the
+    // final cross-thread sum. We pin 8 threads so the multi-thread path runs
+    // regardless of the CI machine's core count.
+    // ============================================================================
+
+    /// Inputs containing points-at-infinity scattered at the first/middle/last
+    /// positions. An infinity input contributes nothing; only the edge-case path
+    /// is allowed to see it.
+    void test_handle_edge_cases_point_at_infinity()
+    {
+        ConcurrencyScope scope(8);
+        auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 101);
+#ifdef __wasm__
+        const std::vector<size_t> sizes = { 4, 7, 64 };
+#else
+        // 3000 crosses the Jacobian path's native multi-thread split (>256 pts/thread).
+        const std::vector<size_t> sizes = { 4, 7, 64, 3000 };
+#endif
+        for (size_t n : sizes) {
+            std::vector<AffineElement> points(n);
+            std::vector<ScalarField> test_scalars(n);
+            for (size_t i = 0; i < n; ++i) {
+                points[i] = AffineElement(Element::random_element(&rng));
+                test_scalars[i] = ScalarField::random_element(&rng);
+            }
+            for (size_t idx : { size_t{ 0 }, n / 2, n - 1 }) {
+                points[idx].self_set_infinity();
+            }
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+            AffineElement result =
+                scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/true);
+            AffineElement expected = naive_msm(test_scalars, points);
+            EXPECT_EQ(result, expected) << "point-at-infinity inputs (n=" << n << ")";
+        }
+    }
+
+    /// Inputs containing P and -P with identical scalars, so the pair always lands
+    /// in the same signed-digit bucket in every window: the affine batch-add would
+    /// hit an equal-x collision, the Jacobian path must fold them to infinity.
+    void test_handle_edge_cases_inverse_pairs()
+    {
+        ConcurrencyScope scope(8);
+        auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 102);
+#ifdef __wasm__
+        const std::vector<size_t> pair_counts = { 2, 40 };
+#else
+        const std::vector<size_t> pair_counts = { 2, 40, 800 };
+#endif
+        for (size_t pairs : pair_counts) {
+            const size_t n = (2 * pairs) + 3; // + a few linearly-independent singletons
+            std::vector<AffineElement> points(n);
+            std::vector<ScalarField> test_scalars(n);
+            for (size_t p = 0; p < pairs; ++p) {
+                AffineElement r(Element::random_element(&rng));
+                AffineElement neg_r;
+                neg_r.x = r.x;
+                neg_r.y = -r.y;
+                const ScalarField s = ScalarField::random_element(&rng);
+                points[2 * p] = r;
+                points[(2 * p) + 1] = neg_r;
+                test_scalars[2 * p] = s;
+                test_scalars[(2 * p) + 1] = s;
+            }
+            for (size_t i = 2 * pairs; i < n; ++i) {
+                points[i] = AffineElement(Element::random_element(&rng));
+                test_scalars[i] = ScalarField::random_element(&rng);
+            }
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+            AffineElement result =
+                scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/true);
+            AffineElement expected = naive_msm(test_scalars, points);
+            EXPECT_EQ(result, expected) << "inverse-pair bucket collisions (pairs=" << pairs << ")";
+        }
+    }
+
+    /// Every input point is the point-at-infinity: the result must be infinity for
+    /// any scalars (and must not divide-by-zero in the affine batch inversion).
+    void test_handle_edge_cases_all_infinity()
+    {
+        ConcurrencyScope scope(8);
+#ifdef __wasm__
+        const std::vector<size_t> sizes = { 4, 100 };
+#else
+        const std::vector<size_t> sizes = { 4, 100, 2000 };
+#endif
+        for (size_t n : sizes) {
+            std::vector<AffineElement> points(n);
+            std::vector<ScalarField> test_scalars(n);
+            for (size_t i = 0; i < n; ++i) {
+                points[i].self_set_infinity();
+                test_scalars[i] = scalars[i % num_points];
+            }
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+            AffineElement result =
+                scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/true);
+            EXPECT_TRUE(result.is_point_at_infinity()) << "all-infinity n=" << n;
+        }
+    }
+
+    /// Directly exercise the `external_glv_doubled` aliasing branch of
+    /// `pippenger_round_parallel` (otherwise only reached transitively through
+    /// `batch_multi_scalar_mul`). The interleaved `[P_0, φP_0, …]` buffer is built
+    /// with the exact convention the batched driver uses: φP = (β·x, −y). Providing
+    /// it forces `use_glv=true` regardless of N, so we also cover an N above the
+    /// native GLV auto-threshold where the internal path would otherwise disable GLV.
+    void test_external_glv_doubled_matches_naive()
+    {
+        using BaseField = typename Curve::BaseField;
+        const BaseField beta = BaseField::cube_root_of_unity();
+        namespace rpd = scalar_multiplication::round_parallel_detail;
+        const std::vector<size_t> sizes = { 50, 1000, rpd::GLV_SMALL_N_THRESHOLD + 64 };
+        for (size_t n : sizes) {
+            ASSERT_LE(n, num_points);
+            std::span<const AffineElement> points(&generators[0], n);
+            std::vector<ScalarField> test_scalars(n);
+            for (size_t i = 0; i < n; ++i) {
+                test_scalars[i] = scalars[i];
+            }
+            std::vector<AffineElement> doubled(2 * n);
+            for (size_t i = 0; i < n; ++i) {
+                doubled[2 * i] = points[i];
+                doubled[(2 * i) + 1].x = points[i].x * beta;
+                doubled[(2 * i) + 1].y = -points[i].y;
+            }
+            PolynomialSpan<const ScalarField> scalar_span(0, std::span<const ScalarField>(test_scalars));
+            Element result =
+                scalar_multiplication::pippenger_round_parallel<Curve>(scalar_span,
+                                                                       points,
+                                                                       /*dedup_hint=*/false,
+                                                                       std::span<const AffineElement>(doubled));
+            AffineElement expected = naive_msm(test_scalars, points);
+            EXPECT_EQ(AffineElement(result), expected) << "external_glv_doubled (n=" << n << ")";
+        }
+    }
+
+    /// Randomized differential fuzzer over the dispatch parameter space. Each
+    /// iteration picks a fresh seed and a random (N, start_index, thread count,
+    /// scalar distribution, dedup_hint) and checks `MSM::msm` against the naive
+    /// reference. The fixed-shape tests above pin individual branches; this catches
+    /// interactions between them (e.g. offset + dedup + small-bit scalars + an odd
+    /// thread count all at once). handle_edge_cases stays false because the fixture
+    /// generators are linearly independent with distinct x — valid for the affine
+    /// path under every scalar distribution.
+    void test_dispatch_fuzz()
+    {
+        constexpr size_t kIters = 48;
+        for (size_t iter = 0; iter < kIters; ++iter) {
+            auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 200 + iter);
+            const uint32_t r = rng.get_random_uint32();
+            size_t n = 1;
+            switch (r % 5) {
+            case 0:
+                n = 1 + (r % 30); // tiny: trivial_msm / trivial_msm_threaded
+                break;
+            case 1:
+                n = 18 + (r % 16); // straddles MIN_PTS_PER_THREAD_FOR_PIPPENGER
+                break;
+            case 2:
+                n = 100 + (r % 900); // medium
+                break;
+            case 3:
+                n = 1000 + (r % 3000); // larger, exercises round-parallel batching
+                break;
+            default:
+                n = 1;
+                break;
+            }
+            if (n > num_points) {
+                n = num_points;
+            }
+            const size_t max_start = num_points - n;
+            const size_t start_index = (max_start == 0) ? 0 : (rng.get_random_uint32() % (max_start + 1));
+
+            const size_t threads = 1 + (rng.get_random_uint8() % 16);
+            ConcurrencyScope scope(threads);
+
+            std::vector<ScalarField> test_scalars(n);
+            const uint32_t dist = rng.get_random_uint8() % 5;
+            for (size_t i = 0; i < n; ++i) {
+                switch (dist) {
+                case 0:
+                    test_scalars[i] = ScalarField::random_element(&rng); // dense full-range
+                    break;
+                case 1:
+                    test_scalars[i] = (i % 3 == 0) ? ScalarField::random_element(&rng) : ScalarField::zero(); // sparse
+                    break;
+                case 2:
+                    test_scalars[i] = ScalarField(uint256_t(rng.get_random_uint32())); // small-bit
+                    break;
+                case 3:
+                    test_scalars[i] = ScalarField(7); // all-equal: dedup-eligible cluster
+                    break;
+                default:
+                    // mostly small with a sparse run of full-range scalars (variable-window split shape)
+                    test_scalars[i] = (i % 64 == 0) ? ScalarField::random_element(&rng)
+                                                    : ScalarField(uint256_t(rng.get_random_uint32()));
+                    break;
+                }
+            }
+
+            std::span<const AffineElement> points(&generators[0], start_index + n);
+            PolynomialSpan<ScalarField> scalar_span(start_index, std::span<ScalarField>(test_scalars));
+            const bool dedup_hint = (rng.get_random_uint8() & 1) != 0;
+
+            AffineElement actual =
+                scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/false, dedup_hint);
+
+            Element expected;
+            expected.self_set_infinity();
+            for (size_t i = 0; i < n; ++i) {
+                expected += points[start_index + i] * test_scalars[i];
+            }
+            EXPECT_EQ(actual, AffineElement(expected))
+                << "fuzz iter=" << iter << " n=" << n << " start=" << start_index << " threads=" << threads
+                << " dist=" << dist << " dedup=" << dedup_hint;
+        }
+    }
 };
 
 using CurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
@@ -1228,6 +1455,58 @@ TEST(ScalarMultiplicationArenaTest, LargeBn254RecursionVkShapeFitsComputedArena)
                     n, /*external_glv_provided=*/false, /*dedup_active=*/false, effective_num_bits))
                     << "threads=" << threads << " windows_per_batch=" << windows_per_batch << " n=" << n
                     << " effective_num_bits=" << effective_num_bits;
+            }
+        }
+    }
+
+    bb::set_parallel_for_concurrency(saved_threads);
+}
+
+// Sweeps the sizer/allocator agreement (the historical "arena drift" bug class) across the
+// full dispatch parameter space rather than the single recursion-VK shape above: thread count,
+// N around every dispatch boundary, GLV-provided vs not, dedup-active vs not, and a range of
+// effective bit budgets. `pippenger_bn254_arena_layout_fits_for_test` walks the live
+// Zone P / Zone W / Zone S allocator and must always fit inside `compute_arena_bytes_for_msm`'s
+// promise; any `false` here is an under-count (a guaranteed Zone overflow / SIGSEGV at runtime).
+// Notably this is the first coverage of `dedup_active=true` and `external_glv_provided=true`
+// against the sizer.
+TEST(ScalarMultiplicationArenaTest, ArenaLayoutFitsAcrossDispatchSpace)
+{
+    const size_t saved_threads = bb::get_num_cpus();
+
+    constexpr std::array<size_t, 14> thread_counts{ 1, 2, 3, 4, 5, 7, 8, 13, 16, 17, 31, 32, 48, 64 };
+    // Dispatch boundaries: MIN_PTS_PER_THREAD (24), powers of two ±1, and both GLV thresholds
+    // (2^13 native, 2^16 wasm), up to a large 2^18 shape.
+    constexpr std::array<size_t, 33> ns{ 4,    5,    6,    7,    8,    16,   23,   24,   25,    31,    32,
+                                         33,   63,   64,   65,   127,  128,  129,  255,  256,   257,   1023,
+                                         1024, 1025, 4095, 4096, 4097, 8191, 8192, 8193, 16384, 65536, 262144 };
+    constexpr std::array<size_t, 7> bit_budgets{ 0, 1, 64, 128, 192, 253, 254 };
+
+    for (const size_t threads : thread_counts) {
+        bb::set_parallel_for_concurrency(threads);
+        for (const size_t n : ns) {
+            for (const bool ext_glv : { false, true }) {
+                for (const bool dedup : { false, true }) {
+                    for (const size_t bits : bit_budgets) {
+                        EXPECT_TRUE(pippenger_bn254_arena_layout_fits_for_test(n, ext_glv, dedup, bits))
+                            << "threads=" << threads << " n=" << n << " ext_glv=" << ext_glv << " dedup=" << dedup
+                            << " bits=" << bits;
+                    }
+                }
+            }
+        }
+    }
+
+    // Deterministic pseudo-random N (Knuth multiplicative hash) to catch under-counts that do
+    // not sit on a curated boundary. Date/Math.random are unavailable; the hash keeps CI runs
+    // reproducible.
+    for (const size_t threads : { size_t{ 4 }, size_t{ 8 }, size_t{ 16 }, size_t{ 32 } }) {
+        bb::set_parallel_for_concurrency(threads);
+        for (size_t i = 1; i <= 200; ++i) {
+            const size_t n = 4 + ((i * size_t{ 2654435761ULL }) % (size_t{ 1 } << 20));
+            for (const bool dedup : { false, true }) {
+                EXPECT_TRUE(pippenger_bn254_arena_layout_fits_for_test(n, /*external_glv_provided=*/false, dedup, 254))
+                    << "random n=" << n << " threads=" << threads << " dedup=" << dedup;
             }
         }
     }
@@ -1383,6 +1662,32 @@ TYPED_TEST(ScalarMultiplicationTest, PippengerInternalGlvBoundary)
 TYPED_TEST(ScalarMultiplicationTest, PippengerInternalMisalignedExternalArena)
 {
     this->test_pippenger_internal_misaligned_external_arena();
+}
+TYPED_TEST(ScalarMultiplicationTest, HandleEdgeCasesPointAtInfinity)
+{
+    this->test_handle_edge_cases_point_at_infinity();
+}
+TYPED_TEST(ScalarMultiplicationTest, HandleEdgeCasesInversePairs)
+{
+    this->test_handle_edge_cases_inverse_pairs();
+}
+TYPED_TEST(ScalarMultiplicationTest, HandleEdgeCasesAllInfinity)
+{
+    this->test_handle_edge_cases_all_infinity();
+}
+TYPED_TEST(ScalarMultiplicationTest, ExternalGlvDoubledDirect)
+{
+#ifdef __wasm__
+    GTEST_SKIP() << "external_glv_doubled direct coverage is native-only; WASM coverage comes from batch flows.";
+#endif
+    this->test_external_glv_doubled_matches_naive();
+}
+TYPED_TEST(ScalarMultiplicationTest, DispatchFuzz)
+{
+#ifdef __wasm__
+    GTEST_SKIP() << "Randomized dispatch fuzz is native-only; WASM coverage comes from the fixed-shape tests.";
+#endif
+    this->test_dispatch_fuzz();
 }
 
 // NOTE: the curve-independent `PartitionByWeight` unit tests that previously lived here
