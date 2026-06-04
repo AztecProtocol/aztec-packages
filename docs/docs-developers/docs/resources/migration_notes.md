@@ -959,6 +959,22 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 
 ## Unreleased (v5)
 
+### [Aztec Node] `getTxByHash`, `getTxsByHash` and `getPendingTxs` no longer return tx proofs by default
+
+`AztecNode.getTxByHash`, `AztecNode.getTxsByHash` and `AztecNode.getPendingTxs` (also exposed on the P2P API) now take an optional `GetTxByHashOptions` argument with an `includeProof` flag. The proof is stripped from returned txs unless `includeProof: true` is passed, cutting roughly 35-52KB per tx over the wire.
+
+**Migration:**
+
+```diff
+- const tx = await node.getTxByHash(txHash);
++ const tx = await node.getTxByHash(txHash, { includeProof: true });
+
+- const txs = await node.getPendingTxs(limit, after);
++ const txs = await node.getPendingTxs(limit, after, { includeProof: true });
+```
+
+**Impact**: Callers that read the proof off returned txs (eg to re-broadcast or validate them) must now pass `{ includeProof: true }` explicitly; by default the returned txs carry an empty proof.
+
 ### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
 
 The `returnReceipt` option in deploy wait options has been removed. `DeployMethod.send()` now always returns an object with `contract`, `receipt`, and `instance` at the top level, provided the user waits for the transaction to be included.
