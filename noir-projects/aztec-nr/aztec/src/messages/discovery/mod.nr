@@ -146,7 +146,7 @@ pub unconstrained fn do_sync_state(
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
     // TODO(F-588): populate with tagging secrets for constrained delivery
-    let provided_secrets = EphemeralArray::<ProvidedSecret>::at(PROVIDED_SECRETS_ARRAY_BASE_SLOT).clear();
+    let provided_secrets = EphemeralArray::<ProvidedSecret>::empty_at(PROVIDED_SECRETS_ARRAY_BASE_SLOT);
     let logs = message_processing::get_pending_tagged_logs(scope, provided_secrets);
     logs.for_each(|_i, pending_tagged_log: PendingTaggedLog| {
         if pending_tagged_log.log.len() == 0 {
