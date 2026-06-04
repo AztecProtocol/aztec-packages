@@ -1,11 +1,21 @@
 import type { HandlersForPrefix } from './oracle_registry.js';
 import type { ORACLE_REGISTRY } from './oracle_registry.js';
 
-/** Handler interface for cross-cutting oracles available in any context (aztec_misc_*). */
+/**
+ * Miscellaneous oracle methods, not very Aztec-specific and expected to be available in all scenarios in which aztec-nr
+ * code runs, except #[external("public")] functions (since those are transpiled to AVM bytecode, where there are no
+ * oracles).
+ */
 export type IMiscOracle = HandlersForPrefix<typeof ORACLE_REGISTRY, 'misc'> & { isMisc: true };
 
-/** Handler interface for utility-scoped oracles (aztec_utl_*). */
+/**
+ * Oracle methods associated with the execution of an Aztec #[external("utility")] function. Note that the IMiscOracle
+ * methods are also expected to be available in these contexts.
+ */
 export type IUtilityExecutionOracle = HandlersForPrefix<typeof ORACLE_REGISTRY, 'utl'> & { isUtility: true };
 
-/** Handler interface for private-scoped oracles (aztec_prv_*). */
+/**
+ * Oracle methods associated with the execution of an Aztec #[external("private")] function. Note that both the
+ * IMiscOracle and IUtilityExecutionOracle methods are also expected to be available in these contexts.
+ */
 export type IPrivateExecutionOracle = HandlersForPrefix<typeof ORACLE_REGISTRY, 'prv'> & { isPrivate: true };
