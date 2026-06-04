@@ -17,7 +17,7 @@ import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/Stat
 import type { Sequencer, SequencerClient, SequencerPublisherFactory } from '@aztec/sequencer-client';
 import type { TestSequencer, TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
-import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
+import { type BlockHeader, type Tx, TxStatus } from '@aztec/stdlib/tx';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
 import { jest } from '@jest/globals';
@@ -287,6 +287,7 @@ describe('e2e_multi_validator_node', () => {
     } = await setup(
       1,
       {
+        defaultWaitStatus: TxStatus.CHECKPOINTED,
         ...PIPELINING_SETUP_OPTS,
         initialValidators,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,

@@ -4,6 +4,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import {
   type EndToEndContext,
@@ -54,6 +55,8 @@ export class NestedContractTest {
   async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up fresh subsystems');
     this.context = await setup(0, {
+      // Finality-sensitive suite: default to CHECKPOINTED before any setup-phase send.
+      defaultWaitStatus: TxStatus.CHECKPOINTED,
       ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,

@@ -63,6 +63,7 @@ describe('e2e_block_building', () => {
         accounts: [ownerAddress, minterAddress],
         sequencer: sequencerClient,
       } = await setup(2, {
+        defaultWaitStatus: TxStatus.CHECKPOINTED,
         ...PIPELINING_SETUP_OPTS,
         archiverPollingIntervalMS: 200,
         sequencerPollingIntervalMS: 200,
@@ -307,7 +308,7 @@ describe('e2e_block_building', () => {
         logger,
         wallet,
         accounts: [ownerAddress],
-      } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+      } = await setup(1, { defaultWaitStatus: TxStatus.CHECKPOINTED, ...PIPELINING_SETUP_OPTS }));
       ({ contract } = await TestContract.deploy(wallet).send({ from: ownerAddress }));
       logger.info(`Test contract deployed at ${contract.address}`);
     });
@@ -433,7 +434,7 @@ describe('e2e_block_building', () => {
         logger,
         wallet,
         accounts: [ownerAddress],
-      } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+      } = await setup(1, { defaultWaitStatus: TxStatus.CHECKPOINTED, ...PIPELINING_SETUP_OPTS }));
 
       logger.info(`Deploying test contract`);
       ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: ownerAddress }));
@@ -502,6 +503,7 @@ describe('e2e_block_building', () => {
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
     it('publishes two empty blocks', async () => {
       ({ teardown, wallet, logger, aztecNode } = await setup(0, {
+        defaultWaitStatus: TxStatus.CHECKPOINTED,
         ...PIPELINING_SETUP_OPTS,
         minTxsPerBlock: 0,
         buildCheckpointIfEmpty: true,
@@ -514,7 +516,12 @@ describe('e2e_block_building', () => {
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
     it('sends a tx on the first block', async () => {
-      const context = await setup(0, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 0, numberOfInitialFundedAccounts: 1 });
+      const context = await setup(0, {
+        defaultWaitStatus: TxStatus.CHECKPOINTED,
+        ...PIPELINING_SETUP_OPTS,
+        minTxsPerBlock: 0,
+        numberOfInitialFundedAccounts: 1,
+      });
       ({ teardown, logger, aztecNode, wallet } = context);
       await sleep(1000);
 
@@ -535,7 +542,7 @@ describe('e2e_block_building', () => {
         wallet,
         aztecNodeAdmin,
         accounts: [ownerAddress],
-      } = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 }));
+      } = await setup(1, { defaultWaitStatus: TxStatus.CHECKPOINTED, ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 }));
 
       logger.info('Deploying token contract');
       const { contract: token } = await TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18).send(
@@ -563,7 +570,12 @@ describe('e2e_block_building', () => {
     // which translates in an incorrect end state for world state. We can easily detect this by checking whether the nullifier
     // tree next available leaf index is a multiple of 64.
     it('clears up all nullifiers if tx processing fails', async () => {
-      const context = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1, numberOfInitialFundedAccounts: 1 });
+      const context = await setup(1, {
+        defaultWaitStatus: TxStatus.CHECKPOINTED,
+        ...PIPELINING_SETUP_OPTS,
+        minTxsPerBlock: 1,
+        numberOfInitialFundedAccounts: 1,
+      });
       ({
         teardown,
         logger,
@@ -631,7 +643,7 @@ describe('e2e_block_building', () => {
         cheatCodes,
         watcher,
         accounts: [ownerAddress],
-      } = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 }));
+      } = await setup(1, { defaultWaitStatus: TxStatus.CHECKPOINTED, ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 }));
 
       ({ contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress }));
       initialBlockNumber = await aztecNode.getBlockNumber();

@@ -30,6 +30,7 @@ import { type SequencerClient, type SequencerEvents, SequencerState } from '@azt
 import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { TxStatus } from '@aztec/stdlib/tx';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
 import { join } from 'path';
@@ -150,6 +151,8 @@ export class EpochsTestContext {
     const context = await setup(
       useHardcodedAccount ? 0 : (opts.numberOfAccounts ?? 0),
       {
+        // Finality-sensitive suite: default to CHECKPOINTED before any setup-phase send.
+        defaultWaitStatus: TxStatus.CHECKPOINTED,
         automineL1Setup: true,
         checkIntervalMs: 50,
         archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,

@@ -5,6 +5,7 @@ import { extractOffchainOutput } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { retryUntil } from '@aztec/foundation/retry';
 import { OffchainPaymentContract } from '@aztec/noir-test-contracts.js/OffchainPayment';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -28,6 +29,8 @@ describe('e2e_offchain_payment', () => {
 
   beforeAll(async () => {
     ({ teardown, wallet, accounts, aztecNode, aztecNodeService } = await setup(2, {
+      // Finality-sensitive: default to CHECKPOINTED before any setup-phase send.
+      defaultWaitStatus: TxStatus.CHECKPOINTED,
       ...AUTOMINE_E2E_OPTS,
       anvilSlotsInAnEpoch: 32,
     }));

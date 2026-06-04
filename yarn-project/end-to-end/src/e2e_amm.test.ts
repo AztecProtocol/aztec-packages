@@ -3,6 +3,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -51,7 +52,11 @@ describe('AMM', () => {
       wallet,
       accounts: [adminAddress, liquidityProviderAddress, otherLiquidityProviderAddress, swapperAddress],
       logger,
-    } = await setup(4, { ...AUTOMINE_E2E_OPTS }, { syncChainTip: 'checkpointed' }));
+    } = await setup(
+      4,
+      { defaultWaitStatus: TxStatus.CHECKPOINTED, ...AUTOMINE_E2E_OPTS },
+      { syncChainTip: 'checkpointed' },
+    ));
 
     ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));

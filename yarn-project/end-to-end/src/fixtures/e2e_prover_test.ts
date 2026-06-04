@@ -13,6 +13,7 @@ import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { TxStatus } from '@aztec/stdlib/tx';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';
@@ -128,6 +129,8 @@ export class FullProverTest {
   async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up subsystems from fresh');
     this.context = await setup(0, {
+      // Finality-sensitive suite: default to CHECKPOINTED before any setup-phase send.
+      defaultWaitStatus: TxStatus.CHECKPOINTED,
       ...opts,
       startProverNode: true,
       coinbase: this.coinbase,

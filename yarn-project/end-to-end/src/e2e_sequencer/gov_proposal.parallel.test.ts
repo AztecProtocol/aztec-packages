@@ -24,6 +24,7 @@ import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGov
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -67,6 +68,7 @@ describe('e2e_gov_proposal', () => {
 
     let accounts: AztecAddress[] = [];
     const context = await setup(1, {
+      defaultWaitStatus: TxStatus.CHECKPOINTED,
       ...PIPELINING_SETUP_OPTS,
       anvilAccounts: 100,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,

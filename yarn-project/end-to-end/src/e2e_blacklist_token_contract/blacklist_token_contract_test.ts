@@ -11,6 +11,7 @@ import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -158,6 +159,8 @@ export class BlacklistTokenContractTest {
   async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up fresh context');
     this.context = await setup(0, {
+      // Finality-sensitive suite: default to CHECKPOINTED before any setup-phase send.
+      defaultWaitStatus: TxStatus.CHECKPOINTED,
       ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
