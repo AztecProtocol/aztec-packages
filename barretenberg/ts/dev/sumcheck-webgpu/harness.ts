@@ -166,6 +166,23 @@ export interface EdgeRow {
   s: bigint; // scaling factor
 }
 
+// A relation's per-edge isolation kernel + reference, packaged so both its
+// standalone suite and the end-to-end integration suite can drive it. `build`
+// produces one edge row; `polyRef` is the per-edge polynomial golden (outLen Fr).
+export interface RelationDescriptor {
+  id: string;
+  label: string;
+  relationIndex: number; // MegaFlavor Relations_ tuple index (0..13)
+  numEdges: number;
+  inLen: number;
+  outLen: number; // == this relation's slice length in the 345-Fr accumulator
+  entry: string;
+  seed: bigint;
+  shader: () => string;
+  build: (rng: () => bigint, i: number) => EdgeRow;
+  polyRef: (e: bigint[][], s: bigint) => bigint[];
+}
+
 // Pack n rows of (numEdges edges {v0,v1} + 1 scaling scalar) into a Montgomery
 // 8x u32 input buffer of stride inLen Fr: edge j at slots 2j/2j+1, scaling last.
 export function packEdgeRows(
@@ -229,4 +246,13 @@ export interface Suite {
   label: string; // button text
   /** Run the suite; return true iff every check passed. */
   run: (ctx: SuiteCtx) => Promise<boolean>;
+}
+
+// Run a relation descriptor's isolation kernel and diff every edge's output
+// against its polynomial reference (the standalone per-relation suite path).
+export async function runRelationStandalone(d: RelationDescriptor, ctx: SuiteCtx): Promise<boolean> {
+  const rng = makeRng(d.seed);
+  const { inBytes, inputs } = packEdgeRows(ctx.n, d.inLen, d.numEdges, i => d.build(rng, i));
+  const { bytes, ms } = await dispatchRelation(ctx.device, ctx.n, d.shader(), d.entry, inBytes, d.outLen);
+  return diffRelation(bytes, ctx.n, d.outLen, i => d.polyRef(inputs[i].e, inputs[i].s), ctx.log, d.id, ms);
 }
