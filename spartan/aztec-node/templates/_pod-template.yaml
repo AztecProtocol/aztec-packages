@@ -340,13 +340,13 @@ spec:
         - containerPort: {{ .Values.service.p2p.port }}
           protocol: TCP
           name: p2p-tcp
-          {{- if and (not .Values.hostNetwork) (not .Values.service.p2p.nodePortEnabled) }}
+          {{- if and (not .Values.hostNetwork) (not .Values.service.p2p.nodePortEnabled) .Values.service.p2p.hostPortEnabled }}
           hostPort: {{ .Values.service.p2p.announcePort }}
           {{- end }}
         - containerPort: {{ .Values.service.p2p.port }}
           protocol: UDP
           name: p2p-udp
-          {{- if and (not .Values.hostNetwork) (not .Values.service.p2p.nodePortEnabled) }}
+          {{- if and (not .Values.hostNetwork) (not .Values.service.p2p.nodePortEnabled) .Values.service.p2p.hostPortEnabled }}
           hostPort: {{ .Values.service.p2p.announcePort }}
           {{- end }}
         {{- end }}

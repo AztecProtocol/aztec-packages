@@ -180,6 +180,7 @@ locals {
 
   validator_common_settings = {
     "validator.service.p2p.nodePortEnabled"                                       = var.P2P_NODEPORT_ENABLED
+    "validator.service.p2p.hostPortEnabled"                                       = var.P2P_HOSTPORT_ENABLED
     "validator.web3signerUrl"                                                     = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
     "validator.mnemonic"                                                          = var.VALIDATOR_MNEMONIC
     "validator.mnemonicStartIndex"                                                = var.VALIDATOR_MNEMONIC_START_INDEX
@@ -310,6 +311,7 @@ locals {
       custom_settings = {
         "nodeType"                          = "p2p-bootstrap"
         "service.p2p.nodePortEnabled"       = var.P2P_NODEPORT_ENABLED
+        "service.p2p.hostPortEnabled"       = var.P2P_HOSTPORT_ENABLED
         "service.p2p.announcePort"          = local.p2p_port_p2p_bootstrap
         "service.p2p.port"                  = local.p2p_port_p2p_bootstrap
         "node.env.P2P_MAX_PENDING_TX_COUNT" = var.P2P_MAX_PENDING_TX_COUNT
@@ -413,6 +415,7 @@ locals {
           "node.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
           "node.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
           "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
+          "node.service.p2p.hostPortEnabled"                    = var.P2P_HOSTPORT_ENABLED
           "node.service.p2p.announcePort"                       = local.p2p_port_prover
           "node.service.p2p.port"                               = local.p2p_port_prover
         },
@@ -470,6 +473,7 @@ locals {
       custom_settings = merge({
         "replicaCount"                = var.RPC_REPLICAS
         "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "service.p2p.hostPortEnabled" = var.P2P_HOSTPORT_ENABLED
         "service.p2p.announcePort"    = local.p2p_port_rpc
         "service.p2p.port"            = local.p2p_port_rpc
 
@@ -520,6 +524,7 @@ locals {
       custom_settings = {
         "replicaCount"                                = var.FISHERMAN_REPLICAS
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "service.p2p.hostPortEnabled"                 = var.P2P_HOSTPORT_ENABLED
         "service.p2p.announcePort"                    = local.p2p_port_fisherman
         "service.p2p.port"                            = local.p2p_port_fisherman
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
@@ -558,6 +563,7 @@ locals {
         "nodeType"                                    = "full-node"
         "replicaCount"                                = var.FULL_NODE_REPLICAS
         "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "service.p2p.hostPortEnabled"                 = var.P2P_HOSTPORT_ENABLED
         "service.p2p.announcePort"                    = local.p2p_port_full_node
         "service.p2p.port"                            = local.p2p_port_full_node
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
