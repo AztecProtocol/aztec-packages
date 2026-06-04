@@ -4,13 +4,12 @@ version = 4
 
 [[package]]
 name = "acir"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acir_field",
  "base64 0.22.1",
  "brillig",
  "flate2",
- "msgpack_tagged",
  "num-bigint",
  "num-traits",
  "num_enum",
@@ -24,21 +23,19 @@ dependencies = [
 
 [[package]]
 name = "acir_field"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "ark-bn254",
  "ark-ff",
  "cfg-if",
  "hex",
- "msgpack_tagged",
  "num-bigint",
  "serde",
- "serde_bytes",
 ]
 
 [[package]]
 name = "acvm"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -52,7 +49,7 @@ dependencies = [
 
 [[package]]
 name = "acvm_blackbox_solver"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acir",
  "aes",
@@ -437,7 +434,7 @@ dependencies = [
 
 [[package]]
 name = "bn254_blackbox_solver"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -460,17 +457,16 @@ dependencies = [
 
 [[package]]
 name = "brillig"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acir_field",
  "itertools",
- "msgpack_tagged",
  "serde",
 ]
 
 [[package]]
 name = "brillig_vm"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acir",
  "acvm_blackbox_solver",
@@ -478,15 +474,6 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "thiserror",
-]
-
-[[package]]
-name = "bs58"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
-dependencies = [
- "tinyvec",
 ]
 
 [[package]]
@@ -714,9 +701,9 @@ dependencies = [
 
 [[package]]
 name = "darling"
-version = "0.23.0"
+version = "0.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25ae13da2f202d56bd7f91c25fba009e7717a1e4a1cc98a76d844b65ae912e9d"
+checksum = "9cdf337090841a411e2a7f3deb9187445851f91b309c0c0a29e05f74a00a48c0"
 dependencies = [
  "darling_core",
  "darling_macro",
@@ -724,10 +711,11 @@ dependencies = [
 
 [[package]]
 name = "darling_core"
-version = "0.23.0"
+version = "0.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9865a50f7c335f53564bb694ef660825eb8610e0a53d3e11bf1b0d3df31e03b0"
+checksum = "1247195ecd7e3c85f83c8d2a366e4210d588e802133e1e355180a9870b517ea4"
 dependencies = [
+ "fnv",
  "ident_case",
  "proc-macro2",
  "quote",
@@ -737,9 +725,9 @@ dependencies = [
 
 [[package]]
 name = "darling_macro"
-version = "0.23.0"
+version = "0.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac3984ec7bd6cfa798e62b4a642426a5be0e68f9401cfc2a01e3fa9ea2fcdb8d"
+checksum = "d38308df82d1080de0afee5d069fa14b0326a88c14f15c5ccda35b4a6c414c81"
 dependencies = [
  "darling_core",
  "quote",
@@ -922,10 +910,11 @@ dependencies = [
 
 [[package]]
 name = "fm"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "codespan-reporting",
  "iter-extended",
+ "itertools",
  "serde",
 ]
 
@@ -1122,7 +1111,7 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "iter-extended"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 
 [[package]]
 name = "itertools"
@@ -1231,28 +1220,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "msgpack_tagged"
-version = "1.0.0-beta.20"
-dependencies = [
- "msgpack_tagged_derive",
- "rmp",
- "rmp-serde",
- "serde",
- "smallvec",
-]
-
-[[package]]
-name = "msgpack_tagged_derive"
-version = "1.0.0-beta.20"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "noirc_abi"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1268,11 +1237,11 @@ dependencies = [
 
 [[package]]
 name = "noirc_arena"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 
 [[package]]
 name = "noirc_artifacts"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acir",
  "acvm",
@@ -1291,7 +1260,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_errors"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "codespan-reporting",
  "fm",
@@ -1303,7 +1272,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_evaluator"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acvm",
  "bit-vec",
@@ -1336,7 +1305,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_frontend"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acvm",
  "bn254_blackbox_solver",
@@ -1366,7 +1335,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_printable_type"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "acvm",
  "iter-extended",
@@ -1377,7 +1346,7 @@ dependencies = [
 
 [[package]]
 name = "noirc_span"
-version = "1.0.0-beta.22"
+version = "1.0.0-beta.21"
 dependencies = [
  "codespan",
  "serde",
@@ -1845,16 +1814,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_bytes"
-version = "0.11.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5d440709e79d88e51ac01c4b72fc6cb7314017bb7da9eeff678aa94c10e3ea8"
-dependencies = [
- "serde",
- "serde_core",
-]
-
-[[package]]
 name = "serde_core"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1898,12 +1857,11 @@ dependencies = [
 
 [[package]]
 name = "serde_with"
-version = "3.20.0"
+version = "3.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e72c1c2cb7b223fafb600a619537a871c2818583d619401b785e7c0b746ccde2"
+checksum = "4fa237f2807440d238e0364a218270b98f767a00d3dada77b1c53ae88940e2e7"
 dependencies = [
  "base64 0.22.1",
- "bs58",
  "chrono",
  "hex",
  "indexmap 1.9.3",
@@ -1918,9 +1876,9 @@ dependencies = [
 
 [[package]]
 name = "serde_with_macros"
-version = "3.20.0"
+version = "3.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b90c488738ecb4fb0262f41f43bc40efc5868d9fb744319ddf5f5317f417bfac"
+checksum = "52a8e3ca0ca629121f70ab50f95249e5a6f925cc0f6ffe8256c45b728875706c"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -2109,21 +2067,6 @@ dependencies = [
  "num-conv",
  "time-core",
 ]
-
-[[package]]
-name = "tinyvec"
-version = "1.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e61e67053d25a4e82c844e8424039d9745781b3fc4f32b8d55ed50f5f667ef3"
-dependencies = [
- "tinyvec_macros",
-]
-
-[[package]]
-name = "tinyvec_macros"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "toml"
