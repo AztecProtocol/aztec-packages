@@ -14,12 +14,10 @@
 #include <algorithm>
 #include <atomic>
 #include <bit>
-#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
-#include <optional>
 #include <span>
 #include <vector>
 
@@ -79,43 +77,6 @@ template <typename AffineElement>
 #else
     std::memcpy(&dst, &src, sizeof(AffineElement));
 #endif
-}
-
-/**
- * @brief Extract `slice_size` contiguous bits starting at `bit_offset` from a non-Montgomery
- *        scalar. Result is right-aligned in the low `slice_size` bits of the returned uint32.
- *
- * @pre scalar in non-Montgomery (reduced) form; slice_size <= 32; bit_offset + slice_size may
- *      extend past the scalar's limbs (the extra bits read as zero because the scalar is
- *      padded by the limb layout).
- */
-template <typename ScalarField>
-[[nodiscard]] inline uint32_t get_scalar_slice_low(const ScalarField& scalar,
-                                                   size_t bit_offset,
-                                                   size_t slice_size) noexcept
-{
-    constexpr size_t LIMB_BITS = 64;
-    // `scalar.data` is the underlying limb array; the sizeof-ratio is the canonical limb
-    // count, and works whether `.data` is `uint64_t[N]` or `std::array<uint64_t, N>`.
-    constexpr size_t NUM_LIMBS = sizeof(scalar.data) / sizeof(scalar.data[0]); // NOLINT(bugprone-sizeof-expression)
-
-    const size_t start_limb = bit_offset / LIMB_BITS;
-    const size_t lo_off = bit_offset & (LIMB_BITS - 1);
-    const size_t lo_bits = (LIMB_BITS - lo_off < slice_size) ? (LIMB_BITS - lo_off) : slice_size;
-    const size_t hi_bits = slice_size - lo_bits;
-
-    const uint64_t lo_mask = (lo_bits == LIMB_BITS) ? ~uint64_t{ 0 } : ((uint64_t{ 1 } << lo_bits) - 1);
-    const uint64_t lo_limb = (start_limb < NUM_LIMBS) ? scalar.data[start_limb] : uint64_t{ 0 };
-    const uint64_t lo_slice = (lo_limb >> lo_off) & lo_mask;
-
-    uint64_t hi_slice = 0;
-    if (hi_bits != 0) {
-        const size_t end_limb = start_limb + 1;
-        const uint64_t hi_limb = (end_limb < NUM_LIMBS) ? scalar.data[end_limb] : uint64_t{ 0 };
-        hi_slice = hi_limb & ((uint64_t{ 1 } << hi_bits) - 1);
-    }
-
-    return static_cast<uint32_t>(lo_slice | (hi_slice << lo_bits));
 }
 
 // Constantine signed-Booth window recoder (scalar + SIMD x4 paths) lives in
@@ -1148,113 +1109,7 @@ template <typename Curve>
  *                                   recursive affine bucket reduction
  *          7. cross-window combine — Horner over per-window partials into the final point.
  */
-// Trivial-N fallback. For small n the Pippenger scaffolding (digit extraction, bucket
-// scratch allocation, parallel_for dispatch, GLV split, etc.) costs many times more
-// than running a Straus-style simultaneous double-and-add in Jacobian. Delegates to
-// `Element::straus_msm`, which on endomorphism curves builds a per-point WNAF lookup
-// table and amortises ~128 doublings across all N inputs (vs N×128 for naive
-// per-point operator*). Robust to all edge cases (zero scalars, points at infinity)
-// so this also covers `handle_edge_cases=true` for trivially small N. The single
-// Jacobian→affine inversion at the caller boundary (when `MSM_fast<>::msm` constructs an
-// `AffineElement` from the returned `Element`) is the only inversion paid.
-template <typename Curve>
-typename Curve::Element trivial_msm(PolynomialSpan<const typename Curve::ScalarField> scalars_span,
-                                    std::span<const typename Curve::AffineElement> all_points) noexcept
-{
-    using Element = typename Curve::Element;
-    using AffineElement = typename Curve::AffineElement;
-    using ScalarField = typename Curve::ScalarField;
-
-    const size_t n = scalars_span.size();
-    if (n == 0) {
-        return Curve::Group::point_at_infinity;
-    }
-    BB_ASSERT_GTE(all_points.size(), scalars_span.start_index + n);
-    std::span<const AffineElement> points_view(&all_points[scalars_span.start_index], n);
-    std::span<const ScalarField> scalars_view(scalars_span.span.data(), n);
-    return Element::straus_msm(points_view, scalars_view);
-}
-
-/**
- * @brief Multi-threaded straus_msm driver for very-small MSMs.
- *
- * Splits the input across `bb::parallel_for` workers and runs `Element::straus_msm` on
- * each slice. Zero-scalar entries are compacted out before dispatch (callers reach this
- * function precisely when n_active << n, so straus_msm shouldn't burn time on dead pairs).
- * Sharing the rpmsm pool with the main pippenger_fast keeps per-call dispatch cheap.
- */
-template <typename Curve>
-typename Curve::Element trivial_msm_threaded(PolynomialSpan<const typename Curve::ScalarField> scalars_span,
-                                             std::span<const typename Curve::AffineElement> all_points) noexcept
-{
-    using Element = typename Curve::Element;
-    using AffineElement = typename Curve::AffineElement;
-    using ScalarField = typename Curve::ScalarField;
-    const size_t n = scalars_span.size();
-    if (n == 0) {
-        return Curve::Group::point_at_infinity;
-    }
-    BB_ASSERT_GTE(all_points.size(), scalars_span.start_index + n);
-
-    // Strip zero-scalar entries before dispatching to straus_msm. straus_msm has
-    // non-trivial per-scalar fixed cost (per-window bias decode + bucket scatter), and
-    // when this function fires from the n_active-based fallback in
-    // pippenger_round_parallel the input span often contains many zeros (the
-    // dispatch fired precisely because n_active << n). Compacting once up front saves
-    // straus_msm one pass over the dead entries on every worker slice.
-    std::vector<ScalarField> compact_scalars;
-    std::vector<AffineElement> compact_points;
-    compact_scalars.reserve(n);
-    compact_points.reserve(n);
-    const ScalarField* src_scalars = scalars_span.span.data();
-    const AffineElement* src_points = all_points.data() + scalars_span.start_index;
-    for (size_t i = 0; i < n; ++i) {
-        if (!src_scalars[i].is_zero()) {
-            compact_scalars.push_back(src_scalars[i]);
-            compact_points.push_back(src_points[i]);
-        }
-    }
-    const size_t n_active = compact_scalars.size();
-    if (n_active == 0) {
-        return Curve::Group::point_at_infinity;
-    }
-
-    // Cap at `bb::get_num_cpus()` rather than `bb::get_num_cpus()`:
-    //   1. Want one task per OS worker, not lmul-oversubscribed — straus_msm slices
-    //      have non-trivial fixed cost so dynamic-claim averaging isn't worth the
-    //      extra dispatch tax at the trivial-MSM_fast sizes this function handles.
-    //   2. `bb::get_num_cpus() <= 1` is the chonk-batch-verifier serial gate; the
-    //      `<= 1` early-return below preserves that contract regardless of pool.
-    const size_t max_threads = bb::get_num_cpus();
-    const size_t num_threads = std::min(n_active, max_threads);
-    if (num_threads <= 1) {
-        std::span<const AffineElement> pts(compact_points.data(), n_active);
-        std::span<const ScalarField> scs(compact_scalars.data(), n_active);
-        return Element::straus_msm(pts, scs);
-    }
-
-    // Each worker runs `Element::straus_msm` over its slice. Note that straus_msm
-    // accepts Montgomery-form scalars (it converts internally), so callers must pass
-    // Montgomery-form scalars on entry to this function.
-    std::vector<Element> partials(num_threads, Curve::Group::point_at_infinity);
-    bb::parallel_for(num_threads, [&](size_t tid) {
-        BB_BENCH_NAME("MSM_fast::trivial_msm_threaded/worker");
-        const size_t lo = (tid * n_active) / num_threads;
-        const size_t hi = ((tid + 1) * n_active) / num_threads;
-        const size_t slice_n = hi - lo;
-        if (slice_n == 0) {
-            return;
-        }
-        std::span<const AffineElement> pts(compact_points.data() + lo, slice_n);
-        std::span<const ScalarField> scs(compact_scalars.data() + lo, slice_n);
-        partials[tid] = Element::straus_msm(pts, scs);
-    });
-    Element total_result = partials[0];
-    for (size_t t = 1; t < num_threads; ++t) {
-        total_result += partials[t];
-    }
-    return total_result;
-}
+#include "./pippenger_fallbacks.hpp"
 
 // Compute the exact arena bytes a single MSM_fast of `n_input` points will need.
 // Mirrors the inline budget calculation inside `pippenger_round_parallel`.
@@ -1278,15 +1133,17 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
                   size_t{ round_parallel_detail::SCHEDULE_INDEX_MASK } + 1,
                   "working scalar indices must fit in the 29-bit schedule payload");
 
+    using round_parallel_detail::BATCH_MEM_BUDGET;
+    using round_parallel_detail::MIN_AFFINE_THREAD_RATIO;
+    using round_parallel_detail::MIN_BATCH_CAPACITY;
+    using round_parallel_detail::SUBCHUNK_ENTRIES_CAP;
+
     // window-bits selection uses the ideal per-window oversubscription factor (not the dispatch lmul).
     const size_t num_logical_threads_for_c = bb::get_num_cpus() * window_bits_tuning_oversub_factor(n_input);
     const size_t window_bits =
         round_parallel_detail::choose_window_bits(n, NUM_BITS, n_input, num_logical_threads_for_c);
     const size_t num_windows = (NUM_BITS + 2 + window_bits - 1) / window_bits;
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
-
-    constexpr size_t MIN_BATCH_CAPACITY = 32;
-    constexpr size_t MIN_AFFINE_THREAD_RATIO = 2;
 
     const size_t desired_threads = std::max<size_t>(1, bb::get_num_cpus());
     const size_t max_threads_for_min_batch = n / MIN_BATCH_CAPACITY;
@@ -1299,8 +1156,6 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
 
     const size_t num_threads = std::min(desired_threads, std::max<size_t>(1, max_threads_for_min_batch));
 
-    constexpr size_t BATCH_MEM_BUDGET = 32ULL * 1024ULL * 1024ULL;
-
     // num_threads sizes the per-task arrays; worker_total sizes the per-OS-thread scratch
     // (FIFO-shared by every task that lands on that OS thread).
     const size_t worker_total_for_budget = num_threads;
@@ -1311,9 +1166,8 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
     const size_t per_window_bytes = round_parallel_detail::compute_per_window_bytes<Curve>(
         num_threads, num_buckets, n, dense_stride_est, worker_total_for_budget);
 
-    constexpr size_t SUBCHUNK_ENTRIES_CAP_LOCAL = 2048;
     const size_t global_max_overflow_per_window =
-        round_parallel_detail::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP_LOCAL);
+        round_parallel_detail::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP);
 
     const bool inline_glv_double = use_glv && !external_glv_provided;
     const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
@@ -1329,7 +1183,7 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
     // (the Stage 6 wpb-dependent tail is added below once `windows_per_batch` is known).
     // Passing `windows_per_batch = 0` here skips the tail — we only need the union bytes
     // for the fixed_overhead → wpb solve.
-    const round_parallel_detail::PerWorkerArenaLayout<Curve> union_layout(/*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP_LOCAL,
+    const round_parallel_detail::PerWorkerArenaLayout<Curve> union_layout(/*chunk_capacity=*/SUBCHUNK_ENTRIES_CAP,
                                                                           global_max_overflow_per_window,
                                                                           dedup_active,
                                                                           phase_a_cluster_members_cap,
@@ -1651,7 +1505,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                   "window schedule exceeds compile-time max window count");
 
     using round_parallel_detail::BATCH_CAPACITY;
-    constexpr size_t MIN_BATCH_CAPACITY = 32;
+    using round_parallel_detail::BATCH_MEM_BUDGET;
+    using round_parallel_detail::MIN_BATCH_CAPACITY;
+    using round_parallel_detail::SUBCHUNK_ENTRIES_CAP;
 
     // Thread count: aim for `lmul × physical_cpus` logical tasks so the rpmsm pool can
     // FIFO-balance heterogeneous P/E cores; cap at `n / MIN_BATCH_CAPACITY` so each chunk
@@ -1666,12 +1522,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // independent of n. 2048 keeps level-0 saturated (≥ 4 BATCH_CAPACITY drains at typical
     // c=16) while the deepest level still hits BATCH_AFFINE_BREAKEVEN (~32 pairs); halving
     // breaks the deep levels and doubling wastes memory.
-    constexpr size_t SUBCHUNK_ENTRIES_CAP = 2048;
-
     // Pick windows_in_batch so per-MSM_fast working set fits in ~32 MB. Empirically 32 MB
     // performs as well as 128 MB on the WASM grid (the recursive affine bucket reduction
     // recovers most of the small-batch loss).
-    constexpr size_t BATCH_MEM_BUDGET = 32ULL * 1024ULL * 1024ULL;
     // The per_window_bytes / fixed_overhead formulas below mirror this enum of allocations
     // exactly. Anyone adding an arena buffer must update both the alloc and the corresponding
     // term in those formulas, otherwise windows_per_batch drifts off the BATCH_MEM_BUDGET.
@@ -1686,7 +1539,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     const size_t dense_stride_est = round_parallel_detail::compute_dense_stride(B_eff, num_threads);
     const size_t bucket_partials_per_window_max =
         round_parallel_detail::compute_bucket_partials_max(B_eff, num_threads);
-    const size_t capacity_lo = n;
     const size_t per_window_bytes_lo = round_parallel_detail::compute_per_window_bytes<Curve>(
         num_threads, B_eff, n, dense_stride_est, worker_total_for_budget);
 
@@ -1721,9 +1573,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // Solve `wpb · per_window_bytes ≤ BATCH_MEM_BUDGET − fixed_overhead`.
     const size_t available_budget =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
-    const size_t windows_per_batch_lo =
+    const size_t windows_per_batch =
         round_parallel_detail::solve_wpb(per_window_bytes_lo, available_budget, sched.num_windows);
-    const size_t windows_per_batch = windows_per_batch_lo;
 
     // Per-thread chunk-capacity scratch sizing. A thread's per-window slice is split into
     // sub-chunks of at most SUBCHUNK_ENTRIES_CAP entries. Worst-case overflow per
@@ -1920,7 +1771,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     }
 
     // Zone S: per-batch swing region — schedule + HIST slot + DENSE slot + partition metadata.
-    const size_t schedule_total = windows_per_batch_lo * capacity_lo;
+    const size_t schedule_total = windows_per_batch * n;
     auto schedule = zone_S_alloc.template operator()<uint32_t>(schedule_total);
 
     // ----- HIST slot ------------------------------------------------------------------
@@ -3010,231 +2861,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     return result;
 }
 
-// Multi-MSM_fast driver for `MSM_fast<>::batch_multi_scalar_mul`. The hot path
-// (`CommitmentKey::batch_commit` from `commit_to_wires`) batches K MSMs sharing the same
-// SRS subspan. We do NOT interleave K MSMs inside a single parallel_for body — that
-// K-multiplies the per-thread working set and forces windows_in_batch=1; the single-MSM_fast
-// hot path is tuned to fit ~4 MiB in L2 and we want to preserve that. The loop is just
-//   for m in 0..K: run single-MSM_fast dispatch for MSM_fast m.
-// The only cross-MSM_fast amortisation is the GLV-doubled point set: when every member of a
-// shared-SRS-prefix group wants GLV, we double the prefix once into a shared buffer and
-// each per-MSM_fast call aliases its prefix instead of doubling its own.
-namespace round_parallel_detail {
-
-// One per shared-SRS-prefix group. Membership is keyed on identical
-// `point_arrays[m].data()` pointers — that is the actual sharing relation
-// `commit_to_wires` exposes. Static-lifetime so the doubled buffer survives
-// across calls (typical workloads commit the same SRS prefix repeatedly).
-template <typename Curve> struct BatchMsmGlvGroup {
-    const typename Curve::AffineElement* base_ptr = nullptr; // SRS prefix pointer
-    size_t group_max_n = 0;                                  // max n_input across MSMs in this group
-    std::span<typename Curve::AffineElement> doubled;        // length 2 * group_max_n; aliases a prefix of
-                                                             // the master-group buffer (computed once for
-                                                             // the largest GLV-using group). Layout
-                                                             // `[P_0, φP_0, P_1, φP_1, …]` — the first 2*n
-                                                             // entries are the per-MSM_fast view for n ≤ Nmax.
-    std::vector<size_t> member_msms;                         // indices into `scalar_arrays` of MSMs in this group
-};
-
-} // namespace round_parallel_detail
-
-namespace {
-// NOLINTNEXTLINE(readability-function-size, readability-function-cognitive-complexity,
-// google-readability-function-size)
-template <typename Curve>
-void pippenger_round_parallel_batched(std::span<std::span<typename Curve::ScalarField>> scalar_arrays,
-                                      std::span<std::span<const typename Curve::AffineElement>> point_arrays,
-                                      std::vector<typename Curve::Element>& out_results,
-                                      std::span<const uint8_t> dedup_hints = {}) noexcept
-{
-    using AffineElement = typename Curve::AffineElement;
-    using ScalarField = typename Curve::ScalarField;
-    using BaseField = typename Curve::BaseField;
-
-    BB_BENCH_NAME("MSM_fast::pippenger_round_parallel_batched");
-
-    const size_t K = scalar_arrays.size();
-    BB_ASSERT_EQ(point_arrays.size(), K);
-    out_results.assign(K, Curve::Group::point_at_infinity);
-
-    auto hint_for = [&](size_t m) noexcept -> bool { return m < dedup_hints.size() && dedup_hints[m] != 0; };
-
-    if (K == 0) {
-        return;
-    }
-    if (K == 1) {
-        const size_t n = std::min(scalar_arrays[0].size(), point_arrays[0].size());
-        if (n == 0) {
-            return;
-        }
-        PolynomialSpan<const ScalarField> sp(0, std::span<const ScalarField>(scalar_arrays[0].data(), n));
-        out_results[0] = pippenger_round_parallel<Curve>(sp, point_arrays[0], hint_for(0));
-        return;
-    }
-
-    std::vector<size_t> n_input(K);
-    for (size_t m = 0; m < K; ++m) {
-        n_input[m] = std::min(scalar_arrays[m].size(), point_arrays[m].size());
-    }
-
-    // Group MSMs by shared SRS pointer; one shared GLV-doubled buffer per group, sized to
-    // group_max_n. group_uses_glv is a per-group bool but the per-MSM_fast internal dispatch keeps
-    // each MSM_fast's own GLV decision in case shared doubling is skipped.
-    using GlvGroup = round_parallel_detail::BatchMsmGlvGroup<Curve>;
-    std::vector<GlvGroup> glv_groups;
-
-    auto find_or_create_group = [&](const AffineElement* base_ptr, size_t n) -> size_t {
-        for (size_t g = 0; g < glv_groups.size(); ++g) {
-            if (glv_groups[g].base_ptr == base_ptr) {
-                glv_groups[g].group_max_n = std::max(glv_groups[g].group_max_n, n);
-                return g;
-            }
-        }
-        GlvGroup g{};
-        g.base_ptr = base_ptr;
-        g.group_max_n = n;
-        glv_groups.push_back(std::move(g));
-        return glv_groups.size() - 1;
-    };
-
-    std::vector<size_t> msm_to_group(K, std::numeric_limits<size_t>::max());
-    for (size_t m = 0; m < K; ++m) {
-        if (n_input[m] == 0) {
-            continue;
-        }
-        const size_t g = find_or_create_group(point_arrays[m].data(), n_input[m]);
-        glv_groups[g].member_msms.push_back(m);
-        msm_to_group[m] = g;
-    }
-
-    std::vector<bool> group_uses_glv(glv_groups.size(), false);
-    for (size_t g = 0; g < glv_groups.size(); ++g) {
-        // GLV decision is per-group on group_max_n. Within a group, every MSM_fast has
-        // n[m] <= group_max_n; if group_max_n is in the small-N regime, every MSM_fast
-        // is too, so they all want GLV. If group_max_n is in the large-N regime,
-        // no MSM_fast in the group wants GLV (they'd be slower with it).
-        group_uses_glv[g] = glv_groups[g].group_max_n <= round_parallel_detail::GLV_SMALL_N_THRESHOLD;
-    }
-
-    // Build ONE shared GLV-doubled buffer covering the union of every GLV-using group's
-    // SRS range, then alias each group's `doubled` into a slice of that buffer.
-    //
-    // Every production / test caller of batch_multi_scalar_mul is `commitment_key.batch_commit`,
-    // which constructs each MSM_fast's point span as `get_monomial_points().subspan(start_index)`
-    // — sub-spans of a single contiguous `std::vector<AffineElement>` SRS. So in every
-    // batch every group's `base_ptr` lives in the same allocation and offsets are
-    // necessarily integer multiples of `sizeof(AffineElement)`. The asserts below
-    // catch a future caller that violates that contract.
-    std::unique_ptr<AffineElement[]> master_doubled_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
-    {
-        BB_BENCH_NAME("MSM_fast::pippenger_round_parallel_batched/glv_double_points");
-
-        const AffineElement* min_base = nullptr;
-        for (size_t g = 0; g < glv_groups.size(); ++g) {
-            glv_groups[g].doubled = {};
-            if (!group_uses_glv[g]) {
-                continue;
-            }
-            if (min_base == nullptr || std::less<const AffineElement*>{}(glv_groups[g].base_ptr, min_base)) {
-                min_base = glv_groups[g].base_ptr;
-            }
-        }
-
-        if (min_base != nullptr) {
-            const auto min_addr = reinterpret_cast<uintptr_t>(min_base);
-            size_t max_extent_units = 0;
-            for (size_t g = 0; g < glv_groups.size(); ++g) {
-                if (!group_uses_glv[g]) {
-                    continue;
-                }
-                const auto base_addr = reinterpret_cast<uintptr_t>(glv_groups[g].base_ptr);
-                const uintptr_t offset_bytes = base_addr - min_addr;
-                BB_ASSERT_EQ(offset_bytes % sizeof(AffineElement),
-                             size_t{ 0 },
-                             "GLV group base_ptr not aligned to AffineElement boundary "
-                             "(point spans must be subranges of a contiguous AffineElement array)");
-                const size_t offset_units = offset_bytes / sizeof(AffineElement);
-                const size_t end_units = offset_units + glv_groups[g].group_max_n;
-                max_extent_units = std::max(max_extent_units, end_units);
-            }
-
-            master_doubled_owner = std::make_unique_for_overwrite<AffineElement[]>(
-                2 * max_extent_units); // NOLINT(cppcoreguidelines-avoid-c-arrays)
-            AffineElement* const master_buf = master_doubled_owner.get();
-            const BaseField beta = BaseField::cube_root_of_unity();
-            bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-                BB_BENCH_NAME("MSM_fast::batch_glv_double/worker");
-                for (size_t i : chunk.range(max_extent_units)) {
-                    master_buf[2 * i] = min_base[i];
-                    master_buf[(2 * i) + 1].x = min_base[i].x * beta;
-                    master_buf[(2 * i) + 1].y = -min_base[i].y;
-                }
-            });
-
-            for (size_t g = 0; g < glv_groups.size(); ++g) {
-                if (!group_uses_glv[g]) {
-                    continue;
-                }
-                const auto base_addr = reinterpret_cast<uintptr_t>(glv_groups[g].base_ptr);
-                const size_t offset_units = (base_addr - min_addr) / sizeof(AffineElement);
-                glv_groups[g].doubled =
-                    std::span<AffineElement>(master_buf + (2 * offset_units), 2 * glv_groups[g].group_max_n);
-            }
-        }
-    }
-
-    // Shared dynamically-sized arena for all per-MSM_fast internal calls. Sized to the max
-    // requirement across the batch so each MSM_fast finds enough space. Single allocation
-    // across the batch (vs one per MSM_fast if we passed {} down). Freed at return.
-    // dedup_active varies per MSM_fast (gated by per-MSM_fast hint), so the budget query must
-    // mirror the predicate used inside pippenger_round_parallel.
-    size_t shared_arena_bytes = 0;
-    for (size_t m = 0; m < K; ++m) {
-        if (n_input[m] == 0) {
-            continue;
-        }
-        const size_t g = msm_to_group[m];
-        const bool ext_glv =
-            g != std::numeric_limits<size_t>::max() && group_uses_glv[g] && !glv_groups[g].doubled.empty();
-        // The internal short-circuits to trivial_msm_threaded for tiny MSMs, so the hint
-        // alone is the right arena-sizing predicate (over-sizing for a path that bails
-        // is harmless — under-sizing would crash).
-        const bool dedup_active_m = hint_for(m);
-        const size_t bytes = compute_arena_bytes_for_msm<Curve>(n_input[m], ext_glv, dedup_active_m);
-        shared_arena_bytes = std::max(shared_arena_bytes, bytes);
-    }
-    std::unique_ptr<std::byte[]> shared_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
-    std::span<std::byte> shared_arena;
-    if (shared_arena_bytes > 0) {
-        shared_arena_owner =
-            std::make_unique_for_overwrite<std::byte[]>(shared_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
-        shared_arena = std::span<std::byte>(shared_arena_owner.get(), shared_arena_bytes);
-    }
-
-    // Per-MSM_fast dispatch. Each call runs the full single-MSM_fast pipeline (its own from-Mont and
-    // to-Mont, schedule, Stage 1-6b). The only batched amortisation we share is the doubled
-    // SRS prefix above; the rest of the hot path runs at single-MSM_fast cost.
-    for (size_t m = 0; m < K; ++m) {
-        const size_t n = n_input[m];
-        if (n == 0) {
-            continue;
-        }
-        PolynomialSpan<const ScalarField> sp(0, std::span<const ScalarField>(scalar_arrays[m].data(), n));
-
-        const size_t g = msm_to_group[m];
-        std::span<const AffineElement> external_glv;
-        if (g != std::numeric_limits<size_t>::max() && group_uses_glv[g]) {
-            // `group.doubled` is interleaved `[P_0, φP_0, …]` of length 2*Nmax. The
-            // first 2*n entries are exactly the per-MSM_fast `[P_0, φP_0, …, P_{n-1}, φP_{n-1}]`
-            // view, regardless of whether n == Nmax (uniform batch) or n < Nmax (ragged).
-            external_glv = std::span<const AffineElement>(glv_groups[g].doubled.data(), 2 * n);
-        }
-
-        out_results[m] = pippenger_round_parallel<Curve>(sp, point_arrays[m], hint_for(m), external_glv, shared_arena);
-    }
-}
-} // namespace
-
 template <typename Curve>
 typename Curve::Element pippenger_unsafe_fast(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                               std::span<const typename Curve::AffineElement> points,
@@ -3309,55 +2935,7 @@ typename Curve::AffineElement MSM_fast<Curve>::msm(std::span<const typename Curv
     return AffineElement(pippenger_fast<Curve>(scalars, points, handle_edge_cases, dedup_hint));
 }
 
-template <typename Curve>
-std::vector<typename Curve::AffineElement> MSM_fast<Curve>::batch_multi_scalar_mul(
-    std::span<const typename Curve::AffineElement> points,
-    std::span<PolynomialSpan<typename Curve::ScalarField>> scalars,
-    bool handle_edge_cases,
-    std::span<const uint8_t> dedup_hints) noexcept
-{
-    BB_BENCH_NAME("MSM_fast::batch_multi_scalar_mul");
-    const size_t k = scalars.size();
-
-    // Adapt the new (single shared points span + per-MSM_fast PolynomialSpan scalars) API to
-    // the internal dispatcher, which still takes one point sub-span per MSM_fast. Each MSM_fast's
-    // sub-span is `points[start_index .. start_index + size)`; the dispatcher's existing
-    // GLV-doubled-buffer grouping then deduplicates across MSMs that fall in the same
-    // underlying allocation.
-    std::vector<std::span<const AffineElement>> point_subspans;
-    std::vector<std::span<ScalarField>> scalar_subspans;
-    point_subspans.reserve(k);
-    scalar_subspans.reserve(k);
-    for (size_t i = 0; i < k; ++i) {
-        const size_t start_i = scalars[i].start_index;
-        BB_ASSERT_LTE(start_i, points.size(), "scalars[m].start_index exceeds shared points span");
-        point_subspans.push_back(points.subspan(start_i, points.size() - start_i));
-        scalar_subspans.push_back(scalars[i].span);
-    }
-
-    auto hint_for = [&](size_t m) noexcept -> bool { return m < dedup_hints.size() && dedup_hints[m] != 0; };
-
-    if (handle_edge_cases) {
-        std::vector<AffineElement> results(k);
-        for (size_t i = 0; i < k; ++i) {
-            const size_t n = std::min(point_subspans[i].size(), scalar_subspans[i].size());
-            PolynomialSpan<const ScalarField> scalar_span(0,
-                                                          std::span<const ScalarField>(scalar_subspans[i].data(), n));
-            results[i] =
-                AffineElement(pippenger_fast<Curve>(scalar_span, point_subspans[i], handle_edge_cases, hint_for(i)));
-        }
-        return results;
-    }
-
-    std::vector<typename Curve::Element> per_msm_jac;
-    pippenger_round_parallel_batched<Curve>(scalar_subspans, point_subspans, per_msm_jac, dedup_hints);
-
-    std::vector<AffineElement> results(k);
-    for (size_t i = 0; i < k; ++i) {
-        results[i] = AffineElement(per_msm_jac[i]);
-    }
-    return results;
-}
+#include "./pippenger_batched.hpp"
 
 // Explicit instantiations.
 template curve::BN254::Element pippenger_unsafe_fast<curve::BN254>(

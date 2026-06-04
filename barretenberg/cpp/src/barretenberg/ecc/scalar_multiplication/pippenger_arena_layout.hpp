@@ -148,6 +148,11 @@ inline constexpr size_t BATCH_CAPACITY = 256;
 // (chunk_pts + chunk_ids) stays under ~128 KB.
 inline constexpr size_t DEDUP_MAX_CHUNK_MEMBERS = 2048;
 
+inline constexpr size_t MIN_BATCH_CAPACITY = 32;
+inline constexpr size_t MIN_AFFINE_THREAD_RATIO = 2;
+inline constexpr size_t SUBCHUNK_ENTRIES_CAP = 2048;
+inline constexpr size_t BATCH_MEM_BUDGET = 32ULL * 1024ULL * 1024ULL;
+
 // Per-bucket-chunk metadata produced by Stage 6a, consumed by Stage 6b's
 // cross-thread reduce.
 //   lo, hi          — lowest / highest non-empty digit in the chunk (inclusive)
