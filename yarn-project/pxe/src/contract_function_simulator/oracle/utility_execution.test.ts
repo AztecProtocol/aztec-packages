@@ -47,12 +47,8 @@ import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
-<<<<<<< HEAD
-import { UtilityExecutionOracle } from './utility_execution_oracle.js';
-=======
 import { ProvidedSecret } from '../noir-structs/provided_secret.js';
-import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
->>>>>>> origin/public-next
+import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
@@ -626,8 +622,6 @@ describe('Utility Execution test suite', () => {
         );
       });
     });
-<<<<<<< HEAD
-=======
 
     describe('getPendingTaggedLogs', () => {
       const service = new EphemeralArrayService();
@@ -657,33 +651,5 @@ describe('Utility Execution test suite', () => {
         expect(queriedTags.map(tag => tag.toString())).toContain(expectedTag.value.toString());
       });
     });
-
-    const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs>) => {
-      const scopes = overrides?.scopes ?? [];
-      return new UtilityExecutionOracle({
-        contractAddress,
-        authWitnesses: [],
-        capsules: [],
-        anchorBlockHeader,
-        contractStore,
-        noteStore,
-        keyStore,
-        addressStore,
-        aztecNode,
-        recipientTaggingStore,
-        senderAddressBookStore,
-        capsuleService: new CapsuleService(capsuleStore, scopes),
-        privateEventStore,
-        messageContextService,
-        contractSyncService,
-        jobId: 'test-job-id',
-        scopes,
-        l2TipsStore,
-        simulator,
-        utilityExecutor: () => Promise.resolve(),
-        ...overrides,
-      });
-    };
->>>>>>> origin/public-next
   });
 });
