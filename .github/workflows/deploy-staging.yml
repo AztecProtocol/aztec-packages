@@ -32,10 +32,10 @@ jobs:
       tag: ${{ steps.resolve.outputs.tag }}
       semver: ${{ steps.resolve.outputs.semver }}
     steps:
-      - name: Checkout v4-next
+      - name: Checkout v5-next
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
-          ref: v4-next
+          ref: v5-next
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -82,6 +82,7 @@ jobs:
     with:
       network: staging
       semver: ${{ needs.determine-tag.outputs.semver }}
+      use_internal_docker_registry: true
       source_tag: ${{ needs.determine-tag.outputs.tag }}
       deploy_contracts: ${{ inputs.deploy_contracts == true }}
     secrets: inherit

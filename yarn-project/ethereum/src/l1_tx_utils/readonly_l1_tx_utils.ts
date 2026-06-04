@@ -3,6 +3,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
+import { getErrorCause } from '@aztec/foundation/types';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import pickBy from 'lodash.pickby';
@@ -395,7 +396,7 @@ export class ReadOnlyL1TxUtils {
       this.logger?.debug(`L1 transaction simulation succeeded`, { ...result[0].calls[0] });
       return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data as `0x${string}` };
     } catch (err) {
-      if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
+      if (getErrorCause(err, MethodNotFoundRpcError) || getErrorCause(err, MethodNotSupportedRpcError)) {
         if (gasConfig.fallbackGasEstimate) {
           this.logger?.warn(
             `Node does not support eth_simulateV1 API. Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`,
