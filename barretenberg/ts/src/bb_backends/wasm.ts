@@ -111,11 +111,9 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
         // >= BD_K MSMs, MSMs of size >= BD_SMALL are delegated to the GPU union
         // (instead of the compile-time 2^14), so the union batches the small ones —
         // which saturate the GPU (MULTI_MSM_PERF.md) where one-at-a-time would starve
-        // it. On the M4 ECDSA-r1 transfer prove this raised delegated MSMs 91 -> 224
-        // with vks_match=true and a modest wall win; the larger win is expected where
-        // native CPU MSM is slower (phones). BD_K = 0xffffffff disables it.
-        const BD_K: number = 2;
-        const BD_SMALL = 512;
+        // it. In csv-measurement mode every MSM is delegated (k=1, small=1) so each
+        // commit is timed on the GPU; otherwise the shipped batch-size-aware config.
+        const [BD_K, BD_SMALL] = options.msmCsvMode ? [1, 1] : [2, 512];
         if (BD_K !== 0xffffffff) {
           await wasm.call('bb_set_webgpu_batch_delegate', BD_K >>> 0, BD_SMALL >>> 0);
         }

@@ -50,6 +50,10 @@ bool webgpu_msm_runtime_enabled() noexcept;
 // via `bb_set_msm_csv_mode(uint8_t)`.
 bool msm_csv_mode_enabled() noexcept;
 
+// Monotonic per-MSM sequence (reset when csv mode is enabled). Used to make the
+// CSV-mode labels unique and to correlate the CPU pass with the GPU pass.
+uint64_t next_msm_seq() noexcept;
+
 // Per-MSM delegation predicate — runtime gate AND size at or above the
 // configured threshold. Each MSM in a batch decides independently.
 inline bool webgpu_msm_should_delegate(std::size_t n) noexcept

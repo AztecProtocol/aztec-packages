@@ -516,23 +516,38 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     if constexpr (std::is_same_v<Curve, curve::BN254>) {
         if (msm_csv_mode_enabled()) {
             const size_t batch_size = points.size();
+            // When the WebGPU bridge is enabled, route EACH MSM solo through the
+            // bridge and time the full round-trip (the production per-MSM GPU cost:
+            // SAB hop + prepare + dispatch + readback + combine) → [msm-csv-gpu].
+            // Otherwise time the solo native Pippenger → [msm-csv-cpu]. Each MSM
+            // gets a unique `<label>#<seq>`; the seq resets per csv-mode-enable so
+            // the CPU pass and the GPU pass label the same MSM identically.
+            const bool use_gpu = !handle_edge_cases && webgpu_msm_runtime_enabled();
             std::vector<typename Curve::AffineElement> results;
             results.reserve(batch_size);
             for (size_t i = 0; i < batch_size; ++i) {
                 std::array<std::span<const typename Curve::AffineElement>, 1> p{ points[i] };
                 std::array<std::span<ScalarField>, 1> s{ scalars[i] };
+                const std::string base = (labels.size() == batch_size) ? labels[i] : std::string("?");
+                const std::string lbl = base + "#" + std::to_string(next_msm_seq());
                 const auto t0 = std::chrono::steady_clock::now();
-                auto r = batch_multi_scalar_mul_native(p, s, handle_edge_cases);
+                std::vector<typename Curve::AffineElement> r;
+                if (use_gpu) {
+                    std::array<std::string, 1> lbls{ lbl };
+                    r = batch_multi_scalar_mul_webgpu_bn254(p, s, lbls);
+                } else {
+                    r = batch_multi_scalar_mul_native(p, s, handle_edge_cases);
+                }
                 const auto t1 = std::chrono::steady_clock::now();
-                const double cpu_ms =
-                    std::chrono::duration<double, std::milli>(t1 - t0).count();
-                const std::string lbl = (labels.size() == batch_size) ? labels[i] : std::string("?");
-                // 4 decimal places — enough to distinguish microsecond-level
-                // MSMs from each other. Default operator<<(double) rounds to
-                // ~6 sig figs which loses precision for tiny n values.
+                const double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+                // 4 decimal places — enough to distinguish microsecond-level MSMs.
                 std::ostringstream oss;
-                oss << std::fixed << std::setprecision(4) << cpu_ms;
-                info("[msm-csv-cpu] name=", lbl, " n=", scalars[i].size(), " cpu_ms=", oss.str());
+                oss << std::fixed << std::setprecision(4) << ms;
+                if (use_gpu) {
+                    info("[msm-csv-gpu] name=", lbl, " n=", scalars[i].size(), " gpu_ms=", oss.str());
+                } else {
+                    info("[msm-csv-cpu] name=", lbl, " n=", scalars[i].size(), " cpu_ms=", oss.str());
+                }
                 results.push_back(r[0]);
             }
             return results;

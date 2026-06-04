@@ -272,19 +272,23 @@ async function runChonkMsmCsv(flow: string = 'ecdsar1+transfer_1_recursions+spon
     if (m.includes('[msm-csv-cpu]')) cpuCaptured.push(m);
     logger.info(m);
   };
-  const noopLogger = (m: string) => logger.info(m);
+  const gpuLogger = (m: string) => {
+    if (m.includes('[msm-csv-gpu]')) gpuCaptured.push(m);
+    logger.info(m);
+  };
 
   try {
-    // CPU pass: msmCsvMode=on, webgpu=off → emits [msm-csv-cpu] per MSM via
-    // the C++ logger callback (cpuLogger captures into cpuCaptured).
+    // CPU pass: msmCsvMode=on, webgpu=off → each commit/batchCommit MSM runs solo
+    // on the native Pippenger, timed, emits [msm-csv-cpu] name=<lbl>#<seq> ... .
     await runChonkOnce(false, bytecodes, witnesses, vks, functionNames, /*msmCsvMode=*/ true, cpuLogger);
     const cpuLines = cpuCaptured.slice();
 
-    // GPU pass: webgpu=on → bridge emits [msm] per-MSM lines via console.log,
-    // captured by the sniffConsole interceptor above. msmCsvMode stays off so
-    // the GPU pass is the real batched flow, not solo-per-MSM.
+    // GPU pass: msmCsvMode=on, webgpu=on (wasm.ts sets batch_delegate(1,1) so EVERY
+    // MSM, n>=1, delegates) → each commit/batchCommit MSM runs solo through the
+    // bridge, timed end-to-end, emits [msm-csv-gpu] name=<lbl>#<seq> ... . The seq
+    // resets per pass, so the same MSM has the same label in both → a 1:1 join.
     gpuCaptured.length = 0;
-    await runChonkOnce(true, bytecodes, witnesses, vks, functionNames, /*msmCsvMode=*/ false, noopLogger);
+    await runChonkOnce(true, bytecodes, witnesses, vks, functionNames, /*msmCsvMode=*/ true, gpuLogger);
     const gpuLines = gpuCaptured.slice();
 
     // Parse CPU lines: `[msm-csv-cpu] name=W_L n=88899 cpu_ms=18.34`.
@@ -300,57 +304,29 @@ async function runChonkMsmCsv(flow: string = 'ecdsar1+transfer_1_recursions+spon
       if (m) cpus.push({ name: m[1], n: parseInt(m[2], 10), cpu_ms: parseFloat(m[3]) });
     }
 
-    // Parse GPU lines: bridge emits `[msm] name=W_L n=88899 kind=mixed gpu=...ms (...)`
-    // and `[msm] name=W_L n=88899 kind=same-n prepare=... gpu_incremental=... (...)`.
+    // Parse GPU lines: `[msm-csv-gpu] name=W_L#5 n=88899 gpu_ms=12.3456` — the full
+    // per-MSM round-trip cost (each MSM routed solo through the bridge).
     interface GpuEntry {
       name: string;
       n: number;
       gpu_ms: number;
-      kind: string;
     }
     const gpus: GpuEntry[] = [];
-    const gpuMixedRe = /\[msm\]\s+name=(\S+)\s+n=(\d+)\s+kind=mixed\s+gpu=([\d.]+)ms/;
-    // For same-N batches the GPU queue serializes — the per-MSM wait isn't
-    // representative of per-MSM compute. We log gpu_avg = max(wait) /
-    // batch_size as a fairer per-MSM number (total batch GPU time divided
-    // evenly across the same-N MSMs). gpu_wait is kept for debugging.
-    const gpuSameNRe = /\[msm\]\s+name=(\S+)\s+n=(\d+)\s+kind=same-n[^]*?gpu_avg=([\d.]+)ms/;
+    const gpuRe = /\[msm-csv-gpu\]\s+name=(\S+)\s+n=(\d+)\s+gpu_ms=([\d.]+)/;
     for (const line of gpuLines) {
-      let m = gpuMixedRe.exec(line);
-      if (m) {
-        gpus.push({ name: m[1], n: parseInt(m[2], 10), gpu_ms: parseFloat(m[3]), kind: 'mixed' });
-        continue;
-      }
-      m = gpuSameNRe.exec(line);
-      if (m) {
-        gpus.push({ name: m[1], n: parseInt(m[2], 10), gpu_ms: parseFloat(m[3]), kind: 'same-n' });
-      }
+      const m = gpuRe.exec(line);
+      if (m) gpus.push({ name: m[1], n: parseInt(m[2], 10), gpu_ms: parseFloat(m[3]) });
     }
-
-    // Merge — for the i-th CPU entry, find the matching GPU entry (the
-    // GPU pass only delegates MSMs at or above WEBGPU_MSM_THRESHOLD, so
-    // there will be fewer GPU entries than CPU entries; below-threshold
-    // MSMs get gpu_ms=0 to mark them as CPU-only). Match by walking GPU
-    // entries in order: each CPU entry whose (name, n) matches the next
-    // pending GPU entry consumes it.
-    // GPU entries are a strict SUBSEQUENCE of CPU entries (the GPU pass only
-    // sees MSMs at or above WEBGPU_MSM_THRESHOLD; below-threshold MSMs never
-    // reach the bridge). Walk both lists in order: when cpu[i] matches the
-    // pending gpu[gpuIdx], consume it; otherwise this MSM stayed on CPU.
-    // Don't skip GPU entries that don't match — that'd desynchronize the
-    // matching (GPU entries are emitted exactly in the order the bridge sees
-    // them, which is the same prove order the CPU pass walked).
+    // Join 1:1 by the unique `<label>#<seq>` — both passes ran the same
+    // deterministic commit sequence with the seq reset each pass, so each MSM has
+    // the same label in both. `kind` records the winner for quick scanning.
+    const gpuByName = new Map<string, number>();
+    for (const g of gpus) gpuByName.set(g.name, g.gpu_ms);
     const rows: MsmCsvRow[] = [];
-    let gpuIdx = 0;
     for (let i = 0; i < cpus.length; i++) {
       const c = cpus[i];
-      let gpu_ms = 0;
-      let kind = 'cpu-only';
-      if (gpuIdx < gpus.length && gpus[gpuIdx].name === c.name && gpus[gpuIdx].n === c.n) {
-        gpu_ms = gpus[gpuIdx].gpu_ms;
-        kind = gpus[gpuIdx].kind;
-        gpuIdx++;
-      }
+      const gpu_ms = gpuByName.get(c.name) ?? 0;
+      const kind = gpuByName.has(c.name) ? (gpu_ms < c.cpu_ms ? 'gpu-wins' : 'cpu-wins') : 'gpu-missing';
       rows.push({ seq: i, name: c.name, n: c.n, cpu_ms: c.cpu_ms, gpu_ms, kind });
     }
 
