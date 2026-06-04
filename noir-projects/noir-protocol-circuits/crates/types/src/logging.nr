@@ -86,7 +86,7 @@ unconstrained fn log_oracle_wrapper<let M: u32, let N: u32>(
 // While the length parameter might seem unnecessary given that we have N, we keep it around because at the AVM
 // bytecode level we want to support non-comptime-known lengths for such opcodes, even if Noir code will not generally
 // take that route. The AVM transpiler maps this oracle to the DEBUGLOG opcode, which reads the fields size from memory.
-#[oracle(aztec_utl_log)]
+#[oracle(aztec_misc_log)]
 unconstrained fn log_oracle<let M: u32, let N: u32>(
     log_level: u8,
     msg: str<M>,
