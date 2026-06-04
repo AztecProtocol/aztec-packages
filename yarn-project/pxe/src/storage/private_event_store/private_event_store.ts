@@ -240,9 +240,8 @@ export class PrivateEventStore implements StagedStore {
    * that block height ever happened. Used by the reorg (`chain-pruned`) path to truncate the orphaned tail. Scanning
    * from `toBlock + 1` upward covers everything above the rollback target without needing to know the chain tip.
    *
-   * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own — the reorg
-   * path wraps it together with the anchor update, and IndexedDB has no nested transactions). Idempotent and
-   * resumable: re-running hits the missing-buffer guard and does nothing.
+   * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, the reorg
+   * path wraps it together with the anchor update, and IndexedDB has no nested transactions).
    */
   public async rollback(toBlock: number): Promise<void> {
     // Snapshot before mutating so we never delete from the multimap we are iterating.
@@ -254,7 +253,7 @@ export class PrivateEventStore implements StagedStore {
     for (const { block, eventId } of orphaned) {
       const buf = await this.#events.getAsync(eventId);
       if (!buf) {
-        continue;
+        throw new Error(`Event not found for eventId ${eventId}`);
       }
       const stored = StoredPrivateEvent.fromBuffer(buf);
       await this.#events.delete(eventId);

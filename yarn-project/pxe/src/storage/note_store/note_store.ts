@@ -413,7 +413,7 @@ export class NoteStore implements StagedStore {
       orphanedNotes.map(async ({ block, siloedNullifier }) => {
         const buf = await this.#notes.getAsync(siloedNullifier);
         if (!buf) {
-          return;
+          throw new Error(`Note not found for siloedNullifier ${siloedNullifier}`);
         }
         const stored = StoredNote.fromBuffer(buf);
         await this.#notes.delete(siloedNullifier);
