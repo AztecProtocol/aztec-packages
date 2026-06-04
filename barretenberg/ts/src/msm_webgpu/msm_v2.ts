@@ -393,55 +393,6 @@ function boothDigit(scalar: bigint, w: number, c: number): { bucket: number; sig
   return { bucket, sign: neg };
 }
 
-/**
- * Build the level-0 per-bucket histogram by reading each scalar's c-bit
- * windows directly out of the LE byte buffer — no `bigint` shifts, no
- * intermediate `bigint[]` array.
- *
- * For c ≤ 24 (every value pickC returns is ≤ 15) the c+1 bits of a window
- * plus its lookback fit inside a single u32 read (we load 4 bytes starting
- * at the byte containing the window's low bit and mask). Booth uses the
- * lookback bit (top bit of the window below), so we need c+1 bits; with
- * `c+1 ≤ 25 + bitShift ≤ 32`, one u32 load per window is enough.
- *
- * Replaces the host hot path that was doing `n × numWindows` BigInt shifts
- * (~80–200 ms for n=88_899 — the dominant `prepare()` cost on the M4 Pro
- * end-to-end bench before this change).
- */
-function buildInitCounts(scalarsBuf: Uint8Array, n: number, c: number, numWindows: number, BW: number): Uint32Array {
-  const initCounts = new Uint32Array(numWindows * BW);
-  const cMask = (1 << c) - 1;
-  for (let i = 0; i < n; i++) {
-    const off = i * 32;
-    let lookback = 0;
-    for (let w = 0; w < numWindows; w++) {
-      const lo = w * c;
-      const inOff = lo >>> 3;
-      const byteOff = off + inOff;
-      const bitShift = lo & 7;
-      // Load up to 4 bytes covering bits [lo, lo+c). Bytes past index 31 of
-      // *this* scalar must read as 0 — otherwise the high windows (e.g. w=19 /
-      // c=13 → bits 247..259) pull in the next scalar's low bytes and produce
-      // garbage buckets. The mirror WGSL `read_bits` does the same bound check.
-      const b0 = scalarsBuf[byteOff];
-      const b1 = inOff + 1 < 32 ? scalarsBuf[byteOff + 1] : 0;
-      const b2 = inOff + 2 < 32 ? scalarsBuf[byteOff + 2] : 0;
-      const b3 = inOff + 3 < 32 ? scalarsBuf[byteOff + 3] : 0;
-      const v = (b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)) >>> 0;
-      const winBits = (v >>> bitShift) & cMask;
-      const raw = (winBits << 1) | lookback;
-      const neg = (raw >>> c) & 1;
-      const negMask = neg ? 0xffffffff : 0;
-      const encode = (raw + 1) >>> 1;
-      const bucket = (((encode - neg) >>> 0) ^ negMask) & cMask;
-      initCounts[w * BW + bucket]++;
-      // Lookback for window w+1 is the top bit of window w — i.e. bit (lo+c-1).
-      // Same u32 load already covers it; just mask + shift.
-      lookback = (v >>> (bitShift + c - 1)) & 1;
-    }
-  }
-  return initCounts;
-}
 
 interface LevelPlan {
   // pair_blocks_per_window: the per-window count of "pair_blocks" the fused
@@ -2555,77 +2506,18 @@ export class MsmV2 {
     // Level-0 histogram. A batched prepare decodes each member from its own
     // scalar slice (bit_base is MSM-local) and places its NW·BW counts at its
     // global window base (schedOff·BW) in the concatenated bucket grid.
-    let initCounts: Uint32Array;
-    if (this.batchCtx) {
-      initCounts = new Uint32Array(B_TOTAL);
-      for (const m of this.batchCtx.members) {
-        const slice = scalarsBuf.subarray(m.scalarBaseBytes, m.scalarBaseBytes + m.n * 32);
-        initCounts.set(buildInitCounts(slice, m.n, c, m.numWindows, BW), m.schedOff * BW);
-      }
-    } else {
-      initCounts = buildInitCounts(scalarsBuf, n, c, NUM_WINDOWS, BW);
-    }
-
-    // Ping-pong two pre-allocated count buffers and fold the wstride1
-    // computation into the same walk. Avoids ~18 × ~333 KB allocations per
-    // prepare (>5 ms of GC churn for n=88_899) and removes the second pass
-    // over `levelCounts` that wstride1 used to do.
+    // Legacy A/B-ping-pong pair-tree planning REMOVED. The walker +
+    // walker_combine + pair-tree-V2 (`pt_*`) reduce replaced the original
+    // Pippenger pair-tree: run() dispatches none of fusedPipe/carryPipe/
+    // finalizePipe/levelBinds, and bufA/bufB + padParams0/1Buf are bound to no
+    // pipeline (verified absent from all 44 bind groups). The O(n·windows)
+    // buildInitCounts + O(levels·windows·BW) host simulation that ran here only
+    // sized those now-dead buffers — ~10 ms/call at n=131k. The downstream
+    // M1/totalPairBlocks/totalCarries still size the dead bufA/bufB + plan rings
+    // (4 B each), so they stay as trivial constants.
     const levelPlans: LevelPlan[] = [];
+    const levels = 0;
     let wstride1 = 1;
-    {
-      // Two scratch arrays, indexed by inIdx = lv & 1. Level 0 reads
-      // initCounts directly; subsequent levels write into and read from
-      // the ping-pong slots.
-      let countsCur: Uint32Array = initCounts;
-      const countsAlt = new Uint32Array(B_TOTAL);
-      const countsPing = new Uint32Array(B_TOTAL);
-      // Slot allocation: level lv reads `countsCur` and writes `countsNext`.
-      // lv=0 reads initCounts, writes countsAlt.
-      // lv=1 reads countsAlt, writes countsPing.
-      // lv=2 reads countsPing, writes countsAlt.
-      // …
-      let countsNext: Uint32Array = countsAlt;
-      const swap = (): void => {
-        const tmp = countsCur;
-        countsCur = countsNext;
-        countsNext = tmp === initCounts ? countsPing : tmp;
-      };
-      for (let lv = 0; lv < 64; lv++) {
-        // Check active + compute next-level counts + per-window stride in
-        // a single fused pass over the bucket grid.
-        let anyActive = false;
-        let pairBlocksPerWindow = 1;
-        let carriesPerWindow = 1;
-        for (let w = 0; w < NUM_WINDOWS; w++) {
-          let pairs = 0;
-          let carries = 0;
-          let strideCnt = 0;
-          const base = w * BW;
-          for (let bl = 0; bl < BW; bl++) {
-            const g = base + bl;
-            const cnt = countsCur[g];
-            if (cnt > 0) anyActive = true;
-            // bucketSplit inlined: pc = floor(cnt/2), cf = (cnt===1?0:cnt&1),
-            // nc = pc + cf.
-            const pc = cnt >>> 1;
-            const cf = cnt === 1 ? 0 : cnt & 1;
-            const nc = pc + cf;
-            countsNext[g] = nc;
-            pairs += pc;
-            carries += cf;
-            strideCnt += nc;
-          }
-          const blocks = Math.ceil(pairs / S);
-          if (blocks > pairBlocksPerWindow) pairBlocksPerWindow = blocks;
-          if (carries > carriesPerWindow) carriesPerWindow = carries;
-          if (strideCnt > wstride1) wstride1 = strideCnt;
-        }
-        if (!anyActive) break;
-        levelPlans.push({ pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0 });
-        swap();
-      }
-    }
-    const levels = levelPlans.length;
 
     // --- Lever G: budget-driven window-batch count (ARENA_LAYOUT.md §7).
     const RED_M = this.redM;
@@ -2720,7 +2612,7 @@ export class MsmV2 {
     // `let` so the slow path can apply OVERSIZE_FACTOR padding without
     // re-binding through a parallel set of names.
     let M1 = batchWindows * wstride1 + 3;
-    let maxTotalPairBlocks = Math.max(...levelPlans.map(p => p.totalPairBlocks));
+    let maxTotalPairBlocks = Math.max(1, ...levelPlans.map(p => p.totalPairBlocks));
     let maxTotalCarries = Math.max(1, ...levelPlans.map(p => p.totalCarries));
 
     // --- Fast path: subsequent prepare() with a plan that fits in the
