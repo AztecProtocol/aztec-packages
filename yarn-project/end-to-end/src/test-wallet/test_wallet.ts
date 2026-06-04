@@ -13,6 +13,7 @@ import {
   isContractFunctionInteractionCallIntent,
   lookupValidity,
 } from '@aztec/aztec.js/authorization';
+import { type InteractionWaitOptions, NO_WAIT, type SendReturn, type WaitOpts } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
@@ -36,7 +37,7 @@ import {
   type TxHash,
   type TxReceipt,
 } from '@aztec/stdlib/tx';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import { ExecutionPayload, TxStatus, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
 import type { AccountType } from '@aztec/wallets/embedded';
 
@@ -81,6 +82,38 @@ export class TestWallet extends BaseWallet {
     const wallet = new TestWallet(pxe, nodeRef);
     await wallet.initStubClasses();
     return wallet;
+  }
+
+  // Inclusion status that sends default to when the caller does not specify one. Defaults to PROPOSED
+  // (matching the production EmbeddedWallet); tests that read checkpoint/L1-settled state can opt back
+  // to CHECKPOINTED via setDefaultWaitStatus.
+  private defaultWaitStatus: TxStatus = TxStatus.PROPOSED;
+
+  /**
+   * Sets the inclusion status that sends wait for when the caller does not pass an explicit
+   * waitForStatus. Tests asserting on checkpoint- or L1-settled state should set this to CHECKPOINTED.
+   */
+  public setDefaultWaitStatus(status: TxStatus): void {
+    this.defaultWaitStatus = status;
+  }
+
+  /**
+   * Defaults the wait status to {@link defaultWaitStatus} (PROPOSED unless overridden) rather than the
+   * base wallet's CHECKPOINTED. Tests only need a tx to land in a proposed L2 block; waiting for the
+   * checkpoint to be sealed to L1 couples every send to checkpoint-sealing latency.
+   */
+  public override sendTx<W extends InteractionWaitOptions = undefined>(
+    executionPayload: ExecutionPayload,
+    opts: SendOptions<W>,
+  ): Promise<SendReturn<W>> {
+    if (opts.wait === NO_WAIT) {
+      return super.sendTx(executionPayload, opts);
+    }
+    const waitOpts: WaitOpts = typeof opts.wait === 'object' ? opts.wait : {};
+    if (!waitOpts.waitForStatus) {
+      waitOpts.waitForStatus = this.defaultWaitStatus;
+    }
+    return super.sendTx(executionPayload, { ...opts, wait: waitOpts as W });
   }
 
   /**

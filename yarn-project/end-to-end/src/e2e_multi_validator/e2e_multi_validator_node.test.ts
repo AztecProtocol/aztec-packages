@@ -79,6 +79,7 @@ describe('e2e_multi_validator_node', () => {
       await setup(
         1,
         {
+          defaultWaitStatus: TxStatus.CHECKPOINTED,
           ...PIPELINING_SETUP_OPTS,
           initialValidators,
           aztecTargetCommitteeSize: COMMITTEE_SIZE,

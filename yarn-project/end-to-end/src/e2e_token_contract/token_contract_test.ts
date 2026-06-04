@@ -4,6 +4,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -126,6 +127,8 @@ export class TokenContractTest {
 
   async setup(opts: Partial<SetupOptions> = {}) {
     this.context = await setup(0, {
+      // Finality-sensitive suite: default to CHECKPOINTED before any setup-phase send.
+      defaultWaitStatus: TxStatus.CHECKPOINTED,
       ...opts,
       metricsPort: this.metricsPort,
       fundSponsoredFPC: true,

@@ -20,6 +20,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { getContract } from 'viem';
 
@@ -110,6 +111,8 @@ export class FeesTest {
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
     const tokenAllowList = await getTokenAllowedSetupFunctions();
     this.context = await setup(0, {
+      // Finality-sensitive suite: default to CHECKPOINTED before any setup-phase send.
+      defaultWaitStatus: TxStatus.CHECKPOINTED,
       startProverNode: true,
       ...this.setupOptions,
       ...opts,

@@ -58,6 +58,7 @@ import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationP
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { TxStatus } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   type TelemetryClient,
@@ -169,6 +170,8 @@ export type SetupOptions = {
   numberOfInitialFundedAccounts?: number;
   /** Data of the initial funded accounts */
   initialFundedAccounts?: InitialAccountData[];
+  /** Inclusion status the test wallet's sends default to (PROPOSED if unset). Applied before any setup-phase send. */
+  defaultWaitStatus?: TxStatus;
   /** An initial set of validators */
   initialValidators?: (Operator & { privateKey: `0x${string}` })[];
   /** Anvil Start time */
@@ -626,6 +629,10 @@ export async function setup(
 
     if (opts.walletMinFeePadding !== undefined) {
       wallet.setMinFeePadding(opts.walletMinFeePadding);
+    }
+
+    if (opts.defaultWaitStatus !== undefined) {
+      wallet.setDefaultWaitStatus(opts.defaultWaitStatus);
     }
 
     const cheatCodes = await CheatCodes.create(

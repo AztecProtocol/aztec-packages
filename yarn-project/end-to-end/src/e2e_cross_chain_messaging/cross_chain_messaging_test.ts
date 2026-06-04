@@ -21,6 +21,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import type { PXEConfig } from '@aztec/pxe/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {
@@ -97,6 +98,8 @@ export class CrossChainMessagingTest {
     this.context = await setup(
       0,
       {
+        // Finality-sensitive suite: default to CHECKPOINTED before any setup-phase send.
+        defaultWaitStatus: TxStatus.CHECKPOINTED,
         ...this.setupOptions,
         ...opts,
         fundSponsoredFPC: true,

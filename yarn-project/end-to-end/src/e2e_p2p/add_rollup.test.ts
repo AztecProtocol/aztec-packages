@@ -31,6 +31,7 @@ import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
+import { TxStatus } from '@aztec/stdlib/tx';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -291,6 +292,7 @@ describe('e2e_p2p_add_rollup', () => {
         { ...getPXEConfig(), proverEnabled: false, syncChainTip: 'checkpointed' },
         { loggerActorLabel: 'pxe-bridge' },
       );
+      wallet.setDefaultWaitStatus(TxStatus.CHECKPOINTED);
       const aliceAccountManager = await wallet.createSchnorrAccount(aliceAccount.secret, aliceAccount.salt);
       const aliceDeploymethod = await aliceAccountManager.getDeployMethod();
       await aliceDeploymethod.send({

@@ -8,6 +8,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../fixtures/setup.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
@@ -27,6 +28,8 @@ export class DeployTest {
   async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up test environment');
     this.context = await setup(0, {
+      // Finality-sensitive suite: default to CHECKPOINTED before any setup-phase send.
+      defaultWaitStatus: TxStatus.CHECKPOINTED,
       ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,

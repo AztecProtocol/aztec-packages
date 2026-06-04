@@ -14,6 +14,7 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -78,6 +79,7 @@ describe('e2e_multi_eoa', () => {
       } = await setup(
         2,
         {
+          defaultWaitStatus: TxStatus.CHECKPOINTED,
           ...PIPELINING_SETUP_OPTS,
           archiverPollingIntervalMS: 200,
           sequencerPollingIntervalMS: 200,
