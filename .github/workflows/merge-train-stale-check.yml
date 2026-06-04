@@ -9,6 +9,7 @@ on:
 jobs:
   spartan:
     name: Check merge-train/spartan
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -23,6 +24,7 @@ jobs:
 
   spartan-v5:
     name: Check merge-train/spartan-v5
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
