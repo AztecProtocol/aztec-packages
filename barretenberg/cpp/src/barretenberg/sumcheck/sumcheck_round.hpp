@@ -8,6 +8,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/polynomials/gate_separator.hpp"
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -15,6 +16,8 @@
 #include "barretenberg/relations/utils.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "zk_sumcheck_data.hpp"
+
+#include <algorithm>
 
 namespace bb {
 
@@ -292,11 +295,97 @@ template <typename Flavor> class SumcheckProverRound {
         size_t size;
     };
 
+    // True when the flavor exposes a static row-skip manifest: a contiguous prefix [head, active_prefix_end) holding
+    // every relation-active row, used directly instead of the row-by-row skip_entire_row scan below. Only sound when
+    // the prefix is tight (no inactive rows inside it); flavors whose active rows are interspersed should omit it and
+    // use the dynamic scan. See Flavor::row_skip_active_prefix_end.
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    static constexpr bool HAS_STATIC_ROW_SKIP_MANIFEST =
+        IsAnyOf<Flavor, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor> &&
+        requires(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials) {
+            Flavor::row_skip_active_prefix_end(polynomials);
+        };
+
+    static size_t round_up_to_even(const size_t value) { return value + (value & 1U); }
+
+    static void append_scan_range(std::vector<BlockOfContiguousRows>& ranges, const size_t start, const size_t end)
+    {
+        if (end <= start) {
+            return;
+        }
+        if (!ranges.empty()) {
+            auto& previous = ranges.back();
+            const size_t previous_end = previous.starting_edge_idx + previous.size;
+            if (start <= previous_end) {
+                previous.size = std::max(previous_end, end) - previous.starting_edge_idx;
+                return;
+            }
+        }
+        ranges.push_back(BlockOfContiguousRows{ .starting_edge_idx = start, .size = end - start });
+    }
+
+    static void merge_contiguous_blocks(std::vector<BlockOfContiguousRows>& blocks)
+    {
+        if (blocks.empty()) {
+            return;
+        }
+        std::sort(blocks.begin(), blocks.end(), [](const BlockOfContiguousRows& lhs, const BlockOfContiguousRows& rhs) {
+            return lhs.starting_edge_idx < rhs.starting_edge_idx;
+        });
+
+        size_t write_idx = 0;
+        for (size_t read_idx = 1; read_idx < blocks.size(); ++read_idx) {
+            auto& previous = blocks[write_idx];
+            const auto& current = blocks[read_idx];
+            const size_t previous_end = previous.starting_edge_idx + previous.size;
+            if (current.starting_edge_idx <= previous_end) {
+                previous.size =
+                    std::max(previous_end, current.starting_edge_idx + current.size) - previous.starting_edge_idx;
+            } else {
+                ++write_idx;
+                blocks[write_idx] = current;
+            }
+        }
+        blocks.resize(write_idx + 1);
+    }
+
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    std::vector<BlockOfContiguousRows> compute_row_skip_scan_ranges(
+        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials, const size_t effective_round_size) const
+    {
+        const size_t scan_start = excluded_head_size;
+        std::vector<BlockOfContiguousRows> ranges;
+        if (effective_round_size <= scan_start) {
+            return ranges;
+        }
+
+        if constexpr (HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>) {
+            const size_t row_skip_active_prefix_end = Flavor::row_skip_active_prefix_end(polynomials);
+            if (row_skip_active_prefix_end == 0) {
+                append_scan_range(ranges, scan_start, effective_round_size);
+                return ranges;
+            }
+
+            const size_t active_prefix_end =
+                std::min(round_up_to_even(row_skip_active_prefix_end), effective_round_size);
+            append_scan_range(ranges, scan_start, std::max(scan_start, active_prefix_end));
+
+            // Lagrange-last lives at the end of the domain. Everything between the active prefix and this final
+            // edge-pair is known to be relation-trivial, so do not spend scan work proving it row-by-row.
+            if (effective_round_size >= scan_start + 2) {
+                append_scan_range(ranges, effective_round_size - 2, effective_round_size);
+            }
+        } else {
+            append_scan_range(ranges, scan_start, effective_round_size);
+        }
+        return ranges;
+    }
+
     /**
      * @brief Compute the number of unskippable rows we must iterate over
      * @details Some circuits have a circuit size much larger than the number of used rows (ECCVM, Translator).
-     *          For relevant flavors, we have a `skip_entire_row` method that can be used to check whether to skip.
-     *          This method iterates over the execution trace & computes blocks of contiguous unskippable rows.
+     *          Static row-manifest flavors provide the unskippable ranges directly; row-skippable flavors expose a
+     *          `skip_entire_row` predicate and this method scans the trace to compute contiguous unskippable blocks.
      * @note We assume that the number of blocks returned by this fn is small. i.e. the circuit does not have a large
      * number of interleaved empty rows. If the circuit *does* have a lot of interleaved empty/non-empty rows, this
      * function will be quite slow as the returned vector will be large.
@@ -316,59 +405,72 @@ template <typename Flavor> class SumcheckProverRound {
         const size_t start_edge_idx = excluded_head_size;
 
         std::vector<BlockOfContiguousRows> result;
+        constexpr bool has_static_row_skip_manifest =
+            HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
 
-        if constexpr (can_skip_rows) {
-            // Iterate over edge-pairs (stride-2) so each thread gets an even-aligned range
-            const size_t num_edge_pairs = (effective_round_size - start_edge_idx) / 2;
+        if constexpr (has_static_row_skip_manifest) {
+            // Static row manifests describe the relation-active edge pairs directly, avoiding the old per-row skip
+            // scan over the whole trace.
+            result = compute_row_skip_scan_ranges(polynomials, effective_round_size);
+        } else if constexpr (can_skip_rows) {
+            // Iterate over edge-pairs (stride-2) so each thread gets an even-aligned range.
+            const std::vector<BlockOfContiguousRows> scan_ranges =
+                compute_row_skip_scan_ranges(polynomials, effective_round_size);
             // Cost per iteration: skip_entire_row reads across polynomial columns.
             // Overestimates by using total entity count (skip_entire_row only checks a subset).
             constexpr size_t heuristic_cost = bb::thread_heuristics::FF_COPY_COST * 2 * Flavor::NUM_ALL_ENTITIES;
             std::vector<std::vector<BlockOfContiguousRows>> all_thread_blocks(bb::get_num_cpus());
-            bb::parallel_for_heuristic(
-                num_edge_pairs,
-                [&](ThreadChunk chunk) {
-                    auto range = chunk.range(num_edge_pairs);
-                    if (range.empty()) {
-                        return;
-                    }
-                    // Scan edge pairs to find contiguous runs of non-skippable rows.
-                    // We track the start and size of the current run, emitting a block
-                    // whenever we hit a skippable row or reach the end of the range.
-                    size_t current_block_start = 0;
-                    size_t current_block_size = 0;
-                    std::vector<BlockOfContiguousRows> thread_blocks;
-                    for (size_t pair_idx : range) {
-                        size_t edge_idx = start_edge_idx + pair_idx * 2;
-                        if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
-                            // Non-skippable row: begin a new block or extend the current one
-                            if (current_block_size == 0) {
-                                current_block_start = edge_idx;
-                            }
-                            current_block_size += 2; // each pair covers 2 edges
-                        } else {
-                            // Skippable row: flush the current block if one is open
-                            if (current_block_size > 0) {
-                                thread_blocks.push_back(BlockOfContiguousRows{ .starting_edge_idx = current_block_start,
-                                                                               .size = current_block_size });
-                                current_block_size = 0;
+
+            for (const auto& scan_range : scan_ranges) {
+                const size_t num_edge_pairs = scan_range.size / 2;
+                bb::parallel_for_heuristic(
+                    num_edge_pairs,
+                    [&](ThreadChunk chunk) {
+                        auto range = chunk.range(num_edge_pairs);
+                        if (range.empty()) {
+                            return;
+                        }
+                        // Scan edge pairs to find contiguous runs of non-skippable rows.
+                        // We track the start and size of the current run, emitting a block
+                        // whenever we hit a skippable row or reach the end of the range.
+                        size_t current_block_start = 0;
+                        size_t current_block_size = 0;
+                        std::vector<BlockOfContiguousRows> thread_blocks;
+                        for (size_t pair_idx : range) {
+                            size_t edge_idx = scan_range.starting_edge_idx + pair_idx * 2;
+                            if (!Flavor::skip_entire_row(polynomials, edge_idx)) {
+                                // Non-skippable row: begin a new block or extend the current one
+                                if (current_block_size == 0) {
+                                    current_block_start = edge_idx;
+                                }
+                                current_block_size += 2; // each pair covers 2 edges
+                            } else {
+                                // Skippable row: flush the current block if one is open
+                                if (current_block_size > 0) {
+                                    thread_blocks.push_back(BlockOfContiguousRows{
+                                        .starting_edge_idx = current_block_start, .size = current_block_size });
+                                    current_block_size = 0;
+                                }
                             }
                         }
-                    }
-                    // Flush any remaining block at the end of the range
-                    if (current_block_size > 0) {
-                        thread_blocks.push_back(BlockOfContiguousRows{ .starting_edge_idx = current_block_start,
-                                                                       .size = current_block_size });
-                    }
-                    all_thread_blocks[chunk.thread_index] = std::move(thread_blocks);
-                },
-                heuristic_cost);
+                        // Flush any remaining block at the end of the range
+                        if (current_block_size > 0) {
+                            thread_blocks.push_back(BlockOfContiguousRows{ .starting_edge_idx = current_block_start,
+                                                                           .size = current_block_size });
+                        }
+                        auto& blocks = all_thread_blocks[chunk.thread_index];
+                        blocks.insert(blocks.end(), thread_blocks.begin(), thread_blocks.end());
+                    },
+                    heuristic_cost);
+            }
 
             for (const auto& thread_blocks : all_thread_blocks) {
                 for (const auto block : thread_blocks) {
                     result.push_back(block);
                 }
             }
+            merge_contiguous_blocks(result);
         } else {
             result.push_back(BlockOfContiguousRows{ .starting_edge_idx = start_edge_idx,
                                                     .size = effective_round_size - start_edge_idx });
@@ -406,9 +508,12 @@ template <typename Flavor> class SumcheckProverRound {
     {
         BB_BENCH_NAME("compute_univariate_with_row_skipping");
 
+        constexpr bool has_static_row_skip_manifest =
+            HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates>;
         constexpr bool can_skip_rows = (isRowSkippable<Flavor, decltype(polynomials), size_t>);
+        constexpr bool uses_row_manifest = has_static_row_skip_manifest || can_skip_rows;
 
-        if constexpr (!can_skip_rows) {
+        if constexpr (!uses_row_manifest) {
             // Non-row-skipping flavors (UltraHonk, Mega, MultilinearBatching) use dynamic chunk
             // dispatch to balance per-row cost variance from selector-gated relation skipping.
             // Short traces don't need to iterate over the zero tail of the polynomial.
@@ -455,14 +560,18 @@ template <typename Flavor> class SumcheckProverRound {
 
         // Row-skipping flavors (ECCVM, Translator) iterate only over contiguous blocks of non-skippable
         // rows; work within each block is statically divided among threads via ThreadChunk ranges.
-        std::vector<BlockOfContiguousRows> round_manifest = compute_contiguous_round_size(polynomials);
+        std::vector<BlockOfContiguousRows> round_manifest;
+        {
+            BB_BENCH_NAME("compute_univariate_with_row_skipping/compute_manifest");
+            round_manifest = compute_contiguous_round_size(polynomials);
+        }
 
         // Construct univariate accumulator containers; one per thread
         // Note: std::vector will trigger {}-initialization of the contents. Therefore no need to zero the univariates.
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(get_num_cpus());
 
         parallel_for([&](ThreadChunk chunk) {
-            BB_BENCH_NAME("compute_univariate_with_row_skipping/chunk");
+            BB_BENCH_NAME("compute_univariate_with_row_skipping/accumulate_blocks");
             // Construct extended univariates containers; one per thread
             ExtendedEdges extended_edges;
 
@@ -477,10 +586,11 @@ template <typename Flavor> class SumcheckProverRound {
                     size_t edge_idx = block.starting_edge_idx + (i * 2);
                     extend_edges(extended_edges, polynomials, edge_idx);
                     // Compute the \f$ \ell \f$-th edge's univariate contribution,
-                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for
-                    // \f$
-                    // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
-                    // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots
+                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators
+                    // for \f$
+                    // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
+                    // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
+                    // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots
                     // \cdot
                     // \beta_{d-1}^{\ell_{d-1}}\f$.
 
