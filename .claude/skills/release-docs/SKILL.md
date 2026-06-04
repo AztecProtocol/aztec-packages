@@ -50,39 +50,73 @@ so always check whether an address is already present before querying on-chain.
 Contracts like Reward Booster, Staking Registry, Tally Slashing Proposer, Honk
 Verifier, and others must be resolved separately in Step 9.
 
-**Detect release type** from the version string:
+#### Reconcile the RPC version against the target docs version
+
+`node_getNodeInfo` returns what the network is **currently running**, which is
+frequently **behind** the version the docs are being cut to. The node RPC commonly
+lags a deploy by minutes to hours, sequencers roll over gradually, and docs are
+sometimes prepared before the upgrade is rolled out at all. Do not assume the RPC
+`nodeVersion` is the version you are documenting. Keep two values distinct:
+
+- **`nodeVersion`** — what the RPC reports right now. Authoritative **only** for
+  the *current* on-chain contract addresses.
+- **`targetVersion`** — the version the docs are being updated to (from the user
+  argument, the release announcement, or the git tag being cut). Authoritative for
+  **every version string**: release-type detection, tag checkout (Step 2), CLI
+  version (Step 3), version configs (Step 5), the versioned-docs cut (Step 13),
+  and the `networks.md` Version cell (Step 9).
+
+Determine `targetVersion`:
+
+- If the user passed an explicit target version (or it is unambiguous from the
+  release/tag), use it.
+- Otherwise default `targetVersion = nodeVersion`.
+
+If `targetVersion` differs from `nodeVersion`, **do not abort** — this is the
+expected lag case. Confirm the target with the user, then use `targetVersion`
+everywhere below. Use the `nodeVersion` RPC response **only** for contract
+addresses, and treat those addresses as the *pre-upgrade* network state: in Step 9
+confirm whether the upgrade changes any of them. Re-query `node_getNodeInfo` near
+the end of the run; if the network has caught up to `targetVersion`, re-confirm
+the addresses against the new state before finalizing.
+
+**Detect release type** from the **`targetVersion`** string:
 
 - Contains `devnet` → release type is `devnet`
 - Contains `testnet` → release type is `testnet`
 - Contains `mainnet` → release type is `mainnet`
-- If unclear, ask the user to confirm the release type
+- A bare `X.Y.Z` patch or an `-rc.*` suffix with no network token → ask the user
+  (rc builds are typically `mainnet`; see Step 11).
+- If still unclear, ask the user to confirm the release type
 
-Store all values (including the detected release type) for use in subsequent steps.
+Store all values (`nodeVersion`, `targetVersion`, and the detected release type)
+for use in subsequent steps. Later steps refer to `targetVersion` as
+`<new_version>` (and the prior release it replaces as `<old_version>`).
 
-### Step 2: Verify Git Tag Matches Network Version
+### Step 2: Verify Git Tag Matches the Target Version
 
-The version from step 1 tells us which git tag the docs should be built from.
+The `targetVersion` from Step 1 (not the possibly-lagging `nodeVersion`) tells us
+which git tag the docs should be built from.
 
 ```bash
 git fetch origin
-git tag -l "v<nodeVersion>"
+git tag -l "v<targetVersion>"
 ```
 
 - If the tag exists and is already checked out, continue.
-- If the tag exists but is not checked out: `git checkout v<nodeVersion>`
+- If the tag exists but is not checked out: `git checkout v<targetVersion>`
 - **Abort if the tag doesn't exist** — the release hasn't been tagged yet.
 
-#### Pre-release workflow
+#### Pre-release / RPC-lag workflow
 
-If the user provides a target version that differs from the `nodeVersion`
-returned by the RPC (e.g. the network is still running `4.1.3` but the user
-wants to prepare docs for `4.2.0`), this is a **pre-release** docs preparation.
-Ask the user to confirm the target version, then use that version instead of
-`nodeVersion` throughout the remaining steps. The git tag for the target version
-must still exist. Contract addresses from the RPC reflect the *current* network
-state (the old version); they are still valid if the upgrade reuses the same
-contracts, but ask the user to confirm whether any addresses will change at
-upgrade time.
+This is the common case where `targetVersion` ≠ `nodeVersion` (the network is
+still running, say, `4.1.3` while you cut docs for `4.2.0`, or testnet is on
+`4.3.1` while you prepare `4.3.1` docs that the RPC only just caught up to). It is
+already handled by the Step 1 reconciliation — `targetVersion` drives every
+version string here and below. The git tag for `targetVersion` must still exist.
+Contract addresses from the RPC reflect the *current* (pre-upgrade) network state;
+they are still valid if the upgrade reuses the same contracts, but ask the user to
+confirm whether any addresses will change at upgrade time (see Step 9).
 
 **Run all work on the tag, not `next`.** Cut on the tag so the snapshot
 reflects what shipped. Then stash, switch to `next`, pop. Backport any newer
@@ -102,7 +136,9 @@ reverting to the tag's older copy.
 aztec --version
 ```
 
-The installed version must match the `nodeVersion` from step 1.
+The installed version must match the `targetVersion` from Step 1 (the version the
+docs are being cut to), **not** a lagging RPC `nodeVersion`. Generating CLI/API
+reference docs against an older CLI silently documents the wrong command set.
 
 **If wrong version, abort** and instruct the user to install the correct one:
 
@@ -154,8 +190,8 @@ self-identify its release type, set `RELEASE_TYPE` explicitly.
 
 ```bash
 cd docs
-RELEASE_TYPE=<release_type> yarn generate:aztec-nr-api <nodeVersion>
-RELEASE_TYPE=<release_type> yarn generate:typescript-api <nodeVersion>
+RELEASE_TYPE=<release_type> yarn generate:aztec-nr-api <targetVersion>
+RELEASE_TYPE=<release_type> yarn generate:typescript-api <targetVersion>
 ```
 
 This creates/updates the API docs in:
@@ -183,7 +219,7 @@ This creates/updates the API docs in:
 4. **Install aztec CLI** matching the release version (provides nargo if not
    already available from noir bootstrap):
    ```bash
-   VERSION=<nodeVersion> bash -i <(curl -sL https://install.aztec.network/<nodeVersion>)
+   VERSION=<targetVersion> bash -i <(curl -sL https://install.aztec.network/<targetVersion>)
    ```
 
 If generation fails, check that the tag has the required source code, that
@@ -309,6 +345,16 @@ Update the column matching the release type (**Testnet** or **Alpha (Mainnet)**)
 in the tables. (The Devnet column was removed from `networks.md` — devnet
 releases no longer update this file.)
 
+**Only touch the one column for this release type.** Each network advances
+independently — testnet may move to `targetVersion` while mainnet stays on its
+current version (e.g. testnet `4.3.1`, mainnet `4.3.0`). Never blanket find/replace
+the old version across the page; that wrongly bumps the other network's column.
+The Version cell records the version being rolled out to *this* network. If you are
+preparing docs strictly **ahead** of the network upgrade (RPC still reports the old
+version and the rollout has not started), confirm with the operator whether to set
+the cell to `targetVersion` now or wait until the node reports it; re-query
+`node_getNodeInfo` to confirm before merging.
+
 - **Network Technical Information table**: version, RPC endpoint, rollup version
 - **L1 Contract Addresses table**: all addresses from the RPC response, on-chain
   queries, and any additional addresses provided by the user
@@ -370,7 +416,7 @@ the `v` to produce the bare version (used for install commands and npm packages)
 omit the `v`, all GitHub links and git tag references in the versioned docs will be broken.
 
 ```bash
-cd docs && <TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> COMMIT_TAG=v<nodeVersion> yarn build
+cd docs && <TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> COMMIT_TAG=v<targetVersion> yarn build
 ```
 
 Fix any issues reported by the build:
@@ -563,12 +609,16 @@ Check for stash conflicts. Then report to the user:
 
 ## Key Points
 
-- **Always query the network first**: The RPC response is the source of truth for
-  version and contract addresses.
-- **Tag must exist**: If the git tag for the version doesn't exist, abort. The
+- **RPC version can lag the target**: `node_getNodeInfo` is the source of truth for
+  *contract addresses*, but not necessarily for the *version*. The RPC `nodeVersion`
+  is frequently behind the `targetVersion` the docs are being cut to (deploy lag,
+  staged sequencer rollout, or pre-release prep). Use `targetVersion` for every
+  version string and the tag/CLI/cut steps; use the RPC only for addresses, and
+  re-query at the end in case the network caught up. See Step 1.
+- **Tag must exist**: If the git tag for `targetVersion` doesn't exist, abort. The
   release hasn't been tagged yet.
-- **CLI version must match**: The `aztec` CLI must match the network version to get
-  the correct canonical FPC address.
+- **CLI version must match**: The `aztec` CLI must match the `targetVersion` to get
+  the correct canonical FPC address and command set.
 - **Build must pass**: Don't cut versioned docs until `yarn build` succeeds.
 - **User confirmation required**: Ask before deleting old versioned docs and before
   adding migration note entries.
