@@ -26,6 +26,12 @@ class ECCVMShortMonomialFlavor : public ECCVMFlavor {
     static constexpr bool USE_SHORT_MONOMIALS = true;
 
     using GrandProductRelations = std::tuple<ECCVMSetShortRelation<FF>>;
+    // WARNING: this relation list is not free to reorder or regroup. Each short relation (or contiguous group of
+    // split short relations) must occupy the same global subrelation index range as the legacy monolithic relation it
+    // stands in for, because the verifier batches subrelations by alpha in that exact order. Changing the order or
+    // splitting a relation without preserving the index layout silently breaks the batching and produces proofs the
+    // legacy verifier rejects.
+    //
     // ECCVMTranscriptMsmTransitionShortRelation immediately follows the main transcript relation: together they cover
     // the same global subrelation index range (0..31) as the verifier's monolithic ECCVMTranscriptRelation, so the
     // alpha batching is unchanged.

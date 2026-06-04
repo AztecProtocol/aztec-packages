@@ -671,15 +671,6 @@ template <typename Flavor> class SumcheckProver {
                                    PartiallyEvaluatedMultivariates& dest_polynomials,
                                    const FF& round_challenge)
     {
-        size_t next_row_skip_active_prefix_end = 0;
-        if constexpr (requires {
-                          source_polynomials.row_skip_active_prefix_end;
-                          dest_polynomials.row_skip_active_prefix_end;
-                      }) {
-            next_row_skip_active_prefix_end = (source_polynomials.row_skip_active_prefix_end / 2) +
-                                              (source_polynomials.row_skip_active_prefix_end % 2);
-        }
-
         auto source_view = source_polynomials.get_all();
         auto dest_view = dest_polynomials.get_all();
         parallel_for(source_view.size(), [&](size_t j) {
@@ -691,11 +682,14 @@ template <typename Flavor> class SumcheckProver {
             }
             dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
         });
+        // Halve the active-row prefix to track the folded trace; the loop above leaves the member untouched, so this
+        // reads the pre-round value even when source and dest alias (see partially_evaluate_in_place).
         if constexpr (requires {
                           source_polynomials.row_skip_active_prefix_end;
                           dest_polynomials.row_skip_active_prefix_end;
                       }) {
-            dest_polynomials.row_skip_active_prefix_end = next_row_skip_active_prefix_end;
+            dest_polynomials.row_skip_active_prefix_end = (source_polynomials.row_skip_active_prefix_end / 2) +
+                                                          (source_polynomials.row_skip_active_prefix_end % 2);
         }
     };
 

@@ -295,9 +295,10 @@ template <typename Flavor> class SumcheckProverRound {
         size_t size;
     };
 
-    // ECCVM exposes a static row-skip manifest: a contiguous active-trace prefix that the prover can use directly
-    // instead of scanning every row. Translator deliberately does not (its trace over-covered when expressed as a
-    // static manifest); it falls back to the dynamic skip_entire_row scan below.
+    // True when the flavor exposes a static row-skip manifest: a contiguous prefix [head, active_prefix_end) holding
+    // every relation-active row, used directly instead of the row-by-row skip_entire_row scan below. Only sound when
+    // the prefix is tight (no inactive rows inside it); flavors whose active rows are interspersed should omit it and
+    // use the dynamic scan. See Flavor::row_skip_active_prefix_end.
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     static constexpr bool HAS_STATIC_ROW_SKIP_MANIFEST =
         IsAnyOf<Flavor, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor> &&
@@ -560,10 +561,7 @@ template <typename Flavor> class SumcheckProverRound {
         // Row-skipping flavors (ECCVM, Translator) iterate only over contiguous blocks of non-skippable
         // rows; work within each block is statically divided among threads via ThreadChunk ranges.
         std::vector<BlockOfContiguousRows> round_manifest;
-        if constexpr (IsTranslatorFlavor<Flavor>) {
-            BB_BENCH_NAME("compute_univariate_with_row_skipping/translator_compute_manifest");
-            round_manifest = compute_contiguous_round_size(polynomials);
-        } else {
+        {
             BB_BENCH_NAME("compute_univariate_with_row_skipping/compute_manifest");
             round_manifest = compute_contiguous_round_size(polynomials);
         }
@@ -573,47 +571,38 @@ template <typename Flavor> class SumcheckProverRound {
         std::vector<SumcheckTupleOfTuplesOfUnivariates> thread_univariate_accumulators(get_num_cpus());
 
         parallel_for([&](ThreadChunk chunk) {
-            auto accumulate_blocks = [&]() {
-                // Construct extended univariates containers; one per thread
-                ExtendedEdges extended_edges;
+            BB_BENCH_NAME("compute_univariate_with_row_skipping/accumulate_blocks");
+            // Construct extended univariates containers; one per thread
+            ExtendedEdges extended_edges;
 
-                // Process each block, dividing work within each block
-                for (const BlockOfContiguousRows& block : round_manifest) {
-                    size_t block_iterations = block.size / 2;
+            // Process each block, dividing work within each block
+            for (const BlockOfContiguousRows& block : round_manifest) {
+                size_t block_iterations = block.size / 2;
 
-                    // Get the range of iterations this thread should process for this block
-                    auto iteration_range = chunk.range(block_iterations);
+                // Get the range of iterations this thread should process for this block
+                auto iteration_range = chunk.range(block_iterations);
 
-                    for (size_t i : iteration_range) {
-                        size_t edge_idx = block.starting_edge_idx + (i * 2);
-                        extend_edges(extended_edges, polynomials, edge_idx);
-                        // Compute the \f$ \ell \f$-th edge's univariate contribution,
-                        // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators
-                        // for \f$
-                        // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
-                        // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
-                        // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots
-                        // \cdot
-                        // \beta_{d-1}^{\ell_{d-1}}\f$.
+                for (size_t i : iteration_range) {
+                    size_t edge_idx = block.starting_edge_idx + (i * 2);
+                    extend_edges(extended_edges, polynomials, edge_idx);
+                    // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                    // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators
+                    // for \f$
+                    // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$
+                    // (\ell_{i+1},\ldots, \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is
+                    // \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots
+                    // \cdot
+                    // \beta_{d-1}^{\ell_{d-1}}\f$.
 
-                        FF scaling_factor{ 1 };
-                        if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
-                            scaling_factor = gate_separators[edge_idx];
-                        }
-                        accumulate_relation_univariates(thread_univariate_accumulators[chunk.thread_index],
-                                                        extended_edges,
-                                                        relation_parameters,
-                                                        scaling_factor);
+                    FF scaling_factor{ 1 };
+                    if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
+                        scaling_factor = gate_separators[edge_idx];
                     }
+                    accumulate_relation_univariates(thread_univariate_accumulators[chunk.thread_index],
+                                                    extended_edges,
+                                                    relation_parameters,
+                                                    scaling_factor);
                 }
-            };
-
-            if constexpr (IsTranslatorFlavor<Flavor>) {
-                BB_BENCH_NAME("compute_univariate_with_row_skipping/translator_accumulate_blocks");
-                accumulate_blocks();
-            } else {
-                BB_BENCH_NAME("compute_univariate_with_row_skipping/accumulate_blocks");
-                accumulate_blocks();
             }
         });
 
@@ -857,26 +846,22 @@ template <typename Flavor> class SumcheckProverRound {
     {
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t relation_idx>() {
             using Relation = std::tuple_element_t<relation_idx, Relations>;
-            const auto accumulate_relation = [&]() {
-                // Check if the relation is skippable to speed up accumulation
-                if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
-                    // If not, accumulate normally
+            // Check if the relation is skippable to speed up accumulation
+            if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
+                // If not, accumulate normally
+                Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                     extended_edges,
+                                     relation_parameters,
+                                     scaling_factor);
+            } else {
+                // If so, only compute the contribution if the relation is active
+                if (!Relation::skip(extended_edges)) {
                     Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
                                          extended_edges,
                                          relation_parameters,
                                          scaling_factor);
-                } else {
-                    // If so, only compute the contribution if the relation is active
-                    if (!Relation::skip(extended_edges)) {
-                        Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
-                                             extended_edges,
-                                             relation_parameters,
-                                             scaling_factor);
-                    }
                 }
-            };
-
-            accumulate_relation();
+            }
         });
     }
 };

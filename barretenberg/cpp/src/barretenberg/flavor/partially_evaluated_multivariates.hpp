@@ -24,6 +24,9 @@ namespace bb {
 template <typename AllEntitiesBase, typename ProverPolynomialsType, typename Polynomial>
 class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
   public:
+    // One-past the last relation-active row at this round; the sumcheck prover skips rows beyond it. Halved each round
+    // to track the trace folding (here and in SumcheckProver::partially_evaluate). Populated only by flavors with a
+    // static row-skip manifest; 0 means scan every row.
     size_t row_skip_active_prefix_end = 0;
 
     /**

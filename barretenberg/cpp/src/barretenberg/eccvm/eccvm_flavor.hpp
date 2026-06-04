@@ -356,6 +356,10 @@ class ECCVMFlavor {
             return concatenate(WireNonShiftedEntities<DataType>::get_all(),
                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
         }
+        // The following getters group the wires by execution subtable (transcript / precompute / msm) plus the
+        // lookup read counts. ProverPolynomials uses these groups to physically allocate each subtable's columns to
+        // that subtable's actual row count, rather than zero-padding every column to the full (virtual) dyadic
+        // circuit size. The subtables have different lengths, so per-table sizing saves substantial prover memory.
         auto get_transcript_wires()
         {
             return RefArray{ this->transcript_add,
@@ -569,6 +573,8 @@ class ECCVMFlavor {
         {
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
+                // .get() returns 0 past the polynomial's end_index; operator[] would be UB on the unallocated
+                // virtual tail, since columns are physically sized to their subtable (see the get_*_wires getters).
                 result_field = polynomial.get(row_idx);
             }
             return result;
@@ -725,9 +731,11 @@ class ECCVMFlavor {
             const size_t msm_alloc_size = offset_size(msm_rows.size());
             const size_t read_counts_alloc_size = offset_size(point_table_read_counts[0].size() + 1);
 
-            // Active trace data occupies [TRACE_OFFSET, num_rows) (the union of the subtable ranges above); the
-            // sumcheck prover uses this as the relation-active row-skip prefix (num_rows already includes the
-            // TRACE_OFFSET shift). See SumcheckProverRound row-skip manifest handling.
+            // Active trace data occupies the single contiguous range [TRACE_OFFSET, num_rows) -- the union of the
+            // subtable ranges above, with no inactive rows in between -- so it is a tight row-skip prefix: every row
+            // beyond num_rows is relation-trivial. The sumcheck prover takes this directly as its static row-skip
+            // manifest (num_rows already includes the TRACE_OFFSET shift). See
+            // SumcheckProverRound::HAS_STATIC_ROW_SKIP_MANIFEST.
             row_skip_active_prefix_end = num_rows;
 
             // 1. Wires backed by their active table range, with virtual zeros beyond that range.
