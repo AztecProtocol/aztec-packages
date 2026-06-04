@@ -24,7 +24,8 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { runMicrobench } from './microbench.js';
+import { runMicrobench, type MicroOp } from './microbench.js';
+import { runCoopValidate, runMontmulTiming } from './coopmul.js';
 import { MsmV2, MsmV2Pool, type MsmConfig } from '../../src/msm_webgpu/msm_v2.js';
 import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
 import { loadSrsPoints, type SrsEvent } from './srs.js';
@@ -1741,33 +1742,90 @@ function hideProgress(): void {
       });
     }
   } else if (autorun === 'micro') {
-    // Isolated montmul/inverse microbench:
-    //   ?autorun=micro&op=mul|inv&wordsize=13|15&montmul=&chain_k=&threads=&reps=
-    const op: 'mul' | 'inv' = qp.get('op') === 'inv' ? 'inv' : 'mul';
+    // Isolated microbench:
+    //   ?autorun=micro&op=mul|inv|nop|imad|bcast|shuffle&wordsize=13|15&montmul=&chain_k=&threads=&reps=
+    // nop/imad/bcast/shuffle are the subgroup-gate primitives (montmul-agnostic).
+    const opRaw = qp.get('op') ?? 'mul';
+    const op = (['mul', 'inv', 'nop', 'imad', 'bcast', 'shuffle'].includes(opRaw) ? opRaw : 'mul') as MicroOp;
     const wordSize = qp.get('wordsize') === '15' ? 15 : 13;
     const montmul = (gpuKnobs.montmul ?? 'karat') as MsmConfig['montmul'];
-    const chainK = parseInt(qp.get('chain_k') ?? (op === 'inv' ? '6' : '64'), 10);
+    const defaultK = op === 'inv' ? '6' : op === 'mul' ? '64' : '20000';
+    const chainK = parseInt(qp.get('chain_k') ?? defaultK, 10);
     const nthreads = parseInt(qp.get('threads') ?? '65536', 10);
     const reps = parseInt(qp.get('reps') ?? '20', 10);
+    const unroll = parseInt(qp.get('unroll') ?? '1', 10);
     const client = makeResultsClient({ page: 'micro' });
     const lines: string[] = [];
     const mlog = (k: 'info' | 'ok' | 'err', m: string): void => { lines.push(m); log(k, m); };
     try {
-      mlog('info', `[micro] op=${op} wordsize=${wordSize} montmul=${montmul} K=${chainK} threads=${nthreads} reps=${reps}`);
-      const res = await runMicrobench({ op, wordSize, montmul: montmul ?? 'karat', nthreads, chainK, reps });
+      mlog('info', `[micro] op=${op} wordsize=${wordSize} montmul=${montmul} K=${chainK} threads=${nthreads} reps=${reps} unroll=${unroll}`);
+      const res = await runMicrobench({ op, wordSize, montmul: montmul ?? 'karat', nthreads, chainK, reps, unroll });
       mlog('ok', `[micro] median=${res.medianMs.toFixed(3)}ms min=${res.minMs.toFixed(3)}ms`);
+      if (res.sgSupported !== undefined) {
+        mlog('ok', `[micro] subgroups=${res.sgSupported} sgRuntime=${res.sgRuntime} sgMin=${res.sgMinSize} sgMax=${res.sgMaxSize}`);
+      }
       mlog('ok', `[micro] state=done`);
       await client.postResults({
         state: 'done',
-        params: { op, wordSize, montmul, chainK, nthreads, reps, page: 'micro' },
-        results: { medianMs: res.medianMs, minMs: res.minMs, walls: res.walls, samples: res.walls.map((w) => ({ wallMs: w })), medianWallMs: res.medianMs },
+        params: { op, wordSize, montmul, chainK, nthreads, reps, unroll, page: 'micro' },
+        results: {
+          medianMs: res.medianMs, minMs: res.minMs, walls: res.walls,
+          samples: res.walls.map((w) => ({ wallMs: w })), medianWallMs: res.medianMs,
+          sgSupported: res.sgSupported, sgMinSize: res.sgMinSize, sgMaxSize: res.sgMaxSize, sgRuntime: res.sgRuntime,
+        },
         error: null, log: lines.slice(-50), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency,
       });
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       mlog('err', `[micro] FATAL: ${msg}`);
       mlog('err', `[micro] state=error`);
-      await client.postResults({ state: 'error', params: { op, wordSize, montmul, chainK, nthreads, reps, page: 'micro' }, results: null, error: msg, log: lines.slice(-50), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      await client.postResults({ state: 'error', params: { op, wordSize, montmul, chainK, nthreads, reps, unroll, page: 'micro' }, results: null, error: msg, log: lines.slice(-50), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+    }
+  } else if (autorun === 'coopmul-validate') {
+    // Byte-identical correctness: solo + W=2 cooperative montmul vs bigint ref,
+    // over many random vectors + edge cases.
+    const client = makeResultsClient({ page: 'coopmul' });
+    const lines: string[] = [];
+    const clog = (k: 'info' | 'ok' | 'err', m: string): void => { lines.push(m); log(k, m); };
+    try {
+      clog('info', '[coopmul] validating solo/coop2/coop4/blocked vs bigint Montgomery reference...');
+      const r = await runCoopValidate();
+      clog(r.soloPass === r.total ? 'ok' : 'err', `[coopmul] solo    ${r.soloPass}/${r.total}${r.firstSoloFail ? ' FAIL ' + r.firstSoloFail : ' PASS'}`);
+      clog(r.coop2Pass === r.total ? 'ok' : 'err', `[coopmul] coop2   ${r.coop2Pass}/${r.total}${r.firstCoop2Fail ? ' FAIL ' + r.firstCoop2Fail : ' PASS'}`);
+      clog(r.coop4Pass === r.total ? 'ok' : 'err', `[coopmul] coop4   ${r.coop4Pass}/${r.total}${r.firstCoop4Fail ? ' FAIL ' + r.firstCoop4Fail : ' PASS'}`);
+      clog(r.blockedPass === r.total ? 'ok' : 'err', `[coopmul] blocked ${r.blockedPass}/${r.total}${r.firstBlockedFail ? ' FAIL ' + r.firstBlockedFail : ' PASS'}`);
+      clog(r.coop2HiPass === r.hiTotal && r.coop4HiPass === r.hiTotal ? 'ok' : 'err', `[coopmul] chain K=${r.hiK} (skewed feedback): coop2 ${r.coop2HiPass}/${r.hiTotal}, coop4 ${r.coop4HiPass}/${r.hiTotal}${r.firstHiFail ? ' FAIL ' + r.firstHiFail : ' PASS'}`);
+      clog(r.coop4SqPass === r.sqTotal ? 'ok' : 'err', `[coopmul] coop4 square-chain K=${r.sqK} (BOTH operands skewed): ${r.coop4SqPass}/${r.sqTotal}${r.firstSqFail ? ' FAIL ' + r.firstSqFail : ' PASS (EC-case closure)'}`);
+      clog('ok', '[coopmul] state=done');
+      await client.postResults({ state: 'done', params: { page: 'coopmul' }, results: { total: r.total, soloPass: r.soloPass, coop2Pass: r.coop2Pass, coop4Pass: r.coop4Pass, blockedPass: r.blockedPass, coop2HiPass: r.coop2HiPass, coop4HiPass: r.coop4HiPass, coop4SqPass: r.coop4SqPass }, error: null, log: lines.slice(-50), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      clog('err', `[coopmul] FATAL: ${msg}`);
+      clog('err', '[coopmul] state=error');
+      await client.postResults({ state: 'error', params: { page: 'coopmul' }, results: null, error: msg, log: lines.slice(-50), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+    }
+  } else if (autorun === 'coopmul-time') {
+    // Timing: solo vs W=2 cooperative montmul chain across occupancy.
+    //   ?autorun=coopmul-time&variant=solo|coop2&groups=&chain_k=&reps=
+    const vr = qp.get('variant');
+    const variant = vr === 'coop2' ? 'coop2' : vr === 'coop4' ? 'coop4' : vr === 'blocked' ? 'blocked' : 'solo';
+    const groups = parseInt(qp.get('groups') ?? '4096', 10);
+    const chainK = parseInt(qp.get('chain_k') ?? '64', 10);
+    const reps = parseInt(qp.get('reps') ?? '15', 10);
+    const client = makeResultsClient({ page: 'coopmul-time' });
+    const lines: string[] = [];
+    const tlog = (k: 'info' | 'ok' | 'err', m: string): void => { lines.push(m); log(k, m); };
+    try {
+      tlog('info', `[coopmul-time] variant=${variant} groups=${groups} K=${chainK} reps=${reps}`);
+      const r = await runMontmulTiming(variant, groups, chainK, reps);
+      tlog('ok', `[coopmul-time] median=${r.medianMs.toFixed(3)}ms min=${r.minMs.toFixed(3)}ms`);
+      tlog('ok', '[coopmul-time] state=done');
+      await client.postResults({ state: 'done', params: { variant, groups, chainK, reps, page: 'coopmul-time' }, results: { medianMs: r.medianMs, minMs: r.minMs, walls: r.walls, medianWallMs: r.medianMs }, error: null, log: lines.slice(-50), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      tlog('err', `[coopmul-time] FATAL: ${msg}`);
+      tlog('err', '[coopmul-time] state=error');
+      await client.postResults({ state: 'error', params: { variant, groups, chainK, reps, page: 'coopmul-time' }, results: null, error: msg, log: lines.slice(-50), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
     }
   }
 })();
