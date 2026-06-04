@@ -26,6 +26,7 @@ concurrency:
 
 jobs:
   discover:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
@@ -63,6 +64,7 @@ jobs:
 
   fund:
     needs: discover
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     strategy:
       # we can only run one funding operation at a time because all jobs fund from the same address
       max-parallel: 1
