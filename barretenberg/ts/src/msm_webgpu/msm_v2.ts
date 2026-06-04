@@ -2213,7 +2213,7 @@ export class MsmV2 {
       sm.gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 1, MPW, STREAM_PLANNER_TPB),
       `cumsum`, m.cumsumLayout);
     m.partitionWgPipe = await compile(
-      sm.gen_ba_planner_partition_wg_shader(MPW), `partition-wg`, m.partitionWgLayout);
+      sm.gen_ba_planner_partition_wg_shader(MAX_STREAM_WORKGROUPS), `partition-wg`, m.partitionWgLayout);
     m.partitionThreadPipe = await compile(
       sm.gen_ba_planner_partition_thread_shader(STREAM_PLANNER_TPB), `partition-thread`, m.partitionThreadLayout);
     m.size1Pipe = await compile(
@@ -3140,7 +3140,7 @@ export class MsmV2 {
         mkBind(this.radixScatterLayout, [sb, sc, rh, db, dc, sp, radixParams[1]]),
         mkBind(this.radixScatterLayout, [db, dc, rh, sb, sc, sp, radixParams[2]]),
       ];
-      const cumsumParams = ubuf(new Uint32Array([0, 0, 0, 0]));
+      const cumsumParams = ubuf(new Uint32Array([this.maxPlannerWorkgroups, 0, 0, 0]));
       this.cumsumBind = mkBind(this.cumsumLayout, [sc, ca, sp, cumsumParams]);
       const pwgParams = ubuf(new Uint32Array([0, 0, 0, 0]));
       this.partitionWgBind = mkBind(this.partitionWgLayout, [sc, ca, sp, wc, pwgParams]);

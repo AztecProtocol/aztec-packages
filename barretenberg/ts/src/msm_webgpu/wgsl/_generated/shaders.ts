@@ -1359,9 +1359,10 @@ export const ba_planner_cumsum = `// Bucket-accumulate planner stage 1.3: prefix
 // change STREAM_PLANNER_TPB in ba_stream_plan.ts, change this together
 // — they are coupled, not coincidentally equal.
 const TPB: u32 = {{ planner_tpb }}u;
-const NUM_THREADS: u32 = {{ num_threads }}u;
 const MIN_ITERS_PER_WG: u32 = {{ min_iters_per_wg }}u;
-const MAX_WORKGROUPS: u32 = {{ max_workgroups }}u;
+// The budget-adaptive planner-workgroup cap (MPW) is read at runtime from
+// params.x — it drops with the memory budget (e.g. 8 at logN20), so baking it
+// would force a per-budget recompile. (NUM_THREADS was declared but unused.)
 
 @group(0) @binding(0) var<storage, read>       sorted_count_list: array<u32>;
 @group(0) @binding(1) var<storage, read_write> cumulative_adds:   array<u32>;
@@ -1433,7 +1434,7 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>) {
         if (total_adds > target_work) {
             nwg = total_adds / target_work;
         }
-        nwg = min(nwg, MAX_WORKGROUPS);
+        nwg = min(nwg, params.x);
         nwg = max(nwg, 1u);
         planner_meta[3] = nwg;
 
