@@ -48,7 +48,7 @@ import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { ProvidedSecret } from '../noir-structs/provided_secret.js';
-import { UtilityExecutionOracle } from './utility_execution_oracle.js';
+import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
@@ -343,28 +343,7 @@ describe('Utility Execution test suite', () => {
 
       scope = await AztecAddress.random();
 
-      utilityExecutionOracle = new UtilityExecutionOracle({
-        contractAddress,
-        authWitnesses: [],
-        capsules: [],
-        anchorBlockHeader,
-        contractStore,
-        noteStore,
-        keyStore,
-        addressStore,
-        aztecNode,
-        recipientTaggingStore,
-        senderAddressBookStore,
-        capsuleService: new CapsuleService(capsuleStore, [scope]),
-        privateEventStore,
-        messageContextService,
-        contractSyncService,
-        jobId: 'test-job-id',
-        scopes: [scope],
-        l2TipsStore,
-        simulator,
-        utilityExecutor: () => Promise.resolve(),
-      });
+      utilityExecutionOracle = makeOracle({ contractAddress, scopes: [scope] });
     });
 
     describe('Respects synced block number', () => {
@@ -409,30 +388,13 @@ describe('Utility Execution test suite', () => {
         const transientScoped = [Fr.random()];
         const persisted = [Fr.random()];
 
-        utilityExecutionOracle = new UtilityExecutionOracle({
+        utilityExecutionOracle = makeOracle({
           contractAddress,
-          authWitnesses: [],
+          scopes: [scope],
           capsules: [
             new Capsule(contractAddress, slot, transientGlobal),
             new Capsule(contractAddress, slot, transientScoped, scope),
           ],
-          anchorBlockHeader,
-          contractStore,
-          noteStore,
-          keyStore,
-          addressStore,
-          aztecNode,
-          recipientTaggingStore,
-          senderAddressBookStore,
-          capsuleService: new CapsuleService(capsuleStore, [scope]),
-          privateEventStore,
-          messageContextService,
-          contractSyncService,
-          jobId: 'test-job-id',
-          scopes: [scope],
-          l2TipsStore,
-          simulator,
-          utilityExecutor: () => Promise.resolve(),
         });
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
@@ -569,32 +531,8 @@ describe('Utility Execution test suite', () => {
         const contractAddressA = await AztecAddress.random();
         const contractAddressB = await AztecAddress.random();
 
-        const makeOracle = (addr: AztecAddress) =>
-          new UtilityExecutionOracle({
-            contractAddress: addr,
-            authWitnesses: [],
-            capsules: [],
-            anchorBlockHeader,
-            contractStore,
-            noteStore,
-            keyStore,
-            addressStore,
-            aztecNode,
-            recipientTaggingStore,
-            senderAddressBookStore,
-            capsuleService: new CapsuleService(capsuleStore, []),
-            privateEventStore,
-            messageContextService,
-            contractSyncService,
-            jobId: 'test-job-id',
-            scopes: [],
-            l2TipsStore,
-            simulator,
-            utilityExecutor: () => Promise.resolve(),
-          });
-
-        const oracleA = makeOracle(contractAddressA);
-        const oracleB = makeOracle(contractAddressB);
+        const oracleA = makeOracle({ contractAddress: contractAddressA });
+        const oracleB = makeOracle({ contractAddress: contractAddressB });
 
         const ephPksArray = EphemeralArray.fromValues(service, [ephPk]);
         const responseA = await oracleA.getSharedSecrets(owner, ephPksArray, contractAddressA);
@@ -651,5 +589,32 @@ describe('Utility Execution test suite', () => {
         expect(queriedTags.map(tag => tag.toString())).toContain(expectedTag.value.toString());
       });
     });
+
+    const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs>) => {
+      const scopes = overrides?.scopes ?? [];
+      return new UtilityExecutionOracle({
+        contractAddress,
+        authWitnesses: [],
+        capsules: [],
+        anchorBlockHeader,
+        contractStore,
+        noteStore,
+        keyStore,
+        addressStore,
+        aztecNode,
+        recipientTaggingStore,
+        senderAddressBookStore,
+        capsuleService: new CapsuleService(capsuleStore, scopes),
+        privateEventStore,
+        messageContextService,
+        contractSyncService,
+        jobId: 'test-job-id',
+        scopes,
+        l2TipsStore,
+        simulator,
+        utilityExecutor: () => Promise.resolve(),
+        ...overrides,
+      });
+    };
   });
 });
