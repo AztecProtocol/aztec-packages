@@ -9,6 +9,7 @@ on:
 jobs:
   auto-merge-inactive:
     name: Auto-merge inactive PRs
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
