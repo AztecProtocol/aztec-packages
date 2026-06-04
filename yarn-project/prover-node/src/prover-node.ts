@@ -15,7 +15,6 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
-  EpochProvingJobTerminalState,
   type ITxProvider,
   type ProverNodeApi,
   type Service,
@@ -39,7 +38,7 @@ import {
 import { uploadEpochProofFailure } from './actions/upload-epoch-proof-failure.js';
 import type { SpecificProverNodeConfig } from './config.js';
 import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
-import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
+import { EpochProvingJob, type EpochProvingJobOptions, type EpochProvingJobState } from './job/epoch-proving-job.js';
 import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
 import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
@@ -60,6 +59,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private config: ProverNodeOptions;
   private jobMetrics: ProverNodeJobMetrics;
   private rewardsMetrics: ProverNodeRewardsMetrics;
+  private startingProofEpochs: Set<EpochNumber> = new Set();
 
   public readonly tracer: Tracer;
 
@@ -127,15 +127,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.log.debug(`Running jobs as ${epochNumber} is ready to prove`, {
         jobs: Array.from(this.jobs.values()).map(job => `${job.getEpochNumber()}:${job.getId()}`),
       });
-      const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
-      if (activeJobs.length > 0) {
-        this.log.warn(`Not starting proof for ${epochNumber} since there are active jobs for the epoch`, {
-          activeJobs: activeJobs.map(job => job.uuid),
-        });
-        return true;
-      }
-      await this.startProof(epochNumber);
-      return true;
+      return await this.startProofIfNeeded(epochNumber);
     } catch (err) {
       if (err instanceof EmptyEpochError) {
         this.log.info(`Not starting proof for ${epochNumber} since no blocks were found`);
@@ -191,7 +183,38 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Starts a proving process and returns immediately.
    */
   public async startProof(epochNumber: EpochNumber) {
-    const job = await this.createProvingJob(epochNumber, { skipEpochCheck: true });
+    await this.startProofIfNeeded(epochNumber, { skipEpochCheck: true });
+  }
+
+  private async startProofIfNeeded(epochNumber: EpochNumber, opts: EpochProvingJobOptions = {}): Promise<boolean> {
+    if (this.startingProofEpochs.has(epochNumber)) {
+      this.log.warn(`Not starting proof for ${epochNumber} since a proof is already being started for the epoch`, {
+        epochNumber,
+      });
+      return false;
+    }
+
+    this.startingProofEpochs.add(epochNumber);
+
+    try {
+      const activeJobs = await this.activeJobsCoverEpoch(epochNumber);
+      if (activeJobs.length > 0) {
+        this.log.warn(`Not starting proof for ${epochNumber} since an active job already covers the epoch`, {
+          epochNumber,
+          activeJobs,
+        });
+        return true;
+      }
+
+      await this.startProofInternal(epochNumber, opts);
+      return true;
+    } finally {
+      this.startingProofEpochs.delete(epochNumber);
+    }
+  }
+
+  private async startProofInternal(epochNumber: EpochNumber, opts: EpochProvingJobOptions = {}) {
+    const job = await this.createProvingJob(epochNumber, opts);
     void this.runJob(job);
   }
 
@@ -245,20 +268,42 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Returns an array of jobs being processed.
    */
   public getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
-    return Promise.resolve(
-      Array.from(this.jobs.entries()).map(([uuid, job]) => ({
-        uuid,
-        status: job.getState(),
-        epochNumber: job.getEpochNumber(),
-      })),
-    );
+    return Promise.resolve(this.getJobsInternal());
   }
 
-  protected async getActiveJobsForEpoch(
-    epochNumber: EpochNumber,
-  ): Promise<{ uuid: string; status: EpochProvingJobState }[]> {
-    const jobs = await this.getJobs();
-    return jobs.filter(job => job.epochNumber === epochNumber && !EpochProvingJobTerminalState.includes(job.status));
+  private getJobsInternal(): { uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[] {
+    return Array.from(this.jobs.entries()).map(([uuid, job]) => ({
+      uuid,
+      status: job.getState(),
+      epochNumber: job.getEpochNumber(),
+    }));
+  }
+
+  private async activeJobsCoverEpoch(epochNumber: EpochNumber): Promise<string[]> {
+    const checkpoints = await this.l2BlockSource.getCheckpointsData({ epoch: epochNumber });
+    if (checkpoints.length === 0) {
+      return [];
+    }
+
+    const firstCheckpoint = checkpoints.at(0)!.checkpointNumber;
+    const latestCheckpoint = checkpoints.at(-1)!.checkpointNumber;
+
+    const jobs: string[] = [];
+    for (const job of this.jobs.values()) {
+      if (job.getEpochNumber() !== epochNumber) {
+        continue;
+      }
+
+      const jobCheckpoints = job.getProvingData().checkpoints;
+      const checkpointOverlap =
+        jobCheckpoints.at(0)!.number <= firstCheckpoint && jobCheckpoints.at(-1)!.number >= latestCheckpoint;
+
+      if (checkpointOverlap && !['failed', 'stopped', 'timed-out'].includes(job.getState())) {
+        jobs.push(job.getId());
+      }
+    }
+
+    return jobs;
   }
 
   private checkMaximumPendingJobs() {
