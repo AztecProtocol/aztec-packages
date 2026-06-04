@@ -1,7 +1,7 @@
 use crate::{HandshakeRegistry, MAX_HANDSHAKES_PER_PAGE};
 
 use aztec::{
-    messages::delivery::OnchainDeliveryMode,
+    messages::delivery::{MessageDelivery, OnchainDeliveryMode},
     oracle::shared_secret::get_shared_secret,
     protocol::{
         address::AztecAddress,
@@ -14,9 +14,9 @@ use aztec::{
 
 use std::test::OracleMock;
 
-// The raw mode discriminants are crate-private to aztec-nr, so the tests source them through the typed delivery API.
-global ONCHAIN_UNCONSTRAINED: OnchainDeliveryMode = OnchainDeliveryMode::onchain_unconstrained();
-global ONCHAIN_CONSTRAINED: OnchainDeliveryMode = OnchainDeliveryMode::onchain_constrained();
+// Modes have no public constructors, so the tests derive them through the delivery builder API.
+global ONCHAIN_UNCONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().mode();
+global ONCHAIN_CONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_constrained().mode();
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();

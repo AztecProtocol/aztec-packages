@@ -39,9 +39,9 @@ pub struct MessageDelivery {
 
 global OFFCHAIN: u8 = 1;
 /// Delivery variant identifier for on-chain message delivery without constrained encryption/tagging.
-pub(crate) global ONCHAIN_UNCONSTRAINED: u8 = 2;
+global ONCHAIN_UNCONSTRAINED: u8 = 2;
 /// Delivery variant identifier for on-chain message delivery with constrained encryption/tagging.
-pub(crate) global ONCHAIN_CONSTRAINED: u8 = 3;
+global ONCHAIN_CONSTRAINED: u8 = 3;
 
 /// The mode of an on-chain message delivery: unconstrained or constrained tagging.
 ///
@@ -54,14 +54,16 @@ pub struct OnchainDeliveryMode {
 }
 
 impl OnchainDeliveryMode {
-    // Named to mirror the [`MessageDelivery`] constructors; `unconstrained` alone is a reserved Noir keyword.
+    // The constructors are private: consumers derive modes through the delivery API instead, e.g.
+    // `MessageDelivery::onchain_unconstrained().mode()`. Named to mirror the [`MessageDelivery`] constructors;
+    // `unconstrained` alone is a reserved Noir keyword.
     /// On-chain delivery without constrained encryption/tagging.
-    pub fn onchain_unconstrained() -> Self {
+    fn onchain_unconstrained() -> Self {
         Self { inner: ONCHAIN_UNCONSTRAINED }
     }
 
     /// On-chain delivery with constrained encryption/tagging.
-    pub fn onchain_constrained() -> Self {
+    fn onchain_constrained() -> Self {
         Self { inner: ONCHAIN_CONSTRAINED }
     }
 
@@ -71,6 +73,16 @@ impl OnchainDeliveryMode {
     /// deserialized into an [`OnchainDeliveryMode`].
     pub fn is_recognized(self) -> bool {
         (self == Self::onchain_unconstrained()) | (self == Self::onchain_constrained())
+    }
+
+    /// Whether `self` is the constrained on-chain delivery mode.
+    pub fn is_constrained(self) -> bool {
+        self == Self::onchain_constrained()
+    }
+
+    /// Returns the raw mode discriminant for the oracle ABI, where modes cross as `u8`.
+    pub(crate) fn to_u8(self) -> u8 {
+        self.inner
     }
 }
 
@@ -271,6 +283,13 @@ impl MessageDelivery {
     pub fn onchain_constrained() -> OnchainDelivery {
         OnchainDelivery { variant: ONCHAIN_CONSTRAINED, origin: Option::none(), sender_override: Option::none() }
     }
+
+    /// Returns the [`OnchainDeliveryMode`] of this built delivery, mirroring [`OnchainDelivery::mode`].
+    ///
+    /// An offchain delivery has no mode, so the result then satisfies no mode predicate (all return false).
+    fn mode(self) -> OnchainDeliveryMode {
+        OnchainDeliveryMode { inner: self.variant }
+    }
 }
 
 /// Performs private delivery of a message to `recipient` according to `delivery_mode`.
@@ -313,7 +332,7 @@ where
     // dead-code elimination.
     assert_constant(delivery.variant);
 
-    let is_constrained = delivery.variant == ONCHAIN_CONSTRAINED;
+    let is_constrained = delivery.mode().is_constrained();
     let deliver_as_offchain_message = delivery.variant == OFFCHAIN;
 
     // An unset origin defaults to the address pair for this delivery (handshake-origin selection without an explicit
@@ -514,11 +533,23 @@ mod test {
         assert(delivery.sender_override.unwrap() == sender);
     }
 
+    // Verifies that out-of-module consumers can derive modes in global initializers via the delivery API, since the
+    // mode constructors are private to the parent module.
+    global GLOBAL_DERIVED_MODE: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().mode();
+
     #[test]
     fn mode_matches_the_variant() {
         assert(MessageDelivery::onchain_unconstrained().mode() == OnchainDeliveryMode::onchain_unconstrained());
         assert(MessageDelivery::onchain_constrained().mode() == OnchainDeliveryMode::onchain_constrained());
         assert(OnchainDeliveryMode::onchain_unconstrained().is_recognized());
         assert(OnchainDeliveryMode::onchain_constrained().is_recognized());
+        assert(GLOBAL_DERIVED_MODE == OnchainDeliveryMode::onchain_unconstrained());
+    }
+
+    #[test]
+    fn is_constrained_distinguishes_the_modes() {
+        assert(MessageDelivery::onchain_constrained().mode().is_constrained());
+        assert(!MessageDelivery::onchain_unconstrained().mode().is_constrained());
+        assert(!MessageDelivery::offchain().build_message_delivery().mode().is_constrained());
     }
 }

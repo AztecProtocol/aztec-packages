@@ -93,10 +93,9 @@ pub contract HandshakeRegistry {
 
         let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient);
 
-        // Delivery is `ONCHAIN_UNCONSTRAINED`. The recipient is not involved in this note's delivery. They
-        // discover the handshake via the encrypted log emitted below, not via the sender's note.
-        // We use onchain unconstrained delivery rather than `OFFCHAIN` so the note is
-        // discoverable via normal PXE sync.
+        // The recipient is not involved in this note's delivery: they discover the handshake via the encrypted log
+        // emitted below, not via the sender's note. We deliver onchain unconstrained rather than offchain so the
+        // note is discoverable via normal PXE sync.
         self.storage.handshakes.at(recipient).at(mode).at(sender).initialize_or_replace(|_| note).deliver(
             MessageDelivery::onchain_unconstrained().with_sender(sender),
         );
