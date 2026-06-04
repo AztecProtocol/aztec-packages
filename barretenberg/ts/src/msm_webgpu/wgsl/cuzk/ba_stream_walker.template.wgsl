@@ -43,8 +43,6 @@ const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const NO_BUCKET: u32 = 0xffffffffu;
-const BW:     u32 = {{ bw }}u;
-const STRIDE: u32 = {{ stride }}u;
 // M_RED (red_buf Y-plane stride = total red slots) is a runtime uniform in
 // batch_offset.z, not a baked const: a concatenated multi-MSM pass sizes red_buf
 // to Σ redM, while a single MSM passes its own redM (byte-identical to the old

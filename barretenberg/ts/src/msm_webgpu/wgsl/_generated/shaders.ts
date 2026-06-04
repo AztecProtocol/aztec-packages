@@ -2324,8 +2324,6 @@ export const ba_size1 = `{{> structs }}
 const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
-const BW:    u32 = {{ bw }}u;
-const STRIDE: u32 = {{ stride }}u;
 // M_RED (red_buf Y-plane stride) is runtime in params.z (= Σ redM for a packed
 // multi-MSM pass, = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
@@ -2445,8 +2443,6 @@ const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
 const NO_BUCKET: u32 = 0xffffffffu;
-const BW:     u32 = {{ bw }}u;
-const STRIDE: u32 = {{ stride }}u;
 // M_RED (red_buf Y-plane stride = total red slots) is a runtime uniform in
 // batch_offset.z, not a baked const: a concatenated multi-MSM pass sizes red_buf
 // to Σ redM, while a single MSM passes its own redM (byte-identical to the old
@@ -3934,8 +3930,6 @@ export const ba_walker_pt_finalize = `// Pair-tree v2: write each hot bucket's f
 
 const HOT_THRESHOLD: u32 = 8u;
 const PG: u32 = 2u;
-const BW:     u32 = {{ bw }}u;
-const STRIDE: u32 = {{ stride }}u;
 // M_RED (red_buf Y-plane stride) is runtime in batch_offset.z (= Σ redM packed,
 // = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
