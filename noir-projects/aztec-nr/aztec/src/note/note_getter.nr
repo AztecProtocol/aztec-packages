@@ -258,7 +258,9 @@ where
         };
     }
 
-    BoundedVec::from_parts(confirmed_notes_bvec_storage, hinted_notes.len())
+    // We can use `from_parts_unchecked` instead of `from_parts` because we know that `confirmed_notes_bvec_storage`
+    // contains all zeroes past `hinted_notes.len()` due to how it was initialized.
+    BoundedVec::from_parts_unchecked(confirmed_notes_bvec_storage, hinted_notes.len())
 }
 
 pub unconstrained fn view_note<Note>(owner: Option<AztecAddress>, storage_slot: Field) -> HintedNote<Note>

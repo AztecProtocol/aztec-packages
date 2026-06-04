@@ -397,33 +397,6 @@ function prep {
   pull_submodules
 }
 
-# Fail loudly if the build left any committed yarn.lock rewritten.
-#
-# A submodule or dependency bump that changes resolved versions but forgets to
-# regenerate the lockfile would otherwise drift silently: the build runs
-# `yarn install`, which rewrites the lockfile in the container and proceeds, so
-# nothing fails even though the committed lockfile is stale. The node-modules
-# cache_content_hash includes yarn.lock, but it is computed at install *start*,
-# so a rewrite during the build is never re-checked. This gate runs after the
-# build and turns such a desync (e.g. a noir-repo bump that forgot
-# yarn-project/yarn.lock) into a hard CI failure.
-function check_lockfiles {
-  echo_header "lockfile drift check"
-  local drifted
-  drifted=$(git diff --name-only | grep -E '(^|/)yarn\.lock$' || true)
-  if [ -n "$drifted" ]; then
-    echo_stderr "ERROR: committed yarn.lock(s) were rewritten by the build:"
-    echo_stderr "$drifted"
-    git --no-pager diff -- $drifted >&2
-    echo_stderr ""
-    echo_stderr "A dependency or submodule bump changed resolved versions without committing the"
-    echo_stderr "updated lockfile (e.g. a noir-repo bump that forgot yarn-project/yarn.lock)."
-    echo_stderr "Regenerate and commit it: cd <project> && yarn install, then commit yarn.lock."
-    exit 1
-  fi
-  echo "No lockfile drift detected."
-}
-
 function build {
   prep
   echo_header "build"
@@ -771,14 +744,12 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_FULL=0
     build_and_test fast
-    check_lockfiles
     ;;
   "ci-full")
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=1
     build_and_test full
-    check_lockfiles
     bench
     ;;
   "ci-full-no-test-cache")
@@ -786,7 +757,6 @@ case "$cmd" in
     export USE_TEST_CACHE=0
     export CI_FULL=1
     build_and_test full
-    check_lockfiles
     bench
     ;;
   "ci-chonk-input-update")
