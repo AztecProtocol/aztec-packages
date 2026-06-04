@@ -344,10 +344,10 @@ where
     if is_constrained {
         // Constrained tagging derives the tag from a handshake-registry secret and emits a chain nullifier; there is
         // no address-pair constrained path.
-        assert(via_handshake, "constrained delivery requires a handshake origin (use .via_handshake(registry))");
+        std::static_assert(via_handshake, "constrained delivery requires a handshake origin (use .via_handshake(registry))");
     } else {
         // Unconstrained handshake-origin delivery is not yet implemented; see F-698.
-        assert(!via_handshake, "unconstrained handshake delivery not yet implemented (F-698)");
+        std::static_assert(!via_handshake, "unconstrained handshake delivery not yet implemented (F-698)");
     }
 
     let contract_address = context.this_address();
