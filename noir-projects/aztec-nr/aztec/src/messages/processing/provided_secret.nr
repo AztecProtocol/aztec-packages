@@ -6,6 +6,7 @@ use crate::protocol::traits::Serialize;
 /// enumerate on its own (e.g. handshake-derived ones). `mode` is a delivery mode constant from
 /// [`crate::messages::message_delivery`] (`ONCHAIN_UNCONSTRAINED` or `ONCHAIN_CONSTRAINED`).
 #[derive(Serialize)]
+#[allow(dead_code)]
 pub(crate) struct ProvidedSecret {
     pub secret: Field,
     pub mode: Field,
