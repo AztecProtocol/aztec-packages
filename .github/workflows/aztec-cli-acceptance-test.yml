@@ -24,10 +24,11 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run'
-       && github.event.workflow_run.conclusion == 'success'
-       && !contains(github.event.workflow_run.head_branch, '-commit.'))
+      github.repository == 'AztecProtocol/aztec-packages' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && !contains(github.event.workflow_run.head_branch, '-commit.')))
     env:
       VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
     steps:
@@ -51,7 +52,7 @@ jobs:
 
   notify:
     needs: release-acceptance
-    if: (success() || failure()) && github.event_name != 'workflow_dispatch'
+    if: github.repository == 'AztecProtocol/aztec-packages' && (success() || failure()) && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
