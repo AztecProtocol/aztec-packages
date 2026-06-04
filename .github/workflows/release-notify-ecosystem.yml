@@ -1,7 +1,8 @@
 name: Notify Slack on Release
 # When a release is published on aztec-packages — including pre-releases /
 # release candidates (rc.*) — announce it in #ecosystem via the Aztec
-# Foundation CI Slack bot (ci3/slack_notify uses secrets.SLACK_BOT_TOKEN).
+# Foundation CI Slack bot — ci3/slack_notify, fed the
+# AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN secret.
 #
 # No AI involved: this is a plain release -> Slack notifier. It fires once per
 # published release (GitHub emits `published` for both releases and
@@ -25,7 +26,7 @@ permissions:
 
 jobs:
   notify-ecosystem:
-    name: Announce release in #ecosystem
+    name: "Announce release in #ecosystem"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,9 +54,10 @@ jobs:
             echo "prerelease=$prerelease"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Announce in #ecosystem
+      - name: "Announce in #ecosystem"
         env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          # ci3/slack_notify reads $SLACK_BOT_TOKEN; feed it the Foundation CI bot's token.
+          SLACK_BOT_TOKEN: ${{ secrets.AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN }}
           REL_TAG: ${{ steps.rel.outputs.tag }}
           REL_URL: ${{ steps.rel.outputs.url }}
           REL_PRERELEASE: ${{ steps.rel.outputs.prerelease }}
