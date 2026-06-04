@@ -5,9 +5,12 @@
 name: Sync Upstream Next
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
+  # Primary trigger: dispatched by the PUBLIC repo's "Notify Private Sync" workflow on every push to
+  # this branch (replaces the old 15-minute poll). The daily cron is only a safety net in case a
+  # dispatch is missed.
   workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * *"
 
 jobs:
   sync:

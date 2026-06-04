@@ -15,6 +15,7 @@ jobs:
   update-public-v5-next-pr-body:
     name: Update v5-next to public-v5-next PR body
     runs-on: ubuntu-latest
+    if: github.repository == 'AztecProtocol/aztec-packages-private'
     permissions:
       contents: read
       pull-requests: write
