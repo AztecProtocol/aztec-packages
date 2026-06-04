@@ -563,72 +563,6 @@ describe('PrivateEventStore', () => {
     });
   });
 
-  describe('eventIdsAtBlock', () => {
-    it('returns the event id of an event stored at a given block', async () => {
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent,
-        siloedEventCommitment,
-        {
-          contractAddress,
-          scope,
-          txHash,
-          l2BlockNumber,
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 0,
-        },
-        'test',
-      );
-      await privateEventStore.commit('test');
-
-      const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
-      expect(ids).toContain(siloedEventCommitment.toString());
-    });
-
-    it('returns all event ids when multiple events are stored at the same block', async () => {
-      const siloedEventCommitment2 = Fr.random();
-
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        msgContent,
-        siloedEventCommitment,
-        {
-          contractAddress,
-          scope,
-          txHash,
-          l2BlockNumber,
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 0,
-        },
-        'test',
-      );
-      await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        randomness,
-        getRandomMsgContent(),
-        siloedEventCommitment2,
-        {
-          contractAddress,
-          scope,
-          txHash: TxHash.random(),
-          l2BlockNumber,
-          l2BlockHash,
-          txIndexInBlock: 0,
-          eventIndexInTx: 1,
-        },
-        'test',
-      );
-      await privateEventStore.commit('test');
-
-      const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
-      expect(new Set(ids)).toEqual(new Set([siloedEventCommitment.toString(), siloedEventCommitment2.toString()]));
-    });
-  });
-
   describe('rollback', () => {
     const BLOCK_HASH_9 = BlockHash.fromString(Fr.fromString('0x09').toString());
     const BLOCK_HASH_10 = BlockHash.fromString(Fr.fromString('0x0a').toString());
@@ -709,6 +643,72 @@ describe('PrivateEventStore', () => {
 
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventAt9.toString()]);
       expect(await privateEventStore.eventIdsAtBlock(10)).toHaveLength(0);
+    });
+  });
+
+  describe('eventIdsAtBlock', () => {
+    it('returns the event id of an event stored at a given block', async () => {
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        msgContent,
+        siloedEventCommitment,
+        {
+          contractAddress,
+          scope,
+          txHash,
+          l2BlockNumber,
+          l2BlockHash,
+          txIndexInBlock: 0,
+          eventIndexInTx: 0,
+        },
+        'test',
+      );
+      await privateEventStore.commit('test');
+
+      const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
+      expect(ids).toContain(siloedEventCommitment.toString());
+    });
+
+    it('returns all event ids when multiple events are stored at the same block', async () => {
+      const siloedEventCommitment2 = Fr.random();
+
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        msgContent,
+        siloedEventCommitment,
+        {
+          contractAddress,
+          scope,
+          txHash,
+          l2BlockNumber,
+          l2BlockHash,
+          txIndexInBlock: 0,
+          eventIndexInTx: 0,
+        },
+        'test',
+      );
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        getRandomMsgContent(),
+        siloedEventCommitment2,
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber,
+          l2BlockHash,
+          txIndexInBlock: 0,
+          eventIndexInTx: 1,
+        },
+        'test',
+      );
+      await privateEventStore.commit('test');
+
+      const ids = await privateEventStore.eventIdsAtBlock(l2BlockNumber);
+      expect(new Set(ids)).toEqual(new Set([siloedEventCommitment.toString(), siloedEventCommitment2.toString()]));
     });
   });
 
