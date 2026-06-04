@@ -21,9 +21,11 @@ import { nnfSuite } from './suite_nnf.js';
 import { ellipticSuite } from './suite_elliptic.js';
 import { permSuite } from './suite_perm.js';
 import { logderivSuite } from './suite_logderiv.js';
+import { memorySuite } from './suite_memory.js';
 
 const REGISTRY: Suite[] = [
-  frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite, nnfSuite, ellipticSuite, permSuite, logderivSuite,
+  frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
+  nnfSuite, ellipticSuite, permSuite, logderivSuite, memorySuite,
 ];
 
 const $log = document.getElementById('log') as HTMLDivElement;

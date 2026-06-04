@@ -30,6 +30,7 @@ import {
   elliptic_relation_test as elliptic_relation_test_shader,
   permutation_relation_test as permutation_relation_test_shader,
   logderiv_lookup_relation_test as logderiv_lookup_relation_test_shader,
+  memory_relation_test as memory_relation_test_shader,
   field as field_funcs,
   field8 as field8_funcs,
   fr_ops_test as fr_ops_test_shader,
@@ -550,6 +551,20 @@ ${packLines.join('\n')}
    */
   public gen_logderiv_lookup_relation_test_shader(workgroup_size: number): string {
     return mustache.render(logderiv_lookup_relation_test_shader, this.relationView(workgroup_size), this.relationPartials);
+  }
+
+  /**
+   * MemoryRelation accumulate test kernel (relations/memory_relation.hpp). Six
+   * length-6 subrelations (RAM/ROM memory identity + ROM/RAM consistency checks);
+   * bakes FF(1). Params [eta, eta_two, eta_three] at binding(3). One thread per
+   * edge writes the 36-Fr contribution.
+   */
+  public gen_memory_relation_test_shader(workgroup_size: number): string {
+    return mustache.render(
+      memory_relation_test_shader,
+      { ...this.relationView(workgroup_size), one_csv: this.montWords8(1n) },
+      this.relationPartials,
+    );
   }
 
   public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number, packed = false): string {
