@@ -468,7 +468,10 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         for (size_t k = 0; k < num_msms; ++k) {
             batch_scalars[k].resize(per_msm_n);
             for (size_t i = 0; i < per_msm_n; ++i) {
-                batch_scalars[k][i] = scalars[k * per_msm_n + i];
+                // num_msms * per_msm_n = 32768 > num_points (31013); wrap to stay in bounds
+                // (matches the ragged test's indexing). Caught as an out-of-bounds read by the
+                // _GLIBCXX_DEBUG / ASAN build otherwise.
+                batch_scalars[k][i] = scalars[(k * per_msm_n + i) % num_points];
             }
             std::span<const AffineElement> pts(&generators[0], per_msm_n);
             batch_scalars_spans.emplace_back(0, std::span<ScalarField>(batch_scalars[k]));
@@ -1678,6 +1681,63 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
             EXPECT_EQ(deduped, undeduped) << "dedup vs no-dedup divergence (cluster=" << cluster << ")";
         }
     }
+
+    /// Batch-driver coverage that targets the shared `pippenger_round_parallel_batched`
+    /// path. `batch_multi_scalar_mul(handle_edge_cases=false)` is the only entry into the
+    /// production commit-batch pipeline — GLV-group assignment, the shared `[P, φP, …]`
+    /// doubled-prefix aliasing (`external_glv_doubled`), and a single arena sized to the
+    /// largest member. Every pre-existing batch test calls with the default
+    /// `handle_edge_cases=true`, which instead delegates to per-MSM `pippenger_fast` and
+    /// routes around that shared path entirely. The batch here is deliberately ragged and
+    /// non-monotonic: empty MSMs interspersed (the `n_input==0 → infinity` skips), some
+    /// fully-zero-scalar MSMs, a GLV-eligible majority plus one member above the native GLV
+    /// threshold (forcing a mixed GLV / non-GLV group split), and a total non-zero count
+    /// past the batched dispatcher's >4096 REBALANCE eligibility threshold. Per-MSM dedup
+    /// hints are mixed in. The same batch is checked through both driver modes against the
+    /// naive reference. Points are the linearly-independent fixture generators, so the
+    /// affine (handle_edge_cases=false) path is valid under every scalar distribution.
+    void run_batch_driver_paths(bool handle_edge_cases)
+    {
+        // 16384 > native GLV threshold (2^13) → its own non-GLV group; the rest are GLV.
+        const std::vector<size_t> sizes = { 0, 1, 5, 0, 4096, 33, 0, 16384, 64, 2 };
+        const size_t num_msms = sizes.size();
+
+        std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
+        std::vector<PolynomialSpan<ScalarField>> spans;
+        std::vector<AffineElement> expected(num_msms);
+        std::vector<uint8_t> dedup_hints(num_msms, 0);
+
+        size_t offset = 0;
+        for (size_t k = 0; k < num_msms; ++k) {
+            const size_t n = sizes[k];
+            ASSERT_LE(offset + n, num_points);
+            batch_scalars[k].resize(n);
+            const bool all_zero = (k % 4 == 2); // a couple of fully-zero MSMs → infinity result
+            for (size_t i = 0; i < n; ++i) {
+                batch_scalars[k][i] = all_zero ? ScalarField::zero() : scalars[offset + i];
+            }
+            dedup_hints[k] = static_cast<uint8_t>((k % 2 == 0) ? 1 : 0);
+            spans.emplace_back(offset, std::span<ScalarField>(batch_scalars[k]));
+            std::span<const AffineElement> pts(&generators[offset], n);
+            expected[k] = naive_msm(batch_scalars[k], pts);
+            offset += n;
+        }
+
+        std::vector<AffineElement> result = scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(
+            generators, spans, handle_edge_cases, std::span<const uint8_t>(dedup_hints));
+
+        ASSERT_EQ(result.size(), num_msms);
+        for (size_t k = 0; k < num_msms; ++k) {
+            EXPECT_EQ(result[k], expected[k]) << "batch MSM " << k << " (n=" << sizes[k]
+                                              << ", handle_edge_cases=" << handle_edge_cases << ") mismatched";
+        }
+    }
+
+    void test_batch_driver_paths()
+    {
+        run_batch_driver_paths(/*handle_edge_cases=*/false); // shared batched GLV/arena path
+        run_batch_driver_paths(/*handle_edge_cases=*/true);  // per-MSM edge-handling path
+    }
 };
 
 using CurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
@@ -1948,6 +2008,13 @@ TYPED_TEST(ScalarMultiplicationTest, EffectiveNumBitsBandSmallScalars)
 TYPED_TEST(ScalarMultiplicationTest, DedupLargeClusterCarryAndCaps)
 {
     this->test_dedup_large_cluster_carry_and_caps();
+}
+TYPED_TEST(ScalarMultiplicationTest, BatchDriverSharedPathRagged)
+{
+#ifdef __wasm__
+    GTEST_SKIP() << "Large ragged batch coverage is native-only; WASM coverage comes from integration flows.";
+#endif
+    this->test_batch_driver_paths();
 }
 
 // NOTE: the curve-independent `PartitionByWeight` unit tests that previously lived here
