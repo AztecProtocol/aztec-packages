@@ -173,6 +173,7 @@ service:
 | service.ingress.hosts | [] | Ingress hosts |
 | service.p2p.enabled | true | Enable P2P service |
 | service.p2p.nodePortEnabled | true | Enable node port for P2P service |
+| service.p2p.hostPortEnabled | true | Enable hostPort for P2P service when NodePort is disabled |
 | service.p2p.port | 40400 | P2P port |
 | service.p2p.announcePort | 40400 | P2P announce port |
 | service.admin.enabled | true | Enable admin service |

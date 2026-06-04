@@ -944,6 +944,12 @@ variable "P2P_NODEPORT_ENABLED" {
   default     = false
 }
 
+variable "P2P_HOSTPORT_ENABLED" {
+  description = "Enable hostPort for P2P service when NodePort is disabled"
+  type        = bool
+  default     = true
+}
+
 variable "DEBUG_FORCE_TX_PROOF_VERIFICATION" {
   description = "Whether to force tx proof verification. Only has an effect if real proving is turned off"
   type        = bool
