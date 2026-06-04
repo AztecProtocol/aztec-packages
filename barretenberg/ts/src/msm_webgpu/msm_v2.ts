@@ -3185,7 +3185,7 @@ export class MsmV2 {
       const abkts = scratch.activeBuckets;
       const acnt = scratch.activeCount;
       // count: params.x = num_partial_slots = M_partials_walker.
-      const countParams = ubuf(new Uint32Array([numPartialSlots, 0, 0, 0]));
+      const countParams = ubuf(new Uint32Array([numPartialSlots, this.BW, 0, 0]));
       this.combineCountBind = mkBind(this.combineCountLayout, [pdest, pcount, countParams]);
       // scan: params.x = num_dense (read from planner_meta at dispatch time? we use B_TOTAL as upper bound)
       const combineScanParams = ubuf(new Uint32Array([B_TOTAL, 0, 0, 0]));
@@ -3201,7 +3201,7 @@ export class MsmV2 {
       }
       const combineArenaOff = ubuf(new Uint32Array([slotOff(pcount) / 4, slotOff(playout) / 4, 0, 0]));
       // filter: params = (num_dense, M_buckets, M_partials, _)
-      const filterParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, M_partials_walker, 0]));
+      const filterParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, M_partials_walker, this.BW]));
       this.combineFilterBinds = batchWindowBaseBufs.map(bwb =>
         mkBind(this.combineFilterLayout, [sb, a2Buf, poffset, wp, scratch.redBuf, abkts, acnt, filterParams, scratch.streamPlannerMeta, scratch.isPresentBuf, bwb, windowDescBuf, combineArenaOff]),
       );
@@ -3238,7 +3238,7 @@ export class MsmV2 {
       const ptTotalBuf = scratch.ptTotalTasks;
       const ptDispatchBuf = scratch.ptDispatchArgs;
       // pt_init_copy params: (M_partials, M_pt)
-      const ptInitCopyParams = ubuf(new Uint32Array([M_partials_walker, M_pt, 0, 0]));
+      const ptInitCopyParams = ubuf(new Uint32Array([M_partials_walker, M_pt, this.BW, 0]));
       // pt_combine params: (M_pt)
       const ptCombineParams = ubuf(new Uint32Array([M_pt, 0, 0, 0]));
       // pt_finalize params: (M_pt, M_buckets=B_TOTAL)

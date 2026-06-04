@@ -3303,7 +3303,6 @@ export const ba_walker_combine_count = `// Optimal walker_combine Kernel A: coun
 // params.x = num_partial_slots (= 2 * NUM_THREADS * S — total possible slots)
 
 const NO_BUCKET: u32 = 0xffffffffu;
-const BW: u32 = {{ bw }}u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -3313,8 +3312,8 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(2) var<uniform>             params:        vec4<u32>;
 
 // Flat CSR index (partial_count space) for a packed-window bid.
-fn flat_bid(bid: u32) -> u32 {
-    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+fn flat_bid(bid: u32, bw: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * bw + (bid & WBID_MAG_MASK);
 }
 
 @compute @workgroup_size({{ workgroup_size }})
@@ -3329,7 +3328,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // magnitude==0 buckets, so the only bid the walker ever stores has
     // magnitude in [1, STRIDE], i.e. bid >= 1.
     if (bid == 0u || bid == NO_BUCKET) { return; }
-    atomicAdd(&partial_count[flat_bid(bid)], 1u);
+    atomicAdd(&partial_count[flat_bid(bid, params.y)], 1u);
 
     {{{ recompile }}}
 }
@@ -3360,7 +3359,6 @@ export const ba_walker_combine_filter = `// Optimal walker_combine helper: filte
 // params.y = M_partials   (partials_buf plane stride)
 
 const PG: u32 = 2u;
-const BW:     u32 = {{ bw }}u;
 // M_RED (red_buf Y-plane stride) is runtime in batch_offset.z (= Σ redM packed,
 // = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
@@ -3370,8 +3368,8 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 const TPB: u32 = {{ workgroup_size }}u;
 
 // Flat CSR index (partial_* space) for a packed-window bid.
-fn flat_bid(bid: u32) -> u32 {
-    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+fn flat_bid(bid: u32, bw: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * bw + (bid & WBID_MAG_MASK);
 }
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
@@ -3425,7 +3423,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     if (t < num_dense) {
         let bid = sorted_bucket_list[t];
-        let fb = flat_bid(bid);
+        let fb = flat_bid(bid, params.w);
         let count = pc_at(fb);
 
         // Magnitude (bid & WBID_MAG_MASK) is guaranteed in [1, STRIDE] —
@@ -3579,7 +3577,6 @@ export const ba_walker_combine_scatter = `// Optimal walker_combine Kernel B2: s
 // params.x = num_partial_slots
 
 const NO_BUCKET: u32 = 0xffffffffu;
-const BW: u32 = {{ bw }}u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -3591,8 +3588,8 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(4) var<uniform>             params:            vec4<u32>;
 
 // Flat CSR index (partial_* space) for a packed-window bid.
-fn flat_bid(bid: u32) -> u32 {
-    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+fn flat_bid(bid: u32, bw: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * bw + (bid & WBID_MAG_MASK);
 }
 
 @compute @workgroup_size({{ workgroup_size }})
@@ -3603,7 +3600,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let bid = partial_dest[slot];
     // See ba_walker_combine_count for the dual-sentinel rationale.
     if (bid == 0u || bid == NO_BUCKET) { return; }
-    let fb = flat_bid(bid);
+    let fb = flat_bid(bid, params.y);
     let local_idx = atomicAdd(&partial_write_pos[fb], 1u);
     partial_layout[partial_offset[fb] + local_idx] = slot;
 
@@ -3993,14 +3990,13 @@ export const ba_walker_pt_init_copy = `// Pair-tree v2: parallel level-0 partial
 
 const HOT_THRESHOLD: u32 = 8u;
 const PG: u32 = 2u;
-const BW: u32 = {{ bw }}u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
 
 // Flat CSR index (partial_* space) for a packed-window bid.
-fn flat_bid(bid: u32) -> u32 {
-    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+fn flat_bid(bid: u32, bw: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * bw + (bid & WBID_MAG_MASK);
 }
 
 @group(0) @binding(0) var<storage, read>       sorted_active:  array<u32>;
@@ -4024,7 +4020,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     if (cool_end + hot_idx >= NUM_ACTIVE) { return; }
 
     let bid = sorted_active[cool_end + hot_idx];
-    let fb = flat_bid(bid);
+    let fb = flat_bid(bid, params.z);
     let N = partial_count[fb];
     let p_off = partial_offset[fb];
     let pt_base = pt_off[hot_idx];

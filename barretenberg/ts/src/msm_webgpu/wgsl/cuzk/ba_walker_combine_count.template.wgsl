@@ -7,7 +7,6 @@
 // params.x = num_partial_slots (= 2 * NUM_THREADS * S — total possible slots)
 
 const NO_BUCKET: u32 = 0xffffffffu;
-const BW: u32 = {{ bw }}u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -17,8 +16,8 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(2) var<uniform>             params:        vec4<u32>;
 
 // Flat CSR index (partial_count space) for a packed-window bid.
-fn flat_bid(bid: u32) -> u32 {
-    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+fn flat_bid(bid: u32, bw: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * bw + (bid & WBID_MAG_MASK);
 }
 
 @compute @workgroup_size({{ workgroup_size }})
@@ -33,7 +32,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // magnitude==0 buckets, so the only bid the walker ever stores has
     // magnitude in [1, STRIDE], i.e. bid >= 1.
     if (bid == 0u || bid == NO_BUCKET) { return; }
-    atomicAdd(&partial_count[flat_bid(bid)], 1u);
+    atomicAdd(&partial_count[flat_bid(bid, params.y)], 1u);
 
     {{{ recompile }}}
 }

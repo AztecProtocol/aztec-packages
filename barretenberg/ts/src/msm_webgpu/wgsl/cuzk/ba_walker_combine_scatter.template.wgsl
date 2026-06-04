@@ -15,7 +15,6 @@
 // params.x = num_partial_slots
 
 const NO_BUCKET: u32 = 0xffffffffu;
-const BW: u32 = {{ bw }}u;
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
 const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
@@ -27,8 +26,8 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 @group(0) @binding(4) var<uniform>             params:            vec4<u32>;
 
 // Flat CSR index (partial_* space) for a packed-window bid.
-fn flat_bid(bid: u32) -> u32 {
-    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+fn flat_bid(bid: u32, bw: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * bw + (bid & WBID_MAG_MASK);
 }
 
 @compute @workgroup_size({{ workgroup_size }})
@@ -39,7 +38,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let bid = partial_dest[slot];
     // See ba_walker_combine_count for the dual-sentinel rationale.
     if (bid == 0u || bid == NO_BUCKET) { return; }
-    let fb = flat_bid(bid);
+    let fb = flat_bid(bid, params.y);
     let local_idx = atomicAdd(&partial_write_pos[fb], 1u);
     partial_layout[partial_offset[fb] + local_idx] = slot;
 

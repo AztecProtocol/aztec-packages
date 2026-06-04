@@ -23,7 +23,6 @@
 // params.y = M_partials   (partials_buf plane stride)
 
 const PG: u32 = 2u;
-const BW:     u32 = {{ bw }}u;
 // M_RED (red_buf Y-plane stride) is runtime in batch_offset.z (= Σ redM packed,
 // = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
@@ -33,8 +32,8 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 const TPB: u32 = {{ workgroup_size }}u;
 
 // Flat CSR index (partial_* space) for a packed-window bid.
-fn flat_bid(bid: u32) -> u32 {
-    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+fn flat_bid(bid: u32, bw: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * bw + (bid & WBID_MAG_MASK);
 }
 
 @group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
@@ -88,7 +87,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
 
     if (t < num_dense) {
         let bid = sorted_bucket_list[t];
-        let fb = flat_bid(bid);
+        let fb = flat_bid(bid, params.w);
         let count = pc_at(fb);
 
         // Magnitude (bid & WBID_MAG_MASK) is guaranteed in [1, STRIDE] —
