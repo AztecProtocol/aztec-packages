@@ -23,10 +23,14 @@ import { permSuite } from './suite_perm.js';
 import { logderivSuite } from './suite_logderiv.js';
 import { memorySuite } from './suite_memory.js';
 import { pos2ExtSuite } from './suite_pos2ext.js';
+import { pos2TransSuite } from './suite_pos2trans.js';
+import { pos2QuadTermSuite } from './suite_pos2quadterm.js';
+import { pos2QuadSuite } from './suite_pos2quad.js';
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
-  nnfSuite, ellipticSuite, permSuite, logderivSuite, memorySuite, pos2ExtSuite,
+  nnfSuite, ellipticSuite, permSuite, logderivSuite, memorySuite,
+  pos2ExtSuite, pos2TransSuite, pos2QuadTermSuite, pos2QuadSuite,
 ];
 
 const $log = document.getElementById('log') as HTMLDivElement;

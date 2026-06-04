@@ -32,6 +32,9 @@ import {
   logderiv_lookup_relation_test as logderiv_lookup_relation_test_shader,
   memory_relation_test as memory_relation_test_shader,
   poseidon2_external_relation_test as poseidon2_external_relation_test_shader,
+  poseidon2_transition_entry_relation_test as poseidon2_transition_entry_relation_test_shader,
+  poseidon2_quad_internal_terminal_relation_test as poseidon2_quad_internal_terminal_relation_test_shader,
+  poseidon2_quad_internal_relation_test as poseidon2_quad_internal_relation_test_shader,
   field as field_funcs,
   field8 as field8_funcs,
   fr_ops_test as fr_ops_test_shader,
@@ -61,6 +64,7 @@ import {
   gen_wgsl_limbs_code,
 } from './utils.js';
 import { BN254_CURVE_CONFIG, CurveConfig } from './curve_config.js';
+import { poseidon2QuadConsts } from './poseidon2_quad_consts.js';
 
 // Which of the curve's two prime fields the rendered shaders operate in.
 // 'base' (default) is the coordinate field F_q used by all EC point math in
@@ -578,6 +582,75 @@ ${packLines.join('\n')}
     return mustache.render(
       poseidon2_external_relation_test_shader,
       this.relationView(workgroup_size),
+      this.relationPartials,
+    );
+  }
+
+  /** WGSL `const NAME: array<u32,8> = array<u32,8>(...);` block for baked Fr constants. */
+  private quadConstsBlock(consts: Record<string, bigint>): string {
+    return Object.entries(consts)
+      .map(([name, val]) => `const ${name}: array<u32, 8> = array<u32, 8>(${this.montWords8(val)});`)
+      .join('\n');
+  }
+
+  /**
+   * Poseidon2TransitionEntryRelation accumulate test kernel
+   * (relations/poseidon2_transition_entry_relation.hpp). Three length-7
+   * subrelations; bakes the derived D1/A_one/A2_one/(Σ+6) quad constants. One
+   * thread per edge writes the 21-Fr contribution.
+   */
+  public gen_poseidon2_transition_entry_relation_test_shader(workgroup_size: number): string {
+    const c = poseidon2QuadConsts(this.p);
+    const consts = {
+      TE_D1: c.D1,
+      TE_THREE: 3n,
+      TE_A1_0: c.A_one[0], TE_A1_1: c.A_one[1], TE_A1_2: c.A_one[2],
+      TE_A2_0: c.A2_one[0], TE_A2_1: c.A2_one[1], TE_A2_2: c.A2_one[2],
+      TE_SUMA: c.sum_A_one,
+    };
+    return mustache.render(
+      poseidon2_transition_entry_relation_test_shader,
+      { ...this.relationView(workgroup_size), quad_consts: this.quadConstsBlock(consts) },
+      this.relationPartials,
+    );
+  }
+
+  /**
+   * Poseidon2QuadInternalTerminalRelation accumulate test kernel. Four length-7
+   * subrelations; bakes the full 4x7 closed_form table (CF_{j}_{i}). One thread
+   * per edge writes the 28-Fr contribution.
+   */
+  public gen_poseidon2_quad_internal_terminal_relation_test_shader(workgroup_size: number): string {
+    const c = poseidon2QuadConsts(this.p);
+    const consts: Record<string, bigint> = {};
+    for (let j = 0; j < 4; j++) for (let i = 0; i < 7; i++) consts[`CF_${j}_${i}`] = c.closed_form[j][i];
+    return mustache.render(
+      poseidon2_quad_internal_terminal_relation_test_shader,
+      { ...this.relationView(workgroup_size), quad_consts: this.quadConstsBlock(consts) },
+      this.relationPartials,
+    );
+  }
+
+  /**
+   * Poseidon2QuadInternalRelation accumulate test kernel. Four length-7
+   * subrelations; bakes closed_form[0] (CF_0_*), forward_vandermonde_lhs
+   * (FV_{k}_*) and the scalar quad constants. One thread per edge writes the
+   * 28-Fr contribution.
+   */
+  public gen_poseidon2_quad_internal_relation_test_shader(workgroup_size: number): string {
+    const c = poseidon2QuadConsts(this.p);
+    const consts: Record<string, bigint> = {
+      QI_D1: c.D1,
+      QI_SIGMA_PLUS_2: c.SIGMA_PLUS_2,
+      QI_B3_U0: c.B3_U0_COEF,
+      QI_D1M3: c.D1_MINUS_3,
+      QI_THREE: 3n,
+    };
+    for (let i = 0; i < 7; i++) consts[`CF_0_${i}`] = c.closed_form[0][i];
+    for (let k = 0; k < 3; k++) for (let i = 0; i < 7; i++) consts[`FV_${k}_${i}`] = c.forward_vandermonde_lhs[k][i];
+    return mustache.render(
+      poseidon2_quad_internal_relation_test_shader,
+      { ...this.relationView(workgroup_size), quad_consts: this.quadConstsBlock(consts) },
       this.relationPartials,
     );
   }
