@@ -72,7 +72,7 @@ const $results = document.getElementById('results') as HTMLDivElement;
 
 // The sweep spans 2^10..2^20 — small sizes show where the GPU pipeline
 // overtakes the WASM Pippenger; the v2 pipeline has no size floor.
-const LOGN_MIN = 10;
+const LOGN_MIN = 7;
 const LOGN_MAX = 20;
 const SRS_NUM_POINTS = 1 << LOGN_MAX;
 
@@ -629,27 +629,86 @@ async function runWebGpuOnce(
  * The union packs one size class, so members must be homogeneous (same n) — drive
  * K>1 with a repeated logN, e.g. `?logns=16,16`.
  */
-async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: string }> {
-  if (gpuDevice === null) gpuDevice = await get_device();
-  const device = gpuDevice;
+interface PackMeasurement {
+  ok: boolean;
+  detail: string;
+  ns: number[];
+  totalWindows: number;
+  footprintMiB: number;
+  heterogeneous: boolean;
+  reps: number;
+  soloWallMs: number; // Σ_k median(member_k run wall)
+  soloGpuMs: number; // Σ_k median(member_k GPU-compute)
+  unionWallMs: number; // median(union run wall)
+  unionGpuMs: number; // median(union GPU-compute)
+  soloPhaseMs: Record<string, number>; // Σ_k median(member_k per-stage GPU)
+  unionPhaseMs: Record<string, number>; // median(union per-stage GPU)
+}
 
-  // Inputs per MSM (scalars + n); the largest's SRS slice is retained to back the
-  // shared packed pool — every MSM uses its first-n prefix (srsOffset 0), so solo
-  // and packed see identical points per member.
+// Canonical pipeline-stage order for the per-stage attribution table (the coarse
+// phase labels `MsmV2.run()` writes to `window.__lastPhaseMs` via `setPhase` in
+// encodeIntoBatch — distinct from the finer `profiler.stage` STAGE_ORDER above,
+// which the encodeIntoBatch refactor no longer populates).
+const BATCH_STAGE_ORDER = [
+  'preprocess',
+  'planner',
+  'accumulate',
+  'size1',
+  'stream_walker',
+  'walker_index',
+  'combine_batched',
+  'pt_init',
+  'pt_loop',
+  'pt_finalize',
+  'reduce',
+  'misc',
+];
+
+// The per-stage GPU ms of the LAST run() (timestamp-query, summed per phase). run()
+// writes this global when profile mode is on; Σ over phases == readProfileGpuMs().
+function readLastPhaseMs(): Record<string, number> {
+  return { ...((window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {}) };
+}
+
+// Reduce `reps` per-stage records to the median total GPU ms and the median ms per
+// stage. Median is taken independently per stage and on the summed total, so the
+// reported total may differ slightly from Σ(stage medians) — that's intended (each
+// is the robust central estimate of its own quantity).
+function reducePhaseReps(repsRecs: Record<string, number>[]): { totalMs: number; phaseMs: Record<string, number> } {
+  const phases = new Set<string>();
+  for (const r of repsRecs) for (const k of Object.keys(r)) phases.add(k);
+  const phaseMs: Record<string, number> = {};
+  for (const ph of phases) phaseMs[ph] = median(repsRecs.map(r => r[ph] ?? 0));
+  const totalMs = median(repsRecs.map(r => Object.values(r).reduce((a, b) => a + b, 0)));
+  return { totalMs, phaseMs };
+}
+
+// Measure one pack of K MSMs (given as a list of logN) two ways: each member run
+// SOLO on its own isolated instance (Σ = the K-separate cost), and as the
+// concatenated UNION (one MsmV2 over Σ NW windows, a single dispatch). Returns the
+// median-over-`reps` wall AND GPU-compute time for both, plus the byte-identical
+// union≡solo verdict. GPU-compute time (timestamp-query) isolates the saturation /
+// throughput win from the launch+mapAsync amortisation that wall time also folds in:
+// the GPU runs K-separate (or one batched-encoder's) passes sequentially, so Σ solo
+// GPU ≈ the current bridge's GPU cost — union GPU vs Σ solo GPU is the genuine win.
+async function measurePack(device: GPUDevice, logNs: number[], reps: number): Promise<PackMeasurement> {
+  // Force GPU timestamps on regardless of the URL `?profile=` (overloaded for the
+  // scalar-distribution A–E selector); the bench always wants per-pass GPU ms.
+  const cfg: MsmConfig = { ...gpuKnobs, profile: true };
+
   const ns: number[] = [];
   const scalars: Uint8Array[] = [];
   let poolPoints: Uint8Array | null = null;
   let poolPointsN = -1;
   const soloWS: { x: bigint; y: bigint }[][] = [];
-  // Σ of each member's own run() (warm), the K-separate cost the union must beat.
-  let soloRunMs = 0;
+  let soloWallMs = 0;
+  let soloGpuMs = 0;
+  const soloPhaseMs: Record<string, number> = {};
 
   // ── Solo baselines on ISOLATED pools (one pool+instance per MSM, fully
-  // independent). This avoids the shared-pool lifecycle entirely for the
-  // reference: prepare()'s slow path destroys+recreates the instance's own
-  // prepBuffers (incl. redStaging), so a run() on a pool shared with not-yet-
-  // encoded instances is unsafe — the packed pass below mirrors the bridge
-  // (prepare-all-then-encode-all, no run()) instead.
+  // independent), each timed over `reps` runs after a warm-up. prepare()'s slow
+  // path destroys+recreates the instance's own prepBuffers, so an isolated pool
+  // per member avoids the shared-pool lifecycle entirely for the reference.
   for (const logN of logNs) {
     const inp = await generateInputs(logN, false);
     ns.push(inp.n);
@@ -659,45 +718,40 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
       poolPointsN = inp.n;
     }
     const soloPool = await MsmV2Pool.create(device, inp.pointsBuf);
-    const soloInst = await MsmV2.create(device, inp.n, soloPool, gpuKnobs);
+    const soloInst = await MsmV2.create(device, inp.n, soloPool, cfg);
     try {
       soloInst.prepare(inp.scalarsBuf);
       await soloInst.run(); // warm-up: first-touch zero-init out of the timed window
-      const t0 = performance.now();
-      const ws = (await soloInst.run()).windowSums;
-      soloRunMs += performance.now() - t0;
+      const walls: number[] = [];
+      const phaseRecs: Record<string, number>[] = [];
+      let ws: { x: bigint; y: bigint }[] = [];
+      for (let r = 0; r < reps; r++) {
+        const t0 = performance.now();
+        ws = (await soloInst.run()).windowSums;
+        walls.push(performance.now() - t0);
+        phaseRecs.push(readLastPhaseMs());
+      }
+      const { totalMs, phaseMs } = reducePhaseReps(phaseRecs);
+      soloWallMs += median(walls);
+      soloGpuMs += totalMs;
+      for (const ph of Object.keys(phaseMs)) soloPhaseMs[ph] = (soloPhaseMs[ph] ?? 0) + phaseMs[ph];
       soloWS.push(ws);
     } finally {
       soloInst.destroy();
       soloPool.destroy();
     }
   }
-  log('info', `[batch-check] ${logNs.length} MSMs n=[${ns.join(', ')}] — solo baselines done`);
 
-  // The union packs members of ARBITRARY n and c. The instance is created at the
-  // pack's max n (so its baked BW/stride/c are the envelope maxima); every window
-  // carries its own c/n/scatter-base from the table + point_offsets, so members of
-  // different size pack with no padding. pickC is monotone, so max n ⇒ max c covers
-  // every member.
+  // ── Union pass: ONE MsmV2 over the concatenated super-MSM, one dispatch over
+  // Σ NW windows. Members of arbitrary n/c pack with no padding (point_offsets +
+  // per-window table). The instance is created at the pack's max n so its baked
+  // BW/stride/c are the envelope maxima. Shared SRS prefix (srsOffset 0).
   const maxN = Math.max(...ns);
   const heterogeneous = !ns.every(x => x === maxN);
-  const mixedC = new Set(ns.map(pickC)).size > 1;
-
-  // ── Union pass: ONE MsmV2 prepared over the concatenated super-MSM, one
-  // dispatch over Σ NW windows. Every member uses the shared SRS prefix
-  // (srsOffset 0), so solo and packed see identical points per member.
   const pool = await MsmV2Pool.create(device, poolPoints!);
-  const inst = await MsmV2.create(device, maxN, pool, gpuKnobs);
+  const inst = await MsmV2.create(device, maxN, pool, cfg);
   try {
-    // Pack each member at its REAL n (no padding): point_offsets gives every window
-    // its own n_w, and the dispatch grids cover the class max n.
     const plan = planBatch(ns.map(n => ({ n, srsOffset: 0 })));
-    log(
-      'info',
-      `[batch-check] union pass — totalWindows=${plan.totalWindows} ` +
-        `footprint=${(plan.footprintBytes / (1 << 20)).toFixed(1)}MiB${heterogeneous ? ` (heterogeneous n=[${ns.join(', ')}], no padding)` : ''}`,
-    );
-    // Concatenate the members' scalars at planBatch's byte bases (real n, no padding).
     const concat = new Uint8Array(plan.totalScalarBytes);
     for (let k = 0; k < scalars.length; k++) concat.set(scalars[k], plan.descs[k].scalarBase);
     const members = plan.descs.map(d => ({
@@ -707,15 +761,17 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
       numWindows: d.numWindows,
     }));
     inst.prepareBatch(members, concat, plan.windowDescTable, plan.reduceOffsets);
-    await inst.run(); // warm-up: first-touch out of the timed window
-    const tU = performance.now();
-    const union = (await inst.run()).windowSums; // Σ NW windows; member k at schedOff_k
-    const unionRunMs = performance.now() - tU;
-    log(
-      'info',
-      `[batch-check] perf: union 1 dispatch=${unionRunMs.toFixed(2)}ms vs ${plan.descs.length}× solo run=${soloRunMs.toFixed(2)}ms ` +
-        `(speedup ${(soloRunMs / unionRunMs).toFixed(2)}×)`,
-    );
+    await inst.run(); // warm-up
+    const walls: number[] = [];
+    const phaseRecs: Record<string, number>[] = [];
+    let union: { x: bigint; y: bigint }[] = [];
+    for (let r = 0; r < reps; r++) {
+      const t0 = performance.now();
+      union = (await inst.run()).windowSums; // Σ NW windows; member k at schedOff_k
+      walls.push(performance.now() - t0);
+      phaseRecs.push(readLastPhaseMs());
+    }
+    const { totalMs: unionGpuMs, phaseMs: unionPhaseMs } = reducePhaseReps(phaseRecs);
 
     const diffs: string[] = [];
     for (let k = 0; k < plan.descs.length; k++) {
@@ -737,20 +793,68 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
     const distinct =
       plan.descs.length < 2 ||
       soloWS.some(ws => ws[0].x !== soloWS[0][0].x || ws[0].y !== soloWS[0][0].y);
-    if (!distinct) {
-      return { ok: false, detail: `members had identical scalars — scalarBase NOT exercised (re-run without a fixed scalar_seed)` };
-    }
-    const ok = diffs.length === 0;
+    const ok = distinct && diffs.length === 0;
+    const detail = !distinct
+      ? `members had identical scalars — scalarBase NOT exercised (re-run without a fixed scalar_seed)`
+      : ok
+        ? `all ${plan.descs.length} members byte-identical union≡solo (windows=${plan.totalWindows}, distinct scalars)`
+        : diffs.slice(0, 5).join(' | ');
+
     return {
       ok,
-      detail: ok
-        ? `all ${plan.descs.length} members byte-identical union≡solo (windows=${plan.totalWindows}, distinct scalars)`
-        : diffs.slice(0, 5).join(' | '),
+      detail,
+      ns,
+      totalWindows: plan.totalWindows,
+      footprintMiB: plan.footprintBytes / (1 << 20),
+      heterogeneous,
+      reps,
+      soloWallMs,
+      soloGpuMs,
+      unionWallMs: median(walls),
+      unionGpuMs,
+      soloPhaseMs,
+      unionPhaseMs,
     };
   } finally {
     inst.destroy();
     pool.destroy();
   }
+}
+
+async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: string }> {
+  if (gpuDevice === null) gpuDevice = await get_device();
+  const device = gpuDevice;
+  const reps = Math.max(1, parseInt(new URLSearchParams(window.location.search).get('reps') ?? '5', 10));
+  const m = await measurePack(device, logNs, reps);
+  log(
+    'info',
+    `[batch-check] ${logNs.length} MSMs n=[${m.ns.join(', ')}] totalWindows=${m.totalWindows} ` +
+      `footprint=${m.footprintMiB.toFixed(1)}MiB reps=${reps}${m.heterogeneous ? ' (heterogeneous, no padding)' : ''}`,
+  );
+  log(
+    'info',
+    `[batch-check] perf: union wall=${m.unionWallMs.toFixed(2)}ms gpu=${m.unionGpuMs.toFixed(2)}ms vs ` +
+      `${logNs.length}× solo wall=${m.soloWallMs.toFixed(2)}ms gpu=${m.soloGpuMs.toFixed(2)}ms | ` +
+      `wall-speedup=${(m.soloWallMs / m.unionWallMs).toFixed(2)}× gpu-throughput=${(m.soloGpuMs / m.unionGpuMs).toFixed(2)}×`,
+  );
+  // Per-stage attribution: which pipeline stages saturate under packing. `×` is the
+  // per-stage throughput (Σ-soloGPU/unionGPU); `%` is the stage's share of the union
+  // GPU total (where the packed pipeline now spends its time).
+  log('info', `[batch-check] per-stage GPU ms (Σ-solo → union | throughput× | union-share%):`);
+  const extraPhases = Object.keys(m.unionPhaseMs).filter(p => !BATCH_STAGE_ORDER.includes(p));
+  for (const ph of [...BATCH_STAGE_ORDER, ...extraPhases]) {
+    const s = m.soloPhaseMs[ph] ?? 0;
+    const u = m.unionPhaseMs[ph] ?? 0;
+    if (s < 0.005 && u < 0.005) continue;
+    const sp = u > 0 ? s / u : 0;
+    const share = m.unionGpuMs > 0 ? (100 * u) / m.unionGpuMs : 0;
+    log(
+      'info',
+      `    ${ph.padEnd(15)} ${s.toFixed(2).padStart(7)} → ${u.toFixed(2).padStart(6)} | ` +
+        `${sp.toFixed(2).padStart(5)}× | ${share.toFixed(0).padStart(3)}%`,
+    );
+  }
+  return { ok: m.ok, detail: m.detail };
 }
 
 // Decode + upload the inputs into the WASM worker's native point/scalar
@@ -1996,6 +2100,78 @@ function hideProgress(): void {
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[batch-check] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-batch-bench') {
+    // Saturation sweep for the small-MSM batching regime (the multi-MSM win):
+    // homogeneous packs of K copies of n, swept over n × K, reporting median-over-
+    // reps wall AND GPU-throughput speedup (union vs Σ solo) per cell. One warm
+    // page load runs the whole grid (no per-cell chromium relaunch).
+    //   ?ns=128,256,512,1024,2048,4096&Ks=2,4,8,16,32&reps=5
+    //   scalar distribution via ?scalar_dist=profile&profile=E (hard rule #0).
+    if (gpuDevice === null) gpuDevice = await get_device();
+    const device = gpuDevice;
+    const nsList = (qp.get('ns') ?? '128,256,512,1024,2048,4096')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 128 && (x & (x - 1)) === 0);
+    const ksList = (qp.get('Ks') ?? '2,4,8,16,32')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 1);
+    const reps = Math.max(1, parseInt(qp.get('reps') ?? '5', 10));
+    const dist = qp.get('scalar_dist') === 'profile' ? (qp.get('profile') ?? 'A').toUpperCase() : 'uniform';
+    log('info', `[batch-bench] ns=[${nsList.join(',')}] Ks=[${ksList.join(',')}] reps=${reps} dist=${dist}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    const rows: Record<string, unknown>[] = [];
+    try {
+      await waitForSrs();
+      for (const n of nsList) {
+        const logN = Math.round(Math.log2(n));
+        for (const K of ksList) {
+          try {
+            const m = await measurePack(device, new Array<number>(K).fill(logN), reps);
+            const wall = m.soloWallMs / m.unionWallMs;
+            const gput = m.soloGpuMs / m.unionGpuMs;
+            rows.push({
+              n,
+              K,
+              ok: m.ok,
+              footprintMiB: +m.footprintMiB.toFixed(1),
+              soloWallMs: +m.soloWallMs.toFixed(2),
+              unionWallMs: +m.unionWallMs.toFixed(2),
+              soloGpuMs: +m.soloGpuMs.toFixed(2),
+              unionGpuMs: +m.unionGpuMs.toFixed(2),
+              wallSpeedup: +wall.toFixed(2),
+              gpuThroughput: +gput.toFixed(2),
+              soloPhaseMs: m.soloPhaseMs,
+              unionPhaseMs: m.unionPhaseMs,
+            });
+            log(
+              m.ok ? 'ok' : 'err',
+              `[batch-bench] n=${String(n).padStart(5)} K=${String(K).padStart(3)} | ` +
+                `wall ${m.unionWallMs.toFixed(1)} vs ${m.soloWallMs.toFixed(1)}ms = ${wall.toFixed(2)}× | ` +
+                `gpu ${m.unionGpuMs.toFixed(2)} vs ${m.soloGpuMs.toFixed(2)}ms = ${gput.toFixed(2)}× | ` +
+                `${m.footprintMiB.toFixed(0)}MiB ${m.ok ? 'OK' : 'MISMATCH(' + m.detail + ')'}`,
+            );
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            rows.push({ n, K, ok: false, error: msg.slice(0, 200) });
+            log('err', `[batch-bench] n=${n} K=${K} SKIP: ${msg.slice(0, 140)}`);
+          }
+        }
+      }
+      (window as unknown as { __benchSamples: unknown }).__benchSamples = { kind: 'batch-bench', dist, reps, rows };
+      const okN = rows.filter(r => r.ok).length;
+      log('ok', `[batch-bench] state=done ${okN}/${rows.length} cells byte-identical`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[batch-bench] state=error FATAL: ${msg}`);
     }
   }
 })();

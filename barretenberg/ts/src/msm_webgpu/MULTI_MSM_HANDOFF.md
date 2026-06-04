@@ -127,10 +127,18 @@ of efficiency refinements:
    don't fully agree for heterogeneous packs — the host under-counts the l0/partials
    matrix (it's dispatch-sized from the class max n, not Σ n_w) while the runtime
    counts it. Reconcile them so the packer's choice always passes the runtime gate.
-2. **PERF bench on phone/M2** (the acceptance criterion at scale): confirm the
-   solo-starved stages saturate under packing and profiles D/E stay fast (hard
-   rule #0). This session measured ~1.7–3.4× on M2 single-run; the rigorous bench
-   is still open.
+2. ✅ **PERF bench on M2 — DONE, the acceptance criterion is met.** See
+   **`MULTI_MSM_PERF.md`**. For n=128–4096, the union saturates the GPU that a solo
+   small MSM starves: **GPU-throughput** (Σ-soloGPU/unionGPU, the honest win over the
+   sequential bridge) grows with K — ~1.5× (K=2) → ~4.5× (K=8) → **9–14× (K=64)** for
+   small n; the win is genuine saturation (GPU-time ≈ wall, not launch amortisation),
+   is *largest* on the structured profiles (D up to 14×, E 7–11× with no
+   `walker_combine` serialisation), and ~5.4× on a realistic Chonk-shaped
+   heterogeneous mix — all byte-identical, 160 MiB gate enforced. Harness:
+   `measurePack` + `?autorun=msm-batch-bench` (reps + GPU timestamps) in
+   `dev/msm-webgpu/main.ts`; `LOGN_MIN` lowered 10→7 to reach the small regime.
+   Phone (Adreno/Mali) bench still open. **Remaining perf-side: none for M2 — the
+   open items are bridge wiring (#1) and the phone bench.**
 3. **Efficiency refinements (optional):**
    - The combine `partial_*` sparse hash uses the **envelope BW = max BW** across the
      pack, so a skewed pack (one big-c member + many small-c) over-allocates that
