@@ -198,6 +198,13 @@ variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
   default     = 5000
 }
 
+variable "VALIDATOR_COINBASE" {
+  description = "Optional coinbase address for validator sequencers. Defaults to each validator attester address when unset."
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE" {
   description = "Override for validator L1 priority fee bump percentage"
   type        = string

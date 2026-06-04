@@ -29,7 +29,7 @@ For each issue number provided:
 
 Work through each confirmed issue **sequentially** in the main checkout:
 
-1. **Stash & branch**: Stash any uncommitted changes, then create a branch from `merge-train/spartan` using the issue's `gitBranchName` from Linear.
+1. **Stash & branch**: Stash any uncommitted changes, then create a branch from `merge-train/spartan` using the issue's `gitBranchName` from Linear. For a fix scoped to the v5 release line, branch from `merge-train/spartan-v5` (which targets `v5-next`) instead.
    ```
    git stash
    git checkout -B <gitBranchName> origin/merge-train/spartan
@@ -43,7 +43,7 @@ Work through each confirmed issue **sequentially** in the main checkout:
    - Message format: `fix: <short description> (A-XXX)`
    - Include `Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>`
 
-5. **Push & PR**: Push the branch and create a draft PR.
+5. **Push & PR**: Push the branch and create a draft PR. Use `--base merge-train/spartan-v5` for v5-scoped fixes.
    ```
    git push -u origin <gitBranchName>
    gh pr create --draft --base merge-train/spartan --title "fix: ..." --body "..."
