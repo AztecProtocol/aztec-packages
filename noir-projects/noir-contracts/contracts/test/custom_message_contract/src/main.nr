@@ -104,7 +104,7 @@ contract CustomMessage {
     use aztec::{
         event::event_interface::{compute_private_event_commitment, EventInterface},
         macros::{events::event, functions::external},
-        messages::{encoding::encode_message, message_delivery::{do_private_message_delivery, MessageDelivery}},
+        messages::{delivery::{do_private_message_delivery, MessageDelivery}, encoding::encode_message},
         oracle::random::random,
         protocol::{address::AztecAddress, traits::ToField},
     };

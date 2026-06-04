@@ -1,4 +1,4 @@
-use crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED;
+use crate::messages::delivery::ONCHAIN_UNCONSTRAINED;
 use crate::oracle::{notes::{get_app_tagging_secret, get_next_tagging_index, get_sender_for_tags}, random::random};
 use crate::protocol::{address::AztecAddress, hash::poseidon2_hash};
 

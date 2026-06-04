@@ -22,7 +22,7 @@ contract BobToken {
             functions::{external, initializer, internal, only_self, view},
             storage::storage,
         },
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Map, Owned, PublicMutable},
     };
