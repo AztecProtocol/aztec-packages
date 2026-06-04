@@ -48,6 +48,9 @@ fn lag_from_mono3(m: Mono, L: u32, out: ptr<function, Lag>) {
 fn lag_mul(a: ptr<function, Lag>, b: ptr<function, Lag>, L: u32, out: ptr<function, Lag>) {
   for (var k: u32 = 0u; k < L; k = k + 1u) { (*out)[k] = montgomery_product_f8((*a)[k], (*b)[k]); }
 }
+fn lag_sqr(a: ptr<function, Lag>, L: u32, out: ptr<function, Lag>) {
+  for (var k: u32 = 0u; k < L; k = k + 1u) { (*out)[k] = montgomery_product_f8((*a)[k], (*a)[k]); }
+}
 fn lag_add(a: ptr<function, Lag>, b: ptr<function, Lag>, L: u32, out: ptr<function, Lag>) {
   for (var k: u32 = 0u; k < L; k = k + 1u) { (*out)[k] = fr_add_f8((*a)[k], (*b)[k]); }
 }

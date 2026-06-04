@@ -31,6 +31,7 @@ import {
   permutation_relation_test as permutation_relation_test_shader,
   logderiv_lookup_relation_test as logderiv_lookup_relation_test_shader,
   memory_relation_test as memory_relation_test_shader,
+  poseidon2_external_relation_test as poseidon2_external_relation_test_shader,
   field as field_funcs,
   field8 as field8_funcs,
   fr_ops_test as fr_ops_test_shader,
@@ -563,6 +564,20 @@ ${packLines.join('\n')}
     return mustache.render(
       memory_relation_test_shader,
       { ...this.relationView(workgroup_size), one_csv: this.montWords8(1n) },
+      this.relationPartials,
+    );
+  }
+
+  /**
+   * Poseidon2ExternalRelation accumulate test kernel
+   * (relations/poseidon2_external_relation.hpp). Four length-7 subrelations;
+   * round constants are columns (no baked constants, no params buffer). One
+   * thread per edge writes the 28-Fr contribution.
+   */
+  public gen_poseidon2_external_relation_test_shader(workgroup_size: number): string {
+    return mustache.render(
+      poseidon2_external_relation_test_shader,
+      this.relationView(workgroup_size),
       this.relationPartials,
     );
   }

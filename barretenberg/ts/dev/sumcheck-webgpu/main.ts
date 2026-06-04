@@ -22,10 +22,11 @@ import { ellipticSuite } from './suite_elliptic.js';
 import { permSuite } from './suite_perm.js';
 import { logderivSuite } from './suite_logderiv.js';
 import { memorySuite } from './suite_memory.js';
+import { pos2ExtSuite } from './suite_pos2ext.js';
 
 const REGISTRY: Suite[] = [
   frSuite, monoSuite, arithSuite, deltaSuite, eccSuite, pos2InitSuite,
-  nnfSuite, ellipticSuite, permSuite, logderivSuite, memorySuite,
+  nnfSuite, ellipticSuite, permSuite, logderivSuite, memorySuite, pos2ExtSuite,
 ];
 
 const $log = document.getElementById('log') as HTMLDivElement;
