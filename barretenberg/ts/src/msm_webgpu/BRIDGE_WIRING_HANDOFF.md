@@ -44,16 +44,20 @@ Read alongside `MULTI_MSM_HANDOFF.md` (union internals) and `MULTI_MSM_PERF.md`
   profile E.
 - **`?autorun=msm-bridge-e2e`** (new) — drives the **REAL `WebGpuMsmHost`** over a
   synthetic WASM memory + control SAB: the union path's result+meta regions are
-  **byte-identical to the solo oracle** for small, large-heterogeneous, AND profile-E
-  batches ⇒ identical proof. (The proof is a pure function of those regions.)
+  **byte-identical to the solo oracle** for small, large-heterogeneous, profile-E, AND
+  the production-faithful **16-member Chonk "small-heavy" mix** (6×128,4×256,3×512,
+  2×1024,1×4096 — 58944 result + 136 meta bytes) ⇒ identical proof. (The proof is a
+  pure function of those regions.) For the realistic mix **legacy ≡ union ≡ oracle** —
+  the exact "union_bridge on vs off → identical proof" acceptance, at the bridge level.
 
 **Finding (worth the operator's attention):** the **legacy single-encoder path**
-(flag OFF) ran every member in ONE command buffer over the shared pool scratch and
-**diverged from the oracle for a batch of 3 large distinct-n members** (byte 0 of
-member 0 came back 0); it matched the oracle for a small 2-member batch. The union
-path matched the oracle in every case — so the union is not just faster, it removes a
-latent multi-member concurrency fragility. (Whether real ChonkApi batches hit that
-shape is unconfirmed; the union default sidesteps it regardless.)
+(flag OFF) runs every member in ONE command buffer over the shared pool scratch.
+For the realistic small-member Chonk mix it matched the oracle (= the union). But on a
+synthetic batch of **3 large distinct-n members** it **diverged from the oracle**
+(member 0 came back 0) — a multi-member concurrency fragility the union dispatch
+removes. So the union default is not just faster, it is at least as correct as legacy
+and strictly more correct on large multi-member batches. (Whether real ChonkApi
+batches ever hit the all-large shape is unconfirmed; the union default sidesteps it.)
 
 **Remaining:** (1) the full C++ Chonk prove E2E (`browser_chonk_integration` /
 `ecdsar1+transfer_1_recursions` dump) with `union_bridge` on — the bridge contract is
