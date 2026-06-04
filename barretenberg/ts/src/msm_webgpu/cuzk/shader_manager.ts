@@ -35,6 +35,7 @@ import {
   poseidon2_transition_entry_relation_test as poseidon2_transition_entry_relation_test_shader,
   poseidon2_quad_internal_terminal_relation_test as poseidon2_quad_internal_terminal_relation_test_shader,
   poseidon2_quad_internal_relation_test as poseidon2_quad_internal_relation_test_shader,
+  databus_lookup_relation_test as databus_lookup_relation_test_shader,
   field as field_funcs,
   field8 as field8_funcs,
   fr_ops_test as fr_ops_test_shader,
@@ -651,6 +652,21 @@ ${packLines.join('\n')}
     return mustache.render(
       poseidon2_quad_internal_relation_test_shader,
       { ...this.relationView(workgroup_size), quad_consts: this.quadConstsBlock(consts) },
+      this.relationPartials,
+    );
+  }
+
+  /**
+   * DatabusLookupRelation accumulate test kernel
+   * (relations/databus_lookup_relation.hpp). Five bus columns x three length-6
+   * subrelations (90 Fr); the per-bus lookup subrelation (2) is linearly
+   * dependent (no scaling). Bakes FF(1); params [beta, gamma] at binding(3). One
+   * thread per edge writes the 90-Fr contribution.
+   */
+  public gen_databus_lookup_relation_test_shader(workgroup_size: number): string {
+    return mustache.render(
+      databus_lookup_relation_test_shader,
+      { ...this.relationView(workgroup_size), one_csv: this.montWords8(1n) },
       this.relationPartials,
     );
   }
