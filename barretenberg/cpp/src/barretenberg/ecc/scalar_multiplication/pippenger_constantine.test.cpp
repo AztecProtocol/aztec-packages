@@ -207,7 +207,7 @@ TEST(PippengerConstantine, SimdX4MatchesScalarPathLanewise)
                 std::array<std::array<uint64_t, NUM_LIMBS_U64>, 4> scalars{
                     random_scalar_limbs(), random_scalar_limbs(), random_scalar_limbs(), random_scalar_limbs()
                 };
-                std::array<uint32_t, 4> got_simd{};
+                alignas(16) std::array<uint32_t, 4> got_simd{};
                 production_simd_path(scalars.data(), bit_offset, window_bits, got_simd.data());
                 for (size_t lane = 0; lane < 4; ++lane) {
                     const uint32_t want = production_scalar_path(scalars[lane].data(), bit_offset, window_bits);
