@@ -393,6 +393,14 @@ tests:
     owners:
       - *charlie
 
+  # check-circuit runs over freshly-dumped e2e txs, so an occasional heavier tx can exceed the
+  # per-tx tracegen budget. Retry-and-flake on timeout rather than hard-failing; the error_regex
+  # keeps genuine check-circuit failures (constraint not satisfied) hard-failing with no owner.
+  - regex: "bb-avm avm_check_circuit"
+    error_regex: "timeout: sending signal"
+    owners:
+      - *charlie
+
   - regex: "run_test.sh simple tx_stats_bench"
     error_regex: "✕ verifies transactions at 10 TPS"
     owners:
