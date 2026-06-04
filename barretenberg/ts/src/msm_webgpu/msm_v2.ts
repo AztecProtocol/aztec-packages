@@ -2132,23 +2132,31 @@ export class MsmV2 {
     m.msbDecidePipe = await compile(sm.gen_ba_decide_window_split_shader(), `decide_window_split`, m.msbDecideLayout);
     m.msbIdxLargePipe = await compile(sm.gen_ba_idx_large_compact_shader(), `idx_large_compact`, m.msbIdxLargeLayout);
     m.decomposeUpperPipe = await compile(sm.gen_decompose_scalars_booth_upper_shader(WGI), `decompose_upper`, m.decomposeUpperLayout);
+    // Fixed transpose histogram/cursor capacity (16KB workgroup array), the same
+    // for every MSM so the 3 tiled-transpose shaders compile once, not per-(n,c).
+    // Size-independent by construction: the kernels' sub-tile loop covers
+    // n_cols > XPOSE_TILE and the store is guarded col < n_cols. 4096 is the
+    // measured M-series sweet spot — free for the heavy logn15-17 MSMs a prove
+    // is made of, and faster than the old min(BW,8192) at logn>=18 where the
+    // 32KB array throttled occupancy.
+    const XPOSE_TILE = 4096;
     m.xposeScatterUpperPipe = await compile(
-      sm.gen_transpose_scatter_tiled_upper_shader(256, Math.min(m.BW, 8192)),
+      sm.gen_transpose_scatter_tiled_upper_shader(256, XPOSE_TILE),
       `xpose-scatter-upper`, m.scatterUpperLayout);
     // Tiled counting-sort transpose: count + scatter dispatch across point-
     // chunks (not just windows) so the GPU stays saturated; reduce folds the
     // per-chunk partials; scan is the unchanged per-window prefix sum. Only
-    // on-chip shared atomics — no contended global atomics. tile is the
-    // shared histogram/cursor capacity (<= 8192 entries = 32KB).
+    // on-chip shared atomics — no contended global atomics. XPOSE_TILE is the
+    // shared histogram/cursor capacity (4096 entries = 16KB).
     m.xposeCountPipe = await compile(
-      sm.gen_transpose_count_tiled_shader(256, Math.min(m.BW, 8192)),
+      sm.gen_transpose_count_tiled_shader(256, XPOSE_TILE),
       `xpose-count`,
       m.xposeCountLayout,
     );
     m.xposeReducePipe = await compile(sm.gen_transpose_reduce_tiled_shader(256), `xpose-reduce`, m.xposeReduceLayout);
     m.xposeScanPipe = await compile(sm.gen_transpose_scan_shader(m.numWindows), `xpose-scan`, m.xposeScanLayout);
     m.xposeScatterPipe = await compile(
-      sm.gen_transpose_scatter_tiled_shader(256, Math.min(m.BW, 8192)),
+      sm.gen_transpose_scatter_tiled_shader(256, XPOSE_TILE),
       `xpose-scatter`,
       m.xposeScatterLayout,
     );
