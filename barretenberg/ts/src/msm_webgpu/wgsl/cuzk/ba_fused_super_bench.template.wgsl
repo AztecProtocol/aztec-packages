@@ -173,7 +173,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var inv20: BigInt = {{ inv_fn }}(acc20);
     var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
 
-{{^merged_peel}}
     // Inverse pass: walk k descending, derive inv_dx[k] = 1/dx_k from the
     // running inverse + the stored forward prefix products, and write it
     // back into pref_scratch slot k. The running `inv` is loop-carried
@@ -233,60 +232,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         store_active_new(0u, dst_idx, M_new, r_x);
         store_active_new(1u, dst_idx, M_new, r_y);
     }
-{{/merged_peel}}
-{{#merged_peel}}
-    // Merged inverse + peel (Apple/big-register-file variant). One descending
-    // pass derives inv_dx[k] AND emits the pair sum in the same iteration, so
-    // the x-coordinates load ONCE (vs the split path's 3x) and inv_dx is never
-    // round-tripped through pref_scratch. The cost is `inv` staying live across
-    // the affine add (~8 extra registers) — affordable on Apple, spill-prone on
-    // Adreno/Mali, hence gated. pref_scratch is read-only here (forward prefix
-    // products); the inversion `inv` advances in-loop by dx_k.
-    for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
-        let k = S - 1u - jj;
-        let idx_l = pair_block_plan[block_base + 2u * k + 0u];
-        let idx_r = pair_block_plan[block_base + 2u * k + 1u];
-
-        // inv_dx[k] = 1/dx_k, captured before `inv` advances.
-        var inv_dx: array<u32, 8>;
-        if (k == 0u) {
-            inv_dx = inv;
-        } else {
-            let pp: array<u32, 8> = load_pref(pref_base + (k - 1u));
-            inv_dx = montgomery_product_f8(inv, pp);
-        }
-
-        // x-coordinates: one load, reused for the inverse advance and r_x/r_y.
-        let p_lx: array<u32, 8> = load_active_x(idx_l, M_old);
-        let p_rx: array<u32, 8> = load_active_x(idx_r, M_old);
-
-        // Advance the running inverse by dx_k for the next (smaller-k) slot.
-        if (k != 0u) {
-            let dx_k: array<u32, 8> = fr_sub_f8(p_rx, p_lx);
-            inv = montgomery_product_f8(inv, dx_k);
-        }
-
-        // lambda = (p_ry - p_ly) / dx_k.
-        let p_ly: array<u32, 8> = load_active_y(idx_l, M_old);
-        let p_ry: array<u32, 8> = load_active_y(idx_r, M_old);
-        var lambda: array<u32, 8> = fr_sub_f8(p_ry, p_ly);
-        lambda = montgomery_product_f8(lambda, inv_dx);
-
-        // r_x = lambda^2 - p_lx - p_rx.
-        var r_x: array<u32, 8> = montgomery_product_f8(lambda, lambda);
-        let x_sum: array<u32, 8> = fr_add_f8(p_lx, p_rx);
-        r_x = fr_sub_f8(r_x, x_sum);
-
-        // r_y = lambda * (p_lx - r_x) - p_ly.
-        var r_y: array<u32, 8> = fr_sub_f8(p_lx, r_x);
-        r_y = montgomery_product_f8(lambda, r_y);
-        r_y = fr_sub_f8(r_y, p_ly);
-
-        let dst_idx = scatter_plan[t * S + k];
-        store_active_new(0u, dst_idx, M_new, r_x);
-        store_active_new(1u, dst_idx, M_new, r_y);
-    }
-{{/merged_peel}}
 
     {{{ recompile }}}
 }

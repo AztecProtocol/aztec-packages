@@ -36,24 +36,6 @@ export interface MsmConfig {
   invVariant?: 'loop' | 'pk';
   /** ba_fused_super 8×u32 fr_add/fr_sub: 'native' or 'unpack'-repack. Default 'native'. */
   addsub?: 'native' | 'unpack';
-  /**
-   * Enable the single-dispatch cooperative bucket reduce for small c (high
-   * memory backend, STRIDE <= 128). Default false — it is unreliable on
-   * M2/Metal (the threadgroup array-of-arrays handoff corrupts ~7-50% of runs).
-   * Opt in on backends where workgroup arrays-of-arrays are reliable.
-   */
-  coopReduce?: boolean;
-  /**
-   * Enable the segmented-global bucket reduce for small c (high memory backend,
-   * STRIDE <= 128). Default false — it is reliable but slower than the default
-   * all-Jacobian reduce (its per-window phase-2 combine is latency-bound). Kept
-   * for reference. Mutually exclusive with coopReduce. Shares config.coopSeg.
-   */
-  segReduce?: boolean;
-  /** Cooperative reduce: buckets per segment (each thread's serial running-sum),
-   * snapped to a power of two in [1, STRIDE]. G = STRIDE/coopSeg is the
-   * workgroup size. Default targets G=8. coopSeg=1 is a pure (tot,ws) tree. */
-  coopSeg?: number;
   /** Record per-pass GPU timestamps in `run()` (needs the `timestamp-query` feature). */
   profile?: boolean;
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
@@ -73,19 +55,6 @@ export interface MsmConfig {
   /** Radix-2 coarse reduce level runs affine (batched S=8) instead of Jacobian. WIP. */
   segAffineCoarse?: boolean;
   /**
-   * Per-level affine/Jacobian cut. When set, each reduce level independently
-   * runs Jacobian if it can't saturate the batch-affine path (doublings always
-   * Jacobian; adds Jacobian iff numWindows·ppw < {@link reduceSatThreshold}),
-   * else batch-affine. Saturated late tree levels stay affine even with a
-   * Jacobian middle — the jac→affine flip is bridged by a batched convert.
-   * Replaces the single contiguous `jacobianCrossover` suffix-cut.
-   */
-  perLevelJac?: boolean;
-  /** Per-level cut saturation threshold (active threads); ppw·numWindows below this runs Jacobian. */
-  reduceSatThreshold?: number;
-  /** Slots per thread (one safegcd per chunk) in the batched jac→affine convert. Tuning knob. */
-  convChunk?: number;
-  /**
    * GPU/CPU split experiment: snapshot red_buf after this many reduce levels so
    * the remaining levels can be finished single-threaded on the CPU (wasm
    * bb_msm_complete_reduce). -1 = off. Requires the all-affine reduce
@@ -93,14 +62,6 @@ export interface MsmConfig {
    * getReduceDensePack() and hands it to the wasm completion.
    */
   reduceSnapshotLevel?: number;
-  /**
-   * Convert-affordability bound (in slots = numWindows·stride). The per-level
-   * cut only pushes the doublings to Jacobian — which forces one jac→affine
-   * convert — when numWindows·stride is at or below this. Above it, only the
-   * free starved suffix runs Jacobian (no convert). Device-calibrated; on M2 the
-   * crossover is between c=13 (82k slots, convert pays) and c=15 (279k, doesn't).
-   */
-  convertBound?: number;
   /**
    * Sparsity extent clamp: process only the first STRIDE' = this value buckets
    * per window in the segmented reduce (must be >= the max live bucket index,
@@ -148,17 +109,6 @@ export interface MsmConfig {
    * Default: large (≥ n, i.e. single chunk = unchanged behaviour).
    */
   chunkPoints?: number;
-
-  /**
-   * Fused-kernel peel variant. When true, the high-memory backend's fused
-   * accumulate merges its inverse pass and backward peel into one descending
-   * loop: each slot's x-coordinates load once (vs three times) and the
-   * per-slot inverse is never round-tripped through pref_scratch. The cost is
-   * the running inverse staying live across the affine add (~8 extra
-   * registers) — a win on large-register-file GPUs (Apple), but spill-prone
-   * on Adreno/Mali, so it is off by default.
-   */
-  fusedMergedPeel?: boolean;
 
   /**
    * Collapse the high-memory pair-tree's starved deep-tail levels into one

@@ -99,13 +99,6 @@ const gpuKnobs: MsmConfig = (() => {
     segReduceG: optInt('segredg'),
     reduceTsat: optInt('tsat'),
     segAffineCoarse: q.get('segaff') === '1' || undefined,
-    perLevelJac: q.get('perlevel') === '1' || undefined,
-    reduceSatThreshold: optInt('redsat'),
-    convChunk: optInt('convc'),
-    convertBound: optInt('convbound'),
-    coopReduce: q.get('coopreduce') === '1' || undefined,
-    segReduce: q.get('segreduce') === '1' || undefined,
-    coopSeg: optInt('coopseg'),
     // GPU/CPU split: the GPU hands off to the CPU after this many reduce levels;
     // the CPU always does the rest of the reduce + the Horner window fold. Default
     // (large) = GPU does the whole reduce, CPU does only the fold (the baseline).
@@ -126,9 +119,6 @@ const gpuKnobs: MsmConfig = (() => {
     // High-memory backend point-chunk size M (?chunkpts=). Bounds the pair-tree
     // A/B to O(M) points regardless of scalar distribution.
     chunkPoints: optInt('chunkpts'),
-    // High-memory fused peel-merge variant (?fusedmerge=1). Apple-favourable
-    // (one x-load/slot, no inv_dx round-trip; inv stays live).
-    fusedMergedPeel: q.get('fusedmerge') === '1' || undefined,
     // High-memory cooperative fused-tail (default on): collapse the starved
     // deep-tail levels into one coop dispatch. ?fusedcooptail=0 forces it off.
     fusedCoopTail: q.get('fusedcooptail') === '0' ? false : q.get('fusedcooptail') === '1' ? true : undefined,
@@ -518,7 +508,7 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
   const smallScalar = (maxExclusive: number): bigint => BigInt(Math.floor(Math.random() * maxExclusive));
   if (distMode === 'clustered') {
     const Kparam = new URLSearchParams(window.location.search).get('num_distinct');
-    const K = Math.max(1, Math.min(n, parseInt(Kparam ?? String(Math.max(1, n >> 8)), 10) || (n >> 8)));
+    const K = Math.max(1, Math.min(n, parseInt(Kparam ?? String(Math.max(1, n >> 8)), 10) || n >> 8));
     log('info', `[gen] clustered scalars: ${K} distinct values sampled across ${n} inputs`);
     const pool = new Array<bigint>(K);
     for (let j = 0; j < K; j++) pool[j] = randomFr();
@@ -606,7 +596,10 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<Msm> {
       .map(([k, v]) => `${k}=${v}`)
       .join(' ');
     const backendName = gpuKnobs.backend === 'high_memory' ? 'MsmHighMemory' : 'MsmStreamWalker';
-    log('info', `[gpu-warm] building ${backendName} for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`);
+    log(
+      'info',
+      `[gpu-warm] building ${backendName} for ${inputs.n.toLocaleString()} points${knobStr ? ` [${knobStr}]` : ''}`,
+    );
     const t0 = performance.now();
     // The SRS pool (Montgomery upload) is shared across backends; each backend's
     // own scratch lives in the BackendPool. The high-memory backend host-folds
@@ -616,9 +609,10 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<Msm> {
     // its per-MSM scratch budget to 100 MiB (overridable with ?membudget=) so the
     // dev bench exercises the bounded path. combineOnHost: true gives the bench
     // the affine point directly.
-    const cfg = gpuKnobs.backend === 'high_memory'
-      ? { ...gpuKnobs, combineOnHost: true, memBudgetMB: gpuKnobs.memBudgetMB ?? 100 }
-      : gpuKnobs;
+    const cfg =
+      gpuKnobs.backend === 'high_memory'
+        ? { ...gpuKnobs, combineOnHost: true, memBudgetMB: gpuKnobs.memBudgetMB ?? 100 }
+        : gpuKnobs;
     const built = await createMsm(gpuDevice, inputs.n, srsPool, cfg);
     msmV2 = built.msm;
     msmV2Pool = built.pool;
@@ -695,7 +689,10 @@ async function runWebGpuOnce(
   // timestamp sum goes partial once the GPU stops early at the cutoff).
   (window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number }).__lastWallMs = ms;
   (window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number }).__lastCpuFoldMs = cpuMs;
-  log('info', `[gpu] returned in ${ms.toFixed(1)} ms (cut=${cutoff >= 1000 ? 'all-gpu-reduce' : cutoff} cpu_fold=${cpuMs.toFixed(2)}ms)`);
+  log(
+    'info',
+    `[gpu] returned in ${ms.toFixed(1)} ms (cut=${cutoff >= 1000 ? 'all-gpu-reduce' : cutoff} cpu_fold=${cpuMs.toFixed(2)}ms)`,
+  );
   // MsmStreamWalker does not emit a per-pass GPU profile; the breakdown table skips
   // a null-profile capture, so the GPU column there simply renders empty.
   return { ms, xy, capture: { profile: null } };
@@ -1607,7 +1604,11 @@ function hideProgress(): void {
       // After warmup: msmV2 is built and ready. Run N timed iterations
       // by clicking Run for each rep and collecting __lastPhaseMs.
       const samples: { wallMs: number; gpuMs: number; cpuFoldMs: number; phases: Record<string, number> }[] = [];
-      const win = window as unknown as { __lastWallMs?: number; __lastCpuFoldMs?: number; __lastPhaseMs?: Record<string, number> };
+      const win = window as unknown as {
+        __lastWallMs?: number;
+        __lastCpuFoldMs?: number;
+        __lastPhaseMs?: Record<string, number>;
+      };
       for (let r = 0; r < reps; r++) {
         win.__lastWallMs = undefined;
         $run.click();
@@ -1627,7 +1628,10 @@ function hideProgress(): void {
         const phases = win.__lastPhaseMs ?? {};
         const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
         samples.push({ wallMs, gpuMs, cpuFoldMs, phases });
-        log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(2)}ms cpu_fold=${cpuFoldMs.toFixed(2)}ms gpu_ts=${gpuMs.toFixed(1)}ms`);
+        log(
+          'info',
+          `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(2)}ms cpu_fold=${cpuFoldMs.toFixed(2)}ms gpu_ts=${gpuMs.toFixed(1)}ms`,
+        );
       }
       const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
       const minOf = (arr: number[]) => arr.reduce((a, b) => Math.min(a, b), Infinity);
@@ -1638,17 +1642,23 @@ function hideProgress(): void {
       const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
       const avgPhases: Record<string, number> = {};
       for (const key of allPhaseKeys) avgPhases[key] = avg(samples.map(s => s.phases[key] ?? 0));
-      const avgPhaseStr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
+      const avgPhaseStr = Object.entries(avgPhases)
+        .map(([k, v]) => `${k}=${v.toFixed(1)}`)
+        .join(' ');
       (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
       // Per-MSM scratch byte-sum published by runWebGpuOnce (high-memory backend
       // only; 0 / absent on the walker). Deterministic across reps — report it
       // on the DONE line so the memory gate can grep it.
       const scratchBytes = (window as unknown as { __lastScratchBytes?: number }).__lastScratchBytes ?? 0;
       {
-        const bd = (window as unknown as { __lastScratchBreakdown?: Record<string, number> | null }).__lastScratchBreakdown;
+        const bd = (window as unknown as { __lastScratchBreakdown?: Record<string, number> | null })
+          .__lastScratchBreakdown;
         if (bd) {
-          const top = Object.entries(bd).sort((a, b) => b[1] - a[1]).slice(0, 8)
-            .map(([k, v]) => `${k}=${(v / (1024 * 1024)).toFixed(2)}MB`).join(' ');
+          const top = Object.entries(bd)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+            .map(([k, v]) => `${k}=${(v / (1024 * 1024)).toFixed(2)}MB`)
+            .join(' ');
           log('info', `[scratch-breakdown] ${top}`);
         }
         const pi = (window as unknown as { __lastPlanInfo?: Record<string, number> }).__lastPlanInfo;
@@ -1660,9 +1670,12 @@ function hideProgress(): void {
               `wstride1=${pi.wstride1} BW=${pi.BW} levels=${pi.levels} maxPB/w=${pi.maxPairBlocksPerWindow} maxCarry/w=${pi.maxCarriesPerWindow}`,
           );
       }
-      log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
-        `min_wall=${minWall.toFixed(2)}ms avg_wall=${avgWall.toFixed(2)}ms cpu_fold=${avgCpuFold.toFixed(2)}ms gpu_ts=${avgGpu.toFixed(1)}ms ` +
-        `scratch_bytes=${scratchBytes} scratch_mb=${(scratchBytes / (1024 * 1024)).toFixed(2)} ${avgPhaseStr}`);
+      log(
+        'ok',
+        `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
+          `min_wall=${minWall.toFixed(2)}ms avg_wall=${avgWall.toFixed(2)}ms cpu_fold=${avgCpuFold.toFixed(2)}ms gpu_ts=${avgGpu.toFixed(1)}ms ` +
+          `scratch_bytes=${scratchBytes} scratch_mb=${(scratchBytes / (1024 * 1024)).toFixed(2)} ${avgPhaseStr}`,
+      );
       // Detailed where-does-the-time-go breakdown: per-phase GPU ms + dispatch
       // count + us/dispatch (so launch overhead vs real compute is visible),
       // plus the wall-minus-gpu_ts gap (driver gaps + Chrome mapAsync polling).
@@ -1674,21 +1687,41 @@ function hideProgress(): void {
         // pt_*/rd*) and high-memory phases (decompose/transpose/convert/fused/
         // carry/finalize/reduce_*) both fold into front / accumulate / reduce.
         const groupOf = (k: string) =>
-          /^stream_walker|^walker_index|^preprocess|^planner|^size1|^decompose|^transpose|^convert/.test(k) ? 'front'
-          : /^combine_batched|^pt_|^fused|^carry|^finalize/.test(k) ? 'accumulate'
-          : /^rd\d|^reduce|^jc\d|^seg_/.test(k) ? 'bucket_reduce' : 'other';
+          /^stream_walker|^walker_index|^preprocess|^planner|^size1|^decompose|^transpose|^convert/.test(k)
+            ? 'front'
+            : /^combine_batched|^pt_|^fused|^carry|^finalize/.test(k)
+              ? 'accumulate'
+              : /^rd\d|^reduce|^jc\d|^seg_/.test(k)
+                ? 'bucket_reduce'
+                : 'other';
         const groupMs: Record<string, number> = { front: 0, accumulate: 0, bucket_reduce: 0, other: 0 };
         const groupCnt: Record<string, number> = { front: 0, accumulate: 0, bucket_reduce: 0, other: 0 };
-        for (const [k, v] of Object.entries(avgPhases)) { const g = groupOf(k); groupMs[g] += v; groupCnt[g] += (cnt[k] ?? 0); }
-        log('info', `[detail] total: gpu_ts=${avgGpu.toFixed(2)}ms over ${passCount} dispatches | min_wall=${minWall.toFixed(2)}ms | wall−gpu_ts gap=${(minWall - avgGpu).toFixed(2)}ms (driver gaps + mapAsync poll)`);
-        for (const g of ['front', 'accumulate', 'bucket_reduce', 'other']) {
-          const perDisp = groupCnt[g] > 0 ? (groupMs[g] * 1000 / groupCnt[g]) : 0;
-          log('info', `[detail] ${g.padEnd(14)} = ${groupMs[g].toFixed(2)}ms  (${groupCnt[g]} disp, ${perDisp.toFixed(0)} us/disp, ${(100 * groupMs[g] / avgGpu).toFixed(0)}%)`);
+        for (const [k, v] of Object.entries(avgPhases)) {
+          const g = groupOf(k);
+          groupMs[g] += v;
+          groupCnt[g] += cnt[k] ?? 0;
         }
-        const rows = Object.entries(avgPhases).map(([k, v]) => ({ k, v, c: cnt[k] ?? 0 })).sort((a, b) => b.v - a.v).slice(0, 12);
+        log(
+          'info',
+          `[detail] total: gpu_ts=${avgGpu.toFixed(2)}ms over ${passCount} dispatches | min_wall=${minWall.toFixed(2)}ms | wall−gpu_ts gap=${(minWall - avgGpu).toFixed(2)}ms (driver gaps + mapAsync poll)`,
+        );
+        for (const g of ['front', 'accumulate', 'bucket_reduce', 'other']) {
+          const perDisp = groupCnt[g] > 0 ? (groupMs[g] * 1000) / groupCnt[g] : 0;
+          log(
+            'info',
+            `[detail] ${g.padEnd(14)} = ${groupMs[g].toFixed(2)}ms  (${groupCnt[g]} disp, ${perDisp.toFixed(0)} us/disp, ${((100 * groupMs[g]) / avgGpu).toFixed(0)}%)`,
+          );
+        }
+        const rows = Object.entries(avgPhases)
+          .map(([k, v]) => ({ k, v, c: cnt[k] ?? 0 }))
+          .sort((a, b) => b.v - a.v)
+          .slice(0, 12);
         for (const r of rows) {
-          const perDisp = r.c > 0 ? (r.v * 1000 / r.c) : 0;
-          log('info', `[detail]   ${r.k.padEnd(20)} ${r.v.toFixed(2)}ms  ${String(r.c).padStart(3)}disp  ${perDisp.toFixed(0)}us/disp`);
+          const perDisp = r.c > 0 ? (r.v * 1000) / r.c : 0;
+          log(
+            'info',
+            `[detail]   ${r.k.padEnd(20)} ${r.v.toFixed(2)}ms  ${String(r.c).padStart(3)}disp  ${perDisp.toFixed(0)}us/disp`,
+          );
         }
       }
       const allLines: string[] = [];
@@ -1708,7 +1741,15 @@ function hideProgress(): void {
       log('err', `[bench] FATAL: ${msg}`);
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
-      await client.postResults({ state: 'error', params: { logN: autorunLogN, reps, page: 'msm-bench' }, results: null, error: msg, log: allLines.slice(-100), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, reps, page: 'msm-bench' },
+        results: null,
+        error: msg,
+        log: allLines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
     }
   } else if (autorun === 'msm-cross-check') {
     const autorunLogN = parseInt(qp.get('logn') ?? '14', 10);
@@ -1787,9 +1828,14 @@ function hideProgress(): void {
         tree_dump: treeDump ?? null,
         ab_diag: abDiag,
       };
-      const state = (debugSmvp || debugTreeOut)
-        ? ((dump !== undefined || treeDump !== undefined) ? 'done' : 'error')
-        : (crossOk && errLines.length === 0 ? 'done' : 'error');
+      const state =
+        debugSmvp || debugTreeOut
+          ? dump !== undefined || treeDump !== undefined
+            ? 'done'
+            : 'error'
+          : crossOk && errLines.length === 0
+            ? 'done'
+            : 'error';
       await client.postResults({
         state,
         params,

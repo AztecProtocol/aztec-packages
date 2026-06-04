@@ -82,10 +82,7 @@ const COOP_TAIL_WG = 256;
 const COOP_TAIL_STARVE = 4096;
 const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
 
-
-
 // --- pure helpers ---
-
 
 function makeRng(seed: number): () => number {
   let state = seed >>> 0 || 1;
@@ -256,7 +253,14 @@ function planLevel(counts: Uint32Array, s: number, numWindows: number, BW: numbe
     pairBlocksPerWindow = Math.max(pairBlocksPerWindow, Math.ceil(pairs / s));
     carriesPerWindow = Math.max(carriesPerWindow, carries);
   }
-  const plan: LevelPlan = { pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0, maxCount, activeCount };
+  const plan: LevelPlan = {
+    pairBlocksPerWindow,
+    carriesPerWindow,
+    totalPairBlocks: 0,
+    totalCarries: 0,
+    maxCount,
+    activeCount,
+  };
   return { plan, newCounts };
 }
 
@@ -1050,18 +1054,6 @@ export class MsmHighMemory {
   private zInitPipe!: GPUComputePipeline;
   private jacLevelPipe!: GPUComputePipeline;
   private jacFinalizePipe!: GPUComputePipeline;
-  // Single-dispatch cooperative reduce (STRIDE <= 128): the whole per-window
-  // weighted sum in one workgroup, replacing zInit + jacLevel*N + jacFinalize.
-  private coopReducePipe!: GPUComputePipeline;
-  private useCoopReduce = false;
-  // Segmented-global reduce (STRIDE <= 128, default for small c): phase 1 writes
-  // G partials/window to global seg_buf, phase 2 combines them per window,
-  // jacFinalize inverts. Reliable replacement for the flaky cooperative reduce,
-  // collapsing the ~20-dispatch level tree to seg1 + seg2 + jacFinalize.
-  private seg1Pipe!: GPUComputePipeline;
-  private seg2Pipe!: GPUComputePipeline;
-  private useSegGlobal = false;
-  private segG = 0;
   // layouts (needed by prepare to build bind groups)
   private plannerALayout!: GPUBindGroupLayout;
   private plannerBLayout!: GPUBindGroupLayout;
@@ -1090,9 +1082,6 @@ export class MsmHighMemory {
   private zInitLayout!: GPUBindGroupLayout;
   private jacLevelLayout!: GPUBindGroupLayout;
   private jacFinalizeLayout!: GPUBindGroupLayout;
-  private coopReduceLayout!: GPUBindGroupLayout;
-  private seg1Layout!: GPUBindGroupLayout;
-  private seg2Layout!: GPUBindGroupLayout;
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
@@ -1195,10 +1184,6 @@ export class MsmHighMemory {
   private jacLevelBinds: GPUBindGroup[] = [];
   private zInitBind!: GPUBindGroup;
   private jacFinalizeBind!: GPUBindGroup;
-  private coopReduceBind!: GPUBindGroup;
-  private seg1Bind!: GPUBindGroup;
-  private seg2Bind!: GPUBindGroup;
-  private segBuf!: GPUBuffer;
   private levelBinds: LevelBind[] = [];
   // Point-chunk dispatch plans (one per chunk of `chunkPoints` points). The
   // chunk loop in encodeIntoBatch iterates these; each carries its own level
@@ -1214,7 +1199,12 @@ export class MsmHighMemory {
    * the point pool (`n` must be `<= pool.srsN`). `config` tunes the pipeline
    * knobs; every field defaults to current behaviour (see {@link MsmConfig}).
    */
-  static async create(device: GPUDevice, n: number, pool: MsmHighMemoryPool, config?: MsmConfig): Promise<MsmHighMemory> {
+  static async create(
+    device: GPUDevice,
+    n: number,
+    pool: MsmHighMemoryPool,
+    config?: MsmConfig,
+  ): Promise<MsmHighMemory> {
     const m = new MsmHighMemory();
     m.device = device;
     m.pool = pool;
@@ -1236,11 +1226,6 @@ export class MsmHighMemory {
     m.chunkPoints =
       config?.chunkPoints !== undefined && config.chunkPoints > 0 ? config.chunkPoints : Number.MAX_SAFE_INTEGER;
     const wantProfile = config?.profile ?? false;
-    // Apple/big-register-file fused variant: merges the inverse pass and
-    // backward peel into one loop (one x-load per slot, no inv_dx pref
-    // round-trip) at the cost of `inv` staying live. Off by default (the
-    // split path is register-lean for Adreno/Mali).
-    const MERGED_PEEL = config?.fusedMergedPeel ?? false;
     const COOP_TAIL = config?.fusedCoopTail ?? true;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
@@ -1416,14 +1401,14 @@ export class MsmHighMemory {
       m.plannerBLayout,
     );
     m.fusedPipe = await compile(
-      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, false, ADDSUB, MERGED_PEEL),
+      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, false, ADDSUB),
       `fused`,
       m.fusedLayout,
     );
     m.carryPipe = await compile(sm.gen_ba_carry_copy_bench_shader(WGI), `carry`, m.carryLayout);
     m.finalizePipe = await compile(sm.gen_ba_finalize_copy_bench_shader(WGI), `finalize`, m.finalizeLayout);
     m.fusedPipeL0 = await compile(
-      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, true, ADDSUB, MERGED_PEEL),
+      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, true, ADDSUB),
       `fused-l0`,
       m.fusedLayoutL0,
     );
@@ -1489,64 +1474,16 @@ export class MsmHighMemory {
     // All-Jacobian reduce: one kind-agnostic level kernel (kind in lparams.w),
     // a Z-plane seed from is_present, and an affine convert at the end.
     m.zInitPipe = await compile(sm.gen_ba_reduce_z_init_shader(WGI), `reduce-z-init`, m.zInitLayout);
-    m.jacLevelPipe = await compile(sm.gen_ba_reduce_level_jacobian_shader(REDUCE_WG), `reduce-level-jac`, m.jacLevelLayout);
+    m.jacLevelPipe = await compile(
+      sm.gen_ba_reduce_level_jacobian_shader(REDUCE_WG),
+      `reduce-level-jac`,
+      m.jacLevelLayout,
+    );
     m.jacFinalizePipe = await compile(
       sm.gen_ba_reduce_jac_finalize_shader(WGI, INV_VARIANT),
       `reduce-jac-finalize`,
       m.jacFinalizeLayout,
     );
-    // Small c: a single workgroup-cooperative dispatch (one workgroup per
-    // window) computing the window's weighted bucket sum via a 2N segmented
-    // running-sum in shared memory. OFF by default: the cooperative
-    // shared-memory handoff (array<array<u32,8>> + barrier + cross-thread read)
-    // is unreliable on M2/Metal — ~7-50% of runs produce a wrong window sum,
-    // scaling with workgroup size, independent of the reduction structure (four
-    // kernel variants all flaked; the global-memory multi-dispatch reduce
-    // sharing the same jac_add is 12/12 reliable). Opt in via config.coopReduce
-    // on backends where threadgroup arrays-of-arrays are reliable.
-    m.useCoopReduce = config?.coopReduce === true && STRIDE <= 128;
-    if (m.useCoopReduce) {
-      // SS = buckets per segment (each thread's serial running-sum), snapped to
-      // a power of two in [1, STRIDE]; G = STRIDE/SS = workgroup size = segments
-      // per window. SS=1 degenerates to a pure (tot,ws) tree; SS=STRIDE to one
-      // serial thread per window. Tunable via config.coopSeg.
-      //
-      // Default SS targets G = 8 threads/window. Larger G has more occupancy
-      // (faster) but the (tot,ws) tree's correctness degrades with depth on M2
-      // (G=8 -> 8/8 green, G=16 -> 7/8, G=32 -> ~5/10) — a Metal/Tint
-      // workgroup-memory issue, not the algorithm (the multi-dispatch reduce
-      // shares jac_add and is reliable). G=8 (a 3-level tree) is the reliable
-      // point and still beats the multi-dispatch reduce on wall.
-      const ssReq = config?.coopSeg ?? Math.max(1, STRIDE / 8);
-      const ss = Math.min(STRIDE, Math.max(1, 2 ** Math.round(Math.log2(ssReq))));
-      const coopG = STRIDE / ss;
-      m.coopReduceLayout = lt(['storage', 'storage', 'read-only-storage', 'uniform']); // red_buf, red_z, is_present, cparams
-      m.coopReducePipe = await compile(
-        sm.gen_ba_reduce_coop_shader(STRIDE, coopG, INV_VARIANT),
-        `reduce-coop`,
-        m.coopReduceLayout,
-      );
-    }
-    // Segmented-global reduce (opt-in, config.segReduce): the 2N segmented
-    // running-sum with partials in a global seg_buf — reliable on M2/Metal,
-    // unlike the cooperative shared-memory coop. OFF by default because it does
-    // NOT beat the all-Jacobian reduce: phase 2 combines the G partials with one
-    // thread per window (~37 threads), which is latency-bound (4-8 ms) and far
-    // slower than the all-Jacobian's bucket-parallel level tree (2.7 ms). The
-    // all-Jacobian reduce is compute-bound — the coop showed one cooperative
-    // dispatch lands at the same ~2.4 ms — so collapsing dispatches buys nothing
-    // and a bucket-parallel phase 2 would just re-derive the all-Jacobian tree.
-    // Kept for reference / as a phase-1 building block. SS = config.coopSeg.
-    m.useSegGlobal = config?.segReduce === true && !m.useCoopReduce && STRIDE <= 128;
-    if (m.useSegGlobal) {
-      const ssReq = config?.coopSeg ?? 4;
-      const ss = Math.min(STRIDE, Math.max(1, 2 ** Math.round(Math.log2(ssReq))));
-      m.segG = STRIDE / ss;
-      m.seg1Layout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']); // red_buf, is_present, seg_buf, params
-      m.seg2Layout = lt(['read-only-storage', 'storage', 'storage', 'uniform']); // seg_buf, red_buf, red_z, params
-      m.seg1Pipe = await compile(sm.gen_ba_reduce_seg1_shader(STRIDE, m.segG, WGI), `reduce-seg1`, m.seg1Layout);
-      m.seg2Pipe = await compile(sm.gen_ba_reduce_seg2_shader(STRIDE, m.segG, WGI), `reduce-seg2`, m.seg2Layout);
-    }
 
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
@@ -1685,7 +1622,14 @@ export class MsmHighMemory {
           if (strideCnt > wstride1) wstride1 = strideCnt;
         }
         if (!anyActive) break;
-        levelPlans.push({ pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0, maxCount, activeCount });
+        levelPlans.push({
+          pairBlocksPerWindow,
+          carriesPerWindow,
+          totalPairBlocks: 0,
+          totalCarries: 0,
+          maxCount,
+          activeCount,
+        });
         swap();
       }
       return { levelPlans, wstride1 };
@@ -2244,12 +2188,9 @@ export class MsmHighMemory {
       // lparams.w carries the kind (0 suffix / 1 tree / 2 double) so the
       // runtime-kind Jacobian level kernel branches on it (the affine kernel,
       // kept compiled, bakes the kind in and ignores .w).
-      const lparams = ubuf(new Uint32Array([
-        schedule[i * 4 + 1],
-        schedule[i * 4 + 2],
-        schedule[i * 4 + 3],
-        this.reduceLevelKinds[i],
-      ]));
+      const lparams = ubuf(
+        new Uint32Array([schedule[i * 4 + 1], schedule[i * 4 + 2], schedule[i * 4 + 3], this.reduceLevelKinds[i]]),
+      );
       this.jacLevelBinds.push(mkBind(this.jacLevelLayout, [redBuf, this.redZBuf, cparams, lparams]));
       return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams]);
     });
@@ -2257,22 +2198,6 @@ export class MsmHighMemory {
     this.zInitBind = mkBind(this.zInitLayout, [isPresentBuf, this.redZBuf, zInitParams]);
     const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, this.stride, this.numWindows]));
     this.jacFinalizeBind = mkBind(this.jacFinalizeLayout, [redBuf, this.redZBuf, jacFinalizeParams, isPresentBuf]);
-    if (this.useCoopReduce) {
-      // cparams = (M (red_buf stride), _, num_windows, _)
-      const coopParams = ubuf(new Uint32Array([RED_M, 0, this.numWindows, 0]));
-      this.coopReduceBind = mkBind(this.coopReduceLayout, [redBuf, this.redZBuf, isPresentBuf, coopParams]);
-    }
-    if (this.useSegGlobal) {
-      // seg_buf: numWindows*G partials, each 12 vec4 (tot + ws Jacobians).
-      const segParams = ubuf(new Uint32Array([RED_M, this.numWindows, 0, 0]));
-      this.segBuf = device.createBuffer({
-        size: this.numWindows * this.segG * 12 * 16,
-        usage: GPUBufferUsage.STORAGE,
-      });
-      this.prepBuffers.push(this.segBuf);
-      this.seg1Bind = mkBind(this.seg1Layout, [redBuf, isPresentBuf, this.segBuf, segParams]);
-      this.seg2Bind = mkBind(this.seg2Layout, [this.segBuf, redBuf, this.redZBuf, segParams]);
-    }
     this.redBuf = redBuf;
     this.redStaging = device.createBuffer({
       size: NUM_WINDOWS * 64,
@@ -2516,9 +2441,7 @@ export class MsmHighMemory {
       }
       // reduceInit + the reduce. Coop path: reduceInit + 1 cooperative dispatch.
       // All-Jacobian path: reduceInit + zInit + jacLevel×N + jacFinalize.
-      // reduce passes: coop = init+coop+jacfinal (3); segGlobal =
-      // init+seg1+seg2+jacfinal (4); all-Jacobian = init+zinit+jacfinal + levels.
-      passes += this.useCoopReduce ? 3 : this.useSegGlobal ? 4 : 3 + this.reducePasses.length;
+      passes += 3 + this.reducePasses.length;
       // A timestamp QuerySet is capped (Dawn allows ≤ 4096 entries = 2048
       // passes). The point-chunk loop multiplies the per-batch pass count by the
       // chunk count, which can blow past that at large N. Per-pass GPU profiling
@@ -2746,7 +2669,12 @@ export class MsmHighMemory {
             // grid: bucket count can exceed the 65535 per-dimension cap.
             const nBuckets = this.batchWindows * this.BW;
             setPhase('coop_tail');
-            dispatch(this.coopTailPipe!, lb.finalizeAccumBinds[bi], Math.min(nBuckets, 65535), Math.ceil(nBuckets / 65535));
+            dispatch(
+              this.coopTailPipe!,
+              lb.finalizeAccumBinds[bi],
+              Math.min(nBuckets, 65535),
+              Math.ceil(nBuckets / 65535),
+            );
             break;
           }
           const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
@@ -2771,38 +2699,17 @@ export class MsmHighMemory {
     }
     setPhase('reduce_init');
     dispatch(this.reduceInitPipe, this.reduceInitBind, this.nReduceInit, 1);
-    if (this.useCoopReduce) {
-      // Small c: one workgroup per window does the entire weighted bucket sum
-      // (Z-seed + segmented running-sum + (tot,ws) tree) in shared memory,
-      // leaving the Jacobian sum at slot w*stride; jacFinalize does the one
-      // inversion per window to affine.
-      setPhase('reduce_coop');
-      dispatch(this.coopReducePipe, this.coopReduceBind, this.numWindows, 1);
-      setPhase('reduce_jacfinal');
-      dispatch(this.jacFinalizePipe, this.jacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
-    } else if (this.useSegGlobal) {
-      // Segmented-global: phase 1 computes G partials/window into global seg_buf
-      // (one thread per segment), phase 2 combines them per window into the
-      // Jacobian sum at slot w*stride, jacFinalize inverts to affine.
-      setPhase('reduce_seg1');
-      dispatch(this.seg1Pipe, this.seg1Bind, Math.ceil((this.numWindows * this.segG) / WGI), 1);
-      setPhase('reduce_seg2');
-      dispatch(this.seg2Pipe, this.seg2Bind, Math.ceil(this.numWindows / WGI), 1);
-      setPhase('reduce_jacfinal');
-      dispatch(this.jacFinalizePipe, this.jacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
-    } else {
-      // All-Jacobian (inversion-free) bucket reduction: seed the Z-plane from
-      // is_present, run the runtime-kind Jacobian level kernel per schedule
-      // level, then convert each window's Jacobian sum back to affine once.
-      setPhase('reduce_zinit');
-      dispatch(this.zInitPipe, this.zInitBind, Math.ceil(this.redM / WGI), 1);
-      setPhase('reduce_level');
-      for (let lv = 0; lv < this.jacLevelBinds.length; lv++) {
-        dispatch(this.jacLevelPipe, this.jacLevelBinds[lv], this.numWindows, 1);
-      }
-      setPhase('reduce_jacfinal');
-      dispatch(this.jacFinalizePipe, this.jacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
+    // All-Jacobian (inversion-free) bucket reduction: seed the Z-plane from
+    // is_present, run the runtime-kind Jacobian level kernel per schedule
+    // level, then convert each window's Jacobian sum back to affine once.
+    setPhase('reduce_zinit');
+    dispatch(this.zInitPipe, this.zInitBind, Math.ceil(this.redM / WGI), 1);
+    setPhase('reduce_level');
+    for (let lv = 0; lv < this.jacLevelBinds.length; lv++) {
+      dispatch(this.jacLevelPipe, this.jacLevelBinds[lv], this.numWindows, 1);
     }
+    setPhase('reduce_jacfinal');
+    dispatch(this.jacFinalizePipe, this.jacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
     // Per-window weighted sum gather. Same SoA stride math as run(), just
     // targeting an external staging buffer at an external offset.
     const yPlane = 32 * this.redM;
