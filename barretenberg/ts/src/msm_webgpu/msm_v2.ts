@@ -57,7 +57,7 @@ const slotSize = (x: ScratchSlot): number => (x instanceof GPUBuffer ? x.size : 
 const clearSlot = (enc: GPUCommandEncoder, x: ScratchSlot): void => enc.clearBuffer(slotBuf(x), slotOff(x), slotSize(x));
 const writeSlot = (q: GPUQueue, x: ScratchSlot, off: number, data: BufferSource): void =>
   q.writeBuffer(slotBuf(x), slotOff(x) + off, data);
-const MEM_BUDGET = 160 * (1 << 20); // phone GPU-buffer budget (ARENA_LAYOUT.md §3)
+export const MEM_BUDGET = 160 * (1 << 20); // phone GPU-buffer budget (ARENA_LAYOUT.md §3)
 
 /**
  * Byte size of each of the 6 colour-partitioned arenas (ARENA_LAYOUT.md §1),
@@ -933,6 +933,17 @@ export class MsmV2Pool {
     this.cache = new PipelineCache(device);
     this.pairCap = Math.ceil(srsN / 2) + 16;
     this._device = device;
+  }
+
+  /**
+   * The SRS-pool bytes the budget gate charges as `srsBytes` — exactly
+   * `poolX.size + poolY.size`, matching `estimateMem`'s `srsBytes` term (the
+   * shared scratch/arena is counted separately as the working set, NOT here).
+   * Use this — not {@link statsBytes} — to drive the multi-MSM packer's budget,
+   * or the scratch double-counts into `srsBytes` once instances bind the pool.
+   */
+  srsBudgetBytes(): number {
+    return this.poolX.size + this.poolY.size;
   }
 
   /**

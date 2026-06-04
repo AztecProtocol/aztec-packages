@@ -5,6 +5,65 @@ ChonkApi's real MSM mix gets the saturation win. Branch: `msm-arena-rewrite`.
 Read alongside `MULTI_MSM_HANDOFF.md` (union internals) and `MULTI_MSM_PERF.md`
 (the win this realises).
 
+## STATUS: WIRED + VALIDATED (this session) — remaining = full C++ Chonk E2E + phone
+
+`runBatchMsm` now drives the union path (default ON). What landed:
+
+- **`bridge/union_runner.ts`** (new) — I/O-free `runUnionPacks(getUnionMsm,
+  descriptors, readScalars, {srsBytes, budgetBytes})`: candidate split (`srsOffset≠0`/
+  `reserved≠0` → fallback) → `packByBudget` (union estimator) → per-pack
+  scalars-reorder + `prepareBatch` + `run` → per-member windowSums; budget-overflow
+  peels the last member to a solo pack and retries (graceful degrade). Returns
+  `{results, fallback}` so every descriptor's result+meta is written exactly once.
+- **`bridge/main.ts`** — `runBatchMsm` branches on `unionBridgeEnabled()` (set
+  `globalThis.__msm_union_bridge = false` to force the legacy per-MSM path for A/B
+  or instant revert). `runBatchMsmUnion` decodes descriptors, calls `runUnionPacks`,
+  scatters results in the SAME canonical-LE format + `(numWindows, c)` meta as legacy.
+  Excluded/overflow members → `runSoloBridgeMember` (per-MSM). Union instances cached
+  by pack max-n in `unionMsms` (separate LRU, cap 8) so prepareBatch never thrashes
+  the per-MSM `lru`.
+- **`batch_scheduler.ts`** — `unionFootprintBytes` mirrors the runtime
+  `estimateMem(1)` union branch EXACTLY (envelope `l0=(ΣNW)·maxN`, `sBTotal=NW·maxBW`,
+  tight `batchSlots=Σ NW_k·n_k`/`redM`/`scalars`; verified `=== estimateMem` at K=1 +
+  homogeneous bar the once-counted planMeta). `packByBudget` takes an `estimator`
+  option (bridge passes `unionFootprintBytes`). The budget-reconciliation sub-task is
+  DONE: at the realistic 160 MiB the packer's split passes the runtime gate with **no
+  throw** (estimator is exact); the peel is a pure safety net.
+- **`msm_v2.ts`** — `export const MEM_BUDGET`; `MsmV2Pool.srsBudgetBytes()` =
+  `poolX.size+poolY.size` (the budget gate's `srsBytes` — NOT `statsBytes()`, which
+  folds in scratch and would double-count once instances bind).
+
+**Validation (all green):**
+- 29 unit tests (estimator fidelity + packer feasibility).
+- Golden single-MSM 14–17 byte-identical + oracle-agree (shared path unregressed).
+- `msm-batch-check` (union math) byte-identical for homogeneous + heterogeneous +
+  profile E (the fitting cases).
+- **`?autorun=msm-bridge-check`** (new) — drives `runUnionPacks` over a reverse-layout
+  scalars region + a trailing `srsOffset≠0` member: every packable member byte-
+  identical union≡solo, excluded→fallback, multi-pack + budget-peel, uniform +
+  profile E.
+- **`?autorun=msm-bridge-e2e`** (new) — drives the **REAL `WebGpuMsmHost`** over a
+  synthetic WASM memory + control SAB: the union path's result+meta regions are
+  **byte-identical to the solo oracle** for small, large-heterogeneous, AND profile-E
+  batches ⇒ identical proof. (The proof is a pure function of those regions.)
+
+**Finding (worth the operator's attention):** the **legacy single-encoder path**
+(flag OFF) ran every member in ONE command buffer over the shared pool scratch and
+**diverged from the oracle for a batch of 3 large distinct-n members** (byte 0 of
+member 0 came back 0); it matched the oracle for a small 2-member batch. The union
+path matched the oracle in every case — so the union is not just faster, it removes a
+latent multi-member concurrency fragility. (Whether real ChonkApi batches hit that
+shape is unconfirmed; the union default sidesteps it regardless.)
+
+**Remaining:** (1) the full C++ Chonk prove E2E (`browser_chonk_integration` /
+`ecdsar1+transfer_1_recursions` dump) with `union_bridge` on — the bridge contract is
+proven in isolation (byte-identical to oracle through the real host), so this is final
+confirmation, not new risk. (2) phone (Adreno/Mali) bench. (3) telemetry polish: the
+per-member `[msm] … kind=union gpu=` value is a pack-wall share, not a per-MSM GPU
+timestamp (union instances are `profile:false`).
+
+The recipe below is the implementation record.
+
 ## TL;DR
 
 - The union is **correct** (byte-identical, all profiles + heterogeneous, n and c)

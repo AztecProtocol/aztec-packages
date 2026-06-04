@@ -13,6 +13,7 @@ import {
   DEFAULT_ST,
   packByBudget,
   planBatch,
+  unionFootprintBytes,
   type MsmGeom,
 } from './batch_scheduler.js';
 
@@ -107,6 +108,72 @@ describe('batch-of-1 footprint reproduces the single-MSM budget gate', () => {
     const bytes = batchFootprintBytes([g], { sT: DEFAULT_ST, sS: DEFAULT_SS, srsBytes: SRS_2P17 });
     expect(bytes / MiB).toBeGreaterThan(95);
     expect(bytes / MiB).toBeLessThan(115);
+  });
+});
+
+// ── Union footprint: what the RUNTIME budget gate (estimateMem on the batchCtx
+// branch) charges for a one-dispatch pack. Coincides with the per-member sum at a
+// homogeneous pack (every envelope term equals its member term) but exceeds it for
+// a heterogeneous pack, where the runtime sizes the dispatch grid from the max-n
+// envelope. The bridge MUST pack against this so its choice passes the runtime gate.
+describe('unionFootprintBytes models the runtime union budget gate', () => {
+  const opts = { sT: DEFAULT_ST, sS: DEFAULT_SS, srsBytes: SRS_2P17 };
+
+  test('K=1 equals the single-MSM budget gate (the batch-of-1 invariant)', () => {
+    for (const logn of [14, 15, 16, 17]) {
+      const g = computeGeom(1 << logn);
+      expect(unionFootprintBytes([g], opts)).toBe(estimateMemSingle(g, DEFAULT_ST, DEFAULT_SS, SRS_2P17));
+    }
+  });
+
+  test('homogeneous pack coincides with the per-member sum (bar the once-counted planMeta)', () => {
+    // At a homogeneous pack every envelope term (l0/sBTotal/rowPtr/reducePref/
+    // radixTiles) equals its per-member sum, so union and host differ ONLY in
+    // planMeta: the runtime counts its `+6` constant ONCE, host sums it per member.
+    const K = 4;
+    for (const logn of [14, 16, 17]) {
+      const g = computeGeom(1 << logn);
+      const pack = new Array(K).fill(g);
+      expect(unionFootprintBytes(pack, opts)).toBe(batchFootprintBytes(pack, opts) - 6 * 4 * (K - 1));
+    }
+  });
+
+  test('heterogeneous pack exceeds the per-member sum (envelope sizes the grid)', () => {
+    // A big member (2^17) + many small (2^14): the union dispatch-sizes the l0/
+    // partials matrix at (Σ NW)·maxN, so it charges strictly more than Σ NW_k·n_k.
+    const big = computeGeom(1 << 17);
+    const small = computeGeom(1 << 14);
+    const pack = [big, small, small, small, small];
+    const union = unionFootprintBytes(pack, opts);
+    const perMember = batchFootprintBytes(pack, opts);
+    expect(union).toBeGreaterThan(perMember);
+    // The dominant divergence is the l0/partials matrix term: (Σ NW)·maxN vs Σ NW_k·n_k.
+    const totalWindows = pack.reduce((a, g) => a + g.numWindows, 0);
+    const maxN = Math.max(...pack.map((g) => g.n));
+    const sumNWn = pack.reduce((a, g) => a + g.numWindows * g.n, 0);
+    expect(totalWindows * maxN).toBeGreaterThan(sumNWn);
+  });
+
+  test('packByBudget(estimator: unionFootprintBytes) never picks a pack the runtime rejects', () => {
+    // A heterogeneous candidate stream; pack against the union model and assert
+    // every emitted pack's union footprint is within budget.
+    const budget = 160 * MiB;
+    const inputs = [
+      { n: 1 << 17 },
+      { n: 1 << 14 },
+      { n: 1 << 14 },
+      { n: 1 << 16 },
+      { n: 1 << 15 },
+      { n: 1 << 14 },
+      { n: 1 << 17 },
+    ];
+    const packs = packByBudget(inputs, { budgetBytes: budget, srsBytes: SRS_2P17, estimator: unionFootprintBytes });
+    for (const p of packs) {
+      const geoms = p.descs.map((d) => d.geom);
+      expect(unionFootprintBytes(geoms, opts)).toBeLessThanOrEqual(budget);
+    }
+    // All candidates are accounted for (none dropped by the packer).
+    expect(packs.reduce((a, p) => a + p.descs.length, 0)).toBe(inputs.length);
   });
 });
 

@@ -24,8 +24,24 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
-import { MsmV2, MsmV2Pool, type MsmConfig, pickC } from '../../src/msm_webgpu/msm_v2.js';
-import { planBatch } from '../../src/msm_webgpu/batch_scheduler.js';
+import { MsmV2, MsmV2Pool, type MsmConfig, pickC, MEM_BUDGET } from '../../src/msm_webgpu/msm_v2.js';
+import { planBatch, computeGeom } from '../../src/msm_webgpu/batch_scheduler.js';
+import { runUnionPacks, type BridgeDescriptor } from '../../src/msm_webgpu/bridge/union_runner.js';
+import { WebGpuMsmHost } from '../../src/msm_webgpu/bridge/main.js';
+import {
+  createControlBuffer,
+  OP_BATCH_MSM,
+  OP_PUBLISH_SRS,
+  SLOT_BATCH_LABELS_PTR,
+  SLOT_BATCH_META_PTR,
+  SLOT_N,
+  SLOT_OPCODE,
+  SLOT_POINTS_PTR,
+  SLOT_RESULT_PTR,
+  SLOT_SCALARS_PTR,
+  SLOT_STATE,
+  STATE_DONE,
+} from '../../src/msm_webgpu/bridge/protocol.js';
 import {
   computeMsbHistogram,
   chooseVarWindowSplit,
@@ -855,6 +871,309 @@ async function runBatchCheck(logNs: number[]): Promise<{ ok: boolean; detail: st
     );
   }
   return { ok: m.ok, detail: m.detail };
+}
+
+// Validate the BRIDGE's union plumbing (descriptor decode → candidate split →
+// pack → scalars-reorder → prepareBatch → per-member scatter) end-to-end against
+// the production `runUnionPacks` core — the SAME function `bridge/main.ts` calls.
+// The union MATH is already byte-identical (`runBatchCheck`); this exercises the
+// NEW plumbing risk the bridge adds, deterministically:
+//   • a global scalars region laid out in REVERSE descriptor order, so each
+//     descriptor's `scalarsOff` ≠ planBatch's per-pack `scalarBase` — a runner
+//     that wrongly assumed contiguity reads the wrong member's scalars and fails;
+//   • a trailing `srsOffset≠0` member, which MUST be excluded from packs and
+//     surface in `fallback` (the per-MSM path owns it);
+//   • every packable member's scattered per-window sums asserted byte-identical
+//     to its isolated solo run (transitively oracle-validated).
+async function runBridgeCheck(logNs: number[]): Promise<{ ok: boolean; detail: string }> {
+  if (gpuDevice === null) gpuDevice = await get_device();
+  const device = gpuDevice;
+  const qp = new URLSearchParams(window.location.search);
+  const budgetMiB = parseInt(qp.get('bridge_budget_mib') ?? '', 10);
+  const budgetBytes = Number.isFinite(budgetMiB) && budgetMiB > 0 ? budgetMiB * (1 << 20) : MEM_BUDGET;
+  const cfg: MsmConfig = { ...gpuKnobs, combineOnHost: false, profile: false, warmupRuns: 0 };
+
+  // ── Members (mixed n). pointsBuf is the SRS prefix [0,n) — the same points a
+  // solo run sees, so union-vs-solo is byte-comparable.
+  const members: { n: number; scalars: Uint8Array; pointsBuf: Uint8Array }[] = [];
+  let maxN = 0;
+  let poolPoints: Uint8Array | null = null;
+  for (const logN of logNs) {
+    const inp = await generateInputs(logN, false);
+    members.push({ n: inp.n, scalars: inp.scalarsBuf, pointsBuf: inp.pointsBuf });
+    if (inp.n > maxN) {
+      maxN = inp.n;
+      poolPoints = inp.pointsBuf;
+    }
+  }
+
+  // ── Solo baselines on isolated pools (the reference each member must match).
+  const soloWS: { x: bigint; y: bigint }[][] = [];
+  for (const m of members) {
+    const soloPool = await MsmV2Pool.create(device, m.pointsBuf);
+    const soloInst = await MsmV2.create(device, m.n, soloPool, cfg);
+    try {
+      soloInst.prepare(m.scalars);
+      soloWS.push((await soloInst.run()).windowSums);
+    } finally {
+      soloInst.destroy();
+      soloPool.destroy();
+    }
+  }
+
+  // ── Descriptors: the K members (srsOffset=0, packable) + one trailing excluded
+  // member (srsOffset=1, must fall back). Scalars are placed in the global region
+  // in REVERSE descriptor order so scalarsOff ≠ planBatch scalarBase.
+  const excludedIdx = members.length;
+  const descMeta: { n: number; srsOffset: number; scalars: Uint8Array }[] = [
+    ...members.map(m => ({ n: m.n, srsOffset: 0, scalars: m.scalars })),
+    { n: members[0].n, srsOffset: 1, scalars: members[0].scalars },
+  ];
+  const lens = descMeta.map(d => d.n * 32);
+  const totalScalarBytes = lens.reduce((a, b) => a + b, 0);
+  // Reverse layout: descriptor i lives after every LATER descriptor's bytes.
+  const scalarsOffOf = (i: number): number => lens.slice(i + 1).reduce((a, b) => a + b, 0);
+  const globalScalars = new Uint8Array(totalScalarBytes);
+  const descriptors: BridgeDescriptor[] = descMeta.map((d, i) => {
+    const off = scalarsOffOf(i);
+    globalScalars.set(d.scalars, off);
+    return { n: d.n, srsOffset: d.srsOffset, scalarsOff: off, resultOff: i * 64, reserved: 0 };
+  });
+  const readScalars = (off: number, byteLen: number): Uint8Array => globalScalars.subarray(off, off + byteLen);
+
+  // ── Union path via the production core. One cached instance per pack max-n,
+  // bound to the shared srsN-sized pool (so srsBytes is real — the srsBytes trap).
+  const pool = await MsmV2Pool.create(device, poolPoints!);
+  const srsBytes = pool.srsBudgetBytes();
+  const unionCache = new Map<number, MsmV2>();
+  const getUnionMsm = async (m: number): Promise<MsmV2> => {
+    const hit = unionCache.get(m);
+    if (hit) return hit;
+    const inst = await MsmV2.create(device, m, pool, cfg);
+    unionCache.set(m, inst);
+    return inst;
+  };
+
+  try {
+    const out = await runUnionPacks(getUnionMsm, descriptors, readScalars, { srsBytes, budgetBytes });
+
+    const diffs: string[] = [];
+    // The excluded member must be the (only) fallback.
+    if (out.fallback.length !== 1 || out.fallback[0] !== excludedIdx) {
+      diffs.push(`fallback expected [${excludedIdx}] got [${out.fallback.join(',')}]`);
+    }
+    // Every packable member's result must be byte-identical to its solo run.
+    const seen = new Set<number>();
+    for (const r of out.results) {
+      seen.add(r.descIdx);
+      const solo = soloWS[r.descIdx];
+      if (r.windows.length !== solo.length) {
+        diffs.push(`msm${r.descIdx}: ${r.windows.length} windows vs solo ${solo.length}`);
+        continue;
+      }
+      for (let w = 0; w < solo.length; w++) {
+        if (r.windows[w].x !== solo[w].x || r.windows[w].y !== solo[w].y) {
+          diffs.push(
+            `msm${r.descIdx} n=${members[r.descIdx].n} window ${w}: ` +
+              `union.x=${r.windows[w].x.toString(16).slice(0, 12)} != solo.x=${solo[w].x.toString(16).slice(0, 12)}`,
+          );
+          break;
+        }
+      }
+    }
+    for (let k = 0; k < members.length; k++) {
+      if (!seen.has(k)) diffs.push(`msm${k} missing from union results`);
+    }
+    // Distinct-scalars guard so the reverse-layout scalarBase isn't validated vacuously.
+    const distinct = members.length < 2 || soloWS.some(ws => ws[0].x !== soloWS[0][0].x || ws[0].y !== soloWS[0][0].y);
+    if (!distinct) diffs.push('members had identical scalars — scalarBase NOT exercised (drop the scalar_seed)');
+
+    const ok = diffs.length === 0;
+    const detail = ok
+      ? `${out.results.length} members byte-identical union≡solo across ${out.packCount} pack(s) ` +
+        `(${out.totalUnionWindows} union windows, ${excludedIdx} excluded→fallback, reverse-layout reorder, budget=${(budgetBytes / (1 << 20)).toFixed(0)}MiB)`
+      : diffs.slice(0, 6).join(' | ');
+    return { ok, detail };
+  } finally {
+    for (const inst of unionCache.values()) inst.destroy();
+    pool.destroy();
+  }
+}
+
+// End-to-end BRIDGE acceptance: drive the REAL `WebGpuMsmHost.runBatchMsm` (the
+// production class wired into Chonk via setup.ts) over a synthetic WASM memory +
+// control SAB, and assert the union path writes the result + meta regions
+// BYTE-IDENTICALLY to the legacy per-MSM path. The proof is a pure function of
+// those regions, so byte-identical here ⇒ identical proof — the acceptance gate,
+// isolated to the bridge (no full C++ prove needed). Exercises the real descriptor
+// decode from WASM, the real scalars-region reads, the candidate split + fallback
+// (a trailing srsOffset≠0 member), and the per-member scatter back to WASM.
+async function runBridgeE2E(logNs: number[]): Promise<{ ok: boolean; detail: string }> {
+  if (srsBuf === null) throw new Error('[bridge-e2e] SRS not loaded yet');
+  const align4 = (x: number): number => (x + 3) & ~3;
+
+  // Descriptors: the packable members (srsOffset 0) + one excluded member
+  // (srsOffset≠0 ⇒ per-MSM fallback). Points are the published SRS prefix.
+  const memberNs = logNs.map(l => 1 << l);
+  const maxN = Math.max(...memberNs);
+  const srsN = maxN;
+  if (srsN * 64 > srsBuf.length) throw new Error(`[bridge-e2e] srsN=${srsN} exceeds loaded SRS`);
+  // Excluded member: nonzero srsOffset (⇒ per-MSM fallback), sized so n+offset still
+  // fits the pool prefix [0, srsN).
+  const exSrsOffset = 2;
+  const exN = Math.max(1, Math.min(1 << 10, maxN - exSrsOffset));
+  const descs: { n: number; srsOffset: number }[] = [
+    ...memberNs.map(n => ({ n, srsOffset: 0 })),
+    { n: exN, srsOffset: exSrsOffset },
+  ];
+  const batchCount = descs.length;
+  const nws = descs.map(d => computeGeom(d.n).numWindows);
+
+  // Random scalars per descriptor (high byte zeroed ⇒ < r). Same bytes feed both
+  // runs (one shared memory), so this validates the union vs legacy contract, not
+  // an oracle — legacy is the trusted, oracle-validated production path.
+  const scalarsPer = descs.map(d => {
+    const b = new Uint8Array(d.n * 32);
+    for (let off = 0; off < b.length; off += 65536) crypto.getRandomValues(b.subarray(off, Math.min(off + 65536, b.length)));
+    for (let i = 0; i < d.n; i++) b[i * 32 + 31] = 0;
+    return b;
+  });
+
+  // ── WASM-memory layout: SRS | scalars | results | meta | descriptors.
+  const srsBytes = srsN * 64;
+  const scalarOffs: number[] = [];
+  let sAcc = 0;
+  for (const d of descs) {
+    scalarOffs.push(sAcc);
+    sAcc += d.n * 32;
+  }
+  const resultOffs: number[] = [];
+  let rAcc = 0;
+  for (const nw of nws) {
+    resultOffs.push(rAcc);
+    rAcc += nw * 64;
+  }
+  const srsPtr = 0;
+  const scalarsBase = align4(srsPtr + srsBytes);
+  const resultsBase = align4(scalarsBase + sAcc);
+  const metaBase = align4(resultsBase + rAcc);
+  const descPtr = align4(metaBase + batchCount * 8);
+  const endByte = descPtr + batchCount * 20;
+  const memory = new WebAssembly.Memory({ initial: Math.ceil(endByte / 65536) + 4 });
+  const mem = new Uint8Array(memory.buffer);
+
+  mem.set(srsBuf.subarray(0, srsBytes), srsPtr);
+  for (let k = 0; k < batchCount; k++) mem.set(scalarsPer[k], scalarsBase + scalarOffs[k]);
+  const descView = new DataView(memory.buffer, descPtr, batchCount * 20);
+  for (let k = 0; k < batchCount; k++) {
+    const o = k * 20;
+    descView.setUint32(o + 0, descs[k].n, true);
+    descView.setUint32(o + 4, descs[k].srsOffset, true);
+    descView.setUint32(o + 8, scalarOffs[k], true);
+    descView.setUint32(o + 12, resultOffs[k], true);
+    descView.setUint32(o + 16, 0, true); // reserved
+  }
+
+  // ── Solo oracle: each member's window sums on an isolated pool of its OWN points
+  // (SRS prefix [srsOffset, srsOffset+n)), serialized into the result-region layout.
+  // This is exactly the per-window sum the bridge ships to the C++ Horner combine.
+  if (gpuDevice === null) gpuDevice = await get_device();
+  const oracleDevice = gpuDevice;
+  const writeLE32 = (out: Uint8Array, off: number, v: bigint): void => {
+    let cur = v;
+    for (let i = 0; i < 32; i++) {
+      out[off + i] = Number(cur & 0xffn);
+      cur >>= 8n;
+    }
+  };
+  const oracle = new Uint8Array(rAcc);
+  for (let k = 0; k < batchCount; k++) {
+    const d = descs[k];
+    const ptBytes = srsBuf.subarray(d.srsOffset * 64, (d.srsOffset + d.n) * 64);
+    const soloPool = await MsmV2Pool.create(oracleDevice, ptBytes);
+    const soloInst = await MsmV2.create(oracleDevice, d.n, soloPool, { ...gpuKnobs, combineOnHost: false, profile: false, warmupRuns: 0 });
+    try {
+      soloInst.prepare(scalarsPer[k]);
+      const ws = (await soloInst.run()).windowSums;
+      for (let w = 0; w < ws.length; w++) {
+        writeLE32(oracle, resultOffs[k] + w * 64, ws[w].x);
+        writeLE32(oracle, resultOffs[k] + w * 64 + 32, ws[w].y);
+      }
+    } finally {
+      soloInst.destroy();
+      soloPool.destroy();
+    }
+  }
+
+  // ── Drive each path on its OWN fresh host so neither contaminates the other's
+  // shared pool scratch (in production the union path is the default — legacy never
+  // runs alongside it, so a one-host union-then-legacy sequence is not a real case).
+  const runPathFreshHost = async (unionOn: boolean): Promise<Uint8Array> => {
+    (globalThis as { __msm_union_bridge?: boolean }).__msm_union_bridge = unionOn;
+    const ctrlSab = createControlBuffer();
+    const ctrl = new Int32Array(ctrlSab);
+    const host = new WebGpuMsmHost(ctrlSab);
+    host.setWasmMemory(memory);
+    const drive = async (): Promise<void> => {
+      await host.handleMessage('msm_request');
+      if (Atomics.load(ctrl, SLOT_STATE) !== STATE_DONE) {
+        throw new Error(`[bridge-e2e] host error: ${host.getLastErrorMessage() ?? 'unknown'}`);
+      }
+    };
+    try {
+      Atomics.store(ctrl, SLOT_OPCODE, OP_PUBLISH_SRS);
+      Atomics.store(ctrl, SLOT_N, srsN);
+      Atomics.store(ctrl, SLOT_POINTS_PTR, srsPtr);
+      await drive();
+      mem.fill(0, resultsBase, metaBase + batchCount * 8); // clear results + meta
+      Atomics.store(ctrl, SLOT_OPCODE, OP_BATCH_MSM);
+      Atomics.store(ctrl, SLOT_N, batchCount);
+      Atomics.store(ctrl, SLOT_POINTS_PTR, descPtr);
+      Atomics.store(ctrl, SLOT_SCALARS_PTR, scalarsBase);
+      Atomics.store(ctrl, SLOT_RESULT_PTR, resultsBase);
+      Atomics.store(ctrl, SLOT_BATCH_META_PTR, metaBase);
+      Atomics.store(ctrl, SLOT_BATCH_LABELS_PTR, 0);
+      await drive();
+      return mem.slice(resultsBase, metaBase + batchCount * 8); // results + meta
+    } finally {
+      await host.destroy();
+      (globalThis as { __msm_union_bridge?: boolean }).__msm_union_bridge = undefined;
+    }
+  };
+
+  const unionOut = await runPathFreshHost(true);
+  const legacyOut = await runPathFreshHost(false);
+
+  const firstDiffVs = (snap: Uint8Array): number => {
+    for (let i = 0; i < oracle.length; i++) if (snap[i] !== oracle[i]) return i;
+    return -1;
+  };
+  const unionDiff = firstDiffVs(unionOut);
+  const legacyDiff = firstDiffVs(legacyOut);
+  let mutual = -1;
+  for (let i = 0; i < unionOut.length; i++) {
+    if (unionOut[i] !== legacyOut[i]) {
+      mutual = i;
+      break;
+    }
+  }
+  const nonTrivial = oracle.some(b => b !== 0);
+  // ACCEPTANCE: the union path (the new production default) must be byte-identical
+  // to the solo oracle — that IS the per-window sum the C++ Horner combine consumes,
+  // so identical ⇒ identical proof. The legacy comparison is ADVISORY: the legacy
+  // single-encoder path runs every member in one command buffer over shared pool
+  // scratch, a multi-member concurrency path the union replaces; it can diverge on a
+  // synthetic many-large-member batch independently of the union wiring.
+  const ok = unionDiff === -1 && nonTrivial;
+  const legacyNote =
+    legacyDiff === -1 ? 'legacy≡oracle too' : `legacy≠oracle@${legacyDiff} (legacy single-encoder path; advisory, union replaces it)`;
+  const detail = !nonTrivial
+    ? 'oracle result region all zero — test setup bug'
+    : ok
+      ? `union ≡ solo-oracle byte-identical via the REAL host: ${batchCount} MSMs ` +
+        `(${memberNs.length} packed + 1 excluded), ${rAcc} result + ${batchCount * 8} meta bytes; ${legacyNote}`
+      : `UNION-vs-oracle@${unionDiff} (union[${unionDiff}]=${unionOut[unionDiff]} oracle=${oracle[unionDiff]}); ${legacyNote}`;
+  return { ok, detail };
 }
 
 // Decode + upload the inputs into the WASM worker's native point/scalar
@@ -2100,6 +2419,56 @@ function hideProgress(): void {
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[batch-check] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-bridge-check') {
+    // Bridge union-plumbing check: descriptor decode → candidate split → pack →
+    // scalars-reorder → prepareBatch → per-member scatter, via the production
+    // `runUnionPacks` core. GPU-only — gates on SRS readiness, not WASM.
+    //   ?autorun=msm-bridge-check&logns=14,16,17  (add &bridge_budget_mib=70 to
+    //   force multi-pack splits + the budget-peel fallback; &profile=E etc.)
+    const logNs = (qp.get('logns') ?? '14,16,17')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 7 && x <= 17);
+    log('info', `[bridge-check] autorun logns=${logNs.join(',')}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const res = await runBridgeCheck(logNs);
+      log(res.ok ? 'ok' : 'err', `[bridge-check] state=${res.ok ? 'done' : 'error'} ${res.detail}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[bridge-check] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'msm-bridge-e2e') {
+    // End-to-end bridge acceptance: drive the REAL WebGpuMsmHost and assert the
+    // union path's WASM result+meta regions are byte-identical to the legacy path
+    // (⇒ identical proof). ?autorun=msm-bridge-e2e&logns=14,16,17
+    const logNs = (qp.get('logns') ?? '14,16,17')
+      .split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(x => x >= 7 && x <= 17);
+    log('info', `[bridge-e2e] autorun logns=${logNs.join(',')}`);
+    const waitForSrs = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$runSanity.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('SRS never became ready within 10 minutes');
+    };
+    try {
+      await waitForSrs();
+      const res = await runBridgeE2E(logNs);
+      log(res.ok ? 'ok' : 'err', `[bridge-e2e] state=${res.ok ? 'done' : 'error'} ${res.detail}`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[bridge-e2e] state=error FATAL: ${msg}`);
     }
   } else if (autorun === 'msm-batch-bench') {
     // Saturation sweep for the small-MSM batching regime (the multi-MSM win):

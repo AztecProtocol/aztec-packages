@@ -296,6 +296,58 @@ export function batchFootprintBytes(geoms: MsmGeom[], opts: { sT?: number; sS?: 
   return srsBytes + arenaBytes + countsOffsetsBytes + planMetaBytes + windowDescBytes;
 }
 
+/** Union-dispatch footprint — what the **runtime** budget gate actually charges
+ *  for a heterogeneous pack run as ONE dispatch (`msm_v2.ts` `estimateMem(1)` on
+ *  the `batchCtx` branch). It differs from {@link batchFootprintBytes} only when
+ *  the pack is heterogeneous: the union instance is created at the pack's **max n**,
+ *  so the dispatch-grid-sized terms (the `l0`/partials matrix, the envelope CSR
+ *  columns, the per-window prefix scratch, the radix tiles) are sized from the
+ *  envelope `(maxN, BW(maxN))` × the total window count — NOT summed per member.
+ *  The tight terms (scatter working set `Σ NW_k·n_k`, red_buf `Σ stride_w`,
+ *  scalars `Σ 32·n_k`) match the per-member sum. At a homogeneous pack (and at
+ *  K=1) every envelope term equals its per-member sum, so this coincides with
+ *  `batchFootprintBytes` (asserted in the test).
+ *
+ *  `batchFootprintBytes` **under-counts** a heterogeneous pack (its `l0` uses
+ *  `Σ NW_k·n_k`, not `(Σ NW)·maxN`), so packing by it can pick a pack the runtime
+ *  then rejects. Pack by THIS so the choice always passes the runtime gate. */
+export function unionFootprintBytes(geoms: MsmGeom[], opts: { sT?: number; sS?: number; srsBytes?: number }): number {
+  const srsBytes = opts.srsBytes ?? 0;
+  if (geoms.length === 0) return srsBytes;
+  const sT = opts.sT ?? DEFAULT_ST;
+  const sS = opts.sS ?? DEFAULT_SS;
+  // The runtime creates the union instance at the pack's max n with default c, so
+  // its baked envelope (BW/stride/reduceWg) is `computeGeom(maxN)` — pickC is
+  // monotone, so this dominates every member's geometry.
+  const maxN = Math.max(...geoms.map((g) => g.n));
+  const env = computeGeom(maxN);
+  const totalWindows = geoms.reduce((a, g) => a + g.numWindows, 0); // Σ NW_k (this.numWindows)
+  const totalPoints = geoms.reduce((a, g) => a + g.numWindows * g.n, 0); // Σ NW_k·n_k (scatter set)
+  const redM = geoms.reduce((a, g) => a + g.redM, 0); // tight Σ stride_w (this.redM)
+  const scalarsBytes = geoms.reduce((a, g) => a + g.scalarBytes, 0); // Σ 32·n_k
+  // Envelope-sized terms (runtime sizes these from the maxN instance × total windows).
+  const sBTotal = totalWindows * env.BW; // this.bTotal
+  const rowPtrLen = totalWindows * (env.BW + 1);
+  const reducePrefBytes = totalWindows * env.reduceWg * Math.ceil(Math.ceil(env.stride / 2) / env.reduceWg) * 2 * 16;
+  const l0Slots = totalWindows * maxN + 3; // partials matrix dispatch-sized from maxN
+  const countsOffsetsBytes = 4 * (totalWindows * env.BW) * 4; // countsBufs[2] + offsetsBufs[2]
+  const planMetaBytes = (3 * totalWindows + 6) * 4; // runtime counts +6 ONCE, not per member
+  const windowDescBytes = Math.max(totalWindows, 128) * 8 * 4;
+  const arenaBytes = arenaColourSizes({
+    sT,
+    sS,
+    sBTotal,
+    sRadixTiles: Math.ceil(sBTotal / 2048),
+    batchSlots: totalPoints,
+    redM,
+    rowPtrLen,
+    reducePrefBytes,
+    scalarsBytes,
+    l0Slots,
+  }).reduce((acc, b) => acc + b, 0);
+  return srsBytes + arenaBytes + countsOffsetsBytes + planMetaBytes + windowDescBytes;
+}
+
 /** Build the complete {@link BatchLayout} for one pack of MSMs.
  *
  *  Concatenates each MSM's WindowDesc rows (MSM-local geometry) into the global
@@ -412,11 +464,23 @@ export function planBatch(
  *  this is what lets a pack of small MSMs hold many more than a naive K× model. */
 export function packByBudget(
   candidates: MsmPackInput[],
-  opts: { budgetBytes: number; srsBytes?: number; sT?: number; sS?: number; pointTile?: number },
+  opts: {
+    budgetBytes: number;
+    srsBytes?: number;
+    sT?: number;
+    sS?: number;
+    pointTile?: number;
+    /** Footprint model the packer fits against. Defaults to {@link batchFootprintBytes}
+     *  (the per-member sum). The bridge passes {@link unionFootprintBytes} so the pack
+     *  it picks always passes the runtime union budget gate (which sizes the dispatch
+     *  grid from the pack's max n, not the per-member sum). */
+    estimator?: (geoms: MsmGeom[], o: { sT?: number; sS?: number; srsBytes?: number }) => number;
+  },
 ): BatchLayout[] {
   const sT = opts.sT ?? DEFAULT_ST;
   const sS = opts.sS ?? DEFAULT_SS;
   const srsBytes = opts.srsBytes ?? 0;
+  const footprint = opts.estimator ?? batchFootprintBytes;
   const planOpts = { sT, sS, srsBytes, pointTile: opts.pointTile };
 
   const packs: BatchLayout[] = [];
@@ -433,7 +497,7 @@ export function packByBudget(
 
   for (const cand of candidates) {
     const g = computeGeom(cand.n, cand.geomConfig);
-    const trial = batchFootprintBytes([...currentGeoms, g], { sT, sS, srsBytes });
+    const trial = footprint([...currentGeoms, g], { sT, sS, srsBytes });
     if (trial <= opts.budgetBytes) {
       current.push(cand);
       currentGeoms.push(g);
@@ -441,7 +505,7 @@ export function packByBudget(
     }
     // Doesn't fit the current pack — flush it, then start fresh with this candidate.
     flush();
-    if (batchFootprintBytes([g], { sT, sS, srsBytes }) <= opts.budgetBytes) {
+    if (footprint([g], { sT, sS, srsBytes }) <= opts.budgetBytes) {
       current = [cand];
       currentGeoms = [g];
     } else {

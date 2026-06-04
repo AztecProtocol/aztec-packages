@@ -1,4 +1,5 @@
-import { MsmV2, MsmV2Pool } from '../msm_v2.js';
+import { MsmV2, MsmV2Pool, MEM_BUDGET } from '../msm_v2.js';
+import { runUnionPacks, type BridgeDescriptor } from './union_runner.js';
 import { get_device } from '../cuzk/gpu.js';
 import {
   ERR_GENERIC,
@@ -33,6 +34,21 @@ const MSM_LRU_CAP = 16;
 // range constraints) so 10 keeps every same-N batch on the single-encoder
 // path. Each extra slot ≈ 25 MB GPU memory at n=131k.
 const MAX_SAME_N_SLOTS = 10;
+// Distinct union instances (one per pack max-n) cached across the prove. Chonk's
+// commitment mix spans ~10 distinct n, and each pack's max-n is one of them, so a
+// small cache amortises union-instance creation (tens of ms each) over the whole
+// prove. Each is a full MsmV2 bound to the shared pool (envelope-sized prepare
+// buffers), so the cap is kept tighter than the per-MSM LRU.
+const UNION_LRU_CAP = 8;
+
+/** The multi-MSM union path drives `batch_multi_scalar_mul` through one saturating
+ *  GPU dispatch per budget-sized pack (MULTI_MSM_PERF.md: 3.5–14× GPU-throughput in
+ *  the small-MSM regime) instead of K sequential per-MSM dispatches. Set
+ *  `globalThis.__msm_union_bridge = false` to force the legacy per-MSM path (A/B
+ *  comparison or instant revert if a prove ever diverges). Default ON. */
+function unionBridgeEnabled(): boolean {
+  return (globalThis as { __msm_union_bridge?: boolean }).__msm_union_bridge !== false;
+}
 
 /**
  * Main-thread host for the WebGPU MSM bridge. Owns one `GPUDevice`, one shared
@@ -75,6 +91,10 @@ export class WebGpuMsmHost {
   private srsMsm: MsmV2 | null = null;
   private lru = new Map<number, MsmV2>();
   private slotPools = new Map<number, MsmV2[]>();
+  // Union instances for the multi-MSM packed path, keyed by a pack's max n (each
+  // bound to the shared pool). Separate from `lru` so a union prepareBatch and a
+  // per-MSM solo prepare never thrash the same instance's prepared buffers.
+  private unionMsms = new Map<number, MsmV2>();
 
   // If a request arrives before `setWasmMemory` is called, we can't service it.
   // Used by the test harness; production order is always memory-then-message.
@@ -149,6 +169,13 @@ export class WebGpuMsmHost {
         }
       }
     }
+    for (const m of this.unionMsms.values()) {
+      try {
+        m.destroy();
+      } catch {
+        /* idempotent */
+      }
+    }
     try {
       this.pool?.destroy();
     } catch {
@@ -157,6 +184,7 @@ export class WebGpuMsmHost {
     this.srsMsm = null;
     this.lru.clear();
     this.slotPools.clear();
+    this.unionMsms.clear();
     this.pool = null;
     // GPUDevice.destroy() lets the driver reclaim every shader pipeline and
     // buffer immediately instead of waiting for GC. Idempotent per the spec.
@@ -231,6 +259,8 @@ export class WebGpuMsmHost {
     this.lru.clear();
     for (const pools of this.slotPools.values()) for (const m of pools) m.destroy();
     this.slotPools.clear();
+    for (const m of this.unionMsms.values()) m.destroy();
+    this.unionMsms.clear();
     this.pool?.destroy();
 
     this.pool = await MsmV2Pool.create(device, srsBytes);
@@ -480,6 +510,15 @@ export class WebGpuMsmHost {
     }
 
     const device = await this.getDevice();
+
+    // Multi-MSM union path: pack the batch into budget-sized super-MSMs and run
+    // each as ONE saturating dispatch (MULTI_MSM_PERF.md). Byte-identical to the
+    // legacy per-MSM path (same per-window sums + meta), so the C++ Horner combine
+    // — and the proof — is unchanged. Flag off ⇒ fall through to the legacy path.
+    if (unionBridgeEnabled()) {
+      await this.runBatchMsmUnion(descs, labels, batchCount, scalarsBase, resultsBase, metaBase, tBatch0);
+      return;
+    }
 
     // Per-MSM submit strategy with batched mapAsync. We *cannot* collapse
     // all MSMs into one encoder because `MsmV2.prepare()` is queue-ordered
@@ -735,6 +774,157 @@ export class WebGpuMsmHost {
       metaOut[i * 2 + 1] = p.msm.c;
       p.staging.destroy();
     }
+  }
+
+  /**
+   * Multi-MSM union path for `OP_BATCH_MSM`. Packs the descriptors into budget-
+   * sized super-MSMs (`runUnionPacks`) and runs each as ONE saturating dispatch
+   * (`MsmV2.prepareBatch`), then scatters each member's per-window sums back to its
+   * result region in the SAME canonical-LE format + `(numWindows, c)` meta as the
+   * legacy per-MSM path — so the C++ Horner combine and the proof are unchanged.
+   * Members the union can't take (`srsOffset≠0`/`reserved≠0`, or too large for one
+   * dispatch) run on the per-MSM path via {@link runSoloBridgeMember}, so every
+   * descriptor's result + meta is written exactly once.
+   */
+  private async runBatchMsmUnion(
+    descs: Uint32Array,
+    labels: string[],
+    batchCount: number,
+    scalarsBase: number,
+    resultsBase: number,
+    metaBase: number,
+    tBatch0: number,
+  ): Promise<void> {
+    const wasm = this.wasmMemory!;
+    const pool = this.pool!;
+    const descriptors: BridgeDescriptor[] = new Array(batchCount);
+    for (let i = 0; i < batchCount; i++) {
+      descriptors[i] = {
+        n: descs[i * 5 + 0],
+        srsOffset: descs[i * 5 + 1],
+        scalarsOff: descs[i * 5 + 2],
+        resultOff: descs[i * 5 + 3],
+        reserved: descs[i * 5 + 4],
+      };
+      // Packable members use the SRS prefix [0,n); reject one that overruns the pool
+      // (the same guard the legacy path applies). srsOffset≠0 members are validated
+      // on the per-MSM path instead.
+      const d = descriptors[i];
+      if (d.srsOffset === 0 && d.reserved === 0 && d.n > this.srsN) {
+        throw new Error(`WebGPU bridge: batched union MSM ${i} n=${d.n} doesn't fit in pool (srsN=${this.srsN})`);
+      }
+    }
+
+    // Zero-copy scalar views into WASM memory — valid for the call's lifetime (the
+    // WASM worker is blocked on Atomics.wait, so it cannot grow/detach memory).
+    // `runUnionPacks` copies each member's bytes into its pack's concat buffer before
+    // any await.
+    const readScalars = (off: number, byteLen: number): Uint8Array =>
+      new Uint8Array(wasm.buffer, scalarsBase + off, byteLen);
+
+    const out = await runUnionPacks((maxN: number) => this.getOrCreateUnionMsm(maxN), descriptors, readScalars, {
+      srsBytes: pool.srsBudgetBytes(),
+      budgetBytes: MEM_BUDGET,
+    });
+
+    const metaOut = new Uint32Array(wasm.buffer, metaBase, batchCount * 2);
+    for (const r of out.results) {
+      const dst = new Uint8Array(wasm.buffer, resultsBase + r.resultOff, r.windows.length * 64);
+      for (let w = 0; w < r.windows.length; w++) {
+        writeBigIntLE(dst, w * 64, r.windows[w].x, 32);
+        writeBigIntLE(dst, w * 64 + 32, r.windows[w].y, 32);
+      }
+      metaOut[r.descIdx * 2 + 0] = r.windows.length;
+      metaOut[r.descIdx * 2 + 1] = r.c;
+    }
+
+    // Members the union path declined → per-MSM path (writes their result + meta).
+    for (const i of out.fallback) {
+      await this.runSoloBridgeMember(i, descs, scalarsBase, resultsBase, metaOut);
+    }
+
+    const tEnd = performance.now();
+    const perMemberMs = out.results.length > 0 ? (tEnd - tBatch0) / out.results.length : 0;
+    for (const r of out.results) {
+      console.log(
+        `[msm] name=${labels[r.descIdx]} n=${descs[r.descIdx * 5 + 0]} kind=union ` +
+          `gpu=${perMemberMs.toFixed(2)}ms (batch-union, idx=${r.descIdx})`,
+      );
+    }
+    console.log(
+      `[batch-union] count=${batchCount} packed=${out.results.length} packs=${out.packCount} ` +
+        `fallback=${out.fallback.length} unionWindows=${out.totalUnionWindows} ` +
+        `wall=${(tEnd - tBatch0).toFixed(1)}ms mem=${this.statsBytesSummary([...this.unionMsms.values()])}`,
+    );
+  }
+
+  /**
+   * Run one batch member on the per-MSM path (the union path's fallback for
+   * `srsOffset≠0`/`reserved≠0` members and any too large for one union dispatch).
+   * Writes its per-window sums + `(numWindows, c)` meta exactly as the legacy path.
+   */
+  private async runSoloBridgeMember(
+    i: number,
+    descs: Uint32Array,
+    scalarsBase: number,
+    resultsBase: number,
+    metaOut: Uint32Array,
+  ): Promise<void> {
+    const wasm = this.wasmMemory!;
+    const n = descs[i * 5 + 0];
+    const srsOffset = descs[i * 5 + 1];
+    const scalarsOff = descs[i * 5 + 2];
+    const resultOff = descs[i * 5 + 3];
+    const reserved = descs[i * 5 + 4];
+    if (reserved !== 0) {
+      // An off-SRS point pointer — never set by the current C++ batch hook. The
+      // single-MSM OP_MSM path handles off-SRS via a one-off pool; surface this
+      // loudly rather than silently treating it as an SRS-prefix MSM.
+      throw new Error(`WebGPU bridge: batched MSM ${i} has reserved=${reserved} (off-SRS points unsupported in a batch)`);
+    }
+    if (srsOffset + n > this.srsN) {
+      throw new Error(`WebGPU bridge: batched MSM ${i} n=${n} srsOffset=${srsOffset} doesn't fit in pool (srsN=${this.srsN})`);
+    }
+    const msm = await this.getOrCreateMsm(n);
+    const scalars = new Uint8Array(wasm.buffer, scalarsBase + scalarsOff, n * 32);
+    try {
+      msm.prepare(scalars, srsOffset);
+      const { windowSums } = await msm.run();
+      const dst = new Uint8Array(wasm.buffer, resultsBase + resultOff, windowSums.length * 64);
+      for (let w = 0; w < windowSums.length; w++) {
+        writeBigIntLE(dst, w * 64, windowSums[w].x, 32);
+        writeBigIntLE(dst, w * 64 + 32, windowSums[w].y, 32);
+      }
+      metaOut[i * 2 + 0] = windowSums.length;
+      metaOut[i * 2 + 1] = msm.c;
+    } catch (e) {
+      // A torn cached instance — drop it so the next request rebuilds.
+      this.evict(n);
+      throw e;
+    }
+  }
+
+  /**
+   * Get (or build) a union `MsmV2` sized to a pack's `maxN`, bound to the shared
+   * pool. Cached by `maxN` in its own LRU (separate from the per-MSM `lru`) so a
+   * union prepareBatch and a per-MSM prepare never thrash one instance's buffers.
+   */
+  private async getOrCreateUnionMsm(maxN: number): Promise<MsmV2> {
+    const hit = this.unionMsms.get(maxN);
+    if (hit) {
+      this.unionMsms.delete(maxN);
+      this.unionMsms.set(maxN, hit);
+      return hit;
+    }
+    const device = await this.getDevice();
+    const fresh = await MsmV2.create(device, maxN, this.pool!, { warmupRuns: 0, combineOnHost: false, profile: false });
+    while (this.unionMsms.size >= UNION_LRU_CAP) {
+      const oldest = this.unionMsms.keys().next().value as number;
+      this.unionMsms.get(oldest)!.destroy();
+      this.unionMsms.delete(oldest);
+    }
+    this.unionMsms.set(maxN, fresh);
+    return fresh;
   }
 }
 
