@@ -6,9 +6,8 @@ use std::collections::{HashMap, HashSet};
 use powdr_ast::{
     analyzed::{
         AlgebraicBinaryOperation, AlgebraicBinaryOperator, AlgebraicExpression,
-        AlgebraicUnaryOperation, AlgebraicUnaryOperator, Analyzed, Symbol,
+        AlgebraicUnaryOperation, AlgebraicUnaryOperator, Analyzed,
     },
-    parsed::visitor::ExpressionVisitable,
 };
 use powdr_number::FieldElement;
 

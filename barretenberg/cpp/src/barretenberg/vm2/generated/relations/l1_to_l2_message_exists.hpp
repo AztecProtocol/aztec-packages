@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -41,6 +40,7 @@ template <typename FF> class l1_to_l2_message_exists : public Relation<l1_to_l2_
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_LEAF_IN_RANGE_IS_ZERO:
             return "LEAF_IN_RANGE_IS_ZERO";
@@ -49,6 +49,7 @@ template <typename FF> class l1_to_l2_message_exists : public Relation<l1_to_l2_
         case SR_L1_TO_L2_MSG_EXISTS_U1_OUTPUT_TAG:
             return "L1_TO_L2_MSG_EXISTS_U1_OUTPUT_TAG";
         }
+#endif
         return std::to_string(index);
     }
 };

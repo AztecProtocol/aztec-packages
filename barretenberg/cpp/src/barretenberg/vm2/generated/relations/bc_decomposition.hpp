@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -60,6 +59,7 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_TRACE_CONTINUITY:
             return "TRACE_CONTINUITY";
@@ -100,6 +100,7 @@ template <typename FF> class bc_decomposition : public Relation<bc_decomposition
         case SR_BC_DECOMPOSITION_REPACKING:
             return "BC_DECOMPOSITION_REPACKING";
         }
+#endif
         return std::to_string(index);
     }
 };

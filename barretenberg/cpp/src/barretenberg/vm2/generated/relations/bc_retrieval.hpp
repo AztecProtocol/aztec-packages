@@ -3,7 +3,6 @@
 
 #include <string_view>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -45,6 +44,7 @@ template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>
 
     static std::string get_subrelation_label(size_t index)
     {
+#ifdef AVM_INCLUDE_COLUMN_INFORMATION
         switch (index) {
         case SR_INSTANCE_EXISTS_ON_SEL:
             return "INSTANCE_EXISTS_ON_SEL";
@@ -61,6 +61,7 @@ template <typename FF> class bc_retrieval : public Relation<bc_retrievalImpl<FF>
         case SR_RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED_IF_ERROR:
             return "RETRIEVED_BYTECODES_TREE_SIZE_NOT_CHANGED_IF_ERROR";
         }
+#endif
         return std::to_string(index);
     }
 };

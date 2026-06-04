@@ -46,7 +46,7 @@ TEST(TxDiscardConstrainingTest, CanOnlyDiscardInRevertiblePhases)
     trace.set(C::tx_is_revertible, 1, 0);
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES),
-        "CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES");
+        tx_discard_relation::get_subrelation_label(tx_discard_relation::SR_CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES));
 }
 
 TEST(TxDiscardConstrainingTest, FailureMustDiscard)
@@ -69,8 +69,9 @@ TEST(TxDiscardConstrainingTest, FailureMustDiscard)
     // Negative test: reverted=1 but discard=0
     trace.set(C::tx_reverted, 1, 1);
     trace.set(C::tx_discard, 1, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_REVERTED_MUST_DISCARD),
-                              "REVERTED_MUST_DISCARD");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_REVERTED_MUST_DISCARD),
+        tx_discard_relation::get_subrelation_label(tx_discard_relation::SR_REVERTED_MUST_DISCARD));
 }
 
 TEST(TxDiscardConstrainingTest, LastRowOfSetupCalculation)
@@ -116,7 +117,7 @@ TEST(TxDiscardConstrainingTest, DiscardPropagationNormal)
     // Negative test: discard doesn't propagate when it should
     trace.set(C::tx_discard, 2, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_DISCARD_PROPAGATION),
-                              "DISCARD_PROPAGATION");
+                              tx_discard_relation::get_subrelation_label(tx_discard_relation::SR_DISCARD_PROPAGATION));
     // reset discard to 1
     trace.set(C::tx_discard, 2, 1);
 }
@@ -239,7 +240,7 @@ TEST(TxDiscardConstrainingTest, FailureOnlyInTeardown)
     // Negative test: discard=0 somewhere in revertibles, but teardown fails
     trace.set(C::tx_discard, 3, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_DISCARD_PROPAGATION),
-                              "DISCARD_PROPAGATION");
+                              tx_discard_relation::get_subrelation_label(tx_discard_relation::SR_DISCARD_PROPAGATION));
     // reset discard to 1
     trace.set(C::tx_discard, 3, 1);
 }
@@ -302,7 +303,7 @@ TEST(TxDiscardConstrainingTest, DiscardButFailureNeverEncountered)
     // Negative test: no failure encountered in teardown, so propagation is never lifted.
     trace.set(C::tx_reverted, 6, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_DISCARD_PROPAGATION),
-                              "DISCARD_PROPAGATION");
+                              tx_discard_relation::get_subrelation_label(tx_discard_relation::SR_DISCARD_PROPAGATION));
     // now set the tree-padding & cleanup rows to discard so that propagation works,
     // but it should still fail because you cannot discard in non-revertible phases.
     trace.set(C::tx_discard, 7, 1);
@@ -310,7 +311,7 @@ TEST(TxDiscardConstrainingTest, DiscardButFailureNeverEncountered)
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<tx_discard_relation>(trace, tx_discard_relation::SR_CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES),
-        "CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES");
+        tx_discard_relation::get_subrelation_label(tx_discard_relation::SR_CAN_ONLY_DISCARD_IN_REVERTIBLE_PHASES));
 
     // reset all
     trace.set(C::tx_reverted, 6, 0);
