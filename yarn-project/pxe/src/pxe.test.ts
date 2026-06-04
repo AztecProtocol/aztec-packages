@@ -16,7 +16,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
   BlockHash,
-  Body,
   GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
 } from '@aztec/stdlib/block';
@@ -264,23 +263,7 @@ describe('PXE', () => {
         checkpointNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
       };
-
-      const genesisHeader = { hash: () => Promise.resolve(GENESIS_BLOCK_HEADER_HASH) } as unknown as BlockHeader;
-      const genesisBlockResponse: BlockResponse = {
-        header: genesisHeader,
-        archive,
-        hash: GENESIS_BLOCK_HEADER_HASH,
-        checkpointNumber: CheckpointNumber.ZERO,
-        indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
-        number: BlockNumber.ZERO,
-      };
-
-      const isBlockZeroQuery = (query: Parameters<AztecNode['getBlock']>[0]) =>
-        query === 0 || (typeof query === 'object' && 'number' in query && query.number === 0);
-
-      node.getBlock.mockImplementation((query => {
-        return Promise.resolve(isBlockZeroQuery(query) ? genesisBlockResponse : blockResponse);
-      }) as AztecNode['getBlock']);
+      node.getBlock.mockResolvedValue(blockResponse);
       node.getBlockData.mockResolvedValue(blockData);
 
       // Mock getChainTips which is needed for syncing tagged logs
@@ -317,19 +300,7 @@ describe('PXE', () => {
 
       contractAddress = contractInstance.address;
       eventSelector = EventSelector.random();
-      // A well-formed header hash for `lastKnownBlockNumber`; the stored events just need a consistent block hash.
-      l2BlockHash = await blockHeader.hash();
-
-      // Drive the real L2BlockStream to completion so the synchronizer adopts `lastKnownBlockNumber` as the anchor.
-      // Once genesis agrees (see the getBlock mock above) the stream ingests `lastKnownBlockNumber` as a `blocks-added`
-      // event, which the block synchronizer adopts as the anchor header. The anchor height bounds the default query
-      // range: events at the anchor block are returned, while events in later, not-yet-synced blocks stay above it and
-      // are excluded by the block-range cap (see PrivateEventFilterValidator).
-      //
-      // getBlocks must yield a body-bearing response so the stream source can build a real L2Block; getCheckpoints has
-      // nothing to serve (the single block is uncheckpointed here) and returns empty.
-      node.getBlocks.mockResolvedValue([{ ...blockResponse, body: Body.empty() }]);
-      node.getCheckpoints.mockResolvedValue([]);
+      l2BlockHash = BlockHash.random();
 
       scope = await AztecAddress.random();
 
