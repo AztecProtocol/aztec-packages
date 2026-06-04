@@ -271,7 +271,7 @@ impl MessageDelivery {
     ///
     /// ## Privacy
     ///
-    /// No information is revelead on-chain about sender, recipient, or the message contents. The message itself
+    /// No information is revealed on-chain about sender, recipient, or the message contents. The message itself
     /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
     /// keys in order to obtain the plaintext.
     ///
