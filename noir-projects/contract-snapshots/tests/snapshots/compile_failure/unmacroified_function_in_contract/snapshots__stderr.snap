@@ -12,8 +12,8 @@ error: Function foo must be marked as either #[external(...)], #[internal(...)],
     1: #[aztec]
             at src/main.nr:4:1
     2: aztec
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:107:5
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:109:5
     3: check_each_fn_macroified
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:341:13
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:346:13
 
 Aborting due to 1 previous error

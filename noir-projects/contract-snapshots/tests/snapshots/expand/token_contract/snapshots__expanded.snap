@@ -3164,7 +3164,7 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         self.enqueue_self._reduce_total_supply(amount);
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
@@ -3191,7 +3191,7 @@ pub contract Token {
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
         let on_behalf_of: AztecAddress = self.msg_sender();
         let nullifier: Field = compute_authwit_nullifier(on_behalf_of, inner_hash);
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
     }
@@ -3257,7 +3257,7 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         partial_note.complete_from_private(self.context, self.msg_sender(), self.storage.balances.get_storage_slot(), amount);
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
@@ -3454,9 +3454,9 @@ pub contract Token {
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
         let from: AztecAddress = self.msg_sender();
         let change: u128 = self.internal.subtract_balance(from, amount, INITIAL_TRANSFER_CALL_MAX_NOTES);
-        self.storage.balances.at(from).add(change).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
-        self.emit(Transfer { from: from, to: to, amount: amount}).deliver_to(to, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.balances.at(from).add(change).deliver(MessageDelivery::onchain_unconstrained());
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_unconstrained());
+        self.emit(Transfer { from: from, to: to, amount: amount}).deliver_to(to, MessageDelivery::onchain_unconstrained());
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
     }
@@ -3522,8 +3522,8 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_constrained());
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
     }
@@ -3589,9 +3589,9 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.OFFCHAIN);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.OFFCHAIN);
-        self.emit(Transfer { from: from, to: to, amount: amount}).deliver_to(to, MessageDelivery.OFFCHAIN);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::offchain());
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::offchain());
+        self.emit(Transfer { from: from, to: to, amount: amount}).deliver_to(to, MessageDelivery::offchain());
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
     }
@@ -3702,7 +3702,7 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         self.enqueue_self._increase_public_balance(to, amount);
         assert(within_revertible_phase == self.context.in_revertible_phase(), f"Phase change detected on function with phase check. If this is expected, use #[allow_phase_change]");
         self.context.finish()
@@ -3769,7 +3769,7 @@ pub contract Token {
         } else {
             assert(authwit_nonce == 0_Field, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero");
         };
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
         self.enqueue_self._increase_public_balance(to, amount);
         let macro__returned__values: PartialUintNote = self.internal._prepare_private_balance_increase(from);
         let serialized_params: [Field; 1] = <PartialUintNote as aztec::protocol::traits::Serialize>::serialize(macro__returned__values);
