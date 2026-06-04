@@ -1465,6 +1465,27 @@ describe('sequencer', () => {
       );
     });
 
+    it('does not warn at exactly the expected checkpoint land time', async () => {
+      // The checkpoint may still legitimately land at exactly its expected land time, so the tip is not yet
+      // overdue at that instant. This mirrors the archiver's orphan-prune boundary, which prunes only once
+      // strictly past the deadline.
+      setupSyncedToBlock({
+        blockNumber: BlockNumber(3),
+        blockSlot: SlotNumber(3),
+        blockCheckpointNumber: CheckpointNumber(3),
+        checkpointedCheckpointNumber: CheckpointNumber(2),
+        proposedCheckpointTipNumber: CheckpointNumber(2),
+        proposedCheckpointData: undefined,
+      });
+      dateProvider.setTime(orphanCheckpointDueSeconds() * 1000);
+      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+
+      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
+
+      expect(result).toBeUndefined();
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
     it('returns undefined without warning while the proposed checkpoint is not yet overdue', async () => {
       // Same orphan-shaped tip, but we are still within the normal pipelining window: the block proposal
       // for checkpoint 3 has arrived ahead of its checkpoint proposal, which is not yet due. This is the

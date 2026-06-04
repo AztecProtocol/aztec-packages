@@ -2222,6 +2222,18 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastProvisional);
     }, 15_000);
 
+    it('does not prune the orphan tip exactly at the deadline', async () => {
+      const { lastProvisional } = await setupOrphanTip();
+
+      // The checkpoint may still legitimately land at exactly its expected land time, so the orphan tip
+      // must survive this instant. Pruning only happens strictly past the deadline.
+      dateProvider.setTime(pruneDeadline() * 1000);
+      await archiver.syncImmediate();
+
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiver.getBlockNumber()).toEqual(lastProvisional);
+    }, 15_000);
+
     it('prunes the orphan tip once the grace window elapses', async () => {
       const { lastBlockInCp1, provisionalBlocks } = await setupOrphanTip();
 

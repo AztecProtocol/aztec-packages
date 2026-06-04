@@ -452,8 +452,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         this.timetable.getExpectedCheckpointLandTime(blockSlot, this.config.orphanProposedBlockPruneGraceSeconds),
       );
 
-      // If it's not checkpointed by the expected time, prune it along with all blocks after it.
-      if (now >= expectedCheckpointedByTime) {
+      // If it's still not checkpointed once strictly past the expected time, prune it along with all blocks
+      // after it. The checkpoint may still legitimately land at exactly its expected land time, so the tip is
+      // only orphaned once that instant has fully elapsed.
+      if (now > expectedCheckpointedByTime) {
         const pruneAfterBlockNumber = BlockNumber(blockNumber - 1);
         this.log.warn(
           `Pruning orphan blocks after block ${pruneAfterBlockNumber}: block at slot ${blockSlot} belongs to ` +

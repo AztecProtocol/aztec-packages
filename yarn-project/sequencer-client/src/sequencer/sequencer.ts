@@ -858,7 +858,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         ? 2 * Math.ceil(this.config.blockDurationMs / 1000)
         : 2 * DEFAULT_MIN_BLOCK_DURATION);
     const expectedByTime = BigInt(this.timetable.getExpectedCheckpointLandTime(blockSlot, graceSeconds));
-    return BigInt(this.dateProvider.nowInSeconds()) >= expectedByTime;
+    // Overdue only strictly past the expected land time: the checkpoint may still legitimately land at exactly
+    // that instant, mirroring the archiver's orphan-prune boundary so the two agree.
+    return BigInt(this.dateProvider.nowInSeconds()) > expectedByTime;
   }
 
   /**
