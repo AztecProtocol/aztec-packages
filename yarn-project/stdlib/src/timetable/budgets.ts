@@ -7,6 +7,9 @@ export const DEFAULT_P2P_PROPAGATION_TIME = 2;
 /** Default local checkpoint proposal preparation time (`checkpoint_proposal_prepare_time`) in seconds. */
 export const DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME = 1;
 
+/** Default local scheduling jitter for archiver orphan-prune checks when no checkpoint proposal was received. */
+export const DEFAULT_ORPHAN_PROPOSED_BLOCK_PRUNE_JITTER = 1;
+
 /**
  * Default proposer initialization time (`checkpoint_proposal_init_time`) in seconds: the budget reserved at
  * the start of the build frame for sync, the proposer check, and checkpoint initialization before the first
@@ -44,6 +47,11 @@ export type ResolvedTimingBudgets = {
   checkpointProposalPrepareTime: number;
   checkpointProposalInitTime: number;
 };
+
+/** Default consensus grace for received checkpoint proposals to materialize locally. */
+export function getDefaultCheckpointProposalSyncGrace(blockDuration: number | undefined): number {
+  return 2 * (blockDuration ?? DEFAULT_MIN_BLOCK_DURATION);
+}
 
 /**
  * Resolves the operational timing budgets, applying the fast local/e2e profile when

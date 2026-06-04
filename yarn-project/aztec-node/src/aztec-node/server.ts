@@ -590,9 +590,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // Track started resources so we can clean up on partial failure during node creation.
     const started: { stop?(): Promise<void> | void }[] = [];
     try {
-      // Default the orphan-prune grace window from the block build duration when unset, so the archiver
-      // waits roughly two build slots for validation/re-execution and ingestion before pruning a block-only tip.
-      config.orphanProposedBlockPruneGraceSeconds ??=
+      // Default the consensus materialization grace from the block build duration when unset, so the archiver
+      // gives received checkpoint proposals roughly two build slots to validate and enter proposed state.
+      config.checkpointProposalSyncGraceSeconds ??=
         config.blockDurationMs !== undefined
           ? 2 * Math.ceil(config.blockDurationMs / 1000)
           : 2 * DEFAULT_MIN_BLOCK_DURATION;
@@ -674,6 +674,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         initialBlockHash,
       );
       started.push(p2pClient);
+      archiver.setCheckpointProposalPresence(p2pClient);
 
       // We'll accumulate sentinel watchers here
       const watchers: Watcher[] = [];

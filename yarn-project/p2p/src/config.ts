@@ -47,6 +47,7 @@ export interface P2PConfig
       | 'maxTxsPerBlock'
       | 'attestationPropagationTime'
       | 'checkpointProposalPrepareTime'
+      | 'checkpointProposalSyncGraceSeconds'
       | 'minBlockDuration'
       | 'maxBlocksPerCheckpoint'
     > {

@@ -10,6 +10,7 @@ import {
 } from '@aztec/foundation/config';
 import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
+import { DEFAULT_ORPHAN_PROPOSED_BLOCK_PRUNE_JITTER } from '@aztec/stdlib/timetable';
 
 /**
  * The archiver configuration.
@@ -23,7 +24,7 @@ export type ArchiverConfig = ArchiverSpecificConfig &
   L1ContractsConfig &
   BlobClientConfig &
   ChainConfig &
-  Pick<SequencerConfig, 'blockDurationMs'>;
+  Pick<SequencerConfig, 'blockDurationMs' | 'checkpointProposalSyncGraceSeconds'>;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   ...blobClientConfigMapping,
@@ -46,6 +47,12 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'SEQ_BLOCK_DURATION_MS',
     description:
       'Duration per block in milliseconds when building multiple blocks per slot. Used to derive orphan proposed block pruning timing.',
+    ...optionalNumberConfigHelper(),
+  },
+  checkpointProposalSyncGraceSeconds: {
+    env: 'CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS',
+    description:
+      'Consensus grace in seconds for a received checkpoint proposal to materialize into local proposed state.',
     ...optionalNumberConfigHelper(),
   },
   skipValidateCheckpointAttestations: {
@@ -73,13 +80,11 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
       'Set to true to bypass the check when the connected RPC node is known to prune old logs.',
     ...booleanConfigHelper(false),
   },
-  orphanProposedBlockPruneGraceSeconds: {
-    env: 'ARCHIVER_ORPHAN_PROPOSED_BLOCK_PRUNE_GRACE_SECONDS',
+  orphanProposedBlockPruneJitterSeconds: {
+    env: 'ARCHIVER_ORPHAN_PROPOSED_BLOCK_PRUNE_JITTER_SECONDS',
     description:
-      'Grace period in seconds, measured from the checkpoint proposal receive deadline, after which ' +
-      'a proposed block with no matching proposed checkpoint is pruned as an orphan. Defaults to twice ' +
-      'the sequencer block duration at the node wiring layer when unset.',
-    ...optionalNumberConfigHelper(),
+      'Local scheduling jitter in seconds before pruning an orphan block when no checkpoint proposal was received.',
+    ...numberConfigHelper(DEFAULT_ORPHAN_PROPOSED_BLOCK_PRUNE_JITTER),
   },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,
@@ -110,6 +115,6 @@ export function mapArchiverConfig(config: Partial<ArchiverConfig>) {
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
     skipHistoricalLogsCheck: config.archiverSkipHistoricalLogsCheck,
-    orphanProposedBlockPruneGraceSeconds: config.orphanProposedBlockPruneGraceSeconds,
+    orphanProposedBlockPruneJitterSeconds: config.orphanProposedBlockPruneJitterSeconds,
   };
 }

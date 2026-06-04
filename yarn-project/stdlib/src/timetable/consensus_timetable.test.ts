@@ -36,15 +36,18 @@ describe('ConsensusTimetable', () => {
     expect(timetable.getCheckpointProposalReceiveDeadline(slot)).toBe(targetSlotStart - 18);
   });
 
-  it('expected checkpoint land time is the receive deadline plus orphan-prune grace', () => {
-    const graceSeconds = 2 * D;
-    expect(timetable.getExpectedCheckpointLandTime(slot, graceSeconds)).toBe(targetSlotStart - E - D + graceSeconds);
-    expect(timetable.getExpectedCheckpointLandTime(slot, graceSeconds)).toBe(targetSlotStart - 6);
+  it('checkpoint proposal synced deadline is next proposer build frame start plus sync grace', () => {
+    expect(timetable.getCheckpointProposalSyncedDeadline(slot)).toBe(targetSlotStart - E + 2 * D);
+    expect(timetable.getCheckpointProposalSyncedDeadline(slot)).toBe(targetSlotStart);
   });
 
-  it('rounds expected checkpoint land time up for fractional block durations', () => {
-    const fractional = new ConsensusTimetable({ l1Constants: l1Constants(S, E), blockDuration: 5.5 });
-    expect(fractional.getExpectedCheckpointLandTime(slot, 12)).toBe(targetSlotStart - 5);
+  it('rounds checkpoint proposal synced deadline up for fractional block durations', () => {
+    const fractional = new ConsensusTimetable({
+      l1Constants: l1Constants(S, E),
+      blockDuration: 5.5,
+      checkpointProposalSyncGrace: 12.25,
+    });
+    expect(fractional.getCheckpointProposalSyncedDeadline(slot)).toBe(targetSlotStart + 1);
   });
 
   it('attestation receive start equals the build frame start (liberal lower bound)', () => {

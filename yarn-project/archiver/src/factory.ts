@@ -16,7 +16,10 @@ import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
-import { DEFAULT_MIN_BLOCK_DURATION } from '@aztec/stdlib/timetable';
+import {
+  DEFAULT_ORPHAN_PROPOSED_BLOCK_PRUNE_JITTER,
+  getDefaultCheckpointProposalSyncGrace,
+} from '@aztec/stdlib/timetable';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -132,10 +135,12 @@ export async function createArchiver(
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: false,
       skipHistoricalLogsCheck: false,
-      orphanProposedBlockPruneGraceSeconds:
-        config.blockDurationMs !== undefined
-          ? 2 * Math.ceil(config.blockDurationMs / 1000)
-          : 2 * DEFAULT_MIN_BLOCK_DURATION,
+      checkpointProposalSyncGrace:
+        config.checkpointProposalSyncGraceSeconds ??
+        getDefaultCheckpointProposalSyncGrace(
+          config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
+        ),
+      orphanProposedBlockPruneJitterSeconds: DEFAULT_ORPHAN_PROPOSED_BLOCK_PRUNE_JITTER,
       enableOrphanProposedBlockPruning: opts.enableOrphanProposedBlockPruning ?? true,
       blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
     },

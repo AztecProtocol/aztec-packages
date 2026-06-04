@@ -1,6 +1,6 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 
-import { type ResolvedTimingBudgets, resolveTimingBudgets } from './budgets.js';
+import { type ResolvedTimingBudgets, getDefaultCheckpointProposalSyncGrace, resolveTimingBudgets } from './budgets.js';
 import { ConsensusTimetable, type SlotTimingConstants } from './consensus_timetable.js';
 
 /** Result of selecting the next block sub-slot to build. */
@@ -46,9 +46,15 @@ export class ProposerTimetable extends ConsensusTimetable {
     p2pPropagationTime: number;
     checkpointProposalPrepareTime: number;
     checkpointProposalInitTime: number;
+    checkpointProposalSyncGrace?: number;
     enforce: boolean;
   }) {
-    super({ l1Constants: opts.l1Constants, blockDuration: opts.blockDuration });
+    super({
+      l1Constants: opts.l1Constants,
+      blockDuration: opts.blockDuration,
+      checkpointProposalSyncGrace:
+        opts.checkpointProposalSyncGrace ?? getDefaultCheckpointProposalSyncGrace(opts.blockDuration),
+    });
 
     // Resolve operational budgets, applying the fast local/e2e profile for low ethereum slot durations so a
     // fast network does not inherit the conservative production budgets (which would shrink the build window).

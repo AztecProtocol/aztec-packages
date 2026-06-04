@@ -42,7 +42,6 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { ConsensusTimetable, DEFAULT_MIN_BLOCK_DURATION } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
@@ -1428,18 +1427,10 @@ describe('sequencer', () => {
       l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpointData);
     };
 
-    // The orphan block sits at slot 3. With no explicit orphan grace configured, the sequencer mirrors
-    // the archiver default of twice DEFAULT_MIN_BLOCK_DURATION.
-    const orphanCheckpointDueSeconds = (graceSeconds = 2 * DEFAULT_MIN_BLOCK_DURATION) =>
-      new ConsensusTimetable({ l1Constants, blockDuration: undefined }).getExpectedCheckpointLandTime(
-        SlotNumber(3),
-        graceSeconds,
-      );
-
-    it('returns undefined and warns once the missing proposed checkpoint is overdue', async () => {
+    it('returns undefined and logs debug while waiting for a matching proposed checkpoint', async () => {
       // Local tip is a block at checkpoint 3, but the checkpointed and proposed-checkpoint tips are
       // still at checkpoint 2 and no proposed checkpoint 3 exists: an orphan block-only tip whose
-      // enclosing checkpoint should have been proposed by now.
+      // enclosing checkpoint has not materialized into the archiver.
       setupSyncedToBlock({
         blockNumber: BlockNumber(3),
         blockSlot: SlotNumber(3),
@@ -1448,14 +1439,15 @@ describe('sequencer', () => {
         proposedCheckpointTipNumber: CheckpointNumber(2),
         proposedCheckpointData: undefined,
       });
-      dateProvider.setTime((orphanCheckpointDueSeconds() + 1) * 1000);
       const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
+      const debugSpy = jest.spyOn(sequencer.getLogger(), 'debug');
 
       const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
 
       expect(result).toBeUndefined();
-      expect(warnSpy).toHaveBeenCalledWith(
-        'Sequencer sync check failed: proposed block has no matching proposed checkpoint',
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(debugSpy).toHaveBeenCalledWith(
+        'Waiting for proposed checkpoint to catch up with reexecuted block',
         expect.objectContaining({
           blockCheckpointNumber: CheckpointNumber(3),
           checkpointedCheckpointNumber: CheckpointNumber(2),
@@ -1463,68 +1455,6 @@ describe('sequencer', () => {
           proposedCheckpointDataNumber: undefined,
         }),
       );
-    });
-
-    it('does not warn at exactly the expected checkpoint land time', async () => {
-      // The checkpoint may still legitimately land at exactly its expected land time, so the tip is not yet
-      // overdue at that instant. This soft warning fires strictly past the expected land time, deliberately
-      // earlier than the archiver's destructive orphan prune (which waits for the attestation deadline).
-      setupSyncedToBlock({
-        blockNumber: BlockNumber(3),
-        blockSlot: SlotNumber(3),
-        blockCheckpointNumber: CheckpointNumber(3),
-        checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(2),
-        proposedCheckpointData: undefined,
-      });
-      dateProvider.setTime(orphanCheckpointDueSeconds() * 1000);
-      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
-
-      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
-
-      expect(result).toBeUndefined();
-      expect(warnSpy).not.toHaveBeenCalled();
-    });
-
-    it('returns undefined without warning while the proposed checkpoint is not yet overdue', async () => {
-      // Same orphan-shaped tip, but we are still within the normal pipelining window: the block proposal
-      // for checkpoint 3 has arrived ahead of its checkpoint proposal, which is not yet due. This is the
-      // happy-path steady state and must not warn.
-      setupSyncedToBlock({
-        blockNumber: BlockNumber(3),
-        blockSlot: SlotNumber(3),
-        blockCheckpointNumber: CheckpointNumber(3),
-        checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(2),
-        proposedCheckpointData: undefined,
-      });
-      dateProvider.setTime((orphanCheckpointDueSeconds() - 1) * 1000);
-      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
-
-      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
-
-      expect(result).toBeUndefined();
-      expect(warnSpy).not.toHaveBeenCalled();
-    });
-
-    it('uses explicit orphan-prune grace config for the overdue warning threshold', async () => {
-      const configuredGraceSeconds = 12;
-      sequencer.updateConfig({ orphanProposedBlockPruneGraceSeconds: configuredGraceSeconds });
-      setupSyncedToBlock({
-        blockNumber: BlockNumber(3),
-        blockSlot: SlotNumber(3),
-        blockCheckpointNumber: CheckpointNumber(3),
-        checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(2),
-        proposedCheckpointData: undefined,
-      });
-      dateProvider.setTime((orphanCheckpointDueSeconds(configuredGraceSeconds) - 1) * 1000);
-      const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
-
-      const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });
-
-      expect(result).toBeUndefined();
-      expect(warnSpy).not.toHaveBeenCalled();
     });
 
     it('proceeds when a matching proposed checkpoint exists for the block', async () => {

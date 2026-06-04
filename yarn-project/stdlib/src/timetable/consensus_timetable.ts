@@ -1,6 +1,7 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 
 import { type L1RollupConstants, getTimestampForSlot } from '../epoch-helpers/index.js';
+import { getDefaultCheckpointProposalSyncGrace } from './budgets.js';
 
 /** Slot-timing protocol constants the timetables derive wall-clock times from. */
 export type SlotTimingConstants = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
@@ -13,8 +14,8 @@ export type SlotTimingConstants = Pick<L1RollupConstants, 'l1GenesisTime' | 'slo
  * and return an absolute wall-clock timestamp in seconds.
  *
  * Inputs are protocol slot-timing constants only (`genesis`, `aztec_slot_duration`,
- * `ethereum_slot_duration`, `block_duration`); no operational budgets, so every node agrees on these
- * bounds. See `stdlib/src/timetable/README.md` for the timing model.
+ * `ethereum_slot_duration`, `block_duration`, `checkpoint_proposal_sync_grace`); no operational budgets, so every
+ * node agrees on these bounds. See `stdlib/src/timetable/README.md` for the timing model.
  */
 export class ConsensusTimetable {
   /** Aztec slot duration (`S`) in seconds. */
@@ -29,8 +30,17 @@ export class ConsensusTimetable {
   /** L1 genesis timestamp in seconds (`genesis`), the anchor all slot timings derive from. */
   public readonly genesisTime: bigint;
 
-  constructor(opts: { l1Constants: SlotTimingConstants; blockDuration: number | undefined }) {
+  /** Consensus grace for received checkpoint proposals to materialize into local proposed state. */
+  public readonly checkpointProposalSyncGrace: number;
+
+  constructor(opts: {
+    l1Constants: SlotTimingConstants;
+    blockDuration: number | undefined;
+    checkpointProposalSyncGrace?: number;
+  }) {
     const { l1Constants, blockDuration } = opts;
+    const checkpointProposalSyncGrace =
+      opts.checkpointProposalSyncGrace ?? getDefaultCheckpointProposalSyncGrace(blockDuration);
     if (l1Constants.slotDuration <= 0) {
       throw new Error(`aztecSlotDuration must be positive (got ${l1Constants.slotDuration})`);
     }
@@ -40,11 +50,15 @@ export class ConsensusTimetable {
     if (blockDuration !== undefined && blockDuration <= 0) {
       throw new Error(`blockDuration must be positive when provided (got ${blockDuration})`);
     }
+    if (checkpointProposalSyncGrace < 0) {
+      throw new Error(`checkpointProposalSyncGrace must be non-negative (got ${checkpointProposalSyncGrace})`);
+    }
 
     this.aztecSlotDuration = l1Constants.slotDuration;
     this.ethereumSlotDuration = l1Constants.ethereumSlotDuration;
     this.blockDuration = blockDuration;
     this.genesisTime = l1Constants.l1GenesisTime;
+    this.checkpointProposalSyncGrace = checkpointProposalSyncGrace;
   }
 
   /**
@@ -80,12 +94,14 @@ export class ConsensusTimetable {
   }
 
   /**
-   * Wall-clock time by which a checkpoint proposal is expected to have landed locally for its target slot.
-   * Used to prune block-only proposed tips whose enclosing checkpoint never arrived. Rounded up to the next
+   * Wall-clock deadline by which a received checkpoint proposal should have materialized into local proposed
+   * state. This is `next_proposer_build_frame_start + checkpointProposalSyncGrace`, rounded up to the next
    * integer second because L1 timestamps and archiver comparisons are second-granularity.
    */
-  public getExpectedCheckpointLandTime(slot: SlotNumber, orphanProposedBlockPruneGraceSeconds: number): number {
-    return Math.ceil(this.getCheckpointProposalReceiveDeadline(slot) + orphanProposedBlockPruneGraceSeconds);
+  public getCheckpointProposalSyncedDeadline(slot: SlotNumber): number {
+    return Math.ceil(
+      this.getCheckpointProposalReceiveDeadline(slot) + (this.blockDuration ?? 0) + this.checkpointProposalSyncGrace,
+    );
   }
 
   /**

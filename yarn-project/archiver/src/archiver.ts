@@ -73,6 +73,16 @@ export type ArchiverDeps = {
   dateProvider?: DateProvider;
 };
 
+/** Minimal dependency for observing whether a checkpoint proposal was received for a slot. */
+export type CheckpointProposalPresence = {
+  /** Returns true when a checkpoint proposal for `slot` has been retained locally. */
+  hasCheckpointProposalForSlot(slot: SlotNumber): Promise<boolean>;
+};
+
+const noCheckpointProposalPresence: CheckpointProposalPresence = {
+  hasCheckpointProposalForSlot: () => Promise.resolve(false),
+};
+
 /**
  * Pulls checkpoints in a non-blocking manner and provides interface for their retrieval.
  * Responsible for handling robust L1 polling so that other components do not need to
@@ -150,7 +160,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       maxAllowedEthClientDriftSeconds: number;
       ethereumAllowNoDebugHosts?: boolean;
       skipHistoricalLogsCheck?: boolean;
-      orphanProposedBlockPruneGraceSeconds: number;
+      checkpointProposalSyncGrace: number;
+      orphanProposedBlockPruneJitterSeconds: number;
       enableOrphanProposedBlockPruning: boolean;
       blockDuration: number | undefined;
     },
@@ -166,6 +177,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     initialBlockHash: BlockHash,
     l2TipsCache: L2TipsCache,
     private readonly dateProvider: DateProvider,
+    private checkpointProposalPresence: CheckpointProposalPresence = noCheckpointProposalPresence,
     private readonly log: Logger = createLogger('archiver'),
   ) {
     super(dataStores, l1Constants, initialHeader, initialBlockHash, l1Constants.genesisArchiveRoot);
@@ -176,7 +188,11 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     this.synchronizer = synchronizer;
     this.events = events;
     this.l2TipsCache = l2TipsCache;
-    this.timetable = new ConsensusTimetable({ l1Constants, blockDuration: this.config.blockDuration });
+    this.timetable = new ConsensusTimetable({
+      l1Constants,
+      blockDuration: this.config.blockDuration,
+      checkpointProposalSyncGrace: this.config.checkpointProposalSyncGrace,
+    });
     this.updater = new ArchiverDataStoreUpdater(this.dataStores, this.l2TipsCache, {
       rollupManaLimit: l1Constants.rollupManaLimit,
     });
@@ -275,6 +291,11 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   public syncImmediate() {
     return this.runningPromise.trigger();
+  }
+
+  /** Sets the proposal-presence provider used by orphan proposed-block pruning. */
+  public setCheckpointProposalPresence(checkpointProposalPresence: CheckpointProposalPresence): void {
+    this.checkpointProposalPresence = checkpointProposalPresence;
   }
 
   public trySyncImmediate() {
@@ -390,7 +411,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await this.processInboundQueue();
     // Now perform L1 sync
     await this.syncFromL1();
-    // Prune proposed blocks with no corresponding proposed checkpoint by the end of their build slot.
+    // Prune proposed blocks with no corresponding proposed checkpoint after the appropriate materialization deadline.
     await this.pruneOrphanProposedBlocks();
   }
 
@@ -399,10 +420,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    *
    * Under pipelining, a proposer publishes the blocks for a checkpoint (block-only proposals) before
    * assembling and publishing the enclosing proposed checkpoint at the end of the build slot. A node
-   * that received those blocks but never the proposed checkpoint is left with an orphan tip it must
-   * not build on. We prune it once enough wall-clock time has elapsed that the proposed checkpoint
-   * should have arrived. This runs on wall-clock time (not L1 block advancement) so it fires during
-   * quiet L1 periods, and is the liveness counterpart to the sequencer's checkSync guard.
+   * that received those blocks but never the proposed checkpoint is left with an orphan tip it must not build on.
+   * If no checkpoint proposal was received for the orphan slot, we prune after the receive deadline plus local
+   * scheduling jitter. If a checkpoint proposal was received but has not materialized into proposed archiver state,
+   * we prune after the consensus materialization deadline.
    *
    * The uncheckpointed suffix is scanned in order. Blocks covered by proposed checkpoints are left in
    * place; the first block not covered by a proposed checkpoint starts the orphan suffix to prune.
@@ -446,17 +467,21 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
       lastSlotChecked = blockSlot;
 
-      // Destructive pruning is gated on the attestation deadline, not the earlier checkpoint receive
-      // deadline: until the attestation deadline the proposed checkpoint can still arrive over p2p or land
-      // on L1 (promoting these blocks into a confirmed checkpoint during L1 sync), and validators may still
-      // be re-executing the proposals. Tearing down the proposed tip before then discards state that is
-      // still within its valid window and breaks in-flight re-execution.
-      const attestationDeadline = BigInt(this.timetable.getAttestationDeadline(blockSlot));
+      const hasCheckpointProposal = await this.checkpointProposalPresence.hasCheckpointProposalForSlot(blockSlot);
+      const deadlineType = hasCheckpointProposal ? 'checkpoint-proposal-synced' : 'checkpoint-proposal-received';
+      const selectedDeadline = BigInt(
+        hasCheckpointProposal
+          ? this.timetable.getCheckpointProposalSyncedDeadline(blockSlot)
+          : Math.ceil(
+              this.timetable.getCheckpointProposalReceiveDeadline(blockSlot) +
+                this.config.orphanProposedBlockPruneJitterSeconds,
+            ),
+      );
 
-      // If it's still not checkpointed once strictly past the attestation deadline, prune it along with all
-      // blocks after it. The checkpoint may still legitimately land at exactly its deadline, so the tip is
-      // only orphaned once that instant has fully elapsed.
-      if (now > attestationDeadline) {
+      // If it's still not checkpointed once strictly past the selected deadline, prune it along with all blocks after
+      // it. A proposal may still legitimately arrive or materialize at exactly its deadline, so the tip is only
+      // orphaned once that instant has fully elapsed.
+      if (now > selectedDeadline) {
         const pruneAfterBlockNumber = BlockNumber(blockNumber - 1);
         this.log.warn(
           `Pruning orphan blocks after block ${pruneAfterBlockNumber}: block at slot ${blockSlot} belongs to ` +
@@ -466,7 +491,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
             blockCheckpointNumber: blockData.checkpointNumber,
             blockNumber,
             blockSlot,
-            attestationDeadline,
+            hasCheckpointProposal,
+            deadlineType,
+            selectedDeadline,
             now,
           },
         );
@@ -483,10 +510,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
     }
 
-    this.log.trace(
-      'No orphan proposed blocks to prune: all uncheckpointed blocks are still within their attestation deadline',
-      { blocksWithoutProposedCheckpoint: blocksWithoutProposedCheckpoint.map(b => b.header.toInspect()) },
-    );
+    this.log.trace('No orphan proposed blocks to prune: all uncheckpointed blocks are still within deadline', {
+      blocksWithoutProposedCheckpoint: blocksWithoutProposedCheckpoint.map(b => b.header.toInspect()),
+    });
   }
 
   private async syncFromL1() {

@@ -227,9 +227,9 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
     });
     logger.warn('Captured pre-prune block-1 archive roots', { preArchiveRoots });
 
-    // (2) Orphan is pruned on every archiver. The wall-clock prune in pruneOrphanProposedBlocks fires well inside
-    // slot S1 (= the build slot for S2) given a 36s aztecSlotDuration and the default 8s grace. We wait up to 2 slot
-    // durations as a margin.
+    // (2) Orphan is pruned on every archiver. Since no CheckpointProposal was received for S1, the wall-clock prune
+    // fires after the checkpoint proposal receive deadline plus local jitter, well inside slot S1 (= the build slot
+    // for S2). We wait up to 2 slot durations as a margin.
     logger.warn('Waiting for L2PruneUncheckpointed on every node');
     const pruneTimeoutMs = test.L2_SLOT_DURATION_IN_S * 2 * 1000;
     const pruneObservations = await Promise.all(
@@ -289,21 +289,10 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
       expect({ idx, root }).not.toEqual({ idx, root: preArchiveRoots[idx] });
     }
 
-    // Tolerated fail events, scoped narrowly:
-    //   - P1 at S1 expectedly fails to publish (peers never see the CheckpointProposal, so it cannot collect
-    //     attestations). Scoped to that exact (sequencer, slot).
-    //   - P2 discards its own pipelined checkpoint for S2 because S1's parent never landed. No other sequencer
-    //     should be discarding pipelined work in this scenario.
+    // Tolerated fail events, scoped narrowly: P1 at S1 expectedly fails to publish because peers never see the
+    // CheckpointProposal, so it cannot collect attestations. P2 must not discard or miss its own S2 checkpoint.
     const unexpectedFailEvents = failEvents.filter(e => {
       if (e.type === 'checkpoint-publish-failed' && e.sequencerIndex === p1Index + 2 && e.slot === S1) {
-        return false;
-      }
-      if (
-        e.type === 'pipelined-checkpoint-discarded' &&
-        e.sequencerIndex === p2Index + 2 &&
-        e.slot === S2 &&
-        e.checkpointNumber === CheckpointNumber(1)
-      ) {
         return false;
       }
       return true;

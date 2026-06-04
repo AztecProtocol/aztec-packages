@@ -93,7 +93,8 @@ export class NoopL1Archiver extends Archiver {
         maxAllowedEthClientDriftSeconds: 300,
         ethereumAllowNoDebugHosts: true, // Skip trace validation
         skipHistoricalLogsCheck: true, // Skip historical logs validation
-        orphanProposedBlockPruneGraceSeconds: 2,
+        checkpointProposalSyncGrace: 4,
+        orphanProposedBlockPruneJitterSeconds: 1,
         enableOrphanProposedBlockPruning: true,
         blockDuration: 2,
       },

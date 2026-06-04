@@ -103,7 +103,7 @@ Blocks added via `addBlock()` are considered "provisional" until they appear in 
 - **Slot expiration**: An L2 slot ends without any checkpoint being mined on L1
 - **Orphan proposed block**: Under proposer pipelining, a proposer can broadcast a block-only proposal but never the matching `CheckpointProposal` (e.g. it crashes before assembling the checkpoint). The provisional block then has no proposed checkpoint backing it.
 
-When `handleCheckpoints()` processes incoming checkpoints, it compares archive roots of local blocks against the checkpoint's blocks. If they differ, local blocks are pruned and replaced with the checkpoint's blocks. After checkpoint sync, `pruneUncheckpointedBlocks()` removes any remaining provisional blocks from slots that have ended. Independently, `pruneOrphanProposedBlocks()` runs on wall-clock time (so it fires during quiet L1 periods) and removes a block-only tip once the checkpoint proposal receive deadline plus the `orphanProposedBlockPruneGraceSeconds` window has elapsed. All three cases emit `L2PruneUncheckpointed`.
+When `handleCheckpoints()` processes incoming checkpoints, it compares archive roots of local blocks against the checkpoint's blocks. If they differ, local blocks are pruned and replaced with the checkpoint's blocks. After checkpoint sync, `pruneUncheckpointedBlocks()` removes any remaining provisional blocks from slots that have ended. Independently, `pruneOrphanProposedBlocks()` runs on wall-clock time (so it fires during quiet L1 periods) and removes a block-only tip after the applicable materialization deadline: receive deadline plus local jitter when no checkpoint proposal was seen, or checkpoint-proposal synced deadline when a proposal was seen but never entered proposed archiver state. All three cases emit `L2PruneUncheckpointed`.
 
 ### Querying Block Data
 
@@ -175,4 +175,3 @@ The archiver exposes `pendingChainValidationStatus` for the sequencer to know if
 2. Checkpoint 11 purged, new invalid checkpoint 11 posted → status updates to new checkpoint 11
 3. Checkpoint 12 with invalid attestations posted → no change (status still points to 11)
 4. Checkpoint 11 purged and reposted with valid attestations → archiver syncs checkpoint 11, status becomes valid
-

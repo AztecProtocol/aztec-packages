@@ -194,6 +194,38 @@ last_block_build_time = checkpoint_proposal_send_time - checkpoint_proposal_prep
 
 The first consensus boundary for the checkpoint proposal is `checkpoint_proposal_receive_deadline`, not a send deadline.
 
+## Checkpoint Proposal Materialization and Orphan Pruning
+
+After an in-time checkpoint proposal is received, it still has to validate and materialize into the archiver's
+proposed-checkpoint state before the next proposer can safely build on it. The materialization deadline is:
+
+```text
+checkpoint_proposal_synced_deadline = next_proposer_build_frame_start + checkpoint_proposal_sync_grace
+```
+
+`checkpoint_proposal_sync_grace` is a consensus/network value, defaulting to `2 * block_duration`. It is not an
+operator-tuned archiver knob: nodes need to agree on when a received proposal has had enough time to materialize.
+
+Orphan proposed-block pruning has two branches:
+
+- If no checkpoint proposal was received for the orphan slot, the archiver prunes once strictly past
+  `checkpoint_proposal_receive_deadline + orphan_proposed_block_prune_jitter`.
+- If a checkpoint proposal was received but has not materialized into proposed archiver state, the archiver prunes
+  once strictly past `checkpoint_proposal_synced_deadline`.
+
+`orphan_proposed_block_prune_jitter` is archiver-local scheduling jitter, defaulting to 1 second. It only covers
+polling and timer skew in the no-proposal branch; it does not define whether a checkpoint proposal is buildable.
+
+The no-proposal branch deliberately does not wait for `attestation_deadline`. A malicious proposer can broadcast
+block proposals while withholding transaction data and never send the checkpoint proposal. Other nodes may then
+spend the remaining validation window trying to collect missing transactions and re-execute a checkpoint that will
+not be buildable by the next proposer. Pruning after the receive deadline plus local jitter restores next-proposer
+liveness.
+
+The received-proposal branch gives bounded time for validation and archiver insertion. Validators that do not
+finish re-execution before `checkpoint_proposal_synced_deadline` may fail to attest on time and may only follow the
+checkpoint once it is re-synced from L1.
+
 ## Proposal Validation and Attestation Times
 
 The relevant validator-side activity is proposal validation: receiving proposals, collecting transactions if needed, re-executing blocks, validating the checkpoint, and then signing an attestation.

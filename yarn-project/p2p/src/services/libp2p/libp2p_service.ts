@@ -142,6 +142,7 @@ function buildProposerTimetable(
     p2pPropagationTime: config.attestationPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
     checkpointProposalPrepareTime: config.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
     checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+    checkpointProposalSyncGrace: config.checkpointProposalSyncGraceSeconds,
     enforce: true,
   });
 }
