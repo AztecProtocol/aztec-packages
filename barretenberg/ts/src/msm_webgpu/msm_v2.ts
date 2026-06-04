@@ -2096,16 +2096,16 @@ export class MsmV2 {
     // active_buckets, active_count, arena_a2 (monolith — partial_count +
     // partial_layout), partial_offset, l0_index, point_x, point_y (ro); partials_buf,
     // red_buf (rw); window_desc (ro storage — no cap); params, batch_offset, arena_off.
-    m.combineBatchedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'read-only-storage', 'uniform', 'uniform', 'uniform']);
+    m.combineBatchedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'read-only-storage', 'uniform', 'uniform', 'uniform', 'uniform']);
     //   sort-count:   active_buckets, active_count, partial_count, count_histogram(rw)
-    m.sortCountLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage']);
+    m.sortCountLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     //   sort-scan:    count_histogram, bin_offsets(rw), bin_write_pos(rw), pt_dispatch_args(rw), pt_persistent_args(rw)
     m.sortScanLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'storage']);
     //   sort-scatter: active_buckets, active_count, partial_count, bin_offsets, bin_write_pos(rw), sorted_active_buckets(rw)
-    m.sortScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage']);
+    m.sortScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     // === Pair-tree v2 (multi-dispatch). ===
     //   pt-init-scan: sorted_active, bin_offsets, active_count, partial_count, pt_off(rw), pt_count(rw), pt_meta(rw)
-    m.ptInitScanLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage']);
+    m.ptInitScanLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
     //   pt-init-copy: sorted_active, bin_offsets, active_count, partial_count, partial_offset, partial_layout, partials_buf, pt_off, pt_buf(rw), params
     m.ptInitCopyLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     //   pt-build: bin_offsets, active_count, pt_off(rw), pt_count(rw), pt_tasks(rw), pt_total_tasks(rw)
@@ -3160,6 +3160,8 @@ export class MsmV2 {
       // Walker params: (NUM_THREADS, IDLE_ANCHOR, M_buckets, M_partials).
       const M_partials_walker = 2 * this.streamNumThreads * this.streamS;
       const walkerParams = ubuf(new Uint32Array([this.streamNumThreads, l0PadAnchor, B_TOTAL, M_partials_walker]));
+      // BW for flat_bid in the storage-only / params-full combine+pair-tree kernels.
+      const bwBuf = ubuf(new Uint32Array([this.BW, 0, 0, 0]));
       // Bind the whole A0 monolith once; sorted_count_list + l0_index are
       // sub-ranges of it, addressed via these u32 element offsets (.x, .y).
       // Collapsing the two sub-range bindings into one frees the slot that lets
@@ -3215,9 +3217,9 @@ export class MsmV2 {
       const boffs = scratch.binOffsets;
       const bwpos = scratch.binWritePos;
       const sabkts = scratch.sortedActiveBuckets;
-      this.sortCountBind = mkBind(this.sortCountLayout, [abkts, acnt, pcount, chist]);
+      this.sortCountBind = mkBind(this.sortCountLayout, [abkts, acnt, pcount, chist, bwBuf]);
       this.sortScanBind = mkBind(this.sortScanLayout, [chist, boffs, bwpos, scratch.ptDispatchArgs, scratch.ptPersistentDispatchArgs, scratch.cbDispatchArgs]);
-      this.sortScatterBind = mkBind(this.sortScatterLayout, [abkts, acnt, pcount, boffs, bwpos, sabkts]);
+      this.sortScatterBind = mkBind(this.sortScatterLayout, [abkts, acnt, pcount, boffs, bwpos, sabkts, bwBuf]);
       // Pair-tree: handles hot buckets (N > HOT_THRESHOLD=8). Reads sorted
       // active list + bin_offsets to locate the hot tail; allocates scratch
       // slices via atomicAdd on pt_alloc; writes directly to bucket_sums.
@@ -3244,7 +3246,7 @@ export class MsmV2 {
       // pt_finalize params: (M_pt, M_buckets=B_TOTAL)
       const ptFinalizeParams = ubuf(new Uint32Array([M_pt, B_TOTAL, 0, 0]));
 
-      this.ptInitScanBind = mkBind(this.ptInitScanLayout, [sabkts, boffs, acnt, pcount, ptOffBuf, ptCountBuf, ptMetaBuf]);
+      this.ptInitScanBind = mkBind(this.ptInitScanLayout, [sabkts, boffs, acnt, pcount, ptOffBuf, ptCountBuf, ptMetaBuf, bwBuf]);
       this.ptInitCopyBind = mkBind(this.ptInitCopyLayout, [sabkts, boffs, acnt, pcount, poffset, playout, wp, ptOffBuf, ptBuf, ptInitCopyParams]);
       this.ptBuildBind = mkBind(this.ptBuildLayout, [boffs, acnt, ptOffBuf, ptCountBuf, ptTasksBuf, ptTotalBuf]);
       // chain dispatch reads previous level's total and the hot_wgs source,
@@ -3259,7 +3261,7 @@ export class MsmV2 {
       // combine_batched now reads sorted_active_buckets at binding 0 → zero
       // tail divergence per S=8 thread group.
       this.combineBatchedBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.combineBatchedLayout, [sabkts, acnt, a2Buf, poffset, l0IdxBuf, this.pointXBuf, this.pointYBuf, wp, scratch.redBuf, windowDescBuf, walkerParams, bwb, combineArenaOff]),
+        mkBind(this.combineBatchedLayout, [sabkts, acnt, a2Buf, poffset, l0IdxBuf, this.pointXBuf, this.pointYBuf, wp, scratch.redBuf, windowDescBuf, walkerParams, bwb, combineArenaOff, bwBuf]),
       );
     }
 

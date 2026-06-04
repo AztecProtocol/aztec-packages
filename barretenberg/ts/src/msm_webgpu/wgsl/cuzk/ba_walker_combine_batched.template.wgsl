@@ -41,7 +41,6 @@ const TPB: u32 = {{ workgroup_size }}u;
 const PG: u32 = 2u;
 const L0_SIGN_BIT: u32 = 0x80000000u;
 const L0_IDX_MASK: u32 = 0x7fffffffu;
-const BW:     u32 = {{ bw }}u;
 // M_RED (red_buf Y-plane stride) is runtime in batch_offset.z (= Σ redM packed,
 // = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
@@ -49,8 +48,8 @@ const WBID_SHIFT:    u32 = 15u;
 const WBID_MAG_MASK: u32 = 0x7fffu;
 
 // Flat CSR index (partial_* space) for a packed-window bid.
-fn flat_bid(bid: u32) -> u32 {
-    return (bid >> WBID_SHIFT) * BW + (bid & WBID_MAG_MASK);
+fn flat_bid(bid: u32, bw: u32) -> u32 {
+    return (bid >> WBID_SHIFT) * bw + (bid & WBID_MAG_MASK);
 }
 
 @group(0) @binding(0) var<storage, read>       active_buckets:  array<u32>;
@@ -73,6 +72,7 @@ fn flat_bid(bid: u32) -> u32 {
 @group(0) @binding(11) var<uniform>            batch_offset:    vec4<u32>;
 // arena_off: u32 element offsets within arena_a2 — .x = partial_count, .y = partial_layout.
 @group(0) @binding(12) var<uniform>            arena_off:       vec4<u32>;
+@group(0) @binding(13) var<uniform> bw_geom: vec4<u32>;
 const WD_STRIDE: u32 = 8u;
 fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
 fn pc_at(i: u32) -> u32 { return arena_a2[arena_off.x + i]; }   // pc_at(i)
@@ -147,7 +147,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             continue;
         }
         bid[k] = active_buckets[task_id];
-        let fb = flat_bid(bid[k]);
+        let fb = flat_bid(bid[k], bw_geom.x);
         cnt[k] = pc_at(fb);
         if (cnt[k] > HOT_THRESHOLD) {
             slot_done[k] = 1u;
