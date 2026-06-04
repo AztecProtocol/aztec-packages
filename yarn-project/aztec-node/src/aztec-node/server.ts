@@ -1217,8 +1217,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       if (options?.includePendingTx) {
         // The tx may have left the pool since we checked its status (mined or dropped); in that case we
         // leave `tx` unset and still return a pending receipt.
-        const pendingTx = await this.p2pClient.getTxByHashFromPool(txHash);
-        tx = pendingTx && !options.includeProof ? pendingTx.withoutProof() : pendingTx;
+        tx = await this.p2pClient.getTxByHashFromPool(txHash, { includeProof: !!options.includeProof });
       }
       receipt = new PendingTxReceipt(txHash, tx);
     } else {
