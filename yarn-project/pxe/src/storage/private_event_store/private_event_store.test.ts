@@ -644,6 +644,31 @@ describe('PrivateEventStore', () => {
       expect(await privateEventStore.eventIdsAtBlock(9)).toEqual([eventAt9.toString()]);
       expect(await privateEventStore.eventIdsAtBlock(10)).toHaveLength(0);
     });
+
+    it('allows re-adding an event after rollback', async () => {
+      // After a reorg, the same transaction can be re-included at the same block and position, producing the same
+      // siloed event commitment (this store's key). Rollback must leave no residue behind, so re-storing that
+      // commitment succeeds with no key collision and the event becomes retrievable again.
+      const commitment = Fr.random();
+      const readBack = () =>
+        privateEventStore.getPrivateEvents(eventSelector, {
+          contractAddress,
+          fromBlock: 9,
+          toBlock: 11,
+          scopes: [scope],
+        });
+
+      await storeEventAt(commitment, 10, BLOCK_HASH_10);
+      await privateEventStore.commit('test');
+
+      await kvStore.transactionAsync(() => privateEventStore.rollback(9));
+      expect(await readBack()).toHaveLength(0);
+
+      // Re-add the same commitment, as happens when the tx is re-included after the reorg.
+      await storeEventAt(commitment, 10, BLOCK_HASH_10);
+      await privateEventStore.commit('test');
+      expect(await readBack()).toHaveLength(1);
+    });
   });
 
   describe('eventIdsAtBlock', () => {
