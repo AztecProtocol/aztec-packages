@@ -5,7 +5,7 @@ ChonkApi's real MSM mix gets the saturation win. Branch: `msm-arena-rewrite`.
 Read alongside `MULTI_MSM_HANDOFF.md` (union internals) and `MULTI_MSM_PERF.md`
 (the win this realises).
 
-## STATUS: WIRED + VALIDATED (this session) — remaining = full C++ Chonk E2E + phone
+## STATUS: WIRED + VALIDATED + FULL C++ E2E GREEN — remaining = phone bench only
 
 `runBatchMsm` now drives the union path (default ON). What landed:
 
@@ -59,12 +59,30 @@ removes. So the union default is not just faster, it is at least as correct as l
 and strictly more correct on large multi-member batches. (Whether real ChonkApi
 batches ever hit the all-large shape is unconfirmed; the union default sidesteps it.)
 
-**Remaining:** (1) the full C++ Chonk prove E2E (`browser_chonk_integration` /
-`ecdsar1+transfer_1_recursions` dump) with `union_bridge` on — the bridge contract is
-proven in isolation (byte-identical to oracle through the real host), so this is final
-confirmation, not new risk. (2) phone (Adreno/Mali) bench. (3) telemetry polish: the
-per-member `[msm] … kind=union gpu=` value is a pack-wall share, not a per-MSM GPU
-timestamp (union instances are `profile:false`).
+**Full C++ Chonk prove E2E — GREEN.** `chonk_browser_webgpu_bench.test.ts` on the
+canonical `ecdsar1+transfer_1_recursions+sponsored_fpc` flow, ChonkApi::prove WebGPU
+**off (native) vs on (my union bridge)**, on Apple M4 Pro / Metal:
+`vks_match=true`, both runs verify, **2/2 tests PASS**. The union path was exercised
+162× across the real Chonk commitment set (`Gemini:FOLD_1/2/3`, `LOOKUP_*`,
+`SHPLONK_BATCHED_QUOTIENT`, `TRANSLATOR_GEMINI_MASKING_POLY`, **`VK_PRECOMPUTED_POLY`** —
+the VK commitment itself), all producing byte-identical VKs to native. This is the
+definitive proof-byte acceptance: the union bridge does not corrupt commitments.
+- Perf note: `off=9234ms on=16223ms (0.57×)` — WebGPU is slower than native CPU
+  Pippenger on M4 for THIS flow because it issues mostly **single** larger-n
+  commitment MSMs (`count=1` packs — byte-identical at K=1, same speed as legacy), NOT
+  the batched-small-MSM regime the union targets (MULTI_MSM_PERF.md). So 0.57× is the
+  WebGPU-vs-native gap, NOT a union regression vs legacy; the union saturation win
+  needs batched small MSMs, which this flow does not exercise.
+- To reproduce in this worktree (it is barretenberg/ts-only; the bootstrap copies
+  build outputs from `~/aztec-packages`): copy `noir/packages` + the generated cbind +
+  the mock-protocol-circuits target; `yarn install` (yarn-project); `build:esm` +
+  `build:browser` (stage the hook-wasm into `dest/browser/barretenberg_wasm/`); build
+  `@aztec/foundation`; `yarn webpack` (ivc); symlink the pinned inputs; run the jest
+  test. The hook-wasm (`BBERG_WEBGPU_MSM_HOOK=ON`) is reused from `~/aztec-packages`.
+
+**Remaining:** (1) phone (Adreno/Mali) bench. (2) telemetry polish: the per-member
+`[msm] … kind=union gpu=` value is a pack-wall share, not a per-MSM GPU timestamp
+(union instances are `profile:false`).
 
 The recipe below is the implementation record.
 
