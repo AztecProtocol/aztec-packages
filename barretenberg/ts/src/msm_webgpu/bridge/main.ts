@@ -806,12 +806,15 @@ export class WebGpuMsmHost {
         resultOff: descs[i * 5 + 3],
         reserved: descs[i * 5 + 4],
       };
-      // Packable members use the SRS prefix [0,n); reject one that overruns the pool
-      // (the same guard the legacy path applies). srsOffset≠0 members are validated
-      // on the per-MSM path instead.
+      // Packable members (reserved==0) use the SRS prefix [srsOffset, srsOffset+n);
+      // the union applies srsOffset as the point-fetch base, so reject one whose span
+      // overruns the published pool. Off-SRS members (reserved≠0) run on the per-MSM
+      // path and are validated there.
       const d = descriptors[i];
-      if (d.srsOffset === 0 && d.reserved === 0 && d.n > this.srsN) {
-        throw new Error(`WebGPU bridge: batched union MSM ${i} n=${d.n} doesn't fit in pool (srsN=${this.srsN})`);
+      if (d.reserved === 0 && d.srsOffset + d.n > this.srsN) {
+        throw new Error(
+          `WebGPU bridge: batched union MSM ${i} n=${d.n} srsOffset=${d.srsOffset} doesn't fit in pool (srsN=${this.srsN})`,
+        );
       }
     }
 
@@ -880,10 +883,14 @@ export class WebGpuMsmHost {
       // An off-SRS point pointer — never set by the current C++ batch hook. The
       // single-MSM OP_MSM path handles off-SRS via a one-off pool; surface this
       // loudly rather than silently treating it as an SRS-prefix MSM.
-      throw new Error(`WebGPU bridge: batched MSM ${i} has reserved=${reserved} (off-SRS points unsupported in a batch)`);
+      throw new Error(
+        `WebGPU bridge: batched MSM ${i} has reserved=${reserved} (off-SRS points unsupported in a batch)`,
+      );
     }
     if (srsOffset + n > this.srsN) {
-      throw new Error(`WebGPU bridge: batched MSM ${i} n=${n} srsOffset=${srsOffset} doesn't fit in pool (srsN=${this.srsN})`);
+      throw new Error(
+        `WebGPU bridge: batched MSM ${i} n=${n} srsOffset=${srsOffset} doesn't fit in pool (srsN=${this.srsN})`,
+      );
     }
     const msm = await this.getOrCreateMsm(n);
     const scalars = new Uint8Array(wasm.buffer, scalarsBase + scalarsOff, n * 32);

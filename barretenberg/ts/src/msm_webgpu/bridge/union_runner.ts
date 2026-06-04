@@ -86,109 +86,124 @@ export async function runUnionPacks(
   const results: UnionMemberResult[] = [];
   const fallback: number[] = [];
 
-  // ── Split: the union assumes each member's points are the SRS prefix [0,n). A
-  // nonzero srsOffset or reserved pointer means an off-prefix / off-SRS source —
-  // exclude it (the caller's per-MSM path threads srsOffset / builds a one-off pool).
+  // ── Split + group by srsOffset. Only an off-SRS pointer (`reserved≠0`) is
+  // excluded. A nonzero `srsOffset` is fine: members sharing an SRS start pack into
+  // one union whose point-fetch `base_offset` is that offset (the SAME mechanism the
+  // solo path uses — `val_idx` stays member-local, the pool index is `srsOffset +
+  // val_idx`). In the real Chonk prove srsOffsets cluster into a few values (the
+  // structured-trace shifted wires sit at srsOffset=1), so grouping engages the
+  // union on ~all commitments instead of falling 77% of them back.
   interface Candidate {
     descIdx: number;
     n: number;
+    srsOffset: number;
     scalarsOff: number;
     resultOff: number;
   }
-  const candidates: Candidate[] = [];
+  const bySrsOffset = new Map<number, Candidate[]>();
   for (let i = 0; i < descriptors.length; i++) {
     const d = descriptors[i];
-    if (d.srsOffset !== 0 || d.reserved !== 0) {
+    if (d.reserved !== 0) {
       fallback.push(i);
       continue;
     }
-    candidates.push({ descIdx: i, n: d.n, scalarsOff: d.scalarsOff, resultOff: d.resultOff });
-  }
-
-  if (candidates.length === 0) {
-    return { results, fallback, packCount: 0, totalUnionWindows: 0 };
-  }
-
-  // ── Pack against the runtime-accurate union footprint so the packer never picks a
-  // pack the runtime then throws on. The greedy packer preserves candidate order, so
-  // each emitted pack consumes the next `descs.length` candidates — recover the
-  // candidate groups by walking a cursor.
-  const layouts = packByBudget(
-    candidates.map((c) => ({ n: c.n })),
-    { budgetBytes: opts.budgetBytes, srsBytes: opts.srsBytes, estimator: unionFootprintBytes },
-  );
-  const groups: number[][] = []; // candidate indices per pack
-  let cursor = 0;
-  for (const layout of layouts) {
-    const grp: number[] = [];
-    for (let j = 0; j < layout.descs.length; j++) grp.push(cursor + j);
-    groups.push(grp);
-    cursor += layout.descs.length;
+    const cand: Candidate = {
+      descIdx: i,
+      n: d.n,
+      srsOffset: d.srsOffset,
+      scalarsOff: d.scalarsOff,
+      resultOff: d.resultOff,
+    };
+    const arr = bySrsOffset.get(d.srsOffset);
+    if (arr) arr.push(cand);
+    else bySrsOffset.set(d.srsOffset, [cand]);
   }
 
   let packCount = 0;
   let totalUnionWindows = 0;
 
-  // Process packs one at a time (peak GPU mem = pool + one pack's arena). A budget
-  // miss by the host model degrades gracefully: drop the last member to its own solo
-  // pack and retry the smaller pack, so a model error never errors the prove.
-  for (let gi = 0; gi < groups.length; gi++) {
-    const group = groups[gi];
-    if (group.length === 0) continue;
-    const members = group.map((ci) => candidates[ci]);
-    const maxN = members.reduce((a, m) => Math.max(a, m.n), 0);
-
-    const plan = planBatch(members.map((m) => ({ n: m.n, srsOffset: 0 })));
-    // Concatenate the members' scalars into planBatch's layout. The descriptor's
-    // scalarsOff is the C++ batch layout; planBatch computes its OWN scalarBase —
-    // they are NOT equal, so this copy (reorder) is mandatory.
-    const concat = new Uint8Array(plan.totalScalarBytes);
-    for (let j = 0; j < members.length; j++) {
-      const src = readScalars(members[j].scalarsOff, members[j].n * SCALAR_BYTES);
-      concat.set(src, plan.descs[j].scalarBase);
+  for (const [srsOffset, candidates] of bySrsOffset) {
+    if (candidates.length === 0) continue;
+    // Pack this srsOffset group against the runtime-accurate union footprint so the
+    // packer never picks a pack the runtime then throws on. The greedy packer
+    // preserves candidate order, so each emitted pack consumes the next
+    // `descs.length` candidates — recover the candidate groups by walking a cursor.
+    const layouts = packByBudget(
+      candidates.map(c => ({ n: c.n })),
+      { budgetBytes: opts.budgetBytes, srsBytes: opts.srsBytes, estimator: unionFootprintBytes },
+    );
+    const groups: number[][] = []; // candidate indices per pack
+    let cursor = 0;
+    for (const layout of layouts) {
+      const grp: number[] = [];
+      for (let j = 0; j < layout.descs.length; j++) grp.push(cursor + j);
+      groups.push(grp);
+      cursor += layout.descs.length;
     }
-    const batchMembers = plan.descs.map((d) => ({
-      n: d.n,
-      scalarBaseBytes: d.scalarBase,
-      schedOff: d.schedOff,
-      numWindows: d.numWindows,
-    }));
 
-    const inst = await getUnionMsm(maxN);
-    try {
-      inst.prepareBatch(batchMembers, concat, plan.windowDescTable, plan.reduceOffsets);
-    } catch (e) {
-      if (isPackOverflow(e)) {
-        if (group.length > 1) {
-          // Host over-packed: peel the last member into its own solo pack and retry.
-          const dropped = group[group.length - 1];
-          groups[gi] = group.slice(0, -1);
-          groups.push([dropped]);
-          gi--; // re-process the (now smaller) group
+    // Process packs one at a time (peak GPU mem = pool + one pack's arena). A budget
+    // miss by the host model degrades gracefully: drop the last member to its own
+    // solo pack and retry the smaller pack, so a model error never errors the prove.
+    for (let gi = 0; gi < groups.length; gi++) {
+      const group = groups[gi];
+      if (group.length === 0) continue;
+      const members = group.map(ci => candidates[ci]);
+      const maxN = members.reduce((a, m) => Math.max(a, m.n), 0);
+
+      const plan = planBatch(members.map(m => ({ n: m.n, srsOffset: 0 })));
+      // Concatenate the members' scalars into planBatch's layout. The descriptor's
+      // scalarsOff is the C++ batch layout; planBatch computes its OWN scalarBase —
+      // they are NOT equal, so this copy (reorder) is mandatory.
+      const concat = new Uint8Array(plan.totalScalarBytes);
+      for (let j = 0; j < members.length; j++) {
+        const src = readScalars(members[j].scalarsOff, members[j].n * SCALAR_BYTES);
+        concat.set(src, plan.descs[j].scalarBase);
+      }
+      const batchMembers = plan.descs.map(d => ({
+        n: d.n,
+        scalarBaseBytes: d.scalarBase,
+        schedOff: d.schedOff,
+        numWindows: d.numWindows,
+      }));
+
+      const inst = await getUnionMsm(maxN);
+      try {
+        // Every member of this pack shares `srsOffset` → applied as the union's
+        // point-fetch base_offset (val_idx stays member-local).
+        inst.prepareBatch(batchMembers, concat, plan.windowDescTable, plan.reduceOffsets, srsOffset);
+      } catch (e) {
+        if (isPackOverflow(e)) {
+          if (group.length > 1) {
+            // Host over-packed: peel the last member into its own solo pack and retry.
+            const dropped = group[group.length - 1];
+            groups[gi] = group.slice(0, -1);
+            groups.push([dropped]);
+            gi--; // re-process the (now smaller) group
+            continue;
+          }
+          // A single member that won't fit one union dispatch → per-MSM path stages it.
+          fallback.push(candidates[group[0]].descIdx);
           continue;
         }
-        // A single member that won't fit one union dispatch → per-MSM path stages it.
-        fallback.push(candidates[group[0]].descIdx);
-        continue;
+        throw e;
       }
-      throw e;
-    }
 
-    const { windowSums } = await inst.run();
-    packCount++;
-    totalUnionWindows += plan.totalWindows;
+      const { windowSums } = await inst.run();
+      packCount++;
+      totalUnionWindows += plan.totalWindows;
 
-    // Scatter: member j owns windows [schedOff_j, schedOff_j + numWindows_j) of the
-    // concatenated union output. `c` is per-member (the member's own geom.c, NOT the
-    // envelope c of the maxN instance).
-    for (let j = 0; j < members.length; j++) {
-      const d = plan.descs[j];
-      results.push({
-        descIdx: members[j].descIdx,
-        windows: windowSums.slice(d.schedOff, d.schedOff + d.numWindows),
-        c: d.geom.c,
-        resultOff: members[j].resultOff,
-      });
+      // Scatter: member j owns windows [schedOff_j, schedOff_j + numWindows_j) of the
+      // concatenated union output. `c` is per-member (the member's own geom.c, NOT the
+      // envelope c of the maxN instance).
+      for (let j = 0; j < members.length; j++) {
+        const d = plan.descs[j];
+        results.push({
+          descIdx: members[j].descIdx,
+          windows: windowSums.slice(d.schedOff, d.schedOff + d.numWindows),
+          c: d.geom.c,
+          resultOff: members[j].resultOff,
+        });
+      }
     }
   }
 

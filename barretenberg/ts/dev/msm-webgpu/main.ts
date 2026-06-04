@@ -922,12 +922,13 @@ async function runBridgeCheck(logNs: number[]): Promise<{ ok: boolean; detail: s
   }
 
   // ── Descriptors: the K members (srsOffset=0, packable) + one trailing excluded
-  // member (srsOffset=1, must fall back). Scalars are placed in the global region
-  // in REVERSE descriptor order so scalarsOff ≠ planBatch scalarBase.
+  // member (reserved≠0, off-SRS, must fall back — the only exclusion now that the
+  // union handles srsOffset by grouping). Scalars are placed in the global region in
+  // REVERSE descriptor order so scalarsOff ≠ planBatch scalarBase.
   const excludedIdx = members.length;
-  const descMeta: { n: number; srsOffset: number; scalars: Uint8Array }[] = [
-    ...members.map(m => ({ n: m.n, srsOffset: 0, scalars: m.scalars })),
-    { n: members[0].n, srsOffset: 1, scalars: members[0].scalars },
+  const descMeta: { n: number; srsOffset: number; reserved: number; scalars: Uint8Array }[] = [
+    ...members.map(m => ({ n: m.n, srsOffset: 0, reserved: 0, scalars: m.scalars })),
+    { n: members[0].n, srsOffset: 0, reserved: 1, scalars: members[0].scalars },
   ];
   const lens = descMeta.map(d => d.n * 32);
   const totalScalarBytes = lens.reduce((a, b) => a + b, 0);
@@ -937,7 +938,7 @@ async function runBridgeCheck(logNs: number[]): Promise<{ ok: boolean; detail: s
   const descriptors: BridgeDescriptor[] = descMeta.map((d, i) => {
     const off = scalarsOffOf(i);
     globalScalars.set(d.scalars, off);
-    return { n: d.n, srsOffset: d.srsOffset, scalarsOff: off, resultOff: i * 64, reserved: 0 };
+    return { n: d.n, srsOffset: d.srsOffset, scalarsOff: off, resultOff: i * 64, reserved: d.reserved };
   });
   const readScalars = (off: number, byteLen: number): Uint8Array => globalScalars.subarray(off, off + byteLen);
 
@@ -1012,19 +1013,19 @@ async function runBridgeE2E(logNs: number[]): Promise<{ ok: boolean; detail: str
   if (srsBuf === null) throw new Error('[bridge-e2e] SRS not loaded yet');
   const align4 = (x: number): number => (x + 3) & ~3;
 
-  // Descriptors: the packable members (srsOffset 0) + one excluded member
-  // (srsOffset≠0 ⇒ per-MSM fallback). Points are the published SRS prefix.
+  // Descriptors: a srsOffset=0 group + a MULTI-member srsOffset=1 group (the real
+  // Chonk shape — shifted-wire commitments cluster at srsOffset=1) + a singleton
+  // srsOffset=2. The union groups by srsOffset and folds each group's offset into the
+  // point-fetch base; points are the published SRS prefix [srsOffset, +n).
   const memberNs = logNs.map(l => 1 << l);
   const maxN = Math.max(...memberNs);
   const srsN = maxN;
   if (srsN * 64 > srsBuf.length) throw new Error(`[bridge-e2e] srsN=${srsN} exceeds loaded SRS`);
-  // Excluded member: nonzero srsOffset (⇒ per-MSM fallback), sized so n+offset still
-  // fits the pool prefix [0, srsN).
-  const exSrsOffset = 2;
-  const exN = Math.max(1, Math.min(1 << 10, maxN - exSrsOffset));
+  const fit = (n: number, off: number): number => Math.max(1, Math.min(n, srsN - off));
   const descs: { n: number; srsOffset: number }[] = [
     ...memberNs.map(n => ({ n, srsOffset: 0 })),
-    { n: exN, srsOffset: exSrsOffset },
+    ...memberNs.map(n => ({ n: fit(n, 1), srsOffset: 1 })), // multi-member srsOffset=1 group
+    { n: fit(1 << 10, 2), srsOffset: 2 },
   ];
   const batchCount = descs.length;
   const nws = descs.map(d => computeGeom(d.n).numWindows);
@@ -1171,7 +1172,7 @@ async function runBridgeE2E(logNs: number[]): Promise<{ ok: boolean; detail: str
     ? 'oracle result region all zero — test setup bug'
     : ok
       ? `union ≡ solo-oracle byte-identical via the REAL host: ${batchCount} MSMs ` +
-        `(${memberNs.length} packed + 1 excluded), ${rAcc} result + ${batchCount * 8} meta bytes; ${legacyNote}`
+        `(srsOffset groups {0,1,2}, all unioned), ${rAcc} result + ${batchCount * 8} meta bytes; ${legacyNote}`
       : `UNION-vs-oracle@${unionDiff} (union[${unionDiff}]=${unionOut[unionDiff]} oracle=${oracle[unionDiff]}); ${legacyNote}`;
   return { ok, detail };
 }

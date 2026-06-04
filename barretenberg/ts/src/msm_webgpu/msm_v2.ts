@@ -2326,7 +2326,13 @@ export class MsmV2 {
    * `VAR_WINDOW_MAX_WINDOWS` global windows (the at-cap consumers' uniform
    * WindowDesc holds 128 rows).
    */
-  prepareBatch(members: BatchMember[], scalars: Uint8Array, windowDescTable: Uint32Array, reduceOffsets: number[]): void {
+  prepareBatch(
+    members: BatchMember[],
+    scalars: Uint8Array,
+    windowDescTable: Uint32Array,
+    reduceOffsets: number[],
+    srsOffset: number = 0,
+  ): void {
     // Pack contract: every member fits this instance's envelope — c ≤ this.c and
     // n ≤ this.n (the instance is created at the pack's max n, so its baked BW/
     // stride/c are the envelope maxima). Members may differ in BOTH n and c: each
@@ -2385,7 +2391,7 @@ export class MsmV2 {
     // geometry changed, so a full rebuild is required.
     this.preparedFor = null;
     try {
-      this.prepare(scalars, 0);
+      this.prepare(scalars, srsOffset);
     } finally {
       this.batchCtx = null;
     }
