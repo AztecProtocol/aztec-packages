@@ -179,8 +179,11 @@ export interface RelationDescriptor {
   entry: string;
   seed: bigint;
   shader: () => string;
+  // Draw this relation's relation_parameters from the rng (consumed BEFORE the
+  // edges, matching the standalone suites). Omitted for parameter-free relations.
+  makeParams?: (rng: () => bigint) => bigint[];
   build: (rng: () => bigint, i: number) => EdgeRow;
-  polyRef: (e: bigint[][], s: bigint) => bigint[];
+  polyRef: (e: bigint[][], s: bigint, params: bigint[]) => bigint[];
 }
 
 // Pack n rows of (numEdges edges {v0,v1} + 1 scaling scalar) into a Montgomery
@@ -252,7 +255,9 @@ export interface Suite {
 // against its polynomial reference (the standalone per-relation suite path).
 export async function runRelationStandalone(d: RelationDescriptor, ctx: SuiteCtx): Promise<boolean> {
   const rng = makeRng(d.seed);
+  const params = d.makeParams ? d.makeParams(rng) : [];
   const { inBytes, inputs } = packEdgeRows(ctx.n, d.inLen, d.numEdges, i => d.build(rng, i));
-  const { bytes, ms } = await dispatchRelation(ctx.device, ctx.n, d.shader(), d.entry, inBytes, d.outLen);
-  return diffRelation(bytes, ctx.n, d.outLen, i => d.polyRef(inputs[i].e, inputs[i].s), ctx.log, d.id, ms);
+  const relParams = d.makeParams ? packParams(params) : undefined;
+  const { bytes, ms } = await dispatchRelation(ctx.device, ctx.n, d.shader(), d.entry, inBytes, d.outLen, relParams);
+  return diffRelation(bytes, ctx.n, d.outLen, i => d.polyRef(inputs[i].e, inputs[i].s, params), ctx.log, d.id, ms);
 }
