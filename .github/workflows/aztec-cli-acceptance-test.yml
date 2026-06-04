@@ -28,7 +28,6 @@ jobs:
       (github.event_name == 'workflow_run'
        && github.event.workflow_run.conclusion == 'success'
        && !contains(github.event.workflow_run.head_branch, '-commit.'))
-    timeout-minutes: 30
     env:
       VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
     steps:
@@ -38,6 +37,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Run Aztec CLI acceptance test
+        timeout-minutes: 30
         run: ./aztec-up/test/aztec-cli-acceptance-test/run-test.sh
 
       - name: Upload diagnostics on failure
@@ -67,8 +67,9 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           export CI=1
-          ./ci3/slack_notify "#team-fairies" \
-            "Aztec CLI Acceptance Test passed for version ${VERSION} :white_check_mark:"
+          ./ci3/slack_notify \
+            "Aztec CLI Acceptance Test passed for version ${VERSION} :white_check_mark:" \
+            "#team-fairies"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         if: needs.release-acceptance.result == 'failure'

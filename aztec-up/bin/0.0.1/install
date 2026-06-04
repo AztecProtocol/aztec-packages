@@ -135,13 +135,13 @@ function install_node {
   # Need to install - check if nvm is available
   if [ ! -f "$HOME/.nvm/nvm.sh" ]; then
     echo "Minimum Node.js version $node_min_version not found (got $node_installed_version)."
-    echo "Installation: nvm install --lts && nvm alias default lts/*"
+    echo "Installation: nvm install $node_min_version && nvm alias default $node_min_version"
     exit 1
   fi
 
   . "$HOME/.nvm/nvm.sh"
-  nvm install --lts
-  nvm alias default lts/*
+  nvm install "$node_min_version"
+  nvm alias default "$node_min_version"
 }
 
 function install_versions_file {

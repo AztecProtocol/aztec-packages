@@ -5,6 +5,8 @@ import { initStoreForRollupAndSchemaVersion } from '../utils.js';
 import { AztecSQLiteOPFSStore } from './store.js';
 
 export { AztecSQLiteOPFSStore } from './store.js';
+export { SqliteEncryptionError } from './errors.js';
+export type { SqliteEncryptionErrorCode } from './errors.js';
 
 export async function createStore(
   name: string,
