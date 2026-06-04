@@ -437,7 +437,7 @@ impl OnchainDelivery {
     /// Derives the discovery tag from a handshake-registry shared secret resolved through `registry`.
     ///
     /// This is the origin required by [`MessageDelivery::onchain_constrained`], whose tag must be derivable inside the
-    /// circuit. See [`crate::messages::delivery::constrained_delivery`].
+    /// circuit.
     ///
     /// ## Examples
     ///
