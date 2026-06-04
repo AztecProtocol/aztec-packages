@@ -241,9 +241,13 @@ export class PrivateEventStore implements StagedStore {
    * from `toBlock + 1` upward covers everything above the rollback target without needing to know the chain tip.
    *
    * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, the reorg
-   * path wraps it together with the anchor update, and IndexedDB has no nested transactions).
+   * path wraps it together with the anchor update, and IndexedDB has no nested transactions). Throws if any job has
+   * uncommitted staged writes, since rolling back mid-job could later re-introduce events anchored to deleted blocks.
    */
   public async rollback(toBlock: number): Promise<void> {
+    if (this.#eventsForJob.size > 0) {
+      throw new Error('PXE private event store rollback is not allowed while jobs are running');
+    }
     // Snapshot before mutating so we never delete from the multimap we are iterating.
     const orphaned: { block: number; eventId: string }[] = [];
     for await (const [block, eventId] of this.#eventsByBlockNumber.entriesAsync({ start: toBlock + 1 })) {

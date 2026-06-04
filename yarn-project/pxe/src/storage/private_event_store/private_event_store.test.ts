@@ -669,6 +669,45 @@ describe('PrivateEventStore', () => {
       await privateEventStore.commit('test');
       expect(await readBack()).toHaveLength(1);
     });
+
+    it('handles rollback with no events to remove', async () => {
+      const eventAt10 = Fr.random();
+      await storeEventAt(eventAt10, 10, BLOCK_HASH_10);
+      await privateEventStore.commit('test');
+
+      // Rolling back to a block above every stored event removes nothing.
+      await kvStore.transactionAsync(() => privateEventStore.rollback(20));
+
+      expect(await privateEventStore.eventIdsAtBlock(10)).toEqual([eventAt10.toString()]);
+    });
+
+    it('throws when rollback is called while jobs are running', async () => {
+      // Stage an event under a job but never commit it, so the store still holds in-flight job data.
+      await privateEventStore.storePrivateEventLog(
+        eventSelector,
+        randomness,
+        msgContent,
+        Fr.random(),
+        {
+          contractAddress,
+          scope,
+          txHash: TxHash.random(),
+          l2BlockNumber: BlockNumber(10),
+          l2BlockHash,
+          txIndexInBlock: 0,
+          eventIndexInTx: 0,
+        },
+        'uncommitted-job',
+      );
+
+      await expect(kvStore.transactionAsync(() => privateEventStore.rollback(0))).rejects.toThrow(
+        'PXE private event store rollback is not allowed while jobs are running',
+      );
+
+      await privateEventStore.discardStaged('uncommitted-job');
+
+      await expect(kvStore.transactionAsync(() => privateEventStore.rollback(0))).resolves.not.toThrow();
+    });
   });
 
   describe('eventIdsAtBlock', () => {
