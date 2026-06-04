@@ -22,6 +22,7 @@ import {
   ExecutionNoteCache,
   ExecutionTaggingIndexCache,
   HashedValuesCache,
+  type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
   Option,
@@ -207,6 +208,7 @@ export class TXESession implements TXESessionStateHandler {
     private sessionStore: AztecAsyncKVStore,
     private stateMachine: TXEStateMachine,
     private oracleHandler:
+      | IMiscOracle
       | IUtilityExecutionOracle
       | IPrivateExecutionOracle
       | IAvmExecutionOracle

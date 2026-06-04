@@ -82,16 +82,16 @@ export {
 } from './oracle_type_mappings.js';
 
 export const ORACLE_REGISTRY = {
-  aztec_utl_assertCompatibleOracleVersion: makeEntry({
+  aztec_misc_assertCompatibleOracleVersion: makeEntry({
     params: [
       { name: 'major', type: U32 },
       { name: 'minor', type: U32 },
     ],
   }),
 
-  aztec_utl_getRandomField: makeEntry({ returnType: FIELD }),
+  aztec_misc_getRandomField: makeEntry({ returnType: FIELD }),
 
-  aztec_utl_log: makeEntry({
+  aztec_misc_log: makeEntry({
     params: [
       { name: 'level', type: U32 },
       { name: 'message', type: STR },
@@ -567,4 +567,19 @@ export type ParamTypes<T extends readonly NamedValue[]> = {
  */
 type InferDeserializedParams<T extends RegistryParam[]> = {
   [K in keyof T]: T[K] extends RegistryParam<infer N, infer V> ? NamedValue<N, V> : never;
+};
+
+// ─── Derived Handler Interfaces ─────────────────────────────────────────────
+
+/** Strips the `aztec_{scope}_` prefix from an oracle key to get the handler method name. */
+export type StripOraclePrefix<K extends string> = K extends `aztec_${string}_${infer M}` ? M : never;
+
+/** Derives the handler function signature from a registry entry's deserialization/serialization types. */
+type HandlerFn<E extends OracleRegistryEntry> = (
+  ...args: ParamTypes<ReturnType<E['deserializeParams']>>
+) => MaybePromise<Parameters<E['serializeReturn']>[0]>;
+
+/** Collects all oracle handler methods for a given name prefix into a single object type. */
+export type HandlersForPrefix<R extends Record<string, OracleRegistryEntry>, P extends string> = {
+  [K in keyof R as K extends `aztec_${P}_${string}` ? StripOraclePrefix<K & string> : never]: HandlerFn<R[K]>;
 };

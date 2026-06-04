@@ -213,18 +213,18 @@ export class RPCTranslator {
   // PXE oracles
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion(...inputs: ForeignCallArgs) {
+  aztec_misc_assertCompatibleOracleVersion(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_assertCompatibleOracleVersion',
+      oracle: 'aztec_misc_assertCompatibleOracleVersion',
       inputs,
       handler: ([major, minor]) => this.handlerAsMisc().assertCompatibleOracleVersion(major, minor),
     });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getRandomField() {
+  aztec_misc_getRandomField() {
     return callTxeHandler({
-      oracle: 'aztec_utl_getRandomField',
+      oracle: 'aztec_misc_getRandomField',
       inputs: [],
       handler: () => this.handlerAsMisc().getRandomField(),
     });
@@ -307,11 +307,11 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_log(...inputs: ForeignCallArgs) {
+  aztec_misc_log(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_log',
+      oracle: 'aztec_misc_log',
       inputs,
-      handler: ([level, message, _, fields]) => this.handlerAsMisc().log(level, message, fields),
+      handler: ([level, message, fieldsSize, fields]) => this.handlerAsMisc().log(level, message, fieldsSize, fields),
     });
   }
 
