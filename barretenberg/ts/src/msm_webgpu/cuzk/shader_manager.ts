@@ -34,6 +34,7 @@ import {
   ba_walker_pt_init_copy as ba_walker_pt_init_copy_shader,
   ba_walker_pt_build as ba_walker_pt_build_shader,
   ba_walker_pt_dispatch_chain as ba_walker_pt_dispatch_chain_shader,
+  ba_walker_pt_coop_tail as ba_walker_pt_coop_tail_shader,
   ba_unified_combine as ba_unified_combine_shader,
   ba_walker_pt_finalize as ba_walker_pt_finalize_shader,
   bigint as bigint_funcs,
@@ -64,6 +65,7 @@ import {
   ba_carry_copy_bench as ba_carry_copy_bench_shader,
   ba_finalize_copy_bench as ba_finalize_copy_bench_shader,
   ba_finalize_accumulate_bench as ba_finalize_accumulate_bench_shader,
+  ba_fused_tail_coop as ba_fused_tail_coop_shader,
   ba_reduce_init_bench as ba_reduce_init_bench_shader,
   ba_planner_v2_emit as ba_planner_v2_emit_shader,
   ba_planner_v2_offsets as ba_planner_v2_offsets_shader,
@@ -527,6 +529,7 @@ ${packLines.join('\n')}
     tiled = false,
     l0_index_mode = false,
     addsub: 'native' | 'unpack' = 'native',
+    merged_peel = false,
   ): string {
     if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
       throw new Error(`gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`);
@@ -538,7 +541,7 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_fused_super_bench_shader,
       {
-        workgroup_size, s, inv_fn, tiled, l0_index_mode,
+        workgroup_size, s, inv_fn, tiled, l0_index_mode, merged_peel,
         addsub_unpack: addsub === 'unpack',
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
@@ -692,6 +695,45 @@ ${packLines.join('\n')}
       ba_finalize_accumulate_bench_shader,
       {
         workgroup_size, l0_index_mode, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * Cooperative fused-TAIL reducer: one workgroup per bucket reduces its <= cap
+   * remaining points to a single sum in workgroup memory (all-Jacobian tree,
+   * barriers between levels), then finalizes into bucket_result. Collapses the
+   * starved deep-tail levels of the bin-packed pair-tree into one dispatch.
+   * `cap` is the max points a bucket may carry at the trigger level (= the
+   * shared array length); workgroup_size must be >= cap.
+   */
+  public gen_ba_fused_tail_coop_shader(workgroup_size: number, cap: number, variant: 'loop' | 'pk' = 'pk'): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size) || cap <= 0 || !Number.isInteger(cap)) {
+      throw new Error(`gen_ba_fused_tail_coop_shader: workgroup_size (${workgroup_size}) and cap (${cap}) must be positive integers`);
+    }
+    if (cap > workgroup_size) {
+      throw new Error(`gen_ba_fused_tail_coop_shader: cap (${cap}) must be <= workgroup_size (${workgroup_size})`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_fused_tail_coop_shader,
+      {
+        workgroup_size, cap, inv_fn,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
@@ -1386,12 +1428,53 @@ ${packLines.join('\n')}
     return mustache.render(ba_walker_pt_build_shader, { workgroup_size, recompile: this.recompile });
   }
 
-  public gen_ba_walker_pt_dispatch_chain_shader(): string {
-    return mustache.render(ba_walker_pt_dispatch_chain_shader, { recompile: this.recompile });
+  public gen_ba_walker_pt_dispatch_chain_shader(coopCap: number): string {
+    return mustache.render(ba_walker_pt_dispatch_chain_shader, { coop_cap: coopCap, recompile: this.recompile });
   }
 
   public gen_ba_walker_pt_finalize_shader(workgroup_size: number, bw: number, stride: number, m_red: number): string {
     return mustache.render(ba_walker_pt_finalize_shader, { workgroup_size, bw, stride, m_red, recompile: this.recompile });
+  }
+
+  /**
+   * Cooperative pair-tree TAIL: one workgroup per hot bucket reduces its <= cap
+   * remaining partials to a single sum in workgroup memory (all-Jacobian tree,
+   * barriers between levels), then writes red_buf at the bucket's reduce slot —
+   * collapsing the walker pt_loop's starved deep-tail levels into one dispatch.
+   */
+  public gen_ba_walker_pt_coop_tail_shader(
+    workgroup_size: number,
+    cap: number,
+    bw: number,
+    stride: number,
+    m_red: number,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    if (cap > workgroup_size) {
+      throw new Error(`gen_ba_walker_pt_coop_tail_shader: cap (${cap}) must be <= workgroup_size (${workgroup_size})`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_walker_pt_coop_tail_shader,
+      {
+        workgroup_size, cap, bw, stride, m_red, inv_fn,
+        p8_consts, r8_csv, f8_words,
+        word_size: this.word_size, num_words: this.num_words, n0: this.n0,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
+      },
+      {
+        structs, bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs, inverse_funcs,
+      },
+    );
   }
 
   public gen_ba_unified_combine_shader(

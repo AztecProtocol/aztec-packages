@@ -58,6 +58,12 @@ const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
 // (T_sat scales with core count; the affine/Jacobian cost ratios do not).
 const T_SAT_REDUCE = 16384;
 const JAC_AUTO = -1; // jacobianCrossover sentinel: auto-select the regime
+// Cooperative pair-tree tail: max partials one workgroup reduces in shared
+// scratch (= the shared array length and the fire-trigger guarantee), and its
+// workgroup size. 256 Jacobian points = 24 KiB, under the 32 KiB threadgroup
+// budget; WG == CAP so each thread owns one slot at the widest tree level.
+const PT_COOP_CAP = 256;
+const PT_COOP_WG = 256;
 
 
 
@@ -563,6 +569,7 @@ interface SharedScratch {
   ptDispatchArgs: GPUBuffer;        // 3 × u32 — sort_scan writes (ceil(hot_count/TPB),1,1); used by pt_init_copy/build/finalize
   ptCombineDispatchArgs: GPUBuffer; // 3 × u32 — pt_dispatch_compute writes per-level (ceil(total_tasks/S/TPB),1,1)
   ptBuildLoopArgs: GPUBuffer;       // 3 × u32 — dispatch_chain writes hot_wgs while any pair-tasks remain, else 0; build's level-by-level indirect dispatch reads this
+  ptCoopArgs: GPUBuffer;            // 3 × u32 — dispatch_chain writes (NUM_HOT…) on the one level the cooperative tail fires, else (0,1,1)
   cbDispatchArgs: GPUBuffer;        // 3 × u32 — sort_scan writes (ceil(cb_active / (CB_TPB*CB_S)), 1, 1); combine_batched indirect-dispatched off it
   ptPersistentDispatchArgs: GPUBuffer; // 3 × u32 — packer writes (NUM_WGS, 1, 1)
   ptBucketWg: GPUBuffer;               // sBTotal × u32 — per-bucket WG assignment (packer intermediate)
@@ -923,6 +930,7 @@ export class MsmStreamWalkerPool {
     let ptTotalTasks = s?.ptTotalTasks;
     let ptCombineDispatchArgs = s?.ptCombineDispatchArgs;
     let ptBuildLoopArgs = s?.ptBuildLoopArgs;
+    let ptCoopArgs = s?.ptCoopArgs;
     let cbDispatchArgs = s?.cbDispatchArgs;
     let ptPersistentDispatchArgs = s?.ptPersistentDispatchArgs;
     let ptBucketWg = s?.ptBucketWg;
@@ -974,6 +982,7 @@ export class MsmStreamWalkerPool {
       ptTotalTasks?.destroy();
       ptCombineDispatchArgs?.destroy();
       ptBuildLoopArgs?.destroy();
+      ptCoopArgs?.destroy();
       cbDispatchArgs?.destroy();
       ptPersistentDispatchArgs?.destroy();
       ptBucketWg?.destroy();
@@ -1070,6 +1079,10 @@ export class MsmStreamWalkerPool {
         size: 12,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
       });
+      ptCoopArgs = device.createBuffer({
+        size: 12,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      });
       cbDispatchArgs = device.createBuffer({
         size: 12,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
@@ -1157,6 +1170,7 @@ export class MsmStreamWalkerPool {
       ptTotalTasks: ptTotalTasks!,
       ptCombineDispatchArgs: ptCombineDispatchArgs!,
       ptBuildLoopArgs: ptBuildLoopArgs!,
+      ptCoopArgs: ptCoopArgs!,
       cbDispatchArgs: cbDispatchArgs!,
       ptPersistentDispatchArgs: ptPersistentDispatchArgs!,
       ptBucketWg: ptBucketWg!,
@@ -1256,6 +1270,7 @@ export class MsmStreamWalker {
   private l0Log!: number;
   private reduceWg!: number;
   private invVariant!: 'loop' | 'pk';
+  private walkerCoopTail = true;
   private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
   private jacobianCrossover = JAC_AUTO;
@@ -1439,6 +1454,11 @@ export class MsmStreamWalker {
   private ptFinalizePipe!: GPUComputePipeline;
   private ptFinalizeLayout!: GPUBindGroupLayout;
   private ptFinalizeBinds: GPUBindGroup[] = [];
+  // Cooperative pair-tree tail: one workgroup per hot bucket reduces its slice
+  // and writes red_buf (subsuming pt_finalize for the buckets it converges).
+  private ptCoopTailPipe!: GPUComputePipeline;
+  private ptCoopTailLayout!: GPUBindGroupLayout;
+  private ptCoopTailBinds: GPUBindGroup[] = [];
 
   // --- prepare-time (data-dependent) state ---
   private prepBuffers: GPUBuffer[] = []; // every uniform buffer prepare() allocated (storage buffers live in pool.scratch)
@@ -1547,6 +1567,7 @@ export class MsmStreamWalker {
     m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
+    m.walkerCoopTail = config?.walkerCoopTail ?? true;
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? JAC_AUTO;
     m.segReduceG = config?.segReduceG ?? 0;
@@ -1601,7 +1622,20 @@ export class MsmStreamWalker {
     m.reducePasses = [];
     const push = (isDouble: boolean, shaderPhase: number, p2x: number, p2y: number, ppw: number) =>
       m.reducePasses.push({ isDouble, shaderPhase, p2x, p2y, ppw });
-    for (let l = L0 - 1; l >= 1; l--) push(false, 0, L0, l, D);
+    // The odd bucket of the lowest pair (slot 1, magnitude 2) is the only
+    // even-magnitude weight the doubling phases below never reach: every other
+    // even-magnitude bucket gets its factor of 2 from a DBL, so its add
+    // operands always differ. Emit that factor of 2 as an explicit doubling and
+    // start the suffix at block 1 (pb = L0 + 1), so a window whose only live
+    // bucket sits at magnitude 2 reduces via DOUBLE instead of adding the point
+    // to a copy of itself — the P + P the inversion-free / batched-inversion
+    // adds cannot express. Only the L0 = 2 leaf needs it; larger L0 is unused.
+    if (C0 === 1) {
+      push(true, 2, 1, 0, 1); // DBL slot 1 (the magnitude-2 doubling)
+      push(false, 0, L0, L0 + 1, D - 1); // suffix over blocks 1..D-1 only
+    } else {
+      for (let l = L0 - 1; l >= 1; l--) push(false, 0, L0, l, D);
+    }
     for (let L1 = L0; L1 < STRIDE; L1 *= 2) push(false, 1, L0, L1, STRIDE / (2 * L1));
     for (let j = 0; j < C0; j++) push(true, 2, L0, 0, D - 1);
     for (let L1 = 2 * L0; L1 < STRIDE; L1 *= 2) push(true, 2, L1, 0, STRIDE / L1 - 1);
@@ -1734,7 +1768,7 @@ export class MsmStreamWalker {
     // Jacobian reduction-tail layouts.
     m.jacLevelLayout = lt(['storage', 'storage', 'uniform', 'uniform']); // red_buf, red_z, cparams, lparams
     m.zInitLayout = lt(['read-only-storage', 'storage', 'uniform']);     // is_present, red_z, zparams
-    m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform']); // red_buf, red_z, cparams
+    m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform', 'storage']); // red_buf, red_z, cparams, is_present
     // red_buf(rw), red_z(ro), is_present(rw), conv_scratch(rw), cparams
     m.jacToAffineLayout = lt(['storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     // red_buf(ro), is_present(ro), gather_idx(ro), dense_out(rw), cparams
@@ -1781,11 +1815,15 @@ export class MsmStreamWalker {
     //   pt-build: bin_offsets, active_count, pt_off(rw), pt_count(rw), pt_tasks(rw), pt_total_tasks(rw)
     m.ptBuildLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage']);
     //   pt-dispatch-chain: pt_total_tasks(ro), pt_combine_args(rw), pt_build_args(rw), pt_hot_args(ro)
-    m.ptDispatchChainLayout = lt(['read-only-storage', 'storage', 'storage', 'read-only-storage']);
+    // pt_total(ro), combine_args(rw), build_args(rw), hot_args(rw — zeroed on
+    // coop fire), pt_count(ro), pt_meta(ro), coop_args(rw).
+    m.ptDispatchChainLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'read-only-storage', 'read-only-storage', 'storage']);
     //   pt-combine: pt_tasks, pt_total_tasks, pt_buf(rw), params
     m.ptCombineLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     //   pt-finalize: sorted_active, bin_offsets, active_count, pt_off, pt_buf, bucket_sums(rw), params
     m.ptFinalizeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage', 'uniform']);
+    // Coop-tail = pt_finalize layout + pt_count(ro) at binding 9.
+    m.ptCoopTailLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage', 'uniform', 'read-only-storage']);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -1938,8 +1976,11 @@ export class MsmStreamWalker {
       sm.gen_ba_walker_pt_build_shader(64),
       `pt-build`, m.ptBuildLayout);
     m.ptDispatchChainPipe = await compile(
-      sm.gen_ba_walker_pt_dispatch_chain_shader(),
+      sm.gen_ba_walker_pt_dispatch_chain_shader(m.walkerCoopTail ? PT_COOP_CAP : 0),
       `pt-dispatch-chain`, m.ptDispatchChainLayout);
+    m.ptCoopTailPipe = await compile(
+      sm.gen_ba_walker_pt_coop_tail_shader(PT_COOP_WG, PT_COOP_CAP, m.BW, m.stride, m.redM, INV_VARIANT),
+      `pt-coop-tail`, m.ptCoopTailLayout);
     m.ptCombinePipe = await compile(
       sm.gen_ba_unified_combine_shader(64, STREAM_S, INV_VARIANT),
       `pt-combine`, m.ptCombineLayout);
@@ -2413,7 +2454,7 @@ export class MsmStreamWalker {
     const zInitParams = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
     this.zInitBind = mkBind(this.zInitLayout, [isPresentBuf, this.redZBuf, zInitParams]);
     const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, this.stride, this.numWindows]));
-    this.jacFinalizeBind = mkBind(this.jacFinalizeLayout, [redBuf, this.redZBuf, jacFinalizeParams]);
+    this.jacFinalizeBind = mkBind(this.jacFinalizeLayout, [redBuf, this.redZBuf, jacFinalizeParams, isPresentBuf]);
     // Batched jac→affine convert: cparams = (M, total_slots, chunk_C, nthreads).
     // total_slots = RED_M = numWindows·stride; reducePrefScratch (sized ≥ that
     // via the MAXC bump) holds one prefix-product per global slot.
@@ -2638,10 +2679,13 @@ export class MsmStreamWalker {
       // writes combine + build args. Build's level-loop indirect dispatch
       // turns into a no-op once total hits zero, so dead late levels cost
       // ~1 µs (dispatch_compute alone) instead of ~150 µs.
-      this.ptDispatchChainBind = mkBind(this.ptDispatchChainLayout, [ptTotalBuf, scratch.ptCombineDispatchArgs, scratch.ptBuildLoopArgs, scratch.ptDispatchArgs]);
+      this.ptDispatchChainBind = mkBind(this.ptDispatchChainLayout, [ptTotalBuf, scratch.ptCombineDispatchArgs, scratch.ptBuildLoopArgs, scratch.ptDispatchArgs, scratch.ptCount, scratch.ptMeta, scratch.ptCoopArgs]);
       this.ptCombineBind = mkBind(this.ptCombineLayout, [ptTasksBuf, ptTotalBuf, ptBuf, ptCombineParams]);
       this.ptFinalizeBinds = batchWindowBaseBufs.map(bwb =>
         mkBind(this.ptFinalizeLayout, [sabkts, boffs, acnt, ptOffBuf, ptBuf, scratch.redBuf, ptFinalizeParams, scratch.isPresentBuf, bwb]),
+      );
+      this.ptCoopTailBinds = batchWindowBaseBufs.map(bwb =>
+        mkBind(this.ptCoopTailLayout, [sabkts, boffs, acnt, ptOffBuf, ptBuf, scratch.redBuf, ptFinalizeParams, scratch.isPresentBuf, bwb, scratch.ptCount]),
       );
       // combine_batched now reads sorted_active_buckets at binding 0 → zero
       // tail divergence per S=8 thread group.
@@ -2676,8 +2720,9 @@ export class MsmStreamWalker {
         // 7 preprocess + 16 planner + 3 walker (size1+stream_walker+walker_index marker)
         // + 5 combine kernels (count, scan, scatter, filter, batched)
         // + 3 counting-sort prepass kernels (sort_count, sort_scan, sort_scatter)
-        // + pair-tree multi-dispatch: 2 (init) + 17 × 3 (build + dispatch + combine) + 1 (finalize) = 54
-        passes += 7 + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
+        // + pair-tree multi-dispatch: 2 (init) + 17 × 4 (build + dispatch +
+        // combine + coop-tail) + 1 (finalize) = 71
+        passes += 7 + 16 + 3 + 3 + 3 + (2 + 17 * 4 + 1);
       }
       passes += 1 + this.reducePasses.length;
       // Each affine↔jac flip in useJac adds one transition dispatch (z-init or
@@ -2973,6 +3018,7 @@ export class MsmStreamWalker {
       const ptHotArgs = this.pool.scratch!.ptDispatchArgs;
       const ptCombineArgs = this.pool.scratch!.ptCombineDispatchArgs;
       const ptBuildArgs = this.pool.scratch!.ptBuildLoopArgs;
+      const ptCoopArgs = this.pool.scratch!.ptCoopArgs;
       dispatch(this.ptInitScanPipe, this.ptInitScanBind, 1, 1);
       indirectDispatch(this.ptInitCopyPipe, this.ptInitCopyBind, ptHotArgs, 0);
       enc.copyBufferToBuffer(ptHotArgs, 0, ptBuildArgs, 0, 12);
@@ -2982,6 +3028,11 @@ export class MsmStreamWalker {
         indirectDispatch(this.ptBuildPipe, this.ptBuildBind, ptBuildArgs, 0);
         dispatch(this.ptDispatchChainPipe, this.ptDispatchChainBind, 1, 1);
         indirectDispatch(this.ptCombinePipe, this.ptCombineBind, ptCombineArgs, 0);
+        // Cooperative tail: fires (NUM_HOT workgroups) only on the level
+        // dispatch_chain detects every hot bucket fits one workgroup — it reads
+        // this combine's output slice, finalizes into red_buf, and the remaining
+        // levels + pt_finalize go to zero workgroups. Otherwise a 0-WG no-op.
+        indirectDispatch(this.ptCoopTailPipe, this.ptCoopTailBinds[bi], ptCoopArgs, 0);
       }
       setPhase('pt_finalize');
       indirectDispatch(this.ptFinalizePipe, this.ptFinalizeBinds[bi], ptHotArgs, 0);

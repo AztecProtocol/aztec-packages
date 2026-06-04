@@ -126,6 +126,14 @@ const gpuKnobs: MsmConfig = (() => {
     // High-memory backend point-chunk size M (?chunkpts=). Bounds the pair-tree
     // A/B to O(M) points regardless of scalar distribution.
     chunkPoints: optInt('chunkpts'),
+    // High-memory fused peel-merge variant (?fusedmerge=1). Apple-favourable
+    // (one x-load/slot, no inv_dx round-trip; inv stays live).
+    fusedMergedPeel: q.get('fusedmerge') === '1' || undefined,
+    // High-memory cooperative fused-tail (default on): collapse the starved
+    // deep-tail levels into one coop dispatch. ?fusedcooptail=0 forces it off.
+    fusedCoopTail: q.get('fusedcooptail') === '0' ? false : q.get('fusedcooptail') === '1' ? true : undefined,
+    // Stream-walker cooperative pair-tree tail (default on). ?walkercoop=0 off.
+    walkerCoopTail: q.get('walkercoop') === '0' ? false : q.get('walkercoop') === '1' ? true : undefined,
   };
 })();
 

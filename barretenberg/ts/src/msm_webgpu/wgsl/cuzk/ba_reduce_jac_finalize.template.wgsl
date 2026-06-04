@@ -18,13 +18,20 @@
 // is unchanged. One inversion per window (num_windows total, ~20). Empty
 // window (Z == 0) writes the (0, 0) infinity sentinel the host combine
 // expects.
+//
+// The Jacobian levels track presence via Z and never touch the affine
+// is_present plane, so this finalize also stamps is_present at each root slot
+// (present iff Z != 0). Without it the gather reads the stale level-0
+// is_present (set for the window's magnitude-1 bucket) and drops the reduced
+// root of any window whose magnitude-1 bucket happened to be empty.
 
 const PG: u32 = 2u;
 const WG: u32 = {{ workgroup_size }}u;
 
-@group(0) @binding(0) var<storage, read_write> red_buf: array<vec4<u32>>;
-@group(0) @binding(1) var<storage, read>       red_z:   array<vec4<u32>>;
-@group(0) @binding(2) var<uniform>             cparams: vec4<u32>; // (M, _, stride, num_windows)
+@group(0) @binding(0) var<storage, read_write> red_buf:    array<vec4<u32>>;
+@group(0) @binding(1) var<storage, read>       red_z:      array<vec4<u32>>;
+@group(0) @binding(2) var<uniform>             cparams:    vec4<u32>; // (M, _, stride, num_windows)
+@group(0) @binding(3) var<storage, read_write> is_present: array<u32>;
 
 fn load_x(idx: u32, M: u32) -> array<u32, 8> {
     let base = PG * idx;
@@ -70,6 +77,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let zero = array<u32, 8>(0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u);
         store_x(slot, M, zero);
         store_y(slot, M, zero);
+        is_present[slot] = 0u;
         return;
     }
     let X = load_x(slot, M);
@@ -87,4 +95,5 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let y = montgomery_product_f8(Y, Z3inv);
     store_x(slot, M, x);
     store_y(slot, M, y);
+    is_present[slot] = 1u;
 }

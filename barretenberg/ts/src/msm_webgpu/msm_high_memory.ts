@@ -67,6 +67,19 @@ const FUSED_TILE_CAP = Math.ceil((1 << 16) / 128) * 128;
 // pickReduceWg below. All values are the bench-msm-v2 sweep optimum.
 const DEFAULT_WGI = 128; // generic kernel workgroup size
 const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
+// Cooperative fused-tail: max points one workgroup reduces in shared scratch
+// (= the shared array length and the trigger guarantee), and its workgroup
+// size. CAP Jacobian points cost CAP*3*8*4 B of workgroup memory (256 → 24 KiB,
+// under the 32 KiB Apple threadgroup budget). WG == CAP so each thread owns one
+// slot at the widest tree level.
+const COOP_TAIL_CAP = 256;
+const COOP_TAIL_WG = 256;
+// The coop-tail only pays off once few buckets remain active — the structured
+// deep tail. Above this the per-level fused parallelises across buckets far
+// better than one-workgroup-per-bucket (a uniform MSM keeps tens of thousands
+// active at every shallow level, which would spawn that many occupancy-bound
+// coop workgroups — a catastrophic regression).
+const COOP_TAIL_STARVE = 4096;
 const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
 
 
@@ -208,6 +221,15 @@ interface LevelPlan {
   // totalCarries = batchWindows × carriesPerWindow — drives the carry-copy
   // dispatch + carryParams[0] write target.
   totalCarries: number;
+  // maxCount: the largest single-bucket active count at this level's INPUT
+  // (max over all windows/buckets). The cooperative fused-tail switches in at
+  // the first level where this fits one workgroup's shared scratch.
+  maxCount: number;
+  // activeCount: number of non-empty buckets at this level's INPUT. The coop
+  // tail spawns one workgroup per ACTIVE bucket of real work; a uniform MSM
+  // keeps tens of thousands active at every shallow level, so it only switches
+  // in once this is small (the structured deep tail).
+  activeCount: number;
 }
 
 // Plan one level: per-window pair/carry counts -> next-level counts + the
@@ -216,12 +238,17 @@ function planLevel(counts: Uint32Array, s: number, numWindows: number, BW: numbe
   const newCounts = new Uint32Array(numWindows * BW);
   let pairBlocksPerWindow = 1;
   let carriesPerWindow = 1;
+  let maxCount = 1;
+  let activeCount = 0;
   for (let w = 0; w < numWindows; w++) {
     let pairs = 0;
     let carries = 0;
     for (let bl = 0; bl < BW; bl++) {
       const g = w * BW + bl;
-      const { pc, cf, nc } = bucketSplit(counts[g]);
+      const cnt = counts[g];
+      if (cnt > 0) activeCount++;
+      if (cnt > maxCount) maxCount = cnt;
+      const { pc, cf, nc } = bucketSplit(cnt);
       pairs += pc;
       carries += cf;
       newCounts[g] = nc;
@@ -229,7 +256,7 @@ function planLevel(counts: Uint32Array, s: number, numWindows: number, BW: numbe
     pairBlocksPerWindow = Math.max(pairBlocksPerWindow, Math.ceil(pairs / s));
     carriesPerWindow = Math.max(carriesPerWindow, carries);
   }
-  const plan: LevelPlan = { pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0 };
+  const plan: LevelPlan = { pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0, maxCount, activeCount };
   return { plan, newCounts };
 }
 
@@ -1045,6 +1072,11 @@ export class MsmHighMemory {
   private finalizeLayout!: GPUBindGroupLayout;
   private finalizeLayoutL0!: GPUBindGroupLayout;
   private finalizeAccumLayout!: GPUBindGroupLayout;
+  // Cooperative fused-tail: pipeline + the trigger level (-1 = disabled). At
+  // coopTailLevel the starved deep tail is collapsed into one coop dispatch
+  // (reusing the level's finalizeAccum bind — identical layout).
+  private coopTailPipe?: GPUComputePipeline;
+  private coopTailLevel = -1;
   private finalizeAccumLayoutL0!: GPUBindGroupLayout;
   private decomposeLayout!: GPUBindGroupLayout;
   private xposeCountLayout!: GPUBindGroupLayout;
@@ -1204,6 +1236,12 @@ export class MsmHighMemory {
     m.chunkPoints =
       config?.chunkPoints !== undefined && config.chunkPoints > 0 ? config.chunkPoints : Number.MAX_SAFE_INTEGER;
     const wantProfile = config?.profile ?? false;
+    // Apple/big-register-file fused variant: merges the inverse pass and
+    // backward peel into one loop (one x-load per slot, no inv_dx pref
+    // round-trip) at the cost of `inv` staying live. Off by default (the
+    // split path is register-lean for Adreno/Mali).
+    const MERGED_PEEL = config?.fusedMergedPeel ?? false;
+    const COOP_TAIL = config?.fusedCoopTail ?? true;
     m.profile = wantProfile && device.features.has('timestamp-query');
     if (wantProfile && !m.profile) {
       console.warn('[MsmHighMemory] profile requested but timestamp-query unavailable — disabled');
@@ -1245,7 +1283,20 @@ export class MsmHighMemory {
     m.reducePasses = [];
     const push = (isDouble: boolean, shaderPhase: number, p2x: number, p2y: number, ppw: number) =>
       m.reducePasses.push({ isDouble, shaderPhase, p2x, p2y, ppw });
-    for (let l = L0 - 1; l >= 1; l--) push(false, 0, L0, l, D);
+    // The odd bucket of the lowest pair (slot 1, magnitude 2) is the only
+    // even-magnitude weight the doubling phases below never reach: every other
+    // even-magnitude bucket gets its factor of 2 from a DBL, so its add
+    // operands always differ. Emit that factor of 2 as an explicit doubling and
+    // start the suffix at block 1 (pb = L0 + 1), so a window whose only live
+    // bucket sits at magnitude 2 reduces via DOUBLE instead of adding the point
+    // to a copy of itself — the P + P the inversion-free / batched-inversion
+    // adds cannot express. Only the L0 = 2 leaf needs it; larger L0 is unused.
+    if (C0 === 1) {
+      push(true, 2, 1, 0, 1); // DBL slot 1 (the magnitude-2 doubling)
+      push(false, 0, L0, L0 + 1, D - 1); // suffix over blocks 1..D-1 only
+    } else {
+      for (let l = L0 - 1; l >= 1; l--) push(false, 0, L0, l, D);
+    }
     for (let L1 = L0; L1 < STRIDE; L1 *= 2) push(false, 1, L0, L1, STRIDE / (2 * L1));
     for (let j = 0; j < C0; j++) push(true, 2, L0, 0, D - 1);
     for (let L1 = 2 * L0; L1 < STRIDE; L1 *= 2) push(true, 2, L1, 0, STRIDE / L1 - 1);
@@ -1342,7 +1393,7 @@ export class MsmHighMemory {
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform']);
     m.zInitLayout = lt(['read-only-storage', 'storage', 'uniform']); // is_present, red_z, zparams
     m.jacLevelLayout = lt(['storage', 'storage', 'uniform', 'uniform']); // red_buf, red_z, cparams, lparams
-    m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform']); // red_buf, red_z, cparams
+    m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform', 'storage']); // red_buf, red_z, cparams, is_present
 
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
@@ -1365,17 +1416,26 @@ export class MsmHighMemory {
       m.plannerBLayout,
     );
     m.fusedPipe = await compile(
-      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, false, ADDSUB),
+      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, false, ADDSUB, MERGED_PEEL),
       `fused`,
       m.fusedLayout,
     );
     m.carryPipe = await compile(sm.gen_ba_carry_copy_bench_shader(WGI), `carry`, m.carryLayout);
     m.finalizePipe = await compile(sm.gen_ba_finalize_copy_bench_shader(WGI), `finalize`, m.finalizeLayout);
     m.fusedPipeL0 = await compile(
-      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, true, ADDSUB),
+      sm.gen_ba_fused_super_bench_shader(WGI, S, INV_VARIANT, true, true, ADDSUB, MERGED_PEEL),
       `fused-l0`,
       m.fusedLayoutL0,
     );
+    if (COOP_TAIL) {
+      // Reuses finalizeAccumLayout (counts, offsets, active, bucket_result,
+      // params, touched) — the coop-tail's bindings are identical.
+      m.coopTailPipe = await compile(
+        sm.gen_ba_fused_tail_coop_shader(COOP_TAIL_WG, COOP_TAIL_CAP, INV_VARIANT),
+        `fused-tail-coop`,
+        m.finalizeAccumLayout,
+      );
+    }
     m.carryPipeL0 = await compile(sm.gen_ba_carry_copy_bench_shader(WGI, true), `carry-l0`, m.carryLayoutL0);
     m.finalizePipeL0 = await compile(
       sm.gen_ba_finalize_copy_bench_shader(WGI, true),
@@ -1596,6 +1656,8 @@ export class MsmHighMemory {
         let anyActive = false;
         let pairBlocksPerWindow = 1;
         let carriesPerWindow = 1;
+        let maxCount = 1;
+        let activeCount = 0;
         for (let w = 0; w < NUM_WINDOWS; w++) {
           let pairs = 0;
           let carries = 0;
@@ -1604,7 +1666,11 @@ export class MsmHighMemory {
           for (let bl = 0; bl < BW; bl++) {
             const g = base + bl;
             const cnt = countsCur[g];
-            if (cnt > 0) anyActive = true;
+            if (cnt > 0) {
+              anyActive = true;
+              activeCount++;
+            }
+            if (cnt > maxCount) maxCount = cnt;
             const pc = cnt >>> 1;
             const cf = cnt === 1 ? 0 : cnt & 1;
             const nc = pc + cf;
@@ -1619,7 +1685,7 @@ export class MsmHighMemory {
           if (strideCnt > wstride1) wstride1 = strideCnt;
         }
         if (!anyActive) break;
-        levelPlans.push({ pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0 });
+        levelPlans.push({ pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0, maxCount, activeCount });
         swap();
       }
       return { levelPlans, wstride1 };
@@ -1880,6 +1946,28 @@ export class MsmHighMemory {
       };
     }
     const batchBuckets = batchWindows * BW;
+    // Cooperative fused-tail trigger: the first level >= 1 at which EVERY chunk's
+    // largest single-bucket count fits one workgroup (COOP_TAIL_CAP). From there
+    // the starved deep tail (serial, latency-floor-bound dispatches) collapses
+    // into one coop dispatch. -1 = run the full per-level tail (coop off, or no
+    // level qualifies). Level 0 is index-mode (gather) so the tail starts >= 1.
+    this.coopTailLevel = -1;
+    if (this.coopTailPipe) {
+      for (let lv = 1; lv < levels; lv++) {
+        let aggMax = 0;
+        let aggActive = 0;
+        for (const cw of chunkWalks) {
+          if (lv < cw.levelPlans.length) {
+            aggMax = Math.max(aggMax, cw.levelPlans[lv].maxCount);
+            aggActive = Math.max(aggActive, cw.levelPlans[lv].activeCount);
+          }
+        }
+        if (aggMax > 0 && aggMax <= COOP_TAIL_CAP && aggActive <= COOP_TAIL_STARVE) {
+          this.coopTailLevel = lv;
+          break;
+        }
+      }
+    }
     // Point-scaled slot extent. The per-(window, point) buffers (bucketAndSign,
     // valIdx, l0Idx) and the L0 active_sums only ever hold one chunk's
     // batchWindows×Mmax points at a time, so size them by the largest chunk's
@@ -2168,7 +2256,7 @@ export class MsmHighMemory {
     const zInitParams = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
     this.zInitBind = mkBind(this.zInitLayout, [isPresentBuf, this.redZBuf, zInitParams]);
     const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, this.stride, this.numWindows]));
-    this.jacFinalizeBind = mkBind(this.jacFinalizeLayout, [redBuf, this.redZBuf, jacFinalizeParams]);
+    this.jacFinalizeBind = mkBind(this.jacFinalizeLayout, [redBuf, this.redZBuf, jacFinalizeParams, isPresentBuf]);
     if (this.useCoopReduce) {
       // cparams = (M (red_buf stride), _, num_windows, _)
       const coopParams = ubuf(new Uint32Array([RED_M, 0, this.numWindows, 0]));
@@ -2648,6 +2736,19 @@ export class MsmHighMemory {
         dispatch(this.convMetaPipe, ck.convMetaBind, this.nConvMeta, 1);
         for (let lv = 0; lv < ck.levels; lv++) {
           const lb = ck.levelBinds[lv];
+          // Cooperative fused-tail: from coopTailLevel on, the bucket counts fit
+          // one workgroup, so one coop dispatch (one workgroup per bucket, reads
+          // the same finalizeAccum bind — counts/offsets/active/bucket_result/
+          // touched at this level) reduces every remaining bucket to its sum and
+          // finalizes it, replacing the latency-floor per-level tail.
+          if (this.coopTailLevel >= 0 && lv === this.coopTailLevel) {
+            // One workgroup per bucket (each reduces its remaining points). 2D
+            // grid: bucket count can exceed the 65535 per-dimension cap.
+            const nBuckets = this.batchWindows * this.BW;
+            setPhase('coop_tail');
+            dispatch(this.coopTailPipe!, lb.finalizeAccumBinds[bi], Math.min(nBuckets, 65535), Math.ceil(nBuckets / 65535));
+            break;
+          }
           const fp = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
           const cp = lv === 0 ? this.carryPipeL0 : this.carryPipe;
           // Accumulate-finalize: sums this chunk's bucket partials into the

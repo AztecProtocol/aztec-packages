@@ -148,6 +148,35 @@ export interface MsmConfig {
    * Default: large (≥ n, i.e. single chunk = unchanged behaviour).
    */
   chunkPoints?: number;
+
+  /**
+   * Fused-kernel peel variant. When true, the high-memory backend's fused
+   * accumulate merges its inverse pass and backward peel into one descending
+   * loop: each slot's x-coordinates load once (vs three times) and the
+   * per-slot inverse is never round-tripped through pref_scratch. The cost is
+   * the running inverse staying live across the affine add (~8 extra
+   * registers) — a win on large-register-file GPUs (Apple), but spill-prone
+   * on Adreno/Mali, so it is off by default.
+   */
+  fusedMergedPeel?: boolean;
+
+  /**
+   * Collapse the high-memory pair-tree's starved deep-tail levels into one
+   * cooperative dispatch. From the first level where every bucket's count fits
+   * one workgroup, a single kernel (one workgroup per bucket, all-Jacobian tree
+   * in shared memory) reduces each remaining bucket to its sum and finalizes —
+   * replacing the serial, latency-floor-bound per-level tail that dominates the
+   * fused on structured (giant-bucket) MSMs. On by default; set false to disable.
+   */
+  fusedCoopTail?: boolean;
+
+  /**
+   * Stream-walker analogue of fusedCoopTail: collapse the hot-bucket pair-tree's
+   * starved deep-tail levels into one cooperative dispatch (one workgroup per
+   * hot bucket), fired GPU-side from pt_dispatch_chain. On by default; set false
+   * to disable (the trigger cap is set to 0 so it never fires).
+   */
+  walkerCoopTail?: boolean;
 }
 
 /** Per-pass GPU time (ms) for one `run()`, returned when `profile` is set. */
