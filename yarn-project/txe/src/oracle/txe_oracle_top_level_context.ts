@@ -28,6 +28,7 @@ import {
   ExecutionNoteCache,
   ExecutionTaggingIndexCache,
   HashedValuesCache,
+  type IMiscOracle,
   Oracle,
   PrivateExecutionOracle,
   UtilityExecutionOracle,
@@ -89,7 +90,8 @@ import type { TXEArtifactResolver } from '../utils/txe_artifact_resolver.js';
 import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
 
-export class TXEOracleTopLevelContext implements ITxeExecutionOracle {
+export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
+  isMisc = true as const;
   isTxe = true as const;
 
   private logger: Logger;

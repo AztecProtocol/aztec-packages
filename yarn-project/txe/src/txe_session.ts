@@ -22,6 +22,7 @@ import {
   ExecutionNoteCache,
   ExecutionTaggingIndexCache,
   HashedValuesCache,
+  type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
   Option,
@@ -110,7 +111,7 @@ type MethodNames<T> = {
  */
 export type TXEOracleFunctionName = Exclude<
   MethodNames<RPCTranslator>,
-  'constructor' | 'handlerAsUtility' | 'handlerAsPrivate' | 'handlerAsAvm' | 'handlerAsTxe'
+  'constructor' | 'handlerAsMisc' | 'handlerAsUtility' | 'handlerAsPrivate' | 'handlerAsAvm' | 'handlerAsTxe'
 >;
 
 export interface TXESessionStateHandler {
@@ -207,6 +208,7 @@ export class TXESession implements TXESessionStateHandler {
     private sessionStore: AztecAsyncKVStore,
     private stateMachine: TXEStateMachine,
     private oracleHandler:
+      | IMiscOracle
       | IUtilityExecutionOracle
       | IPrivateExecutionOracle
       | IAvmExecutionOracle

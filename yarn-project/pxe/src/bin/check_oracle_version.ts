@@ -16,7 +16,14 @@ import { getOracleInterfaceSignature, readNumericGlobal } from './oracle_version
  *   - If the change is an oracle addition (non-breaking), bump ORACLE_VERSION_MINOR.
  */
 function assertOracleInterfaceMatches(): void {
-  const excludedProps = ['handler', 'constructor', 'toACIRCallback', 'handlerAsUtility', 'handlerAsPrivate'];
+  const excludedProps = [
+    'handler',
+    'constructor',
+    'toACIRCallback',
+    'handlerAsMisc',
+    'handlerAsUtility',
+    'handlerAsPrivate',
+  ];
 
   // Get the path to Oracle.ts source file
   // The script runs from dest/bin/ after compilation, so we need to go up to the package root

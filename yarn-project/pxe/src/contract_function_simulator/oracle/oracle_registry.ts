@@ -82,16 +82,16 @@ export {
 } from './oracle_type_mappings.js';
 
 export const ORACLE_REGISTRY = {
-  aztec_utl_assertCompatibleOracleVersion: makeEntry({
+  aztec_misc_assertCompatibleOracleVersion: makeEntry({
     params: [
       { name: 'major', type: U32 },
       { name: 'minor', type: U32 },
     ],
   }),
 
-  aztec_utl_getRandomField: makeEntry({ returnType: FIELD }),
+  aztec_misc_getRandomField: makeEntry({ returnType: FIELD }),
 
-  aztec_utl_log: makeEntry({
+  aztec_misc_log: makeEntry({
     params: [
       { name: 'level', type: U32 },
       { name: 'message', type: STR },

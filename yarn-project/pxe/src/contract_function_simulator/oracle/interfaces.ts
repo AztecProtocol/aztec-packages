@@ -1,6 +1,9 @@
 import type { HandlersForPrefix } from './oracle_registry.js';
 import type { ORACLE_REGISTRY } from './oracle_registry.js';
 
+/** Handler interface for cross-cutting oracles available in any context (aztec_misc_*). */
+export type IMiscOracle = HandlersForPrefix<typeof ORACLE_REGISTRY, 'misc'> & { isMisc: true };
+
 /** Handler interface for utility-scoped oracles (aztec_utl_*). */
 export type IUtilityExecutionOracle = HandlersForPrefix<typeof ORACLE_REGISTRY, 'utl'> & { isUtility: true };
 

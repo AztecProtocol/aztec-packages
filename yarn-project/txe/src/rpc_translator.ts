@@ -1,4 +1,4 @@
-import type { IPrivateExecutionOracle, IUtilityExecutionOracle } from '@aztec/pxe/simulator';
+import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from '@aztec/pxe/simulator';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { callTxeHandler } from './oracle/txe_oracle_registry.js';
@@ -24,6 +24,7 @@ export class RPCTranslator {
   constructor(
     private stateHandler: TXESessionStateHandler,
     private oracleHandler:
+      | IMiscOracle
       | IUtilityExecutionOracle
       | IPrivateExecutionOracle
       | IAvmExecutionOracle
@@ -32,6 +33,14 @@ export class RPCTranslator {
 
   // Note: If you rename the following functions to not start with "handlerAs", you must also update the validation
   // check in `TXESession.processFunction`.
+
+  private handlerAsMisc(): IMiscOracle {
+    if (!('isMisc' in this.oracleHandler)) {
+      throw new UnavailableOracleError('Misc');
+    }
+
+    return this.oracleHandler;
+  }
 
   private handlerAsUtility(): IUtilityExecutionOracle {
     if (!('isUtility' in this.oracleHandler)) {
@@ -204,20 +213,20 @@ export class RPCTranslator {
   // PXE oracles
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion(...inputs: ForeignCallArgs) {
+  aztec_misc_assertCompatibleOracleVersion(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_assertCompatibleOracleVersion',
+      oracle: 'aztec_misc_assertCompatibleOracleVersion',
       inputs,
-      handler: ([major, minor]) => this.handlerAsUtility().assertCompatibleOracleVersion(major, minor),
+      handler: ([major, minor]) => this.handlerAsMisc().assertCompatibleOracleVersion(major, minor),
     });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getRandomField() {
+  aztec_misc_getRandomField() {
     return callTxeHandler({
-      oracle: 'aztec_utl_getRandomField',
+      oracle: 'aztec_misc_getRandomField',
       inputs: [],
-      handler: () => this.handlerAsUtility().getRandomField(),
+      handler: () => this.handlerAsMisc().getRandomField(),
     });
   }
 
@@ -298,12 +307,11 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_log(...inputs: ForeignCallArgs) {
+  aztec_misc_log(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_log',
+      oracle: 'aztec_misc_log',
       inputs,
-      handler: ([level, message, fieldsSize, fields]) =>
-        this.handlerAsUtility().log(level, message, fieldsSize, fields),
+      handler: ([level, message, fieldsSize, fields]) => this.handlerAsMisc().log(level, message, fieldsSize, fields),
     });
   }
 

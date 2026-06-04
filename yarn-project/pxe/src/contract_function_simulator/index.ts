@@ -42,7 +42,7 @@ export { ExecutionNoteCache } from './execution_note_cache.js';
 export { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 export { HashedValuesCache } from './hashed_values_cache.js';
 export { pickNotes } from './pick_notes.js';
-export type { IUtilityExecutionOracle, IPrivateExecutionOracle } from './oracle/interfaces.js';
+export type { IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } from './oracle/interfaces.js';
 export type { NoteData } from './noir-structs/note_data.js';
 export { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 export { MessageContextService } from '../messages/message_context_service.js';
