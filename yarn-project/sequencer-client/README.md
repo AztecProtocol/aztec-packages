@@ -30,22 +30,22 @@ Within a slot, the proposer adds blocks to the proposed chain as it goes. Only t
 
 ### Proposer Pipelining
 
-The legacy ("non-pipelined") flow has the proposer for slot `N` build, attest, and publish inside slot `N`. The proposer spends most of `N` collecting attestations and waiting for the L1 transaction to be mined, leaving a long idle window. Pipelining, [proposed in this discussion](https://github.com/AztecProtocol/governance/discussions/8), removes that idle window: the proposer for slot `N` builds blocks during slot `N - 1`, finishes attestation collection before the slot boundary, and submits the L1 transaction at the start of slot `N`.
+Pipelining ([proposed in this discussion](https://github.com/AztecProtocol/governance/discussions/8)) is the only mode the production sequencer runs in. The proposer for slot `N` builds blocks, re-executes the last block, and collects attestations during slot `N - 1`, then submits the L1 transaction at the start of slot `N`. This removes the long idle window a naive flow would have inside slot `N`, where the proposer would otherwise spend most of the slot collecting attestations and waiting for the L1 transaction to mine.
 
-Pipelining shifts the work like this:
+Each phase lands in this slot:
 
-| Phase                              | Non-pipelined | Pipelined        |
-| ---------------------------------- | ------------- | ---------------- |
-| Block building                     | slot `N`      | slot `N - 1`     |
-| Last-block re-execution            | slot `N`      | slot `N - 1`     |
-| Attestation collection             | slot `N`      | slot `N - 1` *   |
-| L1 submission                      | slot `N`      | slot `N`         |
+| Phase                   | Slot         |
+| ----------------------- | ------------ |
+| Block building          | slot `N - 1` |
+| Last-block re-execution | slot `N - 1` |
+| Attestation collection  | slot `N - 1` \* |
+| L1 submission           | slot `N`     |
 
-\* The pipelined timing model reserves enough end-of-slot budget for attestations to be in hand by the slot boundary, but the enforced deadline (`checkpointAttestationDeadline`) actually extends to `2 * aztecSlotDuration - l1PublishingTime`, so a late attestation can still spill into the target slot.
+\* The timing model reserves enough end-of-slot budget for attestations to be in hand by the slot boundary, but the enforced deadline (`checkpointAttestationDeadline`) extends to `2 * aztecSlotDuration - l1PublishingTime`, so a late attestation can still spill into the target slot.
 
-In practice, "non-pipelined mode" is being removed; this README treats pipelining as the default. The toggle still exists (`enableProposerPipelining`) because `EpochCache` consults it when looking up the proposer for the next L1 slot — when pipelining is enabled, the sequencer asks the cache for the proposer of `slot + 1` rather than `slot`.
+`EpochCache` always looks up the proposer for the next L1 slot, so the sequencer asks the cache for the proposer of `slot + 1` (`PROPOSER_PIPELINING_SLOT_OFFSET = 1`) rather than `slot`. Building runs during the wall-clock slot; the checkpoint commits to the target slot.
 
-The pipelining flow introduces two failure modes that block building has to handle:
+This flow introduces two failure modes that block building has to handle:
 
 - **Pipeline depth** is bounded to 2 (`checkpointNumber ≤ confirmedCheckpoint + 2`). Building further ahead would require trusting more in-flight parent proposals than the design allows.
 - **Pipelined parent invalidation**: if the parent checkpoint we built on top of fails to land cleanly on L1, the next proposer's work is discarded (`pipelined-checkpoint-discarded` event) and an `invalidate` request is enqueued for the parent.
@@ -89,14 +89,14 @@ The pipelining flow introduces two failure modes that block building has to hand
 
 `Sequencer` (`src/sequencer/sequencer.ts`) drives one slot at a time using a `RunningPromise` that ticks every `sequencerPollingIntervalMS` (default 500 ms). On each tick it:
 
-1. Asks the [epoch cache](../epoch-cache/README.md) for the slot at the next L1 block, and, when pipelining, for the *target* slot (`slot + 1`). Building runs during the wall-clock slot; the checkpoint commits to the target slot.
+1. Asks the [epoch cache](../epoch-cache/README.md) for the slot at the next L1 block and for the *target* slot (`slot + 1`). Building runs during the wall-clock slot; the checkpoint commits to the target slot.
 2. Calls `prepareCheckpointProposal`, which:
    - Dedupes against the last slot we tried to propose for.
    - Runs `checkSync()` — verifies world-state, l2 block source, p2p, and l1-to-l2 message source agree on the parent tip.
    - Checks the escape hatch (governance-controlled freeze) for the target epoch.
    - Calls `checkCanPropose(targetSlot)` to verify one of our configured validator addresses is the elected proposer.
    - Falls back to `considerInvalidatingCheckpoint()` if we are *not* the proposer but a previous checkpoint is stuck with bad attestations and the slot is far enough along to invalidate (`secondsBeforeInvalidatingBlockAsCommitteeMember` / `…AsNonCommitteeMember`).
-   - Refuses to build further than two checkpoints ahead of the confirmed tip when pipelining.
+   - Refuses to build further than two checkpoints ahead of the confirmed tip.
    - Builds L1 `eth_call` simulation overrides (so `Rollup.canProposeAt` sees the expected pending tip when we are building on a pipelined parent or invalidating).
    - Calls `publisher.canProposeAt(...)` — if L1 rejects the simulated propose, abort early.
 3. Constructs a `CheckpointProposalJob` and calls `.execute()`, parking the returned `pendingL1Submission` on the sequencer so `stop()` can await it without re-entering the loop.
@@ -148,8 +148,8 @@ Inside `execute()`:
    - Broadcasts the `CheckpointProposal` via p2p.
 3. **Attestation collection** (`waitForAttestationsAndEnqueueSubmissionAsync`) runs in the background:
    - Transitions to `COLLECTING_ATTESTATIONS`. Reads the committee from `EpochCache`, computes the quorum (`2/3 + 1`), and waits for that many attestations on p2p. The validator client adds the proposer's own signature.
-   - If pipelining: `waitForValidParentCheckpointOnL1()` waits for the archiver to confirm the parent we built on top of has landed on L1 with matching hash and valid attestations. If not, the work is dropped (`pipelined-checkpoint-discarded`) and we enqueue an invalidation for the parent so the next proposer doesn't repeat the same mistake.
-   - Computes `submitAfter`: `getTimestampForSlot(targetSlot)` when pipelining (so the Multicall3 mines inside the target slot — EIP-712 signatures are bound to a slot and would silently fail if mined outside it), otherwise "now".
+   - `waitForValidParentCheckpointOnL1()` waits for the archiver to confirm the parent we built on top of has landed on L1 with matching hash and valid attestations. If not, the work is dropped (`pipelined-checkpoint-discarded`) and we enqueue an invalidation for the parent so the next proposer doesn't repeat the same mistake.
+   - Computes `submitAfter` as `getTimestampForSlot(targetSlot)` so the Multicall3 mines inside the target slot — EIP-712 signatures are bound to a slot and would silently fail if mined outside it.
    - Calls `publisher.sendRequestsAt(submitAfter)`, which sleeps until the deadline, re-runs each request's `preCheck` against fresh L1 state, and submits the bundled Multicall3.
 
 ### Per-block loop (`buildBlocksForCheckpoint`)
@@ -206,8 +206,8 @@ Key entry points:
 - `canProposeAt(archive, msgSender, simulationOverridesPlan?)` — eth_call simulation of `Rollup.canProposeAt`. The sequencer runs this before deciding to build.
 - `enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, opts)` — adds the propose call, with a `preCheck` that re-validates the proposal against real L1 state when it is finally sent (catches drift between build time and submit time).
 - `enqueueInvalidateCheckpoint`, `enqueueGovernanceCastSignal`, `enqueueSlashingActions` — the rest of the actions a proposer may bundle.
-- `sendRequests()` — immediately flushes the queue as one Multicall3 transaction.
-- `sendRequestsAt(submitAfter)` — sleeps (cancellable) until `submitAfter`, runs each request's `preCheck` (dropping those that fail), and then calls `sendRequests()`, which filters expired requests, sorts the remainder, and submits one Multicall3. Pipelining is implemented entirely by passing `getTimestampForSlot(targetSlot)` here.
+- `sendRequests(targetSlot?)` — immediately flushes the queue as one Multicall3 transaction. Used by the `AutomineSequencer` for synchronous in-slot publishing.
+- `sendRequestsAt(targetSlot)` — the production (pipelined) path: sleeps (cancellable) until one L1 slot before `targetSlot` starts, runs each request's `preCheck` (dropping those that fail), and then calls `sendRequests(targetSlot)`, which filters expired requests, sorts the remainder, and submits one Multicall3 that mines inside the target slot.
 
 `SequencerPublisherFactory` produces one publisher per attempt, wrapping an L1 publisher (EOA + `L1TxUtils`) leased from `PublisherManager`. Leases free the publisher when the job completes so multiple validator addresses on the same node can take turns without conflicts.
 
@@ -248,7 +248,6 @@ The configuration object is `SequencerConfig` (`src/sequencer/config.ts` + `src/
 | `attestationPropagationTime` / `SEQ_ATTESTATION_PROPAGATION_TIME` | 2 s | One-way p2p estimate fed to the timetable. |
 | `l1PublishingTime` / `SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT` | full L1 slot | Time reserved for the L1 tx to land. |
 | `sequencerPollingIntervalMS` / `SEQ_POLLING_INTERVAL_MS` | 500 | Work-loop tick rate. |
-| `enableProposerPipelining` / `SEQ_ENABLE_PROPOSER_PIPELINING` | false | When true, the sequencer builds for `slot + 1`. The flag lives in shared `PipelineConfig` and is read by `EpochCache`, not by the sequencer directly. |
 
 ### Behavior
 
@@ -300,7 +299,7 @@ yarn workspace @aztec/sequencer-client test
 The integration tests of interest are:
 
 - `src/sequencer/sequencer.test.ts` — work-loop behavior, escape-hatch and invalidation fallbacks.
-- `src/sequencer/checkpoint_proposal_job.test.ts` — full per-slot job, both pipelined and non-pipelined.
+- `src/sequencer/checkpoint_proposal_job.test.ts` — full per-slot job, including pipelined parent validation and discard paths.
 - `src/sequencer/checkpoint_proposal_job.timing.test.ts` — sub-slot timing and skip behavior under simulated clock drift.
 - `src/sequencer/timetable.test.ts` — pure math against `CheckpointTiming`.
 - `src/publisher/sequencer-publisher.test.ts` — request ordering, `sendRequestsAt`, preCheck re-runs.

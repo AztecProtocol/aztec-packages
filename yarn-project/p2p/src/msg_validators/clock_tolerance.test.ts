@@ -216,7 +216,6 @@ describe('clock_tolerance', () => {
     beforeEach(() => {
       epochCache = mock<EpochCacheInterface>();
       epochCache.getSlotNow.mockReturnValue(SlotNumber(100));
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
       epochCache.getL1Constants.mockReturnValue({
         slotDuration: 72,
         ethereumSlotDuration: 12,
@@ -258,32 +257,20 @@ describe('clock_tolerance', () => {
       expect(pipeliningWindow.acceptsProposal(SlotNumber(101))).toBe(false);
       expect(pipeliningWindow.acceptsProposal(SlotNumber(102))).toBe(false);
     });
-
-    it('rejects when pipelining is disabled', () => {
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: SlotNumber(100),
-        ts: 1000n,
-        nowMs: 1000000n,
-      });
-
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(false);
-    });
   });
 
   describe('PipeliningWindow.acceptsAttestation', () => {
-    // Config: 72s slot, 2s p2p.
-    // Under early pipelining, attestationWindowIntoTargetSlot = 2*p2p = 4s,
-    // giving straggler attestations 4s+500ms grace after the receiver rolls
-    // into the next slot.
+    // Config: 72s slot, 12s Ethereum slot.
+    // attestationWindowIntoTargetSlot now spans target-slot start to the L1 publish deadline:
+    // aztecSlotDuration - 2*ethereumSlotDuration = 72 - 24 = 48s, giving straggler attestations
+    // 48s + 500ms grace after the receiver rolls into the target slot, so the proposer can keep
+    // collecting useful attestations until right before the publish deadline.
     let epochCache: ReturnType<typeof mock<EpochCacheInterface>>;
     let pipeliningWindow: PipeliningWindow;
 
     beforeEach(() => {
       epochCache = mock<EpochCacheInterface>();
       epochCache.getSlotNow.mockReturnValue(SlotNumber(100));
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
       epochCache.getL1Constants.mockReturnValue({
         slotDuration: 72,
         ethereumSlotDuration: 12,
@@ -296,34 +283,31 @@ describe('clock_tolerance', () => {
         epoch: 1 as any,
         slot: SlotNumber(100),
         ts: 1000n,
-        nowMs: 1003000n, // 3000ms elapsed, within 4500ms straggler grace
+        nowMs: 1003000n, // 3000ms elapsed, within 48500ms straggler grace
       });
 
       expect(pipeliningWindow.acceptsAttestation(SlotNumber(100))).toBe(true);
     });
 
-    it('rejects a current-slot attestation past the straggler window', () => {
+    it('accepts an attestation arriving well into the target slot (previously rejected past ~4.5s)', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: SlotNumber(100),
         ts: 1000n,
-        nowMs: 1005000n, // 5000ms elapsed, past 4500ms cutoff
+        nowMs: 1030000n, // 30s into the target slot — past the old 4.5s window, within the new 48.5s
       });
 
-      expect(pipeliningWindow.acceptsAttestation(SlotNumber(100))).toBe(false);
+      expect(pipeliningWindow.acceptsAttestation(SlotNumber(100))).toBe(true);
     });
 
-    it('scales the straggler window with p2pPropagationTime', () => {
-      // With p2pPropagationTime = 4, straggler window = 8s + 500ms disparity.
-      const longer = new PipeliningWindow(epochCache, { l1PublishingTime: 12, p2pPropagationTime: 4 });
+    it('rejects a current-slot attestation past the L1 publish deadline window', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: SlotNumber(100),
         ts: 1000n,
-        nowMs: 1007000n,
+        nowMs: 1049000n, // 49s elapsed, past the 48.5s cutoff (48s window + 500ms disparity)
       });
 
-      expect(longer.acceptsAttestation(SlotNumber(100))).toBe(true);
       expect(pipeliningWindow.acceptsAttestation(SlotNumber(100))).toBe(false);
     });
   });

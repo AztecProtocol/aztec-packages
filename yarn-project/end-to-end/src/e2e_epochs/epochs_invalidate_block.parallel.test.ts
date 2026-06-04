@@ -85,7 +85,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,
       skipInitialSequencer: true,
-      enableProposerPipelining: true,
       inboxLag: 2,
     });
 

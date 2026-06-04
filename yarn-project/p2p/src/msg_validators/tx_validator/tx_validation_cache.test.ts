@@ -18,39 +18,38 @@ describe('TxValidationCache', () => {
     tx = await mockTx(1);
   });
 
-  // The cache key is derived asynchronously, so a call's promise is only registered after its key
-  // resolves. This waits until a call has been registered before issuing a follow-up, making the
-  // coalescing assertions deterministic rather than dependent on the order in which key digests resolve.
+  // A call's promise is only registered after getOrValidate computes its key and calls set. This waits
+  // until a call has been registered before issuing a follow-up, making coalescing assertions deterministic.
   const waitUntilCached = async (validatorSymbol: symbol, forTx: Tx) => {
-    const key = await cache.key(validatorSymbol, forTx);
+    const key = cache.key(validatorSymbol, forTx);
     while (cache.get(key) === undefined) {
       await sleep(1);
     }
   };
 
   describe('get / set', () => {
-    it('returns undefined on a cache miss', async () => {
-      expect(cache.get(await cache.key(validatorA, tx))).toBeUndefined();
+    it('returns undefined on a cache miss', () => {
+      expect(cache.get(cache.key(validatorA, tx))).toBeUndefined();
     });
 
     it('returns the stored promise on a cache hit', async () => {
       const result: TxValidationResult = { result: 'valid' };
-      cache.set(await cache.key(validatorA, tx), Promise.resolve(result));
+      cache.set(cache.key(validatorA, tx), Promise.resolve(result));
 
-      await expect(cache.get(await cache.key(validatorA, tx))).resolves.toEqual(result);
+      await expect(cache.get(cache.key(validatorA, tx))).resolves.toEqual(result);
     });
 
-    it('does not share entries across different validator symbols', async () => {
-      cache.set(await cache.key(validatorA, tx), Promise.resolve({ result: 'valid' }));
+    it('does not share entries across different validator symbols', () => {
+      cache.set(cache.key(validatorA, tx), Promise.resolve({ result: 'valid' }));
 
-      expect(cache.get(await cache.key(validatorB, tx))).toBeUndefined();
+      expect(cache.get(cache.key(validatorB, tx))).toBeUndefined();
     });
 
     it('does not share entries across different txs', async () => {
       const otherTx = await mockTx(2);
-      cache.set(await cache.key(validatorA, tx), Promise.resolve({ result: 'valid' }));
+      cache.set(cache.key(validatorA, tx), Promise.resolve({ result: 'valid' }));
 
-      expect(cache.get(await cache.key(validatorA, otherTx))).toBeUndefined();
+      expect(cache.get(cache.key(validatorA, otherTx))).toBeUndefined();
     });
   });
 
@@ -62,14 +61,14 @@ describe('TxValidationCache', () => {
       const tx3 = await mockTx(12);
       const result: TxValidationResult = { result: 'valid' };
 
-      smallCache.set(await smallCache.key(validatorA, tx1), Promise.resolve(result));
-      smallCache.set(await smallCache.key(validatorA, tx2), Promise.resolve(result));
+      smallCache.set(smallCache.key(validatorA, tx1), Promise.resolve(result));
+      smallCache.set(smallCache.key(validatorA, tx2), Promise.resolve(result));
       // tx1 is now the LRU entry; adding tx3 should evict it
-      smallCache.set(await smallCache.key(validatorA, tx3), Promise.resolve(result));
+      smallCache.set(smallCache.key(validatorA, tx3), Promise.resolve(result));
 
-      expect(smallCache.get(await smallCache.key(validatorA, tx1))).toBeUndefined();
-      expect(smallCache.get(await smallCache.key(validatorA, tx2))).toBeDefined();
-      expect(smallCache.get(await smallCache.key(validatorA, tx3))).toBeDefined();
+      expect(smallCache.get(smallCache.key(validatorA, tx1))).toBeUndefined();
+      expect(smallCache.get(smallCache.key(validatorA, tx2))).toBeDefined();
+      expect(smallCache.get(smallCache.key(validatorA, tx3))).toBeDefined();
     });
 
     it('refreshes recency on get so that accessed entries are not evicted first', async () => {
@@ -79,15 +78,15 @@ describe('TxValidationCache', () => {
       const tx3 = await mockTx(22);
       const result: TxValidationResult = { result: 'valid' };
 
-      smallCache.set(await smallCache.key(validatorA, tx1), Promise.resolve(result));
-      smallCache.set(await smallCache.key(validatorA, tx2), Promise.resolve(result));
+      smallCache.set(smallCache.key(validatorA, tx1), Promise.resolve(result));
+      smallCache.set(smallCache.key(validatorA, tx2), Promise.resolve(result));
       // Access tx1 so tx2 becomes the LRU entry
-      void smallCache.get(await smallCache.key(validatorA, tx1));
-      smallCache.set(await smallCache.key(validatorA, tx3), Promise.resolve(result));
+      void smallCache.get(smallCache.key(validatorA, tx1));
+      smallCache.set(smallCache.key(validatorA, tx3), Promise.resolve(result));
 
-      expect(smallCache.get(await smallCache.key(validatorA, tx1))).toBeDefined();
-      expect(smallCache.get(await smallCache.key(validatorA, tx2))).toBeUndefined();
-      expect(smallCache.get(await smallCache.key(validatorA, tx3))).toBeDefined();
+      expect(smallCache.get(smallCache.key(validatorA, tx1))).toBeDefined();
+      expect(smallCache.get(smallCache.key(validatorA, tx2))).toBeUndefined();
+      expect(smallCache.get(smallCache.key(validatorA, tx3))).toBeDefined();
     });
 
     it('throws when constructed with maxSize < 1', () => {

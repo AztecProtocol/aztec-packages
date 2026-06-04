@@ -39,7 +39,6 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
 
     test = await EpochsTestContext.setup({
       proverNodeConfig: { proverNodeFailedEpochStore: uploadUrl },
-      enableProposerPipelining: true,
     });
     ({ context, logger } = test);
     ({ config } = context);

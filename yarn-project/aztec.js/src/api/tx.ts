@@ -3,9 +3,13 @@ export {
   TxExecutionRequest,
   TxExecutionResult,
   TxHash,
-  TxReceipt,
   TxStatus,
   SortedTxStatuses,
+  PendingTxReceipt,
+  DroppedTxReceipt,
+  MinedTxReceipt,
+  TxReceiptSchema,
+  GetTxReceiptOptionsSchema,
   Capsule,
   HashedValues,
   GlobalVariables,
@@ -13,3 +17,4 @@ export {
   ExecutionPayload,
   mergeExecutionPayloads,
 } from '@aztec/stdlib/tx';
+export type { TxReceipt, GetTxReceiptOptions } from '@aztec/stdlib/tx';
