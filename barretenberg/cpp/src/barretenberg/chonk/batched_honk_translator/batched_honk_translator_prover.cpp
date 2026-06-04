@@ -8,6 +8,15 @@
 #include "barretenberg/polynomials/row_disabling_polynomial.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 
+// Short-monomial translator relation definitions: the joint sumcheck round (TransProverRound) is templated on
+// TranslatorShortMonomialFlavor, so this TU instantiates the short relations' prover-side accumulate. The short
+// relations are otherwise header-only (no explicit instantiation into librelations), so include the _impl here.
+#include "barretenberg/relations/translator_vm/translator_decomposition_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_short_relations_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_short_relation_impl.hpp"
+
 namespace bb {
 
 BatchedHonkTranslatorProver::BatchedHonkTranslatorProver(std::shared_ptr<MegaZKProverInstance> mega_zk_instance,
@@ -154,16 +163,34 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     auto do_round = [&](auto& hpolys, auto& tpolys, size_t round_idx) -> FF {
         U_joint = SumcheckRoundUnivariate::zero();
 
-        auto U_H = mega_zk_round.compute_univariate(hpolys, mega_zk_params, gate_sep, mega_zk_alphas);
-        U_H += mega_zk_round.compute_disabled_contribution(hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
-        U_joint += U_H;
-
-        auto U_T =
-            translator_round.compute_univariate(tpolys, translator_relation_parameters, gate_sep, translator_alphas);
-        for (auto& eval : U_T.evaluations) {
-            eval *= alpha_power_KH;
+        {
+            BB_BENCH_NAME("joint_sumcheck/hiding_kernel");
+            SumcheckRoundUnivariate U_H;
+            {
+                BB_BENCH_NAME("joint_sumcheck/hiding_kernel/compute_univariate");
+                U_H = mega_zk_round.compute_univariate(hpolys, mega_zk_params, gate_sep, mega_zk_alphas);
+            }
+            {
+                BB_BENCH_NAME("joint_sumcheck/hiding_kernel/disabled_contribution");
+                U_H +=
+                    mega_zk_round.compute_disabled_contribution(hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
+            }
+            U_joint += U_H;
         }
-        U_joint += U_T;
+
+        {
+            BB_BENCH_NAME("joint_sumcheck/translator");
+            SumcheckRoundUnivariate U_T;
+            {
+                BB_BENCH_NAME("joint_sumcheck/translator/compute_univariate");
+                U_T = translator_round.compute_univariate(
+                    tpolys, translator_relation_parameters, gate_sep, translator_alphas);
+            }
+            for (auto& eval : U_T.evaluations) {
+                eval *= alpha_power_KH;
+            }
+            U_joint += U_T;
+        }
 
         return send_round(round_idx);
     };
@@ -172,8 +199,20 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     // PartiallyEvaluatedMultivariates only allocates output buffers; values are populated here.
     {
         const FF u = do_round(mega_zk_polys, translator_polys, 0);
-        MegaZKSumcheck::partially_evaluate(mega_zk_polys, mega_zk_partial, u);
-        TransSumcheck::partially_evaluate(translator_polys, translator_partial, u);
+        {
+            BB_BENCH_NAME("joint_sumcheck/hiding_kernel");
+            {
+                BB_BENCH_NAME("joint_sumcheck/hiding_kernel/partially_evaluate");
+                MegaZKSumcheck::partially_evaluate(mega_zk_polys, mega_zk_partial, u);
+            }
+        }
+        {
+            BB_BENCH_NAME("joint_sumcheck/translator");
+            {
+                BB_BENCH_NAME("joint_sumcheck/translator/partially_evaluate");
+                TransSumcheck::partially_evaluate(translator_polys, translator_partial, u);
+            }
+        }
         rdp.update_evaluations(u, 0);
         mega_zk_round.round_size >>= 1;
         mega_zk_round.excluded_head_size = 2; // After round 0, disabled zone collapses to 1 edge pair
@@ -183,8 +222,20 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     // ==================== Real rounds 1..mega_zk_log_n-1 ====================
     for (size_t round_idx = 1; round_idx < mega_zk_log_n; round_idx++) {
         const FF u = do_round(mega_zk_partial, translator_partial, round_idx);
-        MegaZKSumcheck::partially_evaluate_in_place(mega_zk_partial, u);
-        TransSumcheck::partially_evaluate_in_place(translator_partial, u);
+        {
+            BB_BENCH_NAME("joint_sumcheck/hiding_kernel");
+            {
+                BB_BENCH_NAME("joint_sumcheck/hiding_kernel/partially_evaluate_in_place");
+                MegaZKSumcheck::partially_evaluate_in_place(mega_zk_partial, u);
+            }
+        }
+        {
+            BB_BENCH_NAME("joint_sumcheck/translator");
+            {
+                BB_BENCH_NAME("joint_sumcheck/translator/partially_evaluate_in_place");
+                TransSumcheck::partially_evaluate_in_place(translator_partial, u);
+            }
+        }
         rdp.update_evaluations(u, round_idx);
         mega_zk_round.round_size >>= 1;
         update_round_state(round_idx, u);
@@ -195,21 +246,46 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     for (size_t round_idx = mega_zk_log_n; round_idx < JOINT_LOG_N; round_idx++) {
         U_joint = SumcheckRoundUnivariate::zero();
 
-        U_joint += MegaZKSumcheck::compute_virtual_round_univariate(
-            mega_zk_round, mega_zk_partial, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
-
-        auto U_T = translator_round.compute_univariate(
-            translator_partial, translator_relation_parameters, gate_sep, translator_alphas);
-        for (auto& eval : U_T.evaluations) {
-            eval *= alpha_power_KH;
+        {
+            BB_BENCH_NAME("joint_sumcheck/hiding_kernel");
+            {
+                BB_BENCH_NAME("joint_sumcheck/hiding_kernel/virtual_univariate");
+                U_joint += MegaZKSumcheck::compute_virtual_round_univariate(
+                    mega_zk_round, mega_zk_partial, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
+            }
         }
-        U_joint += U_T;
+
+        {
+            BB_BENCH_NAME("joint_sumcheck/translator");
+            SumcheckRoundUnivariate U_T;
+            {
+                BB_BENCH_NAME("joint_sumcheck/translator/compute_univariate");
+                U_T = translator_round.compute_univariate(
+                    translator_partial, translator_relation_parameters, gate_sep, translator_alphas);
+            }
+            for (auto& eval : U_T.evaluations) {
+                eval *= alpha_power_KH;
+            }
+            U_joint += U_T;
+        }
 
         // send_round adds libra masking, sends univariate, and returns the challenge
         const FF u = send_round(round_idx);
 
-        MegaZKSumcheck::fold_for_zero_extension(mega_zk_partial, u);
-        TransSumcheck::partially_evaluate_in_place(translator_partial, u);
+        {
+            BB_BENCH_NAME("joint_sumcheck/hiding_kernel");
+            {
+                BB_BENCH_NAME("joint_sumcheck/hiding_kernel/fold_for_zero_extension");
+                MegaZKSumcheck::fold_for_zero_extension(mega_zk_partial, u);
+            }
+        }
+        {
+            BB_BENCH_NAME("joint_sumcheck/translator");
+            {
+                BB_BENCH_NAME("joint_sumcheck/translator/partially_evaluate_in_place");
+                TransSumcheck::partially_evaluate_in_place(translator_partial, u);
+            }
+        }
         rdp.update_evaluations(u, round_idx);
         update_round_state(round_idx, u);
     }
