@@ -116,12 +116,17 @@ async function getBlockHash(node: AztecNodeService, blockNumber: number) {
   return block ? (await block.header.hash()).toString() : undefined;
 }
 
+// The committee (3 validators, sampled with replacement) is re-randomized every epoch, so an epoch whose
+// pipelined slot is proposed by the bad proposer while its prior slot is not occurs with probability ~2/9.
+// Search a generous horizon so the tail probability of never finding one stays negligible across the heavy
+// merge-queue grind matrix; 30 attempts left a ~0.06% per-run failure rate that intermittently dequeued the
+// merge train.
 async function advanceToEpochBeforePipelinedTargetSlot({
   epochCache,
   cheatCodes,
   targetProposer,
   logger,
-  maxAttempts = 30,
+  maxAttempts = 200,
 }: {
   epochCache: EpochCacheInterface;
   cheatCodes: RollupCheatCodes;
