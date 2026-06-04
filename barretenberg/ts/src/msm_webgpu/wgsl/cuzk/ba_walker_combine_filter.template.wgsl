@@ -24,7 +24,6 @@
 
 const PG: u32 = 2u;
 const BW:     u32 = {{ bw }}u;
-const STRIDE: u32 = {{ stride }}u;
 // M_RED (red_buf Y-plane stride) is runtime in batch_offset.z (= Σ redM packed,
 // = this MSM's redM otherwise — byte-identical to the old baked M_RED).
 // Packed-window bid (SPLIT_C_PLAN.md): bid = (window << WBID_SHIFT) | mag.
