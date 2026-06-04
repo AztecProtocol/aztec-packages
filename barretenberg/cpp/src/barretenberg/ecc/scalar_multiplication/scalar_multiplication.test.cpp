@@ -1430,6 +1430,254 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
                 << " dist=" << dist << " dedup=" << dedup_hint;
         }
     }
+
+    // ============================================================================
+    // GLV split / signed-Booth recoder edge cases.
+    //
+    // The GLV path (use_glv) feeds `split_into_endomorphism_scalars` output into the
+    // round-parallel pipeline as 2-limb (≤128-bit) halves k1, k2 with limbs[2],[3]
+    // forced to 0 (scalar_multiplication_fast.cpp ~1400). The window schedule is built
+    // for NUM_BITS=128 (+2 carry). If any half's true magnitude needed bit 128+ — or if
+    // the top signed-Booth window digit carried past the final window — the recoder would
+    // silently drop those bits and the MSM result would be wrong while no assert trips.
+    //
+    // `PippengerInternalExtremeScalars` already pins scalar=±1; this widens coverage to
+    // the values that maximise |k1| / |k2|: r-1, (r-1)/2, λ, λ±1, the k2-negative-fix
+    // boundary (data[1] high bit set just below 2^128), and a deterministic sweep that
+    // checks every split half stays ≤128 bits before trusting the pipeline output. We run
+    // every value through the real internal path at an N below the GLV threshold so
+    // use_glv=true, comparing to a naive reference.
+    // ============================================================================
+    void test_glv_extreme_magnitude_scalars()
+    {
+        ConcurrencyScope scope(8);
+        namespace rpd = scalar_multiplication::round_parallel_detail;
+        // N small enough to force use_glv=true on both native (2^13) and wasm (2^16),
+        // but large enough to clear MIN_PTS_PER_THREAD_FOR_PIPPENGER and run the affine
+        // pippenger (not the trivial bail).
+        constexpr size_t n = 600;
+        static_assert(n <= 256 + 4096, "keep n below the native GLV threshold");
+
+        const uint256_t r = ScalarField::modulus;
+
+        // Worst-case magnitude probes. Each is reduced mod r by the uint256_t ctor.
+        std::vector<ScalarField> probes;
+        probes.push_back(-ScalarField::one());                                                // r - 1
+        probes.push_back(ScalarField(uint256_t(1)));                                          // 1
+        probes.push_back(ScalarField(r - uint256_t(1)) * ScalarField(uint256_t(2)).invert()); // (r-1)/2
+        // Powers-of-two boundaries around the 128-bit split width.
+        for (size_t bit : { size_t{ 126 }, size_t{ 127 }, size_t{ 128 }, size_t{ 129 }, size_t{ 253 } }) {
+            probes.push_back(ScalarField(uint256_t(1) << bit));
+            probes.push_back(ScalarField((uint256_t(1) << bit) - uint256_t(1)));
+            probes.push_back(ScalarField((uint256_t(1) << bit) + uint256_t(1)));
+        }
+        // r/2 ± small, and r - small: the region where compute_endomorphism_k2 can drive
+        // k2 slightly negative (the data[2]||data[3] != 0 → +endo_minus_b1 correction).
+        for (uint64_t delta = 0; delta < 8; ++delta) {
+            probes.push_back(ScalarField(r - uint256_t(delta + 1)));
+            probes.push_back(ScalarField((r >> 1) + uint256_t(delta)));
+        }
+        // Deterministic pseudo-random fill of additional probes (Knuth multiplicative
+        // hash) so the sweep also covers interior values, not just the curated extremes.
+        for (uint64_t i = 1; i <= 64; ++i) {
+            const uint64_t h0 = i * uint64_t{ 0x9E3779B97F4A7C15ULL };
+            const uint64_t h1 = (i + 1) * uint64_t{ 0xC2B2AE3D27D4EB4FULL };
+            const uint64_t h2 = (i + 2) * uint64_t{ 0x165667B19E3779F9ULL };
+            const uint64_t h3 = (i + 3) * uint64_t{ 0xD6E8FEB86659FD93ULL };
+            probes.push_back(ScalarField(uint256_t(h0, h1, h2, h3)));
+        }
+
+        // Invariant the whole GLV path leans on: the two 128-bit halves the pipeline stores
+        // (limbs[2]/[3] forced to 0) recombine — via the SAME doubled-point convention the
+        // MSM uses, φP = (β·x, −y) — back to k·P. If the field ever produced a half needing
+        // bit 128+, the 2-limb storage at ~line 1400 would truncate it and this point identity
+        // would break, catching the silent wrong result independent of the GLV λ-sign details.
+        {
+            using BaseField = typename Curve::BaseField;
+            const BaseField beta = BaseField::cube_root_of_unity();
+            const AffineElement base = generators[0];
+            AffineElement phi;
+            phi.x = base.x * beta;
+            phi.y = -base.y;
+            for (const ScalarField& s : probes) {
+                const ScalarField canonical = s.from_montgomery_form_reduced();
+                const auto split = ScalarField::split_into_endomorphism_scalars(canonical);
+                // Rebuild k1, k2 from ONLY the 2 returned limbs (exactly what the pipeline does).
+                const ScalarField k1 = ScalarField(uint256_t(split.first[0], split.first[1], 0, 0));
+                const ScalarField k2 = ScalarField(uint256_t(split.second[0], split.second[1], 0, 0));
+                const Element recombined = Element(base) * k1 + Element(phi) * k2;
+                EXPECT_EQ(AffineElement(recombined), AffineElement(Element(base) * s))
+                    << "GLV split half exceeded 128-bit storage or mis-signed";
+            }
+        }
+
+        // Now run each probe through the real internal pipeline (use_glv=true) and compare
+        // to naive. We fill all n scalars with the probe so every working half hits the
+        // same extreme window, maximising any top-window carry interaction.
+        std::vector<ScalarField> saved(scalars.begin(), scalars.begin() + n);
+        for (size_t p = 0; p < probes.size(); ++p) {
+            for (size_t i = 0; i < n; ++i) {
+                scalars[i] = probes[p];
+            }
+            check_internal_against_naive(n, 0, "glv-extreme-magnitude");
+        }
+        // Mixed: alternate r-1 and (interior) probes so k1/k2 of adjacent working scalars
+        // land in different windows within one MSM.
+        for (size_t i = 0; i < n; ++i) {
+            scalars[i] = (i & 1) ? -ScalarField::one() : probes[probes.size() - 1 - (i % probes.size())];
+        }
+        check_internal_against_naive(n, 0, "glv-extreme-mixed");
+
+        for (size_t i = 0; i < saved.size(); ++i) {
+            scalars[i] = saved[i];
+        }
+    }
+
+    // ============================================================================
+    // effective_num_bits schedule divergence (sizer vs live allocator).
+    //
+    // The live path (scalar_multiplication_fast.cpp ~1474) shrinks the window-bit budget
+    // to the highest observed scalar msb, then re-runs choose_window_bits — which can pick
+    // a SMALLER window_bits (⇒ MORE windows ⇒ a larger wpb·per_window_bytes Zone S) than the
+    // full-NUM_BITS pre-sizer. `compute_arena_bytes_for_msm`'s defensive bit-budget sweep
+    // (lines 1246-1250) only runs for use_glv OR n_input ≥ 2^17. For the native non-GLV
+    // mid-band 2^13 < n < 2^17 the sweep is SKIPPED, so a workload of uniformly small-msb
+    // scalars selects a schedule the sizer never sized for. If the live Zone S then exceeds
+    // the arena, this is a guaranteed out-of-bounds write (SIGSEGV), not a wrong result.
+    //
+    // We drive the real MSM in that band with all-small scalars (msb ≪ 254) and compare to
+    // naive. A correct sizer makes this pass; an under-count crashes under ASAN / corrupts
+    // the answer. Native-only: the band does not exist on wasm (GLV up to 2^16).
+    // ============================================================================
+    void test_effective_num_bits_band_small_scalars()
+    {
+#ifdef __wasm__
+        GTEST_SKIP() << "non-GLV mid-band (2^13<n<2^17) does not exist on wasm";
+#else
+        ConcurrencyScope scope(8);
+        namespace rpd = scalar_multiplication::round_parallel_detail;
+        const size_t glv_threshold = rpd::GLV_SMALL_N_THRESHOLD; // 2^13 native
+        // Sizes just above the GLV threshold (use_glv=false) and inside the sweep-skipped
+        // band. num_points is 31013, so every size below stays in-bounds.
+        const std::vector<size_t> sizes = {
+            glv_threshold + 1, glv_threshold + 257, size_t{ 1 } << 14, (size_t{ 1 } << 14) + (size_t{ 1 } << 13)
+        };
+        // Bit budgets to drive effective_num_bits to: tiny → small window_bits → max windows.
+        const std::vector<size_t> bit_widths = { 1, 8, 32, 64, 96, 120 };
+
+        size_t max_size = 0;
+        for (size_t s : sizes) {
+            if (s <= num_points) {
+                max_size = std::max(max_size, s);
+            }
+        }
+        std::vector<ScalarField> saved(scalars.begin(), scalars.begin() + static_cast<std::ptrdiff_t>(max_size));
+        auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 909);
+        for (size_t n : sizes) {
+            if (n > num_points) {
+                continue;
+            }
+            for (size_t bits : bit_widths) {
+                const uint256_t mask = (bits >= 256) ? ~uint256_t(0) : ((uint256_t(1) << bits) - uint256_t(1));
+                for (size_t i = 0; i < n; ++i) {
+                    // Random value masked to `bits` bits; force the top bit so msb == bits-1
+                    // for at least some scalars, pinning effective_num_bits == bits.
+                    uint256_t v(rng.get_random_uint64(),
+                                rng.get_random_uint64(),
+                                rng.get_random_uint64(),
+                                rng.get_random_uint64());
+                    v = v & mask;
+                    if (i == 0 && bits >= 1) {
+                        v = v | (uint256_t(1) << (bits - 1));
+                    }
+                    scalars[i] = ScalarField(v);
+                }
+                check_internal_against_naive(n, 0, "effective-num-bits-band");
+            }
+        }
+        for (size_t i = 0; i < saved.size(); ++i) {
+            scalars[i] = saved[i];
+        }
+#endif
+    }
+
+    // ============================================================================
+    // Dedup multi-chunk tree-reduce carry + cap fallback.
+    //
+    // pippenger_dedup.hpp's Phase A tree-reduce (lines ~470-520) consolidates each
+    // equal-value cluster's base points. A cluster larger than DEDUP_MAX_CHUNK_MEMBERS
+    // (2048) is split across chunks and its partial sum threaded via the `carry` slot;
+    // a cluster larger than the per-bucket staged cap (~1024) is only PARTIALLY deduped,
+    // with the overflow members falling through to the normal pippenger path with their
+    // original signed digits. Both the carry-threading and the partial-consolidation
+    // fallback must produce the same sum as no dedup at all.
+    //
+    // We build inputs with one (or a few) huge equal-value clusters of identical points
+    // so a single combined point + many fall-through members coexist in one MSM, then
+    // compare dedup_hint=true against naive. Sizes are chosen to exceed both the chunk
+    // cap (2048) and the staged cap, exercising the carry and the cap fallback in the
+    // same run. Native-only for the largest sizes (wasm runs the smaller ones).
+    // ============================================================================
+    void test_dedup_large_cluster_carry_and_caps()
+    {
+        ConcurrencyScope scope(8);
+        auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 303);
+
+#ifdef __wasm__
+        const std::vector<size_t> cluster_sizes = { 1100, 2100 };
+#else
+        // 2100 > DEDUP_MAX_CHUNK_MEMBERS(2048) → multi-chunk carry.
+        // 5000 → several carries + staged-cap partial-consolidation fallback.
+        const std::vector<size_t> cluster_sizes = { 1100, 2100, 5000, 9000 };
+#endif
+        for (size_t cluster : cluster_sizes) {
+            // Dedup clusters by equal scalar VALUE, combining the cluster's DISTINCT base
+            // points into one (rep, Σpoints) pair. So the giant cluster is `cluster` distinct
+            // generators all sharing scalar s_big — the realistic dedup trigger (range-check /
+            // counter polynomials) and a valid input for the affine path (distinct x). The
+            // tree-reduce then sums distinct points (no equal-x affine-add edge case), and the
+            // cluster size drives the multi-chunk carry + staged-cap fallback.
+            const size_t singles = 400;
+            const size_t medium = 600;
+            const size_t n = cluster + medium + singles;
+            ASSERT_LE(n, num_points);
+
+            std::vector<ScalarField> test_scalars(n);
+            std::vector<AffineElement> points(n);
+
+            const ScalarField s_big = ScalarField::random_element(&rng);
+            const ScalarField s_med = ScalarField::random_element(&rng);
+            ASSERT_NE(s_big, s_med);
+
+            for (size_t i = 0; i < cluster; ++i) {
+                points[i] = generators[i];
+                test_scalars[i] = s_big;
+            }
+            for (size_t i = 0; i < medium; ++i) {
+                points[cluster + i] = generators[cluster + i];
+                test_scalars[cluster + i] = s_med;
+            }
+            for (size_t i = 0; i < singles; ++i) {
+                points[cluster + medium + i] = generators[cluster + medium + i];
+                test_scalars[cluster + medium + i] = ScalarField::random_element(&rng);
+            }
+
+            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+            // dedup_hint=true forces Phase A; handle_edge_cases=false stays on the affine
+            // path (all points/distinct-x are valid for it).
+            AffineElement deduped = scalar_multiplication::MSM<Curve>::msm(
+                points, scalar_span, /*handle_edge_cases=*/false, /*dedup_hint=*/true);
+            AffineElement expected = naive_msm(test_scalars, points);
+            EXPECT_EQ(deduped, expected) << "dedup large-cluster carry/caps (cluster=" << cluster << ", n=" << n << ")";
+
+            // Cross-check: the same input with dedup_hint=false must agree (dedup is a pure
+            // optimisation; a mismatch isolates the regression to the dedup pre-pass).
+            PolynomialSpan<ScalarField> scalar_span2(0, test_scalars);
+            AffineElement undeduped = scalar_multiplication::MSM<Curve>::msm(
+                points, scalar_span2, /*handle_edge_cases=*/false, /*dedup_hint=*/false);
+            EXPECT_EQ(deduped, undeduped) << "dedup vs no-dedup divergence (cluster=" << cluster << ")";
+        }
+    }
 };
 
 using CurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
@@ -1688,6 +1936,18 @@ TYPED_TEST(ScalarMultiplicationTest, DispatchFuzz)
     GTEST_SKIP() << "Randomized dispatch fuzz is native-only; WASM coverage comes from the fixed-shape tests.";
 #endif
     this->test_dispatch_fuzz();
+}
+TYPED_TEST(ScalarMultiplicationTest, GlvExtremeMagnitudeScalars)
+{
+    this->test_glv_extreme_magnitude_scalars();
+}
+TYPED_TEST(ScalarMultiplicationTest, EffectiveNumBitsBandSmallScalars)
+{
+    this->test_effective_num_bits_band_small_scalars();
+}
+TYPED_TEST(ScalarMultiplicationTest, DedupLargeClusterCarryAndCaps)
+{
+    this->test_dedup_large_cluster_carry_and_caps();
 }
 
 // NOTE: the curve-independent `PartitionByWeight` unit tests that previously lived here
