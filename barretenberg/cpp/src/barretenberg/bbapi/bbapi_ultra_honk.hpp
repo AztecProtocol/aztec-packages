@@ -169,7 +169,7 @@ struct MegaVkAsFields {
 
 /**
  * @struct MegaAppVkAsFields
- * @brief Convert a MegaAppFlavor (slim app) verification key to field elements.
+ * @brief Convert a MegaAppFlavor verification key to field elements.
  *
  * MegaAppFlavor drops the kernel/app-calldata read-side bus columns, producing a smaller VK than
  * MegaFlavor. Used for chonk-accumulated app circuits.
@@ -193,7 +193,7 @@ struct MegaAppVkAsFields {
 
 /**
  * @struct MegaKernelVkAsFields
- * @brief Convert a MegaKernelFlavor (slim kernel) verification key to field elements.
+ * @brief Convert a MegaKernelFlavor verification key to field elements.
  *
  * MegaKernelFlavor drops LogDerivLookup and NonNativeField selectors compared to MegaFlavor.
  * Used for chonk-accumulated kernel circuits (init / inner / reset / tail).

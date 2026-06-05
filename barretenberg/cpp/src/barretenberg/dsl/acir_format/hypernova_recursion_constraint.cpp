@@ -107,7 +107,6 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
                                                            const bool is_kernel)
 {
     using IvcType = Chonk;
-    using FF = IvcType::FF;
     using AppFlavor = IvcType::AppFlavor;
     using KernelFlavor = IvcType::KernelFlavor;
 
@@ -133,7 +132,6 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
         entry.app_honk_vk = create_mock_honk_vk<AppFlavor, AppIO>(1 << AppFlavor::VIRTUAL_LOG_N);
     }
 
-    (void)FF{};
     return entry;
 }
 
@@ -155,10 +153,9 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
     using FF = Chonk::FF;
     using Commitment = Chonk::Commitment;
 
-    // The IVC's recursive_verifier_native_accum is the running accumulator that the next folding
-    // step verifies. The next step is a kernel — folding never targets the hiding kernel (HN_FINAL
-    // is the *last* fold and produces the proof consumed by the hiding kernel separately). So the
-    // challenge vector is sized to MegaKernelFlavor's VIRTUAL_LOG_N.
+    // The size of the challenge only depends on the VIRTUAL_LOG_N specified by the Flavor.
+    // KernelFlavor and AppFlavor have the same VIRTUAL_LOG_N, so we can generate the challenge
+    // vector with either.
     ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(Chonk::KernelFlavor::VIRTUAL_LOG_N, FF::zero());
     ivc->recursive_verifier_native_accum.non_shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.shifted_evaluation = FF::zero();
@@ -169,9 +166,8 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
     ivc->verification_queue.emplace_back(entry);
     if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
         ivc->goblin.batch_merge_proof = acir_format::create_mock_batch_merge_proof();
-        // HN_FINAL is the tail kernel (n-2) — a regular kernel that triggers decider verification
-        // on the final folded accumulator. The hiding kernel (n-1) consumes the result but does not
-        // fold itself. So the decider proof is structured against the kernel-flavored accumulator.
+        // The PCS proof only depends on the VIRTUAL_LOG_N specified by the Flavor. KernelFlavor and
+        // AppFlavor have the same VIRTUAL_LOG_N, so we can generate the mock PCS proof with either.
         ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::KernelFlavor>();
     }
     ivc->num_circuits_accumulated++;

@@ -22,10 +22,11 @@ namespace bb {
 /**
  * @brief Multilinear batching verifier. Verifies claim reduction via sumcheck.
  * @details See: chonk/README.md#batching-claims-into-accumulator
+ *
+ * `InstanceFlavor_` is the flavor of the incoming sumcheck instance (e.g. MegaFlavor / MegaAppFlavor /
+ * MegaKernelFlavor and their recursive counterparts). It is independent of `Flavor_`, which selects
+ * the batching curve/codec (native or stdlib); callers must specify it explicitly.
  */
-// `InstanceFlavor_` is the flavor of the incoming sumcheck instance (e.g. MegaFlavor / MegaAppFlavor /
-// MegaKernelFlavor and their recursive counterparts). It is independent of `Flavor_` which selects
-// the batching curve/codec (native or stdlib); callers must specify it explicitly.
 template <typename Flavor_, typename InstanceFlavor_> class MultilinearBatchingVerifier {
   public:
     using Flavor = Flavor_;

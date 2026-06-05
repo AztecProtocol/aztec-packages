@@ -358,7 +358,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand
             ->add_option("--circuit_kind",
                          flags.circuit_kind,
-                         "Chonk-only: which slim Mega flavor to derive the VK against. One of: "
+                         "Chonk-only: which Mega flavor to derive the VK against. One of: "
                          "'app' (MegaAppFlavor), 'kernel' (MegaKernelFlavor), 'hiding' (MegaZKFlavor "
                          "for the IVC hiding kernel). Required for `bb write_vk --scheme chonk` — the "
                          "caller must know the kind because it determines the VK shape.")

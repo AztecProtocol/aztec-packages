@@ -219,8 +219,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         AcirProgram mock_kernel_program = construct_mock_kernel_program(ivc->verification_queue);
         auto kernel = acir_format::create_circuit<Builder>(mock_kernel_program, metadata);
         const CircuitKind kind = ivc->next_circuit_kind();
-        // Build the VK in the flavor matching `kind` (Kernel / HidingKernel) directly from the kernel circuit
-        // — no opqueue deep-copy here because the kernel builder is already a fresh stdlib instance.
+        // Build the VK in the flavor matching `kind` (Kernel / HidingKernel) from the kernel circuit.
         Chonk::CircuitVerificationKey vk = dispatch_kind(kind, [&]<CircuitKind K>() {
             using FlavorT = flavor_for<K>;
             using VK = typename FlavorT::VerificationKey;

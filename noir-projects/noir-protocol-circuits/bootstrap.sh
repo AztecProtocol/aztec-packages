@@ -27,7 +27,7 @@ export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-project
 
 # Circuits matching these patterns we have chonk keys computed, rather than ultra-honk.
 # Each entry is `{ pattern, kind }` where kind ∈ {app, kernel, hiding}. The kind is forwarded to
-# `bb write_vk --scheme chonk --circuit_kind <kind>` because each kind selects a distinct slim
+# `bb write_vk --scheme chonk --circuit_kind <kind>` because each kind selects a distinct
 # Mega flavor (MegaAppFlavor / MegaKernelFlavor / MegaZKFlavor) with a distinct VK shape.
 readarray -t ivc_kernel_patterns < <(jq -r '.[] | select(.kind == "kernel") | .pattern' "../chonk_circuits.json")
 readarray -t ivc_app_patterns < <(jq -r '.[] | select(.kind == "app") | .pattern' "../chonk_circuits.json")

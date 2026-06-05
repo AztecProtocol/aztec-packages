@@ -41,7 +41,7 @@ class Chonk {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 
   public:
-    // Per-circuit accumulation uses these slim Mega flavors; folding is heterogeneous (different
+    // Per-circuit accumulation uses these Mega flavors; folding is heterogeneous (different
     // flavors per slot) because the Hypernova accumulator only depends on `MultilinearBatchingFlavor`.
     using AppFlavor = MegaAppFlavor;
     using KernelFlavor = MegaKernelFlavor;
@@ -49,8 +49,7 @@ class Chonk {
     using AppVerificationKey = AppFlavor::VerificationKey;
     using KernelVerificationKey = KernelFlavor::VerificationKey;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
-    // Common to all Mega flavors (all BN254); sourced from the curve so no flavor name leaks to
-    // callers that just want a scalar / point.
+    // Common to all Mega flavors (all BN254).
     using FF = bb::fr;
     using Commitment = curve::BN254::AffineElement;
     using HidingKernelProverInstance = ProverInstance_<HidingKernelFlavor>;

@@ -163,9 +163,8 @@ pub struct FixtureBuilder {
 
     // Proof.
     // FixtureBuilder is shared across app-circuit and kernel-circuit fixtures, which carry
-    // distinct slim Mega VK shapes (147 vs 139 fields). We keep both so a single fixture can be
-    // turned into either `to_private_call_data` (app) or `to_private_kernel_data` (kernel)
-    // without re-typing.
+    // distinct Mega VK shapes. We keep both so a single fixture can be turned into either
+    // `to_private_call_data` (app) or `to_private_kernel_data` (kernel) without re-typing.
     pub vk: MegaAppVerificationKey,
     pub vk_kernel: MegaKernelVerificationKey,
     pub vk_index: u32,
@@ -246,8 +245,9 @@ impl FixtureBuilder {
     }
 
     pub fn in_vk_tree(&mut self, vk_index: u32) -> Self {
-        // Same vk_index/path applies to both fixtures; only the VK shape differs (147 vs 139).
-        // `get_vk_data` is generic in `VkLen`, so an explicit turbofish picks the right shape.
+        // Same vk_index/path for both fixtures: the fake VK hash depends only on vk_index (not on
+        // the VK length), so both shapes hash to the same leaf. `get_vk_data` is generic in `VkLen`,
+        // so the explicit type annotation picks the shape.
         let vk_data_app: VkData<MEGA_APP_VK_LENGTH_IN_FIELDS> = get_vk_data(vk_index);
         let vk_data_kernel: VkData<MEGA_KERNEL_VK_LENGTH_IN_FIELDS> = get_vk_data(vk_index);
 

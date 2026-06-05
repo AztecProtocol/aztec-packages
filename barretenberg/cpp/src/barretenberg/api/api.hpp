@@ -23,7 +23,7 @@ class API {
         bool slow_low_memory{ false };          // use file backed memory for polynomials
         std::string storage_budget;             // storage budget for file backed memory (e.g. "500m", "2g")
         std::string vk_policy{ "default" };     // policy for handling VKs during IVC accumulation
-        // chonk-only: which slim Mega flavor to derive the VK against — "app" (MegaAppFlavor),
+        // chonk-only: which Mega flavor to derive the VK against — "app" (MegaAppFlavor),
         // "kernel" (MegaKernelFlavor), or "hiding" (MegaZKFlavor for the hiding kernel). Required
         // for `bb write_vk --scheme chonk`; the caller (e.g. noir-protocol-circuits/bootstrap.sh)
         // must know the kind because it determines the VK shape.

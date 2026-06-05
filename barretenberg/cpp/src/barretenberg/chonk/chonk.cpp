@@ -282,8 +282,7 @@ Chonk::PublicInputsResult Chonk::process_app_public_inputs(std::vector<StdlibFF>
 
 /**
  * @brief Orchestrate recursive verification, databus consistency checks, and merge verification for a single circuit.
- * @details Runs recursive folding verification, public input checks, and merge recursive verification.
- * Returns the output accumulator, aggregated pairing points, and merged table commitments.
+ * @details Runs recursive folding verification and public input checks
  *
  * @param circuit
  * @param verifier_inputs {proof, vkey, type (Oink/HN)} A set of inputs for recursive verification
@@ -512,8 +511,6 @@ Chonk::QUEUE_TYPE Chonk::get_queue_type() const
     if (num_circuits_accumulated == 0) {
         return QUEUE_TYPE::OINK;
     }
-    // Comparisons written in additive form (a + k == n rather than a == n - k) so they stay correct
-    // even if num_circuits is small; the constructor already rejects num_circuits < 4.
     // app (excluding first) or kernel (inner or reset)
     if (num_circuits_accumulated + 3 < num_circuits) {
         return QUEUE_TYPE::HN;

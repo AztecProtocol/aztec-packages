@@ -61,6 +61,5 @@ export async function computeVerificationKeyHash(f: FunctionArtifact) {
   if (!f.verificationKey) {
     throw new Error(`Private function ${f.name} must have a verification key`);
   }
-  // User-contract private functions are app circuits in the Chonk stack — pinned against MegaAppFlavor.
   return hashVK(await vkAsFields(Buffer.from(f.verificationKey, 'base64'), CircuitKind.App));
 }

@@ -21,11 +21,29 @@ namespace bb {
  * @brief HyperNova folding prover. Folds circuit instances into accumulators, deferring PCS verification.
  * @details See: chonk/README.md#hypernova-folding-details
  *
+ * ## Accumulator Concept
+ *
+ * An Accumulator represents batched polynomial evaluation claims from one or more circuits.
+ * Instead of verifying each circuit's PCS separately, we batch claims into an accumulator
+ * and defer verification to a final "decider" proof. This enables efficient recursion.
+ *
+ * Each accumulator contains:
+ *   - challenge: The evaluation point (from Sumcheck)
+ *   - non_shifted_{polynomial,commitment,evaluation}: Batched claims for standard polynomials
+ *   - shifted_{polynomial,commitment,evaluation}: Batched claims for shifted polynomials
+ *
+ * ## Shifted vs Unshifted Polynomials
+ *
+ * - **Unshifted**: Standard witness/selector polynomials evaluated at point r
+ * - **Shifted**: Polynomials referencing the "next row" in relations. We enforce p(0) = 0,
+ *   so p(X)/X is a polynomial. The shift is p(X)/X evaluated at r, i.e., p(r)/r.
+ *   Same commitment works for both p and its shift (no separate commitment needed).
+ *
+ * The batching formula: batched = Σᵢ ρᵢ·pᵢ where ρᵢ are Fiat-Shamir challenges.
+ *
  * @note The class is *not* templated on a single flavor — its incoming-instance methods take an
  * `InstanceFlavor` template parameter so circuits of different flavors (e.g. MegaAppFlavor for apps
- * and MegaKernelFlavor for kernels) can all be folded into the same Accumulator. The Accumulator
- * type itself (`MultilinearBatchingProverClaim`) is flavor-agnostic — it stores two batched
- * polynomials, their evaluations, and their commitments.
+ * and MegaKernelFlavor for kernels) can all be folded into the same Accumulator.
  */
 class HypernovaFoldingProver {
   public:

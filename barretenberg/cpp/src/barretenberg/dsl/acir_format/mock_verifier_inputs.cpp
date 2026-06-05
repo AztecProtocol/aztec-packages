@@ -1,5 +1,4 @@
 #include "mock_verifier_inputs.hpp"
-#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"

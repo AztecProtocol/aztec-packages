@@ -226,6 +226,7 @@ void process_hn_recursion_constraints(
                       "process_hn_recursion_constraints: unexpected non-empty public_inputs in HN constraint - "
                       "Noir HN constraints should have empty public_inputs (public inputs are handled by IVC IO)");
 
+            // Validate public input layout: IO region size must match VK's num_public_inputs.
             const size_t expected_io_size = bb::dispatch_kind(
                 queue_entry.kind, [&]<bb::CircuitKind K>() -> size_t { return bb::io_for<K>::PUBLIC_INPUTS_SIZE; });
             const size_t vk_num_public_inputs = queue_entry.vk_num_public_inputs();
@@ -233,6 +234,8 @@ void process_hn_recursion_constraints(
                          vk_num_public_inputs,
                          "process_hn_recursion_constraints: IO size mismatch with VK num_public_inputs");
 
+            // Sanity check: the proof vector stores public inputs at its start, so it must have at
+            // least num_public_inputs elements.
             BB_ASSERT_GTE(queue_entry.proof.size(),
                           vk_num_public_inputs,
                           "process_hn_recursion_constraints: proof vector smaller than num_public_inputs - malformed "

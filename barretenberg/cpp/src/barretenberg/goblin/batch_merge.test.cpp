@@ -338,10 +338,6 @@ template <typename Param> class BatchMergeTests : public testing::Test {
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
 
-    // Pinned recursive-verifier gate counts. The CHONK_MAX_NUM_CIRCUITS value scales linearly with
-    // it (subtables, commitments, evals), so any change to CHONK_MAX_NUM_APPS / MAX_APPS_PER_KERNEL
-    // in constants.hpp rotates these — refresh by running the failing test and copying the actual
-    // gate count.
     static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 6362 : 25656;
     static constexpr size_t ZK_OFFSET = NumSubtables == 9 ? 666 : 520;
 
