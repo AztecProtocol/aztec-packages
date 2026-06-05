@@ -2,7 +2,7 @@ import type { ACIRCallback, ACVMField } from '@aztec/simulator/client';
 
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
-import { ORACLE_REGISTRY, type OracleRegistryEntry } from './oracle_registry.js';
+import { ORACLE_REGISTRY } from './oracle_registry.js';
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -18,24 +18,26 @@ export class UnavailableOracleError extends Error {
  * names produce enhanced error messages based on the contract's oracle version.
  */
 export function buildACIRCallback(handler: OracleHandler): ACIRCallback {
-  const registry = ORACLE_REGISTRY as Record<string, OracleRegistryEntry>;
+  const target = {} as ACIRCallback;
+  for (const [oracleKey, entry] of Object.entries(ORACLE_REGISTRY)) {
+    const match = oracleKey.match(/^aztec_(\w+?)_(.+)$/);
+    if (!match) {
+      throw new Error(`Oracle "${oracleKey}" does not follow the aztec_{scope}_{method} convention`);
+    }
+    const [, scope, methodName] = match;
+    target[oracleKey] = async (...inputs: ACVMField[][]) => {
+      assertHandlerSupportsScope(handler, scope);
+      const named = entry.deserializeParams(inputs);
+      const positional = named.map(p => p.value);
+      const result = await (handler as any)[methodName](...positional);
+      return entry.serializeReturn(result);
+    };
+  }
 
-  return new Proxy({} as ACIRCallback, {
-    get(_, prop: string) {
-      const entry = registry[prop];
-      if (entry) {
-        const match = prop.match(/^aztec_(\w+?)_(.+)$/);
-        if (!match) {
-          throw new Error(`Oracle name "${prop}" does not follow the aztec_{scope}_{method} convention`);
-        }
-        const [, scope, methodName] = match;
-        return async (...inputs: ACVMField[][]) => {
-          assertHandlerSupportsScope(handler, scope);
-          const named = entry.deserializeParams(inputs);
-          const positional = named.map(p => p.value);
-          const result = await (handler as any)[methodName](...positional);
-          return entry.serializeReturn(result);
-        };
+  return new Proxy(target, {
+    get(obj, prop: string) {
+      if (prop in obj) {
+        return (obj as Record<string, unknown>)[prop];
       }
 
       return () => {
