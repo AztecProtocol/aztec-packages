@@ -3,6 +3,8 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { Tx } from '../tx/tx.js';
+import type { TxHash } from '../tx/tx_hash.js';
+import type { GetTxByHashOptions } from './aztec-node.js';
 import { type P2PApi, P2PApiSchema, type PeerInfo } from './p2p.js';
 
 describe('P2PApiSchema', () => {
@@ -38,6 +40,11 @@ describe('P2PApiSchema', () => {
   it('getPendingTxs', async () => {
     const txs = await context.client.getPendingTxs();
     expect(txs[0]).toBeInstanceOf(Tx);
+    expect(txs[0].chonkProof.isEmpty()).toBe(true);
+
+    const txsWithProof = await context.client.getPendingTxs(undefined, undefined, { includeProof: true });
+    expect(txsWithProof[0]).toBeInstanceOf(Tx);
+    expect(txsWithProof[0].chonkProof.isEmpty()).toBe(false);
   });
 
   it('getPendingTxCount', async () => {
@@ -77,8 +84,9 @@ class MockP2P implements P2PApi {
     return Promise.resolve([CheckpointAttestation.empty()]);
   }
 
-  getPendingTxs(): Promise<Tx[]> {
-    return Promise.resolve([Tx.random()]);
+  getPendingTxs(_limit?: number, _after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]> {
+    const tx = Tx.random({ randomProof: true });
+    return Promise.resolve([options?.includeProof ? tx : tx.withoutProof()]);
   }
 
   getPendingTxCount(): Promise<number> {
