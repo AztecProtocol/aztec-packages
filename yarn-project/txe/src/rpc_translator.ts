@@ -271,20 +271,8 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_txe_getPrivateEvents',
       inputs,
-      handler: async ([selector, contractAddress, scope]) => {
-        // TODO(F-335): Avoid doing the following 2 calls here.
-        {
-          await this.handlerAsTxe().syncContractNonOracleMethod(
-            contractAddress,
-            scope,
-            this.stateHandler.getCurrentJob(),
-          );
-          // We cycle job to commit the stores after the contract sync.
-          await this.stateHandler.cycleJob();
-        }
-
-        return this.handlerAsTxe().getPrivateEvents(selector, contractAddress, scope);
-      },
+      handler: ([selector, contractAddress, scope]) =>
+        this.stateHandler.getPrivateEvents(selector, contractAddress, scope),
     });
   }
 
@@ -958,13 +946,12 @@ export class RPCTranslator {
     });
   }
 
-  // TODO(F-674): Move orchestration logic into the handler so the transport layer is pure serialize->delegate->deserialize.
   // eslint-disable-next-line camelcase
   aztec_txe_privateCallNewFlow(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_txe_privateCallNewFlow',
       inputs,
-      handler: async ([
+      handler: ([
         from,
         targetContractAddress,
         functionSelector,
@@ -974,103 +961,43 @@ export class RPCTranslator {
         additionalScopes,
         authorizedUtilityCallTargets,
         gasSettings,
-      ]) => {
-        const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
-          const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
-            from?.value,
-            targetContractAddress,
-            functionSelector,
-            args,
-            argsHash,
-            isStaticCall,
-            additionalScopes,
-            this.stateHandler.getCurrentJob(),
-            authorizedUtilityCallTargets,
-            gasSettings,
-          );
-
-          // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than
-          // round-tripping them through `aztec_utl_emitOffchainEffect`, so the session buffer is empty
-          // at this point. Drain the effects from the execution tree into the session buffer so the
-          // next `env.offchain_messages()` call in the test sees them.
-          for (const data of offchainEffects) {
-            this.stateHandler.recordOffchainEffect(data);
-          }
-
-          // TODO(F-335): Avoid doing the following call here.
-          await this.stateHandler.cycleJob();
-
-          if (isStaticCall) {
-            // Static calls revert their checkpoint and mine no block, so there is no tx hash to tag
-            // offchain effects with. Querying `getLastTxEffects()` here would return an unrelated
-            // predecessor tx.
-            return { result: returnValues };
-          }
-          const { txHash } = await this.handlerAsTxe().getLastTxEffects();
-          return { result: returnValues, txHash: txHash.hash };
-        });
-
-        return returnValues;
-      },
+      ]) =>
+        this.stateHandler.executePrivateCall(
+          from,
+          targetContractAddress,
+          functionSelector,
+          args,
+          argsHash,
+          isStaticCall,
+          additionalScopes,
+          authorizedUtilityCallTargets,
+          gasSettings,
+        ),
     });
   }
 
-  // TODO(F-674): Move orchestration logic into the handler so the transport layer is pure serialize->delegate->deserialize.
   // eslint-disable-next-line camelcase
   aztec_txe_executeUtilityFunction(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_txe_executeUtilityFunction',
       inputs,
-      handler: async ([targetContractAddress, functionSelector, args, authorizedUtilityCallTargets]) => {
-        const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
-          const returnValues = await this.handlerAsTxe().executeUtilityFunction(
-            targetContractAddress,
-            functionSelector,
-            args,
-            this.stateHandler.getCurrentJob(),
-            authorizedUtilityCallTargets,
-          );
-
-          // TODO(F-335): Avoid doing the following call here.
-          await this.stateHandler.cycleJob();
-
-          return { result: returnValues };
-        });
-
-        return returnValues;
-      },
+      handler: ([targetContractAddress, functionSelector, args, authorizedUtilityCallTargets]) =>
+        this.stateHandler.executeUtilityFunction(
+          targetContractAddress,
+          functionSelector,
+          args,
+          authorizedUtilityCallTargets,
+        ),
     });
   }
 
-  // TODO(F-674): Move orchestration logic into the handler so the transport layer is pure serialize->delegate->deserialize.
   // eslint-disable-next-line camelcase
   aztec_txe_publicCallNewFlow(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_txe_publicCallNewFlow',
       inputs,
-      handler: async ([from, address, calldata, isStaticCall, gasSettings]) => {
-        const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
-          const returnValues = await this.handlerAsTxe().publicCallNewFlow(
-            from?.value,
-            address,
-            calldata,
-            isStaticCall,
-            gasSettings,
-          );
-
-          // TODO(F-335): Avoid doing the following call here.
-          await this.stateHandler.cycleJob();
-
-          if (isStaticCall) {
-            // See equivalent branch in `aztec_txe_privateCallNewFlow`.
-            return { result: returnValues };
-          }
-          const { txHash } = await this.handlerAsTxe().getLastTxEffects();
-          return { result: returnValues, txHash: txHash.hash };
-        });
-
-        return returnValues;
-      },
+      handler: ([from, address, calldata, isStaticCall, gasSettings]) =>
+        this.stateHandler.executePublicCall(from, address, calldata, isStaticCall, gasSettings),
     });
   }
 
