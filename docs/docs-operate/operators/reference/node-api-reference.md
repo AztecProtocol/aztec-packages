@@ -81,6 +81,102 @@ curl -X POST http://localhost:8080 \
   -d '{"jsonrpc":"2.0","method":"aztec_getChainTips","params":[],"id":1}'
 ```
 
+### aztec_getL1Constants
+
+Returns the rollup constants for the current chain.
+
+**Parameters**: None
+
+**Returns**: `L1RollupConstants`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getL1Constants","params":[],"id":1}'
+```
+
+### aztec_getSyncedL2SlotNumber
+
+Returns the last L2 slot number for which the node has all L1 data needed to build the next checkpoint.
+
+**Parameters**: None
+
+**Returns**: `SlotNumber | undefined`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getSyncedL2SlotNumber","params":[],"id":1}'
+```
+
+### aztec_getSyncedL2EpochNumber
+
+Returns the last L2 epoch number that has been fully synchronized from L1.
+
+**Parameters**: None
+
+**Returns**: `number | undefined`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getSyncedL2EpochNumber","params":[],"id":1}'
+```
+
+### aztec_getL1Timestamp
+
+Returns the latest L1 timestamp according to the archiver's synced L1 view.
+
+**Parameters**: None
+
+**Returns**: `bigint | undefined`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getL1Timestamp","params":[],"id":1}'
+```
+
+### aztec_getPendingChainValidationStatus
+
+Returns detailed validation status for the pending chain.
+
+**Parameters**: None
+
+**Returns**: `ValidateCheckpointResult`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getPendingChainValidationStatus","params":[],"id":1}'
+```
+
+### aztec_isPendingChainInvalid
+
+Returns whether the pending chain is currently invalid.
+
+**Parameters**: None
+
+**Returns**: `boolean`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_isPendingChainInvalid","params":[],"id":1}'
+```
+
 ### aztec_getBlock
 
 Unified block fetch. Returns the block identified by `param`, with optional fields controlled
@@ -989,6 +1085,25 @@ When omitted, all attestations for the slot are returned.
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"aztec_getCheckpointAttestationsForSlot","params":["100","0x1234..."],"id":1}'
+```
+
+### aztec_getProposalsForSlot
+
+Returns block and checkpoint proposals retained in the attestation pool for the given slot.
+Only available when P2P is enabled.
+
+**Parameters**:
+
+1. `slot` - `SlotNumber`
+
+**Returns**: `ProposalsForSlot`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getProposalsForSlot","params":["100"],"id":1}'
 ```
 
 ## Debug operations

@@ -11,6 +11,7 @@ import {
   type EpochNumber,
   EpochNumberSchema,
   type SlotNumber,
+  SlotNumberSchema,
 } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -25,6 +26,7 @@ import { BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
 import { type CheckpointsQuery, CheckpointsQuerySchema } from '../block/l2_block_source.js';
+import { type ValidateCheckpointResult, ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
 import { type CheckpointData, CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
@@ -36,6 +38,7 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
+import { type L1RollupConstants, L1RollupConstantsSchema } from '../epoch-helpers/index.js';
 import { ManaUsageEstimate } from '../gas/fee_math.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { type LogResult, LogResultSchema } from '../logs/log_result.js';
@@ -86,7 +89,7 @@ import {
   type CheckpointResponse,
   CheckpointResponseSchema,
 } from './checkpoint_response.js';
-import { type PeerInfo, PeerInfoSchema } from './p2p.js';
+import { type PeerInfo, PeerInfoSchema, type ProposalsForSlot, ProposalsForSlotSchema } from './p2p.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /** Options for retrieving txs via {@link AztecNode.getTxByHash} and {@link AztecNode.getTxsByHash}. */
@@ -254,6 +257,28 @@ export interface AztecNode {
 
   /** Returns the tips of the L2 chain. */
   getChainTips(): Promise<ChainTips>;
+
+  /** Returns the rollup constants for the current chain. */
+  getL1Constants(): Promise<L1RollupConstants>;
+
+  /**
+   * Returns the last L2 slot number for which the node has all L1 data needed to build the next checkpoint.
+   */
+  getSyncedL2SlotNumber(): Promise<SlotNumber | undefined>;
+
+  /**
+   * Returns the last L2 epoch number that has been fully synchronized from L1.
+   */
+  getSyncedL2EpochNumber(): Promise<EpochNumber | undefined>;
+
+  /** Returns the latest L1 timestamp according to the archiver's synced L1 view. */
+  getL1Timestamp(): Promise<bigint | undefined>;
+
+  /** Returns whether the pending chain is currently invalid. */
+  isPendingChainInvalid(): Promise<boolean>;
+
+  /** Returns detailed validation status for the pending chain. */
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult>;
 
   /**
    * Gets lightweight checkpoint metadata for a contiguous range or for an entire epoch.
@@ -547,6 +572,12 @@ export interface AztecNode {
     slot: SlotNumber,
     proposalPayloadHash?: CheckpointProposalHash,
   ): Promise<CheckpointAttestation[]>;
+
+  /**
+   * Returns block and checkpoint proposals retained in the attestation pool for the given slot.
+   * Only available when P2P is enabled.
+   */
+  getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot>;
 }
 
 const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
@@ -610,6 +641,18 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getCheckpointNumber: z.function({ input: z.tuple([optional(ChainTipSchema)]), output: CheckpointNumberSchema }),
 
   getChainTips: z.function({ input: z.tuple([]), output: ChainTipsSchema }),
+
+  getL1Constants: z.function({ input: z.tuple([]), output: L1RollupConstantsSchema }),
+
+  getSyncedL2SlotNumber: z.function({ input: z.tuple([]), output: SlotNumberSchema.optional() }),
+
+  getSyncedL2EpochNumber: z.function({ input: z.tuple([]), output: EpochNumberSchema.optional() }),
+
+  getL1Timestamp: z.function({ input: z.tuple([]), output: schemas.BigInt.optional() }),
+
+  isPendingChainInvalid: z.function({ input: z.tuple([]), output: z.boolean() }),
+
+  getPendingChainValidationStatus: z.function({ input: z.tuple([]), output: ValidateCheckpointResultSchema }),
 
   getCheckpointsData: z.function({ input: z.tuple([CheckpointsQuerySchema]), output: z.array(CheckpointDataSchema) }),
 
@@ -760,6 +803,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
       optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
     ]),
     output: z.array(CheckpointAttestation.schema),
+  }),
+
+  getProposalsForSlot: z.function({
+    input: z.tuple([schemas.SlotNumber]),
+    output: ProposalsForSlotSchema,
   }),
 };
 

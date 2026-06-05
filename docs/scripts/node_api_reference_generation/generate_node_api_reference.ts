@@ -510,6 +510,12 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
       'getBlockNumber',
       'getCheckpointNumber',
       'getChainTips',
+      'getL1Constants',
+      'getSyncedL2SlotNumber',
+      'getSyncedL2EpochNumber',
+      'getL1Timestamp',
+      'getPendingChainValidationStatus',
+      'isPendingChainInvalid',
       'getBlock',
       'getBlockData',
       'getBlocks',
@@ -597,7 +603,7 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
   {
     heading: 'P2P queries',
     namespace: 'aztec',
-    methods: ['getPeers', 'getCheckpointAttestationsForSlot'],
+    methods: ['getPeers', 'getCheckpointAttestationsForSlot', 'getProposalsForSlot'],
   },
   {
     heading: 'Debug operations',

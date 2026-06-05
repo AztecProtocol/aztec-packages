@@ -106,6 +106,7 @@ import type {
   CheckpointResponse,
   GetTxByHashOptions,
   PeerInfo,
+  ProposalsForSlot,
 } from '@aztec/stdlib/interfaces/client';
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
@@ -252,6 +253,30 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   public async getChainTips(): Promise<ChainTips> {
     const { proposed, checkpointed, proven, finalized } = await this.blockSource.getL2Tips();
     return { proposed, checkpointed, proven, finalized };
+  }
+
+  public getL1Constants() {
+    return this.blockSource.getL1Constants();
+  }
+
+  public getSyncedL2SlotNumber() {
+    return this.blockSource.getSyncedL2SlotNumber();
+  }
+
+  public getSyncedL2EpochNumber() {
+    return this.blockSource.getSyncedL2EpochNumber();
+  }
+
+  public getL1Timestamp() {
+    return this.blockSource.getL1Timestamp();
+  }
+
+  public isPendingChainInvalid() {
+    return this.blockSource.isPendingChainInvalid();
+  }
+
+  public getPendingChainValidationStatus() {
+    return this.blockSource.getPendingChainValidationStatus();
   }
 
   public getCheckpointsData(query: CheckpointsQuery) {
@@ -1329,6 +1354,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     proposalPayloadHash?: CheckpointProposalHash,
   ): Promise<CheckpointAttestation[]> {
     return this.p2pClient!.getCheckpointAttestationsForSlot(slot, proposalPayloadHash);
+  }
+
+  public getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot> {
+    return this.p2pClient!.getProposalsForSlot(slot);
   }
 
   /**

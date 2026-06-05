@@ -23,6 +23,7 @@ import type { BlockData } from '../block/block_data.js';
 import type { DataInBlock } from '../block/in_block.js';
 import { BlockHash, type BlockParameter } from '../block/index.js';
 import type { CheckpointsQuery } from '../block/l2_block_source.js';
+import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
@@ -32,6 +33,7 @@ import {
   ProtocolContractsNames,
   getContractClassFromArtifact,
 } from '../contract/index.js';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '../epoch-helpers/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { type LogResult, randomLogResult } from '../logs/log_result.js';
@@ -67,7 +69,7 @@ import type { ChainTip, ChainTips } from './chain_tips.js';
 import type { CheckpointParameter } from './checkpoint_parameter.js';
 import type { CheckpointIncludeOptions, CheckpointResponse } from './checkpoint_response.js';
 import type { SequencerConfig } from './configs.js';
-import type { PeerInfo } from './p2p.js';
+import type { PeerInfo, ProposalsForSlot } from './p2p.js';
 import type { ProverConfig } from './prover-client.js';
 import type { WorldStateSyncStatus } from './world_state.js';
 
@@ -109,6 +111,39 @@ describe('AztecNodeApiSchema', () => {
       proven: expectedTipId,
       finalized: expectedTipId,
     });
+  });
+
+  it('getL1Constants', async () => {
+    const result = await context.client.getL1Constants();
+    expect(result).toEqual(EmptyL1RollupConstants);
+  });
+
+  it('getSyncedL2SlotNumber', async () => {
+    const result = await context.client.getSyncedL2SlotNumber();
+    expect(result).toEqual(SlotNumber(1));
+  });
+
+  it('getSyncedL2EpochNumber', async () => {
+    const result = await context.client.getSyncedL2EpochNumber();
+    expect(result).toEqual(EpochNumber(1));
+  });
+
+  it('getL1Timestamp', async () => {
+    const result = await context.client.getL1Timestamp();
+    expect(result).toEqual(1n);
+  });
+
+  it('isPendingChainInvalid', async () => {
+    expect(await context.client.isPendingChainInvalid()).toBe(false);
+  });
+
+  it('getPendingChainValidationStatus', async () => {
+    expect(await context.client.getPendingChainValidationStatus()).toEqual({ valid: true });
+  });
+
+  it('getProposalsForSlot', async () => {
+    const result = await context.client.getProposalsForSlot(SlotNumber(1));
+    expect(result).toEqual({ blockProposals: [], checkpointProposals: [] });
   });
 
   it('findLeavesIndexes', async () => {
@@ -583,6 +618,30 @@ class MockAztecNode implements AztecNode {
     });
   }
 
+  getL1Constants(): Promise<L1RollupConstants> {
+    return Promise.resolve(EmptyL1RollupConstants);
+  }
+
+  getSyncedL2SlotNumber(): Promise<SlotNumber | undefined> {
+    return Promise.resolve(SlotNumber(1));
+  }
+
+  getSyncedL2EpochNumber(): Promise<EpochNumber | undefined> {
+    return Promise.resolve(EpochNumber(1));
+  }
+
+  getL1Timestamp(): Promise<bigint | undefined> {
+    return Promise.resolve(1n);
+  }
+
+  isPendingChainInvalid(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
+  getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
+    return Promise.resolve({ valid: true });
+  }
+
   getBlock<Opts extends BlockIncludeOptions = {}>(
     _param: BlockParameter,
     _options?: Opts,
@@ -913,5 +972,10 @@ class MockAztecNode implements AztecNode {
       expect(typeof proposalPayloadHash).toBe('string');
     }
     return Promise.resolve([CheckpointAttestation.empty()]);
+  }
+
+  getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot> {
+    expect(typeof slot).toBe('number');
+    return Promise.resolve({ blockProposals: [], checkpointProposals: [] });
   }
 }
