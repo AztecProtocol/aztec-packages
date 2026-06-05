@@ -30,19 +30,9 @@ import {
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
-  // Register-minimal BY safegcd inverse (BATCH=12 / NUM_OUTER=62, rolling
-  // apply_matrix). Hosts BylMat, byl_divsteps, byl_apply_matrix, the
-  // byl_reduce_to_canonical chain, and the fr_inv_by_loop driver.
-  by_inverse_loop as by_inverse_loop_funcs,
-  // Fully-expanded, mustache-free packed 13-bit safegcd inverse (the LIVE pk
-  // path: fr_inv_by_loop_pk + pk_* + byl_divsteps + BylMat). Hand-editable.
-  by_inverse_loop_pk_native as by_inverse_loop_pk_native_funcs,
-  // 14-bit variant (19 limbs, BATCH=28): fewer apply_matrix products per call.
+  // Packed 14-bit Bernstein-Yang safegcd field inverse (fr_inv_by_loop_pk, f8
+  // packed form, BATCH=28) — the only inverse the pipeline ships. 20×13-bit only.
   by_inverse_loop_pk14_native as by_inverse_loop_pk14_native_funcs,
-  by_inverse_loop_pk_wg as by_inverse_loop_pk_wg_funcs,
-  // 15-bit sibling: BATCH=30, 18-limb BY state, 2-word (macc) apply_matrix.
-  // Selected at word_size=15 (host-validated bit-exact in cios15n/by15_*.mjs).
-  by_inverse_loop_15 as by_inverse_loop_15_funcs,
   convert_points_only as convert_points_only_shader,
   csr_to_v2_active_sums as csr_to_v2_active_sums_shader,
   csr_to_v2_meta as csr_to_v2_meta_shader,
@@ -120,13 +110,8 @@ export class ShaderManager {
   public w_mask: number;
   public p_limbs: string;
   public r_limbs: string;
-  public r_cubed_limbs: string;
   public b3_mont_limbs: string;
   public sqrt_exp_limbs: string;
-  // (p - 2) as a BigInt literal — exponent for the Fermat-based fr_pow_inv
-  // bench variant. Plain (non-Montgomery) since fr_pow's `exp` is consumed
-  // bit-by-bit as a raw integer.
-  public p_minus_2_limbs: string;
   public p_inv_mod_2w: number;
   public mu_limbs: string;
   // 22-bit-limb f32 Montgomery params. Used by
@@ -208,16 +193,12 @@ export class ShaderManager {
     this.two_pow_chunk_size = 2 ** chunk_size;
     this.p_limbs = gen_p_limbs(this.p, this.num_words, this.word_size);
     this.r_limbs = gen_r_limbs(this.r, this.num_words, this.word_size);
-    const r_cubed = (this.r * this.r * this.r) % this.p;
-    this.r_cubed_limbs = gen_wgsl_limbs_code(r_cubed, 'r3', this.num_words, this.word_size);
     // Montgomery form of 3 = 3·R mod p (b parameter for BN254 y² = x³ + 3).
     const b3_mont = (3n * this.r) % this.p;
     this.b3_mont_limbs = gen_wgsl_limbs_code(b3_mont, 'b3', this.num_words, this.word_size);
     // (q + 1) / 4: closed-form sqrt exponent for q ≡ 3 (mod 4).
     const sqrt_exp = (this.p + 1n) / 4n;
     this.sqrt_exp_limbs = gen_wgsl_limbs_code(sqrt_exp, 'e', this.num_words, this.word_size);
-    // (p - 2): exponent for Fermat-based inversion in fr_pow_inv.
-    this.p_minus_2_limbs = gen_wgsl_limbs_code(this.p - 2n, 'e', this.num_words, this.word_size);
     this.p_inv_mod_2w = compute_mod_inverse_pow2(this.p, this.word_size);
     this.mu_limbs = gen_mu_limbs(this.p, this.num_words, this.word_size);
     this.p_bitlength = this.p.toString(2).length;
@@ -395,7 +376,6 @@ ${packLines.join('\n')}
         mu_limbs: this.mu_limbs,
         b3_mont_limbs: this.b3_mont_limbs,
         sqrt_exp_limbs: this.sqrt_exp_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         w_mask: this.w_mask,
         slack: this.slack,
         num_words_mul_two: this.num_words * 2,
@@ -532,51 +512,28 @@ ${packLines.join('\n')}
    * via runtime branch on `lparams.w` — uniform across the workgroup, so
    * the compiler specialises per-dispatch with no SIMT divergence.
    */
-  // Inversion wiring by limb width. The BY safegcd (fr_inv_by_loop / _pk) and
-  // its Pk / BigIntBY helpers are structurally 20×13: pk_p_word packs
-  // P_LIMB_0..19 with a 13-bit shift, and the packed forms assume 13-bit limbs.
-  // So at any non-13 width they neither compile nor apply. There, fall back to
-  // the representation-agnostic Fermat inverse fr_pow_inv (a^(p-2) via the
-  // native montgomery_product) and drop the BY partials so the module compiles.
-  // fr_pow_inv has the same signature and Montgomery convention (Mont in → Mont
-  // a^-1 out) as fr_inv_by_loop, so it is a drop-in. NOTE: Fermat is ~5-8×
-  // slower on the serial inversion than the safegcd; generalizing safegcd to
-  // 17×15 is a separate follow-up.
-  private invWiring(variant: 'loop' | 'pk'): { invFn: string; inverseFuncs: string; bigintByFuncs: string } {
-    // 15-bit: the dedicated 15-bit safegcd (BATCH=30, 18-limb BY, 2-word
-    // macc apply_matrix). NOT the BY 9×29 / Pk forms (those are 13-bit-structural)
-    // and NOT Fermat. bigint_by partial dropped (unused at 15-bit).
-    if (this.word_size === 15) {
-      return { invFn: 'fr_inv_by_loop_pk15', inverseFuncs: by_inverse_loop_15_funcs, bigintByFuncs: '' };
-    }
-    // other non-13 widths (14, 16): no dedicated safegcd yet — representation-
-    // agnostic Fermat (a^(p-2) via the native montmul). Drop the BY partials.
+  // Field inverse: the packed 14-bit Bernstein-Yang safegcd (fr_inv_by_loop_pk,
+  // f8 packed form). The only inverse the pipeline ships — 20×13-bit (word_size
+  // 13) BN254 only.
+  private invWiring(): { invFn: string; inverseFuncs: string; bigintByFuncs: string } {
     if (this.word_size !== 13) {
-      return { invFn: 'fr_pow_inv', inverseFuncs: '', bigintByFuncs: '' };
+      throw new Error(`only the packed 14-bit safegcd inverse is supported (word_size must be 13, got ${this.word_size})`);
     }
-    // pk path uses the fully-expanded, hand-editable packed inverse; the
-    // (unused) 'loop' path keeps the templated by_inverse_loop source.
-    return {
-      invFn: variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop',
-      inverseFuncs: variant === 'pk' ? by_inverse_loop_pk14_native_funcs : by_inverse_loop_funcs,
-      bigintByFuncs: bigint_by_funcs,
-    };
+    return { invFn: 'fr_inv_by_loop_pk', inverseFuncs: by_inverse_loop_pk14_native_funcs, bigintByFuncs: bigint_by_funcs };
   }
 
   // Isolated montmul / inverse microbench. op='mul' chains montgomery_product;
-  // op='inv' chains the selected field inverse (fr_inv_by_loop_pk at 13-bit,
-  // fr_inv_by_loop_pk15 at 15-bit). Same view/partials as the reduce-level
-  // kernel so it is the live 13-bit-vs-15-bit op comparison.
+  // op='inv' chains the packed 14-bit safegcd inverse (fr_inv_by_loop_pk). Same
+  // view/partials as the reduce-level kernel.
   public gen_microbench_shader(op: 'mul' | 'inv', chain_k: number, nthreads: number): string {
-    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring('pk');
+    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring();
     return mustache.render(
       microbench_shader,
       {
         inv_fn, inv_f8: this.word_size === 13, is_mul: op === 'mul', is_inv: op === 'inv',
         chain_k, nthreads, in_stride: 2 * this.num_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo, recompile: this.recompile,
       },
@@ -590,22 +547,20 @@ ${packLines.join('\n')}
 
   public gen_ba_reduce_level_bench_shader(
     workgroup_size: number,
-    variant: 'loop' | 'pk' = 'pk',
   ): string {
     if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
       throw new Error(`gen_ba_reduce_level_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring(variant);
+    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_level_bench_shader,
       {
-        workgroup_size, inv_fn, inv_f8: this.word_size === 13 && variant === 'pk',
+        workgroup_size, inv_fn, inv_f8: this.word_size === 13,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
         dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
@@ -969,10 +924,9 @@ ${packLines.join('\n')}
     bw: number,
     stride: number,
     m_red: number,
-    variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring(variant);
+    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     // Register-lean walker. The montmul/inverse workgroup relocations (P1/P2)
     // are DISABLED: the montmul and inverse spill 0 bytes in isolation, so
@@ -981,24 +935,20 @@ ${packLines.join('\n')}
     // per-slot peel state, now streamed from global (acc_x/acc_y above). Left
     // gated so they can be re-enabled if a fissioned design makes them pay off.
     const regfile_lean = false;
-    const regfile_lean_inv = regfile_lean && variant === 'pk';
-    const eff_inv_fn = regfile_lean_inv ? `${inv_fn}_wg` : inv_fn;
     return mustache.render(
       ba_stream_walker_shader,
       {
-        workgroup_size, s, inv_fn: eff_inv_fn, inv_f8: this.word_size === 13 && variant === 'pk',
+        workgroup_size, s, inv_fn, inv_f8: this.word_size === 13,
         bw, stride, m_red,
         p8_consts, r8_csv, f8_words,
         // regfile_lean: route the f8 multiply through the workgroup-backed
         // montgomery_product_wg and declare its scratch. cios_unrolled only.
         regfile_lean,
-        regfile_lean_inv,
         // f8_native: use the packed-native register-lean montgomery_product_f8
         // (no x20/r/s BigInt temps). cios_unrolled 13-bit only.
         f8_native: this.montmul === 'cios_unrolled' && this.word_size === 13,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
         dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
@@ -1008,7 +958,6 @@ ${packLines.join('\n')}
         montgomery_product_funcs: this.mont_product_src,
         montgomery_product_wg_funcs: this.mont_product_wg_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
-        inverse_wg_funcs: by_inverse_loop_pk_wg_funcs,
         field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs: bigintByFuncs, inverse_funcs,
       },
     );
@@ -1088,19 +1037,17 @@ ${packLines.join('\n')}
   public gen_ba_unified_combine_shader(
     workgroup_size: number,
     s: number,
-    variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring(variant);
+    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_unified_combine_shader,
       {
-        workgroup_size, s, inv_fn, inv_f8: this.word_size === 13 && variant === 'pk',
+        workgroup_size, s, inv_fn, inv_f8: this.word_size === 13,
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
         dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,
@@ -1119,22 +1066,20 @@ ${packLines.join('\n')}
     bw: number,
     stride: number,
     m_red: number,
-    variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring(variant);
+    const { invFn: inv_fn, inverseFuncs: inverse_funcs, bigintByFuncs } = this.invWiring();
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_walker_combine_batched_shader,
       {
-        workgroup_size, s, inv_fn, inv_f8: this.word_size === 13 && variant === 'pk',
+        workgroup_size, s, inv_fn, inv_f8: this.word_size === 13,
         bw, stride, m_red,
         p8_consts, r8_csv, f8_words,
         // Use the packed-native register-lean montgomery_product_f8 (cios_unrolled 13-bit).
         f8_native: this.montmul === 'cios_unrolled' && this.word_size === 13,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
-        p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs, mask: this.mask,
+        p_limbs: this.p_limbs, r_limbs: this.r_limbs, mask: this.mask,
         two_pow_word_size: this.two_pow_word_size, p_inv_mod_2w: this.p_inv_mod_2w,
         p_inv_by_a_lo: this.p_inv_by_a_lo,
         dec_unpack: dec.unpack, dec_pack: dec.pack, recompile: this.recompile,

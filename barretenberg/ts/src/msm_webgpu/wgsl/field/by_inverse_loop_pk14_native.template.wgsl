@@ -472,8 +472,8 @@ fn pk_to_packed(x: array<u32, 10>) -> array<u32, 8> {
 
 // R^3 mod q (R = 2^260, the 20x13-limb Montgomery radix) as 8x u32. A single
 // montgomery_product_f8 by this removes the safegcd 2^-k scaling AND lands the
-// result in f8 Montgomery form — the native-CIOS equivalent of the BigInt
-// `montgomery_product(d, get_r_cubed())`. Value == pack(get_r_cubed()).
+// result in f8 Montgomery form — one Montgomery product by R^3 mod q converts
+// the native-form safegcd output straight back into f8 Montgomery form.
 fn pk_r_cubed_f8() -> array<u32, 8> {
     return array<u32, 8>(1071882664u, 333653112u, 1792169669u, 3315345559u, 906230130u, 3308810809u, 2367260661u, 284257773u);
 }

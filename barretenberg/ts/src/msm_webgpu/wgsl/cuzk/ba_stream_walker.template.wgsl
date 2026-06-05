@@ -20,14 +20,6 @@ const EXTRA_INV_PROBE: u32 = 0u;
 {{> fr_pow_funcs }}
 {{> bigint_by_funcs }}
 {{> inverse_funcs }}
-{{#regfile_lean_inv}}
-// Register-lean inverse: the packed safegcd state f,g,d,e (4x10 words) lives in
-// the workgroup array `inv_state` (transposed, region-major) instead of private
-// memory, cutting the inverse's contribution to per-thread spill (scratch).
-const WG_TPB: u32 = MONT_TPB;
-var<workgroup> inv_state: array<u32, 40u * WG_TPB>;
-{{> inverse_wg_funcs }}
-{{/regfile_lean_inv}}
 
 {{{ dec_unpack }}}
 

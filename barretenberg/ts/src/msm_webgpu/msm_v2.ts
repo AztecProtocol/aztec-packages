@@ -45,7 +45,6 @@ const MEM_BUDGET = 248 * (1 << 20); // lever-G batch-count target
 // pickReduceWg below. All values are the bench-msm-v2 sweep optimum.
 const DEFAULT_WGI = 128; // generic kernel workgroup size
 const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
-const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
 
 /**
  * Tuning knobs for {@link MsmV2}. Every field is optional and defaults to the
@@ -63,8 +62,6 @@ export interface MsmConfig {
   reduceWg?: number;
   /** Reduction leaf-partition log2. Default 1. */
   l0Log?: number;
-  /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
-  invVariant?: 'loop' | 'pk';
   /** Base-field Montgomery-multiply body. Default 'karat'; 'cios_unrolled' is the
    *  device-validated register-resident CIOS variant (−26% on Mali-G715, BN254 only). */
   montmul?: MontMulVariant;
@@ -1385,7 +1382,6 @@ export class MsmV2 {
   private wgi!: number;
   private l0Log!: number;
   private reduceWg!: number;
-  private invVariant!: 'loop' | 'pk';
   private montmul!: MontMulVariant;
   private wordSize = 13;
   private profile = false;
@@ -1621,7 +1617,6 @@ export class MsmV2 {
     m.wgi = config?.wgi ?? DEFAULT_WGI;
     m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
-    m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
     m.montmul = config?.montmul ?? 'karat';
     m.wordSize = config?.wordSize ?? 13;
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
@@ -1632,7 +1627,7 @@ export class MsmV2 {
       console.warn('[MsmV2] profile requested but timestamp-query unavailable — disabled');
     }
     // Pull the knobs into the local names the rest of create() uses.
-    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG, invVariant: INV_VARIANT } = m;
+    const { s: S, wgi: WGI, l0Log: L0_LOG, reduceWg: REDUCE_WG } = m;
     m.numWindows = Math.ceil(NUMBITS / m.c);
     m.BW = Math.ceil((2 ** (m.c - 1) + 1) / PLANNER_TPB) * PLANNER_TPB;
     m.bTotal = m.numWindows * m.BW;
@@ -1824,7 +1819,7 @@ export class MsmV2 {
     // across the workgroup, so the compiler specialises per-dispatch with
     // no SIMT divergence. Replaces the three kind-specialised pipelines.
     m.reduceLevelPipes[0] = await compile(
-      sm.gen_ba_reduce_level_bench_shader(REDUCE_WG, INV_VARIANT),
+      sm.gen_ba_reduce_level_bench_shader(REDUCE_WG),
       `reduce-level`,
       m.reduceLevelLayout,
     );
@@ -1869,7 +1864,7 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_task_shader(STREAM_WALKER_TPB, STREAM_S, STREAM_PLANNER_TPB),
       `partition-task`, m.partitionTaskLayout);
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
+      sm.gen_ba_stream_walker_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM),
       `stream-walker`, m.streamWalkerLayout);
     // === Optimal walker_combine pipeline. ===
     m.combineCountPipe = await compile(
@@ -1885,7 +1880,7 @@ export class MsmV2 {
       sm.gen_ba_walker_combine_filter_shader(256, m.BW, m.stride, m.redM),
       `combine-filter`, m.combineFilterLayout);
     m.combineBatchedPipe = await compile(
-      sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
+      sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM),
       `combine-batched`, m.combineBatchedLayout);
     m.sortCountPipe = await compile(
       sm.gen_ba_walker_combine_sort_count_shader(256),
@@ -1912,7 +1907,7 @@ export class MsmV2 {
       sm.gen_ba_walker_pt_dispatch_chain_shader(),
       `pt-dispatch-chain`, m.ptDispatchChainLayout);
     m.ptCombinePipe = await compile(
-      sm.gen_ba_unified_combine_shader(64, STREAM_S, INV_VARIANT),
+      sm.gen_ba_unified_combine_shader(64, STREAM_S),
       `pt-combine`, m.ptCombineLayout);
     m.ptFinalizePipe = await compile(
       sm.gen_ba_walker_pt_finalize_shader(64, m.BW, m.stride, m.redM),

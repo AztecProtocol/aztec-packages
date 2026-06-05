@@ -89,18 +89,14 @@ const gpuKnobs: MsmConfig = (() => {
     wgi: optInt('wgi'),
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
-    invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     montmul:
       q.get('montmul') === 'cios_unrolled'
         ? 'cios_unrolled'
-        : q.get('montmul') === 'cios15native'
-          ? 'cios15native'
-          : q.get('montmul') === 'karat'
-            ? 'karat'
-            : undefined,
-    // Field-arithmetic limb width: 15 ⇒ full native 17×15 pipeline (R=2^255),
-    // 13/unset ⇒ default 20×13. Threaded to BOTH the pool and the MsmV2.
-    wordSize: q.get('wordsize') === '15' ? 15 : q.get('wordsize') === '13' ? 13 : undefined,
+        : q.get('montmul') === 'karat'
+          ? 'karat'
+          : undefined,
+    // Field-arithmetic limb width: 13/unset ⇒ 20×13 (the only supported width).
+    wordSize: q.get('wordsize') === '13' ? 13 : undefined,
     profile: q.get('profile') === '1' || q.get('autorun') === 'msm-bench' || undefined,
   };
 })();
@@ -1831,7 +1827,7 @@ function hideProgress(): void {
     // Isolated montmul/inverse microbench:
     //   ?autorun=micro&op=mul|inv&wordsize=13|15&montmul=&chain_k=&threads=&reps=
     const op: 'mul' | 'inv' = qp.get('op') === 'inv' ? 'inv' : 'mul';
-    const wordSize = qp.get('wordsize') === '15' ? 15 : 13;
+    const wordSize = 13;
     const montmul = (gpuKnobs.montmul ?? 'karat') as MsmConfig['montmul'];
     const chainK = parseInt(qp.get('chain_k') ?? (op === 'inv' ? '6' : '64'), 10);
     const nthreads = parseInt(qp.get('threads') ?? '65536', 10);
