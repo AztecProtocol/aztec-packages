@@ -24,7 +24,7 @@ unconstrained fn test_public_logging() {
 #[test]
 unconstrained fn test_all_log_levels() {
     let (env, contract_address, owner) = setup();
-    env.call_private(owner, LoggingExample::at(contract_address).log_all_levels());
+    env.call_private(owner, LoggingExample::at(contract_address).log_all_levels(42));
 }
 
 #[test]
