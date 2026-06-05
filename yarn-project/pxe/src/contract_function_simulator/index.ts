@@ -1,6 +1,5 @@
 export {
   ORACLE_REGISTRY,
-  callHandler,
   makeEntry,
   type HandlersForPrefix,
   type NamedValue,
@@ -48,7 +47,7 @@ export { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js'
 export { MessageContextService } from '../messages/message_context_service.js';
 export { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 export { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
-export { Oracle } from './oracle/oracle.js';
+export { buildACIRCallback, UnavailableOracleError } from './oracle/acir_callback.js';
 export { executePrivateFunction, extractPrivateCircuitPublicInputs } from './oracle/private_execution.js';
 export { generateSimulatedProvingResult } from './contract_function_simulator.js';
 export { packAsHintedNote } from './oracle/note_packing_utils.js';

@@ -29,9 +29,9 @@ import {
   ExecutionTaggingIndexCache,
   HashedValuesCache,
   type IMiscOracle,
-  Oracle,
   PrivateExecutionOracle,
   UtilityExecutionOracle,
+  buildACIRCallback,
   executePrivateFunction,
   generateSimulatedProvingResult,
 } from '@aztec/pxe/simulator';
@@ -852,7 +852,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         utilityExecutor,
       });
       const acirExecutionResult = await simulator
-        .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+        .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, buildACIRCallback(oracle))
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
           throw new ExecutionError(
