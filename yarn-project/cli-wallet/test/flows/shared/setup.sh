@@ -16,6 +16,12 @@ cd $root/noir-projects/noir-contracts
 
 export PXE_PROVER="none"
 
+# These flows run serially against the single-block local-network sandbox, where a proposed block can
+# be orphaned and pruned before its checkpoint is published, dropping a tx we already moved on from
+# ("Tx dropped by P2P node"). Wait for each tx to be checkpointed so it is durably included before the
+# next is sent.
+export WALLET_TX_WAIT_FOR_STATUS="${WALLET_TX_WAIT_FOR_STATUS:-checkpointed}"
+
 function aztec-wallet {
   echo_header aztec-wallet "$@"
   $command "$@"

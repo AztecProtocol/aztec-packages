@@ -52,6 +52,12 @@ function parseWaitForStatus(status: string): TxStatus {
   }
 }
 
+// Default tx status to wait for, overridable via env var. The serial sandbox flow tests set this to
+// 'checkpointed' so each tx is durably included before the next is sent: waiting only for 'proposed'
+// is racy there, since a proposed block can be orphaned and pruned before its checkpoint is published,
+// dropping a tx we already moved on from ("Tx dropped by P2P node").
+const DEFAULT_WAIT_FOR_STATUS = process.env.WALLET_TX_WAIT_FOR_STATUS ?? 'proposed';
+
 // TODO: This function is only used in 1 place so we could just inline this
 export function injectCommands(
   program: Command,
@@ -115,7 +121,11 @@ export function injectCommands(
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .option('--wait-for-status <status>', "Tx status to wait for: 'proposed' or 'checkpointed'", 'proposed')
+    .option(
+      '--wait-for-status <status>',
+      "Tx status to wait for: 'proposed' or 'checkpointed'",
+      DEFAULT_WAIT_FOR_STATUS,
+    )
     .addOption(createVerboseOption());
 
   addOptions(createAccountCommand, CLIFeeArgs.getOptions()).action(async (_options, command) => {
@@ -202,7 +212,11 @@ export function injectCommands(
       '--skip-initialization',
       'Skip initializing the account contract. Useful for publicly deploying an existing account.',
     )
-    .option('--wait-for-status <status>', "Tx status to wait for: 'proposed' or 'checkpointed'", 'proposed')
+    .option(
+      '--wait-for-status <status>',
+      "Tx status to wait for: 'proposed' or 'checkpointed'",
+      DEFAULT_WAIT_FOR_STATUS,
+    )
     .addOption(createVerboseOption());
 
   addOptions(deployAccountCommand, CLIFeeArgs.getOptions()).action(async (parsedAccount, _options, command) => {
@@ -271,7 +285,11 @@ export function injectCommands(
         'The amount of time in seconds to wait for the deployment to post to L2',
       ).conflicts('wait'),
     )
-    .option('--wait-for-status <status>', "Tx status to wait for: 'proposed' or 'checkpointed'", 'proposed')
+    .option(
+      '--wait-for-status <status>',
+      "Tx status to wait for: 'proposed' or 'checkpointed'",
+      DEFAULT_WAIT_FOR_STATUS,
+    )
     .addOption(createVerboseOption());
 
   addOptions(deployCommand, CLIFeeArgs.getOptions()).action(async (artifactPathPromise, _options, command) => {
@@ -345,7 +363,11 @@ export function injectCommands(
     )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
-    .option('--wait-for-status <status>', "Tx status to wait for: 'proposed' or 'checkpointed'", 'proposed')
+    .option(
+      '--wait-for-status <status>',
+      "Tx status to wait for: 'proposed' or 'checkpointed'",
+      DEFAULT_WAIT_FOR_STATUS,
+    )
     .addOption(createVerboseOption());
 
   addOptions(sendCommand, CLIFeeArgs.getOptions()).action(async (functionName, _options, command) => {
