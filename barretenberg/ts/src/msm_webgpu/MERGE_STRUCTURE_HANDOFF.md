@@ -20,6 +20,92 @@
 > `170b493bee` (step-4) — local, unpushed. **Remaining: Thread 2 (high-mem A/B
 > pingpong) + production auto-enable.**
 >
+> **STATUS (Thread 2 — IMPLEMENTED + VALIDATED, perf-gate pending).** The high-mem
+> A/B ping-pong pair-tree is ported as a mode inside `MsmV2` (option (b)), forced
+> flag `highMemPingpong` / URL `?himem=1`, default **off**. 8 kernels ported (the 7
+> + `ba_reduce_init_bench` bridge). After the SHARED convActive/convMeta (which
+> already emit `l0IdxBuf` + `countsBufs[0]`/`offsetsBufs[0]`), the per-batch loop
+> runs `planner_v2`(offsets+emit) → fused/carry/finalize-accumulate per level (L0
+> gathers from `poolX/Y`) into `bucketResultBuf`, then `ba_reduce_init` repacks it
+> into `red_buf`+`is_present` (the same buffer `pt_finalize` writes) and the
+> existing reduce runs unchanged; a `continue` skips the walker path. Host
+> `buildInitCounts`+`walkChunkPlan` repopulate the stubbed `levelPlans/levels/
+> wstride1` (uniform-c, single point-chunk). `bufA/bufB`/rings/`prefScratch`/
+> `bucketResultBuf`/`touchedBuf` revived gated on `cur.highMem` (off→on
+> `himTransition`; `touchedBuf` standalone to avoid a Dawn ro/rw arena conflict
+> with `l0IdxBuf`). Fast path off when himem; `passCount` branch sizes the
+> timestamp querySet from `pingLevelBinds`. **Validated** cross_ok (==WASM oracle)
+> at logN 10/14/17 profile A and logN17 profiles A–E; default (himem off)
+> unregressed. **Perf (M2, gpu ms):** small-N WIN — logN10 4.2 vs walker 7.7
+> (1.8×), logN14 7.6 vs 13.2 (1.7×); logN17 ties/loses (this branch's walker `pt_*`
+> is already a multi-dispatch tree, so profile E is NOT the win the scoping
+> assumed).
+>
+> **STATUS (Thread 2 task 16 — size-independence + gate DONE).** Planner_v2
+> offsets/emit read `BW`/`num_windows` from a `geom` uniform (gens no longer take
+> `c` ⇒ c-invariant WGSL by construction); `S` fixed to `HIGH_MEM_S=2` (baked-but-
+> constant: one-program + unrolled inversion loops); PAIR_CAP/WGI stay baked
+> (pool-invariant/fixed). One-program verified empirically — logN10 (BW=256) and
+> logN17 (BW=4096) both correct with the SAME compiled planner. Auto-gate added:
+> `pingpongBelow` (URL `?ppbelow=N`) routes `n ≤ threshold` → ping-pong, decided in
+> `create()`; validated `?ppbelow=4096` → logN10 ping-pong / logN17 walker, both
+> oracle-agree. **Crossover (M2, profile A): clean WIN logN≤12 (1.7–2×), noisy
+> 13–14, walker wins ≥15 ⇒ recommended `pingpongBelow=4096`.** S is n-optimal
+> (2@logN10, 4@logN14), so fixed S=2 trades ~1.5ms at logN14 for one-program
+> (pickS discrete-S set is a tuning follow-up).
+>
+> **DEFAULT FLIPPED to `pingpongBelow=4096` (PINGPONG_BELOW_DEFAULT), bridge-
+> validated.** The bridge hardcodes MsmV2.create config (doesn't forward gpuKnobs),
+> so the create() default is what reaches production. **bridge-e2e caught a union
+> bug**: high-mem on the union (concatenated multi-member, per-member bit_bases)
+> gave a WRONG result — the single-MSM host walk + per-batch bb_base mis-plan the
+> concatenated layout. **Fix: gate high-mem on `!this.batchCtx`** (union ⇒ walker
+> fallback). Post-fix bridge-e2e is byte-identical at logns 10,12 and 14,16,17
+> (union≡oracle AND legacy≡oracle; the legacy SOLO path uses high-mem for small
+> members and is byte-identical). NET: **solo MsmV2 small (n≤4096) auto-uses ping-
+> pong by default (1.7-2× win, cross_ok); union packs + large fall back to walker.**
+> **CAVEAT — production batches run via the UNION (`runBatchMsm`, default on), which
+> now falls back, so the win is NOT realized for union-packed small MSMs until the
+> ping-pong is made union-aware** (host walk over per-member scalar slices +
+> bit_bases; bb_base/window-base alignment) — that is the remaining production
+> work. Other follow-ups: pickS discrete-S tuning, fastPathRewrite of ping-pong
+> uniforms, coop-tail dispatch, multi-chunk + split-c, full estimateMem. Local,
+> unpushed.
+>
+> **STATUS (Thread 2 UNION-AWARENESS — DONE, incl. mixed-N).** Host walk takes
+> `HistSegment[]` (single MSM = 1 segment; union = 1 per BatchMember, decoded
+> MSM-local at its scalar slice / bit_base / global window base — matches the GPU
+> decompose). Gate relaxed `!batchCtx` → `uniformC` (mixed-c unions still fall back:
+> reduce_init bakes one stride; not hit in the gate regime since all-small unions
+> are c=8). **Mixed-N bug found+fixed: `padParams0Buf` used `batchSlots` but the L0
+> seed trio lives at `l0PadAnchor = max(batchSlots, batchWindows·partialStride)` —
+> for different-n unions these diverge, so the L0 self-pad read stale partials, and
+> a pad pair with dx=0 poisons the block's SHARED batched inversion → corrupts real
+> slots. Fix = point padParams0 at l0PadAnchor (the walker already does; single MSM
+> unaffected).** bridge-e2e byte-identical for unions 10,12 / 12,12 / 10,11,12 /
+> 10,12,14 / 10,12,14,16 / 14,16,17. **PERF (msm-batch-bench): union high-mem ≈ union
+> walker for all K/profiles — batching already saturates the GPU, so the ping-pong's
+> starvation-win evaporates; the 1.7-1.8× is SOLO-only (and partly vs an inefficient
+> solo path — the union-K1 walker is ~2.7× faster than the solo-path walker at
+> n=1024, hinting the real small-MSM lever is the union path itself).** Net: union
+> ping-pong is correct + neutral; the default gate is a no-regression no-op for
+> batched production — reconsider keeping it on. Local, unpushed.
+>
+> **STATUS (Thread 2 PERF — definitive: the win was a profiling artifact).**
+> msm-bench `profile=true` reports gpu = SUM of per-dispatch timestamp deltas; the
+> walker's ~54 dispatches vs the ping-pong's ~30 inflate the walker (7.7ms profiled
+> vs ~2.9ms true). Measured `profile=false` (msm-batch-bench, wall-around-submit),
+> solo high-mem ≈ walker at EVERY n (512 2.07v2.06 / 1024 2.91v2.98 / 2048 3.31v3.40
+> / 4096 4.27v4.26) and batched unions tie too. The profiled msm-bench is also
+> wildly noisy (identical reduce kernels: 1.8ms vs 6.8ms across runs). **So the
+> ping-pong is perf-NEUTRAL on M2 — Thread 2's motivating premise isn't supported by
+> rigorous measurement.** It's a correct, one-program, union-aware ALTERNATIVE whose
+> only structural edge is ~half the dispatch count (may matter on mobile — UNTESTED).
+> **DEFAULT REVERTED to pingpongBelow=0 (off)**; impl stays behind ?ppbelow/config.
+> Always attribute MSM perf with profile=false wall-around-submit, never the
+> profile=true per-dispatch timestamp sum (it scales with dispatch count). Local,
+> unpushed.
+>
 > **Correction to the note below:** the **affine reduce is NOT identical on both
 > sides.** This branch moved `ba_reduce_level_bench` onto a per-window
 > `reduce_sched` schedule table (split-c aware; `base = reduce_sched[row].x`,
