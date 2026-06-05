@@ -9,13 +9,11 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/commitment_schemes/shplonk/sparse_masking_poly.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -60,15 +58,9 @@ void ECCVMProver::execute_wire_commitments_round()
 
     const size_t circuit_size = key->circuit_size;
 
-    // Sparse 2d-coefficient Gemini masking polynomial on the tail-halving support.
-    // See SHPLEMINI_ZK_MASKING.md for the rank / ZK argument.
-    const size_t d = numeric::get_msb(circuit_size);
-    key->polynomials.gemini_masking_poly = build_sparse_masking_poly<FF>(d, circuit_size, circuit_size);
-    Flavor::Commitment masking_commitment;
-    {
-        BB_BENCH_NAME("ECCVM::commit_masking_poly_msm");
-        masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
-    }
+    // Create and commit to Gemini masking polynomial (for ZK-PCS)
+    key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
+    auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
     auto batch = key->commitment_key.start_batch();
