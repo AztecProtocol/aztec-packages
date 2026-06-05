@@ -14,7 +14,6 @@ use aztec::{
 
 use std::test::OracleMock;
 
-// Modes have no public constructors, so the tests derive them through the delivery builder API.
 global ONCHAIN_UNCONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().mode();
 global ONCHAIN_CONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_constrained().mode();
 
