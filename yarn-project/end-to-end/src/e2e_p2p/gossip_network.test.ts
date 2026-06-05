@@ -69,7 +69,6 @@ describe('e2e_p2p_network', () => {
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
         listenAddress: '127.0.0.1',
-        enableProposerPipelining: true,
         inboxLag: 2,
       },
     });

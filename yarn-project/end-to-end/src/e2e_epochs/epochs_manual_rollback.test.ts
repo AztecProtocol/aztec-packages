@@ -20,7 +20,7 @@ describe('e2e_epochs/manual_rollback', () => {
   let test: EpochsTestContext;
 
   const setup = async (opts: Partial<EpochsTestOpts> = {}) => {
-    test = await EpochsTestContext.setup({ ...opts, enableProposerPipelining: true });
+    test = await EpochsTestContext.setup({ ...opts });
     ({ context, logger, rollup } = test);
     ({ aztecNode: node } = context);
   };

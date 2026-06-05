@@ -2,7 +2,7 @@
 
 This document covers how the sequencer schedules its work within a slot. See the [package README](../../README.md) for the high-level architecture; this one focuses on the timing math and the state-machine deadlines.
 
-The model described here is for **proposer pipelining**, the standard mode in production. Non-pipelined scheduling existed historically and is in the process of being removed.
+The model described here is for **proposer pipelining**, the only mode the production sequencer runs in (the proposer always builds for `slot + 1`). The deterministic single-sequencer `AutomineSequencer` used in some e2e tests publishes synchronously in-slot and does not use this timing model.
 
 ## Overview
 
@@ -94,11 +94,17 @@ These constants come from `@aztec/stdlib/timetable` (see `stdlib/src/timetable/i
 | `WAITING_FOR_TXS`           | `initializeDeadline + checkpointInitializationTime`                         |
 | `CREATING_BLOCK`            | same as `WAITING_FOR_TXS`                                                   |
 | `WAITING_UNTIL_NEXT_BLOCK`  | same as `WAITING_FOR_TXS`                                                   |
-| `ASSEMBLING_CHECKPOINT`     | `aztecSlotDuration` (assembly completes by the build-slot boundary)         |
+| `ASSEMBLING_CHECKPOINT`     | `aztecSlotDuration + pipeliningAttestationGracePeriod`                      |
 | `COLLECTING_ATTESTATIONS`   | same as `ASSEMBLING_CHECKPOINT`                                             |
-| `PUBLISHING_CHECKPOINT`     | `2 * aztecSlotDuration - l1PublishingTime` (extends into the target slot)   |
+| `PUBLISHING_CHECKPOINT`     | `2 * aztecSlotDuration - ethereumSlotDuration` (extends into the target slot) |
 
-`ASSEMBLING_CHECKPOINT` and `COLLECTING_ATTESTATIONS` must be *entered* before the build-slot boundary; once entered, attestation collection itself has its own `checkpointAttestationDeadline = 2 * aztecSlotDuration - l1PublishingTime`, so a late attestation arriving after the boundary is still accepted. The publishing deadline extends into the target slot because that is when the L1 tx is actually submitted.
+In production-like timing, `pipeliningAttestationGracePeriod` is zero, so `ASSEMBLING_CHECKPOINT` and
+`COLLECTING_ATTESTATIONS` must be *entered* before the build-slot boundary. Local networks with
+`l1PublishingTime < ethereumSlotDuration` can use the target-slot attestation window as grace while preserving the
+L1-geometry publishing cutoff. Once entered, attestation collection itself has its own
+`checkpointAttestationDeadline = 2 * aztecSlotDuration - ethereumSlotDuration`, so a late attestation arriving after
+the boundary is still accepted. The publishing deadline extends into the target slot because that is when the L1 tx is
+actually submitted.
 
 ## Example: 72 s slot, 8 s sub-slots
 
@@ -208,7 +214,9 @@ The current sub-slot is dropped without committing anything. The loop retries on
 
 ### Build slot ends before attestations arrive
 
-`assertTimeLeft` will reject `PUBLISHING_CHECKPOINT` if the attestation deadline has passed; the slot is abandoned, and `checkpoint-publish-failed` is emitted. The `PUBLISHING_CHECKPOINT` deadline allows spillover into the target slot (`2 * aztecSlotDuration - l1PublishingTime`) precisely to absorb a small overrun.
+`assertTimeLeft` will reject `PUBLISHING_CHECKPOINT` if the attestation deadline has passed; the slot is abandoned, and
+`checkpoint-publish-failed` is emitted. The `PUBLISHING_CHECKPOINT` deadline allows spillover into the target slot
+(`2 * aztecSlotDuration - ethereumSlotDuration`) precisely to absorb a small overrun.
 
 ### Pipelined parent fails on L1
 
@@ -230,4 +238,6 @@ aztecSlotDuration ≥ checkpointInitializationTime
 
 Block duration should be ≥ `minExecutionTime` (otherwise no sub-slot ever has enough headroom). `p2pPropagationTime` should be measured against the deployment's actual p2p latency: it directly determines how much of each slot is spent on the cooldown.
 
-`l1PublishingTime` should fit inside the Ethereum slot the target slot maps to. The default of 12 s lines up with one Ethereum slot; congested deployments may need to increase it (which only affects the `PUBLISHING_CHECKPOINT` deadline, not the number of blocks built).
+`l1PublishingTime` should fit inside the Ethereum slot the target slot maps to. The default of 12 s lines up with one
+Ethereum slot; fast local networks may reduce it to use the target-slot attestation window as assembly and attestation
+grace.

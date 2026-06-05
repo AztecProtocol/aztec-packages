@@ -13,9 +13,11 @@
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 
 namespace bb {
+// The prover always runs sumcheck with the short-monomial flavor (faster sumcheck); it produces a proof and VK
+// identical to the legacy TranslatorFlavor, which the native and recursive verifiers consume.
 class TranslatorProver {
   public:
-    using Flavor = TranslatorFlavor;
+    using Flavor = TranslatorShortMonomialFlavor;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using FF = typename Flavor::FF;
     using BF = typename Flavor::BF;

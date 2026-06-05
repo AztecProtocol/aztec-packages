@@ -24,7 +24,9 @@ describe('sequencer-timetable', () => {
 
   describe('constructor', () => {
     it('fails to construct an instance with too short slot duration', () => {
-      const aztecSlotDuration = ETHEREUM_SLOT_DURATION;
+      // Build slot must fit initialization plus two execution rounds (1 + 2*2 = 5s under pipelining);
+      // a 4s slot leaves a negative initialize deadline.
+      const aztecSlotDuration = 4;
       expect(
         () =>
           new SequencerTimetable({
@@ -44,15 +46,14 @@ describe('sequencer-timetable', () => {
         l1PublishingTime: L1_PUBLISHING_TIME,
         enforce: ENFORCE_TIMETABLE,
       });
+      // Under pipelining the build slot only needs to reserve initialization plus two
+      // execution rounds; finalization is deferred to the target slot.
       expect(timetable.initializeDeadline).toEqual(
         aztecSlotDuration -
-          L1_PUBLISHING_TIME - // time to publish to L1
-          2 * timetable.p2pPropagationTime - // time to propagate the attestation
-          timetable.checkpointAssembleTime - // time to assemble the block
           timetable.initializationOffset - // time to prepare the block
           2 * MIN_EXECUTION_TIME, // min guaranteed time to execute the block
       );
-      expect(timetable.initializeDeadline).toEqual(14);
+      expect(timetable.initializeDeadline).toEqual(31);
     });
   });
 
@@ -62,8 +63,10 @@ describe('sequencer-timetable', () => {
     });
 
     it('computes time from slot end', () => {
+      // Under pipelining attestation collection can run to the build-slot boundary
+      // (assembly deadline = aztecSlotDuration + grace period, grace = 0).
       expect(timetable.getMaxAllowedTime(SequencerState.COLLECTING_ATTESTATIONS)).toEqual(
-        AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME - timetable.p2pPropagationTime * 2,
+        AZTEC_SLOT_DURATION + timetable.pipeliningAttestationGracePeriod,
       );
     });
 
@@ -142,8 +145,8 @@ describe('sequencer-timetable', () => {
         expect(result.deadline).toBe(expectedDeadline);
       });
 
-      it('should allow starting within the initialize deadline', () => {
-        const secondsIntoSlot = timetable.initializeDeadline - 1;
+      it('should allow starting partway into the slot', () => {
+        const secondsIntoSlot = 10;
         const result = timetable.canStartNextBlock(secondsIntoSlot);
         expect(result.isLastBlock).toBe(true);
         expect(result.canStart).toBe(true);
@@ -192,16 +195,16 @@ describe('sequencer-timetable', () => {
       });
 
       it('should detect last block correctly', () => {
-        // With 72s slot, 8s blocks, 1s init offset:
-        // Reserved at end: 8s (last sub-slot) + 2*2s (prop) + 1s (final) + 12s (L1) = 25s
-        // Available: 72 - 1 - 25 = 46s
-        // Max blocks: floor(46/8) = 5
-        // So if we're at second 33 (after 4 blocks would finish at 1 + 4*8 = 33),
-        // we should get the 5th sub-slot as the last block
-        const result = timetable.canStartNextBlock(33);
+        // With 72s slot, 8s blocks, 1s init offset under pipelining:
+        // Reserved at end: 8s (last sub-slot) + 2*2s (prop) + 1s (assemble) = 13s
+        // Available: 72 - 1 - 13 = 58s
+        // Max blocks: floor(58/8) = 7
+        // So if we're at second 49 (after 6 blocks would finish at 1 + 6*8 = 49),
+        // we should get the 7th sub-slot as the last block
+        const result = timetable.canStartNextBlock(49);
         expect(result.canStart).toBe(true);
         expect(result.isLastBlock).toBe(true);
-        expect(result.deadline).toBe(timetable.initializationOffset + 5 * 8);
+        expect(result.deadline).toBe(timetable.initializationOffset + 7 * 8);
       });
 
       it('should refuse to start if no time left', () => {
@@ -351,11 +354,15 @@ describe('sequencer-timetable', () => {
           expect(result.isLastBlock).toBe(true);
         });
 
-        it('should handle start exactly at initialize deadline', () => {
-          const result = timetable.canStartNextBlock(timetable.initializeDeadline);
+        it('should still allow starting late within the single-block window', () => {
+          // Latest startable point in single-block mode is where the split execution time still
+          // covers minExecutionTime: secondsIntoSlot <= maxAllowed - 2*minExecutionTime.
+          const maxAllowed = AZTEC_SLOT_DURATION - timetable.checkpointFinalizationTime;
+          const latestStart = maxAllowed - 2 * timetable.minExecutionTime;
+          const result = timetable.canStartNextBlock(latestStart);
           // Should still allow starting, but with less time
           expect(result.canStart).toBe(true);
-          expect(result.deadline).toBeGreaterThan(timetable.initializeDeadline);
+          expect(result.deadline).toBeGreaterThan(latestStart);
         });
 
         it('should refuse start past checkpoint finalization threshold', () => {
@@ -390,33 +397,39 @@ describe('sequencer-timetable', () => {
           expect(resultAfterLast.canStart).toBe(false);
         });
 
-        it('should ensure time from checkpoint broadcast to attestation deadline >= blockDuration + 2*propagation', () => {
-          // Required time for validators: re-execution + round-trip propagation
-          const requiredTimeForValidators = BLOCK_DURATION + 2 * P2P_PROPAGATION_TIME;
+        it('should reserve enough of the build slot for assembly, round-trip, and re-execution', () => {
+          // Under pipelining the build slot must leave room after the last block deadline for
+          // assembling the checkpoint, round-trip p2p, and validator re-execution of the last block.
+          const requiredTimeForValidators =
+            BLOCK_DURATION + 2 * P2P_PROPAGATION_TIME + timetable.checkpointAssembleTime;
           const lastBlockDeadline = timetable.initializationOffset + timetable.maxNumberOfBlocks * BLOCK_DURATION;
-          const checkpointBroadcast = lastBlockDeadline + timetable.checkpointAssembleTime;
-          const attestationDeadline = AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME;
+          const availableTime = AZTEC_SLOT_DURATION + timetable.pipeliningAttestationGracePeriod - lastBlockDeadline;
 
-          const availableTimeForValidators = attestationDeadline - checkpointBroadcast;
-
-          expect(availableTimeForValidators).toBeGreaterThanOrEqual(requiredTimeForValidators);
+          expect(availableTime).toBeGreaterThanOrEqual(requiredTimeForValidators);
         });
 
-        it('should set attestation deadline at slotDuration minus l1PublishingTime', () => {
-          const attestationDeadline = timetable.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT);
-          expect(attestationDeadline).toBe(AZTEC_SLOT_DURATION - L1_PUBLISHING_TIME);
+        it('sets the publish deadline to 12s (one Ethereum slot) before the last L1 block of the target slot', () => {
+          // The publish deadline is the latest the checkpoint can be submitted and still land on L1
+          // in the target slot: one Ethereum slot before the last L1 block. It is derived from
+          // ethereumSlotDuration (L1 geometry), NOT l1PublishingTime (the send lead). Here
+          // ETHEREUM_SLOT_DURATION === L1_PUBLISHING_TIME, so the numeric value coincides.
+          const publishDeadline = timetable.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT);
+          expect(publishDeadline).toBe(2 * AZTEC_SLOT_DURATION - ETHEREUM_SLOT_DURATION);
         });
 
-        it('should fit all operations within slot duration', () => {
+        it('should fit all build-slot operations within slot duration', () => {
+          // Finalization (L1 publishing) is deferred to the target slot under pipelining, so the
+          // build slot only needs to fit initialization, all blocks, and the end-of-slot reservation.
           const totalRequiredTime =
             timetable.initializationOffset +
             timetable.maxNumberOfBlocks * BLOCK_DURATION +
             BLOCK_DURATION + // last sub-slot for validators
             2 * P2P_PROPAGATION_TIME +
-            timetable.checkpointAssembleTime +
-            L1_PUBLISHING_TIME;
+            timetable.checkpointAssembleTime;
 
-          expect(totalRequiredTime).toBeLessThanOrEqual(AZTEC_SLOT_DURATION);
+          expect(totalRequiredTime).toBeLessThanOrEqual(
+            AZTEC_SLOT_DURATION + timetable.pipeliningAttestationGracePeriod,
+          );
         });
 
         it('should have minExecutionTime less than blockDuration', () => {
@@ -476,21 +489,21 @@ describe('sequencer-timetable', () => {
       });
 
       const blockDuration = BLOCK_DURATION_MS / 1000;
-      const timeAvailableForBlocks =
-        AZTEC_SLOT_DURATION - tt.initializationOffset - (blockDuration + tt.checkpointFinalizationTime);
+      // Under pipelining the end-of-slot reservation is assembly + round-trip p2p + one block for re-execution.
+      const timeReservedAtEnd = tt.checkpointAssembleTime + 2 * tt.p2pPropagationTime + blockDuration;
+      const timeAvailableForBlocks = AZTEC_SLOT_DURATION - tt.initializationOffset - timeReservedAtEnd;
 
       expect(tt.maxNumberOfBlocks * blockDuration).toBeLessThanOrEqual(timeAvailableForBlocks);
       expect((tt.maxNumberOfBlocks + 1) * blockDuration).toBeGreaterThan(timeAvailableForBlocks);
     });
 
-    it('fits 11 pipelined blocks in a 72s slot with 5.5s cadence', () => {
+    it('fits 11 blocks in a 72s slot with 5.5s cadence', () => {
       const tt = new SequencerTimetable({
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         l1PublishingTime: L1_PUBLISHING_TIME,
         blockDurationMs: BLOCK_DURATION_MS,
         enforce: ENFORCE_TIMETABLE,
-        pipelining: true,
       });
 
       // reserved = assemble(1) + 2*p2p(2) + block(5.5) = 10.5; available = 72 - 1 - 10.5 = 60.5; floor(60.5/5.5) = 11
@@ -499,23 +512,8 @@ describe('sequencer-timetable', () => {
     });
   });
 
-  describe('pipelining mode', () => {
+  describe('pipelined timing model', () => {
     const BLOCK_DURATION_MS = 8000;
-
-    it('allows more blocks per slot than non-pipelining with same config', () => {
-      const baseOpts = {
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        l1PublishingTime: L1_PUBLISHING_TIME,
-        blockDurationMs: BLOCK_DURATION_MS,
-        enforce: ENFORCE_TIMETABLE,
-      };
-
-      const withoutPipelining = new SequencerTimetable({ ...baseOpts, pipelining: false });
-      const withPipelining = new SequencerTimetable({ ...baseOpts, pipelining: true });
-
-      expect(withPipelining.maxNumberOfBlocks).toBeGreaterThan(withoutPipelining.maxNumberOfBlocks);
-    });
 
     it('reserves time for assembly, round-trip broadcast, and re-execution at end of slot', () => {
       const tt = new SequencerTimetable({
@@ -524,7 +522,6 @@ describe('sequencer-timetable', () => {
         l1PublishingTime: L1_PUBLISHING_TIME,
         blockDurationMs: BLOCK_DURATION_MS,
         enforce: ENFORCE_TIMETABLE,
-        pipelining: true,
       });
 
       const blockDuration = BLOCK_DURATION_MS / 1000;
@@ -532,21 +529,6 @@ describe('sequencer-timetable', () => {
       const timeReservedAtEnd = tt.checkpointAssembleTime + 2 * tt.p2pPropagationTime + blockDuration;
       const availableTime = AZTEC_SLOT_DURATION - tt.initializationOffset - timeReservedAtEnd;
       expect(tt.maxNumberOfBlocks).toBe(Math.floor(availableTime / blockDuration));
-    });
-
-    it('has later initialize deadline than non-pipelining', () => {
-      const baseOpts = {
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        l1PublishingTime: L1_PUBLISHING_TIME,
-        blockDurationMs: BLOCK_DURATION_MS,
-        enforce: ENFORCE_TIMETABLE,
-      };
-
-      const withoutPipelining = new SequencerTimetable({ ...baseOpts, pipelining: false });
-      const withPipelining = new SequencerTimetable({ ...baseOpts, pipelining: true });
-
-      expect(withPipelining.initializeDeadline).toBeGreaterThan(withoutPipelining.initializeDeadline);
     });
 
     it('produces expected block count with test config', () => {
@@ -558,10 +540,9 @@ describe('sequencer-timetable', () => {
         p2pPropagationTime: 0.5,
         blockDurationMs: 8000,
         enforce: true,
-        pipelining: true,
       });
 
-      // With pipelining and test config (ethereumSlotDuration < 8):
+      // With test config (ethereumSlotDuration < 8):
       // init=0.5, assemble=0.5, p2p=0.5, reservedAtEnd = 0.5 + 2*0.5 + 8 = 9.5, available = 36 - 0.5 - 9.5 = 26, floor(26/8) = 3
       expect(tt.maxNumberOfBlocks).toBe(3);
     });
@@ -573,10 +554,26 @@ describe('sequencer-timetable', () => {
         l1PublishingTime: L1_PUBLISHING_TIME,
         blockDurationMs: BLOCK_DURATION_MS,
         enforce: ENFORCE_TIMETABLE,
-        pipelining: true,
       });
 
       expect(tt.pipeliningAttestationGracePeriod).toBe(0);
+    });
+
+    it('allows fast local publishing profiles to enter assembly and attestation collection in the target slot', () => {
+      const PLAYGROUND_AZTEC_SLOT_DURATION = 72;
+      const tt = new SequencerTimetable({
+        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        aztecSlotDuration: PLAYGROUND_AZTEC_SLOT_DURATION,
+        l1PublishingTime: 1,
+        enforce: ENFORCE_TIMETABLE,
+      });
+
+      expect(tt.pipeliningAttestationGracePeriod).toBe(48);
+      expect(tt.getMaxAllowedTime(SequencerState.ASSEMBLING_CHECKPOINT)).toBe(120);
+      expect(tt.getMaxAllowedTime(SequencerState.COLLECTING_ATTESTATIONS)).toBe(120);
+      expect(tt.getMaxAllowedTime(SequencerState.PUBLISHING_CHECKPOINT)).toBe(132);
+      expect(() => tt.assertTimeLeft(SequencerState.ASSEMBLING_CHECKPOINT, 84.7)).not.toThrow();
+      expect(() => tt.assertTimeLeft(SequencerState.COLLECTING_ATTESTATIONS, 84.7)).not.toThrow();
     });
 
     it('uses separate pipelined deadlines for attestation start vs publish cutoff', () => {
@@ -586,7 +583,6 @@ describe('sequencer-timetable', () => {
         l1PublishingTime: L1_PUBLISHING_TIME,
         blockDurationMs: BLOCK_DURATION_MS,
         enforce: ENFORCE_TIMETABLE,
-        pipelining: true,
       });
 
       expect(tt.getMaxAllowedTime(SequencerState.ASSEMBLING_CHECKPOINT)).toBe(
@@ -612,7 +608,6 @@ describe('sequencer-timetable', () => {
         p2pPropagationTime: P2P_PROPAGATION_TIME,
         blockDurationMs: BLOCK_DURATION_MS,
         enforce: ENFORCE_TIMETABLE,
-        pipelining: true,
       });
 
       // Time from last block deadline to end of grace period into next slot
@@ -623,23 +618,6 @@ describe('sequencer-timetable', () => {
       // Must be enough for: assembly + round-trip p2p + re-execution
       const requiredTime = tt.checkpointAssembleTime + 2 * P2P_PROPAGATION_TIME + BLOCK_DURATION;
       expect(totalTimeAvailable).toBeGreaterThanOrEqual(requiredTime);
-    });
-
-    it('produces more blocks with production config where finalization time is large', () => {
-      // With production-like config, the large finalization time means pipelining saves enough to gain blocks
-      const baseOpts = {
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecSlotDuration: 120,
-        l1PublishingTime: L1_PUBLISHING_TIME,
-        blockDurationMs: BLOCK_DURATION_MS,
-        enforce: ENFORCE_TIMETABLE,
-      };
-
-      const withoutPipelining = new SequencerTimetable({ ...baseOpts, pipelining: false });
-      const withPipelining = new SequencerTimetable({ ...baseOpts, pipelining: true });
-
-      // Finalization time (1 + 2*2 + 12 = 17s) > blockDuration, so pipelining gains at least one more block
-      expect(withPipelining.maxNumberOfBlocks).toBeGreaterThan(withoutPipelining.maxNumberOfBlocks);
     });
   });
 });

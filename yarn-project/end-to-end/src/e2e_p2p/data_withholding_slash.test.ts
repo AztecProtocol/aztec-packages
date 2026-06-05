@@ -90,7 +90,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
         slashSelfAllowed: true,
         slashDataWithholdingToleranceSlots: TOLERANCE_SLOTS,
         minTxsPerBlock: 1,
-        enableProposerPipelining: true,
         inboxLag: 2,
       },
     });

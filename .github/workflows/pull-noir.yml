@@ -19,6 +19,7 @@ on:
 
 jobs:
   update_noir_submodule:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
 
     steps:

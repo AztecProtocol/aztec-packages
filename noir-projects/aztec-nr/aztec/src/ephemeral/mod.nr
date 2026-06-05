@@ -30,6 +30,11 @@ impl<T> EphemeralArray<T> {
         Self { slot }
     }
 
+    /// Returns an empty ephemeral array at the given slot, clearing any pre-existing data.
+    pub unconstrained fn empty_at(slot: Field) -> Self {
+        Self::at(slot).clear()
+    }
+
     /// Returns the number of elements stored in the array.
     pub unconstrained fn len(self) -> u32 {
         ephemeral::len_oracle(self.slot)
@@ -76,8 +81,9 @@ impl<T> EphemeralArray<T> {
         ephemeral::remove_oracle(self.slot, index);
     }
 
-    /// Removes all elements from the array and returns self for chaining (e.g. `EphemeralArray::at(slot).clear()`
-    /// to get a guaranteed-empty array at a given slot).
+    /// Removes all elements from the array and returns self for chaining.
+    ///
+    /// Prefer [`EphemeralArray::empty_at`] when the intent is to start with a fresh array.
     pub unconstrained fn clear(self) -> Self {
         ephemeral::clear_oracle(self.slot);
         self
@@ -359,6 +365,19 @@ mod test {
             let popped: MockStruct = array.pop();
             assert_eq(popped, b);
             assert_eq(array.len(), 1);
+        });
+    }
+
+    #[test]
+    unconstrained fn empty_at_wipes_previous_data() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::at(SLOT);
+            array.push(1);
+            assert_eq(array.len(), 1);
+
+            let fresh: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            assert_eq(fresh.len(), 0);
         });
     }
 

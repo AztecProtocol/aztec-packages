@@ -1,9 +1,13 @@
 import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { getErrorCause } from '@aztec/foundation/types';
 
 import {
   type Chain,
+  type FallbackTransport,
   type HDAccount,
+  HttpRequestError,
+  type HttpTransport,
   type LocalAccount,
   type PrivateKeyAccount,
   createPublicClient,
@@ -31,9 +35,43 @@ type Config = {
 
 export type { Config as EthereumClientConfig };
 
+/** Error exposed by L1 RPC transports without including provider URLs in its message. */
+export class L1RpcError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'L1RpcError';
+  }
+}
+
 /** Creates a viem fallback HTTP transport for the given L1 RPC URLs. */
 export function makeL1HttpTransport(rpcUrls: string[], opts?: { timeout?: number }) {
-  return fallback(rpcUrls.map(url => http(url, { batch: false, timeout: opts?.timeout })));
+  return wrapL1RpcTransport(fallback(rpcUrls.map(url => http(url, { batch: false, timeout: opts?.timeout }))));
+}
+
+/** Returns the HTTP status from an L1 RPC error's cause chain, if one is available. */
+export function getL1RpcHttpStatus(err: unknown): number | undefined {
+  return getErrorCause(err, HttpRequestError)?.status;
+}
+
+/** Returns true when an L1 RPC error's cause chain contains the given HTTP status. */
+export function isL1RpcHttpStatus(err: unknown, status: number): boolean {
+  return getL1RpcHttpStatus(err) === status;
+}
+
+function wrapL1RpcTransport(transport: FallbackTransport<HttpTransport[]>): FallbackTransport<HttpTransport[]> {
+  const wrappedTransport: FallbackTransport<HttpTransport[]> = parameters => {
+    const fallbackTransport = transport(parameters);
+    const request: typeof fallbackTransport.request = async args => {
+      try {
+        return await fallbackTransport.request(args);
+      } catch (err) {
+        throw err instanceof L1RpcError ? err : new L1RpcError('L1 RPC request failed', { cause: err });
+      }
+    };
+    return { ...fallbackTransport, request };
+  };
+
+  return wrappedTransport;
 }
 
 /**

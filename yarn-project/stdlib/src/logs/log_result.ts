@@ -2,7 +2,7 @@ import { BlockNumber, BlockNumberSchema } from '@aztec/foundation/branded-types'
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas as foundationSchemas } from '@aztec/foundation/schemas';
-import type { IfFlag, Prettify } from '@aztec/foundation/types';
+import type { PickIfFlag, Prettify } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -53,7 +53,7 @@ export type LogResultBase = {
  * l.nullifiers; // required, not optional
  */
 export type LogResult<Opts extends LogIncludeOptions = LogIncludeOptions> = Prettify<
-  LogResultBase & IfFlag<LogIncludeOptions, Opts, 'includeEffects', { noteHashes: Fr[]; nullifiers: Fr[] }>
+  LogResultBase & PickIfFlag<LogIncludeOptions, Opts, 'includeEffects', { noteHashes: Fr[]; nullifiers: Fr[] }>
 >;
 
 /** Zod schema for the widest {@link LogResult} shape (all include-gated fields optional). */

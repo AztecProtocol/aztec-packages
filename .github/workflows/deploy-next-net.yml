@@ -5,7 +5,7 @@ name: Deploy Next Net
 
 on:
   schedule:
-    # Run every night at 4:00 AM UTC, after the nightly tag has been created
+    # Run every morning at 6:00 AM UTC, after the nightly tag has been created
     - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
@@ -13,6 +13,11 @@ on:
         description: "Docker image tag (e.g., 2.3.4, 3.0.0-nightly.20251004-amd64, or leave empty for latest nightly)"
         required: false
         type: string
+      deploy_contracts:
+        description: "Redeploy rollup contracts. Scheduled runs always redeploy contracts."
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-next-net-${{ inputs.image_tag || 'nightly' }}
@@ -20,6 +25,7 @@ concurrency:
 
 jobs:
   get-image-tag:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.determine_tag.outputs.TAG }}
@@ -64,10 +70,12 @@ jobs:
 
   deploy-next-net:
     needs: get-image-tag
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: next-net
       semver: ${{ needs.get-image-tag.outputs.semver }}
       aztec_docker_image: "aztecprotocol/aztec:${{ needs.get-image-tag.outputs.tag }}"
       ref: ${{ github.ref }}
+      deploy_contracts: ${{ github.event_name == 'schedule' || inputs.deploy_contracts == true }}
     secrets: inherit

@@ -72,7 +72,6 @@ describe('e2e_epochs/epochs_first_slot', () => {
       attestationPropagationTime: 0.5,
       archiverPollingIntervalMS: 200,
       skipInitialSequencer: true,
-      enableProposerPipelining: true,
       inboxLag: 2,
     });
 
