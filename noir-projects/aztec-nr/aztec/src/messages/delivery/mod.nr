@@ -69,11 +69,11 @@ impl OnchainDeliveryMode {
         Self { inner: ONCHAIN_CONSTRAINED }
     }
 
-    /// Whether `self` is one of the recognized on-chain delivery modes.
+    /// Whether `self` is one of the valid on-chain delivery modes.
     ///
     /// Callers that receive a mode across the ABI (e.g. the handshake registry) use this to reject an arbitrary `u8`
     /// deserialized into an [`OnchainDeliveryMode`].
-    pub fn is_recognized(self) -> bool {
+    pub fn is_valid(self) -> bool {
         (self == Self::onchain_unconstrained()) | (self == Self::onchain_constrained())
     }
 
@@ -559,8 +559,8 @@ mod test {
     fn mode_matches_the_variant() {
         assert(MessageDelivery::onchain_unconstrained().mode() == OnchainDeliveryMode::onchain_unconstrained());
         assert(MessageDelivery::onchain_constrained().mode() == OnchainDeliveryMode::onchain_constrained());
-        assert(OnchainDeliveryMode::onchain_unconstrained().is_recognized());
-        assert(OnchainDeliveryMode::onchain_constrained().is_recognized());
+        assert(OnchainDeliveryMode::onchain_unconstrained().is_valid());
+        assert(OnchainDeliveryMode::onchain_constrained().is_valid());
         assert(GLOBAL_DERIVED_MODE == OnchainDeliveryMode::onchain_unconstrained());
     }
 
