@@ -10,7 +10,7 @@ pub contract NFTPunk {
         protocol::address::AztecAddress,
         state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicImmutable},
     };
-    use aztec::messages::message_delivery::MessageDelivery;
+    use aztec::messages::delivery::MessageDelivery;
     use aztec::note::{
         note_getter_options::NoteGetterOptions, note_interface::NoteProperties,
         note_viewer_options::NoteViewerOptions,

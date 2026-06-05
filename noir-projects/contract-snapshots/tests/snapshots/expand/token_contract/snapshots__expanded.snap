@@ -20,7 +20,7 @@ pub contract Token {
     use aztec::macros::functions::only_self;
     use aztec::macros::functions::view;
     use aztec::macros::storage::storage;
-    use aztec::messages::message_delivery::MessageDelivery;
+    use aztec::messages::delivery::MessageDelivery;
     use aztec::protocol::address::AztecAddress;
     use aztec::protocol::traits::ToField;
     use aztec::state_vars::Map;
@@ -111,6 +111,10 @@ pub contract Token {
     #[contract_library_method]
     fn public_get_decimals() -> pub u8;
 
+    #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call private_get_decimals. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn private_get_decimals() -> pub u8;
+
     #[abi(storage)]
     pub global STORAGE_LAYOUT_Token: StorageLayout<5> = StorageLayout::<5> {
         contract_name: "Token",
@@ -141,10 +145,6 @@ pub contract Token {
             },
         },
     };
-
-    #[deprecated(deny, "Direct invocation of private functions is not supported. You attempted to call private_get_decimals. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn private_get_decimals() -> pub u8;
 
     #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call get_admin. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]

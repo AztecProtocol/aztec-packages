@@ -9,6 +9,15 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
+
+The `message_delivery` module has been renamed to `delivery`. Update imports accordingly:
+
+```diff
+- use aztec::messages::message_delivery::MessageDelivery;
++ use aztec::messages::delivery::MessageDelivery;
+```
+
 ### [Aztec.nr] `get_pending_tagged_logs` oracle interface updated (oracle version 28)
 
 The `aztec_utl_getPendingTaggedLogs` oracle now takes an additional `provided_secrets` parameter of type `EphemeralArray<ProvidedSecret>`. This lets apps pass tagging secrets that PXE cannot derive on its own (e.g. handshake-derived secrets) alongside the secrets PXE manages internally.
@@ -19,7 +28,7 @@ The `set_sender_for_tags` oracle has been removed. Contracts that used it to ove
 
 ```diff
 - use aztec::oracle::notes::set_sender_for_tags;
-+ use aztec::messages::message_delivery::MessageDelivery;
++ use aztec::messages::delivery::MessageDelivery;
 
 - unsafe { set_sender_for_tags(some_address) };
 - note.deliver(MessageDelivery::onchain_constrained());

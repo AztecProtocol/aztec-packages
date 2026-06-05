@@ -1,7 +1,7 @@
 use crate::{HandshakeRegistry, MAX_HANDSHAKES_PER_PAGE};
 
 use aztec::{
-    messages::message_delivery::{ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
+    messages::delivery::{ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
     oracle::shared_secret::get_shared_secret,
     protocol::{
         address::AztecAddress,

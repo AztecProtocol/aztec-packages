@@ -1,8 +1,8 @@
 use crate::{
     context::PrivateContext,
     messages::{
+        delivery::{do_private_message_delivery, MessageDeliveryBuilder},
         logs::note::encode_private_note_message,
-        message_delivery::{do_private_message_delivery, MessageDeliveryBuilder},
     },
     note::{lifecycle::NewNote, note_interface::NoteType},
 };
@@ -35,7 +35,7 @@ where
     ///
     /// The message is first encrypted to the owner's public key, ensuring no other actor can read it.
     ///
-    /// The `delivery_mode` is produced by the [`crate::messages::message_delivery::MessageDelivery`] entrypoints
+    /// The `delivery_mode` is produced by the [`crate::messages::delivery::MessageDelivery`] entrypoints
     /// (`offchain`, `onchain_unconstrained`, or `onchain_constrained`). It informs costs (both proving time and TX
     /// fees) as well as delivery guarantees, and must be a compile-time constant.
     ///
@@ -135,7 +135,7 @@ where
 
     /// Same as [`NoteMessage::deliver`], except the message will only be delivered if it actually exists.
     ///
-    /// Messages delivered using [`crate::messages::message_delivery::MessageDelivery::onchain_constrained()`] will
+    /// Messages delivered using [`crate::messages::delivery::MessageDelivery::onchain_constrained()`] will
     /// pay proving costs regardless of whether the message exists or not.
     pub fn deliver<D>(self, delivery_mode: D)
     where
@@ -148,7 +148,7 @@ where
 
     /// Same as [`NoteMessage::deliver_to`], except the message will only be delivered if it actually exists.
     ///
-    /// Messages delivered using [`crate::messages::message_delivery::MessageDelivery::onchain_constrained()`] will
+    /// Messages delivered using [`crate::messages::delivery::MessageDelivery::onchain_constrained()`] will
     /// pay proving costs regardless of whether the message exists or not.
     pub fn deliver_to<D>(self, recipient: AztecAddress, delivery_mode: D)
     where
