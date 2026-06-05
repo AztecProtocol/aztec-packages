@@ -1,9 +1,14 @@
 use crate::{
-    capsules::CapsuleArray,
     context::UtilityContext,
     ephemeral::EphemeralArray,
     messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::OffchainMessageWithContext},
-    oracle::{contract_sync::set_contract_sync_cache_invalid, fact_store::{FACT_MAX_FACTS, PackedFact}},
+    oracle::{
+        contract_sync::set_contract_sync_cache_invalid,
+        fact_store::{
+            active_entities, FACT_MAX_ACTIVE_ENTITIES, FACT_MAX_FACTS, get_entity_facts, PackedFact,
+            record_non_retractable_fact, record_retractable_fact, terminate_entity,
+        },
+    },
     protocol::{
         address::AztecAddress,
         constants::MAX_TX_LIFETIME,
@@ -11,11 +16,6 @@ use crate::{
         traits::{Deserialize, Serialize},
     },
 };
-
-/// Base capsule slot for the persistent inbox of [`PendingOffchainMsg`] entries.
-///
-/// This is the slot where we accumulate messages received through [`receive`].
-global OFFCHAIN_INBOX_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_INBOX_SLOT".as_bytes());
 
 /// Ephemeral array slot used by [`sync_inbox`] to pass tx hash resolution requests to PXE.
 global OFFCHAIN_CONTEXT_REQUESTS_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_REQUESTS_SLOT".as_bytes());
@@ -187,24 +187,6 @@ pub unconstrained fn fold(facts: BoundedVec<PackedFact, FACT_MAX_FACTS>) -> Offc
 
 // ===================== End FactStore data model =====================
 
-/// An offchain message awaiting processing (or re-processing) in the inbox.
-///
-/// Messages remain in the inbox until they expire, even if they have already been processed. This is necessary to
-/// handle reorgs: a processed message may need to be re-processed if the transaction that provided its context is
-/// reverted. On each sync, resolved messages are promoted to [`OffchainMessageWithContext`] for processing.
-#[derive(Serialize, Deserialize)]
-struct PendingOffchainMsg {
-    /// The encrypted message payload.
-    ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
-    /// The intended recipient of the message.
-    recipient: AztecAddress,
-    /// The hash of the transaction that produced this message. A value of 0 indicates a tx-less message.
-    tx_hash: Field,
-    /// Anchor block timestamp at message emission. Used to compute the effective expiration: messages are evicted
-    /// after `anchor_block_timestamp + MAX_MSG_TTL`.
-    anchor_block_timestamp: u64,
-}
-
 /// Delivers offchain messages to the given contract's offchain inbox for subsequent processing.
 ///
 /// Offchain messages are transaction effects that are not broadcasted via onchain logs. Instead, the sender shares the
@@ -233,20 +215,23 @@ pub unconstrained fn receive(
     let messages_len = messages.len();
     while i < messages_len {
         let msg = messages.get(i);
-        let tx_hash = if msg.tx_hash.is_some() {
-            msg.tx_hash.unwrap()
-        } else {
-            0
+        // Normalize a tx-less message to tx_hash 0 so the same (ciphertext, tx_hash) pair maps to a stable
+        // correlation key and re-delivery is idempotent (records into the same entity).
+        let normalized = OffchainMessage {
+            ciphertext: msg.ciphertext,
+            recipient: msg.recipient,
+            tx_hash: Option::some(msg.tx_hash.unwrap_or(0)),
+            anchor_block_timestamp: msg.anchor_block_timestamp,
         };
-        let inbox: CapsuleArray<PendingOffchainMsg> =
-            CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT, msg.recipient);
-        inbox.push(
-            PendingOffchainMsg {
-                ciphertext: msg.ciphertext,
-                recipient: msg.recipient,
-                tx_hash,
-                anchor_block_timestamp: msg.anchor_block_timestamp,
-            },
+        let key = correlation_key(normalized.ciphertext, normalized.tx_hash);
+        let payload = pack_offchain_message(normalized);
+        record_non_retractable_fact(
+            contract_address,
+            msg.recipient,
+            OFFCHAIN_RECEPTION_ENTITY,
+            key,
+            MESSAGE_RECEIVED,
+            payload,
         );
         scopes.push(msg.recipient);
         i += 1;
@@ -257,84 +242,87 @@ pub unconstrained fn receive(
 
 /// Returns offchain-delivered messages to process during sync.
 ///
-/// Messages remain in the inbox and are reprocessed on each sync until their originating transaction is no longer at
-/// risk of being dropped by a reorg.
+/// Each active reception entity is advanced based on its folded state, its message's expiration, and whether its
+/// originating transaction has been resolved by PXE. Resolved-and-unprocessed messages are returned for processing and
+/// recorded as `Processed` (anchored at the resolving block, so a reorg of that block retracts the guard and the
+/// message is re-processed). Messages stay active across syncs until they expire, at which point the entity is
+/// terminated to free its storage.
 pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
 ) -> EphemeralArray<OffchainMessageWithContext> {
-    let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT, scope);
     let context_resolution_requests: EphemeralArray<Field> = EphemeralArray::empty_at(OFFCHAIN_CONTEXT_REQUESTS_SLOT);
     let ready_to_process: EphemeralArray<OffchainMessageWithContext> =
         EphemeralArray::empty_at(OFFCHAIN_READY_MESSAGES_SLOT);
 
-    // Build a request list aligned with the inbox indices.
-    let mut i = 0;
-    let inbox_len = inbox.len();
-    while i < inbox_len {
-        let msg = inbox.get(i);
-        context_resolution_requests.push(msg.tx_hash);
-        i += 1;
+    let entities = active_entities(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY);
+    let entities_len = entities.len();
+
+    // Build a tx-hash request list aligned with the active-entity indices, so the resolved contexts returned by the
+    // oracle can be matched back to each entity positionally.
+    for i in 0..FACT_MAX_ACTIVE_ENTITIES {
+        if i < entities_len {
+            let key = entities.get(i);
+            let facts = get_entity_facts(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+            let msg = received_message_of(facts);
+            context_resolution_requests.push(msg.tx_hash.unwrap_or(0));
+        }
     }
 
-    // Ask PXE to resolve contexts for all requested tx hashes. The oracle returns responses in a new
-    // ephemeral array.
+    // Ask PXE to resolve contexts for all requested tx hashes. The oracle returns responses in a new ephemeral array,
+    // aligned with the request (and therefore entity) indices.
     let resolved_contexts =
         crate::oracle::message_processing::get_message_contexts_by_tx_hash(context_resolution_requests);
 
-    assert_eq(resolved_contexts.len(), inbox_len);
+    assert_eq(resolved_contexts.len(), entities_len);
 
     let now = UtilityContext::new().timestamp();
 
-    let mut j = inbox_len;
-    while j > 0 {
-        // This loop decides what to do with each message in the offchain message inbox. We need to handle 3
-        // different scenarios for each message.
-        //
-        // 1. The TX that emitted this message is still not known to PXE: in this case we can't yet process this
-        // message, as any notes or events discovered will fail to be validated. So we leave the message in the inbox,
-        // awaiting for future syncs to detect that the TX became available.
-        //
-        // 2. The message is not associated to a TX to begin with. The current version of offchain message processing
-        // does not support this case, but in the future it will. Right now, a message without an associated TX will
-        // sit in the inbox until it expires.
-        //
-        // 3. The TX that emitted this message has been found by PXE. That gives us all the information needed to
-        // process the message. We add the message to the `ready_to_process` EphemeralArray so that the `sync_state`
-        // loop
-        // processes it.
-        //
-        // In all cases, if the message has expired (i.e. `now > anchor_block_timestamp + MAX_MSG_TTL`), we remove it
-        // from the inbox.
-        //
-        // Note: the loop runs backwards because it might call `inbox.remove(j)` to purge expired messages and we also
-        // need to align it with `resolved_contexts.get(j)`. Going from last to first simplifies the algorithm as
-        // not yet visited element indexes remain stable.
-        j -= 1;
-        let maybe_ctx = resolved_contexts.get(j);
-        let msg = inbox.get(j);
+    for i in 0..FACT_MAX_ACTIVE_ENTITIES {
+        if i < entities_len {
+            // This loop decides what to do with each active reception entity. We handle the following scenarios:
+            //
+            // - Expired: the message's effective expiration (`anchor_block_timestamp + MAX_MSG_TTL`) has passed. We
+            //   terminate the entity to free its storage. This applies regardless of the folded state and replaces the
+            //   old `inbox.remove`.
+            //
+            // - Received and resolved: the originating TX has been found by PXE, giving us the context needed to
+            //   process the message. We add it to `ready_to_process` and record a `Processed` fact anchored at the
+            //   resolving block. Anchoring is the idempotency + reorg mechanism: a subsequent sync sees the `Processed`
+            //   fact and skips the message, but if the anchoring block is reorg'd away the retractable fact is pruned
+            //   and the message is re-processed.
+            //
+            // - Received and unresolved: the originating TX is not yet known to PXE (or the message is tx-less, which
+            //   never resolves). We leave the entity active so future syncs can pick it up once the TX appears.
+            //
+            // - Already processed (and not expired): the idempotency guard. We skip the message to avoid re-pushing it.
+            let key = entities.get(i);
+            let facts = get_entity_facts(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+            let msg = received_message_of(facts);
+            let state = fold(facts);
+            let maybe_ctx = resolved_contexts.get(i);
 
-        // Compute the message's effective expiration timestamp to determine if we can purge it from the inbox.
-        let effective_expiration = msg.anchor_block_timestamp + MAX_MSG_TTL;
+            let expired = now > msg.anchor_block_timestamp + MAX_MSG_TTL;
 
-        // Message expired. We remove it from the inbox.
-        if now > effective_expiration {
-            inbox.remove(j);
+            if expired {
+                terminate_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+            } else if (state == OffchainReceptionState::received()) & maybe_ctx.is_some() {
+                let ctx = maybe_ctx.unwrap();
+                ready_to_process.push(
+                    OffchainMessageWithContext { message_ciphertext: msg.ciphertext, message_context: ctx },
+                );
+                record_retractable_fact(
+                    contract_address,
+                    scope,
+                    OFFCHAIN_RECEPTION_ENTITY,
+                    key,
+                    MESSAGE_PROCESSED,
+                    [],
+                    ctx.tx_block_number,
+                    ctx.tx_block_hash,
+                );
+            }
         }
-
-        // Scenario 1: associated TX not yet available. We keep the message in the inbox, as it might become
-        // processable as new blocks get mined.
-        // Scenario 2: no TX associated to message. The message will sit in the inbox until it expires.
-        if maybe_ctx.is_none() {
-            continue;
-        }
-
-        // Scenario 3: Message is ready to process, add to result array. Note we still keep it in the inbox unless we
-        // consider it has expired: this is because we need to account for reorgs. If reorg occurs after we processed
-        // a message, the effects of processing the message get rewind. However, the associated TX can be included in
-        // a subsequent block. Should that happen, the message must be re-processed to ensure consistency.
-        let message_context = maybe_ctx.unwrap();
-        ready_to_process.push(OffchainMessageWithContext { message_ciphertext: msg.ciphertext, message_context });
     }
 
     ready_to_process
@@ -342,16 +330,21 @@ pub unconstrained fn sync_inbox(
 
 mod test {
     use crate::{
-        capsules::CapsuleArray,
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,
-        oracle::{fact_store::{FACT_MAX_FACTS, FACT_MAX_PAYLOAD, PackedFact}, random::random},
+        oracle::{
+            fact_store::{
+                active_entities, FACT_MAX_ACTIVE_ENTITIES, FACT_MAX_FACTS, FACT_MAX_PAYLOAD, get_entity_facts,
+                PackedFact,
+            },
+            random::random,
+        },
         protocol::{address::AztecAddress, traits::FromField},
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
-        fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, MESSAGE_PROCESSED, MESSAGE_RECEIVED,
-        OFFCHAIN_INBOX_SLOT, OffchainMessage, OffchainReceptionState, pack_offchain_message, PendingOffchainMsg,
-        receive, received_message_of, SERIALIZED_OFFCHAIN_MESSAGE_LEN, sync_inbox, unpack_offchain_message,
+        correlation_key, fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, MESSAGE_PROCESSED, MESSAGE_RECEIVED,
+        OFFCHAIN_RECEPTION_ENTITY, OffchainMessage, OffchainReceptionState, pack_offchain_message, receive,
+        received_message_of, SERIALIZED_OFFCHAIN_MESSAGE_LEN, sync_inbox, unpack_offchain_message,
     };
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
@@ -372,16 +365,38 @@ mod test {
         env.last_block_timestamp()
     }
 
+    /// Returns the correlation keys of the reception entities currently active for the given scope.
+    unconstrained fn active_keys(c: AztecAddress, s: AztecAddress) -> BoundedVec<Field, FACT_MAX_ACTIVE_ENTITIES> {
+        active_entities(c, s, OFFCHAIN_RECEPTION_ENTITY)
+    }
+
+    /// Returns `true` if a reception entity with the given correlation key is currently active.
+    unconstrained fn is_active(c: AztecAddress, s: AztecAddress, key: Field) -> bool {
+        let keys = active_keys(c, s);
+        let mut found = false;
+        for i in 0..FACT_MAX_ACTIVE_ENTITIES {
+            if (i < keys.len()) & (keys.get(i) == key) {
+                found = true;
+            }
+        }
+        found
+    }
+
+    /// Folds the fact set of the reception entity with the given correlation key into its state.
+    unconstrained fn state_of(c: AztecAddress, s: AztecAddress, key: Field) -> OffchainReceptionState {
+        let facts = get_entity_facts(c, s, OFFCHAIN_RECEPTION_ENTITY, key);
+        fold(facts)
+    }
+
     #[test]
     unconstrained fn empty_inbox_returns_empty_result() {
         let (env, scope) = setup();
         env.utility_context(|context| {
-            let result = sync_inbox(context.this_address(), scope);
-            let inbox: CapsuleArray<PendingOffchainMsg> =
-                CapsuleArray::at(context.this_address(), OFFCHAIN_INBOX_SLOT, scope);
+            let address = context.this_address();
+            let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0);
-            assert_eq(inbox.len(), 0);
+            assert_eq(active_keys(address, scope).len(), 0);
         });
     }
 
@@ -389,12 +404,15 @@ mod test {
     unconstrained fn tx_bound_msg_expires_after_max_msg_ttl() {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
+        let tx_hash = random();
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(scope, Option::some(random()), anchor_ts));
+            msgs.push(make_msg(scope, Option::some(tx_hash), anchor_ts));
             receive(context.this_address(), msgs);
         });
+
+        let key = correlation_key(BoundedVec::new(), Option::some(tx_hash));
 
         // Advance past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
@@ -402,10 +420,9 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address, scope);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert_eq(inbox.len(), 0); // expired, removed
+            assert(!is_active(address, scope, key), "expired entity should be terminated");
         });
     }
 
@@ -413,12 +430,15 @@ mod test {
     unconstrained fn tx_bound_msg_not_expired_before_max_msg_ttl() {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
+        let tx_hash = random();
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(scope, Option::some(random()), anchor_ts));
+            msgs.push(make_msg(scope, Option::some(tx_hash), anchor_ts));
             receive(context.this_address(), msgs);
         });
+
+        let key = correlation_key(BoundedVec::new(), Option::some(tx_hash));
 
         // Advance, but not past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, 100);
@@ -426,10 +446,10 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address, scope);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert_eq(inbox.len(), 1); // not expired, stays
+            assert(is_active(address, scope, key), "not expired entity should stay active");
+            assert(state_of(address, scope, key) == OffchainReceptionState::received(), "should fold to received");
         });
     }
 
@@ -444,16 +464,18 @@ mod test {
             receive(context.this_address(), msgs);
         });
 
+        // A tx-less message normalizes to tx_hash 0.
+        let key = correlation_key(BoundedVec::new(), Option::some(0));
+
         // Advance past anchor_ts + MAX_MSG_TTL.
         let _now = advance_by(env, MAX_MSG_TTL + 1);
 
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address, scope);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert_eq(inbox.len(), 0); // expired, removed
+            assert(!is_active(address, scope, key), "expired entity should be terminated");
         });
     }
 
@@ -461,22 +483,25 @@ mod test {
     unconstrained fn unresolved_tx_stays_in_inbox() {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
+        let tx_hash = random();
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(scope, Option::some(random()), anchor_ts));
+            msgs.push(make_msg(scope, Option::some(tx_hash), anchor_ts));
             receive(context.this_address(), msgs);
         });
+
+        let key = correlation_key(BoundedVec::new(), Option::some(tx_hash));
 
         let _now = advance_by(env, 100);
 
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address, scope);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0); // not resolved, not ready
-            assert_eq(inbox.len(), 1); // not expired, stays
+            assert(is_active(address, scope, key), "unresolved entity should stay active");
+            assert(state_of(address, scope, key) == OffchainReceptionState::received(), "should fold to received");
         });
     }
 
@@ -485,34 +510,37 @@ mod test {
         let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
 
+        let expired_a_tx_hash = random();
         let survivor_tx_hash = random();
 
         env.utility_context(|context| {
             let address = context.this_address();
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            // Message 0: tx-bound, anchor_ts in the past so it expires at
-            // anchor_ts + MAX_MSG_TTL. We set anchor to 0 so it expires quickly.
-            msgs.push(make_msg(scope, Option::some(random()), 0));
+            // Message 0: tx-bound, anchor=0 so it expires quickly.
+            msgs.push(make_msg(scope, Option::some(expired_a_tx_hash), 0));
             // Message 1: tx-bound, anchor_ts is recent so it survives.
             msgs.push(make_msg(scope, Option::some(survivor_tx_hash), anchor_ts));
-            // Message 2: tx-less, anchor_ts=0 so it also expires.
+            // Message 2: tx-less, anchor=0 so it also expires.
             msgs.push(make_msg(scope, Option::none(), 0));
             receive(address, msgs);
         });
 
-        // Advance past MAX_MSG_TTL for anchor_ts=0, but not for anchor_ts=anchor_ts.
+        let expired_a_key = correlation_key(BoundedVec::new(), Option::some(expired_a_tx_hash));
+        let survivor_key = correlation_key(BoundedVec::new(), Option::some(survivor_tx_hash));
+        let expired_b_key = correlation_key(BoundedVec::new(), Option::some(0));
+
+        // Advance past MAX_MSG_TTL for anchor=0, but not for anchor_ts.
         let _now = advance_by(env, MAX_MSG_TTL);
 
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address, scope);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0); // all contexts are None
-            // Message 0 expired (anchor=0), message 1 survived (anchor=anchor_ts),
-            // Message 2 expired (anchor=0).
-            assert_eq(inbox.len(), 1);
-            assert_eq(inbox.get(0).tx_hash, survivor_tx_hash);
+            assert(!is_active(address, scope, expired_a_key), "expired tx-bound entity should be terminated");
+            assert(!is_active(address, scope, expired_b_key), "expired tx-less entity should be terminated");
+            assert(is_active(address, scope, survivor_key), "survivor entity should stay active");
+            assert_eq(active_keys(address, scope).len(), 1);
         });
     }
 
@@ -533,12 +561,13 @@ mod test {
             receive(context.this_address(), msgs);
         });
 
+        let key = correlation_key(BoundedVec::new(), Option::some(known_tx_hash));
+
         let _now = advance_by(env, 100);
 
         env.utility_context(|context| {
             let address = context.this_address();
             let result = sync_inbox(address, scope);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             // The message should be ready to process since its tx context was resolved.
             assert_eq(result.len(), 1);
@@ -547,8 +576,45 @@ mod test {
             assert_eq(ctx.tx_hash, known_tx_hash);
             assert(ctx.first_nullifier_in_tx != 0, "resolved context must have a first nullifier");
 
-            // Message stays in inbox (not expired) for potential reorg reprocessing.
-            assert_eq(inbox.len(), 1);
+            // Entity stays active (not expired) and now folds to processed, with a Processed fact recorded.
+            assert(is_active(address, scope, key), "processed entity should stay active for reorg safety");
+            assert(state_of(address, scope, key) == OffchainReceptionState::processed(), "should fold to processed");
+        });
+    }
+
+    #[test]
+    unconstrained fn already_processed_is_not_re_pushed() {
+        let (env, scope) = setup();
+        let known_tx_hash: Field = 1;
+        let anchor_ts = advance_by(env, 10);
+
+        env.utility_context(|context| {
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            msgs.push(make_msg(scope, Option::some(known_tx_hash), anchor_ts));
+            receive(context.this_address(), msgs);
+        });
+
+        let key = correlation_key(BoundedVec::new(), Option::some(known_tx_hash));
+
+        let _now = advance_by(env, 100);
+
+        // First sync: the message resolves, is pushed for processing, and a Processed fact is recorded.
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let first = sync_inbox(address, scope);
+            assert_eq(first.len(), 1);
+            assert(state_of(address, scope, key) == OffchainReceptionState::processed(), "should fold to processed");
+        });
+
+        // Second sync with the same resolvable context: the Processed guard skips the message (idempotency) while the
+        // entity remains active (not expired).
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let second = sync_inbox(address, scope);
+
+            assert_eq(second.len(), 0); // already processed, not re-pushed
+            assert(is_active(address, scope, key), "processed entity should still be active");
+            assert(state_of(address, scope, key) == OffchainReceptionState::processed(), "should remain processed");
         });
     }
 
