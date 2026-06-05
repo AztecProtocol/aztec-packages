@@ -3,11 +3,11 @@ use crate::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
     messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::OffchainMessageWithContext},
-    oracle::contract_sync::set_contract_sync_cache_invalid,
+    oracle::{contract_sync::set_contract_sync_cache_invalid, fact_store::{FACT_MAX_FACTS, PackedFact}},
     protocol::{
         address::AztecAddress,
         constants::MAX_TX_LIFETIME,
-        hash::sha256_to_field,
+        hash::{poseidon2_hash, sha256_to_field},
         traits::{Deserialize, Serialize},
     },
 };
@@ -63,6 +63,129 @@ pub struct OffchainMessage {
     /// Anchor block timestamp at message emission.
     pub anchor_block_timestamp: u64,
 }
+
+// ===================== FactStore data model =====================
+
+/// Entity type id for the offchain reception state machine.
+pub global OFFCHAIN_RECEPTION_ENTITY: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_ENTITY_TYPE".as_bytes());
+
+/// Fact type id for a received offchain message (non-retractable; birth fact).
+pub global MESSAGE_RECEIVED: Field = sha256_to_field("AZTEC_NR::MESSAGE_RECEIVED".as_bytes());
+
+/// Fact type id for a processed offchain message (retractable; anchored at processing block).
+pub global MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::MESSAGE_PROCESSED".as_bytes());
+
+/// Number of fields produced by serializing a `BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>`.
+///
+/// A `BoundedVec` serializes as its storage fields followed by a trailing length field, so the total is
+/// `MESSAGE_CIPHERTEXT_LEN + 1`.
+global SERIALIZED_CIPHERTEXT_LEN: u32 = MESSAGE_CIPHERTEXT_LEN + 1;
+
+/// Number of fields produced by serializing an [`OffchainMessage`].
+///
+/// Layout: ciphertext (`SERIALIZED_CIPHERTEXT_LEN`) + recipient (1) + tx_hash as `Option<Field>` (2) +
+/// anchor_block_timestamp (1). Must remain `<= FACT_MAX_PAYLOAD` (currently equals it exactly).
+pub global SERIALIZED_OFFCHAIN_MESSAGE_LEN: u32 = SERIALIZED_CIPHERTEXT_LEN + 1 + 2 + 1;
+// Compile-time guard: SERIALIZED_OFFCHAIN_MESSAGE_LEN must not exceed FACT_MAX_PAYLOAD (both = 20).
+// If MESSAGE_CIPHERTEXT_LEN ever grows, this global must be updated and the fact payload widened.
+
+/// Serializes an [`OffchainMessage`] into a fixed-length field array suitable for a fact payload.
+pub unconstrained fn pack_offchain_message(msg: OffchainMessage) -> [Field; SERIALIZED_OFFCHAIN_MESSAGE_LEN] {
+    msg.serialize()
+}
+
+/// Deserializes an [`OffchainMessage`] from a fixed-length field array read from a fact payload.
+pub unconstrained fn unpack_offchain_message(payload: [Field; SERIALIZED_OFFCHAIN_MESSAGE_LEN]) -> OffchainMessage {
+    Deserialize::deserialize(payload)
+}
+
+/// Computes the per-message correlation key used as the entity identity in the fact store.
+///
+/// The key is a poseidon2 hash over the serialized ciphertext fields and the normalized tx hash (0 when absent).
+/// Re-delivering the same (ciphertext, tx_hash) pair therefore maps to the same entity, making receive idempotent.
+pub unconstrained fn correlation_key(
+    ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
+    tx_hash: Option<Field>,
+) -> Field {
+    let serialized_ciphertext: [Field; SERIALIZED_CIPHERTEXT_LEN] = ciphertext.serialize();
+    let mut inputs: [Field; SERIALIZED_CIPHERTEXT_LEN + 1] = [0; SERIALIZED_CIPHERTEXT_LEN + 1];
+    for i in 0..SERIALIZED_CIPHERTEXT_LEN {
+        inputs[i] = serialized_ciphertext[i];
+    }
+    inputs[SERIALIZED_CIPHERTEXT_LEN] = tx_hash.unwrap_or(0);
+    poseidon2_hash(inputs)
+}
+
+/// Extracts and decodes the [`OffchainMessage`] stored under an entity's `Received` fact.
+///
+/// Panics if no `MESSAGE_RECEIVED` fact is present in the loaded set.
+pub unconstrained fn received_message_of(facts: BoundedVec<PackedFact, FACT_MAX_FACTS>) -> OffchainMessage {
+    let mut found = false;
+    let mut payload: [Field; SERIALIZED_OFFCHAIN_MESSAGE_LEN] = [0; SERIALIZED_OFFCHAIN_MESSAGE_LEN];
+    for i in 0..FACT_MAX_FACTS {
+        if i < facts.len() {
+            let fact = facts.get(i);
+            if !found & (fact.fact_type_id == MESSAGE_RECEIVED) {
+                for j in 0..SERIALIZED_OFFCHAIN_MESSAGE_LEN {
+                    payload[j] = fact.payload.get(j);
+                }
+                found = true;
+            }
+        }
+    }
+    if found {
+        unpack_offchain_message(payload)
+    } else {
+        panic("received_message_of: no Received fact in loaded set")
+    }
+}
+
+/// The computed state of an offchain reception entity, derived by folding its facts.
+#[derive(Eq)]
+pub struct OffchainReceptionState {
+    tag: u8,
+}
+
+impl OffchainReceptionState {
+    /// The message has been received but not yet processed.
+    pub fn received() -> Self {
+        Self { tag: 1 }
+    }
+
+    /// The message's tx context has been resolved and it has been handed off for processing.
+    pub fn processed() -> Self {
+        Self { tag: 2 }
+    }
+}
+
+/// Folds an entity's fact set into an [`OffchainReceptionState`].
+///
+/// A `MESSAGE_PROCESSED` fact advances the entity to `processed`; otherwise it is `received`.
+/// Panics if neither fact type is present (the entity has no birth `Received` fact).
+pub unconstrained fn fold(facts: BoundedVec<PackedFact, FACT_MAX_FACTS>) -> OffchainReceptionState {
+    let mut has_received = false;
+    let mut has_processed = false;
+    for i in 0..FACT_MAX_FACTS {
+        if i < facts.len() {
+            let ft = facts.get(i).fact_type_id;
+            if ft == MESSAGE_RECEIVED {
+                has_received = true;
+            }
+            if ft == MESSAGE_PROCESSED {
+                has_processed = true;
+            }
+        }
+    }
+    if has_processed {
+        OffchainReceptionState::processed()
+    } else if has_received {
+        OffchainReceptionState::received()
+    } else {
+        panic("fold: entity has no Received fact")
+    }
+}
+
+// ===================== End FactStore data model =====================
 
 /// An offchain message awaiting processing (or re-processing) in the inbox.
 ///
@@ -219,12 +342,16 @@ pub unconstrained fn sync_inbox(
 
 mod test {
     use crate::{
-        capsules::CapsuleArray, oracle::random::random, protocol::address::AztecAddress,
+        capsules::CapsuleArray,
+        messages::encoding::MESSAGE_CIPHERTEXT_LEN,
+        oracle::{fact_store::{FACT_MAX_FACTS, FACT_MAX_PAYLOAD, PackedFact}, random::random},
+        protocol::{address::AztecAddress, traits::FromField},
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
-        MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OFFCHAIN_INBOX_SLOT, OffchainMessage, PendingOffchainMsg,
-        receive, sync_inbox,
+        fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, MESSAGE_PROCESSED, MESSAGE_RECEIVED,
+        OFFCHAIN_INBOX_SLOT, OffchainMessage, OffchainReceptionState, pack_offchain_message, PendingOffchainMsg,
+        receive, received_message_of, SERIALIZED_OFFCHAIN_MESSAGE_LEN, sync_inbox, unpack_offchain_message,
     };
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
@@ -423,5 +550,63 @@ mod test {
             // Message stays in inbox (not expired) for potential reorg reprocessing.
             assert_eq(inbox.len(), 1);
         });
+    }
+
+    // ---- Pure FactStore fold/pack tests (no TXE) ----
+
+    #[test]
+    unconstrained fn fold_received_only_is_received() {
+        let mut facts: BoundedVec<PackedFact, FACT_MAX_FACTS> = BoundedVec::new();
+        let payload: BoundedVec<Field, FACT_MAX_PAYLOAD> = BoundedVec::new();
+        facts.push(PackedFact { fact_type_id: MESSAGE_RECEIVED, payload });
+        assert(fold(facts) == OffchainReceptionState::received());
+    }
+
+    #[test]
+    unconstrained fn fold_with_processed_is_processed() {
+        let mut facts: BoundedVec<PackedFact, FACT_MAX_FACTS> = BoundedVec::new();
+        let empty_payload: BoundedVec<Field, FACT_MAX_PAYLOAD> = BoundedVec::new();
+        facts.push(PackedFact { fact_type_id: MESSAGE_RECEIVED, payload: empty_payload });
+        facts.push(PackedFact { fact_type_id: MESSAGE_PROCESSED, payload: empty_payload });
+        assert(fold(facts) == OffchainReceptionState::processed());
+    }
+
+    #[test]
+    unconstrained fn pack_unpack_round_trips_offchain_message() {
+        let ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
+        let msg = OffchainMessage {
+            ciphertext,
+            recipient: AztecAddress::from_field(42),
+            tx_hash: Option::some(99),
+            anchor_block_timestamp: 12345,
+        };
+        let packed = pack_offchain_message(msg);
+        let roundtripped = unpack_offchain_message(packed);
+        assert_eq(roundtripped.recipient, msg.recipient);
+        assert_eq(roundtripped.tx_hash, msg.tx_hash);
+        assert_eq(roundtripped.anchor_block_timestamp, msg.anchor_block_timestamp);
+        assert_eq(roundtripped.ciphertext.len(), msg.ciphertext.len());
+    }
+
+    #[test]
+    unconstrained fn received_message_of_returns_packed_message() {
+        let ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
+        let expected = OffchainMessage {
+            ciphertext,
+            recipient: AztecAddress::from_field(7),
+            tx_hash: Option::none(),
+            anchor_block_timestamp: 100,
+        };
+        let packed_fields = pack_offchain_message(expected);
+        let mut payload: BoundedVec<Field, FACT_MAX_PAYLOAD> = BoundedVec::new();
+        for i in 0..SERIALIZED_OFFCHAIN_MESSAGE_LEN {
+            payload.push(packed_fields[i]);
+        }
+        let mut facts: BoundedVec<PackedFact, FACT_MAX_FACTS> = BoundedVec::new();
+        facts.push(PackedFact { fact_type_id: MESSAGE_RECEIVED, payload });
+        let retrieved = received_message_of(facts);
+        assert_eq(retrieved.recipient, expected.recipient);
+        assert_eq(retrieved.tx_hash, expected.tx_hash);
+        assert_eq(retrieved.anchor_block_timestamp, expected.anchor_block_timestamp);
     }
 }

@@ -1,13 +1,13 @@
 use crate::protocol::address::AztecAddress;
 
 // Maximum number of Field elements in a single fact's payload.
-global FACT_MAX_PAYLOAD: u32 = 20;
+pub global FACT_MAX_PAYLOAD: u32 = 20;
 
 // Maximum number of facts that can be stored per entity.
-global FACT_MAX_FACTS: u32 = 8;
+pub global FACT_MAX_FACTS: u32 = 8;
 
 // Maximum number of active entities that can be returned by `active_entities`.
-global FACT_MAX_ACTIVE_ENTITIES: u32 = 64;
+pub global FACT_MAX_ACTIVE_ENTITIES: u32 = 64;
 
 // Flat-array bound for a packed fact set returned by `aztec_utl_getEntityFacts`:
 //   1 (count) + FACT_MAX_FACTS * (1 factTypeId + 1 payloadLen + FACT_MAX_PAYLOAD payload fields).
