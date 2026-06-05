@@ -15,6 +15,7 @@
  *   --server                 Generate server dispatch
  *   --client                 Generate client
  *   --skeleton <dir>         Generate handler stubs + main (one-time, not regenerated)
+ *   --package <dir>          Generate a TS package shell around a spawned IPC service
  *   --cpp-namespace <ns>     C++ namespace (e.g. my::service)
  *   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
  *   --curve-constants <path> Generate TS curve constants from JSON at <path>
@@ -37,6 +38,10 @@ import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 import { SchemaVisitor, type CompiledSchema } from "./schema_visitor.ts";
 import { TypeScriptCodegen } from "./typescript_codegen.ts";
+import {
+  defaultBinaryEnvVar,
+  TypeScriptPackageCodegen,
+} from "./typescript_package_codegen.ts";
 import { RustCodegen } from "./rust_codegen.ts";
 import { ZigCodegen } from "./zig_codegen.ts";
 import { CppCodegen } from "./cpp_codegen.ts";
@@ -57,6 +62,12 @@ interface Args {
   server: boolean;
   client: boolean;
   skeleton: string;
+  packageDir: string;
+  packageName: string;
+  binaryName: string;
+  binaryEnvVar: string;
+  packageTransports: string;
+  ipcRuntimeDependency: string;
   cppNamespace: string;
   cppWireNamespace: string;
   cppIncludeDir: string;
@@ -75,6 +86,12 @@ function parseArgs(argv: string[]): Args {
     server: false,
     client: false,
     skeleton: "",
+    packageDir: "",
+    packageName: "",
+    binaryName: "",
+    binaryEnvVar: "",
+    packageTransports: "uds",
+    ipcRuntimeDependency: "@aztec/ipc-runtime",
     cppNamespace: "",
     cppWireNamespace: "wire",
     cppIncludeDir: "",
@@ -106,6 +123,24 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--skeleton":
         args.skeleton = argv[++i];
+        break;
+      case "--package":
+        args.packageDir = argv[++i];
+        break;
+      case "--package-name":
+        args.packageName = argv[++i];
+        break;
+      case "--binary-name":
+        args.binaryName = argv[++i];
+        break;
+      case "--binary-env-var":
+        args.binaryEnvVar = argv[++i];
+        break;
+      case "--package-transports":
+        args.packageTransports = argv[++i];
+        break;
+      case "--ipc-runtime-dependency":
+        args.ipcRuntimeDependency = argv[++i];
         break;
       case "--cpp-namespace":
         args.cppNamespace = argv[++i];
@@ -146,6 +181,10 @@ Optional:
   --server                 Generate server dispatch
   --client                 Generate client
   --skeleton <dir>         Generate handler stubs + main (one-time)
+  --package <dir>          Generate a TS package shell around a spawned IPC service
+  --package-name <name>    TS package name for --package
+  --binary-name <name>     Native service binary name for --package
+  --package-transports <t> Comma-separated transports for --package (uds,shm)
   --prefix <str>           Type prefix (auto-detected if omitted)
   --cpp-namespace <ns>     C++ namespace (e.g. my::ns)
   --cpp-wire-namespace <ns> Wire types sub-namespace (default: wire)
@@ -289,7 +328,7 @@ function generate(args: Args) {
         // No transport template copy — consumers import UdsIpcServer from
         // '@aztec/ipc-runtime' (or hand a compatible byte-handler in).
       }
-      if (args.client) {
+      if (args.client || args.packageDir) {
         writeFile("async.ts", gen.generateAsyncApi(compiled));
         writeFile("sync.ts", gen.generateSyncApi(compiled));
         // No transport template copy — consumers import IpcClient from
@@ -297,6 +336,51 @@ function generate(args: Args) {
       }
       if (args.curveConstants) {
         generateCurveConstants(absOut, resolve(args.curveConstants));
+      }
+      if (args.packageDir) {
+        const packageDir = resolve(args.packageDir);
+        const binaryName =
+          args.binaryName || toSnakeCase(prefix).replace(/_/g, "-");
+        const packageName =
+          args.packageName || `${toSnakeCase(prefix).replace(/_/g, "-")}-ipc`;
+        const packageGen = new TypeScriptPackageCodegen({
+          prefix,
+          packageName,
+          binaryName,
+          binaryEnvVar: args.binaryEnvVar || defaultBinaryEnvVar(binaryName),
+          ipcRuntimeDependency: args.ipcRuntimeDependency,
+          transports: args.packageTransports
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+        });
+        const writePackage = (
+          name: string,
+          content: string,
+          opts?: { executable?: boolean },
+        ) => {
+          const path = join(packageDir, name);
+          mkdirSync(dirname(path), { recursive: true });
+          const tmpPath = `${path}.${process.pid}.tmp`;
+          writeFileSync(tmpPath, content);
+          renameSync(tmpPath, path);
+          if (opts?.executable) {
+            try {
+              execSync(`chmod +x ${path}`);
+            } catch {}
+          }
+          console.log(`  ${path} (package)`);
+        };
+        writePackage("package.json", packageGen.generatePackageJson());
+        writePackage("tsconfig.json", packageGen.generateTsconfig());
+        writePackage("README.md", packageGen.generateReadme());
+        writePackage("src/index.ts", packageGen.generateIndex());
+        writePackage("src/platform.ts", packageGen.generatePlatform());
+        writePackage(
+          "scripts/prepare_arch_packages.sh",
+          packageGen.generatePrepareArchPackagesScript(),
+          { executable: true },
+        );
       }
       // Skeleton (one-time handler stubs + main + build files)
       if (args.skeleton) {

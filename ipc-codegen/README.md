@@ -101,6 +101,7 @@ node --experimental-strip-types --experimental-transform-types --no-warnings \
 |---|---|
 | `--server` | Emit server dispatch (matches request name to handler, deserialises, calls handler, serialises response). Pair it with an `ipc::IpcServer` from ipc-runtime. |
 | `--client` | Emit a typed client class/struct with one method per command. Pair it with an `ipc::IpcClient` (C++) or the equivalent Rust/Zig/TS binding. |
+| `--package <dir>` | TS only. Emit a complete package wrapper around the generated async client. The wrapper launches a native service binary, connects over UDS or SHM, and resolves the binary from an override path, environment variable, installed arch package, or local `build/<platform>/` directory. |
 | `--uds` | Rust/Zig only. Copies the `Backend` trait template (and `error.rs` for Rust) into `<out>` so consumers can plug ipc-runtime — or any custom transport — behind the generated client. The flag name is historical: the trait is transport-agnostic. |
 | `--ffi` | Rust/Zig only. Adds the `ffi_backend` template (a thin wrapper exposing the generated client over a C ABI for embedding in other languages). |
 
@@ -125,6 +126,11 @@ node --experimental-strip-types --experimental-transform-types --no-warnings \
 |---|---|
 | `--curve-constants` | TS only. Also emit `curve_constants.ts` with bn254/grumpkin/secp moduli & generators for schemas that need curve constants. |
 | `--skeleton <dir>` | One-shot scaffolding: writes a `<service>_handlers.{ts,rs,zig,cpp}` stub, `main`, and a build file into `<dir>` if they don't already exist. Skipped on subsequent runs. |
+| `--package-name <name>` | TS package mode only. Package name to write into the generated wrapper `package.json`. |
+| `--binary-name <name>` | TS package mode only. Native service binary name to launch. |
+| `--binary-env-var <name>` | TS package mode only. Environment variable that can override the binary path. Defaults to `<BINARY_NAME>_PATH`. |
+| `--package-transports <uds,shm>` | TS package mode only. Comma-separated transports supported by the generated wrapper. |
+| `--ipc-runtime-dependency <spec>` | TS package mode only. Dependency spec for `@aztec/ipc-runtime`, e.g. a release version or local `file:` dependency in examples. |
 
 ## Worked examples
 
@@ -146,6 +152,29 @@ src/generate.ts \
 Produces `api_types.ts`, `async.ts`, `sync.ts`, `curve_constants.ts`. The TS
 client uses `@aztec/ipc-runtime`'s `UdsIpcClient` or `NapiShmSyncClient` for
 transport — no template copy.
+
+### TypeScript spawned-service package
+
+```sh
+src/generate.ts \
+  --schema /path/to/myservice_schema.json \
+  --lang ts \
+  --out /path/to/myservice/src/generated \
+  --client --strip-method-prefix \
+  --prefix MyService \
+  --package /path/to/myservice \
+  --package-name @aztec/myservice \
+  --binary-name myservice \
+  --package-transports uds,shm
+```
+
+Produces the generated TS client under `src/generated/` plus a package shell
+(`package.json`, `tsconfig.json`, `src/index.ts`, `src/platform.ts`, and
+`scripts/prepare_arch_packages.sh`). The package exports a
+`MyServiceService.spawn(...)` helper that launches the native binary and wraps
+the generated async client. `scripts/prepare_arch_packages.sh` turns
+`build/<platform>/<binary>` directories into per-architecture npm packages
+matching the binary resolution path.
 
 ### C++ server + client, under a project sub-include path
 
