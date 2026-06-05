@@ -9,6 +9,7 @@ pub mod call_utility_function;
 pub mod capsules;
 pub mod ephemeral;
 pub mod contract_sync;
+pub mod fact_store;
 pub mod public_call;
 pub mod tx_phase;
 pub mod execution;
