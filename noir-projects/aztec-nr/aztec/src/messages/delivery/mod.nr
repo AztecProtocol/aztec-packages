@@ -344,7 +344,7 @@ where
     // Constrained delivery defaults to a handshake origin at construction, so an unset origin only occurs for
     // unconstrained delivery, where it defaults to the address pair (unconstrained handshake-origin delivery is
     // future work, see F-698). The origin discriminant is set at the call site, so `via_handshake` is a compile-time
-    // constant and the (mode, origin) validation below is resolved at compile/proving time.
+    // constant and the (mode, origin) validation below is resolved at compile time.
     let origin = delivery.origin.unwrap_or(SecretOrigin::address_pair());
     let via_handshake = origin.is_handshake();
 
