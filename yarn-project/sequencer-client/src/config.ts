@@ -152,11 +152,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'The address of the payload for the governanceProposer',
     parseEnv: (val: string) => EthAddress.fromString(val),
   },
-  l1PublishingTime: {
-    env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
-    description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
-    ...optionalNumberConfigHelper(),
-  },
   fakeProcessingDelayPerTxMs: {
     description: 'Used for testing to introduce a fake delay after processing each tx',
   },

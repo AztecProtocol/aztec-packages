@@ -1,11 +1,17 @@
 import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
+import {
+  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+  DEFAULT_MIN_BLOCK_DURATION,
+  DEFAULT_P2P_PROPAGATION_TIME,
+  ProposerTimetable,
+} from '@aztec/stdlib/timetable';
 
 import { describe, expect, it } from '@jest/globals';
 
 import {
   MAX_P3_PENALTY_PER_TOPIC,
   TopicScoreParamsFactory,
-  calculateBlocksPerSlot,
   computeConvergence,
   computeDecay,
   computeThreshold,
@@ -16,46 +22,69 @@ import {
   getExpectedMessagesPerSlot,
 } from './topic_score_params.js';
 
+/**
+ * Builds a {@link ProposerTimetable} for scoring tests, mirroring how p2p builds it from config:
+ * operational budgets fall back to the shared stdlib defaults and `enforce` is true.
+ */
+function makeTimetable(opts: {
+  slotDurationMs: number;
+  ethereumSlotDuration: number;
+  blockDurationMs?: number;
+  p2pPropagationTime?: number;
+  checkpointProposalPrepareTime?: number;
+}): ProposerTimetable {
+  return new ProposerTimetable({
+    l1Constants: {
+      l1GenesisTime: 0n,
+      slotDuration: opts.slotDurationMs / 1000,
+      ethereumSlotDuration: opts.ethereumSlotDuration,
+    },
+    blockDuration: opts.blockDurationMs ? opts.blockDurationMs / 1000 : undefined,
+    minBlockDuration: DEFAULT_MIN_BLOCK_DURATION,
+    p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+    checkpointProposalPrepareTime: opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+    checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+    enforce: true,
+  });
+}
+
 describe('Topic Score Params', () => {
-  // Standard network parameters for testing (matching production values)
+  // Standard network parameters for testing (matching production values). The timetable defaults to
+  // single-block mode, so blocksPerSlot is 1 unless a test supplies a multi-block timetable.
   const standardParams = {
     slotDurationMs: 72000, // 72 seconds
-    ethereumSlotDuration: 12,
     heartbeatIntervalMs: 700, // 700ms gossipsub heartbeat
     targetCommitteeSize: 48,
-    l1PublishingTime: 12,
+    timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, checkpointProposalPrepareTime: 1 }),
   };
 
-  describe('calculateBlocksPerSlot', () => {
-    it('returns 1 when blockDurationMs is undefined (single block mode)', () => {
-      expect(calculateBlocksPerSlot(72000, undefined)).toBe(1);
+  describe('max blocks per checkpoint from the proposer timetable', () => {
+    it('returns 1 when blockDuration is undefined (single block mode)', () => {
+      expect(makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12 }).getMaxBlocksPerCheckpoint()).toBe(1);
     });
 
-    it('returns 1 when blockDurationMs is 0', () => {
-      // Edge case - should treat 0 as undefined
-      expect(calculateBlocksPerSlot(72000, 0)).toBe(1);
+    it('matches the production worked example (10 blocks)', () => {
+      // floor((72 - 6 - 2*2 - 1) / 6) = floor(61/6) = 10
+      const timetable = makeTimetable({
+        slotDurationMs: 72000,
+        ethereumSlotDuration: 12,
+        blockDurationMs: 6000,
+        p2pPropagationTime: 2,
+        checkpointProposalPrepareTime: 1,
+      });
+      expect(timetable.getMaxBlocksPerCheckpoint()).toBe(10);
     });
 
-    it('calculates correct blocks per slot for MBPS mode', () => {
-      // With 72s slot and 10s block duration under pipelining:
-      // reserved = assemble(1) + 2*p2p(2) + block(10) = 15; available = 72 - 1 - 15 = 56; floor(56/10) = 5
-      const result = calculateBlocksPerSlot(72000, 10000);
-      expect(result).toBeGreaterThanOrEqual(1);
-    });
-
-    it('uses the same compressed timing allowances as the sequencer for test configs', () => {
-      expect(() =>
-        calculateBlocksPerSlot(24000, 4000, {
-          ethereumSlotDuration: 8,
-          l1PublishingTime: 1,
-        }),
-      ).not.toThrow();
-    });
-
-    it('throws for an impossible timing configuration', () => {
-      expect(() => calculateBlocksPerSlot(72000, 60000)).toThrow(
-        'Invalid timing configuration: only 6s available for block building, which is less than one blockDuration (60s).',
-      );
+    it('matches the local fast profile (4 blocks)', () => {
+      // floor((36 - 6 - 2*0.5 - 0.5) / 6) = floor(28.5/6) = 4
+      const timetable = makeTimetable({
+        slotDurationMs: 36000,
+        ethereumSlotDuration: 4,
+        blockDurationMs: 6000,
+        p2pPropagationTime: 0.5,
+        checkpointProposalPrepareTime: 0.5,
+      });
+      expect(timetable.getMaxBlocksPerCheckpoint()).toBe(4);
     });
   });
 
@@ -223,8 +252,11 @@ describe('Topic Score Params', () => {
       expect(factory.invalidDecay).toBeLessThan(1);
     });
 
-    it('uses provided blockDurationMs', () => {
-      const factory = new TopicScoreParamsFactory({ ...standardParams, blockDurationMs: 10000 });
+    it('derives blocksPerSlot from a multi-block proposer timetable', () => {
+      const factory = new TopicScoreParamsFactory({
+        ...standardParams,
+        timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, blockDurationMs: 10000 }),
+      });
 
       expect(factory.blocksPerSlot).toBeGreaterThan(1);
     });
@@ -250,7 +282,7 @@ describe('Topic Score Params', () => {
       it('disables P3/P3b for block_proposal in MBPS mode when expectedBlockProposalsPerSlot is 0', () => {
         const factory = new TopicScoreParamsFactory({
           ...standardParams,
-          blockDurationMs: 10000,
+          timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, blockDurationMs: 10000 }),
           expectedBlockProposalsPerSlot: 0,
         });
         const params = factory.createForTopic(TopicType.block_proposal);
@@ -262,7 +294,7 @@ describe('Topic Score Params', () => {
       it('enables P3/P3b for block_proposal when expectedBlockProposalsPerSlot is positive', () => {
         const factory = new TopicScoreParamsFactory({
           ...standardParams,
-          blockDurationMs: 10000,
+          timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, blockDurationMs: 10000 }),
           expectedBlockProposalsPerSlot: 3,
         });
         const params = factory.createForTopic(TopicType.block_proposal);
@@ -272,7 +304,10 @@ describe('Topic Score Params', () => {
       });
 
       it('falls back to blocksPerSlot - 1 for block_proposal when expectedBlockProposalsPerSlot is undefined', () => {
-        const factory = new TopicScoreParamsFactory({ ...standardParams, blockDurationMs: 10000 });
+        const factory = new TopicScoreParamsFactory({
+          ...standardParams,
+          timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, blockDurationMs: 10000 }),
+        });
         const params = factory.createForTopic(TopicType.block_proposal);
 
         // MBPS mode with no override: falls back to blocksPerSlot - 1 > 0, so P3 is enabled
@@ -515,7 +550,7 @@ describe('Topic Score Params', () => {
     it('total P3b is -102 when block proposal scoring is enabled (3 topics)', () => {
       const factory = new TopicScoreParamsFactory({
         ...standardParams,
-        blockDurationMs: 4000,
+        timetable: makeTimetable({ slotDurationMs: 72000, ethereumSlotDuration: 12, blockDurationMs: 4000 }),
         expectedBlockProposalsPerSlot: 3,
       });
 
