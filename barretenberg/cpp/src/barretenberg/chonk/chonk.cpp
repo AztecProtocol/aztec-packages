@@ -6,6 +6,7 @@
 
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/chonk_verifier.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/streams.hpp"
@@ -53,6 +54,29 @@ void Chonk::run_native_folding_verifier(const std::shared_ptr<typename NativeFla
             info("Decider: pairing points verified? ", pairing_points.check() ? "true" : "false");
         }
     }
+}
+
+template <typename InstanceFlavor>
+void Chonk::debug_incoming_circuit(ClientCircuit& circuit,
+                                   const std::shared_ptr<ProverInstance_<InstanceFlavor>>& prover_instance,
+                                   const std::shared_ptr<typename InstanceFlavor::VerificationKey>& precomputed_vk)
+{
+    info("======= DEBUGGING INFO FOR INCOMING CIRCUIT =======");
+
+    info("Accumulating circuit ", num_circuits_accumulated + 1, " of ", num_circuits);
+    info("Is the circuit valid? ", CircuitChecker::check(circuit) ? "true" : "false");
+    info("Did we find a failure? ", circuit.failed() ? "true" : "false");
+    if (circuit.failed()) {
+        info("\t\t\tError message? ", circuit.err());
+    }
+
+    // Compare precomputed VK with the one generated during accumulation.
+    auto vk = std::make_shared<typename InstanceFlavor::VerificationKey>(prover_instance->get_precomputed());
+    info("Does the precomputed vk match with the one generated during accumulation? ",
+         vk->compare(*precomputed_vk, typename InstanceFlavor::CommitmentLabels().get_precomputed()) ? "true"
+                                                                                                     : "false");
+
+    info("======= END OF DEBUGGING INFO FOR INCOMING CIRCUIT =======");
 }
 
 void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
@@ -575,6 +599,9 @@ HonkProof Chonk::run_oink_or_fold(ClientCircuit& circuit,
     BB_ASSERT(vk != nullptr, "Chonk::accumulate_and_fold - VK expected for the provided circuit");
 
     auto prover_instance = std::make_shared<PI>(circuit);
+#ifndef NDEBUG
+    debug_incoming_circuit<InstanceFlavor>(circuit, prover_instance, vk);
+#endif
     // Free circuit block memory (wires and selectors) now that they've been copied to prover polynomials.
     for (auto& block : circuit.blocks.get()) {
         block.free_data();

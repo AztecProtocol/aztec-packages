@@ -290,6 +290,13 @@ class Chonk {
                                      const VerifierInputs& queue_entry,
                                      const std::shared_ptr<Transcript>& verifier_transcript);
 
+    // Debug-only logging for an incoming circuit being folded: validity, and whether its precomputed
+    // VK matches the one derived during accumulation. Templated on the circuit's InstanceFlavor.
+    template <typename InstanceFlavor>
+    void debug_incoming_circuit(ClientCircuit& circuit,
+                                const std::shared_ptr<ProverInstance_<InstanceFlavor>>& prover_instance,
+                                const std::shared_ptr<typename InstanceFlavor::VerificationKey>& precomputed_vk);
+
 #endif
 
     PublicInputsResult process_kernel_public_inputs(std::vector<StdlibFF>& public_inputs,
