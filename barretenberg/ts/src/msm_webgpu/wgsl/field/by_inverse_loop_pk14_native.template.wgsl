@@ -12,9 +12,11 @@
 // one word, so an in-place write never clobbers an unread input. add / sub / neg /
 // normalise / reduce / pack work directly on the 28-bit limbs.
 //
-// 8xu32 in/out. Final x R^3 via native f8 CIOS (montgomery_product_f8), no BigInt
-// round-trip. Baked (BN254 base field q): q^-1 mod 2^28, q and 2q/4q/8q as ten
-// 28-bit limbs, and R^3 mod q as 8x u32. External: montgomery_product_f8.
+// 8xu32 in/out. The result lands directly in f8 Montgomery form with no closing
+// montmul: the Bezout coefficient is seeded e0 = R^2 mod q instead of 1, which
+// scales the safegcd output by R^2 (e rides the same transition matrix as f,g, so
+// the unit final f pins the returned d to a^-1 * e0 = a^-1 * R^2). Baked (BN254
+// base field q): q^-1 mod 2^28, q and 2q/4q/8q and R^2 mod q as ten 28-bit limbs.
 //
 // NOTE: never write Mustache double-brace tags in comments.
 // ============================================================================
@@ -470,19 +472,20 @@ fn pk_to_packed(x: array<u32, 10>) -> array<u32, 8> {
     return o;
 }
 
-// R^3 mod q (R = 2^260, the 20x13-limb Montgomery radix) as 8x u32. A single
-// montgomery_product_f8 by this removes the safegcd 2^-k scaling AND lands the
-// result in f8 Montgomery form — one Montgomery product by R^3 mod q converts
-// the native-form safegcd output straight back into f8 Montgomery form.
-fn pk_r_cubed_f8() -> array<u32, 8> {
-    return array<u32, 8>(1071882664u, 333653112u, 1792169669u, 3315345559u, 906230130u, 3308810809u, 2367260661u, 284257773u);
+// R^2 mod q (R = 2^260, the 20x13-limb Montgomery radix) as ten 28-bit limbs.
+// Used as the Bezout coefficient seed e0: because (d,e) ride the same transition
+// matrix as (f,g) and the iteration ends at f = +/-1, the returned d equals
+// +/- a^-1 * e0. Seeding e0 = R^2 makes d = +/- a^-1 * R^2, i.e. the input's
+// inverse already in f8 Montgomery form — no closing montgomery_product_f8.
+fn pk_r_squared() -> array<u32, 10> {
+    return array<u32, 10>(157739780u, 109740497u, 25171640u, 22419792u, 160209126u, 100709624u, 163566897u, 13871510u, 176449955u, 0u);
 }
 
 fn fr_inv_by_loop_pk(a8: array<u32, 8>) -> array<u32, 8> {
     var f: array<u32, 10> = pk_q();
     var g: array<u32, 10> = pk_from_packed(a8);
     var d: array<u32, 10>;                 // zero-initialised
-    var e: array<u32, 10>; e[0] = 1u;    // limb 0 = 1
+    var e: array<u32, 10> = pk_r_squared();   // Bezout seed e0 = R^2 mod q (-> Montgomery-form result)
     var delta: i32 = 1;
     var done: bool = false;
     // 27 = 6*4 + 3 batches, ALL run unconditionally. No early-exit `done`: once
@@ -501,5 +504,5 @@ fn fr_inv_by_loop_pk(a8: array<u32, 8>) -> array<u32, 8> {
     if (!done) { let m = byl_divsteps(&delta, pk_low_u32(f), pk_low_u32(g)); pk_apply_matrix_fg(m, &f, &g); pk_apply_matrix_de(m, &d, &e); if (pk_is_zero(g)) { done = true; } }
     pk_reduce_to_canonical_inplace(&d);
     if (pk_is_neg_2c(f)) { pk_neg_inplace(&d); pk_reduce_to_canonical_inplace(&d); }
-    return montgomery_product_f8(pk_to_packed(d), pk_r_cubed_f8());
+    return pk_to_packed(d);
 }
