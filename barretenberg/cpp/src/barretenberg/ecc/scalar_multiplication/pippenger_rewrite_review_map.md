@@ -516,4 +516,3 @@ against today's merge-train. All numbers are `ChonkAPI::prove` wallclock in seco
 | `ecdsar1+transfer_1_recursions+sponsored_fpc` | 5.10 | 3.96 | -22.4% | 13.67 | 10.09 | -26.2% |
 | `schnorr+deploy_tokenContract_with_registration+sponsored_fpc` | 5.55 | 4.32 | -22.2% | 14.99 | 11.08 | -26.1% |
 | **Sum** | **73.81** | **59.28** | **-19.7%** | **206.04** | **158.38** | **-23.1%** |
-
