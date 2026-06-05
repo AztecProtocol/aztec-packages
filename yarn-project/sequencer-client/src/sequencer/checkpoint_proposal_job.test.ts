@@ -353,11 +353,11 @@ describe('CheckpointProposalJob', () => {
     job = createCheckpointProposalJob();
   });
 
-  // selectNextSubslot now returns absolute wall-clock sub-slot deadlines (seconds). The build loop
-  // converts them back to seconds-into-slot before calling waitUntilTimeInSlot, so tests express
-  // deadlines as offsets from the build frame start and assert waitUntilTimeInSlot with those offsets.
+  // selectNextSubslot returns absolute wall-clock sub-slot deadlines (seconds), which is exactly what
+  // waitUntilNextSubslot receives. Tests express deadlines as offsets from the build frame start and assert
+  // waitUntilNextSubslot with the resulting absolute timestamp (buildFrameStartSeconds() + offset).
   // The build frame for the target slot opens at target_slot_start - S - E, i.e. anchored at the slot
-  // before the target slot (getBuildFrameStart(targetSlot) === getSlotStartBuildTimestamp(targetSlot - 1)).
+  // before the target slot.
   const buildFrameStartSeconds = () =>
     Number(l1Constants.l1GenesisTime) + (newSlotNumber - 1) * slotDuration - ethereumSlotDuration;
   const subslot = (offset: number, index: number, isLastBlock: boolean): SubslotSelection => ({
@@ -753,7 +753,7 @@ describe('CheckpointProposalJob', () => {
 
   /**
    * Helper to create a TestCheckpointProposalJob instance with current mocks.
-   * Uses TestCheckpointProposalJob which has waitUntilTimeInSlot as a no-op.
+   * Uses TestCheckpointProposalJob which has waitUntilNextSubslot as a no-op.
    * Called in beforeEach to create the job, and tests can use job.updateConfig()
    * to modify config after creation.
    */
@@ -1353,8 +1353,8 @@ describe('CheckpointProposalJob', () => {
       const { lastBlock } = await setupMultipleBlocks(2, [2, 1]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
-      // Install spy on waitUntilTimeInSlot to verify it's called with expected deadlines
-      const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
+      // Install spy on waitUntilNextSubslot to verify it's called with expected deadlines
+      const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
 
       const checkpoint = await job.executeAndAwait();
 
@@ -1363,11 +1363,11 @@ describe('CheckpointProposalJob', () => {
       expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
 
-      // Verify waitUntilTimeInSlot was called between blocks
+      // Verify waitUntilNextSubslot was called between blocks
       // After building the first non-last block, it waits for the next block time
       expect(waitSpy).toHaveBeenCalledTimes(1);
-      // The wait time is until the next block deadline
-      expect(waitSpy.mock.calls[0][0]).toEqual(10);
+      // The deadline passed is the absolute sub-slot start timestamp
+      expect(waitSpy.mock.calls[0][0]).toEqual(buildFrameStartSeconds() + 10);
     });
 
     it('builds a single empty block when no txs are available and no min txs required', async () => {
@@ -1382,8 +1382,8 @@ describe('CheckpointProposalJob', () => {
       const { lastBlock } = await setupMultipleBlocks(1, [0]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
-      // Install spy on waitUntilTimeInSlot to verify it's called with expected deadlines
-      const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
+      // Install spy on waitUntilNextSubslot to verify it's called with expected deadlines
+      const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
 
       job.updateConfig({ minTxsPerBlock: 0 });
       const checkpoint = await job.executeAndAwait();
@@ -1393,10 +1393,10 @@ describe('CheckpointProposalJob', () => {
       expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
 
-      // Verify waitUntilTimeInSlot was called between blocks
+      // Verify waitUntilNextSubslot was called between blocks
       expect(waitSpy).toHaveBeenCalledTimes(1);
-      // The wait time is until the next block deadline
-      expect(waitSpy.mock.calls[0][0]).toEqual(2);
+      // The deadline passed is the absolute sub-slot start timestamp
+      expect(waitSpy.mock.calls[0][0]).toEqual(buildFrameStartSeconds() + 2);
     });
 
     it('builds a single block when not enough txs are available but we build empty checkpoints', async () => {
@@ -1411,8 +1411,8 @@ describe('CheckpointProposalJob', () => {
       const { lastBlock } = await setupMultipleBlocks(1, [2]);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
-      // Install spy on waitUntilTimeInSlot to verify it's called with expected deadlines
-      const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
+      // Install spy on waitUntilNextSubslot to verify it's called with expected deadlines
+      const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
 
       job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: true });
       const checkpoint = await job.executeAndAwait();
@@ -1422,10 +1422,10 @@ describe('CheckpointProposalJob', () => {
       expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(1);
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
 
-      // Verify waitUntilTimeInSlot was called between blocks
+      // Verify waitUntilNextSubslot was called between blocks
       expect(waitSpy).toHaveBeenCalledTimes(1);
-      // The wait time is until the next block deadline
-      expect(waitSpy.mock.calls[0][0]).toEqual(2);
+      // The deadline passed is the absolute sub-slot start timestamp
+      expect(waitSpy.mock.calls[0][0]).toEqual(buildFrameStartSeconds() + 2);
     });
 
     it('does not build anything if not enough txs and we do not build empty checkpoints', async () => {
@@ -1439,8 +1439,8 @@ describe('CheckpointProposalJob', () => {
       // Not enough txs to build a block
       p2p.getPendingTxCount.mockResolvedValue(2);
 
-      // Install spy on waitUntilTimeInSlot to verify it's called with expected deadlines
-      const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
+      // Install spy on waitUntilNextSubslot to verify it's called with expected deadlines
+      const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
 
       job.updateConfig({ minTxsPerBlock: 5, buildCheckpointIfEmpty: false });
       const checkpoint = await job.executeAndAwait();
@@ -1450,10 +1450,10 @@ describe('CheckpointProposalJob', () => {
       expect(validatorClient.collectAttestations).toHaveBeenCalledTimes(0);
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(0);
 
-      // Verify waitUntilTimeInSlot was called between blocks
+      // Verify waitUntilNextSubslot was called between blocks
       expect(waitSpy).toHaveBeenCalledTimes(1);
-      // The wait time is until the next block deadline
-      expect(waitSpy.mock.calls[0][0]).toEqual(2);
+      // The deadline passed is the absolute sub-slot start timestamp
+      expect(waitSpy.mock.calls[0][0]).toEqual(buildFrameStartSeconds() + 2);
     });
 
     it('stops building when selectNextSubslot returns false', async () => {
@@ -1473,8 +1473,8 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
-      // Install spy on waitUntilTimeInSlot
-      const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
+      // Install spy on waitUntilNextSubslot
+      const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
 
       const checkpoint = await job.executeAndAwait();
 
@@ -1484,11 +1484,11 @@ describe('CheckpointProposalJob', () => {
       expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
 
       // Since isLastBlock was false but canStart became false after first block,
-      // waitUntilTimeInSlot should have been called once (after first block, before checking canStart again)
+      // waitUntilNextSubslot should have been called once (after first block, before checking canStart again)
       expect(waitSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('calls waitUntilTimeInSlot with expected deadline based on block duration', async () => {
+    it('calls waitUntilNextSubslot with expected deadline based on block duration', async () => {
       const blockDurationSeconds = 3; // 3000ms / 1000
 
       // Mock timetable to allow 3 blocks
@@ -1503,18 +1503,18 @@ describe('CheckpointProposalJob', () => {
       const { lastBlock } = await setupMultipleBlocks(3, 1);
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
 
-      const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
+      const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
 
       await job.executeAndAwait();
 
-      // With 3 blocks where the 3rd is the last, waitUntilTimeInSlot should be called twice
+      // With 3 blocks where the 3rd is the last, waitUntilNextSubslot should be called twice
       // (after block 1 and block 2, but not after block 3 since it's the last)
       expect(waitSpy).toHaveBeenCalledTimes(2);
-      expect(waitSpy.mock.calls[0][0]).toEqual(5);
-      expect(waitSpy.mock.calls[1][0]).toEqual(8);
+      expect(waitSpy.mock.calls[0][0]).toEqual(buildFrameStartSeconds() + 5);
+      expect(waitSpy.mock.calls[1][0]).toEqual(buildFrameStartSeconds() + 8);
     });
 
-    it('does not call waitUntilTimeInSlot when building the last block', async () => {
+    it('does not call waitUntilNextSubslot when building the last block', async () => {
       // Mock timetable to allow only 1 block (which is the last)
       jest.spyOn(job.getTimetable(), 'selectNextSubslot').mockReturnValue(subslot(30, 0, true));
 
@@ -1528,14 +1528,14 @@ describe('CheckpointProposalJob', () => {
 
       validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
 
-      const waitSpy = jest.spyOn(job, 'waitUntilTimeInSlot');
+      const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
 
       const checkpoint = await job.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
 
-      // waitUntilTimeInSlot should NOT be called since the only block is the last block
+      // waitUntilNextSubslot should NOT be called since the only block is the last block
       expect(waitSpy).not.toHaveBeenCalled();
     });
 
@@ -1854,8 +1854,8 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   declare public eventEmitter: EventEmitter;
 
   /** Override to be a no-op for testing - allows tests to run without timing delays */
-  public override waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
-    this.log.warn(`Skipping waitUntilTimeInSlot(${targetSecondsIntoSlot}) in test`);
+  public override waitUntilNextSubslot(nextSubslotStart: number): Promise<void> {
+    this.log.warn(`Skipping waitUntilNextSubslot(${nextSubslotStart}) in test`);
     return Promise.resolve();
   }
 

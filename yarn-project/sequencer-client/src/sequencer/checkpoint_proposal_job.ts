@@ -1,4 +1,4 @@
-import type { EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import type { SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -168,7 +168,7 @@ export class CheckpointProposalJob implements Traceable {
    * proposer pipelining. Also the slot of the parent checkpoint this job builds on top of.
    */
   private getBuildSlot(): SlotNumber {
-    return SlotNumber(this.targetSlot - 1);
+    return SlotNumber(this.targetSlot - PROPOSER_PIPELINING_SLOT_OFFSET);
   }
 
   /**
@@ -987,12 +987,12 @@ export class CheckpointProposalJob implements Traceable {
    * @param nextSubslotStart - Absolute wall-clock timestamp in seconds of the previous sub-slot deadline.
    */
   @trackSpan('CheckpointProposalJob.waitUntilNextSubslot')
-  private async waitUntilNextSubslot(nextSubslotStart: number) {
+  protected async waitUntilNextSubslot(nextSubslotStart: number) {
     this.setState(SequencerState.WAITING_UNTIL_NEXT_BLOCK);
     this.log.verbose(`Waiting until time for the next block at ${nextSubslotStart}s`, {
       slot: this.targetSlot,
     });
-    await this.waitUntilTimeInSlot(nextSubslotStart - this.getSlotStartBuildTimestamp());
+    await sleepUntil(new Date(nextSubslotStart * 1000), this.dateProvider.nowAsDate());
   }
 
   /** Builds a single block. Called from the main block building loop. */
@@ -1606,21 +1606,9 @@ export class CheckpointProposalJob implements Traceable {
     return false;
   }
 
-  /** Waits until a specific time within the current slot */
-  @trackSpan('CheckpointProposalJob.waitUntilTimeInSlot')
-  protected async waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
-    const slotStartTimestamp = this.getSlotStartBuildTimestamp();
-    const targetTimestamp = slotStartTimestamp + targetSecondsIntoSlot;
-    await sleepUntil(new Date(targetTimestamp * 1000), this.dateProvider.nowAsDate());
-  }
-
   /** Waits the polling interval for transactions. Extracted for test overriding. */
   protected async waitForTxsPollingInterval(): Promise<void> {
     await sleep(TXS_POLLING_MS);
-  }
-
-  private getSlotStartBuildTimestamp(): number {
-    return this.timetable.getBuildFrameStart(this.targetSlot);
   }
 
   public getPublisher() {

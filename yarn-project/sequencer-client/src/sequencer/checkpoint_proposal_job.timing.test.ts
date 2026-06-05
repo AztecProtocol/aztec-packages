@@ -110,7 +110,7 @@ const TXS_POLLING_MS = 500;
 
 /**
  * Test subclass of CheckpointProposalJob that:
- * 1. Advances simulated time instead of actually sleeping in waitUntilTimeInSlot
+ * 1. Advances simulated time instead of actually sleeping in waitUntilNextSubslot
  * 2. Advances simulated time instead of sleeping while polling for txs
  * 3. Tracks state transitions and block build times for assertions
  */
@@ -130,16 +130,17 @@ class TimingTestCheckpointProposalJob extends CheckpointProposalJob {
   }
 
   /**
-   * Override to advance simulated time instead of actually sleeping.
-   * This makes the test run instantly while still simulating time passage.
+   * Override to advance simulated time to the sub-slot deadline instead of actually sleeping.
+   * This makes the test run instantly while still simulating time passage. Delegates to the parent so
+   * its state reporting and logging still run; the parent's sleepUntil resolves immediately once time
+   * has advanced to the deadline.
    */
-  protected override async waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
-    await Promise.resolve(); // Satisfy async requirement
-    const currentSeconds = this.getSecondsIntoSlotFn();
-    if (targetSecondsIntoSlot > currentSeconds) {
-      const waitTime = targetSecondsIntoSlot - currentSeconds;
-      this.testDateProvider.advanceTime(waitTime);
+  protected override async waitUntilNextSubslot(nextSubslotStart: number): Promise<void> {
+    const nowSeconds = this.testDateProvider.nowInSeconds();
+    if (nextSubslotStart > nowSeconds) {
+      this.testDateProvider.advanceTime(nextSubslotStart - nowSeconds);
     }
+    await super.waitUntilNextSubslot(nextSubslotStart);
   }
 
   /**
