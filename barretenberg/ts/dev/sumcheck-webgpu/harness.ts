@@ -40,19 +40,30 @@ export const RINV = sm.rinv;
 export const toMont = (x: bigint): bigint => (mod(x) * R) % P;
 export const fromMont = (y: bigint): bigint => (y * RINV) % P;
 
+const U64 = (1n << 64n) - 1n;
 export function biToLe32(v: bigint): Uint8Array {
   const out = new Uint8Array(32);
-  let x = v;
-  for (let i = 0; i < 32; i++) {
-    out[i] = Number(x & 0xffn);
-    x >>= 8n;
-  }
+  writeLe32(out, 0, v);
   return out;
 }
+// Serialize a field element as 32 little-endian bytes into `bytes` at `off` via
+// four 64-bit limb writes — far cheaper than 32 single-byte bigint shifts.
+export function writeLe32(bytes: Uint8Array, off: number, v: bigint): void {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset + off, 32);
+  let x = v;
+  for (let i = 0; i < 4; i++) {
+    dv.setBigUint64(i * 8, x & U64, true);
+    x >>= 64n;
+  }
+}
 export function le32ToBi(bytes: Uint8Array, off: number): bigint {
-  let v = 0n;
-  for (let i = 31; i >= 0; i--) v = (v << 8n) | BigInt(bytes[off + i]);
-  return v;
+  const dv = new DataView(bytes.buffer, bytes.byteOffset + off, 32);
+  return (
+    dv.getBigUint64(0, true) |
+    (dv.getBigUint64(8, true) << 64n) |
+    (dv.getBigUint64(16, true) << 128n) |
+    (dv.getBigUint64(24, true) << 192n)
+  );
 }
 
 // The all-0xff output sentinel (see dispatchRelation): a slot still holding this
@@ -105,11 +116,17 @@ export type Logger = (level: Level, msg: string) => void;
 
 // ---- relation-kernel dispatch + diff (shared by every relation suite) ----
 
+// A compiled (bind-group-layout, pipeline) pair, memoized so a kernel reused
+// across many dispatches (e.g. one per round in the multi-round suite) is
+// compiled once rather than recompiled every call. Key by entry + binding arity.
+export type PipelineCache = Map<string, { layout: GPUBindGroupLayout; pipeline: GPUComputePipeline }>;
+
 // Run a single-entry relation kernel: one read-only input SB, one storage output
 // SB (n*outLen Fr), one Params{n} uniform; one thread per edge. When `relParams`
 // is given (the relation_parameters, e.g. beta/gamma — Montgomery 8x u32, one
 // per Fr) it is bound at @group(0) @binding(3) as a read-only SB. Returns the raw
-// output bytes and the GPU compute+readback time.
+// output bytes and the GPU compute+readback time. Pass a `cache` to reuse the
+// compiled pipeline across calls.
 export async function dispatchRelation(
   device: GPUDevice,
   n: number,
@@ -118,6 +135,7 @@ export async function dispatchRelation(
   inBytes: Uint8Array,
   outLen: number,
   relParams?: Uint8Array,
+  cache?: PipelineCache,
 ): Promise<{ bytes: Uint8Array; ms: number }> {
   // Guard against IN_LEN/OUT_LEN drift: each kernel compiles its own consts while
   // the suite passes its own copies, and a mismatch would silently misalign the
@@ -133,7 +151,15 @@ export async function dispatchRelation(
 
   const types = ['read-only-storage', 'storage', 'uniform'];
   if (relParams) types.push('read-only-storage');
-  const layout = create_bind_group_layout(device, types);
+  const cacheKey = `${entry}|${types.length}`;
+  let compiled = cache?.get(cacheKey);
+  if (!compiled) {
+    const layout = create_bind_group_layout(device, types);
+    const pipeline = await create_compute_pipeline(device, [layout], code, entry, entry);
+    compiled = { layout, pipeline };
+    cache?.set(cacheKey, compiled);
+  }
+  const { layout, pipeline } = compiled;
   const inBuf = create_and_write_sb(device, inBytes);
   // Pre-fill the output with a sentinel (0xff bytes = 2^256-1, larger than any
   // Montgomery field value a kernel can write) so a row the kernel fails to write
@@ -145,7 +171,6 @@ export async function dispatchRelation(
   const bufs = [inBuf, outBuf, create_and_write_ub(device, params)];
   if (relParams) bufs.push(create_and_write_sb(device, relParams));
   const bg = create_bind_group(device, layout, bufs);
-  const pipeline = await create_compute_pipeline(device, [layout], code, entry, entry);
   const t0 = performance.now();
   const enc = device.createCommandEncoder();
   await execute_pipeline(enc, pipeline, bg, Math.ceil(n / WG));
@@ -157,7 +182,7 @@ export async function dispatchRelation(
 // binding(3) relation-parameters SB.
 export function packParams(vals: bigint[]): Uint8Array {
   const out = new Uint8Array(vals.length * 32);
-  vals.forEach((v, i) => out.set(biToLe32(toMont(v)), i * 32));
+  vals.forEach((v, i) => writeLe32(out, i * 32, toMont(v)));
   return out;
 }
 
@@ -200,10 +225,10 @@ export function packEdgeRows(
     const row = build(i);
     inputs.push(row);
     for (let j = 0; j < numEdges; j++) {
-      inBytes.set(biToLe32(toMont(row.e[j][0])), (i * inLen + 2 * j) * 32);
-      inBytes.set(biToLe32(toMont(row.e[j][1])), (i * inLen + 2 * j + 1) * 32);
+      writeLe32(inBytes, (i * inLen + 2 * j) * 32, toMont(row.e[j][0]));
+      writeLe32(inBytes, (i * inLen + 2 * j + 1) * 32, toMont(row.e[j][1]));
     }
-    inBytes.set(biToLe32(toMont(row.s)), (i * inLen + numEdges * 2) * 32);
+    writeLe32(inBytes, (i * inLen + numEdges * 2) * 32, toMont(row.s));
   }
   return { inBytes, inputs };
 }
