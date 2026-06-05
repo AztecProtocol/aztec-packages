@@ -54,7 +54,7 @@ import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import type { AllowedElement } from './allowed_element.js';
 import { MAX_RPC_LEN } from './api_limit.js';
-import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
+import { type AztecNode, AztecNodeApiSchema, type GetTxByHashOptions } from './aztec-node.js';
 import type { BlockIncludeOptions, BlockResponse, BlocksIncludeOptions } from './block_response.js';
 import type { ChainTip, ChainTips } from './chain_tips.js';
 import type { CheckpointParameter } from './checkpoint_parameter.js';
@@ -324,6 +324,10 @@ describe('AztecNodeApiSchema', () => {
   it('getPendingTxs', async () => {
     const response = await context.client.getPendingTxs();
     expect(response).toEqual([expect.any(Tx)]);
+    expect(response[0].chonkProof.isEmpty()).toBe(true);
+
+    const responseWithProof = await context.client.getPendingTxs(undefined, undefined, { includeProof: true });
+    expect(responseWithProof[0].chonkProof.isEmpty()).toBe(false);
   });
 
   it('getPendingTxCount', async () => {
@@ -334,11 +338,21 @@ describe('AztecNodeApiSchema', () => {
   it('getTxByHash', async () => {
     const response = await context.client.getTxByHash(TxHash.random());
     expect(response).toBeInstanceOf(Tx);
+    expect(response!.chonkProof.isEmpty()).toBe(true);
+
+    const responseWithProof = await context.client.getTxByHash(TxHash.random(), { includeProof: true });
+    expect(responseWithProof).toBeInstanceOf(Tx);
+    expect(responseWithProof!.chonkProof.isEmpty()).toBe(false);
   });
 
   it('getTxsByHash', async () => {
     const response = await context.client.getTxsByHash([TxHash.random()]);
     expect(response[0]).toBeInstanceOf(Tx);
+    expect(response[0].chonkProof.isEmpty()).toBe(true);
+
+    const responseWithProof = await context.client.getTxsByHash([TxHash.random()], { includeProof: true });
+    expect(responseWithProof[0]).toBeInstanceOf(Tx);
+    expect(responseWithProof[0].chonkProof.isEmpty()).toBe(false);
   });
 
   it('getPublicStorageAt', async () => {
@@ -782,19 +796,22 @@ class MockAztecNode implements AztecNode {
       slotNumber: SlotNumber(1),
     };
   }
-  getPendingTxs(): Promise<Tx[]> {
-    return Promise.resolve([Tx.random()]);
+  getPendingTxs(_limit?: number, _after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]> {
+    const tx = Tx.random({ randomProof: true });
+    return Promise.resolve([options?.includeProof ? tx : tx.withoutProof()]);
   }
   getPendingTxCount(): Promise<number> {
     return Promise.resolve(BlockNumber(1));
   }
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+  getTxByHash(txHash: TxHash, options?: GetTxByHashOptions): Promise<Tx | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve(Tx.random());
+    const tx = Tx.random({ randomProof: true });
+    return Promise.resolve(options?.includeProof ? tx : tx.withoutProof());
   }
-  getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+  getTxsByHash(txHashes: TxHash[], options?: GetTxByHashOptions): Promise<Tx[]> {
     expect(txHashes[0]).toBeInstanceOf(TxHash);
-    return Promise.resolve([Tx.random()]);
+    const tx = Tx.random({ randomProof: true });
+    return Promise.resolve([options?.includeProof ? tx : tx.withoutProof()]);
   }
   getPublicStorageAt(block: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
     expect(

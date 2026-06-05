@@ -98,6 +98,7 @@ import type {
   CheckpointIncludeOptions,
   CheckpointParameter,
   CheckpointResponse,
+  GetTxByHashOptions,
 } from '@aztec/stdlib/interfaces/client';
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
@@ -1114,7 +1115,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
-    for await (const tx of this.p2pClient.iteratePendingTxs()) {
+    for await (const tx of this.p2pClient.iteratePendingTxs({ includeProof: false })) {
       return tx.getGasSettings().maxPriorityFeesPerGas;
     }
 
@@ -1216,8 +1217,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       if (options?.includePendingTx) {
         // The tx may have left the pool since we checked its status (mined or dropped); in that case we
         // leave `tx` unset and still return a pending receipt.
-        const pendingTx = await this.p2pClient.getTxByHashFromPool(txHash);
-        tx = pendingTx && !options.includeProof ? pendingTx.withoutProof() : pendingTx;
+        tx = await this.p2pClient.getTxByHashFromPool(txHash, { includeProof: !!options.includeProof });
       }
       receipt = new PendingTxReceipt(txHash, tx);
     } else {
@@ -1305,8 +1305,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @param after - The last known pending tx. Used for pagination
    * @returns - The pending txs.
    */
-  public getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
-    return this.p2pClient!.getPendingTxs(limit, after);
+  public getPendingTxs(limit?: number, after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]> {
+    return this.p2pClient!.getPendingTxs(limit, after, options);
   }
 
   public getPendingTxCount(): Promise<number> {
@@ -1314,21 +1314,26 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   /**
-   * Method to retrieve a single tx from the mempool or unfinalized chain.
+   * Method to retrieve a single tx from the mempool or unfinalized chain. The tx's proof is only loaded and returned
+   * when `includeProof` is set.
    * @param txHash - The transaction hash to return.
+   * @param options - Options for the returned tx (eg whether to include its proof).
    * @returns - The tx if it exists.
    */
-  public getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
+  public getTxByHash(txHash: TxHash, options?: GetTxByHashOptions): Promise<Tx | undefined> {
+    return this.p2pClient!.getTxByHashFromPool(txHash, { includeProof: !!options?.includeProof });
   }
 
   /**
-   * Method to retrieve txs from the mempool or unfinalized chain.
+   * Method to retrieve txs from the mempool or unfinalized chain. The txs' proofs are only loaded and returned when
+   * `includeProof` is set.
    * @param txHash - The transaction hash to return.
+   * @param options - Options for the returned txs (eg whether to include their proofs).
    * @returns - The txs if it exists.
    */
-  public async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
-    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
+  public async getTxsByHash(txHashes: TxHash[], options?: GetTxByHashOptions): Promise<Tx[]> {
+    const txs = await this.p2pClient!.getTxsByHashFromPool(txHashes, { includeProof: !!options?.includeProof });
+    return compactArray(txs);
   }
 
   public async findLeavesIndexes(

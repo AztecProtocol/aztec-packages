@@ -124,16 +124,18 @@ export type P2P = P2PClient & {
   /**
    * Returns a transaction in the transaction pool by its hash.
    * @param txHash  - Hash of tx to return.
+   * @param opts - Set `includeProof: false` to skip loading the tx proof from the DB.
    * @returns A single tx or undefined.
    */
-  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined>;
+  getTxByHashFromPool(txHash: TxHash, opts?: { includeProof?: boolean }): Promise<Tx | undefined>;
 
   /**
    * Returns transactions in the transaction pool by hash.
    * @param txHashes  - Hashes of txs to return.
+   * @param opts - Set `includeProof: false` to skip loading tx proofs from the DB.
    * @returns An array of txs or undefined.
    */
-  getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+  getTxsByHashFromPool(txHashes: TxHash[], opts?: { includeProof?: boolean }): Promise<(Tx | undefined)[]>;
 
   /**
    * Checks if transactions exist in the pool
@@ -156,11 +158,17 @@ export type P2P = P2PClient & {
    */
   getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined>;
 
-  /** Returns an iterator over pending txs on the mempool. */
-  iteratePendingTxs(): AsyncIterableIterator<Tx>;
+  /**
+   * Returns an iterator over pending txs on the mempool.
+   * Set `includeProof: false` to skip loading tx proofs from the DB.
+   */
+  iteratePendingTxs(opts?: { includeProof?: boolean }): AsyncIterableIterator<Tx>;
 
-  /** Returns an iterator over pending txs that have been in the pool long enough to be eligible for block building. */
-  iterateEligiblePendingTxs(): AsyncIterableIterator<Tx>;
+  /**
+   * Returns an iterator over pending txs that have been in the pool long enough to be eligible for block building.
+   * Set `includeProof: false` to skip loading tx proofs from the DB.
+   */
+  iterateEligiblePendingTxs(opts?: { includeProof?: boolean }): AsyncIterableIterator<Tx>;
 
   /** Returns the number of pending txs in the mempool. */
   getPendingTxCount(): Promise<number>;
