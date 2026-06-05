@@ -449,7 +449,7 @@ unconstrained fn non_interactive_handshake_rejects_unknown_mode() {
     let registry = HandshakeRegistry::at(registry_address);
 
     // Built via `deserialize` since the delivery API cannot construct this; the raw u8 crosses the ABI
-    // unvalidated and is only rejected by the contract's explicit `is_recognized` check.
+    // unvalidated and is only rejected by the contract's explicit `is_valid` check.
     let invalid_mode = OnchainDeliveryMode::deserialize([99]);
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, invalid_mode));
 }
