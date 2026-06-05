@@ -262,6 +262,52 @@ describe('Chonk WebGPU MSM benchmark - Browser (ECDSA-r1 transfer)', () => {
     }
   }, 600_000);
 
+  it(`oracle prove (route only the oracle-selected MSMs) for ${DEFAULT_FLOW}`, async () => {
+    const seqsPath = process.env.MSM_ORACLE_SEQS;
+    if (!seqsPath || !existsSync(seqsPath)) {
+      logger.warn(`[oracle] MSM_ORACLE_SEQS unset/missing (${seqsPath}); skipping. Run the CSV test first.`);
+      return;
+    }
+    const seqs = JSON.parse(readFileSync(seqsPath, 'utf8')) as number[];
+    let page: any;
+    try {
+      page = await browser.newPage();
+      let pageError: Error | null = null;
+      page.on('console', (msg: any) => {
+        const text = msg.text();
+        if (msg.type() === 'error') logger.error(`Browser[error]: ${text}`);
+        else logger.info(`Browser: ${text}`);
+      });
+      page.on('pageerror', (error: Error) => {
+        logger.error(`Page error: ${error.message}`);
+        pageError = error;
+      });
+      await page.goto(`${serverUrl}/test.html`, { waitUntil: 'networkidle0', timeout: 60_000 });
+      if (pageError) throw new Error(`Page error during load: ${String(pageError)}`);
+      await page.waitForFunction('typeof window.runChonkOracleProve !== "undefined"', { timeout: 60_000 });
+      logger.info(`[oracle] running off/on/oracle for flow=${flow}, routing ${seqs.length} MSMs…`);
+
+      const r = (await page.evaluate(
+        async (f: string, ss: number[]) => (window as any).runChonkOracleProve(f, ss),
+        flow,
+        seqs,
+      )) as { flow: string; off: number; on: number; oracle: number; numRouted: number; verified: boolean; vksMatch: boolean };
+
+      logger.info(
+        `[oracle-result] off=${r.off.toFixed(0)}ms  on=${r.on.toFixed(0)}ms  oracle=${r.oracle.toFixed(0)}ms  ` +
+          `(routed ${r.numRouted}, verified=${r.verified}, vks_match=${r.vksMatch})`,
+      );
+      expect(r.verified).toBe(true);
+      expect(r.vksMatch).toBe(true);
+      const labels = { backend: 'wasm-browser', flow };
+      writeBenchmark('chonk-prove-webgpu-off', r.off, labels);
+      writeBenchmark('chonk-prove-webgpu-on', r.on, labels);
+      writeBenchmark('chonk-prove-oracle', r.oracle, labels);
+    } finally {
+      if (page) await page.close();
+    }
+  }, 900_000);
+
   function startTestServer(): Promise<number> {
     return new Promise((resolve, reject) => {
       const distPath = join(projectRoot, 'dist');

@@ -70,6 +70,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       unref?: boolean;
       webgpuMsm?: boolean;
       msmCsvMode?: boolean;
+      oracleRouteSeqs?: number[];
     } = {},
   ): Promise<BarretenbergWasmAsyncBackend> {
     // Default to worker mode for browser safety
@@ -116,6 +117,16 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
         const [BD_K, BD_SMALL] = options.msmCsvMode ? [1, 1] : [2, 512];
         if (BD_K !== 0xffffffff) {
           await wasm.call('bb_set_webgpu_batch_delegate', BD_K >>> 0, BD_SMALL >>> 0);
+        }
+        // Oracle routing: dispatch exactly the per-seq set the caller selected
+        // (e.g. the GPU-faster MSMs from a per-MSM CPU-vs-GPU oracle CSV) instead
+        // of the size predicate. seq counts MSMs in deterministic commit order.
+        if (options.oracleRouteSeqs && options.oracleRouteSeqs.length > 0) {
+          await wasm.call('bb_webgpu_route_clear');
+          for (const seq of options.oracleRouteSeqs) {
+            await wasm.call('bb_webgpu_route_add', seq >>> 0);
+          }
+          await wasm.call('bb_webgpu_route_enable', 1);
         }
       }
       if (options.msmCsvMode) {

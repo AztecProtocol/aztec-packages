@@ -560,6 +560,12 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         if (!handle_edge_cases && webgpu_msm_runtime_enabled()) {
             return batch_multi_scalar_mul_webgpu_bn254(points, scalars, labels);
         }
+        // Oracle routing indexes a mask by per-MSM seq assigned in csv-mode's order
+        // (one per MSM). A handle_edge_cases batch is computed natively and never
+        // enters the hook, so advance the counter here to keep the seqs aligned.
+        if (webgpu_oracle_route_mode_enabled()) {
+            advance_msm_seq(points.size());
+        }
     }
 #endif
     return batch_multi_scalar_mul_native(points, scalars, handle_edge_cases);

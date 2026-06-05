@@ -64,6 +64,7 @@ export async function createAsyncBackend(
         // ignored under Node, where the bridge can't acquire a GPUDevice.
         webgpuMsm: options.webgpuMsm,
         msmCsvMode: options.msmCsvMode,
+        oracleRouteSeqs: options.oracleRouteSeqs,
       });
       return new Barretenberg(wasm, options);
     }

@@ -23,6 +23,7 @@ export async function createAsyncBackend(
         useWorker,
         webgpuMsm: options.webgpuMsm,
         msmCsvMode: options.msmCsvMode,
+        oracleRouteSeqs: options.oracleRouteSeqs,
       });
       return new Barretenberg(wasm, options);
     }

@@ -54,6 +54,14 @@ bool msm_csv_mode_enabled() noexcept;
 // CSV-mode labels unique and to correlate the CPU pass with the GPU pass.
 uint64_t next_msm_seq() noexcept;
 
+// True when oracle route-mask mode is active (bb_webgpu_route_enable(1)).
+bool webgpu_oracle_route_mode_enabled() noexcept;
+
+// Advance the per-MSM seq counter by n. A batch that bypasses the hook (e.g.
+// handle_edge_cases, computed natively) calls this so the seq stays aligned with
+// csv-mode, which assigns a seq to every MSM.
+void advance_msm_seq(uint64_t n) noexcept;
+
 // Per-MSM delegation predicate — runtime gate AND size at or above the
 // configured threshold. Each MSM in a batch decides independently.
 inline bool webgpu_msm_should_delegate(std::size_t n) noexcept

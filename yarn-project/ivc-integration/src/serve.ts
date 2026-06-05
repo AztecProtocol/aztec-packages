@@ -55,12 +55,14 @@ async function runChonkOnce(
   functionNames?: string[],
   msmCsvMode = false,
   loggerOverride?: (m: string) => void,
+  oracleRouteSeqs?: number[],
 ): Promise<{ result: ChonkWebGpuBenchRunResult; vk: Uint8Array }> {
   const bb = await Barretenberg.initSingleton({
     threads: 16,
     logger: loggerOverride ?? ((m: string) => logger.info(m)),
     webgpuMsm,
     msmCsvMode,
+    oracleRouteSeqs,
   });
   try {
     const backend = new AztecClientBackend(bytecodes, bb, functionNames);
@@ -192,6 +194,41 @@ async function runChonkWebGpuBench(
 }
 
 (window as any).runChonkWebGpuBench = runChonkWebGpuBench;
+
+/**
+ * End-to-end ChonkApi::prove three ways in one session for a clean comparison:
+ *   off    - all-CPU Pippenger (webgpu off)
+ *   on     - production routing (size predicate, n >= 512)
+ *   oracle - dispatch only `seqs` (the GPU-faster MSMs from a per-MSM oracle CSV)
+ * Returns the three prove walls + a VK byte-identity check across all three.
+ */
+async function runChonkOracleProve(
+  flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
+  seqs: number[] = [],
+): Promise<{ flow: string; off: number; on: number; oracle: number; numRouted: number; verified: boolean; vksMatch: boolean }> {
+  const { bytecodes, witnesses, vks, functionNames } = await loadPinnedInputs(flow);
+  logger.info(`[oracle] flow=${flow} routing ${seqs.length} MSMs to GPU`);
+  const off = await runChonkOnce(false, bytecodes, witnesses, vks, functionNames);
+  logger.info(`[oracle] off (all-CPU):   prove=${off.result.proveMs.toFixed(0)}ms`);
+  const on = await runChonkOnce(true, bytecodes, witnesses, vks, functionNames);
+  logger.info(`[oracle] on  (n>=512):    prove=${on.result.proveMs.toFixed(0)}ms`);
+  const oracle = await runChonkOnce(true, bytecodes, witnesses, vks, functionNames, false, undefined, seqs);
+  logger.info(`[oracle] oracle (${seqs.length} MSMs): prove=${oracle.result.proveMs.toFixed(0)}ms`);
+  const vksMatch =
+    off.vk.length === oracle.vk.length &&
+    off.vk.every((b, i) => b === oracle.vk[i]) &&
+    off.vk.every((b, i) => b === on.vk[i]);
+  return {
+    flow,
+    off: off.result.proveMs,
+    on: on.result.proveMs,
+    oracle: oracle.result.proveMs,
+    numRouted: seqs.length,
+    verified: off.result.verified && on.result.verified && oracle.result.verified,
+    vksMatch,
+  };
+}
+(window as any).runChonkOracleProve = runChonkOracleProve;
 
 interface MsmCsvRow {
   seq: number;

@@ -58,6 +58,15 @@ std::atomic<bool> g_msm_csv_mode{ false };
 // the report join them by `<label>#<seq>`.
 std::atomic<uint64_t> g_msm_seq{ 0 };
 
+// Oracle routing. A per-seq route mask (1 = dispatch this MSM to the GPU), set
+// from JS via bb_set_webgpu_route_mask before proving. When enabled, each MSM's
+// delegation decision is mask[seq] instead of the size predicate, so a run can
+// dispatch exactly the MSMs an offline per-MSM CPU-vs-GPU oracle selected. seq is
+// assigned in the same deterministic order csv-mode uses, so the mask built from a
+// csv run lines up with the prove.
+std::vector<uint8_t> g_route_mask;
+std::atomic<bool> g_oracle_route_mode{ false };
+
 // Batch-size-aware delegation (experiment knob, set from JS via
 // bb_set_webgpu_batch_delegate). When a batch_multi_scalar_mul call holds at least
 // g_batch_delegate_k MSMs, the per-MSM delegation threshold drops to
@@ -109,6 +118,16 @@ uint64_t next_msm_seq() noexcept
     return g_msm_seq.fetch_add(1, std::memory_order_relaxed);
 }
 
+bool webgpu_oracle_route_mode_enabled() noexcept
+{
+    return g_oracle_route_mode.load(std::memory_order_relaxed);
+}
+
+void advance_msm_seq(uint64_t n) noexcept
+{
+    g_msm_seq.fetch_add(n, std::memory_order_relaxed);
+}
+
 // Helper that lives at the namespace scope so the WASM_EXPORT setter below
 // (declared at file scope) can qualified-call it. The atomic itself stays
 // in the anonymous namespace; only the setter is exposed.
@@ -121,6 +140,31 @@ void set_webgpu_batch_delegate(uint32_t k, uint32_t small_threshold) noexcept
 {
     g_batch_delegate_k.store(k, std::memory_order_relaxed);
     g_small_threshold.store(small_threshold, std::memory_order_relaxed);
+}
+
+void webgpu_route_clear() noexcept
+{
+    g_route_mask.clear();
+    g_msm_seq.store(0, std::memory_order_relaxed);
+}
+
+void webgpu_route_add(uint32_t seq) noexcept
+{
+    if (seq >= g_route_mask.size()) {
+        g_route_mask.resize(seq + 1u, 0);
+    }
+    g_route_mask[seq] = 1;
+}
+
+void webgpu_route_enable(uint8_t on) noexcept
+{
+    g_oracle_route_mode.store(on != 0, std::memory_order_relaxed);
+    g_msm_seq.store(0, std::memory_order_relaxed);
+    uint32_t to_gpu = 0;
+    for (uint8_t b : g_route_mask) {
+        to_gpu += (b != 0) ? 1u : 0u;
+    }
+    info("[oracle-route] enabled=", static_cast<int>(on), " routing ", to_gpu, "/", static_cast<uint32_t>(g_route_mask.size()), " MSMs -> GPU");
 }
 
 void webgpu_register_full_srs_bn254(const curve::BN254::AffineElement* base, std::size_t count) noexcept
@@ -176,6 +220,23 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
         return webgpu_msm_runtime_enabled() && n >= eff_threshold;
     };
 
+    // Per-MSM route decision, computed once so the SRS-growth pass and the main
+    // dispatch loop agree. Oracle mode routes by the per-seq mask (seq assigned in
+    // csv-mode's deterministic MSM order); otherwise by the size predicate.
+    const bool oracle_route = g_oracle_route_mode.load(std::memory_order_relaxed);
+    std::vector<uint8_t> route(batch_size, 0);
+    for (size_t i = 0; i < batch_size; ++i) {
+        const size_t n = scalars[i].size();
+        bool go;
+        if (oracle_route) {
+            const size_t seq = static_cast<size_t>(next_msm_seq());
+            go = n > 0 && seq < g_route_mask.size() && g_route_mask[seq] != 0;
+        } else {
+            go = should_delegate(n);
+        }
+        route[i] = static_cast<uint8_t>(go);
+    }
+
     const uint8_t* srs_base = g_published_srs_base.load(std::memory_order_relaxed);
     uint32_t srs_count = g_published_srs_count.load(std::memory_order_relaxed);
     const uint32_t full_count = g_full_srs_count.load(std::memory_order_relaxed);
@@ -189,7 +250,7 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
         uint32_t needed_end = srs_count;
         for (size_t i = 0; i < batch_size; ++i) {
             const size_t n = scalars[i].size();
-            if (n == 0 || !should_delegate(n)) {
+            if (n == 0 || route[i] == 0) {
                 continue;
             }
             const auto* pts = reinterpret_cast<const uint8_t*>(points[i].data());
@@ -251,7 +312,7 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
             results[i] = curve::BN254::AffineElement::infinity();
             continue;
         }
-        if (!should_delegate(n)) {
+        if (route[i] == 0) {
             std::array<std::span<const curve::BN254::AffineElement>, 1> p{ points[i].subspan(0, n) };
             std::array<std::span<curve::BN254::ScalarField>, 1> s{ scalars[i] };
             results[i] = MSM<curve::BN254>::batch_multi_scalar_mul_native(p, s, false)[0];
@@ -375,6 +436,25 @@ WASM_EXPORT void bb_set_msm_csv_mode(uint8_t on)
 WASM_EXPORT void bb_set_webgpu_batch_delegate(uint32_t k, uint32_t small_threshold)
 {
     bb::scalar_multiplication::set_webgpu_batch_delegate(k, small_threshold);
+}
+
+// Oracle routing: build a per-seq route set with clear()+add(seq)*, then enable(1).
+// seq counts every MSM in deterministic commit order from 0 (reset on clear/enable),
+// matching csv-mode labels — so adding the seqs from a per-MSM CSV routes exactly
+// that set to the GPU. enable(0) restores the size predicate.
+WASM_EXPORT void bb_webgpu_route_clear()
+{
+    bb::scalar_multiplication::webgpu_route_clear();
+}
+
+WASM_EXPORT void bb_webgpu_route_add(uint32_t seq)
+{
+    bb::scalar_multiplication::webgpu_route_add(seq);
+}
+
+WASM_EXPORT void bb_webgpu_route_enable(uint8_t on)
+{
+    bb::scalar_multiplication::webgpu_route_enable(on);
 }
 
 // ---------------------------------------------------------------------------

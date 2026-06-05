@@ -85,4 +85,13 @@ export type BackendOptions = {
    * removes the cross-MSM thread-balancing in batch MSMs.
    */
   msmCsvMode?: boolean;
+
+  /**
+   * @description Oracle MSM routing. When set, the WebGPU hook dispatches
+   * exactly the listed MSM sequence indices (deterministic commit order) to
+   * the GPU and keeps the rest on CPU — used to measure a per-MSM CPU-vs-GPU
+   * oracle's prove wall. Requires webgpuMsm. Empty/undefined uses the size
+   * predicate.
+   */
+  oracleRouteSeqs?: number[];
 };
