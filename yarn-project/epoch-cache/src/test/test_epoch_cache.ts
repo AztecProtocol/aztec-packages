@@ -38,7 +38,6 @@ export class TestEpochCache implements EpochCacheInterface {
   private seed: bigint = 0n;
   private registeredValidators: EthAddress[] = [];
   private l1Constants: L1RollupConstants;
-  private proposerPipeliningEnabled = false;
 
   constructor(l1Constants: Partial<L1RollupConstants> = {}) {
     this.l1Constants = { ...DEFAULT_L1_CONSTANTS, ...l1Constants };
@@ -111,10 +110,6 @@ export class TestEpochCache implements EpochCacheInterface {
     return this.l1Constants;
   }
 
-  setProposerPipeliningEnabled(enabled: boolean): void {
-    this.proposerPipeliningEnabled = enabled;
-  }
-
   getCommittee(_slot?: SlotTag): Promise<EpochCommitteeInfo> {
     const epoch = getEpochAtSlot(this.currentSlot, this.l1Constants);
     return Promise.resolve({
@@ -130,9 +125,7 @@ export class TestEpochCache implements EpochCacheInterface {
   }
 
   getTargetSlot(): SlotNumber {
-    return this.proposerPipeliningEnabled
-      ? SlotNumber(this.currentSlot + PROPOSER_PIPELINING_SLOT_OFFSET)
-      : this.currentSlot;
+    return SlotNumber(this.currentSlot + PROPOSER_PIPELINING_SLOT_OFFSET);
   }
 
   getEpochNow(): EpochNumber {
@@ -141,14 +134,6 @@ export class TestEpochCache implements EpochCacheInterface {
 
   getTargetEpoch(): EpochNumber {
     return getEpochAtSlot(this.getTargetSlot(), this.l1Constants);
-  }
-
-  isProposerPipeliningEnabled(): boolean {
-    return this.proposerPipeliningEnabled;
-  }
-
-  pipeliningOffset(): number {
-    return this.proposerPipeliningEnabled ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
   }
 
   getEpochAndSlotNow(): EpochAndSlot & { nowMs: bigint } {
@@ -178,7 +163,7 @@ export class TestEpochCache implements EpochCacheInterface {
 
   getTargetEpochAndSlotInNextL1Slot(): EpochAndSlot & { nowSeconds: bigint } {
     const result = this.getEpochAndSlotInNextL1Slot();
-    const offset = this.isProposerPipeliningEnabled() ? PROPOSER_PIPELINING_SLOT_OFFSET : 0;
+    const offset = PROPOSER_PIPELINING_SLOT_OFFSET;
     const targetSlot = SlotNumber(result.slot + offset);
     return { ...result, slot: targetSlot, epoch: getEpochAtSlot(targetSlot, this.l1Constants) };
   }

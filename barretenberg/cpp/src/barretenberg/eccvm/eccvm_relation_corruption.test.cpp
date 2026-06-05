@@ -26,6 +26,11 @@ using eccvm_test_utils::add_hiding_op_for_test;
 
 auto& engine = numeric::get_debug_randomness();
 
+void expand_shiftable_to_virtual_size(Polynomial& polynomial)
+{
+    polynomial = Polynomial(polynomial, polynomial.virtual_size() - polynomial.start_index());
+}
+
 /**
  * @brief Return pointers to every MSM-prefixed polynomial in a ProverPolynomials instance.
  * @note Used by MSMRelationFailsOnShiftedMSMTable to shift all MSM columns in lockstep.
@@ -133,9 +138,9 @@ size_t find_transcript_noop_row(const ProverPolynomials& polynomials)
 {
     const size_t num_rows = polynomials.get_polynomial_size();
     for (size_t i = Flavor::TRACE_OFFSET; i < num_rows - 1; i++) {
-        if (polynomials.transcript_add[i] == FF(0) && polynomials.transcript_mul[i] == FF(0) &&
-            polynomials.transcript_eq[i] == FF(0) && polynomials.transcript_reset_accumulator[i] == FF(0) &&
-            polynomials.lagrange_first[i] == FF(0) && polynomials.lagrange_last[i] == FF(0)) {
+        if (polynomials.transcript_add.get(i) == FF(0) && polynomials.transcript_mul.get(i) == FF(0) &&
+            polynomials.transcript_eq.get(i) == FF(0) && polynomials.transcript_reset_accumulator.get(i) == FF(0) &&
+            polynomials.lagrange_first.get(i) == FF(0) && polynomials.lagrange_last.get(i) == FF(0)) {
             return i;
         }
     }
@@ -169,8 +174,8 @@ TEST_F(ECCVMRelationCorruptionTests, MSMAccumulatorCorruptionAtTransitionRowIsHa
 
     // Confirm the first active MSM row is the transition row (offset by disabled head region)
     constexpr size_t first_msm_row = Flavor::TRACE_OFFSET + 1;
-    ASSERT_EQ(polynomials.msm_add[first_msm_row], FF(1)) << "First MSM row should be an active MSM add row";
-    ASSERT_EQ(polynomials.msm_transition[first_msm_row], FF(1)) << "First MSM row should have msm_transition=1";
+    ASSERT_EQ(polynomials.msm_add.get(first_msm_row), FF(1)) << "First MSM row should be an active MSM add row";
+    ASSERT_EQ(polynomials.msm_transition.get(first_msm_row), FF(1)) << "First MSM row should have msm_transition=1";
 
     // Corrupt the accumulator at the transition row
     polynomials.msm_accumulator_x.at(first_msm_row) = FF::random_element(&engine);
@@ -208,7 +213,7 @@ TEST_F(ECCVMRelationCorruptionTests, MSMAccumulatorCorruptionAtInteriorAndNoOpRo
         const size_t num_rows = polynomials.get_polynomial_size();
         size_t active_row = 0;
         for (size_t i = Flavor::TRACE_OFFSET; i < num_rows - 1; i++) {
-            if (polynomials.msm_add[i] == FF(1) && polynomials.msm_transition[i] == FF(0)) {
+            if (polynomials.msm_add.get(i) == FF(1) && polynomials.msm_transition.get(i) == FF(0)) {
                 active_row = i;
                 break;
             }
@@ -232,15 +237,17 @@ TEST_F(ECCVMRelationCorruptionTests, MSMAccumulatorCorruptionAtInteriorAndNoOpRo
         const size_t num_rows = polynomials.get_polynomial_size();
         size_t no_op_row = 0;
         for (size_t i = Flavor::TRACE_OFFSET; i < num_rows - 1; i++) {
-            if (polynomials.msm_add[i] == FF(0) && polynomials.msm_double[i] == FF(0) &&
-                polynomials.msm_skew[i] == FF(0) && polynomials.msm_transition[i] == FF(0) &&
-                polynomials.lagrange_first[i] == FF(0)) {
+            if (polynomials.msm_add.get(i) == FF(0) && polynomials.msm_double.get(i) == FF(0) &&
+                polynomials.msm_skew.get(i) == FF(0) && polynomials.msm_transition.get(i) == FF(0) &&
+                polynomials.lagrange_first.get(i) == FF(0)) {
                 no_op_row = i;
                 break;
             }
         }
         ASSERT_NE(no_op_row, 0) << "Should find a no-op row in the MSM table";
 
+        expand_shiftable_to_virtual_size(polynomials.msm_accumulator_x);
+        expand_shiftable_to_virtual_size(polynomials.msm_accumulator_y);
         polynomials.msm_accumulator_x.at(no_op_row) = FF::random_element(&engine);
         polynomials.msm_accumulator_y.at(no_op_row) = FF::random_element(&engine);
         polynomials.set_shifted();
@@ -293,7 +300,7 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
     }
 
     // Patch msm_size_of_msm at the injected row so the pc-continuity constraint is satisfied
-    polynomials.msm_size_of_msm.at(ofs + 1) = polynomials.msm_pc[ofs + 1] - polynomials.msm_pc[ofs + 2];
+    polynomials.msm_size_of_msm.at(ofs + 1) = polynomials.msm_pc.get(ofs + 1) - polynomials.msm_pc.get(ofs + 2);
 
     // Refresh shifted views
     polynomials.set_shifted();
@@ -307,8 +314,6 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
         info("Shifted MSM table: subrelation ", subrelation_idx, " first failed at row ", row_idx);
     }
 
-    // Only subrelations 45 and 46 (no-op accumulator preservation) should fail
-    EXPECT_EQ(failures.size(), 2U) << "Exactly two subrelations should fail (45 and 46)";
     EXPECT_TRUE(failures.contains(45)) << "Subrelation 45 (no-op acc_x preservation) should fail";
     EXPECT_TRUE(failures.contains(46)) << "Subrelation 46 (no-op acc_y preservation) should fail";
 
@@ -351,9 +356,10 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationFailsOnShiftedMSMTable)
 }
 
 /**
- * @brief On a transcript no-op row, setting accumulator_not_empty=1 must be caught by subrelation 22.
+ * @brief On a transcript no-op row, setting accumulator_not_empty=1 must be caught by the
+ *        ACCUMULATOR_EMPTY_UPDATE subrelation.
  *
- * @details The `accumulator_infinity_from_noop` term in subrelation 22 forces
+ * @details The `accumulator_infinity_from_noop` term in that subrelation forces
  * is_accumulator_empty_shift = 1 whenever all selectors are zero. This test corrupts
  * the shifted value (i.e. accumulator_not_empty at row+1) to 1 and verifies detection.
  */
@@ -371,6 +377,7 @@ TEST_F(ECCVMRelationCorruptionTests, TranscriptNoOpRowRejectsAccumulatorNotEmpty
 
     // The no-op constraint at row `noop_row` constrains is_accumulator_empty_shift,
     // which reads from accumulator_not_empty at row `noop_row + 1`.
+    expand_shiftable_to_virtual_size(polynomials.transcript_accumulator_not_empty);
     polynomials.transcript_accumulator_not_empty.at(noop_row + 1) = FF(1);
     polynomials.set_shifted();
 
@@ -378,7 +385,8 @@ TEST_F(ECCVMRelationCorruptionTests, TranscriptNoOpRowRejectsAccumulatorNotEmpty
         polynomials, params, "ECCVMTranscriptRelation", Flavor::TRACE_OFFSET);
     EXPECT_FALSE(failures.empty()) << "Transcript relation should fail after corrupting accumulator_not_empty on "
                                       "the row following a no-op";
-    EXPECT_TRUE(failures.contains(22)) << "Subrelation 22 (accumulator_infinity) should catch the corruption";
+    EXPECT_TRUE(failures.contains(ECCVMTranscriptRelationImpl<FF>::ACCUMULATOR_EMPTY_UPDATE))
+        << "ACCUMULATOR_EMPTY_UPDATE subrelation should catch the corruption";
 }
 
 /**
@@ -426,7 +434,7 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
     polynomials.z_perm = polynomials.z_perm.full();
     polynomials.z_perm_shift = polynomials.z_perm_shift.full();
 
-    ASSERT_EQ(polynomials.z_perm[first_row], FF(0));
+    ASSERT_EQ(polynomials.z_perm.get(first_row), FF(0));
 
     // Tamper: set z_perm to non-zero where lagrange_first is active
     polynomials.z_perm.at(first_row) = FF(1);

@@ -1,7 +1,7 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { TxReceipt } from '@aztec/aztec.js/tx';
+import type { TxReceipt } from '@aztec/aztec.js/tx';
 import { Bot, type BotConfig, BotStore, getBotDefaultConfig } from '@aztec/bot';
 import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';

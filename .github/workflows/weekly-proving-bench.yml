@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   select-image:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     outputs:
       nightly_tag: ${{ steps.nightly-tag.outputs.nightly_tag }}
@@ -23,7 +24,7 @@ jobs:
       source_ref: ${{ steps.nightly-tag.outputs.source_ref }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: next
 
@@ -66,6 +67,7 @@ jobs:
 
   deploy-real-proving-network:
     needs: select-image
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: prove-n-tps-real
@@ -79,11 +81,12 @@ jobs:
     needs:
       - select-image
       - deploy-real-proving-network
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
@@ -108,10 +111,11 @@ jobs:
     needs:
       - select-image
       - wait-for-first-l2-block
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
@@ -151,6 +155,7 @@ jobs:
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          gh-repository: github.com/AztecProtocol/benchmark-page-data
           auto-push: true
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           alert-threshold: "120%"
@@ -159,7 +164,7 @@ jobs:
           max-items-in-chart: 100
 
   cleanup:
-    if: always()
+    if: ${{ always() && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages') }}
     needs:
       - select-image
       - deploy-real-proving-network
@@ -168,7 +173,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
@@ -184,7 +189,7 @@ jobs:
         run: ./.github/ci3.sh network-teardown prove-n-tps-real prove-n-tps-real
 
   notify-failure:
-    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' }}
+    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages') }}
     needs:
       - select-image
       - deploy-real-proving-network
@@ -194,7 +199,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 

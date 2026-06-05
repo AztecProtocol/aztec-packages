@@ -5,7 +5,11 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include <string>
 namespace bb {
+class TranslatorShortMonomialFlavor;
+
 // clang-format off
+
+class ECCVMShortMonomialFlavor;
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template <typename T>
@@ -32,7 +36,8 @@ concept HasDataBus = IsMegaFlavor<T>;
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
 // This is not the case for Translator, where randomness resides in different parts of the trace and the locations will
 // be reflected via Translator relations.
-template <typename T> concept IsTranslatorFlavor = IsAnyOf<T, TranslatorFlavor, TranslatorRecursiveFlavor>;
+template <typename T>
+concept IsTranslatorFlavor = IsAnyOf<T, TranslatorFlavor, TranslatorShortMonomialFlavor, TranslatorRecursiveFlavor>;
 template <typename T> concept UseRowDisablingPolynomial = !IsTranslatorFlavor<T>;
 
 
@@ -59,7 +64,7 @@ template <typename T>
 concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
 
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
 
 // Flavors whose Sumcheck round univariates are committed (sent as commitment + evals at 0,1)
 // rather than sent in the clear. The committed data is later verified via Shplemini.

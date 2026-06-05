@@ -383,6 +383,46 @@ TEST_F(IPATest, BatchVerifySingleProof)
     EXPECT_TRUE(PCS::batch_reduce_verify(vk, { claim }, { std::make_shared<NativeTranscript>(proof_data) }));
 }
 
+TEST_F(IPATest, BatchVerifyRejectsTamperedGZero)
+{
+    auto [claim, proof_data] = generate_random_proof();
+    auto tampered_proof = proof_data;
+
+    constexpr size_t commitment_size = FrCodec::template calc_num_fields<Commitment>();
+    constexpr size_t g_zero_offset = 2 * log_n * commitment_size;
+    static_assert(g_zero_offset + commitment_size + FrCodec::template calc_num_fields<Fr>() == 4 * log_n + 4);
+    ASSERT_LE(g_zero_offset + commitment_size, tampered_proof.size());
+
+    Commitment wrong_g_zero = Commitment::one() * Fr(7);
+    auto wrong_g_zero_fields = FrCodec::serialize_to_fields<Commitment>(wrong_g_zero);
+    std::copy(wrong_g_zero_fields.begin(),
+              wrong_g_zero_fields.end(),
+              tampered_proof.begin() + static_cast<std::ptrdiff_t>(g_zero_offset));
+
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim, std::make_shared<NativeTranscript>(tampered_proof)));
+    EXPECT_FALSE(PCS::batch_reduce_verify(vk, { claim }, { std::make_shared<NativeTranscript>(tampered_proof) }));
+}
+
+TEST_F(IPATest, BatchVerifyRejectsTamperedAZero)
+{
+    auto [claim, proof_data] = generate_random_proof();
+    auto tampered_proof = proof_data;
+
+    constexpr size_t commitment_size = FrCodec::template calc_num_fields<Commitment>();
+    constexpr size_t g_zero_offset = 2 * log_n * commitment_size;
+    constexpr size_t a_zero_offset = g_zero_offset + commitment_size;
+    static_assert(a_zero_offset + FrCodec::template calc_num_fields<Fr>() == 4 * log_n + 4);
+    ASSERT_LT(a_zero_offset, tampered_proof.size());
+
+    auto wrong_a_zero_fields = FrCodec::serialize_to_fields<Fr>(Fr(7));
+    std::copy(wrong_a_zero_fields.begin(),
+              wrong_a_zero_fields.end(),
+              tampered_proof.begin() + static_cast<std::ptrdiff_t>(a_zero_offset));
+
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim, std::make_shared<NativeTranscript>(tampered_proof)));
+    EXPECT_FALSE(PCS::batch_reduce_verify(vk, { claim }, { std::make_shared<NativeTranscript>(tampered_proof) }));
+}
+
 TEST_F(IPATest, BatchVerifyTamperedProof)
 {
     auto [claim1, proof1] = generate_random_proof();

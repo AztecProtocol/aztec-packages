@@ -9,6 +9,10 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `get_pending_tagged_logs` oracle interface updated (oracle version 28)
+
+The `aztec_utl_getPendingTaggedLogs` oracle now takes an additional `provided_secrets` parameter of type `EphemeralArray<ProvidedSecret>`. This lets apps pass tagging secrets that PXE cannot derive on its own (e.g. handshake-derived secrets) alongside the secrets PXE manages internally.
+
 ### [Aztec.nr] `set_sender_for_tags` oracle removed
 
 The `set_sender_for_tags` oracle has been removed. Contracts that used it to override the sender for discovery tag derivation should now use the `with_sender` builder method on `MessageDelivery`:
@@ -38,6 +42,32 @@ When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied def
 - MessageDelivery.ONCHAIN_CONSTRAINED
 + MessageDelivery::onchain_constrained()
 ```
+
+### [Aztec.js] `getTxReceipt` returns a lifecycle union and takes `GetTxReceiptOptions`
+
+`AztecNode.getTxReceipt` now takes an optional `GetTxReceiptOptions` argument and returns a `PendingTxReceipt | DroppedTxReceipt | MinedTxReceipt` union instead of a single `TxReceipt` class. Mined-only fields (`transactionFee`, `blockHash`, `blockNumber`, `txIndexInBlock`, and the execution result) are only guaranteed once the transaction is mined, so narrow with `isMined()`, `isPending()`, or `isDropped()` before reading variant-specific fields. The full `TxEffect` is attached only when you request it via `{ includeTxEffect: true }`.
+
+`AztecNode.getTxEffect` is deprecated. Replace direct calls with `getTxReceipt(txHash, { includeTxEffect: true })` and read the `.txEffect` field.
+
+`TxReceipt.empty()` and `TxReceipt.schema` no longer exist, since `TxReceipt` is now a union type rather than a class. Use `DroppedTxReceipt.empty()` and `TxReceiptSchema` instead.
+
+```diff
+- const effect = await node.getTxEffect(txHash);
+- if (effect) {
+-   console.log(effect.data.nullifiers.length);
+- }
++ const receipt = await node.getTxReceipt(txHash, { includeTxEffect: true });
++ if (receipt.isMined() && receipt.txEffect) {
++   console.log(receipt.txEffect.nullifiers.length);
++ }
+
+- const empty = TxReceipt.empty();
+- const schema = TxReceipt.schema;
++ const empty = DroppedTxReceipt.empty();
++ const schema = TxReceiptSchema;
+```
+
+**Impact**: This is a breaking change to the public node RPC with no wire back-compat. Callers that read mined fields off a bare receipt must narrow with the `is*` guards first, callers of `getTxEffect` should migrate to `getTxReceipt`, and references to `TxReceipt.empty()` / `TxReceipt.schema` must move to `DroppedTxReceipt.empty()` / `TxReceiptSchema`.
 
 ### [Aztec.js] `ExtendedDirectionalAppTaggingSecret` renamed to `AppTaggingSecret`
 
@@ -96,7 +126,7 @@ The provider *replaces* the default list (it is not additive), so include every 
 Unlike MultiCallEntrypoint and AuthRegistry, `PublicChecks` is **not** preloaded by `createPXE` or `EmbeddedWallet`. If your contract uses `privately_check_timestamp` or `privately_check_block_number`, `PublicChecks` must be deployed and made available to your PXE — either include it in a custom `preloadedContractsProvider` (see the `multi_call_entrypoint` note above) or register it directly:
 
 ```ts
-import { getStandardPublicChecks } from '@aztec/standard-contracts/public-checks';
+import { getStandardPublicChecks } from "@aztec/standard-contracts/public-checks";
 
 const { instance, artifact } = await getStandardPublicChecks();
 await pxe.registerContract({ instance, artifact });
@@ -118,7 +148,7 @@ Deploy `PublicChecks` once per fresh rollup: `aztec-wallet deploy public_checks_
 PXE no longer auto-registers `AuthRegistry` on startup. `EmbeddedWallet` preloads it automatically (alongside the MultiCallEntrypoint — see the `multi_call_entrypoint` note above), so apps using the standard wallet need no changes. If you use a PXE setup that doesn't preload it, add it to a custom `preloadedContractsProvider` or register it explicitly:
 
 ```ts
-import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardAuthRegistry } from "@aztec/standard-contracts/auth-registry";
 
 const { instance, artifact } = await getStandardAuthRegistry();
 await pxe.registerContract({ instance, artifact });
@@ -143,12 +173,12 @@ The four log-retrieval methods on `AztecNode` have been collapsed into two. `get
 
 **Removed methods on `AztecNode`:**
 
-| Removed                                                                     | Replacement                                              |
-| --------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `getPublicLogs(filter: LogFilter)`                                          | `getPublicLogsByTags({ contractAddress, tags, ... })`    |
-| `getContractClassLogs(filter: LogFilter)`                                   | none — RPC removed; no production consumer existed       |
-| `getPrivateLogsByTags(tags, page?, referenceBlock?)`                        | `getPrivateLogsByTags({ tags, ... })`                    |
-| `getPublicLogsByTagsFromContract(contract, tags, page?, referenceBlock?)`   | `getPublicLogsByTags({ contractAddress, tags, ... })`    |
+| Removed                                                                   | Replacement                                           |
+| ------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `getPublicLogs(filter: LogFilter)`                                        | `getPublicLogsByTags({ contractAddress, tags, ... })` |
+| `getContractClassLogs(filter: LogFilter)`                                 | none — RPC removed; no production consumer existed    |
+| `getPrivateLogsByTags(tags, page?, referenceBlock?)`                      | `getPrivateLogsByTags({ tags, ... })`                 |
+| `getPublicLogsByTagsFromContract(contract, tags, page?, referenceBlock?)` | `getPublicLogsByTags({ contractAddress, tags, ... })` |
 
 **New query and response shapes:**
 
@@ -157,15 +187,18 @@ The four log-retrieval methods on `AztecNode` have been collapsed into two. `get
 type TagQuery<T> = T | { tag: T; afterLog?: LogCursor };
 
 type LogsQueryBase = {
-  fromBlock?: BlockNumber;        // inclusive
-  toBlock?: BlockNumber;          // exclusive
-  txHash?: TxHash;                // mutually exclusive with fromBlock/toBlock
-  referenceBlock?: BlockHash;     // reorg-safety anchor; throws if missing
-  includeEffects?: boolean;       // attach noteHashes + all nullifiers
+  fromBlock?: BlockNumber; // inclusive
+  toBlock?: BlockNumber; // exclusive
+  txHash?: TxHash; // mutually exclusive with fromBlock/toBlock
+  referenceBlock?: BlockHash; // reorg-safety anchor; throws if missing
+  includeEffects?: boolean; // attach noteHashes + all nullifiers
 };
 
 type PrivateLogsQuery = LogsQueryBase & { tags: TagQuery<SiloedTag>[] };
-type PublicLogsQuery  = LogsQueryBase & { contractAddress: AztecAddress; tags: TagQuery<Tag>[] };
+type PublicLogsQuery = LogsQueryBase & {
+  contractAddress: AztecAddress;
+  tags: TagQuery<Tag>[];
+};
 
 // Response (per log)
 type LogResult = {
@@ -175,8 +208,8 @@ type LogResult = {
   blockTimestamp: UInt64;
   txHash: TxHash;
   logIndexWithinTx: number;
-  noteHashes?: Fr[];   // present only when includeEffects is set
-  nullifiers?: Fr[];   // all nullifiers of the tx, not just the first
+  noteHashes?: Fr[]; // present only when includeEffects is set
+  nullifiers?: Fr[]; // all nullifiers of the tx, not just the first
 };
 ```
 
@@ -1437,23 +1470,22 @@ This change requires no input from your side unless you were testing or relying 
 
 `TxReceipt` now includes an `epochNumber` field that indicates which epoch the transaction was included in.
 
-### [Aztec.js] `computeL2ToL1MembershipWitness` signature changed
+### [Aztec.js] Use `getL2ToL1MembershipWitness` for L2-to-L1 message witnesses
 
-The function signature has changed to resolve the epoch internally from a transaction hash, rather than requiring the caller to pass the epoch number.
+The node now computes L2-to-L1 membership witnesses directly, resolving the epoch and Outbox root internally from the transaction hash. Use `getL2ToL1MembershipWitness` instead of fetching raw epoch messages and computing the witness client-side.
 
 **Migration:**
 
 ```diff
-- const witness = await computeL2ToL1MembershipWitness(aztecNode, epochNumber, messageHash);
-- // epoch was passed in by the caller
-+ const witness = await computeL2ToL1MembershipWitness(aztecNode, messageHash, txHash);
-+ // epoch is now available on the returned witness
+- const messages = await aztecNode.getL2ToL1Messages(epochNumber);
+- // compute the witness client-side from the epoch messages
++ const witness = await aztecNode.getL2ToL1MembershipWitness(txHash, messageHash);
 + const epoch = witness.epochNumber;
 ```
 
-The return type `L2ToL1MembershipWitness` now includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the fourth argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
+The return type `L2ToL1MembershipWitness` includes `epochNumber`. An optional `messageIndexInTx` parameter can be passed as the third argument to disambiguate when a transaction emits multiple identical L2-to-L1 messages.
 
-**Impact**: All call sites that compute L2-to-L1 membership witnesses must update to the new argument order and extract `epochNumber` from the result instead of passing it in.
+**Impact**: Call sites that compute L2-to-L1 membership witnesses should use the node method and extract `epochNumber` from the result.
 
 ### [Aztec.js] `getPublicEvents` now returns an object instead of an array
 
@@ -2806,31 +2838,17 @@ Note: current node softwares still produce exactly one L2 block per checkpoint, 
 
 ### [L1 Contracts] L2-to-L1 messages are now grouped by epoch.
 
-L2-to-L1 messages are now aggregated and organized per epoch rather than per block. This change affects how you compute membership witnesses for consuming messages on L1. You now need to know the epoch number in which the message was emitted to retrieve and consume the message.
+L2-to-L1 messages are aggregated and organized per epoch rather than per block, but callers should now ask the node to compute the membership witness directly from the emitting transaction hash. The node resolves the epoch and Outbox root internally.
 
 **Note**: This is only an API change. The protocol behavior remains the same - messages can still only be consumed once an epoch is proven as before.
 
 #### What changed
 
-Previously, you might have computed the membership witness without explicitly needing the epoch:
+Previously, callers fetched epoch messages and computed the witness client-side. Now, call `getL2ToL1MembershipWitness` on the node:
 
 ```typescript
-const witness = await computeL2ToL1MembershipWitness(
-  node,
-  l2TxReceipt.blockNumber,
-  l2ToL1Message,
-);
-```
-
-Now, you should provide the epoch number:
-
-```typescript
-const epoch = await rollup.getEpochNumberForCheckpoint(
-  CheckpointNumber.fromBlockNumber(l2TxReceipt.blockNumber),
-);
-const witness = await computeL2ToL1MembershipWitness(
-  node,
-  epoch,
+const witness = await node.getL2ToL1MembershipWitness(
+  l2TxReceipt.txHash,
   l2ToL1Message,
 );
 ```

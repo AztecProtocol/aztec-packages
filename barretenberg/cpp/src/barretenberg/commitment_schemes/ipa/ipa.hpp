@@ -655,15 +655,20 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
-     * @brief Batch verify multiple IPA proofs with a single large SRS MSM.
+     * @brief Batch verify multiple IPA proofs with a single batched SRS MSM.
      *
      * @details For N proofs, IPA verification's dominant cost is the SRS MSM (pippenger over poly_length points).
-     * By combining N proofs via random linear combination with challenge \f$\alpha\f$, we replace N separate MSMs with
-     * one.
+     * By combining N proofs via random linear combinations, we replace per-proof MSMs with a single batched SRS MSM.
      *
-     * The batch check verifies:
+     * Two families of equations are enforced over the SRS: the main IPA relation
      *   \f$\sum \alpha^i C_{0,i} = \langle \sum \alpha^i a_{0,i} \vec{s}_i, \vec{G} \rangle
      *     + (\sum \alpha^i a_{0,i} b_{0,i} u_i) \cdot G\f$
+     * and the \f$G_0\f$ binding \f$\sum \beta^i G_{0,i} = \langle \sum \beta^i \vec{s}_i, \vec{G} \rangle\f$,
+     * which carries the single-proof condition \f$G_0 = \langle \vec{s}, \vec{G} \rangle\f$ across the batch.
+     * Both right-hand sides are SRS MSMs, so they are random-linear-combined with a fresh challenge
+     * \f$\gamma\f$ into a single IPA commitment (one SRS MSM):
+     *   \f$\langle \gamma \sum \beta^i \vec{s}_i - \sum \alpha^i a_{0,i} \vec{s}_i, \vec{G} \rangle + C_{batch}
+     *     = \gamma \sum \beta^i G_{0,i} + (\sum \alpha^i a_{0,i} b_{0,i} u_i) \cdot G\f$
      *
      * where \f$G\f$ = Commitment::one() and \f$U_i = u_i \cdot G\f$.
      *
@@ -693,6 +698,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         std::vector<Fr> a_zeros(num_claims);
         std::vector<Fr> b_zeros(num_claims);
         std::vector<Fr> gen_challenges(num_claims);
+        std::vector<Commitment> G_zeros_from_prover(num_claims);
         std::vector<Polynomial<Fr>> s_vecs(num_claims);
 
         for (size_t i = 0; i < num_claims; i++) {
@@ -702,33 +708,55 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             b_zeros[i] = data.b_zero;
             s_vecs[i] = std::move(data.s_vec);
             gen_challenges[i] = data.gen_challenge;
+            G_zeros_from_prover[i] = data.G_zero_from_prover;
             a_zeros[i] = data.a_zero;
         }
 
-        // Phase 2: Batched computation using random challenge alpha
+        // Phase 2: Batched computation using random challenges alpha, beta and gamma.
+        // alpha batches the IPA relations across claims, beta batches the G_0 binding checks, and gamma folds
+        // the G_0 binding into the main relation so the whole batch costs a single IPA commitment (one SRS MSM).
         Fr alpha = Fr::random_element();
         std::vector<Fr> alpha_pows(num_claims);
         alpha_pows[0] = Fr::one();
         for (size_t i = 1; i < num_claims; i++) {
             alpha_pows[i] = alpha_pows[i - 1] * alpha;
         }
-
-        // Combined s_vec: combined_s[j] = \sum \alpha^i * a_zero_i * s_vec_i[j]
-        Polynomial<Fr> combined_s(poly_length);
-        for (size_t i = 0; i < num_claims; i++) {
-            Fr scalar = alpha_pows[i] * a_zeros[i];
-            combined_s.add_scaled(s_vecs[i], scalar);
+        Fr beta = Fr::random_element();
+        std::vector<Fr> beta_pows(num_claims);
+        beta_pows[0] = Fr::one();
+        for (size_t i = 1; i < num_claims; i++) {
+            beta_pows[i] = beta_pows[i - 1] * beta;
         }
+        Fr gamma = Fr::random_element();
 
-        // Single MSM over combined scalars
         std::span<const Commitment> srs_elements = vk.get_monomial_points();
         if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
-        Commitment G_batch =
-            scalar_multiplication::pippenger_unsafe<Curve>(combined_s, { &srs_elements[0], /*size*/ poly_length });
 
-        // Combined LHS: C_batch = \sum \alpha^i * C_zero_i
+        // The batch verifier enforces two families of equations over the SRS:
+        //   (1) main IPA relation:  C_batch        == <\sum_i alpha^i a_i s_i, SRS> + bU_scalar * G
+        //   (2) G_0 binding:        \sum_i beta^i G_0_i == <\sum_i beta^i s_i, SRS>
+        // The single-proof verifier checks G_0 == <s_vec, SRS>; (2) enforces the same condition across the
+        // batch. Both right-hand sides are SRS MSMs, so we random-linear-combine them with gamma to collapse
+        // both into one IPA commitment:
+        //   <gamma * (\sum_i beta^i s_i) - (\sum_i alpha^i a_i s_i), SRS> + C_batch
+        //       == gamma * (\sum_i beta^i G_0_i) + bU_scalar * G
+        // A prover that violates either family passes the folded check only for a gamma-measure-zero set.
+        Polynomial<Fr> combined_msm_scalars(poly_length);
+        for (size_t i = 0; i < num_claims; i++) {
+            combined_msm_scalars.add_scaled(s_vecs[i], gamma * beta_pows[i] - alpha_pows[i] * a_zeros[i]);
+        }
+        Commitment batched_commitment = scalar_multiplication::pippenger_unsafe<Curve>(
+            combined_msm_scalars, { &srs_elements[0], /*size*/ poly_length });
+
+        // beta-weighted sum of the prover-supplied G_0 values (gamma is applied in the final check).
+        GroupElement prover_g_zero_batch = G_zeros_from_prover[0] * beta_pows[0];
+        for (size_t i = 1; i < num_claims; i++) {
+            prover_g_zero_batch += G_zeros_from_prover[i] * beta_pows[i];
+        }
+
+        // Batched claim commitment: C_batch = \sum \alpha^i * C_zero_i
         GroupElement C_batch = C_zeros[0];
         for (size_t i = 1; i < num_claims; i++) {
             C_batch = C_batch + C_zeros[i] * alpha_pows[i];
@@ -740,9 +768,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             bU_scalar += alpha_pows[i] * a_zeros[i] * b_zeros[i] * gen_challenges[i];
         }
 
-        // Check: C_batch == G_batch + bU_scalar * G
-        GroupElement right_hand_side = G_batch + Commitment::one() * bU_scalar;
-        return (C_batch.normalize() == right_hand_side.normalize());
+        // Single folded check: the IPA relation and the G_0 binding both hold iff this holds (up to the
+        // negligible gamma-collision probability).
+        GroupElement left_hand_side = batched_commitment + C_batch;
+        GroupElement right_hand_side = prover_g_zero_batch * gamma + Commitment::one() * bU_scalar;
+        return (left_hand_side.normalize() == right_hand_side.normalize());
     }
 
     /**

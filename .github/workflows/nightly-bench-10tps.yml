@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   select-image:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     outputs:
       docker_image: ${{ steps.docker-image.outputs.docker_image }}
@@ -31,7 +32,7 @@ jobs:
       source_ref: ${{ steps.docker-image.outputs.source_ref }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: next
 
@@ -92,6 +93,7 @@ jobs:
 
   deploy-bench-10tps-network:
     needs: select-image
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
       network: bench-10tps
@@ -105,11 +107,12 @@ jobs:
     needs:
       - select-image
       - deploy-bench-10tps-network
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
@@ -134,10 +137,11 @@ jobs:
     needs:
       - select-image
       - wait-for-first-l2-block
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
@@ -159,7 +163,7 @@ jobs:
           ./.github/ci3.sh network-bench-10tps bench-10tps bench-10tps "${{ needs.select-image.outputs.docker_image }}"
 
   cleanup:
-    if: always()
+    if: ${{ always() && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages') }}
     needs:
       - select-image
       - deploy-bench-10tps-network
@@ -168,7 +172,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
@@ -184,7 +188,7 @@ jobs:
         run: ./.github/ci3.sh network-teardown bench-10tps bench-10tps
 
   notify-failure:
-    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' }}
+    if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' && (github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages') }}
     needs:
       - select-image
       - deploy-bench-10tps-network
@@ -194,7 +198,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
 

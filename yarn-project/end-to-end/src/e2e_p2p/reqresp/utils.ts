@@ -2,6 +2,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx } from '@aztec/aztec.js/tx';
+import { PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
@@ -51,7 +52,6 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
       aztecEpochDuration: 64, // stable committee
       // Pipelining: target-slot is one ahead of build-slot; inboxLag sources L1->L2
       // messages from the previous checkpoint to avoid L1ToL2MessagesNotReadyError.
-      enableProposerPipelining: true,
       inboxLag: 2,
     },
   });
@@ -132,7 +132,7 @@ export async function runReqrespTxTest(params: {
   // Under pipelining the active builder during wallclock slot S targets slot S+1, so
   // we must address the proposer of S+1 (not S) for batch 0. Shift the proposer lookup
   // window by the pipelining offset so we always send to the currently-building proposer.
-  const proposerSlotOffset = t.ctx.aztecNodeConfig.enableProposerPipelining ? 1 : 0;
+  const proposerSlotOffset = PROPOSER_PIPELINING_SLOT_OFFSET;
   const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes(
     t,
     startSlotTimestamp,

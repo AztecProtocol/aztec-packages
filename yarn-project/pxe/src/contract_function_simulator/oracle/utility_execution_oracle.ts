@@ -24,7 +24,12 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
-import { MessageContext, type PendingTaggedLog, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  MessageContext,
+  type PendingTaggedLog,
+  deriveAppSiloedSharedSecret,
+} from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -59,11 +64,13 @@ import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
+import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
-import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
+import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { Oracle } from './oracle.js';
 
@@ -540,7 +547,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.aztecnrLogger;
   }
 
-  public async log(level: number, message: string, fields: Fr[]): Promise<void> {
+  public async log(level: number, message: string, _fieldsSize: number, fields: Fr[]): Promise<void> {
     if (!LogLevels[level]) {
       throw new Error(`Invalid log level: ${level}`);
     }
@@ -552,9 +559,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /** Fetches pending tagged logs into a freshly allocated ephemeral array and returns it. */
-  public async getPendingTaggedLogs(scope: AztecAddress): Promise<EphemeralArray<PendingTaggedLog>> {
+  public async getPendingTaggedLogs(
+    scope: AztecAddress,
+    providedSecrets: EphemeralArray<ProvidedSecret>,
+  ): Promise<EphemeralArray<PendingTaggedLog>> {
+    const secrets = providedSecrets
+      .readAll(this.ephemeralArrayService)
+      .map(ps => new AppTaggingSecret(ps.secret, this.contractAddress, ps.mode));
+
     const logService = this.#createLogService();
-    const logs = await logService.fetchTaggedLogs(this.contractAddress, scope);
+    const logs = await logService.fetchTaggedLogs(this.contractAddress, scope, secrets);
     return EphemeralArray.fromValues(this.ephemeralArrayService, logs);
   }
 
@@ -645,12 +659,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
     }
 
-    const txEffect = await this.aztecNode.getTxEffect(txHash);
-    if (!txEffect || txEffect.l2BlockNumber > this.anchorBlockHeader.getBlockNumber()) {
+    const receipt = await this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
+    if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
       return Option.none(TxEffect.empty());
     }
 
-    return Option.some(txEffect.data);
+    return Option.some(receipt.txEffect);
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
@@ -894,10 +908,27 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   async #fetchTxEffects(txHashes: TxHash[]): Promise<Map<string, IndexedTxEffect>> {
     const uniqueTxHashes = uniqueBy(txHashes, h => h.toString());
-    const fetched = await Promise.all(uniqueTxHashes.map(h => this.aztecNode.getTxEffect(h)));
+    const fetched = await Promise.all(
+      uniqueTxHashes.map(h => this.aztecNode.getTxReceipt(h, { includeTxEffect: true })),
+    );
     return new Map(
       uniqueTxHashes
-        .map((h, i): [string, IndexedTxEffect | undefined] => [h.toString(), fetched[i]])
+        .map((h, i): [string, IndexedTxEffect | undefined] => {
+          const receipt = fetched[i];
+          if (!receipt.isMined() || !receipt.txEffect) {
+            return [h.toString(), undefined];
+          }
+          return [
+            h.toString(),
+            {
+              data: receipt.txEffect,
+              l2BlockNumber: receipt.blockNumber,
+              l2BlockHash: receipt.blockHash,
+              txIndexInBlock: receipt.txIndexInBlock,
+              slotNumber: receipt.slotNumber,
+            },
+          ];
+        })
         .filter((entry): entry is [string, IndexedTxEffect] => entry[1] !== undefined),
     );
   }

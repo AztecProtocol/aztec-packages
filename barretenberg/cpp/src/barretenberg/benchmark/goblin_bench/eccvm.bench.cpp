@@ -75,6 +75,49 @@ void eccvm_prove(State& state) noexcept
     };
 }
 
+template <typename Prover> void construct_proof(State& state) noexcept
+{
+    size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
+    for (auto _ : state) {
+        Builder builder = generate_trace(target_num_gates);
+        std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+        Prover prover(builder, prover_transcript);
+        auto [proof, opening_claim] = prover.construct_proof();
+        auto ipa_transcript = std::make_shared<Transcript>();
+        IPA<Flavor::Curve>::compute_opening_proof(prover.key->commitment_key, opening_claim, ipa_transcript);
+        benchmark::DoNotOptimize(proof);
+    };
+}
+
+template <typename Prover> void execute_sumcheck(State& state) noexcept
+{
+    size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
+    for (auto _ : state) {
+        state.PauseTiming();
+        Builder builder = generate_trace(target_num_gates);
+        std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+        Prover prover(builder, prover_transcript);
+        prover.execute_preamble_round();
+        prover.execute_wire_commitments_round();
+        prover.execute_log_derivative_commitments_round();
+        prover.execute_grand_product_computation_round();
+        state.ResumeTiming();
+
+        prover.execute_relation_check_rounds();
+        benchmark::DoNotOptimize(prover.sumcheck_output);
+    };
+}
+
+void eccvm_full_prove(State& state) noexcept
+{
+    construct_proof<ECCVMProver>(state);
+}
+
+void eccvm_full_sumcheck(State& state) noexcept
+{
+    execute_sumcheck<ECCVMProver>(state);
+}
+
 void eccvm_ipa(State& state) noexcept
 {
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
@@ -91,6 +134,8 @@ void eccvm_ipa(State& state) noexcept
 BENCHMARK(eccvm_generate_prover)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 BENCHMARK(eccvm_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 BENCHMARK(eccvm_ipa)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
+BENCHMARK(eccvm_full_prove)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
+BENCHMARK(eccvm_full_sumcheck)->Unit(kMillisecond)->DenseRange(12, CONST_ECCVM_LOG_N);
 } // namespace
 
 int main(int argc, char** argv)

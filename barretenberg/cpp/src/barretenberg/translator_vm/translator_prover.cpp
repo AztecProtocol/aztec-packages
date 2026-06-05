@@ -10,6 +10,11 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
+#include "barretenberg/relations/translator_vm/translator_decomposition_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_short_relations_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation_impl.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_short_relation_impl.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -30,7 +35,7 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
 void TranslatorProver::execute_preamble_round()
 {
     // Fiat-Shamir the vk hash
-    Flavor::VerificationKey vk;
+    typename Flavor::VerificationKey vk;
     typename Flavor::FF vk_hash = vk.get_hash();
     transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("Translator vk hash in prover: ", vk_hash);

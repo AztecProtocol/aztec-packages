@@ -58,7 +58,6 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
       initialValidators: validators,
-      enableProposerPipelining: true,
       inboxLag: 2,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -229,10 +228,9 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
     });
     logger.warn('Captured pre-prune block-1 archive roots', { preArchiveRoots });
 
-    // (2) Orphan is pruned on every archiver. The wall-clock prune in pruneOrphanProposedBlocks fires once
-    // `now >= getTimestampForSlot(blockSlot - pipeliningOffset + 1) + grace`, which lands well inside slot S1 (= the
-    // build slot for S2) given a 36s aztecSlotDuration and the default 8s grace. We wait up to 2 slot durations as a
-    // margin.
+    // (2) Orphan is pruned on every archiver. The wall-clock prune in pruneOrphanProposedBlocks fires well inside
+    // slot S1 (= the build slot for S2) given a 36s aztecSlotDuration and the default 8s grace. We wait up to 2 slot
+    // durations as a margin.
     logger.warn('Waiting for L2PruneUncheckpointed on every node');
     const pruneTimeoutMs = test.L2_SLOT_DURATION_IN_S * 2 * 1000;
     const pruneObservations = await Promise.all(

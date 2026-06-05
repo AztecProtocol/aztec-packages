@@ -26,7 +26,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
-import { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
+import type { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -146,9 +146,10 @@ export class CrossChainBot extends BaseBot {
 
   protected override async onTxMined(receipt: TxReceipt, logCtx: object): Promise<void> {
     // Verify L2→L1 messages appeared in this tx's effects
-    const indexed = await this.node.getTxEffect(receipt.txHash);
-    if (indexed) {
-      const l2ToL1Msgs = indexed.data.l2ToL1Msgs.filter(m => !m.isZero());
+    const minedReceipt = await this.node.getTxReceipt(receipt.txHash, { includeTxEffect: true });
+    const l2ToL1MsgsRaw = minedReceipt.txEffect?.l2ToL1Msgs;
+    if (l2ToL1MsgsRaw) {
+      const l2ToL1Msgs = l2ToL1MsgsRaw.filter(m => !m.isZero());
       if (l2ToL1Msgs.length >= this.config.l2ToL1MessagesPerTx) {
         this.l2ToL1Sent += l2ToL1Msgs.length;
       } else {

@@ -11,13 +11,13 @@ policies:
         object_matchers:
           - - k8s_namespace_name
             - =~
-            - $STAGING_PUBLIC_REGEX
+            - $STAGING_REGEX
       # Staging Public - by network label
       - receiver: "Slack #alerts-staging-public by network"
         object_matchers:
           - - network
             - =~
-            - $STAGING_PUBLIC_REGEX
+            - $STAGING_REGEX
 
 
       # Next Scenario - by namespace

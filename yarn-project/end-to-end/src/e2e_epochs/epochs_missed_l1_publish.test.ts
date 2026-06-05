@@ -71,7 +71,6 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
-      enableProposerPipelining: true,
       inboxLag: 2,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
