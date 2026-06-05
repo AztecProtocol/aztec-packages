@@ -91,12 +91,12 @@ bool is_private_constrained_function(const nlohmann::json& function)
 }
 
 /**
- * @brief Get cached VK or generate if missing
+ * @brief Get cached VK or generate if missing, for a user-contract private function.
  */
-std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cache_dir,
-                                               const std::string& circuit_name,
-                                               const std::vector<uint8_t>& bytecode,
-                                               bool force)
+std::vector<uint8_t> get_or_generate_cached_app_vk(const std::filesystem::path& cache_dir,
+                                                   const std::string& circuit_name,
+                                                   const std::vector<uint8_t>& bytecode,
+                                                   bool force)
 {
     std::string hash_str = compute_bytecode_hash(bytecode);
     std::filesystem::path vk_cache_path = cache_dir / (hash_str + ".vk");
@@ -107,9 +107,7 @@ std::vector<uint8_t> get_or_generate_cached_vk(const std::filesystem::path& cach
         return read_file(vk_cache_path);
     }
 
-    // Generate new VK. `get_or_generate_cached_vk` is invoked for user-contract private functions
-    // (an offline / build-time helper, filesystem-cached by bytecode hash). Those are app circuits
-    // in the Chonk stack — pinned against MegaAppFlavor.
+    // Generate new VK (offline / build-time helper, filesystem-cached by bytecode hash).
     info("Generating verification key: ", hash_str);
     auto response =
         bbapi::ChonkComputeVk{ .circuit = { .name = circuit_name, .bytecode = bytecode }, .kind = CircuitKind::App }
@@ -159,7 +157,7 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
             auto bytecode = extract_bytecode(*function);
 
             // Generate and cache VK (can use parallel_for internally)
-            get_or_generate_cached_vk(cache_dir, fn_name, bytecode, force);
+            get_or_generate_cached_app_vk(cache_dir, fn_name, bytecode, force);
         }
     };
 

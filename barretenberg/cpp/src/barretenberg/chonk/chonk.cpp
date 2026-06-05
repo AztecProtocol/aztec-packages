@@ -24,39 +24,36 @@
 namespace bb {
 
 #ifndef NDEBUG
-namespace {
 template <typename NativeFlavor>
-auto run_native_folding_verifier(Chonk& chonk,
-                                 const std::shared_ptr<typename NativeFlavor::VerificationKey>& honk_vk,
-                                 const Chonk::VerifierInputs& queue_entry,
-                                 const std::shared_ptr<Chonk::Transcript>& verifier_transcript)
+void Chonk::run_native_folding_verifier(const std::shared_ptr<typename NativeFlavor::VerificationKey>& honk_vk,
+                                        const VerifierInputs& queue_entry,
+                                        const std::shared_ptr<Transcript>& verifier_transcript)
 {
     auto verifier_inst =
         std::make_shared<VerifierInstance_<NativeFlavor>>(std::make_shared<typename NativeFlavor::VKAndHash>(honk_vk));
     HypernovaFoldingVerifier<NativeFlavor> native_verifier(verifier_transcript);
-    if (queue_entry.type == Chonk::QUEUE_TYPE::OINK) {
+    if (queue_entry.type == QUEUE_TYPE::OINK) {
         auto [_first_verified, new_accumulator] =
             native_verifier.instance_to_accumulator(verifier_inst, queue_entry.proof);
-        chonk.native_verifier_accum = std::move(new_accumulator);
+        native_verifier_accum = std::move(new_accumulator);
         info("Sumcheck: instance to accumulator verified: ", _first_verified ? "true" : "false");
     } else {
         auto [_first_verified, _second_verified, new_accumulator] =
-            native_verifier.verify_folding_proof(verifier_inst, chonk.native_verifier_accum, queue_entry.proof);
-        chonk.native_verifier_accum = std::move(new_accumulator);
+            native_verifier.verify_folding_proof(verifier_inst, native_verifier_accum, queue_entry.proof);
+        native_verifier_accum = std::move(new_accumulator);
 
         info("Sumcheck: instance to accumulator verified: ", _first_verified ? "true" : "false");
         info("Sumcheck: batch two accumulators verified: ", _second_verified ? "true" : "false");
 
-        if (queue_entry.type == Chonk::QUEUE_TYPE::HN_FINAL) {
+        if (queue_entry.type == QUEUE_TYPE::HN_FINAL) {
             HypernovaDeciderVerifier<NativeFlavor> decider_verifier(verifier_transcript);
             bb::PairingPoints<curve::BN254> pairing_points =
-                decider_verifier.verify_proof(chonk.native_verifier_accum, chonk.decider_proof);
+                decider_verifier.verify_proof(native_verifier_accum, decider_proof);
 
             info("Decider: pairing points verified? ", pairing_points.check() ? "true" : "false");
         }
     }
 }
-} // namespace
 
 void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                                const std::shared_ptr<Transcript>& verifier_transcript)
@@ -64,9 +61,9 @@ void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry
     info("======= DEBUGGING INFO FOR NATIVE FOLDING STEP =======");
 
     if (queue_entry.is_kernel()) {
-        run_native_folding_verifier<KernelFlavor>(*this, queue_entry.kernel_honk_vk, queue_entry, verifier_transcript);
+        run_native_folding_verifier<KernelFlavor>(queue_entry.kernel_honk_vk, queue_entry, verifier_transcript);
     } else {
-        run_native_folding_verifier<AppFlavor>(*this, queue_entry.app_honk_vk, queue_entry, verifier_transcript);
+        run_native_folding_verifier<AppFlavor>(queue_entry.app_honk_vk, queue_entry, verifier_transcript);
     }
 
     info("Chonk accumulate: prover and verifier accumulators match: ",
@@ -420,8 +417,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
     if (!is_init_kernel) {
         current_stdlib_verifier_accumulator =
-            RecursiveVerifierAccumulator::stdlib_from_native<KernelRecursiveFlavor::Curve>(
-                &circuit, recursive_verifier_native_accum);
+            RecursiveVerifierAccumulator::stdlib_from_native<RecursiveCurve>(&circuit, recursive_verifier_native_accum);
     }
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
@@ -566,16 +562,14 @@ void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
     num_circuits_accumulated++;
 }
 
-namespace {
 // Templated body of accumulate_and_fold. Dispatched on InstanceFlavor (MegaAppFlavor for apps,
 // MegaKernelFlavor for kernels). The Hypernova accumulator is flavor-agnostic so apps and kernels
 // fold into the same `prover_accumulator`.
 template <typename InstanceFlavor>
-HonkProof run_oink_or_fold(Chonk& chonk,
-                           Chonk::ClientCircuit& circuit,
-                           Chonk::QUEUE_TYPE queue_type,
-                           const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk,
-                           const std::shared_ptr<Chonk::Transcript>& accumulation_transcript)
+HonkProof Chonk::run_oink_or_fold(ClientCircuit& circuit,
+                                  QUEUE_TYPE queue_type,
+                                  const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk,
+                                  const std::shared_ptr<Transcript>& accumulation_transcript)
 {
     using PI = ProverInstance_<InstanceFlavor>;
     BB_ASSERT(vk != nullptr, "Chonk::accumulate_and_fold - VK expected for the provided circuit");
@@ -586,27 +580,27 @@ HonkProof run_oink_or_fold(Chonk& chonk,
         block.free_data();
     }
 
-    Chonk::FoldingProver prover(accumulation_transcript);
+    FoldingProver prover(accumulation_transcript);
     HonkProof proof;
     switch (queue_type) {
-    case Chonk::QUEUE_TYPE::OINK:
+    case QUEUE_TYPE::OINK:
         vinfo("Accumulating first app circuit");
-        chonk.prover_accumulator = prover.template instance_to_accumulator<InstanceFlavor>(prover_instance, vk);
+        prover_accumulator = prover.template instance_to_accumulator<InstanceFlavor>(prover_instance, vk);
         proof = prover.export_proof();
         break;
-    case Chonk::QUEUE_TYPE::HN:
-    case Chonk::QUEUE_TYPE::HN_TAIL:
-        vinfo("Accumulating circuit number ", chonk.num_circuits_accumulated + 1);
-        std::tie(proof, chonk.prover_accumulator) =
-            prover.template fold<InstanceFlavor>(std::move(chonk.prover_accumulator), prover_instance, vk);
+    case QUEUE_TYPE::HN:
+    case QUEUE_TYPE::HN_TAIL:
+        vinfo("Accumulating circuit number ", num_circuits_accumulated + 1);
+        std::tie(proof, prover_accumulator) =
+            prover.template fold<InstanceFlavor>(std::move(prover_accumulator), prover_instance, vk);
         break;
-    case Chonk::QUEUE_TYPE::HN_FINAL: {
+    case QUEUE_TYPE::HN_FINAL: {
         vinfo("Accumulating tail kernel");
-        std::tie(proof, chonk.prover_accumulator) =
-            prover.template fold<InstanceFlavor>(std::move(chonk.prover_accumulator), prover_instance, vk);
+        std::tie(proof, prover_accumulator) =
+            prover.template fold<InstanceFlavor>(std::move(prover_accumulator), prover_instance, vk);
         auto decider_transcript = accumulation_transcript;
-        Chonk::DeciderProver decider(decider_transcript);
-        chonk.decider_proof = decider.construct_proof(chonk.prover_accumulator);
+        DeciderProver decider(decider_transcript);
+        decider_proof = decider.construct_proof(prover_accumulator);
         break;
     }
     default:
@@ -615,7 +609,6 @@ HonkProof run_oink_or_fold(Chonk& chonk,
     }
     return proof;
 }
-} // namespace
 
 void Chonk::accumulate_and_fold(ClientCircuit& circuit,
                                 CircuitKind kind,
@@ -644,11 +637,11 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
     queue_entry.kind = kind;
     if (kind == CircuitKind::Kernel) {
         auto kernel_vk = std::get<std::shared_ptr<KernelVerificationKey>>(vk);
-        proof = run_oink_or_fold<KernelFlavor>(*this, circuit, queue_type, kernel_vk, prover_accumulation_transcript);
+        proof = run_oink_or_fold<KernelFlavor>(circuit, queue_type, kernel_vk, prover_accumulation_transcript);
         queue_entry.kernel_honk_vk = std::move(kernel_vk);
     } else {
         auto app_vk = std::get<std::shared_ptr<AppVerificationKey>>(vk);
-        proof = run_oink_or_fold<AppFlavor>(*this, circuit, queue_type, app_vk, prover_accumulation_transcript);
+        proof = run_oink_or_fold<AppFlavor>(circuit, queue_type, app_vk, prover_accumulation_transcript);
         queue_entry.app_honk_vk = std::move(app_vk);
     }
     queue_entry.proof = std::move(proof);

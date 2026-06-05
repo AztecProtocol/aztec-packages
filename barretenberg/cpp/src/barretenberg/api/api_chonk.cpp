@@ -22,15 +22,6 @@
 namespace bb {
 namespace { // anonymous namespace
 
-/**
- * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
- * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
- * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
- *
- * @param bytecode ACIR bytecode of the circuit
- * @param output_path Directory to write the VK (or "-" for stdout)
- * @param flags API flags including output_format and circuit_kind (selects MegaApp / MegaKernel / MegaZK)
- */
 CircuitKind parse_circuit_kind(const std::string& s)
 {
     if (s == "app") {
@@ -46,6 +37,11 @@ CircuitKind parse_circuit_kind(const std::string& s)
     __builtin_unreachable();
 }
 
+/**
+ * @brief Compute and write a Chonk VK in the per-kind flavor selected by `flags.circuit_kind`
+ * (app → MegaApp, kernel → MegaKernel, hiding → MegaZK). Delegates to ChonkComputeVk; the dummy
+ * IVC inputs that make a kernel's recursion constraints satisfiable are handled in the ACIR layer.
+ */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
     const CircuitKind kind = parse_circuit_kind(flags.circuit_kind);

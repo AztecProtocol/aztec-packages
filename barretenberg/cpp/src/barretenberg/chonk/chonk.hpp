@@ -62,6 +62,7 @@ class Chonk {
     using AppRecursiveFlavor = MegaAppRecursiveFlavor;
     using KernelRecursiveFlavor = MegaKernelRecursiveFlavor;
     using StdlibFF = KernelRecursiveFlavor::FF;
+    using RecursiveCurve = KernelRecursiveFlavor::Curve;
     using RecursiveCommitment = KernelRecursiveFlavor::Commitment;
     using RecursiveTranscript = KernelRecursiveFlavor::Transcript;
     using AppRecursiveVerifierInstance = VerifierInstance_<AppRecursiveFlavor>;
@@ -282,6 +283,13 @@ class Chonk {
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
 
+    // Native (non-recursive) folding verification of a single queue entry, in `NativeFlavor`.
+    // Debug-only cross-check that the prover's accumulator matches a freshly verified one.
+    template <typename NativeFlavor>
+    void run_native_folding_verifier(const std::shared_ptr<typename NativeFlavor::VerificationKey>& honk_vk,
+                                     const VerifierInputs& queue_entry,
+                                     const std::shared_ptr<Transcript>& verifier_transcript);
+
 #endif
 
     PublicInputsResult process_kernel_public_inputs(std::vector<StdlibFF>& public_inputs,
@@ -294,6 +302,14 @@ class Chonk {
                              CircuitKind kind,
                              QUEUE_TYPE queue_type,
                              const CircuitVerificationKey& vk);
+
+    // Templated body of accumulate_and_fold: oink (first app) or fold the instance into
+    // `prover_accumulator`, running the decider on HN_FINAL. Dispatched on InstanceFlavor.
+    template <typename InstanceFlavor>
+    HonkProof run_oink_or_fold(ClientCircuit& circuit,
+                               QUEUE_TYPE queue_type,
+                               const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk,
+                               const std::shared_ptr<Transcript>& accumulation_transcript);
 
     void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk);
 
