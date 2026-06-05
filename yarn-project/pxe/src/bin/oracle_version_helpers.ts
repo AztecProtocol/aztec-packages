@@ -68,8 +68,8 @@ export function getOracleInterfaceSignature(sourcePath: string, targets: string[
  * changes, not just oracle additions and removals.
  *
  * Type expressions are captured as their source text (e.g. `OPTION(AZTEC_ADDRESS)`, `BOUNDED_VEC(NOTE)`), so the
- * signature tracks the composition of types. A change to how a leaf `TypeMapping` serializes without renaming it is
- * not captured here.
+ * signature tracks the composition of types. However, if the internal serialization logic of a `TypeMapping` constant
+ * (e.g. `FIELD`) changes without the constant being renamed, the hash will not change.
  *
  * @example
  * // Given a registry like:

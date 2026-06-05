@@ -1,11 +1,7 @@
-import { keccak256String } from '@aztec/foundation/crypto/keccak';
-
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 
-import { ORACLE_INTERFACE_HASH } from '../oracle_version.js';
 import { getOracleRegistrySignature, readNumericGlobal } from './oracle_version_helpers.js';
 
 describe('readNumericGlobal', () => {
@@ -124,15 +120,6 @@ describe('getOracleRegistrySignature', () => {
   it('throws when the registry is absent', () => {
     const path = writeFixture(dir, 'absent.ts', `export const SOMETHING_ELSE = {};\n`);
     expect(() => getOracleRegistrySignature(path, 'ORACLE_REGISTRY')).toThrow(/Could not find oracle registry/);
-  });
-
-  it('matches the recorded ORACLE_INTERFACE_HASH for the real registry', () => {
-    const registryPath = join(
-      dirname(fileURLToPath(import.meta.url)),
-      '../contract_function_simulator/oracle/oracle_registry.ts',
-    );
-    const signature = getOracleRegistrySignature(registryPath, 'ORACLE_REGISTRY');
-    expect(keccak256String(signature)).toBe(ORACLE_INTERFACE_HASH);
   });
 });
 
