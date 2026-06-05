@@ -88,4 +88,56 @@ describe('FactStore', () => {
     // The neighbouring entity is untouched.
     expect(await store.getEntityFacts(contract, scope, ENTITY, corrB)).toHaveLength(1);
   });
+
+  it('rollback deletes only retractable facts above the target block, keeping unanchored facts', async () => {
+    // Received (unanchored) + Processed@block 10.
+    await store.recordFact(contract, scope, ENTITY, corrA, RECEIVED, [new Fr(9n)], undefined, JOB);
+    await store.recordFact(
+      contract,
+      scope,
+      ENTITY,
+      corrA,
+      PROCESSED,
+      [],
+      { blockNumber: 10, blockHash: new Fr(1n) },
+      JOB,
+    );
+    await kv.transactionAsync(() => store.commit(JOB));
+
+    await kv.transactionAsync(() => store.rollback(5));
+
+    const facts = await store.getEntityFacts(contract, scope, ENTITY, corrA);
+    expect(facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt()]); // Processed pruned, Received kept
+    // Entity is still active because its unanchored Received survives.
+    expect((await store.activeEntities(contract, scope, ENTITY)).map(c => c.toBigInt())).toEqual([corrA.toBigInt()]);
+  });
+
+  it('rollback removes an entity from active enumeration when its last (anchored) fact is pruned', async () => {
+    // Only an anchored fact, no unanchored survivor.
+    await store.recordFact(
+      contract,
+      scope,
+      ENTITY,
+      corrA,
+      PROCESSED,
+      [],
+      { blockNumber: 10, blockHash: new Fr(1n) },
+      JOB,
+    );
+    await kv.transactionAsync(() => store.commit(JOB));
+
+    await kv.transactionAsync(() => store.rollback(5));
+
+    expect(await store.getEntityFacts(contract, scope, ENTITY, corrA)).toHaveLength(0);
+    expect(await store.activeEntities(contract, scope, ENTITY)).toHaveLength(0);
+  });
+
+  it('rollback throws while a job has staged writes', async () => {
+    await store.recordFact(contract, scope, ENTITY, corrA, RECEIVED, [new Fr(9n)], undefined, 'uncommitted-job');
+    await expect(kv.transactionAsync(() => store.rollback(0))).rejects.toThrow(
+      'PXE fact store rollback is not allowed while jobs are running',
+    );
+    await store.discardStaged('uncommitted-job');
+    await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
+  });
 });

@@ -181,6 +181,45 @@ export class FactStore implements StagedStore {
     return Promise.resolve();
   }
 
+  /**
+   * Delete-on-prune: removes every retractable fact anchored to a block strictly above `toBlock`. Non-retractable
+   * facts are untouched (they never enter `#factsByBlock`). Must run inside a caller-owned transaction (the reorg
+   * path wraps it with the sibling stores' rollbacks; IndexedDB has no nested transactions). Throws if any job has
+   * uncommitted staged writes, since rolling back mid-job could re-introduce facts anchored to deleted blocks.
+   */
+  async rollback(toBlock: number): Promise<void> {
+    if (this.#opsForJob.size > 0) {
+      throw new Error('PXE fact store rollback is not allowed while jobs are running');
+    }
+    // Snapshot before mutating so we never delete from the multimap we are iterating.
+    const orphaned: { block: number; rowKey: string }[] = [];
+    for await (const [block, rowKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
+      orphaned.push({ block, rowKey });
+    }
+    let removed = 0;
+    for (const { block, rowKey } of orphaned) {
+      const buf = await this.#facts.getAsync(rowKey);
+      const fact = buf ? StoredFact.fromBuffer(buf) : undefined;
+      await this.#facts.delete(rowKey);
+      await this.#factsByBlock.deleteValue(block, rowKey);
+      if (fact) {
+        const eKey = entityKeyOf(fact);
+        await this.#factsByEntity.deleteValue(eKey, rowKey);
+        // If the entity has no facts left, drop it from active enumeration.
+        let stillHasFact = false;
+        for await (const _ of this.#factsByEntity.getValuesAsync(eKey)) {
+          stillHasFact = true;
+          break;
+        }
+        if (!stillHasFact) {
+          await this.#entitiesByScope.deleteValue(scopeKeyOf(fact), fact.correlationKey.toString());
+        }
+      }
+      removed++;
+    }
+    this.logger.verbose('rolled back facts', { removed, toBlock });
+  }
+
   // ---- private helpers ----
 
   /** Deletes all facts for the given entity from every index. Called during commit for 'terminate' ops. */
