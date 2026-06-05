@@ -128,8 +128,7 @@ describe('e2e_pending_note_hashes_contract', () => {
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX but the constrained note log survives', async () => {
     // Kernel will squash the noteHash and its nullifier, but NOT the note log: constrained-delivery logs are not
     // linked to the note for squashing, because recipients discover them by scanning the per-secret tag sequence and
-    // a removed log would break the index chain. Note that constrained tagging is currently mocked with the
-    // unconstrained derivation (#14565), so this asserts the squash behavior ahead of real constrained tagging.
+    // a removed log would break the index chain.
     const mintAmount = 65n;
 
     const deployedContract = await deployContract();
