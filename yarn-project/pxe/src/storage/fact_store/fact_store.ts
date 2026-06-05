@@ -5,7 +5,15 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@azte
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
-import { type FactAnchor, StoredFact, entityKeyOf, factRowKeyOf, scopeKeyOf } from './stored_fact.js';
+import {
+  type FactAnchor,
+  StoredFact,
+  entityKey,
+  entityKeyOf,
+  factRowKeyOf,
+  scopeKey,
+  scopeKeyOf,
+} from './stored_fact.js';
 
 type JobId = string;
 
@@ -85,9 +93,9 @@ export class FactStore implements StagedStore {
     correlationKey: Fr,
   ): Promise<StoredFact[]> {
     return this.#store.transactionAsync(async () => {
-      const entityKey = `${contract}:${scope}:${entityTypeId}:${correlationKey}`;
+      const key = entityKey(contract, scope, entityTypeId, correlationKey);
       const facts: StoredFact[] = [];
-      for await (const rowKey of this.#factsByEntity.getValuesAsync(entityKey)) {
+      for await (const rowKey of this.#factsByEntity.getValuesAsync(key)) {
         const buf = await this.#facts.getAsync(rowKey);
         if (buf) {
           facts.push(StoredFact.fromBuffer(buf));
@@ -103,17 +111,20 @@ export class FactStore implements StagedStore {
    */
   async activeEntities(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr): Promise<Fr[]> {
     return this.#store.transactionAsync(async () => {
-      const scopeKey = `${contract}:${scope}:${entityTypeId}`;
+      const key = scopeKey(contract, scope, entityTypeId);
       const seen = new Set<string>();
       const result: Fr[] = [];
-      for await (const correlation of this.#entitiesByScope.getValuesAsync(scopeKey)) {
+      for await (const correlation of this.#entitiesByScope.getValuesAsync(key)) {
         if (seen.has(correlation)) {
           continue;
         }
         seen.add(correlation);
-        const entityKey = `${scopeKey}:${correlation}`;
+        // Guard against stale index entries: once terminate/rollback delete an entity's last fact, its
+        // correlation key should be gone from #entitiesByScope, but we re-check fact presence so a missed
+        // index update can never surface a ghost entity as active.
+        const entityRowKey = `${key}:${correlation}`;
         let hasFact = false;
-        for await (const _ of this.#factsByEntity.getValuesAsync(entityKey)) {
+        for await (const _ of this.#factsByEntity.getValuesAsync(entityRowKey)) {
           hasFact = true;
           break;
         }

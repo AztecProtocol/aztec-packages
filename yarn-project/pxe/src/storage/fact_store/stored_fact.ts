@@ -65,13 +65,23 @@ export class StoredFact {
 }
 
 /** Key that groups all entities of the same type within a contract+scope. */
+export function scopeKey(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr): string {
+  return `${contract}:${scope}:${entityTypeId}`;
+}
+
+/** Key that uniquely identifies a single entity (all its facts share this key prefix). */
+export function entityKey(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, correlationKey: Fr): string {
+  return `${scopeKey(contract, scope, entityTypeId)}:${correlationKey}`;
+}
+
+/** Key that groups all entities of the same type within a contract+scope. */
 export function scopeKeyOf(fact: StoredFact): string {
-  return `${fact.contractAddress}:${fact.scope}:${fact.entityTypeId}`;
+  return scopeKey(fact.contractAddress, fact.scope, fact.entityTypeId);
 }
 
 /** Key that uniquely identifies a single entity (all its facts share this key prefix). */
 export function entityKeyOf(fact: StoredFact): string {
-  return `${scopeKeyOf(fact)}:${fact.correlationKey}`;
+  return entityKey(fact.contractAddress, fact.scope, fact.entityTypeId, fact.correlationKey);
 }
 
 /** Dedup row key for a specific fact; incorporates a payload hash to bound key size for large payloads. */
