@@ -27,6 +27,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
+import { FactStore } from '../storage/fact_store/fact_store.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { BlockSynchronizer } from './block_synchronizer.js';
@@ -44,6 +45,7 @@ describe('BlockSynchronizer', () => {
   let anchorBlockStore: AnchorBlockStore;
   let noteStore: NoteStore;
   let privateEventStore: PrivateEventStore;
+  let factStore: FactStore;
   let aztecNode: MockProxy<AztecNode>;
   let getBlock: NodeGetBlockMock;
   let blockStream: MockProxy<L2BlockStream>;
@@ -62,6 +64,7 @@ describe('BlockSynchronizer', () => {
       anchorBlockStore,
       noteStore,
       privateEventStore,
+      factStore,
       tipsStore,
       contractSyncService,
       config,
@@ -110,6 +113,7 @@ describe('BlockSynchronizer', () => {
     anchorBlockStore = new AnchorBlockStore(store);
     noteStore = new NoteStore(store);
     privateEventStore = new PrivateEventStore(store);
+    factStore = new FactStore(store);
     contractSyncService = mock<ContractSyncService>();
     synchronizer = createSynchronizer();
   });

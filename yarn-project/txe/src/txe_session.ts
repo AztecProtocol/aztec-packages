@@ -10,6 +10,7 @@ import {
   CapsuleService,
   CapsuleStore,
   ContractStore,
+  FactStore,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -275,6 +276,7 @@ export class TXESession implements TXESessionStateHandler {
     const capsuleStore = new CapsuleStore(store);
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
+    const factStore = new FactStore(store);
 
     const jobCoordinator = new JobCoordinator(store);
     jobCoordinator.registerStores([
@@ -283,6 +285,7 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore,
       privateEventStore,
       noteStore,
+      factStore,
     ]);
 
     const archiver = new TXEArchiver(store);
