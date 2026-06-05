@@ -1047,12 +1047,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * and if they fail, any sequencer will try as well.
    * @param pendingChainValidationStatus - The archiver's pending-chain validation status, authoritative on its own.
    * @param currentSlot - The wall-clock slot, used for committee lookup, the per-(checkpoint, slot) dedup guard, and logging.
-   * @param syncedL2Slot - The synced L2 slot, included in logs when available (absent on the non-proposer path).
    */
   protected async considerInvalidatingCheckpoint(
     pendingChainValidationStatus: ValidateCheckpointResult,
     currentSlot: SlotNumber,
-    syncedL2Slot?: SlotNumber,
   ): Promise<void> {
     if (pendingChainValidationStatus.valid) {
       return;
@@ -1084,7 +1082,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const logData = {
       invalidL1Timestamp: invalidCheckpointTimestamp,
-      syncedL2Slot,
       invalidCheckpoint: pendingChainValidationStatus.checkpoint,
       secondsBeforeInvalidatingBlockAsCommitteeMember,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember,
