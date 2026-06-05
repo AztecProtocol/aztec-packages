@@ -13,7 +13,7 @@ describe('DeletedPool', () => {
   beforeEach(async () => {
     store = await openTmpStore('deleted-pool-test');
     txsDB = store.openMap('txs');
-    pool = new DeletedPool(store, txsDB, createLogger('test'));
+    pool = new DeletedPool(store, txHash => txsDB.delete(txHash), createLogger('test'));
     await pool.hydrateFromDatabase();
   });
 
@@ -111,7 +111,7 @@ describe('DeletedPool', () => {
       // Clear tx1 (re-mined higher), keep tx2
       await pool.clearIfMinedHigher('tx1', BlockNumber(12));
 
-      const pool2 = new DeletedPool(store, txsDB, createLogger('test2'));
+      const pool2 = new DeletedPool(store, txHash => txsDB.delete(txHash), createLogger('test2'));
       await pool2.hydrateFromDatabase();
 
       expect(pool2.isFromPrunedBlock('tx1')).toBe(false);
@@ -306,7 +306,7 @@ describe('DeletedPool', () => {
       ]);
 
       // Create a new pool instance with the same store
-      const pool2 = new DeletedPool(store, txsDB, createLogger('test2'));
+      const pool2 = new DeletedPool(store, txHash => txsDB.delete(txHash), createLogger('test2'));
       await pool2.hydrateFromDatabase();
 
       expect(pool2.isFromPrunedBlock('tx1')).toBe(true);
@@ -328,7 +328,7 @@ describe('DeletedPool', () => {
       await pool.finalizeBlock(BlockNumber(5));
 
       // Create a new pool instance with the same store
-      const pool2 = new DeletedPool(store, txsDB, createLogger('test2'));
+      const pool2 = new DeletedPool(store, txHash => txsDB.delete(txHash), createLogger('test2'));
       await pool2.hydrateFromDatabase();
 
       expect(pool2.isFromPrunedBlock('tx1')).toBe(false);
@@ -351,7 +351,7 @@ describe('DeletedPool', () => {
       expect(pool.isSoftDeleted('tx2')).toBe(false);
 
       // Create a new pool instance with the same store (simulates restart)
-      const pool2 = new DeletedPool(store, txsDB, createLogger('test2'));
+      const pool2 = new DeletedPool(store, txHash => txsDB.delete(txHash), createLogger('test2'));
       await pool2.hydrateFromDatabase();
 
       // Soft-deleted state should be preserved
@@ -487,7 +487,7 @@ describe('DeletedPool', () => {
       expect(await txsDB.getAsync('tx2')).toBeDefined();
 
       // Simulate restart
-      const pool2 = new DeletedPool(store, txsDB, createLogger('test2'));
+      const pool2 = new DeletedPool(store, txHash => txsDB.delete(txHash), createLogger('test2'));
       await pool2.hydrateFromDatabase();
 
       // Both should be hard-deleted after hydration
@@ -507,7 +507,7 @@ describe('DeletedPool', () => {
       await pool.deleteTx('tx2');
 
       // Simulate restart
-      const pool2 = new DeletedPool(store, txsDB, createLogger('test2'));
+      const pool2 = new DeletedPool(store, txHash => txsDB.delete(txHash), createLogger('test2'));
       await pool2.hydrateFromDatabase();
 
       // tx1 (prune-soft-deleted) should still be in DB
