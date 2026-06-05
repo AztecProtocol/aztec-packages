@@ -6,9 +6,19 @@
 > (`?jaccross=-1`); profiles D+E oracle-agree (giant buckets) with jac on; each new
 > kernel compiles once per pool (one-program holds); arena 93.71 MiB @ logN17
 > (≤160). Default stays **off** (`jacobianCrossover = 0`) — production auto-enable
-> is a device-specific tuning follow-up. The optional step-4 refinement (per-level
-> mid-cut + batched jac→affine convert) is NOT ported; the per-level `useJac[]`
-> mask IS (drive it with `?jaccross=<ppw-threshold>`).
+> is a device-specific tuning follow-up.
+>
+> **STATUS (step-4 — DONE, validated).** The per-level affine/Jacobian cut +
+> batched `ba_reduce_jac_to_affine` convert are ported (`?perlevel=1`, `?redsat=N`,
+> `?convc=N`, `?convbound=N`; default off). The convert is flat-slot (no
+> reduce_sched — converts all `[0, RED_M)` slots) and reuses `reducePrefScratch`
+> (capMAXC bumped to `ceil(stride/REDUCE_WG)` on a jac→affine flip). Validated on
+> M2: byte-identical logN 14-17 with perlevel on and with the convert force-enabled
+> (`?convbound=99999999`); D+E oracle-agree; convert compiles once/pool; arena
+> 94.96 MiB @ logN17. At logN17 `pickC=13` (redM≈82k ≤ default convbound 150k) so
+> the convert fires by default there. Commits: `702f3cbd44` (Thread 1),
+> `170b493bee` (step-4) — local, unpushed. **Remaining: Thread 2 (high-mem A/B
+> pingpong) + production auto-enable.**
 >
 > **Correction to the note below:** the **affine reduce is NOT identical on both
 > sides.** This branch moved `ba_reduce_level_bench` onto a per-window
