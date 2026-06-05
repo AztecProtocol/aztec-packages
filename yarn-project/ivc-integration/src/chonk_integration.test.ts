@@ -2,8 +2,10 @@ import { AztecClientBackend, BackendType, Barretenberg } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
+import { existsSync } from 'node:fs';
 import { ungzip } from 'pako';
 
+import { defaultBbBinaryPath, verifyChonkProofNatively } from './native_verify.js';
 import {
   MockAppCreatorCircuit,
   MockHidingCircuit,
@@ -53,6 +55,22 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
     // 5. Run the reset kernel to process the read request emitted by the reader app
     // 6. Run the tail kernel to finish the client IVC chain
     // 7. Run the hiding kernel.
+    // Independent confirmation that the proof bb.js produces (the same proofFields the
+    // browser WebGPU MSM path emits) is accepted by the native bb verifier — not just the
+    // in-process WASM verify. Skips if the native bb binary hasn't been built.
+    const bbBinaryPath = defaultBbBinaryPath();
+    const itNative = existsSync(bbBinaryPath) ? it : it.skip;
+    itNative('Should generate a client IVC proof that the native bb binary verifies', async () => {
+      const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0);
+      const backend = new AztecClientBackend(bytecodes, barretenberg);
+      const { proofFields, vk } = await backend.prove(witnessStack, vks);
+      const { verified, output } = await verifyChonkProofNatively(proofFields, vk, { bbBinaryPath });
+      if (!verified) {
+        logger.error(`Native bb verify failed:\n${output}`);
+      }
+      expect(verified).toBe(true);
+    });
+
     it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
       const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 1);
       const backend = new AztecClientBackend(bytecodes, barretenberg);

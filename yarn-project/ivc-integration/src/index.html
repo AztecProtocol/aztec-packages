@@ -230,6 +230,7 @@
         <button id="trace-webgpu" title="Capture ONE end-to-end Perfetto trace of a single WebGPU prove (WASM phases + host MSM bridge + GPU passes + memory, all on one clock). Saves + downloads the JSON; open it at ui.perfetto.dev. Needs a hardware GPU (SwiftShader fails verify).">Trace WebGPU</button>
         <button id="trace-wasm" title="Capture ONE end-to-end Perfetto trace of a single WASM prove (per-worker phase tree). Saves + downloads the JSON; open it at ui.perfetto.dev.">Trace WASM</button>
         <button id="run-percircuit" title="Run ONE traced WASM prove + ONE traced WebGPU prove and fill the per-circuit table below: witness-commit time per circuit, the WASM→WebGPU reduction, and which MSMs ran on the GPU. ~2 proves; independent of the median run buttons.">Per-circuit comparison</button>
+        <button id="native-verify-webgpu" title="Prove ONCE on the GPU (WebGPU MSM), then POST the proof to the dev server which runs the native `bb verify --scheme chonk` and reports whether it's accepted. Needs serve-chonk-webgpu.mjs + a built native bb; on a hardware GPU (SwiftShader proofs do not verify).">Native verify (WebGPU)</button>
         <button id="clear-log">Clear log</button>
       </div>
       <div id="progress" class="progress" style="display: none">

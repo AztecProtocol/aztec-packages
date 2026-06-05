@@ -23,6 +23,7 @@
 // hardware WebGPU available. Apple Safari has no WebGPU shipped yet (as
 // of 2026-05); use Chrome with `chrome://flags/#enable-unsafe-webgpu`
 // enabled on macOS.
+import { spawn } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, extname, join } from 'node:path';
@@ -34,6 +35,11 @@ const __dirname = dirname(__filename);
 const projectRoot = join(__dirname, '..');
 const distPath = join(projectRoot, 'dist');
 const pinnedInputsRoot = join(projectRoot, '..', 'end-to-end', 'example-app-ivc-inputs-out');
+
+// Native bb binary used by the /proof sink to verify a page-produced chonk proof
+// (repo-root/barretenberg/cpp/build/bin/bb, overridable via BB_BINARY_PATH).
+const bbBinaryPath =
+  process.env.BB_BINARY_PATH ?? join(projectRoot, '..', '..', 'barretenberg', 'cpp', 'build', 'bin', 'bb');
 
 const { values: argv } = parseArgs({
   options: {
@@ -72,6 +78,25 @@ function collectBody(req, res, maxBytes, onEnd) {
     }
   });
   req.on('end', () => onEnd(body));
+}
+
+// Run `bb verify --scheme chonk` on a written proof/vk pair (default ~/.bb-crs CRS).
+// Resolves with the process exit code (0 = proof accepted) and captured output.
+function runBbVerify(proofPath, vkPath) {
+  return new Promise((resolvePromise, reject) => {
+    if (!existsSync(bbBinaryPath)) {
+      reject(new Error(`native bb binary not found at ${bbBinaryPath} (set BB_BINARY_PATH)`));
+      return;
+    }
+    const proc = spawn(bbBinaryPath, ['verify', '--scheme', 'chonk', '--proof_path', proofPath, '--vk_path', vkPath], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let output = '';
+    proc.stdout.on('data', d => (output += d.toString()));
+    proc.stderr.on('data', d => (output += d.toString()));
+    proc.on('error', reject);
+    proc.on('close', code => resolvePromise({ exitCode: code ?? -1, output }));
+  });
 }
 
 if (!existsSync(join(distPath, 'index.html'))) {
@@ -252,6 +277,40 @@ const server = createServer((req, res) => {
         process.stdout.write(`  saved Perfetto trace: ${body.length} bytes → ${outFile}\n`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, bytes: body.length, path: outFile }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(String(e));
+      }
+    });
+    return;
+  }
+
+  // Native-verify sink: the page POSTs its chonk proof (the flat ChonkProof field
+  // elements, already in ChonkProof::to_field_elements() order) + the hiding-kernel
+  // vk as base64 JSON `{ proof, vk }`. We write them to disk in the exact layout the
+  // native `bb verify --scheme chonk` reads (proof = concatenated 32-byte fields, no
+  // length prefix) and run it — an independent check that a page-produced proof (e.g.
+  // via the WebGPU MSM path) is accepted by the native verifier. Optional ?label=<x>
+  // namespaces the output dir so off/on runs don't clobber each other.
+  if (req.method === 'POST' && url.split('?')[0] === '/proof') {
+    collectBody(req, res, 64 * 1024 * 1024, async body => {
+      try {
+        const { proof, vk } = JSON.parse(body);
+        const labelParam = new URL(url, 'http://localhost').searchParams.get('label');
+        const safeLabel = labelParam && /^[\w.-]+$/.test(labelParam) ? labelParam : 'proof';
+        const outDir = join('/tmp/zac-webgpu/chonk-native-proofs', safeLabel);
+        mkdirSync(outDir, { recursive: true });
+        const proofPath = join(outDir, 'proof');
+        const vkPath = join(outDir, 'vk');
+        writeFileSync(proofPath, Buffer.from(proof, 'base64'));
+        writeFileSync(vkPath, Buffer.from(vk, 'base64'));
+        process.stdout.write(`  saved chonk proof+vk → ${outDir}; running native bb verify…\n`);
+
+        const { exitCode, output } = await runBbVerify(proofPath, vkPath);
+        const verified = exitCode === 0;
+        process.stdout.write(`  native bb verify: verified=${verified} (exit ${exitCode})\n`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, verified, exitCode, dir: outDir, output }));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end(String(e));

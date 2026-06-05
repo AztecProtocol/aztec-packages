@@ -4,6 +4,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { Unpackr } from 'msgpackr';
 import { ungzip } from 'pako';
 
+import { concatChonkProofFields } from './chonk_native_proof.js';
+
 // The benchmark loads its inputs from a pinned ivc-inputs.msgpack instead
 // of the mock-circuit codegen (witgen.ts), so we deliberately don't import
 // witgen — pulling it in would require a full noir build of the mock
@@ -119,6 +121,8 @@ async function runChonkOnce(
 ): Promise<{
   result: ChonkWebGpuBenchRunResult;
   vk: Uint8Array;
+  /** The proof serialized as the native `bb verify --scheme chonk` reads it (concatenated field elements). */
+  nativeProof: Uint8Array;
   /** Phase-level BB_BENCH per-call trace JSON (Chrome Trace Event format), when benchTraceOpts set. */
   benchTraceJson?: string;
   /** performance.now() ms at backend.prove entry/exit — the host-clock prove window. */
@@ -176,7 +180,7 @@ async function runChonkOnce(
     // No-op when WebGPU is off (handle undefined / bridge not loaded).
     (window as any).__bridge_gpu_mem_reset?.();
     const t0 = performance.now();
-    const { proof, vk } = await backend.prove(witnessStack, vks);
+    const { proof, proofFields, vk } = await backend.prove(witnessStack, vks);
     const proveMs = performance.now() - t0;
     const proveEndMs = performance.now();
 
@@ -210,6 +214,7 @@ async function runChonkOnce(
         jsHeapMb,
       },
       vk,
+      nativeProof: concatChonkProofFields(proofFields),
       benchTraceJson,
       proveStartMs: t0,
       proveEndMs,
@@ -680,6 +685,8 @@ async function runChonkSingleMode(
   blocklist: readonly string[];
   result: ChonkWebGpuBenchRunResult;
   vk: Uint8Array;
+  /** The proof serialized as the native `bb verify --scheme chonk` reads it (concatenated field elements). */
+  nativeProof: Uint8Array;
   gpuPhase?: GpuPhaseBreakdown;
   /** WASM MSM-phase Perfetto trace JSON, set when `trace` and `mode==='wasm'`. */
   traceJson?: string;
@@ -756,6 +763,7 @@ async function runChonkSingleMode(
 
   let result: ChonkWebGpuBenchRunResult;
   let vk: Uint8Array;
+  let nativeProof: Uint8Array;
   try {
     const out = await runChonkOnce(
       useWebgpu,
@@ -771,6 +779,7 @@ async function runChonkSingleMode(
     );
     result = out.result;
     vk = out.vk;
+    nativeProof = out.nativeProof;
   } finally {
     if (useWebgpu) {
       console.log = origLog;
@@ -792,7 +801,7 @@ async function runChonkSingleMode(
 
   const gpuPhase = useWebgpu ? aggregateGpuPhase(bridgeLines, result.msmPhaseMs) : undefined;
   const traceJson = wasmTrace ? buildWasmMsmTrace(spanLines) : undefined;
-  return { flow, mode, adapter: adapterInfo, blocklist, result, vk, gpuPhase, traceJson };
+  return { flow, mode, adapter: adapterInfo, blocklist, result, vk, nativeProof, gpuPhase, traceJson };
 }
 
 /**
@@ -1715,6 +1724,66 @@ async function runChonkMedian(
 
 (window as any).runChonkSingleMode = runChonkSingleMode;
 
+/** Base64-encode a byte buffer in fixed-size chunks (avoids a call-stack blowup on big proofs). */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+/**
+ * Result of a single prove + native verify round trip via `runChonkNativeVerify`.
+ */
+interface ChonkNativeVerifyResult {
+  mode: 'wasm' | 'webgpu';
+  flow: string;
+  adapter: string;
+  /** In-browser WASM verify (from the prove itself). */
+  wasmVerified: boolean;
+  /** Native `bb verify --scheme chonk` verdict, from the dev server's /proof sink. */
+  nativeVerified: boolean;
+  /** bb exit code reported by the sink (0 = accepted). */
+  exitCode?: number;
+  proofBytes: number;
+}
+
+/**
+ * Prove a single chonk flow in `mode`, then POST the resulting proof + vk to the dev
+ * server's `/proof` sink, which runs the native `bb verify --scheme chonk` and returns
+ * the verdict. This is the end-to-end "does the page's (WebGPU) proof pass native
+ * verification" check. Requires `serve-chonk-webgpu.mjs` (the sink + native bb live there);
+ * the Puppeteer harness's createServer does not implement /proof.
+ */
+async function runChonkNativeVerify(
+  mode: 'wasm' | 'webgpu',
+  flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc',
+): Promise<ChonkNativeVerifyResult> {
+  const single = await runChonkSingleMode(mode, flow);
+  const res = await fetch(`/proof?label=${encodeURIComponent(mode)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ proof: bytesToBase64(single.nativeProof), vk: bytesToBase64(single.vk) }),
+  });
+  if (!res.ok) {
+    throw new Error(`/proof sink returned ${res.status}: ${await res.text()}`);
+  }
+  const sink = (await res.json()) as { verified: boolean; exitCode?: number };
+  return {
+    mode,
+    flow,
+    adapter: single.adapter,
+    wasmVerified: single.result.verified,
+    nativeVerified: sink.verified,
+    exitCode: sink.exitCode,
+    proofBytes: single.nativeProof.length,
+  };
+}
+
+(window as any).runChonkNativeVerify = runChonkNativeVerify;
+
 type RunMode = 'wasm' | 'webgpu' | 'batch';
 
 interface ModeMultiProgress {
@@ -2280,6 +2349,7 @@ function setupChonkWebGpuPage(): void {
   const traceBtnWebgpu = $<HTMLButtonElement>('trace-webgpu');
   const traceBtnWasm = $<HTMLButtonElement>('trace-wasm');
   const runPerCircuit = $<HTMLButtonElement>('run-percircuit');
+  const nativeVerifyWebgpu = $<HTMLButtonElement>('native-verify-webgpu');
   // Per-circuit breakdown: each WASM/WebGPU run does one extra traced prove and
   // the table (shown empty from the start) fills in as each mode completes.
   const pcPanel = $('percircuit-panel');
@@ -2839,6 +2909,36 @@ function setupChonkWebGpuPage(): void {
   };
   traceBtnWebgpu?.addEventListener('click', () => void captureTrace(true));
   traceBtnWasm?.addEventListener('click', () => void captureTrace(false));
+
+  // Native verify: ONE WebGPU prove, then POST proof+vk to the dev server's /proof
+  // sink which runs the native `bb verify --scheme chonk` and returns the verdict.
+  nativeVerifyWebgpu?.addEventListener('click', async () => {
+    setBusy(true, 'Native verify: 1 WebGPU prove + native bb verify');
+    try {
+      const flow = flowSel.value;
+      append(
+        `▶ Native verify: proving once on WebGPU (flow=${flow}), then running native bb verify on the dev server`,
+        'info',
+      );
+      const r = await runChonkNativeVerify('webgpu', flow);
+      append(
+        `  proof ${r.proofBytes} bytes · in-browser WASM verify=${r.wasmVerified} · native bb verify=${r.nativeVerified}` +
+          (r.exitCode !== undefined ? ` (bb exit ${r.exitCode})` : ''),
+        r.nativeVerified ? 'ok' : 'err',
+      );
+      append(
+        r.nativeVerified
+          ? '✓ The WebGPU-produced proof passes native verification.'
+          : '✗ Native verification FAILED — check the dev server log (and that it is serve-chonk-webgpu.mjs with a built native bb, on a hardware GPU).',
+        r.nativeVerified ? 'ok' : 'err',
+      );
+    } catch (err) {
+      append(`[ERR] native verify: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  });
 
   // Dedicated per-circuit table: one traced WASM prove + one traced WebGPU prove
   // (bench on), parsed into the WASM-vs-WebGPU per-circuit breakdown. Independent
