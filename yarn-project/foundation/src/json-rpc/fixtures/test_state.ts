@@ -130,14 +130,14 @@ export class TestState implements TestStateApi {
 }
 
 export const TestStateSchema: ApiSchemaFor<TestStateApi> = {
-  getNote: z.function().args(z.number()).returns(TestNote.schema.optional()),
-  getNotes: z.function().args(optional(schemas.Integer)).returns(z.array(TestNote.schema)),
-  getNotes2: z.function().args(optional(schemas.BigInt)).returns(z.array(TestNote.schema)),
-  getNotes3: z.function().args(optional(schemas.Integer)).returns(z.array(TestNote.schema)),
-  clear: z.function().returns(z.void()),
-  addNotes: z.function().args(z.array(TestNote.schema)).returns(z.array(TestNote.schema)),
-  fail: z.function().returns(z.void()),
-  count: z.function().returns(z.number()),
-  getStatus: z.function().returns(z.object({ status: z.string(), count: schemas.BigInt })),
-  getTuple: z.function().returns(z.tuple([z.string(), optional(z.string()), z.number()])),
+  getNote: z.function({ input: z.tuple([z.number()]), output: TestNote.schema.optional() }),
+  getNotes: z.function({ input: z.tuple([optional(schemas.Integer)]), output: z.array(TestNote.schema) }),
+  getNotes2: z.function({ input: z.tuple([optional(schemas.BigInt)]), output: z.array(TestNote.schema) }),
+  getNotes3: z.function({ input: z.tuple([optional(schemas.Integer)]), output: z.array(TestNote.schema) }),
+  clear: z.function({ input: z.tuple([]), output: z.void() }),
+  addNotes: z.function({ input: z.tuple([z.array(TestNote.schema)]), output: z.array(TestNote.schema) }),
+  fail: z.function({ input: z.tuple([]), output: z.void() }),
+  count: z.function({ input: z.tuple([]), output: z.number() }),
+  getStatus: z.function({ input: z.tuple([]), output: z.object({ status: z.string(), count: schemas.BigInt }) }),
+  getTuple: z.function({ input: z.tuple([]), output: z.tuple([z.string(), optional(z.string()), z.number()]) }),
 };

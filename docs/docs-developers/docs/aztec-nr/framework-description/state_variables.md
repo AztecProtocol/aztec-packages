@@ -273,9 +273,9 @@ When working with private state variables, many operations return a `NoteMessage
 #### Delivery Methods
 
 Private notes need to be communicated to their recipients so they know the note exists and can use it. The [`NoteMessage`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/note/struct.NoteMessage) wrapper forces you to make an explicit choice about how this happens:
-  - [`MessageDelivery.ONCHAIN_CONSTRAINED`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_CONSTRAINED): Verified in the circuit (most secure, but highest cost) - Use when the sender cannot be trusted to deliver correctly (e.g., protocol fees, multisig config updates). **Warning:** Currently [not fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565) - the log's tag is unconstrained.
-  - [`MessageDelivery.ONCHAIN_UNCONSTRAINED`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.ONCHAIN_UNCONSTRAINED): Message stored onchain but no guarantees on content - Use when the sender is incentivized to deliver correctly but may not have an offchain channel to the recipient.
-  - [`MessageDelivery.OFFCHAIN`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum#structfield.OFFCHAIN): Lowest cost, no onchain data - Use when the sender and recipient can communicate and the sender is incentivized to deliver correctly.
+  - [`MessageDelivery::onchain_constrained()`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/global.MessageDelivery): Verified in the circuit (most secure, but highest cost) - Use when the sender cannot be trusted to deliver correctly (e.g., protocol fees, multisig config updates). **Warning:** Currently [not fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565) - the log's tag is unconstrained.
+  - [`MessageDelivery::onchain_unconstrained()`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/global.MessageDelivery): Message stored onchain but no guarantees on content - Use when the sender is incentivized to deliver correctly but may not have an offchain channel to the recipient.
+  - [`MessageDelivery::offchain()`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/message_delivery/global.MessageDelivery): Lowest cost, no onchain data - Use when the sender and recipient can communicate and the sender is incentivized to deliver correctly.
 
 #include_code note_delivery /noir-projects/noir-contracts/contracts/app/private_token_contract/src/main.nr rust
 
@@ -324,7 +324,7 @@ fn perform_admin_action() {
     // value of the counter and can update it again in the future.
     self.storage.admin_call_count
         .replace(|current| UintNote{ value: current.value + 1 }) // wouldn't it be great if we didn't have to deal with this wrapping and unwrapping?
-        .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        .deliver(MessageDelivery::onchain_constrained());
 
     // ...
 }
@@ -381,7 +381,7 @@ This function allows us to get the note of a `PrivateMutable`, essentially readi
 #[external("private")]
 fn read_settings() {
     let owner = self.msg_sender();
-    self.storage.user_settings.at(owner).get_note().deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+    self.storage.user_settings.at(owner).get_note().deliver(MessageDelivery::onchain_constrained());
 }
 ```
 
@@ -484,11 +484,11 @@ When initializing, you still pass an owner address, but this specifies who can d
 
 ```rust
 // owner_address determines who can see the note, not where it's stored
-self.storage.admin.initialize(note, owner_address).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+self.storage.admin.initialize(note, owner_address).deliver(MessageDelivery::onchain_constrained());
 ```
 
 :::warning
-`SinglePrivateMutable` uses a nullify-and-recreate pattern when reading. Unless the caller is incentivized to deliver the note message correctly, you should use `MessageDelivery.ONCHAIN_CONSTRAINED` to prevent malicious actors from bricking the contract by failing to deliver the note.
+`SinglePrivateMutable` uses a nullify-and-recreate pattern when reading. Unless the caller is incentivized to deliver the note message correctly, you should use `MessageDelivery::onchain_constrained()` to prevent malicious actors from bricking the contract by failing to deliver the note.
 :::
 
 ## Containers
@@ -558,7 +558,7 @@ fn transfer(from: AztecAddress, to: AztecAddress, amount: u128) {
 
     // Access the balance for the 'to' address
     let new_note = UintNote { value: amount };
-    self.storage.balances.at(to).insert(new_note).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+    self.storage.balances.at(to).insert(new_note).deliver(MessageDelivery::onchain_unconstrained());
 }
 ```
 

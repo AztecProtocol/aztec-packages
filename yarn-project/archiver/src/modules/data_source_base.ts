@@ -17,25 +17,32 @@ import {
   type BlockTag,
   type BlocksQuery,
   Body,
+  type CheckpointQuery,
+  type CheckpointsQuery,
   L2Block,
   type L2Tips,
+  type ProposedCheckpointQuery,
 } from '@aztec/stdlib/block';
 import {
   Checkpoint,
   type CheckpointData,
-  type CommonCheckpointData,
   type ProposedCheckpointData,
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
+import {
+  type L1RollupConstants,
+  getEpochAtSlot,
+  getEpochNumberAtTimestamp,
+  getLastL1SlotTimestampForL2Slot,
+  getProofSubmissionDeadlineEpoch,
+  getSlotRangeForEpoch,
+} from '@aztec/stdlib/epoch-helpers';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
-import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import type { LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
+import type { L1ToL2MessageSource, L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import type { BlockHeader, IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import type { BlockHeader, IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiverDataSource } from '../interfaces.js';
@@ -142,11 +149,36 @@ export abstract class ArchiverDataSourceBase
 
   abstract syncImmediate(): Promise<void>;
 
-  public getCheckpointNumber(): Promise<CheckpointNumber> {
-    return this.stores.blocks.getLatestCheckpointNumber();
+  abstract getL2ToL1MembershipWitness(
+    txHash: TxHash,
+    message: Fr,
+    messageIndexInTx?: number,
+  ): Promise<L2ToL1MembershipWitness | undefined>;
+
+  public async isPruneDueAtSlot(slot: SlotNumber): Promise<boolean> {
+    if (!this.l1Constants) {
+      throw new Error('isPruneDueAtSlot requires l1Constants');
+    }
+    const tips = await this.getL2Tips();
+    const proven = tips.proven.checkpoint.number;
+    const pending = tips.checkpointed.checkpoint.number;
+    if (pending === proven) {
+      return false;
+    }
+
+    const oldestUnproven = await this.getCheckpointData({ number: CheckpointNumber(Number(proven) + 1) });
+    if (!oldestUnproven) {
+      return false;
+    }
+
+    const slotTs = getLastL1SlotTimestampForL2Slot(slot, this.l1Constants);
+    const slotEpoch = getEpochNumberAtTimestamp(slotTs, this.l1Constants);
+    const oldestUnprovenEpoch = getEpochAtSlot(oldestUnproven.header.slotNumber, this.l1Constants);
+    const deadlineEpoch = getProofSubmissionDeadlineEpoch(oldestUnprovenEpoch, this.l1Constants);
+    return slotEpoch >= deadlineEpoch;
   }
 
-  public getSynchedCheckpointNumber(): Promise<CheckpointNumber> {
+  public getCheckpointNumber(): Promise<CheckpointNumber> {
     return this.stores.blocks.getLatestCheckpointNumber();
   }
 
@@ -170,66 +202,94 @@ export abstract class ArchiverDataSourceBase
     return this.stores.blocks.getBlockNumber(resolved);
   }
 
-  public getProvenBlockNumber(): Promise<BlockNumber> {
-    return this.stores.blocks.getProvenBlockNumber();
-  }
-
-  public getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
-    return this.stores.blocks.getCheckpointedL2BlockNumber();
-  }
-
-  public getFinalizedL2BlockNumber(): Promise<BlockNumber> {
-    return this.stores.blocks.getFinalizedL2BlockNumber();
-  }
-
-  public async getCheckpointHeader(number: CheckpointNumber | 'latest'): Promise<CheckpointHeader | undefined> {
-    if (number === 'latest') {
-      number = await this.stores.blocks.getLatestCheckpointNumber();
+  /**
+   * Resolves a {@link CheckpointQuery} to a concrete `CheckpointNumber`, or undefined when the
+   * query refers to a position that has no checkpoint yet (e.g. `{ slot }` not found).
+   */
+  private resolveCheckpointQuery(query: CheckpointQuery): Promise<CheckpointNumber | undefined> {
+    if ('number' in query) {
+      return Promise.resolve(query.number);
     }
-    if (number === 0) {
+    if ('slot' in query) {
+      return this.stores.blocks.getCheckpointNumberBySlot(query.slot);
+    }
+    // tag variant
+    switch (query.tag) {
+      case 'checkpointed':
+        return this.stores.blocks.getLatestCheckpointNumber();
+      case 'proven':
+        return this.stores.blocks.getProvenCheckpointNumber();
+      case 'finalized':
+        return this.stores.blocks.getFinalizedCheckpointNumber();
+    }
+  }
+
+  /**
+   * Resolves a {@link CheckpointsQuery} to a concrete `{from, limit}` pair used by BlockStore,
+   * or undefined when the epoch has no checkpoints.
+   */
+  private async resolveCheckpointsQuery(
+    query: CheckpointsQuery,
+  ): Promise<{ from: CheckpointNumber; limit: number } | undefined> {
+    if ('from' in query) {
+      return query;
+    }
+    const numbers = await this.getCheckpointNumbersForEpoch(query.epoch);
+    if (numbers.length === 0) {
       return undefined;
     }
-    const checkpoint = await this.stores.blocks.getCheckpointData(number);
-    if (!checkpoint) {
+    return { from: numbers[0], limit: numbers.length };
+  }
+
+  public async getCheckpoint(query: CheckpointQuery): Promise<PublishedCheckpoint | undefined> {
+    const number = await this.resolveCheckpointQuery(query);
+    if (number === undefined || number === 0) {
       return undefined;
     }
-    return checkpoint.header;
-  }
-
-  public async getLastBlockNumberInCheckpoint(checkpointNumber: CheckpointNumber): Promise<BlockNumber | undefined> {
-    const checkpointData = await this.stores.blocks.getCheckpointData(checkpointNumber);
-    if (!checkpointData) {
+    const data = await this.stores.blocks.getCheckpointData(number);
+    if (!data) {
       return undefined;
     }
-    return BlockNumber(checkpointData.startBlock + checkpointData.blockCount - 1);
+    return this.getPublishedCheckpointFromCheckpointData(data);
   }
 
-  public getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined> {
-    return this.stores.blocks.getCheckpointData(checkpointNumber);
+  public async getCheckpoints(query: CheckpointsQuery): Promise<PublishedCheckpoint[]> {
+    const resolved = await this.resolveCheckpointsQuery(query);
+    if (!resolved) {
+      return [];
+    }
+    const checkpoints = await this.stores.blocks.getRangeOfCheckpoints(resolved.from, resolved.limit);
+    return Promise.all(checkpoints.map(ch => this.getPublishedCheckpointFromCheckpointData(ch)));
   }
 
-  public getCheckpointDataRange(from: CheckpointNumber, limit: number): Promise<CheckpointData[]> {
-    return this.stores.blocks.getRangeOfCheckpoints(from, limit);
+  public async getCheckpointData(query: CheckpointQuery): Promise<CheckpointData | undefined> {
+    const number = await this.resolveCheckpointQuery(query);
+    if (number === undefined || number === 0) {
+      return undefined;
+    }
+    return this.stores.blocks.getCheckpointData(number);
   }
 
-  public getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined> {
-    return this.stores.blocks.getCheckpointNumberBySlot(slot);
+  public async getCheckpointsData(query: CheckpointsQuery): Promise<CheckpointData[]> {
+    const resolved = await this.resolveCheckpointsQuery(query);
+    if (!resolved) {
+      return [];
+    }
+    return this.stores.blocks.getRangeOfCheckpoints(resolved.from, resolved.limit);
+  }
+
+  public getProposedCheckpointData(query?: ProposedCheckpointQuery): Promise<ProposedCheckpointData | undefined> {
+    if (!query || 'tag' in query) {
+      return this.stores.blocks.getLastProposedCheckpoint();
+    }
+    if ('number' in query) {
+      return this.stores.blocks.getProposedCheckpointByNumber(query.number);
+    }
+    return this.stores.blocks.getProposedCheckpointBySlot(query.slot);
   }
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.stores.blocks.getTxEffect(txHash);
-  }
-
-  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
-    return this.stores.blocks.getSettledTxReceipt(txHash, this.l1Constants);
-  }
-
-  public getLastCheckpoint(): Promise<CommonCheckpointData | undefined> {
-    return this.stores.blocks.getLastCheckpoint();
-  }
-
-  public getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
-    return this.stores.blocks.getLastProposedCheckpoint();
   }
 
   public isPendingChainInvalid(): Promise<boolean> {
@@ -240,29 +300,12 @@ export abstract class ArchiverDataSourceBase
     return (await this.stores.blocks.getPendingChainValidationStatus()) ?? { valid: true };
   }
 
-  public getPrivateLogsByTags(
-    tags: SiloedTag[],
-    page?: number,
-    upToBlockNumber?: BlockNumber,
-  ): Promise<TxScopedL2Log[][]> {
-    return this.stores.logs.getPrivateLogsByTags(tags, page, upToBlockNumber);
+  public getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+    return this.stores.logs.getPrivateLogsByTags(query);
   }
 
-  public getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    page?: number,
-    upToBlockNumber?: BlockNumber,
-  ): Promise<TxScopedL2Log[][]> {
-    return this.stores.logs.getPublicLogsByTagsFromContract(contractAddress, tags, page, upToBlockNumber);
-  }
-
-  public getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    return this.stores.logs.getPublicLogs(filter);
-  }
-
-  public getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    return this.stores.logs.getContractClassLogs(filter);
+  public getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+    return this.stores.logs.getPublicLogsByTags(query);
   }
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
@@ -310,11 +353,6 @@ export abstract class ArchiverDataSourceBase
     return this.stores.messages.getL1ToL2MessageIndex(l1ToL2Message);
   }
 
-  public async getCheckpoints(checkpointNumber: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
-    const checkpoints = await this.stores.blocks.getRangeOfCheckpoints(checkpointNumber, limit);
-    return Promise.all(checkpoints.map(ch => this.getPublishedCheckpointFromCheckpointData(ch)));
-  }
-
   private async getPublishedCheckpointFromCheckpointData(checkpoint: CheckpointData): Promise<PublishedCheckpoint> {
     const blocksForCheckpoint = await this.stores.blocks.getBlocksForCheckpoint(checkpoint.checkpointNumber);
     if (!blocksForCheckpoint) {
@@ -334,25 +372,8 @@ export abstract class ArchiverDataSourceBase
     return this.stores.blocks.getBlocksForSlot(slotNumber);
   }
 
-  public async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
-    const checkpointsData = await this.getCheckpointsDataForEpoch(epochNumber);
-    return Promise.all(
-      checkpointsData.map(data => this.getPublishedCheckpointFromCheckpointData(data).then(p => p.checkpoint)),
-    );
-  }
-
-  /** Returns checkpoint data for all checkpoints whose slot falls within the given epoch. */
-  public getCheckpointsDataForEpoch(epochNumber: EpochNumber): Promise<CheckpointData[]> {
-    if (!this.l1Constants) {
-      throw new Error('L1 constants not set');
-    }
-
-    const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1Constants);
-    return this.stores.blocks.getCheckpointDataForSlotRange(start, end);
-  }
-
   /** Returns just the checkpoint numbers for all checkpoints whose slot falls within the given epoch. */
-  public getCheckpointNumbersForEpoch(epochNumber: EpochNumber): Promise<CheckpointNumber[]> {
+  private getCheckpointNumbersForEpoch(epochNumber: EpochNumber): Promise<CheckpointNumber[]> {
     if (!this.l1Constants) {
       throw new Error('L1 constants not set');
     }

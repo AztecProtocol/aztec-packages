@@ -149,6 +149,35 @@ TYPED_TEST(PolynomialTests, EvaluationDomainMoveSelfAssign)
     EXPECT_EQ(domain.get_round_roots().size(), round_roots_before);
 }
 
+// EvaluationDomain::operator=(EvaluationDomain&&) leaves the moved-from object in the empty
+// default-constructed state (size == 0, round-root tables empty), restoring the invariant
+// `size > 0 implies roots tables populated`. Without this, a moved-from domain would report
+// size > 0 with empty round-roots, which is the partial-validity pattern flagged by audit.
+TYPED_TEST(PolynomialTests, EvaluationDomainMoveAssignClearsSource)
+{
+    using FF = TypeParam;
+    constexpr size_t n = 256;
+    auto src = EvaluationDomain<FF>(n);
+    src.compute_lookup_table();
+    EXPECT_GT(src.get_round_roots().size(), 0UL);
+
+    EvaluationDomain<FF> dst;
+    dst = std::move(src);
+
+    EXPECT_EQ(dst.size, n);
+    EXPECT_GT(dst.get_round_roots().size(), 0UL);
+
+    EXPECT_EQ(src.size, 0UL);
+    EXPECT_EQ(src.num_threads, 0UL);
+    EXPECT_EQ(src.thread_size, 0UL);
+    EXPECT_EQ(src.log2_size, 0UL);
+    EXPECT_EQ(src.log2_thread_size, 0UL);
+    EXPECT_EQ(src.log2_num_threads, 0UL);
+    EXPECT_EQ(src.generator_size, 0UL);
+    EXPECT_EQ(src.get_round_roots().size(), 0UL);
+    EXPECT_EQ(src.get_inverse_round_roots().size(), 0UL);
+}
+
 TYPED_TEST(PolynomialTests, domain_roots)
 {
     using FF = TypeParam;
@@ -366,14 +395,21 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
     // construct a new poly from the original via the move constructor
     Polynomial<FF> polynomial_b(std::move(polynomial_a));
 
-    // verifiy that source poly is appropriately destroyed
+    // The moved-from polynomial must report itself as empty in every accessor: size() == 0,
+    // virtual_size() == 0, is_empty() == true, data() == nullptr. Failure modes here are the
+    // inconsistent moved-from state flagged by audit (size > 0 with data == nullptr).
     EXPECT_EQ(polynomial_a.data(), nullptr);
+    EXPECT_EQ(polynomial_a.size(), 0UL);
+    EXPECT_EQ(polynomial_a.virtual_size(), 0UL);
+    EXPECT_TRUE(polynomial_a.is_empty());
 
     // construct another poly; this will also use the move constructor!
     auto polynomial_c = std::move(polynomial_b);
 
-    // verifiy that source poly is appropriately destroyed
     EXPECT_EQ(polynomial_b.data(), nullptr);
+    EXPECT_EQ(polynomial_b.size(), 0UL);
+    EXPECT_EQ(polynomial_b.virtual_size(), 0UL);
+    EXPECT_TRUE(polynomial_b.is_empty());
 
     // define a poly with some arbitrary coefficients
     Polynomial<FF> polynomial_d(num_coeffs);
@@ -384,8 +420,10 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
     // reset its data using move assignment
     polynomial_d = std::move(polynomial_c);
 
-    // verifiy that source poly is appropriately destroyed
     EXPECT_EQ(polynomial_c.data(), nullptr);
+    EXPECT_EQ(polynomial_c.size(), 0UL);
+    EXPECT_EQ(polynomial_c.virtual_size(), 0UL);
+    EXPECT_TRUE(polynomial_c.is_empty());
 }
 
 TYPED_TEST(PolynomialTests, default_construct_then_assign)
@@ -457,8 +495,8 @@ TEST(polynomials, ParseSizeStringOverflowAsserts)
     ASSERT_THROW_OR_ABORT(parse_size_string("18014398509481984k"), ".*");
 }
 
-#ifndef NDEBUG
-// compute_efficient_interpolation asserts (debug-only) when evaluation points are not all distinct.
+// compute_efficient_interpolation asserts (always-on, not _DEBUG) when evaluation points are not all distinct,
+// because batch_invert silently skips zero entries and would otherwise produce wrong output.
 TEST(polynomials, ComputeEfficientInterpolationDuplicatePointsAsserts)
 {
     GTEST_FLAG_SET(death_test_style, "threadsafe");
@@ -470,7 +508,6 @@ TEST(polynomials, ComputeEfficientInterpolationDuplicatePointsAsserts)
     ASSERT_THROW_OR_ABORT(
         polynomial_arithmetic::compute_efficient_interpolation<FF>(src.data(), dest.data(), points.data(), n), ".*");
 }
-#endif
 
 // fft_inner_parallel asserts when called in-place (coeffs == target).
 TEST(polynomials, FftInnerParallelInPlaceAsserts)

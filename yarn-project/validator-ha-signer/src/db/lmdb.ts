@@ -13,6 +13,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
 
 import type { SlashingProtectionDatabase, TryInsertOrGetResult } from '../types.js';
 import {
@@ -23,6 +24,48 @@ import {
   getBlockIndexFromDutyIdentifier,
   recordFromFields,
 } from './types.js';
+
+const DUTIES_MAP_NAME = 'signing-protection-duties';
+const LEGACY_CHECKPOINT_NUMBER = '0';
+
+type StoredDutyRecordV1 = Omit<StoredDutyRecord, 'checkpointNumber'> & { checkpointNumber?: undefined };
+type MigratableStoredDutyRecord = StoredDutyRecord | StoredDutyRecordV1;
+
+function needsCheckpointNumberMigration(record: MigratableStoredDutyRecord): record is StoredDutyRecordV1 {
+  return record.checkpointNumber === undefined;
+}
+
+/**
+ * Migrates local slashing-protection duties from schema 1 to schema 2.
+ */
+export async function migrateLmdbSlashingProtectionDatabase(
+  dataDirectory: string,
+  currentVersion: number,
+  latestVersion: number,
+  dbMapSizeKb?: number,
+): Promise<void> {
+  if (currentVersion !== 1 || latestVersion !== LmdbSlashingProtectionDatabase.SCHEMA_VERSION) {
+    throw new Error(`Unsupported LMDB slashing-protection migration ${currentVersion} -> ${latestVersion}`);
+  }
+
+  const store = await openStoreAt(dataDirectory, dbMapSizeKb);
+  try {
+    const duties = store.openMap<string, MigratableStoredDutyRecord>(DUTIES_MAP_NAME);
+    const migratedRecords: { key: string; value: StoredDutyRecord }[] = [];
+
+    for await (const [key, record] of duties.entriesAsync()) {
+      if (needsCheckpointNumberMigration(record)) {
+        migratedRecords.push({ key, value: { ...record, checkpointNumber: LEGACY_CHECKPOINT_NUMBER } });
+      }
+    }
+
+    if (migratedRecords.length > 0) {
+      await duties.setMany(migratedRecords);
+    }
+  } finally {
+    await store.close();
+  }
+}
 
 function dutyKey(
   rollupAddress: string,
@@ -51,7 +94,7 @@ export class LmdbSlashingProtectionDatabase implements SlashingProtectionDatabas
     private readonly dateProvider: DateProvider,
   ) {
     this.log = createLogger('slashing-protection:lmdb');
-    this.duties = store.openMap<string, StoredDutyRecord>('signing-protection-duties');
+    this.duties = store.openMap<string, StoredDutyRecord>(DUTIES_MAP_NAME);
   }
 
   /**

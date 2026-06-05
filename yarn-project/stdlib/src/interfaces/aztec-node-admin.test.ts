@@ -57,6 +57,14 @@ describe('AztecNodeAdminApiSchema', () => {
     await context.client.resumeSync();
   });
 
+  it('pauseSequencer', async () => {
+    await context.client.pauseSequencer();
+  });
+
+  it('resumeSequencer', async () => {
+    await context.client.resumeSequencer();
+  });
+
   it('getSlashOffenses', async () => {
     const offenses = await context.client.getSlashOffenses('all');
     expect(offenses).toHaveLength(1);
@@ -107,18 +115,20 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashAmountLarge: 2000n,
       slashValidatorsAlways: [],
       slashValidatorsNever: [],
-      slashPrunePenalty: 1000n,
       slashDataWithholdingPenalty: 1000n,
+      slashDataWithholdingToleranceSlots: 3,
       slashInactivityTargetPercentage: 0.5,
       slashInactivityConsecutiveEpochThreshold: 1,
       slashInactivityPenalty: 1000n,
       slashBroadcastedInvalidBlockPenalty: 1n,
+      slashBroadcastedInvalidCheckpointProposalPenalty: 1n,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,
+      slashAttestInvalidCheckpointProposalPenalty: 1000n,
       secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
       slashProposeInvalidAttestationsPenalty: 1000n,
-      slashAttestDescendantOfInvalidPenalty: 1000n,
+      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 1000n,
       slashOffenseExpirationRounds: 4,
       slashMaxPayloadSize: 50,
       slashUnknownPenalty: 1000n,
@@ -136,9 +146,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       maxStuckDutiesAgeMs: 72000,
       dataStoreMapSizeKb: 128 * 1024 * 1024,
       l1ChainId: 1,
-      l1Contracts: {
-        rollupAddress: EthAddress.random(),
-      },
+      rollupAddress: EthAddress.random(),
     });
   }
   startSnapshotUpload(_location: string): Promise<void> {
@@ -151,6 +159,12 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     return Promise.resolve();
   }
   resumeSync(): Promise<void> {
+    return Promise.resolve();
+  }
+  pauseSequencer(): Promise<void> {
+    return Promise.resolve();
+  }
+  resumeSequencer(): Promise<void> {
     return Promise.resolve();
   }
   reloadKeystore(): Promise<void> {

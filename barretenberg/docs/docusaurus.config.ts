@@ -262,17 +262,6 @@ const config: Config = {
           className: "code-block-error-line",
           line: "this-will-error",
         },
-        // This could be used to have release-please modify the current version in code blocks.
-        // However doing so requires to manually add each md file to release-please-config.json/extra-files
-        // which is easy to forget an error prone, so instead we rely on the AztecPackagesVersion() function.
-        {
-          line: "x-release-please-version",
-          block: {
-            start: "x-release-please-start-version",
-            end: "x-release-please-end",
-          },
-          className: "not-allowed-to-be-empty",
-        },
       ],
     },
   } satisfies Preset.ThemeConfig,

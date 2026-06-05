@@ -12,7 +12,9 @@ pub(crate) mod internal;
 
 use abi_export::create_fn_abi_export;
 use external::{
-    private::generate_private_external, public::generate_public_external, utility::generate_utility_external,
+    private::generate_private_external,
+    public::{generate_public_external, generate_public_self_creator, generate_public_self_creator_from_context},
+    utility::{generate_utility_external, generate_utility_self_creator},
 };
 use internal::{generate_private_internal, generate_public_internal};
 
@@ -47,6 +49,35 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
     let transformed_utility_functions =
         utility_functions.map(|function| generate_utility_external(function)).join(quote {});
 
+    // INTERNAL FUNCTIONS
+    let private_internal_functions = internal_functions_registry::get_private_functions(m);
+    let public_internal_functions = internal_functions_registry::get_public_functions(m);
+
+    // Emit per-contract helpers that construct `self` for public functions, so the preamble is not duplicated into
+    // every public function body. The creator takes a `PublicContext` and is shared by both public external functions
+    // (via `__aztec_nr_internals__create_public_self`) and public internal functions, which receive the context as a
+    // parameter. We only emit each helper if there is a caller for it.
+    let any_public_function = public_functions.len() > 0 | public_internal_functions.len() > 0;
+    let public_self_creator_from_context = if any_public_function {
+        generate_public_self_creator_from_context(m)
+    } else {
+        quote {}
+    };
+    let public_self_creator = if public_functions.len() > 0 {
+        generate_public_self_creator(m)
+    } else {
+        quote {}
+    };
+
+    // Same idea for utility functions: emit a per-contract helper that builds the `self` value, so the construction is
+    // not duplicated into every utility body. UtilityContext takes no calldata, so a single helper is enough; there is
+    // no internal/external split to share with.
+    let utility_self_creator = if utility_functions.len() > 0 {
+        generate_utility_self_creator(m)
+    } else {
+        quote {}
+    };
+
     // Now that we have generated quotes of the new functions based on the original function definitions, we replace
     // the original functions' bodies with `static_assert(false, ...)` to prevent them from being called directly from
     // within the contract. We also need to set the return type to `()` to avoid compilation errors.
@@ -62,10 +93,6 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
         utility_functions,
         "Direct invocation of utility functions is not supported. You attempted to call ",
     );
-
-    // INTERNAL FUNCTIONS
-    let private_internal_functions = internal_functions_registry::get_private_functions(m);
-    let public_internal_functions = internal_functions_registry::get_public_functions(m);
 
     let generated_private_internal_functions =
         private_internal_functions.map(|function| generate_private_internal(function)).join(quote {});
@@ -84,6 +111,9 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
 
     // We return the new functions' quotes to be injected into the contract.
     quote {
+        $public_self_creator_from_context
+        $public_self_creator
+        $utility_self_creator
         $transformed_private_functions
         $transformed_public_functions
         $transformed_utility_functions

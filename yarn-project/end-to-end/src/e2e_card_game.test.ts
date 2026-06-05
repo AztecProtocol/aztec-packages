@@ -9,6 +9,7 @@ import { CardGameContract } from '@aztec/noir-contracts.js/CardGame';
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 /* eslint-disable camelcase */
@@ -86,7 +87,7 @@ describe('e2e_card_game', () => {
   };
 
   beforeAll(async () => {
-    const context = await setup(3);
+    const context = await setup(3, { ...AUTOMINE_E2E_OPTS });
     ({ logger, teardown, wallet } = context);
 
     [firstPlayer, secondPlayer, thirdPlayer] = context.accounts;

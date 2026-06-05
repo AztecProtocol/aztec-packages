@@ -12,13 +12,13 @@ const { AZTEC_NODE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://local
 describe('e2e_cheat_codes', () => {
   const logger = createLogger('e2e:cheat_codes');
   let aztecNode: AztecNode;
-  let nodeDebug: AztecNodeDebug;
+  let nodeDebug: AztecNode & AztecNodeDebug;
   let cheatCodes: CheatCodes;
 
   beforeAll(async () => {
     aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
     await waitForNode(aztecNode, logger);
-    nodeDebug = createAztecNodeDebugClient(AZTEC_NODE_URL);
+    nodeDebug = Object.assign({}, aztecNode, createAztecNodeDebugClient(AZTEC_NODE_URL));
     const l1RpcUrls = ETHEREUM_HOSTS.split(',');
     cheatCodes = await CheatCodes.create(l1RpcUrls, aztecNode, new DateProvider());
   });
@@ -71,14 +71,30 @@ describe('e2e_cheat_codes', () => {
 
   it('warpL2TimeAtLeastTo with target in current slot auto-adjusts to next slot', async () => {
     // Target is 1 second ahead of L1 time — still in the current slot, so auto-adjust should kick in.
-    const currentL1Timestamp = Number(await cheatCodes.eth.lastBlockTimestamp());
-    const targetTimestamp = currentL1Timestamp + 1;
-    await cheatCodes.warpL2TimeAtLeastTo(nodeDebug, targetTimestamp);
-
-    const blockNumber = await aztecNode.getBlockNumber();
-    const block = await aztecNode.getBlock(blockNumber);
-    expect(block).toBeDefined();
-    expect(Number(block!.header.globalVariables.timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
+    // The sequencer running in this composed test advances L1 by a full slot when it proposes a block,
+    // and that warp can land between our `lastBlockTimestamp()` read and the cheat code's internal
+    // re-read, racing `currentL1 + 1` into the past. Retry on that specific race with a fresh target;
+    // a subsequent slot-jump within the retry window is improbable enough that a small cap suffices.
+    const maxAttempts = 5;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const currentL1Timestamp = Number(await cheatCodes.eth.lastBlockTimestamp());
+      const targetTimestamp = currentL1Timestamp + 1;
+      try {
+        await cheatCodes.warpL2TimeAtLeastTo(nodeDebug, targetTimestamp);
+        const blockNumber = await aztecNode.getBlockNumber();
+        const block = await aztecNode.getBlock(blockNumber);
+        expect(block).toBeDefined();
+        expect(Number(block!.header.globalVariables.timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
+        return;
+      } catch (err) {
+        lastError = err;
+        if (!(err instanceof Error) || !err.message.includes('is not in the future')) {
+          throw err;
+        }
+      }
+    }
+    throw lastError;
   });
 
   it('warpL2TimeAtLeastTo with past timestamp throws', async () => {

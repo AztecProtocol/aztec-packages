@@ -34,7 +34,7 @@ async function createSharedDeps(
 
   // Note that we do NOT bind them to the rollup address, since we still need to
   // monitor and cancel txs for previous rollups to free up our nonces.
-  const noRollupConfig = omit(config, 'l1Contracts');
+  const noRollupConfig = omit(config, 'rollupAddress');
   const kvStore = await createStore(L1_TX_STORE_NAME, L1TxStore.SCHEMA_VERSION, noRollupConfig, logger.getBindings());
   const store = new L1TxStore(kvStore, logger);
 

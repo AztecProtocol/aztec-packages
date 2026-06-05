@@ -45,7 +45,6 @@ import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
-import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
@@ -85,6 +84,7 @@ import {
 import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { BlockHash } from '../block/block_hash.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import {
   type ContractClassPublic,
@@ -124,12 +124,13 @@ import {
   PublicCallRequest,
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
-import { PublicKeys, computeAddress } from '../keys/index.js';
-import { ExtendedDirectionalAppTaggingSecret } from '../logs/extended_directional_app_tagging_secret.js';
+import { PublicKey, PublicKeys, computeAddress, hashPublicKey } from '../keys/index.js';
+import { AppTaggingSecret } from '../logs/app_tagging_secret.js';
+import { AppTaggingSecretKind } from '../logs/app_tagging_secret_kind.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
+import type { LogResult } from '../logs/log_result.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
-import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
@@ -253,7 +254,7 @@ function makeScopedReadRequest(n: number): ScopedReadRequest {
  * @returns A KeyValidationRequest.
  */
 function makeKeyValidationRequests(seed: number): KeyValidationRequest {
-  return new KeyValidationRequest(makePoint(seed), fr(seed + 2));
+  return new KeyValidationRequest(fr(seed), fr(seed + 2));
 }
 
 /**
@@ -578,7 +579,7 @@ export function makeVerificationKeyAsFields(size: number): VerificationKeyAsFiel
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return new Point(fr(seed), fr(seed + 1), false);
+  return new Point(fr(seed), fr(seed + 1));
 }
 
 /**
@@ -747,15 +748,6 @@ export function makeBytes(size = 32, fill = 1): Buffer {
  */
 export function makeAztecAddress(seed = 1): AztecAddress {
   return AztecAddress.fromField(fr(seed));
-}
-
-/**
- * Makes arbitrary Schnorr signature.
- * @param seed - The seed to use for generating the Schnorr signature.
- * @returns A Schnorr signature.
- */
-export function makeSchnorrSignature(seed = 1): SchnorrSignature {
-  return new SchnorrSignature(Buffer.alloc(SchnorrSignature.SIZE, seed));
 }
 
 function makeBlockConstantData(seed = 1, globalVariables?: GlobalVariables) {
@@ -1230,8 +1222,15 @@ export async function makeMapAsync<T>(size: number, fn: (i: number) => Promise<[
 
 export async function makePublicKeys(seed = 0): Promise<PublicKeys> {
   const f = (offset: number) => Grumpkin.mul(Grumpkin.generator, new Fq(seed + offset));
-
-  return new PublicKeys(await f(0), await f(1), await f(2), await f(3));
+  const ivpkM = await f(1);
+  return new PublicKeys(
+    await hashPublicKey(await f(0)),
+    ivpkM,
+    await hashPublicKey(await f(2)),
+    await hashPublicKey(await f(3)),
+    await hashPublicKey(await f(4)),
+    await hashPublicKey(await f(5)),
+  );
 }
 
 export async function makeContractInstanceFromClassId(
@@ -1240,6 +1239,7 @@ export async function makeContractInstanceFromClassId(
   overrides?: {
     deployer?: AztecAddress;
     initializationHash?: Fr;
+    immutablesHash?: Fr;
     publicKeys?: PublicKeys;
     currentClassId?: Fr;
   },
@@ -1248,21 +1248,24 @@ export async function makeContractInstanceFromClassId(
   const initializationHash = overrides?.initializationHash ?? new Fr(seed + 1);
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
   const publicKeys = overrides?.publicKeys ?? (await makePublicKeys(seed + 3));
+  const immutablesHash = overrides?.immutablesHash ?? new Fr(seed + 4);
 
   const partialAddress = await computePartialAddress({
     originalContractClassId: classId,
     salt,
     initializationHash,
+    immutablesHash,
     deployer,
   });
   const address = await computeAddress(publicKeys, partialAddress);
   return new SerializableContractInstance({
-    version: 1,
+    version: 2,
     salt,
     deployer,
     currentContractClassId: overrides?.currentClassId ?? classId,
     originalContractClassId: classId,
     initializationHash,
+    immutablesHash,
     publicKeys,
   }).withAddress(address);
 }
@@ -1440,11 +1443,14 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
     new Fr(seed + 0x6),
+    new Fr(seed + 0x7),
     new PublicKeys(
-      new Point(new Fr(seed + 0x7), new Fr(seed + 0x8), false),
-      new Point(new Fr(seed + 0x9), new Fr(seed + 0x10), false),
-      new Point(new Fr(seed + 0x11), new Fr(seed + 0x12), false),
-      new Point(new Fr(seed + 0x13), new Fr(seed + 0x14), false),
+      new Fr(seed + 0x7),
+      new PublicKey(new Fr(seed + 0x9), new Fr(seed + 0x10)),
+      new Fr(seed + 0x11),
+      new Fr(seed + 0x13),
+      new Fr(seed + 0x15),
+      new Fr(seed + 0x17),
     ),
   );
 }
@@ -1637,47 +1643,71 @@ export function fr(n: number): Fr {
   return new Fr(BigInt(n));
 }
 
-/**
- * Creates a random TxScopedL2Log with private log data.
- */
-export function randomTxScopedPrivateL2Log(opts?: {
+/** Creates a random {@link LogResult} with private-log-shaped data. `includeEffects` populates `noteHashes` + `nullifiers`. */
+export function randomPrivateLogResult(opts?: {
   tag?: Fr;
   txHash?: TxHash;
   blockNumber?: number;
+  blockHash?: BlockHash;
   blockTimestamp?: bigint;
+  txIndexWithinBlock?: number;
+  logIndexWithinTx?: number;
   noteHashes?: Fr[];
-  firstNullifier?: Fr;
-}) {
+  nullifiers?: Fr[];
+  includeEffects?: boolean;
+}): LogResult {
   const log = PrivateLog.random(opts?.tag);
-  return new TxScopedL2Log(
-    opts?.txHash ?? TxHash.random(),
-    BlockNumber(opts?.blockNumber ?? 1),
-    opts?.blockTimestamp ?? 1n,
-    log.getEmittedFields(),
-    opts?.noteHashes ?? [Fr.random(), Fr.random()],
-    opts?.firstNullifier ?? Fr.random(),
-  );
+  const includeEffects = opts?.includeEffects ?? (opts?.noteHashes !== undefined || opts?.nullifiers !== undefined);
+  const base: LogResult = {
+    logData: log.getEmittedFields(),
+    blockNumber: BlockNumber(opts?.blockNumber ?? 1),
+    blockHash: opts?.blockHash ?? BlockHash.random(),
+    blockTimestamp: opts?.blockTimestamp ?? 1n,
+    txHash: opts?.txHash ?? TxHash.random(),
+    txIndexWithinBlock: opts?.txIndexWithinBlock ?? 0,
+    logIndexWithinTx: opts?.logIndexWithinTx ?? 0,
+  };
+  if (includeEffects) {
+    return {
+      ...base,
+      noteHashes: opts?.noteHashes ?? [Fr.random(), Fr.random()],
+      nullifiers: opts?.nullifiers ?? [Fr.random()],
+    };
+  }
+  return base;
 }
 
-/**
- * Creates a random TxScopedL2Log with public log data.
- */
-export async function randomTxScopedPublicL2Log(opts?: {
+/** Creates a random {@link LogResult} with public-log-shaped data. `includeEffects` populates `noteHashes` + `nullifiers`. */
+export async function randomPublicLogResult(opts?: {
   txHash?: TxHash;
   blockNumber?: number;
+  blockHash?: BlockHash;
   blockTimestamp?: bigint;
+  txIndexWithinBlock?: number;
+  logIndexWithinTx?: number;
   noteHashes?: Fr[];
-  firstNullifier?: Fr;
-}) {
+  nullifiers?: Fr[];
+  includeEffects?: boolean;
+}): Promise<LogResult> {
   const log = await PublicLog.random();
-  return new TxScopedL2Log(
-    opts?.txHash ?? TxHash.random(),
-    BlockNumber(opts?.blockNumber ?? 1),
-    opts?.blockTimestamp ?? 1n,
-    log.getEmittedFields(),
-    opts?.noteHashes ?? [Fr.random(), Fr.random()],
-    opts?.firstNullifier ?? Fr.random(),
-  );
+  const includeEffects = opts?.includeEffects ?? (opts?.noteHashes !== undefined || opts?.nullifiers !== undefined);
+  const base: LogResult = {
+    logData: log.getEmittedFields(),
+    blockNumber: BlockNumber(opts?.blockNumber ?? 1),
+    blockHash: opts?.blockHash ?? BlockHash.random(),
+    blockTimestamp: opts?.blockTimestamp ?? 1n,
+    txHash: opts?.txHash ?? TxHash.random(),
+    txIndexWithinBlock: opts?.txIndexWithinBlock ?? 0,
+    logIndexWithinTx: opts?.logIndexWithinTx ?? 0,
+  };
+  if (includeEffects) {
+    return {
+      ...base,
+      noteHashes: opts?.noteHashes ?? [Fr.random(), Fr.random()],
+      nullifiers: opts?.nullifiers ?? [Fr.random()],
+    };
+  }
+  return base;
 }
 
 /**
@@ -1724,10 +1754,7 @@ export function makeL2Tips(
   };
 }
 
-export async function randomExtendedDirectionalAppTaggingSecret(): Promise<ExtendedDirectionalAppTaggingSecret> {
+export async function randomAppTaggingSecret(kind: AppTaggingSecretKind): Promise<AppTaggingSecret> {
   const resolvedApp = await AztecAddress.random();
-  // Using the fromString method like this is messy as it leaks the underlying serialization format but I don't want to
-  // expose the type's constructor just for tests since in prod the secret is always constructed via compute. Also this
-  // method is tested in extended_directional_app_tagging_secret.test.ts hence all should be fine.
-  return ExtendedDirectionalAppTaggingSecret.fromString(`${Fr.random().toString()}:${resolvedApp.toString()}`);
+  return new AppTaggingSecret(Fr.random(), resolvedApp, kind);
 }

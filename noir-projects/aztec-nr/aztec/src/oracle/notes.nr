@@ -176,19 +176,35 @@ where
 
 // TODO: Oracles below are generic private log oracles and are not specific to notes. Move them somewhere else.
 
-/// Returns the next app tag for a given sender and recipient pair.
+/// Returns the sender-side app tagging secret for a `(sender, recipient)` pair.
 ///
-/// This also notifies the simulator that a tag has been used in a note, and to therefore increment the associated
-/// index so that future notes get a different tag and can be discovered by the recipient. This change should only be
-/// persisted in a non-volatile database if the tagged log is found in an actual block - otherwise e.g. a reverting
-/// transaction can cause the sender to accidentally skip indices and later produce notes that are not found by the
-/// recipient.
-pub unconstrained fn get_next_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
-    get_next_app_tag_as_sender_oracle(sender, recipient)
+/// The secret is resolved by the simulator rather than computed by the contract.
+///
+/// Returns `None` for an invalid recipient address.
+pub unconstrained fn get_app_tagging_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
+    get_app_tagging_secret_oracle(sender, recipient)
 }
 
-#[oracle(aztec_prv_getNextAppTagAsSender)]
-unconstrained fn get_next_app_tag_as_sender_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Field {}
+#[oracle(aztec_prv_getAppTaggingSecret)]
+unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient: AztecAddress) -> Option<Field> {}
+
+/// Returns the next sender-side tagging index for a given secret and delivery mode.
+///
+/// The caller already holds the tagging `secret`, whether obtained from [`get_app_tagging_secret`] or computed by the
+/// contract, and only needs the simulator to hand out a fresh per-secret, per-mode index; the caller computes the tag
+/// itself. `mode` is one of [`ONCHAIN_UNCONSTRAINED`](crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED) /
+/// [`ONCHAIN_CONSTRAINED`](crate::messages::message_delivery::ONCHAIN_CONSTRAINED) and determines the per-mode index
+/// counter. Offchain messages are not tagged, so only the onchain delivery variants should reach this oracle.
+///
+/// The simulator persists the index increment only if the tagged log is found in an actual block; a reverting
+/// transaction can otherwise cause the sender to skip indices and later produce notes that are not found by the
+/// recipient.
+pub unconstrained fn get_next_tagging_index(secret: Field, mode: u8) -> u32 {
+    get_next_tagging_index_oracle(secret, mode)
+}
+
+#[oracle(aztec_prv_getNextTaggingIndex)]
+unconstrained fn get_next_tagging_index_oracle(_secret: Field, _mode: u8) -> u32 {}
 
 /// Gets the sender for tags.
 ///
@@ -196,27 +212,29 @@ unconstrained fn get_next_app_tag_as_sender_oracle(_sender: AztecAddress, _recip
 /// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
 /// sender, and hence about the shared secret.
 ///
-/// Returns the initial default unless the current contract call has overridden it via `set_sender_for_tags`.
-/// Overrides made by other contracts in the call stack are not visible here.
-pub unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
+/// Returns the wallet-supplied default sender for tags, or `None` if no default was provided.
+pub(crate) unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
     get_sender_for_tags_oracle()
 }
 
 #[oracle(aztec_prv_getSenderForTags)]
 unconstrained fn get_sender_for_tags_oracle() -> Option<AztecAddress> {}
 
-/// Sets the sender for tags.
-///
-/// This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
-/// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
-/// sender, and hence about the shared secret.
-///
-/// The override is scoped to the current contract call. It does not propagate to nested calls (which always start
-/// from the initial default), nor to siblings or parents. The default is typically set by the wallet (to the
-/// originating account), so most contracts do not need to call this setter.
-pub unconstrained fn set_sender_for_tags(sender_for_tags: AztecAddress) {
-    set_sender_for_tags_oracle(sender_for_tags);
-}
+mod test {
+    use crate::macros::oracle_testing::oracle_test;
+    use crate::protocol::{address::AztecAddress, traits::FromField};
+    use super::get_sender_for_tags_oracle;
 
-#[oracle(aztec_prv_setSenderForTags)]
-unconstrained fn set_sender_for_tags_oracle(_sender_for_tags: AztecAddress) {}
+    #[oracle_test("some")]
+    unconstrained fn get_sender_for_tags_some() {
+        let result = get_sender_for_tags_oracle();
+        assert(result.is_some(), "expected Some");
+        assert_eq(result.unwrap(), AztecAddress::from_field(42));
+    }
+
+    #[oracle_test("none")]
+    unconstrained fn get_sender_for_tags_none() {
+        let result = get_sender_for_tags_oracle();
+        assert(result.is_none(), "expected None");
+    }
+}

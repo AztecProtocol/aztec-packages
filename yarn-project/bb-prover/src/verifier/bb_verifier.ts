@@ -15,22 +15,28 @@ import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { promises as fs } from 'fs';
 
-import { BBJsProverFactory } from '../bb/bb_js_backend.js';
+import { BBJsFactory } from '../bb/bb_js_backend.js';
 import type { BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
-  private bbJsFactory: BBJsProverFactory;
+  private bbJsFactory: BBJsFactory;
 
   private constructor(
     private config: BBConfig,
     private logger: Logger,
   ) {
-    this.bbJsFactory = new BBJsProverFactory(config.bbBinaryPath, logger, undefined, config.bbDebugOutputDir);
+    // BB_NUM_IVC_VERIFIERS bounds the number of long-lived bb processes the pool keeps alive.
+    // If 0, fall back to spawning a fresh bb per verification.
+    this.bbJsFactory = new BBJsFactory(config.bbBinaryPath, {
+      poolSize: config.numConcurrentIVCVerifiers > 0 ? config.numConcurrentIVCVerifiers : undefined,
+      logger,
+      debugDir: config.bbDebugOutputDir,
+    });
   }
 
   public stop(): Promise<void> {
-    return Promise.resolve();
+    return this.bbJsFactory.destroy();
   }
 
   public static async new(config: BBConfig, logger = createLogger('bb-prover:verifier')) {
@@ -60,8 +66,12 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     const publicInputFields = splitBufferToFieldArrays(proof.buffer.subarray(0, proof.numPublicInputs * 32));
     const proofFields = splitBufferToFieldArrays(proof.buffer.subarray(proof.numPublicInputs * 32));
 
-    const { verified, durationMs } = await this.bbJsFactory.withVerifierInstance(instance =>
-      instance.verifyProof(proofFields, verificationKey.keyAsBytes, publicInputFields, flavor),
+    await using instance = await this.bbJsFactory.getInstance();
+    const { verified, durationMs } = await instance.verifyProof(
+      proofFields,
+      verificationKey.keyAsBytes,
+      publicInputFields,
+      flavor,
     );
 
     if (!verified) {
@@ -89,9 +99,8 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       const proofWithPubInputs = tx.chonkProof.attachPublicInputs(tx.data.publicInputs().toFields());
       const fieldsAsBuffers = proofWithPubInputs.fieldsWithPublicInputs.map(f => new Uint8Array(f.toBuffer()));
 
-      const { verified, durationMs } = await this.bbJsFactory.withVerifierInstance(instance =>
-        instance.verifyChonkProof(fieldsAsBuffers, verificationKey.keyAsBytes),
-      );
+      await using instance = await this.bbJsFactory.getInstance();
+      const { verified, durationMs } = await instance.verifyChonkProof(fieldsAsBuffers, verificationKey.keyAsBytes);
 
       if (!verified) {
         throw new Error(`Failed to verify ${proofType} proof for ${circuit}!`);

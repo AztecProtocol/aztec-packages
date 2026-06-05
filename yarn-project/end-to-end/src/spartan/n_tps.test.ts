@@ -6,6 +6,7 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { AccountManager } from '@aztec/aztec.js/wallet';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -14,7 +15,7 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
-import { type Gas, GasFees } from '@aztec/stdlib/gas';
+import { type Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -62,6 +63,8 @@ if (lowValueAccounts + highValueAccounts <= 0) {
 }
 
 const CHAOS_MESH_NAME = 'network-shaping';
+const MIN_FEE_REFRESH_INTERVAL_MS = 5_000;
+const HIGH_VALUE_FEE_MULTIPLIER = 10n;
 
 const p2pLatencyQuery = (perc: string, topicName: TopicType) =>
   `histogram_quantile(${perc}, sum(rate(aztec_p2p_gossip_message_latency_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}", aztec_gossip_topic_name="${topicName}"}[1m])) by (le))`;
@@ -318,7 +321,7 @@ describe('sustained N TPS test', () => {
           wallet,
           secret,
           new SchnorrAccountContract(deriveSigningKey(secret)),
-          salt,
+          { salt },
         );
         const deployMethod = await manager.getDeployMethod();
         // Explicit gas estimation: BaseWallet's fallback bakes
@@ -376,38 +379,85 @@ describe('sustained N TPS test', () => {
     benchmarkGasEstimate = estimateSim.estimatedGas;
     logger.info('Benchmark tx estimated gas', { gasLimits: benchmarkGasEstimate?.gasLimits });
 
-    // Pre-fetch the network's current minimum priority fee and bake in a 10× buffer
-    // for the whole run. Priority fee is sponsor-paid, so over-bidding is free; the
-    // only risk is under-bidding (network rejects with `Tx does not meet minimum
-    // priority fee`). 10× keeps us well above mempool-pressure-driven ratcheting
-    // over a ~10 min run. If you see those rejections on longer runs, switch to
-    // periodic refresh or on-error refresh inside buildAndSend.
-    const currentMinFees = await aztecNode.getCurrentMinFees();
-    priorityFeeBase = new GasFees(currentMinFees.feePerDaGas * 10n, currentMinFees.feePerL2Gas * 10n);
-    logger.info('Priority fee base (10x current min)', {
-      daGas: priorityFeeBase.feePerDaGas.toString(),
-      l2Gas: priorityFeeBase.feePerL2Gas.toString(),
+    const currentMinFees = await refreshMinFees();
+    logger.info('Initial min fee quote', {
+      daGas: currentMinFees.feePerDaGas.toString(),
+      l2Gas: currentMinFees.feePerL2Gas.toString(),
     });
 
     logger.info(`Test setup complete`);
   });
 
   let benchmarkGasEstimate: { gasLimits: Gas; teardownGasLimits: Gas } | undefined;
-  let priorityFeeBase: GasFees;
+  let cachedMinFees: GasFees | undefined;
+  let nextMinFeeRefreshAt = 0;
+  let minFeeRefreshPromise: Promise<GasFees> | undefined;
+
+  const refreshMinFees = async (): Promise<GasFees> => {
+    if (minFeeRefreshPromise) {
+      return minFeeRefreshPromise;
+    }
+
+    minFeeRefreshPromise = aztecNode.getCurrentMinFees();
+    try {
+      const minFees = await minFeeRefreshPromise;
+      cachedMinFees = minFees;
+      nextMinFeeRefreshAt = Date.now() + MIN_FEE_REFRESH_INTERVAL_MS;
+      logger.debug('Refreshed min fee quote', {
+        daGas: minFees.feePerDaGas.toString(),
+        l2Gas: minFees.feePerL2Gas.toString(),
+      });
+      return minFees;
+    } finally {
+      minFeeRefreshPromise = undefined;
+    }
+  };
+
+  const getMinFeesForSend = async (): Promise<GasFees> => {
+    if (!cachedMinFees || Date.now() >= nextMinFeeRefreshAt) {
+      return await refreshMinFees();
+    }
+    return cachedMinFees;
+  };
+
+  const getLowValueFeeQuote = async (txCount: number): Promise<FeeQuote> => {
+    const minFees = await getMinFeesForSend();
+    const feeBump = BigInt(Math.floor(txCount / 1000) + 1);
+    const priorityFeeL2 = minFees.feePerL2Gas * feeBump;
+    const maxFeeL2 = priorityFeeL2 > minFees.feePerL2Gas ? priorityFeeL2 : minFees.feePerL2Gas;
+    return {
+      maxFeesPerGas: new GasFees(minFees.feePerDaGas, maxFeeL2),
+      maxPriorityFeesPerGas: new GasFees(0n, priorityFeeL2),
+    };
+  };
+
+  const getHighValueFeeQuote = async (jitter: bigint): Promise<FeeQuote> => {
+    const minFees = await getMinFeesForSend();
+    const priorityFee = new GasFees(
+      minFees.feePerDaGas * HIGH_VALUE_FEE_MULTIPLIER,
+      minFees.feePerL2Gas * HIGH_VALUE_FEE_MULTIPLIER + jitter,
+    );
+    return { maxFeesPerGas: priorityFee, maxPriorityFeesPerGas: priorityFee };
+  };
 
   const submitProven = async (
     wallet: WorkerWallet,
     walletNode: AztecNode,
     from: AztecAddress,
-    maxPriorityFeesPerGas: GasFees = GasFees.empty(),
+    feeQuote?: FeeQuote,
   ): Promise<ProvenTx> => {
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
     const interaction = benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42));
+    const gasSettings: BenchmarkGasSettings = { ...benchmarkGasEstimate, maxPriorityFeesPerGas: GasFees.empty() };
+    if (feeQuote) {
+      gasSettings.maxFeesPerGas = feeQuote.maxFeesPerGas;
+      gasSettings.maxPriorityFeesPerGas = feeQuote.maxPriorityFeesPerGas;
+    }
     const interactionOptions = {
       from,
       fee: {
         paymentMethod: sponsor,
-        gasSettings: { maxPriorityFeesPerGas, ...benchmarkGasEstimate },
+        gasSettings,
       },
     };
     const execPayload = await interaction.request(interactionOptions);
@@ -426,7 +476,7 @@ describe('sustained N TPS test', () => {
     wallet: WorkerWallet,
     walletNode: AztecNode,
     from: AztecAddress,
-    priorytFee: GasFees = GasFees.empty(),
+    feeQuote: FeeQuote,
   ) => {
     const key = from.toString();
     let prototypeTx = prototypeTxs.get(key);
@@ -435,7 +485,7 @@ describe('sustained N TPS test', () => {
       prototypeTxs.set(key, prototypeTx);
     }
 
-    const tx = await cloneTx(prototypeTx, priorytFee, logger);
+    const tx = await cloneTx(prototypeTx, feeQuote, logger);
     return tx;
   };
 
@@ -453,14 +503,14 @@ describe('sustained N TPS test', () => {
     wallet: WorkerWallet,
     walletNode: AztecNode,
     from: AztecAddress,
-    fee: GasFees,
+    feeQuote: FeeQuote,
     beforeSend?: (tx: ProvenTx) => void,
   ): Promise<{ txHash: string; cloneMs: number; sendMs: number }> => {
     for (let attempt = 1; ; attempt++) {
       const t0 = performance.now();
       const tx = await (config.REAL_VERIFIER
-        ? submitProven(wallet, walletNode, from, fee)
-        : submitUnproven(wallet, walletNode, from, fee));
+        ? submitProven(wallet, walletNode, from, feeQuote)
+        : submitUnproven(wallet, walletNode, from, feeQuote));
       const t1 = performance.now();
       beforeSend?.(tx);
       try {
@@ -494,17 +544,16 @@ describe('sustained N TPS test', () => {
     let lowValueTxs = 0;
     const lowValueSendTx = async (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => {
       lowValueTxs++;
-      // Low-value lane stays near the network min — it's allowed to fail fee checks
-      // (simulates "cheap txs" that should be displaced by high-value). Scale with
-      // txs sent so late txs pay more than early txs, preserving ordering semantics.
-      const bumpL2 = (priorityFeeBase.feePerL2Gas / 10n) * BigInt(Math.floor(lowValueTxs / 1000) + 1);
-      const fee = new GasFees(0n, bumpL2);
+      // Low-value lane stays near the network min to simulate cheap txs that should be
+      // displaced by high-value txs, while still tracking the current fee floor.
+      const feeQuote = await getLowValueFeeQuote(lowValueTxs);
 
-      const { txHash, cloneMs, sendMs } = await buildAndSend(wallet, walletNode, from, fee);
+      const { txHash, cloneMs, sendMs } = await buildAndSend(wallet, walletNode, from, feeQuote);
 
       logger.info('Low value tx sent', {
         txNum: lowValueTxs,
-        feeL2: bumpL2.toString(),
+        feeL2: feeQuote.maxPriorityFeesPerGas.feePerL2Gas.toString(),
+        maxFeeL2: feeQuote.maxFeesPerGas.feePerL2Gas.toString(),
         cloneMs,
         sendMs,
         totalMs: cloneMs + sendMs,
@@ -515,14 +564,11 @@ describe('sustained N TPS test', () => {
     let highValueTxs = 0;
     const highValueSendTx = async (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => {
       highValueTxs++;
-      // High-value lane pays 10× the pre-fetched network min + tiny jitter to preserve
-      // fee-ordering diversity between wallets. Safely above any mempool-pressure
-      // ratcheting observed during a ~10 min run.
       const jitter = BigInt(Number(randomBigInt(10n)));
-      const fee = new GasFees(priorityFeeBase.feePerDaGas, priorityFeeBase.feePerL2Gas + jitter);
-      const feeAmount = Number(fee.feePerL2Gas);
+      const feeQuote = await getHighValueFeeQuote(jitter);
+      const feeAmount = Number(feeQuote.maxPriorityFeesPerGas.feePerL2Gas);
 
-      const { txHash, cloneMs, sendMs } = await buildAndSend(wallet, walletNode, from, fee, tx =>
+      const { txHash, cloneMs, sendMs } = await buildAndSend(wallet, walletNode, from, feeQuote, tx =>
         metrics.recordSentTx(tx, 'tx_inclusion_time'),
       );
 
@@ -552,6 +598,34 @@ describe('sustained N TPS test', () => {
     }));
     const startedAt = new Date().toISOString();
 
+    // Block-watcher: stamps wall-clock minedAtMs on each sent tx the first time
+    // its block becomes visible to this client. Runs throughout sending AND the
+    // post-window waitForTx tail so late blocks still get a true client-observed
+    // timestamp. recordMinedTx (in waitForTx) is the slow-path fallback for any
+    // tx the watcher misses.
+    let lastSeenBlock = await aztecNode.getBlockNumber();
+    const blockWatcher = new RunningPromise(
+      async () => {
+        const current = await aztecNode.getBlockNumber();
+        while (lastSeenBlock < current) {
+          const n = BlockNumber.add(lastSeenBlock, 1);
+          const block = await aztecNode.getBlock(n, { includeTransactions: true });
+          lastSeenBlock = n;
+          if (!block) {
+            continue;
+          }
+          metrics.observeBlockForMinedTxs(
+            n,
+            block.body.txEffects.map(t => t.txHash),
+            Date.now(),
+          );
+        }
+      },
+      logger,
+      1000,
+    );
+    blockWatcher.start();
+
     sendTxsAtTps(logger, abortController.signal, lowValueLanes, lowValueTps, lowValueSendTx);
     const sentTxHashes = sendTxsAtTps(logger, abortController.signal, highValueLanes, highValueTps, highValueSendTx);
 
@@ -563,11 +637,6 @@ describe('sustained N TPS test', () => {
       highValueTxs,
       highValueSent: sentTxHashes.length,
     });
-
-    // metadata about the test run for the scraper script
-    const metadataPath = '/tmp/n_tps_timing_data.json';
-    await writeFile(metadataPath, JSON.stringify({ startedAt, endedAt, runId: process.env.BENCH_RUN_ID }));
-    logger.info('Wrote benchmark metadata', { path: metadataPath, startedAt, endedAt });
 
     const results: { success: boolean; txHash: string; error?: any }[] = [];
     const waitForTx = async (txHash: string, txName: string) => {
@@ -599,13 +668,32 @@ describe('sustained N TPS test', () => {
     };
 
     let index = 0;
-    logger.info('Waiting for high-value txs to be mined', { totalSent: sentTxHashes.length });
+    const totalHighValueSent = sentTxHashes.length;
+    logger.info('Waiting for high-value txs to be mined', { totalSent: totalHighValueSent });
     while (sentTxHashes.length > 0) {
       const chunk = sentTxHashes.splice(0, 10);
       await Promise.all(chunk.map((txHash, idx) => waitForTx(txHash, `highValueTx_${idx + 1 + index}`)));
       index += chunk.length;
       logger.debug('Processed tx batch', { processed: index, remaining: sentTxHashes.length });
     }
+
+    await blockWatcher.stop();
+
+    // Metadata + per-tx inclusion records for the bench_scrape script. Records
+    // are filtered to the high-value group, so this is the authoritative
+    // client-observed inclusion-latency dataset for the run.
+    const inclusionRecords = metrics.getInclusionRecords('tx_inclusion_time');
+    const metadataPath = '/tmp/n_tps_timing_data.json';
+    await writeFile(
+      metadataPath,
+      JSON.stringify({ startedAt, endedAt, runId: process.env.BENCH_RUN_ID, inclusionRecords }),
+    );
+    logger.info('Wrote benchmark metadata', {
+      path: metadataPath,
+      startedAt,
+      endedAt,
+      inclusionRecords: inclusionRecords.length,
+    });
 
     // Count successes and failures
     const successCount = results.filter(r => r.success).length;
@@ -622,10 +710,25 @@ describe('sustained N TPS test', () => {
     const inclusionStats = metrics.inclusionTimeInSeconds(txInclusionGroup);
     logger.info(`Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed`);
     logger.info('Inclusion time stats', inclusionStats);
+
+    if (totalHighValueSent === 0 && highValueTps > 0) {
+      throw new Error('No high-value txs were sent; check earlier submission errors');
+    }
+    if (successCount !== totalHighValueSent) {
+      const message = `Only ${successCount}/${totalHighValueSent} high-value txs were included; ${failureCount} failed`;
+      throw new Error(message);
+    }
   });
 });
 
 type WalletLane = { wallet: WorkerWallet; aztecNode: AztecNode; address: AztecAddress };
+type FeeQuote = { maxFeesPerGas: GasFees; maxPriorityFeesPerGas: GasFees };
+type BenchmarkGasSettings = {
+  gasLimits?: Gas;
+  teardownGasLimits?: Gas;
+  maxFeesPerGas?: GasFees;
+  maxPriorityFeesPerGas: GasFees;
+};
 
 function sendTxsAtTps(
   logger: Logger,
@@ -700,22 +803,20 @@ function sendTxsAtTps(
   return txHashes;
 }
 
-async function cloneTx(tx: ProvenTx, priorityFee: GasFees, logger: Logger): Promise<ProvenTx> {
+async function cloneTx(tx: ProvenTx, feeQuote: FeeQuote, logger: Logger): Promise<ProvenTx> {
   const t0 = performance.now();
   const clonedTxData = Tx.clone(tx, false);
   const t1 = performance.now();
 
-  // effective_priority = min(maxPriorityFeesPerGas, maxFeesPerGas - baseFeePerGas).
-  // The prototype was built at simulate-time with maxFeesPerGas ≈ current baseFee + margin.
-  // As baseFee ratchets up under sustained load, the (maxFees - baseFee) term shrinks below
-  // our maxPriorityFees bid, so effective_priority collapses and we trip the mempool min
-  // priority-fee check. Override maxFeesPerGas with a huge static value — sponsor pays, so
-  // over-capping is free. 1000× the priority gives us >> any conceivable baseFee growth.
-  (clonedTxData.data.constants.txContext.gasSettings as any).maxPriorityFeesPerGas = priorityFee;
-  (clonedTxData.data.constants.txContext.gasSettings as any).maxFeesPerGas = new GasFees(
-    priorityFee.feePerDaGas * 1000n,
-    priorityFee.feePerL2Gas * 1000n,
-  );
+  // The tx pool orders by priority fee capped by maxFeesPerGas; keep both values explicit so
+  // refreshed fee floors do not erase the low/high-value priority split.
+  const gasSettings = clonedTxData.data.constants.txContext.gasSettings;
+  clonedTxData.data.constants.txContext.gasSettings = GasSettings.from({
+    gasLimits: gasSettings.gasLimits,
+    teardownGasLimits: gasSettings.teardownGasLimits,
+    maxFeesPerGas: feeQuote.maxFeesPerGas,
+    maxPriorityFeesPerGas: feeQuote.maxPriorityFeesPerGas,
+  });
 
   if (clonedTxData.data.forRollup) {
     for (let i = 0; i < clonedTxData.data.forRollup?.end.nullifiers.length; i++) {

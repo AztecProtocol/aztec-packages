@@ -22,8 +22,10 @@
 <ul class="sidebar-list">
 <li><a href="#advance_next_block_timestamp_by">advance_next_block_timestamp_by</a></li>
 <li><a href="#call_private">call_private</a></li>
+<li><a href="#call_private_opts">call_private_opts</a></li>
 <li><a href="#call_public">call_public</a></li>
 <li><a href="#call_public_incognito">call_public_incognito</a></li>
+<li><a href="#call_public_opts">call_public_opts</a></li>
 <li><a href="#create_contract_account">create_contract_account</a></li>
 <li><a href="#create_light_account">create_light_account</a></li>
 <li><a href="#deploy">deploy</a></li>
@@ -31,12 +33,14 @@
 <li><a href="#discover_note">discover_note</a></li>
 <li><a href="#discover_note_at">discover_note_at</a></li>
 <li><a href="#execute_utility">execute_utility</a></li>
+<li><a href="#execute_utility_opts">execute_utility_opts</a></li>
 <li><a href="#last_block_number">last_block_number</a></li>
 <li><a href="#last_block_timestamp">last_block_timestamp</a></li>
 <li><a href="#mine_block">mine_block</a></li>
 <li><a href="#mine_block_at">mine_block_at</a></li>
 <li><a href="#new">new</a></li>
 <li><a href="#next_block_number">next_block_number</a></li>
+<li><a href="#offchain_messages">offchain_messages</a></li>
 <li><a href="#private_context">private_context</a></li>
 <li><a href="#private_context_at">private_context_at</a></li>
 <li><a href="#private_context_opts">private_context_opts</a></li>
@@ -46,14 +50,19 @@
 <li><a href="#utility_context">utility_context</a></li>
 <li><a href="#utility_context_at">utility_context_at</a></li>
 <li><a href="#view_private">view_private</a></li>
+<li><a href="#view_private_opts">view_private_opts</a></li>
 <li><a href="#view_public">view_public</a></li>
 <li><a href="#view_public_incognito">view_public_incognito</a></li>
 </ul>
 <h2>In module test_environment</h2>
 <h3>Structs</h3><ul class="item-list">
+<li><a href="struct.CallPrivateOptions.html">CallPrivateOptions</a></div></li>
+<li><a href="struct.CallPublicOptions.html">CallPublicOptions</a></div></li>
 <li><a href="struct.DeployOptions.html">DeployOptions</a></div></li>
+<li><a href="struct.ExecuteUtilityOptions.html">ExecuteUtilityOptions</a></div></li>
 <li><a href="struct.PrivateContextOptions.html">PrivateContextOptions</a></div></li>
 <li><a href="struct.TestEnvironment.html">TestEnvironment</a></div></li>
+<li><a href="struct.ViewPrivateOptions.html">ViewPrivateOptions</a></div></li>
 </ul>
 </nav>
 <main>
@@ -124,9 +133,8 @@ outside of it - it becomes invalid once <code>public_context</code> returns.</p>
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
-<p>Variant of <code>public_context</code> which allows specifying the contract address in which the public context will
-execute, which will affect note and nullifier siloing, storage access, etc.</p>
-</div>
+<p>Variant of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#public_context"><code>TestEnvironment::public_context</code></a> which allows specifying the contract address in which the
+public context will execute, which will affect note and nullifier siloing, storage access, etc.</p></div>
 </div><code id="private_context" class="code-header">pub unconstrained fn <a href="#private_context"><span class="fn">private_context</span></a>&lt;Env, T&gt;(
     self,
     f: unconstrained fn[Env](&mut <a href="../../../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>) -> T,
@@ -164,9 +172,8 @@ for even more configurability.</p>
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
-<p>Variant of <code>private_context</code> which allows specifying the contract address in which the private context will
-execute, which will affect note and nullifier siloing, storage access, etc.</p>
-</div>
+<p>Variant of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context"><code>TestEnvironment::private_context</code></a> which allows specifying the contract address in which the
+private context will execute, which will affect note and nullifier siloing, storage access, etc.</p></div>
 </div><code id="private_context_opts" class="code-header">pub unconstrained fn <a href="#private_context_opts"><span class="fn">private_context_opts</span></a>&lt;Env, T&gt;(
     _self: Self,
     opts: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.PrivateContextOptions.html" class="struct">PrivateContextOptions</a>,
@@ -174,8 +181,8 @@ execute, which will affect note and nullifier siloing, storage access, etc.</p>
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
-<p>Variant of <code>private_context</code> which allows specifying multiple configuration values via <code>PrivateContextOptions</code>.</p>
-</div>
+<p>Variant of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#private_context"><code>TestEnvironment::private_context</code></a> which allows specifying multiple configuration values via
+<a href="../../../../noir_aztec/test/helpers/test_environment/struct.PrivateContextOptions.html"><code>PrivateContextOptions</code></a>.</p></div>
 </div><code id="utility_context" class="code-header">pub unconstrained fn <a href="#utility_context"><span class="fn">utility_context</span></a>&lt;Env, T&gt;(
     self,
     f: unconstrained fn[Env](<a href="../../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>) -> T,
@@ -207,9 +214,8 @@ it - it becomes invalid once <code>utility_context</code> returns.</p>
 ) -> T</code>
 
 <div class="padded-description"><div class="comments">
-<p>Variant of <code>utility_context</code> which allows specifying the contract address in which the utility context will
-execute, which will affect note and storage access.</p>
-</div>
+<p>Variant of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#utility_context"><code>TestEnvironment::utility_context</code></a> which allows specifying the contract address in which the
+utility context will execute, which will affect note and storage access.</p></div>
 </div><code id="next_block_number" class="code-header">pub unconstrained fn <a href="#next_block_number"><span class="fn">next_block_number</span></a>(_self: Self) -> <a href="../../../../std/primitive.u32.html" class="primitive">u32</a></code>
 
 <div class="padded-description"><div class="comments">
@@ -318,7 +324,7 @@ path relative to the current workspace:</p>
 or secret. If not specified, the salt and secret default to values from internal counters.</p>
 </div>
 </div><code id="call_private" class="code-header">pub unconstrained fn <a href="#call_private"><span class="fn">call_private</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
-    _self: Self,
+    self,
     from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     call: <a href="../../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;,
 ) -> T
@@ -339,8 +345,20 @@ calls that operate on the result of prior calls.</p>
 <pre><code><span class="kw">let</span> caller = env.create_light_account();
 <span class="kw">let</span> contract_addr = env.deploy(<span class="string">"SampleContract"</span>).without_initializer();
 <span class="kw">let</span> return_value = env.call_private(caller, SampleContract::at(contract_addr).sample_private_function());</code></pre></div>
-</div><code id="view_private" class="code-header">pub unconstrained fn <a href="#view_private"><span class="fn">view_private</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+</div><code id="call_private_opts" class="code-header">pub unconstrained fn <a href="#call_private_opts"><span class="fn">call_private_opts</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let U: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
+    from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    opts: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html" class="struct">CallPrivateOptions</a>&lt;S, U&gt;,
+    call: <a href="../../../../noir_aztec/context/calls/struct.PrivateCall.html" class="struct">PrivateCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Variant of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#call_private"><code>TestEnvironment::call_private</code></a> which allows specifying multiple configuration values via
+<a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html"><code>CallPrivateOptions</code></a>, including additional account scopes, authorized utility call targets, and gas settings.</p></div>
+</div><code id="view_private" class="code-header">pub unconstrained fn <a href="#view_private"><span class="fn">view_private</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    self,
     from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     call: <a href="../../../../noir_aztec/context/calls/struct.PrivateStaticCall.html" class="struct">PrivateStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
@@ -354,8 +372,20 @@ executable in a static context, and these produce no side effects).</p>
 <p>The <code>from</code> parameter specifies the account from whose perspective the view is executed. This affects
 scope isolation - only notes scoped to this account will be visible during execution.</p>
 </div>
-</div><code id="execute_utility" class="code-header">pub unconstrained fn <a href="#execute_utility"><span class="fn">execute_utility</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+</div><code id="view_private_opts" class="code-header">pub unconstrained fn <a href="#view_private_opts"><span class="fn">view_private_opts</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let S: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let U: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
+    from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    opts: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ViewPrivateOptions.html" class="struct">ViewPrivateOptions</a>&lt;S, U&gt;,
+    call: <a href="../../../../noir_aztec/context/calls/struct.PrivateStaticCall.html" class="struct">PrivateStaticCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Variant of <code>view_private</code> which allows specifying multiple configuration values via <code>ViewPrivateOptions</code>.</p>
+</div>
+</div><code id="execute_utility" class="code-header">pub unconstrained fn <a href="#execute_utility"><span class="fn">execute_utility</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    self,
     call: <a href="../../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
@@ -367,6 +397,42 @@ scope isolation - only notes scoped to this account will be visible during execu
 <pre><code><span class="kw">let</span> caller = env.create_light_account();
 <span class="kw">let</span> contract_addr = env.deploy(<span class="string">"SampleContract"</span>).without_initializer();
 <span class="kw">let</span> return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());</code></pre></div>
+</div><code id="execute_utility_opts" class="code-header">pub unconstrained fn <a href="#execute_utility_opts"><span class="fn">execute_utility_opts</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let U: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    _self: Self,
+    opts: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html" class="struct">ExecuteUtilityOptions</a>&lt;U&gt;,
+    call: <a href="../../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Variant of <code>execute_utility</code> which allows specifying configuration values via <code>ExecuteUtilityOptions</code>, such as
+authorizing cross-contract utility calls.</p>
+</div>
+</div><code id="offchain_messages" class="code-header">pub unconstrained fn <a href="#offchain_messages"><span class="fn">offchain_messages</span></a>(_self: Self) -> <a href="../../../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;<a href="../../../../noir_aztec/messages/processing/offchain/struct.OffchainMessage.html" class="struct">OffchainMessage</a>, 64&gt;</code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns offchain messages emitted by the last top-level call into TXE.</p>
+<p>The returned <code>BoundedVec&lt;OffchainMessage, _&gt;</code> can be passed directly to a contract's <code>offchain_receive</code>
+utility function to ingest the messages into the recipient's private state.</p>
+<p>Each returned message is populated with:</p>
+<ul>
+<li><code>ciphertext</code>, <code>recipient</code>: decoded from the raw emitted payload.</li>
+<li><code>tx_hash</code>: <code>Option::some(hash)</code> for tx-producing entry points (<code>call_private</code>,
+<code>call_public</code>); <code>Option::none()</code> for tx-less entry points (<code>execute_utility</code>,
+<code>private_context</code>, <code>utility_context</code>).</li>
+<li><code>anchor_block_timestamp</code>: the timestamp of the block the top-level call was
+anchored against, matching the value the production flow would produce.</li>
+</ul>
+<p>Returns up to <code>MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY</code> messages. The caller is responsible for
+splitting the result into batches that fit <code>MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL</code> before
+forwarding each batch to <code>offchain_receive</code>.</p>
+<h4>Example</h4>
+<pre><code>env.call_private(sender, Token::at(token).transfer_in_private_with_offchain_delivery(...));
+<span class="kw">let</span> messages = env.offchain_messages();
+<span class="kw">let</span> <span class="kw">mut</span> batch: BoundedVec&lt;_, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL&gt; = BoundedVec::new();
+<span class="kw">for</span> i <span class="kw">in</span> <span class="number">0</span>..messages.len() { batch.push(messages.get(i)); }
+env.execute_utility(Token::at(token).offchain_receive(batch));</code></pre></div>
 </div><code id="call_public" class="code-header">pub unconstrained fn <a href="#call_public"><span class="fn">call_public</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
@@ -388,9 +454,19 @@ calls that operate on the result of prior calls.</p>
 <pre><code><span class="kw">let</span> caller = env.create_light_account();
 <span class="kw">let</span> contract_addr = env.deploy(<span class="string">"SampleContract"</span>).without_initializer();
 <span class="kw">let</span> return_value = env.call_public(caller, SampleContract::at(contract_addr).sample_public_function());</code></pre></div>
-</div><code id="call_public_incognito" class="code-header">pub unconstrained fn <a href="#call_public_incognito"><span class="fn">call_public_incognito</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+</div><code id="call_public_opts" class="code-header">pub unconstrained fn <a href="#call_public_opts"><span class="fn">call_public_opts</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     from: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    opts: <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPublicOptions.html" class="struct">CallPublicOptions</a>,
+    call: <a href="../../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Variant of <a href="../../../../noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html#call_public"><code>TestEnvironment::call_public</code></a> which allows specifying gas settings via <a href="../../../../noir_aztec/test/helpers/test_environment/struct.CallPublicOptions.html"><code>CallPublicOptions</code></a>.</p></div>
+</div><code id="call_public_incognito" class="code-header">pub unconstrained fn <a href="#call_public_incognito"><span class="fn">call_public_incognito</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    _self: Self,
     call: <a href="../../../../noir_aztec/context/calls/struct.PublicCall.html" class="struct">PublicCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
@@ -411,19 +487,19 @@ result of the called function. Variant of <code>call_public</code>, but the <cod
 <div class="padded-description"><div class="comments">
 <p>Variant of <code>call_public</code> for public <code>#[view]</code> functions.</p>
 <p>Unlike <code>call_public</code>, no transaction is created and no block is mined (since <code>#[view]</code> functions are only
-executable in a static context, and these produce no side effects).</p>
+executable in a static context, and these produce no side effects). The <code>msg_sender</code> is set to &quot;null&quot;, since
+view calls have no real caller.</p>
 </div>
 </div><code id="view_public_incognito" class="code-header">pub unconstrained fn <a href="#view_public_incognito"><span class="fn">view_public_incognito</span></a>&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
-    _self: Self,
+    self,
     call: <a href="../../../../noir_aztec/context/calls/struct.PublicStaticCall.html" class="struct">PublicStaticCall</a>&lt;M, N, T&gt;,
 ) -> T
 <div class="where-clause">where
     T: <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
 
-<div class="padded-description"><div class="comments">
-<p>Variant of <code>view_public</code>, but the <code>from</code> address (<code>msg_sender</code>) is set to &quot;null&quot;</p>
-<p>Unlike <code>call_public</code>, no transaction is created and no block is mined (since <code>#[view]</code> functions are only
-executable in a static context, and these produce no side effects).</p>
+<div class="padded-description"><div class="deprecated">
+<span class="emoji">👎</span>
+Deprecated: use `TestEnvironment::view_public` instead
 </div>
 </div><code id="discover_note" class="code-header">pub unconstrained fn <a href="#discover_note"><span class="fn">discover_note</span></a>&lt;Note&gt;(self, note_message: <a href="../../../../noir_aztec/note/struct.NoteMessage.html" class="struct">NoteMessage</a>&lt;Note&gt;)
 <div class="where-clause">where

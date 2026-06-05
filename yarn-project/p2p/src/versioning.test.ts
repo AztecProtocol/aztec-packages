@@ -23,10 +23,8 @@ describe('versioning', () => {
 
     chainConfig = {
       l1ChainId: 1,
-      l1Contracts: {
-        rollupAddress: EthAddress.random(),
-      },
       rollupVersion: 3,
+      rollupAddress: EthAddress.random(),
     };
   });
 
@@ -34,7 +32,7 @@ describe('versioning', () => {
     const versions = setAztecEnrKey(enr, chainConfig);
     expect(versions.l1ChainId).toEqual(1);
     expect(versions.rollupVersion).toEqual(3);
-    expect(versions.l1RollupAddress).toEqual(chainConfig.l1Contracts.rollupAddress);
+    expect(versions.l1RollupAddress).toEqual(chainConfig.rollupAddress);
     expect(Buffer.from(versionSet!).toString()).toEqual(compressComponentVersions(versions));
 
     checkCompressedComponentVersion(Buffer.from(versionSet!).toString(), versions);

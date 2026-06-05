@@ -15,10 +15,12 @@ import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
 import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { jest } from '@jest/globals';
 
 import { simulateThroughAuthwitProxy } from './fixtures/authwit_proxy.js';
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -55,7 +57,7 @@ describe('Kernelless simulation', () => {
       wallet,
       accounts: [adminAddress, liquidityProviderAddress, swapperAddress],
       logger,
-    } = await setup(3));
+    } = await setup(3, { ...AUTOMINE_E2E_OPTS }));
 
     ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
@@ -412,7 +414,7 @@ describe('Kernelless simulation', () => {
       });
 
       // Spy on the node API that generateSimulatedProvingResult uses to verify settled read requests
-      const noteHashMembershipWitnessSpy = jest.spyOn(aztecNode, 'getNoteHashMembershipWitness');
+      const findLeavesIndexesSpy = jest.spyOn(aztecNode, 'findLeavesIndexes');
 
       wallet.setSimulationMode('kernelless-override');
       await expect(
@@ -421,8 +423,12 @@ describe('Kernelless simulation', () => {
         }),
       ).resolves.toBeDefined();
 
-      expect(noteHashMembershipWitnessSpy).toHaveBeenCalled();
-      noteHashMembershipWitnessSpy.mockRestore();
+      expect(findLeavesIndexesSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        MerkleTreeId.NOTE_HASH_TREE,
+        expect.anything(),
+      );
+      findLeavesIndexesSpy.mockRestore();
     });
   });
 

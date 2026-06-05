@@ -90,7 +90,7 @@ import { promises as fs } from 'fs';
 import { ungzip } from 'pako';
 import * as path from 'path';
 
-import { type BBJsProofResult, BBJsProverFactory } from '../../bb/bb_js_backend.js';
+import { BBJsFactory, type BBJsProofResult } from '../../bb/bb_js_backend.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
 import { getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
@@ -108,14 +108,14 @@ export interface BBProverConfig extends BBConfig, ACVMConfig {
  */
 export class BBNativeRollupProver implements ServerCircuitProver {
   private instrumentation: ProverInstrumentation;
-  private bbJsFactory: BBJsProverFactory;
+  private bbJsFactory: BBJsFactory;
 
   constructor(
     private config: BBProverConfig,
     telemetry: TelemetryClient,
   ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'BBNativeRollupProver');
-    this.bbJsFactory = new BBJsProverFactory(config.bbBinaryPath, logger, undefined, config.bbDebugOutputDir);
+    this.bbJsFactory = new BBJsFactory(config.bbBinaryPath, { logger, debugDir: config.bbDebugOutputDir });
   }
 
   get tracer() {
@@ -485,19 +485,18 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // Decompress bytecode for bb.js
     const bytecode = ungzip(Buffer.from(artifact.bytecode, 'base64'));
 
-    // Prove the circuit via bb.js API (spawns a fresh bb process per proof)
+    // Prove the circuit via bb.js API
     logger.debug(`Proving ${circuitType} via bb.js...`);
 
     let proofResult: BBJsProofResult;
     try {
-      proofResult = await this.bbJsFactory.withFreshInstance(instance =>
-        instance.generateProof(
-          circuitType,
-          bytecode,
-          this.getVerificationKeyDataForCircuit(circuitType).keyAsBytes,
-          witness,
-          getUltraHonkFlavorForCircuit(circuitType),
-        ),
+      await using instance = await this.bbJsFactory.getInstance();
+      proofResult = await instance.generateProof(
+        circuitType,
+        bytecode,
+        this.getVerificationKeyDataForCircuit(circuitType).keyAsBytes,
+        witness,
+        getUltraHonkFlavorForCircuit(circuitType),
       );
     } catch (error) {
       throw new ProvingError(`Failed to generate proof for ${circuitType}: ${error}`);
@@ -515,9 +514,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
     const inputsBuffer = input.serializeWithMessagePack();
-    const { proof: proofFieldArrays, durationMs } = await this.bbJsFactory.withFreshInstance(instance =>
-      instance.generateAvmProof(inputsBuffer),
-    );
+    await using instance = await this.bbJsFactory.getInstance();
+    const { proof: proofFieldArrays, durationMs } = await instance.generateAvmProof(inputsBuffer);
 
     // Convert Uint8Array[] (32-byte field elements) to Fr[]
     const proofFields = proofFieldArrays.map(f => Fr.fromBuffer(Buffer.from(f)));
@@ -639,8 +637,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     let verified: boolean;
     let durationMs: number;
     try {
-      ({ verified, durationMs } = await this.bbJsFactory.withVerifierInstance(instance =>
-        instance.verifyProof(proofFields, verificationKey.keyAsBytes, publicInputFields, flavor),
+      await using instance = await this.bbJsFactory.getInstance();
+      ({ verified, durationMs } = await instance.verifyProof(
+        proofFields,
+        verificationKey.keyAsBytes,
+        publicInputFields,
+        flavor,
       ));
     } catch (error) {
       throw new ProvingError(`Failed to verify proof for ${circuitType}: ${error}`);
@@ -664,9 +666,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     }
     const piBuffer = publicInputs.serializeWithMessagePack();
 
-    const { verified, durationMs } = await this.bbJsFactory.withVerifierInstance(instance =>
-      instance.verifyAvmProof(proofFields, piBuffer),
-    );
+    await using instance = await this.bbJsFactory.getInstance();
+    const { verified, durationMs } = await instance.verifyAvmProof(proofFields, piBuffer);
 
     if (!verified) {
       throw new ProvingError('Failed to verify AVM proof!');

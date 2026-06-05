@@ -6,6 +6,7 @@ import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
+import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { type AztecNode, createAztecNodeClient, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { createEthereumChain } from '@aztec/ethereum/chain';
@@ -14,6 +15,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { TxStatus } from '@aztec/stdlib/tx';
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
@@ -332,9 +334,7 @@ async function bridgeL1FeeJuice(
   const portal = await L1FeeJuicePortalManager.new(aztecNode, l1Client, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
 
-  const isSynced = async () =>
-    (await aztecNode.getL1ToL2MessageCheckpoint(Fr.fromHexString(claim.messageHash))) !== undefined;
-  await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);
+  await waitForL1ToL2MessageReady(aztecNode, Fr.fromHexString(claim.messageHash), { timeoutSeconds: 24 });
 
   log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
   return claim;
@@ -427,7 +427,9 @@ export async function performTransfers({
 
     const provenTxs = await Promise.all(txs);
 
-    await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600 } })));
+    // Wait only for the txs to be proposed, not checkpointed. This is enough to keep the chain
+    // loaded for the reorg scenario, and avoids each round blocking on the (slower) checkpoint lag.
+    await Promise.all(provenTxs.map(t => t.send({ wait: { timeout: 600, waitForStatus: TxStatus.PROPOSED } })));
 
     logger.info(`Completed round ${i + 1} / ${rounds}`);
   }

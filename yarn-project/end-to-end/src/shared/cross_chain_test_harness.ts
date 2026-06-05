@@ -13,11 +13,11 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { SiblingPath } from '@aztec/aztec.js/trees';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { OutboxContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -25,6 +25,7 @@ import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { type Hex, getContract } from 'viem';
 
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
+import { waitForL1ToL2MessageSeen } from './wait_for_l1_to_l2_message.js';
 
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
@@ -166,6 +167,7 @@ export class CrossChainTestHarness {
 
   private readonly l1TokenManager: L1TokenManager;
   private readonly l1TokenPortalManager: L1TokenPortalManager;
+  public readonly outboxContract: OutboxContract;
 
   constructor(
     /** Aztec node instance. */
@@ -206,6 +208,7 @@ export class CrossChainTestHarness {
       this.logger,
     );
     this.l1TokenManager = this.l1TokenPortalManager.getTokenManager();
+    this.outboxContract = new OutboxContract(this.l1Client, this.l1ContractAddresses.outboxAddress);
   }
 
   async mintTokensOnL1(amount: bigint) {
@@ -319,10 +322,18 @@ export class CrossChainTestHarness {
   withdrawFundsFromBridgeOnL1(
     amount: bigint,
     epochNumber: EpochNumber,
+    numCheckpointsInEpoch: number,
     messageIndex: bigint,
     siblingPath: SiblingPath<number>,
   ) {
-    return this.l1TokenPortalManager.withdrawFunds(amount, this.ethAccount, epochNumber, messageIndex, siblingPath);
+    return this.l1TokenPortalManager.withdrawFunds(
+      amount,
+      this.ethAccount,
+      epochNumber,
+      numCheckpointsInEpoch,
+      messageIndex,
+      siblingPath,
+    );
   }
 
   async transferToPrivateOnL2(shieldAmount: bigint) {
@@ -346,8 +357,7 @@ export class CrossChainTestHarness {
    */
   async makeMessageConsumable(msgHash: Fr | Hex) {
     const frMsgHash = typeof msgHash === 'string' ? Fr.fromHexString(msgHash) : msgHash;
-    // We poll isL1ToL2MessageSynced endpoint until the message is available
-    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash), 'message sync', 10);
+    await waitForL1ToL2MessageSeen(this.aztecNode, frMsgHash, { timeoutSeconds: 10 });
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);

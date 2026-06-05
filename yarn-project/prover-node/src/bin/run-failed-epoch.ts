@@ -1,6 +1,5 @@
 /* eslint-disable no-console */
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
@@ -50,7 +49,7 @@ async function rerunFailedEpoch(provingJobUrl: string, baseLocalDir: string) {
   logger.info(`Rerunning proving job from ${jobPath} with state from ${dataDir}`, metadata);
   const result = await rerunEpochProvingJob(jobPath, logger, {
     ...config,
-    l1Contracts: { rollupAddress: metadata.rollupAddress } as L1ContractAddresses,
+    rollupAddress: metadata.rollupAddress,
     rollupVersion: metadata.rollupVersion,
   });
 

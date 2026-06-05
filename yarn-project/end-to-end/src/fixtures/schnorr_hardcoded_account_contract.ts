@@ -41,8 +41,8 @@ export class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
     return {
       async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
         const signer = new Schnorr();
-        const signature = await signer.constructSignature(messageHash.toBuffer(), privateKey);
-        return new AuthWitness(messageHash, [...signature.toBuffer()]);
+        const signature = await signer.constructSignature(messageHash, privateKey);
+        return new AuthWitness(messageHash, signature.toLimbFields());
       },
     };
   }

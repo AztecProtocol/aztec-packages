@@ -27,8 +27,8 @@ export interface L2Claim {
 export class FormattedViemError extends Error {
   metaMessages?: any[];
 
-  constructor(message: string, metaMessages?: any[]) {
-    super(message);
+  constructor(message: string, metaMessages?: any[], options?: ErrorOptions) {
+    super(message, options);
     this.name = 'FormattedViemError';
     this.metaMessages = metaMessages;
   }
@@ -197,6 +197,8 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
     return error;
   }
 
+  const originalError = error;
+
   // First try to decode as a custom error using the ABI
   try {
     const data = getNestedErrorData(error);
@@ -207,7 +209,9 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
         data: data as Hex,
       });
       if (decoded) {
-        return new FormattedViemError(`${decoded.errorName}(${decoded.args?.join(', ') ?? ''})`, error?.metaMessages);
+        return new FormattedViemError(`${decoded.errorName}(${decoded.args?.join(', ') ?? ''})`, error?.metaMessages, {
+          cause: originalError,
+        });
       }
     }
 
@@ -224,7 +228,7 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
           revertError.metaMessages && revertError.metaMessages?.length > 1
             ? revertError.metaMessages[1].trimStart()
             : '';
-        return new FormattedViemError(`${errorName}${args}`, error?.metaMessages);
+        return new FormattedViemError(`${errorName}${args}`, error?.metaMessages, { cause: originalError });
       }
     }
   } catch {
@@ -247,10 +251,12 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
 
   // If it's a regular Error instance, return it with its message
   if (error instanceof Error) {
-    return new FormattedViemError(truncateErrorMessage(error.message), (error as any)?.metaMessages);
+    return new FormattedViemError(truncateErrorMessage(error.message), (error as any)?.metaMessages, {
+      cause: originalError,
+    });
   }
 
-  return new FormattedViemError(truncateErrorMessage(String(error)));
+  return new FormattedViemError(truncateErrorMessage(String(error)), undefined, { cause: originalError });
 }
 
 function stripAbis(obj: any) {
@@ -274,6 +280,24 @@ function stripAbis(obj: any) {
       stripAbis(value);
     }
   });
+}
+
+/**
+ * Best-effort decode of a raw revert payload (`0x...`) against an ABI.
+ * Returns a human-readable `ErrorName(arg1, arg2, ...)` string, or `undefined` if the selector
+ * is unknown or the payload is empty. Use to surface decoded error names alongside the raw
+ * payload in log lines for operators.
+ */
+export function tryDecodeRevertReason(data: Hex | undefined, abi: Abi): string | undefined {
+  if (!data || data === '0x') {
+    return undefined;
+  }
+  try {
+    const decoded = decodeErrorResult({ abi, data });
+    return `${decoded.errorName}(${decoded.args?.join(', ') ?? ''})`;
+  } catch {
+    return undefined;
+  }
 }
 
 export function tryGetCustomErrorName(err: any) {

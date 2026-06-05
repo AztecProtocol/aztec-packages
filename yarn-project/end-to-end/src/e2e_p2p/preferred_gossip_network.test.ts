@@ -142,6 +142,8 @@ describe('e2e_p2p_preferred_network', () => {
         p2pDisableStatusHandshake: false,
         // Just for testing be aggressive here, don't allow any auth handshake failures
         p2pMaxFailedAuthAttemptsAllowed: 0,
+        minTxsPerBlock: 0,
+        inboxLag: 2,
       },
     });
 
@@ -357,7 +359,7 @@ describe('e2e_p2p_preferred_network', () => {
     const blockNumber = receipts[0].blockNumber!;
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const blockData = await dataStore.getBlockData({ number: BlockNumber(blockNumber) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(blockData!.checkpointNumber, 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
     const signatureContext = {
       chainId: t.ctx.aztecNodeConfig.l1ChainId,
       rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,

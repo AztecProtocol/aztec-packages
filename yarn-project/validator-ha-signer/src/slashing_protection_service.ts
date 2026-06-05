@@ -241,10 +241,10 @@ export class SlashingProtectionService {
    */
   async start() {
     // One-time cleanup at startup: remove duties from previous rollup versions
-    const numOutdatedRollupDuties = await this.db.cleanupOutdatedRollupDuties(this.config.l1Contracts.rollupAddress);
+    const numOutdatedRollupDuties = await this.db.cleanupOutdatedRollupDuties(this.config.rollupAddress);
     if (numOutdatedRollupDuties > 0) {
       this.log.info(`Cleaned up ${numOutdatedRollupDuties} duties with outdated rollup address at startup`, {
-        currentRollupAddress: this.config.l1Contracts.rollupAddress.toString(),
+        currentRollupAddress: this.config.rollupAddress.toString(),
       });
       this.metrics.recordCleanup('outdated_rollup', numOutdatedRollupDuties);
     }

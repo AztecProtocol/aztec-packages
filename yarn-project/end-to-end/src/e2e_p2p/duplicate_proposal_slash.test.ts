@@ -2,6 +2,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { OffenseType } from '@aztec/slasher';
 import { TopicType } from '@aztec/stdlib/p2p';
@@ -79,6 +80,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
         blockDurationMs: BLOCK_DURATION * 1000,
         slashDuplicateProposalPenalty: slashingUnit,
         slashingOffsetInRounds: 1,
+        inboxLag: 2,
       },
     });
 
@@ -209,7 +211,7 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     // Find an epoch where the malicious proposer is selected, stopping one epoch before
     // so we have time to start sequencers before the target epoch arrives
     const epochCache = (honestNode1 as TestAztecNodeService).epochCache;
-    const { targetEpoch } = await advanceToEpochBeforeProposer({
+    const { targetEpoch, targetSlot } = await advanceToEpochBeforeProposer({
       epochCache,
       cheatCodes: t.ctx.cheatCodes.rollup,
       targetProposer: maliciousValidatorAddress,
@@ -220,28 +222,48 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     t.logger.warn('Starting all sequencers');
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
 
-    // Now warp to the target epoch — sequencers are already running
-    t.logger.warn(`Advancing to target epoch ${targetEpoch}`);
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch);
+    // Now warp to one slot before the target epoch — sequencers are already running.
+    // Under proposer pipelining, the malicious proposers begin building for their slot one slot
+    // earlier; warping to the start of the epoch would force both AVM-heavy duplicate proposals to
+    // serialize past the slot boundary, after which honest receivers reject them as late. The helper
+    // picks a target slot at least one slot into the epoch, so warping here leaves a full warm-up
+    // slot before the build begins rather than starting it at the exact instant of the warp.
+    t.logger.warn(`Advancing to one slot before target epoch ${targetEpoch} (target slot ${targetSlot})`);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch, { offset: -AZTEC_SLOT_DURATION });
 
-    // Wait for offense to be detected
-    // The honest nodes should detect the duplicate proposal from the malicious validator
+    // Wait for offense to be detected. Under proposer pipelining, checkpoint proposals are broadcast
+    // at the slot boundary while the receivers' wall clocks may have already advanced past the build
+    // slot — when that happens, honest nodes reject the gossip with "invalid slot number" before
+    // duplicate detection runs, so DUPLICATE_PROPOSAL is only observed by whichever node managed to
+    // process both proposals while still in the build slot (often the other malicious node, since
+    // they receive each other's broadcasts immediately). We therefore collect offenses from every
+    // node in the network and assert that at least one of them recorded the duplicate proposal.
     t.logger.warn('Waiting for duplicate proposal offense to be detected...');
-    const offenses = await awaitOffenseDetected({
+    await awaitOffenseDetected({
       epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
       logger: t.logger,
-      nodeAdmin: honestNode1, // Use honest node to check for offenses
+      nodeAdmin: honestNode1,
       slashingRoundSize,
       waitUntilOffenseCount: 1,
       timeoutSeconds: AZTEC_SLOT_DURATION * 16,
     });
 
-    t.logger.warn(`Collected offenses`, { offenses });
+    // Poll every node for DUPLICATE_PROPOSAL offenses, retrying briefly so any node that detected
+    // the duplicate after the initial offense was collected has time to flush it through the
+    // slasher's offenses-collector.
+    const proposalOffenses = await retryUntil(
+      async () => {
+        const allOffenses = (await Promise.all(nodes.map(n => n.getSlashOffenses('all')))).flat();
+        const filtered = allOffenses.filter(o => o.offenseType === OffenseType.DUPLICATE_PROPOSAL);
+        if (filtered.length > 0) {
+          return filtered;
+        }
+      },
+      'duplicate proposal offense',
+      AZTEC_SLOT_DURATION * 4,
+    );
 
-    // Filter to only DUPLICATE_PROPOSAL offenses. The two malicious nodes sharing the same key
-    // will also each self-attest to their own (different) checkpoint proposals, which causes honest
-    // nodes to detect a DUPLICATE_ATTESTATION as well. We only care about proposals here.
-    const proposalOffenses = offenses.filter(o => o.offenseType === OffenseType.DUPLICATE_PROPOSAL);
+    t.logger.warn(`Collected duplicate proposal offenses`, { proposalOffenses });
     expect(proposalOffenses.length).toBeGreaterThan(0);
     for (const offense of proposalOffenses) {
       expect(offense.validator.toString()).toEqual(maliciousValidatorAddress.toString());

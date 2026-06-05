@@ -41,7 +41,6 @@ describe('P2P Client', () => {
     txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });
 
     p2pService = mock<P2PService>();
-    p2pService.sendBatchRequest.mockResolvedValue([]);
 
     l1Constants = EmptyL1RollupConstants;
     txCollection = mock<TxCollection>();
@@ -50,6 +49,7 @@ describe('P2P Client', () => {
     epochCache = mock<EpochCacheInterface>();
     epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(0), nextSlot: SlotNumber(1) });
     epochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot: SlotNumber(0), nextSlot: SlotNumber(1) });
+    epochCache.getL1Constants.mockReturnValue(l1Constants);
 
     attestationPool = await createTestAttestationPool();
 
@@ -454,11 +454,11 @@ describe('P2P Client', () => {
 
       txPool.hasTxs.mockResolvedValue([true, false, true]);
       blockSource.addProposedBlocks([block]);
-      txCollection.startCollecting.mockClear();
+      txCollection.collectFastForBlock.mockClear();
       await client.sync();
 
-      expect(txCollection.startCollecting).toHaveBeenCalledTimes(1);
-      const [actualBlock, actualTxHashes] = txCollection.startCollecting.mock.calls[0];
+      expect(txCollection.collectFastForBlock).toHaveBeenCalledTimes(1);
+      const [actualBlock, actualTxHashes] = txCollection.collectFastForBlock.mock.calls[0];
       expect(actualBlock.number).toEqual(block.number);
       expect(await actualBlock.hash()).toEqual(await block.hash());
       expect(actualTxHashes).toEqual([block.body.txEffects[1].txHash]);

@@ -1,9 +1,9 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
+import { DatabaseVersionManager, type SchemaVersionMismatchPolicy } from '@aztec/stdlib/database-version/manager';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
-import { mkdir, mkdtemp, rm } from 'fs/promises';
+import { copyFile, mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -11,14 +11,21 @@ import { AztecLMDBStoreV2 } from './store.js';
 
 const MAX_READERS = 16;
 
+/** Optional versioning hooks for persistent LMDB stores. */
+export type CreateStoreOptions = {
+  onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
+  schemaVersionMismatchPolicy?: SchemaVersionMismatchPolicy;
+};
+
 export async function createStore(
   name: string,
   schemaVersion: number,
   config: DataStoreConfig,
   bindings?: LoggerBindings,
+  options: CreateStoreOptions = {},
 ): Promise<AztecLMDBStoreV2> {
   const log = createLogger('kv-store:lmdb-v2:' + name, bindings);
-  const { dataDirectory, l1Contracts } = config;
+  const { dataDirectory, rollupAddress: rollupFromConfig } = config;
 
   let store: AztecLMDBStoreV2;
   if (typeof dataDirectory !== 'undefined') {
@@ -26,7 +33,7 @@ export async function createStore(
     const subDir = join(dataDirectory, name);
     await mkdir(subDir, { recursive: true });
 
-    const rollupAddress = l1Contracts ? l1Contracts.rollupAddress : EthAddress.ZERO;
+    const rollupAddress = rollupFromConfig ?? EthAddress.ZERO;
 
     // Create a version manager
     const versionManager = new DatabaseVersionManager({
@@ -35,6 +42,8 @@ export async function createStore(
       dataDirectory: subDir,
       onOpen: dbDirectory =>
         AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKb, MAX_READERS, () => Promise.resolve(), bindings),
+      onUpgrade: options.onUpgrade,
+      schemaVersionMismatchPolicy: options.schemaVersionMismatchPolicy,
     });
 
     log.info(
@@ -48,9 +57,14 @@ export async function createStore(
   return store;
 }
 
+/**
+ * Open a persistent on-disk store rooted in OS tmpdir. Caller chooses whether to
+ * auto-remove the directory on close. Uses standard durable LMDB flags (fsync on
+ * every commit) — for full in-memory / NOSYNC semantics use `openEphemeralStore`.
+ */
 export async function openTmpStore(
   name: string,
-  ephemeral: boolean = true,
+  cleanupTmpDir: boolean = true,
   dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
   maxReaders = MAX_READERS,
   bindings?: LoggerBindings,
@@ -61,7 +75,7 @@ export async function openTmpStore(
 
   // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
   const cleanup = async () => {
-    if (ephemeral) {
+    if (cleanupTmpDir) {
       try {
         await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
         log.debug(`Deleted temporary data store: ${dataDir}`);
@@ -73,9 +87,35 @@ export async function openTmpStore(
     }
   };
 
-  // For temporary stores, we don't need to worry about versioning
-  // as they are ephemeral and get cleaned up after use
-  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, bindings);
+  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, bindings, false);
+}
+
+/**
+ * Open a fully-ephemeral store: a fresh tmpdir backing file, LMDB opened with
+ * MDB_NOSYNC | MDB_NOMETASYNC (no fsync, kernel-only writeback), and the directory
+ * unconditionally removed on close. Intended for tests and worker-local scratch
+ * stores where durability is explicitly not desired.
+ */
+export async function openEphemeralStore(
+  name: string,
+  dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
+  maxReaders = MAX_READERS,
+  bindings?: LoggerBindings,
+): Promise<AztecLMDBStoreV2> {
+  const log = createLogger('kv-store:lmdb-v2:' + name, bindings);
+  const dataDir = await mkdtemp(join(tmpdir(), name + '-'));
+  log.debug(`Created ephemeral data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
+
+  const cleanup = async () => {
+    try {
+      await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
+      log.debug(`Deleted ephemeral data store: ${dataDir}`);
+    } catch (err) {
+      log.warn(`Failed to delete ephemeral data directory (LMDB v2) ${dataDir}: ${err}`);
+    }
+  };
+
+  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, bindings, true);
 }
 
 export async function openStoreAt(
@@ -87,6 +127,36 @@ export async function openStoreAt(
   const log = createLogger('kv-store:lmdb-v2', bindings);
   log.debug(`Opening data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
   return await AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, bindings);
+}
+
+/**
+ * Open a fully-ephemeral store seeded from an existing `data.mdb` file. Creates a fresh tmpdir,
+ * copies `srcDataMdbPath` into it as `data.mdb`, opens with MDB_NOSYNC | MDB_NOMETASYNC, and
+ * removes the tmpdir on close. Intended for worker clones of a main-thread-built store — the
+ * source file is never written to.
+ */
+export async function cloneEphemeralStoreFrom(
+  srcDataMdbPath: string,
+  name: string,
+  dbMapSizeKb = 10 * 1_024 * 1_024, // 10GB
+  maxReaders = MAX_READERS,
+  bindings?: LoggerBindings,
+): Promise<AztecLMDBStoreV2> {
+  const log = createLogger('kv-store:lmdb-v2:' + name, bindings);
+  const dataDir = await mkdtemp(join(tmpdir(), name + '-'));
+  await copyFile(srcDataMdbPath, join(dataDir, 'data.mdb'));
+  log.debug(`Cloned ephemeral data store at: ${dataDir} from ${srcDataMdbPath} (LMDB v2)`);
+
+  const cleanup = async () => {
+    try {
+      await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
+      log.debug(`Deleted ephemeral data store: ${dataDir}`);
+    } catch (err) {
+      log.warn(`Failed to delete ephemeral data directory (LMDB v2) ${dataDir}: ${err}`);
+    }
+  };
+
+  return AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, cleanup, bindings, true);
 }
 
 export async function openVersionedStoreAt(

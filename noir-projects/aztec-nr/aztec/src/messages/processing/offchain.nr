@@ -48,7 +48,7 @@ global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + TX_EXPIRATION_TOLERANCE;
 ///
 /// The only current implementation of an `OffchainInboxSync` is [`sync_inbox`], which manages an inbox with expiration
 /// based eviction and automatic transaction context resolution.
-pub(crate) type OffchainInboxSync<Env> = unconstrained fn[Env](
+pub type OffchainInboxSync = unconstrained fn(
 /* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
 
 /// A message delivered via the `offchain_receive` utility function.
@@ -141,9 +141,9 @@ pub unconstrained fn sync_inbox(
     scope: AztecAddress,
 ) -> EphemeralArray<OffchainMessageWithContext> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT, scope);
-    let context_resolution_requests: EphemeralArray<Field> = EphemeralArray::at(OFFCHAIN_CONTEXT_REQUESTS_SLOT).clear();
+    let context_resolution_requests: EphemeralArray<Field> = EphemeralArray::empty_at(OFFCHAIN_CONTEXT_REQUESTS_SLOT);
     let ready_to_process: EphemeralArray<OffchainMessageWithContext> =
-        EphemeralArray::at(OFFCHAIN_READY_MESSAGES_SLOT).clear();
+        EphemeralArray::empty_at(OFFCHAIN_READY_MESSAGES_SLOT);
 
     // Build a request list aligned with the inbox indices.
     let mut i = 0;

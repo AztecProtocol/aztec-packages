@@ -15,7 +15,7 @@ import {
   type CoordinationSignatureContext,
   getCoordinationSignatureTypedData,
 } from '@aztec/stdlib/p2p';
-import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validator-ha-signer/errors';
 import { DutyType, type SigningContext } from '@aztec/validator-ha-signer/types';
@@ -105,11 +105,16 @@ export class ValidationService {
     proposerAttesterAddress: EthAddress | undefined,
     options: CheckpointProposalOptions,
   ): Promise<CheckpointProposal> {
-    // For testing: change the archive to trigger state_mismatch validation failure.
-    // If there's a last block proposal, use its (already invalid) archive to keep signatures consistent
-    // so P2P validation passes and the slasher can detect the offense.
+    // For testing: corrupt the checkpoint so observers' checkpoint validation fails.
+    //
+    // Keep `archive` aligned with `lastBlockProposal.archiveRoot` so the archive-based lookup
+    // in `validateCheckpointProposal` (`getBlockData({ archive })`) still succeeds
     if (options.broadcastInvalidCheckpointProposal) {
       archive = lastBlockProposal?.archiveRoot ?? Fr.random();
+      checkpointHeader = CheckpointHeader.from({
+        ...checkpointHeader,
+        epochOutHash: Fr.random(),
+      });
       this.log.warn(`Creating INVALID checkpoint proposal for slot ${checkpointHeader.slotNumber}`);
     }
 

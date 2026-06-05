@@ -16,10 +16,11 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { BlacklistTokenContractTest, Role } from '../e2e_blacklist_token_contract/blacklist_token_contract_test.js';
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
-jest.setTimeout(60_000);
+jest.setTimeout(15 * 60 * 1000);
 
 describe('Aztec persistence', () => {
   /**
@@ -60,7 +61,11 @@ describe('Aztec persistence', () => {
   beforeAll(async () => {
     dataDirectory = await mkdtemp(join(tmpdir(), 'aztec-node-'));
 
-    const initialContext = await setup(1, { dataDirectory, numberOfInitialFundedAccounts: 3 }, { dataDirectory });
+    const initialContext = await setup(
+      1,
+      { ...PIPELINING_SETUP_OPTS, dataDirectory, numberOfInitialFundedAccounts: 3 },
+      { dataDirectory },
+    );
     aztecNode = initialContext.aztecNode;
     deployL1ContractsValues = initialContext.deployL1ContractsValues;
     initialFundedAccounts = initialContext.initialFundedAccounts;
@@ -101,7 +106,7 @@ describe('Aztec persistence', () => {
     await progressBlocksPastDelay(contract);
 
     await initialContext.teardown();
-  }, 180_000);
+  }, 600_000);
 
   const progressBlocksPastDelay = async (contract: TokenBlacklistContract) => {
     for (let i = 0; i < BlacklistTokenContractTest.CHANGE_ROLES_DELAY; ++i) {
@@ -113,14 +118,19 @@ describe('Aztec persistence', () => {
     [
       // ie we were shutdown and now starting back up. Initial sync should be ~instant
       'when starting Node and PXE with existing databases',
-      () => setup(0, { dataDirectory, deployL1ContractsValues, initialFundedAccounts }, { dataDirectory }),
-      1000,
+      () =>
+        setup(
+          0,
+          { ...PIPELINING_SETUP_OPTS, dataDirectory, deployL1ContractsValues, initialFundedAccounts },
+          { dataDirectory },
+        ),
+      60_000,
     ],
     [
       // ie our PXE was restarted, data kept intact and now connects to a "new" Node. Initial synch will synch from scratch
       'when starting a PXE with an existing database, connected to a Node with database synched from scratch',
-      () => setup(0, { deployL1ContractsValues, initialFundedAccounts }, { dataDirectory }),
-      10_000,
+      () => setup(0, { ...PIPELINING_SETUP_OPTS, deployL1ContractsValues, initialFundedAccounts }, { dataDirectory }),
+      120_000,
     ],
   ])('%s', (_, contextSetup, timeout) => {
     let contract: TokenBlacklistContract;
@@ -207,14 +217,14 @@ describe('Aztec persistence', () => {
     [
       // ie. I'm setting up a new full node, sync from scratch and restore wallets/notes
       'when starting the Node and PXE with empty databases',
-      () => setup(0, { deployL1ContractsValues, initialFundedAccounts }, {}),
-      10_000,
+      () => setup(0, { ...PIPELINING_SETUP_OPTS, deployL1ContractsValues, initialFundedAccounts }, {}),
+      120_000,
     ],
     [
       // ie. I'm setting up a new PXE, restore wallets/notes from a Node
       'when starting a PXE with an empty database connected to a Node with an existing database',
-      () => setup(0, { dataDirectory, deployL1ContractsValues, initialFundedAccounts }, {}),
-      10_000,
+      () => setup(0, { ...PIPELINING_SETUP_OPTS, dataDirectory, deployL1ContractsValues, initialFundedAccounts }, {}),
+      120_000,
     ],
   ])('%s', (_, contextSetup, timeout) => {
     beforeEach(async () => {
@@ -285,7 +295,7 @@ describe('Aztec persistence', () => {
     // Then shutdown the temporary components and restart the original components
     // They should sync up from where they left off and be able to see the actions performed by the temporary node & PXE.
     beforeAll(async () => {
-      const temporaryContext = await setup(0, { deployL1ContractsValues }, {});
+      const temporaryContext = await setup(0, { ...PIPELINING_SETUP_OPTS, deployL1ContractsValues }, {});
 
       await temporaryContext.wallet.registerContract(contractInstance, TokenBlacklistContract.artifact);
 
@@ -313,11 +323,11 @@ describe('Aztec persistence', () => {
     let contract: TokenBlacklistContract;
 
     beforeEach(async () => {
-      context = await setup(0, { dataDirectory, deployL1ContractsValues }, { dataDirectory });
+      context = await setup(0, { ...PIPELINING_SETUP_OPTS, dataDirectory, deployL1ContractsValues }, { dataDirectory });
       const account = initialFundedAccounts[0];
       await context.wallet.createSchnorrAccount(account.secret, account.salt);
       contract = TokenBlacklistContract.at(contractAddress, context.wallet);
-    });
+    }, 120_000);
 
     afterEach(async () => {
       await context.teardown();

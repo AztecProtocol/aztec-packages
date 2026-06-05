@@ -1,4 +1,5 @@
 import { BarretenbergSync } from '@aztec/bb.js';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 
@@ -23,33 +24,33 @@ export class Schnorr {
   }
 
   /**
-   * Constructs a Schnorr signature given a msg and a private key.
-   * @param msg - Message over which the signature is constructed.
+   * Constructs a Schnorr signature over a 32-byte message field element.
+   * @param msg - The message hash, as a grumpkin base field element.
    * @param privateKey - The private key of the signer.
    * @returns A Schnorr signature of the form (s, e).
    */
-  public async constructSignature(msg: Uint8Array, privateKey: GrumpkinScalar) {
+  public async constructSignature(msg: Fr, privateKey: GrumpkinScalar) {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.schnorrConstructSignature({
-      message: msg,
+      messageField: msg.toBuffer(),
       privateKey: privateKey.toBuffer(),
     });
     return new SchnorrSignature(Buffer.from([...response.s, ...response.e]));
   }
 
   /**
-   * Verifies a Schnorr signature given a Grumpkin public key.
-   * @param msg - Message over which the signature was constructed.
+   * Verifies a Schnorr signature against a Grumpkin public key.
+   * @param msg - The message hash, as a grumpkin base field element.
    * @param pubKey - The Grumpkin public key of the signer.
    * @param sig - The Schnorr signature.
    * @returns True or false.
    */
-  public async verifySignature(msg: Uint8Array, pubKey: Point, sig: SchnorrSignature) {
+  public async verifySignature(msg: Fr, pubKey: Point, sig: SchnorrSignature) {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
     const response = api.schnorrVerifySignature({
-      message: msg,
+      messageField: msg.toBuffer(),
       publicKey: { x: pubKey.x.toBuffer(), y: pubKey.y.toBuffer() },
       s: sig.s,
       e: sig.e,

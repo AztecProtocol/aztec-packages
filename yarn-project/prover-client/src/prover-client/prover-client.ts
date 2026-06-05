@@ -1,5 +1,7 @@
 import { type ACVMConfig, type BBConfig, BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
+import type { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
@@ -15,19 +17,64 @@ import {
   type ServerCircuitProver,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
+import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { ProverClientConfig } from '../config.js';
+import { CheckpointSubTreeOrchestrator } from '../orchestrator/checkpoint-sub-tree-orchestrator.js';
+import { EpochProvingContext } from '../orchestrator/epoch-proving-context.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import { TopTreeOrchestrator } from '../orchestrator/top-tree-orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore, type ProofStore, createProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 import { ServerEpochProver } from './server-epoch-prover.js';
 
+/**
+ * The factory surface that `EpochProvingJob` (in `prover-node`) depends on. Implemented
+ * by `ProverClient`. Defined here rather than in stdlib because the return types
+ * (`CheckpointSubTreeOrchestrator`, `TopTreeOrchestrator`) are concrete classes from
+ * this package.
+ *
+ * A single `BrokerCircuitProverFacade` is owned by `ProverClient` and shared across
+ * every orchestrator (every sub-tree and every top-tree across every concurrent epoch
+ * job). The broker delivers each completed-job notification exactly once (drained on
+ * the first `getCompletedJobs` poll), so multiple facades polling the same broker
+ * race and lose notifications
+ *
+ * The facade's job map cleans up entries on resolve/reject, and the prover-node
+ * keeps `ProverClient` alive for its whole lifetime
+ */
+export interface EpochProverFactory {
+  getProverId(): EthAddress;
+  /**
+   * Constructs a per-epoch shared context for the caching of e.g. chonk verifier results
+   */
+  createEpochProvingContext(epochNumber: EpochNumber): EpochProvingContext;
+  /**
+   * Constructs and starts a `CheckpointSubTreeOrchestrator` for a single checkpoint.
+   */
+  createCheckpointSubTreeOrchestrator(
+    epochContext: EpochProvingContext,
+    checkpointConstants: CheckpointConstantData,
+    l1ToL2Messages: Fr[],
+    totalNumBlocks: number,
+    headerOfLastBlockInPreviousCheckpoint: BlockHeader,
+  ): Promise<CheckpointSubTreeOrchestrator>;
+  createTopTreeOrchestrator(): TopTreeOrchestrator;
+}
+
 /** Manages proving of epochs by orchestrating the proving of individual blocks relying on a pool of prover agents. */
-export class ProverClient implements EpochProverManager {
+export class ProverClient implements EpochProverManager, EpochProverFactory {
   private running = false;
   private agents: ProvingAgent[] = [];
+  /**
+   * The single broker facade shared by every orchestrator created from this client.
+   * Constructed lazily on `start()` and torn down on `stop()` — see the comment on
+   * `EpochProverFactory` for why a single shared facade is required.
+   */
+  private facade: BrokerCircuitProverFacade | undefined;
 
   private constructor(
     private config: ProverClientConfig,
@@ -40,6 +87,38 @@ export class ProverClient implements EpochProverManager {
     private log: Logger = createLogger('prover-client:tx-prover'),
   ) {}
 
+  /**
+   * Lazy-init the shared facade. The broker delivers each completed-job notification
+   * exactly once (drained on the first `getCompletedJobs` poll), so we cannot start
+   * a shared facade alongside the per-call facades that `createEpochProver` builds —
+   * they would race for notifications and one side would silently drop them. Starting
+   * the shared facade only on first use of one of the new factory methods keeps the
+   * legacy `createEpochProver` path race-free.
+   */
+  private getFacade(): BrokerCircuitProverFacade {
+    if (!this.running) {
+      throw new Error('ProverClient is not running; call start() before constructing orchestrators.');
+    }
+    if (!this.facade) {
+      this.facade = new BrokerCircuitProverFacade(
+        this.orchestratorClient,
+        this.proofStore,
+        this.failedProofStore,
+        undefined,
+        this.log.getBindings(),
+      );
+      this.facade.start();
+    }
+    return this.facade;
+  }
+
+  /**
+   * Legacy single-class epoch prover. Each call constructs its own
+   * `BrokerCircuitProverFacade`; the new factory methods (`createCheckpointSubTreeOrchestrator`,
+   * `createTopTreeOrchestrator`, `createEpochProvingContext`) share a single facade
+   * owned by `ProverClient`. Both APIs coexist while the prover-node migrates onto
+   * the new pair.
+   */
   public createEpochProver(): EpochProver {
     const bindings = this.log.getBindings();
     const facade = new BrokerCircuitProverFacade(
@@ -59,6 +138,43 @@ export class ProverClient implements EpochProverManager {
       bindings,
     );
     return new ServerEpochProver(facade, orchestrator);
+  }
+
+  public createEpochProvingContext(epochNumber: EpochNumber): EpochProvingContext {
+    return new EpochProvingContext(this.getFacade(), epochNumber, this.log.getBindings());
+  }
+
+  public createCheckpointSubTreeOrchestrator(
+    epochContext: EpochProvingContext,
+    checkpointConstants: CheckpointConstantData,
+    l1ToL2Messages: Fr[],
+    totalNumBlocks: number,
+    headerOfLastBlockInPreviousCheckpoint: BlockHeader,
+  ): Promise<CheckpointSubTreeOrchestrator> {
+    return CheckpointSubTreeOrchestrator.start(
+      this.worldState,
+      this.getFacade(),
+      this.config.proverId,
+      epochContext,
+      this.config.cancelJobsOnStop,
+      this.config.enqueueConcurrency,
+      checkpointConstants,
+      l1ToL2Messages,
+      totalNumBlocks,
+      headerOfLastBlockInPreviousCheckpoint,
+      this.telemetry,
+      this.log.getBindings(),
+    );
+  }
+
+  public createTopTreeOrchestrator(): TopTreeOrchestrator {
+    return new TopTreeOrchestrator(
+      this.getFacade(),
+      this.config.proverId,
+      this.config.enqueueConcurrency,
+      this.telemetry,
+      this.log.getBindings(),
+    );
   }
 
   public getProverId(): EthAddress {
@@ -100,6 +216,14 @@ export class ProverClient implements EpochProverManager {
     }
     this.running = false;
     await this.stopAgents();
+    if (this.facade) {
+      try {
+        await this.facade.stop();
+      } catch (err) {
+        this.log.error('Error stopping shared broker facade', err);
+      }
+      this.facade = undefined;
+    }
     await tryStop(this.orchestratorClient);
   }
 

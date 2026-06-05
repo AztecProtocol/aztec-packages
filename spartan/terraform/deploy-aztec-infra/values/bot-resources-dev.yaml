@@ -1,4 +1,24 @@
 bot:
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+    cores: "2"
+    pool: "spot"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+
+  tolerations:
+    - key: "cloud.google.com/gke-spot"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
   node:
     resources:
       requests:
@@ -7,4 +27,3 @@ bot:
       limits:
         cpu: "0.5"
         memory: "2Gi"
-

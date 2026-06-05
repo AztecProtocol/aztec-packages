@@ -31,11 +31,12 @@ function print_usage {
   echo_cmd "network-scenarios"     "Spin up EC2 instances to run network scenario tests in parallel."
   echo_cmd "network-tests"         "Spin up an EC2 instance to run tests on a network."
   echo_cmd "network-bench"         "Spin up an EC2 instance to run benchmarks on a network."
+  echo_cmd "network-proving-bench" "Spin up an EC2 instance to deploy a network and run proving benchmarks. Set SKIP_NETWORK_DEPLOY=1 to skip deploy."
   echo_cmd "network-bench-10tps"   "Spin up an EC2 instance to run the 10 TPS benchmark on bench-10tps."
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
   echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
-  echo_cmd "compat-e2e"            "Spin up an EC2 instance and run backwards compat e2e tests."
+  echo_cmd "chonk-input-update"    "Spin up an EC2 instance to update pinned Chonk IVC inputs and push the diff."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
@@ -127,6 +128,12 @@ case "$cmd" in
     export AWS_SHUTDOWN_TIME=75
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
+  chonk-input-update)
+    export CI_DASHBOARD="prs"
+    export JOB_ID="x-$cmd"
+    export AWS_SHUTDOWN_TIME=90
+    bootstrap_ec2 "./bootstrap.sh ci-chonk-input-update"
+    ;;
   barretenberg-debug)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"
@@ -158,7 +165,7 @@ case "$cmd" in
       'a1-fast arm64 ci-fast'
     ;;
   merge-queue-heavy)
-    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan PRs.
+    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan and merge-train/spartan-v5 PRs.
     multi_job_run \
       'x'{1..10}'-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'
@@ -243,38 +250,48 @@ case "$cmd" in
   network-bench)
     # Args: <scenario> <namespace> [docker_image]
     # If docker_image is not provided, ci-network-bench will build and push to aztecdev.
+    # Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-bench"
     export INSTANCE_POSTFIX="n-bench"
     # Enough for the build, which should have a lot of caching, and the test harness.
     # Resources are on GCP.
     export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-network-bench $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-bench $*"
     ;;
   network-proving-bench)
     # Args: <scenario> <namespace> [docker_image]
-    # Deploys network and runs proving benchmarks.
+    # Deploys network and runs proving benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-proving-bench" CPUS=16
     export INSTANCE_POSTFIX="n-proving-bench"
-    bootstrap_ec2 "./bootstrap.sh ci-network-proving-bench $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-proving-bench $*"
     ;;
   network-block-capacity-bench)
     # Args: <scenario> <namespace> [docker_image]
-    # Deploys network and runs block capacity benchmarks.
+    # Deploys network and runs block capacity benchmarks. Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-block-capacity-bench" CPUS=16
     export INSTANCE_POSTFIX="n-block-cap-bench"
-    bootstrap_ec2 "./bootstrap.sh ci-network-block-capacity-bench $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-block-capacity-bench $*"
     ;;
   network-bench-10tps)
     # Args: <scenario> <namespace> [docker_image]
     # Deploys the bench-10tps network and runs the 10-min 10 TPS benchmark.
+    # Set SKIP_NETWORK_DEPLOY=1 to run against an existing network.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-bench-10tps" CPUS=16
     export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
     export INSTANCE_POSTFIX="n-bench-10tps"
-    bootstrap_ec2 "./bootstrap.sh ci-network-bench-10tps $*"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-bench-10tps $*"
     ;;
   network-teardown)
     # Args: <scenario> <namespace>
@@ -303,49 +320,19 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
     ;;
 
-  ##############################
-  # BACKWARDS COMPATIBILITY   #
-  ##############################
-  compat-e2e)
-    # Spin up an EC2 instance and run backwards compatibility e2e tests
-    # against contract artifacts from prior stable releases.
-    export CI_DASHBOARD="releases"
-    export JOB_ID="x-compat-e2e"
-    export AWS_SHUTDOWN_TIME=300
-    rc=0
-    bootstrap_ec2 "./bootstrap.sh ci-compat-e2e" || rc=$?
-    # On nightly tags compat-e2e is non-blocking (continue-on-error in ci3.yml), so
-    # failures otherwise go unnoticed. Notify #team-fairies so they get picked up.
-    if [ "$rc" -ne 0 ] && [[ "${REF_NAME:-}" == *-nightly.* ]]; then
-      run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${GITHUB_RUN_ID:-unknown}"
-      "$ci3/slack_notify" "Backwards compatibility e2e tests FAILED on nightly tag <${run_url}|${REF_NAME}>" "#team-fairies"
-    fi
-    exit "$rc"
-    ;;
-
   ############
   # RELEASES #
   ############
   release)
-    # Spin up ec2 instance and run the release-tag verification build (no publish).
+    # Spin up ec2 instances (amd64 + arm64) and run the full release flow: backwards-compat e2e
+    # checks, build, and publish. Set DRY_RUN=1 to exercise the whole flow without publishing.
     export CI_DASHBOARD="releases"
+    # Roomier instance lifetime than a standard run: the amd64 job builds, runs the backwards-compat
+    # e2e suite, and then publishes, which together exceed the default 75 min shutdown.
+    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
     multi_job_run \
       'x-release amd64 ci-release' \
       'a-release arm64 ci-release'
-    ;;
-  release-publish)
-    # Spin up ec2 instance and run the actual publish flow. Gated in ci3.yml on ci + ci-compat-e2e.
-    export CI_DASHBOARD="releases"
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release-publish'"
-    }
-    export -f run
-
-    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-release-publish amd64' \
-      'run a-release-publish arm64' | DUP=1 cache_log "Release Publish CI run" $RUN_ID
     ;;
 
   ##################

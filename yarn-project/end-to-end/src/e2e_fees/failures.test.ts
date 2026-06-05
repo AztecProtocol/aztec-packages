@@ -14,11 +14,18 @@ import { FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
 
-import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { jest } from '@jest/globals';
+
+import { PIPELINING_SETUP_OPTS, U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { ensureAuthRegistryPublished } from '../fixtures/setup.js';
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees failures', () => {
+  // FeesTest.setup + applyFPCSetup chains many dependent txs which run at the
+  // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
+  jest.setTimeout(900_000);
+
   let wallet: Wallet;
   let aliceAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
@@ -31,9 +38,13 @@ describe('e2e_fees failures', () => {
   const t = new FeesTest('failures', 3, { coinbase });
 
   beforeAll(async () => {
-    await t.setup();
+    // Shorter epochs (default 32 → 4) speed the per-test `advanceToNextEpoch + waitForProven`
+    // cycle: the prover-node submits a proof as soon as the epoch is complete, so ~8x shorter
+    // epochs ≈ ~8x faster proof cadence per cycle. Setup itself stays slot-bound.
+    await t.setup({ ...PIPELINING_SETUP_OPTS, aztecProofSubmissionEpochs: 640, aztecEpochDuration: 4 });
     await t.applyFPCSetup();
     ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = t);
+    await ensureAuthRegistryPublished(wallet, aliceAddress);
     aztecNode = t.aztecNode;
 
     // Prove up until the current state by just marking it as proven.
@@ -87,6 +98,7 @@ describe('e2e_fees failures', () => {
     await t.catchUpProvenChain();
 
     const currentSequencerRewards = await t.getCoinbaseSequencerRewards();
+    const provenCheckpointBefore = await t.rollupContract.getProvenCheckpointNumber();
 
     const { receipt: txReceipt } = await bananaCoin.methods
       .transfer_in_public(aliceAddress, sequencerAddress, outrageousPublicAmountAliceDoesNotHave, 0)
@@ -98,7 +110,7 @@ describe('e2e_fees failures', () => {
         wait: { dontThrowOnRevert: true },
       });
 
-    expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
+    expect(txReceipt.executionResult).toBe(TxExecutionResult.REVERTED);
 
     const { sequencerBlockRewards } = await t.getBlockRewards();
 
@@ -106,13 +118,27 @@ describe('e2e_fees failures', () => {
     // epoch and thereby pays out fees at the same time (when proven).
     await t.context.watcher.trigger();
     await t.cheatCodes.rollup.advanceToNextEpoch();
-    await t.catchUpProvenChain();
+    const provenTimeout =
+      (t.context.config.aztecProofSubmissionEpochs + 1) *
+      t.context.config.aztecEpochDuration *
+      t.context.config.aztecSlotDuration;
+    await waitForProven(aztecNode, txReceipt, { provenTimeout });
+
+    // Under pipelining, multiple empty checkpoints can land and prove between the snapshot and waitForProven;
+    // each one contributes a block reward to the coinbase, so multiply by the actual proven-checkpoint delta.
+    const provenCheckpointAfter = await t.rollupContract.getProvenCheckpointNumber();
+    const newlyProvenCheckpoints = BigInt(provenCheckpointAfter - provenCheckpointBefore);
 
     const feeAmount = txReceipt.transactionFee!;
-    const expectedProverFee = await t.getProverFee(txReceipt.blockNumber!);
+    const expectedProverFee = await t.getCommittedProverFee(txReceipt.blockNumber!);
+    const expectedBurn = await t.getCommittedBurn(txReceipt.blockNumber!);
     const newSequencerRewards = await t.getCoinbaseSequencerRewards();
     expect(newSequencerRewards).toEqual(
-      currentSequencerRewards + sequencerBlockRewards + feeAmount - expectedProverFee,
+      currentSequencerRewards +
+        newlyProvenCheckpoints * sequencerBlockRewards +
+        feeAmount -
+        expectedBurn -
+        expectedProverFee,
     );
 
     // and thus we paid the fee
@@ -201,7 +227,7 @@ describe('e2e_fees failures', () => {
         wait: { dontThrowOnRevert: true },
       });
 
-    expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
+    expect(txReceipt.executionResult).toBe(TxExecutionResult.REVERTED);
     const feeAmount = txReceipt.transactionFee!;
 
     // and thus we paid the fee
@@ -298,7 +324,7 @@ describe('e2e_fees failures', () => {
         },
         wait: { dontThrowOnRevert: true },
       });
-    expect(receipt.executionResult).toEqual(TxExecutionResult.TEARDOWN_REVERTED);
+    expect(receipt.executionResult).toEqual(TxExecutionResult.REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
     await expectMapping(
@@ -346,7 +372,7 @@ describe('e2e_fees failures', () => {
         wait: { dontThrowOnRevert: true },
       });
 
-    expect(receipt.executionResult).toBe(TxExecutionResult.BOTH_REVERTED);
+    expect(receipt.executionResult).toBe(TxExecutionResult.REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
     await t.context.watcher.trigger();

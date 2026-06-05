@@ -1,3 +1,4 @@
+import { L1RpcError } from '@aztec/ethereum/client';
 import { MULTI_CALL_3_ADDRESS, type ViemCommitteeAttestations, type ViemHeader } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
@@ -1002,7 +1003,9 @@ describe('CalldataRetriever', () => {
       const proposeCalldata = makeProposeCalldata();
 
       // First call (trace_transaction) fails
-      debugClient.request.mockRejectedValueOnce(new Error('trace_transaction not supported'));
+      debugClient.request.mockRejectedValueOnce(
+        new L1RpcError('L1 RPC request failed', { cause: new Error('trace_transaction not supported') }),
+      );
 
       // Second call (debug_traceTransaction) succeeds - returns root trace with nested calls
       debugClient.request.mockResolvedValueOnce({

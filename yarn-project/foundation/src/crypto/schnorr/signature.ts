@@ -1,6 +1,5 @@
-import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, mapTuple } from '@aztec/foundation/serialize';
+import { mapTuple } from '@aztec/foundation/serialize';
 
 import type { Signature } from '../signature/index.js';
 
@@ -14,44 +13,10 @@ export class SchnorrSignature implements Signature {
    */
   public static SIZE = 64;
 
-  /**
-   * An empty signature.
-   */
-  public static EMPTY = new SchnorrSignature(Buffer.alloc(64));
-
   constructor(private buffer: Buffer) {
     if (buffer.length !== SchnorrSignature.SIZE) {
       throw new Error(`Invalid signature buffer of length ${buffer.length}.`);
     }
-  }
-
-  /**
-   * Determines if the provided signature is valid or not.
-   * @param signature - The data to be checked.
-   * @returns Boolean indicating if the provided data is a valid schnorr signature.
-   */
-  public static isSignature(signature: string) {
-    return /^(0x)?[0-9a-f]{128}$/i.test(signature);
-  }
-
-  /**
-   * Constructs a SchnorrSignature from the provided string.
-   * @param signature - The string to be converted to a schnorr signature.
-   * @returns The constructed schnorr signature.
-   */
-  public static fromString(signature: string) {
-    if (!SchnorrSignature.isSignature(signature)) {
-      throw new Error(`Invalid signature string: ${signature}`);
-    }
-    return new SchnorrSignature(Buffer.from(signature.replace(/^0x/i, ''), 'hex'));
-  }
-
-  /**
-   * Generates a random schnorr signature.
-   * @returns The randomly constructed signature.
-   */
-  public static random() {
-    return new SchnorrSignature(randomBytes(64));
   }
 
   /**
@@ -79,16 +44,6 @@ export class SchnorrSignature implements Signature {
   }
 
   /**
-   * Deserializes from a buffer.
-   * @param buffer - The buffer representation of the object.
-   * @returns The new object.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): SchnorrSignature {
-    const reader = BufferReader.asReader(buffer);
-    return new SchnorrSignature(reader.readBytes(SchnorrSignature.SIZE));
-  }
-
-  /**
    * Returns the full signature as a hex string.
    * @returns A string containing the signature in hex format.
    */
@@ -112,5 +67,21 @@ export class SchnorrSignature implements Signature {
     sig.copy(buf3, 1, 62, 64);
 
     return mapTuple([buf1, buf2, buf3], Fr.fromBuffer);
+  }
+
+  /**
+   * Splits the signature into the four 128-bit limbs that Noir's `EmbeddedCurveScalar` consumes:
+   * `[s.lo, s.hi, e.lo, e.hi]`, where each component scalar is encoded as `lo + hi * 2^128`.
+   *
+   * Each 32-byte big-endian component is sliced into its top 16 bytes (`hi`) and bottom 16 bytes
+   * (`lo`); each half is zero-padded into a 32-byte buffer and decoded as `Fr` (big-endian).
+   */
+  toLimbFields(): [Fr, Fr, Fr, Fr] {
+    const limb = (start: number) => {
+      const buf = Buffer.alloc(32);
+      this.buffer.copy(buf, 16, start, start + 16);
+      return Fr.fromBuffer(buf);
+    };
+    return [limb(16), limb(0), limb(48), limb(32)];
   }
 }

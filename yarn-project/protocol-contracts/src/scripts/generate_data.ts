@@ -3,14 +3,11 @@
 // `protocol_contract_data.ts`. This avoids clients repeating the expensive hashing at runtime and
 // ensures a single source of truth for the protocol contracts hash enforced by circuits, P2P, and L1.
 import {
-  CANONICAL_AUTH_REGISTRY_ADDRESS,
   CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   FEE_JUICE_ADDRESS,
   MAX_PROTOCOL_CONTRACTS,
-  MULTI_CALL_ENTRYPOINT_ADDRESS,
-  PUBLIC_CHECKS_ADDRESS,
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -40,12 +37,9 @@ const outputFilePath = './src/protocol_contract_data.ts';
 const salt = new Fr(1);
 
 const contractAddressMapping: { [name: string]: number } = {
-  AuthRegistry: CANONICAL_AUTH_REGISTRY_ADDRESS,
   ContractInstanceRegistry: CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   ContractClassRegistry: CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-  MultiCallEntrypoint: MULTI_CALL_ENTRYPOINT_ADDRESS,
   FeeJuice: FEE_JUICE_ADDRESS,
-  PublicChecks: PUBLIC_CHECKS_ADDRESS,
 };
 
 async function clearDestDir() {
@@ -89,10 +83,11 @@ async function computeContractData(artifact: NoirCompiledContract, deployer: Azt
   const constructorArtifact = loaded.functions.find(f => f.name === 'constructor');
   const initializationHash = await computeInitializationHash(constructorArtifact, []);
   const instance = {
-    version: 1 as const,
+    version: 2 as const,
     currentContractClassId: contractClass.id,
     originalContractClassId: contractClass.id,
     initializationHash,
+    immutablesHash: Fr.ZERO, // Protocol Contracts Have No Immutables
     publicKeys: PublicKeys.default(),
     salt,
     deployer,

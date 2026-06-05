@@ -5,15 +5,12 @@ import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   FeeAssetPriceOracle,
   type GovernanceProposerContract,
-  type IEmpireBase,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
-  RollupContract,
-  SimulationOverridesBuilder,
+  MulticallForwarderRevertedError,
+  type RollupContract,
   type SimulationOverridesPlan,
   type SlashingProposerContract,
-  type ViemCommitteeAttestations,
-  type ViemHeader,
   buildSimulationOverridesStateOverride,
 } from '@aztec/ethereum/contracts';
 import { type L1FeeAnalysisResult, L1FeeAnalyzer } from '@aztec/ethereum/l1-fee-analysis';
@@ -26,47 +23,71 @@ import {
   type TransactionStats,
   WEI_CONST,
 } from '@aztec/ethereum/l1-tx-utils';
-import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
-import { sumBigint } from '@aztec/foundation/bigint';
+import {
+  FormattedViemError,
+  formatViemError,
+  mergeAbis,
+  tryDecodeRevertReason,
+  tryExtractEvent,
+} from '@aztec/ethereum/utils';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { trimmedBytesLength } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
-import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { EmpireBaseAbi, ErrorsAbi, RollupAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { getLastL1SlotTimestampForL2Slot, getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
+import {
+  getLastL1SlotTimestampForL2Slot,
+  getNextL1SlotTimestamp,
+  getTimestampForSlot,
+} from '@aztec/stdlib/epoch-helpers';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import {
+  type Abi,
   type Hex,
   type TransactionReceipt,
   type TypedDataDefinition,
   encodeFunctionData,
   keccak256,
-  multicall3Abi,
   toHex,
 } from 'viem';
 
 import type { SequencerPublisherConfig } from './config.js';
 import { type FailedL1Tx, type L1TxFailedStore, createL1TxFailedStore } from './l1_tx_failed_store/index.js';
+import { type DroppedRequest, SequencerBundleSimulator } from './sequencer-bundle-simulator.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
+
+/**
+ * Returns true if the receipt indicates a successful send AND the expected event was emitted
+ * by the target contract. Both pieces are required: an aggregate3 entry that reverted will
+ * have receipt.status === 'success' but no event log.
+ */
+function extractEventSuccess(
+  receipt: TransactionReceipt | undefined,
+  opts: { address: string; abi: Abi; eventName: string },
+): boolean {
+  if (!receipt || receipt.status !== 'success') {
+    return false;
+  }
+  return !!tryExtractEvent(receipt.logs, opts.address.toString() as Hex, opts.abi, opts.eventName);
+}
 
 /** Result of a sendRequests call, returned by both sendRequests() and sendRequestsAt(). */
 export type SendRequestsResult = {
-  /** The L1 transaction receipt or error from the bundled multicall. */
-  result: { receipt: TransactionReceipt; errorMsg?: string } | FormattedViemError;
+  /** The L1 transaction receipt from the bundled multicall. */
+  result: { receipt: TransactionReceipt };
   /** Actions that expired (past their deadline) before the request was sent. */
   expiredActions: Action[];
   /** Actions that were included in the sent L1 transaction. */
@@ -121,17 +142,16 @@ export type InvalidateCheckpointRequest = {
 
 type EnqueueProposeCheckpointOpts = {
   txTimeoutAt?: Date;
-  simulationOverridesPlan?: SimulationOverridesPlan;
 };
 
-interface RequestWithExpiry {
+export interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
   lastValidL2Slot: SlotNumber;
   gasConfig?: Pick<L1TxConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
-  /** Optional pre-send validation. If it rejects, the request is discarded. */
-  preCheck?: () => Promise<void>;
+  /** Gas consumed by validateBlobs; stashed for the bundle simulate at send time. */
+  blobEvaluationGas?: bigint;
   checkSuccess: (
     request: L1TxRequest,
     result?: { receipt: TransactionReceipt; stats?: TransactionStats; errorMsg?: string },
@@ -141,16 +161,18 @@ interface RequestWithExpiry {
 export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
+  private bundleSimulator: SequencerBundleSimulator;
   public epochCache: EpochCache;
   private failedTxStore?: Promise<L1TxFailedStore | undefined>;
 
-  protected governanceLog = createLogger('sequencer:publisher:governance');
-  protected slashingLog = createLogger('sequencer:publisher:slashing');
+  /**
+   * ABI used to decode raw revert payloads from dropped bundle entries when the original
+   * request did not carry an abi (e.g. the propose request). Merges every contract the
+   * publisher can route to so any of their custom errors decode against it.
+   */
+  private readonly revertDecoderAbi: Abi = mergeAbis([RollupAbi, SlashingProposerAbi, EmpireBaseAbi, ErrorsAbi]);
 
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
-
-  private isPayloadEmptyCache: Map<string, boolean> = new Map<string, boolean>();
-  private payloadProposedCache: Set<string> = new Set<string>();
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
@@ -160,9 +182,6 @@ export class SequencerPublisher {
   private readonly dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
-
-  /** Address to use for simulations in fisherman mode (actual proposer's address) */
-  private proposerAddressForSimulation?: EthAddress;
 
   /** Optional callback to obtain a replacement publisher when the current one fails to send. */
   private getNextPublisher?: (excludeAddresses: EthAddress[]) => Promise<L1TxUtils | undefined>;
@@ -175,12 +194,6 @@ export class SequencerPublisher {
 
   /** Interruptible sleep used by sendRequestsAt to wait until a target timestamp. */
   private readonly interruptibleSleep = new InterruptibleSleep();
-
-  // A CALL to a cold address is 2700 gas
-  public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
-
-  // Gas report for VotingWithSigTest shows a max gas of 100k, but we've seen it cost 700k+ in testnet
-  public static VOTE_GAS_GUESS: bigint = 800_000n;
 
   public l1TxUtils: L1TxUtils;
   public rollupContract: RollupContract;
@@ -240,7 +253,7 @@ export class SequencerPublisher {
       this.l1FeeAnalyzer = new L1FeeAnalyzer(
         this.l1TxUtils.client,
         deps.dateProvider,
-        createLogger('sequencer:publisher:fee-analyzer'),
+        this.log.createChild('fee-analyzer'),
       );
     }
 
@@ -248,11 +261,18 @@ export class SequencerPublisher {
     this.feeAssetPriceOracle = new FeeAssetPriceOracle(
       this.l1TxUtils.client,
       this.rollupContract,
-      createLogger('sequencer:publisher:price-oracle'),
+      this.log.createChild('price-oracle'),
     );
 
     // Initialize failed L1 tx store (optional, for test networks)
     this.failedTxStore = createL1TxFailedStore(config.l1TxFailedStore, this.log);
+
+    this.bundleSimulator = new SequencerBundleSimulator({
+      getL1TxUtils: () => this.l1TxUtils,
+      rollupContract: this.rollupContract,
+      epochCache: this.epochCache,
+      log: this.log.createChild('bundle-simulator'),
+    });
   }
 
   /**
@@ -283,10 +303,14 @@ export class SequencerPublisher {
 
   /**
    * Gets the fee asset price modifier from the oracle.
-   * Returns 0n if the oracle query fails.
+   *
+   * @param predictedParentEthPerFeeAssetE12 - Optional predicted parent eth-per-fee-asset (E12).
+   *   Pipelined proposers should pass the value from the predicted parent fee header so the
+   *   modifier matches the parent L1 will use when applying it.
+   * @returns The fee asset price modifier in basis points, or 0n if the oracle query fails.
    */
-  public getFeeAssetPriceModifier(): Promise<bigint> {
-    return this.feeAssetPriceOracle.computePriceModifier();
+  public getFeeAssetPriceModifier(predictedParentEthPerFeeAssetE12?: bigint): Promise<bigint> {
+    return this.feeAssetPriceOracle.computePriceModifier(predictedParentEthPerFeeAssetE12);
   }
 
   public getSenderAddress() {
@@ -298,14 +322,6 @@ export class SequencerPublisher {
    */
   public getL1FeeAnalyzer(): L1FeeAnalyzer | undefined {
     return this.l1FeeAnalyzer;
-  }
-
-  /**
-   * Sets the proposer address to use for simulations in fisherman mode.
-   * @param proposerAddress - The actual proposer's address to use for balance lookups in simulations
-   */
-  public setProposerAddressForSimulation(proposerAddress: EthAddress | undefined) {
-    this.proposerAddressForSimulation = proposerAddress;
   }
 
   public addRequest(request: RequestWithExpiry) {
@@ -385,23 +401,26 @@ export class SequencerPublisher {
 
   /**
    * Sends all requests that are still valid.
+   * @param targetSlot - The target L2 slot for this send. When provided (the production path, via
+   *   sendRequestsAt), it is threaded into bundleSimulate so the block.timestamp override matches
+   *   the slot the propose is built for. When omitted, falls back to getCurrentL2Slot() for the
+   *   AutomineSequencer, which publishes synchronously within the current slot.
    * @returns one of:
    * - A receipt and stats if the tx succeeded
    * - a receipt and errorMsg if it failed on L1
    * - undefined if no valid requests are found OR the tx failed to send.
    */
   @trackSpan('SequencerPublisher.sendRequests')
-  public async sendRequests(): Promise<SendRequestsResult | undefined> {
+  public async sendRequests(targetSlot?: SlotNumber): Promise<SendRequestsResult | undefined> {
     const requestsToProcess = [...this.requests];
     this.requests = [];
 
     if (this.interrupted || requestsToProcess.length === 0) {
       return undefined;
     }
-    const currentL2Slot = this.getCurrentL2Slot();
+    const currentL2Slot = targetSlot ?? this.getCurrentL2Slot();
     this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
-    const validActions = validRequests.map(x => x.action);
     const expiredActions = requestsToProcess
       .filter(request => request.lastValidL2Slot < currentL2Slot)
       .map(x => x.action);
@@ -424,70 +443,58 @@ export class SequencerPublisher {
       return undefined;
     }
 
-    // @note - we can only have one blob config per bundle
-    // find requests with gas and blob configs
-    // See https://github.com/AztecProtocol/aztec-packages/issues/11513
+    // Collect earliest txTimeoutAt across all requests.
     const gasConfigs = validRequests.filter(request => request.gasConfig).map(request => request.gasConfig);
-    const blobConfigs = validRequests.filter(request => request.blobConfig).map(request => request.blobConfig);
-
-    if (blobConfigs.length > 1) {
-      throw new Error('Multiple blob configs found');
-    }
-
-    const blobConfig = blobConfigs[0];
-
-    // Merge gasConfigs. Yields the sum of gasLimits, and the earliest txTimeoutAt, or undefined if no gasConfig sets them.
-    const gasLimits = gasConfigs.map(g => g?.gasLimit).filter((g): g is bigint => g !== undefined);
-    let gasLimit = gasLimits.length > 0 ? sumBigint(gasLimits) : undefined; // sum
-    // Cap at L1 block gas limit so the node accepts the tx ("gas limit too high" otherwise).
-    const maxGas = MAX_L1_TX_LIMIT;
-    if (gasLimit !== undefined && gasLimit > maxGas) {
-      this.log.debug('Capping bundled tx gas limit to L1 max', {
-        requested: gasLimit,
-        capped: maxGas,
-      });
-      gasLimit = maxGas;
-    }
     const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
-    const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
-    const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
+    const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined;
 
     // Sort the requests so that proposals always go first
     // This ensures the committee gets precomputed correctly
     validRequests.sort((a, b) => compareActions(a.action, b.action));
 
     try {
-      // Capture context for failed tx backup before sending
-      const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-      const multicallData = encodeFunctionData({
-        abi: multicall3Abi,
-        functionName: 'aggregate3',
-        args: [
-          validRequests.map(r => ({
-            target: r.request.to!,
-            callData: r.request.data!,
-            allowFailure: true,
-          })),
-        ],
-      });
-      const blobDataHex = blobConfig?.blobs?.map(b => toHex(b)) as Hex[] | undefined;
+      // Bundle-level eth_simulateV1: filters out entries that revert and derives the gasLimit.
+      const bundleResult = await this.bundleSimulator.simulate(validRequests, currentL2Slot);
 
-      const txContext = { multicallData, blobData: blobDataHex, l1BlockNumber };
+      if (bundleResult.kind === 'aborted') {
+        this.logDroppedInSim(bundleResult.droppedRequests);
+        void this.backupDroppedInSim(bundleResult.droppedRequests);
+        return undefined;
+      }
+
+      const { requests, droppedRequests, gasLimit } =
+        bundleResult.kind === 'fallback'
+          ? {
+              requests: bundleResult.requests,
+              droppedRequests: bundleResult.droppedRequests,
+              gasLimit: MAX_L1_TX_LIMIT,
+            }
+          : bundleResult;
+
+      this.logDroppedInSim(droppedRequests);
+
+      // Compute blobConfig from survivors (not original validRequests) so that if the propose
+      // entry was dropped by bundleSimulate we don't attach a blob-typed config to a non-blob tx.
+      const [blobConfig] = requests.filter(r => r.blobConfig).map(r => r.blobConfig);
+      const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
       this.log.debug('Forwarding transactions', {
-        validRequests: validRequests.map(request => request.action),
+        requests: requests.map(request => request.action),
         txConfig,
       });
-      const result = await this.forwardWithPublisherRotation(validRequests, txConfig, blobConfig);
+      const result = await this.forwardWithPublisherRotation(requests, txConfig, blobConfig);
       if (result === undefined) {
         return undefined;
       }
-      const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(
-        validRequests,
+      const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(requests, result);
+      const allFailedActions = [...failedActions, ...droppedRequests.map(d => d.request.action)];
+      return {
         result,
-        txContext,
-      );
-      return { result, expiredActions, sentActions: validActions, successfulActions, failedActions };
+        expiredActions,
+        sentActions: requests.map(x => x.action),
+        successfulActions,
+        failedActions: allFailedActions,
+      };
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
@@ -504,6 +511,40 @@ export class SequencerPublisher {
     }
   }
 
+  /** Logs entries dropped by bundle simulation as warnings on the publisher's logger. */
+  private logDroppedInSim(dropped: DroppedRequest[]): void {
+    for (const drop of dropped) {
+      const revertReasonDecoded = drop.revertReason ?? tryDecodeRevertReason(drop.returnData, this.revertDecoderAbi);
+      this.log.warn('Bundle entry dropped: action reverted in sim', {
+        action: drop.request.action,
+        revertReason: revertReasonDecoded ?? drop.returnData,
+        revertReasonDecoded,
+        returnData: drop.returnData,
+      });
+    }
+  }
+
+  /** Backs up entries dropped by bundle simulation, one record per dropped action. */
+  private async backupDroppedInSim(dropped: DroppedRequest[]): Promise<void> {
+    if (dropped.length === 0) {
+      return;
+    }
+    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+    for (const { request: req } of dropped) {
+      this.backupFailedTx({
+        id: keccak256(req.request.data!),
+        failureType: 'simulation',
+        request: { to: req.request.to! as Hex, data: req.request.data! },
+        l1BlockNumber: l1BlockNumber.toString(),
+        error: { message: 'Bundle entry dropped: action reverted in sim' },
+        context: {
+          actions: [req.action],
+          sender: this.getSenderAddress().toString(),
+        },
+      });
+    }
+  }
+
   /**
    * Forwards transactions via Multicall3, rotating to the next available publisher if a send
    * failure occurs (i.e. the tx never reached the chain).
@@ -514,25 +555,42 @@ export class SequencerPublisher {
     txConfig: RequestWithExpiry['gasConfig'],
     blobConfig: L1BlobInputs | undefined,
   ) {
+    if (!txConfig?.gasLimit) {
+      throw new Error('gasLimit is required for bundled transactions');
+    }
+    const txConfigWithGasLimit = txConfig as L1TxConfig & { gasLimit: bigint };
+
     const triedAddresses: EthAddress[] = [];
     let currentPublisher = this.l1TxUtils;
 
     while (true) {
+      if (txConfig.txTimeoutAt && new Date() > txConfig.txTimeoutAt) {
+        this.log.warn(`Tx timeout (${txConfig.txTimeoutAt.toISOString()}) elapsed; stopping publisher rotation`, {
+          triedAddresses: triedAddresses.map(a => a.toString()),
+        });
+        return undefined;
+      }
       triedAddresses.push(currentPublisher.getSenderAddress());
+
       try {
         const result = await Multicall3.forward(
           validRequests.map(r => r.request),
           currentPublisher,
-          txConfig,
+          txConfigWithGasLimit,
           blobConfig,
-          this.rollupContract.address,
-          this.log,
+          { gasLimitRequired: true },
         );
         this.l1TxUtils = currentPublisher;
         return result;
       } catch (err) {
         if (err instanceof TimeoutError) {
           throw err;
+        }
+        if (err instanceof MulticallForwarderRevertedError) {
+          this.log.error('Forwarder transaction reverted on-chain; not rotating publisher', err, {
+            transactionHash: err.receipt.transactionHash,
+          });
+          return undefined;
         }
         const viemError = formatViemError(err);
         if (!this.getNextPublisher) {
@@ -545,7 +603,11 @@ export class SequencerPublisher {
         );
         const nextPublisher = await this.getNextPublisher([...triedAddresses]);
         if (!nextPublisher) {
-          this.log.error('All available publishers exhausted, failed to publish bundled transactions');
+          this.log.error(
+            `All available publishers exhausted (tried ${triedAddresses.length}), failed to publish bundled transactions`,
+            viemError,
+            { triedAddresses: triedAddresses.map(a => a.toString()) },
+          );
           return undefined;
         }
         currentPublisher = nextPublisher;
@@ -554,112 +616,59 @@ export class SequencerPublisher {
   }
 
   /*
-   * Schedules sending all enqueued requests at (or after) the given timestamp.
+   * Schedules sending all enqueued requests at (or after) the start of the given L2 slot.
+   * Sleeps until one L1 slot before the L2 slot boundary so the tx has a chance of being
+   * picked up by the first L1 block of the L2 slot.
+   * NB: there is a known correctness risk — being included in the L1 block right before the
+   * L2 slot starts would revert propose with HeaderLib__InvalidSlotNumber.
    * Uses InterruptibleSleep so it can be cancelled via interrupt().
-   * Returns the promise for the L1 response (caller should NOT await this in the work loop).
    */
-  public async sendRequestsAt(submitAfter: Date): Promise<SendRequestsResult | undefined> {
-    const ms = submitAfter.getTime() - this.dateProvider.now();
-    if (ms > 0) {
-      this.log.debug(`Sleeping ${ms}ms before sending requests`, { submitAfter });
-      await this.interruptibleSleep.sleep(ms);
+  public async sendRequestsAt(targetSlot: SlotNumber): Promise<SendRequestsResult | undefined> {
+    const l1Constants = this.epochCache.getL1Constants();
+    // Start of the target L2 slot, in ms (getTimestampForSlot returns seconds).
+    const startOfTargetSlotMs = Number(getTimestampForSlot(targetSlot, l1Constants)) * 1000;
+    // Aim to be in the mempool one L1 slot before the L2 slot starts, so we have a chance of
+    // being picked up by the first L1 block of the L2 slot.
+    const submitAfterMs = startOfTargetSlotMs - Number(this.ethereumSlotDuration) * 1000;
+    const sleepMs = submitAfterMs - this.dateProvider.now();
+    if (sleepMs > 0) {
+      this.log.debug(`Sleeping ${sleepMs}ms before sending requests`, {
+        targetSlot,
+        submitAfterMs,
+      });
+      await this.interruptibleSleep.sleep(sleepMs);
     }
     if (this.interrupted) {
       return undefined;
     }
-
-    // Re-validate enqueued requests after the sleep (state may have changed, e.g. prune or L1 reorg)
-    const validRequests: RequestWithExpiry[] = [];
-    for (const request of this.requests) {
-      if (!request.preCheck) {
-        validRequests.push(request);
-        continue;
-      }
-
-      try {
-        await request.preCheck();
-        validRequests.push(request);
-      } catch (err) {
-        this.log.warn(`Pre-send validation failed for ${request.action}, discarding request`, err);
-      }
-    }
-
-    this.requests = validRequests;
-    if (this.requests.length === 0) {
-      return undefined;
-    }
-
-    return this.sendRequests();
+    return this.sendRequests(targetSlot);
   }
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result: { receipt: TransactionReceipt; errorMsg?: string } | FormattedViemError | undefined,
-    txContext: { multicallData: Hex; blobData?: Hex[]; l1BlockNumber: bigint },
+    result: { receipt: TransactionReceipt; multicallData: Hex },
   ) {
     const actionsListStr = requests.map(r => r.action).join(', ');
-    if (result instanceof FormattedViemError) {
-      this.log.error(`Failed to publish bundled transactions (${actionsListStr})`, result);
-      this.backupFailedTx({
-        id: keccak256(txContext.multicallData),
-        failureType: 'send-error',
-        request: { to: MULTI_CALL_3_ADDRESS, data: txContext.multicallData },
-        blobData: txContext.blobData,
-        l1BlockNumber: txContext.l1BlockNumber.toString(),
-        error: { message: result.message, name: result.name },
-        context: {
-          actions: requests.map(r => r.action),
-          requests: requests.map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
-          sender: this.getSenderAddress().toString(),
-        },
-      });
-      return { failedActions: requests.map(r => r.action) };
-    } else {
-      this.log.verbose(`Published bundled transactions (${actionsListStr})`, {
-        result,
-        requests: requests.map(r => ({
-          ...r,
-          // Avoid logging large blob data
-          blobConfig: r.blobConfig
-            ? { ...r.blobConfig, blobs: r.blobConfig.blobs.map(b => ({ size: trimmedBytesLength(b) })) }
-            : undefined,
-        })),
-      });
-      const successfulActions: Action[] = [];
-      const failedActions: Action[] = [];
-      for (const request of requests) {
-        if (request.checkSuccess(request.request, result)) {
-          successfulActions.push(request.action);
-        } else {
-          failedActions.push(request.action);
-        }
+    this.log.verbose(`Published bundled transactions (${actionsListStr})`, {
+      result,
+      requests: requests.map(r => ({
+        ...r,
+        // Avoid logging large blob data
+        blobConfig: r.blobConfig
+          ? { ...r.blobConfig, blobs: r.blobConfig.blobs.map(b => ({ size: trimmedBytesLength(b) })) }
+          : undefined,
+      })),
+    });
+    const successfulActions: Action[] = [];
+    const failedActions: Action[] = [];
+    for (const request of requests) {
+      if (request.checkSuccess(request.request, result)) {
+        successfulActions.push(request.action);
+      } else {
+        failedActions.push(request.action);
       }
-      // Single backup for the whole reverted tx
-      if (failedActions.length > 0 && result?.receipt?.status === 'reverted') {
-        this.backupFailedTx({
-          id: result.receipt.transactionHash,
-          failureType: 'revert',
-          request: { to: MULTI_CALL_3_ADDRESS, data: txContext.multicallData },
-          blobData: txContext.blobData,
-          l1BlockNumber: result.receipt.blockNumber.toString(),
-          receipt: {
-            transactionHash: result.receipt.transactionHash,
-            blockNumber: result.receipt.blockNumber.toString(),
-            gasUsed: (result.receipt.gasUsed ?? 0n).toString(),
-            status: 'reverted',
-          },
-          error: { message: result.errorMsg ?? 'Transaction reverted' },
-          context: {
-            actions: failedActions,
-            requests: requests
-              .filter(r => failedActions.includes(r.action))
-              .map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
-            sender: this.getSenderAddress().toString(),
-          },
-        });
-      }
-      return { successfulActions, failedActions };
     }
+    return { successfulActions, failedActions };
   }
 
   /**
@@ -669,10 +678,13 @@ export class SequencerPublisher {
    */
   public async canProposeAt(tipArchive: Fr, msgSender: EthAddress, simulationOverridesPlan?: SimulationOverridesPlan) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
-    const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
+    // These errors are expected when we cannot actually propose right now — usually because our
+    // local view of the chain is ahead of L1 (proposed parent hasn't landed yet, or someone
+    // else has just landed the slot, or the archive override doesn't match). We log a warn and
+    // skip the proposal; we do NOT treat these as bugs.
+    const expectedErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
-    const pipelined = this.epochCache.isProposerPipeliningEnabled();
-    const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
+    const slotOffset = this.aztecSlotDuration;
     const nextL1SlotTs = this.getNextL1SlotTimestamp() + slotOffset;
 
     return this.rollupContract
@@ -683,8 +695,8 @@ export class SequencerPublisher {
         await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan),
       )
       .catch(err => {
-        if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
-          this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
+        if (err instanceof FormattedViemError && expectedErrors.find(e => err.message.includes(e))) {
+          this.log.warn(`Failed canProposeAtTime check with ${expectedErrors.find(e => err.message.includes(e))}`, {
             error: err.message,
           });
         } else {
@@ -717,7 +729,8 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-    const ts = this.getSimulationTimestamp(header.slotNumber);
+    const l1Constants = this.epochCache.getL1Constants();
+    const ts = getLastL1SlotTimestampForL2Slot(header.slotNumber, l1Constants);
     const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
     let balance = 0n;
     if (this.config.fishermanMode) {
@@ -871,40 +884,11 @@ export class SequencerPublisher {
     }
   }
 
-  /** Simulates `propose` to make sure that the checkpoint is valid for submission */
-  @trackSpan('SequencerPublisher.validateCheckpointForSubmission')
-  public async validateCheckpointForSubmission(
-    checkpoint: Checkpoint,
-    attestationsAndSigners: CommitteeAttestationsAndSigners,
-    attestationsAndSignersSignature: Signature,
-    simulationOverridesPlan?: SimulationOverridesPlan,
-  ): Promise<void> {
-    const blobFields = checkpoint.toBlobFields();
-    const blobs = await getBlobsPerL1Block(blobFields);
-    const blobInput = getPrefixedEthBlobCommitments(blobs);
-
-    const args = [
-      {
-        header: checkpoint.header.toViem(),
-        archive: toHex(checkpoint.archive.root.toBuffer()),
-        oracleInput: {
-          feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
-        },
-      },
-      attestationsAndSigners.getPackedAttestations(),
-      attestationsAndSigners.getSigners().map(signer => signer.toString()),
-      attestationsAndSignersSignature.toViemSignature(),
-      blobInput,
-    ] as const;
-
-    await this.simulateProposeTx(args, simulationOverridesPlan);
-  }
-
   private async enqueueCastSignalHelper(
     slotNumber: SlotNumber,
     signalType: GovernanceSignalAction,
     payload: EthAddress,
-    base: IEmpireBase,
+    base: GovernanceProposerContract,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
@@ -930,34 +914,28 @@ export class SequencerPublisher {
       return false;
     }
 
-    if (await this.isPayloadEmpty(payload)) {
+    if (await base.isPayloadEmpty(payload)) {
       this.log.warn(`Skipping vote cast for payload with empty code`);
       return false;
     }
 
-    // Check if payload was already submitted to governance
-    const cacheKey = payload.toString();
-    if (!this.payloadProposedCache.has(cacheKey)) {
-      try {
-        const l1StartBlock = await this.rollupContract.getL1StartBlock();
-        const proposed = await retry(
-          () => base.hasPayloadBeenProposed(payload.toString(), l1StartBlock),
-          'Check if payload was proposed',
-          makeBackoff([0, 1, 2]),
-          this.log,
-          true,
-        );
-        if (proposed) {
-          this.payloadProposedCache.add(cacheKey);
-        }
-      } catch (err) {
-        this.log.warn(`Failed to check if payload ${payload} was proposed after retries, skipping signal`, err);
-        return false;
-      }
+    // Skip signaling if there is already a live (non-terminal) Governance proposal for this
+    // payload. This is intentionally not cached: a previously-live proposal may transition to
+    // a terminal state (Dropped/Rejected/Expired/Executed), at which point we may want to re-signal
+    // the same payload in a future round.
+    let proposed = false;
+    try {
+      proposed = await base.hasActiveProposalWithPayload(payload.toString());
+    } catch (err) {
+      // We deliberately swallow the error and proceed to signal. Failing closed (skipping the
+      // signal) on transient RPC errors would let a flaky L1 endpoint silence governance
+      // participation entirely; failing open at worst produces a duplicate signal that the
+      // contract will simply count alongside others in the round.
+      this.log.error(`Failed to check if payload ${payload} was already proposed (signalling anyway)`, err);
     }
 
-    if (this.payloadProposedCache.has(cacheKey)) {
-      this.log.info(`Payload ${payload} was already proposed to governance, stopping signals`);
+    if (proposed) {
+      this.log.info(`Payload ${payload} has a live governance proposal, stopping signals`);
       return false;
     }
 
@@ -979,45 +957,19 @@ export class SequencerPublisher {
       lastValidL2Slot: slotNumber,
     });
 
-    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-    const timestamp = this.getSimulationTimestamp(slotNumber);
-
-    try {
-      await this.l1TxUtils.simulate(request, { time: timestamp }, [], mergeAbis([request.abi ?? [], ErrorsAbi]));
-      this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
-    } catch (err) {
-      const viemError = formatViemError(err);
-      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, viemError, {
-        simulationTimestamp: timestamp,
-        l1BlockNumber,
-      });
-      this.backupFailedTx({
-        id: keccak256(request.data!),
-        failureType: 'simulation',
-        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
-        l1BlockNumber: l1BlockNumber.toString(),
-        error: { message: viemError.message, name: viemError.name },
-        context: {
-          actions: [action],
-          slot: slotNumber,
-          sender: this.getSenderAddress().toString(),
-        },
-      });
-      // Yes, we enqueue the request anyway, in case there was a bug with the simulation itself
-    }
-
     // TODO(palla/slash): All votes (governance and slashing) should txTimeoutAt at the end of the slot.
     this.addRequest({
-      gasConfig: { gasLimit: SequencerPublisher.VOTE_GAS_GUESS },
       action,
       request,
       lastValidL2Slot: slotNumber,
       checkSuccess: (_request, result) => {
         const success =
           result &&
-          result.receipt &&
-          result.receipt.status === 'success' &&
-          tryExtractEvent(result.receipt.logs, base.address.toString(), EmpireBaseAbi, 'SignalCast');
+          extractEventSuccess(result.receipt, {
+            address: base.address.toString(),
+            abi: EmpireBaseAbi,
+            eventName: 'SignalCast',
+          });
 
         const logData = { ...result, slotNumber, round, payload: payload.toString() };
         if (!success) {
@@ -1037,17 +989,6 @@ export class SequencerPublisher {
       },
     });
     return true;
-  }
-
-  private async isPayloadEmpty(payload: EthAddress): Promise<boolean> {
-    const key = payload.toString();
-    const cached = this.isPayloadEmptyCache.get(key);
-    if (cached) {
-      return cached;
-    }
-    const isEmpty = !(await this.l1TxUtils.getCode(payload));
-    this.isPayloadEmptyCache.set(key, isEmpty);
-    return isEmpty;
   }
 
   /**
@@ -1098,10 +1039,14 @@ export class SequencerPublisher {
           }
           const votes = bufferToHex(encodeSlashConsensusVotes(action.votes));
           const request = await this.slashingProposerContract.buildVoteRequestFromSigner(votes, slotNumber, signer);
-          await this.simulateAndEnqueueRequest(
+          this.enqueueRequest(
             'vote-offenses',
             request,
-            (receipt: TransactionReceipt) => !!this.slashingProposerContract!.tryExtractVoteCastEvent(receipt.logs),
+            {
+              address: this.slashingProposerContract.address.toString(),
+              abi: SlashingProposerAbi,
+              eventName: 'VoteCast',
+            },
             slotNumber,
           );
           break;
@@ -1121,11 +1066,14 @@ export class SequencerPublisher {
             action.round,
             action.committees,
           );
-          await this.simulateAndEnqueueRequest(
+          this.enqueueRequest(
             'execute-slash',
             executeRequest,
-            (receipt: TransactionReceipt) =>
-              !!this.slashingProposerContract!.tryExtractRoundExecutedEvent(receipt.logs),
+            {
+              address: this.slashingProposerContract.address.toString(),
+              abi: SlashingProposerAbi,
+              eventName: 'RoundExecuted',
+            },
             slotNumber,
           );
           break;
@@ -1141,7 +1089,7 @@ export class SequencerPublisher {
     return true;
   }
 
-  /** Simulates and enqueues a proposal for a checkpoint on L1 */
+  /** Enqueues a proposal for a checkpoint on L1 */
   public async enqueueProposeCheckpoint(
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
@@ -1162,57 +1110,11 @@ export class SequencerPublisher {
       feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     };
 
-    const simulationOverridesPlan = SimulationOverridesBuilder.from(opts.simulationOverridesPlan)
-      .withoutBlobCheck()
-      .build();
-
-    try {
-      // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
-      //        This means that we can avoid the simulation issues in later checks.
-      //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
-      //        make time consistency checks break.
-      // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
-      await this.validateCheckpointForSubmission(
-        checkpoint,
-        attestationsAndSigners,
-        attestationsAndSignersSignature,
-        simulationOverridesPlan,
-      );
-    } catch (err: any) {
-      this.log.error(`Checkpoint validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
-        ...checkpoint.getStats(),
-        slotNumber: checkpoint.header.slotNumber,
-        simulationOverridesPlan,
-      });
-      throw err;
-    }
-
-    // Build a pre-check callback that re-validates the checkpoint before L1 submission.
-    // During pipelining this catches stale proposals due to prunes or L1 reorgs that occur during the pipeline sleep.
-    let preCheck = undefined;
-    if (this.epochCache.isProposerPipeliningEnabled()) {
-      preCheck = async () => {
-        this.log.debug(`Re-validating checkpoint ${checkpoint.number} before L1 submission`);
-        await this.validateCheckpointForSubmission(
-          checkpoint,
-          attestationsAndSigners,
-          attestationsAndSignersSignature,
-          simulationOverridesPlan,
-        );
-      };
-    }
-
     this.log.verbose(`Enqueuing checkpoint propose transaction`, {
       ...checkpoint.toCheckpointInfo(),
       txTimeoutAt: opts.txTimeoutAt,
-      simulationOverridesPlan,
     });
-    await this.addProposeTx(
-      checkpoint,
-      proposeTxArgs,
-      { txTimeoutAt: opts.txTimeoutAt, simulationOverridesPlan },
-      preCheck,
-    );
+    await this.addProposeTx(checkpoint, proposeTxArgs, { txTimeoutAt: opts.txTimeoutAt });
   }
 
   public enqueueInvalidateCheckpoint(
@@ -1223,23 +1125,22 @@ export class SequencerPublisher {
       return;
     }
 
-    // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
-    const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(request.gasUsed) * 64) / 63)));
-
     const { gasUsed, checkpointNumber } = request;
-    const logData = { gasUsed, checkpointNumber, gasLimit, opts };
+    const logData = { gasUsed, checkpointNumber, opts };
     this.log.verbose(`Enqueuing invalidate checkpoint request`, logData);
     this.addRequest({
       action: `invalidate-by-${request.reason}`,
       request: request.request,
-      gasConfig: { gasLimit, txTimeoutAt: opts.txTimeoutAt },
+      gasConfig: opts.txTimeoutAt ? { txTimeoutAt: opts.txTimeoutAt } : undefined,
       lastValidL2Slot: SlotNumber(this.getCurrentL2Slot() + 2),
       checkSuccess: (_req, result) => {
         const success =
           result &&
-          result.receipt &&
-          result.receipt.status === 'success' &&
-          tryExtractEvent(result.receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointInvalidated');
+          extractEventSuccess(result.receipt, {
+            address: this.rollupContract.address,
+            abi: RollupAbi,
+            eventName: 'CheckpointInvalidated',
+          });
         if (!success) {
           this.log.warn(`Invalidate checkpoint ${request.checkpointNumber} failed`, { ...result, ...logData });
         } else {
@@ -1250,73 +1151,36 @@ export class SequencerPublisher {
     });
   }
 
-  private async simulateAndEnqueueRequest(
+  /**
+   * Dedup-checked enqueue helper for actions that are simulated at bundle-send time rather
+   * than at enqueue time. Validates the (action, slot) dedup key, sets `lastActions`, and
+   * enqueues without a gasLimit so the bundle simulate sets the only gasLimit that matters.
+   */
+  private enqueueRequest(
     action: Action,
     request: L1TxRequest,
-    checkSuccess: (receipt: TransactionReceipt) => boolean | undefined,
+    eventOpts: { address: string; abi: Abi; eventName: string },
     slotNumber: SlotNumber,
-  ) {
-    const timestamp = this.getSimulationTimestamp(slotNumber);
-    const logData = { slotNumber, timestamp, gasLimit: undefined as bigint | undefined };
+  ): boolean {
     if (this.lastActions[action] && this.lastActions[action] === slotNumber) {
       this.log.debug(`Skipping duplicate action ${action} for slot ${slotNumber}`);
       return false;
     }
-
     const cachedLastActionSlot = this.lastActions[action];
     this.lastActions[action] = slotNumber;
 
-    this.log.debug(`Simulating ${action} for slot ${slotNumber}`, logData);
-
-    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-
-    let gasUsed: bigint;
-    const simulateAbi = mergeAbis([request.abi ?? [], ErrorsAbi]);
-
-    try {
-      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], simulateAbi));
-      this.log.verbose(`Simulation for ${action} succeeded`, { ...logData, request, gasUsed });
-    } catch (err) {
-      const viemError = formatViemError(err, simulateAbi);
-      this.log.error(`Simulation for ${action} at ${slotNumber} failed`, viemError, logData);
-
-      this.backupFailedTx({
-        id: keccak256(request.data!),
-        failureType: 'simulation',
-        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
-        l1BlockNumber: l1BlockNumber.toString(),
-        error: { message: viemError.message, name: viemError.name },
-        context: {
-          actions: [action],
-          slot: slotNumber,
-          sender: this.getSenderAddress().toString(),
-        },
-      });
-
-      return false;
-    }
-
-    // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
-    const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(gasUsed) * 64) / 63)));
-    logData.gasLimit = gasLimit;
-
-    // Store the ABI used for simulation on the request so Multicall3.forward can decode errors
-    // when the tx is sent and a revert is diagnosed via simulation.
-    const requestWithAbi = { ...request, abi: simulateAbi };
-
-    this.log.debug(`Enqueuing ${action}`, logData);
+    this.log.debug(`Enqueuing ${action}`, { slotNumber });
     this.addRequest({
       action,
-      request: requestWithAbi,
-      gasConfig: { gasLimit },
+      request,
       lastValidL2Slot: slotNumber,
-      checkSuccess: (_req, result) => {
-        const success = result && result.receipt && result.receipt.status === 'success' && checkSuccess(result.receipt);
+      checkSuccess: (_request, result) => {
+        const success = result && extractEventSuccess(result.receipt, eventOpts);
         if (!success) {
-          this.log.warn(`Action ${action} at ${slotNumber} failed`, { ...result, ...logData });
+          this.log.warn(`Action ${action} at ${slotNumber} failed`, { ...result, slotNumber });
           this.lastActions[action] = cachedLastActionSlot;
         } else {
-          this.log.info(`Action ${action} at ${slotNumber} succeeded`, { ...result, ...logData });
+          this.log.info(`Action ${action} at ${slotNumber} succeeded`, { ...result, slotNumber });
         }
         return !!success;
       },
@@ -1342,7 +1206,7 @@ export class SequencerPublisher {
     this.l1TxUtils.restart();
   }
 
-  private async prepareProposeTx(encodedData: L1ProcessArgs, simulationOverridesPlan?: SimulationOverridesPlan) {
+  private async prepareProposeTx(encodedData: L1ProcessArgs) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
@@ -1355,7 +1219,11 @@ export class SequencerPublisher {
       blobEvaluationGas = BigInt(encodedData.blobs.length) * 21_000n;
       this.log.debug(`Using fixed blob evaluation gas estimate in fisherman mode: ${blobEvaluationGas}`);
     } else {
-      // Normal mode - use estimateGas with blob inputs
+      // We call validateBlobs via estimateGas with real blob+kzg sidecars as a consistency check
+      // that our locally-built blob commitments match the blob data. The bundle simulate at send
+      // time uses eth_simulateV1, which cannot carry blob inputs, so the rollup's on-chain blob
+      // check is forced off there — making this the only pre-flight detector of a commitment/data
+      // mismatch. The returned gas estimate is stashed on the request for the bundle path to read.
       blobEvaluationGas = await this.l1TxUtils
         .estimateGas(
           this.getSenderAddress().toString(),
@@ -1413,119 +1281,21 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    const { rollupData, simulationResult } = await this.simulateProposeTx(args, simulationOverridesPlan);
+    const rollupData = encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args });
 
-    return { args, blobEvaluationGas, rollupData, simulationResult };
-  }
-
-  /**
-   * Simulates the propose tx with eth_simulateV1
-   * @param args - The propose tx args
-   * @returns The simulation result
-   */
-  private async simulateProposeTx(
-    args: readonly [
-      {
-        readonly header: ViemHeader;
-        readonly archive: `0x${string}`;
-        readonly oracleInput: {
-          readonly feeAssetPriceModifier: bigint;
-        };
-      },
-      ViemCommitteeAttestations,
-      `0x${string}`[], // Signers
-      ViemSignature,
-      `0x${string}`,
-    ],
-    simulationOverridesPlan?: SimulationOverridesPlan,
-  ) {
-    const rollupData = encodeFunctionData({
-      abi: RollupAbi,
-      functionName: 'propose',
-      args,
-    });
-
-    const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
-    // In fisherman mode, simulate as the proposer but with sufficient balance
-    if (this.proposerAddressForSimulation) {
-      stateOverrides.push({
-        address: this.proposerAddressForSimulation.toString(),
-        balance: 10n * WEI_CONST * WEI_CONST, // 10 ETH
-      });
-    }
-
-    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-    const simTs = this.getSimulationTimestamp(SlotNumber.fromBigInt(args[0].header.slotNumber));
-
-    const simulationResult = await this.l1TxUtils
-      .simulate(
-        {
-          to: this.rollupContract.address,
-          data: rollupData,
-          gas: MAX_L1_TX_LIMIT,
-          ...(this.proposerAddressForSimulation && { from: this.proposerAddressForSimulation.toString() }),
-        },
-        {
-          time: simTs,
-          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit so we increase here
-          gasLimit: MAX_L1_TX_LIMIT * 2n,
-        },
-        stateOverrides,
-        RollupAbi,
-        {
-          // @note fallback gas estimate to use if the node doesn't support simulation API
-          fallbackGasEstimate: MAX_L1_TX_LIMIT,
-        },
-      )
-      .catch(err => {
-        // In fisherman mode, we expect ValidatorSelection__MissingProposerSignature since fisherman doesn't have proposer signature
-        const viemError = formatViemError(err);
-        if (this.config.fishermanMode && viemError.message?.includes('ValidatorSelection__MissingProposerSignature')) {
-          this.log.debug(`Ignoring expected ValidatorSelection__MissingProposerSignature error in fisherman mode`);
-          // Return a minimal simulation result with the fallback gas estimate
-          return {
-            gasUsed: MAX_L1_TX_LIMIT,
-            logs: [],
-          };
-        }
-        this.log.error(`Failed to simulate propose tx`, viemError, { simulationTimestamp: simTs });
-        this.backupFailedTx({
-          id: keccak256(rollupData),
-          failureType: 'simulation',
-          request: { to: this.rollupContract.address, data: rollupData },
-          l1BlockNumber: l1BlockNumber.toString(),
-          error: { message: viemError.message, name: viemError.name },
-          context: {
-            actions: ['propose'],
-            slot: Number(args[0].header.slotNumber),
-            sender: this.getSenderAddress().toString(),
-          },
-        });
-        throw err;
-      });
-
-    return { rollupData, simulationResult };
+    return { args, blobEvaluationGas, rollupData };
   }
 
   private async addProposeTx(
     checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
     opts: EnqueueProposeCheckpointOpts = {},
-    preCheck?: () => Promise<void>,
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
-    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(
-      encodedData,
-      opts.simulationOverridesPlan,
-    );
+    const { rollupData, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
     const startBlock = await this.l1TxUtils.getBlockNumber();
-    const gasLimit = this.l1TxUtils.bumpGasLimit(
-      BigInt(Math.ceil((Number(simulationResult.gasUsed) * 64) / 63)) +
-        blobEvaluationGas +
-        SequencerPublisher.MULTICALL_OVERHEAD_GAS_GUESS, // We issue the simulation against the rollup contract, so we need to account for the overhead of the multicall3
-    );
 
     // Send the blobs to the blob client preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
     // tx fails but it does get mined. We make sure that the blobs are sent to the blob client regardless of the tx outcome.
@@ -1542,8 +1312,8 @@ export class SequencerPublisher {
         data: rollupData,
       },
       lastValidL2Slot: checkpoint.header.slotNumber,
-      gasConfig: { txTimeoutAt: opts.txTimeoutAt, gasLimit },
-      preCheck,
+      gasConfig: { txTimeoutAt: opts.txTimeoutAt, gasLimit: undefined },
+      blobEvaluationGas,
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),
         kzg,
@@ -1553,10 +1323,11 @@ export class SequencerPublisher {
           return false;
         }
         const { receipt, stats, errorMsg } = result;
-        const success =
-          receipt &&
-          receipt.status === 'success' &&
-          tryExtractEvent(receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointProposed');
+        const success = extractEventSuccess(receipt, {
+          address: this.rollupContract.address,
+          abi: RollupAbi,
+          eventName: 'CheckpointProposed',
+        });
 
         if (success) {
           const endBlock = receipt.blockNumber;
@@ -1595,13 +1366,6 @@ export class SequencerPublisher {
         }
       },
     });
-  }
-
-  /** Returns the timestamp of the last L1 slot within a given L2 slot. Used as the simulation timestamp
-   * for eth_simulateV1 calls, since it's guaranteed to be greater than any L1 block produced during the slot. */
-  private getSimulationTimestamp(slot: SlotNumber): bigint {
-    const l1Constants = this.epochCache.getL1Constants();
-    return getLastL1SlotTimestampForL2Slot(slot, l1Constants);
   }
 
   /** Returns the timestamp of the next L1 slot boundary after now. */

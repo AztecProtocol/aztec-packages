@@ -54,6 +54,8 @@ describe('e2e_p2p_governance_proposer', () => {
         governanceProposerRoundSize: 10,
         activationThreshold: 10n ** 22n,
         ejectionThreshold: 5n ** 22n,
+        inboxLag: 2,
+        minTxsPerBlock: 0,
       },
     });
 

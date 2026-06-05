@@ -12,6 +12,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
 import { P2P_STORE_NAME } from '@aztec/p2p';
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
 import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
@@ -36,9 +37,9 @@ const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;
 type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
   Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<L1ContractsConfig, 'aztecEpochDuration'> &
-  Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
+  Pick<ArchiverConfig, 'archiverStoreMapSizeKb'> &
   DataStoreConfig &
-  Required<Pick<DataStoreConfig, 'l1Contracts'>> &
+  Required<Pick<DataStoreConfig, 'rollupAddress'>> &
   EthereumClientConfig & {
     snapshotsUrls?: string[];
     minL1BlocksToTriggerReplace?: number;
@@ -49,7 +50,7 @@ type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode'> &
  * Behaviour depends on syncing mode.
  */
 export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
-  const { syncMode, snapshotsUrls, dataDirectory, l1ChainId, rollupVersion, l1Contracts } = config;
+  const { syncMode, snapshotsUrls, dataDirectory, l1ChainId, rollupVersion, rollupAddress } = config;
   if (syncMode === 'full') {
     log.debug('Snapshot sync is disabled. Running full sync.', { syncMode: syncMode });
     return false;
@@ -65,9 +66,11 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     return false;
   }
 
-  // Create an archiver store to check the current state (do this only once)
+  // Create an archiver store to check the current state (do this only once). This temporary store is only
+  // read for its sync point and never serves tagged-log queries, so the genesis block hash it carries is
+  // immaterial — pass the protocol constant.
   log.verbose(`Creating temporary archiver data store`);
-  const archiverStore = await createArchiverStore(config);
+  const archiverStore = await createArchiverStore(config, GENESIS_BLOCK_HEADER_HASH);
   let archiverL1BlockNumber: bigint | undefined;
   let archiverL2BlockNumber: number | undefined;
   try {
@@ -106,7 +109,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   const indexMetadata: SnapshotsIndexMetadata = {
     l1ChainId,
     rollupVersion,
-    rollupAddress: l1Contracts.rollupAddress,
+    rollupAddress,
   };
 
   // Fetch latest snapshot from each URL
@@ -194,7 +197,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     try {
       await snapshotSync(snapshot, log, {
         dataDirectory: config.dataDirectory!,
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         fileStore,
       });
       log.info(`Snapshot synced to L1 block ${l1BlockNumber} L2 block ${l2BlockNumber}`, {

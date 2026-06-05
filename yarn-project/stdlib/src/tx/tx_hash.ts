@@ -1,5 +1,10 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, serializeArrayOfBufferableToVector } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  type BufferSink,
+  serializeArrayOfBufferableToVector,
+  serializeArrayToSink,
+} from '@aztec/foundation/serialize';
 
 import { schemas } from '../schemas/index.js';
 
@@ -34,8 +39,13 @@ export class TxHash {
     return new TxHash(value);
   }
 
-  public toBuffer() {
-    return this.hash.toBuffer();
+  public toBuffer(): Buffer;
+  public toBuffer(sink: BufferSink): void;
+  public toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return this.hash.toBuffer();
+    }
+    this.hash.toBuffer(sink);
   }
 
   public toString() {
@@ -82,7 +92,12 @@ export class TxHashArray extends Array<TxHash> {
     }
   }
 
-  public toBuffer(): Buffer {
-    return serializeArrayOfBufferableToVector([...this]);
+  public toBuffer(): Buffer;
+  public toBuffer(sink: BufferSink): void;
+  public toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return serializeArrayOfBufferableToVector([...this]);
+    }
+    serializeArrayToSink(sink, [...this]);
   }
 }

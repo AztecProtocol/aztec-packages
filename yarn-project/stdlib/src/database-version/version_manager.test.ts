@@ -15,6 +15,7 @@ describe('VersionManager', () => {
   let versionManager: DatabaseVersionManager<object>;
   let currentVersion: number;
   let rollupAddress: EthAddress;
+  let expectVersionFileWritten: boolean;
 
   beforeEach(() => {
     fs = {
@@ -28,6 +29,7 @@ describe('VersionManager', () => {
 
     currentVersion = 42;
     rollupAddress = EthAddress.random();
+    expectVersionFileWritten = true;
 
     openSpy = jest.fn(() => Promise.resolve({}));
     upgradeSpy = jest.fn(() => Promise.resolve());
@@ -43,6 +45,9 @@ describe('VersionManager', () => {
 
   describe('open', () => {
     afterEach(() => {
+      if (!expectVersionFileWritten) {
+        return;
+      }
       // Verify version file was created
       expect(fs.writeFile).toHaveBeenCalledWith(
         join(tempDir, DatabaseVersionManager.VERSION_FILE),
@@ -94,6 +99,26 @@ describe('VersionManager', () => {
         const [_, wasReset] = await versionManager.open();
         expect(wasReset).toEqual(true);
         expect(upgradeSpy).not.toHaveBeenCalled();
+      });
+
+      it('unless schema mismatches are configured to throw', async () => {
+        fs.readFile.mockResolvedValueOnce(new DatabaseVersion(currentVersion + 1, rollupAddress).toBuffer());
+        versionManager = new DatabaseVersionManager({
+          schemaVersion: currentVersion,
+          rollupAddress,
+          dataDirectory: tempDir,
+          onOpen: openSpy,
+          onUpgrade: upgradeSpy,
+          schemaVersionMismatchPolicy: 'throw',
+          fileSystem: fs,
+        });
+        expectVersionFileWritten = false;
+
+        await expect(versionManager.open()).rejects.toThrow(
+          `stored schema version ${currentVersion + 1} is incompatible with expected schema version ${currentVersion}`,
+        );
+        expect(fs.rm).not.toHaveBeenCalled();
+        expect(openSpy).not.toHaveBeenCalled();
       });
 
       it('when the upgrade fails', async () => {

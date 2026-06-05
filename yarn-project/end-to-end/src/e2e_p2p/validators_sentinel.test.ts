@@ -50,6 +50,7 @@ describe('e2e_p2p_validators_sentinel', () => {
         slashingRoundSizeInEpochs: 2,
         sentinelEnabled: true,
         slashInactivityPenalty: 0n, // Set to 0 to disable
+        inboxLag: 2,
       },
     });
 
@@ -85,6 +86,20 @@ describe('e2e_p2p_validators_sentinel', () => {
   describe('with an offline validator', () => {
     let stats: ValidatorsStats;
     beforeAll(async () => {
+      // Ensure all running validator nodes see each other before starting block counting.
+      await t.waitForP2PMeshConnectivity(nodes);
+
+      // Wait until validator nodes have advanced past their first proposed slot so that the
+      // pipelining warm-up period (where some attestations may be missed) is behind us.
+      await t.monitor.run();
+      const warmupSlot = Number(t.monitor.l2SlotNumber) + 1;
+      t.logger.info(`Waiting for warmup slot ${warmupSlot} before establishing initial block`);
+      await retryUntil(
+        async () => (await t.monitor.run()).l2SlotNumber >= warmupSlot,
+        'warmup slot',
+        AZTEC_SLOT_DURATION * 3,
+      );
+
       const currentBlock = t.monitor.checkpointNumber;
       const blockCount = BLOCK_COUNT;
       const timeout = AZTEC_SLOT_DURATION * blockCount * 8;

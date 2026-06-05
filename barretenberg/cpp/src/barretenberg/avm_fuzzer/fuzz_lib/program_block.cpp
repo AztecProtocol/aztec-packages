@@ -1287,40 +1287,32 @@ void ProgramBlock::process_ecadd_instruction(ECADD_Instruction instruction)
 #endif
     auto p1_x = memory_manager.get_resolved_address_and_operand_16(instruction.p1_x);
     auto p1_y = memory_manager.get_resolved_address_and_operand_16(instruction.p1_y);
-    auto p1_inf = memory_manager.get_resolved_address_and_operand_16(instruction.p1_infinite);
     auto p2_x = memory_manager.get_resolved_address_and_operand_16(instruction.p2_x);
     auto p2_y = memory_manager.get_resolved_address_and_operand_16(instruction.p2_y);
-    auto p2_inf = memory_manager.get_resolved_address_and_operand_16(instruction.p2_infinite);
     auto result = memory_manager.get_resolved_address_and_operand_16(instruction.result);
 
-    if (!p1_x.has_value() || !p1_y.has_value() || !p1_inf.has_value() || !p2_x.has_value() || !p2_y.has_value() ||
-        !p2_inf.has_value() || !result.has_value()) {
+    if (!p1_x.has_value() || !p1_y.has_value() || !p2_x.has_value() || !p2_y.has_value() || !result.has_value()) {
         return;
     }
 
     preprocess_memory_addresses(p1_x.value().first);
     preprocess_memory_addresses(p1_y.value().first);
-    preprocess_memory_addresses(p1_inf.value().first);
     preprocess_memory_addresses(p2_x.value().first);
     preprocess_memory_addresses(p2_y.value().first);
-    preprocess_memory_addresses(p2_inf.value().first);
     preprocess_memory_addresses(result.value().first);
 
     auto ecadd_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::ECADD)
                                  .operand(p1_x.value().second)
                                  .operand(p1_y.value().second)
-                                 .operand(p1_inf.value().second)
                                  .operand(p2_x.value().second)
                                  .operand(p2_y.value().second)
-                                 .operand(p2_inf.value().second)
                                  .operand(result.value().second)
                                  .build();
     instructions.push_back(ecadd_instruction);
 
-    // ECADD writes 3 consecutive memory locations: result_x (FF), result_y (FF), result_is_inf (U1)
+    // ECADD writes 2 consecutive memory locations: result_x (FF), result_y (FF)
     memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, result.value().first.absolute_address);
     memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, result.value().first.absolute_address + 1);
-    memory_manager.set_memory_address(bb::avm2::MemoryTag::U1, result.value().first.absolute_address + 2);
 }
 
 void ProgramBlock::process_poseidon2perm_instruction(POSEIDON2PERM_Instruction instruction)

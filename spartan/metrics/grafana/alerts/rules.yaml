@@ -443,7 +443,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: max by (k8s_namespace_name) (increase(aztec_archiver_block_height{k8s_namespace_name!="",aztec_status=""}[10m]))
+                expr: max by (k8s_namespace_name) (increase(aztec_archiver_block_height{k8s_namespace_name!="",aztec_status="proposed"}[10m]))
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto

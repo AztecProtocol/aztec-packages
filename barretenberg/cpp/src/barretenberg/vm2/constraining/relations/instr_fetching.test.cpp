@@ -96,9 +96,7 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
                       Operand::from<uint16_t>(0x127a),
                       Operand::from<uint16_t>(0x127b),
                       Operand::from<uint16_t>(0x127c),
-                      Operand::from<uint16_t>(0x127d),
-                      Operand::from<uint16_t>(0x127e),
-                      Operand::from<uint16_t>(0x127f) },
+                      Operand::from<uint16_t>(0x127d), },
     };
 
     std::vector<uint8_t> bytecode = ecadd_instruction.serialize();

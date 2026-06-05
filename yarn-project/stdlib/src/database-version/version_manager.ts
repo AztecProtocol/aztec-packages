@@ -9,6 +9,7 @@ import { DatabaseVersion } from './database_version.js';
 export type DatabaseVersionManagerFs = Pick<typeof fs, 'readFile' | 'writeFile' | 'rm' | 'mkdir'>;
 
 export const DATABASE_VERSION_FILE_NAME = 'db_version';
+export type SchemaVersionMismatchPolicy = 'reset' | 'throw';
 
 export type DatabaseVersionManagerOptions<T> = {
   schemaVersion: number;
@@ -16,6 +17,7 @@ export type DatabaseVersionManagerOptions<T> = {
   dataDirectory: string;
   onOpen: (dataDir: string) => Promise<T>;
   onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
+  schemaVersionMismatchPolicy?: SchemaVersionMismatchPolicy;
   fileSystem?: DatabaseVersionManagerFs;
   log?: Logger;
 };
@@ -34,6 +36,7 @@ export class DatabaseVersionManager<T> {
   private dataDirectory: string;
   private onOpen: (dataDir: string) => Promise<T>;
   private onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
+  private schemaVersionMismatchPolicy: SchemaVersionMismatchPolicy;
   private fileSystem: DatabaseVersionManagerFs;
   private log: Logger;
 
@@ -45,6 +48,7 @@ export class DatabaseVersionManager<T> {
    * @param dataDirectory - The directory where version information will be stored
    * @param onOpen - A callback to the open the database at the given location
    * @param onUpgrade - An optional callback to upgrade the database before opening. If not provided it will reset the database
+   * @param schemaVersionMismatchPolicy - Whether schema mismatches should reset data or throw
    * @param fileSystem - An interface to access the filesystem
    * @param log - Optional custom logger
    * @param options - Configuration options
@@ -55,6 +59,7 @@ export class DatabaseVersionManager<T> {
     dataDirectory,
     onOpen,
     onUpgrade,
+    schemaVersionMismatchPolicy = 'reset',
     fileSystem = fs,
     log = createLogger(`foundation:version-manager`),
   }: DatabaseVersionManagerOptions<T>) {
@@ -68,6 +73,7 @@ export class DatabaseVersionManager<T> {
     this.dataDirectory = dataDirectory;
     this.onOpen = onOpen;
     this.onUpgrade = onUpgrade;
+    this.schemaVersionMismatchPolicy = schemaVersionMismatchPolicy;
     this.fileSystem = fileSystem;
     this.log = log;
   }
@@ -115,10 +121,21 @@ export class DatabaseVersionManager<T> {
         try {
           await this.onUpgrade(this.dataDirectory, storedVersion.schemaVersion, this.currentVersion.schemaVersion);
         } catch (error) {
+          if (this.schemaVersionMismatchPolicy === 'throw') {
+            throw new Error(
+              `Failed to upgrade database at ${this.dataDirectory} from schema version ${storedVersion.schemaVersion} to ${this.currentVersion.schemaVersion}`,
+              { cause: error },
+            );
+          }
           this.log.error(`Failed to upgrade: ${error}. Falling back to reset.`);
           needsReset = true;
         }
       } else if (cmp !== 0) {
+        if (this.schemaVersionMismatchPolicy === 'throw') {
+          throw new Error(
+            `Cannot open database at ${this.dataDirectory}: stored schema version ${storedVersion.schemaVersion} is incompatible with expected schema version ${this.currentVersion.schemaVersion}`,
+          );
+        }
         if (shouldLogDataReset) {
           this.log.info(
             `Can't upgrade from version ${storedVersion} to ${this.currentVersion}. Resetting database at ${this.dataDirectory}`,

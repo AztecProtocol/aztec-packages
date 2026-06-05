@@ -6,6 +6,7 @@ import {
   type EpochNumber,
   EpochNumberSchema,
   type SlotNumber,
+  SlotNumberSchema,
 } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,14 +15,14 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import type { Checkpoint } from '../checkpoint/checkpoint.js';
-import type { CheckpointData, CommonCheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointData, ProposedCheckpointData, ProposedCheckpointInput } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointInfo } from '../checkpoint/checkpoint_info.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
+import type { L2ToL1MembershipWitness } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
-import type { TxReceipt } from '../tx/tx_receipt.js';
 import type { BlockData } from './block_data.js';
 import { BlockHash } from './block_hash.js';
 import { BlockTagWithoutLatestSchema, type NormalizedBlockParameter } from './block_parameter.js';
@@ -42,18 +43,51 @@ export type BlocksQuery =
   | { from: BlockNumber; limit: number; onlyCheckpointed?: boolean }
   | { epoch: EpochNumber; onlyCheckpointed: true };
 
-export const BlockQuerySchema: z.ZodType<BlockQuery, z.ZodTypeDef, unknown> = z.union([
+export const BlockQuerySchema: z.ZodType<BlockQuery, unknown> = z.union([
   z.object({ number: BlockNumberSchema }).strict(),
   z.object({ hash: BlockHash.schema }).strict(),
   z.object({ archive: schemas.Fr }).strict(),
   z.object({ tag: BlockTagWithoutLatestSchema }).strict(),
 ]);
 
-export const BlocksQuerySchema: z.ZodType<BlocksQuery, z.ZodTypeDef, unknown> = z.union([
+export const BlocksQuerySchema: z.ZodType<BlocksQuery, unknown> = z.union([
   z
     .object({ from: BlockNumberSchema, limit: z.number().int().min(1), onlyCheckpointed: z.boolean().optional() })
     .strict(),
   z.object({ epoch: EpochNumberSchema, onlyCheckpointed: z.literal(true) }).strict(),
+]);
+
+/** Lookup a single confirmed checkpoint by checkpoint number, slot, or chain-tip tag. */
+export type CheckpointQuery =
+  | { number: CheckpointNumber }
+  | { slot: SlotNumber }
+  | { tag: 'checkpointed' | 'proven' | 'finalized' };
+
+/** Query a range of confirmed checkpoints by start/limit or by epoch. */
+export type CheckpointsQuery = { from: CheckpointNumber; limit: number } | { epoch: EpochNumber };
+
+/**
+ * Lookup a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint.
+ * Distinct from CheckpointQuery because proposed checkpoints have a different shape
+ * (no l1, no attestations, but carries totalManaUsed) and live in their own LMDB map.
+ */
+export type ProposedCheckpointQuery = { number: CheckpointNumber } | { slot: SlotNumber } | { tag: 'proposed' };
+
+export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, unknown> = z.union([
+  z.object({ number: CheckpointNumberSchema }).strict(),
+  z.object({ slot: SlotNumberSchema }).strict(),
+  z.object({ tag: z.union([z.literal('checkpointed'), z.literal('proven'), z.literal('finalized')]) }).strict(),
+]);
+
+export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, unknown> = z.union([
+  z.object({ from: CheckpointNumberSchema, limit: z.number().int().min(1) }).strict(),
+  z.object({ epoch: EpochNumberSchema }).strict(),
+]);
+
+export const ProposedCheckpointQuerySchema: z.ZodType<ProposedCheckpointQuery, unknown> = z.union([
+  z.object({ number: CheckpointNumberSchema }).strict(),
+  z.object({ slot: SlotNumberSchema }).strict(),
+  z.object({ tag: z.literal('proposed') }).strict(),
 ]);
 
 /**
@@ -93,66 +127,32 @@ export interface L2BlockSource {
   getCheckpointNumber(): Promise<CheckpointNumber>;
 
   /**
-   * Gets the number of the latest L2 block proven seen by the block source implementation.
-   * @returns The number of the latest L2 block proven seen by the block source implementation.
+   * Gets a single confirmed checkpoint matching the given query.
+   * Heavy shape: includes nested full `L2Block`s with transaction bodies.
+   * @param query - Lookup by checkpoint number, slot, or chain-tip tag.
    */
-  getProvenBlockNumber(): Promise<BlockNumber>;
+  getCheckpoint(query: CheckpointQuery): Promise<PublishedCheckpoint | undefined>;
 
   /**
-   * Gets the number of the latest L2 block checkpointed seen by the block source implementation.
-   * @returns The number of the latest L2 block checkpointed seen by the block source implementation.
+   * Gets a collection of confirmed checkpoints matching the given query.
+   * Heavy shape: includes nested full `L2Block`s with transaction bodies.
+   * @param query - Range by start/limit or by epoch.
    */
-  getCheckpointedL2BlockNumber(): Promise<BlockNumber>;
-
-  /**
-   * Returns the finalized L2 block number. A block is finalized when it was proven
-   * in an L1 block that has itself been finalized on Ethereum.
-   * @returns The finalized block number.
-   */
-  getFinalizedL2BlockNumber(): Promise<BlockNumber>;
-
-  /**
-   * Retrieves a collection of checkpoints.
-   * @param checkpointNumber The first checkpoint to be retrieved.
-   * @param limit The number of checkpoints to be retrieved.
-   * @returns The collection of complete checkpoints.
-   */
-  getCheckpoints(checkpointNumber: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]>;
-
-  /**
-   * Gets the checkpoints for a given epoch
-   * @param epochNumber - Epoch for which we want checkpoint data
-   */
-  getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]>;
-
-  /**
-   * Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
-   * @param epochNumber - Epoch for which we want checkpoint data
-   */
-  getCheckpointsDataForEpoch(epochNumber: EpochNumber): Promise<CheckpointData[]>;
+  getCheckpoints(query: CheckpointsQuery): Promise<PublishedCheckpoint[]>;
 
   /**
    * Gets lightweight checkpoint metadata for a single checkpoint.
    * Cheap passthrough for metadata-only queries (no block body reads).
-   * @param checkpointNumber - The checkpoint number to retrieve.
-   * @returns The requested checkpoint data (or undefined if not found).
+   * @param query - Lookup by checkpoint number, slot, or chain-tip tag.
    */
-  getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined>;
+  getCheckpointData(query: CheckpointQuery): Promise<CheckpointData | undefined>;
 
   /**
-   * Gets up to `limit` amount of checkpoint metadata entries starting from `from`.
+   * Gets a collection of lightweight checkpoint metadata entries matching the given query.
    * Cheap passthrough for metadata-only queries (no block body reads).
-   * @param from - The first checkpoint number to return (inclusive).
-   * @param limit - The maximum number of checkpoints to return.
+   * @param query - Range by start/limit or by epoch.
    */
-  getCheckpointDataRange(from: CheckpointNumber, limit: number): Promise<CheckpointData[]>;
-
-  /**
-   * Looks up the checkpoint number that contains the given slot.
-   * @param slot - The slot number to look up.
-   * @returns The checkpoint number (or undefined if not found).
-   */
-  getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined>;
+  getCheckpointsData(query: CheckpointsQuery): Promise<CheckpointData[]>;
 
   /**
    * Gets a tx effect.
@@ -162,11 +162,21 @@ export interface L2BlockSource {
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
-   * Gets a receipt of a settled tx.
-   * @param txHash - The hash of a tx we try to get the receipt for.
-   * @returns The requested tx receipt (or undefined if not found).
+   * Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`, built against the
+   * smallest partial-proof root on the Outbox that covers the tx's checkpoint.
+   *
+   * The Outbox roots are read lazily, pinned to the node's synced L1 block, so the witness reflects
+   * the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering
+   * root has landed on L1 as of the synced block.
+   *
+   * Caveat: cached roots that are sealed and L1-finalized are not re-validated. A reorg deeper than
+   * L1 finality could leave the node serving a witness against a no-longer-canonical root.
    */
-  getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
+  getL2ToL1MembershipWitness(
+    txHash: TxHash,
+    message: Fr,
+    messageIndexInTx?: number,
+  ): Promise<L2ToL1MembershipWitness | undefined>;
 
   /**
    * Returns the last L2 slot number for which we have all L1 data needed to build the next checkpoint.
@@ -198,6 +208,13 @@ export interface L2BlockSource {
    */
   getL1Constants(): Promise<L1RollupConstants>;
 
+  /**
+   * Returns true iff `canPruneAtTime` would be true at the latest L1 timestamp inside
+   * the L2 slot's window. Computed entirely from local archiver state (no L1 RPC).
+   * @param slot - The L2 slot to check.
+   */
+  isPruneDueAtSlot(slot: SlotNumber): Promise<boolean>;
+
   /** Returns values for the genesis block */
   getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }>;
 
@@ -222,11 +239,13 @@ export interface L2BlockSource {
    */
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult>;
 
-  /** Returns the checkpoint at the proposed chain tip. */
-  getLastCheckpoint(): Promise<CommonCheckpointData | undefined>;
-
-  /** Returns proposed checkpoint, if set, undefined if not*/
-  getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined>;
+  /**
+   * Looks up a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint.
+   * Returns the latest proposed entry when called with no args or `{ tag: 'proposed' }`.
+   * With `{ number }` or `{ slot }`, returns the matching entry or undefined.
+   * Never falls back to confirmed checkpoints.
+   */
+  getProposedCheckpointData(query?: ProposedCheckpointQuery): Promise<ProposedCheckpointData | undefined>;
 
   /** Force a sync. */
   syncImmediate(): Promise<void>;
@@ -276,6 +295,19 @@ export interface L2BlockSink {
 }
 
 /**
+ * Interface for classes that can receive and store proposed (not-yet-L1-confirmed) checkpoints.
+ */
+export interface ProposedCheckpointSink {
+  /**
+   * Adds a proposed checkpoint to the store. The archive and checkpointOutHash are computed
+   * internally from the already-stored blocks, so every block in the checkpoint must be added
+   * (via {@link L2BlockSink.addBlock}) before calling this.
+   * @param checkpoint - The proposed checkpoint metadata.
+   */
+  addProposedCheckpoint(checkpoint: ProposedCheckpointInput): Promise<void>;
+}
+
+/**
  * L2BlockSource that emits events upon pending / proven chain changes.
  * see L2BlockSourceEvents for the events emitted.
  */
@@ -285,6 +317,10 @@ export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
   [L2BlockSourceEvents.InvalidAttestationsCheckpointDetected]: (args: InvalidCheckpointDetectedEvent) => void;
   [L2BlockSourceEvents.L2BlocksCheckpointed]: (args: L2CheckpointEvent) => void;
+  [L2BlockSourceEvents.CheckpointEquivocationDetected]: (args: CheckpointEquivocationDetectedEvent) => void;
+  [L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected]: (
+    args: DescendentOfInvalidAttestationsCheckpointEvent,
+  ) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource {
   events: ArchiverEmitter;
@@ -366,6 +402,8 @@ export enum L2BlockSourceEvents {
   L2BlockProven = 'l2BlockProven',
   L2BlocksCheckpointed = 'l2BlocksCheckpointed',
   InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
+  CheckpointEquivocationDetected = 'checkpointEquivocationDetected',
+  DescendentOfInvalidAttestationsCheckpointDetected = 'descendentOfInvalidAttestationsCheckpointDetected',
 }
 
 export type L2BlockProvenEvent = {
@@ -395,4 +433,32 @@ export type L2CheckpointEvent = {
 export type InvalidCheckpointDetectedEvent = {
   type: 'invalidCheckpointDetected';
   validationResult: ValidateCheckpointNegativeResult;
+};
+
+/**
+ * Emitted when a local proposed checkpoint is found to disagree with the L1-confirmed
+ * checkpoint at the same slot. The slot proposer signed both — equivocation.
+ */
+export type CheckpointEquivocationDetectedEvent = {
+  type: 'checkpointEquivocationDetected';
+  slotNumber: SlotNumber;
+  checkpointNumber: CheckpointNumber;
+  l1ArchiveRoot: Fr;
+  proposedArchiveRoot: Fr;
+};
+
+/**
+ * Emitted when the archiver observes a checkpoint that builds on a previously-rejected
+ * ancestor (typically one with insufficient/invalid attestations). The descendant itself may
+ * have valid attestations, but it cannot be ingested because the chain it extends was
+ * skipped. The slasher uses this to slash the proposer of the descendant.
+ */
+export type DescendentOfInvalidAttestationsCheckpointEvent = {
+  type: 'descendentOfInvalidAttestationsCheckpointDetected';
+  /** The descendant checkpoint being rejected. */
+  checkpoint: CheckpointInfo;
+  /** Archive root of the rejected ancestor this descendant builds on. */
+  ancestorArchiveRoot: Fr;
+  /** Checkpoint number of the rejected ancestor. */
+  ancestorCheckpointNumber: CheckpointNumber;
 };

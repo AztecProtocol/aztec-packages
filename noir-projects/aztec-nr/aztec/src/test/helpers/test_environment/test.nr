@@ -1,4 +1,5 @@
 mod accounts;
+mod call_gas_settings;
 mod deployment;
 mod events;
 mod private_context;

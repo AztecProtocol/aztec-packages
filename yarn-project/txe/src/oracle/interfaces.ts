@@ -1,11 +1,10 @@
-import type { ContractArtifact } from '@aztec/aztec.js/abi';
 import { CompleteAddress } from '@aztec/aztec.js/addresses';
-import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PrivateLog } from '@aztec/stdlib/logs';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -37,6 +36,15 @@ export interface IAvmExecutionOracle {
   nullifierExists(siloedNullifier: Fr): Promise<boolean>;
   storageWrite(slot: Fr, value: Fr): Promise<void>;
   storageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr>;
+  getContractInstanceDeployer(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
+  getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
+  getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
+  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
+  returndataSize(): Promise<Fr>;
+  returndataCopy(rdOffset: number, copySize: number): Promise<Fr[]>;
+  call(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<Fr[]>;
+  staticCall(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<Fr[]>;
+  successCopy(): Promise<Fr>;
 }
 
 /**
@@ -50,9 +58,16 @@ export interface ITxeExecutionOracle {
   getNextBlockTimestamp(): Promise<UInt64>;
   advanceBlocksBy(blocks: number): Promise<void>;
   advanceTimestampBy(duration: UInt64): void;
-  deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: Fr): Promise<void>;
+  deploy(
+    contractPath: string,
+    initializer: string,
+    args: Fr[],
+    secret: Fr,
+    salt: Fr,
+    deployer: AztecAddress,
+  ): Promise<Fr[]>;
   createAccount(secret: Fr): Promise<CompleteAddress>;
-  addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr): Promise<CompleteAddress>;
+  addAccount(secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{
@@ -72,6 +87,7 @@ export interface ITxeExecutionOracle {
     additionalScopes: AztecAddress[],
     jobId: string,
     authorizedUtilityCallTargets: AztecAddress[],
+    gasSettings: GasSettings,
   ): Promise<{ returnValues: Fr[]; offchainEffects: Fr[][] }>;
   executeUtilityFunction(
     targetContractAddress: AztecAddress,
@@ -85,6 +101,7 @@ export interface ITxeExecutionOracle {
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,
+    gasSettings: GasSettings,
   ): Promise<Fr[]>;
   // TODO(F-335): Drop this from here as it's not a real oracle handler - it's only called from
   // RPCTranslator::txeGetPrivateEvents and never from Noir.

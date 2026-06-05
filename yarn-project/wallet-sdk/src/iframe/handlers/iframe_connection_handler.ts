@@ -17,7 +17,7 @@ import type { ChainInfo } from '@aztec/aztec.js/account';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { WalletSchema } from '@aztec/aztec.js/wallet';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { parseWithOptionals, schemaHasMethod } from '@aztec/foundation/schemas';
+import { getSchemaParameters, parseWithOptionals, schemaHasMethod } from '@aztec/foundation/schemas';
 
 import {
   type EncryptedPayload,
@@ -301,8 +301,7 @@ export class IframeConnectionHandler {
       if (!schemaHasMethod(WalletSchema, type)) {
         throw new Error(`Unknown wallet method: ${type}`);
       }
-      // Zod's AnyZodTuple rejects optional tuple items typed as `T | undefined`
-      const sanitizedArgs = await parseWithOptionals(args, WalletSchema[type].parameters() as any);
+      const sanitizedArgs = await parseWithOptionals(args, getSchemaParameters(WalletSchema[type]));
       result = await (wallet as Record<string, (...a: unknown[]) => Promise<unknown>>)[type](...sanitizedArgs);
     } catch (err: unknown) {
       error = err instanceof Error ? err.message : String(err);

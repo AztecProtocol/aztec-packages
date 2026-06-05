@@ -21,11 +21,9 @@ export async function startBot(
   services: NamespacedApiHandlers,
   userLog: LogFn,
 ) {
-  const { proverNode, archiver, sequencer, p2pBootstrap, txe, prover } = options;
-  if (proverNode || archiver || sequencer || p2pBootstrap || txe || prover) {
-    userLog(
-      `Starting a bot with --prover-node, --prover, --archiver, --sequencer, --p2p-bootstrap, or --txe is not supported.`,
-    );
+  const { proverNode, sequencer, p2pBootstrap, txe, prover } = options;
+  if (proverNode || sequencer || p2pBootstrap || txe || prover) {
+    userLog(`Starting a bot with --prover-node, --prover, --sequencer, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
   }
 

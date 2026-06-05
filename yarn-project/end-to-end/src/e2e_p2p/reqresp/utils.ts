@@ -2,6 +2,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx } from '@aztec/aztec.js/tx';
+import { PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
@@ -14,7 +15,7 @@ import path from 'path';
 
 import { getBootNodeUdpPort, shouldCollectMetrics } from '../../fixtures/fixtures.js';
 import { createNodes } from '../../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from '../p2p_network.js';
+import { P2PNetworkTest } from '../p2p_network.js';
 import { prepareTransactions } from '../shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -49,6 +50,9 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
       ...(disableStatusHandshake ? { p2pDisableStatusHandshake: true } : {}),
       listenAddress: '127.0.0.1',
       aztecEpochDuration: 64, // stable committee
+      // Pipelining: target-slot is one ahead of build-slot; inboxLag sources L1->L2
+      // messages from the previous checkpoint to avoid L1ToL2MessagesNotReadyError.
+      inboxLag: 2,
     },
   });
   await t.setup();
@@ -125,7 +129,15 @@ export async function runReqrespTxTest(params: {
   t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
   const startSlotTimestamp = BigInt(timestamp);
 
-  const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes(t, startSlotTimestamp);
+  // Under pipelining the active builder during wallclock slot S targets slot S+1, so
+  // we must address the proposer of S+1 (not S) for batch 0. Shift the proposer lookup
+  // window by the pipelining offset so we always send to the currently-building proposer.
+  const proposerSlotOffset = PROPOSER_PIPELINING_SLOT_OFFSET;
+  const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes(
+    t,
+    startSlotTimestamp,
+    proposerSlotOffset,
+  );
   t.logger.info(`Turning off tx gossip for nodes: ${nodesToTurnOffTxGossip.map(getNodePort)}`);
   t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes.map(getNodePort)}`);
 
@@ -176,12 +188,17 @@ export async function runReqrespTxTest(params: {
     t.logger.info(`Node ${getNodePort(i)} pool has ${count} pending txs`);
   }
 
+  // Use the test's own aztecSlotDuration (not the env default that p2p_network's
+  // WAIT_FOR_TX_TIMEOUT is derived from) so the timeout scales with this test's 36s slot.
+  // Under pipelining the round-trip is roughly build-slot + target-slot + L1 publish, so
+  // budget for >= 3 slots.
+  const waitForTxTimeout = t.ctx.aztecNodeConfig.aztecSlotDuration * 4.5;
   t.logger.info('Waiting for all transactions to be mined');
   await Promise.all(
     submittedTxs.flatMap((batch, batchIndex) =>
       batch.map(async (submittedTx, txIndex) => {
         t.logger.info(`Waiting for tx ${batchIndex}-${txIndex} ${submittedTx.txHash.toString()} to be mined`);
-        await waitForTx(submittedTx.node, submittedTx.txHash, { timeout: WAIT_FOR_TX_TIMEOUT * 1.5 });
+        await waitForTx(submittedTx.node, submittedTx.txHash, { timeout: waitForTxTimeout });
         t.logger.info(`Tx ${batchIndex}-${txIndex} ${submittedTx.txHash.toString()} has been mined`);
       }),
     ),
@@ -223,7 +240,7 @@ export async function runReqrespTxTest(params: {
   return nodes;
 }
 
-async function getProposerIndexes(t: P2PNetworkTest, startSlotTimestamp: bigint) {
+async function getProposerIndexes(t: P2PNetworkTest, startSlotTimestamp: bigint, slotOffset = 0) {
   // Get the nodes for the next set of slots
   const rollupContract = new RollupContract(
     t.ctx.deployL1ContractsValues.l1Client,
@@ -235,7 +252,7 @@ async function getProposerIndexes(t: P2PNetworkTest, startSlotTimestamp: bigint)
 
   const proposers = await Promise.all(
     Array.from({ length: 3 }, async (_, i) => {
-      const slot = SlotNumber(startSlot + i);
+      const slot = SlotNumber(startSlot + slotOffset + i);
       const slotTimestamp = await rollupContract.getTimestampForSlot(slot);
       return await rollupContract.getProposerAt(slotTimestamp);
     }),

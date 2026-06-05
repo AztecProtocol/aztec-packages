@@ -1,6 +1,16 @@
+import { Buffer32 } from '../buffer/buffer32.js';
 import { schemas } from './schemas.js';
 
 describe('schemas', () => {
+  describe('Buffer32', () => {
+    it('parses a valid hex string into a Buffer32', () => {
+      const buffer32 = Buffer32.random();
+      const parsed = schemas.Buffer32.parse(buffer32.toString());
+      expect(parsed).toBeInstanceOf(Buffer32);
+      expect(parsed.equals(buffer32)).toBe(true);
+    });
+  });
+
   describe('Boolean', () => {
     it('accepts a boolean value', () => {
       expect(schemas.Boolean.parse(true)).toEqual(true);

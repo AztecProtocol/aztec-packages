@@ -23,11 +23,11 @@ spec:
               containerPort: 8080
               protocol: TCP
           env:
-            - name: ETHEREUM_HOST
+            - name: ETHEREUM_HOSTS
               valueFrom:
                 secretKeyRef:
                   name: irm-monitor-secrets
-                  key: infura-sepolia-url
+                  key: ethereum-hosts
             - name: ROLLUP_CONTRACT_ADDRESS
               value: "${ROLLUP_CONTRACT_ADDRESS}"
             - name: NETWORK

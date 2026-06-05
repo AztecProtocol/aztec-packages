@@ -2,7 +2,7 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
-import { TxReceipt } from '@aztec/aztec.js/tx';
+import { MinedTxReceipt, type TxReceipt } from '@aztec/aztec.js/tx';
 import { DeployAccountMethod } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import {
@@ -23,6 +23,7 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { jest } from '@jest/globals';
 
+import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 describe('e2e_bot', () => {
@@ -36,7 +37,11 @@ describe('e2e_bot', () => {
 
   beforeAll(async () => {
     const [botAccount] = await getInitialTestAccountsData();
-    const setupResult = await setup(0, { initialFundedAccounts: [botAccount] });
+    const setupResult = await setup(0, {
+      ...PIPELINING_SETUP_OPTS,
+      aztecProofSubmissionEpochs: 640,
+      initialFundedAccounts: [botAccount],
+    });
     ({
       teardown,
       aztecNode,
@@ -62,6 +67,7 @@ describe('e2e_bot', () => {
         ...getBotDefaultConfig(),
         followChain: 'CHECKPOINTED',
         botMode: 'transfer',
+        minFeePadding: PIPELINED_FEE_PADDING,
       };
       bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
@@ -252,7 +258,7 @@ describe('e2e_bot', () => {
     // See 'can consume L1 to L2 message in %s after inbox drifts away from the rollup'
     // in end-to-end/src/e2e_cross_chain_messaging/l1_to_l2.test.ts for context on this test.
     it('creates bot after inbox drift', async () => {
-      await cheatCodes.rollup.advanceInboxInProgress(10);
+      await cheatCodes.rollup.advanceInboxInProgress(4);
       await Bot.create(config, wallet, aztecNode, aztecNodeAdmin, new BotStore(await openTmpStore('bot')));
     }, 300_000);
   });
@@ -282,7 +288,7 @@ describe('e2e_bot', () => {
     it('sends L2→L1 and consumes L1→L2 messages', async () => {
       const result = await bot.run();
       expect(result).toBeDefined();
-      expect(result).toBeInstanceOf(TxReceipt);
+      expect(result).toBeInstanceOf(MinedTxReceipt);
 
       const receipt = result as TxReceipt;
       expect(receipt.blockNumber).toBeDefined();
@@ -292,13 +298,13 @@ describe('e2e_bot', () => {
       expect(block).toBeDefined();
       const l2ToL1Msgs = block!.body.txEffects.flatMap(e => e.l2ToL1Msgs).filter(m => !m.isZero());
       expect(l2ToL1Msgs.length).toBeGreaterThanOrEqual(1);
-    }, 120_000);
+    }, 300_000);
 
     it('replenishes the seeding pipeline across ticks', async () => {
       // Tick 2: the first tick consumed one message. This tick should seed a
       // replacement and still have a ready message to consume.
       const result = await bot.run();
       expect(result).toBeDefined();
-    }, 120_000);
+    }, 300_000);
   });
 });

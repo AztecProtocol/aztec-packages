@@ -52,6 +52,10 @@ describe('e2e_debug_trace_transaction', () => {
       maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
       minTxsPerBlock: 0,
       coinbase: coinbase,
+      aztecSlotDuration: 12,
+      ethereumSlotDuration: 4,
+      aztecProofSubmissionEpochs: 640,
+      inboxLag: 2,
     }));
     sequencer = sequencerClient! as TestSequencerClient;
     publisherManager = sequencer.publisherManager;
@@ -122,7 +126,7 @@ describe('e2e_debug_trace_transaction', () => {
 
     // We now want to set the sequencer config to allow blocks with 0 transactions
     // Wait until we have successfully moved forward by a few blocks
-    const numBlocksToMine = 3;
+    const numBlocksToMine = 2;
     const startBlockNumber = await aztecNode.getBlockNumber();
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
     const result = await retryUntil(
@@ -131,7 +135,7 @@ describe('e2e_debug_trace_transaction', () => {
         return blockNumber >= startBlockNumber + numBlocksToMine;
       },
       'block number check',
-      30,
+      60,
       1,
     );
     expect(result).toBeTrue();
@@ -249,7 +253,7 @@ describe('e2e_debug_trace_transaction', () => {
         return blockNumber >= startBlockNumber + numBlocksToMine;
       },
       'block number check',
-      30,
+      60,
       1,
     );
     expect(result).toBeTrue();

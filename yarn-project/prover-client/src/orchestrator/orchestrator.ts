@@ -3,18 +3,13 @@ import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { AbortError } from '@aztec/foundation/error';
-import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import type { LoggerBindings } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { SerialQueue } from '@aztec/foundation/queue';
 import { assertLength } from '@aztec/foundation/serialize';
-import { sleep } from '@aztec/foundation/sleep';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
@@ -27,6 +22,7 @@ import type {
   ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
+import { appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { Proof } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
@@ -71,6 +67,7 @@ import type { BlockProvingState } from './block-proving-state.js';
 import type { CheckpointProvingState } from './checkpoint-proving-state.js';
 import { EpochProvingState, type ProvingResult, type TreeSnapshots } from './epoch-proving-state.js';
 import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
+import { TopTreeProvingScheduler } from './top-tree-proving-scheduler.js';
 import { TxProvingState } from './tx-proving-state.js';
 
 /**
@@ -87,28 +84,25 @@ import { TxProvingState } from './tx-proving-state.js';
 /**
  * The orchestrator, managing the flow of recursive proving operations required to build the rollup proof tree.
  */
-export class ProvingOrchestrator implements EpochProver {
-  private provingState: EpochProvingState | undefined = undefined;
-  private pendingProvingJobs: AbortController[] = [];
+export class ProvingOrchestrator extends TopTreeProvingScheduler implements EpochProver {
+  protected provingState: EpochProvingState | undefined = undefined;
 
-  private provingPromise: Promise<ProvingResult> | undefined = undefined;
+  protected provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
+
   private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
-  private logger: Logger;
-  private deferredJobQueue = new SerialQueue();
 
   constructor(
     private dbProvider: ReadonlyWorldStateAccess & ForkMerkleTreeOperations,
-    private prover: ServerCircuitProver,
+    prover: ServerCircuitProver,
     private readonly proverId: EthAddress,
     private readonly cancelJobsOnStop: boolean = false,
-    private readonly enqueueConcurrency: number,
+    enqueueConcurrency: number,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
   ) {
-    this.logger = createLogger('prover-client:orchestrator', bindings);
+    super(prover, enqueueConcurrency, 'prover-client:orchestrator', bindings);
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
-    this.deferredJobQueue.start(this.enqueueConcurrency);
   }
 
   get tracer(): Tracer {
@@ -123,11 +117,24 @@ export class ProvingOrchestrator implements EpochProver {
     return this.dbs.size;
   }
 
-  public async stop(): Promise<void> {
-    // Grab the old queue before cancel() replaces it, so we can await its draining.
-    const oldQueue = this.deferredJobQueue;
+  protected override cancelInternal(): void {
     this.cancel();
-    await oldQueue.cancel();
+  }
+
+  protected override wrapCircuitCall<T>(
+    circuitName: string,
+    fn: (signal: AbortSignal) => Promise<T>,
+  ): (signal: AbortSignal) => Promise<T> {
+    return wrapCallbackInSpan(
+      this.tracer,
+      `ProvingOrchestrator.prover.${circuitName}`,
+      { [Attributes.PROTOCOL_CIRCUIT_NAME]: circuitName as CircuitName },
+      fn,
+    );
+  }
+
+  protected override onRootRollupComplete(state: EpochProvingState) {
+    state.resolve({ status: 'success' });
   }
 
   public startNewEpoch(
@@ -520,16 +527,7 @@ export class ProvingOrchestrator implements EpochProver {
    * If cancelJobsOnStop is false (default), jobs remain in the broker queue and can be reused on restart/reorg.
    */
   public cancel() {
-    void this.deferredJobQueue.cancel();
-    // Recreate the queue so it can accept jobs for subsequent epochs.
-    this.deferredJobQueue = new SerialQueue();
-    this.deferredJobQueue.start(this.enqueueConcurrency);
-
-    if (this.cancelJobsOnStop) {
-      for (const controller of this.pendingProvingJobs) {
-        controller.abort();
-      }
-    }
+    this.resetSchedulerState(this.cancelJobsOnStop);
 
     this.provingState?.cancel();
 
@@ -576,79 +574,7 @@ export class ProvingOrchestrator implements EpochProver {
     return epochProofResult;
   }
 
-  /**
-   * Enqueue a job to be scheduled
-   * @param provingState - The proving state object being operated on
-   * @param jobType - The type of job to be queued
-   * @param job - The actual job, returns a promise notifying of the job's completion
-   */
-  private deferredProving<T>(
-    provingState: EpochProvingState | CheckpointProvingState | BlockProvingState,
-    request: (signal: AbortSignal) => Promise<T>,
-    callback: (result: T) => void | Promise<void>,
-  ) {
-    if (!provingState.verifyState()) {
-      this.logger.debug(`Not enqueuing job, state no longer valid`);
-      return;
-    }
-
-    const controller = new AbortController();
-    this.pendingProvingJobs.push(controller);
-
-    // We use a 'safeJob'. We don't want promise rejections in the proving pool, we want to capture the error here
-    // and reject the proving job whilst keeping the event loop free of rejections
-    const safeJob = async () => {
-      try {
-        // there's a delay between enqueueing this job and it actually running
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        const result = await request(controller.signal);
-        if (!provingState.verifyState()) {
-          this.logger.debug(`State no longer valid, discarding result`);
-          return;
-        }
-
-        // we could have been cancelled whilst waiting for the result
-        // and the prover ignored the signal. Drop the result in that case
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        await callback(result);
-      } catch (err) {
-        if (err instanceof AbortError) {
-          // operation was cancelled, probably because the block was cancelled
-          // drop this result
-          return;
-        }
-
-        this.logger.error(`Error thrown when proving job`, err);
-        provingState!.reject(`${err}`);
-      } finally {
-        const index = this.pendingProvingJobs.indexOf(controller);
-        if (index > -1) {
-          this.pendingProvingJobs.splice(index, 1);
-        }
-      }
-    };
-
-    void this.deferredJobQueue.put(async () => {
-      void safeJob();
-      // we yield here to the macro task queue such to give Nodejs a chance to run other operatoins in between enqueues
-      await sleep(0);
-    });
-  }
-
   private async updateL1ToL2MessageTree(l1ToL2Messages: Fr[], db: MerkleTreeWriteOperations) {
-    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
-      l1ToL2Messages,
-      Fr.ZERO,
-      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      'Too many L1 to L2 messages',
-    );
-
     const lastL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
     const lastL1ToL2MessageSubtreeRootSiblingPath = assertLength(
       await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, db),
@@ -656,7 +582,7 @@ export class ProvingOrchestrator implements EpochProver {
     );
 
     // Update the local trees to include the new l1 to l2 messages
-    await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+    await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
 
     const newL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
     const newL1ToL2MessageSubtreeRootSiblingPath = assertLength(
@@ -763,7 +689,7 @@ export class ProvingOrchestrator implements EpochProver {
 
   // Enqueues the public chonk verifier circuit for a given transaction index, or reuses the one already enqueued.
   // Once completed, will enqueue the the public tx base rollup.
-  private getOrEnqueueChonkVerifier(provingState: BlockProvingState, txIndex: number) {
+  protected getOrEnqueueChonkVerifier(provingState: BlockProvingState, txIndex: number) {
     if (!provingState.verifyState()) {
       this.logger.debug('Not running chonk verifier circuit, state invalid');
       return;
@@ -771,7 +697,6 @@ export class ProvingOrchestrator implements EpochProver {
 
     const txProvingState = provingState.getTxProvingState(txIndex);
     const txHash = txProvingState.processedTx.hash.toString();
-    NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
     const handleResult = (
       result: PublicInputsAndRecursiveProof<
         PublicChonkVerifierPublicInputs,
@@ -896,7 +821,11 @@ export class ProvingOrchestrator implements EpochProver {
         },
       ),
       async result => {
-        this.logger.debug(`Completed ${rollupType} proof for block ${provingState.blockNumber}`);
+        this.logger.debug(`Completed ${rollupType} proof for block ${provingState.blockNumber}`, {
+          blockNumber: provingState.blockNumber,
+          checkpointIndex: provingState.parentCheckpoint.index,
+          ...result.inputs.toInspect(),
+        });
 
         const leafLocation = provingState.setBlockRootRollupProof(result);
         const checkpointProvingState = provingState.parentCheckpoint;
@@ -1015,6 +944,11 @@ export class ProvingOrchestrator implements EpochProver {
         signal => this.prover.getBlockMergeRollupProof(inputs, signal, provingState.epochNumber),
       ),
       async result => {
+        this.logger.debug(`Completed block merge rollup proof for checkpoint ${provingState.index}`, {
+          checkpointIndex: provingState.index,
+          mergeLocation: location,
+          ...result.inputs.toInspect(),
+        });
         provingState.setBlockMergeRollupProof(location, result);
         await this.checkAndEnqueueNextBlockMergeRollup(provingState, location);
       },
@@ -1067,7 +1001,10 @@ export class ProvingOrchestrator implements EpochProver {
           return;
         }
 
-        this.logger.debug(`Completed ${rollupType} proof for checkpoint ${provingState.index}.`);
+        this.logger.debug(`Completed ${rollupType} proof for checkpoint ${provingState.index}`, {
+          checkpointIndex: provingState.index,
+          ...result.inputs.toInspect(),
+        });
 
         const leafLocation = provingState.setCheckpointRootRollupProof(result);
         const epochProvingState = provingState.parentEpoch;
@@ -1077,99 +1014,6 @@ export class ProvingOrchestrator implements EpochProver {
         } else {
           this.checkAndEnqueueNextCheckpointMergeRollup(epochProvingState, leafLocation);
         }
-      },
-    );
-  }
-
-  private enqueueCheckpointMergeRollup(provingState: EpochProvingState, location: TreeNodeLocation) {
-    if (!provingState.verifyState()) {
-      this.logger.debug('Not running checkpoint merge rollup. State no longer valid.');
-      return;
-    }
-
-    if (!provingState.tryStartProvingCheckpointMerge(location)) {
-      this.logger.debug('Checkpoint merge rollup already started.');
-      return;
-    }
-
-    const inputs = provingState.getCheckpointMergeRollupInputs(location);
-
-    this.deferredProving(
-      provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getCheckpointMergeRollupProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'rollup-checkpoint-merge' satisfies CircuitName,
-        },
-        signal => this.prover.getCheckpointMergeRollupProof(inputs, signal, provingState.epochNumber),
-      ),
-      result => {
-        this.logger.debug('Completed proof for checkpoint merge rollup.');
-        provingState.setCheckpointMergeRollupProof(location, result);
-        this.checkAndEnqueueNextCheckpointMergeRollup(provingState, location);
-      },
-    );
-  }
-
-  private enqueueEpochPadding(provingState: EpochProvingState) {
-    if (!provingState.verifyState()) {
-      this.logger.debug('Not running epoch padding. State no longer valid.');
-      return;
-    }
-
-    if (!provingState.tryStartProvingPaddingCheckpoint()) {
-      this.logger.debug('Padding checkpoint already started.');
-      return;
-    }
-
-    this.logger.debug('Padding epoch proof with a padding block root proof.');
-
-    const inputs = provingState.getPaddingCheckpointInputs();
-
-    this.deferredProving(
-      provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getCheckpointPaddingRollupProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'rollup-checkpoint-padding' satisfies CircuitName,
-        },
-        signal => this.prover.getCheckpointPaddingRollupProof(inputs, signal, provingState.epochNumber),
-      ),
-      result => {
-        this.logger.debug('Completed proof for padding checkpoint.');
-        provingState.setCheckpointPaddingProof(result);
-        this.checkAndEnqueueRootRollup(provingState);
-      },
-    );
-  }
-
-  // Executes the root rollup circuit
-  private enqueueRootRollup(provingState: EpochProvingState) {
-    if (!provingState.verifyState()) {
-      this.logger.debug('Not running root rollup, state no longer valid');
-      return;
-    }
-
-    this.logger.debug(`Preparing root rollup`);
-
-    const inputs = provingState.getRootRollupInputs();
-
-    this.deferredProving(
-      provingState,
-      wrapCallbackInSpan(
-        this.tracer,
-        'ProvingOrchestrator.prover.getRootRollupProof',
-        {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'rollup-root' satisfies CircuitName,
-        },
-        signal => this.prover.getRootRollupProof(inputs, signal, provingState.epochNumber),
-      ),
-      result => {
-        this.logger.verbose(`Orchestrator completed root rollup for epoch ${provingState.epochNumber}`);
-        provingState.setRootRollupProof(result);
-        provingState.resolve({ status: 'success' });
       },
     );
   }
@@ -1212,34 +1056,12 @@ export class ProvingOrchestrator implements EpochProver {
     }
   }
 
-  private async checkAndEnqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
+  protected async checkAndEnqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
     if (!provingState.isReadyForCheckpointRoot()) {
       return;
     }
 
     await this.enqueueCheckpointRootRollup(provingState);
-  }
-
-  private checkAndEnqueueNextCheckpointMergeRollup(provingState: EpochProvingState, currentLocation: TreeNodeLocation) {
-    if (!provingState.isReadyForCheckpointMerge(currentLocation)) {
-      return;
-    }
-
-    const parentLocation = provingState.getParentLocation(currentLocation);
-    if (parentLocation.level === 0) {
-      this.checkAndEnqueueRootRollup(provingState);
-    } else {
-      this.enqueueCheckpointMergeRollup(provingState, parentLocation);
-    }
-  }
-
-  private checkAndEnqueueRootRollup(provingState: EpochProvingState) {
-    if (!provingState.isReadyForRootRollup()) {
-      this.logger.debug('Not ready for root rollup');
-      return;
-    }
-
-    this.enqueueRootRollup(provingState);
   }
 
   /**
@@ -1275,7 +1097,7 @@ export class ProvingOrchestrator implements EpochProver {
     });
   }
 
-  private checkAndEnqueueBaseRollup(provingState: BlockProvingState, txIndex: number) {
+  protected checkAndEnqueueBaseRollup(provingState: BlockProvingState, txIndex: number) {
     const txProvingState = provingState.getTxProvingState(txIndex);
     if (!txProvingState.ready()) {
       return;

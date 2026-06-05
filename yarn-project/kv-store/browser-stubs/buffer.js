@@ -240,6 +240,21 @@ BufferPolyfill.from = function (value, encodingOrOffset, length) {
   );
 };
 
+BufferPolyfill.compare = function (a, b) {
+  if (!ArrayBuffer.isView(a) || !ArrayBuffer.isView(b)) {
+    throw new TypeError('Arguments must be Buffers or Uint8Arrays');
+  }
+  const x = new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+  const y = new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
+  const len = Math.min(x.length, y.length);
+  for (let i = 0; i < len; i++) {
+    if (x[i] !== y[i]) {
+      return x[i] < y[i] ? -1 : 1;
+    }
+  }
+  return x.length < y.length ? -1 : x.length > y.length ? 1 : 0;
+};
+
 BufferPolyfill.alloc = function (size, fill, encoding) {
   const buf = new BufferPolyfill(size);
   if (fill !== undefined) {

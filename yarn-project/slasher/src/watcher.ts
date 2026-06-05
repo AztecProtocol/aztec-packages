@@ -5,6 +5,7 @@ import { OffenseType } from '@aztec/stdlib/slashing';
 import type { SlasherConfig } from './config.js';
 
 export const WANT_TO_SLASH_EVENT = 'want-to-slash' as const;
+export const WANT_TO_CLEAR_SLASH_EVENT = 'want-to-clear-slash' as const;
 
 export interface WantToSlashArgs {
   validator: EthAddress;
@@ -13,9 +14,16 @@ export interface WantToSlashArgs {
   epochOrSlot: bigint; // Epoch number for epoch-based offenses, slot number for slot-based
 }
 
+export interface WantToClearSlashArgs {
+  offenseType: OffenseType;
+  epochOrSlot: bigint; // Epoch number for epoch-based offenses, slot number for slot-based
+  validators?: EthAddress[];
+}
+
 // Event map for specific, known events of a watcher
 export interface WatcherEventMap {
   [WANT_TO_SLASH_EVENT]: (args: WantToSlashArgs[]) => void;
+  [WANT_TO_CLEAR_SLASH_EVENT]: (args: WantToClearSlashArgs[]) => void;
 }
 
 export type WatcherEmitter = TypedEventEmitter<WatcherEventMap>;

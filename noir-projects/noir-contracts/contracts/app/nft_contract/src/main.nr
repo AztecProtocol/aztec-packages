@@ -204,7 +204,7 @@ pub contract NFT {
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = self.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -221,7 +221,7 @@ pub contract NFT {
 
         let new_note = NFTNote { token_id };
 
-        nfts.at(to).insert(new_note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        nfts.at(to).insert(new_note).deliver(MessageDelivery::onchain_constrained());
     }
 
     #[authorize_once("from", "authwit_nonce")]

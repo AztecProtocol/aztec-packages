@@ -7,6 +7,7 @@ pub contract TestLog {
     use aztec::{
         macros::{events::event, functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
+        note::note_getter_options::NoteGetterOptions,
         oracle::random::random,
         protocol::{address::AztecAddress, traits::{FromField, Serialize}},
         state_vars::{Owned, PrivateSet},
@@ -46,7 +47,7 @@ pub contract TestLog {
     /// Emits a single private log with the given raw tag and a one-field payload.
     #[external("private")]
     fn emit_raw_private_log(tag: Field, payload: Field) {
-        self.context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array([payload]));
+        self.context.emit_private_log_unsafe(tag, BoundedVec::from_array([payload]));
     }
 
     /// Emits three private logs with payloads of different lengths (1, 3, and 5 fields). Used to
@@ -60,23 +61,23 @@ pub contract TestLog {
         tag3: Field,
         payload3: [Field; 5],
     ) {
-        self.context.emit_private_log_vec_unsafe(tag1, BoundedVec::from_array([payload1]));
-        self.context.emit_private_log_vec_unsafe(tag2, BoundedVec::from_array(payload2));
-        self.context.emit_private_log_vec_unsafe(tag3, BoundedVec::from_array(payload3));
+        self.context.emit_private_log_unsafe(tag1, BoundedVec::from_array([payload1]));
+        self.context.emit_private_log_unsafe(tag2, BoundedVec::from_array(payload2));
+        self.context.emit_private_log_unsafe(tag3, BoundedVec::from_array(payload3));
     }
 
     #[external("private")]
     fn emit_encrypted_events(other: AztecAddress, preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
-        self.emit(event0).deliver_to(self.msg_sender(), MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.emit(event0).deliver_to(self.msg_sender(), MessageDelivery::onchain_constrained());
 
         // We duplicate the emission, but swapping the sender and recipient:
-        self.emit(event0).deliver_to(other, MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.emit(event0).deliver_to(other, MessageDelivery::onchain_constrained());
 
         let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
 
-        self.emit(event1).deliver_to(self.msg_sender(), MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.emit(event1).deliver_to(self.msg_sender(), MessageDelivery::onchain_constrained());
     }
 
     #[external("public")]
@@ -93,6 +94,24 @@ pub contract TestLog {
         self.emit(ExampleNestedEvent { nested: NestedStruct { a, b, c }, extra_value: extra });
     }
 
+    /// This emits two note messages using unconstrained onchain delivery, consuming two tag indices. The note
+    /// from the first message is nullified in the same transaction, resulting in note, nullifier and logs being
+    /// squashed.
+    ///
+    /// Used to verify that PXE successfully handles scenarios where used tagging indices don't make it their way to the
+    /// tx effects due to squashing.
+    #[external("private")]
+    fn deliver_squashed_and_surviving_notes(other: AztecAddress) {
+        let note_set = self.storage.example_set.at(other);
+
+        // Create the first note and message, then immediately nullify. This squashes all effects.
+        note_set.insert(FieldNote { value: 0 }).deliver(MessageDelivery::onchain_unconstrained());
+        let _ = note_set.pop_notes(NoteGetterOptions::new());
+
+        // Deliver a second note message. Only this one will be included in the logs.
+        note_set.insert(FieldNote { value: 1 }).deliver(MessageDelivery::onchain_unconstrained());
+    }
+
     #[external("private")]
     fn emit_encrypted_events_nested(other: AztecAddress, num_nested_calls: u32) {
         // Safety: We use the following just as an arbitrary test value
@@ -106,12 +125,12 @@ pub contract TestLog {
 
         self.emit(ExampleEvent0 { value0: random_value_0, value1: random_value_1 }).deliver_to(
             other,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         self.emit(ExampleEvent0 { value0: random_value_2, value1: random_value_3 }).deliver_to(
             other,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         if num_nested_calls > 0 {

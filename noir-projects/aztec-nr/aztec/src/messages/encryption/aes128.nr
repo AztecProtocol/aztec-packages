@@ -477,6 +477,7 @@ unconstrained fn random_address_point() -> AddressPoint {
 
 mod test {
     use crate::{
+        ephemeral::EphemeralArray,
         keys::ecdh_shared_secret::{compute_app_siloed_shared_secret, derive_ecdh_shared_secret},
         messages::{
             encoding::{HEADER_CIPHERTEXT_SIZE_IN_BYTES, MESSAGE_PLAINTEXT_LEN, MESSAGE_PLAINTEXT_SIZE_IN_BYTES},
@@ -503,12 +504,10 @@ mod test {
 
             // Mock random values for deterministic test
             let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
-            let _ = OracleMock::mock("aztec_utl_getRandomField").returns(eph_sk).times(1);
+            let _ = OracleMock::mock("aztec_misc_getRandomField").returns(eph_sk).times(1);
 
             let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
-            let _ = OracleMock::mock("aztec_utl_getRandomField").returns(randomness).times(1000000);
-
-            let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(42);
+            let _ = OracleMock::mock("aztec_misc_getRandomField").returns(randomness).times(1000000);
 
             // Encrypt the message
             let encrypted_message = BoundedVec::from_array(AES128::encrypt(plaintext, recipient, contract_address));
@@ -520,7 +519,13 @@ mod test {
             );
             let s_app = compute_app_siloed_shared_secret(raw_shared_secret, contract_address);
 
-            let _ = OracleMock::mock("aztec_utl_getSharedSecret").returns(s_app);
+            // The shared-secrets oracle is batched: it returns a slot pointing at an EphemeralArray
+            // populated with the per-key results. Set up that array with the single expected `s_app`
+            // and mock the oracle to return its slot.
+            let response_slot: Field = 99;
+            let response_array: EphemeralArray<Field> = EphemeralArray::at(response_slot);
+            response_array.push(s_app);
+            let _ = OracleMock::mock("aztec_utl_getSharedSecrets").returns(response_slot);
 
             // Decrypt the message
             let decrypted = AES128::decrypt(encrypted_message, recipient, contract_address).unwrap();

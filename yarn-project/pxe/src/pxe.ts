@@ -84,6 +84,7 @@ import { PrivateEventStore } from './storage/private_event_store/private_event_s
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
 import { SenderAddressBookStore } from './storage/tagging_store/sender_address_book_store.js';
 import { SenderTaggingStore } from './storage/tagging_store/sender_tagging_store.js';
+import { persistSenderTaggingIndexRangesForTx } from './tagging/index.js';
 
 export type PackedPrivateEvent = InTx & {
   packedEvent: Fr[];
@@ -140,6 +141,21 @@ export type ExecuteUtilityOpts = {
   scopes: AztecAddress[];
 };
 
+/**
+ * Supplies the set of "nice to have" contracts that every PXE preloads regardless of which wallet
+ * drives it. Today this is just the standard multi-call entrypoint: the SDK's self-paid account
+ * deploy flow ({@link DeployAccountMethod} with `from = NO_FROM`) routes its payload through it, so a
+ * PXE that did not register it would fail contract sync with an opaque "no contract instance" error.
+ *
+ * Returning a list keeps this extensible: a wallet may supply its own provider that preloads
+ * additional contracts. Injected the same way as {@link ProtocolContractsProvider} so the PXE never
+ * statically imports the bundled artifacts, keeping the bundle/lazy split intact.
+ */
+export type PreloadedContractsProvider = {
+  /** Returns the contract instances and artifacts the PXE should preload on startup. */
+  getPreloadedContracts: () => Promise<Array<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }>>;
+};
+
 /** Args for PXE.create. */
 export type PXECreateArgs = {
   /** The Aztec node to connect to. */
@@ -152,6 +168,8 @@ export type PXECreateArgs = {
   simulator: CircuitSimulator;
   /** Provider for protocol contract artifacts and instances. */
   protocolContractsProvider: ProtocolContractsProvider;
+  /** Provider for the "nice to have" contracts the PXE preloads. */
+  preloadedContractsProvider: PreloadedContractsProvider;
   /** PXE configuration options. */
   config: PXEConfig;
   /** Optional logger instance or string suffix for the logger name. */
@@ -184,8 +202,10 @@ export class PXE {
     private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
+    private autoSync: boolean,
     private proofCreator: PrivateKernelProver,
     private protocolContractsProvider: ProtocolContractsProvider,
+    private preloadedContractsProvider: PreloadedContractsProvider,
     private log: Logger,
     private jobQueue: SerialQueue,
     private jobCoordinator: JobCoordinator,
@@ -206,6 +226,7 @@ export class PXE {
     proofCreator,
     simulator,
     protocolContractsProvider,
+    preloadedContractsProvider,
     config,
     loggerOrSuffix,
     hooks,
@@ -296,8 +317,10 @@ export class PXE {
       l2TipsStore,
       simulator,
       proverEnabled,
+      config.autoSync,
       proofCreator,
       protocolContractsProvider,
+      preloadedContractsProvider,
       log,
       jobQueue,
       jobCoordinator,
@@ -313,7 +336,7 @@ export class PXE {
 
     pxe.jobQueue.start();
 
-    await pxe.#registerProtocolContracts();
+    await Promise.all([pxe.#registerProtocolContracts(), pxe.#registerPreloadedContracts()]);
     log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxe;
   }
@@ -389,14 +412,26 @@ export class PXE {
   }
 
   async #registerProtocolContracts() {
-    const registered: Record<string, string> = {};
-    for (const name of protocolContractNames) {
-      const { address, instance, artifact } = await this.protocolContractsProvider.getProtocolContractArtifact(name);
-      await this.contractStore.addContractArtifact(artifact);
-      await this.contractStore.addContractInstance(instance);
-      registered[name] = address.toString();
-    }
+    const registered = Object.fromEntries(
+      await Promise.all(
+        protocolContractNames.map(async name => {
+          const { address, instance, artifact } =
+            await this.protocolContractsProvider.getProtocolContractArtifact(name);
+          await this.contractStore.addContractArtifact(artifact);
+          await this.contractStore.addContractInstance(instance);
+          return [name, address.toString()] as const;
+        }),
+      ),
+    );
     this.log.verbose(`Registered protocol contracts in pxe`, registered);
+  }
+
+  async #registerPreloadedContracts() {
+    const contracts = await this.preloadedContractsProvider.getPreloadedContracts();
+    await Promise.all(contracts.map(({ instance, artifact }) => this.registerContract({ instance, artifact })));
+    this.log.verbose(`Registered preloaded contracts in pxe`, {
+      contracts: contracts.map(({ instance }) => instance.address.toString()),
+    });
   }
 
   // Executes the entrypoint private function, as well as all nested private
@@ -538,7 +573,27 @@ export class PXE {
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
   }
 
+  /**
+   * Syncs with the node only when `autoSync` is enabled.
+   * When `autoSync` is disabled, callers (typically a wallet) are
+   * responsible for invoking `pxe.sync()` at the right granularity.
+   */
+  async #maybeSync(): Promise<void> {
+    if (this.autoSync) {
+      await this.blockStateSynchronizer.sync();
+    }
+  }
+
   // Public API
+
+  /**
+   * Triggers a sync of PXE state with the node, regardless of the `autoSync` config flag. Use this to
+   * batch syncs across composite flows when `autoSync` is disabled (e.g. one sync per simulate+send
+   * instead of one per inner PXE call). Serialized through the job queue.
+   */
+  public sync(): Promise<void> {
+    return this.#putInJobQueue(() => this.blockStateSynchronizer.sync());
+  }
 
   /**
    * Returns the block header up to which the PXE has synced.
@@ -581,7 +636,7 @@ export class PXE {
   public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const accounts = await this.keyStore.getAccounts();
     const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);
-    if (accounts.includes(accountCompleteAddress.address)) {
+    if (accounts.some(a => a.equals(accountCompleteAddress.address))) {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
     } else {
@@ -611,7 +666,7 @@ export class PXE {
     }
 
     const accounts = await this.keyStore.getAccounts();
-    if (accounts.includes(sender)) {
+    if (accounts.some(a => a.equals(sender))) {
       this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
       return sender;
     }
@@ -706,7 +761,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractStore.getContractArtifact(instance.currentContractClassId);
@@ -741,7 +798,7 @@ export class PXE {
         throw new Error(`Instance not found when updating a contract. Contract address: ${contractAddress}.`);
       }
       const contractClass = await getContractClassFromArtifact(artifact);
-      await this.blockStateSynchronizer.sync();
+      await this.#maybeSync();
 
       const header = await this.anchorBlockStore.getBlockHeader();
 
@@ -753,7 +810,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
 
       currentInstance.currentContractClassId = contractClass.id;
       await Promise.all([
@@ -790,7 +849,7 @@ export class PXE {
       const totalTimer = new Timer();
       try {
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -838,23 +897,20 @@ export class PXE {
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
 
-        // While not strictly necessary to store tagging cache contents in the DB since we sync tagging indexes from
-        // chain before sending new logs, the sync can only see logs already included in blocks. If we send another
-        // transaction before this one is included in a block from this PXE, and that transaction contains a log with
-        // a tag derived from the same secret, we would reuse the tag and the transactions would be linked. Hence
-        // storing the tags here prevents linkage of txs sent from the same PXE.
-        const taggingIndexRangesUsedInTheTx = privateExecutionResult.entrypoint.taggingIndexRanges;
-        if (taggingIndexRangesUsedInTheTx.length > 0) {
-          // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
-          const txHash = (await txProvingResult.toTx()).txHash;
-
-          await this.senderTaggingStore.storePendingIndexes(taggingIndexRangesUsedInTheTx, txHash, jobId);
-          this.log.debug(`Stored used tagging index ranges as sender for the tx`, {
-            taggingIndexRangesUsedInTheTx,
-          });
-        } else {
-          this.log.debug(`No tagging index ranges used in the tx`);
-        }
+        // We keep track of which tagging indices we've used in this tx so that we don't repeat them in future txs
+        // (which would link them) without having to rely on this tx being mined (and us seeing the indices being used
+        // onchain).
+        // Note that this must happen _after_ proving as it requires the proof's public inputs, from which the kernels
+        // may have removed some logs due to note-nullifier squashing - this may lead to range of tagging indices we've
+        // actually used to being reduced.
+        await persistSenderTaggingIndexRangesForTx(
+          this.senderTaggingStore,
+          privateExecutionResult.entrypoint.taggingIndexRanges,
+          publicInputs,
+          () => txProvingResult.getTxHash(),
+          jobId,
+          this.log,
+        );
 
         return txProvingResult;
       } catch (err: any) {
@@ -890,7 +946,7 @@ export class PXE {
           txInfo,
         );
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
@@ -998,7 +1054,7 @@ export class PXE {
           txInfo,
         );
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
@@ -1135,7 +1191,7 @@ export class PXE {
       try {
         const totalTimer = new Timer();
         const syncTimer = new Timer();
-        await this.blockStateSynchronizer.sync();
+        await this.#maybeSync();
         const syncTime = syncTimer.ms();
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -1210,7 +1266,7 @@ export class PXE {
     let anchorBlockNumber: BlockNumber;
 
     await this.#putInJobQueue(async jobId => {
-      await this.blockStateSynchronizer.sync();
+      await this.#maybeSync();
 
       const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
       anchorBlockNumber = anchorBlockHeader.getBlockNumber();

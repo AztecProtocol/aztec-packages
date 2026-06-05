@@ -18,9 +18,6 @@
 <h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
 <div id="crate-version">0.0.0</div>
 <h2>In module get_nullifier_membership_witness</h2>
-<h3>Structs</h3><ul class="item-list">
-<li><a href="struct.NullifierMembershipWitness.html">NullifierMembershipWitness</a></div></li>
-</ul>
 <h3>Functions</h3><ul class="item-list">
 <li><a href="fn.get_low_nullifier_membership_witness.html">get_low_nullifier_membership_witness</a></div></li>
 <li><a href="fn.get_nullifier_membership_witness.html">get_nullifier_membership_witness</a></div></li>
@@ -32,10 +29,11 @@
 <pre><code>pub unconstrained fn get_nullifier_membership_witness(
     block_header: <a href="../../../protocol_types/abis/block_header/struct.BlockHeader.html" class="struct">BlockHeader</a>,
     nullifier: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
-) -> <a href="../../../noir_aztec/oracle/get_nullifier_membership_witness/struct.NullifierMembershipWitness.html" class="struct">NullifierMembershipWitness</a></code></pre>
+) -> (<a href="../../../protocol_types/abis/nullifier_leaf_preimage/struct.NullifierLeafPreimage.html" class="struct">NullifierLeafPreimage</a>, <a href="../../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;42&gt;)</code></pre>
 
 <div class="comments">
-<p>Returns a membership witness for <code>nullifier</code> in the nullifier tree whose root is defined in <code>block_header</code>.</p>
+<p>Returns a leaf preimage and membership witness for <code>nullifier</code> in the nullifier tree whose root is defined in
+<code>block_header</code>.</p>
 <p>This is used to prove that a nullifier exists in the tree (inclusion proof).</p>
 </div>
 </main>

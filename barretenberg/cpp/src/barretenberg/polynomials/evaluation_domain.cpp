@@ -92,27 +92,26 @@ template <typename Fr> EvaluationDomain<Fr>& EvaluationDomain<Fr>::operator=(Eva
     if (this == &other) {
         return *this;
     }
-    size = other.size;
-    generator_size = other.generator_size;
-    num_threads = compute_num_threads(other.size);
-    thread_size = other.size / num_threads;
-    log2_size = static_cast<size_t>(numeric::get_msb(size));
-    log2_thread_size = static_cast<size_t>(numeric::get_msb(thread_size));
-    log2_num_threads = static_cast<size_t>(numeric::get_msb(num_threads));
+    // Steal-and-zero the source's invariant-gating scalar fields. All validity checks on an
+    // EvaluationDomain gate on `size > 0`, so zeroing it on move makes the source visibly empty
+    // (matching the default-constructed state) rather than partially valid (size > 0 but
+    // roots == nullptr).
+    size = std::exchange(other.size, 0);
+    generator_size = std::exchange(other.generator_size, 0);
+    num_threads = std::exchange(other.num_threads, 0);
+    thread_size = std::exchange(other.thread_size, 0);
+    log2_size = std::exchange(other.log2_size, 0);
+    log2_thread_size = std::exchange(other.log2_thread_size, 0);
+    log2_num_threads = std::exchange(other.log2_num_threads, 0);
     Fr::__copy(other.root, root);
     Fr::__copy(other.root_inverse, root_inverse);
     Fr::__copy(other.domain, domain);
     Fr::__copy(other.domain_inverse, domain_inverse);
     Fr::__copy(other.generator, generator);
     Fr::__copy(other.generator_inverse, generator_inverse);
-    roots = nullptr;
-    round_roots.clear();
-    inverse_round_roots.clear();
-    if (other.roots != nullptr) {
-        roots = other.roots;
-        round_roots = std::move(other.round_roots);
-        inverse_round_roots = std::move(other.inverse_round_roots);
-    }
+    roots = std::move(other.roots);
+    round_roots = std::move(other.round_roots);
+    inverse_round_roots = std::move(other.inverse_round_roots);
     other.roots = nullptr;
     return *this;
 }

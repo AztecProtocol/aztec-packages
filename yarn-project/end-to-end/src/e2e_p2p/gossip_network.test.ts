@@ -69,6 +69,7 @@ describe('e2e_p2p_network', () => {
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
         listenAddress: '127.0.0.1',
+        inboxLag: 2,
       },
     });
 
@@ -188,7 +189,7 @@ describe('e2e_p2p_network', () => {
     const blockNumber = receipt.blockNumber!;
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const blockData = await dataStore.getBlockData({ number: BlockNumber(blockNumber) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(blockData!.checkpointNumber, 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
     const signatureContext = {
       chainId: t.ctx.aztecNodeConfig.l1ChainId,
       rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,

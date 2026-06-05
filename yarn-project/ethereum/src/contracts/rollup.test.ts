@@ -1,12 +1,14 @@
-import { getPublicClient } from '@aztec/ethereum/client';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { L1RpcError, getPublicClient } from '@aztec/ethereum/client';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import type { Abi } from 'viem';
+import { jest } from '@jest/globals';
+import { type Abi, RpcRequestError, encodeErrorResult } from 'viem';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
@@ -266,52 +268,96 @@ describe('Rollup', () => {
     await anvil?.stop().catch(err => createLogger('cleanup').error(err));
   });
 
-  describe('makePendingCheckpointNumberOverride', () => {
-    it('creates state override that correctly overrides pending checkpoint number', async () => {
-      const testProvenCheckpointNumber = CheckpointNumber(42);
-      const testPendingCheckpointNumber = CheckpointNumber(100);
-      const newPendingCheckpointNumber = CheckpointNumber(150);
+  describe('makeChainTipsOverride', () => {
+    const testProvenCheckpointNumber = CheckpointNumber(42);
+    const testPendingCheckpointNumber = CheckpointNumber(100);
 
-      // Set storage directly using cheat codes
-      // The storage slot stores both values: pending (high 128 bits) | proven (low 128 bits)
+    async function setLiveTips(pending: CheckpointNumber, proven: CheckpointNumber) {
       const storageSlot = RollupContract.stfStorageSlot;
-      const packedValue = (BigInt(testPendingCheckpointNumber) << 128n) | BigInt(testProvenCheckpointNumber);
+      const packedValue = (BigInt(pending) << 128n) | BigInt(proven);
       await cheatCodes.store(EthAddress.fromString(rollupAddress), BigInt(storageSlot), packedValue);
+    }
 
-      // Verify the values were set correctly by calling the getters directly
-      const provenCheckpointNumber = await rollup.getProvenCheckpointNumber();
-      const pendingCheckpointNumber = await rollup.getCheckpointNumber();
+    async function readOverridden(stateOverride: Awaited<ReturnType<RollupContract['makeChainTipsOverride']>>) {
+      const [pendingResult, provenResult] = await Promise.all([
+        publicClient.simulateContract({
+          address: rollupAddress,
+          abi: RollupAbi as Abi,
+          functionName: 'getPendingCheckpointNumber',
+          stateOverride,
+        }),
+        publicClient.simulateContract({
+          address: rollupAddress,
+          abi: RollupAbi as Abi,
+          functionName: 'getProvenCheckpointNumber',
+          stateOverride,
+        }),
+      ]);
+      return {
+        pending: CheckpointNumber.fromBigInt(pendingResult.result),
+        proven: CheckpointNumber.fromBigInt(provenResult.result),
+      };
+    }
 
-      expect(provenCheckpointNumber).toBe(testProvenCheckpointNumber);
-      expect(pendingCheckpointNumber).toBe(testPendingCheckpointNumber);
+    it('emits a single combined state-diff when both pending and proven are set', async () => {
+      await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
 
-      // Create the override
-      const stateOverride = await rollup.makePendingCheckpointNumberOverride(newPendingCheckpointNumber);
+      const newPending = CheckpointNumber(150);
+      const newProven = CheckpointNumber(75);
+      const stateOverride = await rollup.makeChainTipsOverride({ pending: newPending, proven: newProven });
 
-      // Test the override using simulateContract
-      const { result: overriddenPendingCheckpointNumber } = await publicClient.simulateContract({
-        address: rollupAddress,
-        abi: RollupAbi as Abi,
-        functionName: 'getPendingCheckpointNumber',
-        stateOverride,
-      });
+      expect(stateOverride).toHaveLength(1);
+      expect(stateOverride[0].stateDiff).toHaveLength(1);
+      expect(stateOverride[0].stateDiff![0].slot).toBe(RollupContract.stfStorageSlot);
+      const expectedValue = (BigInt(newPending) << 128n) | BigInt(newProven);
+      expect(stateOverride[0].stateDiff![0].value).toBe(`0x${expectedValue.toString(16).padStart(64, '0')}`);
 
-      // The overridden value should be the new pending checkpoint number
-      expect(overriddenPendingCheckpointNumber).toBe(BigInt(newPendingCheckpointNumber));
+      const observed = await readOverridden(stateOverride);
+      expect(observed.pending).toBe(newPending);
+      expect(observed.proven).toBe(newProven);
+    });
 
-      // Verify that the proven checkpoint number is preserved in the override
-      const { result: overriddenProvenCheckpointNumber } = await publicClient.simulateContract({
-        address: rollupAddress,
-        abi: RollupAbi as Abi,
-        functionName: 'getProvenCheckpointNumber',
-        stateOverride,
-      });
+    it('preserves the live proven half when only pending is overridden', async () => {
+      await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
 
-      expect(CheckpointNumber.fromBigInt(overriddenProvenCheckpointNumber)).toBe(testProvenCheckpointNumber);
+      const newPending = CheckpointNumber(150);
+      const stateOverride = await rollup.makeChainTipsOverride({ pending: newPending });
 
-      // Verify the actual storage hasn't changed
-      const actualPendingCheckpointNumber = await rollup.getCheckpointNumber();
-      expect(actualPendingCheckpointNumber).toBe(testPendingCheckpointNumber);
+      const observed = await readOverridden(stateOverride);
+      expect(observed.pending).toBe(newPending);
+      expect(observed.proven).toBe(testProvenCheckpointNumber);
+    });
+
+    it('preserves the live pending half when only proven is overridden', async () => {
+      await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
+
+      const newProven = CheckpointNumber(75);
+      const stateOverride = await rollup.makeChainTipsOverride({ proven: newProven });
+
+      const observed = await readOverridden(stateOverride);
+      expect(observed.pending).toBe(testPendingCheckpointNumber);
+      expect(observed.proven).toBe(newProven);
+    });
+
+    it('returns an empty override when neither pending nor proven is set', async () => {
+      const stateOverride = await rollup.makeChainTipsOverride({});
+      expect(stateOverride).toEqual([]);
+    });
+
+    it('throws when the resulting proven > pending', async () => {
+      await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
+
+      await expect(
+        rollup.makeChainTipsOverride({ pending: CheckpointNumber(50), proven: CheckpointNumber(100) }),
+      ).rejects.toThrow(/proven .* > pending/);
+    });
+
+    it('throws when only proven is set and the resulting proven > live pending', async () => {
+      await setLiveTips(CheckpointNumber(10), CheckpointNumber(5));
+
+      await expect(rollup.makeChainTipsOverride({ proven: CheckpointNumber(20) })).rejects.toThrow(
+        /proven .* > pending/,
+      );
     });
   });
 
@@ -324,6 +370,27 @@ describe('Rollup', () => {
     it('reads protocolContractsHash from storage', async () => {
       const result = await rollup.getProtocolContractsHash();
       expect(result).toEqual(protocolContractsHash);
+    });
+  });
+
+  describe('committee helpers', () => {
+    it('handles wrapped insufficient validator set errors', async () => {
+      const data = encodeErrorResult({
+        abi: RollupAbi,
+        errorName: 'ValidatorSelection__InsufficientValidatorSetSize',
+        args: [0n, 1n],
+      });
+      using _simulateContractSpy = jest.spyOn(publicClient, 'simulateContract').mockRejectedValueOnce(
+        new L1RpcError('L1 RPC request failed', {
+          cause: new RpcRequestError({
+            body: { method: 'eth_call', params: [] },
+            error: { code: 3, data, message: 'execution reverted' },
+            url: 'https://example.com/rpc',
+          }),
+        }),
+      );
+
+      await expect(rollup.getCurrentEpochCommittee()).resolves.toBeUndefined();
     });
   });
 
@@ -345,6 +412,108 @@ describe('Rollup', () => {
       });
 
       expect(Fr.fromString(overriddenArchive as string).equals(expectedArchive)).toBe(true);
+    });
+  });
+
+  describe('makeTempCheckpointLogOverride', () => {
+    const fields = {
+      headerHash: Fr.random(),
+      outHash: Fr.random(),
+      payloadDigest: Buffer32.random(),
+      slotNumber: SlotNumber(42),
+      feeHeader: {
+        manaUsed: 12345n,
+        excessMana: 67890n,
+        ethPerFeeAsset: 1_000_000_000_000n,
+        congestionCost: 99999n,
+        proverCost: 55555n,
+      } as FeeHeader,
+    };
+
+    function getDiffMap(
+      checkpointNumber: CheckpointNumber,
+      override: Awaited<ReturnType<RollupContract['makeTempCheckpointLogOverride']>>,
+    ) {
+      const map = new Map<string, string>();
+      for (const entry of override) {
+        for (const diff of entry.stateDiff ?? []) {
+          map.set(diff.slot.toLowerCase(), diff.value.toLowerCase());
+        }
+      }
+      const slotFor = async (field: TempCheckpointLogField) =>
+        `0x${(await rollup.getTempCheckpointLogStorageSlot(checkpointNumber, field)).toString(16).padStart(64, '0')}`.toLowerCase();
+      return { map, slotFor };
+    }
+
+    it('emits one diff entry per required field at the expected storage slot', async () => {
+      const checkpointNumber = CheckpointNumber(7);
+      const override = await rollup.makeTempCheckpointLogOverride(checkpointNumber, fields);
+      const { map, slotFor } = getDiffMap(checkpointNumber, override);
+
+      expect(override).toHaveLength(1);
+      expect(override[0].stateDiff).toHaveLength(5);
+      expect(map.get(await slotFor(TempCheckpointLogField.HeaderHash))).toBe(
+        fields.headerHash.toString().toLowerCase(),
+      );
+      expect(map.get(await slotFor(TempCheckpointLogField.OutHash))).toBe(fields.outHash.toString().toLowerCase());
+      expect(map.get(await slotFor(TempCheckpointLogField.PayloadDigest))).toBe(
+        fields.payloadDigest.toString().toLowerCase(),
+      );
+      expect(map.get(await slotFor(TempCheckpointLogField.SlotNumber))).toBe(
+        `0x${BigInt(fields.slotNumber).toString(16).padStart(64, '0')}`.toLowerCase(),
+      );
+      expect(map.get(await slotFor(TempCheckpointLogField.FeeHeader))).toBe(
+        `0x${RollupContract.compressFeeHeader(fields.feeHeader).toString(16).padStart(64, '0')}`.toLowerCase(),
+      );
+    });
+
+    it('throws when slotNumber overflows uint32 (matches L1 SafeCast.toUint32 semantics)', async () => {
+      const checkpointNumber = CheckpointNumber(3);
+      const slotNumber = SlotNumber(0xdeadbeef + 0x1_0000_0000);
+      await expect(rollup.makeTempCheckpointLogOverride(checkpointNumber, { ...fields, slotNumber })).rejects.toThrow(
+        /does not fit in uint32/,
+      );
+    });
+
+    it('partial override emits only the supplied fields', async () => {
+      const checkpointNumber = CheckpointNumber(13);
+      const override = await rollup.makeTempCheckpointLogOverride(checkpointNumber, {
+        slotNumber: SlotNumber(7),
+      });
+      const { map, slotFor } = getDiffMap(checkpointNumber, override);
+      expect(override[0].stateDiff).toHaveLength(1);
+      expect(map.get(await slotFor(TempCheckpointLogField.SlotNumber))).toBe(
+        `0x${7n.toString(16).padStart(64, '0')}`.toLowerCase(),
+      );
+    });
+
+    it('partial override returns an empty array when no fields are supplied', async () => {
+      const override = await rollup.makeTempCheckpointLogOverride(CheckpointNumber(13), {});
+      expect(override).toEqual([]);
+    });
+
+    it('round-trips slot, header hash, and fee header through getCheckpoint', async () => {
+      // Reset tips so checkpoint 0 is in range, then build an override and read it back through the contract.
+      await cheatCodes.store(
+        EthAddress.fromString(rollupAddress),
+        RollupContract.chainTipsStorageSlot,
+        RollupContract.packChainTips(0n, 0n),
+      );
+
+      const checkpointNumber = CheckpointNumber(0);
+      const override = await rollup.makeTempCheckpointLogOverride(checkpointNumber, fields);
+
+      const { result } = await publicClient.simulateContract({
+        address: rollupAddress,
+        abi: RollupAbi as Abi,
+        functionName: 'getCheckpoint',
+        args: [BigInt(checkpointNumber)],
+        stateOverride: override,
+      });
+      const checkpoint = result as { headerHash: `0x${string}`; outHash: `0x${string}`; slotNumber: bigint };
+      expect(checkpoint.headerHash.toLowerCase()).toBe(fields.headerHash.toString().toLowerCase());
+      expect(checkpoint.outHash.toLowerCase()).toBe(fields.outHash.toString().toLowerCase());
+      expect(checkpoint.slotNumber).toBe(BigInt(fields.slotNumber));
     });
   });
 

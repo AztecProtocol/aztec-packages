@@ -17,13 +17,13 @@ Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with b
 
 ## Getting started
 
-Learn about Aztec, what it is, how it works and how to get start writing smart contracts on Aztec with programmable privacy by watching this video:
+Learn about Aztec, what it is, how it works and how to get start writing smart contracts on Aztec with programmable privacy by watching this video course:
 
 <div style={{position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '100%', marginBottom: '2rem'}}>
   <iframe
     style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%'}}
-    src="https://www.youtube.com/embed/93pfZMjKMmQ"
-    title="Aztec Overview Video"
+    src="https://www.youtube.com/embed/cQIPG_J1W9g"
+    title="Aztec Video Course"
     frameBorder="0"
     allowFullScreen>
   </iframe>
@@ -92,3 +92,7 @@ As Aztec has native account abstraction, accounts do not automatically have a si
 ## Noir
 
 Noir is a zero-knowledge domain specific language used for writing smart contracts for the Aztec network. It is also possible to write circuits with Noir that can be verified on or offchain. For more in-depth docs into the features of Noir, go to the [Noir website](https://noir-lang.org/).
+
+:::tip Need help?
+If something does not work, or you are not sure where to ask, see the [support guide](./support.md). It explains the right channel for questions, bug reports, feature requests, and security disclosures.
+:::

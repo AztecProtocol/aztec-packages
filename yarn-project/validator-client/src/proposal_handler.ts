@@ -2,7 +2,7 @@ import type { Archiver } from '@aztec/archiver';
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, encodeCheckpointBlobDataFromBlocks, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import type { EpochCache } from '@aztec/epoch-cache';
+import { type EpochCache, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -20,8 +20,9 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import { validateCheckpoint } from '@aztec/stdlib/checkpoint';
-import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import type { CheckpointReexecutionTracker, ReexecutionOutcome } from '@aztec/stdlib/checkpoint';
+import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import { getEpochAtSlot, getLastL1SlotTimestampForL2Slot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
@@ -45,9 +46,9 @@ import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import type { ValidatorMetrics } from './metrics.js';
 
 export type BlockProposalValidationFailureReason =
+  | 'invalid_signature'
   | 'invalid_proposal'
   | 'parent_block_not_found'
-  | 'block_source_not_synced'
   | 'parent_block_wrong_slot'
   | 'in_hash_mismatch'
   | 'global_variables_mismatch'
@@ -57,6 +58,8 @@ export type BlockProposalValidationFailureReason =
   | 'failed_txs'
   | 'initial_state_mismatch'
   | 'timeout'
+  | 'block_proposal_beyond_checkpoint'
+  | 'checkpoint_proposal_equivocation'
   | 'unknown_error';
 
 type ReexecuteTransactionsResult = {
@@ -81,13 +84,72 @@ export type BlockProposalValidationFailureResult = {
 
 export type BlockProposalValidationResult = BlockProposalValidationSuccessResult | BlockProposalValidationFailureResult;
 
+export type CheckpointProposalValidationFailureReason =
+  | 'invalid_signature'
+  | 'invalid_fee_asset_price_modifier'
+  | 'last_block_not_found'
+  | 'block_fetch_error'
+  | 'checkpoint_already_published'
+  | 'no_blocks_for_slot'
+  | 'last_block_archive_mismatch'
+  | 'too_many_blocks_in_checkpoint'
+  | 'checkpoint_header_mismatch'
+  | 'archive_mismatch'
+  | 'out_hash_mismatch'
+  | 'checkpoint_validation_failed';
+
+/**
+ * Mapping from a checkpoint-proposal validation failure reason to the tracker outcome that
+ * `handleCheckpointProposal` should record. `undefined` means do not record (signature
+ * couldn't be verified, or the checkpoint is already on L1 so the question is moot).
+ */
+/* eslint-disable camelcase */
+const CHECKPOINT_VALIDATION_REASON_TO_OUTCOME: Record<
+  CheckpointProposalValidationFailureReason,
+  ReexecutionOutcome | undefined
+> = {
+  invalid_signature: undefined,
+  invalid_fee_asset_price_modifier: 'invalid',
+  checkpoint_already_published: undefined,
+  last_block_not_found: 'unvalidated',
+  block_fetch_error: 'unvalidated',
+  no_blocks_for_slot: 'unvalidated',
+  last_block_archive_mismatch: 'invalid',
+  too_many_blocks_in_checkpoint: 'invalid',
+  checkpoint_header_mismatch: 'invalid',
+  archive_mismatch: 'invalid',
+  out_hash_mismatch: 'invalid',
+  checkpoint_validation_failed: 'invalid',
+};
+
+export type CheckpointProposalValidationSuccessResult = {
+  isValid: true;
+  checkpointNumber: CheckpointNumber;
+};
+
+export type CheckpointProposalValidationFailureResult = {
+  isValid: false;
+  reason: CheckpointProposalValidationFailureReason;
+  checkpointNumber?: CheckpointNumber;
+};
+
 export type CheckpointProposalValidationResult =
-  | { isValid: true; checkpointNumber: CheckpointNumber }
-  | { isValid: false; reason: string };
+  | CheckpointProposalValidationSuccessResult
+  | CheckpointProposalValidationFailureResult;
+
+export type CheckpointProposalValidationFailureCallback = (
+  proposal: CheckpointProposalCore,
+  result: CheckpointProposalValidationFailureResult,
+  proposalInfo: LogData,
+) => void | Promise<void>;
 
 type CheckpointComputationResult =
   | { checkpointNumber: CheckpointNumber; reason?: undefined }
   | { checkpointNumber?: undefined; reason: 'invalid_proposal' | 'global_variables_mismatch' };
+
+type BlockProposalSlotValidationResult =
+  | { isValid: true }
+  | { isValid: false; reason: 'block_proposal_beyond_checkpoint' | 'checkpoint_proposal_equivocation' };
 
 /** Handles block and checkpoint proposals for both validator and non-validator nodes. */
 export class ProposalHandler {
@@ -102,10 +164,15 @@ export class ProposalHandler {
   };
 
   /** Archiver reference for setting proposed checkpoints (pipelining). Set via register(). */
-  private archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>;
+  private archiver?: Pick<Archiver, 'addProposedCheckpoint'>;
 
   /** Returns current validator addresses for own-proposal detection. Set via register(). */
   private getOwnValidatorAddresses?: () => string[];
+
+  /** P2P proposal pool access for deciding when retained proposals should block archiver processing. */
+  private p2pClient?: Pick<P2P, 'getProposalsForSlot'>;
+
+  private checkpointProposalValidationFailureCallback?: CheckpointProposalValidationFailureCallback;
 
   constructor(
     private checkpointsBuilder: FullNodeCheckpointsBuilder,
@@ -117,6 +184,7 @@ export class ProposalHandler {
     private epochCache: EpochCache,
     private config: ValidatorClientFullConfig,
     private blobClient: BlobClientInterface,
+    private reexecutionTracker: CheckpointReexecutionTracker,
     private metrics?: ValidatorMetrics,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
@@ -128,8 +196,32 @@ export class ProposalHandler {
     this.tracer = telemetry.getTracer('ProposalHandler');
   }
 
+  public updateConfig(config: Partial<ValidatorClientFullConfig>): void {
+    this.config = { ...this.config, ...config };
+  }
+
+  public setCheckpointProposalValidationFailureCallback(callback?: CheckpointProposalValidationFailureCallback): void {
+    this.checkpointProposalValidationFailureCallback = callback;
+  }
+
+  /**
+   * Records the proposer's own checkpoint proposal as a `valid` outcome in the re-execution
+   * tracker. Without this, the node's own checkpoint proposals never flow through
+   * `handleCheckpointProposal` (proposers don't validate their own proposals), so its sentinel
+   * sees no outcome for slots where it was the proposer and reports itself as inactive.
+   *
+   * `archive` should be the locally-computed archive (NOT the broadcast archive, which may have
+   * been deliberately corrupted in tests via `broadcastInvalidBlockProposal` /
+   * `broadcastInvalidCheckpointProposalOnly`). Recording the local archive correctly models the
+   * proposer's own view of its own work.
+   */
+  public recordOwnCheckpointProposalAsValid(slot: SlotNumber, archive: Fr, checkpointNumber: CheckpointNumber): void {
+    this.reexecutionTracker.recordOutcome(slot, archive, 'valid', checkpointNumber);
+  }
+
   /**
    * Registers handlers for block and checkpoint proposals on the p2p client.
+   * Records the p2p client so validation can inspect retained proposals.
    * Block proposals are registered for non-validator nodes (validators register their own enhanced handler).
    * The all-nodes checkpoint proposal handler is always registered for validation, caching, and pipelining.
    * @param archiver - Archiver reference for setting proposed checkpoints (pipelining)
@@ -138,9 +230,10 @@ export class ProposalHandler {
   register(
     p2pClient: P2P,
     shouldReexecute: boolean,
-    archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>,
+    archiver?: Pick<Archiver, 'addProposedCheckpoint'>,
     getOwnValidatorAddresses?: () => string[],
   ): ProposalHandler {
+    this.p2pClient = p2pClient;
     this.archiver = archiver;
     this.getOwnValidatorAddresses = getOwnValidatorAddresses;
 
@@ -190,21 +283,37 @@ export class ProposalHandler {
           proposer: proposal.getSender()?.toString(),
         };
 
-        // For own proposals, skip validation — the proposer already built and validated the checkpoint
+        if (this.config.skipCheckpointProposalValidation) {
+          this.log.warn(`Skipping checkpoint proposal validation for slot ${proposal.slotNumber}`, proposalInfo);
+          return undefined;
+        }
+
+        if (await this.epochCache.isEscapeHatchOpenAtSlot(proposal.slotNumber)) {
+          this.log.warn(
+            `Escape hatch open for slot ${proposal.slotNumber}, skipping checkpoint proposal validation`,
+            proposalInfo,
+          );
+          return undefined;
+        }
+
+        // For own proposals, skip validation and return: the proposer already built and validated the
+        // checkpoint, and the sequencer's checkpoint proposal job pushed the proposed checkpoint to the
+        // archiver from local data before broadcasting. Gossipsub doesn't echo our own messages back, so
+        // this branch is normally unreachable — it remains as defense if an own proposal arrives by some
+        // other path.
         const proposer = proposal.getSender();
         const ownAddresses = this.getOwnValidatorAddresses?.();
         const isOwnProposal = proposer && ownAddresses?.some(addr => addr === proposer.toString());
 
         if (isOwnProposal) {
           this.log.debug(`Skipping validation for own checkpoint proposal at slot ${proposal.slotNumber}`);
-          if (this.archiver && this.epochCache.isProposerPipeliningEnabled()) {
-            await this.setProposedCheckpointFromBlocks(proposal);
-          }
           return undefined;
         }
 
         const result = await this.handleCheckpointProposal(proposal, proposalInfo);
-        if (result.isValid && this.archiver && this.epochCache.isProposerPipeliningEnabled()) {
+        if (!result.isValid) {
+          await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
+        } else if (this.archiver) {
           const set = await this.setProposedCheckpointFromValidation(proposal);
           if (set) {
             this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
@@ -233,7 +342,7 @@ export class ProposalHandler {
     // Reject proposals with invalid signatures
     if (!proposer) {
       this.log.warn(`Received proposal with invalid signature for slot ${slotNumber}`);
-      return { isValid: false, reason: 'invalid_proposal' };
+      return { isValid: false, reason: 'invalid_signature' };
     }
 
     const proposalInfo = {
@@ -256,20 +365,19 @@ export class ProposalHandler {
       return { isValid: false, reason: 'invalid_proposal' };
     }
 
-    // Ensure the block source is synced before checking for existing blocks,
-    // since a proposed checkpoint prune may remove blocks we'd otherwise find.
-    // This affects mostly the block_number_already_exists check, since a pending
-    // checkpoint prune could remove a block that would conflict with this proposal.
-    // When pipelining is enabled, the proposer builds ahead of L1 submission, so the
-    // block source won't have synced to the proposed slot yet. Skip the sync wait to
-    // avoid eating into the attestation window.
-    if (!this.epochCache.isProposerPipeliningEnabled()) {
-      const blockSourceSync = await this.waitForBlockSourceSync(slotNumber);
-      if (!blockSourceSync) {
-        this.log.warn(`Block source is not synced, skipping processing`, proposalInfo);
-        return { isValid: false, reason: 'block_source_not_synced' };
-      }
+    const retainedSlotValidation = await this.validateNewBlockInSlot(proposal);
+    if (!retainedSlotValidation.isValid) {
+      this.log.info(`Block proposal conflicts with retained proposals, skipping archiver processing`, {
+        ...proposalInfo,
+        indexWithinCheckpoint: proposal.indexWithinCheckpoint,
+        reason: retainedSlotValidation.reason,
+      });
+      return { isValid: false, blockNumber: proposal.blockNumber, reason: retainedSlotValidation.reason };
     }
+
+    // The proposer builds ahead of L1 submission under pipelining, so the block source won't have
+    // synced to the proposed slot yet. We deliberately do not wait for it to sync here, to avoid
+    // eating into the attestation window.
 
     // Check that the parent proposal is a block we know, otherwise reexecution would fail.
     // If we don't find it immediately, we keep retrying for a while; it may be we still
@@ -311,6 +419,9 @@ export class ProposalHandler {
       deadline: this.getReexecutionDeadline(slotNumber, config),
     });
 
+    // Record the tx-collection outcome on the re-execution tracker
+    this.reexecutionTracker.recordTxsCollected(slotNumber, proposal.indexWithinCheckpoint, missingTxs.length === 0);
+
     // If reexecution is disabled, bail. We were just interested in triggering tx collection.
     if (!shouldReexecute) {
       this.log.info(
@@ -347,11 +458,18 @@ export class ProposalHandler {
       return { isValid: false, blockNumber, reason: 'txs_not_available' };
     }
 
-    // Collect the out hashes of all the checkpoints before this one in the same epoch
+    // Collect the out hashes of all the checkpoints before this one in the same epoch.
+    // Mirror the proposer-side fallback: under pipelining the immediately-preceding cp may not
+    // yet be on L1, in which case the helper grafts the locally-known proposed cp's outHash.
     const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
-    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsDataForEpoch(epoch))
-      .filter(c => c.checkpointNumber < checkpointNumber)
-      .map(c => c.checkpointOutHash);
+    const previousCheckpointOutHashes = await getPreviousCheckpointOutHashes({
+      blockSource: this.blockSource,
+      epoch,
+      checkpointNumber,
+      l1Constants: this.epochCache.getL1Constants(),
+      pipeliningEnabled: true,
+      log: this.log,
+    });
 
     // Try re-executing the transactions in the proposal if needed
     let reexecutionResult;
@@ -382,6 +500,26 @@ export class ProposalHandler {
     );
 
     return { isValid: true, blockNumber, reexecutionResult };
+  }
+
+  private async validateNewBlockInSlot(blockProposal: BlockProposal): Promise<BlockProposalSlotValidationResult> {
+    if (!this.p2pClient) {
+      return { isValid: true };
+    }
+
+    const { blockProposals, checkpointProposals } = await this.p2pClient.getProposalsForSlot(blockProposal.slotNumber);
+
+    if (checkpointProposals.length === 0) {
+      return { isValid: true };
+    } else if (checkpointProposals.length > 1) {
+      return { isValid: false, reason: 'checkpoint_proposal_equivocation' };
+    } else {
+      const checkpointProposal = checkpointProposals[0];
+      const terminalBlock = blockProposals.find(block => block.archive.equals(checkpointProposal.archive));
+      return terminalBlock !== undefined && blockProposal.indexWithinCheckpoint > terminalBlock.indexWithinCheckpoint
+        ? { isValid: false, reason: 'block_proposal_beyond_checkpoint' }
+        : { isValid: true };
+    }
   }
 
   private async getParentBlock(proposal: BlockProposal): Promise<'genesis' | BlockData | undefined> {
@@ -549,46 +687,9 @@ export class ProposalHandler {
   ): Date {
     // Under proposer pipelining, the proposal slot may be ahead of wall clock time.
     // Reexecution budgets should still be bounded by the current slot we are in now.
-    const wallclockSlot = slotNumber - this.epochCache.pipeliningOffset();
+    const wallclockSlot = slotNumber - PROPOSER_PIPELINING_SLOT_OFFSET;
     const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(wallclockSlot + 1), config));
     return new Date(nextSlotTimestampSeconds * 1000);
-  }
-
-  /** Waits for the block source to sync L1 data up to at least the slot before the given one. */
-  private async waitForBlockSourceSync(slot: SlotNumber): Promise<boolean> {
-    const deadline = this.getReexecutionDeadline(slot, this.checkpointsBuilder.getConfig());
-    const timeoutMs = deadline.getTime() - this.dateProvider.now();
-    if (slot === 0) {
-      return true;
-    }
-
-    // Make a quick check before triggering an archiver sync
-    // If we are pipelining and have a pending checkpoint number stored, we will allow the block proposal to be for a slot further
-    const syncedSlot = await this.blockSource.getSyncedL2SlotNumber();
-    if (syncedSlot !== undefined && syncedSlot + 1 + this.epochCache.pipeliningOffset() >= slot) {
-      return true;
-    }
-
-    try {
-      // Trigger an immediate sync of the block source, and wait until it reports being synced to the required slot
-      return await retryUntil(
-        async () => {
-          await this.blockSource.syncImmediate();
-          const updatedSyncedSlot = await this.blockSource.getSyncedL2SlotNumber();
-          return updatedSyncedSlot !== undefined && updatedSyncedSlot + 1 >= slot;
-        },
-        'wait for block source sync',
-        timeoutMs / 1000,
-        0.5,
-      );
-    } catch (err) {
-      if (err instanceof TimeoutError) {
-        this.log.warn(`Timed out waiting for block source to sync to slot ${slot}`);
-        return false;
-      } else {
-        throw err;
-      }
-    }
   }
 
   private getReexecuteFailureReason(err: any): BlockProposalValidationFailureReason {
@@ -620,7 +721,7 @@ export class ProposalHandler {
     // If we do not have all of the transactions, then we should fail
     if (txs.length !== txHashes.length) {
       const foundTxHashes = txs.map(tx => tx.getTxHash());
-      const missingTxHashes = txHashes.filter(txHash => !foundTxHashes.includes(txHash));
+      const missingTxHashes = txHashes.filter(txHash => !foundTxHashes.some(h => h.equals(txHash)));
       throw new TransactionsNotAvailableError(missingTxHashes);
     }
 
@@ -750,24 +851,37 @@ export class ProposalHandler {
     }
 
     const proposer = proposal.getSender();
+    let result: CheckpointProposalValidationResult;
     if (!proposer) {
       this.log.warn(`Received checkpoint proposal with invalid signature for slot ${proposal.slotNumber}`);
-      const result: CheckpointProposalValidationResult = { isValid: false, reason: 'invalid_signature' };
-      this.lastCheckpointValidationResult = { payloadHash, result };
-      return result;
-    }
-
-    if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
+      result = { isValid: false as const, reason: 'invalid_signature' };
+    } else if (!validateFeeAssetPriceModifier(proposal.feeAssetPriceModifier)) {
       this.log.warn(
         `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${proposal.slotNumber}`,
       );
-      const result: CheckpointProposalValidationResult = { isValid: false, reason: 'invalid_fee_asset_price_modifier' };
-      this.lastCheckpointValidationResult = { payloadHash, result };
-      return result;
+      result = { isValid: false, reason: 'invalid_fee_asset_price_modifier' };
+    } else {
+      result = await this.validateCheckpointProposal(proposal, proposalInfo);
     }
 
-    const result = await this.validateCheckpointProposal(proposal, proposalInfo);
     this.lastCheckpointValidationResult = { payloadHash, result };
+
+    // Record the outcome on the re-execution tracker.
+    const outcome = result.isValid ? ('valid' as const) : CHECKPOINT_VALIDATION_REASON_TO_OUTCOME[result.reason];
+    if (outcome !== undefined) {
+      this.reexecutionTracker.recordOutcome(slot, proposal.archive, outcome, result.checkpointNumber);
+    }
+
+    // Drop tracker entries for checkpoints that have reached L1 finality.
+    try {
+      const tips = await this.blockSource.getL2Tips();
+      const finalizedCheckpointNumber = tips.finalized.checkpoint.number;
+      if (finalizedCheckpointNumber > 0) {
+        this.reexecutionTracker.removeBefore(CheckpointNumber(finalizedCheckpointNumber + 1));
+      }
+    } catch (err) {
+      this.log.error(`Error pruning reexecution tracker`, err, proposalInfo);
+    }
 
     // Upload blobs to filestore if validation passed (fire and forget)
     if (result.isValid) {
@@ -787,18 +901,24 @@ export class ProposalHandler {
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;
 
-    // Timeout block syncing at the start of the next slot
-    const config = this.checkpointsBuilder.getConfig();
-    const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(slot + 1), config));
-    const timeoutSeconds = Math.max(1, nextSlotTimestampSeconds - Math.floor(this.dateProvider.now() / 1000));
+    // Block-sync deadline = the L1 publish deadline, i.e. the latest moment the proposer can submit
+    // this checkpoint and still have it land on L1 in the target slot. That is 12s (one Ethereum
+    // slot) before the last L1 block of the target slot, which is later than the target-slot start
+    // used for block re-execution. Keeping validation/attestation alive until then lets validators
+    // keep attesting right up to the proposer's real publish cutoff.
+    const l1Constants = this.epochCache.getL1Constants();
+    const publishDeadlineSeconds =
+      Number(getLastL1SlotTimestampForL2Slot(slot, l1Constants)) - l1Constants.ethereumSlotDuration;
+    const deadline = new Date(publishDeadlineSeconds * 1000);
+    const timeoutSeconds = Math.max(1, Math.floor((deadline.getTime() - this.dateProvider.now()) / 1000));
 
     // Wait for last block to sync by archive
-    let lastBlockHeader;
+    let lastBlockData;
     try {
-      lastBlockHeader = await retryUntil(
+      lastBlockData = await retryUntil(
         async () => {
           await this.blockSource.syncImmediate();
-          return (await this.blockSource.getBlockData({ archive: proposal.archive }))?.header;
+          return await this.blockSource.getBlockData({ archive: proposal.archive });
         },
         `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
         timeoutSeconds,
@@ -813,22 +933,40 @@ export class ProposalHandler {
       return { isValid: false, reason: 'block_fetch_error' };
     }
 
-    if (!lastBlockHeader) {
+    if (!lastBlockData) {
       this.log.warn(`Last block not found for checkpoint proposal`, proposalInfo);
       return { isValid: false, reason: 'last_block_not_found' };
+    }
+
+    // Refuse to attest if the block's enclosing checkpoint has already been published to L1.
+    const existingCheckpoint = await this.blockSource.getCheckpointData({ number: lastBlockData.checkpointNumber });
+    if (existingCheckpoint) {
+      this.log.warn(`Refusing to attest to checkpoint proposal whose checkpoint is already on L1`, {
+        ...proposalInfo,
+        checkpointNumber: lastBlockData.checkpointNumber,
+      });
+      return {
+        isValid: false,
+        reason: 'checkpoint_already_published',
+        checkpointNumber: lastBlockData.checkpointNumber,
+      };
     }
 
     // Get all full blocks for the slot and checkpoint
     const blocks = await this.blockSource.getBlocksForSlot(slot);
     if (blocks.length === 0) {
       this.log.warn(`No blocks found for slot ${slot}`, proposalInfo);
-      return { isValid: false, reason: 'no_blocks_for_slot' };
+      return { isValid: false, reason: 'no_blocks_for_slot', checkpointNumber: lastBlockData.checkpointNumber };
     }
 
     // Ensure the last block for this slot matches the archive in the checkpoint proposal
     if (!blocks.at(-1)?.archive.root.equals(proposal.archive)) {
       this.log.warn(`Last block archive mismatch for checkpoint proposal`, proposalInfo);
-      return { isValid: false, reason: 'last_block_archive_mismatch' };
+      return {
+        isValid: false,
+        reason: 'last_block_archive_mismatch',
+        checkpointNumber: lastBlockData.checkpointNumber,
+      };
     }
 
     const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
@@ -838,7 +976,11 @@ export class ProposalHandler {
         blocksInProposal: blocks.length,
         maxBlocksPerCheckpoint,
       });
-      return { isValid: false, reason: 'too_many_blocks_in_checkpoint' };
+      return {
+        isValid: false,
+        reason: 'too_many_blocks_in_checkpoint',
+        checkpointNumber: lastBlockData.checkpointNumber,
+      };
     }
 
     this.log.debug(`Found ${blocks.length} blocks for slot ${slot}`, {
@@ -854,11 +996,17 @@ export class ProposalHandler {
     // Get L1-to-L2 messages for this checkpoint
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
 
-    // Collect the out hashes of all the checkpoints before this one in the same epoch
+    // Collect the out hashes of all the checkpoints before this one in the same epoch.
+    // See note on the analogous block-proposal site: the helper handles pipelining lag.
     const epoch = getEpochAtSlot(slot, this.epochCache.getL1Constants());
-    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsDataForEpoch(epoch))
-      .filter(c => c.checkpointNumber < checkpointNumber)
-      .map(c => c.checkpointOutHash);
+    const previousCheckpointOutHashes = await getPreviousCheckpointOutHashes({
+      blockSource: this.blockSource,
+      epoch,
+      checkpointNumber,
+      l1Constants: this.epochCache.getL1Constants(),
+      pipeliningEnabled: true,
+      log: this.log,
+    });
 
     // Fork world state at the block before the first block
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);
@@ -886,7 +1034,7 @@ export class ProposalHandler {
         computed: computedCheckpoint.header.toInspect(),
         proposal: proposal.checkpointHeader.toInspect(),
       });
-      return { isValid: false, reason: 'checkpoint_header_mismatch' };
+      return { isValid: false, reason: 'checkpoint_header_mismatch', checkpointNumber };
     }
 
     // Compare archive root with proposal
@@ -896,7 +1044,7 @@ export class ProposalHandler {
         computed: computedCheckpoint.archive.root.toString(),
         proposal: proposal.archive.toString(),
       });
-      return { isValid: false, reason: 'archive_mismatch' };
+      return { isValid: false, reason: 'archive_mismatch', checkpointNumber };
     }
 
     // Check that the accumulated epoch out hash matches the value in the proposal.
@@ -912,7 +1060,7 @@ export class ProposalHandler {
         previousCheckpointOutHashes: previousCheckpointOutHashes.map(h => h.toString()),
         ...proposalInfo,
       });
-      return { isValid: false, reason: 'out_hash_mismatch' };
+      return { isValid: false, reason: 'out_hash_mismatch', checkpointNumber };
     }
 
     // Final round of validations on the checkpoint, just in case.
@@ -926,10 +1074,11 @@ export class ProposalHandler {
       });
     } catch (err) {
       this.log.warn(`Checkpoint validation failed: ${err}`, proposalInfo);
-      return { isValid: false, reason: 'checkpoint_validation_failed' };
+      return { isValid: false, reason: 'checkpoint_validation_failed', checkpointNumber };
     }
 
     this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
+
     return { isValid: true, checkpointNumber };
   }
 
@@ -1008,49 +1157,5 @@ export class ProposalHandler {
       feeAssetPriceModifier: proposal.feeAssetPriceModifier,
     });
     return true;
-  }
-
-  /**
-   * Sets proposed checkpoint from blocks for own proposals (skips full validation).
-   * Retries fetching block data since the checkpoint proposal often arrives before the last block
-   * finishes re-execution.
-   */
-  private async setProposedCheckpointFromBlocks(proposal: CheckpointProposalCore): Promise<boolean> {
-    if (!this.archiver) {
-      return false;
-    }
-    let blockData = await this.blockSource.getBlockData({ archive: proposal.archive });
-
-    if (!blockData) {
-      // The checkpoint proposal often arrives before the last block finishes re-execution.
-      // Retry until we find the data or give up at the end of the slot.
-      const nextSlot = this.epochCache.getSlotNow() + 1;
-      const timeOfNextSlot = getTimestampForSlot(SlotNumber(nextSlot), await this.archiver.getL1Constants());
-      const timeoutSeconds = Math.max(1, Number(timeOfNextSlot) - Math.floor(this.dateProvider.now() / 1000));
-
-      blockData = await retryUntil(
-        () => this.blockSource.getBlockData({ archive: proposal.archive }),
-        'block data for own checkpoint proposal',
-        timeoutSeconds,
-        0.25,
-      ).catch(() => undefined);
-    }
-
-    if (blockData) {
-      await this.archiver.addProposedCheckpoint({
-        header: proposal.checkpointHeader,
-        checkpointNumber: blockData.checkpointNumber,
-        startBlock: BlockNumber(blockData.header.getBlockNumber() - blockData.indexWithinCheckpoint),
-        blockCount: blockData.indexWithinCheckpoint + 1,
-        totalManaUsed: proposal.checkpointHeader.totalManaUsed.toBigInt(),
-        feeAssetPriceModifier: proposal.feeAssetPriceModifier,
-      });
-      return true;
-    } else {
-      this.log.debug(`Block data not found for own checkpoint proposal archive, cannot set proposed checkpoint`, {
-        archive: proposal.archive.toString(),
-      });
-      return false;
-    }
   }
 }

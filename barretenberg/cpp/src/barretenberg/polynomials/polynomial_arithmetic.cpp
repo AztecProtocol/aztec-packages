@@ -270,8 +270,8 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
     // without this check duplicate points produce an incorrect result.
     for (size_t i = 0; i < n; ++i) {
         for (size_t j = i + 1; j < n; ++j) {
-            BB_ASSERT_DEBUG(evaluation_points[i] != evaluation_points[j],
-                            "compute_efficient_interpolation requires distinct evaluation points");
+            BB_ASSERT(evaluation_points[i] != evaluation_points[j],
+                      "compute_efficient_interpolation requires distinct evaluation points");
         }
     }
 

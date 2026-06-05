@@ -35,6 +35,7 @@
 <ul class="sidebar-list">
 <li><a href="#impl-Empty-for-TxEffect">Empty</a></li>
 <li><a href="#impl-Eq-for-TxEffect">Eq</a></li>
+<li><a href="#impl-Serialize-for-TxEffect">Serialize</a></li>
 </ul>
 <h2>In module blob_data</h2>
 <h3>Structs</h3><ul class="item-list">
@@ -57,8 +58,8 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">protocol</a>::<a href="index.html">blob_data</a></div>
 <h1>Struct <span id="struct" class="struct">TxEffect</span></h1>
 <pre><code>pub struct TxEffect {
-    pub tx_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub revert_code: <a href="../../../std/primitive.u8.html" class="primitive">u8</a>,
+    pub tx_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub transaction_fee: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub note_hashes: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 64],
     pub nullifiers: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 64],
@@ -70,8 +71,8 @@
 }
 </code></pre>
 <h2>Fields</h2>
-<div id="structfield.tx_hash" class="struct-field"><code class="code-header">tx_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
-<div class="padded-description"></div><div id="structfield.revert_code" class="struct-field"><code class="code-header">revert_code: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
+<div id="structfield.revert_code" class="struct-field"><code class="code-header">revert_code: <a href="../../../std/primitive.u8.html" class="primitive">u8</a></code></div>
+<div class="padded-description"></div><div id="structfield.tx_hash" class="struct-field"><code class="code-header">tx_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.transaction_fee" class="struct-field"><code class="code-header">transaction_fee: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.note_hashes" class="struct-field"><code class="code-header">note_hashes: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 64]</code></div>
 <div class="padded-description"></div><div id="structfield.nullifiers" class="struct-field"><code class="code-header">nullifiers: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 64]</code></div>
@@ -92,6 +93,12 @@
 </div><h3 id="impl-Eq-for-TxEffect"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Serialize-for-TxEffect"><code class="code-header">impl <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/blob_data/struct.TxEffect.html" class="struct">TxEffect</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 8477]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
 </div></main>
 </span>

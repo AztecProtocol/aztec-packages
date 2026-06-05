@@ -9,14 +9,15 @@ on:
         description: 'Comma-separated list of networks to check (default: all)'
         required: false
         type: string
-        default: 'v4-devnet-2,testnet,mainnet,staging-public,next-net'
+        default: 'testnet,mainnet,staging,next-net'
 
 jobs:
   healthcheck:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       - name: Run healthcheck
         env:
@@ -24,7 +25,7 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           CI: "1"
         run: |
-          NETWORKS="${{ inputs.networks || 'next-net,staging-public,testnet,mainnet' }}"
+          NETWORKS="${{ inputs.networks || 'next-net,staging,testnet,mainnet' }}"
 
           PROMPT="Run a network healthcheck for: ${NETWORKS}.
 

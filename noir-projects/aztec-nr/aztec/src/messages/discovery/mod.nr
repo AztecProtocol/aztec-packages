@@ -1,5 +1,6 @@
 use crate::logging::{aztecnr_debug_log, aztecnr_debug_log_format, aztecnr_warn_log_format};
 use crate::protocol::address::AztecAddress;
+use crate::protocol::hash::sha256_to_field;
 
 pub(crate) mod nonce_discovery;
 pub(crate) mod partial_notes;
@@ -8,18 +9,23 @@ pub mod private_notes;
 pub mod process_message;
 
 use crate::{
+    ephemeral::EphemeralArray,
     messages::{
         discovery::process_message::process_message_ciphertext,
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
             MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
-            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
+            pending_tagged_log::PendingTaggedLog, provided_secret::ProvidedSecret,
+            validate_and_store_enqueued_notes_and_events,
         },
     },
     oracle::message_processing,
     utils::array,
 };
+
+global PROVIDED_SECRETS_ARRAY_BASE_SLOT: Field =
+    sha256_to_field("AZTEC_NR::PROVIDED_SECRETS_ARRAY_BASE_SLOT".as_bytes());
 
 pub struct NoteHashAndNullifier {
     /// The result of [`crate::note::note_interface::NoteHash::compute_note_hash`].
@@ -98,12 +104,25 @@ pub type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note
 /// Contracts that emit custom messages (i.e. any with a message type that is not in [`crate::messages::msg_type`])
 /// need to use [`crate::macros::AztecConfig::custom_message_handler`] with a function of this type in order to
 /// process them. They will otherwise be **silently ignored**.
-pub type CustomMessageHandler<Env> = unconstrained fn[Env](
+pub type CustomMessageHandler = unconstrained fn(
 /* contract_address */AztecAddress,
 /* msg_type_id */ u64,
 /* msg_metadata */ u64,
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 /* message_context */ MessageContext,
+/* scope */ AztecAddress);
+
+/// Custom state synchronization handler.
+///
+/// When set via [`crate::macros::AztecConfig::custom_sync_state`], the generated `sync_state` function will call
+/// this handler instead of [`do_sync_state`]. It receives all of the same parameters, so it can run custom logic
+/// (e.g. fetching and decrypting custom logs) before, after, or instead of calling [`do_sync_state`].
+pub type CustomSyncHandler = unconstrained fn(
+/* contract_address */AztecAddress,
+/* compute_note_hash */ ComputeNoteHash,
+/* compute_note_nullifier */ ComputeNoteNullifier,
+/* process_custom_message */ Option<CustomMessageHandler>,
+/* offchain_inbox_sync */ Option<OffchainInboxSync>,
 /* scope */ AztecAddress);
 
 /// Synchronizes the contract's private state with the network.
@@ -114,19 +133,21 @@ pub type CustomMessageHandler<Env> = unconstrained fn[Env](
 ///
 /// The private state will be synchronized up to the block that will be used for private transactions (i.e. the anchor
 /// block. This will typically be close to the tip of the chain.
-pub unconstrained fn do_sync_state<CustomMessageHandlerEnv>(
+pub unconstrained fn do_sync_state(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
-    process_custom_message: Option<CustomMessageHandler<CustomMessageHandlerEnv>>,
-    offchain_inbox_sync: Option<OffchainInboxSync<()>>,
+    process_custom_message: Option<CustomMessageHandler>,
+    offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
     aztecnr_debug_log!("Performing state synchronization");
 
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
-    let logs = message_processing::get_pending_tagged_logs(scope);
+    // TODO(F-588): populate with tagging secrets for constrained delivery
+    let provided_secrets = EphemeralArray::<ProvidedSecret>::empty_at(PROVIDED_SECRETS_ARRAY_BASE_SLOT);
+    let logs = message_processing::get_pending_tagged_logs(scope, provided_secrets);
     logs.for_each(|_i, pending_tagged_log: PendingTaggedLog| {
         if pending_tagged_log.log.len() == 0 {
             aztecnr_warn_log_format!("Skipping empty log from tx {0}")([pending_tagged_log.context.tx_hash]);
@@ -198,15 +219,15 @@ mod test {
             // Mock the oracle call to return a known base slot, then populate an ephemeral
             // array at that slot so do_sync_state processes a non-empty log list.
             let base_slot = 42;
-            let mock = std::test::OracleMock::mock("aztec_utl_getPendingTaggedLogs_v2");
+            let mock = std::test::OracleMock::mock("aztec_utl_getPendingTaggedLogs");
             let _ = mock.returns(base_slot);
 
             let logs: EphemeralArray<PendingTaggedLog> = EphemeralArray::at(base_slot);
             logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
             assert_eq(logs.len(), 1);
 
-            let no_handler: Option<CustomMessageHandler<()>> = Option::none();
-            let no_inbox_sync: Option<OffchainInboxSync<()>> = Option::none();
+            let no_handler: Option<CustomMessageHandler> = Option::none();
+            let no_inbox_sync: Option<OffchainInboxSync> = Option::none();
             do_sync_state(
                 contract_address,
                 dummy_compute_note_hash,

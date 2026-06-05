@@ -4,8 +4,9 @@ import { createExtendedL1Client } from '@aztec/ethereum/client';
 import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { DateProvider } from '@aztec/foundation/timer';
+import { getErrorCause } from '@aztec/foundation/types';
 
-import { parseEther } from 'viem';
+import { RpcRequestError, parseEther } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -129,8 +130,8 @@ describe('e2e_cheat_codes', () => {
         });
         // done with a try-catch because viem errors are noisy and we need to check just a small portion of the error.
         fail('should not be able to send funds from random address');
-      } catch (e: any) {
-        expect(e.message).toContain('No Signer available');
+      } catch (e: unknown) {
+        expect(getErrorCause(e, RpcRequestError)?.details).toContain('No Signer available');
       }
     });
   });

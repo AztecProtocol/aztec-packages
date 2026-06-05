@@ -21,6 +21,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { GlobalVariableBuilder, Sequencer, SequencerClient } from '@aztec/sequencer-client';
 import type { SlasherClientInterface } from '@aztec/slasher';
+import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
@@ -29,19 +30,31 @@ import {
   type BlockQuery,
   L2Block,
   type L2BlockSource,
+  type L2Tips,
 } from '@aztec/stdlib/block';
+import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx } from '@aztec/stdlib/testing';
-import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import type { FeeProvider } from '@aztec/stdlib/tx';
+import {
+  AppendOnlyTreeSnapshot,
+  MerkleTreeId,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
+import type { FeeProvider, IndexedTxEffect } from '@aztec/stdlib/tx';
 import {
   BlockHeader,
+  DroppedTxReceipt,
   GlobalVariables,
   HashedValues,
+  MinedTxReceipt,
+  PendingTxReceipt,
   TX_ERROR_CALLDATA_COUNT_MISMATCH,
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
@@ -50,6 +63,9 @@ import {
   TX_ERROR_SIZE_ABOVE_LIMIT,
   Tx,
   TxEffect,
+  TxExecutionResult,
+  TxHash,
+  TxStatus,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -89,6 +105,7 @@ describe('aztec node', () => {
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let l2BlockSource: MockProxy<L2BlockSource>;
+  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let lastBlockNumber: BlockNumber;
   let node: TestAztecNodeService;
   let feePayer: AztecAddress;
@@ -173,7 +190,7 @@ describe('aztec node', () => {
 
     const l2LogsSource = mock<L2LogsSource>();
 
-    const l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
 
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
@@ -181,13 +198,10 @@ describe('aztec node', () => {
     const nodeConfigFromEnvVars: AztecNodeConfig = getConfigEnvVars();
     nodeConfig = {
       ...nodeConfigFromEnvVars,
-      l1Contracts: {
-        ...nodeConfigFromEnvVars.l1Contracts,
-        rollupAddress: EthAddress.ZERO,
-        registryAddress: EthAddress.ZERO,
-        inboxAddress: EthAddress.ZERO,
-        outboxAddress: EthAddress.ZERO,
-      },
+      rollupAddress: EthAddress.ZERO,
+      registryAddress: EthAddress.ZERO,
+      inboxAddress: EthAddress.ZERO,
+      outboxAddress: EthAddress.ZERO,
     };
 
     // Inject a spurious config value to test that the config is correctly picked up
@@ -215,8 +229,7 @@ describe('aztec node', () => {
       undefined,
       undefined,
       undefined,
-      undefined,
-      undefined,
+      async () => {},
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
@@ -353,52 +366,6 @@ describe('aztec node', () => {
       it('returns the correct node version', async () => {
         const nodeInfo = await node.getNodeInfo();
         expect(nodeInfo.nodeVersion).toBe(getPackageVersion());
-      });
-    });
-
-    describe('getBlockHeader', () => {
-      let initialHeader: BlockHeader;
-      let header1: BlockHeader;
-      let header2: BlockHeader;
-
-      beforeEach(() => {
-        initialHeader = BlockHeader.empty({
-          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber.ZERO }),
-        });
-        header1 = BlockHeader.empty({
-          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }),
-        });
-        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(2) }) });
-
-        // Archiver returns the genesis block data for block 0 queries (including {tag:'proposed'} at genesis).
-        l2BlockSource.getBlockData.mockResolvedValue({ header: initialHeader } as any);
-        l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(2));
-      });
-
-      it('returns requested block number', async () => {
-        l2BlockSource.getBlockData.mockResolvedValue({ header: header1 } as any);
-        expect(await node.getBlockHeader(BlockNumber(1))).toEqual(header1);
-      });
-
-      it('returns latest', async () => {
-        l2BlockSource.getBlockData.mockResolvedValue({ header: header2 } as any);
-        expect(await node.getBlockHeader('latest')).toEqual(header2);
-      });
-
-      it('returns initial header on zero', async () => {
-        // Archiver returns synthetic genesis block data when queried with block 0.
-        expect(await node.getBlockHeader(BlockNumber.ZERO)).toEqual(initialHeader);
-      });
-
-      it('returns initial header if no blocks mined', async () => {
-        // When no blocks have been mined, {tag:'proposed'} resolves to the genesis block.
-        l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
-        expect(await node.getBlockHeader('latest')).toEqual(initialHeader);
-      });
-
-      it('returns undefined for non-existent block', async () => {
-        l2BlockSource.getBlockData.mockResolvedValue(undefined);
-        expect(await node.getBlockHeader(BlockNumber(3))).toEqual(undefined);
       });
     });
 
@@ -662,6 +629,27 @@ describe('aztec node', () => {
         expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber(3));
       });
 
+      it('drives a reorg-aware sync to the requested block hash', async () => {
+        // A hash-anchored query resolves the hash against the archiver and then syncs world state to that
+        // exact (number, hash) so the synchronizer barriers on the archive-tree commit and detects reorgs,
+        // rather than syncing to bare latest height and racing the snapshot read.
+        const blockHash = BlockHash.random();
+        l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) =>
+          Promise.resolve(
+            query && 'hash' in query ? BlockNumber(3) : lastBlockNumber,
+          )) as L2BlockSource['getBlockNumber']);
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash);
+
+        await node.getWorldState(blockHash);
+
+        expect(worldState.syncImmediate).toHaveBeenCalledWith(BlockNumber(3), blockHash);
+      });
+
+      it('syncs to latest height without a hash when querying by block number', async () => {
+        await node.getWorldState(BlockNumber(3));
+        expect(worldState.syncImmediate).toHaveBeenCalledWith(lastBlockNumber, undefined);
+      });
+
       it('throws when block hash is not found in archiver', async () => {
         const blockHash = BlockHash.random();
 
@@ -778,8 +766,7 @@ describe('aztec node', () => {
           undefined,
           slasherClient,
           undefined,
-          undefined,
-          undefined,
+          async () => {},
           12345,
           rollupVersion.toNumber(),
           globalVariablesBuilder,
@@ -969,8 +956,7 @@ describe('aztec node', () => {
           undefined,
           slasherClient,
           undefined,
-          undefined,
-          undefined,
+          async () => {},
           12345,
           rollupVersion.toNumber(),
           globalVariablesBuilder,
@@ -1041,8 +1027,7 @@ describe('aztec node', () => {
         undefined,
         undefined,
         undefined,
-        undefined,
-        undefined,
+        async () => {},
         12345,
         rollupVersion.toNumber(),
         globalVariablesBuilder,
@@ -1067,6 +1052,80 @@ describe('aztec node', () => {
       expect(updateCalls[0][0]).toEqual({ minTxsPerBlock: 0 });
       // Last call to update calls should revert the value to the original
       expect(updateCalls[1][0]).toEqual({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK });
+    });
+  });
+
+  describe('pauseSequencer + setConfig', () => {
+    const INITIAL_MIN_TXS_PER_BLOCK = 2;
+
+    let sequencerClient: MockProxy<SequencerClient>;
+    let nodeWithSequencer: AztecNodeService;
+
+    beforeEach(() => {
+      const sequencer = mock<Sequencer>();
+      sequencer.getConfig.mockReturnValue({ minTxsPerBlock: INITIAL_MIN_TXS_PER_BLOCK } as any);
+
+      sequencerClient = mock<SequencerClient>();
+      sequencerClient.getSequencer.mockReturnValue(sequencer);
+
+      nodeWithSequencer = new AztecNodeService(
+        nodeConfig,
+        p2p,
+        l2BlockSource,
+        mock(),
+        mock(),
+        mock(),
+        worldState,
+        sequencerClient,
+        undefined,
+        undefined,
+        undefined,
+        async () => {},
+        12345,
+        rollupVersion.toNumber(),
+        globalVariablesBuilder,
+        mock<FeeProvider>(),
+        epochCache,
+        getPackageVersion(),
+        new TestCircuitVerifier(),
+        new TestCircuitVerifier(),
+      );
+    });
+
+    it('keeps the sequencer frozen when setConfig updates minTxsPerBlock while paused', async () => {
+      await nodeWithSequencer.pauseSequencer();
+      sequencerClient.updateConfig.mockClear();
+
+      await nodeWithSequencer.setConfig({ minTxsPerBlock: 1 });
+
+      // The sequencer must not receive the new minTxsPerBlock while paused; the freeze stays in place.
+      const updateCalls = sequencerClient.updateConfig.mock.calls;
+      const minTxsUpdates = updateCalls.filter(([cfg]) => 'minTxsPerBlock' in cfg);
+      expect(minTxsUpdates).toEqual([]);
+    });
+
+    it('resumeSequencer applies the value set via setConfig during pause (not the pre-pause value)', async () => {
+      await nodeWithSequencer.pauseSequencer();
+      await nodeWithSequencer.setConfig({ minTxsPerBlock: 5 });
+      sequencerClient.updateConfig.mockClear();
+
+      await nodeWithSequencer.resumeSequencer();
+
+      // Resume must use the test-supplied value (5), not the pre-pause snapshot (INITIAL_MIN_TXS_PER_BLOCK).
+      expect(sequencerClient.updateConfig).toHaveBeenCalledWith({ minTxsPerBlock: 5 });
+    });
+
+    it('still forwards non-minTxsPerBlock config changes while paused', async () => {
+      await nodeWithSequencer.pauseSequencer();
+      sequencerClient.updateConfig.mockClear();
+
+      const coinbase = EthAddress.random();
+      await nodeWithSequencer.setConfig({ coinbase, minTxsPerBlock: 3 });
+
+      // coinbase still reaches the sequencer; only minTxsPerBlock is filtered.
+      const updateCalls = sequencerClient.updateConfig.mock.calls;
+      expect(updateCalls).toHaveLength(1);
+      expect(updateCalls[0][0]).toEqual({ coinbase });
     });
   });
 
@@ -1113,6 +1172,493 @@ describe('aztec node', () => {
       // First checkpoint (slot 0): 1 block with 1 tx with 1 message
       // Second checkpoint (slot 1): 1 block with 1 tx with 1 message
       expect(result).toEqual([[[[msg1]]], [[[msg2]]]]);
+    });
+  });
+
+  /** Builds an L2Tips stub with the given checkpoint numbers per tip. */
+  function makeTips(args: {
+    proposedCheckpoint?: CheckpointNumber;
+    checkpointed?: CheckpointNumber;
+    proven?: CheckpointNumber;
+    finalized?: CheckpointNumber;
+  }): L2Tips {
+    const emptyBlockId = { number: BlockNumber(0), hash: '' };
+    const makeTipId = (n: CheckpointNumber) => ({ block: emptyBlockId, checkpoint: { number: n, hash: '' } });
+    return {
+      proposed: emptyBlockId,
+      checkpointed: makeTipId(args.checkpointed ?? CheckpointNumber(0)),
+      proposedCheckpoint: makeTipId(args.proposedCheckpoint ?? CheckpointNumber(0)),
+      proven: makeTipId(args.proven ?? CheckpointNumber(0)),
+      finalized: makeTipId(args.finalized ?? CheckpointNumber(0)),
+    };
+  }
+
+  describe('getCheckpoint', () => {
+    /** Builds a minimal ProposedCheckpointData stub. */
+    function makeProposedCheckpointData(
+      checkpointNumber: CheckpointNumber,
+      slotNumber: SlotNumber,
+    ): ProposedCheckpointData {
+      return {
+        checkpointNumber,
+        header: CheckpointHeader.random({ slotNumber }),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.ZERO,
+        startBlock: BlockNumber(Number(checkpointNumber)),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      };
+    }
+
+    /** Builds a minimal CheckpointData stub. */
+    function makeCheckpointData(checkpointNumber: CheckpointNumber): CheckpointData {
+      return {
+        checkpointNumber,
+        header: CheckpointHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.ZERO,
+        startBlock: BlockNumber(Number(checkpointNumber)),
+        blockCount: 1,
+        feeAssetPriceModifier: 0n,
+        attestations: [],
+        l1: { blockNumber: 10n, blockTimestamp: 1000n, blockHash: '0x0000' } as any,
+      };
+    }
+
+    describe('throw guards', () => {
+      it('throws BadRequestError when "proposed" resolves to a proposed entry and includeL1PublishInfo is requested', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposedCheckpoint: CheckpointNumber(5) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpointData(CheckpointNumber(5), SlotNumber(10)),
+        );
+
+        await expect(node.getCheckpoint('proposed', { includeL1PublishInfo: true })).rejects.toThrow(BadRequestError);
+      });
+
+      it('throws BadRequestError when "proposed" resolves to a proposed entry and includeAttestations is requested', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposedCheckpoint: CheckpointNumber(5) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpointData(CheckpointNumber(5), SlotNumber(10)),
+        );
+
+        await expect(node.getCheckpoint('proposed', { includeAttestations: true })).rejects.toThrow(BadRequestError);
+      });
+
+      it('throws BadRequestError when number lookup resolves to a proposed entry and includeL1PublishInfo is requested', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpointData(CheckpointNumber(5), SlotNumber(10)),
+        );
+
+        await expect(
+          node.getCheckpoint({ number: CheckpointNumber(5) }, { includeL1PublishInfo: true }),
+        ).rejects.toThrow(BadRequestError);
+      });
+
+      it('throws BadRequestError when slot lookup resolves to a proposed entry and includeAttestations is requested', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpointData(CheckpointNumber(3), SlotNumber(7)),
+        );
+
+        await expect(node.getCheckpoint({ slot: SlotNumber(7) }, { includeAttestations: true })).rejects.toThrow(
+          BadRequestError,
+        );
+      });
+    });
+
+    describe('fallback semantics', () => {
+      it('getCheckpoint("proposed") returns the projected proposed entry when one exists at the proposed-tip number', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposedCheckpoint: CheckpointNumber(2) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        const proposed = makeProposedCheckpointData(CheckpointNumber(2), SlotNumber(5));
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(proposed);
+
+        const result = await node.getCheckpoint('proposed');
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(2));
+      });
+
+      it('getCheckpoint("proposed") returns the latest confirmed checkpoint when no proposed entry exists', async () => {
+        // When no proposed entry exists, the proposedCheckpoint tip falls back to the confirmed tip.
+        l2BlockSource.getL2Tips.mockResolvedValue(
+          makeTips({ proposedCheckpoint: CheckpointNumber(3), checkpointed: CheckpointNumber(3) }),
+        );
+        const confirmed = makeCheckpointData(CheckpointNumber(3));
+        l2BlockSource.getCheckpointData.mockResolvedValue(confirmed);
+
+        const result = await node.getCheckpoint('proposed');
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(3));
+      });
+
+      it('getCheckpoint({ number }) returns the confirmed entry when one exists', async () => {
+        const confirmed = makeCheckpointData(CheckpointNumber(3));
+        l2BlockSource.getCheckpointData.mockResolvedValue(confirmed);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpointData(CheckpointNumber(3), SlotNumber(99)),
+        );
+
+        const result = await node.getCheckpoint({ number: CheckpointNumber(3) });
+        // The confirmed entry should be returned; proposed should not be reached
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(3));
+        // l1 is not included by default — confirm no throw and correct shape
+        expect(result!.l1).toBeUndefined();
+      });
+
+      it('getCheckpoint({ number }) falls back to proposed entry when no confirmed match', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        const proposed = makeProposedCheckpointData(CheckpointNumber(4), SlotNumber(8));
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(proposed);
+
+        const result = await node.getCheckpoint({ number: CheckpointNumber(4) });
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(4));
+      });
+
+      it('getCheckpoint({ slot }) falls back to proposed entry when no confirmed match', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        const proposed = makeProposedCheckpointData(CheckpointNumber(5), SlotNumber(11));
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(proposed);
+
+        const result = await node.getCheckpoint({ slot: SlotNumber(11) });
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(5));
+      });
+
+      it('getCheckpoint("checkpointed") returns the confirmed entry at the checkpointed tip', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ checkpointed: CheckpointNumber(2) }));
+        const confirmed = makeCheckpointData(CheckpointNumber(2));
+        l2BlockSource.getCheckpointData.mockResolvedValue(confirmed);
+
+        const result = await node.getCheckpoint('checkpointed');
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(2));
+      });
+
+      it('getCheckpoint("checkpointed") returns undefined when neither store has the resolved number', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ checkpointed: CheckpointNumber(2) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(undefined);
+
+        const result = await node.getCheckpoint('checkpointed');
+        expect(result).toBeUndefined();
+      });
+
+      it('getCheckpoint("proven") returns the confirmed entry at the proven tip', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proven: CheckpointNumber(4) }));
+        const confirmed = makeCheckpointData(CheckpointNumber(4));
+        l2BlockSource.getCheckpointData.mockResolvedValue(confirmed);
+
+        const result = await node.getCheckpoint('proven');
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(4));
+      });
+
+      it('getCheckpoint("proven") returns undefined when neither store has the resolved number', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proven: CheckpointNumber(4) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(undefined);
+
+        const result = await node.getCheckpoint('proven');
+        expect(result).toBeUndefined();
+      });
+
+      it('getCheckpoint("finalized") returns undefined when neither store has the resolved number', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ finalized: CheckpointNumber(6) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(undefined);
+
+        const result = await node.getCheckpoint('finalized');
+        expect(result).toBeUndefined();
+      });
+
+      it('getCheckpoint({ number }) returns undefined when neither confirmed nor proposed exist', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(undefined);
+
+        const result = await node.getCheckpoint({ number: CheckpointNumber(99) });
+        expect(result).toBeUndefined();
+      });
+    });
+
+    describe('includeBlocks on a proposed match', () => {
+      it('pre-fetches inner blocks and passes them into the projected response', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        const proposed = makeProposedCheckpointData(CheckpointNumber(2), SlotNumber(5));
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(proposed);
+
+        const fakeBlock = L2Block.empty();
+        l2BlockSource.getBlocks.mockResolvedValue([fakeBlock]);
+
+        const result = await node.getCheckpoint({ number: CheckpointNumber(2) }, { includeBlocks: true });
+        expect(result).toBeDefined();
+        expect(result!.blocks).toBeDefined();
+        expect(result!.blocks!.length).toBe(1);
+      });
+    });
+  });
+
+  describe('getCheckpointNumber', () => {
+    it('returns the proposed checkpoint number from proposedCheckpoint tip', async () => {
+      l2BlockSource.getL2Tips.mockResolvedValue(
+        makeTips({ proposedCheckpoint: CheckpointNumber(7), checkpointed: CheckpointNumber(5) }),
+      );
+
+      const result = await node.getCheckpointNumber('proposed');
+      expect(result).toEqual(CheckpointNumber(7));
+    });
+
+    it('returns the proposedCheckpoint tip number when it equals the confirmed checkpoint (fallback already baked in)', async () => {
+      l2BlockSource.getL2Tips.mockResolvedValue(
+        makeTips({ proposedCheckpoint: CheckpointNumber(5), checkpointed: CheckpointNumber(5) }),
+      );
+
+      const result = await node.getCheckpointNumber('proposed');
+      expect(result).toEqual(CheckpointNumber(5));
+    });
+  });
+
+  describe('getL1ToL2MessageCheckpoint', () => {
+    it('returns the checkpoint for a message at index 0n', async () => {
+      const msg = Fr.random();
+      l1ToL2MessageSource.getL1ToL2MessageIndex.mockResolvedValue(0n);
+
+      const result = await node.getL1ToL2MessageCheckpoint(msg);
+      expect(result).toEqual(InboxLeaf.checkpointNumberFromIndex(0n));
+      expect(result).not.toBeUndefined();
+    });
+
+    it('returns undefined when the message is not found', async () => {
+      const msg = Fr.random();
+      l1ToL2MessageSource.getL1ToL2MessageIndex.mockResolvedValue(undefined);
+
+      const result = await node.getL1ToL2MessageCheckpoint(msg);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getTxReceipt', () => {
+    // epochDuration of 4 means getEpochAtSlot(slot) === floor(slot / 4).
+    const EPOCH_DURATION = 4;
+    const l1Constants: L1RollupConstants = { ...EmptyL1RollupConstants, epochDuration: EPOCH_DURATION };
+
+    /** Builds an L2Tips stub whose tip block numbers drive #deriveMinedStatus. */
+    const makeTipsWithBlockNumbers = (args: {
+      proposed: number;
+      checkpointed: number;
+      proven: number;
+      finalized: number;
+    }): L2Tips => {
+      const blockId = (n: number) => ({ number: BlockNumber(n), hash: '0x01' });
+      const tipId = (n: number) => ({ block: blockId(n), checkpoint: { number: CheckpointNumber(1), hash: '0x01' } });
+      return {
+        proposed: blockId(args.proposed),
+        checkpointed: tipId(args.checkpointed),
+        proposedCheckpoint: tipId(args.checkpointed),
+        proven: tipId(args.proven),
+        finalized: tipId(args.finalized),
+      };
+    };
+
+    /** Builds an IndexedTxEffect for a tx mined in the given block at the given index. */
+    const makeIndexedTxEffect = (
+      txHash: TxHash,
+      blockNumber: number,
+      slotNumber: number,
+      txIndexInBlock: number,
+      revertCode: RevertCode,
+      transactionFee: bigint,
+    ): IndexedTxEffect => {
+      const data = new TxEffect(revertCode, txHash, new Fr(transactionFee), [], [Fr.random()], [], [], [], [], []);
+      return {
+        data,
+        l2BlockNumber: BlockNumber(blockNumber),
+        l2BlockHash: BlockHash.random(),
+        txIndexInBlock,
+        slotNumber: SlotNumber(slotNumber),
+      };
+    };
+
+    /** Wires the block source so the tx is mined in `blockNumber` at slot `slotNumber`, with the given tips. */
+    const setUpMined = (opts: {
+      txHash: TxHash;
+      blockNumber: number;
+      slotNumber: number;
+      txIndexInBlock?: number;
+      revertCode?: RevertCode;
+      transactionFee?: bigint;
+      tips: L2Tips;
+    }) => {
+      const indexed = makeIndexedTxEffect(
+        opts.txHash,
+        opts.blockNumber,
+        opts.slotNumber,
+        opts.txIndexInBlock ?? 0,
+        opts.revertCode ?? RevertCode.OK,
+        opts.transactionFee ?? 7n,
+      );
+      l2BlockSource.getTxEffect.mockResolvedValue(indexed);
+      l2BlockSource.getL2Tips.mockResolvedValue(opts.tips);
+      l2BlockSource.getL1Constants.mockResolvedValue(l1Constants);
+      l2BlockSource.getBlockData.mockResolvedValue({
+        header: BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({
+            blockNumber: BlockNumber(opts.blockNumber),
+            slotNumber: SlotNumber(opts.slotNumber),
+          }),
+        }),
+        archive: L2Block.empty().archive,
+        blockHash: indexed.l2BlockHash,
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+      return indexed;
+    };
+
+    it('derives PROPOSED when the tx block is above all confirmed tips', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      setUpMined({
+        txHash,
+        blockNumber: 10,
+        slotNumber: 40,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 3, finalized: 1 }),
+      });
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt).toBeInstanceOf(MinedTxReceipt);
+      expect(receipt.status).toEqual(TxStatus.PROPOSED);
+    });
+
+    it('derives CHECKPOINTED at the checkpointed tip boundary', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      setUpMined({
+        txHash,
+        blockNumber: 5,
+        slotNumber: 20,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 3, finalized: 1 }),
+      });
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt.status).toEqual(TxStatus.CHECKPOINTED);
+    });
+
+    it('derives PROVEN at the proven tip boundary', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      setUpMined({
+        txHash,
+        blockNumber: 3,
+        slotNumber: 12,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 3, finalized: 1 }),
+      });
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt.status).toEqual(TxStatus.PROVEN);
+    });
+
+    it('derives FINALIZED at the finalized tip boundary', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      setUpMined({
+        txHash,
+        blockNumber: 1,
+        slotNumber: 4,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 3, finalized: 1 }),
+      });
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt.status).toEqual(TxStatus.FINALIZED);
+    });
+
+    it('populates fee, block coordinates, execution result, and epoch from the indexed effect', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      const indexed = setUpMined({
+        txHash,
+        blockNumber: 4,
+        slotNumber: 17, // floor(17 / 4) === 4
+        txIndexInBlock: 2,
+        revertCode: RevertCode.REVERTED,
+        transactionFee: 123n,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 4, finalized: 1 }),
+      });
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt).toBeInstanceOf(MinedTxReceipt);
+      const mined = receipt as MinedTxReceipt;
+      expect(mined.status).toEqual(TxStatus.PROVEN);
+      expect(mined.transactionFee).toEqual(123n);
+      expect(mined.blockNumber).toEqual(BlockNumber(4));
+      expect(mined.blockHash).toEqual(indexed.l2BlockHash);
+      expect(mined.txIndexInBlock).toEqual(2);
+      expect(mined.executionResult).toEqual(TxExecutionResult.REVERTED);
+      expect(mined.hasExecutionReverted()).toBe(true);
+      expect(mined.epochNumber).toEqual(EpochNumber(4));
+    });
+
+    it('attaches the txEffect only when includeTxEffect is set', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('mined');
+      const indexed = setUpMined({
+        txHash,
+        blockNumber: 4,
+        slotNumber: 16,
+        tips: makeTipsWithBlockNumbers({ proposed: 10, checkpointed: 5, proven: 4, finalized: 1 }),
+      });
+
+      const withoutEffect = await node.getTxReceipt(txHash);
+      expect(withoutEffect.txEffect).toBeUndefined();
+
+      const withEffect = await node.getTxReceipt(txHash, { includeTxEffect: true });
+      expect(withEffect.txEffect).toEqual(indexed.data);
+    });
+
+    it('returns a pending receipt when the tx is known to the pool but not mined', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('pending');
+      l2BlockSource.getTxEffect.mockResolvedValue(undefined);
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt).toBeInstanceOf(PendingTxReceipt);
+      if (!receipt.isPending()) {
+        throw new Error('expected a pending receipt');
+      }
+      expect(receipt.status).toEqual(TxStatus.PENDING);
+      expect(receipt.tx).toBeUndefined();
+    });
+
+    it('attaches the stripped pending tx when includePendingTx is set without includeProof', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('pending');
+      l2BlockSource.getTxEffect.mockResolvedValue(undefined);
+      const pendingTx = await mockTx();
+      p2p.getTxByHashFromPool.mockResolvedValue(pendingTx);
+
+      const receipt = await node.getTxReceipt(txHash, { includePendingTx: true });
+      expect(receipt).toBeInstanceOf(PendingTxReceipt);
+      if (!receipt.isPending()) {
+        throw new Error('expected a pending receipt');
+      }
+      expect(receipt.tx).toBeDefined();
+      expect(receipt.tx!.chonkProof).toEqual(pendingTx.withoutProof().chonkProof);
+    });
+
+    it('returns a dropped receipt when the tx is unknown to the pool and not mined', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue(undefined);
+      l2BlockSource.getTxEffect.mockResolvedValue(undefined);
+
+      const receipt = await node.getTxReceipt(txHash);
+      expect(receipt).toBeInstanceOf(DroppedTxReceipt);
+      expect(receipt.status).toEqual(TxStatus.DROPPED);
+      expect(receipt.error).toEqual('Tx dropped by P2P node');
     });
   });
 });

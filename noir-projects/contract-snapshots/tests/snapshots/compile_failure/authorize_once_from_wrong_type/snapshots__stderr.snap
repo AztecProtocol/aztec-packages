@@ -12,15 +12,15 @@ error: Argument from in function foo must be of type AztecAddress, but is of typ
     1: #[aztec]
             at src/main.nr:4:1
     2: aztec
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:97:21
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:111:21
     3: process_functions
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/mod.nr:46:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/mod.nr:48:9
     4: [T]::map
             at std/vector.nr:67:33
     5: process_functions
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/mod.nr:46:41
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/mod.nr:48:41
     6: generate_public_external
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/public.nr:97:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/public.nr:131:9
     7: create_authorize_once_check
             at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/helpers.nr:72:9
 

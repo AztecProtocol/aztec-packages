@@ -6,10 +6,17 @@ import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
 
+import { jest } from '@jest/globals';
+
+import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees public_payment', () => {
+  // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run
+  // at the ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
+  jest.setTimeout(15 * 60 * 1000);
+
   let aztecNode: AztecNode;
   let wallet: Wallet;
   let aliceAddress: AztecAddress;
@@ -22,7 +29,7 @@ describe('e2e_fees public_payment', () => {
   const t = new FeesTest('public_payment');
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
     ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } = t);
@@ -45,7 +52,7 @@ describe('e2e_fees public_payment', () => {
   beforeEach(async () => {
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: await aztecNode.getCurrentMinFees(),
+      maxFeesPerGas: await getPaddedMaxFeesPerGas(aztecNode),
     });
 
     [

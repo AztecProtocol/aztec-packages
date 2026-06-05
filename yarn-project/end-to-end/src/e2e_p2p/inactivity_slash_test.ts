@@ -58,6 +58,7 @@ export class P2PInactivityTest {
       basePort: BOOT_NODE_UDP_PORT,
       startProverNode: true,
       initialConfig: {
+        inboxLag: 2,
         anvilSlotsInAnEpoch: 4,
         proverNodeConfig: { proverNodeEpochProvingDelayMs: AZTEC_SLOT_DURATION * 1000 },
         aztecTargetCommitteeSize: COMMITTEE_SIZE,

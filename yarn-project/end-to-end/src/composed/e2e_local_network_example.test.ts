@@ -114,7 +114,7 @@ describe('e2e_local_network_example', () => {
 
     expect(aliceBalance).toBe(initialSupply - transferQuantity);
     expect(bobBalance).toBe(transferQuantity + mintQuantity);
-  });
+  }, 900_000);
 
   it('can create accounts on the local network', async () => {
     const logger = createLogger('e2e:token');
@@ -222,5 +222,5 @@ describe('e2e_local_network_example', () => {
     expect(bobNewBalance).toEqual(bobBalance - amountTransferToAlice);
 
     expect(await getFeeJuiceBalance(sponsoredFPC, node)).toEqual(initialFPCFeeJuice - receiptForBob.transactionFee!);
-  });
+  }, 900_000);
 });

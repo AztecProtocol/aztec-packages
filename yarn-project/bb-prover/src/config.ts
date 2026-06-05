@@ -3,7 +3,10 @@ export interface BBConfig {
   bbWorkingDirectory: string;
   /** Whether to skip tmp dir cleanup for debugging purposes */
   bbSkipCleanup: boolean;
-  /** Max concurrent verifications for the RPC verifier (QueuedIVCVerifier). */
+  /**
+   * Number of long-lived bb processes pooled by the RPC verifier (BBCircuitVerifier).
+   * Also caps concurrent verifications via the wrapping QueuedIVCVerifier.
+   */
   numConcurrentIVCVerifiers: number;
   /** Thread count for the RPC IVC verifier. */
   bbIVCConcurrency: number;

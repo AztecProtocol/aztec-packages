@@ -5,6 +5,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
+import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { FeeAssetHandlerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
@@ -29,7 +30,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
+import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { jest } from '@jest/globals';
@@ -53,7 +54,7 @@ const BOOT_NODE_UDP_PORT = 4500;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-old-'));
 const DATA_DIR_NEW = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-new-'));
 
-jest.setTimeout(1000 * 60 * 10);
+jest.setTimeout(1000 * 60 * 20);
 
 /**
  * This test emulates the addition of a new rollup to the registry and tests that cross-chain messages work.
@@ -80,6 +81,13 @@ describe('e2e_p2p_add_rollup', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         governanceProposerRoundSize: 10,
+        // Allow validators to build empty checkpoints under pipelining so the chain keeps
+        // advancing while we wait for L1->L2 messages to land in the next checkpoint's inbox tree.
+        minTxsPerBlock: 0,
+        // Pipelining starts cycle for checkpoint N+1 during slot N, but the inbox tree for
+        // checkpoint N is only sealed when checkpoint N is published. inboxLag: 2 sources
+        // L1->L2 messages from checkpoint N-1 (already sealed), avoiding L1ToL2MessagesNotReadyError.
+        inboxLag: 2,
       },
       startProverNode: false, // Start one later using p2p.
     });
@@ -307,8 +315,10 @@ describe('e2e_p2p_add_rollup', () => {
       });
 
       const makeMessageConsumable = async (msgHash: Fr) => {
-        // We poll isL1ToL2MessageSynced endpoint until the message is available
-        await retryUntil(async () => await node.isL1ToL2MessageSynced(msgHash), 'message sync', 10);
+        // Wait until the message is ready to be consumed (the rollup has reached the message's checkpoint).
+        // Using waitForL1ToL2MessageReady rather than isL1ToL2MessageSynced because with `inboxLag > 0`
+        // a synced message is not yet present in the latest checkpoint's inbox tree.
+        await waitForL1ToL2MessageReady(node, msgHash, { timeoutSeconds: 120 });
 
         const { receipt } = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
@@ -353,14 +363,23 @@ describe('e2e_p2p_add_rollup', () => {
           chainId: new Fr(l1Client.chain.id),
         });
 
-        const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(node, leaf, l2OutgoingReceipt.txHash))!;
-        const { epochNumber: epoch, ...l2ToL1MessageWitness } = l2ToL1MessageResult;
-        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageWitness);
-
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.
         const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
-        await cheatcodes.advanceToEpoch(EpochNumber(epoch + 1));
+        const minedReceipt = await node.getTxReceipt(l2OutgoingReceipt.txHash);
+        if (minedReceipt.epochNumber === undefined) {
+          throw new Error('Outgoing tx is not yet in an epoch');
+        }
+        await cheatcodes.advanceToEpoch(EpochNumber(minedReceipt.epochNumber + 1));
         await waitForProven(node, l2OutgoingReceipt, { provenTimeout: 300 });
+
+        const l2ToL1MessageResult = await retryUntil(
+          () => node.getL2ToL1MembershipWitness(minedReceipt.txHash, leaf),
+          'l2 to l1 membership witness',
+          60,
+          1,
+        );
+        const { epochNumber: epoch, numCheckpointsInEpoch, ...l2ToL1MessageWitness } = l2ToL1MessageResult;
+        const leafId = getL2ToL1MessageLeafId(l2ToL1MessageWitness);
 
         // Then we want to go and comsume it!
         const outbox = getContract({
@@ -377,6 +396,7 @@ describe('e2e_p2p_add_rollup', () => {
             args: [
               l2ToL1Message,
               BigInt(epoch),
+              BigInt(numCheckpointsInEpoch),
               BigInt(l2ToL1MessageWitness.leafIndex),
               l2ToL1MessageWitness.siblingPath
                 .toBufferArray()
@@ -401,6 +421,7 @@ describe('e2e_p2p_add_rollup', () => {
             root: `0x${string}`;
             messageHash: `0x${string}`;
             leafId: bigint;
+            numCheckpointsInEpoch: bigint;
           };
         };
 
@@ -578,6 +599,21 @@ describe('e2e_p2p_add_rollup', () => {
 
     // The new rollup should have no checkpoints
     expect(await newRollup.getCheckpointNumber()).toBe(CheckpointNumber(0));
+
+    // Wait for the new rollup to publish its first checkpoint AND for `nodes[0]` to have synced
+    // it locally, before the second bridging step. The bridge wallet uses
+    // `syncChainTip: 'checkpointed'`, which falls back to the genesis block when no checkpoint
+    // exists. After warping ~500 epochs forward, txs anchored at genesis would expire before
+    // being included. We poll the node's local view (not just the L1 rollup contract) so the PXE
+    // and the assertion observe the same chain state.
+    t.logger.info(`Waiting for new rollup to publish its first checkpoint`);
+    await retryUntil(
+      async () => Number(await nodes[0].getCheckpointNumber('checkpointed')) > 0,
+      'newRollup first checkpoint synced by node',
+      300,
+      2,
+    );
+    t.logger.info(`New rollup published its first checkpoint`);
 
     // Bridge into and out of the new rollup to ensure that it works.
     await bridging(

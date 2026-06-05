@@ -52,6 +52,9 @@ resource "helm_release" "keystore_setup" {
         publishersPerProver = var.PUBLISHERS_PER_PROVER
         mnemonicStartIndex  = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
       }
+      nodeSelector = {
+        "node-type" = "network"
+      }
     })
   ]
 
@@ -76,6 +79,19 @@ resource "helm_release" "web3signer" {
       image = {
         repository = split(":", var.WEB3SIGNER_DOCKER_IMAGE)[0]
         tag        = split(":", var.WEB3SIGNER_DOCKER_IMAGE)[1]
+      }
+      nodeSelector = {
+        "node-type" = "network"
+      }
+      resources = {
+        requests = {
+          cpu    = "100m"
+          memory = "512Mi"
+        }
+        limits = {
+          cpu    = "1"
+          memory = "2Gi"
+        }
       }
       extraVolumes = [
         {

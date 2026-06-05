@@ -422,15 +422,13 @@ export class ServerWorldStateSynchronizer
       return;
     }
     // Retrieve the historic checkpoint
-    const historicCheckpoints = await this.l2BlockSource.getCheckpoints(
-      CheckpointNumber(newHistoricCheckpointNumber),
-      1,
-    );
-    if (historicCheckpoints.length === 0 || historicCheckpoints[0] === undefined) {
+    const historicCheckpoint = await this.l2BlockSource.getCheckpoint({
+      number: CheckpointNumber(newHistoricCheckpointNumber),
+    });
+    if (!historicCheckpoint) {
       this.log.warn(`Failed to retrieve checkpoint number ${newHistoricCheckpointNumber} from Archiver`);
       return;
     }
-    const historicCheckpoint = historicCheckpoints[0];
     if (historicCheckpoint.checkpoint.blocks.length === 0 || historicCheckpoint.checkpoint.blocks[0] === undefined) {
       this.log.warn(`Retrieved checkpoint number ${newHistoricCheckpointNumber} has no blocks!`);
       return;

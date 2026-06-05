@@ -39,7 +39,7 @@ This creates a new branch for whatever the current version in `next` is, then bu
 
 For example, if this were run now, it would create a branch `v3`, and then bump the version in `.release-please-manifest.json` on `next` to be `4.0.0`.
 
-Every push to a release branch causes a new tag to be created via the auto-tag job in .github/workflows/release-please.yml. So as soon as `v3` is created, there will be a tag that is `v3.0.0-rc.1`.
+Release-candidate tags (e.g. `v3.0.0-rc.1`) are pushed against the release branch to publish artifacts.
 
 Each `rc` tag causes ci3.yml to run, and creates releases because it runs `bootstrap.sh ci-nightly`.
 
@@ -57,14 +57,13 @@ Functionally, it is `v1`.
 
 It deploys the following networks:
 
-- staging-public, which is used to test changes before releasing to testnet
-- staging-ignition, which is use to test changes before releasing to mainnet
+- staging, which is used to test changes before releasing to testnet
 
 Release-please has been configured on `v2`. When the release-please PR is merged, it creates a clean tag at the next minor version.
 
 For example, at the time of writing, we are at `v2.0.3-rc.4`. When the release please PR is merged, it will create a tag `v2.0.4`.
 
-This will cause ci3.yml to run a release, and then deploy-staging-networks.yml to run and deploy the two networks mentioned above as well as `testnet`.
+This will cause ci3.yml to run a release, and then deploy-staging-networks.yml to run and deploy the staging network mentioned above as well as `testnet`.
 
 #### hotfixes
 

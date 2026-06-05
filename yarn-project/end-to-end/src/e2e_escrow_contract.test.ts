@@ -7,6 +7,7 @@ import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -32,7 +33,7 @@ describe('e2e_escrow_contract', () => {
       wallet,
       accounts: [owner, recipient],
       logger,
-    } = await setup(2));
+    } = await setup(2, { ...AUTOMINE_E2E_OPTS }));
 
     // Generate private key for escrow contract, register key in PXE, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor

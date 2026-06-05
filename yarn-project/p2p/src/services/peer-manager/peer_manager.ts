@@ -527,6 +527,7 @@ export class PeerManager implements PeerManagerInterface {
       protectedConnections: protectedPeerCount,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
+      discv5KadPeers: this.peerDiscoveryService.getKadValues().length,
       ...this.peerScoring.getStats(),
     });
 

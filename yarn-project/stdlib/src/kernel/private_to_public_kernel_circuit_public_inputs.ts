@@ -2,7 +2,7 @@ import { DomainSeparator, PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH 
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
-import { BufferReader, bigintToUInt64BE, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { BufferReader, BufferSink, serializeToFields, serializeToSink } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -24,16 +24,22 @@ export class PrivateToPublicKernelCircuitPublicInputs {
     public expirationTimestamp: UInt64,
   ) {}
 
-  toBuffer() {
-    return serializeToBuffer(
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(
+      sink,
       this.constants,
       this.nonRevertibleAccumulatedData,
       this.revertibleAccumulatedData,
       this.publicTeardownCallRequest,
       this.gasUsed,
       this.feePayer,
-      bigintToUInt64BE(this.expirationTimestamp),
     );
+    sink.writeUInt64(this.expirationTimestamp);
   }
 
   static getFields(fields: FieldsOf<PrivateToPublicKernelCircuitPublicInputs>) {

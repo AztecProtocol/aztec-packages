@@ -39,7 +39,8 @@ GetContractInstance::GetContractInstance(ExecutionIdManagerInterface& execution_
  * @param memory The memory interface for the current context.
  * @param contract_address The address of the contract to look up.
  * @param dst_offset The memory offset at which to write the exists flag.
- * @param member_enum The enum selecting which instance member to retrieve (deployer/class_id/init_hash).
+ * @param member_enum The enum selecting which instance member to retrieve
+ *                    (deployer/class_id/init_hash/immutables_hash).
  * @throws GetContractInstanceException If dst_offset+1 is out of bounds (checked first).
  * @throws GetContractInstanceException If member_enum is invalid (checked after bounds check).
  */
@@ -90,17 +91,20 @@ void GetContractInstance::get_contract_instance(MemoryInterface& memory,
         instance_exists ? select_instance_member(maybe_instance.value(), member_enum) : FF(0);
     write_results(memory, dst_offset, instance_exists, selected_member_value);
 
-    event_emitter.emit({ .execution_clk = execution_clk,
-                         .contract_address = contract_address,
-                         .dst_offset = dst_offset,
-                         .member_enum = member_enum,
-                         .space_id = space_id,
-                         .nullifier_tree_root = nullifier_tree_root,
-                         .public_data_tree_root = public_data_tree_root,
-                         .instance_exists = instance_exists,
-                         .retrieved_deployer_addr = instance_exists ? maybe_instance->deployer : FF(0),
-                         .retrieved_class_id = instance_exists ? maybe_instance->current_contract_class_id : FF(0),
-                         .retrieved_init_hash = instance_exists ? maybe_instance->initialization_hash : FF(0) });
+    event_emitter.emit({
+        .execution_clk = execution_clk,
+        .contract_address = contract_address,
+        .dst_offset = dst_offset,
+        .member_enum = member_enum,
+        .space_id = space_id,
+        .nullifier_tree_root = nullifier_tree_root,
+        .public_data_tree_root = public_data_tree_root,
+        .instance_exists = instance_exists,
+        .retrieved_deployer_addr = instance_exists ? maybe_instance->deployer : FF(0),
+        .retrieved_class_id = instance_exists ? maybe_instance->current_contract_class_id : FF(0),
+        .retrieved_init_hash = instance_exists ? maybe_instance->initialization_hash : FF(0),
+        .retrieved_immutables_hash = instance_exists ? maybe_instance->immutables_hash : FF(0),
+    });
 }
 
 /**
@@ -139,6 +143,8 @@ FF GetContractInstance::select_instance_member(const ContractInstance& instance,
         return instance.current_contract_class_id;
     case ContractInstanceMember::INIT_HASH:
         return instance.initialization_hash;
+    case ContractInstanceMember::IMMUTABLES_HASH:
+        return instance.immutables_hash;
     default:
         throw std::runtime_error("This error should have been handled earlier! Invalid member enum: " +
                                  std::to_string(member_enum));

@@ -12,6 +12,6 @@ error: User-defined 'offchain_receive' is not allowed. The function is auto-inje
     1: #[aztec]
             at src/main.nr:4:1
     2: aztec
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:138:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/aztec.nr:162:9
 
 Aborting due to 1 previous error

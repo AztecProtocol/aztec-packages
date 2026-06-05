@@ -133,8 +133,8 @@ export abstract class BaseWallet implements Wallet {
 
   /**
    * Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing
-   * account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx will fail
-   * the contract-side `Sender for tags is not set` assertion unless `set_sender_for_tags` is called first.
+   * account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx using
+   * the wallet-supplied default sender will fail the "Sender for tags is not set" assertion.
    * @param from - Tx sender, or `NO_FROM`.
    * @param sendMessagesAs - Explicit override.
    */
@@ -418,7 +418,7 @@ export abstract class BaseWallet implements Wallet {
     try {
       blockHeader = await this.pxe.getSyncedBlockHeader();
     } catch {
-      blockHeader = (await this.aztecNode.getBlockHeader('latest'))!;
+      blockHeader = (await this.aztecNode.getBlockData('latest'))!.header;
     }
 
     const simulationOrigin = opts.from === NO_FROM ? AztecAddress.ZERO : opts.from;
@@ -489,7 +489,7 @@ export abstract class BaseWallet implements Wallet {
     );
     const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
-    if (await this.aztecNode.getTxEffect(txHash)) {
+    if ((await this.aztecNode.getTxReceipt(txHash)).isMined()) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
     this.log.debug(`Sending transaction ${txHash}`);
@@ -508,7 +508,7 @@ export abstract class BaseWallet implements Wallet {
     const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
 
     // Display debug logs from public execution if present (served in test mode only)
-    if (receipt.debugLogs?.length) {
+    if (receipt.isMined() && receipt.debugLogs?.length) {
       await displayDebugLogs(receipt.debugLogs, this.getContractName.bind(this));
     }
 

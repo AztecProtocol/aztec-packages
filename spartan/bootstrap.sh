@@ -183,8 +183,12 @@ function block_capacity_bench_cmds {
 }
 
 function bench_10tps_cmds {
-  local high_value_tps=10
-  local low_value_tps=0
+  # Mix: 1 tps of high-value + 9 tps of low-value, total still 10 tps. The
+  # high-value lane is what we measure for the headline client-observed
+  # inclusion latency (low-value txs pay near-network-min and are allowed to
+  # fail fee checks, so they would skew the headline if measured).
+  local high_value_tps=1
+  local low_value_tps=9
   local test_duration=${TEST_DURATION_SECONDS:-600} # 10 mins
   local timeout=${BENCH_TIMEOUT_SECONDS:-7200} # account for initial committee formation
   echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
@@ -259,6 +263,7 @@ function bench_10tps {
       --target-tps 10 \
       --workload sha256_hash_1024 \
       --output "$run_json" \
+      --inclusion-records "$metadata" \
       --wait-for-pending-zero \
       --max-pending-wait-seconds "${BENCH_SCRAPE_MAX_PENDING_WAIT_SECONDS:-3600}" \
       || echo "[bench_10tps] scraper failed (non-fatal)"
@@ -398,6 +403,13 @@ case "$cmd" in
         network_tests "$env_file"
       fi
     fi
+    ;;
+  "wait_for_l2_block")
+    env_file="$1"
+    source_env_basic "$env_file"
+    gcp_auth
+    source_network_env "$env_file"
+    ./scripts/wait_for_l2_block.sh "$NAMESPACE"
     ;;
   "single_test")
     run_network_tests "$1" "$2"

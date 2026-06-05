@@ -11,6 +11,12 @@
       "require": "./dest/node-cjs/index.js",
       "browser": "./dest/browser/index.js",
       "default": "./dest/node/index.js"
+    },
+    "./aztec-wsdb": {
+      "default": "./dest/node/aztec-wsdb/index.js"
+    },
+    "./platform": {
+      "default": "./dest/node/bb_backends/node/platform.js"
     }
   },
   "bin": {
@@ -23,17 +29,18 @@
     "README.md"
   ],
   "scripts": {
-    "clean": "rm -rf ./dest .tsbuildinfo .tsbuildinfo.cjs ./src/cbind/generated",
+    "clean": "rm -rf ./dest .tsbuildinfo .tsbuildinfo.cjs ./src/cbind/generated ./src/aztec-wsdb/generated",
     "build": "yarn clean && yarn generate && yarn build:wasm && yarn build:native && yarn build:esm && yarn build:cjs && yarn build:browser",
     "build:wasm": "./scripts/copy_wasm.sh",
     "build:native": "./scripts/copy_native.sh",
     "build:esm": "tsgo -b tsconfig.esm.json && chmod +x ./dest/node/bin/index.js",
     "build:cjs": "tsgo -b tsconfig.cjs.json && ./scripts/cjs_postprocess.sh",
     "build:browser": "tsgo -b tsconfig.browser.json && ./scripts/browser_postprocess.sh",
-    "generate": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 ts-node src/cbind/generate.ts",
+    "generate": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 ts-node src/cbind/generate.ts && npx tsx src/aztec-wsdb/generate.ts",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "prettier -w ./src",
     "test": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",
+    "test:chonk-inputs": "yarn test chonk_pinned_inputs",
     "test:debug": "NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules ./node_modules/.bin/jest --no-cache --passWithNoTests --runInBand",
     "simple_test": "NODE_NO_WARNINGS=1 node ./src/examples/simple.rawtest.ts",
     "deploy": "npm publish --access public"

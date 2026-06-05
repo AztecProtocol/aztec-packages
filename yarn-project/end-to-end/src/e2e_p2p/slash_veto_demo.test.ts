@@ -3,16 +3,12 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract, SlashingProposerContract } from '@aztec/ethereum/contracts';
-import { L1Deployer } from '@aztec/ethereum/deploy-l1-contract';
-import { SlasherArtifact, SlashingProposerArtifact } from '@aztec/ethereum/l1-artifacts';
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
-import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
-import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
 import assert from 'assert';
@@ -48,9 +44,16 @@ const LIFETIME_IN_ROUNDS = 2;
 const EXECUTION_DELAY_IN_ROUNDS = 1;
 // unit of slashing
 const SLASHING_UNIT = BigInt(20e18);
+// how long slashing stays disabled after the vetoer disables it (1 hour)
+const SLASHING_DISABLE_DURATION_SECONDS = 3600;
+
+// Vetoer address is derived deterministically from the test mnemonic so the slasher
+// can be deployed with the correct vetoer from the start -- no mid-test setSlasher swap needed.
+const VETOER_ADDRESS = EthAddress.fromString(
+  privateKeyToAccount(bufferToHex(getPrivateKeyFromIndex(VETOER_PRIVATE_KEY_INDEX)!)).address,
+);
 // offset for slashing rounds
 const SLASH_OFFSET_IN_ROUNDS = 2;
-const COMMITEE_SIZE = NUM_VALIDATORS;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slash-veto-demo-'));
 
 describe('veto slash', () => {
@@ -76,6 +79,7 @@ describe('veto slash', () => {
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
+        inboxLag: 2,
         aztecEpochDuration: EPOCH_DURATION,
         sentinelEnabled: true,
         slashSelfAllowed: true,
@@ -85,6 +89,10 @@ describe('veto slash', () => {
         slashAmountLarge: SLASHING_UNIT * 3n,
         slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / EPOCH_DURATION,
         slashingQuorum: SLASHING_QUORUM,
+        slashingLifetimeInRounds: LIFETIME_IN_ROUNDS,
+        slashingExecutionDelayInRounds: EXECUTION_DELAY_IN_ROUNDS,
+        slashingDisableDuration: SLASHING_DISABLE_DURATION_SECONDS,
+        slashingVetoer: VETOER_ADDRESS,
         slashInactivityTargetPercentage: SLASH_INACTIVITY_TARGET_PERCENTAGE,
       },
     });
@@ -144,53 +152,6 @@ describe('veto slash', () => {
     }
   });
 
-  /**
-   * Deploys a new slasher contract on L1.
-   *
-   * @param deployerClient - The client to use to deploy the slasher contract. Also serves as the VETOER.
-   * @returns The address of the deployed slasher contract.
-   */
-  async function deployNewSlasher(deployerClient: ExtendedViemWalletClient) {
-    const deployer = new L1Deployer(deployerClient, 42, undefined, false, undefined, undefined);
-
-    const vetoer = deployerClient.account.address;
-    const governance = EthAddress.random().toString(); // We don't need a real governance address for this test
-    debugLogger.info(`\n\ndeploying slasher with vetoer: ${vetoer}\n\n`);
-    const slasher = (await deployer.deploy(SlasherArtifact, [vetoer, governance, 3600n])).address;
-    await deployer.waitForDeployments();
-
-    const proposerArgs = [
-      rollup.address, // instance
-      slasher.toString(), // slasher
-      BigInt(SLASHING_QUORUM),
-      BigInt(SLASHING_ROUND_SIZE),
-      BigInt(LIFETIME_IN_ROUNDS),
-      BigInt(EXECUTION_DELAY_IN_ROUNDS),
-      [SLASHING_UNIT, SLASHING_UNIT * 2n, SLASHING_UNIT * 3n],
-      BigInt(COMMITEE_SIZE),
-      BigInt(EPOCH_DURATION),
-      BigInt(SLASH_OFFSET_IN_ROUNDS),
-    ] as const;
-    debugLogger.info(`\n\ndeploying tally slasher proposer with args: ${tryJsonStringify(proposerArgs)}\n\n`);
-    const proposer = (await deployer.deploy(SlashingProposerArtifact, proposerArgs)).address;
-
-    debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
-    const txUtils = createL1TxUtils(deployerClient, {
-      logger: t.logger,
-      dateProvider: t.ctx.dateProvider,
-    });
-    await txUtils.sendAndMonitorTransaction({
-      to: slasher.toString(),
-      data: encodeFunctionData({
-        abi: SlasherAbi,
-        functionName: 'initializeProposer',
-        args: [proposer.toString()],
-      }),
-    });
-
-    return slasher;
-  }
-
   /** Waits for a round to be executable */
   async function waitForSubmittableRound(
     proposer: SlashingProposerContract,
@@ -209,46 +170,23 @@ describe('veto slash', () => {
   }
 
   it.each([[true]] as const)(
-    'vetoes %s and sets the new tally slasher',
+    'vetoes %s a slashing payload',
     async (shouldVeto: boolean) => {
-      //################################//
-      //                                //
-      // Create new Slasher with Vetoer //
-      //                                //
-      //################################//
-
-      const newSlasherAddress = await deployNewSlasher(vetoerL1Client);
-      debugLogger.info(`\n\nnewSlasherAddress: ${newSlasherAddress}\n\n`);
-
-      // Need to impersonate governance to set the new slasher
-      await t.ctx.cheatCodes.eth.startImpersonating(
-        t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress,
-      );
-
-      const setSlasherTx = await t.ctx.deployL1ContractsValues.l1Client.writeContract({
-        address: rollup.address,
-        abi: RollupAbi,
-        functionName: 'setSlasher',
-        args: [newSlasherAddress.toString()],
-        account: t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString(),
-      });
-      const receipt = await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
-        hash: setSlasherTx,
-      });
-      expect(receipt.status).toEqual('success');
-
-      await t.ctx.cheatCodes.eth.stopImpersonating(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress);
+      //#####################################//
+      //                                     //
+      // Verify the initial slasher's vetoer //
+      //                                     //
+      //#####################################//
 
       const slasherAddress = await rollup.getSlasherAddress();
-      expect(slasherAddress.toString().toLowerCase()).toEqual(newSlasherAddress.toString().toLowerCase());
-      debugLogger.info(`\n\nnew slasher address: ${slasherAddress}\n\n`);
+      debugLogger.info(`\n\nslasher address: ${slasherAddress}\n\n`);
       const slasher = getContract({
         address: slasherAddress.toString() as `0x${string}`,
         abi: SlasherAbi,
         client: t.ctx.deployL1ContractsValues.l1Client,
       });
       const slasherVetoer = await slasher.read.VETOER();
-      debugLogger.info(`\n\nnew slasher vetoer: ${slasherVetoer}\n\n`);
+      debugLogger.info(`\n\nslasher vetoer: ${slasherVetoer}\n\n`);
       expect(slasherVetoer).toEqual(vetoerL1Client.account.address);
 
       const slashingProposer = await rollup.getSlashingProposer();

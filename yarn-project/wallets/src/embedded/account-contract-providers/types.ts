@@ -1,7 +1,7 @@
 import type { Account, AccountContract } from '@aztec/aztec.js/account';
 import type { Fq } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 
 import type { AccountType } from '../wallet_db.js';
 
@@ -16,6 +16,5 @@ export interface AccountContractsProvider {
   getEcdsaRAccountContract(signingKey: Buffer): Promise<AccountContract>;
   getEcdsaKAccountContract(signingKey: Buffer): Promise<AccountContract>;
   getStubAccountContractArtifact(type: AccountType): Promise<ContractArtifact>;
-  getMulticallContract(): Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }>;
   createStubAccount(address: CompleteAddress, type: AccountType): Promise<Account>;
 }

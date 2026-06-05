@@ -100,11 +100,12 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
+    "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "axios": "^1.13.5",
+    "axios": "^1.15.1",
     "tslib": "^2.4.0",
     "viem": "npm:@aztec/viem@2.38.2",
-    "zod": "^3.23.8"
+    "zod": "^4"
   },
   "devDependencies": {
     "@aztec/builder": "workspace:^",

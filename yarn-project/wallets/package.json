@@ -14,6 +14,7 @@
         "default": "./dest/embedded/entrypoints/node.js"
       }
     },
+    "./embedded/store-encryption": "./dest/embedded/store_encryption.js",
     "./testing": "./dest/testing.js"
   },
   "scripts": {
@@ -34,6 +35,7 @@
     "@aztec/kv-store": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/pxe": "workspace:^",
+    "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/wallet-sdk": "workspace:^"
   },

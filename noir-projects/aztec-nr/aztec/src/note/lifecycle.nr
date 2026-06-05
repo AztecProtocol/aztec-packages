@@ -11,13 +11,22 @@ use crate::{
 use crate::protocol::{address::AztecAddress, traits::Packable};
 
 /// A note that was created in the current contract call.
+///
+/// This struct holds a freshly created note along with the side-effect counter that the kernel uses to order note
+/// creations within a transaction. It is produced by [`create_note`] and is typically wrapped in a
+/// [`NoteMessage`](crate::note::NoteMessage), which is responsible for delivering the note's information to its
+/// recipient so that it is not lost.
+///
+/// Unlike [`ConfirmedNote`](crate::note::ConfirmedNote), which represents a note whose existence has been proven
+/// (either by reading it from PXE or by checking historical state), a `NewNote` represents a note whose creation is
+/// still pending in the current transaction's side-effect stream. Its note hash has been pushed into the
+/// [`PrivateContext`] but has not yet been siloed nor inserted into the note hash tree.
 pub struct NewNote<Note> {
-    pub(crate) note: Note,
-    pub(crate) owner: AztecAddress,
-    pub(crate) storage_slot: Field,
-    pub(crate) randomness: Field,
-    /// The [`PrivateContext`] side-effect counter associated with the creation of this note.
-    pub(crate) note_hash_counter: u32,
+    pub note: Note,
+    pub owner: AztecAddress,
+    pub storage_slot: Field,
+    pub randomness: Field,
+    pub note_hash_counter: u32,
 }
 
 impl<Note> NewNote<Note> {

@@ -1,12 +1,10 @@
-/* eslint-disable import-x/no-named-as-default-member */
 import { keccak256String } from '@aztec/foundation/crypto/keccak';
 
-import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
-import ts from 'typescript';
 import { fileURLToPath } from 'url';
 
-import { ORACLE_INTERFACE_HASH } from '../oracle_version.js';
+import { ORACLE_INTERFACE_HASH, ORACLE_VERSION_MAJOR } from '../oracle_version.js';
+import { getOracleInterfaceSignature, readNumericGlobal } from './oracle_version_helpers.js';
 
 /**
  * Verifies that the Oracle interface matches the expected interface hash.
@@ -16,13 +14,26 @@ import { ORACLE_INTERFACE_HASH } from '../oracle_version.js';
  * changed and the oracle version needs to be bumped:
  *   - If the change is backward-breaking (e.g. removing/renaming an oracle), bump ORACLE_VERSION_MAJOR.
  *   - If the change is an oracle addition (non-breaking), bump ORACLE_VERSION_MINOR.
- *
- * TODO(#16581): The following only takes into consideration changes to the oracles defined in Oracle.ts and omits TXE
- * oracles. Ensure this checks TXE oracles as well. This hasn't been implemented yet since we don't have a clean TXE
- * oracle interface like we do in PXE (i.e., there is no single Oracle class that contains only the oracles).
  */
 function assertOracleInterfaceMatches(): void {
-  const oracleInterfaceSignature = getOracleInterfaceSignature();
+  const excludedProps = [
+    'handler',
+    'constructor',
+    'toACIRCallback',
+    'handlerAsMisc',
+    'handlerAsUtility',
+    'handlerAsPrivate',
+  ];
+
+  // Get the path to Oracle.ts source file
+  // The script runs from dest/bin/ after compilation, so we need to go up to the package root
+  // then into src/ to find the source file
+  const currentDir = dirname(fileURLToPath(import.meta.url));
+  // Go up from dest/bin/ or src/bin/ to the package root (pxe/), then into src/
+  const packageRoot = dirname(dirname(currentDir)); // Go up from bin/ to pxe/
+  const oracleSourcePath = join(packageRoot, 'src/contract_function_simulator/oracle/oracle.ts');
+
+  const oracleInterfaceSignature = getOracleInterfaceSignature(oracleSourcePath, ['Oracle'], excludedProps);
 
   // We use keccak256 here just because we already have it in the dependencies.
   const oracleInterfaceHash = keccak256String(oracleInterfaceSignature);
@@ -34,128 +45,44 @@ function assertOracleInterfaceMatches(): void {
 }
 
 /**
- * Constructs a signature of the Oracle interface while ignoring methods that are not foreign call handlers.
+ * Verifies that `ORACLE_VERSION_MAJOR` is identical across all of its hand-maintained copies.
+ *
+ * The major version is duplicated across the PXE TypeScript constant and two Noir constants (Aztec.nr and the protocol
+ * contracts' `aztec_sublib`) because those layers can't import each other. This static check fails fast at build time,
+ * naming each file and its value.
+ *
+ * Only the major version is checked: the minor version legitimately diverges under the "environment minor >= contract
+ * minor" tolerance, so asserting minor equality would false-positive.
  */
-function getOracleInterfaceSignature(): string {
-  const excludedProps = [
-    'handler',
-    'constructor',
-    'toACIRCallback',
-    'handlerAsMisc',
-    'handlerAsUtility',
-    'handlerAsPrivate',
-  ] as const;
-
-  // Get the path to Oracle.ts source file
-  // The script runs from dest/bin/ after compilation, so we need to go up to the package root
-  // then into src/ to find the source file
+function assertContractOracleVersionMajorInSync(): void {
   const currentDir = dirname(fileURLToPath(import.meta.url));
-  // Go up from dest/bin/ or src/bin/ to the package root (pxe/), then into src/
-  const packageRoot = dirname(dirname(currentDir)); // Go up from bin/ to pxe/
-  const oracleSourcePath = join(packageRoot, 'src/contract_function_simulator/oracle/oracle.ts');
+  // Go up from dest/bin/ or src/bin/ to the package root (pxe/), then up two more to the git root.
+  const packageRoot = dirname(dirname(currentDir));
+  const gitRoot = join(packageRoot, '..', '..');
 
-  // Read and parse the TypeScript source file
-  const sourceCode = readFileSync(oracleSourcePath, 'utf-8');
-  const sourceFile = ts.createSourceFile('oracle.ts', sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const copies = [
+    { label: 'pxe/src/oracle_version.ts', value: ORACLE_VERSION_MAJOR },
+    {
+      label: 'aztec-nr/aztec/src/oracle/version.nr',
+      value: readNumericGlobal(
+        join(gitRoot, 'noir-projects/aztec-nr/aztec/src/oracle/version.nr'),
+        'ORACLE_VERSION_MAJOR',
+      ),
+    },
+    {
+      label: 'aztec_sublib/src/oracle/version.nr',
+      value: readNumericGlobal(
+        join(gitRoot, 'noir-projects/noir-contracts/contracts/protocol/aztec_sublib/src/oracle/version.nr'),
+        'ORACLE_VERSION_MAJOR',
+      ),
+    },
+  ];
 
-  // Extract method signatures from the Oracle class
-  const methodSignatures: string[] = [];
-
-  function visit(node: ts.Node) {
-    // Look for class declaration named "Oracle"
-    if (ts.isClassDeclaration(node) && node.name?.text === 'Oracle') {
-      // Visit all members of the class
-      node.members.forEach(member => {
-        if (ts.isMethodDeclaration(member) && member.name && ts.isIdentifier(member.name)) {
-          const methodName = member.name.text;
-
-          // Skip excluded methods
-          if (excludedProps.includes(methodName as (typeof excludedProps)[number])) {
-            return;
-          }
-
-          // Extract parameter signatures
-          const paramSignatures: string[] = [];
-          member.parameters.forEach(param => {
-            const paramName = extractParameterName(param, sourceFile);
-            const paramType = extractTypeString(param.type, sourceFile);
-            paramSignatures.push(`${paramName}: ${paramType}`);
-          });
-
-          // Extract return type
-          const returnType = extractTypeString(member.type, sourceFile);
-
-          // Build full signature: methodName(param1: Type1, param2: Type2): ReturnType
-          const signature = `${methodName}(${paramSignatures.join(', ')}): ${returnType}`;
-          methodSignatures.push(signature);
-        }
-      });
-    }
-
-    ts.forEachChild(node, visit);
+  if (new Set(copies.map(copy => copy.value)).size > 1) {
+    const details = copies.map(copy => `${copy.label}=${copy.value}`).join(', ');
+    throw new Error(`ORACLE_VERSION_MAJOR is out of sync: ${details}. Bump all copies together.`);
   }
-
-  visit(sourceFile);
-
-  // Sort signatures alphabetically for consistent hashing
-  methodSignatures.sort();
-
-  // Create a hashable representation by concatenating all signatures
-  return methodSignatures.join('');
-}
-
-/**
- * Extracts the parameter name from a parameter node, handling destructured parameters.
- */
-function extractParameterName(param: ts.ParameterDeclaration, sourceFile: ts.SourceFile): string {
-  const name = param.name;
-
-  if (ts.isIdentifier(name)) {
-    return name.text;
-  }
-
-  if (ts.isArrayBindingPattern(name)) {
-    // Handle destructured parameters like [blockNumber]: ACVMField[]
-    // Extract the first element name
-    if (name.elements.length > 0) {
-      const element = name.elements[0];
-      if (ts.isBindingElement(element)) {
-        const elementName = element.name;
-        if (ts.isIdentifier(elementName)) {
-          return elementName.text;
-        }
-        // Nested destructuring - use text representation
-        if (ts.isArrayBindingPattern(elementName) || ts.isObjectBindingPattern(elementName)) {
-          return elementName.getText(sourceFile);
-        }
-      }
-    }
-    // Fallback: return the text representation
-    return name.getText(sourceFile);
-  }
-
-  if (ts.isObjectBindingPattern(name)) {
-    // Handle object destructuring
-    return name.getText(sourceFile);
-  }
-
-  // Fallback for any other case - this should never happen but TypeScript needs it
-  return (name as ts.Node).getText(sourceFile);
-}
-
-/**
- * Extracts the type string from a type node, normalizing whitespace.
- */
-function extractTypeString(typeNode: ts.TypeNode | undefined, sourceFile: ts.SourceFile): string {
-  if (!typeNode) {
-    return 'void';
-  }
-
-  // Get the type text and normalize whitespace
-  let typeText = typeNode.getText(sourceFile);
-  // Normalize whitespace: remove extra spaces, newlines, and tabs
-  typeText = typeText.replace(/\s+/g, ' ').trim();
-  return typeText;
 }
 
 assertOracleInterfaceMatches();
+assertContractOracleVersionMajorInSync();

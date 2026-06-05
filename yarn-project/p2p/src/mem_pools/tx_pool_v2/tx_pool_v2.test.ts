@@ -3139,6 +3139,24 @@ describe('TxPoolV2', () => {
       expect(await pool.getArchivedTxByHash(txs[3].getTxHash())).toBeDefined();
       expect(await pool.getArchivedTxByHash(txs[4].getTxHash())).toBeDefined();
     });
+
+    it('archives and deletes all mined txs across many chunks when finalizing a single block', async () => {
+      // Use a count larger than the internal FINALIZE_BLOCK_CHUNK_SIZE (100) so we exercise
+      // the chunked path of handleFinalizedBlock.
+      const txCount = 250;
+      await pool.updateConfig({ archivedTxLimit: txCount });
+
+      const txs = await timesAsync(txCount, i => mockTx(i + 1));
+      await pool.addPendingTxs(txs);
+      await pool.handleMinedBlock(makeBlock(txs, slot1Header));
+
+      await pool.handleFinalizedBlock(slot1Header);
+
+      for (const tx of txs) {
+        expect(await pool.getTxStatus(tx.getTxHash())).toBe('deleted');
+        expect(await pool.getArchivedTxByHash(tx.getTxHash())).toBeDefined();
+      }
+    });
   });
 
   describe('nullifier index consistency', () => {
@@ -4811,6 +4829,7 @@ describe('TxPoolV2', () => {
               l2BlockHash: await block.hash(),
               data: block.body.txEffects[0],
               txIndexInBlock: 0,
+              slotNumber: SlotNumber(1),
             };
           }
           return undefined;

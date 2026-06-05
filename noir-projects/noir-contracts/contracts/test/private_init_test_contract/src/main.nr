@@ -22,7 +22,7 @@ pub contract PrivateInitTest {
     fn initialize(initial_value: Field) {
         let owner = self.msg_sender();
         self.storage.value.at(owner).initialize(FieldNote { value: initial_value }).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
 
@@ -30,14 +30,14 @@ pub contract PrivateInitTest {
     fn private_init_check_write_value(new_value: Field) {
         let owner = self.msg_sender();
         self.storage.value.at(owner).replace(|_old| FieldNote { value: new_value }).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
+            MessageDelivery::onchain_constrained(),
         );
     }
 
     #[external("private")]
     #[noinitcheck]
     fn private_no_init_check_emit_nullifier(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     #[external("utility")]

@@ -435,7 +435,7 @@ pol constant out_tag;
 
 // ===== Section 14: GETCONTRACTINSTANCE opcode columns =====
 // Maps contract instance member enum values to selectors indicating which field
-// (deployer, class_id, init_hash) is being accessed.
+// (deployer, class_id, init_hash, immutables_hash) is being accessed.
 // Used by the GETCONTRACTINSTANCE opcode.
 //
 // see opcodes/get_contract_instance.pil for ascii table
@@ -444,3 +444,4 @@ pol constant is_valid_member_enum;
 pol constant is_deployer;
 pol constant is_class_id;
 pol constant is_init_hash;
+pol constant is_immutables_hash;

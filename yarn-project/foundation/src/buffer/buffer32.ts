@@ -90,7 +90,7 @@ export class Buffer32 extends BaseBuffer32 {
     if (buffer.length != 28) {
       throw new Error(`Expected Buffer32 input buffer to be 28 bytes`);
     }
-    const padded = Buffer.concat([Buffer.alloc(this.SIZE - 28), buffer]);
+    const padded = Buffer.concat([Buffer.alloc(Buffer32.SIZE - 28), buffer]);
     return new Buffer32(padded);
   }
 
@@ -99,8 +99,8 @@ export class Buffer32 extends BaseBuffer32 {
     if (str.startsWith('0x')) {
       str = str.slice(2);
     }
-    if (str.length !== this.SIZE * 2) {
-      throw new Error(`Expected string to be ${this.SIZE * 2} characters long, but was ${str.length}`);
+    if (str.length !== Buffer32.SIZE * 2) {
+      throw new Error(`Expected string to be ${Buffer32.SIZE * 2} characters long, but was ${str.length}`);
     }
     return new Buffer32(Buffer.from(str, 'hex'));
   }

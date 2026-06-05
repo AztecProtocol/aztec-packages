@@ -54,6 +54,7 @@
 <li><a href="noir_aztec/context/gas/struct.GasOpts.html">noir_aztec::context::gas::GasOpts</a></li>
 <li><a href="noir_aztec/context/inputs/struct.PrivateContextInputs.html">noir_aztec::context::inputs::PrivateContextInputs</a></li>
 <li><a href="noir_aztec/contract_self/contract_self_private/struct.ContractSelfPrivate.html">noir_aztec::contract_self::contract_self_private::ContractSelfPrivate</a></li>
+<li><a href="noir_aztec/contract_self/contract_self_private/struct.PrivateUtilityCalls.html">noir_aztec::contract_self::contract_self_private::PrivateUtilityCalls</a></li>
 <li><a href="noir_aztec/contract_self/contract_self_public/struct.ContractSelfPublic.html">noir_aztec::contract_self::contract_self_public::ContractSelfPublic</a></li>
 <li><a href="noir_aztec/contract_self/contract_self_utility/struct.ContractSelfUtility.html">noir_aztec::contract_self::contract_self_utility::ContractSelfUtility</a></li>
 <li><a href="noir_aztec/ephemeral/struct.EphemeralArray.html">noir_aztec::ephemeral::EphemeralArray</a></li>
@@ -65,6 +66,7 @@
 <li><a href="noir_aztec/messages/encryption/aes128/struct.AES128.html">noir_aztec::messages::encryption::aes128::AES128</a></li>
 <li><a href="noir_aztec/messages/message_delivery/struct.MessageDeliveryEnum.html">noir_aztec::messages::message_delivery::MessageDeliveryEnum</a></li>
 <li><a href="noir_aztec/messages/processing/struct.MessageContext.html">noir_aztec::messages::processing::MessageContext</a></li>
+<li><a href="noir_aztec/messages/processing/struct.NoteValidationRequest.html">noir_aztec::messages::processing::NoteValidationRequest</a></li>
 <li><a href="noir_aztec/messages/processing/struct.OffchainMessageWithContext.html">noir_aztec::messages::processing::OffchainMessageWithContext</a></li>
 <li><a href="noir_aztec/messages/processing/offchain/struct.OffchainMessage.html">noir_aztec::messages::processing::offchain::OffchainMessage</a></li>
 <li><a href="noir_aztec/note/struct.ConfirmedNote.html">noir_aztec::note::ConfirmedNote</a></li>
@@ -83,7 +85,6 @@
 <li><a href="noir_aztec/note/note_metadata/struct.PendingSamePhaseNoteMetadata.html">noir_aztec::note::note_metadata::PendingSamePhaseNoteMetadata</a></li>
 <li><a href="noir_aztec/note/note_metadata/struct.SettledNoteMetadata.html">noir_aztec::note::note_metadata::SettledNoteMetadata</a></li>
 <li><a href="noir_aztec/note/note_viewer_options/struct.NoteViewerOptions.html">noir_aztec::note::note_viewer_options::NoteViewerOptions</a></li>
-<li><a href="noir_aztec/oracle/get_nullifier_membership_witness/struct.NullifierMembershipWitness.html">noir_aztec::oracle::get_nullifier_membership_witness::NullifierMembershipWitness</a></li>
 <li><a href="noir_aztec/oracle/get_public_data_witness/struct.PublicDataWitness.html">noir_aztec::oracle::get_public_data_witness::PublicDataWitness</a></li>
 <li><a href="noir_aztec/protocol/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedData.html">noir_aztec::protocol::abis::accumulated_data::avm_accumulated_data::AvmAccumulatedData</a></li>
 <li><a href="noir_aztec/protocol/abis/accumulated_data/avm_accumulated_data/struct.AvmAccumulatedDataArrayLengths.html">noir_aztec::protocol::abis::accumulated_data::avm_accumulated_data::AvmAccumulatedDataArrayLengths</a></li>
@@ -189,9 +190,15 @@
 <li><a href="noir_aztec/state_vars/struct.SinglePrivateMutable.html">noir_aztec::state_vars::SinglePrivateMutable</a></li>
 <li><a href="noir_aztec/state_vars/struct.SingleUseClaim.html">noir_aztec::state_vars::SingleUseClaim</a></li>
 <li><a href="noir_aztec/state_vars/struct.Storable.html">noir_aztec::state_vars::Storable</a></li>
+<li><a href="noir_aztec/test/helpers/test_environment/struct.CallPrivateOptions.html">noir_aztec::test::helpers::test_environment::CallPrivateOptions</a></li>
+<li><a href="noir_aztec/test/helpers/test_environment/struct.CallPublicOptions.html">noir_aztec::test::helpers::test_environment::CallPublicOptions</a></li>
 <li><a href="noir_aztec/test/helpers/test_environment/struct.DeployOptions.html">noir_aztec::test::helpers::test_environment::DeployOptions</a></li>
+<li><a href="noir_aztec/test/helpers/test_environment/struct.ExecuteUtilityOptions.html">noir_aztec::test::helpers::test_environment::ExecuteUtilityOptions</a></li>
 <li><a href="noir_aztec/test/helpers/test_environment/struct.PrivateContextOptions.html">noir_aztec::test::helpers::test_environment::PrivateContextOptions</a></li>
 <li><a href="noir_aztec/test/helpers/test_environment/struct.TestEnvironment.html">noir_aztec::test::helpers::test_environment::TestEnvironment</a></li>
+<li><a href="noir_aztec/test/helpers/test_environment/struct.ViewPrivateOptions.html">noir_aztec::test::helpers::test_environment::ViewPrivateOptions</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/struct.TXECallContext.html">noir_aztec::test::helpers::txe_oracles::TXECallContext</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/struct.TxEffects.html">noir_aztec::test::helpers::txe_oracles::TxEffects</a></li>
 <li><a href="noir_aztec/test/helpers/utils/struct.ContractDeployment.html">noir_aztec::test::helpers::utils::ContractDeployment</a></li>
 <li><a href="noir_aztec/test/helpers/utils/struct.TestAccount.html">noir_aztec::test::helpers::utils::TestAccount</a></li>
 <li><a href="noir_aztec/test/mocks/struct.MockStruct.html">noir_aztec::test::mocks::MockStruct</a></li>
@@ -240,6 +247,10 @@
 <li><a href="noir_aztec/protocol/proof/verification_key/type.HonkVerificationKey.html">noir_aztec::protocol::proof::verification_key::HonkVerificationKey</a></li>
 <li><a href="noir_aztec/protocol/proof/verification_key/type.MegaVerificationKey.html">noir_aztec::protocol::proof::verification_key::MegaVerificationKey</a></li>
 <li><a href="noir_aztec/protocol/proof/verification_key/type.RollupHonkVerificationKey.html">noir_aztec::protocol::proof::verification_key::RollupHonkVerificationKey</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/type.TxNoteHashes.html">noir_aztec::test::helpers::txe_oracles::TxNoteHashes</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/type.TxNullifiers.html">noir_aztec::test::helpers::txe_oracles::TxNullifiers</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/type.TxPrivateLog.html">noir_aztec::test::helpers::txe_oracles::TxPrivateLog</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/type.TxPrivateLogs.html">noir_aztec::test::helpers::txe_oracles::TxPrivateLogs</a></li>
 </ul>
 <span id="global"></span><h2>Globals</h2>
 <ul class="item-list">
@@ -562,11 +573,13 @@
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__EVENT_COMMITMENT.html">noir_aztec::protocol::constants::DOM_SEP__EVENT_COMMITMENT</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__EVENT_LOG_TAG.html">noir_aztec::protocol::constants::DOM_SEP__EVENT_LOG_TAG</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__FUNCTION_ARGS.html">noir_aztec::protocol::constants::DOM_SEP__FUNCTION_ARGS</a></li>
+<li><a href="noir_aztec/protocol/constants/global.DOM_SEP__HANDSHAKE_SECRET_HASH.html">noir_aztec::protocol::constants::DOM_SEP__HANDSHAKE_SECRET_HASH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__INITIALIZATION_NULLIFIER.html">noir_aztec::protocol::constants::DOM_SEP__INITIALIZATION_NULLIFIER</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__INITIALIZER.html">noir_aztec::protocol::constants::DOM_SEP__INITIALIZER</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__IVSK_M.html">noir_aztec::protocol::constants::DOM_SEP__IVSK_M</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__MESSAGE_NULLIFIER.html">noir_aztec::protocol::constants::DOM_SEP__MESSAGE_NULLIFIER</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__NHK_M.html">noir_aztec::protocol::constants::DOM_SEP__NHK_M</a></li>
+<li><a href="noir_aztec/protocol/constants/global.DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG.html">noir_aztec::protocol::constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__NOTE_COMPLETION_LOG_TAG.html">noir_aztec::protocol::constants::DOM_SEP__NOTE_COMPLETION_LOG_TAG</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__NOTE_HASH.html">noir_aztec::protocol::constants::DOM_SEP__NOTE_HASH</a></li>
 <li><a href="noir_aztec/protocol/constants/global.DOM_SEP__NOTE_HASH_NONCE.html">noir_aztec::protocol::constants::DOM_SEP__NOTE_HASH_NONCE</a></li>
@@ -819,6 +832,8 @@
 <li><a href="noir_aztec/protocol/constants/global.VK_TREE_HEIGHT.html">noir_aztec::protocol::constants::VK_TREE_HEIGHT</a></li>
 <li><a href="noir_aztec/protocol/point/global.POINT_LENGTH.html">noir_aztec::protocol::point::POINT_LENGTH</a></li>
 <li><a href="noir_aztec/protocol/utils/for_loop/global.for_loop_no_op.html">noir_aztec::protocol::utils::for_loop::for_loop_no_op</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/global.TXE_ORACLE_VERSION_MAJOR.html">noir_aztec::test::helpers::txe_oracles::TXE_ORACLE_VERSION_MAJOR</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/global.TXE_ORACLE_VERSION_MINOR.html">noir_aztec::test::helpers::txe_oracles::TXE_ORACLE_VERSION_MINOR</a></li>
 <li><a href="noir_aztec/utils/comparison/global.Comparator.html">noir_aztec::utils::comparison::Comparator</a></li>
 </ul>
 <span id="fn"></span><h2>Functions</h2>
@@ -898,7 +913,7 @@
 <li><a href="noir_aztec/macros/storage/fn.storage_no_init.html">noir_aztec::macros::storage::storage_no_init</a></li>
 <li><a href="noir_aztec/macros/utils/fn.derive_serialize_if_not_implemented.html">noir_aztec::macros::utils::derive_serialize_if_not_implemented</a></li>
 <li><a href="noir_aztec/messages/discovery/fn.do_sync_state.html">noir_aztec::messages::discovery::do_sync_state</a></li>
-<li><a href="noir_aztec/messages/discovery/private_notes/fn.attempt_note_discovery.html">noir_aztec::messages::discovery::private_notes::attempt_note_discovery</a></li>
+<li><a href="noir_aztec/messages/discovery/private_notes/fn.process_private_note_msg.html">noir_aztec::messages::discovery::private_notes::process_private_note_msg</a></li>
 <li><a href="noir_aztec/messages/discovery/process_message/fn.process_message_ciphertext.html">noir_aztec::messages::discovery::process_message::process_message_ciphertext</a></li>
 <li><a href="noir_aztec/messages/encoding/fn.decode_message.html">noir_aztec::messages::encoding::decode_message</a></li>
 <li><a href="noir_aztec/messages/encoding/fn.encode_message.html">noir_aztec::messages::encoding::encode_message</a></li>
@@ -907,6 +922,7 @@
 <li><a href="noir_aztec/messages/encryption/poseidon2/fn.poseidon2_encrypt.html">noir_aztec::messages::encryption::poseidon2::poseidon2_encrypt</a></li>
 <li><a href="noir_aztec/messages/logs/event/fn.encode_private_event_message.html">noir_aztec::messages::logs::event::encode_private_event_message</a></li>
 <li><a href="noir_aztec/messages/logs/note/fn.encode_private_note_message.html">noir_aztec::messages::logs::note::encode_private_note_message</a></li>
+<li><a href="noir_aztec/messages/logs/note/fn.encode_private_note_message_with_msg_type_id.html">noir_aztec::messages::logs::note::encode_private_note_message_with_msg_type_id</a></li>
 <li><a href="noir_aztec/messages/logs/partial_note/fn.encode_partial_note_private_message.html">noir_aztec::messages::logs::partial_note::encode_partial_note_private_message</a></li>
 <li><a href="noir_aztec/messages/message_delivery/fn.do_private_message_delivery.html">noir_aztec::messages::message_delivery::do_private_message_delivery</a></li>
 <li><a href="noir_aztec/messages/msg_type/fn.custom_msg_type_id.html">noir_aztec::messages::msg_type::custom_msg_type_id</a></li>
@@ -930,6 +946,7 @@
 <li><a href="noir_aztec/nullifier/utils/fn.compute_nullifier_existence_request.html">noir_aztec::nullifier::utils::compute_nullifier_existence_request</a></li>
 <li><a href="noir_aztec/oracle/aes128_decrypt/fn.try_aes128_decrypt.html">noir_aztec::oracle::aes128_decrypt::try_aes128_decrypt</a></li>
 <li><a href="noir_aztec/oracle/auth_witness/fn.get_auth_witness.html">noir_aztec::oracle::auth_witness::get_auth_witness</a></li>
+<li><a href="noir_aztec/oracle/auth_witness/fn.get_auth_witness_as_bytes.html">noir_aztec::oracle::auth_witness::get_auth_witness_as_bytes</a></li>
 <li><a href="noir_aztec/oracle/avm/fn.address.html">noir_aztec::oracle::avm::address</a></li>
 <li><a href="noir_aztec/oracle/avm/fn.avm_return.html">noir_aztec::oracle::avm::avm_return</a></li>
 <li><a href="noir_aztec/oracle/avm/fn.block_number.html">noir_aztec::oracle::avm::block_number</a></li>
@@ -961,6 +978,7 @@
 <li><a href="noir_aztec/oracle/avm/fn.version.html">noir_aztec::oracle::avm::version</a></li>
 <li><a href="noir_aztec/oracle/block_header/fn.get_block_header_at.html">noir_aztec::oracle::block_header::get_block_header_at</a></li>
 <li><a href="noir_aztec/oracle/call_private_function/fn.call_private_function_internal.html">noir_aztec::oracle::call_private_function::call_private_function_internal</a></li>
+<li><a href="noir_aztec/oracle/call_utility_function/fn.call_utility_function.html">noir_aztec::oracle::call_utility_function::call_utility_function</a></li>
 <li><a href="noir_aztec/oracle/capsules/fn.copy.html">noir_aztec::oracle::capsules::copy</a></li>
 <li><a href="noir_aztec/oracle/capsules/fn.delete.html">noir_aztec::oracle::capsules::delete</a></li>
 <li><a href="noir_aztec/oracle/capsules/fn.load.html">noir_aztec::oracle::capsules::load</a></li>
@@ -975,6 +993,7 @@
 <li><a href="noir_aztec/oracle/get_contract_instance/fn.get_contract_instance_initialization_hash_avm.html">noir_aztec::oracle::get_contract_instance::get_contract_instance_initialization_hash_avm</a></li>
 <li><a href="noir_aztec/oracle/get_l1_to_l2_membership_witness/fn.get_l1_to_l2_membership_witness.html">noir_aztec::oracle::get_l1_to_l2_membership_witness::get_l1_to_l2_membership_witness</a></li>
 <li><a href="noir_aztec/oracle/get_membership_witness/fn.get_block_hash_membership_witness.html">noir_aztec::oracle::get_membership_witness::get_block_hash_membership_witness</a></li>
+<li><a href="noir_aztec/oracle/get_membership_witness/fn.get_maybe_block_hash_membership_witness.html">noir_aztec::oracle::get_membership_witness::get_maybe_block_hash_membership_witness</a></li>
 <li><a href="noir_aztec/oracle/get_membership_witness/fn.get_note_hash_membership_witness.html">noir_aztec::oracle::get_membership_witness::get_note_hash_membership_witness</a></li>
 <li><a href="noir_aztec/oracle/get_nullifier_membership_witness/fn.get_low_nullifier_membership_witness.html">noir_aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness</a></li>
 <li><a href="noir_aztec/oracle/get_nullifier_membership_witness/fn.get_nullifier_membership_witness.html">noir_aztec::oracle::get_nullifier_membership_witness::get_nullifier_membership_witness</a></li>
@@ -997,6 +1016,7 @@
 <li><a href="noir_aztec/oracle/logging/fn.warn_log.html">noir_aztec::oracle::logging::warn_log</a></li>
 <li><a href="noir_aztec/oracle/logging/fn.warn_log_format.html">noir_aztec::oracle::logging::warn_log_format</a></li>
 <li><a href="noir_aztec/oracle/logs/fn.notify_created_contract_class_log.html">noir_aztec::oracle::logs::notify_created_contract_class_log</a></li>
+<li><a href="noir_aztec/oracle/message_processing/fn.get_tx_effect.html">noir_aztec::oracle::message_processing::get_tx_effect</a></li>
 <li><a href="noir_aztec/oracle/notes/fn.get_next_app_tag_as_sender.html">noir_aztec::oracle::notes::get_next_app_tag_as_sender</a></li>
 <li><a href="noir_aztec/oracle/notes/fn.get_notes.html">noir_aztec::oracle::notes::get_notes</a></li>
 <li><a href="noir_aztec/oracle/notes/fn.get_sender_for_tags.html">noir_aztec::oracle::notes::get_sender_for_tags</a></li>
@@ -1116,12 +1136,15 @@
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.add_authwit.html">noir_aztec::test::helpers::txe_oracles::add_authwit</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.advance_blocks_by.html">noir_aztec::test::helpers::txe_oracles::advance_blocks_by</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.advance_timestamp_by.html">noir_aztec::test::helpers::txe_oracles::advance_timestamp_by</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/fn.assert_compatible_txe_oracle_version.html">noir_aztec::test::helpers::txe_oracles::assert_compatible_txe_oracle_version</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.create_account.html">noir_aztec::test::helpers::txe_oracles::create_account</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.deploy.html">noir_aztec::test::helpers::txe_oracles::deploy</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.deploy_oracle.html">noir_aztec::test::helpers::txe_oracles::deploy_oracle</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.execute_utility_function.html">noir_aztec::test::helpers::txe_oracles::execute_utility_function</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.get_default_address.html">noir_aztec::test::helpers::txe_oracles::get_default_address</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.get_last_block_timestamp.html">noir_aztec::test::helpers::txe_oracles::get_last_block_timestamp</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/fn.get_last_call_context.html">noir_aztec::test::helpers::txe_oracles::get_last_call_context</a></li>
+<li><a href="noir_aztec/test/helpers/txe_oracles/fn.get_last_call_offchain_effects.html">noir_aztec::test::helpers::txe_oracles::get_last_call_offchain_effects</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.get_last_tx_effects.html">noir_aztec::test::helpers::txe_oracles::get_last_tx_effects</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.get_next_block_number.html">noir_aztec::test::helpers::txe_oracles::get_next_block_number</a></li>
 <li><a href="noir_aztec/test/helpers/txe_oracles/fn.get_next_block_timestamp.html">noir_aztec::test::helpers::txe_oracles::get_next_block_timestamp</a></li>
@@ -1136,10 +1159,15 @@
 <li><a href="noir_aztec/utils/array/subarray/fn.subarray.html">noir_aztec::utils::array::subarray::subarray</a></li>
 <li><a href="noir_aztec/utils/array/subbvec/fn.subbvec.html">noir_aztec::utils::array::subbvec::subbvec</a></li>
 <li><a href="noir_aztec/utils/comparison/fn.compare.html">noir_aztec::utils::comparison::compare</a></li>
-<li><a href="noir_aztec/utils/conversion/bytes_to_fields/fn.bytes_from_fields.html">noir_aztec::utils::conversion::bytes_to_fields::bytes_from_fields</a></li>
-<li><a href="noir_aztec/utils/conversion/bytes_to_fields/fn.bytes_to_fields.html">noir_aztec::utils::conversion::bytes_to_fields::bytes_to_fields</a></li>
-<li><a href="noir_aztec/utils/conversion/fields_to_bytes/fn.fields_from_bytes.html">noir_aztec::utils::conversion::fields_to_bytes::fields_from_bytes</a></li>
-<li><a href="noir_aztec/utils/conversion/fields_to_bytes/fn.fields_to_bytes.html">noir_aztec::utils::conversion::fields_to_bytes::fields_to_bytes</a></li>
+<li><a href="noir_aztec/utils/conversion/fn.bytes_from_fields.html">noir_aztec::utils::conversion::bytes_from_fields</a></li>
+<li><a href="noir_aztec/utils/conversion/fn.bytes_to_fields.html">noir_aztec::utils::conversion::bytes_to_fields</a></li>
+<li><a href="noir_aztec/utils/conversion/fn.fields_from_bytes.html">noir_aztec::utils::conversion::fields_from_bytes</a></li>
+<li><a href="noir_aztec/utils/conversion/fn.fields_to_bytes.html">noir_aztec::utils::conversion::fields_to_bytes</a></li>
+<li><a href="noir_aztec/utils/conversion/bytes_as_fields/fn.decode_bytes_from_fields.html">noir_aztec::utils::conversion::bytes_as_fields::decode_bytes_from_fields</a></li>
+<li><a href="noir_aztec/utils/conversion/bytes_as_fields/fn.encode_bytes_as_fields.html">noir_aztec::utils::conversion::bytes_as_fields::encode_bytes_as_fields</a></li>
+<li><a href="noir_aztec/utils/conversion/fields_as_bytes/fn.decode_fields_from_bytes.html">noir_aztec::utils::conversion::fields_as_bytes::decode_fields_from_bytes</a></li>
+<li><a href="noir_aztec/utils/conversion/fields_as_bytes/fn.encode_fields_as_bytes.html">noir_aztec::utils::conversion::fields_as_bytes::encode_fields_as_bytes</a></li>
+<li><a href="noir_aztec/utils/conversion/fields_as_bytes/fn.try_decode_fields_from_bytes.html">noir_aztec::utils::conversion::fields_as_bytes::try_decode_fields_from_bytes</a></li>
 <li><a href="noir_aztec/utils/point/fn.get_sign_of_point.html">noir_aztec::utils::point::get_sign_of_point</a></li>
 <li><a href="noir_aztec/utils/point/fn.point_from_x_coord.html">noir_aztec::utils::point::point_from_x_coord</a></li>
 <li><a href="noir_aztec/utils/point/fn.point_from_x_coord_and_sign.html">noir_aztec::utils::point::point_from_x_coord_and_sign</a></li>

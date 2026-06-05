@@ -1,11 +1,6 @@
-import { type AvmStat, type BackendOptions, BackendType, Barretenberg, type ChonkProof } from '@aztec/bb.js';
-import {
-  CHONK_ECCVM_PROOF_LENGTH,
-  CHONK_JOINT_PROOF_LENGTH,
-  CHONK_MERGE_PROOF_SIZE,
-  IPA_PROOF_LENGTH,
-} from '@aztec/constants';
+import { type AvmStat, type BackendOptions, BackendType, Barretenberg } from '@aztec/bb.js';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import { FifoMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 
 import type { UltraHonkFlavor } from '../honk.js';
@@ -197,8 +192,9 @@ export class BBJsInstance implements BBJsApi {
   }
 
   /**
-   * Verify a Chonk (IVC) proof by splitting flat fields into the structured ChonkProof format.
-   * Mirrors C++ ChonkProof::from_field_elements() logic.
+   * Verify a Chonk (IVC) proof passed as flat field elements (with public inputs prepended).
+   * The split into structured sub-proofs happens server-side in `ChonkProof::from_field_elements`,
+   * so this layer doesn't need to know per-component sub-proof sizes.
    * @param fieldsWithPublicInputs - Flat proof fields as 32-byte Uint8Arrays (public inputs prepended).
    * @param verificationKey - The VK bytes.
    */
@@ -207,8 +203,7 @@ export class BBJsInstance implements BBJsApi {
     verificationKey: Uint8Array,
   ): Promise<{ verified: boolean; durationMs: number }> {
     const timer = new Timer();
-    const proof = splitChonkProofToStructured(fieldsWithPublicInputs);
-    const result = await this.api.chonkVerify({ proof, vk: verificationKey });
+    const result = await this.api.chonkVerifyFromFields({ proof: fieldsWithPublicInputs, vk: verificationKey });
     return { verified: result.valid, durationMs: timer.ms() };
   }
 
@@ -242,42 +237,148 @@ export class BBJsInstance implements BBJsApi {
   }
 }
 
+/** Options for {@link BBJsFactory}. */
+export interface BBJsFactoryOptions {
+  /**
+   * Number of long-lived bb processes to keep in the pool.
+   * If omitted, every `getInstance()` call spawns a fresh bb that is destroyed on dispose.
+   */
+  poolSize?: number;
+  logger?: Logger;
+  threads?: number;
+  debugDir?: string;
+}
+
 /**
- * Factory for managing BBJsInstance lifecycle.
- * Provides fresh instances for proving (each spawns a new bb process)
- * and can pool instances for verification.
+ * Manages bb.js instance lifecycle. By default every `getInstance()` call spawns a fresh
+ * bb process that is destroyed when the borrow is disposed. Pass `poolSize` to keep a fixed
+ * set of long-lived bb processes that are reused across calls — useful when the per-call
+ * bb startup cost dominates the workload (e.g. high-rate IVC verification).
+ *
+ * Idiomatic usage:
+ * ```
+ * await using inst = await factory.getInstance();
+ * await inst.someMethod(...);
+ * // disposed automatically when `inst` goes out of scope
+ * ```
  */
-export class BBJsProverFactory {
+export class BBJsFactory {
+  private readonly poolSize?: number;
+  private readonly logger?: Logger;
+  private readonly threads?: number;
+  private readonly debugDir?: string;
+
+  /** Available pooled instances when poolSize is set; otherwise undefined. */
+  private pool?: FifoMemoryQueue<BBJsApi>;
+  /** Lazily-resolved on first `getInstance()` call to prevent racing pool initialization. */
+  private initPromise?: Promise<void>;
+  private destroyed = false;
+
   constructor(
     private bbPath: string,
-    private logger?: Logger,
-    private threads?: number,
-    private debugDir?: string,
-  ) {}
-
-  /**
-   * Run an operation with a fresh Barretenberg instance.
-   * The instance is created before the operation and destroyed after.
-   * Suitable for proving where process startup is negligible relative to proof time.
-   */
-  async withFreshInstance<T>(fn: (instance: BBJsApi) => Promise<T>): Promise<T> {
-    const logFn = this.logger ? (msg: string) => this.logger!.verbose(`bb.js - ${msg}`) : undefined;
-    const raw = await BBJsInstance.create(this.bbPath, logFn, this.threads);
-    const instance = await this.maybeWrapDebug(raw);
-    try {
-      return await fn(instance);
-    } finally {
-      await instance.destroy();
+    options: BBJsFactoryOptions = {},
+  ) {
+    this.poolSize = options.poolSize;
+    this.logger = options.logger;
+    this.threads = options.threads;
+    this.debugDir = options.debugDir;
+    if (this.poolSize !== undefined && this.poolSize < 1) {
+      throw new Error(`BBJsFactory poolSize must be >= 1, got ${this.poolSize}`);
     }
   }
 
   /**
-   * Run a verification operation.
-   * Currently creates a fresh instance per call (matches current behavior of spawning bb per verification).
-   * Can be extended to use a pool if needed.
+   * Acquire a bb instance. The returned object implements `BBJsApi` and `AsyncDisposable`.
+   * With no pool: spawns a fresh bb that is destroyed on dispose. With a pool: borrows from
+   * the pool and returns to it on dispose.
    */
-  withVerifierInstance<T>(fn: (instance: BBJsApi) => Promise<T>): Promise<T> {
-    return this.withFreshInstance(fn);
+  async getInstance(): Promise<BBJsApi & AsyncDisposable> {
+    if (this.destroyed) {
+      throw new Error('BBJsFactory has been destroyed');
+    }
+    if (this.poolSize === undefined) {
+      // No pool: fresh-per-call, dispose destroys.
+      const instance = await this.createInstance();
+      return this.makeOwned(instance);
+    }
+    if (!this.initPromise) {
+      this.initPromise = this.initPool();
+    }
+    await this.initPromise;
+    const pool = this.pool;
+    if (!pool) {
+      throw new Error('BBJsFactory has been destroyed');
+    }
+    const instance = await pool.get();
+    if (!instance) {
+      throw new Error('BBJsFactory was destroyed while waiting for an instance');
+    }
+    return this.makeBorrowed(instance);
+  }
+
+  /**
+   * Tear down all pooled instances. Idempotent. No-op when no pool is configured (fresh-per-call
+   * instances are destroyed by their own dispose callbacks). Instances currently held by an
+   * in-flight pooled borrow are destroyed by their dispose callback when released.
+   */
+  async destroy(): Promise<void> {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
+    const pool = this.pool;
+    this.pool = undefined;
+    if (!pool) {
+      return;
+    }
+    const idle: BBJsApi[] = [];
+    while (pool.length() > 0) {
+      const item = pool.getImmediate();
+      if (item) {
+        idle.push(item);
+      }
+    }
+    pool.cancel();
+    // Aggregate teardown failures so a single bb child that fails to shut down doesn't mask others.
+    const results = await Promise.allSettled(idle.map(item => item.destroy()));
+    const errors = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').map(r => r.reason);
+    if (errors.length > 0) {
+      throw new AggregateError(errors, `BBJsFactory.destroy: ${errors.length} bb instance(s) failed to shut down`);
+    }
+  }
+
+  private async initPool(): Promise<void> {
+    // Use allSettled so that if any createInstance() rejects we can destroy the rest instead of
+    // leaking bb child processes whose creation succeeded.
+    const results = await Promise.allSettled(Array.from({ length: this.poolSize! }, () => this.createInstance()));
+    const items: BBJsApi[] = [];
+    const errors: unknown[] = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        items.push(result.value);
+      } else {
+        errors.push(result.reason);
+      }
+    }
+    if (errors.length > 0 || this.destroyed) {
+      // Either creation failed or destroy() raced ahead — clean up everything we successfully spawned.
+      await Promise.all(items.map(item => item.destroy()));
+      if (errors.length > 0) {
+        throw errors[0];
+      }
+      return;
+    }
+    const pool = new FifoMemoryQueue<BBJsApi>();
+    for (const item of items) {
+      pool.put(item);
+    }
+    this.pool = pool;
+  }
+
+  private async createInstance(): Promise<BBJsApi> {
+    const logFn = this.logger ? (msg: string) => this.logger!.verbose(`bb.js - ${msg}`) : undefined;
+    const raw = await BBJsInstance.create(this.bbPath, logFn, this.threads);
+    return this.maybeWrapDebug(raw);
   }
 
   /** Wrap the instance in a debug wrapper if debugDir is configured. */
@@ -288,30 +389,47 @@ export class BBJsProverFactory {
     }
     return instance;
   }
-}
 
-/**
- * Split a flat Chonk proof field array into the structured ChonkProof format expected by bb.js chonkVerify.
- * Mirrors C++ ChonkProof::from_field_elements() in barretenberg/cpp/src/barretenberg/chonk/chonk_proof.cpp,
- * which derives the hiding_oink_proof size as the remainder after subtracting the 4 fixed-size sub-proofs.
- * This makes the split automatically adapt to any number of public inputs prepended to the oink portion.
- */
-function splitChonkProofToStructured(fields: Uint8Array[]): ChonkProof {
-  const fixedTailSize = CHONK_MERGE_PROOF_SIZE + CHONK_ECCVM_PROOF_LENGTH + IPA_PROOF_LENGTH + CHONK_JOINT_PROOF_LENGTH;
-  if (fields.length < fixedTailSize) {
-    throw new Error(
-      `splitChonkProofToStructured: proof too short (got ${fields.length} fields, need at least ${fixedTailSize})`,
-    );
+  /**
+   * Wrap a fresh instance with an `AsyncDisposable` that destroys it on dispose. Used when no
+   * pool is configured. Destroy errors are propagated so that a teardown failure (e.g. a bb child
+   * that didn't shut down cleanly) surfaces instead of being silently swallowed.
+   */
+  private makeOwned(instance: BBJsApi): BBJsApi & AsyncDisposable {
+    return this.makeDisposable(instance, () => instance.destroy());
   }
 
-  // hiding_oink_proof absorbs the leading portion (public inputs + oink payload); size is derived.
-  const oinkSize = fields.length - fixedTailSize;
-  let offset = 0;
-  const hidingOinkProof = fields.slice(offset, (offset += oinkSize));
-  const mergeProof = fields.slice(offset, (offset += CHONK_MERGE_PROOF_SIZE));
-  const eccvmProof = fields.slice(offset, (offset += CHONK_ECCVM_PROOF_LENGTH));
-  const ipaProof = fields.slice(offset, (offset += IPA_PROOF_LENGTH));
-  const jointProof = fields.slice(offset, (offset += CHONK_JOINT_PROOF_LENGTH));
+  /**
+   * Wrap a pooled instance with an `AsyncDisposable` that returns it to the pool (or destroys it
+   * if the factory was destroyed in the meantime). Destroy errors are propagated.
+   */
+  private makeBorrowed(instance: BBJsApi): BBJsApi & AsyncDisposable {
+    return this.makeDisposable(instance, async () => {
+      const pool = this.pool;
+      if (pool && !this.destroyed) {
+        pool.put(instance);
+      } else {
+        await instance.destroy();
+      }
+    });
+  }
 
-  return { hidingOinkProof, mergeProof, eccvmProof, ipaProof, jointProof };
+  private makeDisposable(instance: BBJsApi, onDispose: () => void | Promise<void>): BBJsApi & AsyncDisposable {
+    let disposed = false;
+    const dispose = async (): Promise<void> => {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      await onDispose();
+    };
+    return new Proxy(instance as BBJsApi & AsyncDisposable, {
+      get(target, prop, receiver) {
+        if (prop === Symbol.asyncDispose) {
+          return dispose;
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+  }
 }

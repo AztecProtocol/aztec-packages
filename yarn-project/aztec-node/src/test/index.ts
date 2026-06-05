@@ -1,7 +1,7 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import type { P2P } from '@aztec/p2p';
 import { SequencerClient } from '@aztec/sequencer-client';
-import { EpochPruneWatcher, type SlasherClientInterface } from '@aztec/slasher';
+import { DataWithholdingWatcher, type SlasherClientInterface } from '@aztec/slasher';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { L2LogsSource, Service, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -23,7 +23,7 @@ export declare class TestAztecNodeService extends AztecNodeService {
   declare public sequencer: SequencerClient | undefined;
   declare public slasherClient: SlasherClientInterface | undefined;
   declare public validatorsSentinel: Sentinel | undefined;
-  declare public epochPruneWatcher: EpochPruneWatcher | undefined;
+  declare public dataWithholdingWatcher: DataWithholdingWatcher | undefined;
   declare public l1ChainId: number;
   declare public version: number;
   declare public globalVariableBuilder: GlobalVariableBuilderInterface;

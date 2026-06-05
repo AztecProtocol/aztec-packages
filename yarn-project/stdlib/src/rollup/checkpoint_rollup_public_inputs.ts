@@ -101,6 +101,16 @@ export class CheckpointRollupPublicInputs {
     return this.toBuffer();
   }
 
+  toInspect() {
+    return {
+      checkpointHeaderHash: this.checkpointHeaderHashes[0].toString(),
+      previousArchiveRoot: this.previousArchive.root.toString(),
+      newArchiveRoot: this.newArchive.root.toString(),
+      previousOutHashRoot: this.previousOutHash.root.toString(),
+      newOutHashRoot: this.newOutHash.root.toString(),
+    };
+  }
+
   /** Creates an instance from a hex string. */
   static get schema() {
     return bufferSchemaFor(CheckpointRollupPublicInputs);

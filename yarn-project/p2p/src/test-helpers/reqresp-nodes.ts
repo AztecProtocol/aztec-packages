@@ -31,7 +31,7 @@ import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import type { BootnodeConfig, P2PConfig } from '../config.js';
+import { type BootnodeConfig, DEFAULT_PUBLIC_IP_SERVICES, type P2PConfig } from '../config.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { APP_SPECIFIC_WEIGHT } from '../services/gossipsub/scoring.js';
@@ -43,8 +43,6 @@ import {
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
-  type ReqRespSubProtocolValidators,
-  noopValidator,
 } from '../services/reqresp/interface.js';
 import { pingHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
@@ -76,6 +74,10 @@ export async function createLibp2pNode(
     services: {
       identify: identify({
         protocolPrefix: 'aztec',
+      }),
+      components: (components: { connectionManager: any; addressManager: any }) => ({
+        connectionManager: components.connectionManager,
+        addressManager: components.addressManager,
       }),
     },
   };
@@ -195,17 +197,6 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.BLOCK_TXS]: (_msg: any) => Promise.resolve(Buffer.from('block_txs')),
 };
 
-// By default, all requests are valid
-// If you want to test an invalid response, you can override the validator
-export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
-  [ReqRespSubProtocol.PING]: noopValidator,
-  [ReqRespSubProtocol.STATUS]: noopValidator,
-  [ReqRespSubProtocol.TX]: noopValidator,
-  [ReqRespSubProtocol.GOODBYE]: noopValidator,
-  [ReqRespSubProtocol.AUTH]: noopValidator,
-  [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
-};
-
 /**
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
@@ -218,13 +209,9 @@ export const createNodes = (
   return timesParallel(numberOfNodes, () => createReqResp(peerScoring, rateLimits));
 };
 
-export const startNodes = async (
-  nodes: ReqRespNode[],
-  subProtocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS,
-  subProtocolValidators = MOCK_SUB_PROTOCOL_VALIDATORS,
-) => {
+export const startNodes = async (nodes: ReqRespNode[], subProtocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS) => {
   for (const node of nodes) {
-    await node.req.start(subProtocolHandlers, subProtocolValidators);
+    await node.req.start(subProtocolHandlers);
   }
 };
 
@@ -292,6 +279,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number, chai
     bootstrapNodes: [],
     listenAddress: '127.0.0.1',
     queryForIp: false,
+    publicIpServices: DEFAULT_PUBLIC_IP_SERVICES,
   };
 }
 

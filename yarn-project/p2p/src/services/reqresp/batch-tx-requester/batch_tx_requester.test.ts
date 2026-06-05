@@ -10,7 +10,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { type BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
-import { Tx, TxArray, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import { Tx, TxArray, TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
@@ -26,15 +26,11 @@ import { BatchTxRequester } from './batch_tx_requester.js';
 import { DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD, DEFAULT_BATCH_TX_REQUESTER_TX_BATCH_SIZE } from './config.js';
 import type { BatchTxRequesterLibP2PService, IPeerPenalizer } from './interface.js';
 import { type IPeerCollection, PeerCollection, RATE_LIMIT_EXCEEDED_PEER_CACHE_TTL } from './peer_collection.js';
-import type { IBatchRequestTxValidator } from './tx_validator.js';
 
 /** Mock tx validator for testing that always returns valid */
-class AlwaysValidTxValidator implements IBatchRequestTxValidator {
-  validateRequestedTx(_tx: Tx): Promise<TxValidationResult> {
+class AlwaysValidTxValidator implements TxValidator {
+  validateTx(_tx: Tx): Promise<TxValidationResult> {
     return Promise.resolve({ result: 'valid' });
-  }
-  validateRequestedTxs(txs: Tx[]): Promise<TxValidationResult[]> {
-    return Promise.resolve(txs.map(() => ({ result: 'valid' })));
   }
 }
 
@@ -49,7 +45,7 @@ describe('BatchTxRequester', () => {
   let connectionSampler: MockProxy<ConnectionSampler>;
   let reqResp: MockProxy<ReqRespInterface>;
   let mockP2PService: MockProxy<BatchTxRequesterLibP2PService>;
-  let txValidator: IBatchRequestTxValidator;
+  let txValidator: TxValidator;
 
   beforeEach(async () => {
     logger = createLogger('test');
@@ -61,6 +57,7 @@ describe('BatchTxRequester', () => {
       reqResp,
       peerScoring,
     });
+    mockP2PService.validateRequestedBlockTxsConsistency.mockResolvedValue(true);
     txValidator = new AlwaysValidTxValidator();
 
     const signer = Secp256k1Signer.random();
@@ -266,7 +263,6 @@ describe('BatchTxRequester', () => {
         const availableTxs = availableTxHashes.map(h => makeTx(h));
 
         const response = new BlockTxsResponse(
-          blockProposal.archive,
           new TxArray(...availableTxs),
           BitVector.init(blockProposal.txHashes.length, peerHasIndices),
         );
@@ -628,7 +624,6 @@ describe('BatchTxRequester', () => {
 
         const someTxs = missing.slice(0, missing.length / 2).map(h => makeTx(h));
         const response = new BlockTxsResponse(
-          blockProposal.archive,
           new TxArray(...someTxs),
           BitVector.init(blockProposal.txHashes.length, []),
         );
@@ -717,7 +712,6 @@ describe('BatchTxRequester', () => {
         // peer1: always succeeds
         if (peerStr === peers[1].toString()) {
           const response = new BlockTxsResponse(
-            blockProposal.archive,
             new TxArray(...availableTxs),
             BitVector.init(blockProposal.txHashes.length, availableIndices),
           );
@@ -736,7 +730,6 @@ describe('BatchTxRequester', () => {
             };
           }
           const response = new BlockTxsResponse(
-            blockProposal.archive,
             new TxArray(...availableTxs),
             BitVector.init(blockProposal.txHashes.length, availableIndices),
           );
@@ -880,7 +873,6 @@ describe('BatchTxRequester', () => {
         const availableTxs = availableTxHashes.map(h => makeTx(h));
 
         const response = new BlockTxsResponse(
-          blockProposal.archive,
           new TxArray(...availableTxs),
           BitVector.init(blockProposal.txHashes.length, peerHasIndices),
         );
@@ -1070,7 +1062,6 @@ describe('BatchTxRequester', () => {
         const availableTxs = availableTxHashes.map(h => makeTx(h));
 
         const response = new BlockTxsResponse(
-          blockProposal.archive,
           new TxArray(...availableTxs),
           BitVector.init(blockProposal.txHashes.length, peerHasIndices),
         );
@@ -1190,13 +1181,12 @@ describe('BatchTxRequester', () => {
 
       const invalidTxIndices = new Set([2, 3, 7]); // Mark transactions at indices 2, 3, and 7 as invalid
 
-      const customValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const customValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
           const isInvalid = invalidTxIndices.has(txIndex);
           return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => customValidator.validateRequestedTx(tx))),
       };
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
@@ -1270,13 +1260,12 @@ describe('BatchTxRequester', () => {
       // Validator that rejects transactions at specific indices
       // Even indices are rejected, odd indices are accepted
       const invalidTxIndices = new Set([0, 2, 4, 6, 8, 10]);
-      const mixedValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const mixedValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
           const isInvalid = invalidTxIndices.has(txIndex);
           return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => mixedValidator.validateRequestedTx(tx))),
       };
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
@@ -1328,8 +1317,8 @@ describe('BatchTxRequester', () => {
       connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue([peer]);
 
       // Validator that throws errors for specific transactions
-      const throwingValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const throwingValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
 
           // Throw error for transactions at indices 1 and 3
@@ -1344,7 +1333,6 @@ describe('BatchTxRequester', () => {
 
           return Promise.resolve({ result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => throwingValidator.validateRequestedTx(tx))),
       };
 
       const peerTransactions = new Map([[peer.toString(), Array.from({ length: txCount }, (_, i) => i)]]);
@@ -1588,7 +1576,6 @@ describe('BatchTxRequester', () => {
         const availableTxs = availableTxHashes.map(h => makeTx(h));
 
         const response = new BlockTxsResponse(
-          blockProposal.archive,
           new TxArray(...availableTxs),
           BitVector.init(blockProposal.txHashes.length, peerHasIndices),
         );
@@ -1697,13 +1684,12 @@ describe('BatchTxRequester', () => {
 
       const invalidTxIndices = new Set([1, 6]); // Mark some transactions as invalid
 
-      const customValidator: IBatchRequestTxValidator = {
-        validateRequestedTx: (tx: Tx) => {
+      const customValidator: TxValidator = {
+        validateTx: (tx: Tx) => {
           const txIndex = missing.findIndex(h => h.equals(tx.txHash));
           const isInvalid = invalidTxIndices.has(txIndex);
           return Promise.resolve(isInvalid ? { result: 'invalid', reason: ['test invalid'] } : { result: 'valid' });
         },
-        validateRequestedTxs: (txs: Tx[]) => Promise.all(txs.map(tx => customValidator.validateRequestedTx(tx))),
       };
 
       const { mockImplementation } = createRequestLogger(blockProposal, new Set(), peerTransactions);
@@ -1736,100 +1722,7 @@ describe('BatchTxRequester', () => {
   });
 
   describe('Smart peer demotion', () => {
-    it('should demote a smart peer back to dumb on NOT_FOUND without penalizing', async () => {
-      // peer0 claims to have ALL txs but we only request a batch at a time, so after the first
-      // dumb response there are still missing txs → peer0 gets promoted to smart.
-      // On the next (smart) request peer0 returns NOT_FOUND (pruned proposal) → demoted without penalty.
-      const txCount = 2 * TX_BATCH_SIZE;
-      const deadline = 5_000;
-      const missing = Array.from({ length: txCount }, () => TxHash.random());
-
-      blockProposal = await makeBlockProposal({
-        signer: Secp256k1Signer.random(),
-        blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
-        archiveRoot: Fr.random(),
-        txHashes: missing,
-      });
-
-      const peers = await Promise.all([createSecp256k1PeerId(), createSecp256k1PeerId()]);
-      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
-
-      const peerCollection = new TestPeerCollection(
-        new PeerCollection(connectionSampler, undefined, new DateProvider()),
-      );
-
-      const allIndices = Array.from({ length: txCount }, (_, i) => i);
-
-      let peer0RequestCount = 0;
-      reqResp.sendRequestToPeer.mockImplementation(async (peerId: any, _sub: any, data: any) => {
-        const peerStr = peerId.toString();
-
-        if (peerStr === peers[0].toString()) {
-          peer0RequestCount++;
-          if (peer0RequestCount === 1) {
-            // First dumb request succeeds: return requested txs, claim to have ALL txs → promoted
-            const request = BlockTxsRequest.fromBuffer(data);
-            const requestedIndices = request.txIndices.getTrueIndices();
-            const availableTxs = requestedIndices.map(idx => makeTx(blockProposal.txHashes[idx]));
-
-            return {
-              status: ReqRespStatus.SUCCESS,
-              data: new BlockTxsResponse(
-                blockProposal.archive,
-                new TxArray(...availableTxs),
-                BitVector.init(txCount, allIndices),
-              ).toBuffer(),
-            };
-          }
-          // Subsequent smart requests return NOT_FOUND (pruned proposal, no full hashes in request)
-          return { status: ReqRespStatus.NOT_FOUND, data: Buffer.alloc(0) };
-        }
-
-        // peer1 always succeeds with a delay so peer0 is queried first
-        await sleep(50);
-        const request = BlockTxsRequest.fromBuffer(data);
-        const requestedIndices = request.txIndices.getTrueIndices();
-        const availableTxs = requestedIndices.map(idx => makeTx(blockProposal.txHashes[idx]));
-
-        return {
-          status: ReqRespStatus.SUCCESS,
-          data: new BlockTxsResponse(
-            blockProposal.archive,
-            new TxArray(...availableTxs),
-            BitVector.init(txCount, allIndices),
-          ).toBuffer(),
-        };
-      });
-
-      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
-      const requester = new BatchTxRequester(
-        tracker,
-        blockProposal,
-        undefined,
-        mockP2PService,
-        logger,
-        new DateProvider(),
-        {
-          smartParallelWorkerCount: 1,
-          dumbParallelWorkerCount: 1,
-          peerCollection,
-          txValidator,
-        },
-      );
-
-      const results = await BatchTxRequester.collectAllTxs(requester.run());
-      expect(results).toHaveLength(txCount);
-
-      // Verify peer0 was first promoted to smart, then demoted on NOT_FOUND
-      expect(peerCollection.smartPeersMarked).toContain(peers[0].toString());
-      expect(peerCollection.peersMarkedDumb).toContain(peers[0].toString());
-
-      // NOT_FOUND is a legitimate state (pruned proposal), so peer should NOT be penalized
-      const peer0Penalties = peerCollection.peersPenalised.filter(e => e.peerId === peers[0].toString());
-      expect(peer0Penalties).toHaveLength(0);
-    });
-
-    it('should demote a smart peer when it responds with invalid block data', async () => {
+    it('should demote a smart peer to dumb (without penalising) when it stops advertising the block', async () => {
       const txCount = 2 * TX_BATCH_SIZE;
       const deadline = 5_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
@@ -1865,18 +1758,15 @@ describe('BatchTxRequester', () => {
 
             return {
               status: ReqRespStatus.SUCCESS,
-              data: new BlockTxsResponse(
-                blockProposal.archive,
-                new TxArray(...availableTxs),
-                BitVector.init(txCount, allIndices),
-              ).toBuffer(),
+              data: new BlockTxsResponse(new TxArray(...availableTxs), BitVector.init(txCount, allIndices)).toBuffer(),
             };
           }
 
-          // Subsequent smart requests: invalid block response (pruned proposal fallback)
+          // Subsequent smart requests: a zero-length bitvector signals the peer no longer has the
+          // block (a full-length all-zeros vector would instead mean "has the block, but no txs").
           return {
             status: ReqRespStatus.SUCCESS,
-            data: new BlockTxsResponse(Fr.zero(), new TxArray(), BitVector.init(txCount, [])).toBuffer(),
+            data: new BlockTxsResponse(new TxArray(), BitVector.init(0, [])).toBuffer(),
           };
         }
 
@@ -1888,11 +1778,7 @@ describe('BatchTxRequester', () => {
 
         return {
           status: ReqRespStatus.SUCCESS,
-          data: new BlockTxsResponse(
-            blockProposal.archive,
-            new TxArray(...availableTxs),
-            BitVector.init(txCount, allIndices),
-          ).toBuffer(),
+          data: new BlockTxsResponse(new TxArray(...availableTxs), BitVector.init(txCount, allIndices)).toBuffer(),
         };
       });
 
@@ -1915,17 +1801,19 @@ describe('BatchTxRequester', () => {
       const results = await BatchTxRequester.collectAllTxs(requester.run());
       expect(results).toHaveLength(txCount);
 
-      // Verify peer0 was first promoted to smart, then demoted on invalid block response (Fr.zero)
+      // Verify peer0 was first promoted to smart, then demoted once it stopped advertising the block
       expect(peerCollection.smartPeersMarked).toContain(peers[0].toString());
       expect(peerCollection.peersMarkedDumb).toContain(peers[0].toString());
 
-      // Fr.zero is a legitimate pruned-proposal response — peer should NOT be penalised
+      // A peer that lacks the block is in a legitimate state — it should NOT be penalised
       const peer0Penalties = peerCollection.peersPenalised.filter(e => e.peerId === peers[0].toString());
       expect(peer0Penalties).toHaveLength(0);
     });
+  });
 
-    it('should penalise a smart peer that responds with a non-zero archive root mismatch', async () => {
-      const txCount = 2 * TX_BATCH_SIZE;
+  describe('Response consistency validation', () => {
+    it('marks peer dumb (without penalising) when validateRequestedBlockTxsConsistency rejects the response', async () => {
+      const txCount = TX_BATCH_SIZE;
       const deadline = 5_000;
       const missing = Array.from({ length: txCount }, () => TxHash.random());
 
@@ -1943,57 +1831,101 @@ describe('BatchTxRequester', () => {
         new PeerCollection(connectionSampler, undefined, new DateProvider()),
       );
 
-      const allIndices = Array.from({ length: txCount }, (_, i) => i);
+      // peer0's responses are rejected by consistency validation; peer1's responses pass.
+      const consistencyCallPeerIds: string[] = [];
+      mockP2PService.validateRequestedBlockTxsConsistency.mockImplementation((_req, _resp, peerId) => {
+        consistencyCallPeerIds.push(peerId.toString());
+        return Promise.resolve(peerId.toString() !== peers[0].toString());
+      });
 
-      let peer0RequestCount = 0;
-      reqResp.sendRequestToPeer.mockImplementation(async (peerId: any, _sub: any, data: any) => {
-        const peerStr = peerId.toString();
-
-        if (peerStr === peers[0].toString()) {
-          peer0RequestCount++;
-
-          if (peer0RequestCount === 1) {
-            // First dumb request: valid response claiming all txs → promoted to smart
-            const request = BlockTxsRequest.fromBuffer(data);
-            const requestedIndices = request.txIndices.getTrueIndices();
-            const availableTxs = requestedIndices.map(idx => makeTx(blockProposal.txHashes[idx]));
-
-            return {
-              status: ReqRespStatus.SUCCESS,
-              data: new BlockTxsResponse(
-                blockProposal.archive,
-                new TxArray(...availableTxs),
-                BitVector.init(txCount, allIndices),
-              ).toBuffer(),
-            };
-          }
-
-          // Subsequent smart requests: non-zero archive root mismatch (malicious response)
-          return {
-            status: ReqRespStatus.SUCCESS,
-            data: new BlockTxsResponse(Fr.random(), new TxArray(), BitVector.init(txCount, [])).toBuffer(),
-          };
-        }
-
-        // peer1 always succeeds with a delay
-        await sleep(50);
+      // Both peers return well-formed responses with the requested txs;
+      // the consistency mock is what decides whether the response is accepted.
+      reqResp.sendRequestToPeer.mockImplementation((_peerId: any, _sub: any, data: any) => {
         const request = BlockTxsRequest.fromBuffer(data);
         const requestedIndices = request.txIndices.getTrueIndices();
         const availableTxs = requestedIndices.map(idx => makeTx(blockProposal.txHashes[idx]));
 
-        return {
+        return Promise.resolve({
           status: ReqRespStatus.SUCCESS,
           data: new BlockTxsResponse(
-            blockProposal.archive,
             new TxArray(...availableTxs),
-            BitVector.init(txCount, allIndices),
+            BitVector.init(txCount, requestedIndices),
           ).toBuffer(),
-        };
+        });
       });
 
-      const tracker = RequestTracker.create(missing, new Date(Date.now() + deadline));
       const requester = new BatchTxRequester(
-        tracker,
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
+        blockProposal,
+        undefined,
+        mockP2PService,
+        logger,
+        new DateProvider(),
+        {
+          smartParallelWorkerCount: 0,
+          dumbParallelWorkerCount: 2,
+          peerCollection,
+          txValidator,
+        },
+      );
+
+      const results = await BatchTxRequester.collectAllTxs(requester.run());
+
+      // All txs eventually fetched (via peer1).
+      expect(results).toHaveLength(txCount);
+
+      // Consistency validation was invoked for peer0's response.
+      expect(consistencyCallPeerIds).toContain(peers[0].toString());
+
+      // peer0 marked dumb (INTERNAL_ERROR path in handleFailResponseFromPeer)…
+      expect(peerCollection.peersMarkedDumb).toContain(peers[0].toString());
+
+      // …but NOT penalised — failed consistency yields INTERNAL_ERROR, not a penalty cause.
+      const peer0Penalties = peerCollection.peersPenalised.filter(e => e.peerId === peers[0].toString());
+      expect(peer0Penalties).toHaveLength(0);
+    });
+
+    // Regression test for the former bug: a peer that signals it lacks the block (empty bitvector)
+    // but still ships the txs it matched by hash used to have its whole response discarded. The
+    // requester must instead USE those txs and merely mark the peer dumb (it can't serve index-based
+    // smart requests), without penalising it.
+    it('uses the txs from a peer that lacks the block (empty bitvector) and marks it dumb', async () => {
+      const txCount = TX_BATCH_SIZE;
+      const deadline = 5_000;
+      const missing = Array.from({ length: txCount }, () => TxHash.random());
+
+      blockProposal = await makeBlockProposal({
+        signer: Secp256k1Signer.random(),
+        blockHeader: makeBlockHeader(1, { blockNumber: BlockNumber(1) }),
+        archiveRoot: Fr.random(),
+        txHashes: missing,
+      });
+
+      const peers = await Promise.all([createSecp256k1PeerId()]);
+      connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peers);
+
+      const peerCollection = new TestPeerCollection(
+        new PeerCollection(connectionSampler, undefined, new DateProvider()),
+      );
+
+      // The validator accepts the response: a valid subset of block txs is fine even when the peer
+      // signals it lacks the block.
+      mockP2PService.validateRequestedBlockTxsConsistency.mockResolvedValue(true);
+
+      // The peer ships the requested txs but with an EMPTY bitvector -> peerHasBlock() === false.
+      reqResp.sendRequestToPeer.mockImplementation((_peerId: any, _sub: any, data: any) => {
+        const request = BlockTxsRequest.fromBuffer(data);
+        const requestedIndices = request.txIndices.getTrueIndices();
+        const availableTxs = requestedIndices.map(idx => makeTx(blockProposal.txHashes[idx]));
+
+        return Promise.resolve({
+          status: ReqRespStatus.SUCCESS,
+          data: new BlockTxsResponse(new TxArray(...availableTxs), BitVector.init(0, [])).toBuffer(),
+        });
+      });
+
+      const requester = new BatchTxRequester(
+        RequestTracker.create(missing, new Date(Date.now() + deadline)),
         blockProposal,
         undefined,
         mockP2PService,
@@ -2008,15 +1940,14 @@ describe('BatchTxRequester', () => {
       );
 
       const results = await BatchTxRequester.collectAllTxs(requester.run());
+
+      // The core of the regression: the txs were USED (delivered), not discarded.
       expect(results).toHaveLength(txCount);
 
-      // Verify peer0 was promoted then demoted
-      expect(peerCollection.smartPeersMarked).toContain(peers[0].toString());
+      // The peer is marked dumb (it can't serve smart, index-based requests) but is NOT penalised.
       expect(peerCollection.peersMarkedDumb).toContain(peers[0].toString());
-
-      // Non-zero archive root mismatch is malicious — peer must be penalised
-      const peer0Penalties = peerCollection.peersPenalised.filter(e => e.peerId === peers[0].toString());
-      expect(peer0Penalties.length).toBeGreaterThan(0);
+      const peerPenalties = peerCollection.peersPenalised.filter(e => e.peerId === peers[0].toString());
+      expect(peerPenalties).toHaveLength(0);
     });
   });
 });
@@ -2313,7 +2244,6 @@ const createRequestLogger = (
     const availableTxs = availableTxHashes.map(h => makeTx(h));
 
     const response = new BlockTxsResponse(
-      blockProposal.archive,
       new TxArray(...availableTxs),
       BitVector.init(blockProposal.txHashes.length, peerHasIndices),
     );

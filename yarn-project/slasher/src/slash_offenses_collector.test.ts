@@ -5,10 +5,19 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { type Offense, OffenseType } from '@aztec/stdlib/slashing';
 
+import { jest } from '@jest/globals';
+import { EventEmitter } from 'events';
+
 import { DefaultSlasherConfig } from './config.js';
 import { SlashOffensesCollector, type SlashOffensesCollectorSettings } from './slash_offenses_collector.js';
 import { SlasherOffensesStore } from './stores/offenses_store.js';
-import type { WantToSlashArgs } from './watcher.js';
+import {
+  WANT_TO_CLEAR_SLASH_EVENT,
+  WANT_TO_SLASH_EVENT,
+  type WantToClearSlashArgs,
+  type WantToSlashArgs,
+  type Watcher,
+} from './watcher.js';
 
 describe('SlashOffensesCollector', () => {
   let offensesCollector: SlashOffensesCollector;
@@ -155,7 +164,7 @@ describe('SlashOffensesCollector', () => {
       {
         validator: validator3,
         amount: 1500000000000000000n,
-        offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
         epochOrSlot: 175n, // slot 175 >= 110
       },
     ];
@@ -192,8 +201,91 @@ describe('SlashOffensesCollector', () => {
     expect(offensesByValidator[validator3.toString()]).toMatchObject({
       validator: validator3,
       amount: 1500000000000000000n,
-      offenseType: OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+      offenseType: OffenseType.PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS,
       epochOrSlot: 175n,
+    });
+  });
+
+  it('should handle want-to-clear-slash events', async () => {
+    const validator1 = EthAddress.random();
+    const validator2 = EthAddress.random();
+    const offenses: WantToSlashArgs[] = [
+      {
+        validator: validator1,
+        amount: 1000000000000000000n,
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 150n,
+      },
+      {
+        validator: validator2,
+        amount: 1000000000000000000n,
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 150n,
+      },
+      {
+        validator: validator1,
+        amount: 1000000000000000000n,
+        offenseType: OffenseType.DUPLICATE_PROPOSAL,
+        epochOrSlot: 150n,
+      },
+    ];
+    const clearArgs: WantToClearSlashArgs[] = [
+      {
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 150n,
+      },
+    ];
+
+    await offensesCollector.handleWantToSlash(offenses);
+    await offensesCollector.handleWantToClearSlash(clearArgs);
+
+    const pendingOffenses = await offensesStore.getOffenses();
+    expect(pendingOffenses).toHaveLength(1);
+    expect(pendingOffenses[0]).toMatchObject({
+      validator: validator1,
+      offenseType: OffenseType.DUPLICATE_PROPOSAL,
+      epochOrSlot: 150n,
+    });
+  });
+
+  it('should process queued slash and clear events in emission order', async () => {
+    const watcher = new EventEmitter() as unknown as Watcher;
+    watcher.updateConfig = jest.fn();
+    offensesCollector = new SlashOffensesCollector(config, settings, [watcher], offensesStore, logger);
+    await offensesCollector.start();
+
+    const validator1 = EthAddress.random();
+    const validator2 = EthAddress.random();
+
+    watcher.emit(WANT_TO_SLASH_EVENT, [
+      {
+        validator: validator1,
+        amount: 1000000000000000000n,
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 150n,
+      },
+      {
+        validator: validator2,
+        amount: 1000000000000000000n,
+        offenseType: OffenseType.DUPLICATE_PROPOSAL,
+        epochOrSlot: 150n,
+      },
+    ] satisfies WantToSlashArgs[]);
+    watcher.emit(WANT_TO_CLEAR_SLASH_EVENT, [
+      {
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 150n,
+      },
+    ] satisfies WantToClearSlashArgs[]);
+
+    await offensesCollector.stop();
+
+    const pendingOffenses = await offensesStore.getOffenses();
+    expect(pendingOffenses).toHaveLength(1);
+    expect(pendingOffenses[0]).toMatchObject({
+      validator: validator2,
+      offenseType: OffenseType.DUPLICATE_PROPOSAL,
+      epochOrSlot: 150n,
     });
   });
 });

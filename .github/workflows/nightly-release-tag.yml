@@ -13,10 +13,11 @@ concurrency:
 
 jobs:
   nightly-release-tag:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     steps:
       # Check out the repository so we can read files and create tags.
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 

@@ -42,6 +42,7 @@ const STEP_SECONDS = 15;
 const DRAIN_BUFFER_SECONDS = 90; // OTel batch push 60s + one Prom scrape 15s + slack
 const PENDING_POLL_SECONDS = 30;
 const DEFAULT_MAX_PENDING_WAIT_SECONDS = 60 * 60;
+const GCLOUD_LOG_FRESHNESS = env.BENCH_SCRAPE_GCLOUD_LOG_FRESHNESS ?? "2d";
 
 // --- CLI ---
 
@@ -52,6 +53,7 @@ type Args = {
   targetTps: number;
   workload: string;
   output: string | undefined;
+  inclusionRecords: string | undefined;
   waitForPendingZero: boolean;
   maxPendingWaitSeconds: number;
 };
@@ -77,6 +79,10 @@ function parseArgs(): Args {
       argv.indexOf("--output") === -1
         ? undefined
         : argv[argv.indexOf("--output") + 1],
+    inclusionRecords:
+      argv.indexOf("--inclusion-records") === -1
+        ? undefined
+        : argv[argv.indexOf("--inclusion-records") + 1],
     waitForPendingZero:
       !argv.includes("--no-wait-for-pending-zero") &&
       (argv.includes("--wait-for-pending-zero") ||
@@ -132,6 +138,128 @@ type SeriesEntry = {
   labels: Record<string, string>;
   points: TsPoint[];
 };
+
+// --- Inclusion records (client-observed per-tx timing from n_tps.test.ts) ---
+
+// Subset of TxInclusionData (yarn-project/.../tx_metrics.ts) that we care
+// about. Records are emitted into /tmp/n_tps_timing_data.json under the
+// `inclusionRecords` key, filtered to the high-value group, so this is the
+// authoritative client-observed inclusion-latency dataset for the run.
+type InclusionRecord = {
+  txHash: string;
+  sentAtMs: number;
+  minedAtMs: number;
+  blocknumber: number;
+};
+
+async function loadInclusionRecords(
+  path: string | undefined,
+): Promise<InclusionRecord[]> {
+  if (!path) return [];
+  try {
+    const raw = await readFile(path, "utf8");
+    const parsed = JSON.parse(raw) as {
+      inclusionRecords?: InclusionRecord[];
+    };
+    const records = parsed.inclusionRecords ?? [];
+    log(`Loaded ${records.length} inclusion records`, { path });
+    return records;
+  } catch (err) {
+    log("inclusion records load failed", {
+      path,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return [];
+  }
+}
+
+// Nearest-rank quantile. Returns null on empty input.
+function quantile(sorted: number[], p: number): number | null {
+  if (sorted.length === 0) return null;
+  const idx = Math.min(sorted.length - 1, Math.floor(p * sorted.length));
+  return sorted[idx];
+}
+
+function deltasMs(records: InclusionRecord[]): number[] {
+  const out: number[] = [];
+  for (const r of records) {
+    if (r.sentAtMs > 0 && r.minedAtMs > 0) {
+      const d = r.minedAtMs - r.sentAtMs;
+      if (d > 0) out.push(d);
+    }
+  }
+  return out;
+}
+
+function inclusionLatencyScalarMs(
+  records: InclusionRecord[],
+  p: number,
+): number | null {
+  const sorted = deltasMs(records).sort((a, b) => a - b);
+  return quantile(sorted, p);
+}
+
+// Bin records by sentAt minute, compute per-bin quantile. Matches the
+// `[1m]` window semantics the old Prom-based tx_mined_delay queries used.
+function inclusionLatencyTimeSeriesPoints(
+  records: InclusionRecord[],
+  startedAtEpoch: number,
+  endedAtEpoch: number,
+  p: number,
+  bucketSec = 60,
+): TsPoint[] {
+  const bins = new Map<number, number[]>();
+  for (const r of records) {
+    if (r.sentAtMs <= 0 || r.minedAtMs <= 0) continue;
+    const sentSec = Math.floor(r.sentAtMs / 1000);
+    if (sentSec < startedAtEpoch || sentSec > endedAtEpoch) continue;
+    const d = r.minedAtMs - r.sentAtMs;
+    if (d <= 0) continue;
+    const bin = Math.floor(sentSec / bucketSec) * bucketSec;
+    const arr = bins.get(bin) ?? [];
+    arr.push(d);
+    bins.set(bin, arr);
+  }
+  const points: TsPoint[] = [];
+  for (const bin of [...bins.keys()].sort((a, b) => a - b)) {
+    const arr = bins.get(bin)!.sort((a, b) => a - b);
+    points.push({ unixEpoch: bin, value: quantile(arr, p) });
+  }
+  return points;
+}
+
+function buildInclusionLatencyTimeSeries(
+  records: InclusionRecord[],
+  startedAtEpoch: number,
+  endedAtEpoch: number,
+  p: number,
+): {
+  metric: string;
+  unit: string;
+  source: string;
+  query: string;
+  stepSeconds: number;
+  series: SeriesEntry[];
+} {
+  return {
+    metric: "n_tps_test.tx_inclusion_time",
+    unit: "ms",
+    source: "client_observed",
+    query: `n_tps.test.ts inclusionRecords (group=tx_inclusion_time), quantile=${p}, 60s bins by sentAtMs`,
+    stepSeconds: 60,
+    series: [
+      {
+        labels: {},
+        points: inclusionLatencyTimeSeriesPoints(
+          records,
+          startedAtEpoch,
+          endedAtEpoch,
+          p,
+        ),
+      },
+    ],
+  };
+}
 
 const parseValue = (v: string | undefined): number | null =>
   v === undefined || v === "NaN" ? null : Number(v);
@@ -485,7 +613,7 @@ async function gcloudRead(filter: string): Promise<GcloudEntry[]> {
         GCP_PROJECT_ID,
         "--format=json",
         "--order=asc",
-        "--freshness=24h",
+        `--freshness=${GCLOUD_LOG_FRESHNESS}`,
         "--limit=50000",
       ],
       { stdio: ["ignore", "pipe", "pipe"] },
@@ -546,7 +674,6 @@ const INFRASTRUCTURE_ROLE_PATTERNS = [
 // show e.g. "pool=20k vs pool=1000" alongside two compared runs. Anything not
 // in this list is excluded — full env would be huge and mostly uninteresting.
 const AZTEC_CONFIG_KEYS = [
-  "SEQ_ENABLE_PROPOSER_PIPELINING",
   "SEQ_BLOCK_DURATION_MS",
   "SEQ_MAX_TX_PER_BLOCK",
   "SEQ_MAX_TX_PER_CHECKPOINT",
@@ -755,65 +882,201 @@ async function scrapeBlocks(
   startedAt: string,
   endedAt: string,
 ): Promise<BlockRecord[]> {
-  const filter = [
+  const canonicalFilter = [
+    `resource.labels.namespace_name="${NAMESPACE}"`,
+    `resource.labels.pod_name=~"${NAMESPACE}-(validator|rpc).*"`,
+    `jsonPayload.eventName="l2-block-handled"`,
+    timeFilter(startedAt, endedAt),
+  ].join(" AND ");
+  const builtFilter = [
+    `resource.labels.namespace_name="${NAMESPACE}"`,
+    `resource.labels.pod_name=~"${NAMESPACE}-(validator|rpc).*"`,
+    `jsonPayload.eventName="l2-block-built"`,
+    timeFilter(startedAt, endedAt),
+  ].join(" AND ");
+  const processorFilter = [
     `resource.labels.namespace_name="${NAMESPACE}"`,
     `resource.labels.pod_name=~"${NAMESPACE}-(validator|rpc).*"`,
     `jsonPayload.message=~"^Processed [0-9]+ successful txs and"`,
     timeFilter(startedAt, endedAt),
   ].join(" AND ");
-  const entries = await gcloudRead(filter);
 
-  // Each block is logged once per pod that processed it (validators +
-  // RPC-colocated full node sync). Dedupe by blockNumber, keep the earliest
-  // timestamp — that's most likely the proposer who built the block.
-  const byBlock = new Map<number, { entry: GcloudEntry; time: number }>();
-  for (const entry of entries) {
-    const p = entry.jsonPayload;
-    if (!p) {
-      continue;
-    }
-    const blockNumber =
-      typeof p.blockNumber === "number"
-        ? p.blockNumber
-        : typeof p.blockNumber === "string"
-          ? Number(p.blockNumber)
-          : NaN;
-    if (!Number.isFinite(blockNumber)) {
-      continue;
-    }
-    const t = Date.parse(entry.timestamp);
-    const prev = byBlock.get(blockNumber);
-    if (!prev || t < prev.time) {
-      byBlock.set(blockNumber, { entry, time: t });
-    }
-  }
+  const [canonicalEntries, builtEntries, processorEntries] = await Promise.all([
+    gcloudRead(canonicalFilter),
+    gcloudRead(builtFilter).catch((err) => {
+      log("built-block log scrape failed, continuing without build durations", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return [] as GcloudEntry[];
+    }),
+    gcloudRead(processorFilter).catch((err) => {
+      log(
+        "public-processor log scrape failed, continuing without gas/silent-skip fields",
+        {
+          err: err instanceof Error ? err.message : String(err),
+        },
+      );
+      return [] as GcloudEntry[];
+    }),
+  ]);
 
-  if (byBlock.size === 0) {
+  const canonicalByBlock = dedupeBlockEntries(canonicalEntries, (entry) => ({
+    blockNumber: numberPayloadField(entry.jsonPayload ?? {}, "blockNumber"),
+    txCount: numberPayloadField(entry.jsonPayload ?? {}, "txCount"),
+    time: Date.parse(entry.timestamp),
+  }));
+  const builtByBlock = entriesByBlock(builtEntries);
+  const processorByBlock = entriesByBlock(processorEntries);
+
+  if (canonicalByBlock.size === 0) {
     return [];
   }
-  const blockNumbers = [...byBlock.keys()].sort((a, b) => a - b);
+  const blockNumbers = [...canonicalByBlock.keys()].sort((a, b) => a - b);
   const first = blockNumbers[0];
 
   return blockNumbers.map((bn) => {
-    const { entry } = byBlock.get(bn)!;
-    const p = entry.jsonPayload!;
+    const canonical = canonicalByBlock.get(bn)!;
+    const p = canonical.jsonPayload!;
+    const txCount = finiteOrZero(numberPayloadField(p, "txCount"));
+    const built = chooseBestMatchingEntry(
+      builtByBlock.get(bn) ?? [],
+      txCount,
+      "txCount",
+    );
+    const processor = chooseBestMatchingEntry(
+      processorByBlock.get(bn) ?? [],
+      txCount,
+      "successfulCount",
+    );
+    const processorPayload = processor?.jsonPayload;
     return {
       blockNumber: bn,
       blockNumberInTest: bn - first,
-      minedAt: entry.timestamp,
-      successfulCount: Number(p.successfulCount ?? 0),
-      failedCount: Number(p.failedCount ?? 0),
-      silentlySkippedCount: Number(p.silentlySkippedCount ?? 0),
-      silentlySkippedDurationMs: Number(p.silentlySkippedDurationMs ?? 0),
-      buildDurationSeconds: Number(p.duration ?? 0),
-      totalPublicGas: p.totalPublicGas as
+      minedAt: canonical.timestamp,
+      successfulCount: txCount,
+      failedCount: finiteOrZero(
+        numberPayloadField(processorPayload ?? {}, "failedCount"),
+      ),
+      silentlySkippedCount: finiteOrZero(
+        numberPayloadField(processorPayload ?? {}, "silentlySkippedCount"),
+      ),
+      silentlySkippedDurationMs: finiteOrZero(
+        numberPayloadField(processorPayload ?? {}, "silentlySkippedDurationMs"),
+      ),
+      buildDurationSeconds:
+        built?.jsonPayload === undefined
+          ? finiteOrZero(numberPayloadField(processorPayload ?? {}, "duration"))
+          : finiteOrZero(numberPayloadField(built.jsonPayload, "duration")) /
+            1000,
+      totalPublicGas: processorPayload?.totalPublicGas as
         | { daGas: number; l2Gas: number }
         | undefined,
       totalSizeInBytes:
-        typeof p.totalSizeInBytes === "number" ? p.totalSizeInBytes : undefined,
+        typeof processorPayload?.totalSizeInBytes === "number"
+          ? processorPayload.totalSizeInBytes
+          : undefined,
       source: "log",
     };
   });
+}
+
+type BlockEntryProjection = {
+  blockNumber: number;
+  txCount: number;
+  time: number;
+};
+
+function dedupeBlockEntries(
+  entries: GcloudEntry[],
+  project: (entry: GcloudEntry) => BlockEntryProjection,
+): Map<number, GcloudEntry> {
+  const byBlock = new Map<
+    number,
+    { entry: GcloudEntry; projection: BlockEntryProjection }
+  >();
+  for (const entry of entries) {
+    const projection = project(entry);
+    if (
+      !Number.isFinite(projection.blockNumber) ||
+      !Number.isFinite(projection.txCount) ||
+      !Number.isFinite(projection.time)
+    ) {
+      continue;
+    }
+    const prev = byBlock.get(projection.blockNumber);
+    if (!prev || isBetterCanonicalBlockEntry(projection, prev.projection)) {
+      byBlock.set(projection.blockNumber, { entry, projection });
+    }
+  }
+  return new Map(
+    [...byBlock.entries()].map(([blockNumber, value]) => [
+      blockNumber,
+      value.entry,
+    ]),
+  );
+}
+
+function isBetterCanonicalBlockEntry(
+  candidate: BlockEntryProjection,
+  previous: BlockEntryProjection,
+): boolean {
+  // Same tx count usually means the same block observed by another pod; keep
+  // the earliest timestamp. Different tx count implies a distinct block at the
+  // same height, so prefer the later observation as the best final-chain proxy.
+  if (candidate.txCount !== previous.txCount) {
+    return candidate.time > previous.time;
+  }
+  return candidate.time < previous.time;
+}
+
+function entriesByBlock(entries: GcloudEntry[]): Map<number, GcloudEntry[]> {
+  const out = new Map<number, GcloudEntry[]>();
+  for (const entry of entries) {
+    const blockNumber = numberPayloadField(
+      entry.jsonPayload ?? {},
+      "blockNumber",
+    );
+    if (!Number.isFinite(blockNumber)) {
+      continue;
+    }
+    const bucket = out.get(blockNumber) ?? [];
+    bucket.push(entry);
+    out.set(blockNumber, bucket);
+  }
+  return out;
+}
+
+function chooseBestMatchingEntry(
+  entries: GcloudEntry[],
+  txCount: number,
+  txCountField: string,
+): GcloudEntry | undefined {
+  const candidates = entries.filter(
+    (entry) =>
+      numberPayloadField(entry.jsonPayload ?? {}, txCountField) === txCount,
+  );
+  const source = candidates.length > 0 ? candidates : entries;
+  return source
+    .filter((entry) => Number.isFinite(Date.parse(entry.timestamp)))
+    .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))[0];
+}
+
+function numberPayloadField(
+  payload: Record<string, unknown>,
+  key: string,
+): number {
+  const value = payload[key];
+  if (typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "string") {
+    return Number(value);
+  }
+  return NaN;
+}
+
+function finiteOrZero(value: number): number {
+  return Number.isFinite(value) ? value : 0;
 }
 
 type ChainPrunedEvent = {
@@ -1271,6 +1534,7 @@ type SummaryArgs = {
   timeSeries: Record<string, { series: SeriesEntry[] }>;
   blocks: BlockRecord[];
   events: Event[];
+  inclusionRecords: InclusionRecord[];
 };
 
 async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
@@ -1289,15 +1553,26 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
       minedAtEpoch <= a.inclusionEndedAtEpoch
     );
   });
-  const totalTxsMined = inclusionBlocks.reduce(
-    (s, b) => s + b.successfulCount,
-    0,
-  );
+  const hasInclusionBlockRecords = inclusionBlocks.length > 0;
+  const totalTxsMined = hasInclusionBlockRecords
+    ? inclusionBlocks.reduce((s, b) => s + b.successfulCount, 0)
+    : null;
+  const promInclusionTpsMean = meanNonNull(inclusionPoints);
   const inclusionTpsMean =
-    a.windowSec > 0
+    totalTxsMined !== null && a.windowSec > 0
       ? totalTxsMined / a.windowSec
-      : meanNonNull(inclusionPoints);
+      : promInclusionTpsMean;
   const inclusionTpsPeak = maxNonNull(inclusionPoints);
+
+  if (!hasInclusionBlockRecords && promInclusionTpsMean !== null) {
+    log(
+      "No block records found in inclusion window; using Prometheus inclusion TPS mean for summary",
+      {
+        promInclusionTpsMean,
+        inclusionPointCount: inclusionPoints.length,
+      },
+    );
+  }
 
   const safeInstant = async (promql: string): Promise<number | null> => {
     try {
@@ -1315,24 +1590,17 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
   const oneShotQuantile = (q: number, bucket: string) =>
     `histogram_quantile(${q}, sum by (le)(rate(${bucket}${NS}[${windowSpec}])))`;
 
-  const [
-    inclLatP50,
-    inclLatP95,
-    inclLatP99,
-    buildP50,
-    buildP95,
-    ppTxP50,
-    ppTxP95,
-  ] = await Promise.all([
-    safeInstant(
-      oneShotQuantile(0.5, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
-    ),
-    safeInstant(
-      oneShotQuantile(0.95, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
-    ),
-    safeInstant(
-      oneShotQuantile(0.99, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
-    ),
+  // Inclusion-latency quantiles are now computed from per-tx client-observed
+  // records emitted by n_tps.test.ts (high-value group only). The other
+  // histogram-based scalars below still come from Prometheus.
+  const inclLatP50 = inclusionLatencyScalarMs(a.inclusionRecords, 0.5);
+  const inclLatP95 = inclusionLatencyScalarMs(a.inclusionRecords, 0.95);
+  const inclLatP99 = inclusionLatencyScalarMs(a.inclusionRecords, 0.99);
+  if (a.inclusionRecords.length === 0) {
+    log("No inclusion records loaded; summary.inclusionLatencyP* will be null");
+  }
+
+  const [buildP50, buildP95, ppTxP50, ppTxP95] = await Promise.all([
     safeInstant(
       oneShotQuantile(
         0.5,
@@ -1379,15 +1647,15 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     publicProcessorTxDurationP50Ms: ppTxP50,
     publicProcessorTxDurationP95Ms: ppTxP95,
     totalTxsMined,
-    totalTxsFailed: inclusionBlocks.reduce((s, b) => s + b.failedCount, 0),
-    totalSilentSkipCount: inclusionBlocks.reduce(
-      (s, b) => s + b.silentlySkippedCount,
-      0,
-    ),
-    totalSilentSkipDurationMs: inclusionBlocks.reduce(
-      (s, b) => s + b.silentlySkippedDurationMs,
-      0,
-    ),
+    totalTxsFailed: hasInclusionBlockRecords
+      ? inclusionBlocks.reduce((s, b) => s + b.failedCount, 0)
+      : null,
+    totalSilentSkipCount: hasInclusionBlockRecords
+      ? inclusionBlocks.reduce((s, b) => s + b.silentlySkippedCount, 0)
+      : null,
+    totalSilentSkipDurationMs: hasInclusionBlockRecords
+      ? inclusionBlocks.reduce((s, b) => s + b.silentlySkippedDurationMs, 0)
+      : null,
     reorgCount: reorgs.length,
     deepestReorgBlocks: deepest,
   };
@@ -1646,6 +1914,34 @@ async function main(): Promise<void> {
     log("Scraping Prometheus time-series");
     const timeSeries = await scrapeTimeSeries(startedAtEpoch, promEndEpoch);
 
+    log("Loading client-observed inclusion records");
+    const inclusionRecords = await loadInclusionRecords(args.inclusionRecords);
+    // Compute the headline inclusion-latency time series from per-tx records
+    // and inject under the same slugs the dashboard reads. No Prometheus
+    // dependency for these — they reflect the true client → block-visible
+    // wall-clock latency for high-value txs only.
+    (timeSeries as Record<string, unknown>).txMinedDelayP50 =
+      buildInclusionLatencyTimeSeries(
+        inclusionRecords,
+        startedAtEpoch,
+        promEndEpoch,
+        0.5,
+      );
+    (timeSeries as Record<string, unknown>).txMinedDelayP95 =
+      buildInclusionLatencyTimeSeries(
+        inclusionRecords,
+        startedAtEpoch,
+        promEndEpoch,
+        0.95,
+      );
+    (timeSeries as Record<string, unknown>).txMinedDelayP99 =
+      buildInclusionLatencyTimeSeries(
+        inclusionRecords,
+        startedAtEpoch,
+        promEndEpoch,
+        0.99,
+      );
+
     log("Scraping per-block logs from gcloud");
     // Extend the log window by the drain buffer too — some blocks near endedAt
     // arrive in gcloud after the test stops sending.
@@ -1700,6 +1996,7 @@ async function main(): Promise<void> {
       timeSeries: timeSeries as Record<string, { series: SeriesEntry[] }>,
       blocks,
       events,
+      inclusionRecords,
     });
 
     const payload = {

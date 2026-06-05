@@ -1,17 +1,23 @@
 import { Fr } from '@aztec/aztec.js/fields';
-import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import { retryUntil } from '@aztec/foundation/retry';
 
-import { NO_L1_TO_L2_MSG_ERROR } from '../fixtures/fixtures.js';
+import { jest } from '@jest/globals';
+
+import { NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging token_bridge_public', () => {
+  // Pipelining slows wall-clock chain progress (12s slots); waitForProven via advanceToEpochProven
+  // needs more than the default 300s per-test budget.
+  jest.setTimeout(15 * 60 * 1000);
+
   const t = new CrossChainMessagingTest('token_bridge_public', { startProverNode: true });
 
   let { crossChainTestHarness, ethAccount, aztecNode, logger, ownerAddress, l2Bridge, l2Token, wallet, user2Address } =
     t;
 
   beforeEach(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     // Have to destructure again to ensure we have latest refs.
     ({ crossChainTestHarness, wallet, user2Address } = t);
 
@@ -82,18 +88,24 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
     await t.advanceToEpochProven(l2TxReceipt);
 
-    const l2ToL1MessageResult = (await computeL2ToL1MembershipWitness(aztecNode, l2ToL1Message, l2TxReceipt.txHash))!;
+    const l2ToL1MessageResult = await retryUntil(
+      () => aztecNode.getL2ToL1MembershipWitness(l2TxReceipt.txHash, l2ToL1Message),
+      'l2 to l1 membership witness',
+      60,
+      1,
+    );
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
     await crossChainTestHarness.withdrawFundsFromBridgeOnL1(
       withdrawAmount,
       l2ToL1MessageResult.epochNumber,
+      l2ToL1MessageResult.numCheckpointsInEpoch,
       l2ToL1MessageResult.leafIndex,
       l2ToL1MessageResult.siblingPath,
     );
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
-  }, 120_000);
+  }, 900_000);
 
   it('Someone else can mint funds to me on my behalf (publicly)', async () => {
     const l1TokenBalance = 1000000n;

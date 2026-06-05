@@ -9,9 +9,10 @@
 #   - <circuit_name>.json (the circuit artifact with bytecode)
 #   - witness.gz (the compressed witness)
 
-source $(git rev-parse --show-toplevel)/ci3/source
-source $(git rev-parse --show-toplevel)/ci3/source_redis
-source $(git rev-parse --show-toplevel)/ci3/source_cache
+own_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source"
+source "$root/ci3/source_redis"
+source "$root/ci3/source_cache"
 
 if [[ $# -ne 3 ]]; then
   echo "Usage: $0 <circuit_name> <inputs_folder> <cpus>"
@@ -19,7 +20,7 @@ if [[ $# -ne 3 ]]; then
   exit 1
 fi
 
-cd ..
+cd "$own_dir/.."
 
 circuit_name="$1"
 inputs_folder="$2"
@@ -29,6 +30,105 @@ echo_header "UltraHonk benchmark: $circuit_name (CPUS=$cpus)"
 
 export HARDWARE_CONCURRENCY="$cpus"
 export native_build_dir=$(scripts/preset-build-dir)
+
+function ultrahonk_inputs_present {
+  local dir="$1"
+  local expected_hash="${2:-}"
+  local marker="$dir/.ultrahonk-bench-inputs.hash"
+  if [[ -n "$expected_hash" ]] && [[ ! -f "$marker" || "$(<"$marker")" != "$expected_hash" ]]; then
+    return 1
+  fi
+  [[ -f "$dir/${circuit_name}.json" && -f "$dir/witness.gz" ]]
+}
+
+function generate_ultrahonk_inputs {
+  local dir="$1"
+  local state_dir
+  if [[ "$circuit_name" != "parity_base" ]]; then
+    echo_stderr "Error: automatic UltraHonk input generation currently supports parity_base only."
+    exit 1
+  fi
+
+  state_dir="$root/.cache/ultrahonk-bench-inputs/generate-$$"
+  rm -rf "$state_dir"
+  mkdir -p "$state_dir"
+  if ! (
+    cd "$root/yarn-project"
+    BASE_PARITY_BENCH_DIR="$state_dir" yarn workspace @aztec/ivc-integration test src/base_parity_inputs.test.ts
+  ); then
+    rm -rf "$state_dir"
+    return 1
+  fi
+
+  rm -rf "$dir"
+  mkdir -p "$(dirname "$dir")"
+  mv "$state_dir" "$dir"
+}
+
+function restore_cached_ultrahonk_inputs {
+  local dir="$1"
+  local cache_name="$2"
+  local state_dir cached_dir
+  if [[ "$(basename "$dir")" != "ultrahonk-bench-inputs" ]]; then
+    return 1
+  fi
+
+  state_dir="$root/.cache/ultrahonk-bench-inputs/cache-$$"
+  cached_dir="$state_dir/ultrahonk-bench-inputs"
+  rm -rf "$state_dir"
+  mkdir -p "$state_dir"
+  if cache_download "$cache_name" "$state_dir" && ultrahonk_inputs_present "$cached_dir"; then
+    rm -rf "$dir"
+    mkdir -p "$(dirname "$dir")"
+    mv "$cached_dir" "$dir"
+    rm -rf "$state_dir"
+    return 0
+  fi
+
+  rm -rf "$state_dir"
+  return 1
+}
+
+function ensure_ultrahonk_inputs {
+  local requested="$1"
+  local abs_inputs cache_hash cache_name lock_dir lock_file
+  abs_inputs="$(realpath -m "$requested")"
+
+  cache_hash="$(cd "$root/yarn-project" && ./bootstrap.sh hash)"
+  cache_name="bb-ultrahonk-bench-inputs-${cache_hash}.tar.gz"
+
+  if ultrahonk_inputs_present "$abs_inputs" "$cache_hash"; then
+    inputs_folder="$abs_inputs"
+    return
+  fi
+
+  lock_dir="$root/.cache/ultrahonk-bench-inputs/locks"
+  mkdir -p "$lock_dir"
+  lock_file="$lock_dir/$(printf '%s' "$abs_inputs" | sha256sum | cut -c1-16).lock"
+
+  (
+    flock 9
+    if ultrahonk_inputs_present "$abs_inputs" "$cache_hash"; then
+      return
+    fi
+
+    restore_cached_ultrahonk_inputs "$abs_inputs" "$cache_name" || true
+
+    if ! ultrahonk_inputs_present "$abs_inputs"; then
+      echo "Generating UltraHonk benchmark inputs at $abs_inputs"
+      generate_ultrahonk_inputs "$abs_inputs"
+      if [[ "$abs_inputs" == "$root/yarn-project/end-to-end/ultrahonk-bench-inputs" ]]; then
+        (cd "$root/yarn-project/end-to-end" && cache_upload "$cache_name" ultrahonk-bench-inputs)
+      fi
+    fi
+
+    printf '%s\n' "$cache_hash" > "$abs_inputs/.ultrahonk-bench-inputs.hash"
+  ) 9>"$lock_file"
+
+  inputs_folder="$abs_inputs"
+}
+
+ensure_ultrahonk_inputs "$inputs_folder"
 
 # Verify inputs exist
 bytecode_path="$inputs_folder/${circuit_name}.json"

@@ -6,6 +6,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { getErrorCause } from '@aztec/foundation/types';
 import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
@@ -13,11 +14,14 @@ import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import chunk from 'lodash.chunk';
 import {
   type Account,
+  ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
   type Log,
+  RpcRequestError,
   type StateOverride,
   type WatchContractEventReturnType,
+  decodeErrorResult,
   encodeAbiParameters,
   encodeFunctionData,
   getContract,
@@ -140,6 +144,20 @@ export enum TempCheckpointLogField {
   FeeHeader = 6,
 }
 
+/**
+ * Field-level override input for `tempCheckpointLogs[checkpointNumber]`. Covers the fields the
+ * `propose()` path actually reads back. `payloadDigest` is `Buffer32` because it carries an
+ * arbitrary `bytes32` value rather than a BN254 scalar. `slotNumber` carries the uint32 portion
+ * of the on-chain `CompressedSlot`.
+ */
+export type TempCheckpointLogOverrideFields = {
+  headerHash?: Fr;
+  outHash?: Fr;
+  payloadDigest?: Buffer32;
+  slotNumber?: SlotNumber;
+  feeHeader?: FeeHeader;
+};
+
 /** Components of the minimum fee per mana, as returned by the L1 rollup contract. */
 export type ManaMinFeeComponents = {
   sequencerCost: bigint;
@@ -216,6 +234,32 @@ export type CheckpointProposedArgs = {
 /** Log type for CheckpointProposed events. */
 export type CheckpointProposedLog = L1EventLog<CheckpointProposedArgs>;
 
+const INSUFFICIENT_VALIDATOR_SET_SIZE_ERROR = 'ValidatorSelection__InsufficientValidatorSetSize';
+
+function isValidatorSelectionError(err: unknown, errorName: string): boolean {
+  return (
+    getErrorCause(err, ContractFunctionRevertedError)?.data?.errorName === errorName ||
+    decodeRpcRequestErrorName(err) === errorName
+  );
+}
+
+function decodeRpcRequestErrorName(err: unknown): string | undefined {
+  const data = getErrorCause(err, RpcRequestError)?.data;
+  if (!isHexString(data)) {
+    return undefined;
+  }
+
+  try {
+    return decodeErrorResult({ abi: RollupAbi, data }).errorName;
+  } catch {
+    return undefined;
+  }
+}
+
+function isHexString(value: unknown): value is Hex {
+  return typeof value === 'string' && value.startsWith('0x');
+}
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
   private readonly logger = createLogger('ethereum:rollup');
@@ -248,7 +292,7 @@ export class RollupContract {
 
   static getFromConfig(config: L1ReaderConfig) {
     const client = getPublicClient(config);
-    const address = config.l1Contracts.rollupAddress.toString();
+    const address = config.rollupAddress.toString();
     return new RollupContract(client, address);
   }
 
@@ -574,7 +618,7 @@ export class RollupContract {
         args: [timestamp],
       })
       .catch(e => {
-        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientValidatorSetSize')) {
+        if (isValidatorSelectionError(e, INSUFFICIENT_VALIDATOR_SET_SIZE_ERROR)) {
           return { result: undefined };
         }
         throw e;
@@ -604,7 +648,7 @@ export class RollupContract {
         args: [],
       })
       .catch(e => {
-        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientValidatorSetSize')) {
+        if (isValidatorSelectionError(e, INSUFFICIENT_VALIDATOR_SET_SIZE_ERROR)) {
           return { result: undefined };
         }
         throw e;
@@ -844,20 +888,32 @@ export class RollupContract {
   }
 
   /**
-   * Returns a state override that sets the pending checkpoint number to the specified value. Useful for simulations.
-   * Requires querying the current state of the contract to get the current proven checkpoint number, as they are both
-   * stored in the same slot. If the argument is undefined, it returns an empty override.
+   * Returns a state override that sets the pending and/or proven checkpoint numbers. Useful for simulations.
+   * Both values share a single storage slot (pending in the upper 128 bits, proven in the lower 128 bits), so
+   * a single combined override is emitted to avoid the second state-diff clobbering the first. The current live
+   * value is read once to preserve any half not being overridden. Returns an empty override if neither is set.
+   *
+   * Throws if the resulting `proven > pending`, which would crash the simulation: `STFLib.canPruneAtTime` calls
+   * `getEpochForCheckpoint(proven + 1)` whenever `pending != proven`, and that asserts `_n <= tips.pending`.
    */
-  public async makePendingCheckpointNumberOverride(
-    forcePendingCheckpointNumber: CheckpointNumber | undefined,
-  ): Promise<StateOverride> {
-    if (forcePendingCheckpointNumber === undefined) {
+  public async makeChainTipsOverride(override: {
+    pending?: CheckpointNumber;
+    proven?: CheckpointNumber;
+  }): Promise<StateOverride> {
+    if (override.pending === undefined && override.proven === undefined) {
       return [];
     }
     const slot = RollupContract.stfStorageSlot;
     const currentValue = await this.client.getStorageAt({ address: this.address, slot });
-    const currentProvenCheckpointNumber = currentValue ? hexToBigInt(currentValue) & ((1n << 128n) - 1n) : 0n;
-    const newValue = (BigInt(forcePendingCheckpointNumber) << 128n) | currentProvenCheckpointNumber;
+    const currentRaw = currentValue ? hexToBigInt(currentValue) : 0n;
+    const currentPending = currentRaw >> 128n;
+    const currentProven = currentRaw & ((1n << 128n) - 1n);
+    const newPending = override.pending !== undefined ? BigInt(override.pending) : currentPending;
+    const newProven = override.proven !== undefined ? BigInt(override.proven) : currentProven;
+    if (newProven > newPending) {
+      throw new Error(`Invalid chain tips override: proven (${newProven}) > pending (${newPending})`);
+    }
+    const newValue = (newPending << 128n) | newProven;
     return [
       {
         address: this.address,
@@ -867,39 +923,56 @@ export class RollupContract {
   }
 
   /**
-   * Returns a state override that sets tempCheckpointLogs[checkpointNumber].feeHeader to the compressed fee header.
-   * Used when simulating a propose call where the parent checkpoint hasn't landed on L1 yet (pipelining).
+   * Returns a state override that patches `tempCheckpointLogs[checkpointNumber]` with every field that
+   * the L1 contract reads during `propose()` for the checkpoint that builds on top of it (proposer
+   * pipelining simulation). Mirrors the writes done by `ProposeLib.addTempCheckpointLog`.
+   *
+   * `blobCommitmentsHash` and `attestationsHash` are intentionally not exposed here — the propose path
+   * never asserts against them, so leaving them at storage zero is harmless.
    */
-  public async makeFeeHeaderOverride(checkpointNumber: CheckpointNumber, feeHeader: FeeHeader): Promise<StateOverride> {
-    const { epochDuration, proofSubmissionEpochs } = await this.getRollupConstants();
-    const roundaboutSize = BigInt(epochDuration * (proofSubmissionEpochs + 1) + 1);
-    const circularIndex = BigInt(checkpointNumber) % roundaboutSize;
+  public async makeTempCheckpointLogOverride(
+    checkpointNumber: CheckpointNumber,
+    fields: TempCheckpointLogOverrideFields,
+  ): Promise<StateOverride> {
+    const constants = await this.getRollupConstants();
+    const slotAt = (field: TempCheckpointLogField) =>
+      `0x${this.computeTempCheckpointLogStorageSlot(checkpointNumber, field, constants).toString(16).padStart(64, '0')}` as const;
+    const word = (v: bigint) => `0x${v.toString(16).padStart(64, '0')}` as const;
 
-    // tempCheckpointLogs is at offset 2 in RollupStore
-    const tempCheckpointLogsMappingBase = hexToBigInt(RollupContract.stfStorageSlot) + 2n;
+    const stateDiff: { slot: `0x${string}`; value: `0x${string}` }[] = [];
 
-    // Solidity mapping slot: keccak256(abi.encode(key, baseSlot))
-    const structBaseSlot = hexToBigInt(
-      keccak256(
-        encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [circularIndex, tempCheckpointLogsMappingBase]),
-      ),
-    );
+    if (fields.headerHash) {
+      stateDiff.push({ slot: slotAt(TempCheckpointLogField.HeaderHash), value: fields.headerHash.toString() });
+    }
+    if (fields.outHash) {
+      stateDiff.push({ slot: slotAt(TempCheckpointLogField.OutHash), value: fields.outHash.toString() });
+    }
+    if (fields.payloadDigest) {
+      stateDiff.push({
+        slot: slotAt(TempCheckpointLogField.PayloadDigest),
+        value: fields.payloadDigest.toString() as `0x${string}`,
+      });
+    }
+    if (fields.slotNumber !== undefined) {
+      // CompressedSlot is uint32 on L1 (SafeCast.toUint32 reverts on overflow). Match that behavior here
+      // so a malformed override surfaces immediately rather than silently truncating into a wrong slot.
+      const slotNumber = BigInt(fields.slotNumber);
+      if (slotNumber < 0n || slotNumber > 0xffffffffn) {
+        throw new Error(`slotNumber ${slotNumber} does not fit in uint32`);
+      }
+      stateDiff.push({ slot: slotAt(TempCheckpointLogField.SlotNumber), value: word(slotNumber) });
+    }
+    if (fields.feeHeader) {
+      stateDiff.push({
+        slot: slotAt(TempCheckpointLogField.FeeHeader),
+        value: word(RollupContract.compressFeeHeader(fields.feeHeader)),
+      });
+    }
 
-    // feeHeader is the 7th field (offset 6) in CompressedTempCheckpointLog
-    const feeHeaderSlot = structBaseSlot + 6n;
-    const compressed = RollupContract.compressFeeHeader(feeHeader);
-
-    return [
-      {
-        address: this.address,
-        stateDiff: [
-          {
-            slot: `0x${feeHeaderSlot.toString(16).padStart(64, '0')}`,
-            value: `0x${compressed.toString(16).padStart(64, '0')}`,
-          },
-        ],
-      },
-    ];
+    if (stateDiff.length === 0) {
+      return [];
+    }
+    return [{ address: this.address, stateDiff }];
   }
 
   /**
@@ -1330,11 +1403,20 @@ export class RollupContract {
     checkpointNumber: CheckpointNumber,
     field: TempCheckpointLogField,
   ): Promise<bigint> {
-    const fieldOffset = BigInt(field);
     const [epochDuration, proofSubmissionEpochs] = await Promise.all([
       this.getEpochDuration(),
       this.getProofSubmissionEpochs(),
     ]);
+    return this.computeTempCheckpointLogStorageSlot(checkpointNumber, field, { epochDuration, proofSubmissionEpochs });
+  }
+
+  private computeTempCheckpointLogStorageSlot(
+    checkpointNumber: CheckpointNumber,
+    field: TempCheckpointLogField,
+    constants: { epochDuration: number; proofSubmissionEpochs: number },
+  ): bigint {
+    const fieldOffset = BigInt(field);
+    const { epochDuration, proofSubmissionEpochs } = constants;
     const roundaboutSize = BigInt(epochDuration) * (BigInt(proofSubmissionEpochs) + 1n) + 1n;
     const tempCheckpointLogsBase = BigInt(RollupContract.stfStorageSlot) + 2n;
     const circularIndex = BigInt(checkpointNumber) % roundaboutSize;

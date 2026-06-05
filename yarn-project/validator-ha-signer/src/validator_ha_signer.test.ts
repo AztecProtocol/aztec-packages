@@ -49,7 +49,7 @@ describe('ValidatorHASigner', () => {
     dateProvider = new TestDateProvider();
 
     config = {
-      l1Contracts: { rollupAddress: EthAddress.random() },
+      rollupAddress: EthAddress.random(),
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
       signingTimeoutMs: 1000,
@@ -70,7 +70,7 @@ describe('ValidatorHASigner', () => {
     it('should not initialize when nodeId is not explicitly set', () => {
       const defaultConfig = {
         ...defaultValidatorHASignerConfig,
-        l1Contracts: { rollupAddress: EthAddress.random() },
+        rollupAddress: EthAddress.random(),
       };
       const metrics = new HASignerMetrics(telemetryClient, 'test-node');
       expect(() => new ValidatorHASigner(db, defaultConfig, { metrics, dateProvider })).toThrow(
@@ -124,7 +124,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify duty was recorded
       const dutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -160,7 +160,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify duty was deleted
       const dutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -275,7 +275,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify both duties exist
       const blockDutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -286,7 +286,7 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       const attestationDutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(0),
@@ -363,7 +363,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify both duties exist
       const blockDutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -374,7 +374,7 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       const blockDutyResult2 = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -436,7 +436,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify all three duties exist in database
       const block0Result = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot,
         blockNumber,
@@ -447,7 +447,7 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       const block1Result = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot,
         blockNumber,
@@ -458,7 +458,7 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       const checkpointResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot,
         blockNumber: BlockNumber(0),
@@ -623,7 +623,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify both duties were recorded with blockNumber = 0
       const governanceResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(0), // getBlockNumberFromSigningContext returns 0 for vote duties
@@ -633,7 +633,7 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       const slashingResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(0),
@@ -871,7 +871,7 @@ describe('ValidatorHASigner', () => {
 
         // Verify the duty is recorded in the database with the winning nodeId
         const dutyResult = await db.tryInsertOrGetExisting({
-          rollupAddress: config.l1Contracts.rollupAddress,
+          rollupAddress: config.rollupAddress,
           validatorAddress: VALIDATOR_ADDRESS,
           slot: sameSlot,
           blockNumber: sameBlockNumber,
@@ -997,7 +997,7 @@ describe('ValidatorHASigner', () => {
 
       // Verify the duty is marked as signed by the second signer
       const dutyResult = await db.tryInsertOrGetExisting({
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
         validatorAddress: VALIDATOR_ADDRESS,
         slot: SlotNumber(100),
         blockNumber: BlockNumber(50),
@@ -1022,7 +1022,7 @@ describe('ValidatorHASigner', () => {
         db,
         {
           ...config,
-          l1Contracts: { rollupAddress: oldRollupAddress },
+          rollupAddress: oldRollupAddress,
         },
         { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
       );
@@ -1053,7 +1053,7 @@ describe('ValidatorHASigner', () => {
           db,
           {
             ...config,
-            l1Contracts: { rollupAddress: newRollupAddress },
+            rollupAddress: newRollupAddress,
           },
           { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
         );

@@ -12,7 +12,10 @@ evm_version = "cancun"
 [fuzz]
 runs = 2
 
-solc = "0.8.29"
+# Use the pre-downloaded solc binary from l1-contracts. l1-contracts' build is
+# the single owner of the svm download; pointing other forge projects at the
+# same binary avoids parallel svm downloads racing on ~/.svm.
+solc = "../../l1-contracts/solc-0.8.30"
 
 [lint]
 ignore = ["./lib/**"]

@@ -1,15 +1,16 @@
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { type AztecLMDBStoreV2, openStoreAt, openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { type AztecLMDBStoreV2, createStore, openStoreAt, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { createLocalSignerWithProtection } from '../factory.js';
 import { LmdbSlashingProtectionDatabase } from './lmdb.js';
-import { DutyStatus, DutyType } from './types.js';
+import { DutyStatus, DutyType, type StoredDutyRecord } from './types.js';
 
 describe('LmdbSlashingProtectionDatabase', () => {
   let store: AztecLMDBStoreV2;
@@ -416,5 +417,106 @@ describe('LmdbSlashingProtectionDatabase - persistence across restarts', () => {
     } finally {
       await db2.close();
     }
+  });
+});
+
+describe('LmdbSlashingProtectionDatabase - schema migration', () => {
+  const ROLLUP_ADDRESS = EthAddress.random();
+  const VALIDATOR_ADDRESS = EthAddress.random();
+  const SLOT = SlotNumber(100);
+  const BLOCK_NUMBER = BlockNumber(50);
+  const BLOCK_INDEX = IndexWithinCheckpoint(0);
+  const DUTY_TYPE = DutyType.BLOCK_PROPOSAL;
+  const MESSAGE_HASH = '0xdeadbeef';
+  const NODE_ID = 'local';
+  const SIGNATURE = '0xsignature';
+
+  type StoredDutyRecordV1 = Omit<StoredDutyRecord, 'checkpointNumber'>;
+
+  let dataDir: string;
+  let dateProvider: TestDateProvider;
+
+  const defaultParams = () => ({
+    rollupAddress: ROLLUP_ADDRESS,
+    validatorAddress: VALIDATOR_ADDRESS,
+    slot: SLOT,
+    blockNumber: BLOCK_NUMBER,
+    checkpointNumber: CheckpointNumber(1),
+    blockIndexWithinCheckpoint: BLOCK_INDEX,
+    dutyType: DUTY_TYPE,
+    messageHash: MESSAGE_HASH,
+    nodeId: NODE_ID,
+  });
+
+  const createConfig = () => ({
+    rollupAddress: ROLLUP_ADDRESS,
+    nodeId: NODE_ID,
+    pollingIntervalMs: 100,
+    signingTimeoutMs: 3_000,
+    dataDirectory: dataDir,
+    dataStoreMapSizeKb: 1024 * 1024,
+  });
+
+  const seedSchemaVersion1Duty = async (record: StoredDutyRecordV1) => {
+    const store = await createStore('signing-protection', 1, createConfig());
+    const duties = store.openMap<string, StoredDutyRecordV1>('signing-protection-duties');
+    await duties.set(
+      `${record.rollupAddress}:${record.validatorAddress}:${record.slot}:${record.dutyType}:${record.blockIndexWithinCheckpoint}`,
+      record,
+    );
+    await store.close();
+  };
+
+  beforeEach(async () => {
+    dataDir = await mkdtemp(join(tmpdir(), 'lmdb-slashing-migration-'));
+    await mkdir(dataDir, { recursive: true });
+    dateProvider = new TestDateProvider();
+  });
+
+  afterEach(async () => {
+    await rm(dataDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+  });
+
+  it('migrates schema 1 duty records without allowing duplicate signing', async () => {
+    await seedSchemaVersion1Duty({
+      rollupAddress: ROLLUP_ADDRESS.toString(),
+      validatorAddress: VALIDATOR_ADDRESS.toString(),
+      slot: SLOT.toString(),
+      blockNumber: BLOCK_NUMBER.toString(),
+      blockIndexWithinCheckpoint: BLOCK_INDEX,
+      dutyType: DUTY_TYPE,
+      status: DutyStatus.SIGNED,
+      messageHash: MESSAGE_HASH,
+      signature: SIGNATURE,
+      nodeId: NODE_ID,
+      lockToken: 'legacy-lock-token',
+      startedAtMs: dateProvider.now(),
+      completedAtMs: dateProvider.now(),
+    });
+
+    const { db } = await createLocalSignerWithProtection(createConfig(), { dateProvider });
+    try {
+      const result = await db.tryInsertOrGetExisting(defaultParams());
+
+      expect(result.isNew).toBe(false);
+      expect(result.record.status).toBe(DutyStatus.SIGNED);
+      expect(result.record.signature).toBe(SIGNATURE);
+      expect(result.record.checkpointNumber).toBe(CheckpointNumber(0));
+    } finally {
+      await db.close();
+    }
+  });
+
+  it('fails closed instead of resetting when the stored schema is newer', async () => {
+    const store = await createStore(
+      'signing-protection',
+      LmdbSlashingProtectionDatabase.SCHEMA_VERSION + 1,
+      createConfig(),
+    );
+    await store.close();
+
+    await expect(createLocalSignerWithProtection(createConfig(), { dateProvider })).rejects.toThrow(
+      `stored schema version ${LmdbSlashingProtectionDatabase.SCHEMA_VERSION + 1} is incompatible with expected schema version ${LmdbSlashingProtectionDatabase.SCHEMA_VERSION}`,
+    );
   });
 });

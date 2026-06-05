@@ -117,6 +117,20 @@ TYPED_TEST(PrimeFieldTest, CompileTimeEquality)
     static_assert(!(a == f));
 }
 
+TYPED_TEST(PrimeFieldTest, IsZeroOnModulusForm)
+{
+    using F = TypeParam;
+
+    F modulus_form{ F::modulus.data[0], F::modulus.data[1], F::modulus.data[2], F::modulus.data[3] };
+    EXPECT_TRUE(modulus_form.is_zero());
+
+    F prefix_match{ F::modulus.data[0], F::modulus.data[1], F::modulus.data[2], F::modulus.data[3] - 1 };
+    EXPECT_FALSE(prefix_match.is_zero());
+
+    F first_limb_only{ F::modulus.data[0], 0, 0, 0 };
+    EXPECT_FALSE(first_limb_only.is_zero());
+}
+
 TYPED_TEST(PrimeFieldTest, CompileTimeSmallAddSubMul)
 {
     using F = TypeParam;

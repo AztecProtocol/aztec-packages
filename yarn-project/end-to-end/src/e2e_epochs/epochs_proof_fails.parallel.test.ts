@@ -2,13 +2,15 @@ import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import type { Logger } from '@aztec/aztec.js/log';
 import { BatchedBlob } from '@aztec/blob-lib/types';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/l1-tx-utils';
+import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
-import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { TestProverNode } from '@aztec/prover-node/test';
+import type { SequencerEvents } from '@aztec/sequencer-client';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
@@ -27,27 +29,26 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   let constants: L1RollupConstants;
   let logger: Logger;
   let proverDelayer: Delayer;
-  let sequencerDelayer: Delayer;
   let monitor: ChainMonitor;
 
-  let L1_BLOCK_TIME_IN_S: number;
   let L2_SLOT_DURATION_IN_S: number;
 
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    // Note: pipelining is NOT enabled for this test because it deliberately manipulates L1 tx timing
-    // (via proverDelayer/sequencerDelayer with cancelTxOnTimeout: false and maxSpeedUpAttempts: 0),
-    // which conflicts with pipelining's assumption that previous checkpoints land on L1 promptly.
     test = await EpochsTestContext.setup({
       maxSpeedUpAttempts: 0, // No speed ups
       startProverNode: false, // Avoid early proving
       ethereumSlotDuration: 8,
-      aztecEpochDuration: 8, // Bump empoch duration so we can land at least one block in epoch 0
+      aztecEpochDuration: 8, // Bump epoch duration so we can land at least one block in epoch 0
+      aztecSlotDurationInL1Slots: 2,
+      blockDurationMs: 3000, // 3s blocks → 2 blocks per checkpoint under pipelining
       cancelTxOnTimeout: false,
+      enforceTimeTable: true,
+      inboxLag: 2,
     });
-    ({ sequencerDelayer, context, l1Client, rollup, constants, logger, monitor } = test);
-    ({ L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
+    ({ context, l1Client, rollup, constants, logger, monitor } = test);
+    ({ L2_SLOT_DURATION_IN_S } = test);
   });
 
   afterEach(async () => {
@@ -56,13 +57,14 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   });
 
   it('does not allow submitting proof after epoch end', async () => {
-    // Here we cause a re-org by not publishing the proof for epoch 0 until after the end of epoch 1
-    // The proof will be rejected and a re-org will take place
+    // Here we cause a re-org by not publishing the proof for epoch 0 until after the end of epoch 1.
+    // The proof will be rejected and a re-org will take place via the next post-deadline propose tx.
+    const publishedEvents: Parameters<SequencerEvents['checkpoint-published']>[0][] = [];
+    test.context.sequencer!.getSequencer().on('checkpoint-published', args => publishedEvents.push(args));
 
-    // Ensure that there was at least one checkpoint mined in epoch 0, otherwise this test fails, since it
-    // relies on the proof for epoch zero not landing in time, which will never happen if there is
-    // nothing to prove on epoch zero. We need to wait for the checkpoint L1 tx to be mined, not just
-    // for the block to appear in the node's world state, since the propose tx may still be in-flight.
+    // Ensure that there was at least one checkpoint mined in epoch 0, otherwise this test fails, since
+    // it relies on the proof for epoch zero not landing in time, which will never happen if there is
+    // nothing to prove on epoch zero.
     await test.waitUntilCheckpointNumber(CheckpointNumber(1));
     const firstCheckpoint = await rollup.getCheckpoint(CheckpointNumber(1));
     const firstCheckpointEpoch = getEpochAtSlot(firstCheckpoint.slotNumber, test.constants);
@@ -75,38 +77,42 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Get the prover delayer from the newly created prover node
     proverDelayer = proverNode.getProverNode()!.getDelayer()!;
 
-    // Hold off prover tx until end epoch 1
+    // Hold off the prover tx until epoch 2 starts (i.e. past the proof submission deadline)
     const [epoch2Start] = getTimestampRangeForEpoch(EpochNumber(2), constants);
     proverDelayer.pauseNextTxUntilTimestamp(epoch2Start);
-    logger.info(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
+    logger.warn(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
 
-    // Wait until the start of epoch 1 and grab the checkpoint number
+    // Wait until the start of epoch 1 and capture the checkpoint number before the rollback
     await test.waitUntilEpochStarts(EpochNumber(1));
-    const checkpointNumberAtEndOfEpoch0 = await rollup.getCheckpointNumber();
-    logger.info(`Starting epoch 1 after checkpoint ${checkpointNumberAtEndOfEpoch0}`);
+    const checkpointBeforeRollback = await rollup.getCheckpointNumber();
+    logger.warn(`Starting epoch 1 after checkpoint ${checkpointBeforeRollback}`);
+    expect(checkpointBeforeRollback).toBeGreaterThan(CheckpointNumber(1));
 
-    // Wait until the last checkpoint of epoch 1 is published and then hold off the sequencer.
-    await test.waitUntilCheckpointNumber(
-      CheckpointNumber(checkpointNumberAtEndOfEpoch0 + test.epochDuration),
-      test.L2_SLOT_DURATION_IN_S * (test.epochDuration + 4),
+    // Wait for the rollback to land via natural sequencer activity in epoch 2. We poll the
+    // checkpoint number rather than a fixed timestamp because the exact slot that triggers the
+    // prune depends on poll timing (see comment above).
+    await test.waitUntilEpochStarts(EpochNumber(2));
+    await retryUntil(
+      async () => (await rollup.getCheckpointNumber()) < checkpointBeforeRollback,
+      'rollup rolled back',
+      L2_SLOT_DURATION_IN_S * 4,
+      0.2,
     );
-    sequencerDelayer.pauseNextTxUntilTimestamp(epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
 
-    // Next sequencer to publish a block should trigger a rollback to block 1
-    await waitUntilL1Timestamp(l1Client, epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
-    expect(await rollup.getCheckpointNumber()).toEqual(CheckpointNumber(1));
-    expect(await rollup.getSlotNumber()).toEqual(SlotNumber(2 * test.epochDuration));
-
-    // The prover tx should have been rejected, and mined strictly before the one that triggered the rollback
+    // The prover tx should have been rejected as it was submitted past the deadline
     const lastProverTxHash = proverDelayer.getSentTxHashes().at(-1);
+    expect(lastProverTxHash).toBeDefined();
     const lastProverTxReceipt = await l1Client.getTransactionReceipt({ hash: lastProverTxHash! });
     expect(lastProverTxReceipt.status).toEqual('reverted');
 
-    const lastL2BlockTxHash = sequencerDelayer.getSentTxHashes().at(-1);
-    const lastL2BlockTxReceipt = await l1Client.getTransactionReceipt({ hash: lastL2BlockTxHash! });
-    expect(lastL2BlockTxReceipt.status).toEqual('success');
-    expect(lastL2BlockTxReceipt.blockNumber).toBeGreaterThan(lastProverTxReceipt!.blockNumber);
-    logger.info(`Test succeeded`);
+    // The post-rollback chain tip should be in epoch 2 (the rollback-triggering propose was made
+    // during epoch 2, after the deadline)
+    const checkpointAfterRollback = await rollup.getCheckpointNumber();
+    expect(checkpointAfterRollback).toBeLessThan(checkpointBeforeRollback);
+    const latestCheckpoint = await rollup.getCheckpoint(checkpointAfterRollback);
+    expect(getEpochAtSlot(latestCheckpoint.slotNumber, test.constants)).toEqual(EpochNumber(2));
+
+    logger.warn(`Test succeeded`);
   });
 
   it('aborts proving if end of next epoch is reached', async () => {
@@ -149,17 +155,17 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     context.proverNode = proverNode;
 
     await test.waitUntilEpochStarts(1);
-    logger.info(`Starting epoch 1`);
+    logger.warn(`Starting epoch 1`);
     const proverTxCount = proverDelayer.getSentTxHashes().length;
 
     await test.waitUntilEpochStarts(2);
-    logger.info(`Starting epoch 2`);
+    logger.warn(`Starting epoch 2`);
 
     // No proof for epoch zero should have landed during epoch one
     expect(monitor.provenCheckpointNumber).toEqual(CheckpointNumber(0));
 
     // Wait until the prover job finalizes (and a bit more) and check that it aborted and never attempted to submit a tx
-    logger.info(`Awaiting finalize epoch`);
+    logger.warn(`Awaiting finalize epoch`);
     await finalizeEpochPromise.promise;
     await sleep(1000);
     expect(proverDelayer.getSentTxHashes().length - proverTxCount).toEqual(0);

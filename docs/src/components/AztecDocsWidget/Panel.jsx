@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { AztecMark, Icons } from "./Icons";
 import Hero from "./Hero";
 import { UserBubble, AssistantBody } from "./Message";
@@ -26,6 +26,13 @@ export default function Panel({
   expanded,
   onToggleExpanded,
   scrollRef,
+  feedbackByIndex,
+  feedbackErrorsByIndex,
+  onFeedback,
+  conversationId,
+  onShare,
+  shareState,
+  viewingShared,
 }) {
   const {
     isInk,
@@ -42,6 +49,24 @@ export default function Panel({
   const panelWidth = size === "compact" ? 380 : 420;
   const panelHeight = size === "compact" ? 540 : 620;
   const showHero = messages.length === 0 && !streaming;
+  const canShare =
+    !streaming && messages.some((m) => m.response && m.response.length > 0);
+  const shareLabel =
+    shareState === "ok"
+      ? "Link copied"
+      : shareState === "fail"
+        ? "Share failed"
+        : "Share";
+
+  const taRef = useRef(null);
+  // Auto-grow the textarea to fit its content. The inline `max-height`
+  // caps it at 10 lines; past that the textarea scrolls instead.
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = ta.scrollHeight + "px";
+  }, [input]);
 
   return (
     <div
@@ -133,7 +158,36 @@ export default function Panel({
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          {canShare && (
+            <button
+              onClick={onShare}
+              title="Copy a shareable link to this conversation"
+              aria-label="Copy share link"
+              className={
+                "azw-share-btn" +
+                (shareState === "ok"
+                  ? " is-ok"
+                  : shareState === "fail"
+                    ? " is-fail"
+                    : "")
+              }
+              style={{
+                height: 24,
+                padding: "0 10px",
+                border: `1px solid ${isInk ? "rgba(242,238,225,0.35)" : "var(--azw-ink-tint-1)"}`,
+                background: "transparent",
+                color: panelFg2,
+                cursor: "pointer",
+                fontFamily: "var(--azw-font-mono)",
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              {shareLabel}
+            </button>
+          )}
           {messages.length > 0 && (
             <button
               onClick={onReset}
@@ -195,6 +249,44 @@ export default function Panel({
         </div>
       </div>
 
+      {viewingShared && (
+        <div
+          role="status"
+          style={{
+            padding: "8px 16px",
+            borderBottom: `1px solid ${softBorder}`,
+            background: "var(--azw-chartreuse-tint-2)",
+            color: "var(--azw-ink)",
+            fontFamily: "var(--azw-font-mono)",
+            fontSize: 10,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <span>Viewing a shared conversation.</span>
+          <button
+            type="button"
+            onClick={onReset}
+            style={{
+              font: "inherit",
+              letterSpacing: "inherit",
+              textTransform: "inherit",
+              color: "var(--azw-ink)",
+              background: "transparent",
+              border: 0,
+              padding: 0,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            Start a new one
+          </button>
+        </div>
+      )}
+
       {/* Body */}
       <div
         ref={scrollRef}
@@ -224,16 +316,28 @@ export default function Panel({
                 const text = isLast && streaming ? streamText : m.response;
                 const sources = isLast && streaming ? streamSources : m.sources;
                 const isStreamingLast = isLast && streaming;
+                const error = isStreamingLast ? null : m.error;
+                const showFeedback =
+                  !isStreamingLast && !!m.response && !!conversationId;
                 return (
                   <React.Fragment key={i}>
                     <UserBubble text={m.prompt} tokens={tokens} />
-                    {(text || isStreamingLast) && (
+                    {(text || isStreamingLast || error) && (
                       <AssistantBody
                         text={text}
                         sources={sources}
                         thinking={isStreamingLast}
+                        error={error}
                         tokens={tokens}
                         mdComponents={mdComponents}
+                        showFeedback={showFeedback}
+                        feedback={feedbackByIndex?.[i]}
+                        feedbackError={feedbackErrorsByIndex?.[i]}
+                        onFeedback={
+                          showFeedback
+                            ? (kind) => onFeedback?.(i, kind)
+                            : undefined
+                        }
                       />
                     )}
                   </React.Fragment>
@@ -268,21 +372,36 @@ export default function Panel({
               border: `1px solid ${isInk ? "rgba(242,238,225,0.25)" : "var(--azw-ink-tint-1)"}`,
             }}
           >
-            <input
+            <textarea
+              ref={taRef}
               value={input}
               onChange={(e) => onInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  onSend();
+                }
+              }}
               placeholder="Ask about Aztec —"
               disabled={streaming}
+              rows={1}
               style={{
                 flex: 1,
+                minWidth: 0,
                 padding: "11px 12px",
                 background: "transparent",
                 border: "none",
                 outline: "none",
+                resize: "none",
                 color: panelFg,
                 fontFamily: "var(--azw-font-sans)",
                 fontSize: 13.5,
+                lineHeight: 1.5,
                 letterSpacing: "-0.01em",
+                boxSizing: "border-box",
+                maxHeight: "calc(10 * 1.5em + 22px)",
+                overflowY: "auto",
+                overflowWrap: "anywhere",
               }}
             />
             <button

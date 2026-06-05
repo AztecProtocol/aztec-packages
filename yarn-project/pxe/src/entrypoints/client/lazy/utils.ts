@@ -3,6 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { WASMSimulator } from '@aztec/simulator/client';
+import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint/lazy';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { PXEConfig } from '../../../config/index.js';
@@ -26,10 +27,10 @@ export async function createPXE(
 ) {
   const actor = options.loggerActorLabel;
 
-  const l1Contracts = await aztecNode.getL1ContractAddresses();
+  const l1ContractAddresses = await aztecNode.getL1ContractAddresses();
   const configWithContracts = {
     ...config,
-    l1Contracts,
+    ...l1ContractAddresses,
   } as PXEConfig;
 
   const loggers = options.loggers ?? {};
@@ -49,6 +50,9 @@ export async function createPXE(
     prover = new BBLazyPrivateKernelProver(simulator, { ...options.proverOrOptions, logger: proverLogger });
   }
   const protocolContractsProvider = new LazyProtocolContractsProvider();
+  const preloadedContractsProvider = options.preloadedContractsProvider ?? {
+    getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()],
+  };
 
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create({
@@ -57,6 +61,7 @@ export async function createPXE(
     proofCreator: prover,
     simulator,
     protocolContractsProvider,
+    preloadedContractsProvider,
     config,
     loggerOrSuffix: pxeLogger,
     hooks: options.hooks,

@@ -72,7 +72,6 @@ describe('ProposalValidator', () => {
     });
     epochCache.getTargetSlot.mockReturnValue(currentSlot);
     epochCache.getSlotNow.mockReturnValue(currentSlot);
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
   });
 
   describe.each([
@@ -221,7 +220,6 @@ describe('ProposalValidator', () => {
         nextSlot: SlotNumber(102),
       });
       epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
@@ -245,7 +243,6 @@ describe('ProposalValidator', () => {
       });
       epochCache.getTargetSlot.mockReturnValue(SlotNumber(101));
       epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
 
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),

@@ -40,7 +40,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     if (!p2pIp) {
       if (queryForIp) {
         this.logger.info('Querying for public IP address...');
-        const publicIp = await getPublicIp();
+        const publicIp = await getPublicIp(config.publicIpServices);
         p2pIp = publicIp;
         this.logger.info(`Found public IP address: ${publicIp}`);
       }
@@ -86,6 +86,14 @@ export class BootstrapNode implements P2PBootstrapApi {
     this.node.on('discovered', async (enr: SignableENR) => {
       const addr = await enr.getFullMultiaddr('udp');
       this.logger.verbose(`Discovered new peer`, { enr: enr.encodeTxt(), addr: addr?.toString() });
+      // discv5's discovered() only updates routing table entries that already exist. Nodes that
+      // established a session with an empty-IP ENR are never inserted, so even after their ENR
+      // gains a valid socket address the routing table stays empty and FINDNODE always returns 0
+      // peers. Calling addEnr() here does an insertOrUpdate regardless of prior state, fixing
+      // the routing table so these nodes become discoverable to other peers.
+      if (addr) {
+        this.node.addEnr(enr);
+      }
     });
 
     try {

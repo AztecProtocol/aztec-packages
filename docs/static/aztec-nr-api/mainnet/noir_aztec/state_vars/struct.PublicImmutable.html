@@ -113,27 +113,7 @@ do not have access to the current network state, only the <em>past</em> state at
 historical non-inclusion proofs of the initialization nullifier at past times, but they have no way to guarantee
 that it has not been emitted since then.</p></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
-
-<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
-<div class="where-clause">where
-    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
-    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
-
-<div class="padded-description"><div class="comments">
-<p>Reads the permanent value.</p>
-<p>This function throws if the <code>PublicImmutable</code> is not initialized.</p>
-<h4>Examples</h4>
-<pre><code>#[external(<span class="string">"utility"</span>)]
-<span class="kw">fn</span> get_decimals() -&gt; u8 {
-    self.storage.decimals.read()
-}</code></pre></div>
-</div><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
-
-<div class="padded-description"><div class="comments">
-<p>Returns <code>true</code> if the <code>PublicImmutable</code> has been initialized.</p>
-</div>
-</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, &mut <a href="../../noir_aztec/context/struct.PrivateContext.html" class="struct">PrivateContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="read" class="code-header">pub fn <a href="#read"><span class="fn">read</span></a>(self) -> T
 <div class="where-clause">where
@@ -259,6 +239,26 @@ zeroes - equivalent to <code>let t = T::unpack(std::mem::zeroed());</code>.</p>
 }</code></pre>
 <h4>Cost</h4>
 <p>The <code>NULLIFIEREXISTS</code> AVM opcode is invoked once.</p></div>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>&gt;</code></h3>
+
+<div class="padded-methods"><code id="read" class="code-header">pub unconstrained fn <a href="#read"><span class="fn">read</span></a>(self) -> T
+<div class="where-clause">where
+    T: <a href="../../protocol_types/traits/trait.Packable.html" class="trait">Packable</a>,
+    T: <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Reads the permanent value.</p>
+<p>This function throws if the <code>PublicImmutable</code> is not initialized.</p>
+<h4>Examples</h4>
+<pre><code>#[external(<span class="string">"utility"</span>)]
+<span class="kw">fn</span> get_decimals() -&gt; u8 {
+    self.storage.decimals.read()
+}</code></pre></div>
+</div><code id="is_initialized" class="code-header">pub unconstrained fn <a href="#is_initialized"><span class="fn">is_initialized</span></a>(self) -> <a href="../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns <code>true</code> if the <code>PublicImmutable</code> has been initialized.</p>
+</div>
 </div></div><h2>Trait implementations</h2>
 <h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-PublicImmutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;
 <div class="where-clause">where

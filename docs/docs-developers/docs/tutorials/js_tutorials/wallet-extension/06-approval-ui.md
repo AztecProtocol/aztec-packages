@@ -112,7 +112,7 @@ Utility for address truncation:
 
 The CSS provides a dark theme suited for wallet UIs:
 
-See the full stylesheet at [`popup/popup.css`](https://github.com/AztecProtocol/aztec-packages/blob/next/docs/examples/webapp-tutorial/test-extension/popup/popup.css).
+See the full stylesheet at [`popup/popup.css`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/docs/examples/webapp-tutorial/test-extension/popup/popup.css).
 
 Key design choices:
 - Dark background (`#1a1a2e`) for modern look

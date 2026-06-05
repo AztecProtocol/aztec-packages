@@ -62,6 +62,7 @@
     "./eth-signature": "./dest/eth-signature/index.js",
     "./queue": "./dest/queue/index.js",
     "./fifo": "./dest/fifo/index.js",
+    "./fifo-set": "./dest/fifo_set/index.js",
     "./fs": "./dest/fs/index.js",
     "./buffer": "./dest/buffer/index.js",
     "./json-rpc": "./dest/json-rpc/index.js",
@@ -150,7 +151,7 @@
     "@noble/curves": "=1.7.0",
     "@noble/hashes": "^1.6.1",
     "@scure/bip39": "^2.0.1",
-    "bn.js": "^5.2.1",
+    "bn.js": "^5.2.3",
     "colorette": "^2.0.20",
     "detect-node": "^2.1.0",
     "hash.js": "^1.1.7",
@@ -166,7 +167,7 @@
     "pino-pretty": "^13.0.0",
     "sha3": "^2.1.4",
     "undici": "^5.28.5",
-    "zod": "^3.23.8"
+    "zod": "^4"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",

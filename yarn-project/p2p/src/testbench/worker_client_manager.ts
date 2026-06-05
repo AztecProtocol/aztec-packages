@@ -13,12 +13,7 @@ import { generatePeerIdPrivateKeys } from '../test-helpers/generate-peer-id-priv
 import { getPorts } from '../test-helpers/get-ports.js';
 import { makeEnr, makeEnrs } from '../test-helpers/make-enrs.js';
 import { BENCHMARK_CONSTANTS } from '../test-helpers/testbench-utils.js';
-import type {
-  BenchReqRespCommand,
-  BenchResultMessage,
-  CollectorType,
-  DistributionPattern,
-} from './p2p_client_testbench_worker.js';
+import type { BenchReqRespCommand, BenchResultMessage, DistributionPattern } from './p2p_client_testbench_worker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const p2pRoot = path.resolve(__dirname, '../..');
@@ -29,15 +24,12 @@ const tsconfigPath = path.join(p2pRoot, 'tsconfig.json');
 const testChainConfig: ChainConfig = {
   l1ChainId: 31337,
   rollupVersion: 1,
-  l1Contracts: {
-    rollupAddress: EthAddress.random(),
-  },
+  rollupAddress: EthAddress.random(),
 };
 
 export interface ReqRespBenchmarkConfig {
   txCount: number;
   distribution: DistributionPattern;
-  collectorType: CollectorType;
   timeoutMs: number;
   pinnedPeerIndex?: number;
   blockNumber?: number;
@@ -47,7 +39,6 @@ export interface ReqRespBenchmarkConfig {
 export interface ReqRespBenchmarkResult {
   txCount: number;
   distribution: DistributionPattern;
-  collector: CollectorType;
   durationMs: number;
   fetchedCount: number;
   success: boolean;
@@ -499,9 +490,7 @@ class WorkerClientManager {
     const blockNumber = config.blockNumber ?? 1;
     const pinnedPeerId = config.pinnedPeerIndex !== undefined ? this.peerIds[config.pinnedPeerIndex] : undefined;
 
-    this.logger.info(
-      `Starting req/resp benchmark: txCount=${config.txCount}, distribution=${config.distribution}, collector=${config.collectorType}`,
-    );
+    this.logger.info(`Starting req/resp benchmark: txCount=${config.txCount}, distribution=${config.distribution}`);
 
     const readyPromises: Promise<void>[] = [];
 
@@ -511,7 +500,6 @@ class WorkerClientManager {
         txCount: config.txCount,
         peerCount,
         distribution: config.distribution,
-        collectorType: config.collectorType,
         timeoutMs: config.timeoutMs,
         isAggregator: false,
         peerIndex: i,
@@ -533,7 +521,6 @@ class WorkerClientManager {
       txCount: config.txCount,
       peerCount,
       distribution: config.distribution,
-      collectorType: config.collectorType,
       timeoutMs: config.timeoutMs,
       isAggregator: true,
       peerIndex: 0,
@@ -554,7 +541,6 @@ class WorkerClientManager {
     return {
       txCount: config.txCount,
       distribution: config.distribution,
-      collector: config.collectorType,
       durationMs: result.durationMs,
       fetchedCount: result.fetchedCount,
       success: result.success,
@@ -632,5 +618,4 @@ class WorkerClientManager {
 }
 
 export { WorkerClientManager, testChainConfig };
-export type { DistributionPattern, CollectorType } from './p2p_client_testbench_worker.js';
-export { COLLECTOR_DISPLAY_NAMES } from './p2p_client_testbench_worker.js';
+export type { DistributionPattern } from './p2p_client_testbench_worker.js';

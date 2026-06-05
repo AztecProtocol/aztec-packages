@@ -10,18 +10,17 @@ using EmbeddedCurvePoint = StandardAffinePoint<grumpkin::g1::affine_element>;
 using Fr = grumpkin::fr;
 using Fq = grumpkin::fq;
 
-TEST(StandardAffinePointTest, InfinityPreservesRawCoordinates)
+TEST(StandardAffinePointTest, ConstructingInfinityNormalized)
 {
-    // When constructing an infinity point with non-zero coordinates,
-    // x() and y() should return the raw coordinates
-    Fq raw_x = 1;
-    Fq raw_y = 2;
-
-    EmbeddedCurvePoint point(raw_x, raw_y, /*is_infinity=*/true);
-
-    EXPECT_TRUE(point.is_infinity());
-    EXPECT_EQ(point.x(), raw_x);
-    EXPECT_EQ(point.y(), raw_y);
+    // Constructing a point with (0,0) coordinates should result in infinity
+    EmbeddedCurvePoint inf(0, 0);
+    EXPECT_TRUE(inf.is_infinity());
+    // Constructing a point with BB's inf should result in infinity with (0,0) coordinates
+    EmbeddedCurvePoint inf_bb(grumpkin::g1::affine_element::infinity());
+    EXPECT_TRUE(inf_bb.is_infinity());
+    EXPECT_TRUE(inf_bb.x().is_zero());
+    EXPECT_TRUE(inf_bb.y().is_zero());
+    EXPECT_EQ(inf, inf_bb);
 }
 
 TEST(StandardAffinePointTest, NormalPointCoordinates)
@@ -72,7 +71,7 @@ TEST(StandardAffinePointTest, ScalarMultiplicationResultingInInfinityNormalized)
 
 TEST(StandardAffinePointTest, StaticInfinityHasZeroCoordinates)
 {
-    // The static infinity() method should return (0,0,true)
+    // The static infinity() method should return (0,0)
     auto& inf = EmbeddedCurvePoint::infinity();
 
     EXPECT_TRUE(inf.is_infinity());
@@ -80,18 +79,14 @@ TEST(StandardAffinePointTest, StaticInfinityHasZeroCoordinates)
     EXPECT_TRUE(inf.y().is_zero());
 }
 
-TEST(StandardAffinePointTest, NegatingInfinityPreservesRawCoordinates)
+TEST(StandardAffinePointTest, NegatingInfinity)
 {
-    // Negating an infinity point should preserve its raw coordinates
-    Fq raw_x = 1;
-    Fq raw_y = 2;
-    EmbeddedCurvePoint inf(raw_x, raw_y, /*is_infinity=*/true);
-
-    auto neg_inf = -inf;
+    // Negating an infinity point should return (0,0)
+    auto neg_inf = -EmbeddedCurvePoint::infinity();
 
     EXPECT_TRUE(neg_inf.is_infinity());
-    EXPECT_EQ(neg_inf.x(), raw_x);
-    EXPECT_EQ(neg_inf.y(), raw_y);
+    EXPECT_TRUE(neg_inf.x().is_zero());
+    EXPECT_TRUE(neg_inf.y().is_zero());
 }
 
 } // namespace

@@ -11,16 +11,17 @@ include "../precomputed.pil";
  *     - Bounds-check dst_offset+1 via #[WRITE_OUT_OF_BOUNDS_CHECK]. If dst_offset is the
  *       maximum valid address, dst_offset+1 would be out of bounds.
  *     - Look up member_enum in the precomputed table (#[PRECOMPUTED_INFO]) to determine
- *       validity and which member is selected (deployer, class_id, or init_hash).
+ *       validity and which member is selected (deployer, class_id, init_hash or immutables_hash).
  *       The precomputed table covers the full 8-bit range:
- *       +-------+----------------------+-------------+-------------+--------------+
- *       | idx   | is_valid_member_enum | is_deployer | is_class_id | is_init_hash |
- *       +-------+----------------------+-------------+-------------+--------------+
- *       |   0   |         1            |      1      |      0      |      0       |
- *       |   1   |         1            |      0      |      1      |      0       |
- *       |   2   |         1            |      0      |      0      |      1       |
- *       |  3+   |         0            |      0      |      0      |      0       |
- *       +-------+----------------------+-------------+-------------+--------------+
+ *       +-------+----------------------+-------------+-------------+--------------+--------------------+
+ *       | idx   | is_valid_member_enum | is_deployer | is_class_id | is_init_hash | is_immutables_hash |
+ *       +-------+----------------------+-------------+-------------+--------------+--------------------+
+ *       |   0   |         1            |      1      |      0      |      0       |          0         |
+ *       |   1   |         1            |      0      |      1      |      0       |          0         |
+ *       |   2   |         1            |      0      |      0      |      1       |          0         |
+ *       |   3   |         1            |      0      |      0      |      0       |          1         |
+ *       |  4+   |         0            |      0      |      0      |      0       |          0         |
+ *       +-------+----------------------+-------------+-------------+--------------+--------------------+
  *     - Aggregate errors via #[ERROR_AGGREGATION]. sel_error is set when either
  *       is_valid_writes_in_bounds or is_valid_member_enum is false.
  *     - [no error only] Retrieve contract instance via the ContractInstanceRetrieval gadget
@@ -72,7 +73,7 @@ include "../precomputed.pil";
  * ERROR HANDLING:
  *     Two error conditions, which are NOT mutually exclusive:
  *     - Write out-of-bounds: dst_offset == AVM_HIGHEST_MEM_ADDRESS (dst_offset+1 overflows).
- *     - Invalid member enum: member_enum >= 3 (precomputed table returns is_valid_member_enum=0).
+ *     - Invalid member enum: member_enum >= 4 (precomputed table returns is_valid_member_enum=0).
  *     On error, the row has sel_error=1. The contract instance retrieval lookup and memory
  *     write permutations are disabled (their selectors is_valid_member_enum / is_valid_writes_in_bounds
  *     are 0), so no destination interactions fire for error rows.
@@ -121,13 +122,14 @@ namespace get_contract_instance;
     // (from precomputed.pil's GETCONTRACTINSTANCE opcode precomputed columns)
     // These are constrained only via the #[PRECOMPUTED_INFO] lookup when is_valid_writes_in_bounds == 1.
     // When the lookup is disabled (writes out of bounds), is_valid_member_enum is forced to 0 by
-    // #[IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP]. is_deployer/is_class_id/is_init_hash
+    // #[IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP]. is_deployer/is_class_id/is_init_hash/is_immutables_hash
     // are free in that case, but safe: they are only consumed in #[SELECTED_MEMBER] and the memory
     // write permutations, all of which are gated on is_valid_member_enum (which is 0).
     pol commit is_valid_member_enum; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     pol commit is_deployer; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     pol commit is_class_id; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     pol commit is_init_hash; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
+    pol commit is_immutables_hash; // @boolean (by lookup when is_valid_writes_in_bounds == 1)
     // Note: member_enum is guaranteed to be 8 bits by execution (as a U8 immediate operand),
     // and the precomputed table is populated for the entire 8-bit range (256 rows).
     #[PRECOMPUTED_INFO]
@@ -138,7 +140,8 @@ namespace get_contract_instance;
         is_valid_member_enum,
         is_deployer,
         is_class_id,
-        is_init_hash
+        is_init_hash,
+        is_immutables_hash
     } in precomputed.sel_range_8 {
         // inputs
         precomputed.idx,
@@ -146,7 +149,8 @@ namespace get_contract_instance;
         precomputed.is_valid_member_enum,
         precomputed.is_deployer,
         precomputed.is_class_id,
-        precomputed.is_init_hash
+        precomputed.is_init_hash,
+        precomputed.is_immutables_hash
     };
     // Do not allow is_valid_member_enum to be 1 if the precomputed lookup is disabled.
     #[IS_VALID_MEMBER_ENUM_ONLY_SET_BY_PRECOMPUTED_LOOKUP]
@@ -171,6 +175,7 @@ namespace get_contract_instance;
     pol commit retrieved_deployer_addr;
     pol commit retrieved_class_id;
     pol commit retrieved_init_hash;
+    pol commit retrieved_immutables_hash;
 
     #[CONTRACT_INSTANCE_RETRIEVAL]
     is_valid_member_enum {
@@ -182,7 +187,8 @@ namespace get_contract_instance;
         instance_exists,
         retrieved_deployer_addr,
         retrieved_class_id,
-        retrieved_init_hash
+        retrieved_init_hash,
+        retrieved_immutables_hash
     } in contract_instance_retrieval.sel {
         // inputs
         contract_instance_retrieval.address,
@@ -192,14 +198,15 @@ namespace get_contract_instance;
         contract_instance_retrieval.exists,
         contract_instance_retrieval.deployer_addr,
         contract_instance_retrieval.current_class_id,
-        contract_instance_retrieval.init_hash
+        contract_instance_retrieval.init_hash,
+        contract_instance_retrieval.immutables_hash
     };
 
     // Select the member indicated by the enum for writing to memory
     // Note: is_* selectors are guaranteed to be mutually exclusive booleans by the precomputed table.
     pol commit selected_member;
     #[SELECTED_MEMBER]
-    selected_member = is_deployer * retrieved_deployer_addr + is_class_id * retrieved_class_id + is_init_hash * retrieved_init_hash;
+    selected_member = is_deployer * retrieved_deployer_addr + is_class_id * retrieved_class_id + is_init_hash * retrieved_init_hash + is_immutables_hash * retrieved_immutables_hash;
 
     // Compute memory offsets for writing to
     pol commit member_write_offset;

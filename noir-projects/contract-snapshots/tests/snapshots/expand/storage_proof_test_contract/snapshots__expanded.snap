@@ -308,7 +308,7 @@ contract StorageProofTest {
 
     unconstrained fn sync_state(scope: AztecAddress) {
         let address: AztecAddress = aztec::context::UtilityContext::new().this_address();
-        aztec::messages::discovery::do_sync_state(address, _compute_note_hash, _compute_note_nullifier, Option::<aztec::messages::discovery::CustomMessageHandler<()>>::none(), Option::<unconstrained fn(AztecAddress, AztecAddress) -> aztec::ephemeral::EphemeralArray<aztec::messages::processing::OffchainMessageWithContext>>::some(aztec::messages::processing::offchain::sync_inbox), scope);
+        aztec::messages::discovery::do_sync_state(address, _compute_note_hash, _compute_note_nullifier, Option::<unconstrained fn(AztecAddress, u64, u64, BoundedVec<Field, 11>, aztec::messages::processing::MessageContext, AztecAddress)>::none(), Option::<unconstrained fn(AztecAddress, AztecAddress) -> aztec::ephemeral::EphemeralArray<aztec::messages::processing::OffchainMessageWithContext>>::some(aztec::messages::processing::offchain::sync_inbox), scope);
     }
 
     pub struct offchain_receive_parameters {
@@ -792,19 +792,27 @@ contract StorageProofTest {
         self.context.finish()
     }
 
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__create_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+        let storage: () = ();
+        let self_address: AztecAddress = context.this_address();
+        let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
+        let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
+        let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
+        aztec::contract_self::contract_self_public::ContractSelfPublic::<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
+    }
+
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::contract_self_public::ContractSelfPublic<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
+            let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
+            aztec::hash::hash_args(serialized_args)
+        });
+        __aztec_nr_internals__create_public_self_from_context(context)
+    }
+
     unconstrained fn __aztec_nr_internals__account_proof(account: Account, root: [u64; 4], nodes: [Node; 15], node_length: u32) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1290] = aztec::oracle::avm::calldata_copy(1_u32, ((<Account as Serialize<N = 70>>::N + <[u64; 4] as Serialize<N = 4 * 1>>::N) + <[Node; 15] as Serialize<N = 15 * 81>>::N) + <u32 as Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: () = ();
-            let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1290>();
         assert(self.context.is_static_call(), "Function account_proof can only be called statically");
         {
             let trie_key: [u8; 32] = KeccakHasher::hash_bytes(account.address, 20_u32);

@@ -1,4 +1,3 @@
-import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -18,7 +17,7 @@ import {
 } from '../../test-helpers/reqresp-nodes.js';
 import type { PeerManager } from '../peer-manager/peer_manager.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
-import { type ReqRespResponse, ReqRespSubProtocol, RequestableBuffer } from './interface.js';
+import { type ReqRespResponse, ReqRespSubProtocol } from './interface.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
 import { ReqRespStatus } from './status.js';
 
@@ -463,133 +462,6 @@ describe('ReqResp', () => {
         Buffer.from('request'),
       );
       expectSuccess(txResp);
-    });
-  });
-
-  describe('Batch requests', () => {
-    it('should send a batch request between many peers', async () => {
-      const batchSize = 9;
-      nodes = await createNodes(peerScoring, 3);
-
-      await startNodes(nodes);
-      await sleep(500);
-      await connectToPeers(nodes);
-      await sleep(500);
-
-      const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
-
-      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
-      const expectResponses = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
-
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
-      expect(res).toEqual(expectResponses);
-
-      // Expect one request to have been sent to each peer
-      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(batchSize);
-      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          publicKey: nodes[1].p2p.peerId.publicKey,
-        }),
-        ReqRespSubProtocol.PING,
-        Buffer.from('ping'),
-      );
-      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          publicKey: nodes[2].p2p.peerId.publicKey,
-        }),
-        ReqRespSubProtocol.PING,
-        Buffer.from('ping'),
-      );
-    });
-
-    it('should send a batch request with a pinned peer', async () => {
-      const batchSize = 9;
-      nodes = await createNodes(peerScoring, 4, {
-        // Bump rate limits so the pinned peer can respond
-        [ReqRespSubProtocol.PING]: {
-          peerLimit: { quotaTimeMs: 1000, quotaCount: 50 },
-          globalLimit: { quotaTimeMs: 1000, quotaCount: 50 },
-        },
-      });
-
-      await startNodes(nodes);
-      await sleep(500);
-      await connectToPeers(nodes);
-      await sleep(500);
-
-      const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
-
-      const requests = times(batchSize, i => RequestableBuffer.fromBuffer(Buffer.from(`ping${i}`)));
-      const expectResponses = times(batchSize, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
-
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, nodes[1].p2p.peerId);
-      expect(res).toEqual(expectResponses);
-
-      // Expect pinned peer to have received all requests
-      for (let i = 0; i < batchSize; i++) {
-        expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-          expect.objectContaining({ publicKey: nodes[1].p2p.peerId.publicKey }),
-          ReqRespSubProtocol.PING,
-          Buffer.from(`ping${i}`),
-        );
-      }
-
-      // Expect at least one request to have been sent to each other peer
-      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ publicKey: nodes[2].p2p.peerId.publicKey }),
-        ReqRespSubProtocol.PING,
-        expect.any(Buffer),
-      );
-
-      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ publicKey: nodes[3].p2p.peerId.publicKey }),
-        ReqRespSubProtocol.PING,
-        expect.any(Buffer),
-      );
-    });
-
-    it('should stop after max retry attempts', async () => {
-      const batchSize = 12;
-      const failedIndices = [10, 11];
-      nodes = await createNodes(peerScoring, 3);
-
-      await startNodes(nodes);
-      await sleep(500);
-      await connectToPeers(nodes);
-      await sleep(500);
-
-      const requests = Array.from({ length: batchSize }, (_, i) =>
-        RequestableBuffer.fromBuffer(Buffer.from(`ping${i}`)),
-      );
-
-      // Mock sendRequestToPeer so that specific requests always fail with RATE_LIMIT_EXCEEDED,
-      // regardless of which peer they're sent to. This removes the timing dependency on the
-      // GCRA rate limiter leaking tokens between retries.
-      const originalSend = nodes[0].req.sendRequestToPeer.bind(nodes[0].req);
-      const sendSpy = jest
-        .spyOn(nodes[0].req, 'sendRequestToPeer')
-        .mockImplementation((peer: PeerId, protocol: ReqRespSubProtocol, buffer: Buffer) => {
-          const msg = buffer.toString();
-          if (failedIndices.some(i => msg === `ping${i}`)) {
-            return Promise.resolve({ status: ReqRespStatus.RATE_LIMIT_EXCEEDED, data: Buffer.alloc(0) });
-          }
-          return originalSend(peer, protocol, buffer);
-        });
-
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
-
-      // 10 succeed, 2 permanently fail after all retry attempts are exhausted
-      const successes = res.filter(r => r !== undefined);
-      expect(successes).toHaveLength(batchSize - failedIndices.length);
-      expect(successes).toEqual(
-        times(batchSize - failedIndices.length, () => RequestableBuffer.fromBuffer(Buffer.from(`pong`))),
-      );
-
-      // Verify retries actually happened — those 2 requests were attempted more than once
-      const failedCalls = sendSpy.mock.calls.filter(([, , buf]) =>
-        failedIndices.some(i => (buf as Buffer).toString() === `ping${i}`),
-      );
-      expect(failedCalls.length).toBeGreaterThan(failedIndices.length);
     });
   });
 });

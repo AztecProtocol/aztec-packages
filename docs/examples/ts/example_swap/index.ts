@@ -13,7 +13,6 @@ import {
   computeL2ToL1MessageHash,
   computeSecretHash,
 } from "@aztec/stdlib/hash";
-import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
 import { decodeEventLog, encodeFunctionData, pad } from "@aztec/viem";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { foundry } from "@aztec/viem/chains";
@@ -445,11 +444,8 @@ const exitMsgLeaf = computeL2ToL1MessageHash({
 // docs:end:consume_l1_messages_setup
 
 // docs:start:consume_l1_messages_witnesses
-const exitWitness = await computeL2ToL1MembershipWitness(
-  node,
-  exitMsgLeaf,
-  swapReceipt.txHash,
-);
+// The node picks the smallest partial-proof root that covers each tx's checkpoint.
+const exitWitness = await node.getL2ToL1MembershipWitness(swapReceipt.txHash, exitMsgLeaf);
 const exitSiblingPath = exitWitness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
@@ -499,11 +495,7 @@ const swapMsgLeaf = computeL2ToL1MessageHash({
   chainId: new Fr(foundry.id),
 });
 
-const swapWitness = await computeL2ToL1MembershipWitness(
-  node,
-  swapMsgLeaf,
-  swapReceipt.txHash,
-);
+const swapWitness = await node.getL2ToL1MembershipWitness(swapReceipt.txHash, swapMsgLeaf);
 const swapSiblingPath = swapWitness!.siblingPath
   .toBufferArray()
   .map((buf: Buffer) => `0x${buf.toString("hex")}` as `0x${string}`);
@@ -528,6 +520,10 @@ const l1SwapHash = await l1Client.writeContract({
       size: 32,
     }),
     [BigInt(exitWitness!.epochNumber), BigInt(swapWitness!.epochNumber)],
+    [
+      BigInt(exitWitness!.numCheckpointsInEpoch),
+      BigInt(swapWitness!.numCheckpointsInEpoch),
+    ],
     [BigInt(exitWitness!.leafIndex), BigInt(swapWitness!.leafIndex)],
     [exitSiblingPath, swapSiblingPath],
   ],

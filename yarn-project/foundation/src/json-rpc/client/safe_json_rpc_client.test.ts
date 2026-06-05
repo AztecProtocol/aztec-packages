@@ -16,9 +16,9 @@ interface TestService {
 }
 
 const schema: ApiSchemaFor<TestService> = {
-  setValue: z.function().args(z.string()).returns(z.string()),
-  getValue: z.function().args().returns(z.string().optional()),
-  badReturn: z.function().args().returns(z.number()),
+  setValue: z.function({ input: z.tuple([z.string()]), output: z.string() }),
+  getValue: z.function({ input: z.tuple([]), output: z.string().optional() }),
+  badReturn: z.function({ input: z.tuple([]), output: z.number() }),
 };
 
 describe('SafeJsonRpcClient', () => {

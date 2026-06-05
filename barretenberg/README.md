@@ -407,15 +407,16 @@ Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect 
 
 #### Running Realistic Chonk from barretenberg folder
 
-Realistic IVC inputs pose a problem as the only code to sequence them requires a full end to end run.
-One can run the fourth newest master commit for example (any master commit that has finished benchmarking can be used):
-`barretenberg/cpp/bootstrap.sh bench_ivc origin/master~3`
+Realistic IVC inputs are pinned in CI and downloaded into
+`barretenberg/cpp/chonk-pinned-flows`.
+Run the benchmark flow with:
+`barretenberg/cpp/bootstrap.sh bench_ivc`
 
 To do a single benchmark you can do e.g.
-`IVC_BENCH=ecdsar1+transfer_0_recursions+sponsored_fpc ./bootstrap.sh bench_ivc origin/master~3`
+`barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc`
 
-If one doesn't provide the commit, it generates these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
-To use these inputs manually, just abort after input download and run Chonk proving on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
+To use these inputs manually, run `barretenberg/cpp/scripts/chonk_inputs.sh download` and then point
+`bb prove --scheme chonk` at the downloaded flow's `ivc-inputs.msgpack`.
 
 #### Using Tracy to Profile Memory/CPU/Gate Counts
 

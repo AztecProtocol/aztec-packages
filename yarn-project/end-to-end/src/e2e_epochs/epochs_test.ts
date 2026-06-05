@@ -60,6 +60,11 @@ export type EpochsTestOpts = Partial<SetupOptions> & {
   aztecSlotDurationInL1Slots?: number;
   /** Skip creating/registering the hardcoded account during setup (for tests that handle accounts themselves). */
   skipHardcodedAccount?: boolean;
+  /**
+   * Force the hardcoded-account fast-path even when an initial sequencer is running. Useful for
+   * tests with tight per-block gas budgets that can't fit a full account-deploy tx.
+   */
+  useHardcodedAccount?: boolean;
 };
 
 export type TrackedSequencerEvent = {
@@ -130,9 +135,11 @@ export class EpochsTestContext {
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
 
-    // When skipInitialSequencer is set, auto-create a hardcoded account funded via genesis.
-    // This avoids needing to deploy accounts on-chain (which would require a running sequencer).
-    const useHardcodedAccount = opts.skipInitialSequencer && !opts.skipHardcodedAccount;
+    // Auto-create a hardcoded account funded via genesis when:
+    //  - skipInitialSequencer is set (no sequencer to deploy on-chain), or
+    //  - useHardcodedAccount is explicitly requested (e.g. tight per-block gas budgets that
+    //    can't fit a full account-deploy tx).
+    const useHardcodedAccount = (opts.skipInitialSequencer || opts.useHardcodedAccount) && !opts.skipHardcodedAccount;
     let hardcodedAccountData: InitialAccountData | undefined;
     if (useHardcodedAccount) {
       hardcodedAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
@@ -398,7 +405,7 @@ export class EpochsTestContext {
       await sleep(waitTime);
       const [syncState, tips] = await Promise.all([
         this.context.aztecNode.getWorldStateSyncStatus(),
-        await this.context.aztecNode.getL2Tips(),
+        await this.context.aztecNode.getChainTips(),
       ]);
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {
@@ -465,7 +472,7 @@ export class EpochsTestContext {
   /** Verifies at least one checkpoint has the target number of blocks (for MBPS validation). */
   public async assertMultipleBlocksPerSlot(targetBlockCount: number) {
     const archiver = (this.context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
 
     this.logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
@@ -497,6 +504,7 @@ export class EpochsTestContext {
   public watchSequencerEvents(
     sequencers: SequencerClient[],
     getMetadata: (i: number) => Record<string, any> = () => ({}),
+    additionalFailEventKeys: (keyof SequencerEvents)[] = [],
   ) {
     const stateChanges: TrackedSequencerEvent[] = [];
     const failEvents: TrackedSequencerEvent[] = [];
@@ -507,6 +515,11 @@ export class EpochsTestContext {
       'block-build-failed',
       'checkpoint-publish-failed',
       'proposer-rollup-check-failed',
+      'checkpoint-error',
+      'checkpoint-publish-failed',
+      'header-validation-failed',
+      'pipelined-checkpoint-discarded',
+      ...additionalFailEventKeys,
     ];
 
     const makeEvent = (
@@ -536,6 +549,13 @@ export class EpochsTestContext {
       });
       failEventsKeys.forEach(eventName => {
         sequencer.getSequencer().on(eventName, (args: Parameters<SequencerEvents[typeof eventName]>[0]) => {
+          // Skip benign block-build-failed events where the builder rejected the block because it
+          // could not collect enough valid txs. This is the same "not enough txs" case as
+          // block-tx-count-check-failed (which is already excluded above), just detected after we
+          // started processing txs rather than before.
+          if (eventName === 'block-build-failed' && (args as { reason?: string }).reason === 'Insufficient valid txs') {
+            return;
+          }
           const evt = makeEvent(i, eventName, args);
           failEvents.push(evt);
           this.logger.error(`Failed event ${eventName} from sequencer ${sequencerIndex}`, undefined, evt);
@@ -544,5 +564,12 @@ export class EpochsTestContext {
     });
 
     return { failEvents, stateChanges };
+  }
+
+  public assertNoFailuresFromSequencers(failEvents: TrackedSequencerEvent[]) {
+    if (failEvents.length > 0) {
+      this.logger.error(`Failed events from sequencers`, failEvents);
+    }
+    expect(failEvents).toEqual([]);
   }
 }

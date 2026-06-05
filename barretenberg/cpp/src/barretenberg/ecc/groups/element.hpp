@@ -11,9 +11,9 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "wnaf.hpp"
 #include <array>
 #include <random>
+#include <span>
 #include <vector>
 
 namespace bb::group_elements {
@@ -85,11 +85,36 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     element operator*(const Fr& exponent) const noexcept;
     element operator*=(const Fr& exponent) noexcept;
 
+    /**
+     * @brief Constant-time scalar multiplication intended for secret scalars (e.g. ECDSA / Schnorr nonces).
+     *
+     * Implementation: Montgomery ladder (Montgomery 1987 [1]; SCA-regular form: Joye & Yen,
+     * CHES 2002 [2]) over a fixed iteration count, with Coron's first DPA countermeasure
+     * (CHES 1999 [3]) applied to the scalar: k' = k + r * n for a fresh random 64-bit r sampled
+     * per call. Since n * P = O in the prime-order subgroup, k' * P = k * P; the randomization
+     * decorrelates the per-bit timing trace across signings with the same k.
+     *
+     * [1] P. L. Montgomery, "Speeding the Pollard and Elliptic Curve Methods of Factorization",
+     *     Mathematics of Computation 48 (1987), pp. 243-264.
+     * [2] M. Joye and S.-M. Yen, "The Montgomery Powering Ladder", CHES 2002, LNCS 2523,
+     *     pp. 291-302.
+     * [3] J.-S. Coron, "Resistance against Differential Power Analysis for Elliptic Curve
+     *     Cryptosystems", CHES 1999, LNCS 1717, pp. 292-302.
+     *
+     * @param engine Optional RNG for the blinding factor. If nullptr, uses the global RNG.
+     *
+     * @warning Slower than operator*. Use only when the scalar is secret. For public scalars (MSM,
+     *          public arithmetic), prefer operator*.
+     */
+    element mul_const_time(const Fr& scalar, numeric::RNG* engine = nullptr) const noexcept;
+
     // If you end up implementing this, congrats, you've solved the DL problem!
     // P.S. This is a joke, don't even attempt! 😂
     // constexpr Fr operator/(const element& other) noexcept {}
 
     constexpr element normalize() const noexcept;
+    constexpr element normalize_const_time() const noexcept;
+    constexpr affine_element<Fq, Fr, Params> to_affine_const_time() const noexcept;
     static element infinity();
     BB_INLINE constexpr element set_infinity() const noexcept;
     BB_INLINE constexpr void self_set_infinity() noexcept;
@@ -101,6 +126,13 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     static void batch_affine_add(const std::span<affine_element<Fq, Fr, Params>>& first_group,
                                  const std::span<affine_element<Fq, Fr, Params>>& second_group,
                                  const std::span<affine_element<Fq, Fr, Params>>& results) noexcept;
+
+    /**
+     * @brief Straus-style multi-scalar multiplication.
+     * @details Computes Σ_i scalars[i] * points[i], efficient when num points is small (~64 or less)
+     */
+    static element straus_msm(std::span<const affine_element<Fq, Fr, Params>> points,
+                              std::span<const Fr> scalars) noexcept;
     static std::vector<affine_element<Fq, Fr, Params>> batch_mul_with_endomorphism(
         const std::span<const affine_element<Fq, Fr, Params>>& points, const Fr& scalar) noexcept;
 

@@ -33,8 +33,8 @@ export interface ProvingJobSource {
 }
 
 export const ProvingJobSourceSchema: ApiSchemaFor<ProvingJobSource> = {
-  getProvingJob: z.function().args().returns(ProvingJob.optional()),
-  heartbeat: z.function().args(ProvingJobId).returns(z.void()),
-  resolveProvingJob: z.function().args(ProvingJobId, ProvingJobResult).returns(z.void()),
-  rejectProvingJob: z.function().args(ProvingJobId, z.string()).returns(z.void()),
+  getProvingJob: z.function({ input: z.tuple([]), output: ProvingJob.optional() }),
+  heartbeat: z.function({ input: z.tuple([ProvingJobId]), output: z.void() }),
+  resolveProvingJob: z.function({ input: z.tuple([ProvingJobId, ProvingJobResult]), output: z.void() }),
+  rejectProvingJob: z.function({ input: z.tuple([ProvingJobId, z.string()]), output: z.void() }),
 };

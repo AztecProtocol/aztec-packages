@@ -19,11 +19,12 @@ environments/*
 !environments/devnet.env
 !environments/block-capacity.env
 !environments/next-net.env
+!environments/next-net-clone.env
 !environments/next-scenario.env
 !environments/scenario.local.env
 !environments/source-env.sh
 !environments/staging-ignition.env
-!environments/staging-public.env
+!environments/staging.env
 !environments/staging.local.env
 !environments/testnet-canary.env
 !environments/testnet.env

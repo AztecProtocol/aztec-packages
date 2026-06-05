@@ -136,7 +136,7 @@ export class ArchiverInstrumentation {
     }
 
     this.syncDurationPerCheckpoint.record(Math.ceil(syncTimePerCheckpoint));
-    this.blockHeight.record(Math.max(...blocks.map(b => b.number)));
+    this.blockHeight.record(Math.max(...blocks.map(b => b.number)), { [Attributes.STATUS]: 'checkpointed' });
     this.checkpointHeight.record(Math.max(...blocks.map(b => b.checkpointNumber)));
     this.syncBlockCount.add(blocks.length);
   }

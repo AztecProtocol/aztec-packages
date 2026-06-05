@@ -11,22 +11,13 @@ export class AggregateTxValidator<T> implements TxValidator<T> {
   }
 
   async validateTx(tx: T): Promise<TxValidationResult> {
-    const aggregate: { result: string; reason?: string[] } = { result: 'valid', reason: [] };
+    const reasons: string[] = [];
     for (const validator of this.validators) {
       const result = await validator.validateTx(tx);
       if (result.result === 'invalid') {
-        aggregate.result = 'invalid';
-        aggregate.reason!.push(...result.reason);
-      } else if (result.result === 'skipped') {
-        if (aggregate.result === 'valid') {
-          aggregate.result = 'skipped';
-        }
-        aggregate.reason!.push(...result.reason);
+        reasons.push(...result.reason);
       }
     }
-    if (aggregate.result === 'valid') {
-      delete aggregate.reason;
-    }
-    return aggregate as TxValidationResult;
+    return reasons.length > 0 ? { result: 'invalid', reason: reasons } : { result: 'valid' };
   }
 }

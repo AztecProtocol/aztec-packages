@@ -9,6 +9,7 @@ import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contra
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { defaultInitialAccountFeeJuice } from '@aztec/world-state/testing';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
@@ -33,7 +34,7 @@ describe('Phase check', () => {
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-    } = await setup(1, { genesisPublicData: [genesisBalanceEntry] }));
+    } = await setup(1, { ...AUTOMINE_E2E_OPTS, genesisPublicData: [genesisBalanceEntry] }));
 
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
     sponsoredFPC = await SponsoredFPCNoEndSetupContract.deploy(wallet, {

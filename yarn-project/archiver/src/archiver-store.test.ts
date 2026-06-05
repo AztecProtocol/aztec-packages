@@ -1,6 +1,5 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
-import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
-import { RollupContract } from '@aztec/ethereum/contracts';
+import { type OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import {
   BlockNumber,
@@ -12,9 +11,11 @@ import {
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { L2Block } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { makeStateReference } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
@@ -42,7 +43,6 @@ describe('Archiver Store', () => {
   let debugClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobClient: MockProxy<BlobClientInterface>;
-  let epochCache: MockProxy<EpochCache>;
   let archiverStore: ArchiverDataStores;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
   let initialHeader: BlockHeader;
@@ -60,8 +60,6 @@ describe('Archiver Store', () => {
     publicClient = mock<ViemPublicClient>();
     debugClient = publicClient;
     blobClient = mock<BlobClientInterface>();
-    epochCache = mock<EpochCache>();
-    epochCache.getCommitteeForEpoch.mockResolvedValue({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
 
     const rollupContract = mock<RollupContract>();
     Object.defineProperty(rollupContract, 'address', { value: rollupAddress.toString(), writable: true });
@@ -69,7 +67,7 @@ describe('Archiver Store', () => {
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
-    archiverStore = createArchiverDataStores(await openTmpStore('archiver_test'), { logsMaxPageSize: 1000 });
+    archiverStore = createArchiverDataStores(await openTmpStore('archiver_test'), GENESIS_BLOCK_HEADER_HASH);
 
     l1Constants = {
       l1GenesisTime: BigInt(now),
@@ -97,6 +95,8 @@ describe('Archiver Store', () => {
       batchSize: 1000,
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
+      orphanProposedBlockPruneGraceSeconds: 2,
+      enableOrphanProposedBlockPruning: true,
     };
 
     const events = new EventEmitter() as ArchiverEmitter;
@@ -108,6 +108,7 @@ describe('Archiver Store', () => {
       publicClient,
       debugClient,
       rollupContract,
+      mock<OutboxContract>(),
       contractAddresses,
       archiverStore,
       config,
@@ -119,6 +120,7 @@ describe('Archiver Store', () => {
       initialHeader,
       initialBlockHash,
       l2TipsCache,
+      new DateProvider(),
     );
   });
 
@@ -132,7 +134,7 @@ describe('Archiver Store', () => {
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
       await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
-      const result = await archiver.getCheckpoints(CheckpointNumber(1), 10);
+      const result = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 10 });
 
       expect(result.length).toBe(3);
       expect(result.map(c => c.checkpoint.number)).toEqual([1, 2, 3]);
@@ -148,7 +150,7 @@ describe('Archiver Store', () => {
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
       await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
-      const result = await archiver.getCheckpoints(CheckpointNumber(1), 2);
+      const result = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 2 });
 
       expect(result.length).toBe(2);
       expect(result.map(c => c.checkpoint.number)).toEqual([1, 2]);
@@ -159,20 +161,20 @@ describe('Archiver Store', () => {
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
       await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
-      const result = await archiver.getCheckpoints(CheckpointNumber(2), 10);
+      const result = await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 10 });
 
       expect(result.length).toBe(2);
       expect(result.map(c => c.checkpoint.number)).toEqual([2, 3]);
     });
 
     it('returns empty array when no checkpoints exist', async () => {
-      const result = await archiver.getCheckpoints(CheckpointNumber(1), 10);
+      const result = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 10 });
 
       expect(result).toEqual([]);
     });
   });
 
-  describe('getCheckpointsForEpoch', () => {
+  describe('getCheckpoints({ epoch })', () => {
     it('returns checkpoints for a specific epoch based on slot numbers', async () => {
       // l1Constants has epochDuration: 4, so epoch 0 has slots 0-3, epoch 1 has slots 4-7
       const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
@@ -186,13 +188,13 @@ describe('Archiver Store', () => {
       });
       await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
-      const epoch0Checkpoints = await archiver.getCheckpointsForEpoch(EpochNumber(0));
+      const epoch0Checkpoints = await archiver.getCheckpointsData({ epoch: EpochNumber(0) });
       expect(epoch0Checkpoints.length).toBe(2);
-      expect(epoch0Checkpoints.map(c => c.number)).toEqual([1, 2]);
+      expect(epoch0Checkpoints.map(c => c.checkpointNumber)).toEqual([1, 2]);
 
-      const epoch1Checkpoints = await archiver.getCheckpointsForEpoch(EpochNumber(1));
+      const epoch1Checkpoints = await archiver.getCheckpointsData({ epoch: EpochNumber(1) });
       expect(epoch1Checkpoints.length).toBe(1);
-      expect(epoch1Checkpoints.map(c => c.number)).toEqual([3]);
+      expect(epoch1Checkpoints.map(c => c.checkpointNumber)).toEqual([3]);
     });
 
     it('returns empty array for epoch with no checkpoints', async () => {
@@ -203,7 +205,7 @@ describe('Archiver Store', () => {
       });
       await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
-      const epoch1Checkpoints = await archiver.getCheckpointsForEpoch(EpochNumber(1));
+      const epoch1Checkpoints = await archiver.getCheckpointsData({ epoch: EpochNumber(1) });
       expect(epoch1Checkpoints).toEqual([]);
     });
 
@@ -220,9 +222,306 @@ describe('Archiver Store', () => {
       });
       await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
-      const epoch0Checkpoints = await archiver.getCheckpointsForEpoch(EpochNumber(0));
+      const epoch0Checkpoints = await archiver.getCheckpointsData({ epoch: EpochNumber(0) });
       expect(epoch0Checkpoints.length).toBe(3);
-      expect(epoch0Checkpoints.map(c => c.number)).toEqual([1, 2, 3]);
+      expect(epoch0Checkpoints.map(c => c.checkpointNumber)).toEqual([1, 2, 3]);
+    });
+  });
+
+  describe('getCheckpoint', () => {
+    it('returns checkpoint by number', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpoint({ number: CheckpointNumber(2) });
+      expect(result).toBeDefined();
+      expect(result!.checkpoint.number).toBe(2);
+    });
+
+    it('returns undefined for unknown checkpoint number', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(2, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpoint({ number: CheckpointNumber(99) });
+      expect(result).toBeUndefined();
+    });
+
+    it('returns checkpoint by slot', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const targetSlot = SlotNumber(7);
+      const testCheckpoints = await makeChainedCheckpoints(2, {
+        previousArchive: genesisArchive,
+        makeCheckpointOptions: cpNumber => ({
+          slotNumber: cpNumber === CheckpointNumber(1) ? SlotNumber(3) : targetSlot,
+        }),
+      });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpoint({ slot: targetSlot });
+      expect(result).toBeDefined();
+      expect(result!.checkpoint.number).toBe(2);
+    });
+
+    it('returns undefined for unknown slot', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(1, {
+        previousArchive: genesisArchive,
+        makeCheckpointOptions: () => ({ slotNumber: SlotNumber(5) }),
+      });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpoint({ slot: SlotNumber(99) });
+      expect(result).toBeUndefined();
+    });
+
+    it('returns the latest checkpointed checkpoint for tag=checkpointed', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpoint({ tag: 'checkpointed' });
+      expect(result).toBeDefined();
+      expect(result!.checkpoint.number).toBe(3);
+    });
+
+    it('returns the proven checkpoint for tag=proven when one exists', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(2));
+
+      const result = await archiver.getCheckpoint({ tag: 'proven' });
+      expect(result).toBeDefined();
+      expect(result!.checkpoint.number).toBe(2);
+    });
+
+    it('returns undefined for tag=proven when no checkpoints exist', async () => {
+      // proven tip is checkpoint 0 (genesis), getCheckpoint returns undefined for number=0
+      const result = await archiver.getCheckpoint({ tag: 'proven' });
+      expect(result).toBeUndefined();
+    });
+
+    it('returns the finalized checkpoint for tag=finalized when one exists', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(3));
+      await archiverStore.blocks.setFinalizedCheckpointNumber(CheckpointNumber(1));
+
+      const result = await archiver.getCheckpoint({ tag: 'finalized' });
+      expect(result).toBeDefined();
+      expect(result!.checkpoint.number).toBe(1);
+    });
+
+    it('returns undefined for tag=finalized when no checkpoints exist', async () => {
+      const result = await archiver.getCheckpoint({ tag: 'finalized' });
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getCheckpointData', () => {
+    it('returns checkpoint data by number', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpointData({ number: CheckpointNumber(2) });
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(2);
+      expect(result!.l1).toBeDefined();
+    });
+
+    it('returns undefined for unknown checkpoint number', async () => {
+      const result = await archiver.getCheckpointData({ number: CheckpointNumber(99) });
+      expect(result).toBeUndefined();
+    });
+
+    it('returns checkpoint data by slot', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const targetSlot = SlotNumber(11);
+      const testCheckpoints = await makeChainedCheckpoints(2, {
+        previousArchive: genesisArchive,
+        makeCheckpointOptions: cpNumber => ({
+          slotNumber: cpNumber === CheckpointNumber(1) ? SlotNumber(2) : targetSlot,
+        }),
+      });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpointData({ slot: targetSlot });
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(2);
+    });
+
+    it('returns undefined for unknown slot', async () => {
+      const result = await archiver.getCheckpointData({ slot: SlotNumber(999) });
+      expect(result).toBeUndefined();
+    });
+
+    it('returns the latest checkpointed data for tag=checkpointed', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpointData({ tag: 'checkpointed' });
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(3);
+    });
+
+    it('returns the proven checkpoint data for tag=proven', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(2));
+
+      const result = await archiver.getCheckpointData({ tag: 'proven' });
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(2);
+    });
+
+    it('returns the finalized checkpoint data for tag=finalized', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(3));
+      await archiverStore.blocks.setFinalizedCheckpointNumber(CheckpointNumber(2));
+
+      const result = await archiver.getCheckpointData({ tag: 'finalized' });
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(2);
+    });
+
+    it('returns undefined for tags when chain is empty', async () => {
+      expect(await archiver.getCheckpointData({ tag: 'proven' })).toBeUndefined();
+      expect(await archiver.getCheckpointData({ tag: 'finalized' })).toBeUndefined();
+    });
+  });
+
+  describe('getCheckpoints / getCheckpointsData', () => {
+    it('getCheckpoints returns the right slice from from+limit', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(5, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 3 });
+      expect(result.length).toBe(3);
+      expect(result.map(c => c.checkpoint.number)).toEqual([2, 3, 4]);
+    });
+
+    it('getCheckpointsData returns the right slice from from+limit', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const testCheckpoints = await makeChainedCheckpoints(5, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpointsData({ from: CheckpointNumber(3), limit: 2 });
+      expect(result.length).toBe(2);
+      expect(result.map(c => c.checkpointNumber)).toEqual([3, 4]);
+    });
+
+    it('getCheckpoints returns [] for empty range', async () => {
+      const result = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 10 });
+      expect(result).toEqual([]);
+    });
+
+    it('getCheckpointsData returns [] for unknown epoch', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      // checkpoint 1 in epoch 0 (slot 1, epochDuration=4)
+      const testCheckpoints = await makeChainedCheckpoints(1, {
+        previousArchive: genesisArchive,
+        makeCheckpointOptions: () => ({ slotNumber: SlotNumber(1) }),
+      });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const result = await archiver.getCheckpointsData({ epoch: EpochNumber(5) });
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getProposedCheckpointData', () => {
+    async function addProposedCheckpoint(
+      checkpointNumber: CheckpointNumber,
+      slotNumber: SlotNumber,
+      startBlock: BlockNumber,
+    ) {
+      const block = await L2Block.random(startBlock, {
+        checkpointNumber,
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+      await archiverStore.blocks.addProposedBlock(block, { force: true });
+      await archiverStore.blocks.addProposedCheckpoint({
+        checkpointNumber,
+        header: CheckpointHeader.random({ slotNumber }),
+        startBlock,
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 0n,
+      });
+    }
+
+    it('returns the latest proposed entry when called with no args', async () => {
+      await addProposedCheckpoint(CheckpointNumber(1), SlotNumber(3), BlockNumber(1));
+
+      const result = await archiver.getProposedCheckpointData();
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(1);
+    });
+
+    it('returns undefined when no proposed entry exists (no args)', async () => {
+      const result = await archiver.getProposedCheckpointData();
+      expect(result).toBeUndefined();
+    });
+
+    it('returns the latest proposed entry for tag=proposed', async () => {
+      await addProposedCheckpoint(CheckpointNumber(1), SlotNumber(5), BlockNumber(1));
+
+      const result = await archiver.getProposedCheckpointData({ tag: 'proposed' });
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(1);
+    });
+
+    it('returns matching proposed entry by number', async () => {
+      await addProposedCheckpoint(CheckpointNumber(1), SlotNumber(2), BlockNumber(1));
+
+      const result = await archiver.getProposedCheckpointData({ number: CheckpointNumber(1) });
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(1);
+    });
+
+    it('returns undefined for number that has no proposed entry', async () => {
+      await addProposedCheckpoint(CheckpointNumber(1), SlotNumber(2), BlockNumber(1));
+
+      const result = await archiver.getProposedCheckpointData({ number: CheckpointNumber(99) });
+      expect(result).toBeUndefined();
+    });
+
+    it('returns matching proposed entry by slot', async () => {
+      const targetSlot = SlotNumber(7);
+      await addProposedCheckpoint(CheckpointNumber(1), targetSlot, BlockNumber(1));
+
+      const result = await archiver.getProposedCheckpointData({ slot: targetSlot });
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(1);
+      expect(result!.header.slotNumber).toBe(targetSlot);
+    });
+
+    it('returns undefined for slot that has no proposed entry', async () => {
+      await addProposedCheckpoint(CheckpointNumber(1), SlotNumber(3), BlockNumber(1));
+
+      const result = await archiver.getProposedCheckpointData({ slot: SlotNumber(999) });
+      expect(result).toBeUndefined();
+    });
+
+    it('never falls back to confirmed checkpoints', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+      const confirmedCheckpoints = await makeChainedCheckpoints(2, { previousArchive: genesisArchive });
+      await archiverStore.blocks.addCheckpoints(confirmedCheckpoints);
+
+      // No proposed checkpoint exists — all queries should return undefined
+      expect(await archiver.getProposedCheckpointData()).toBeUndefined();
+      expect(await archiver.getProposedCheckpointData({ tag: 'proposed' })).toBeUndefined();
+      expect(await archiver.getProposedCheckpointData({ number: CheckpointNumber(1) })).toBeUndefined();
+      expect(await archiver.getProposedCheckpointData({ number: CheckpointNumber(2) })).toBeUndefined();
     });
   });
 
@@ -614,7 +913,7 @@ describe('Archiver Store', () => {
       // Block 3 is the last block of checkpoint 1 — should succeed
       await archiver.rollbackTo(BlockNumber(3));
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Verify sync points are set to checkpoint 1's L1 block number (10)
       const synchPoint = await getArchiverSynchPoint(archiverStore);
@@ -661,7 +960,7 @@ describe('Archiver Store', () => {
       // Roll back to block 2 (end of checkpoint 1), which is before proven block 4
       await archiver.rollbackTo(BlockNumber(2));
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
       expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
     });
 
@@ -681,7 +980,7 @@ describe('Archiver Store', () => {
       // Roll back to block 4 (end of checkpoint 2), which is after proven block 2
       await archiver.rollbackTo(BlockNumber(4));
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(2));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
       expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
     });
 
@@ -697,13 +996,13 @@ describe('Archiver Store', () => {
       // Mark checkpoints 1 and 2 as proven and finalized
       await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(2));
       await archiverStore.blocks.setFinalizedCheckpointNumber(CheckpointNumber(2));
-      expect(await archiver.getFinalizedL2BlockNumber()).toEqual(BlockNumber(4));
+      expect(await archiver.getBlockNumber({ tag: 'finalized' })).toEqual(BlockNumber(4));
 
       // Roll back to block 2 (end of checkpoint 1), which is before finalized block 4
       await archiver.rollbackTo(BlockNumber(2));
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
-      expect(await archiver.getFinalizedL2BlockNumber()).toEqual(BlockNumber(2));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getBlockNumber({ tag: 'finalized' })).toEqual(BlockNumber(2));
     });
 
     it('preserves finalized checkpoint number when target is after finalized block', async () => {
@@ -718,13 +1017,13 @@ describe('Archiver Store', () => {
       // Mark checkpoint 1 as finalized, checkpoint 2 as proven
       await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(2));
       await archiverStore.blocks.setFinalizedCheckpointNumber(CheckpointNumber(1));
-      expect(await archiver.getFinalizedL2BlockNumber()).toEqual(BlockNumber(2));
+      expect(await archiver.getBlockNumber({ tag: 'finalized' })).toEqual(BlockNumber(2));
 
       // Roll back to block 4 (end of checkpoint 2), which is after finalized block 2
       await archiver.rollbackTo(BlockNumber(4));
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(2));
-      expect(await archiver.getFinalizedL2BlockNumber()).toEqual(BlockNumber(2));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
+      expect(await archiver.getBlockNumber({ tag: 'finalized' })).toEqual(BlockNumber(2));
     });
   });
 

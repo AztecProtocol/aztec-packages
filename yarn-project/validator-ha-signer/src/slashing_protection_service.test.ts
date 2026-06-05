@@ -52,7 +52,7 @@ describe('SlashingProtectionService', () => {
     dateProvider = new TestDateProvider();
 
     config = {
-      l1Contracts: { rollupAddress: ROLLUP_ADDRESS },
+      rollupAddress: ROLLUP_ADDRESS,
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
       signingTimeoutMs: 1000,
@@ -615,7 +615,7 @@ describe('SlashingProtectionService', () => {
         db,
         {
           ...config,
-          l1Contracts: { rollupAddress: rollupAddress1 },
+          rollupAddress: rollupAddress1,
         },
         { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
       );
@@ -623,7 +623,7 @@ describe('SlashingProtectionService', () => {
         db,
         {
           ...config,
-          l1Contracts: { rollupAddress: rollupAddress2 },
+          rollupAddress: rollupAddress2,
         },
         { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
       );
@@ -704,7 +704,7 @@ describe('SlashingProtectionService', () => {
         db,
         {
           ...config,
-          l1Contracts: { rollupAddress: oldRollupAddress },
+          rollupAddress: oldRollupAddress,
         },
         { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
       );
@@ -712,7 +712,7 @@ describe('SlashingProtectionService', () => {
         db,
         {
           ...config,
-          l1Contracts: { rollupAddress: newRollupAddress },
+          rollupAddress: newRollupAddress,
         },
         { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
       );
@@ -784,7 +784,7 @@ describe('SlashingProtectionService', () => {
         db,
         {
           ...config,
-          l1Contracts: { rollupAddress: rollupAddress1 },
+          rollupAddress: rollupAddress1,
         },
         { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
       );
@@ -908,7 +908,7 @@ describe('SlashingProtectionService', () => {
           db,
           {
             ...config,
-            l1Contracts: { rollupAddress: newRollupAddress },
+            rollupAddress: newRollupAddress,
           },
           { metrics: new HASignerMetrics(telemetryClient, config.nodeId), dateProvider },
         );

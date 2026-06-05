@@ -13,9 +13,11 @@ import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import type { BlockData } from '../block/block_data.js';
 import type { DataInBlock } from '../block/in_block.js';
 import { BlockHash, type BlockParameter } from '../block/index.js';
-import type { L2Tips } from '../block/l2_block_source.js';
+import type { CheckpointsQuery } from '../block/l2_block_source.js';
+import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -26,35 +28,38 @@ import {
 } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { ExtendedContractClassLog } from '../logs/extended_contract_class_log.js';
-import { ExtendedPublicLog } from '../logs/extended_public_log.js';
-import type { LogFilter } from '../logs/log_filter.js';
+import { type LogResult, randomLogResult } from '../logs/log_result.js';
+import type { PrivateLogsQuery, PublicLogsQuery } from '../logs/logs_query.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
-import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
-import { randomTxScopedPrivateL2Log } from '../tests/factories.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
-import { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { TxReceipt } from '../tx/tx_receipt.js';
+import {
+  DroppedTxReceipt,
+  type GetTxReceiptOptions,
+  MinedTxReceipt,
+  PendingTxReceipt,
+  TxExecutionResult,
+  type TxReceipt,
+  TxStatus,
+} from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import type { AllowedElement } from './allowed_element.js';
 import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
-import type { BlockIncludeOptions, BlockResponse } from './block_response.js';
+import type { BlockIncludeOptions, BlockResponse, BlocksIncludeOptions } from './block_response.js';
 import type { ChainTip, ChainTips } from './chain_tips.js';
 import type { CheckpointParameter } from './checkpoint_parameter.js';
 import type { CheckpointIncludeOptions, CheckpointResponse } from './checkpoint_response.js';
 import type { SequencerConfig } from './configs.js';
-import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 import type { ProverConfig } from './prover-client.js';
 import type { WorldStateSyncStatus } from './world_state.js';
 
@@ -98,21 +103,6 @@ describe('AztecNodeApiSchema', () => {
     });
   });
 
-  it('getL2Tips', async () => {
-    const result = await context.client.getL2Tips();
-    const expectedTipId = {
-      block: { number: 1, hash: `0x01` },
-      checkpoint: { number: 1, hash: `0x01` },
-    };
-    expect(result).toEqual({
-      proposed: { number: 1, hash: `0x01` },
-      checkpointed: expectedTipId,
-      proposedCheckpoint: expectedTipId,
-      proven: expectedTipId,
-      finalized: expectedTipId,
-    });
-  });
-
   it('findLeavesIndexes', async () => {
     const response = await context.client.findLeavesIndexes(BlockNumber(1), MerkleTreeId.ARCHIVE, [
       Fr.random(),
@@ -135,11 +125,6 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual(5);
   });
 
-  it('isL1ToL2MessageSynced', async () => {
-    const response = await context.client.isL1ToL2MessageSynced(Fr.random());
-    expect(response).toBe(true);
-  });
-
   it('getL2ToL1Messages', async () => {
     const response = await context.client.getL2ToL1Messages(EpochNumber(1));
     expect(response.length).toBe(3);
@@ -147,6 +132,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response[0][0].length).toBe(2);
     expect(response[0][0][0].length).toBe(3);
     expect(response[0][0][0][0]).toBeInstanceOf(Fr);
+  });
+
+  it('getL2ToL1MembershipWitness', async () => {
+    const response = await context.client.getL2ToL1MembershipWitness(TxHash.random(), Fr.random());
+    expect(response).toBeUndefined();
   });
 
   it('getBlockHashMembershipWitness', async () => {
@@ -179,14 +169,9 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeUndefined();
   });
 
-  it('getBlockHeader', async () => {
-    const response = await context.client.getBlockHeader(BlockNumber(1));
-    expect(response).toBeInstanceOf(BlockHeader);
-  });
-
-  it('getCheckpointedBlocks', async () => {
-    const response = await context.client.getCheckpointedBlocks(BlockNumber(1), 10);
-    expect(response).toEqual([]);
+  it('getBlockData', async () => {
+    const response = await context.client.getBlockData(BlockNumber(1));
+    expect(response).toBeUndefined();
   });
 
   it('getCheckpoint', async () => {
@@ -253,8 +238,13 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([]);
   });
 
-  it('getCheckpointsDataForEpoch', async () => {
-    const response = await context.client.getCheckpointsDataForEpoch(EpochNumber(1));
+  it('getCheckpointsData (epoch)', async () => {
+    const response = await context.client.getCheckpointsData({ epoch: EpochNumber(1) });
+    expect(response).toEqual([]);
+  });
+
+  it('getCheckpointsData (range)', async () => {
+    const response = await context.client.getCheckpointsData({ from: CheckpointNumber(1), limit: 1 });
     expect(response).toEqual([]);
   });
 
@@ -287,25 +277,19 @@ describe('AztecNodeApiSchema', () => {
     await context.client.registerContractFunctionSignatures(['test()']);
   });
 
-  it('getPublicLogs', async () => {
-    const response = await context.client.getPublicLogs({ contractAddress: await AztecAddress.random() });
-    expect(response).toEqual({ logs: [expect.any(ExtendedPublicLog)], maxLogsHit: true });
-  });
-
-  it('getContractClassLogs', async () => {
-    const response = await context.client.getContractClassLogs({ contractAddress: await AztecAddress.random() });
-    expect(response).toEqual({ logs: [expect.any(ExtendedContractClassLog)], maxLogsHit: true });
-  });
-
   it('getPrivateLogsByTags', async () => {
-    const response = await context.client.getPrivateLogsByTags([SiloedTag.random()]);
-    expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
+    const response = await context.client.getPrivateLogsByTags({ tags: [SiloedTag.random()] });
+    expect(response).toHaveLength(1);
+    expect(response[0]).toHaveLength(1);
+    expect(response[0][0].txHash).toBeDefined();
   });
 
-  it('getPublicLogsByTagsFromContract', async () => {
+  it('getPublicLogsByTags', async () => {
     const contractAddress = await AztecAddress.random();
-    const response = await context.client.getPublicLogsByTagsFromContract(contractAddress, [Tag.random()]);
-    expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
+    const response = await context.client.getPublicLogsByTags({ contractAddress, tags: [Tag.random()] });
+    expect(response).toHaveLength(1);
+    expect(response[0]).toHaveLength(1);
+    expect(response[0][0].txHash).toBeDefined();
   });
 
   it('sendTx', async () => {
@@ -313,8 +297,23 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getTxReceipt', async () => {
+    // No options: the mock returns a plain mined receipt.
     const response = await context.client.getTxReceipt(TxHash.random());
-    expect(response).toBeInstanceOf(TxReceipt);
+    expect(response).toBeInstanceOf(MinedTxReceipt);
+
+    // The mock keys its returned variant off the options it receives, so each call below exercises both a distinct
+    // variant and the GetTxReceiptOptions wire encoding, round-tripping back to the correct class.
+    const mined = await context.client.getTxReceipt(TxHash.random(), { includeTxEffect: true });
+    expect(mined).toBeInstanceOf(MinedTxReceipt);
+    expect((mined as MinedTxReceipt).txEffect).toBeInstanceOf(TxEffect);
+
+    const pending = await context.client.getTxReceipt(TxHash.random(), { includePendingTx: true });
+    expect(pending).toBeInstanceOf(PendingTxReceipt);
+    expect((pending as PendingTxReceipt).tx).toBeInstanceOf(Tx);
+
+    const dropped = await context.client.getTxReceipt(TxHash.random(), { includeProof: true });
+    expect(dropped).toBeInstanceOf(DroppedTxReceipt);
+    expect((dropped as DroppedTxReceipt).error).toEqual('dropped');
   });
 
   it('getTxEffect', async () => {
@@ -432,7 +431,7 @@ describe('AztecNodeApiSchema', () => {
         missedProposals: { currentStreak: 0, count: 0, total: 1 },
         history: [{ slot: SlotNumber(1), status: 'checkpoint-mined' }],
       },
-      allTimeProvenPerformance: [],
+      allTimeEpochPerformance: [],
       lastProcessedSlot: SlotNumber(10),
       initialSlot: SlotNumber(1),
       slotWindow: 100,
@@ -457,7 +456,7 @@ describe('AztecNodeApiSchema', () => {
         missedProposals: { currentStreak: 0, count: 0, total: 0 },
         history: [{ slot: SlotNumber(5), status: 'attestation-sent' }],
       },
-      allTimeProvenPerformance: [],
+      allTimeEpochPerformance: [],
       lastProcessedSlot: SlotNumber(10),
       initialSlot: SlotNumber(5),
       slotWindow: 5,
@@ -496,9 +495,10 @@ describe('AztecNodeApiSchema', () => {
       originalContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
+      immutablesHash: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
       salt: expect.any(Fr),
-      version: 1,
+      version: 2,
     });
   });
 
@@ -555,7 +555,11 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(undefined);
   }
 
-  getBlocks<Opts extends BlockIncludeOptions = {}>(
+  getBlockData(_param: BlockParameter): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getBlocks<Opts extends BlocksIncludeOptions = {}>(
     _from: BlockNumber,
     _limit: number,
     _options?: Opts,
@@ -578,29 +582,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve([]);
   }
 
-  getCheckpointsDataForEpoch(_epochNumber: EpochNumber) {
-    return Promise.resolve([]);
-  }
-
-  getL2Tips(): Promise<L2Tips> {
-    const tipId = {
-      block: { number: BlockNumber(1), hash: `0x01` },
-      checkpoint: { number: CheckpointNumber(1), hash: `0x01` },
-    };
-    return Promise.resolve({
-      proposed: { number: BlockNumber(1), hash: `0x01` },
-      checkpointed: tipId,
-      proposedCheckpoint: tipId,
-      proven: tipId,
-      finalized: tipId,
-    });
-  }
-
-  getBlockHeader(_number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
-    return Promise.resolve(BlockHeader.empty());
-  }
-
-  getCheckpointedBlocks(_from: BlockNumber, _limit: number): Promise<BlockResponse[]> {
+  getCheckpointsData(_query: CheckpointsQuery): Promise<CheckpointData[]> {
     return Promise.resolve([]);
   }
 
@@ -654,10 +636,6 @@ class MockAztecNode implements AztecNode {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(CheckpointNumber(5));
   }
-  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    expect(l1ToL2Message).toBeInstanceOf(Fr);
-    return Promise.resolve(true);
-  }
   getL2ToL1Messages(_epoch: EpochNumber): Promise<Fr[][][][]> {
     return Promise.resolve(
       Array.from({ length: 3 }, (_, i) =>
@@ -668,6 +646,11 @@ class MockAztecNode implements AztecNode {
         ),
       ),
     );
+  }
+  getL2ToL1MembershipWitness(txHash: TxHash, message: Fr, _messageIndexInTx?: number) {
+    expect(txHash).toBeInstanceOf(TxHash);
+    expect(message).toBeInstanceOf(Fr);
+    return Promise.resolve(undefined);
   }
   getNullifierMembershipWitness(
     referenceBlock: BlockParameter,
@@ -755,36 +738,39 @@ class MockAztecNode implements AztecNode {
   registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
-  async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return { logs: [await ExtendedPublicLog.random()], maxLogsHit: true };
+  getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {
+    expect(Array.isArray(query.tags)).toBe(true);
+    return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
-  async getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
-    return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
-  }
-  getPrivateLogsByTags(tags: SiloedTag[], _logsPerTag?: number): Promise<TxScopedL2Log[][]> {
-    expect(tags).toHaveLength(1);
-    expect(tags[0]).toBeInstanceOf(SiloedTag);
-    return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
-  }
-  getPublicLogsByTagsFromContract(
-    contractAddress: AztecAddress,
-    tags: Tag[],
-    _logsPerTag?: number,
-  ): Promise<TxScopedL2Log[][]> {
-    expect(contractAddress).toBeInstanceOf(AztecAddress);
-    expect(tags).toHaveLength(1);
-    expect(tags[0]).toBeInstanceOf(Tag);
-    return Promise.resolve([[randomTxScopedPrivateL2Log()]]);
+  getPublicLogsByTags(query: PublicLogsQuery): Promise<LogResult[][]> {
+    expect(query.contractAddress).toBeInstanceOf(AztecAddress);
+    expect(Array.isArray(query.tags)).toBe(true);
+    return Promise.resolve([query.tags.map(() => randomLogResult())]);
   }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve();
   }
-  getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
+  async getTxReceipt(txHash: TxHash, options?: GetTxReceiptOptions): Promise<TxReceipt> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return Promise.resolve(TxReceipt.empty());
+    if (options?.includePendingTx) {
+      return new PendingTxReceipt(txHash, Tx.random());
+    }
+    if (options?.includeProof) {
+      return new DroppedTxReceipt(txHash, 'dropped');
+    }
+    return new MinedTxReceipt(
+      txHash,
+      TxStatus.PROVEN,
+      TxExecutionResult.SUCCESS,
+      1n,
+      new BlockHash(new Fr(0x12)),
+      BlockNumber(1),
+      SlotNumber(1),
+      0,
+      EpochNumber(1),
+      options?.includeTxEffect ? await TxEffect.random() : undefined,
+    );
   }
   async getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
@@ -793,6 +779,7 @@ class MockAztecNode implements AztecNode {
       l2BlockHash: new BlockHash(new Fr(0x12)),
       data: await TxEffect.random(),
       txIndexInBlock: randomInt(10),
+      slotNumber: SlotNumber(1),
     };
   }
   getPendingTxs(): Promise<Tx[]> {
@@ -858,11 +845,12 @@ class MockAztecNode implements AztecNode {
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
     const instance = {
-      version: 1 as const,
+      version: 2 as const,
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
       address: await AztecAddress.random(),

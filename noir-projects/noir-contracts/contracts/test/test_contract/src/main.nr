@@ -132,7 +132,7 @@ pub contract Test {
     #[external("private")]
     fn call_create_note(value: u128, owner: AztecAddress, storage_slot: Field, make_tx_hybrid: bool) {
         let note = UintNote { value };
-        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery::onchain_constrained());
 
         if make_tx_hybrid {
             self.enqueue_self.dummy_public_call();
@@ -287,13 +287,13 @@ pub contract Test {
 
     #[external("public")]
     fn emit_nullifier_public(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     #[external("private")]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
     }
 
     // For testing non-note encrypted logs
@@ -307,7 +307,7 @@ pub contract Test {
             value4: fields[4],
         };
 
-        self.emit(event).deliver_to(owner, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.emit(event).deliver_to(owner, MessageDelivery::onchain_unconstrained());
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
@@ -316,7 +316,7 @@ pub contract Test {
 
             // Emit a log with non-encrypted content for testing purpose.
             let leaky_log = BoundedVec::from_array(event.serialize());
-            self.context.emit_private_log_vec_unsafe(tag, leaky_log);
+            self.context.emit_private_log_unsafe(tag, leaky_log);
         }
     }
 

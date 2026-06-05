@@ -388,8 +388,8 @@ export type ProvingRequestResultFor<T extends ProvingRequestType> = { type: T; r
 
 export const ProvingJobId = z.string();
 
-export const ProofUri = z.string().brand('ProvingJobUri');
-export type ProofUri = z.infer<typeof ProofUri>;
+export type ProofUri = string & z.$brand<'ProvingJobUri'>;
+export const ProofUri: ZodFor<ProofUri> = z.string().transform(value => value as ProofUri);
 
 export type ProvingJobId = z.infer<typeof ProvingJobId>;
 
@@ -400,7 +400,7 @@ type ProvingJobShape = {
   inputsUri: ProofUri;
 };
 
-export const ProvingJob: z.ZodType<ProvingJobShape, z.ZodTypeDef, any> = z.object({
+export const ProvingJob: z.ZodType<ProvingJobShape, any> = z.object({
   id: ProvingJobId,
   type: z.nativeEnum(ProvingRequestType),
   epochNumber: EpochNumberSchema,

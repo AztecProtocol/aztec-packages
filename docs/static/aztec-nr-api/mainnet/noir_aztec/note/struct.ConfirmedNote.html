@@ -24,6 +24,7 @@
 <li><a href="#structfield.metadata">metadata</a></li>
 <li><a href="#structfield.note">note</a></li>
 <li><a href="#structfield.owner">owner</a></li>
+<li><a href="#structfield.proven_note_hash">proven_note_hash</a></li>
 <li><a href="#structfield.randomness">randomness</a></li>
 <li><a href="#structfield.storage_slot">storage_slot</a></li>
 </ul>
@@ -55,7 +56,7 @@
     pub randomness: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     pub storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
     pub metadata: <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a>,
-    <span class="comment">/* private fields */</span>
+    pub proven_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
 }
 </code></pre>
 <div class="comments">
@@ -80,7 +81,12 @@ by the kernel, resulting in a <em>transient note</em>.</p></div>
 <div class="padded-description"></div><div id="structfield.randomness" class="struct-field"><code class="code-header">randomness: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.storage_slot" class="struct-field"><code class="code-header">storage_slot: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.metadata" class="struct-field"><code class="code-header">metadata: <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></div>
-<div class="padded-description"></div><h2>Implementations</h2>
+<div class="padded-description"></div><div id="structfield.proven_note_hash" class="struct-field"><code class="code-header">proven_note_hash: <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The note hash used to prove existence.</p>
+<p>Whether this note hash is unsiloed or unique depends on the note's metadata.</p>
+</div>
+</div><h2>Implementations</h2>
 <h3><code class="code-header">impl&lt;Note&gt; <a href="../../noir_aztec/note/struct.ConfirmedNote.html" class="struct">ConfirmedNote</a>&lt;Note&gt;</code></h3>
 
 <div class="padded-methods"></div></main>

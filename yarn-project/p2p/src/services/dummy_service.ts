@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { CheckpointProposalCore, Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
+import type { Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
@@ -18,13 +18,13 @@ import type {
   ReqRespSubProtocol,
   ReqRespSubProtocolHandler,
   ReqRespSubProtocolHandlers,
-  ReqRespSubProtocolValidators,
   SubProtocolMap,
 } from './reqresp/interface.js';
 import type { GoodByeReason } from './reqresp/protocols/goodbye.js';
 import { ReqRespStatus } from './reqresp/status.js';
 import {
   type P2PBlockReceivedCallback,
+  type P2PCheckpointAttestationCallback,
   type P2PCheckpointReceivedCallback,
   type P2PDuplicateAttestationCallback,
   type P2PDuplicateProposalCallback,
@@ -37,6 +37,8 @@ import {
  * A dummy implementation of the P2P Service.
  */
 export class DummyP2PService implements P2PService {
+  private allNodesCheckpointReceivedCallback?: P2PCheckpointReceivedCallback;
+
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
 
   /** Returns an empty array for peers. */
@@ -87,10 +89,8 @@ export class DummyP2PService implements P2PService {
    * Register a callback into the validator client for when a checkpoint proposal is received
    */
   public registerValidatorCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
-  public registerAllNodesCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
-
-  public notifyOwnCheckpointProposal(_checkpoint: CheckpointProposalCore): Promise<void> {
-    return Promise.resolve();
+  public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
+    this.allNodesCheckpointReceivedCallback = callback;
   }
 
   /**
@@ -103,6 +103,8 @@ export class DummyP2PService implements P2PService {
    */
   public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {}
 
+  public registerCheckpointAttestationCallback(_callback: P2PCheckpointAttestationCallback): void {}
+
   /**
    * Sends a request to a peer.
    * @param _protocol - The protocol to send the request on.
@@ -114,19 +116,6 @@ export class DummyP2PService implements P2PService {
     _request: InstanceType<SubProtocolMap[Protocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined> {
     return Promise.resolve(undefined);
-  }
-
-  /**
-   * Sends a batch request to a peer.
-   * @param _protocol - The protocol to send the request on.
-   * @param _requests - The requests to send.
-   * @returns The responses from the peer, otherwise undefined.
-   */
-  public sendBatchRequest<Protocol extends ReqRespSubProtocol>(
-    _protocol: Protocol,
-    _requests: InstanceType<SubProtocolMap[Protocol]['request']>[],
-  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']>[]> {
-    return Promise.resolve([]);
   }
 
   public sendRequestToPeer(
@@ -150,11 +139,7 @@ export class DummyP2PService implements P2PService {
     return Promise.resolve();
   }
 
-  addReqRespSubProtocol(
-    _subProtocol: ReqRespSubProtocol,
-    _handler: ReqRespSubProtocolHandler,
-    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
+  addReqRespSubProtocol(_subProtocol: ReqRespSubProtocol, _handler: ReqRespSubProtocolHandler): Promise<void> {
     return Promise.resolve();
   }
 
@@ -183,6 +168,7 @@ export class DummyP2PService implements P2PService {
       peerScoring: {
         penalizePeer: (_peerId, _penalty) => {},
       },
+      validateRequestedBlockTxsConsistency: () => Promise.resolve(true),
     };
   }
 }
@@ -288,10 +274,7 @@ export class DummyPeerManager implements PeerManagerInterface {
 export class DummyReqResp implements ReqRespInterface {
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
   setShouldRejectPeer(): void {}
-  start(
-    _subProtocolHandlers: ReqRespSubProtocolHandlers,
-    _subProtocolValidators: ReqRespSubProtocolValidators,
-  ): Promise<void> {
+  start(_subProtocolHandlers: ReqRespSubProtocolHandlers): Promise<void> {
     return Promise.resolve();
   }
   stop(): Promise<void> {
@@ -302,16 +285,6 @@ export class DummyReqResp implements ReqRespInterface {
     _request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
     return Promise.resolve(undefined);
-  }
-  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    _subProtocol: SubProtocol,
-    _requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    _pinnedPeer: PeerId | undefined,
-    _timeoutMs?: number,
-    _maxPeers?: number,
-    _maxRetryAttempts?: number,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
-    return Promise.resolve([]);
   }
   public sendRequestToPeer(
     _peerId: PeerId,
@@ -331,11 +304,7 @@ export class DummyReqResp implements ReqRespInterface {
     };
   }
 
-  addSubProtocol(
-    _subProtocol: ReqRespSubProtocol,
-    _handler: ReqRespSubProtocolHandler,
-    _validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
+  addSubProtocol(_subProtocol: ReqRespSubProtocol, _handler: ReqRespSubProtocolHandler): Promise<void> {
     return Promise.resolve();
   }
 }

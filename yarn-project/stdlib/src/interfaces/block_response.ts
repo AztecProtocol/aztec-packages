@@ -4,7 +4,7 @@ import {
   IndexWithinCheckpointSchema,
 } from '@aztec/foundation/branded-types';
 import type { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
-import type { IfFlag, Prettify } from '@aztec/foundation/types';
+import type { PickIfFlag, Prettify } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
@@ -15,7 +15,7 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { type L1PublishInfo, L1PublishInfoSchema } from './l1_publish_info.js';
 
-/** Options for narrowing the response of `getBlock` / `getBlocks`. */
+/** Options for narrowing the response of `getBlock`. */
 export type BlockIncludeOptions = {
   /** Include the block body (tx effects). Off by default. */
   includeTransactions?: boolean;
@@ -29,6 +29,19 @@ export const BlockIncludeOptionsSchema: z.ZodType<BlockIncludeOptions> = z.objec
   includeTransactions: z.boolean().optional(),
   includeL1PublishInfo: z.boolean().optional(),
   includeAttestations: z.boolean().optional(),
+});
+
+/** Options for narrowing the response of `getBlocks` (range). Extends single-block options with range-only flags. */
+export type BlocksIncludeOptions = BlockIncludeOptions & {
+  /** Only return blocks that belong to a confirmed L1 checkpoint. Off by default. */
+  onlyCheckpointed?: boolean;
+};
+
+export const BlocksIncludeOptionsSchema: z.ZodType<BlocksIncludeOptions> = z.object({
+  includeTransactions: z.boolean().optional(),
+  includeL1PublishInfo: z.boolean().optional(),
+  includeAttestations: z.boolean().optional(),
+  onlyCheckpointed: z.boolean().optional(),
 });
 
 /** Required metadata always present on a {@link BlockResponse}. */
@@ -60,9 +73,9 @@ export type BlockResponseBase = {
  */
 export type BlockResponse<Opts extends BlockIncludeOptions = BlockIncludeOptions> = Prettify<
   BlockResponseBase &
-    IfFlag<BlockIncludeOptions, Opts, 'includeTransactions', { body: Body }> &
-    IfFlag<BlockIncludeOptions, Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
-    IfFlag<BlockIncludeOptions, Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>
+    PickIfFlag<BlockIncludeOptions, Opts, 'includeTransactions', { body: Body }> &
+    PickIfFlag<BlockIncludeOptions, Opts, 'includeL1PublishInfo', { l1: L1PublishInfo }> &
+    PickIfFlag<BlockIncludeOptions, Opts, 'includeAttestations', { attestations: CommitteeAttestation[] }>
 >;
 
 /** Zod schema for the widest {@link BlockResponse} shape (all include-gated fields optional). */

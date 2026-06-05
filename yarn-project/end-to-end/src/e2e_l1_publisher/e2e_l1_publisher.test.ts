@@ -52,6 +52,7 @@ import {
   type BlockQuery,
   type BlocksQuery,
   Body,
+  type CheckpointsQuery,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   L2Block,
@@ -59,7 +60,11 @@ import {
   Signature,
 } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import {
+  type L1RollupConstants,
+  getNextL1SlotTimestamp,
+  getSlotStartBuildTimestamp,
+} from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import {
@@ -174,6 +179,28 @@ describe('L1Publisher integration', () => {
     }
   };
 
+  // Warp the chain forward so that the current L2 slot matches `targetSlot`, and resync the
+  // dateProvider so `epochCache.getSlotNow()` (used by the bundle-level eth_simulateV1 and the
+  // L1 tx mine timestamp) also lands on `targetSlot`. The rollup contract rejects header slots
+  // that don't match block.timestamp, so the test must align both the chain and the date
+  // provider to the header's slot before calling sendRequests.
+  const progressToSlot = async (targetSlot: bigint) => {
+    const currentSlot = await rollup.getSlotNumber();
+    if (BigInt(targetSlot) > BigInt(currentSlot)) {
+      await progressTimeBySlot(Number(BigInt(targetSlot) - BigInt(currentSlot)));
+    }
+    // Always resync the dateProvider so `epochCache.getSlotNow()` matches L1's block.timestamp.
+    // `sendRequests` derives its bundle-simulate timestamp from `getCurrentL2Slot()`, so if the
+    // dateProvider lags the chain the simulate runs at a stale slot and the rollup rejects the
+    // header with `HeaderLib__InvalidSlotNumber`.
+    await ethCheatCodes.syncDateProvider();
+  };
+
+  const getPipelinedProposalSlot = () =>
+    rollup.getSlotAt(
+      getNextL1SlotTimestamp(dateProvider.nowInSeconds(), l1Constants) + BigInt(config.aztecSlotDuration),
+    );
+
   let port = 8545; // We increase the port for each test to avoid anvil conflicts
   const setup = async (deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {}) => {
     ({ rpcUrl, anvil } = await startAnvil({ port: port++ }));
@@ -249,9 +276,10 @@ describe('L1Publisher integration', () => {
         }
         return Promise.resolve(undefined);
       },
-      async getCheckpoints(checkpointNumber, _limit) {
+      async getCheckpoints(query: CheckpointsQuery) {
         // Test uses 1-block-per-checkpoint, so we find block by checkpoint number
-        const block = blocks.find(b => Number(b.number) === Number(checkpointNumber));
+        const from = 'from' in query ? query.from : undefined;
+        const block = from !== undefined ? blocks.find(b => Number(b.number) === Number(from)) : undefined;
         if (!block) {
           return Promise.resolve([]);
         }
@@ -259,7 +287,7 @@ describe('L1Publisher integration', () => {
           block.archive,
           CheckpointHeader.random({ lastArchiveRoot: block.header.lastArchive.root }),
           [block],
-          checkpointNumber,
+          from!,
         );
         return [
           new PublishedCheckpoint(
@@ -289,9 +317,6 @@ describe('L1Publisher integration', () => {
         };
       },
       getBlockNumber(): Promise<BlockNumber> {
-        return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
-      },
-      getProvenBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
       },
     });
@@ -422,12 +447,14 @@ describe('L1Publisher integration', () => {
     return checkpoint;
   };
 
-  const buildSingleCheckpoint = async (opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber } = {}) => {
+  const buildSingleCheckpoint = async (
+    opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber; slot?: SlotNumber } = {},
+  ) => {
     const l1ToL2Messages = opts.l1ToL2Messages ?? new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO);
 
     const txs = await Promise.all([makeProcessedTx(0x1000), makeProcessedTx(0x2000)]);
     const ts = (await l1Client.getBlock()).timestamp;
-    const slot = await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration));
+    const slot = opts.slot ?? (await rollup.getSlotAt(ts + BigInt(config.ethereumSlotDuration)));
     const timestamp = await rollup.getTimestampForSlot(slot);
     const globalVariables = new GlobalVariables(
       new Fr(chainId),
@@ -442,6 +469,14 @@ describe('L1Publisher integration', () => {
     const checkpoint = await buildCheckpoint(globalVariables, txs, l1ToL2Messages);
     blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
     return { checkpoint, l1ToL2Messages };
+  };
+
+  const buildSingleCheckpointForPipelinedProposer = async (
+    opts: { l1ToL2Messages?: Fr[]; blockNumber?: BlockNumber } = {},
+  ) => {
+    const slot = await getPipelinedProposalSlot();
+    proposer = await epochCache.getProposerAttesterAddressInSlot(slot);
+    return buildSingleCheckpoint({ ...opts, slot });
   };
 
   describe('block building', () => {
@@ -533,6 +568,8 @@ describe('L1Publisher integration', () => {
           CommitteeAttestationsAndSigners.empty(getSignatureContext()),
           Signature.empty(),
         );
+        // Align chain time so the bundle simulate and the L1 send both run at the header's slot.
+        await progressToSlot(BigInt(checkpoint.header.slotNumber));
         await publisher.sendRequests();
 
         const logs = await l1Client.getLogs({
@@ -644,13 +681,15 @@ describe('L1Publisher integration', () => {
         new CommitteeAttestationsAndSigners(attestations, getSignatureContext()),
         signature,
       );
+      // Align chain time so the bundle simulate and the L1 send both run at the header's slot.
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['propose']);
       expect(result!.failedActions).toEqual([]);
     };
 
     it('publishes a block with attestations', async () => {
-      const { checkpoint } = await buildSingleCheckpoint();
+      const { checkpoint } = await buildSingleCheckpointForPipelinedProposer();
       const block = checkpoint.blocks[0];
 
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
@@ -669,7 +708,7 @@ describe('L1Publisher integration', () => {
     });
 
     it('fails to publish a block without the proposer attestation', async () => {
-      const { checkpoint } = await buildSingleCheckpoint();
+      const { checkpoint } = await buildSingleCheckpointForPipelinedProposer();
       const block = checkpoint.blocks[0];
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
 
@@ -681,13 +720,27 @@ describe('L1Publisher integration', () => {
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
-      await expect(
-        publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, Signature.empty()),
-      ).rejects.toThrow(/ValidatorSelection__InvalidCommitteeCommitment/);
+      // Enqueue no longer simulates — the bundle simulate at send time drops the failing propose
+      // and sendRequests returns undefined (no surviving actions). The drop is reported via a
+      // warn log carrying the on-chain revert reason (raw hex selector since the propose request
+      // has no ABI attached).
+      const loggerWarnSpy = jest.spyOn((publisher as any).log, 'warn');
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, Signature.empty());
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
+      const result = await publisher.sendRequests();
+      expect(result).toBeUndefined();
+      // 0xca8d5954 == ValidatorSelection__InvalidCommitteeCommitment selector
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        'Bundle entry dropped: action reverted in sim',
+        expect.objectContaining({
+          action: 'propose',
+          returnData: expect.stringMatching(/^0xca8d5954/),
+        }),
+      );
     });
 
     it('rejects flipped proposer signature', async () => {
-      const { checkpoint } = await buildSingleCheckpoint();
+      const { checkpoint } = await buildSingleCheckpointForPipelinedProposer();
       const block = checkpoint.blocks[0];
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
@@ -702,17 +755,29 @@ describe('L1Publisher integration', () => {
         validators.find(v => v.address.equals(proposer!))!,
       );
 
-      await expect(
-        publisher.enqueueProposeCheckpoint(
-          checkpoint,
-          attestationsAndSigners,
-          flipSignature(attestationsAndSignersSignature),
-        ),
-      ).rejects.toThrow(/ECDSAInvalidSignatureS/);
+      // Enqueue no longer simulates — the bundle simulate at send time drops the failing propose
+      // and sendRequests returns undefined.
+      const loggerWarnSpy = jest.spyOn((publisher as any).log, 'warn');
+      await publisher.enqueueProposeCheckpoint(
+        checkpoint,
+        attestationsAndSigners,
+        flipSignature(attestationsAndSignersSignature),
+      );
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
+      const result = await publisher.sendRequests();
+      expect(result).toBeUndefined();
+      // 0xd78bce0c == ECDSAInvalidSignatureS selector
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        'Bundle entry dropped: action reverted in sim',
+        expect.objectContaining({
+          action: 'propose',
+          returnData: expect.stringMatching(/^0xd78bce0c/),
+        }),
+      );
     });
 
     it('rejects signature with invalid recovery value', async () => {
-      const { checkpoint } = await buildSingleCheckpoint();
+      const { checkpoint } = await buildSingleCheckpointForPipelinedProposer();
       const block = checkpoint.blocks[0];
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
@@ -733,13 +798,25 @@ describe('L1Publisher integration', () => {
       const wrongV = attestationsAndSignersSignature.v - 27;
       const wrongSig = new Signature(attestationsAndSignersSignature.r, attestationsAndSignersSignature.s, wrongV);
 
-      await expect(publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, wrongSig)).rejects.toThrow(
-        /ECDSAInvalidSignature/,
+      // Enqueue no longer simulates — the bundle simulate at send time drops the failing propose
+      // and sendRequests returns undefined.
+      const loggerWarnSpy = jest.spyOn((publisher as any).log, 'warn');
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, wrongSig);
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
+      const result = await publisher.sendRequests();
+      expect(result).toBeUndefined();
+      // 0xf645eedf == ECDSAInvalidSignature selector
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        'Bundle entry dropped: action reverted in sim',
+        expect.objectContaining({
+          action: 'propose',
+          returnData: expect.stringMatching(/^0xf645eedf/),
+        }),
       );
     });
 
     it('publishes a block invalidating the previous one', async () => {
-      const { checkpoint: badCheckpoint } = await buildSingleCheckpoint();
+      const { checkpoint: badCheckpoint } = await buildSingleCheckpointForPipelinedProposer();
       const badBlock = badCheckpoint.blocks[0];
 
       // Publish the first invalid block
@@ -759,12 +836,8 @@ describe('L1Publisher integration', () => {
 
       logger.warn(`Published bad block ${badBlock.number} with archive root ${badBlock.archive.root}`);
 
-      // Update the current proposer
-      const { currentSlot } = epochCache.getCurrentAndNextSlot();
-      proposer = await epochCache.getProposerAttesterAddressInSlot(currentSlot);
-
       // Prepare for invalidating the previous one and publish the same block with proper attestations
-      const { checkpoint } = await buildSingleCheckpoint({ blockNumber: BlockNumber(1) });
+      const { checkpoint } = await buildSingleCheckpointForPipelinedProposer({ blockNumber: BlockNumber(1) });
       const block = checkpoint.blocks[0];
       expect(block.number).toEqual(badBlock.number);
       const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
@@ -786,7 +859,7 @@ describe('L1Publisher integration', () => {
       const forcePendingCheckpointNumber = invalidateRequest?.forcePendingCheckpointNumber;
       expect(forcePendingCheckpointNumber).toEqual(0);
       const invalidationSimulationOverridesPlan = new SimulationOverridesBuilder()
-        .forPendingCheckpoint(forcePendingCheckpointNumber ?? CheckpointNumber.ZERO)
+        .withChainTips({ pending: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO })
         .build();
 
       // We cannot propose directly, we need to assume the previous checkpoint is invalidated
@@ -811,9 +884,8 @@ describe('L1Publisher integration', () => {
       // Invalidate and propose
       logger.warn('Enqueuing requests to invalidate and propose the checkpoint');
       publisher.enqueueInvalidateCheckpoint(invalidateRequest);
-      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature, {
-        simulationOverridesPlan: invalidationSimulationOverridesPlan,
-      });
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature);
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
       expect(result!.failedActions).toEqual([]);
@@ -854,20 +926,24 @@ describe('L1Publisher integration', () => {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(1n));
       const { checkpoint } = await buildSingleCheckpoint({ l1ToL2Messages });
 
-      // Expect the simulation to fail
-      const loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
-      await expect(
-        publisher.enqueueProposeCheckpoint(
-          checkpoint,
-          CommitteeAttestationsAndSigners.empty(getSignatureContext()),
-          Signature.empty(),
-        ),
-      ).rejects.toThrow(/Rollup__InvalidInHash/);
-      expect(loggerErrorSpy).toHaveBeenNthCalledWith(
-        2,
-        expect.stringMatching('Rollup__InvalidInHash'),
-        expect.anything(),
-        expect.objectContaining({ checkpointNumber: 1 }),
+      // Enqueue no longer simulates per action — the bundle simulate at send time drops the
+      // failing propose and reports the on-chain revert reason via a warn log.
+      const loggerWarnSpy = jest.spyOn((publisher as any).log, 'warn');
+      await publisher.enqueueProposeCheckpoint(
+        checkpoint,
+        CommitteeAttestationsAndSigners.empty(getSignatureContext()),
+        Signature.empty(),
+      );
+      await progressToSlot(BigInt(checkpoint.header.slotNumber));
+      const result = await publisher.sendRequests();
+      expect(result).toBeUndefined();
+      // 0xcd6f4233 == Rollup__InvalidInHash selector
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        'Bundle entry dropped: action reverted in sim',
+        expect.objectContaining({
+          action: 'propose',
+          returnData: expect.stringMatching(/^0xcd6f4233/),
+        }),
       );
     });
   });
@@ -1023,10 +1099,21 @@ describe('L1Publisher integration', () => {
       expect(BigInt(block2.slot)).toEqual(initialL2Slot + 1n);
       sendRequestsResult = undefined;
       await enqueueProposeL2Checkpoint(checkpoint2);
+      // Align chain time so the bundle simulate at send time runs at slot N+1 (matches the
+      // checkpoint2 header). Without this the bundle simulate (which uses getSlotNow()) sees
+      // the wrong slot and drops the propose entry.
+      await progressToSlot(BigInt(checkpoint2.header.slotNumber));
       await sendRequests();
 
-      // Wait for the new proposal to be sent to the pool
-      await retryUntil(() => ethCheatCodes.getTxPoolStatus().then(s => s.queued + s.pending > 1), 'tx queued', 20, 0.1);
+      // Wait for the new proposal to be sent to the pool. The progressToSlot warp above may have
+      // already mined the cancellation from the first proposal, so the pool may hold either the
+      // cancel-and-new-propose (two entries) or just the new propose (one entry).
+      await retryUntil(
+        () => ethCheatCodes.getTxPoolStatus().then(s => s.queued + s.pending >= 1),
+        'tx queued',
+        20,
+        0.1,
+      );
 
       // Mine a block
       await ethCheatCodes.mine();

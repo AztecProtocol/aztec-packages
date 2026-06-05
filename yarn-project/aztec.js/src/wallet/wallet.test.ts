@@ -10,11 +10,11 @@ import { BlockHash } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
+  DroppedTxReceipt,
   ExecutionPayload,
   type OffchainEffect,
   TxHash,
   TxProfileResult,
-  TxReceipt,
   TxSimulationResult,
   UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
@@ -136,12 +136,13 @@ describe('WalletSchema', () => {
     };
     const mockInstance: ContractInstanceWithAddress = {
       address: await AztecAddress.random(),
-      version: 1,
+      version: 2,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: PublicKeys.default(),
     };
     const result = await context.client.registerContract(mockInstance, mockArtifact, Fr.random());
@@ -150,10 +151,11 @@ describe('WalletSchema', () => {
       currentContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
+      immutablesHash: expect.any(Fr),
       originalContractClassId: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
       salt: expect.any(Fr),
-      version: 1,
+      version: 2,
     });
   });
 
@@ -241,7 +243,7 @@ describe('WalletSchema', () => {
       from: await AztecAddress.random(),
       sendMessagesAs,
     });
-    expect(resultWithWait.receipt).toBeInstanceOf(TxReceipt);
+    expect(resultWithWait.receipt).toBeInstanceOf(DroppedTxReceipt);
     expect(resultWithWait.offchainEffects).toEqual([]);
     expect(handler.lastSendOpts?.sendMessagesAs).toBeInstanceOf(AztecAddress);
     expect(handler.lastSendOpts?.sendMessagesAs?.equals(sendMessagesAs)).toBe(true);
@@ -335,12 +337,13 @@ describe('WalletSchema', () => {
 
     const mockInstance: ContractInstanceWithAddress = {
       address: address2,
-      version: 1,
+      version: 2,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: PublicKeys.default(),
     };
 
@@ -403,7 +406,7 @@ describe('WalletSchema', () => {
     expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
     expect(results[11]).toEqual({
       name: 'sendTx',
-      result: { receipt: expect.any(TxReceipt), offchainEffects: [], offchainMessages: [] },
+      result: { receipt: expect.any(DroppedTxReceipt), offchainEffects: [], offchainMessages: [] },
     });
     expect(results[12]).toEqual({ name: 'createAuthWit', result: expect.any(AuthWitness) });
   });
@@ -470,11 +473,12 @@ class MockWallet implements Wallet {
 
   async registerContract(_instanceData: any, _artifact?: any, _secretKey?: Fr): Promise<ContractInstanceWithAddress> {
     return {
-      version: 1,
+      version: 2,
       address: await AztecAddress.random(),
       currentContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       originalContractClassId: Fr.random(),
       publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
@@ -513,7 +517,7 @@ class MockWallet implements Wallet {
       }) as Promise<SendReturn<W>>;
     }
     return Promise.resolve({
-      receipt: TxReceipt.empty(),
+      receipt: DroppedTxReceipt.empty(),
       offchainEffects: [] as OffchainEffect[],
       offchainMessages: [] as OffchainMessage[],
     }) as Promise<SendReturn<W>>;

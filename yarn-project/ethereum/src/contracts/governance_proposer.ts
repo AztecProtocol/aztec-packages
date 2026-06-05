@@ -15,10 +15,18 @@ import {
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
-import { extractProposalIdFromLogs } from './governance.js';
+import { ReadOnlyGovernanceContract, extractProposalIdFromLogs } from './governance.js';
 
 export class GovernanceProposerContract implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, ViemClient>;
+
+  /**
+   * Cache of bytecode-existence checks keyed by payload address. The check is stable for a
+   * contract's lifetime -- a contract either has code or it does not, and code cannot be removed
+   * after deployment (selfdestruct aside, which is not relevant here). Safe to memoize
+   * indefinitely for the lifetime of this instance.
+   */
+  private readonly emptyPayloadCache: Map<Hex, boolean> = new Map();
 
   constructor(
     public readonly client: ViemClient,
@@ -110,10 +118,49 @@ export class GovernanceProposerContract implements IEmpireBase {
     };
   }
 
-  /** Checks if a payload was ever submitted to governance via submitRoundWinner. */
-  public async hasPayloadBeenProposed(payload: Hex, fromBlock: bigint): Promise<boolean> {
-    const events = await this.proposer.getEvents.PayloadSubmitted({ payload }, { fromBlock, strict: true });
-    return events.length > 0;
+  /**
+   * Resolves the Governance contract this proposer submits winners to. Lazily reads
+   * `GovernanceProposer.getGovernance()` (which itself looks the address up via the registry) and
+   * memoizes the resulting wrapper.
+   */
+  @memoize
+  public async getGovernance(): Promise<ReadOnlyGovernanceContract> {
+    const address = await this.proposer.read.getGovernance();
+    return new ReadOnlyGovernanceContract(address, this.client);
+  }
+
+  /**
+   * Returns true iff the given original payload is currently the subject of a live (non-terminal)
+   * Governance proposal. Delegates to `ReadOnlyGovernanceContract.hasActiveProposalWithPayload`, which
+   * implements the actual sweep against the Governance contract -- this method exists only as a
+   * convenience wrapper so callers that already hold a GovernanceProposer reference don't have to
+   * resolve the Governance address themselves.
+   */
+  public async hasActiveProposalWithPayload(payload: Hex): Promise<boolean> {
+    const governance = await this.getGovernance();
+    return governance.hasActiveProposalWithPayload(payload);
+  }
+
+  /**
+   * Returns true if the given payload address has no deployed bytecode. Used as a cheap
+   * pre-flight check before casting a governance signal — voting for a zero-code address
+   * is unrecoverable.
+   *
+   * We only cache the `false` result (address has bytecode). The `true` result is NOT
+   * cached because a CREATE2-redeployed address could go from empty to populated, and
+   * caching `true` would make us keep skipping a payload that later becomes valid.
+   */
+  public async isPayloadEmpty(payload: EthAddress): Promise<boolean> {
+    const key = payload.toString() as Hex;
+    if (this.emptyPayloadCache.get(key) === false) {
+      return false;
+    }
+    const code = await this.client.getCode({ address: key });
+    const isEmpty = !code || code === '0x';
+    if (!isEmpty) {
+      this.emptyPayloadCache.set(key, false);
+    }
+    return isEmpty;
   }
 
   public async submitRoundWinner(

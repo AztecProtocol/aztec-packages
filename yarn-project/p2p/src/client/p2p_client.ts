@@ -24,6 +24,7 @@ import {
   type L2TipsStore,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
@@ -34,15 +35,11 @@ import type { ENR } from '@nethermindeth/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { TxPoolError } from '../errors/tx-pool.error.js';
-import type { AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { AttestationPoolApi, ProposalsForSlot } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
-import {
-  ReqRespSubProtocol,
-  type ReqRespSubProtocolHandler,
-  type ReqRespSubProtocolValidators,
-} from '../services/reqresp/interface.js';
+import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../services/reqresp/interface.js';
 import type {
   DuplicateAttestationInfo,
   DuplicateProposalInfo,
@@ -269,7 +266,6 @@ export class P2PClient extends WithTracer implements P2P {
       throw new Error('Block stream not initialized');
     }
     this.blockStream.start();
-    await this.txCollection.start();
     this.txFileStore?.start();
 
     // Start slot monitor to call prepareForSlot when the slot changes
@@ -283,12 +279,8 @@ export class P2PClient extends WithTracer implements P2P {
     return this.syncPromise;
   }
 
-  addReqRespSubProtocol(
-    subProtocol: ReqRespSubProtocol,
-    handler: ReqRespSubProtocolHandler,
-    validator: ReqRespSubProtocolValidators[ReqRespSubProtocol],
-  ): Promise<void> {
-    return this.p2pService.addReqRespSubProtocol(subProtocol, handler, validator);
+  addReqRespSubProtocol(subProtocol: ReqRespSubProtocol, handler: ReqRespSubProtocolHandler): Promise<void> {
+    return this.p2pService.addReqRespSubProtocol(subProtocol, handler);
   }
 
   private initBlockStream(startingBlock?: BlockNumber) {
@@ -372,8 +364,19 @@ export class P2PClient extends WithTracer implements P2P {
       // Store our own last-block proposal so we can respond to req/resp requests for it.
       await this.attestationPool.tryAddBlockProposal(blockProposal);
     }
-    // Gossipsub doesn't deliver own messages, so fire the all-nodes handler locally
-    await this.p2pService.notifyOwnCheckpointProposal(proposal.toCore());
+    const checkpointCore = proposal.toCore();
+    const { count } = await this.attestationPool.tryAddCheckpointProposal(checkpointCore);
+    if (count > 1) {
+      if (this.config.broadcastEquivocatedProposals) {
+        this.log.warn(`Broadcasting equivocated checkpoint proposal for slot ${proposal.slotNumber}`, {
+          slot: proposal.slotNumber,
+          archive: proposal.archive.toString(),
+          count,
+        });
+      } else {
+        throw new Error(`Attempted to broadcast a duplicate checkpoint proposal for slot ${proposal.slotNumber}`);
+      }
+    }
     return this.p2pService.propagate(proposal);
   }
 
@@ -393,6 +396,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
     return this.attestationPool.addOwnCheckpointAttestations(attestations);
+  }
+
+  public getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot> {
+    return this.attestationPool.getProposalsForSlot(slot);
   }
 
   public hasBlockProposalsForSlot(slot: SlotNumber): Promise<boolean> {
@@ -419,6 +426,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void {
     this.p2pService.registerDuplicateAttestationCallback(callback);
+  }
+
+  public registerCheckpointAttestationCallback(callback: (attestation: CheckpointAttestation) => void): void {
+    this.p2pService.registerCheckpointAttestationCallback(callback);
   }
 
   public async getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
@@ -625,13 +636,13 @@ export class P2PClient extends WithTracer implements P2P {
 
     await this.handleMinedBlocks(blocks);
     await this.maybeCallPrepareForSlot();
-    await this.startCollectingMissingTxs(blocks);
+    await this.collectingMissingTxs(blocks);
     const lastBlock = blocks.at(-1)!;
     await this.synchedLatestSlot.set(BigInt(lastBlock.header.getSlot()));
   }
 
-  /** Request txs for unproven blocks so the prover node has more chances to get them. */
-  private async startCollectingMissingTxs(blocks: L2Block[]): Promise<void> {
+  /** Request txs for unproven blocks so the prover node can prove. */
+  private async collectingMissingTxs(blocks: L2Block[]): Promise<void> {
     try {
       // TODO(#15435): If the archiver has lagged behind L1, the reported proven block number may
       // be much lower than the actual one, and it does not update until the pending chain is
@@ -639,7 +650,7 @@ export class P2PClient extends WithTracer implements P2P {
       // are already proven, but the archiver has not yet updated its state. Until this is properly
       // fixed, it is mitigated by the expiration date of collection requests, which depends on
       // the slot number of the block.
-      const provenBlockNumber = await this.l2BlockSource.getProvenBlockNumber();
+      const provenBlockNumber = (await this.l2BlockSource.getBlockNumber({ tag: 'proven' })) ?? BlockNumber.ZERO;
       const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
       for (const block of unprovenBlocks) {
         const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
@@ -651,7 +662,17 @@ export class P2PClient extends WithTracer implements P2P {
             `Starting collection of ${missingTxHashes.length} missing txs for unproven mined block ${block.number}`,
             { missingTxHashes, blockNumber: block.number, blockHash: await block.hash().then(h => h.toString()) },
           );
-          this.txCollection.startCollecting(block, missingTxHashes);
+          // Both `slashDataWithholdingToleranceSlots` and `p2pMissingTxCollectionDeadlineSlots`
+          // count *full slots after the block slot* — value N means collection runs until
+          // `slotStart(block.slot + N + 1)`. Take the larger of the two so collection never
+          // gives up before the data-withholding slash verdict is rendered.
+          const blockSlot = block.header.getSlot();
+          const toleranceSlots = this.config.slashDataWithholdingToleranceSlots;
+          const configuredSlots = this.config.p2pMissingTxCollectionDeadlineSlots ?? 0;
+          const deadlineSlot = SlotNumber(blockSlot + Math.max(toleranceSlots, configuredSlots) + 1);
+          const deadlineSeconds = getTimestampForSlot(deadlineSlot, this.epochCache.getL1Constants());
+          const deadline = new Date(Number(deadlineSeconds) * 1000);
+          await this.txCollection.collectFastForBlock(block, missingTxHashes, { deadline });
         }
       }
     } catch (err) {
@@ -719,7 +740,7 @@ export class P2PClient extends WithTracer implements P2P {
     const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
 
     let slot;
-    if (this.epochCache.isProposerPipeliningEnabled() && hasProposedCheckpoint) {
+    if (hasProposedCheckpoint) {
       const { targetSlot } = this.epochCache.getTargetAndNextSlot();
       slot = targetSlot;
     } else {

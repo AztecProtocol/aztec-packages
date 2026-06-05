@@ -37,13 +37,16 @@
       "path": "../simulator"
     },
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../stdlib"
     },
     {
-      "path": "../world-state"
+      "path": "../noir-test-contracts.js"
     },
     {
-      "path": "../noir-test-contracts.js"
+      "path": "../world-state"
     }
   ],
   "include": ["src"]

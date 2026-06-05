@@ -563,7 +563,7 @@ fn handle_foreign_call(
         "aztec_avm_revert" => handle_revert(avm_instrs, destinations, inputs),
         "aztec_avm_storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "aztec_avm_storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
-        "aztec_utl_log" => handle_debug_log(avm_instrs, destinations, inputs),
+        "aztec_misc_log" => handle_debug_log(avm_instrs, destinations, inputs),
         // Getters.
         _ if inputs.is_empty() && destinations.len() == 1 => {
             handle_getter_instruction(avm_instrs, function, destinations, inputs);
@@ -1280,32 +1280,26 @@ fn handle_black_box_function(
         BlackBoxOp::EmbeddedCurveAdd {
             input1_x: p1_x_offset,
             input1_y: p1_y_offset,
-            input1_infinite: p1_infinite_offset,
             input2_x: p2_x_offset,
             input2_y: p2_y_offset,
-            input2_infinite: p2_infinite_offset,
             result,
         } => avm_instrs.push(AvmInstruction {
             opcode: AvmOpcode::ECADD,
-            // The result (SIXTH operand) is indirect (addressing mode).
+            // The result (FOURTH operand) is indirect (addressing mode).
             addressing_mode: Some(
                 AddressingModeBuilder::default()
                     .direct_operand(p1_x_offset)
                     .direct_operand(p1_y_offset)
-                    .direct_operand(p1_infinite_offset)
                     .direct_operand(p2_x_offset)
                     .direct_operand(p2_y_offset)
-                    .direct_operand(p2_infinite_offset)
                     .indirect_operand(&result.pointer)
                     .build(),
             ),
             operands: vec![
                 AvmOperand::U16 { value: p1_x_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: p1_y_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: p1_infinite_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: p2_x_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: p2_y_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: p2_infinite_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: result.pointer.to_u32() as u16 },
             ],
             ..Default::default()
@@ -1313,20 +1307,19 @@ fn handle_black_box_function(
 
         BlackBoxOp::MultiScalarMul { points, scalars, outputs } => {
             // The length of the scalars vector is 2x the length of the points vector due to limb
-            // decomposition
-            // Output array is fixed to 3
+            // decomposition. Points are (x, y); the point at infinity is encoded as (0, 0).
             assert_eq!(
                 outputs.size,
-                SemiFlattenedLength(3),
-                "Output array size must be equal to 3"
+                SemiFlattenedLength(2),
+                "Output array size must be equal to 2"
             );
-            assert_eq!(points.size.0 % 3, 0, "Points array size must be divisible by 3");
+            assert_eq!(points.size.0 % 2, 0, "Points array size must be divisible by 2");
 
             avm_instrs.push(generate_mov_to_procedure(&points.pointer, 0));
             avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
             avm_instrs.push(generate_set_to_procedure(
                 AvmTypeTag::UINT32,
-                &FieldElement::from(points.size.0 / 3),
+                &FieldElement::from(points.size.0 / 2),
                 2,
             ));
             avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3));
@@ -1348,7 +1341,7 @@ fn handle_debug_log(
 ) {
     // We need to handle two flavors here:
     //
-    // #[oracle(aztec_utl_log)]
+    // #[oracle(aztec_misc_log)]
     // unconstrained fn log_oracle<let M: u32, let N: u32>(
     //     log_level: u8,
     //     msg: str<M>,
@@ -1358,7 +1351,7 @@ fn handle_debug_log(
     //
     // and
     //
-    //#[oracle(aztec_utl_log)]
+    //#[oracle(aztec_misc_log)]
     // unconstrained fn log_slice_oracle<let M: u32>(log_level: u8, msg: str<M>, args: [Field]) {}
     //
     // Luckily, these two flavors have both 4 arguments, since noir inserts a length field for slices before the slice.
@@ -1634,6 +1627,7 @@ fn handle_get_contract_instance(
         DEPLOYER,
         CLASS_ID,
         INIT_HASH,
+        IMMUTABLES_HASH,
     }
 
     assert_eq!(inputs.len(), 1);
@@ -1643,6 +1637,7 @@ fn handle_get_contract_instance(
         "aztec_avm_getContractInstanceDeployer" => ContractInstanceMember::DEPLOYER,
         "aztec_avm_getContractInstanceClassId" => ContractInstanceMember::CLASS_ID,
         "aztec_avm_getContractInstanceInitializationHash" => ContractInstanceMember::INIT_HASH,
+        "aztec_avm_getContractInstanceImmutablesHash" => ContractInstanceMember::IMMUTABLES_HASH,
         _ => panic!("Transpiler doesn't know how to process function {:?}", function),
     };
 

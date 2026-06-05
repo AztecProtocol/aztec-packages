@@ -8,7 +8,7 @@ import { computeAddressSecret, deriveMasterIncomingViewingSecretKey } from '@azt
 import type { ExecutionPayload, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { CallIntent, IntentInnerHash } from '../utils/authwit.js';
-import type { Account, Salt } from './index.js';
+import type { Account } from './index.js';
 
 /**
  * Extends {@link BaseAccount} with the encryption private key. Not required for
@@ -19,8 +19,6 @@ export class AccountWithSecretKey implements Account {
   constructor(
     private account: Account,
     private secretKey: Fr,
-    /** Deployment salt for this account contract. */
-    public readonly salt: Salt,
   ) {}
 
   createTxExecutionRequest(

@@ -17,10 +17,8 @@
 #include "barretenberg/chonk/batch_verifier_types.hpp"
 #include "barretenberg/chonk/chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
-#include <condition_variable>
+#include <atomic>
 #include <mutex>
-#include <queue>
-#include <thread>
 #endif
 
 #include <string>
@@ -130,7 +128,10 @@ struct ChonkProve {
 
 /**
  * @struct ChonkVerify
- * @brief Verify a Chonk proof with its verification key
+ * @brief Verify a Chonk proof with its verification key.
+ *
+ * @note valid=true proves that the supplied proof is consistent with the supplied VK. Callers that need canonical
+ * protocol-circuit binding must choose the VK from the protocol artifact selected by the transaction/public inputs.
  */
 struct ChonkVerify {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkVerify";
@@ -155,6 +156,36 @@ struct ChonkVerify {
     Response execute(const BBApiRequest& request = {}) &&;
     SERIALIZATION_FIELDS(proof, vk);
     bool operator==(const ChonkVerify&) const = default;
+};
+
+/**
+ * @struct ChonkVerifyFromFields
+ * @brief Verify a Chonk proof passed as a flat field-element array (with public inputs prepended).
+ *
+ * The split into structured ChonkProof sub-proofs is done server-side via
+ * ChonkProof::from_field_elements, so callers do not need to know the per-component sub-proof
+ * sizes. This is the recommended entry point for TypeScript callers that hold the proof as a
+ * flat Fr[] (e.g. from tx.chonkProof.attachPublicInputs).
+ */
+struct ChonkVerifyFromFields {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkVerifyFromFields";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkVerifyFromFieldsResponse";
+
+        /** @brief True if the proof is valid */
+        bool valid;
+        SERIALIZATION_FIELDS(valid);
+        bool operator==(const Response&) const = default;
+    };
+
+    /** @brief Flat proof field elements with public inputs prepended */
+    std::vector<bb::fr> proof;
+    /** @brief The verification key */
+    std::vector<uint8_t> vk;
+    Response execute(const BBApiRequest& request = {}) &&;
+    SERIALIZATION_FIELDS(proof, vk);
+    bool operator==(const ChonkVerifyFromFields&) const = default;
 };
 
 /**
@@ -260,7 +291,7 @@ struct ChonkStats {
 
 /**
  * @struct ChonkBatchVerify
- * @brief Batch-verify multiple Chonk proofs with a single IPA SRS MSM
+ * @brief Batch-verify multiple Chonk proofs with batched IPA SRS MSMs.
  */
 struct ChonkBatchVerify {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerify";
@@ -345,21 +376,23 @@ class ChonkBatchVerifierService {
                uint32_t batch_size,
                const std::string& fifo_path);
     void enqueue(VerifyRequest request);
+    void fail_request(uint64_t request_id, std::string error_message);
     void stop();
-    bool is_running() const { return running_; }
+    bool is_running() const { return running_.load(); }
 
   private:
-    void writer_loop(const std::string& fifo_path);
+    bool write_result(VerifyResult result);
+    bool ensure_fifo_open();
+    void close_fifo_locked();
+    bool fail_fifo_locked(const std::string& message);
 
     ChonkBatchVerifier verifier_;
 
-    std::mutex result_mutex_;
-    std::condition_variable result_cv_;
-    std::queue<VerifyResult> result_queue_;
-    bool writer_shutdown_ = false;
-    std::thread writer_thread_;
-
-    bool running_ = false;
+    std::mutex fifo_mutex_;
+    std::string fifo_path_;
+    int fifo_fd_ = -1;
+    std::atomic_bool running_ = false;
+    std::atomic_bool fifo_failed_ = false;
 };
 #endif // __wasm__
 

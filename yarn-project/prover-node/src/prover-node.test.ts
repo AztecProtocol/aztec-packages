@@ -149,10 +149,14 @@ describe('prover-node', () => {
       attestations: [CommitteeAttestation.random()],
     } as PublishedCheckpoint;
 
+    const publishedCheckpoints: PublishedCheckpoint[] = [
+      ...checkpoints.slice(0, -1).map(cp => ({ checkpoint: cp, attestations: [] }) as unknown as PublishedCheckpoint),
+      lastPublishedCheckpoint,
+    ];
+
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
-    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue(checkpoints);
-    l2BlockSource.getCheckpoints.mockResolvedValue([lastPublishedCheckpoint]);
+    l2BlockSource.getCheckpoints.mockResolvedValue(publishedCheckpoints);
     const latestBlockNumber = BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number);
     const latestHash = checkpoints.at(-1)!.hash().toString();
     const genesisTipId = {
@@ -214,7 +218,7 @@ describe('prover-node', () => {
   });
 
   it('does not start a proof if there are no checkpoints in the epoch', async () => {
-    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([]);
+    l2BlockSource.getCheckpoints.mockResolvedValue([]);
     await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
     expect(proverNode.totalJobCount).toEqual(0);
   });

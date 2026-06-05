@@ -5,6 +5,8 @@ import { initStoreForRollupAndSchemaVersion } from '../utils.js';
 import { AztecSQLiteOPFSStore } from './store.js';
 
 export { AztecSQLiteOPFSStore } from './store.js';
+export { SqliteEncryptionError } from './errors.js';
+export type { SqliteEncryptionErrorCode } from './errors.js';
 
 export async function createStore(
   name: string,
@@ -19,7 +21,7 @@ export async function createStore(
       : `Creating ${name} ephemeral SQLite-OPFS data store with map size ${config.dataStoreMapSizeKb} KB`,
   );
   const store = await AztecSQLiteOPFSStore.open(createLogger('kv-store:sqlite-opfs'), name, false);
-  return initStoreForRollupAndSchemaVersion(store, schemaVersion, config.l1Contracts?.rollupAddress, log);
+  return initStoreForRollupAndSchemaVersion(store, schemaVersion, config.rollupAddress, log);
 }
 
 export function openTmpStore(ephemeral: boolean = false): Promise<AztecSQLiteOPFSStore> {

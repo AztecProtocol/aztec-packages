@@ -3,6 +3,7 @@ import { MAX_APPS_PER_KERNEL } from '@aztec/constants';
 import fs from 'fs/promises';
 import path from 'path';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 /**
@@ -16,7 +17,7 @@ describe('Circuit Recorder', () => {
     process.env.CIRCUIT_RECORD_DIR = RECORD_DIR;
 
     // Run setup which deploys an account contract and runs kernels
-    const { teardown } = await setup(1);
+    const { teardown } = await setup(1, { ...AUTOMINE_E2E_OPTS });
 
     // Check recording directory exists
     const dirExists = await fs.stat(RECORD_DIR).then(
@@ -81,5 +82,5 @@ describe('Circuit Recorder', () => {
     await fs.rm(RECORD_DIR, { recursive: true, force: true });
     delete process.env.CIRCUIT_RECORD_DIR;
     await teardown();
-  }, 60_000);
+  }, 120_000);
 });

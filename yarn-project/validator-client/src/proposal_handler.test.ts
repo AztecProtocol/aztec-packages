@@ -3,13 +3,14 @@ import type { BlobClientInterface } from '@aztec/blob-client/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -55,7 +56,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
   beforeEach(() => {
     blockSource = mock<L2BlockSource & L2BlockSink>();
-    blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
+    blockSource.getCheckpointsData.mockResolvedValue([]);
     blockSource.getBlocksForSlot.mockResolvedValue([]);
     blockSource.syncImmediate.mockResolvedValue(undefined);
 
@@ -75,17 +76,16 @@ describe('ProposalHandler checkpoint validation', () => {
     epochCache.getL1Constants.mockReturnValue({
       l1GenesisTime: 0n,
       slotDuration: 24,
+      ethereumSlotDuration: 4,
       epochDuration: 8,
     } as L1RollupConstants);
-    epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
-    epochCache.pipeliningOffset.mockReturnValue(1);
 
     dateProvider = new TestDateProvider();
     metrics = mock<ValidatorMetrics>();
 
     config = {
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
-      l1Contracts: { rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress },
+      rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
     } as ValidatorClientFullConfig;
 
     handler = new ProposalHandler(
@@ -98,6 +98,7 @@ describe('ProposalHandler checkpoint validation', () => {
       epochCache,
       config,
       mock<BlobClientInterface>(),
+      new CheckpointReexecutionTracker(),
       metrics,
       dateProvider,
     );
@@ -167,6 +168,7 @@ describe('ProposalHandler checkpoint validation', () => {
         epochCache,
         config,
         mock<BlobClientInterface>(),
+        new CheckpointReexecutionTracker(),
         metrics,
         dateProvider,
       );
@@ -272,6 +274,61 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(archiver.addProposedCheckpoint).toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalToPipelinedStateDuration).toHaveBeenCalledWith(expect.any(Number));
     });
+
+    // The checkpoint-validation block-sync deadline is the L1 publish deadline (12s/one Ethereum
+    // slot before the last L1 block of the target slot), which is later than the target-slot start
+    // used for block re-execution. With slotDuration=24, ethereumSlotDuration=4 and proposal slot=1:
+    //   target_start                = timestamp(1)                      = 24s
+    //   old deadline (slot start)    = getReexecutionDeadline(1)         = 24s
+    //   new deadline (publish)       = getLastL1SlotTimestampForL2Slot(1) - E = 24 + 20 - 4 = 40s
+    // Holding wall-clock time at 30s (after the old deadline, before the new one) lets us tell the
+    // two apart: under the new deadline the handler still has budget to wait for the block to sync,
+    // so it gets past the sync wait; under the old deadline it would immediately time out.
+    it('uses the L1 publish deadline (not the target-slot start) for the block-sync wait', async () => {
+      const proposal = await makeProposal({ checkpointHeader: makeCheckpointHeader(0, { slotNumber: SlotNumber(1) }) });
+
+      // 30s into the epoch: past the old target-slot-start deadline (24s), before the publish one (40s).
+      dateProvider.setTime(30_000);
+
+      // Block is unavailable for the first couple of polls, then syncs in. Under the new (later)
+      // deadline the retry budget covers this; under the old deadline the wait would time out first.
+      blockSource.getBlockData
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValue({ checkpointNumber: CheckpointNumber(1) } as BlockData);
+      // No blocks for the slot, so validation stops right after the sync wait with a distinct reason.
+      blockSource.getBlocksForSlot.mockResolvedValue([]);
+
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+
+      // Got past the block-sync wait (would be `last_block_not_found` under the old deadline).
+      expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot', checkpointNumber: CheckpointNumber(1) });
+    });
+  });
+
+  describe('own checkpoint proposal handling', () => {
+    it('skips validation and does not touch the archiver for own proposals', async () => {
+      // The proposer's own proposed checkpoint is now set locally by the sequencer job, not via the
+      // p2p loopback, so the all-nodes handler must not re-validate or re-add it.
+      const signer = Secp256k1Signer.random();
+      const proposal = await makeProposal({ signer });
+
+      const p2p = mock<P2P>();
+      let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
+      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
+        checkpointHandler = handler;
+      });
+
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint'>>();
+      const handleSpy = jest.spyOn(handler, 'handleCheckpointProposal');
+
+      handler.register(p2p, true, archiver, () => [signer.address.toString()]);
+      await checkpointHandler!(proposal, {} as any);
+
+      expect(handleSpy).not.toHaveBeenCalled();
+      expect(archiver.addProposedCheckpoint).not.toHaveBeenCalled();
+      expect(blockSource.getBlockData).not.toHaveBeenCalled();
+    });
   });
 
   describe('deep validation (openCheckpoint + completeCheckpoint)', () => {
@@ -328,7 +385,11 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: proposalHeader });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'checkpoint_header_mismatch' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_header_mismatch',
+        checkpointNumber: CheckpointNumber(1),
+      });
       expect(mockDispose).toHaveBeenCalled();
     });
 
@@ -342,7 +403,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'archive_mismatch' });
+      expect(result).toEqual({ isValid: false, reason: 'archive_mismatch', checkpointNumber: CheckpointNumber(1) });
     });
 
     it('returns out_hash_mismatch when epoch out hash differs', async () => {
@@ -355,7 +416,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'out_hash_mismatch' });
+      expect(result).toEqual({ isValid: false, reason: 'out_hash_mismatch', checkpointNumber: CheckpointNumber(1) });
     });
 
     it('returns checkpoint_validation_failed when validateCheckpoint throws', async () => {
@@ -370,7 +431,11 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const proposal = await makeProposal({ archiveRoot, checkpointHeader: header });
       const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
-      expect(result).toEqual({ isValid: false, reason: 'checkpoint_validation_failed' });
+      expect(result).toEqual({
+        isValid: false,
+        reason: 'checkpoint_validation_failed',
+        checkpointNumber: CheckpointNumber(1),
+      });
     });
 
     it('returns isValid true when everything matches', async () => {

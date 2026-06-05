@@ -85,7 +85,13 @@ fi
 
 if ! command -v gcloud &> /dev/null; then
   log "Installing gcloud..."
-  curl -sLo google-cloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-$os-$(arch).tar.gz
+  # Google's gcloud archive names use x86_64/arm, not ci3's amd64/arm64.
+  case "$(arch)" in
+    amd64) gcloud_arch=x86_64 ;;
+    arm64) gcloud_arch=arm ;;
+    *)     die "Unsupported architecture for gcloud install: $(arch)" ;;
+  esac
+  curl -sLo google-cloud-cli.tar.gz https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-$(os)-$gcloud_arch.tar.gz
   tar -xzf google-cloud-cli.tar.gz
   rm google-cloud-cli.tar.gz
 
@@ -126,6 +132,19 @@ if ! command -v cast &> /dev/null; then
   "$FOUNDRY_BIN_DIR/foundryup" -i "$FOUNDRY_VERSION"
   sudo mv "$FOUNDRY_BIN_DIR/cast" /usr/local/bin/cast
   sudo chmod +x /usr/local/bin/cast
+fi
+
+TERRAFORM_VERSION="1.7.5"
+if ! command -v terraform &> /dev/null; then
+  log "Installing terraform ${TERRAFORM_VERSION}..."
+  tf_os="$(os)"
+  if [ "$tf_os" = "macos" ]; then
+    tf_os="darwin"
+  fi
+  curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${tf_os}_$(arch).zip" -o terraform.zip
+  unzip -qo terraform.zip
+  sudo mv terraform /usr/local/bin/terraform
+  rm terraform.zip
 fi
 
 require_cmd git

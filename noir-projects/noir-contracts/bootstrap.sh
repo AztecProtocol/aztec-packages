@@ -93,19 +93,17 @@ function get_contract_path {
 }
 export -f get_contract_path
 
-# Stamps the aztec version into a contract artifact JSON in place. Mirrors stampAztecVersion in
-# yarn-project/aztec/src/cli/cmds/compile.ts so monorepo-built artifacts match those produced by `aztec compile`.
-# On release builds (REF_NAME is valid semver) the tag without the leading "v" is used; otherwise "dev".
-function stamp_aztec_version {
+# Stamps "dev" (DEV_VERSION) as the artifact's aztec_version - that is the expected version of a locally checked out
+# monorepo. The real release version is applied at publish time by whichever path owns it:
+# ci3/release_prep_package_json for npm packages, release-image/Dockerfile for the docker image.
+function stamp_dev_aztec_version {
   local json_path=$1
-  # "dev" here corresponds to DEV_VERSION in yarn-project/stdlib/src/update-checker/dev_version.ts.
-  local version="dev"
-  semver check "$REF_NAME" 2>/dev/null && version="${REF_NAME#v}"
   local tmp=$(mktemp)
-  jq --arg v "$version" '.aztec_version = $v' "$json_path" > "$tmp"
-  mv "$tmp" "$json_path"
+  jq '.aztec_version = "dev"' "$json_path" > "$tmp"
+  cat "$tmp" > "$json_path"
+  rm "$tmp"
 }
-export -f stamp_aztec_version
+export -f stamp_dev_aztec_version
 
 # This compiles a noir contract, transpiles public functions, strips internal prefixes,
 # and generates verification keys for private functions via 'bb aztec_process'.
@@ -127,9 +125,9 @@ function compile {
     $BB aztec_process -i $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
-  # Stamp the current version after the cache block so the field always matches the build's version, whether
-  # the artifact came from a fresh compile or a cache hit.
-  stamp_aztec_version "$json_path"
+  # Stamp the version after the cache block so the field is always present, whether the artifact came from a fresh
+  # compile or a cache hit.
+  stamp_dev_aztec_version "$json_path"
 }
 export -f compile
 
@@ -146,7 +144,18 @@ function build {
 
   if [ "$#" -eq 0 ]; then
     rm -rf target
+    mkdir -p target
     local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
+
+    # If a pinned standard-contracts archive is present, extract it into target/ and skip
+    # recompilation of those contracts. The archive pins the canonical standard-contract
+    # artifacts so their deterministic addresses can never silently drift; when it is absent,
+    # everything compiles fresh.
+    if [ -f pinned-standard-contracts.tar.gz ]; then
+      echo_stderr "Using pinned-standard-contracts.tar.gz for pinned standard contracts."
+      tar xzf pinned-standard-contracts.tar.gz -C target
+      contracts=$(echo "$contracts" | grep -vE "^standard/")
+    fi
   else
     local contracts="$@"
   fi
@@ -219,6 +228,23 @@ function format {
   $NARGO fmt
 }
 
+# Force-builds standard contracts and tar-balls their artifacts into pinned-standard-contracts.tar.gz.
+# Run this to (re)pin the standard-contract artifacts, then commit the resulting tarball. Re-run and
+# re-commit whenever the canonical standard-contract artifacts are intended to change.
+# Mirrors the v4 `pin-build` mechanism that pins protocol contracts.
+function pin-standard-build {
+  rm -f pinned-standard-contracts.tar.gz
+  local standard_contracts=$(grep -oP '(?<=contracts/)[^"]+' Nargo.toml | grep "^standard/")
+  build $standard_contracts || { echo_stderr "Build failed; refusing to create tarball."; return 1; }
+  local standard_artifacts=$(jq -r '.[]' standard_contracts.json | sed 's/$/.json/')
+  for a in $standard_artifacts; do
+    [ -f "target/$a" ] || { echo_stderr "Missing artifact target/$a; refusing to create tarball."; return 1; }
+  done
+  echo_stderr "Creating pinned-standard-contracts.tar.gz..."
+  (cd target && tar czf ../pinned-standard-contracts.tar.gz $standard_artifacts)
+  echo_stderr "Done. pinned-standard-contracts.tar.gz created. Commit it to pin these artifacts."
+}
+
 case "$cmd" in
   "clean-keys")
     for artifact in target/*.json; do
@@ -232,6 +258,9 @@ case "$cmd" in
     ;;
   "compile")
     VERBOSE=${VERBOSE:-1} build "$@"
+    ;;
+  "pin-standard-build")
+    pin-standard-build
     ;;
   *)
     default_cmd_handler "$@"

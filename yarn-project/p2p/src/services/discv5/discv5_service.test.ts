@@ -11,7 +11,7 @@ import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import type { IDiscv5CreateOptions } from '@nethermindeth/discv5';
 
 import { BootstrapNode } from '../../bootstrap/bootstrap.js';
-import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { type BootnodeConfig, DEFAULT_PUBLIC_IP_SERVICES, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { AZTEC_ENR_CLIENT_VERSION_KEY } from '../../types/index.js';
 import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
@@ -48,6 +48,7 @@ describe('Discv5Service', () => {
     dataStoreMapSizeKb: 0,
     bootstrapNodes: [],
     queryForIp: false,
+    publicIpServices: DEFAULT_PUBLIC_IP_SERVICES,
     ...emptyChainConfig,
   };
 
@@ -140,6 +141,45 @@ describe('Discv5Service', () => {
     expect(node.getEnr().ip).not.toEqual(undefined);
     expect(node.getEnr().tcp).not.toEqual(undefined);
     expect(node.getEnr().tcp).toEqual(node.getEnr().udp);
+
+    await stopNodes(...nodes);
+  });
+
+  it('should correct a wrong initial IP via PONG votes and emit ip:changed', async () => {
+    const extraNodes = 3;
+    const nodes: DiscV5Service[] = [];
+
+    // Simulate the scenario where getPublicIp() returned a wrong IP at startup (e.g. NAT egress IP).
+    // With enrUpdate forced on, PONG votes from peers should correct the ENR to 127.0.0.1.
+    const node = await createNode({
+      p2pIp: '1.2.3.4',
+      config: { enrUpdate: true, addrVotesToUpdateEnr: 1, pingInterval: 200 },
+    });
+    await node.start();
+    nodes.push(node);
+
+    // Track ip:changed events (these are what libp2p_service bridges to its AddressManager)
+    const ipChanges: string[] = [];
+    node.on('ip:changed', (ip: string) => ipChanges.push(ip));
+
+    expect(node.getEnr().ip).toEqual('1.2.3.4');
+
+    for (let i = 1; i < extraNodes; i++) {
+      const n = await createNode({ config: { pingInterval: 200 } });
+      await n.start();
+      nodes.push(n);
+    }
+
+    // Wait for the ENR IP to be corrected by PONG votes
+    await runDiscoveryUntil(nodes, () => node.getEnr().ip !== '1.2.3.4');
+
+    // ENR should now reflect the real IP (127.0.0.1) as reported by peers
+    expect(node.getEnr().ip).toEqual('127.0.0.1');
+    expect(node.getEnr().tcp).toEqual(node.getEnr().udp);
+
+    // ip:changed should have fired with the corrected IP
+    expect(ipChanges.length).toBeGreaterThanOrEqual(1);
+    expect(ipChanges[ipChanges.length - 1]).toEqual('127.0.0.1');
 
     await stopNodes(...nodes);
   });

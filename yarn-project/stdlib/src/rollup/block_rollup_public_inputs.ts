@@ -119,6 +119,19 @@ export class BlockRollupPublicInputs {
     return this.toBuffer();
   }
 
+  toInspect() {
+    return {
+      previousArchiveRoot: this.previousArchive.root.toString(),
+      newArchiveRoot: this.newArchive.root.toString(),
+      blockHeadersHash: this.blockHeadersHash.toString(),
+      inHash: this.inHash.toString(),
+      outHash: this.outHash.toString(),
+      timestamp: this.timestamp.toString(),
+      accumulatedFees: this.accumulatedFees.toString(),
+      accumulatedManaUsed: this.accumulatedManaUsed.toString(),
+    };
+  }
+
   static get schema() {
     return bufferSchemaFor(BlockRollupPublicInputs);
   }

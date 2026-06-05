@@ -1,4 +1,4 @@
-import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
+import { type L1ContractAddresses, pickL1ContractAddressMappings } from '@aztec/ethereum/l1-contract-addresses';
 import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -7,8 +7,8 @@ export { type AllowedElement } from '../interfaces/allowed_element.js';
 
 export const emptyChainConfig: ChainConfig = {
   l1ChainId: 0,
-  l1Contracts: { rollupAddress: EthAddress.ZERO },
   rollupVersion: 0,
+  rollupAddress: EthAddress.ZERO,
 };
 
 export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
@@ -28,10 +28,7 @@ export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
       return parsed;
     },
   },
-  l1Contracts: {
-    description: 'The deployed L1 contract addresses',
-    nested: l1ContractAddressesMapping,
-  },
+  ...pickL1ContractAddressMappings('rollupAddress'),
 };
 
 /** Chain configuration. */
@@ -40,9 +37,4 @@ export type ChainConfig = {
   l1ChainId: number;
   /** The version of the rollup. */
   rollupVersion: number;
-  /** The address to the L1 contracts. */
-  l1Contracts: {
-    /** The address to rollup */
-    rollupAddress: EthAddress;
-  };
-};
+} & Pick<L1ContractAddresses, 'rollupAddress'>;

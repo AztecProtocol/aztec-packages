@@ -23,7 +23,7 @@ import { EpochsTestContext } from './epochs_test.js';
 jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 3;
-const TX_COUNT = 3;
+const TX_COUNT = 8;
 
 // Sets up a lightweight RPC-only node without any account deployment, registers a test contract
 // locally, then spawns NODE_COUNT validator nodes connected via a mocked gossip sub network.
@@ -53,6 +53,9 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
+      aztecSlotDurationInL1Slots: 3,
+      ethereumSlotDuration: 12,
+      blockDurationMs: 6000,
       startProverNode: false,
       enforceTimeTable: true,
       skipInitialSequencer: true,
@@ -100,12 +103,7 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
     );
     logger.warn(`All txs have been mined`);
 
-    // Expect no failures from sequencers during block building.
-    // The following error is marked as a flake on the test ignore patterns,
-    // so we can have this test run for a while before it breaks CI on a recoverable error.
-    if (failEvents.length > 0) {
-      logger.error(`Failed events from sequencers`, failEvents);
-    }
-    expect(failEvents).toEqual([]);
+    // Expect no failures from sequencers during block building
+    test.assertNoFailuresFromSequencers(failEvents);
   });
 });

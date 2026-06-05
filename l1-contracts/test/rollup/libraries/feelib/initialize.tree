@@ -3,6 +3,10 @@ InitializeTest
 │   └── it reverts with {FeeLib__InvalidManaTarget}
 ├── when mana limit GT uint32
 │   └── it reverts with {FeeLib__InvalidManaLimit}
+├── when proving cost below floor
+│   └── it reverts with {FeeLib__ProvingCostBelowFloor}
+├── when proving cost at floor
+│   └── it initializes successfully
 └── when mana limit LE uint32
     ├── it store the config
     └── it store the l1 gas oracle values

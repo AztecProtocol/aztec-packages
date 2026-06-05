@@ -16,8 +16,10 @@ import {
   GasSettings,
 } from '@aztec/stdlib/gas';
 
+import { jest } from '@jest/globals';
 import { inspect } from 'util';
 
+import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import { FeesTest } from './fees_test.js';
 
 /**
@@ -49,6 +51,10 @@ function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<vo
 }
 
 describe('e2e_fees gas_estimation', () => {
+  // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run
+  // at the pipelined cadence, exceeding the default 5 min hook window.
+  jest.setTimeout(900_000);
+
   let wallet: Wallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
@@ -61,18 +67,21 @@ describe('e2e_fees gas_estimation', () => {
   const t = new FeesTest('gas_estimation');
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
     ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = t);
   });
 
   beforeEach(async () => {
-    // Load the gas fees at the start of each test, use those exactly as the max fees per gas
-    const gasFees = await aztecNode.getCurrentMinFees();
+    // Pad max fees per gas to absorb pipelined fee-asset price evolution between snapshot and
+    // submission. The assertions below compare `transactionFee` (manaUsed * block.gasFees) against
+    // `estimatedGas.gasLimits.computeFee(block.gasFees)`, so they only require `gasLimits == manaUsed`
+    // (guaranteed by `estimatedGasPadding: 0`); they do not require `maxFeesPerGas == block.gasFees`.
+    const paddedMaxFees = await getPaddedMaxFeesPerGas(aztecNode);
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: gasFees,
+      maxFeesPerGas: paddedMaxFees,
       maxPriorityFeesPerGas: new GasFees(0, 0),
     });
   }, 10000);

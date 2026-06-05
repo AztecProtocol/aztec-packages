@@ -20,10 +20,11 @@ import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
 import {
   createCheckAllowedSetupCalls,
-  createTxValidatorForReqResponseReceivedTxs,
+  createTxValidatorForOnDemandReceivedTxs,
   createTxValidatorForTransactionsEnteringPendingTxPool,
   getDefaultAllowedSetupFunctions,
 } from '../msg_validators/index.js';
+import { TxValidationCache } from '../msg_validators/tx_validator/tx_validation_cache.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { createFileStoreTxSources } from '../services/tx_collection/file_store_tx_source.js';
@@ -80,7 +81,7 @@ export async function createP2PClient(
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 2, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
-  const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
+  const rollupAddress = inputConfig.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
   const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
 
   const allowedInSetup = [
@@ -137,6 +138,9 @@ export async function createP2PClient(
     attestationPool: deps.attestationPool ?? new AttestationPool(attestationStore, telemetry),
   };
 
+  const txValidationCache =
+    config.txValidationCacheSize > 0 ? new TxValidationCache(config.txValidationCacheSize) : undefined;
+
   const p2pService = await createP2PService(
     config,
     archiver,
@@ -151,9 +155,15 @@ export async function createP2PClient(
     packageVersion,
     logger.createChild('libp2p_service'),
     telemetry,
+    txValidationCache,
   );
 
-  const txValidatorForTxCollection = createTxValidatorForReqResponseReceivedTxs(proofVerifier, config);
+  const txValidatorForTxCollection = createTxValidatorForOnDemandReceivedTxs(
+    proofVerifier,
+    config,
+    /*bindings=*/ undefined,
+    txValidationCache,
+  );
   const nodeSources = [
     ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, txValidatorForTxCollection, config),
     ...(deps.rpcTxProviders ?? []).map(
@@ -230,6 +240,7 @@ async function createP2PService(
   packageVersion: string,
   logger: Logger,
   telemetry: TelemetryClient,
+  txValidationCache?: TxValidationCache,
 ) {
   if (!config.p2pEnabled) {
     logger.verbose('P2P is disabled. Using dummy P2P service.');
@@ -253,6 +264,7 @@ async function createP2PService(
     blockMinFeesProvider,
     telemetry,
     logger: logger.createChild(`libp2p_service`),
+    txValidationCache,
   });
 
   return p2pService;

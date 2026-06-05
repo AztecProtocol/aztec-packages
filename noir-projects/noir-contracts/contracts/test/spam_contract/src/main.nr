@@ -26,12 +26,12 @@ pub contract Spam {
         let caller = self.msg_sender();
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
-            self.storage.balances.at(caller).add(1).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+            self.storage.balances.at(caller).add(1).deliver(MessageDelivery::onchain_unconstrained());
         }
 
         for i in 0..MAX_NULLIFIERS_PER_CALL {
             if (i < nullifier_count) {
-                self.context.push_nullifier(compute_note_nullifier(nullifier_seed, [i as Field]));
+                self.context.push_nullifier_unsafe(compute_note_nullifier(nullifier_seed, [i as Field]));
             }
         }
 

@@ -15,7 +15,6 @@ import { CalldataLimitTestContractArtifact } from '@aztec/noir-test-contracts.js
 import { ChildContractArtifact } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
-import { SenderForTagsTestContractArtifact } from '@aztec/noir-test-contracts.js/SenderForTagsTest';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -40,7 +39,6 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierHidingKey, deriveKeys } from '@aztec/stdlib/keys';
-import type { SiloedTag } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeBlockHeader, makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
@@ -53,7 +51,7 @@ import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-ex
 import { toFunctionSelector } from 'viem';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import { syncState } from '../../contract_sync/helpers.js';
+import { syncScope } from '../../contract_sync/helpers.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -293,19 +291,9 @@ describe('Private Execution test suite', () => {
     messageContextService.getMessageContextsByTxHash.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
-      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId, scopes) => {
+      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, _anchorBlockHeader, _jobId, scopes) => {
         for (const scope of scopes) {
-          await syncState(
-            contractAddress,
-            contractStore,
-            functionToInvokeAfterSync,
-            utilityExecutor,
-            noteStore,
-            aztecNode,
-            anchorBlockHeader,
-            jobId,
-            scope,
-          );
+          await syncScope(contractAddress, contractStore, functionToInvokeAfterSync, utilityExecutor, scope);
         }
       },
     );
@@ -323,7 +311,7 @@ describe('Private Execution test suite', () => {
 
     // Mock aztec node methods - the return array needs to have the same length as the number of tags
     // on the input.
-    aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
 
     // Mock getL2Tips and getBlockHeader for syncTaggedPrivateLogs
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
@@ -347,40 +335,40 @@ describe('Private Execution test suite', () => {
 
     keyStore.getAccounts.mockResolvedValue([owner, recipient, senderForTags]);
 
-    keyStore.accountHasKey.mockImplementation(async (account: AztecAddress, pkMHash: Fr) => {
+    keyStore.accountHasKey.mockImplementation((account: AztecAddress, pkMHash: Fr) => {
       if (account.equals(owner)) {
-        return pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash());
+        return Promise.resolve(pkMHash.equals(ownerCompleteAddress.publicKeys.npkMHash));
       }
       if (account.equals(recipient)) {
-        return pkMHash.equals(await recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash());
+        return Promise.resolve(pkMHash.equals(recipientCompleteAddress.publicKeys.npkMHash));
       }
       if (account.equals(senderForTags)) {
-        return pkMHash.equals(await senderForTagsCompleteAddress.publicKeys.masterNullifierPublicKey.hash());
+        return Promise.resolve(pkMHash.equals(senderForTagsCompleteAddress.publicKeys.npkMHash));
       }
-      return false;
+      return Promise.resolve(false);
     });
 
     keyStore.getKeyValidationRequest.mockImplementation(async (pkMHash: Fr, contractAddress: AztecAddress) => {
-      if (pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+      if (pkMHash.equals(ownerCompleteAddress.publicKeys.npkMHash)) {
         return Promise.resolve(
           new KeyValidationRequest(
-            ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
+            ownerCompleteAddress.publicKeys.npkMHash,
             await computeAppNullifierHidingKey(ownerNhkM, contractAddress),
           ),
         );
       }
-      if (pkMHash.equals(await recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+      if (pkMHash.equals(recipientCompleteAddress.publicKeys.npkMHash)) {
         return Promise.resolve(
           new KeyValidationRequest(
-            recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
+            recipientCompleteAddress.publicKeys.npkMHash,
             await computeAppNullifierHidingKey(recipientNhkM, contractAddress),
           ),
         );
       }
-      if (pkMHash.equals(await senderForTagsCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+      if (pkMHash.equals(senderForTagsCompleteAddress.publicKeys.npkMHash)) {
         return Promise.resolve(
           new KeyValidationRequest(
-            senderForTagsCompleteAddress.publicKeys.masterNullifierPublicKey,
+            senderForTagsCompleteAddress.publicKeys.npkMHash,
             await computeAppNullifierHidingKey(senderForTagsNhkM, contractAddress),
           ),
         );
@@ -768,17 +756,6 @@ describe('Private Execution test suite', () => {
       });
 
       expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [owner], childAddress);
-    });
-
-    it('sender_for_tags override in a nested call does not leak to siblings, parents, or further descendants', async () => {
-      const contractAddress = await mockContractInstance(SenderForTagsTestContractArtifact);
-      await runSimulator({
-        args: [senderForTags],
-        artifact: SenderForTagsTestContractArtifact,
-        anchorBlockHeader,
-        functionName: 'parent',
-        contractAddress,
-      });
     });
   });
 
@@ -1275,7 +1252,7 @@ describe('Private Execution test suite', () => {
       // Generate a partial address, pubkey, and resulting address
       const completeAddress = await CompleteAddress.random();
       const args = [completeAddress.address];
-      const pubKey = completeAddress.publicKeys.masterIncomingViewingPublicKey;
+      const pubKey = completeAddress.publicKeys.ivpkM;
 
       addressStore.getCompleteAddress.mockResolvedValue(completeAddress);
       const { entrypoint: result } = await runSimulator({

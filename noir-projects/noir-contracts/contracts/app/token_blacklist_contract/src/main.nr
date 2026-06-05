@@ -21,10 +21,11 @@ pub contract TokenBlacklist {
         hash::compute_secret_hash,
         macros::{functions::{authorize_once, external, initializer, only_self, view}, storage::storage},
         messages::{
-            discovery::private_notes::attempt_note_discovery, message_delivery::MessageDelivery,
+            discovery::private_notes::process_private_note_msg, encoding::decode_message,
+            logs::note::encode_private_note_message, message_delivery::MessageDelivery,
             processing::validate_and_store_enqueued_notes_and_events,
         },
-        note::{note_getter_options::NoteGetterOptions, note_interface::{NoteHash, NoteProperties, NoteType}},
+        note::{note_getter_options::NoteGetterOptions, note_interface::{NoteHash, NoteProperties}},
         protocol::traits::ToField,
         state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicMutable, StateVariable},
         utils::comparison::Comparator,
@@ -33,7 +34,7 @@ pub contract TokenBlacklist {
     use std::ops::{Add, Sub};
 
     use crate::types::{roles::UserFlags, transparent_note::TransparentNote};
-    use aztec::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable};
+    use aztec::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX};
     use balance_set::BalanceSet;
 
     // Changing an address' roles has a certain delay before it goes into effect. Here set to 1 day.
@@ -197,7 +198,7 @@ pub contract TokenBlacklist {
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_constrained());
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -208,7 +209,7 @@ pub contract TokenBlacklist {
         let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
 
         self.enqueue_self._increase_public_balance(to, amount);
     }
@@ -221,8 +222,8 @@ pub contract TokenBlacklist {
         let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_unconstrained());
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -231,7 +232,7 @@ pub contract TokenBlacklist {
         let from_roles = self.storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_constrained());
 
         self.enqueue_self._reduce_total_supply(amount);
     }
@@ -257,9 +258,9 @@ pub contract TokenBlacklist {
     }
 
     // We cannot replace this function with the standard `process_message` function because the transparent note
-    // originates in public and hence we cannot emit it as an offchain message. We could construct the offchain message
-    // "manually" and then pass it to the `process_message` function, but this doesn't seem to be worth the effort
-    // given that the TransparentNote flow is deprecated and kept around only for testing purposes.
+    // originates in public and hence we cannot emit it as an offchain message. Instead we construct the private note
+    // message "manually" and feed it into the standard `process_private_note_msg` pipeline. The TransparentNote flow
+    // is deprecated and kept around only for testing purposes.
     #[external("utility")]
     unconstrained fn process_transparent_note(
         contract_address: AztecAddress,
@@ -272,23 +273,26 @@ pub contract TokenBlacklist {
     ) {
         let note = TransparentNote { amount, secret_hash };
         let storage_slot = TokenBlacklist::storage_layout().pending_shields.slot;
-        let note_type_id = TransparentNote::get_id();
-        let packed_note = BoundedVec::from_array(note.pack());
 
         // We use AztecAddress::zero() as the owner since TransparentNote is not owned by a specific address but instead
         // by anyone who has the secret (preimage of the secret_hash stored in the note).
-        attempt_note_discovery(
+        let encoded_msg = encode_private_note_message(
+            note,
+            AztecAddress::zero(),
+            storage_slot,
+            TRANSPARENT_NOTE_RANDOMNESS,
+        );
+        let (_, msg_metadata, msg_content) = decode_message(BoundedVec::from_array(encoded_msg)).unwrap();
+
+        process_private_note_msg(
             contract_address,
             tx_hash,
             unique_note_hashes_in_tx,
             first_nullifier_in_tx,
             _compute_note_hash,
             _compute_note_nullifier,
-            AztecAddress::zero(),
-            storage_slot,
-            TRANSPARENT_NOTE_RANDOMNESS,
-            note_type_id,
-            packed_note,
+            msg_metadata,
+            msg_content,
         );
 
         // At this point, the note is pending validation and storage in the database. We must call

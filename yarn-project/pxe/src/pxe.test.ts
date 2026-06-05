@@ -1,23 +1,33 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
-import { EventSelector } from '@aztec/stdlib/abi';
+import {
+  STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS,
+  getStandardMultiCallEntrypoint,
+} from '@aztec/standard-contracts/multi-call-entrypoint';
+import { EventSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, GENESIS_BLOCK_HEADER_HASH, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  BlockHash,
+  GENESIS_BLOCK_HEADER_HASH,
+  GENESIS_CHECKPOINT_HEADER_HASH,
+} from '@aztec/stdlib/block';
+import { emptyChainConfig } from '@aztec/stdlib/config';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { SiloedTag } from '@aztec/stdlib/logs';
+import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
   randomDeployedContract,
 } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
@@ -38,13 +48,16 @@ describe('PXE', () => {
     const simulator = new WASMSimulator();
     const kernelProver = new BBBundlePrivateKernelProver(simulator);
     const protocolContractsProvider = new BundledProtocolContractsProvider();
+    const preloadedContractsProvider = { getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint()] };
     const config: PXEConfig = {
+      ...emptyChainConfig,
       l2BlockBatchSize: 50,
       dataDirectory: undefined,
       dataStoreMapSizeKb: 1024 * 1024,
-      l1Contracts: { rollupAddress: EthAddress.random() },
+      rollupAddress: EthAddress.random(),
       l1ChainId: 31337,
       rollupVersion: 1,
+      autoSync: true,
     };
 
     // Mock getNodeInfo which is called during PXE creation
@@ -82,6 +95,7 @@ describe('PXE', () => {
       proofCreator: kernelProver,
       simulator,
       protocolContractsProvider,
+      preloadedContractsProvider,
       config,
     });
   }, 120_000);
@@ -110,6 +124,13 @@ describe('PXE', () => {
     await pxe.registerAccount(randomSecretKey, randomPartialAddress);
   });
 
+  it('does not add a keystore account to the sender address book when registered as a sender', async () => {
+    const { address } = await pxe.registerAccount(Fr.random(), Fr.random());
+    await pxe.registerSender(address);
+    const senders = await pxe.getSenders();
+    expect(senders.map(s => s.toString())).not.toContain(address.toString());
+  });
+
   it('successfully adds a contract', async () => {
     const contracts = await Promise.all([randomDeployedContract(), randomDeployedContract()]);
     for (const contract of contracts) {
@@ -119,6 +140,15 @@ describe('PXE', () => {
     const expectedContractAddresses = contracts.map(contract => contract.instance.address);
     const contractAddresses = await pxe.getContracts();
     expect(contractAddresses).toEqual(expect.arrayContaining(expectedContractAddresses));
+  });
+
+  it('preloads the standard multi-call entrypoint on creation', async () => {
+    const { instance: expectedInstance, artifact: expectedArtifact } = await getStandardMultiCallEntrypoint();
+    const instance = await pxe.getContractInstance(STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS);
+    expect(instance).toEqual(expectedInstance);
+
+    const artifact = await pxe.getContractArtifact(expectedInstance.currentContractClassId);
+    expect(artifact).toEqual(expectedArtifact);
   });
 
   it('registers a class and adds a contract for it', async () => {
@@ -161,6 +191,40 @@ describe('PXE', () => {
     await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
   });
 
+  it('does not call registerContractFunctionSignatures for contracts without public functions', async () => {
+    const { artifact, instance } = await randomDeployedContract();
+    node.registerContractFunctionSignatures.mockClear();
+
+    await pxe.registerContract({ artifact, instance });
+
+    expect(node.registerContractFunctionSignatures).not.toHaveBeenCalled();
+  });
+
+  it('calls registerContractFunctionSignatures for contracts with public functions', async () => {
+    const artifact = randomContractArtifact();
+    artifact.functions = [
+      {
+        name: 'my_public_fn',
+        functionType: FunctionType.PUBLIC,
+        isOnlySelf: false,
+        isStatic: false,
+        isInitializer: false,
+        parameters: [],
+        returnTypes: [],
+        errorTypes: {},
+        bytecode: Buffer.from(''),
+        debugSymbols: '',
+      },
+    ];
+    const contractClass = await getContractClassFromArtifact(artifact);
+    const instance = await randomContractInstanceWithAddress({ contractClassId: contractClass.id });
+    node.registerContractFunctionSignatures.mockClear();
+
+    await pxe.registerContract({ artifact, instance });
+
+    expect(node.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
+  });
+
   // These tests are meant to quickly exercise PXE as a
   // frontier API so we don't need to rely on slower E2E
   // tests (which in turn are more meaningful for acceptance).
@@ -182,10 +246,28 @@ describe('PXE', () => {
       const blockHeader = BlockHeader.empty({
         globalVariables,
       });
-      node.getBlockHeader.mockResolvedValue(blockHeader);
-      node.getBlock.mockResolvedValue({ header: blockHeader } as any);
+      const blockHash = BlockHash.random();
+      const archive = AppendOnlyTreeSnapshot.empty();
+      const checkpointNumber = CheckpointNumber.fromBlockNumber(lastKnownBlockNumber);
+      const blockResponse: BlockResponse = {
+        header: blockHeader,
+        archive,
+        hash: blockHash,
+        checkpointNumber,
+        indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
+        number: lastKnownBlockNumber,
+      };
+      const blockData: BlockData = {
+        header: blockHeader,
+        archive,
+        blockHash,
+        checkpointNumber,
+        indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
+      };
+      node.getBlock.mockResolvedValue(blockResponse);
+      node.getBlockData.mockResolvedValue(blockData);
 
-      // Mock getL2Tips which is needed for syncing tagged logs
+      // Mock getChainTips which is needed for syncing tagged logs
       const tipId = {
         block: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpoint: {
@@ -193,12 +275,11 @@ describe('PXE', () => {
           hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
         },
       };
-      node.getL2Tips.mockResolvedValue({
+      node.getChainTips.mockResolvedValue({
         proposed: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpointed: tipId,
         proven: tipId,
         finalized: tipId,
-        proposedCheckpoint: tipId,
       });
 
       // This is read when PXE tries to resolve the
@@ -207,7 +288,7 @@ describe('PXE', () => {
 
       // Used to sync private logs from the node - the return array needs to have the same length as the number of tags
       // on the input.
-      node.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
+      node.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
 
       // Necessary to sync contract private state
       await pxe.registerContractClass(TestContractArtifact);
@@ -289,7 +370,6 @@ describe('PXE', () => {
     describe('filtering', () => {
       let eventsInPastBlocks: PackedPrivateEvent[];
       let eventsInLatestKnownBlock: PackedPrivateEvent[];
-      let _eventsInNotYetSyncedBlocks: PackedPrivateEvent[];
 
       beforeEach(async () => {
         eventsInPastBlocks = await Promise.all([
@@ -302,10 +382,8 @@ describe('PXE', () => {
           storeEvent(lastKnownBlockNumber),
         ]);
 
-        _eventsInNotYetSyncedBlocks = await Promise.all([
-          storeEvent(lastKnownBlockNumber + 1),
-          storeEvent(lastKnownBlockNumber + 1),
-        ]);
+        // Events in not-yet-synced blocks; stored only to verify they are filtered out.
+        await Promise.all([storeEvent(lastKnownBlockNumber + 1), storeEvent(lastKnownBlockNumber + 1)]);
 
         await privateEventStore.commit('test');
       });

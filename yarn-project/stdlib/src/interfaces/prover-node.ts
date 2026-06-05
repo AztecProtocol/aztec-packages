@@ -41,14 +41,14 @@ export interface ProverNodeApi {
 
 /** Schemas for prover node API functions. */
 export const ProverNodeApiSchema: ApiSchemaFor<ProverNodeApi> = {
-  getJobs: z
-    .function()
-    .args()
-    .returns(z.array(z.object({ uuid: z.string(), status: z.enum(EpochProvingJobState), epochNumber: z.number() }))),
+  getJobs: z.function({
+    input: z.tuple([]),
+    output: z.array(z.object({ uuid: z.string(), status: z.enum(EpochProvingJobState), epochNumber: z.number() })),
+  }),
 
-  startProof: z.function().args(schemas.Integer).returns(z.void()),
+  startProof: z.function({ input: z.tuple([schemas.Integer]), output: z.void() }),
 
-  getL2Tips: z.function().args().returns(L2TipsSchema),
+  getL2Tips: z.function({ input: z.tuple([]), output: L2TipsSchema }),
 
-  getWorldStateSyncStatus: z.function().args().returns(WorldStateSyncStatusSchema),
+  getWorldStateSyncStatus: z.function({ input: z.tuple([]), output: WorldStateSyncStatusSchema }),
 };

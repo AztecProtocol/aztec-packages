@@ -29,8 +29,7 @@ jest.setTimeout(1000 * 60 * 10);
 
 const NODE_COUNT = 8;
 const COMMITTEE_SIZE = 3;
-const TX_COUNT = 2;
-const EPOCH = EpochNumber(4);
+const TX_COUNT = 8;
 
 // Spawns NODE_COUNT validator nodes, connected via a mocked gossip sub network, but sets
 // committee size to 3. Warps to immediately before the beginning of an epoch, and checks
@@ -54,6 +53,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
     });
 
     // Setup context with the given set of validators, no reorgs, mocked gossip sub network, and no anvil test watcher.
+    // We expect 4 blocks per checkpoint with this config
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
@@ -62,6 +62,8 @@ describe('e2e_epochs/epochs_first_slot', () => {
       aztecProofSubmissionEpochs: 1024,
       aztecEpochDuration: 32,
       aztecSlotDurationInL1Slots: 3,
+      ethereumSlotDuration: 12,
+      blockDurationMs: 6000,
       startProverNode: false,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       enforceTimeTable: true,
@@ -70,6 +72,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
       attestationPropagationTime: 0.5,
       archiverPollingIntervalMS: 200,
       skipInitialSequencer: true,
+      inboxLag: 2,
     });
 
     ({ context, logger } = test);
@@ -110,9 +113,18 @@ describe('e2e_epochs/epochs_first_slot', () => {
     const sequencers = nodes.map(node => node.getSequencer()!);
     const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));
 
-    // Warp to before the first slot of an epoch, so that the sequencers are ready to build blocks.
-    const [epochStart] = getTimestampRangeForEpoch(EPOCH, test.constants);
-    await test.context.cheatCodes.eth.warp(Number(epochStart) - test.L1_BLOCK_TIME_IN_S, {
+    // Jump to the beginning of two epochs from now
+    const currentEpoch = (await test.monitor.run()).l2EpochNumber;
+    const epoch = EpochNumber(currentEpoch + 2);
+
+    // Warp so that the next pipelined build cycle targets the first slot of the epoch. Under
+    // proposer pipelining the build window starts one L2 slot earlier than the target slot
+    // so we want wall-clock to enter `firstSlot - 1` (the last slot of the previous epoch) before
+    // the next L1 block. Subtracting `L2_SLOT_DURATION + L1_BLOCK_TIME` puts us one L1 block before that
+    // build slot starts, so the proposer for `firstSlot` gets the full build window available
+    // before the epoch boundary is crossed on L1.
+    const [epochStart] = getTimestampRangeForEpoch(epoch, test.constants);
+    await test.context.cheatCodes.eth.warp(Number(epochStart) - test.L2_SLOT_DURATION_IN_S - test.L1_BLOCK_TIME_IN_S, {
       resetBlockInterval: true,
     });
 
@@ -126,7 +138,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
     logger.warn(`All txs have been mined`);
 
     // Check that the first two slots of the epoch have a block
-    const [firstSlot] = getSlotRangeForEpoch(EPOCH, test.constants);
+    const [firstSlot] = getSlotRangeForEpoch(epoch, test.constants);
     const secondSlot = SlotNumber(firstSlot + 1);
     logger.warn(`Waiting until blocks are synced for slots ${firstSlot} and ${secondSlot}`);
     await retryUntil(
@@ -141,12 +153,6 @@ describe('e2e_epochs/epochs_first_slot', () => {
       1,
     );
 
-    // Expect no failures from sequencers during block building.
-    // The following error is marked as a flake on the test ignore patterns,
-    // so we can have this test run for a while before it breaks CI on a recoverable error.
-    if (failEvents.length > 0) {
-      logger.error(`Failed events from sequencers`, failEvents);
-    }
-    expect(failEvents).toEqual([]);
+    test.assertNoFailuresFromSequencers(failEvents);
   });
 });

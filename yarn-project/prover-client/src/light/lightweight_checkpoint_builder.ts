@@ -1,7 +1,5 @@
 import { SpongeBlob, computeBlobsHashFromBlobs, encodeCheckpointEndMarker, getBlobsPerL1Block } from '@aztec/blob-lib';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { type CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
@@ -10,6 +8,7 @@ import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import {
   accumulateCheckpointOutHashes,
+  appendL1ToL2MessagesToTree,
   computeCheckpointOutHash,
   computeInHashFromL1ToL2Messages,
 } from '@aztec/stdlib/messaging';
@@ -69,10 +68,7 @@ export class LightweightCheckpointBuilder {
     feeAssetPriceModifier: bigint = 0n,
   ): Promise<LightweightCheckpointBuilder> {
     // Insert l1-to-l2 messages into the tree.
-    await db.appendLeaves(
-      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-    );
+    await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
 
     return new LightweightCheckpointBuilder(
       checkpointNumber,
@@ -116,6 +112,10 @@ export class LightweightCheckpointBuilder {
       numExistingBlocks: existingBlocks.length,
       blockNumbers: existingBlocks.map(b => b.header.getBlockNumber()),
     });
+
+    if (existingBlocks.length === 0) {
+      throw new Error(`Cannot resume checkpoint ${checkpointNumber} with no existing blocks`);
+    }
 
     // Validate block order and consistency
     for (let i = 1; i < existingBlocks.length; i++) {
@@ -288,6 +288,14 @@ export class LightweightCheckpointBuilder {
       feeRecipient,
       gasFees,
       totalManaUsed,
+    });
+
+    this.logger.debug(`Completed checkpoint ${this.checkpointNumber}`, {
+      checkpointNumber: this.checkpointNumber,
+      headerHash: header.hash().toString(),
+      checkpointOutHash: checkpointOutHash.toString(),
+      numPreviousCheckpointOutHashes: this.previousCheckpointOutHashes.length,
+      ...header.toInspect(),
     });
 
     return new Checkpoint(newArchive, header, blocks, this.checkpointNumber, this.feeAssetPriceModifier);

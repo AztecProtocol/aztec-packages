@@ -118,6 +118,11 @@ export interface P2PConfig
   /** If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false. */
   queryForIp: boolean;
 
+  /**
+   * HTTPS URLs that return plain-text public IPv4, tried in order when resolving the announce IP (e.g. when `queryForIp` is true and `p2pIp` is unset).
+   */
+  publicIpServices: string[];
+
   /** The interval of the gossipsub heartbeat to perform maintenance tasks. */
   gossipsubInterval: number;
 
@@ -184,6 +189,9 @@ export interface P2PConfig
   /** The node's seen message ID cache size */
   seenMessageCacheSize: number;
 
+  /** Maximum number of (validator, tx) pairs to keep in the tx validation LRU cache. */
+  txValidationCacheSize: number;
+
   /** True to disable the status handshake on peer connected. */
   p2pDisableStatusHandshake?: boolean;
 
@@ -216,14 +224,46 @@ export interface P2PConfig
   /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
   minTxPoolAgeMs: number;
 
+  /**
+   * Number of full L2 slots to wait after a checkpoint's slot before declaring its txs missing
+   * for data-withholding slashing.
+   */
+  slashDataWithholdingToleranceSlots: number;
+
+  /**
+   * Number of L2 slots after a mined block's slot to keep collecting its missing txs. Clamped
+   * up so that collection always runs at least until the data-withholding slash verdict is
+   * rendered (`block.slot + slashDataWithholdingToleranceSlots + 1`). Defaults to undefined,
+   * in which case the tolerance window is used directly.
+   */
+  p2pMissingTxCollectionDeadlineSlots?: number;
+
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
 
   /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
   skipIncomingProposals?: boolean;
+
+  /** Accept proposal gossip regardless of slot timing (for testing only). */
+  skipProposalSlotValidation?: boolean;
+
+  /**
+   * Whether this node skips checkpoint proposal validation and always attests. When set, the checkpoint
+   * attestation is created and broadcast before the embedded last block is processed, so it is not delayed
+   * past the slot's attestation window by that block's re-execution. Mirrors the validator config flag.
+   */
+  skipCheckpointProposalValidation?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
+
+/** Default endpoints used to discover this machine's public IPv4 when `queryForIp` is enabled. */
+export const DEFAULT_PUBLIC_IP_SERVICES: string[] = [
+  'https://api.ipify.org/',
+  'https://checkip.amazonaws.com/',
+  'https://ifconfig.me/ip',
+  'https://icanhazip.com/',
+];
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   validateMaxTxsPerBlock: {
@@ -342,6 +382,17 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.',
     ...booleanConfigHelper(),
+  },
+  publicIpServices: {
+    env: 'P2P_PUBLIC_IP_SERVICES',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean),
+    description:
+      'Comma-separated HTTPS URLs that return plain-text public IPv4. Used when P2P_QUERY_FOR_IP is true and P2P_IP is unset. Tried in order until one succeeds.',
+    defaultValue: DEFAULT_PUBLIC_IP_SERVICES,
   },
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',
@@ -471,6 +522,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The number of messages to keep in the seen message cache',
     ...numberConfigHelper(100_000), // 100K
   },
+  txValidationCacheSize: {
+    env: 'P2P_TX_VALIDATION_CACHE_SIZE',
+    description: 'Maximum number of items to keep in the tx validation LRU cache.',
+    ...numberConfigHelper(5_000),
+  },
   p2pDisableStatusHandshake: {
     env: 'P2P_DISABLE_STATUS_HANDSHAKE',
     description: 'True to disable the status handshake on peer connected.',
@@ -527,10 +583,31 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only)',
     ...booleanConfigHelper(false),
   },
+  skipProposalSlotValidation: {
+    description: 'Accept proposal gossip regardless of slot timing (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  skipCheckpointProposalValidation: {
+    description:
+      'Skip checkpoint proposal validation and always attest, broadcasting the attestation before processing the embedded last block',
+    ...booleanConfigHelper(false),
+  },
   minTxPoolAgeMs: {
     env: 'P2P_MIN_TX_POOL_AGE_MS',
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
+  },
+  slashDataWithholdingToleranceSlots: {
+    env: 'SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS',
+    description:
+      'L2 slots to wait after a checkpoint slot before declaring its txs missing. Drives both the data-withholding slasher check and the missing-tx collection deadline.',
+    ...numberConfigHelper(3),
+  },
+  p2pMissingTxCollectionDeadlineSlots: {
+    env: 'P2P_MISSING_TX_COLLECTION_DEADLINE_SLOTS',
+    description:
+      'Optional deadline (in L2 slots after the block slot) for collecting missing txs for unproven mined blocks. Clamped up to the data-withholding tolerance window so collection never gives up before the slash verdict.',
+    ...optionalNumberConfigHelper(),
   },
   priceBumpPercentage: {
     env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',
@@ -571,6 +648,7 @@ export type BootnodeConfig = Pick<
   | 'bootstrapNodes'
   | 'listenAddress'
   | 'queryForIp'
+  | 'publicIpServices'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'> &
@@ -588,6 +666,7 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'bootstrapNodes',
   'l1ChainId',
   'queryForIp',
+  'publicIpServices',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(

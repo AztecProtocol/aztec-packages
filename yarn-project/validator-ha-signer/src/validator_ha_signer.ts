@@ -68,7 +68,7 @@ export class ValidatorHASigner {
     if (!config.nodeId || config.nodeId === '') {
       throw new Error('NODE_ID is required for high-availability setups');
     }
-    this.rollupAddress = config.l1Contracts.rollupAddress;
+    this.rollupAddress = config.rollupAddress;
     this.slashingProtection = new SlashingProtectionService(db, config, {
       metrics: deps.metrics,
       dateProvider: deps.dateProvider,

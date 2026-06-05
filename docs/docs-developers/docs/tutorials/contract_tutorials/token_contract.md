@@ -49,7 +49,7 @@ yarn add @aztec/aztec.js@#include_aztec_version @aztec/accounts@#include_aztec_v
 
 ## Contract structure
 
-The `aztec new` command created a contract project with `Nargo.toml` and `src/main.nr`. Let's replace the boilerplate in `src/main.nr` with a simple starting point:
+The `aztec new` command created a workspace with two crates: a `bob_token_contract` crate for your smart contract code and a `bob_token_test` crate for Noir tests. In `bob_token_contract/src/main.nr` we have a proto-contract. Let's replace it with a simple starting point:
 
 ```rust
 #include_code start /docs/examples/contracts/bob_token_contract/src/main.nr raw
@@ -57,9 +57,17 @@ The `aztec new` command created a contract project with `Nargo.toml` and `src/ma
 }
 ```
 
+:::note Clear the scaffold's placeholder test
+The scaffolded `bob_token_test/src/lib.nr` imports the default contract name (`Main`) we just replaced above, so it now fails to compile. Tests aren't used in this tutorial — replace its contents with a single-line stub so `aztec compile` stays clean:
+
+```rust
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+```
+:::
+
 The `#[aztec]` macro transforms our contract code to work with Aztec's privacy protocol.
 
-Replace the contents of `Nargo.toml` with the following:
+Make sure the Aztec.nr library is listed as a dependency in `bob_token_contract/Nargo.toml`:
 
 ```toml
 [package]
@@ -436,8 +444,8 @@ npx tsx index.ts
 You should see the complete privacy journey from transparent allocation to confidential usage. The final pair of log lines should look like:
 
 ```text
-📊 Alice has 100 public BOB tokens and 130 private BOB tokens
-📊 Bob's Clinic has 20 public BOB tokens and 50 private BOB tokens
+📊 Alice has 10 public BOB tokens and 130 private BOB tokens
+📊 Bob's Clinic has 10 public BOB tokens and 50 private BOB tokens
 ```
 
 If your output doesn't match, double-check that the local network is running and that you started this run with a fresh `aztec start --local-network`.

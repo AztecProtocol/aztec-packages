@@ -23,7 +23,7 @@ import {
   createTxValidatorForAcceptingTxsOverRPC,
   createTxValidatorForBlockBuilding,
   createTxValidatorForBlockProposalReceivedTxs,
-  createTxValidatorForReqResponseReceivedTxs,
+  createTxValidatorForOnDemandReceivedTxs,
   createTxValidatorForTransactionsEnteringPendingTxPool,
 } from './factory.js';
 import { GasLimitsValidator, GasTxValidator, MaxFeePerGasValidator } from './gas_validator.js';
@@ -160,9 +160,9 @@ describe('Validator factory functions', () => {
     });
   });
 
-  describe('createTxValidatorForReqResponseReceivedTxs', () => {
+  describe('createTxValidatorForOnDemandReceivedTxs', () => {
     it('contains well-formedness validators only', () => {
-      const validator = createTxValidatorForReqResponseReceivedTxs(proofVerifier, {
+      const validator = createTxValidatorForOnDemandReceivedTxs(proofVerifier, {
         l1ChainId: 1,
         rollupVersion: 2,
       });

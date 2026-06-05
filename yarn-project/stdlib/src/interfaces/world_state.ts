@@ -92,7 +92,7 @@ export interface WorldStateSynchronizer extends ReadonlyWorldStateAccess, ForkMe
   clear(): Promise<void>;
 }
 
-export const WorldStateSyncStatusSchema: z.ZodType<WorldStateSyncStatus, z.ZodTypeDef, any> = z.object({
+export const WorldStateSyncStatusSchema: z.ZodType<WorldStateSyncStatus, any> = z.object({
   finalizedBlockNumber: BlockNumberSchema,
   latestBlockNumber: BlockNumberSchema,
   latestBlockHash: z.string(),

@@ -38,10 +38,10 @@ pub contract SimulatedEcdsaAccount {
         let seed = unsafe { random() };
 
         // Emit the initialization nullifier for the contract itself.
-        self.context.push_nullifier(seed);
+        self.context.push_nullifier_unsafe(seed);
 
         // Emit the initialization nullifier for the signing_public_key SinglePrivateImmutable.
-        self.context.push_nullifier(seed + 1);
+        self.context.push_nullifier_unsafe(seed + 1);
 
         // Emit the note hash for the signing key note.
         self.context.push_note_hash(seed + 2);
@@ -51,7 +51,7 @@ pub contract SimulatedEcdsaAccount {
         // and is therefore never nullified, so in practice the log will never be squashed. We
         // pass the note hash counter anyway for correctness.
         let dummy_log: [Field; MESSAGE_CIPHERTEXT_LEN] = [seed + 2; MESSAGE_CIPHERTEXT_LEN];
-        self.context.emit_raw_note_log_vec_unsafe(
+        self.context.emit_raw_note_log_unsafe(
             seed + 3,
             BoundedVec::from_array(dummy_log),
             self.context.side_effect_counter,

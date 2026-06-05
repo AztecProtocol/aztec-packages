@@ -78,7 +78,6 @@ node:
 
   startCmd:
     - --node
-    - --archiver
 
   image:
     repository: ""
@@ -148,13 +147,15 @@ node:
     validatorsAlways: []
     validatorsNever: []
     # Penalty amounts for different offense types
-    prunePenalty: ""
     dataWithholdingPenalty: ""
+    dataWithholdingToleranceSlots: ""
     inactivityPenalty: ""
     inactivityTargetPercentage: ""
     invalidBlockPenalty: ""
+    invalidCheckpointProposalPenalty: ""
     proposeInvalidAttestationsPenalty: ""
-    attestDescendantOfInvalidPenalty: ""
+    proposeDescendantOfCheckpointWithInvalidAttestationsPenalty: ""
+    attestInvalidCheckpointProposalPenalty: ""
     unknownPenalty: ""
     # Slasher behavior configuration
     gracePeriodL2Slots: ""

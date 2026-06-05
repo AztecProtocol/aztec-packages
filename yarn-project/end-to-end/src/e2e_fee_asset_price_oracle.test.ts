@@ -10,12 +10,12 @@ import { jest } from '@jest/globals';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { MNEMONIC } from './fixtures/fixtures.js';
+import { MNEMONIC, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { getLogger, setup, startAnvil } from './fixtures/utils.js';
 import { MockStateView, diffInBps } from './shared/mock_state_view.js';
 
 describe('FeeAssetPriceOracle E2E', () => {
-  jest.setTimeout(300_000);
+  jest.setTimeout(15 * 60 * 1000);
 
   let logger: Logger;
   let teardown: () => Promise<void>;
@@ -54,7 +54,7 @@ describe('FeeAssetPriceOracle E2E', () => {
     await ethCheatCodes.mine(10);
     await ethCheatCodes.mineEmptyBlock();
 
-    const context = await setup(0, { l1ChainId: chain.id, minTxsPerBlock: 0 }, {}, chain);
+    const context = await setup(0, { ...PIPELINING_SETUP_OPTS, l1ChainId: chain.id }, {}, chain);
     teardown = context.teardown;
 
     const l1Client = context.deployL1ContractsValues.l1Client;

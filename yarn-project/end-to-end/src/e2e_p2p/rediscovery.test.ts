@@ -35,6 +35,7 @@ describe('e2e_p2p_rediscovery', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         aztecSlotDuration: 24,
         listenAddress: '127.0.0.1',
+        inboxLag: 2,
       },
     });
     await t.setup();

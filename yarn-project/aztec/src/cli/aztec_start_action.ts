@@ -10,7 +10,7 @@ import type { ChainConfig } from '@aztec/stdlib/config';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, AztecNodeDebugApiSchema } from '@aztec/stdlib/interfaces/client';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getVersioningMiddleware } from '@aztec/stdlib/versioning';
-import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
+import { getOtelJsonRpcDiagnosticsMiddleware, getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import { createLocalNetwork } from '../local-network/index.js';
 import { github, splash } from '../splash.js';
@@ -95,6 +95,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {
     const rpcServer = createNamespacedSafeJsonRpcServer(services, {
+      diagnostic: getOtelJsonRpcDiagnosticsMiddleware(),
       http200OnError: false,
       log: debugLogger,
       middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions, versioningOpts)],
@@ -126,6 +127,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     }
 
     const rpcServer = createNamespacedSafeJsonRpcServer(adminServices, {
+      diagnostic: getOtelJsonRpcDiagnosticsMiddleware(),
       http200OnError: false,
       log: debugLogger,
       middlewares: adminMiddlewares,

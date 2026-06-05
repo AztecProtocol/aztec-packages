@@ -98,7 +98,7 @@ last_log=$SECONDS
 
 while true; do
   if (( SECONDS - poll_start >= SSM_POLL_TIMEOUT )); then
-    echo "SSM command polling timed out after ${SSM_POLL_TIMEOUT}s." >&2
+    echo "SSM command $command_id polling timed out after ${SSM_POLL_TIMEOUT}s on instance $iid." >&2
     exit 1
   fi
 
@@ -139,4 +139,13 @@ done
 
 # --- Step 4: Exit with the remote exit code ---
 exit_code=$(printf '%s' "$inv" | jq -r '.ResponseCode // 1')
+if [ "$status" != "Success" ] || [ "$exit_code" != "0" ]; then
+  status_details=$(printf '%s' "$inv" | jq -r '.StatusDetails // empty')
+  stderr_content=$(printf '%s' "$inv" | jq -r '.StandardErrorContent // empty')
+  echo "SSM command $command_id did not succeed on instance $iid: status=$status, statusDetails=${status_details:-none}, responseCode=$exit_code." >&2
+  if [ -n "$stderr_content" ]; then
+    echo "SSM stderr tail:" >&2
+    printf '%s\n' "$stderr_content" | tail -40 >&2
+  fi
+fi
 exit "$exit_code"

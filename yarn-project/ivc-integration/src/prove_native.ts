@@ -1,4 +1,4 @@
-import { BBJsProverFactory, type UltraHonkFlavor, constructRecursiveProofFromBuffers } from '@aztec/bb-prover';
+import { BBJsFactory, type UltraHonkFlavor, constructRecursiveProofFromBuffers } from '@aztec/bb-prover';
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   CHONK_PROOF_LENGTH,
@@ -47,42 +47,45 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
   flavor: T,
   proofLength: ProofLength,
 ) {
-  const factory = new BBJsProverFactory(pathToBB, logger);
+  const factory = new BBJsFactory(pathToBB, { logger });
+  try {
+    // Decompress witness and bytecode for bb.js
+    const decompressedWitness = ungzip(witness);
+    const bytecode = ungzip(Buffer.from(circuit.bytecode, 'base64'));
+    const vkBuffer = Buffer.from(circuit.verificationKey.bytes, 'hex');
 
-  // Decompress witness and bytecode for bb.js
-  const decompressedWitness = ungzip(witness);
-  const bytecode = ungzip(Buffer.from(circuit.bytecode, 'base64'));
-  const vkBuffer = Buffer.from(circuit.verificationKey.bytes, 'hex');
+    // Generate proof via bb.js
+    await using proveInstance = await factory.getInstance();
+    const proofResult = await proveInstance.generateProof(name, bytecode, vkBuffer, decompressedWitness, flavor);
 
-  // Generate proof via bb.js
-  const proofResult = await factory.withFreshInstance(instance =>
-    instance.generateProof(name, bytecode, vkBuffer, decompressedWitness, flavor),
-  );
+    const vk = await VerificationKeyData.fromFrBuffer(vkBuffer);
 
-  const vk = await VerificationKeyData.fromFrBuffer(vkBuffer);
+    // Construct proof from in-memory buffers
+    const proof = constructRecursiveProofFromBuffers(
+      proofResult.proofFields,
+      proofResult.publicInputFields,
+      vk,
+      proofLength,
+    );
 
-  // Construct proof from in-memory buffers
-  const proof = constructRecursiveProofFromBuffers(
-    proofResult.proofFields,
-    proofResult.publicInputFields,
-    vk,
-    proofLength,
-  );
+    // Verify the proof via bb.js
+    await using verifyInstance = await factory.getInstance();
+    const { verified } = await verifyInstance.verifyProof(
+      proofResult.proofFields,
+      vk.keyAsBytes,
+      proofResult.publicInputFields,
+      flavor,
+    );
 
-  // Verify the proof via bb.js
-  const publicInputFields = proofResult.publicInputFields;
-  const proofFields = proofResult.proofFields;
+    if (!verified) {
+      throw new Error(`Failed to verify proof from key!`);
+    }
+    logger.info(`Successfully verified proof from key`);
 
-  const { verified } = await factory.withVerifierInstance(instance =>
-    instance.verifyProof(proofFields, vk.keyAsBytes, publicInputFields, flavor),
-  );
-
-  if (!verified) {
-    throw new Error(`Failed to verify proof from key!`);
+    return makeProofAndVerificationKey(proof, vk);
+  } finally {
+    await factory.destroy();
   }
-  logger.info(`Successfully verified proof from key`);
-
-  return makeProofAndVerificationKey(proof, vk);
 }
 
 export function proveRollupHonk(
@@ -135,30 +138,38 @@ export async function proveAvm(
   publicInputs: AvmCircuitPublicInputs;
 }> {
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
-  const factory = new BBJsProverFactory(bbPath, logger);
+  const factory = new BBJsFactory(bbPath, { logger });
+  try {
+    const inputsBuffer = avmCircuitInputs.serializeWithMessagePack();
+    let proofFields: Uint8Array[];
+    {
+      await using instance = await factory.getInstance();
+      ({ proof: proofFields } = await instance.generateAvmProof(inputsBuffer));
+    }
 
-  const inputsBuffer = avmCircuitInputs.serializeWithMessagePack();
-  const { proof: proofFields } = await factory.withFreshInstance(i => i.generateAvmProof(inputsBuffer));
+    // Convert Uint8Array field elements → Fr[]
+    const proof: Fr[] = proofFields.map(f => Fr.fromBuffer(Buffer.from(f)));
 
-  // Convert Uint8Array field elements → Fr[]
-  const proof: Fr[] = proofFields.map(f => Fr.fromBuffer(Buffer.from(f)));
+    // Extend to a fixed-size padded proof — any new AVM circuit column changes the proof length and we
+    // don't have a mechanism to feed a cpp constant into noir/TS.
+    // TODO(#13390): Revive a non-padded AVM proof
+    while (proof.length < AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+      proof.push(new Fr(0));
+    }
 
-  // Extend to a fixed-size padded proof — any new AVM circuit column changes the proof length and we
-  // don't have a mechanism to feed a cpp constant into noir/TS.
-  // TODO(#13390): Revive a non-padded AVM proof
-  while (proof.length < AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-    proof.push(new Fr(0));
+    // Explicit verify pass against the serialized public inputs (matches the legacy binary flow).
+    const piBuffer = avmCircuitInputs.publicInputs.serializeWithMessagePack();
+    await using verifyInstance = await factory.getInstance();
+    const { verified: reVerified } = await verifyInstance.verifyAvmProof(proofFields, piBuffer);
+    if (!reVerified) {
+      throw new Error('AVM V2 proof verification failed');
+    }
+
+    return {
+      proof,
+      publicInputs: avmCircuitInputs.publicInputs,
+    };
+  } finally {
+    await factory.destroy();
   }
-
-  // Explicit verify pass against the serialized public inputs (matches the legacy binary flow).
-  const piBuffer = avmCircuitInputs.publicInputs.serializeWithMessagePack();
-  const { verified: reVerified } = await factory.withFreshInstance(i => i.verifyAvmProof(proofFields, piBuffer));
-  if (!reVerified) {
-    throw new Error('AVM V2 proof verification failed');
-  }
-
-  return {
-    proof,
-    publicInputs: avmCircuitInputs.publicInputs,
-  };
 }

@@ -63,28 +63,33 @@ export class FeeAssetPriceOracle {
    *
    * Returns 0 if not on mainnet or if the oracle query fails.
    *
+   * @param currentPriceE12 - Optional override for the parent checkpoint's eth-per-fee-asset
+   *   (E12 scale). When omitted, the latest published value is read from L1. Pipelined
+   *   proposers should supply the predicted parent value so the modifier they emit aligns
+   *   with the parent fee header L1 will see when the previous pipelined checkpoint lands.
    * @returns The price modifier in basis points (positive to increase price, negative to decrease)
    */
-  async computePriceModifier(): Promise<bigint> {
+  async computePriceModifier(currentPriceE12?: bigint): Promise<bigint> {
     const uniswapOracle = await this.getUniswapOracle();
     if (!uniswapOracle) {
       return 0n;
     }
 
     try {
-      // Get current on-chain price (ETH per fee asset, E12)
-      const currentPriceE12 = await this.rollupContract.getEthPerFeeAsset();
+      // Get current on-chain price (ETH per fee asset, E12), preferring the caller-supplied value.
+      const resolvedCurrentPriceE12 = currentPriceE12 ?? (await this.rollupContract.getEthPerFeeAsset());
 
       // Get oracle price (median of last N blocks, ETH per fee asset, E12)
       const oraclePriceE12 = await uniswapOracle.getMeanEthPerFeeAssetE12();
 
       // Compute modifier in basis points
-      const modifier = this.computePriceModifierBps(currentPriceE12, oraclePriceE12);
+      const modifier = this.computePriceModifierBps(resolvedCurrentPriceE12, oraclePriceE12);
 
       this.log.debug('Computed price modifier', {
-        currentPriceE12: currentPriceE12.toString(),
+        currentPriceE12: resolvedCurrentPriceE12.toString(),
         oraclePriceE12: oraclePriceE12.toString(),
         modifierBps: modifier.toString(),
+        currentPriceFromCaller: currentPriceE12 !== undefined,
       });
 
       return modifier;

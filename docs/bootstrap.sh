@@ -61,11 +61,11 @@ function check_references {
   echo_header "Check doc references"
   if ! ./scripts/check_doc_references.sh docs; then
     echo "⚠ Doc reference check failed (non-blocking)."
-    if [[ -n "${SLACK_BOT_TOKEN:-}" ]]; then
+    if [[ -n "${AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN:-}" ]]; then
       curl -s -X POST https://slack.com/api/chat.postMessage \
-        -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+        -H "Authorization: Bearer $AZTEC_FOUNDATION_CI_SLACK_BOT_TOKEN" \
         -H "Content-type: application/json" \
-        -d "{\"channel\": \"#devrel-docs-updates\", \"text\": \"⚠️ Doc reference check script failed for ref \`${GITHUB_REF_NAME:-unknown}\`. Check CI logs.\"}" \
+        -d "{\"channel\": \"#docs-alerts\", \"text\": \"⚠️ Doc reference check script failed for ref \`${GITHUB_REF_NAME:-unknown}\`. Check CI logs.\"}" \
         > /dev/null 2>&1 || true
     fi
   fi

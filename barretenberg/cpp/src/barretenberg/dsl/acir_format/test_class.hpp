@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/serde/index.hpp"
@@ -67,42 +68,15 @@ inline Acir::Expression witness_or_constant_to_expression(const WitnessOrConstan
 }
 
 /**
- * @brief Convert an AccessType to an Acir::Expression representing the operation type.
- *
- * @details Read operations are represented by Expression with constant 0,
- * Write operations are represented by Expression with constant 1.
- */
-inline Acir::Expression access_type_to_expression(AccessType access_type)
-{
-    bb::fr value = (access_type == AccessType::Write) ? bb::fr::one() : bb::fr::zero();
-    return Acir::Expression{
-        .mul_terms = {},
-        .linear_combinations = {},
-        .q_c = value.to_buffer(),
-    };
-}
-
-/**
- * @brief Convert a witness index to an Acir::Expression representing a single unscaled witness term.
- */
-inline Acir::Expression witness_to_expression(uint32_t witness_index)
-{
-    return Acir::Expression{
-        .mul_terms = {},
-        .linear_combinations = { std::make_tuple(bb::fr::one().to_buffer(), Acir::Witness{ .value = witness_index }) },
-        .q_c = bb::fr::zero().to_buffer(),
-    };
-}
-
-/**
  * @brief Convert an acir_format::MemOp to an Acir::MemOp.
  */
 inline Acir::MemOp mem_op_to_acir_mem_op(const MemOp& mem_op)
 {
     return Acir::MemOp{
-        .operation = access_type_to_expression(mem_op.access_type),
-        .index = witness_to_expression(mem_op.index),
-        .value = witness_to_expression(mem_op.value),
+        // Acir::MemOp::read is the serialized MemOpKind bool: false = Read, true = Write.
+        .read = (mem_op.access_type == AccessType::Write),
+        .index = Acir::Witness{ .value = mem_op.index },
+        .value = Acir::Witness{ .value = mem_op.value },
     };
 }
 
@@ -391,10 +365,9 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
         for (const auto& sc : constraint.scalars) {
             scalars.push_back(witness_or_constant_to_function_input(sc));
         }
-        auto outputs = std::make_shared<std::array<Acir::Witness, 3>>();
+        auto outputs = std::make_shared<std::array<Acir::Witness, 2>>();
         (*outputs)[0] = Acir::Witness{ .value = constraint.out_point_x };
         (*outputs)[1] = Acir::Witness{ .value = constraint.out_point_y };
-        (*outputs)[2] = Acir::Witness{ .value = constraint.out_point_is_infinite };
         return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
                                    .value = Acir::BlackBoxFuncCall{
                                        .value = Acir::BlackBoxFuncCall::MultiScalarMul{
@@ -404,18 +377,15 @@ template <typename ConstraintType> std::vector<Acir::Opcode> constraint_to_acir_
                                            .outputs = outputs,
                                        } } } } };
     } else if constexpr (std::is_same_v<ConstraintType, EcAdd>) {
-        auto input1 = std::make_shared<std::array<Acir::FunctionInput, 3>>();
+        auto input1 = std::make_shared<std::array<Acir::FunctionInput, 2>>();
         (*input1)[0] = witness_or_constant_to_function_input(constraint.input1_x);
         (*input1)[1] = witness_or_constant_to_function_input(constraint.input1_y);
-        (*input1)[2] = witness_or_constant_to_function_input(constraint.input1_infinite);
-        auto input2 = std::make_shared<std::array<Acir::FunctionInput, 3>>();
+        auto input2 = std::make_shared<std::array<Acir::FunctionInput, 2>>();
         (*input2)[0] = witness_or_constant_to_function_input(constraint.input2_x);
         (*input2)[1] = witness_or_constant_to_function_input(constraint.input2_y);
-        (*input2)[2] = witness_or_constant_to_function_input(constraint.input2_infinite);
-        auto outputs = std::make_shared<std::array<Acir::Witness, 3>>();
+        auto outputs = std::make_shared<std::array<Acir::Witness, 2>>();
         (*outputs)[0] = Acir::Witness{ .value = constraint.result_x };
         (*outputs)[1] = Acir::Witness{ .value = constraint.result_y };
-        (*outputs)[2] = Acir::Witness{ .value = constraint.result_infinite };
         return { Acir::Opcode{ .value = Acir::Opcode::BlackBoxFuncCall{
                                    .value = Acir::BlackBoxFuncCall{
                                        .value = Acir::BlackBoxFuncCall::EmbeddedCurveAdd{

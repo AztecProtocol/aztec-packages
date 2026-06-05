@@ -13,8 +13,16 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
-import { LogId } from '@aztec/stdlib/logs';
-import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas, zodFor } from '@aztec/stdlib/schemas';
+import { LogCursor, refineTxHashAndRange } from '@aztec/stdlib/logs';
+import {
+  AbiDecodedSchema,
+  type ApiSchemaFor,
+  getSchemaParameters,
+  getSchemaReturnType,
+  optional,
+  schemas,
+  zodFor,
+} from '@aztec/stdlib/schemas';
 import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
 import {
   Capsule,
@@ -22,7 +30,7 @@ import {
   SimulationOverrides,
   TxHash,
   TxProfileResult,
-  TxReceipt,
+  TxReceiptSchema,
   UtilityExecutionResult,
   inTxSchema,
 } from '@aztec/stdlib/tx';
@@ -156,8 +164,8 @@ export type EventFilterBase = {
    * Optional. If provided, it must be greater than fromBlock.
    */
   toBlock?: BlockNumber;
-  /** Log id after which to start fetching logs. Used for pagination. */
-  afterLog?: LogId;
+  /** Log cursor after which to start fetching logs. Used for pagination. */
+  afterLog?: LogCursor;
 };
 
 /**
@@ -171,11 +179,12 @@ export type PrivateEventFilter = EventFilterBase & {
 };
 
 /**
- * Filter options when querying public events.
+ * Filter options when querying public events. The contract address is required because the public log index is
+ * keyed on `(contract, tag)`; tag-only queries are not supported.
  */
 export type PublicEventFilter = EventFilterBase & {
-  /** The address of the contract that emitted the events. */
-  contractAddress?: AztecAddress;
+  /** The address of the contract that emitted the events. Required. */
+  contractAddress: AztecAddress;
 };
 
 /**
@@ -366,21 +375,31 @@ export const EventMetadataDefinitionSchema = z.object({
   fieldNames: z.array(z.string()),
 });
 
-const EventFilterBaseSchema = z.object({
+// Event filters share `txHash ⊕ block-range` semantics with `LogsQueryBase` (see stdlib `logs_query.ts`)
+// but diverge structurally: wallet filters are scoped to a single ABI event so they carry one optional
+// `afterLog` cursor inline, whereas the stdlib query batches many tags and stores cursors per-tag inside
+// `TagQuery`. We share only the refinement helper from stdlib; the field schemas stay local.
+const eventFilterBaseShape = {
   txHash: optional(TxHash.schema),
   fromBlock: optional(BlockNumberPositiveSchema),
   toBlock: optional(BlockNumberPositiveSchema),
-  afterLog: optional(LogId.schema),
-});
+  afterLog: optional(LogCursor.schema),
+};
 
-export const PrivateEventFilterSchema = EventFilterBaseSchema.extend({
-  contractAddress: schemas.AztecAddress,
-  scopes: z.array(schemas.AztecAddress),
-});
+export const PrivateEventFilterSchema = refineTxHashAndRange(
+  z.object({
+    ...eventFilterBaseShape,
+    contractAddress: schemas.AztecAddress,
+    scopes: z.array(schemas.AztecAddress),
+  }),
+);
 
-export const PublicEventFilterSchema = EventFilterBaseSchema.extend({
-  contractAddress: optional(schemas.AztecAddress),
-});
+export const PublicEventFilterSchema = refineTxHashAndRange(
+  z.object({
+    ...eventFilterBaseShape,
+    contractAddress: schemas.AztecAddress,
+  }),
+);
 
 export const PrivateEventSchema: z.ZodType<any> = zodFor<PrivateEvent<AbiDecoded>>()(
   z.object({
@@ -545,56 +564,60 @@ const OffchainOutputSchema = z.object({
  * This is the single source of truth for method schemas - batch schemas are derived from this.
  */
 const WalletMethodSchemas = {
-  getChainInfo: z
-    .function()
-    .args()
-    .returns(z.object({ chainId: schemas.Fr, version: schemas.Fr })),
-  getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),
-  getContractClassMetadata: z.function().args(schemas.Fr).returns(ContractClassMetadataSchema),
-  getPrivateEvents: z
-    .function()
-    .args(EventMetadataDefinitionSchema, PrivateEventFilterSchema)
-    .returns(z.array(PrivateEventSchema)),
-  registerSender: z.function().args(schemas.AztecAddress, optional(z.string())).returns(schemas.AztecAddress),
-  getAddressBook: z
-    .function()
-    .args()
-    .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
-  getAccounts: z
-    .function()
-    .args()
-    .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
-  registerContract: z
-    .function()
-    .args(ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
-    .returns(ContractInstanceWithAddressSchema),
-  registerContractClass: z.function().args(ContractArtifactSchema).returns(z.void()),
-  simulateTx: z
-    .function()
-    .args(ExecutionPayloadSchema, SimulateOptionsSchema)
-    .returns(TxSimulationResultWithAppOffset.schema),
-  executeUtility: z
-    .function()
-    .args(
+  getChainInfo: z.function({ input: z.tuple([]), output: z.object({ chainId: schemas.Fr, version: schemas.Fr }) }),
+  getContractMetadata: z.function({ input: z.tuple([schemas.AztecAddress]), output: ContractMetadataSchema }),
+  getContractClassMetadata: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassMetadataSchema }),
+  getPrivateEvents: z.function({
+    input: z.tuple([EventMetadataDefinitionSchema, PrivateEventFilterSchema]),
+    output: z.array(PrivateEventSchema),
+  }),
+  registerSender: z.function({
+    input: z.tuple([schemas.AztecAddress, optional(z.string())]),
+    output: schemas.AztecAddress,
+  }),
+  getAddressBook: z.function({
+    input: z.tuple([]),
+    output: z.array(z.object({ alias: z.string(), item: schemas.AztecAddress })),
+  }),
+  getAccounts: z.function({
+    input: z.tuple([]),
+    output: z.array(z.object({ alias: z.string(), item: schemas.AztecAddress })),
+  }),
+  registerContract: z.function({
+    input: z.tuple([ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
+    output: ContractInstanceWithAddressSchema,
+  }),
+  registerContractClass: z.function({ input: z.tuple([ContractArtifactSchema]), output: z.void() }),
+  simulateTx: z.function({
+    input: z.tuple([ExecutionPayloadSchema, SimulateOptionsSchema]),
+    output: TxSimulationResultWithAppOffset.schema,
+  }),
+  executeUtility: z.function({
+    input: z.tuple([
       FunctionCall.schema,
       z.object({
         scopes: z.array(schemas.AztecAddress),
         authWitnesses: optional(z.array(AuthWitness.schema)),
       }),
-    )
-    .returns(UtilityExecutionResult.schema),
-  profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
-  sendTx: z
-    .function()
-    .args(ExecutionPayloadSchema, SendOptionsSchema)
-    .returns(
-      z.union([
-        z.object({ txHash: TxHash.schema }).merge(OffchainOutputSchema),
-        z.object({ receipt: TxReceipt.schema }).merge(OffchainOutputSchema),
-      ]),
-    ),
-  createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
-  requestCapabilities: z.function().args(AppCapabilitiesSchema).returns(WalletCapabilitiesSchema),
+    ]),
+    output: UtilityExecutionResult.schema,
+  }),
+  profileTx: z.function({
+    input: z.tuple([ExecutionPayloadSchema, ProfileOptionsSchema]),
+    output: TxProfileResult.schema,
+  }),
+  sendTx: z.function({
+    input: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]),
+    output: z.union([
+      z.object({ txHash: TxHash.schema }).merge(OffchainOutputSchema),
+      z.object({ receipt: TxReceiptSchema }).merge(OffchainOutputSchema),
+    ]),
+  }),
+  createAuthWit: z.function({
+    input: z.tuple([schemas.AztecAddress, MessageHashOrIntentSchema]),
+    output: AuthWitness.schema,
+  }),
+  requestCapabilities: z.function({ input: z.tuple([AppCapabilitiesSchema]), output: WalletCapabilitiesSchema }),
 };
 
 /**
@@ -605,19 +628,19 @@ const WalletMethodSchemas = {
 function createBatchSchemas<T extends Record<string, z.ZodFunction<z.ZodTuple<any, any>, z.ZodTypeAny>>>(
   methodSchemas: T,
 ) {
-  const names = Object.keys(methodSchemas) as (keyof T)[];
+  const names = Object.keys(methodSchemas) as Extract<keyof T, string>[];
 
   const namesAndArgs = names.map(name =>
     z.object({
       name: z.literal(name),
-      args: methodSchemas[name].parameters(),
+      args: getSchemaParameters(methodSchemas[name]),
     }),
   );
 
   const namesAndReturns = names.map(name =>
     z.object({
       name: z.literal(name),
-      result: methodSchemas[name].returnType(),
+      result: getSchemaReturnType(methodSchemas[name]),
     }),
   );
 
@@ -636,5 +659,5 @@ export { BatchedMethodSchema, BatchedResultSchema };
 export const WalletSchema: ApiSchemaFor<Wallet> = {
   ...WalletMethodSchemas,
   // @ts-expect-error - ApiSchemaFor cannot properly type generic methods with readonly arrays
-  batch: z.function().args(z.array(BatchedMethodSchema)).returns(z.array(BatchedResultSchema)),
+  batch: z.function({ input: z.tuple([z.array(BatchedMethodSchema)]), output: z.array(BatchedResultSchema) }),
 };

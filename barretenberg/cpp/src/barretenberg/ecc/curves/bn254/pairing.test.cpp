@@ -268,10 +268,11 @@ TEST(pairing, PairingLinearityCheck)
 TEST(pairing, FinalExponentiation)
 {
     auto pow = [](const fq12& a, const fq& b) {
+        const uint256_t exponent(b);
         fq12 result = fq12::one();
         fq12 base = a;
         for (size_t i = 0; i < 256; ++i) {
-            if ((b.data[0] >> i) & 1) {
+            if (exponent.get_bit(i)) {
                 result *= base;
             }
             base = base.sqr();
@@ -291,10 +292,11 @@ TEST(pairing, FinalExponentiation)
     fq12 result = pairing::final_exponentiation_easy_part(element);
     result = pairing::final_exponentiation_tricky_part(result);
 
-    fq12 expected = element;
-    expected = pairing::final_exponentiation_easy_part(expected);
-    expected = pow(expected, mu0) + pow(expected, mu1).frobenius_map_one() + pow(expected, mu2).frobenius_map_two() +
+    fq12 expected = pairing::final_exponentiation_easy_part(element);
+    expected = pow(expected, mu0) * pow(expected, mu1).frobenius_map_one() * pow(expected, mu2).frobenius_map_two() *
                pow(expected, mu3).frobenius_map_three();
+
+    EXPECT_EQ(result, expected);
 }
 
 TEST(pairing, Constants)

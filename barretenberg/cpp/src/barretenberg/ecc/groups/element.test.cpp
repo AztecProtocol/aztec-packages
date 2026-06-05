@@ -296,6 +296,95 @@ template <typename G_> class TestElement : public testing::Test {
         EXPECT_EQ(inf_element.is_point_at_infinity(), true);
     }
 
+    static void test_infinity_canonical_form()
+    {
+        // affine_element: infinity() (value-init then self_set_infinity) and set_infinity() applied
+        // to a random point (copy of a non-trivial state then self_set_infinity) must match.
+        const affine_element inf_from_factory = affine_element::infinity();
+        const affine_element inf_from_random = affine_element(element::random_element()).set_infinity();
+
+        EXPECT_TRUE(inf_from_factory.is_point_at_infinity());
+        EXPECT_TRUE(inf_from_random.is_point_at_infinity());
+
+        EXPECT_EQ(inf_from_factory.y, Fq::zero());
+        EXPECT_EQ(inf_from_random.y, Fq::zero());
+        EXPECT_EQ(inf_from_factory.x, inf_from_random.x);
+        EXPECT_EQ(inf_from_factory.y, inf_from_random.y);
+
+        // element: infinity() (value-init), zero() (default-init, indeterminate y/z storage), and
+        // set_infinity() applied to a random point must all match.
+        const element inf_elem_factory = element::infinity();
+        const element inf_elem_zero = element::zero();
+        const element inf_elem_set = element::random_element().set_infinity();
+
+        EXPECT_TRUE(inf_elem_factory.is_point_at_infinity());
+        EXPECT_TRUE(inf_elem_zero.is_point_at_infinity());
+        EXPECT_TRUE(inf_elem_set.is_point_at_infinity());
+
+        for (const element& e : { inf_elem_factory, inf_elem_zero, inf_elem_set }) {
+            EXPECT_EQ(e.y, Fq::zero());
+            EXPECT_EQ(e.z, Fq::zero());
+            EXPECT_EQ(e.x, inf_elem_factory.x);
+        }
+    }
+
+    static void test_straus_msm_matches_naive_sum()
+    {
+        for (size_t n = 1; n <= 16; ++n) {
+            std::vector<affine_element> points(n);
+            std::vector<Fr> scalars(n);
+            for (size_t i = 0; i < n; ++i) {
+                points[i] = affine_element(element::random_element());
+                scalars[i] = Fr::random_element();
+            }
+            element naive = element::infinity();
+            for (size_t i = 0; i < n; ++i) {
+                naive += points[i] * scalars[i];
+            }
+            element strauss = element::straus_msm(points, scalars);
+            EXPECT_EQ(strauss == naive, true) << "straus_msm mismatch at n=" << n;
+        }
+    }
+
+    static void test_straus_msm_truncates_to_shorter_input()
+    {
+        std::vector<affine_element> points = { affine_element(element::random_element()),
+                                               affine_element(element::random_element()),
+                                               affine_element(element::random_element()) };
+        std::vector<Fr> scalars = { Fr::random_element(), Fr::random_element() };
+
+        element expected = (points[0] * scalars[0]) + (points[1] * scalars[1]);
+        EXPECT_EQ(element::straus_msm(points, scalars) == expected, true);
+
+        std::vector<Fr> extra_scalars = { scalars[0], scalars[1], Fr::random_element() };
+        std::vector<affine_element> fewer_points = { points[0], points[1] };
+        EXPECT_EQ(element::straus_msm(fewer_points, extra_scalars) == expected, true);
+    }
+
+    static void test_straus_msm_edge_cases()
+    {
+        // Empty input → infinity
+        EXPECT_EQ(element::straus_msm({}, {}).is_point_at_infinity(), true);
+
+        // All-zero scalars → infinity
+        std::vector<affine_element> points = { affine_element(element::random_element()),
+                                               affine_element(element::random_element()) };
+        std::vector<Fr> zeros = { Fr::zero(), Fr::zero() };
+        EXPECT_EQ(element::straus_msm(points, zeros).is_point_at_infinity(), true);
+
+        // Mixed: some zero scalars, some infinity points → matches non-zero/non-infinity sum
+        const Fr s0 = Fr::random_element();
+        const Fr s2 = Fr::random_element();
+        std::vector<affine_element> mixed_points = {
+            affine_element(element::random_element()),
+            affine_element::infinity(),
+            affine_element(element::random_element()),
+        };
+        std::vector<Fr> mixed_scalars = { s0, Fr::random_element(), s2 };
+        element expected = mixed_points[0] * s0 + mixed_points[2] * s2;
+        EXPECT_EQ(element::straus_msm(mixed_points, mixed_scalars) == expected, true);
+    }
+
     static void test_derive_generators()
     {
         constexpr size_t num_generators = 128;
@@ -407,9 +496,35 @@ TYPED_TEST(TestElement, Infinity)
     TestFixture::test_infinity();
 }
 
+TYPED_TEST(TestElement, InfinityCanonicalForm)
+{
+    TestFixture::test_infinity_canonical_form();
+}
+
 TYPED_TEST(TestElement, DeriveGenerators)
 {
     if constexpr (!std::is_same_v<typename TestFixture::G, bb::g2>) {
         TestFixture::test_derive_generators();
+    }
+}
+
+TYPED_TEST(TestElement, StrausMsmMatchesNaiveSum)
+{
+    if constexpr (!std::is_same_v<typename TestFixture::G, bb::g2>) {
+        TestFixture::test_straus_msm_matches_naive_sum();
+    }
+}
+
+TYPED_TEST(TestElement, StrausMsmTruncatesToShorterInput)
+{
+    if constexpr (!std::is_same_v<typename TestFixture::G, bb::g2>) {
+        TestFixture::test_straus_msm_truncates_to_shorter_input();
+    }
+}
+
+TYPED_TEST(TestElement, StrausMsmEdgeCases)
+{
+    if constexpr (!std::is_same_v<typename TestFixture::G, bb::g2>) {
+        TestFixture::test_straus_msm_edge_cases();
     }
 }

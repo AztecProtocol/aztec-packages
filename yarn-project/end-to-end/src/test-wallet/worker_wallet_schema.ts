@@ -8,6 +8,6 @@ import { z } from 'zod';
 /** Schema for the WorkerWallet API — extends WalletSchema with proveTx and registerAccount. */
 export const WorkerWalletSchema = {
   ...WalletSchema,
-  proveTx: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(Tx.schema),
-  registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(AztecAddress.schema),
+  proveTx: z.function({ input: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]), output: Tx.schema }),
+  registerAccount: z.function({ input: z.tuple([schemas.Fr, schemas.Fr]), output: AztecAddress.schema }),
 };

@@ -34,14 +34,13 @@ mod test {
             key_validation_request_and_separator::KeyValidationRequestAndSeparator,
         },
         constants::KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
-        point::Point,
         traits::{Deserialize, Serialize},
     };
 
     #[test]
     fn serialization_of_key_validation_request_and_separator() {
         let non_empty_item = KeyValidationRequestAndSeparator {
-            request: KeyValidationRequest { pk_m: Point::deserialize([123, 456, 0]), sk_app: 789 },
+            request: KeyValidationRequest { pk_m_hash: 123, sk_app: 789 },
             key_type_domain_separator: 789,
         };
         let serialized: [Field; KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH] =

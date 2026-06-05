@@ -3,6 +3,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { createStore, openTmpStore } from '@aztec/kv-store/indexeddb';
 import { type PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
+import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint/lazy';
 
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
@@ -34,6 +36,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
       proverEnabled: mergedConfigOverrides.proverEnabled ?? false,
       dataDirectory: `pxe_data_${l1Contracts.rollupAddress}`,
+      autoSync: false,
       ...mergedConfigOverrides,
     });
 
@@ -43,6 +46,9 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
 
     const pxeOptions: PXECreationOptions = {
       ...mergedCreationOverrides,
+      preloadedContractsProvider: mergedCreationOverrides.preloadedContractsProvider ?? {
+        getPreloadedContracts: async () => [await getStandardMultiCallEntrypoint(), await getStandardAuthRegistry()],
+      },
       loggers: {
         store: rootLogger.createChild('pxe:data'),
         pxe: rootLogger.createChild('pxe:service'),
@@ -62,7 +68,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
             {
               dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
               dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-              l1Contracts,
+              rollupAddress: l1Contracts.rollupAddress,
             },
             1,
             rootLogger.createChild('wallet:data'),
@@ -79,3 +85,10 @@ export { BrowserEmbeddedWallet as EmbeddedWallet };
 export type { EmbeddedWalletOptions, EmbeddedWalletPXEOptions } from '../embedded_wallet.js';
 export { WalletDB } from '../wallet_db.js';
 export type { AccountType } from '../wallet_db.js';
+
+// At-rest encryption helpers are intentionally NOT re-exported here. They live
+// on the `@aztec/wallets/embedded/store-encryption` sub-path so consumers
+// (and bundlers) of this entrypoint don't transitively pull in
+// `@aztec/kv-store/sqlite-opfs` and its `new Worker(new URL('./worker.js'))`
+// chain into `@aztec/sqlite3mc-wasm`. Apps that don't use encryption-at-rest
+// (e.g. the playground) should never see sqlite-opfs in their bundle.

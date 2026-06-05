@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source "$root/barretenberg/cpp/scripts/pinned_chonk_inputs.sh"
 
 if [ "${AVM:-1}" -eq "1" ]; then
   export native_preset=${NATIVE_PRESET:-clang20}
@@ -125,6 +126,10 @@ function build_native_objects {
 
 function build_native { build_preset $native_preset; }
 
+function download_chonk_inputs {
+  scripts/chonk_inputs.sh download
+}
+
 # Builds object files early for cross compilation (parallel with avm-transpiler).
 function build_cross_objects {
   set -eu
@@ -220,7 +225,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-static-x86_64-android.tar.gz -C build-x86_64-android/lib libbb-external.a
 }
 
-export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version inject_bb_versions
+export -f cmake_build preset_cache_paths build_preset build_format_check build_native_objects build_cross_objects build_native download_chonk_inputs build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version inject_bb_versions
 
 function build {
   echo_header "bb cpp build"
@@ -245,6 +250,9 @@ function test_cmds_native {
       awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
       grep -v 'DISABLED_' | \
       while read -r test; do
+        if [[ "$test" == "ChonkPinnedIvcInputsTest.AllPinnedFlows" ]]; then
+          continue
+        fi
         # Skip heavy recursion tests in debug builds — they take 400-600s+ and the same
         # code paths are already exercised (with assertions) by faster tests in the suite.
         # Keep WithoutPredicate/1.GenerateVKFromConstraints (241s) so that the debug-only
@@ -265,12 +273,8 @@ function test_cmds_native {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  # The pinned IVC inputs / VKs live in the public repo; the private fork
-  # carries divergent circuits so the check is expected to fail there.
-  local github_repository="${GITHUB_REPOSITORY:-}"
-  if [[ "${github_repository,,}" != "aztecprotocol/aztec-packages-private" ]]; then
-    echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
-  fi
+  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+  echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
 }
 
 function test_cmds_wasm_threads {
@@ -321,12 +325,51 @@ function test {
   test_cmds | filter_test_cmds | parallelize
 }
 
+function pinned_chonk_bench_flow_names {
+  ensure_pinned_chonk_inputs "$(pinned_chonk_inputs_dir)" >&2
+  list_pinned_chonk_input_flows "$(pinned_chonk_inputs_dir)"
+}
+
+function chonk_ivc_bench_cmds {
+  local flow_filter="${1:-}"
+  local flow flow_dir
+  while IFS= read -r flow; do
+    [[ -n "$flow" ]] || continue
+    [[ -z "$flow_filter" || "$flow" == *"$flow_filter"* ]] || continue
+    flow_dir="chonk-pinned-flows/$flow"
+    echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh native $flow_dir"
+    if [[ "${NO_WASM:-}" != "1" ]]; then
+      echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh wasm $flow_dir"
+    fi
+  done < <(pinned_chonk_bench_flow_names)
+}
+
+function chonk_browser_bench_cmds {
+  local flow flow_dir
+  while IFS= read -r flow; do
+    [[ -n "$flow" ]] || continue
+    flow_dir="chonk-pinned-flows/$flow"
+    echo "$hash:ISOLATE=1:NET=1:CPUS=8:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh $flow_dir"
+  done < <(pinned_chonk_bench_flow_names)
+}
+
+function ultrahonk_rollup_bench_cmds {
+  local inputs_dir="../../yarn-project/end-to-end/ultrahonk-bench-inputs"
+  local cpus
+  for cpus in 8 16 32; do
+    echo "$hash:CPUS=$cpus:PARALLEL=0 barretenberg/cpp/scripts/ci_benchmark_ultrahonk_circuits.sh parity_base $inputs_dir $cpus"
+  done
+}
+
 function bench_cmds {
   prefix="$hash:CPUS=8"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk_zk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
+  chonk_ivc_bench_cmds
+  chonk_browser_bench_cmds
+  ultrahonk_rollup_bench_cmds
 }
 
 # Runs benchmarks sharded over machine cores.
@@ -343,13 +386,11 @@ function release {
 }
 
 function bench_ivc {
-  # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
+  # Intended only for dev usage. CI gets the same commands from bench_cmds.
   # Sample usage (CI=1 required for bench results to be visible; exclude NO_WASM=1 to run wasm benchmarks):
   # CI=1 NO_WASM=1 ./barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc
-  git fetch origin next
 
-  flow_filter="${1:-}"               # optional string-match filter for flow names
-  commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
+  flow_filter="${1:-}" # optional string-match filter for flow names
 
   # Build both native and wasm benchmark binaries
   builds=(
@@ -360,32 +401,20 @@ function bench_ivc {
   fi
   parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
-  # Download cached flow inputs from the specified commit
-  export AZTEC_CACHE_COMMIT=$commit_hash
-  # TODO currently does nothing! to reinstate in cache_download
-  export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
-  # make sure that disabling the aztec VM does not interfere with cache results from CI.
+  # Make sure disabling the aztec VM does not interfere with cache results from CI.
   BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
 
   rm -rf bench-out
 
-  # Recreation of logic from bench.
-  ../../yarn-project/end-to-end/bootstrap.sh build_bench
-
-  # Extract and filter benchmark commands by flow name and wasm/no-wasm
-  function ivc_bench_cmds {
-    local flow_filter="$1"  # select only flows containing this string
-
-    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds |
-      grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh |
-      { [[ "${NO_WASM:-}" == "1" ]] && grep -v wasm || cat; } |
-      { [[ -n "$flow_filter" ]] && grep -F "$flow_filter" || cat; }
-  }
-
   echo "Running commands:"
-  ivc_bench_cmds "$flow_filter"
+  chonk_ivc_bench_cmds "$flow_filter"
 
-  ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelize
+  chonk_ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelize
+}
+
+function chonk_input_update {
+  echo_header "bb chonk input update"
+  scripts/ci_update_chonk_inputs.sh
 }
 
 case "$cmd" in

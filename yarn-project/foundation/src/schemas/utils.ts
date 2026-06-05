@@ -1,16 +1,4 @@
-import {
-  OK,
-  type ParseInput,
-  type ParseReturnType,
-  ZodFirstPartyTypeKind,
-  type ZodObject,
-  ZodOptional,
-  ZodParsedType,
-  type ZodRawShape,
-  type ZodType,
-  type ZodTypeAny,
-  z,
-} from 'zod';
+import { type ZodObject, type ZodRawShape, type ZodType, type ZodTypeAny, z } from 'zod';
 
 import { pick } from '../collection/object.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
@@ -41,24 +29,7 @@ export const bufferSchema: ZodFor<Buffer> = z.union([
   z.instanceof(Buffer),
 ]);
 
-export class ZodNullableOptional<T extends ZodTypeAny> extends ZodOptional<T> {
-  _isNullableOptional = true;
-
-  override _parse(input: ParseInput): ParseReturnType<this['_output']> {
-    const parsedType = this._getType(input);
-    if (parsedType === ZodParsedType.undefined || parsedType === ZodParsedType.null) {
-      return OK(undefined);
-    }
-    return this._def.innerType._parse(input);
-  }
-
-  static override create<T extends ZodTypeAny>(type: T): ZodNullableOptional<T> {
-    return new ZodNullableOptional({
-      innerType: type,
-      typeName: ZodFirstPartyTypeKind.ZodOptional,
-    }) as any;
-  }
-}
+export type ZodNullableOptional<T extends ZodTypeAny> = ZodType<z.output<T> | undefined, z.input<T> | null | undefined>;
 
 /**
  * Declares a parameter as optional. Use this over z.optional in order to accept nulls as undefineds.
@@ -66,7 +37,7 @@ export class ZodNullableOptional<T extends ZodTypeAny> extends ZodOptional<T> {
  * need to convert nulls to undefineds as we parse.
  */
 export function optional<T extends ZodTypeAny>(schema: T) {
-  return ZodNullableOptional.create(schema);
+  return schema.nullish().transform(value => value ?? undefined);
 }
 
 type ToJsonIs<T, TRet> = T extends { toJSON(): TRet } ? T : never;
@@ -83,7 +54,6 @@ export function hexSchemaFor<TClass extends { fromString(str: string): any } | {
   TClass extends { fromString(str: string): infer TInstance } | { fromBuffer(buf: Buffer): infer TInstance }
     ? ToJsonIs<TInstance, string>
     : never,
-  any,
   string
 > {
   const stringSchema = refinement ? z.string().refine(refinement, `Not a valid instance`) : z.string();
@@ -101,11 +71,7 @@ export function hexSchemaFor<TClass extends { fromString(str: string): any } | {
 export function bufferSchemaFor<TClass extends { fromBuffer(buf: Buffer): any }>(
   klazz: TClass,
   refinement?: (buf: Buffer) => boolean,
-): ZodType<
-  TClass extends { fromBuffer(buf: Buffer): infer TInstance } ? ToJsonIs<TInstance, Buffer> : never,
-  any,
-  string
-> {
+): ZodType<TClass extends { fromBuffer(buf: Buffer): infer TInstance } ? ToJsonIs<TInstance, Buffer> : never, string> {
   return bufferSchema.refine(refinement ?? (() => true), 'Not a valid buffer').transform(klazz.fromBuffer.bind(klazz));
 }
 

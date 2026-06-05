@@ -44,6 +44,29 @@ export const WORLD_STATE_DB_VERSION = 2; // The initial version
 
 export const WORLD_STATE_DIR = 'world_state';
 
+const DEFAULT_TMP_TREE_MAP_SIZE_KB = 10 * 1024 * 1024;
+
+/**
+ * Sets up a fresh `mkdtemp` directory + default `WorldStateTreeMapSizes` shared by both
+ * the `.tmp` (fsync-on) and `.ephemeral` (fsync-off) factories. Returns the raw tmpdir,
+ * the tree map sizes, and the package logger.
+ */
+async function createTmpWorldStateDir(
+  bindings?: LoggerBindings,
+): Promise<{ dataDir: string; wsTreeMapSizes: WorldStateTreeMapSizes; log: Logger }> {
+  const log = createLogger('world-state:database', bindings);
+  const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
+  const wsTreeMapSizes: WorldStateTreeMapSizes = {
+    archiveTreeMapSizeKb: DEFAULT_TMP_TREE_MAP_SIZE_KB,
+    nullifierTreeMapSizeKb: DEFAULT_TMP_TREE_MAP_SIZE_KB,
+    noteHashTreeMapSizeKb: DEFAULT_TMP_TREE_MAP_SIZE_KB,
+    messageTreeMapSizeKb: DEFAULT_TMP_TREE_MAP_SIZE_KB,
+    publicDataTreeMapSizeKb: DEFAULT_TMP_TREE_MAP_SIZE_KB,
+  };
+  log.debug(`Created temporary world state database at: ${dataDir} (map size ${DEFAULT_TMP_TREE_MAP_SIZE_KB} KB)`);
+  return { dataDir, wsTreeMapSizes, log };
+}
+
 export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: BlockHeader | undefined;
   // This is read heavily and only changes when data is persisted, so we cache it
@@ -57,6 +80,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     private readonly cleanup = () => Promise.resolve(),
   ) {}
 
+  /**
+   * Opens a persistent world state at `dataDir`. Goes through `DatabaseVersionManager` so the
+   * caller's rollup address is bound to the on-disk schema and incompatible versions surface
+   * loudly. The LMDB envs commit with full fsync.
+   */
   static async new(
     rollupAddress: EthAddress,
     dataDir: string,
@@ -68,14 +96,22 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   ): Promise<NativeWorldStateService> {
     const log = createLogger('world-state:database', bindings);
     const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
-    // Create a version manager to handle versioning
     const versionManager = new DatabaseVersionManager({
       schemaVersion: WORLD_STATE_DB_VERSION,
       rollupAddress,
       dataDirectory: worldStateDirectory,
-      onOpen: (dir: string) => {
-        return Promise.resolve(new NativeWorldState(dir, wsTreeMapSizes, genesis, instrumentation, bindings));
-      },
+      onOpen: (dir: string) =>
+        Promise.resolve(
+          new NativeWorldState(
+            dir,
+            wsTreeMapSizes,
+            genesis,
+            instrumentation,
+            bindings,
+            undefined,
+            /*ephemeral=*/ false,
+          ),
+        ),
     });
 
     const [instance] = await versionManager.open();
@@ -90,6 +126,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     return worldState;
   }
 
+  /**
+   * Opens a world state in a fresh tmpdir with full fsync semantics. Use when you need the
+   * on-disk file to remain crash-recoverable (e.g. for snapshot/backup tests) but don't
+   * want a persistent dataDir. Pass `cleanupTmpDir=false` to keep the directory after
+   * close for inspection.
+   *
+   * If you don't care about crash-recoverability — i.e. you just want a fast scratch
+   * database for tests — use {@link ephemeral} instead.
+   */
   static async tmp(
     rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
@@ -97,19 +142,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
   ): Promise<NativeWorldStateService> {
-    const log = createLogger('world-state:database', bindings);
-    const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
-    const dbMapSizeKb = 10 * 1024 * 1024;
-    const worldStateTreeMapSizes: WorldStateTreeMapSizes = {
-      archiveTreeMapSizeKb: dbMapSizeKb,
-      nullifierTreeMapSizeKb: dbMapSizeKb,
-      noteHashTreeMapSizeKb: dbMapSizeKb,
-      messageTreeMapSizeKb: dbMapSizeKb,
-      publicDataTreeMapSizeKb: dbMapSizeKb,
-    };
-    log.debug(`Created temporary world state database at: ${dataDir} with tree map size: ${dbMapSizeKb}`);
-
-    // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
+    const { dataDir, wsTreeMapSizes, log } = await createTmpWorldStateDir(bindings);
     const cleanup = async () => {
       if (cleanupTmpDir) {
         await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
@@ -118,8 +151,45 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         log.debug(`Leaving temporary world state database: ${dataDir}`);
       }
     };
+    return this.new(rollupAddress, dataDir, wsTreeMapSizes, genesis, instrumentation, bindings, cleanup);
+  }
 
-    return this.new(rollupAddress, dataDir, worldStateTreeMapSizes, genesis, instrumentation, bindings, cleanup);
+  /**
+   * Opens a fully-ephemeral world state. The directory is created in `os.tmpdir()`, the LMDB
+   * envs open with `MDB_NOSYNC | MDB_NOMETASYNC` so commits never block on fsync, and the
+   * directory is removed on dispose. A crash mid-write leaves the env unrecoverable.
+   *
+   * For unit tests and other isolated runs. Use {@link tmp} when you need fsync semantics in a
+   * tmp dir, and {@link new} for a persistent store. Skips {@link DatabaseVersionManager} —
+   * there is no on-disk schema to bind to and no rollup address is taken.
+   */
+  static async ephemeral(
+    genesis: GenesisData = EMPTY_GENESIS_DATA,
+    instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
+    bindings?: LoggerBindings,
+  ): Promise<NativeWorldStateService> {
+    const { dataDir, wsTreeMapSizes, log } = await createTmpWorldStateDir(bindings);
+    const cleanup = async () => {
+      await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
+      log.debug(`Deleted ephemeral world state database: ${dataDir}`);
+    };
+    const instance = new NativeWorldState(
+      join(dataDir, WORLD_STATE_DIR),
+      wsTreeMapSizes,
+      genesis,
+      instrumentation,
+      bindings,
+      undefined,
+      /*ephemeral=*/ true,
+    );
+    const worldState = new this(instance, instrumentation, log, genesis, cleanup);
+    try {
+      await worldState.init();
+    } catch (e) {
+      log.error(`Error initializing ephemeral world state: ${e}`);
+      throw e;
+    }
+    return worldState;
   }
 
   protected async init() {

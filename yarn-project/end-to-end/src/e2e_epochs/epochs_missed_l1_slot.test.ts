@@ -1,13 +1,19 @@
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
 import type { ChainMonitorEventMap } from '@aztec/ethereum/test';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { timesAsync } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
 import { sleep } from '@aztec/foundation/sleep';
 import { executeTimeout } from '@aztec/foundation/timer';
+import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { SequencerState } from '@aztec/sequencer-client';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
+import { proveInteraction } from '../test-wallet/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -16,28 +22,85 @@ jest.setTimeout(1000 * 60 * 10);
 // all L1 blocks of the previous slot. This happens when an L1 slot is missed (no block produced).
 // The fix relies on getSyncedL2SlotNumber using the latest synced checkpoint slot as a signal,
 // bypassing the stale L1 timestamp when L1 blocks are missing.
-// Regression test for https://github.com/AztecProtocol/aztec-packages/issues/14766
+// Regression test for https://github.com/AztecProtocol/aztec-packages/issues/14766.
+//
+//        ├──────── L2 slot N ────────┤├─────── L2 slot N+1 ───────┤├── L2 slot N+2 ──┤
+//        │                           ││                           ││
+//   L1:  │ mining → CP_N pub → FREEZE│├══════ paused L1 ══════════┤│RESUME → mining
+//        │             ▲         ▲   ││                           ▲│
+//        │       (1) checkpoint  │   ││                       (4) │
+//        │       in first half   │   ││                       eth.mine()
+//        │       of slot N       │   ││
+//        │                  (2) eth.setIntervalMining(0)
+//
+//   Cycle@wallClock=N (target=N+1):
+//          checkSync(slot=N) ─→ PROPOSER_CHECK(slot=N) ─→ INITIALIZING_CHECKPOINT(target=N+1)
+//               ─→ ... ─→ PUBLISHING_CHECKPOINT(target=N+1) ✗ blocked on L1 pause until RESUME
+//
+//   Cycle@wallClock=N+1 (target=N+2)  ← THE BUG-FIX CYCLE
+//          checkSync(slot=N+1) — requires syncedSlot ≥ N
+//            ✗ without fix: slotFromL1Sync stuck at N-1
+//                (L1 frozen mid-slot N) → STUCK FOREVER
+//            ✓ with fix: slotFromCheckpoint = N (CP_N is on L1)
+//                → checkSync passes
+//          ─→ PROPOSER_CHECK(slot=N+1)  ← TEST WAITS
+//          ─→ canProposeAt rollup check ✗ blocks further progress until parent CP_N+1 is on L1
+//                (pipelining override needs hasProposedCheckpoint, which is sourced from L1 and
+//                 is false while CP_N+1's tx sits in mempool during the pause).
+//
+// Test signal: state-changed with newState=PROPOSER_CHECK && slot=N+1 (wall-clock).
+//   - PROPOSER_CHECK is reached only after `checkSync` returns syncedTo (line ~290 of
+//     sequencer.ts), so observing it for wall-clock slot N+1 directly proves the bug fix:
+//     without the fix, checkSync would block on slot N+1 forever during the L1 pause.
+//   - Slot N+1 (wall-clock) is unique to this cycle: the prior cycle ran at wall-clock N.
 describe('e2e_epochs/epochs_missed_l1_slot', () => {
   let test: EpochsTestContext;
+  let contract: TestContract;
+  let from: AztecAddress;
 
   // Use enough L1 slots per L2 slot to have room for pausing mining mid-slot.
   // With 6 L1 slots per L2 slot (L1=8s, L2=48s), we have plenty of time to
   // publish a checkpoint and pause mining without accidentally skipping a slot.
   const L1_SLOTS_PER_L2_SLOT = 6;
 
+  // Block duration tuned to reliably produce 2+ blocks per checkpoint under pipelining:
+  // timeAvailableForBlocks = aztecSlotDuration - checkpointInitializationTime - timeReservedAtEnd
+  //   = 48 - 1 - (1 + 4 + 8) = 34s, which fits ~4 blocks of 8s each.
+  const BLOCK_DURATION_MS = 8_000;
+
+  // Pre-prove this many txs at the start so blocks have content during the test.
+  const TX_COUNT = 12;
+
   beforeEach(async () => {
-    // Note: pipelining is NOT enabled for this test because it deliberately pauses L1 mining
-    // to simulate missed L1 slots, which conflicts with pipelining's assumption that previous
-    // checkpoints land on L1 promptly.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
+      // The 8s blockDurationMs leaves a per-block DA gas budget too small to fit an account
+      // deploy, so use the hardcoded-account fast-path (funded via genesis) even though we
+      // keep the initial sequencer running for the test.
+      useHardcodedAccount: true,
       minTxsPerBlock: 0,
+      maxTxsPerBlock: 1,
+      blockDurationMs: BLOCK_DURATION_MS,
       aztecSlotDurationInL1Slots: L1_SLOTS_PER_L2_SLOT,
       startProverNode: false,
       aztecProofSubmissionEpochs: 1024,
       disableAnvilTestWatcher: true,
       enforceTimeTable: true,
+      inboxLag: 2,
+      // Required for the proposer's own broadcasts to route through the local
+      // proposal handler (the dummy p2p service drops them). Without this, the
+      // archiver's #proposedCheckpoints map stays empty and the pipelining
+      // override path is never taken.
+      mockGossipSubNetwork: true,
+      // With L1=12s on CI, aztecSlotDuration=72s and blockDurationMs=8000ms gives only ~1/9 of
+      // slot mana per block — too small for emit_nullifier's daGas (~196k) under the default
+      // 1.2 allocation. Bump it so the pre-proved txs actually land and step 6's
+      // assertMultipleBlocksPerSlot has data to verify against.
+      perBlockAllocationMultiplier: 8,
     });
+
+    from = test.context.accounts[0];
+    contract = await test.registerTestContract(test.context.wallet);
   });
 
   afterEach(async () => {
@@ -51,30 +114,44 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     const L1_BLOCK_TIME = test.L1_BLOCK_TIME_IN_S;
     const L2_SLOT_DURATION = test.L2_SLOT_DURATION_IN_S;
 
-    // Step 1: Wait for a checkpoint that's published NOT in the last L1 slot of its L2 slot.
-    // We need the checkpoint to land early enough that when we pause mining, the archiver's
-    // L1 timestamp is still in the middle of the slot (not at the end).
-    logger.info('Waiting for a checkpoint published early in its L2 slot...');
+    // Pre-prove a batch of txs and send them so blocks have content while building checkpoints.
+    // Done before waiting for the early checkpoint so that mbps is exercised by the time we pause.
+    logger.info(`Pre-proving ${TX_COUNT} transactions`);
+    const txs = await timesAsync(TX_COUNT, i =>
+      proveInteraction(context.wallet, contract.methods.emit_nullifier(new Fr(i + 1)), { from }),
+    );
+    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    logger.info(`Sent ${txHashes.length} transactions`);
+
+    // Step 1: Wait for a checkpoint published in the first half of its L2 slot.
+    // We need CP_N's L1 timestamp to be solidly mid-slot so that slotFromL1Sync (computed from
+    // the *next* L1 block's slot) is still N-1 when we pause. If CP_N landed too late in the
+    // slot (e.g. in the last L1 slot of L2 slot N), slotFromL1Sync would already be N and the
+    // bug would not be exercised.
+    logger.info('Waiting for a checkpoint published in the first half of its L2 slot...');
     const checkpointEvent = await executeTimeout(
       signal =>
         new Promise<ChainMonitorEventMap['checkpoint'][0]>((res, rej) => {
           const handleCheckpoint = (...[ev]: ChainMonitorEventMap['checkpoint']) => {
-            // Skip the initial checkpoint (genesis state).
+            // Skip the genesis checkpoint.
             if (ev.checkpointNumber === 0) {
               return;
             }
             const slotStart = getTimestampForSlot(ev.l2SlotNumber, constants);
-            const lastL1SlotStart = slotStart + BigInt(L2_SLOT_DURATION - L1_BLOCK_TIME);
-            if (ev.timestamp < lastL1SlotStart) {
+            // Half-slot cutoff keeps slotFromL1Sync at N-1 with comfortable margin: at the cutoff
+            // the next L1 block lands at slotStart + L2_SLOT_DURATION/2 + L1_BLOCK_TIME, which is
+            // still well within slot N (since L1 < L2/2).
+            const cutoff = slotStart + BigInt(Math.floor(L2_SLOT_DURATION / 2));
+            if (ev.timestamp < cutoff) {
               logger.info(
                 `Checkpoint ${ev.checkpointNumber} in slot ${ev.l2SlotNumber} at L1 timestamp ${ev.timestamp}`,
-                { slotStart, lastL1SlotStart },
+                { slotStart, cutoff },
               );
               res(ev);
               monitor.off('checkpoint', handleCheckpoint);
             } else {
               logger.info(
-                `Skipping checkpoint ${ev.checkpointNumber}: published at ${ev.timestamp} (last L1 slot starts at ${lastL1SlotStart})`,
+                `Skipping checkpoint ${ev.checkpointNumber}: published at ${ev.timestamp} (cutoff ${cutoff})`,
               );
             }
           };
@@ -84,20 +161,20 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
           };
           monitor.on('checkpoint', handleCheckpoint);
         }),
-      60_000,
+      120_000,
       'Wait for early checkpoint',
     );
 
     const checkpointSlotNumber = checkpointEvent.l2SlotNumber;
     const nextSlotNumber = SlotNumber(checkpointSlotNumber + 1);
-    const nextSlotTimestamp = Number(getTimestampForSlot(nextSlotNumber, constants));
+    const lastL1SlotStart =
+      getTimestampForSlot(checkpointSlotNumber, constants) + BigInt(L2_SLOT_DURATION - L1_BLOCK_TIME);
 
     logger.info(`Using checkpoint ${checkpointEvent.checkpointNumber} in L2 slot ${checkpointSlotNumber}`, {
       nextSlotNumber,
-      nextSlotTimestamp,
     });
 
-    // Step 2: Wait briefly for the sequencer to finish its current work cycle, then pause mining.
+    // Step 2: Brief pause so the sequencer settles, then freeze L1 mining.
     await sleep(1500);
 
     logger.info('Pausing L1 block production (simulating missed L1 slots)...');
@@ -107,19 +184,29 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     const frozenL1Timestamp = await eth.lastBlockTimestamp();
     logger.info(`L1 mining paused at L1 timestamp ${frozenL1Timestamp}`);
 
-    // Step 3: Wait until the sequencer reaches PUBLISHING_CHECKPOINT during the mining pause.
-    // With the fix: the sequencer sees the checkpoint for slot N, so getSyncedL2SlotNumber
-    // returns N, checkSync passes for slot N+1, and it advances all the way to publishing.
-    // Without the fix: getSyncedL2SlotNumber is stuck at N-1, checkSync fails, sequencer
-    // stays in IDLE/SYNCHRONIZING and never reaches PUBLISHING_CHECKPOINT.
-    const sequencer = context.sequencer!.getSequencer();
+    // Sanity: the frozen L1 timestamp must be before the last L1 slot of L2 slot N. Otherwise
+    // slotFromL1Sync already advanced to N and the regression isn't being exercised.
+    expect(BigInt(frozenL1Timestamp)).toBeLessThan(lastL1SlotStart);
 
-    logger.info('Waiting for sequencer to reach PUBLISHING_CHECKPOINT during mining pause...');
+    // Step 3: During the pause, wait for the sequencer cycle running at wall-clock = N+1
+    // to pass `checkSync(slot=N+1)`. We wait for `state-changed` with
+    // `newState=PROPOSER_CHECK && slot=N+1`: PROPOSER_CHECK is set right after `checkSync`
+    // returns a non-undefined sync result (sequencer.ts line ~290/330), so observing it for
+    // wall-clock slot N+1 directly proves the regression is fixed. We do NOT wait for any
+    // later state because the canProposeAt rollup-contract check fails while CP_N+1's L1 tx
+    // sits in mempool during the pause (pipelining's override depends on
+    // `hasProposedCheckpoint`, which is sourced from L1 and is false in this window).
+    const sequencer = context.sequencer!.getSequencer();
+    const targetSlotForBugFixCycle = SlotNumber(nextSlotNumber + 1);
+
+    logger.info(
+      `Waiting for sequencer to reach INITIALIZING_CHECKPOINT for target slot ${targetSlotForBugFixCycle} during mining pause...`,
+    );
     await executeTimeout(
       signal =>
         new Promise<void>((res, rej) => {
-          const stateListener = ({ newState }: { newState: SequencerState }) => {
-            if (newState === SequencerState.PUBLISHING_CHECKPOINT) {
+          const stateListener = (args: { newState: SequencerState; slot?: SlotNumber }) => {
+            if (args.newState === SequencerState.INITIALIZING_CHECKPOINT && args.slot === targetSlotForBugFixCycle) {
               sequencer.off('state-changed', stateListener);
               res();
             }
@@ -130,26 +217,35 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
           };
           sequencer.on('state-changed', stateListener);
         }),
-      L2_SLOT_DURATION * 2 * 1000,
-      'Wait for sequencer to reach PUBLISHING_CHECKPOINT',
+      L2_SLOT_DURATION * 3 * 1000,
+      `Wait for sequencer INITIALIZING_CHECKPOINT at target slot ${targetSlotForBugFixCycle}`,
     );
 
-    logger.info('Sequencer reached PUBLISHING_CHECKPOINT during mining pause');
+    logger.info(
+      `Sequencer reached INITIALIZING_CHECKPOINT for target slot ${targetSlotForBugFixCycle} during mining pause`,
+    );
 
-    // Step 4: Resume mining so the pending L1 tx lands and the test can clean up.
+    // Step 4: Resume mining so the pending L1 txs land and the test can clean up.
     logger.info('Resuming L1 block production...');
     const resumeTimestamp = Math.floor(context.dateProvider.now() / 1000);
     await eth.setNextBlockTimestamp(resumeTimestamp);
     await eth.mine();
     await eth.setIntervalMining(L1_BLOCK_TIME);
 
-    // Step 5: Wait for the next checkpoint to confirm the block was actually published.
+    // Step 5: Wait for the next checkpoint to confirm block production resumed cleanly.
+    // We allow up to 3 L2 slots because the slot-N+1 propose for this checkpoint is dropped
+    // pre-send by bundleSimulate (the resumed L1 block lands in slot N, not slot N+1, so
+    // propose's validateHeader would revert), and the publisher retries one or two slots
+    // later once L1 timing realigns.
     const finalCheckpoint = CheckpointNumber(checkpointEvent.checkpointNumber + 1);
     logger.info(`Waiting for checkpoint ${finalCheckpoint}...`);
-    await test.waitUntilCheckpointNumber(finalCheckpoint, 60);
+    await test.waitUntilCheckpointNumber(finalCheckpoint, L2_SLOT_DURATION * 3);
     await monitor.run();
     logger.info(`Checkpoint ${finalCheckpoint} published in slot ${monitor.l2SlotNumber}`);
 
     expect(monitor.checkpointNumber).toBeGreaterThanOrEqual(finalCheckpoint);
+
+    // Step 6: Verify multi-blocks-per-slot was actually exercised.
+    await test.assertMultipleBlocksPerSlot(2);
   });
 });

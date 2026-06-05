@@ -1,6 +1,5 @@
 import { type BlobClientConfig, blobClientConfigMapping } from '@aztec/blob-client/client/config';
 import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
-import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
@@ -9,12 +8,7 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
-import {
-  type ChainConfig,
-  type PipelineConfig,
-  chainConfigMappings,
-  pipelineConfigMappings,
-} from '@aztec/stdlib/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
 
 /**
@@ -27,13 +21,11 @@ import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
 export type ArchiverConfig = ArchiverSpecificConfig &
   L1ReaderConfig &
   L1ContractsConfig &
-  PipelineConfig & // required to pass through to epoch cache
   BlobClientConfig &
   ChainConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   ...blobClientConfigMapping,
-  ...pipelineConfigMappings,
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',
@@ -43,11 +35,6 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'ARCHIVER_BATCH_SIZE',
     description: 'The number of L2 blocks the archiver will attempt to download at a time.',
     ...numberConfigHelper(100),
-  },
-  maxLogs: {
-    env: 'ARCHIVER_MAX_LOGS',
-    description: 'The max number of logs that can be obtained in 1 "getPublicLogs" call.',
-    ...numberConfigHelper(1_000),
   },
   archiverStoreMapSizeKb: {
     env: 'ARCHIVER_STORE_MAP_SIZE_KB',
@@ -79,6 +66,14 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
       'Set to true to bypass the check when the connected RPC node is known to prune old logs.',
     ...booleanConfigHelper(false),
   },
+  orphanProposedBlockPruneGraceSeconds: {
+    env: 'ARCHIVER_ORPHAN_PROPOSED_BLOCK_PRUNE_GRACE_SECONDS',
+    description:
+      'Grace period in seconds, measured from the end of a proposed block build slot, after which a ' +
+      'proposed block with no matching proposed checkpoint is pruned as an orphan. Defaults from the ' +
+      'sequencer block duration at the node wiring layer when unset.',
+    ...optionalNumberConfigHelper(),
+  },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,
   viemPollingIntervalMS: {
@@ -87,10 +82,6 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     ...numberConfigHelper(1000),
   },
   ...l1ContractsConfigMappings,
-  l1Contracts: {
-    description: 'The deployed L1 contract addresses',
-    nested: l1ContractAddressesMapping,
-  },
 };
 
 /**
@@ -112,5 +103,6 @@ export function mapArchiverConfig(config: Partial<ArchiverConfig>) {
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
     skipHistoricalLogsCheck: config.archiverSkipHistoricalLogsCheck,
+    orphanProposedBlockPruneGraceSeconds: config.orphanProposedBlockPruneGraceSeconds,
   };
 }

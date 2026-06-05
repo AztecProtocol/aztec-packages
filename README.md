@@ -27,7 +27,7 @@ Logging goes through the [Logger](yarn-project/foundation/src/log/) module in Ty
 
 ## Releases
 
-Releases are driven by [release-please](https://github.com/googleapis/release-please), which maintains a 'Release PR' containing an updated CHANGELOG.md since the last release. Triggering a new release is simply a case of merging this PR to master. A [github workflow](./.github/workflows/release-please.yml) will create the tagged release triggering ./bootstrap.sh release to build and deploy the version at that tag.
+Releases are driven by git tags. The current version is tracked in `.release-please-manifest.json` at the project root. Pushing a semver tag (e.g. `v1.2.3`, or a nightly tag created by the [nightly release workflow](./.github/workflows/nightly-release-tag.yml)) triggers `./bootstrap.sh release` to build and deploy the version at that tag.
 
 ## Contribute
 

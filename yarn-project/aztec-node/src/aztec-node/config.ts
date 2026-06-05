@@ -1,6 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
-import { type L1ContractAddresses, l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import {
@@ -53,8 +52,6 @@ export type AztecNodeConfig = ArchiverConfig &
   NodeRPCConfig &
   SlasherConfig &
   ProverNodeConfig & {
-    /** L1 contracts addresses */
-    l1Contracts: L1ContractAddresses;
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
     /** Whether to skip waiting for the archiver to be fully synced before starting other services */
@@ -63,6 +60,12 @@ export type AztecNodeConfig = ArchiverConfig &
     debugForceTxProofVerification: boolean;
     /** Whether to enable the prover node as a subsystem. */
     enableProverNode: boolean;
+    /**
+     * Test-only: use the deterministic AutomineSequencer instead of the production Sequencer.
+     * Requires `aztecTargetCommitteeSize === 0` on the deployed rollup and anvil-backed L1.
+     * See `AUTOMINE_E2E_OPTS` in `end-to-end/src/fixtures/fixtures.ts`.
+     */
+    useAutomineSequencer?: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -81,10 +84,6 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...nodeRpcConfigMappings,
   ...slasherConfigMappings,
   ...specificProverNodeConfigMappings,
-  l1Contracts: {
-    description: 'The deployed L1 contract addresses',
-    nested: l1ContractAddressesMapping,
-  },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',
@@ -103,6 +102,11 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   enableProverNode: {
     env: 'ENABLE_PROVER_NODE',
     description: 'Whether to enable the prover node as a subsystem.',
+    ...booleanConfigHelper(false),
+  },
+  useAutomineSequencer: {
+    env: 'USE_AUTOMINE_SEQUENCER',
+    description: 'Test-only: use AutomineSequencer instead of the production Sequencer.',
     ...booleanConfigHelper(false),
   },
 };

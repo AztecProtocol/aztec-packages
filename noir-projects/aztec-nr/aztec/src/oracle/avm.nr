@@ -222,3 +222,14 @@ unconstrained fn storage_read_opcode(storage_slot: Field, contract_address: Fiel
 
 #[oracle(aztec_avm_storageWrite)]
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
+
+mod test {
+    use crate::macros::oracle_testing::oracle_test;
+    use super::storage_read_opcode;
+
+    #[oracle_test]
+    unconstrained fn avm_storage_read() {
+        let result = storage_read_opcode(10, 1);
+        assert_eq(result, 42);
+    }
+}

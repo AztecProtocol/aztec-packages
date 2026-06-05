@@ -12,10 +12,11 @@ import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import {
   BufferReader,
+  BufferSink,
   FieldReader,
   type Tuple,
-  serializeToBuffer,
   serializeToFields,
+  serializeToSink,
 } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -85,8 +86,13 @@ export class PrivateToPublicAccumulatedData {
     );
   }
 
-  toBuffer() {
-    return serializeToBuffer(...PrivateToPublicAccumulatedData.getFields(this));
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, ...PrivateToPublicAccumulatedData.getFields(this));
   }
 
   toFields(): Fr[] {

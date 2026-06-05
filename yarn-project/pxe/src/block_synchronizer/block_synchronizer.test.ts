@@ -5,6 +5,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
+  type BlockData,
   BlockHash,
   GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
@@ -149,7 +150,14 @@ describe('BlockSynchronizer', () => {
       });
       blockStream.sync.mockReturnValue(syncBlocker);
       const genesisBlock = await L2Block.random(BlockNumber(0));
-      aztecNode.getBlock.mockResolvedValue({ header: genesisBlock.header } as any);
+      const genesisBlockData: BlockData = {
+        header: genesisBlock.header,
+        archive: genesisBlock.archive,
+        blockHash: await genesisBlock.hash(),
+        checkpointNumber: genesisBlock.checkpointNumber,
+        indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
+      };
+      aztecNode.getBlockData.mockResolvedValue(genesisBlockData);
 
       // Start a sync (don't await)
       const syncPromise = synchronizer.sync();

@@ -7,6 +7,7 @@ export async function streamAnswer({
   onToken,
   onSource,
   onConversationId,
+  onError,
   onDone,
   signal,
 }) {
@@ -56,6 +57,14 @@ export async function streamAnswer({
         onSource(sources);
       } else if (parsed.type === "id" && parsed.id) {
         onConversationId(parsed.id);
+      } else if (parsed.type === "error") {
+        const message =
+          typeof parsed.error === "string" && parsed.error.trim()
+            ? parsed.error
+            : "Something went wrong generating an answer.";
+        onError?.(message);
+        onDone();
+        return;
       } else if (parsed.type === "end") {
         onDone();
         return;

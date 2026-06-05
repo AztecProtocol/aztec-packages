@@ -2,7 +2,9 @@ import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/brand
 
 import { z } from 'zod';
 
+import type { BlockProposal } from '../p2p/block_proposal.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
+import type { CheckpointProposalCore } from '../p2p/checkpoint_proposal.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -67,22 +69,31 @@ export interface P2PApi {
 export interface P2PClient extends P2PApi {
   /** Manually adds checkpoint attestations to the p2p client attestation pool. */
   addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void>;
+
+  /** Returns retained signed proposals for a slot. */
+  getProposalsForSlot(slot: SlotNumber): Promise<{
+    blockProposals: BlockProposal[];
+    checkpointProposals: CheckpointProposalCore[];
+  }>;
 }
 
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
-  getCheckpointAttestationsForSlot: z
-    .function()
-    .args(
+  getCheckpointAttestationsForSlot: z.function({
+    input: z.tuple([
       schemas.SlotNumber,
       optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
-    )
-    .returns(z.array(CheckpointAttestation.schema)),
-  getPendingTxs: z
-    .function()
-    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
-    .returns(z.array(Tx.schema)),
+    ]),
+    output: z.array(CheckpointAttestation.schema),
+  }),
+  getPendingTxs: z.function({
+    input: z.tuple([
+      optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)),
+      optional(TxHash.schema),
+    ]),
+    output: z.array(Tx.schema),
+  }),
 
-  getPendingTxCount: z.function().returns(schemas.Integer),
-  getEncodedEnr: z.function().returns(z.string().optional()),
-  getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
+  getPendingTxCount: z.function({ input: z.tuple([]), output: schemas.Integer }),
+  getEncodedEnr: z.function({ input: z.tuple([]), output: z.string().optional() }),
+  getPeers: z.function({ input: z.tuple([optional(z.boolean())]), output: z.array(PeerInfoSchema) }),
 };

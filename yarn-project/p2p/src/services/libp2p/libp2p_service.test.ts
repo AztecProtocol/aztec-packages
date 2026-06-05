@@ -1,11 +1,12 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
@@ -19,13 +20,15 @@ import {
   makeCheckpointProposal,
   mockTx,
 } from '@aztec/stdlib/testing';
-import { type Tx, TxArray, TxHashArray, type TxValidator } from '@aztec/stdlib/tx';
+import { TxArray, TxHashArray } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { ServerWorldStateSynchronizer } from '@aztec/world-state';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Message, PeerId } from '@libp2p/interface';
 import { TopicValidatorResult } from '@libp2p/interface';
+import { multiaddr } from '@multiformats/multiaddr';
+import EventEmitter from 'events';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type P2PConfig, p2pConfigMappings } from '../../config.js';
@@ -314,16 +317,24 @@ describe('LibP2PService', () => {
     });
   });
 
-  describe('validateRequestedBlockTxs', () => {
-    function makeRequest(archiveRoot: Fr, length: number, indices: number[]): BlockTxsRequest {
-      return new BlockTxsRequest(archiveRoot, new TxHashArray(), BitVector.init(length, indices));
+  describe('validateRequestedBlockTxsConsistency', () => {
+    function makeRequest(archiveRoot: Fr, length: number, indices: number[], txHashes: string[] = []): BlockTxsRequest {
+      const hashes = txHashes.map(h => ({ toString: () => h })) as unknown as TxHashArray;
+      return new BlockTxsRequest(archiveRoot, BitVector.init(length, indices), Buffer32.random(), hashes);
     }
 
-    function makeResponse(archiveRoot: Fr, length: number, indices: number[], txHashes: string[]): BlockTxsResponse {
+    function makeResponse(length: number, indices: number[], txHashes: string[]): BlockTxsResponse {
       const txs = txHashes.map(h => ({
         getTxHash: () => ({ toString: () => h }),
       })) as MockTx[];
-      return new BlockTxsResponse(archiveRoot, txs as TxArray, BitVector.init(length, indices));
+      return new BlockTxsResponse(txs as TxArray, BitVector.init(length, indices));
+    }
+
+    /** Builds a minimal archived block whose txEffects carry the given tx hashes, for archiver-fallback tests. */
+    function makeArchivedBlock(txHashes: string[]): L2Block {
+      return {
+        body: { txEffects: txHashes.map(h => ({ txHash: { toString: () => h } })) },
+      } as unknown as L2Block;
     }
 
     /** Sets up the mempools with a mock attestation pool that returns a proposal with given tx hashes. */
@@ -339,166 +350,206 @@ describe('LibP2PService', () => {
       svc.setAttestationPool(mockAttestationPool);
     }
 
-    it('should penalize and reject on archive root mismatch', async () => {
-      const reqHash = Fr.random();
-      const otherHash = Fr.random();
-      const request = makeRequest(reqHash, 5, [0, 2]);
-      const response = makeResponse(otherHash, 5, [0, 2], []);
-
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
-    });
-
-    it('should penalize and reject on bitvector length mismatch', async () => {
-      const hash = Fr.random();
-      const request = makeRequest(hash, 5, [0, 2]);
-      const response = makeResponse(hash, 4, [0, 2], []);
-
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
-    });
-
     it('should penalize and reject on duplicate txs', async () => {
       const hash = Fr.random();
       const request = makeRequest(hash, 5, [0, 2, 3]);
-      const response = makeResponse(hash, 5, [0, 2, 3], ['0xaaa', '0xaaa']); // duplicate
+      const response = makeResponse(5, [0, 2, 3], ['0xaaa', '0xaaa']); // duplicate
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
     });
 
-    it('should penalize and reject when returned txs exceed requested intersect available', async () => {
+    it('should penalize and reject when a returned tx is not part of the block', async () => {
       const hash = Fr.random();
-      // requested indices [0,2], available [0] -> maxReturnable 1, but return 2
-      const request = makeRequest(hash, 3, [0, 2]);
-      const response = makeResponse(hash, 3, [0], ['0x1', '0x2']);
-
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
-    });
-
-    it('should penalize and reject when proposal exists and a tx is not part of requested indices of proposal', async () => {
-      const hash = Fr.random();
-      const request = makeRequest(hash, 5, [0, 2, 4]); // requested 0,2,4
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood0', '0xbad']); // one bad
+      const request = makeRequest(hash, 5, [0, 2, 4]);
+      const response = makeResponse(5, [0, 2, 4], ['0xgood0', '0xbad']); // 0xbad is not in the block
 
       setProposalTxHashes(service, ['0xgood0', '0xgood2', '0xgood4', '0xother', '0xother2']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
 
-    it('should penalize and reject when proposal exists and a tx is from an unrequested index', async () => {
+    it('should penalize and reject when a returned tx is in the block but at an index we did not request', async () => {
       const hash = Fr.random();
-      // Requested indices [0,2,4]; response advertises availability for [0,2,4]
-      const request = makeRequest(hash, 5, [0]);
-      // Return a tx that exists in the proposal but at an unrequested index (1)
-      const response = makeResponse(hash, 5, [0], ['0xother1']);
-
-      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
-
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
-    });
-
-    it('should accept when shapes match, count matches, and order matches proposal/requested indices', async () => {
-      const hash = Fr.random();
-      const request = makeRequest(hash, 5, [0, 2, 4]); // requested 0,2,4
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood0', '0xgood2', '0xgood4']); // all and in order
-
-      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
-
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
-      expect(ok).toBe(true);
-      expect(service.validateRequestedTxMock).toHaveBeenCalledTimes(3);
-    });
-
-    it('should accept partial subset when proposal exists and order matches requested indices', async () => {
-      const hash = Fr.random();
-      // Request indices [0,2,4] but only return a subset [0,4]
-      const request = makeRequest(hash, 5, [0, 2, 4]);
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood0', '0xgood4']); // partial, ordered 0 < 4
-
-      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
-
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
-      expect(ok).toBe(true);
-      expect(service.validateRequestedTxMock).toHaveBeenCalledTimes(2);
-      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
-    });
-
-    it('should accept when requested intersect available is non-empty but zero txs are returned', async () => {
-      const hash = Fr.random();
-      // requested [0,2], available [0,2] -> intersection size 2, but return 0 txs
+      // We only request indices [0, 2], so the allowed set is {0xgood0, 0xgood2}. The peer returns
+      // 0xgood1, which IS part of the block (index 1) but was never requested — neither by index nor
+      // by explicit hash — so it must be rejected.
       const request = makeRequest(hash, 5, [0, 2]);
-      const response = makeResponse(hash, 5, [0, 2], []); // empty response.txs
+      const response = makeResponse(5, [0, 1], ['0xgood0', '0xgood1']);
 
-      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xother4']);
+      setProposalTxHashes(service, ['0xgood0', '0xgood1', '0xgood2', '0xgood3', '0xgood4']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
-      expect(ok).toBe(true);
-      expect(service.validateRequestedTxMock).toHaveBeenCalledTimes(0);
-      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(false);
+      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
 
-    it('penalizes and rejects when requested intersect available is empty but response returns txs', async () => {
+    it('should penalize and reject on bitvector length mismatch when the peer has the block', async () => {
       const hash = Fr.random();
-      // requested [1], available [] -> intersection 0, but non-empty txs returned
-      const request = makeRequest(hash, 3, [1]);
-      const response = makeResponse(hash, 3, [], ['0xsome']);
+      const request = makeRequest(hash, 5, [0, 2]);
+      // Peer claims to have the block (non-empty bitvector) but its length disagrees with the block size.
+      const response = makeResponse(4, [0, 2], []);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      setProposalTxHashes(service, ['0xgood0', '0xgood1', '0xgood2', '0xgood3', '0xgood4']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.MidToleranceError);
     });
 
-    it('should penalize and reject when order does not match proposal/requested indices', async () => {
+    it('should accept when all returned txs belong to the block and the bitvector length matches', async () => {
       const hash = Fr.random();
-      const request = makeRequest(hash, 5, [0, 2, 4]); // requested 0,2,4
-      // Out of order relative to indices [0,2,4]
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood4', '0xgood0', '0xgood2']);
+      const request = makeRequest(hash, 5, [0, 2, 4]);
+      const response = makeResponse(5, [0, 2, 4], ['0xgood0', '0xgood2', '0xgood4']);
 
       setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should accept a partial subset when the peer advertises only the txs it returns', async () => {
+      const hash = Fr.random();
+      // We request [0, 2, 4] but the peer only has (and advertises) [0, 4], returning those two.
+      const request = makeRequest(hash, 5, [0, 2, 4]);
+      const response = makeResponse(5, [0, 4], ['0xgood0', '0xgood4']);
+
+      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should accept when the peer returns only the requested txs it has, with more bits set than txs', async () => {
+      const hash = Fr.random();
+      // Block has txs a,b,c,d,e (indices 0..4). We ask for a,b,c ([0,1,2]); the peer has c,d,e
+      // (bitvector [2,3,4]). The only requested-and-available tx is c, so the response carries a
+      // single tx but advertises three available indices.
+      const request = makeRequest(hash, 5, [0, 1, 2]);
+      const response = makeResponse(5, [2, 3, 4], ['0xc']);
+
+      setProposalTxHashes(service, ['0xa', '0xb', '0xc', '0xd', '0xe']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should accept txs requested by explicit hash even when they are not part of the block', async () => {
+      const hash = Fr.random();
+      // Block has a,b,c (indices 0,1,2). We request b via indices ([1]) and d via an explicit tx
+      // hash (d is not part of the block). The peer returns b and d, advertising index 1 for b.
+      const request = makeRequest(hash, 3, [1], ['0xd']);
+      const response = makeResponse(3, [1], ['0xb', '0xd']);
+
+      setProposalTxHashes(service, ['0xa', '0xb', '0xc']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should accept zero txs when the peer has the block but none of the requested indices', async () => {
+      const hash = Fr.random();
+      // We request [0, 2], but the peer only advertises availability for [1, 3] (txs we did not ask
+      // for). The intersection of requested-and-available is empty, so returning zero txs is fine.
+      const request = makeRequest(hash, 5, [0, 2]);
+      const response = makeResponse(5, [1, 3], []);
+
+      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xother4']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should penalize and reject when the peer advertises a requested tx but does not return it', async () => {
+      const hash = Fr.random();
+      // We request [0, 2] and the peer claims to have both (bitvector [0, 2]), but only returns the
+      // tx at index 0 — withholding the one at index 2 it advertised.
+      const request = makeRequest(hash, 3, [0, 2]);
+      const response = makeResponse(3, [0, 2], ['0xgood0']);
+
+      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
 
-    it('should penalize and reject when partial subset is unordered relative to requested indices', async () => {
-      const hash = Fr.random();
-      const request = makeRequest(hash, 5, [0, 2, 4]); // requested 0,2,4
-      // Return only a subset but swap order (4 before 0)
-      const response = makeResponse(hash, 5, [0, 2, 4], ['0xgood4', '0xgood0']);
-
-      setProposalTxHashes(service, ['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']);
-
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
-      expect(ok).toBe(false);
-      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
-    });
-
-    it('should reject without penalizing when proposal is missing', async () => {
+    it('should reject without penalizing when the block is unknown (no proposal and not in the archiver)', async () => {
       const hash = Fr.random();
       // Simple valid shape that should pass pre-checks
       const request = makeRequest(hash, 3, [0, 2]);
-      const response = makeResponse(hash, 3, [0, 2], ['0xgood0']);
+      const response = makeResponse(3, [0, 2], ['0xgood0']);
 
-      // No proposal available - mock attestationPool to return undefined
+      // Neither the attestation pool nor the archiver knows this block, so we cannot verify the
+      // membership of the returned txs. This is not a peer fault, so no penalty is applied.
       const mockAttestationPool: MockAttestationPoolForTests = {
         getBlockProposalByArchive: (_: string) => Promise.resolve(undefined),
       };
       service.setAttestationPool(mockAttestationPool);
+      mockArchiver.getBlock.mockResolvedValue(undefined);
 
-      const ok = await service.validateRequestedBlockTxs(request, response, mockPeerId);
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
       expect(ok).toBe(false);
       expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    // Regression test for the tx-collection ban-storm: a prover (or any node) collecting txs to
+    // prove an already-mined block has no block proposal in its attestation pool, but it does know
+    // the block via the archiver. The validator must fall back to the archiver (as the responder
+    // handler does) so it can accept valid responses instead of rejecting every one and storming peers.
+    it('should accept when the proposal is missing but the block is known via the archiver', async () => {
+      const hash = Fr.random();
+      const request = makeRequest(hash, 5, [0, 2, 4]);
+      const response = makeResponse(5, [0, 2, 4], ['0xgood0', '0xgood2', '0xgood4']);
+
+      // No proposal (the prover never received it), but the mined block is in the archiver.
+      service.setAttestationPool({ getBlockProposalByArchive: (_: string) => Promise.resolve(undefined) });
+      mockArchiver.getBlock.mockResolvedValue(
+        makeArchivedBlock(['0xgood0', '0xother1', '0xgood2', '0xother3', '0xgood4']),
+      );
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+      expect(mockArchiver.getBlock).toHaveBeenCalledWith({ archive: hash });
+    });
+
+    // Regression test for the former bug: a peer that lacks the block answers with an empty bitvector
+    // (the "I don't have the block" signal from block_txs_handler.ts) but still ships the txs it matched
+    // by hash. The old validator rejected any such response, discarding perfectly good txs. The fix
+    // must accept the response (so the txs are used) while leaving the dumb-marking to the requester.
+    it('should accept (and use) txs from a peer that signals it lacks the block via an empty bitvector', async () => {
+      const hash = Fr.random();
+      const request = makeRequest(hash, 3, [0, 2]);
+      // Empty bitvector -> peerHasBlock() is false, but the returned txs are valid block txs.
+      const response = makeResponse(0, [], ['0xfound0', '0xfound2']);
+
+      // We know the block locally, so we can still validate that the returned txs belong to it.
+      setProposalTxHashes(service, ['0xfound0', '0xother1', '0xfound2']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(true);
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('should still penalize a block-lacking peer (empty bitvector) that returns a tx not in the block', async () => {
+      const hash = Fr.random();
+      const request = makeRequest(hash, 3, [0, 2]);
+      const response = makeResponse(0, [], ['0xfound0', '0xbad']); // 0xbad is not part of the block
+
+      setProposalTxHashes(service, ['0xfound0', '0xother1', '0xfound2']);
+
+      const ok = await service.validateRequestedBlockTxsConsistency(request, response, mockPeerId);
+      expect(ok).toBe(false);
+      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.LowToleranceError);
     });
   });
 
@@ -911,6 +962,93 @@ describe('LibP2PService', () => {
       expect(storedBlock).toBeDefined();
     });
 
+    it('skipCheckpointProposalValidation: attests before (not gated by) slow last-block processing', async () => {
+      // Recreate the service in skip-validation mode and re-register the checkpoint/block callbacks on it.
+      service = createTestLibP2PServiceWithPools(
+        mockPeerManager,
+        reportMessageValidationResultSpy,
+        attestationPool,
+        mockTxPool,
+        mockEpochCache,
+        { skipCheckpointProposalValidation: true },
+      );
+      service.registerBlockReceivedCallback(blockReceivedCallback as any);
+      service.registerValidatorCheckpointReceivedCallback(validatorCheckpointReceivedCallback as any);
+      service.registerAllNodesCheckpointReceivedCallback(allNodesCheckpointReceivedCallback as any);
+
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeCheckpointProposal({ signer, checkpointHeader, lastBlock: { blockHeader } });
+
+      // Block processing hangs until released, simulating waiting for the parent block up to the
+      // re-execution deadline. In skip mode the attestation must not be blocked behind it.
+      let releaseBlock!: () => void;
+      blockReceivedCallback.mockReturnValue(
+        new Promise<boolean>(resolve => {
+          releaseBlock = () => resolve(true);
+        }),
+      );
+
+      // Resolves once the checkpoint attestation callback runs; if it were serialized behind the hung block
+      // processing this would never resolve and the test would time out.
+      let signalCheckpoint!: () => void;
+      const checkpointInvoked = new Promise<void>(resolve => {
+        signalCheckpoint = resolve;
+      });
+      validatorCheckpointReceivedCallback.mockImplementation(() => {
+        signalCheckpoint();
+        return Promise.resolve([]);
+      });
+
+      const handled = service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      await checkpointInvoked;
+      expect(validatorCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
+
+      releaseBlock();
+      await handled;
+      expect(blockReceivedCallback).toHaveBeenCalledTimes(1);
+    });
+
+    it('default: processes the last block before the checkpoint proposal', async () => {
+      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeCheckpointProposal({ signer, checkpointHeader, lastBlock: { blockHeader } });
+
+      // Block processing hangs until released and signals when it starts; with validation enabled the
+      // checkpoint callback must wait for the block to finish.
+      let releaseBlock!: () => void;
+      let signalBlockStarted!: () => void;
+      const blockStarted = new Promise<void>(resolve => {
+        signalBlockStarted = resolve;
+      });
+      blockReceivedCallback.mockImplementation(() => {
+        signalBlockStarted();
+        return new Promise<boolean>(resolve => {
+          releaseBlock = () => resolve(true);
+        });
+      });
+
+      let checkpointInvoked = false;
+      validatorCheckpointReceivedCallback.mockImplementation(() => {
+        checkpointInvoked = true;
+        return Promise.resolve([]);
+      });
+
+      const handled = service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      // Wait until block processing is in flight (hung), then flush microtasks. The checkpoint callback
+      // must not have run, since it is gated behind the block.
+      await blockStarted;
+      await new Promise(resolve => setImmediate(resolve));
+      expect(checkpointInvoked).toBe(false);
+
+      // Once the block completes, the checkpoint proposal is processed.
+      releaseBlock();
+      await handled;
+      expect(checkpointInvoked).toBe(true);
+    });
+
     it('lastBlock processed even when checkpoint cap exceeded', async () => {
       const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
       const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
@@ -1027,16 +1165,6 @@ describe('LibP2PService', () => {
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
     });
 
-    it('notifyOwnCheckpointProposal fires allNodesCheckpointReceivedCallback', async () => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
-      const proposal = await makeCheckpointProposal({ signer, checkpointHeader });
-
-      await service.notifyOwnCheckpointProposal(proposal.toCore());
-
-      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
-      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledWith(expect.any(Object), expect.anything());
-    });
-
     // Regression for A-1013: payloads sharing (slot, archive) but differing on feeAssetPriceModifier
     // used to dedup by archive only and silently drop the second one. The pool now dedups by
     // signed-payload hash, so the equivocation surfaces.
@@ -1082,6 +1210,7 @@ describe('LibP2PService', () => {
     let mockEpochCache: MockProxy<EpochCacheInterface>;
     let proposerSigner: Secp256k1Signer;
     let duplicateAttestationCallback: jest.Mock;
+    let checkpointAttestationCallback: jest.Mock;
 
     const targetSlot = SlotNumber(100);
     const nextSlot = SlotNumber(101);
@@ -1111,6 +1240,8 @@ describe('LibP2PService', () => {
 
       duplicateAttestationCallback = jest.fn();
       service.registerDuplicateAttestationCallback(duplicateAttestationCallback);
+      checkpointAttestationCallback = jest.fn();
+      service.registerCheckpointAttestationCallback(checkpointAttestationCallback);
     });
 
     // Regression for A-1013: attestations sharing (slot, signer, archive) but differing on
@@ -1148,6 +1279,9 @@ describe('LibP2PService', () => {
         slot: targetSlot,
         attester: attesterSigner.address,
       });
+      expect(checkpointAttestationCallback).toHaveBeenCalledTimes(2);
+      expect(checkpointAttestationCallback).toHaveBeenNthCalledWith(1, attestation1);
+      expect(checkpointAttestationCallback).toHaveBeenNthCalledWith(2, attestation2);
     });
 
     it('different signers are not equivocations and do not trigger slash callback', async () => {
@@ -1176,6 +1310,103 @@ describe('LibP2PService', () => {
 
       // Two distinct signers are not an equivocation; the pool tracks per-(slot, signer).
       expect(duplicateAttestationCallback).not.toHaveBeenCalled();
+      expect(checkpointAttestationCallback).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not trigger accepted-attestation callback for exact duplicates', async () => {
+      const attesterSigner = Secp256k1Signer.random();
+      const attestation = makeCheckpointAttestation({
+        header: makeCheckpointHeader(1, { slotNumber: targetSlot }),
+        archive: Fr.random(),
+        attesterSigner,
+        proposerSigner,
+      });
+
+      await service.validateAndStoreCheckpointAttestation(mockPeerId, attestation);
+      await service.validateAndStoreCheckpointAttestation(mockPeerId, attestation);
+
+      expect(checkpointAttestationCallback).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('ip:changed bridge to AddressManager', () => {
+    let peerDiscoveryEmitter: PeerDiscoveryService;
+    let addObservedAddr: jest.Mock;
+    let confirmObservedAddr: jest.Mock;
+    let removeObservedAddr: jest.Mock;
+    let ipNode: MockProxy<PubSubLibp2p>;
+
+    beforeEach(() => {
+      peerDiscoveryEmitter = new EventEmitter() as PeerDiscoveryService;
+      peerDiscoveryEmitter.start = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      peerDiscoveryEmitter.stop = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      peerDiscoveryEmitter.getKadValues = jest.fn<() => any[]>().mockReturnValue([]);
+      peerDiscoveryEmitter.runRandomNodesQuery = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      peerDiscoveryEmitter.isBootstrapPeer = jest.fn<() => boolean>().mockReturnValue(false);
+      peerDiscoveryEmitter.getStatus = jest.fn().mockReturnValue('running') as any;
+      peerDiscoveryEmitter.getEnr = jest.fn().mockReturnValue(undefined) as any;
+      peerDiscoveryEmitter.bootstrapNodeEnrs = [];
+
+      addObservedAddr = jest.fn();
+      confirmObservedAddr = jest.fn();
+      removeObservedAddr = jest.fn();
+
+      ipNode = mock<PubSubLibp2p>();
+      ipNode.services = {
+        pubsub: {
+          reportMessageValidationResult: jest.fn(),
+          subscribe: jest.fn(),
+          addEventListener: jest.fn(),
+          removeEventListener: jest.fn(),
+          getTopics: jest.fn().mockReturnValue([]),
+        },
+        components: {
+          addressManager: { addObservedAddr, confirmObservedAddr, removeObservedAddr },
+        },
+      } as any;
+      ipNode.start = jest.fn<() => Promise<void>>().mockResolvedValue(undefined) as any;
+    });
+
+    it('should update libp2p AddressManager when discv5 emits ip:changed', async () => {
+      const ipService = createTestLibP2PService({
+        peerManager: mock<PeerManagerInterface>(),
+        node: ipNode,
+        configOverrides: { queryForIp: true, p2pIp: '10.0.0.1', p2pPort: 40400 },
+        peerDiscoveryService: peerDiscoveryEmitter,
+      });
+
+      await ipService.start();
+
+      // Emit first IP change — should remove the initial config IP (10.0.0.1)
+      peerDiscoveryEmitter.emit('ip:changed', '1.2.3.4');
+      expect(addObservedAddr).toHaveBeenCalledTimes(1);
+      expect(confirmObservedAddr).toHaveBeenCalledTimes(1);
+      expect(removeObservedAddr).toHaveBeenCalledTimes(1);
+      expect(removeObservedAddr).toHaveBeenCalledWith(multiaddr('/ip4/10.0.0.1/tcp/40400'));
+
+      // Emit second IP change — should remove the previous discovered IP (1.2.3.4)
+      peerDiscoveryEmitter.emit('ip:changed', '5.6.7.8');
+      expect(addObservedAddr).toHaveBeenCalledTimes(2);
+      expect(confirmObservedAddr).toHaveBeenCalledTimes(2);
+      expect(removeObservedAddr).toHaveBeenCalledTimes(2);
+
+      await ipService.stop();
+    });
+
+    it('should not wire the bridge when queryForIp is false', async () => {
+      const ipService = createTestLibP2PService({
+        peerManager: mock<PeerManagerInterface>(),
+        node: ipNode,
+        configOverrides: { queryForIp: false, p2pIp: '10.0.0.1', p2pPort: 40400 },
+        peerDiscoveryService: peerDiscoveryEmitter,
+      });
+
+      await ipService.start();
+
+      peerDiscoveryEmitter.emit('ip:changed', '1.2.3.4');
+      expect(addObservedAddr).not.toHaveBeenCalled();
+
+      await ipService.stop();
     });
   });
 });
@@ -1201,6 +1432,8 @@ interface CreateTestLibP2PServiceOptions {
   attestationPool?: AttestationPool;
   txPool?: MockProxy<TxPoolV2>;
   epochCache?: MockProxy<EpochCacheInterface>;
+  configOverrides?: Partial<P2PConfig>;
+  peerDiscoveryService?: PeerDiscoveryService;
 }
 
 /**
@@ -1208,9 +1441,6 @@ interface CreateTestLibP2PServiceOptions {
  * and allows construction with mocked dependencies.
  */
 class TestLibP2PService extends LibP2PService {
-  /** Mocked validateRequestedTx for testing. */
-  public validateRequestedTxMock: jest.Mock;
-
   /** Controls whether first-stage gossip validation passes. Set to false to simulate first-stage failure. */
   public firstStageValidationPasses = true;
 
@@ -1223,11 +1453,10 @@ class TestLibP2PService extends LibP2PService {
   /** Controls the severity returned by the failing first-stage validator. */
   public firstStageSeverity: PeerErrorSeverity = PeerErrorSeverity.LowToleranceError;
 
-  /** Stub validator returned by createRequestedTxValidator. */
-  private stubValidator: TxValidator;
-
   /** Exposed epoch cache for test configuration. */
   public testEpochCache: MockProxy<EpochCacheInterface>;
+
+  public mockPeerDiscoveryService: PeerDiscoveryService;
 
   constructor(
     node: PubSubLibp2p,
@@ -1237,6 +1466,8 @@ class TestLibP2PService extends LibP2PService {
     epochCache: MockProxy<EpochCacheInterface>,
     telemetry: TelemetryClient,
     logger: Logger,
+    configOverrides?: Partial<P2PConfig>,
+    peerDiscoveryService?: PeerDiscoveryService,
   ) {
     // Create minimal mock dependencies for the base class
     const mockConfig: P2PConfig = {
@@ -1246,12 +1477,11 @@ class TestLibP2PService extends LibP2PService {
       disableTransactions: false,
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       rollupVersion: 1,
-      l1Contracts: {
-        rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
-      },
+      rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
+      ...configOverrides,
     };
 
-    const mockPeerDiscoveryService = mock<PeerDiscoveryService>();
+    const resolvedPeerDiscoveryService = peerDiscoveryService ?? mock<PeerDiscoveryService>();
     const mockReqResp = mock<ReqRespInterface>();
     const mockWorldStateSynchronizer = mock<ServerWorldStateSynchronizer>();
     const mockProofVerifier = mock<ClientProtocolCircuitVerifier>({
@@ -1261,7 +1491,7 @@ class TestLibP2PService extends LibP2PService {
     super(
       mockConfig,
       node,
-      mockPeerDiscoveryService,
+      resolvedPeerDiscoveryService,
       mockReqResp,
       peerManager,
       mempools,
@@ -1274,11 +1504,9 @@ class TestLibP2PService extends LibP2PService {
       logger,
     );
 
+    this.mockPeerDiscoveryService = resolvedPeerDiscoveryService;
+
     this.testEpochCache = epochCache;
-    this.validateRequestedTxMock = jest.fn(() => Promise.resolve());
-    this.stubValidator = {
-      validateTx: () => Promise.resolve({ result: 'valid' as const }),
-    };
   }
 
   /** Exposes the protected handleNewGossipMessage for testing. */
@@ -1317,13 +1545,13 @@ class TestLibP2PService extends LibP2PService {
     };
   }
 
-  /** Exposes the protected validateRequestedBlockTxs for testing. */
-  public override validateRequestedBlockTxs(
+  /** Exposes the protected validateRequestedBlockTxsConsistency for testing. */
+  public override validateRequestedBlockTxsConsistency(
     request: BlockTxsRequest,
     response: BlockTxsResponse,
     peerId: PeerId,
   ): Promise<boolean> {
-    return super.validateRequestedBlockTxs(request, response, peerId);
+    return super.validateRequestedBlockTxsConsistency(request, response, peerId);
   }
 
   /** Exposes the protected processBlockFromPeer for testing. */
@@ -1341,21 +1569,6 @@ class TestLibP2PService extends LibP2PService {
     return super.validateAndStoreCheckpointAttestation(peerId, attestation);
   }
 
-  /** Override to use the mock. */
-  protected override async validateRequestedTx(
-    tx: Tx,
-    peerId: PeerId,
-    _txValidator: TxValidator,
-    _requested?: Set<`0x${string}`>,
-  ): Promise<void> {
-    await this.validateRequestedTxMock(tx, peerId);
-  }
-
-  /** Override to return the stub validator. */
-  protected override createRequestedTxValidator(): TxValidator {
-    return this.stubValidator;
-  }
-
   /** Sets the attestation pool on the mempools for test setup. */
   public setAttestationPool(attestationPool: MockAttestationPoolForTests): void {
     (this.mempools as any).attestationPool = attestationPool;
@@ -1371,6 +1584,8 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
     attestationPool = new AttestationPool(openTmpStore(true)),
     txPool = mock<TxPoolV2>(),
     epochCache = mock<EpochCacheInterface>(),
+    configOverrides,
+    peerDiscoveryService,
   } = options;
 
   epochCache.getL1Constants.mockReturnValue({
@@ -1384,7 +1599,17 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
   const telemetry = getTelemetryClient();
   const logger = createLogger('p2p:test');
 
-  return new TestLibP2PService(node, peerManager, mempools, archiver, epochCache, telemetry, logger);
+  return new TestLibP2PService(
+    node,
+    peerManager,
+    mempools,
+    archiver,
+    epochCache,
+    telemetry,
+    logger,
+    configOverrides,
+    peerDiscoveryService,
+  );
 }
 
 /** Creates a TestLibP2PService instance with real attestation pool and mocked tx pool. */
@@ -1394,6 +1619,7 @@ function createTestLibP2PServiceWithPools(
   attestationPool: AttestationPool,
   mockTxPool: MockProxy<TxPoolV2>,
   mockEpochCache: MockProxy<EpochCacheInterface>,
+  configOverrides?: Partial<P2PConfig>,
 ): TestLibP2PService {
   const mockNode = mock<PubSubLibp2p>();
   mockNode.services = {
@@ -1408,5 +1634,6 @@ function createTestLibP2PServiceWithPools(
     attestationPool,
     txPool: mockTxPool,
     epochCache: mockEpochCache,
+    configOverrides,
   });
 }

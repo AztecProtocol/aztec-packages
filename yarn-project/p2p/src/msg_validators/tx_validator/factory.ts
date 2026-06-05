@@ -53,6 +53,7 @@ import type { TxMetaData } from '../../mem_pools/tx_pool_v2/tx_metadata.js';
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
 import { ArchiveCache } from './archive_cache.js';
 import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_validator.js';
+import { CachedTxValidator } from './cached_tx_validator.js';
 import { ContractInstanceTxValidator } from './contract_instance_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
@@ -64,6 +65,7 @@ import { SizeTxValidator } from './size_validator.js';
 import { TimestampTxValidator } from './timestamp_validator.js';
 import { TxPermittedValidator } from './tx_permitted_validator.js';
 import { TxProofValidator } from './tx_proof_validator.js';
+import { TxValidationCache } from './tx_validation_cache.js';
 
 /**
  * A validator paired with a peer penalty severity.
@@ -210,8 +212,9 @@ function createTxValidatorForMinimumTxIntegrityChecks(
     rollupVersion: number;
   },
   bindings?: LoggerBindings,
+  cache?: TxValidationCache,
 ): TxValidator {
-  return new AggregateTxValidator(
+  const aggregate = new AggregateTxValidator(
     new MetadataTxValidator(
       {
         l1ChainId: new Fr(l1ChainId),
@@ -222,10 +225,14 @@ function createTxValidatorForMinimumTxIntegrityChecks(
       bindings,
     ),
     new SizeTxValidator(bindings),
-    new DataTxValidator(bindings),
+    CachedTxValidator.new(new DataTxValidator(bindings), cache),
     new ContractInstanceTxValidator(bindings),
-    new TxProofValidator(verifier, bindings),
+    CachedTxValidator.new(new TxProofValidator(verifier, bindings), cache),
   );
+
+  // This validator is not state-dependent so we can cache it.
+  const identifier = Symbol('TxValidatorForMinimumTxIntegrityChecks');
+  return CachedTxValidator.newWithIdentifier(aggregate, identifier, cache);
 }
 
 /**
@@ -234,7 +241,7 @@ function createTxValidatorForMinimumTxIntegrityChecks(
  * are invalid against current state. State-dependent checks happen when the tx
  * enters the pending pool or during block building.
  */
-export function createTxValidatorForReqResponseReceivedTxs(
+export function createTxValidatorForOnDemandReceivedTxs(
   verifier: ClientProtocolCircuitVerifier,
   {
     l1ChainId,
@@ -244,8 +251,9 @@ export function createTxValidatorForReqResponseReceivedTxs(
     rollupVersion: number;
   },
   bindings?: LoggerBindings,
+  cache?: TxValidationCache,
 ): TxValidator {
-  return createTxValidatorForMinimumTxIntegrityChecks(verifier, { l1ChainId, rollupVersion }, bindings);
+  return createTxValidatorForMinimumTxIntegrityChecks(verifier, { l1ChainId, rollupVersion }, bindings, cache);
 }
 
 /**
@@ -263,8 +271,9 @@ export function createTxValidatorForBlockProposalReceivedTxs(
     rollupVersion: number;
   },
   bindings?: LoggerBindings,
+  cache?: TxValidationCache,
 ): TxValidator {
-  return createTxValidatorForMinimumTxIntegrityChecks(verifier, { l1ChainId, rollupVersion }, bindings);
+  return createTxValidatorForMinimumTxIntegrityChecks(verifier, { l1ChainId, rollupVersion }, bindings, cache);
 }
 
 /**

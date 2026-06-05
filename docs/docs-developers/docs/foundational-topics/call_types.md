@@ -132,7 +132,7 @@ It is also possible to create public functions that can _only_ be invoked by pri
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
-#include_code enqueueing /noir-projects/noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr rust
+#include_code enqueueing /noir-projects/aztec-nr/aztec/src/public_checks.nr rust
 
 Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
 To prevent this you can enqueue a call to a public function using `self.enqueue_incognito` that behaves the same as `self.enqueue` but conceals the message sender.
@@ -146,11 +146,11 @@ An example of how a deadline can be checked using the `PublicChecks` contract fo
 
 `privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the `PublicChecks` contract:
 
-#include_code helper_public_checks_functions /noir-projects/noir-contracts/contracts/protocol/public_checks_contract/src/utils.nr rust
+#include_code helper_public_checks_functions /noir-projects/aztec-nr/aztec/src/public_checks.nr rust
 
 This is what the implementation of the check timestamp functionality looks like:
 
-#include_code check_timestamp /noir-projects/noir-contracts/contracts/protocol/public_checks_contract/src/main.nr rust
+#include_code check_timestamp /noir-projects/noir-contracts/contracts/standard/public_checks_contract/src/main.nr rust
 
 :::note
 The `PublicChecks` contract is not part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
@@ -158,7 +158,7 @@ To add it as a dependency, point to the aztec-packages repository:
 
 ```toml
 [dependencies]
-public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/protocol/public_checks_contract" }
+public_checks = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/standard/public_checks_contract" }
 ```
 
 :::

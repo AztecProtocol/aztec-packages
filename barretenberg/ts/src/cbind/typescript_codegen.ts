@@ -17,6 +17,8 @@ function toCamelCase(name: string): string {
 }
 
 export class TypeScriptCodegen {
+  private errorTypeName: string = 'ErrorResponse';
+
   // Type mapping: Schema type -> TypeScript type
   private mapType(type: Type): string {
     switch (type.kind) {
@@ -31,14 +33,21 @@ export class TypeScriptCodegen {
           case 'string': return 'string';
           case 'bytes': return 'Uint8Array';
           case 'field2': return '[Uint8Array, Uint8Array]';  // Extension field (Fq2)
+          case 'enum_u32': return 'number';  // C++ enum as integer
+          case 'map_u32_pair': return 'Record<number, [Uint8Array, number]>';  // map<enum, pair<fr, index>>
         }
         break;
 
-      case 'vector':
-        return `${this.mapType(type.element!)}[]`;
+      case 'vector': {
+        const inner = this.mapType(type.element!);
+        // Wrap union types in parens to avoid precedence issues: (Foo | undefined)[]
+        return type.element!.kind === 'optional' ? `(${inner})[]` : `${inner}[]`;
+      }
 
-      case 'array':
-        return `${this.mapType(type.element!)}[]`;
+      case 'array': {
+        const inner = this.mapType(type.element!);
+        return type.element!.kind === 'optional' ? `(${inner})[]` : `${inner}[]`;
+      }
 
       case 'optional':
         return `${this.mapType(type.element!)} | undefined`;
@@ -64,14 +73,20 @@ export class TypeScriptCodegen {
           case 'string': return 'string';
           case 'bytes': return 'Uint8Array';
           case 'field2': return '[Uint8Array, Uint8Array]';
+          case 'enum_u32': return 'number';
+          case 'map_u32_pair': return 'Record<number, [Uint8Array, number]>';
         }
         break;
 
-      case 'vector':
-        return `${this.mapMsgpackType(type.element!)}[]`;
+      case 'vector': {
+        const inner = this.mapMsgpackType(type.element!);
+        return type.element!.kind === 'optional' ? `(${inner})[]` : `${inner}[]`;
+      }
 
-      case 'array':
-        return `${this.mapMsgpackType(type.element!)}[]`;
+      case 'array': {
+        const inner = this.mapMsgpackType(type.element!);
+        return type.element!.kind === 'optional' ? `(${inner})[]` : `${inner}[]`;
+      }
 
       case 'optional':
         return `${this.mapMsgpackType(type.element!)} | undefined`;
@@ -209,7 +224,7 @@ ${conversions}
         return value;
       case 'optional':
         if (this.needsConversion(type.element!)) {
-          return `${value} !== undefined ? ${this.generateToConverter(type.element!, value)} : undefined`;
+          return `${value} != null ? ${this.generateToConverter(type.element!, value)} : undefined`;
         }
         return value;
       case 'struct':
@@ -233,7 +248,7 @@ ${conversions}
         return value;
       case 'optional':
         if (this.needsConversion(type.element!)) {
-          return `${value} !== undefined ? ${this.generateFromConverter(type.element!, value)} : undefined`;
+          return `${value} != null ? ${this.generateFromConverter(type.element!, value)} : undefined`;
         }
         return value;
       case 'struct':
@@ -303,7 +318,7 @@ ${apiMethods}
     return `  ${methodName}(command: ${cmdType}): Promise<${respType}> {
     const msgpackCommand = from${cmdType}(command);
     return msgpackCall(this.backend, [["${command.name}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
-      if (variantName === 'ErrorResponse') {
+      if (variantName === '${this.errorTypeName}') {
         throw new BBApiException(result.message || 'Unknown error from barretenberg');
       }
       if (variantName !== '${command.responseType}') {
@@ -334,6 +349,7 @@ ${apiMethods}
 
   // Generate async API file
   generateAsyncApi(schema: CompiledSchema): string {
+    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
     const imports = this.generateApiImports(schema);
     const methods = schema.commands
       .map(c => this.generateAsyncApiMethod(c))
@@ -366,6 +382,7 @@ ${methods}
 
   // Generate sync API file
   generateSyncApi(schema: CompiledSchema): string {
+    this.errorTypeName = schema.errorTypeName || 'ErrorResponse';
     const imports = this.generateApiImports(schema);
     const methods = schema.commands
       .map(c => this.generateSyncApiMethod(c))

@@ -82,12 +82,4 @@ export class PXEDebugUtils {
       return this.noteStore.getNotes(filter, jobId);
     });
   }
-
-  /**
-   * Triggers a sync of the PXE with the node.
-   * Blocks until the sync is complete.
-   */
-  public sync(): Promise<void> {
-    return this.#putJobInQueue(() => this.blockStateSynchronizer.sync());
-  }
 }

@@ -47,6 +47,7 @@ describe('e2e_p2p_reex', () => {
         txTimeoutMs: 30_000,
         listenAddress: '127.0.0.1',
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
+        inboxLag: 2,
       },
     });
 

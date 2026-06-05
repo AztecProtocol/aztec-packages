@@ -8,13 +8,13 @@ use crate::{
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     },
-    traits::Empty,
+    traits::{Empty, Serialize},
 };
 
-#[derive(Eq)]
+#[derive(Eq, Serialize)]
 pub struct TxEffect {
-    pub tx_hash: Field,
     pub revert_code: u8,
+    pub tx_hash: Field,
     pub transaction_fee: Field,
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
@@ -28,8 +28,8 @@ pub struct TxEffect {
 impl Empty for TxEffect {
     fn empty() -> Self {
         TxEffect {
-            tx_hash: 0,
             revert_code: 0,
+            tx_hash: 0,
             transaction_fee: 0,
             note_hashes: [0; MAX_NOTE_HASHES_PER_TX],
             nullifiers: [0; MAX_NULLIFIERS_PER_TX],

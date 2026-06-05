@@ -45,7 +45,12 @@ const chunkSizeValidator = (limits: ChunkSizeLimit[]): Plugin => {
     configResolved(resolvedConfig) {
       config = resolvedConfig;
     },
-    closeBundle() {
+    // `writeBundle` is documented to fire AFTER the output bundle has been
+    // written to disk, whereas `closeBundle` (which we used previously) is the
+    // last hook to run and can fire before any chunks have been flushed in
+    // current vite/rollup versions — manifesting as ENOENT on `scandir 'dist'`
+    // for a build that otherwise transformed all modules cleanly.
+    writeBundle() {
       const outDir = this.meta?.watchMode ? null : 'dist';
       if (!outDir) return; // Skip in watch mode
 
@@ -137,9 +142,11 @@ export default defineConfig(({ mode }) => {
         // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
         // - MW: bumped from 1700 => 1750 after adding the noble curves pkg to foundation required for blob batching calculations.
         // - 2026-05-08: bumped from 1750 => 1800 after merge of next into merge-train/fairies brought in barretenberg changes (optimized Poseidon2, n1 apps) that nudged bb.js over the prior limit (1750.02 KB).
+        // - JB: bumped from 1750 => 1800 after adding the `aztec_utl_getTxEffect` oracle handler, which pulls TxEffect / FlatPublicLogs / PrivateLog / PublicDataWrite into the eager PXE import path (#22979).
+        // - 2026-05-12: bumped from 1800 => 1850 after merge-train/barretenberg brought in further bb-side changes (multi-app kernel circuits #23076 etc.) that pushed the main entrypoint to 1801.31 KB, just over the limit raised four days earlier.
         {
           pattern: /assets\/index-.*\.js$/,
-          maxSizeKB: 1800,
+          maxSizeKB: 1850,
           description: 'Main entrypoint, hard limit',
         },
         // Bump log:

@@ -193,7 +193,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.anchorBlockStore.setHeader((await this.node.getBlock(BlockNumber.ZERO))!.header);
+      await this.anchorBlockStore.setHeader((await this.node.getBlockData(BlockNumber.ZERO))!.header);
     }
     await this.blockStream.sync();
   }

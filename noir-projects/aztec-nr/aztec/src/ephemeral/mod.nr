@@ -1,5 +1,6 @@
 use crate::oracle::ephemeral;
 use crate::protocol::traits::{Deserialize, Serialize};
+use crate::protocol::utils::{reader::Reader, writer::Writer};
 
 /// A dynamically sized array that exists only during a single contract call frame.
 ///
@@ -27,6 +28,11 @@ impl<T> EphemeralArray<T> {
     /// by an oracle).
     pub unconstrained fn at(slot: Field) -> Self {
         Self { slot }
+    }
+
+    /// Returns an empty ephemeral array at the given slot, clearing any pre-existing data.
+    pub unconstrained fn empty_at(slot: Field) -> Self {
+        Self::at(slot).clear()
     }
 
     /// Returns the number of elements stored in the array.
@@ -75,8 +81,9 @@ impl<T> EphemeralArray<T> {
         ephemeral::remove_oracle(self.slot, index);
     }
 
-    /// Removes all elements from the array and returns self for chaining (e.g. `EphemeralArray::at(slot).clear()`
-    /// to get a guaranteed-empty array at a given slot).
+    /// Removes all elements from the array and returns self for chaining.
+    ///
+    /// Prefer [`EphemeralArray::empty_at`] when the intent is to start with a fresh array.
     pub unconstrained fn clear(self) -> Self {
         ephemeral::clear_oracle(self.slot);
         self
@@ -98,6 +105,34 @@ impl<T> EphemeralArray<T> {
             i -= 1;
             f(i, self.get(i));
         }
+    }
+}
+
+/// Serializes an `EphemeralArray` as its slot identifier, allowing oracle function signatures to use
+/// `EphemeralArray<T>` instead of opaque `Field` slots.
+impl<T> Serialize for EphemeralArray<T> {
+    let N: u32 = 1;
+
+    fn serialize(self) -> [Field; Self::N] {
+        [self.slot]
+    }
+
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self.slot);
+    }
+}
+
+/// Deserializes a single Field into an `EphemeralArray` handle, treating the field value as the slot identifier.
+/// This is the inverse of [`Serialize`].
+impl<T> Deserialize for EphemeralArray<T> {
+    let N: u32 = 1;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        Self { slot: fields[0] }
+    }
+
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        Self { slot: reader.read() }
     }
 }
 
@@ -330,6 +365,19 @@ mod test {
             let popped: MockStruct = array.pop();
             assert_eq(popped, b);
             assert_eq(array.len(), 1);
+        });
+    }
+
+    #[test]
+    unconstrained fn empty_at_wipes_previous_data() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let array: EphemeralArray<Field> = EphemeralArray::at(SLOT);
+            array.push(1);
+            assert_eq(array.len(), 1);
+
+            let fresh: EphemeralArray<Field> = EphemeralArray::empty_at(SLOT);
+            assert_eq(fresh.len(), 0);
         });
     }
 

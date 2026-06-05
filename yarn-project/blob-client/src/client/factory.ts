@@ -48,7 +48,7 @@ export function createBlobClient(config?: BlobClientConfig, deps?: CreateBlobCli
 export interface BlobClientWithFileStoresConfig extends BlobClientConfig {
   l1ChainId: number;
   rollupVersion: number;
-  l1Contracts: { rollupAddress: { toString(): string } };
+  rollupAddress: { toString(): string };
 }
 
 /**
@@ -73,7 +73,7 @@ export async function createBlobClientWithFileStores(
   const fileStoreMetadata: BlobFileStoreMetadata = {
     l1ChainId: config.l1ChainId,
     rollupVersion: config.rollupVersion,
-    rollupAddress: config.l1Contracts.rollupAddress.toString(),
+    rollupAddress: config.rollupAddress.toString(),
   };
 
   // Disable internal retries for blob file stores — retry logic is handled by HttpBlobClient.

@@ -217,13 +217,13 @@ spec:
         - name: SLASH_VALIDATORS_NEVER
           value: {{ join "," .Values.node.slash.validatorsNever | quote }}
         {{- end }}
-        {{- if .Values.node.slash.prunePenalty }}
-        - name: SLASH_PRUNE_PENALTY
-          value: {{ .Values.node.slash.prunePenalty | quote }}
-        {{- end }}
         {{- if .Values.node.slash.dataWithholdingPenalty }}
         - name: SLASH_DATA_WITHHOLDING_PENALTY
           value: {{ .Values.node.slash.dataWithholdingPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.dataWithholdingToleranceSlots }}
+        - name: SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS
+          value: {{ .Values.node.slash.dataWithholdingToleranceSlots | quote }}
         {{- end }}
         {{- if .Values.node.slash.inactivityPenalty }}
         - name: SLASH_INACTIVITY_PENALTY
@@ -237,6 +237,10 @@ spec:
         - name: SLASH_INVALID_BLOCK_PENALTY
           value: {{ .Values.node.slash.invalidBlockPenalty | quote }}
         {{- end }}
+        {{- if .Values.node.slash.invalidCheckpointProposalPenalty }}
+        - name: SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY
+          value: {{ .Values.node.slash.invalidCheckpointProposalPenalty | quote }}
+        {{- end }}
         {{- if .Values.node.slash.proposeInvalidAttestationsPenalty }}
         - name: SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
           value: {{ .Values.node.slash.proposeInvalidAttestationsPenalty | quote }}
@@ -249,9 +253,13 @@ spec:
         - name: SLASH_DUPLICATE_ATTESTATION_PENALTY
           value: {{ .Values.node.slash.duplicateAttestationPenalty | quote }}
         {{- end }}
-        {{- if .Values.node.slash.attestDescendantOfInvalidPenalty }}
-        - name: SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
-          value: {{ .Values.node.slash.attestDescendantOfInvalidPenalty | quote }}
+        {{- if .Values.node.slash.proposeDescendantOfCheckpointWithInvalidAttestationsPenalty }}
+        - name: SLASH_PROPOSE_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS_PENALTY
+          value: {{ .Values.node.slash.proposeDescendantOfCheckpointWithInvalidAttestationsPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.attestInvalidCheckpointProposalPenalty }}
+        - name: SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY
+          value: {{ .Values.node.slash.attestInvalidCheckpointProposalPenalty | quote }}
         {{- end }}
         {{- if .Values.node.slash.unknownPenalty }}
         - name: SLASH_UNKNOWN_PENALTY

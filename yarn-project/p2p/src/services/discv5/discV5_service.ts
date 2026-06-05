@@ -38,6 +38,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private startTime = 0;
 
+  private currentIp: string | undefined;
+
   private handlers = {
     onMultiaddrUpdated: this.onMultiaddrUpdated.bind(this),
     onDiscovered: this.onDiscovered.bind(this),
@@ -53,8 +55,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     configOverrides: Partial<IDiscv5CreateOptions> = {},
   ) {
     super();
+
     const { p2pIp, p2pPort, p2pBroadcastPort, bootstrapNodes, trustedPeers, privatePeers } = config;
 
+    this.currentIp = p2pIp;
     this.bootstrapNodeEnrs = bootstrapNodes.map(x => ENR.decodeTxt(x));
     const privatePeerEnrs = new Set(privatePeers);
     this.trustedPeerEnrs = trustedPeers.filter(x => !privatePeerEnrs.has(x)).map(x => ENR.decodeTxt(x));
@@ -96,7 +100,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         lookupTimeout: 2000,
         requestTimeout: 2000,
         allowUnverifiedSessions: true,
-        enrUpdate: !p2pIp ? true : false, // If no p2p IP is set, enrUpdate can automatically resolve it
+        enrUpdate: config.queryForIp || !p2pIp,
+        pingInterval: config.queryForIp ? 10_000 : 300_000,
         ...configOverrides.config,
       },
       metricsRegistry,
@@ -127,11 +132,34 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private onMultiaddrUpdated(m: Multiaddr) {
-    // We want to update our tcp port to match the udp port
-    // p2pBroadcastPort is optional on config, however it is set to default within the p2p client factory
-    const multiAddrTcp = multiaddr(convertToMultiaddr(m.nodeAddress().address, this.config.p2pBroadcastPort!, 'tcp'));
+    const newIp = m.nodeAddress().address;
+    const previousIp = this.currentIp;
+
+    if (newIp === previousIp) {
+      this.logger.debug('Discv5 confirmed current IP (no change)', { ip: newIp });
+      return;
+    }
+
+    const multiAddrTcp = multiaddr(convertToMultiaddr(newIp, this.config.p2pBroadcastPort!, 'tcp'));
     this.enr.setLocationMultiaddr(multiAddrTcp);
-    this.logger.info('Multiaddr updated', { multiaddr: multiAddrTcp.toString() });
+    this.currentIp = newIp;
+
+    if (previousIp) {
+      this.logger.info('IP address changed, ENR updated', {
+        previousIp,
+        newIp,
+        multiaddr: multiAddrTcp.toString(),
+        enr: this.enr.encodeTxt(),
+      });
+    } else {
+      this.logger.info('Initial IP discovered via discv5, ENR updated', {
+        ip: newIp,
+        multiaddr: multiAddrTcp.toString(),
+        enr: this.enr.encodeTxt(),
+      });
+    }
+
+    this.emit('ip:changed', newIp);
   }
 
   public async start(): Promise<void> {
@@ -142,12 +170,17 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     await this.discv5.start();
     this.startTime = Date.now();
 
+    const enrUpdateEnabled = this.config.queryForIp || !this.config.p2pIp;
     this.logger.info(`DiscV5 service started`, {
       nodeId: this.enr.nodeId,
       peerId: this.peerId,
       enrUdp: await this.enr.getFullMultiaddr('udp'),
       enrTcp: await this.enr.getFullMultiaddr('tcp'),
       versions: this.versions,
+      enrUpdateEnabled,
+      queryForIp: this.config.queryForIp,
+      configuredIp: this.config.p2pIp ?? 'none',
+      pingIntervalMs: this.config.queryForIp ? 10_000 : 300_000,
     });
     this.currentState = PeerDiscoveryState.RUNNING;
 

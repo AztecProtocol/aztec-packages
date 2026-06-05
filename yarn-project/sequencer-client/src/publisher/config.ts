@@ -115,7 +115,7 @@ export function getPublisherConfigFromSequencerConfig(config: SequencerPublisher
   };
 }
 
-export const proverTxSenderConfigMappings: ConfigMappingsType<Omit<ProverTxSenderConfig, 'l1Contracts'>> = {
+export const proverTxSenderConfigMappings: ConfigMappingsType<ProverTxSenderConfig> = {
   ...l1ReaderConfigMappings,
   proverPublisherPrivateKeys: {
     env: `PROVER_PUBLISHER_PRIVATE_KEYS`,
@@ -133,7 +133,7 @@ export const proverTxSenderConfigMappings: ConfigMappingsType<Omit<ProverTxSende
   },
 };
 
-export const sequencerTxSenderConfigMappings: ConfigMappingsType<Omit<SequencerTxSenderConfig, 'l1Contracts'>> = {
+export const sequencerTxSenderConfigMappings: ConfigMappingsType<SequencerTxSenderConfig> = {
   ...l1ReaderConfigMappings,
   sequencerPublisherPrivateKeys: {
     env: `SEQ_PUBLISHER_PRIVATE_KEYS`,

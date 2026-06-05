@@ -1,12 +1,10 @@
-import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
+import { type L1ContractAddresses, pickL1ContractAddressMappings } from '@aztec/ethereum/l1-contract-addresses';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
-import type { EthAddress } from '@aztec/foundation/eth-address';
 
 export type DataStoreConfig = {
   dataDirectory?: string;
   dataStoreMapSizeKb: number;
-  l1Contracts?: { rollupAddress: EthAddress };
-};
+} & Partial<Pick<L1ContractAddresses, 'rollupAddress'>>;
 
 export const dataConfigMappings: ConfigMappingsType<DataStoreConfig> = {
   dataDirectory: {
@@ -18,12 +16,7 @@ export const dataConfigMappings: ConfigMappingsType<DataStoreConfig> = {
     description: 'The maximum possible size of a data store DB in KB. Can be overridden by component-specific options.',
     ...numberConfigHelper(128 * 1_024 * 1_024), // Defaulted to 128 GB
   },
-  l1Contracts: {
-    description: 'The deployed L1 contract addresses',
-    nested: {
-      rollupAddress: l1ContractAddressesMapping.rollupAddress,
-    },
-  },
+  ...pickL1ContractAddressMappings('rollupAddress'),
 };
 
 /**

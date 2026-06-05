@@ -17,8 +17,7 @@ pub contract SchnorrAccount {
         macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::{
-            auth_witness::get_auth_witness_as_bytes,
-            get_nullifier_membership_witness::get_low_nullifier_membership_witness, notes::set_sender_for_tags,
+            auth_witness::get_auth_witness, get_nullifier_membership_witness::get_low_nullifier_membership_witness,
         },
         protocol::address::AztecAddress,
         state_vars::SinglePrivateImmutable,
@@ -37,15 +36,11 @@ pub contract SchnorrAccount {
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let pub_key_note = PublicKeyNote { x: signing_pub_key_x, y: signing_pub_key_y };
 
-        // We set the sender for tags to this contract so the user can find the deployment note without having to
-        // register the account deployer as a sender in their PXE. The override is scoped to this constructor call
-        // and does not leak back into the deployer or sideways into sibling calls.
-        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs, so it
-        // is safe to set from a constrained context.
-        unsafe { set_sender_for_tags(self.address) };
-        // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
-        // contract.
-        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        // The deployment transaction is typically sent from a separate account (e.g. a fee-paying deployer), which
+        // would otherwise be used as the sender for tags. We override it with this account's own address so the
+        // recipient can discover the note by registering the account address, regardless of who deployed it.
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery::onchain_constrained()
+            .with_sender(self.address));
     }
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
@@ -76,11 +71,15 @@ pub contract SchnorrAccount {
 
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
         // Hence it's safe.
-        let signature: [u8; 64] = unsafe { get_auth_witness_as_bytes(outer_hash) };
+        let limbs: [Field; 4] = unsafe { get_auth_witness(outer_hash) };
+        let signature = (
+            std::embedded_curve_ops::EmbeddedCurveScalar::new(limbs[0], limbs[1]),
+            std::embedded_curve_ops::EmbeddedCurveScalar::new(limbs[2], limbs[3]),
+        );
 
         let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
         // Verify signature of the payload bytes
-        schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
+        schnorr::verify_signature(pub_key, signature, outer_hash)
         // docs:end:is_valid_impl
     }
 
@@ -99,9 +98,13 @@ pub contract SchnorrAccount {
             inner_hash,
         );
 
-        let signature: [u8; 64] = get_auth_witness_as_bytes(message_hash);
+        let limbs: [Field; 4] = get_auth_witness(message_hash);
+        let signature = (
+            std::embedded_curve_ops::EmbeddedCurveScalar::new(limbs[0], limbs[1]),
+            std::embedded_curve_ops::EmbeddedCurveScalar::new(limbs[2], limbs[3]),
+        );
         let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
-        let valid_in_private = schnorr::verify_signature(pub_key, signature, message_hash.to_be_bytes::<32>());
+        let valid_in_private = schnorr::verify_signature(pub_key, signature, message_hash);
 
         // Compute the nullifier and check if it is spent
         // This will BLINDLY TRUST the oracle, but the oracle is us, and

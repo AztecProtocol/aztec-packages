@@ -12,6 +12,7 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -37,8 +38,8 @@ const TX_COUNT = 34;
 
 /**
  * E2E tests for proposer pipelining with Multiple Blocks Per Slot (MBPS).
- * Verifies that with pipelining enabled, the block proposer in slot N is the validator
- * scheduled on L1 for slot N+1 (the proposer view uses a +1 slot offset).
+ * Verifies that the block proposer in slot N is the validator scheduled on L1 for slot N+1
+ * (the proposer view uses a +1 slot offset).
  */
 describe('e2e_epochs/epochs_mbps_pipeline', () => {
   let context: EndToEndContext;
@@ -70,7 +71,6 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
-      enableProposerPipelining: true, // <- yehaw
       mockGossipSubNetwork: true,
       mockGossipSubNetworkLatency: 500, // adverse network conditions
       disableAnvilTestWatcher: true,
@@ -113,9 +113,26 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
   }
 
-  /** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
-  async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger): Promise<CheckpointNumber> {
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+  /**
+   * Waits until the archiver's checkpointed chain tip has reached `targetBlockNumber`, then retrieves all checkpoints,
+   * checks that one has the target block count, and returns its number.
+   */
+  async function assertMultipleBlocksPerSlot(
+    targetBlockCount: number,
+    targetBlockNumber: BlockNumber,
+    logger: Logger,
+  ): Promise<CheckpointNumber> {
+    await retryUntil(
+      async () => {
+        const checkpointed = await archiver.getBlockNumber({ tag: 'checkpointed' });
+        return checkpointed !== undefined && checkpointed >= targetBlockNumber;
+      },
+      `archiver checkpointed block ${targetBlockNumber}`,
+      10,
+      0.1,
+    );
+
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
     logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
     });
@@ -162,7 +179,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber }[],
     logger: Logger,
   ) {
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
     const allBlocks = checkpoints.flatMap(pc => pc.checkpoint.blocks);
 
     logger.warn(`assertProposerPipelining: ${allBlocks.length} blocks, ${blockProposedEvents.length} events`, {
@@ -253,14 +270,19 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
 
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
-    await executeTimeout(
+    const receipts = await executeTimeout(
       () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
       timeout * 1000,
     );
     logger.warn(`All txs have been mined`);
 
-    // Verify MBPS works with pipelining
-    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
+    // Verify MBPS works with pipelining; target the highest block number across mined receipts
+    const maxMinedBlockNumber = BlockNumber(Math.max(...receipts.map(r => r.blockNumber ?? 0)));
+    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(
+      EXPECTED_BLOCKS_PER_CHECKPOINT,
+      maxMinedBlockNumber,
+      logger,
+    );
 
     // Verify the pipelining offset: build slot N vs submission slot N+1
     await assertProposerPipelining(blockProposedEvents, logger);
@@ -302,12 +324,12 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     await test.waitUntilCheckpointNumber(CheckpointNumber(1), checkpointTimeout);
     const checkpointedBlockNumber = await archiver.getBlockNumber();
     logger.warn(`Baseline established: checkpoint 1 reached at block ${checkpointedBlockNumber}`);
-    // Find the next proposer and prevent it from publishing checkpoints
+    // Target a submission slot whose pipelined build has not started yet.
     const { slot: currentSlot } = test.epochCache.getEpochAndSlotNow();
     const { proposerIndex, slot: proposerSlotToNotPublish } = await findNextProposerIndex(
       test.epochCache,
       validators,
-      SlotNumber(currentSlot + 1),
+      SlotNumber(currentSlot + 2),
     );
     logger.warn(
       `Will skip checkpoint publishing for proposer ${proposerIndex} in slot ${proposerSlotToNotPublish} - current slot ${currentSlot}`,
@@ -348,14 +370,15 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
 
     // Wait for a new checkpoint (recovery) - where all txs end up mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
-    await executeTimeout(
+    const receipts = await executeTimeout(
       () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
       timeout * 1000,
     );
     logger.warn(`All txs have been mined`);
 
-    // Verify MBPS works with pipelining
-    await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
+    // Verify MBPS works with pipelining; target the highest block number across mined receipts
+    const maxMinedBlockNumber = BlockNumber(Math.max(...receipts.map(r => r.blockNumber ?? 0)));
+    await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, maxMinedBlockNumber, logger);
 
     // Verify the pipelining offset: build slot N vs submission slot N+1
     await assertProposerPipelining(blockProposedEvents, logger);

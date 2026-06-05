@@ -2,6 +2,7 @@ import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 
 import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixtures/authwit_proxy.js';
+import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { DUPLICATE_NULLIFIER_ERROR, U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
@@ -10,7 +11,7 @@ describe('e2e_blacklist_token_contract burn', () => {
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
     // Beware that we are adding the wallet as minter here, which is very slow because it needs multiple blocks.
     await t.applyMint();
     // Have to destructure again to ensure we have latest refs.

@@ -5,10 +5,11 @@
 #include <unordered_map>
 #include <vector>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_row.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_p_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/lib/multi_permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
@@ -34,8 +35,12 @@ class InteractionDefinition {
     template <InteractionType type, typename... InteractionSettings> InteractionDefinition& add(auto&&... args)
     {
         std::string name = (std::string(InteractionSettings::NAME) + ...);
-        interactions[name] =
-            get_interaction_factory<type, InteractionSettings...>(std::forward<decltype(args)>(args)...);
+        auto [_, inserted] = interactions.emplace(
+            name, get_interaction_factory<type, InteractionSettings...>(std::forward<decltype(args)>(args)...));
+
+        // Safeguard detecting a collision in the interaction names (we do not use separators to have an injective
+        // serialization).
+        BB_ASSERT_DEBUG(inserted, "InteractionDefinition::add: collision in interaction name: " + name);
         return *this;
     }
 

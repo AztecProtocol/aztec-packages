@@ -17,9 +17,10 @@ import {
 
 import { jest } from '@jest/globals';
 
+import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('Logs', () => {
   let testLogContract: TestLogContract;
@@ -41,7 +42,7 @@ describe('Logs', () => {
       accounts: [account1Address, account2Address],
       aztecNode,
       logger: log,
-    } = await setup(2));
+    } = await setup(2, { ...AUTOMINE_E2E_OPTS }));
 
     log.warn(`Setup complete, checking account contracts published`);
     await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
@@ -139,6 +140,7 @@ describe('Logs', () => {
 
       // docs:start:get_public_events
       const publicEventFilter: PublicEventFilter = {
+        contractAddress: testLogContract.address,
         fromBlock: BlockNumber(firstTx.blockNumber!),
         toBlock: BlockNumber(lastTx.blockNumber! + 1),
       };
@@ -192,6 +194,7 @@ describe('Logs', () => {
         aztecNode,
         TestLogContract.events.ExampleNestedEvent,
         {
+          contractAddress: testLogContract.address,
           fromBlock: BlockNumber(tx.blockNumber!),
           toBlock: BlockNumber(tx.blockNumber! + 1),
         },
@@ -260,6 +263,31 @@ describe('Logs', () => {
       // of logs in both transactions
       const allTags = new Set([...tx1Tags, ...tx2Tags]);
       expect(allTags.size).toBe(tx1NumLogs + tx2NumLogs);
+    });
+  });
+
+  describe('tagging cache reconciliation against kernel squashing', () => {
+    // Regression test for https://github.com/AztecProtocol/aztec-packages/issues/22949.
+    //
+    // The PXE's tagging cache reserves an index for every log emission attempted during private execution, but the
+    // kernel may then squash some of those logs (e.g. when a note is created and nullified in the same tx, taking
+    // its delivery log with it). The PXE must reconcile the recorded ranges against the kernel's surviving private
+    // logs before persisting them, otherwise a subsequent tx sharing the same tagging secret hits a
+    // `Conflicting range` error when its tagging sync re-derives the range from on-chain data and notices a mismatch.
+    it('does not throw `Conflicting range` across consecutive squashing txs sharing a tagging secret', async () => {
+      // Each call reserves two indexes for the (sender, sender, contract) tagging secret and squashes the first
+      // delivery's (note, nullifier, log) triple. Pre-fix, the second call's tagging sync would observe that the
+      // first tx had recorded `[N, N+1]` while only `[N+1]` actually landed on chain, and throw.
+      // Using `account1Address` for both sender and recipient mirrors the original repro from #22949
+      // (`transfer_private_to_public(self, self, ...)`) and keeps the note's owner accessible from the wallet for
+      // in-tx nullification.
+      await testLogContract.methods
+        .deliver_squashed_and_surviving_notes(account1Address)
+        .send({ from: account1Address });
+
+      await testLogContract.methods
+        .deliver_squashed_and_surviving_notes(account1Address)
+        .send({ from: account1Address });
     });
   });
 });

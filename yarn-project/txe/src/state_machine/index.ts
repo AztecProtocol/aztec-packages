@@ -5,11 +5,10 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { type AnchorBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
 import { MessageContextService } from '@aztec/pxe/simulator';
-import { L2Block } from '@aztec/stdlib/block';
+import { L2Block, type L2TipsProvider } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { TXEArchiver } from './archiver.js';
 import { DummyP2P } from './dummy_p2p_client.js';
@@ -19,6 +18,9 @@ import { TXESynchronizer } from './synchronizer.js';
 
 const VERSION = 1;
 const CHAIN_ID = 1;
+// Hardcoded so the bundled TXE doesn't try to read stdlib's package.json at a relative path
+// that becomes invalid once bundled
+const PACKAGE_VERSION = 'txe';
 
 export class TXEStateMachine {
   constructor(
@@ -52,14 +54,13 @@ export class TXEStateMachine {
       undefined,
       undefined,
       undefined,
-      undefined,
-      undefined,
+      async () => {},
       VERSION,
       CHAIN_ID,
       new TXEGlobalVariablesBuilder(),
       new TXEFeeProvider(),
       new MockEpochCache(),
-      getPackageVersion(),
+      PACKAGE_VERSION,
       new TestCircuitVerifier(),
       new TestCircuitVerifier(),
       undefined,
@@ -76,6 +77,17 @@ export class TXEStateMachine {
     const messageContextService = new MessageContextService(node);
 
     return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService, messageContextService);
+  }
+
+  /** Returns an {@link L2TipsProvider} backed by this node's chain tips. */
+  public get l2TipsProvider(): L2TipsProvider {
+    const node = this.node;
+    return {
+      getL2Tips: async () => {
+        const tips = await node.getChainTips();
+        return { ...tips, proposedCheckpoint: tips.checkpointed };
+      },
+    };
   }
 
   public async handleL2Block(block: L2Block) {

@@ -48,7 +48,6 @@ bb::stdlib::field_t<Builder> to_field_ct(const WitnessOrConstant<typename Builde
 template <typename Builder>
 bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typename Builder::FF>& input_x,
                                                    const WitnessOrConstant<typename Builder::FF>& input_y,
-                                                   const WitnessOrConstant<typename Builder::FF>& input_infinite,
                                                    const bb::stdlib::bool_t<Builder>& predicate,
                                                    Builder& builder);
 

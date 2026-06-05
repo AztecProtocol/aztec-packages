@@ -1,4 +1,4 @@
-import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferSink, type Bufferable, type Sinkable, serializeToSink } from '@aztec/foundation/serialize';
 
 /**
  * Implementation of a vector. Matches how we are serializing and deserializing vectors in cpp (length in the first position, followed by the items).
@@ -11,8 +11,13 @@ export class Vector<T extends Bufferable> {
     public items: T[],
   ) {}
 
-  toBuffer() {
-    return serializeToBuffer(this.items.length, this.items);
+  toBuffer(): Buffer;
+  toBuffer(sink: BufferSink): void;
+  toBuffer(sink?: BufferSink): Buffer | void {
+    if (!sink) {
+      return BufferSink.serialize(this);
+    }
+    serializeToSink(sink, this.items.length, this.items as Sinkable[]);
   }
 
   toFriendlyJSON() {
