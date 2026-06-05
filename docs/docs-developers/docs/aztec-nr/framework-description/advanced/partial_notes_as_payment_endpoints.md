@@ -2,7 +2,7 @@
 title: Partial notes as payment endpoints
 sidebar_position: 2
 tags: [Developers, Contracts, Notes, Privacy]
-description: Using partial notes as a recipient's offer to be paid, enabling naming-service style flows where the recipient does not need to be online.
+description: Using partial notes as a recipient's offer to be paid, enabling naming-service style flows with no recipient action at payment time.
 references:
   [
     "noir-projects/aztec-nr/uint-note/src/uint_note.nr",
@@ -11,7 +11,7 @@ references:
 ---
 
 :::note Assumed token standard
-This page assumes the [AIP-20 fungible token standard](../../standards/aip-20.md), which exposes commitment-based transfers directly: the completer is an explicit argument to `initialize_transfer_commitment`, and completion debits a separately authorized account. Tokens that instead hardcode the completer to `msg_sender` (such as the example `token_contract` in aztec-packages) need a more roundabout flow that this page does not cover.
+This page assumes the [AIP-20 fungible token standard](../../standards/aip-20.md), which exposes commitment-based transfers directly: the completer is an explicit argument to `initialize_transfer_commitment`, and completion debits a separately authorized account. The example `token_contract` in aztec-packages also supports both flows (the single-call `transfer_to_private` and the two-step `prepare_private_balance_increase` plus `finalize_transfer_to_private`), but its prepare step hardcodes the completer to the caller. A recipient who prepares a partial note there is the only party able to complete it, which rules out the third-party-sender flows this page describes.
 :::
 
 ## The problem
@@ -22,17 +22,28 @@ A privacy-conscious naming service should let a sender pay `alice.aztec` without
 
 - learning the recipient's actual Aztec address,
 - producing a sender-visible or registry-visible link between any two payments to the same name,
-- requiring the recipient to be online when the payment is made.
+- requiring the recipient to take any action when the payment is made.
 
 [Partial notes](./partial_notes.md) provide the primitive. This page covers how to use them to back a stable name with a rotating supply of unlinkable, one-shot payment endpoints.
 
 The term _payment endpoint_ in this page is application-level. Aztec's protocol terminology stays with "partial note," "completer," and "completion log."
 
+## What lives where
+
+The trick is that the name never maps to an address at all. It maps to a pool of opaque commitments, and senders pay into a commitment. Concretely, for `alice.aztec`:
+
+1. **Alice's wallet creates partial notes ahead of time.** Each one is a commitment `H(alice_address, randomness_i)` with fresh randomness per note. Her address is inside the hash, blinded by the randomness, so the commitment reveals nothing about her.
+2. **The chain records a validity commitment.** Creating each partial note records `H(partial_commitment, completer)` in the nullifier tree. Also just a hash; no address is visible.
+3. **The lookup channel stores `alice.aztec → [c1, c2, c3, ...]`.** The _lookup channel_ is wherever the name resolves: an ENS text record, a JSON file Alice hosts, an onchain registry contract. The commitments are opaque `Field` values that can be stored as a plain array, and this mapping is the only thing senders ever read.
+4. **Alice's Private eXecution Environment (PXE) holds the preimages.** Her wallet knows which commitments are hers and watches for their completion logs, so payments land without any action from her.
+
+The rest of this page unpacks each piece: how a partial note works as an offer to be paid, who is allowed to complete one, and where the lookup channel can live.
+
 ## A partial note as an offer to be paid
 
-A partial note is a commitment to `(owner, randomness)`. Once minted, the commitment is just a `Field`: it can be copied freely, stored anywhere, and shared with any sender. Holding the commitment is not enough to complete it, though; only the note's designated _completer_ can fill in `(storage_slot, value)` and finalize it.
+A partial note is a commitment to `(owner, randomness)`. Once created, the commitment is just a `Field`: it can be copied freely, stored anywhere, and shared with any sender. Holding the commitment is not enough to complete it, though; only the note's designated _completer_ can fill in `(storage_slot, value)` and finalize it.
 
-With AIP-20, the recipient mints a partial note by calling `initialize_transfer_commitment`, choosing both the eventual owner and the completer:
+With AIP-20, the recipient creates a partial note by calling `initialize_transfer_commitment`, choosing both the eventual owner and the completer:
 
 ```rust
 #[external("private")]
@@ -43,8 +54,8 @@ The completer is bound into a validity commitment `H(partial_commitment, complet
 
 Two properties make this useful as a payment endpoint:
 
-- **The recipient does not need to be online during the payment.** When the note is minted, the token sends the recipient a private message identifying it. The recipient's Private eXecution Environment (PXE) holds this pending entry and scans for the completion log whenever it has the chance.
-- **The completer is fixed when the note is minted.** The recipient chooses who can finalize the note at mint time, and that choice is enforced cryptographically.
+- **The recipient takes no action at payment time.** When the note is created, the token sends the recipient a private message identifying it. The recipient's PXE holds this pending entry and scans for the completion log whenever it has the chance. Receiving an ordinary transfer is just as passive; the difference here is that the recipient also never has to interact with the sender, because the commitment was published ahead of time.
+- **The completer is fixed when the note is created.** The recipient chooses who can finalize the note at creation time, and that choice is enforced cryptographically.
 
 Each partial note is single-use (see [single-use semantics](./partial_notes.md#single-use-semantics)), so an endpoint that accepts many payments must hold many partial notes.
 
@@ -54,13 +65,13 @@ The choice of `completer` determines who can complete a given partial note, and 
 
 ### Completer = a specific sender
 
-The recipient pre-mints one partial note per known sender, with each `completer` set to that sender's address. The sender finalizes the note with their own funds by calling `transfer_private_to_commitment` (or `transfer_public_to_commitment`), acting as both the `from` and the `msg_sender`/completer.
+The recipient creates one partial note per known sender ahead of time, with each `completer` set to that sender's address. The sender finalizes the note with their own funds by calling `transfer_private_to_commitment` (or `transfer_public_to_commitment`), acting as both the `from` and the `msg_sender`/completer.
 
 This works without any new contracts but requires the recipient to know each sender's address in advance. It is useful for repeat payers (subscriptions, regular invoices) but does not scale to "anyone can pay this name."
 
 ### Completer = a relayer contract
 
-The recipient mints partial notes whose `completer` is a known _relayer_ contract: a contract whose only job is to forward a sender's payment into the token's completion function. Any sender can invoke the relayer, the relayer is what the token sees as `msg_sender` (so the validity commitment check passes), and the sender is debited as the authorized `from`.
+The recipient creates partial notes whose `completer` is a known _relayer_ contract: a contract whose only job is to forward a sender's payment into the token's completion function. Any sender can invoke the relayer, the relayer is what the token sees as `msg_sender` (so the validity commitment check passes), and the sender is debited as the authorized `from`.
 
 This is the option that scales to unknown senders. The relayer needs no per-name logic, so a single global relayer contract could serve every payment endpoint on the network.
 
@@ -88,9 +99,9 @@ contract PaymentRelayer {
 
 How the flow works:
 
-- The recipient mints notes with `initialize_transfer_commitment(to: recipient, completer: relayer)` and publishes the commitments through their lookup channel. Minting goes straight to the token; no call through the relayer is needed.
-- A sender calls `pay_private` with a commitment obtained from the recipient's lookup channel. The relayer reads `from = msg_sender` (the sender) and forwards into the token. At the token's frame, `msg_sender` is the relayer, matching the completer the note was minted with, so the token debits the sender and completes the note.
-- An authwit signed by the sender authorizes the relayer to call `transfer_private_to_commitment` with these specific arguments, since the token sees the relayer, not the sender, as the immediate caller.
+- The recipient creates notes with `initialize_transfer_commitment(to: recipient, completer: relayer)` and publishes the commitments through their [lookup channel](#what-lives-where). Creating a note is a direct call to the token; the relayer only participates at completion.
+- A sender calls `pay_private` with a commitment obtained from the recipient's lookup channel. The relayer reads `from = msg_sender` (the sender) and forwards into the token. At the token's frame, `msg_sender` is the relayer, matching the completer the note was created with, so the token debits the sender and completes the note.
+- An [authwit](../authentication_witnesses.md) signed by the sender authorizes the relayer to call `transfer_private_to_commitment` with these specific arguments, since the token sees the relayer, not the sender, as the immediate caller.
 
 Both private and public payments are supported: `transfer_private_to_commitment` debits the sender's private balance, `transfer_public_to_commitment` debits their public balance. Both take an explicit authorized `from`, so the relayer never needs to hold or be pre-funded with the sender's tokens. Fee sponsorship is separate, handled by a [Fee Payment Contract (FPC)](../../../foundational-topics/fees.md) during the transaction's setup phase.
 
@@ -101,19 +112,19 @@ Where the mapping "name → partial-note commitments" lives is independent of wh
 - **Offchain.** A static file at `alice.example/aztec.json`, an ENS text record, IPFS, or any other lookup channel. The chain never sees the name or the pool size. Requires trust in the hosting and a way to authenticate the result.
 - **Onchain.** A registry contract with public storage mapping names to commitments. Censorship-resistant and allows atomic lookup-and-pay in a single transaction, but exposes the pool size, refill cadence, and the plaintext name.
 
-The two choices are orthogonal. Either channel can hand out commitments minted with any completer; only the lookup mechanism differs.
+The two choices are orthogonal. Either channel can hand out commitments created with any completer; only the lookup mechanism differs.
 
 ## A recommended pattern
 
-For "name → unlinkable payment endpoint, recipient offline," the combination that gives the best privacy / UX ratio is offchain distribution (the recipient hosts the lookup), a relayer contract as the completer, and private→private completion so the amount stays hidden from observers who do not hold the commitment.
+For "name → unlinkable payment endpoint, passive recipient," the combination that gives the best privacy / UX ratio is offchain distribution (the recipient hosts the lookup), a relayer contract as the completer, and private→private completion so the amount stays hidden from observers who do not hold the commitment.
 
 The recipient is responsible for:
 
-1. Periodically minting fresh partial notes with the relayer as completer.
+1. Periodically creating fresh partial notes with the relayer as completer.
 2. Publishing the resulting commitments through whatever lookup channel they choose.
 3. Pruning commitments that have been consumed (the recipient's PXE knows when each partial note has been completed).
 
-Refill cadence is an operational concern. If senders consume commitments faster than the recipient refills, the lookup will return nothing. Batching the mint of many partial notes in a single transaction reduces the per-payment cost.
+Refill cadence is an operational concern. If senders consume commitments faster than the recipient refills, the lookup will return nothing. Batching the creation of many partial notes in a single transaction reduces the per-payment cost.
 
 ## What is hidden, what leaks
 
@@ -128,13 +139,13 @@ The pattern leaks:
 - The fact that the relayer contract was invoked in a transaction.
 - The completion log tag for each payment. The tag does not reveal the recipient, but it confirms that _some_ completion happened against _some_ partial note.
 - Anything the lookup channel itself reveals. An offchain channel can hide the existence of the name; an onchain registry cannot.
-- The recipient's refill cadence, if their minting transactions are visible.
+- The recipient's refill cadence, if the transactions that create fresh partial notes are visible.
 
 A reused partial note breaks both the privacy property (linkable completions) and the discovery property (the recipient's wallet will miss the second completion). Endpoint pools must rotate; commitments must not be republished after consumption.
 
 ## What this does not solve
 
-This pattern is not a stealth-address scheme. It requires the recipient to pre-mint and publish a pool of commitments ahead of time, and to keep refilling it; senders draw from that pool. A stealth-address scheme, by contrast, lets a recipient publish a single meta-address once and stay otherwise passive, with each sender deriving a fresh one-time address non-interactively. Partial-note endpoints trade that recipient passivity for an explicit, recipient-controlled supply of payment slots.
+This pattern is not a stealth-address scheme. It requires the recipient to create and publish a pool of commitments ahead of time, and to keep refilling it; senders draw from that pool. A stealth-address scheme, by contrast, lets a recipient publish a single meta-address once and stay otherwise passive, with each sender deriving a fresh one-time address non-interactively. Partial-note endpoints trade that recipient passivity for an explicit, recipient-controlled supply of payment slots.
 
 ## Forward-looking note
 

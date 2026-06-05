@@ -34,15 +34,29 @@ Partial notes are useful when part of the note struct is a value that depends on
 - Current gas prices
 - Time-dependent interest accrual
 
-They are also useful as **payment endpoints**: a recipient can mint a partial note ahead of time and share the commitment with prospective senders. Senders later complete the partial note to pay the recipient, who does not need to be online for the payment to land. See [partial notes as payment endpoints](./partial_notes_as_payment_endpoints.md) for the full design.
+They are also useful as **payment endpoints**: a recipient can create a partial note ahead of time and share the commitment with prospective senders. Senders later complete the partial note to pay the recipient, with no action needed from the recipient at payment time. See [partial notes as payment endpoints](./partial_notes_as_payment_endpoints.md) for the full design.
 
 ## The completer
 
 A partial note is finalized by a later completion step that supplies the public fields (`storage_slot` and `value`). At that point its private preimage (`owner` and `randomness`) is not re-derived or re-checked, and the partial note itself is just a `Field` that can be copied and shared freely. If anyone holding it could complete it, they could insert a note with an arbitrary, unbacked `value` into the note hash tree, or complete the note at the wrong time or with the wrong values.
 
-To prevent this, the creator designates a **completer** at mint time. During the constrained private execution that mints the partial note, the contract records a validity commitment `H(partial_commitment, completer)` in the nullifier tree. Completion recomputes this commitment and asserts it exists, using its presence as proof that a legitimate, constrained execution created the partial note and authorized this specific completer to supply the public values and finalize it.
+To prevent this, the creator designates a **completer** at creation time. During the constrained private execution that creates the partial note, the contract records a validity commitment `H(partial_commitment, completer)` in the nullifier tree. Completion recomputes this commitment and asserts it exists, using its presence as proof that a legitimate, constrained execution created the partial note and authorized this specific completer to supply the public values and finalize it.
 
 With AIP-20, the completer is chosen explicitly when calling `initialize_transfer_commitment`; completion (`transfer_private_to_commitment` / `transfer_public_to_commitment`) binds the completer to the caller's `msg_sender` and debits a separately authorized `from` account.
+
+For `UintNote`, the fields split cleanly across the two phases:
+
+| Field          | Fixed at                        | How                                                                                          |
+| -------------- | ------------------------------- | -------------------------------------------------------------------------------------------- |
+| `owner`        | Partial note creation (private) | Committed in `partial_commitment = H(owner, randomness)`                                      |
+| `randomness`   | Partial note creation (private) | Same commitment; fresh per note, blinds the owner                                             |
+| `completer`    | Partial note creation (private) | Bound in the validity commitment `H(partial_commitment, completer)`; not part of the note hash |
+| `storage_slot` | Completion (public or private)  | Hashed into `note_hash = H(storage_slot, partial_commitment, value)`                          |
+| `value`        | Completion (public or private)  | Same hash; supplied by the completer's call                                                   |
+
+(`storage_slot` is typically known during private execution too; it is just not bound into the note hash until completion.)
+
+The creator fixes who gets paid (`owner`) and who may finalize (`completer`); the completer later fixes how much (`value`). Funds therefore flow from the completing side to the note's owner: in AIP-20, completion debits the authorized `from` account (the completer itself, or a payer who authorized it) and credits the `owner` chosen by the creator.
 
 ## Single-use semantics
 
@@ -53,7 +67,7 @@ Each partial note is intended to be completed exactly once. The protocol does no
 
 This is why an AIP-20 commitment should be completed only once. A second `transfer_private_to_commitment` (or `transfer_public_to_commitment`) against the same commitment is not found by the recipient's log processing on the second pass, so the amount is most likely lost.
 
-The takeaway: treat each partial note as a one-shot object. To accept multiple payments, mint multiple partial notes.
+The takeaway: treat each partial note as a one-shot object. To accept multiple payments, create multiple partial notes.
 
 ## Completion in public and private contexts
 
@@ -64,7 +78,7 @@ The takeaway: treat each partial note as a one-shot object. To accept multiple p
 
 For private→private completion, the privacy of the amount depends on whether the partial note's commitment itself is held secret. If the commitment is published publicly (e.g., in an onchain registry), anyone can derive the tag and read the amount from the private log payload. If the commitment is shared only with prospective senders, the amount stays hidden from outside observers.
 
-One additional protocol constraint: `complete_from_private` requires the validity commitment to be settled in a prior transaction. A partial note cannot be both minted and completed in the same private transaction. The public completion path has no such restriction.
+One additional protocol constraint: `complete_from_private` requires the validity commitment to be settled in a prior transaction. A partial note cannot be both created and completed in the same private transaction. The public completion path has no such restriction.
 
 ## Implementation
 
@@ -99,8 +113,8 @@ The note is completed by hashing the partial commitment with the public value:
 The resulting structure is a nested commitment:
 
 ```
-note_hash = H(H(owner, randomness), storage_slot, value)
-          = H(partial_commitment, storage_slot, value)
+note_hash = H(storage_slot, H(owner, randomness), value)
+          = H(storage_slot, partial_commitment, value)
 ```
 
 ## Universal note format
