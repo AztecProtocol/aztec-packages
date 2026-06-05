@@ -71,7 +71,7 @@ export class WorkerWallet implements Wallet {
       env: {
         ...parentEnv,
         ...(process.stderr.isTTY || process.env.FORCE_COLOR ? { FORCE_COLOR: '1' } : {}),
-        LOG_LEVEL: process.env.WORKER_LOG_LEVEL ?? 'warn',
+        LOG_LEVEL: process.env.WORKER_LOG_LEVEL ?? 'info',
       },
     });
 
