@@ -12,6 +12,6 @@ error: The #[noinitcheck] attribute can only be applied to #[external("private")
     1: ?
             at src/main.nr:11:5
     2: noinitcheck
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:128:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 Aborting due to 1 previous error
