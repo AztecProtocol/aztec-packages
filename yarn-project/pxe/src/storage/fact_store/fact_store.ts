@@ -196,28 +196,31 @@ export class FactStore implements StagedStore {
     for await (const [block, rowKey] of this.#factsByBlock.entriesAsync({ start: toBlock + 1 })) {
       orphaned.push({ block, rowKey });
     }
-    let removed = 0;
+    let removedCount = 0;
     for (const { block, rowKey } of orphaned) {
       const buf = await this.#facts.getAsync(rowKey);
-      const fact = buf ? StoredFact.fromBuffer(buf) : undefined;
+      if (!buf) {
+        // A #factsByBlock entry must always reference a live #facts row; a missing one means the indexes are
+        // corrupt, so fail loudly rather than leave a ghost entity behind.
+        throw new Error(`Fact not found for rowKey ${rowKey}`);
+      }
+      const fact = StoredFact.fromBuffer(buf);
       await this.#facts.delete(rowKey);
       await this.#factsByBlock.deleteValue(block, rowKey);
-      if (fact) {
-        const eKey = entityKeyOf(fact);
-        await this.#factsByEntity.deleteValue(eKey, rowKey);
-        // If the entity has no facts left, drop it from active enumeration.
-        let stillHasFact = false;
-        for await (const _ of this.#factsByEntity.getValuesAsync(eKey)) {
-          stillHasFact = true;
-          break;
-        }
-        if (!stillHasFact) {
-          await this.#entitiesByScope.deleteValue(scopeKeyOf(fact), fact.correlationKey.toString());
-        }
+      const eKey = entityKeyOf(fact);
+      await this.#factsByEntity.deleteValue(eKey, rowKey);
+      // If the entity has no facts left, drop it from active enumeration.
+      let stillHasFact = false;
+      for await (const _ of this.#factsByEntity.getValuesAsync(eKey)) {
+        stillHasFact = true;
+        break;
       }
-      removed++;
+      if (!stillHasFact) {
+        await this.#entitiesByScope.deleteValue(scopeKeyOf(fact), fact.correlationKey.toString());
+      }
+      removedCount++;
     }
-    this.logger.verbose('rolled back facts', { removed, toBlock });
+    this.logger.verbose('rolled back facts', { removedCount, toBlock });
   }
 
   // ---- private helpers ----
@@ -236,10 +239,15 @@ export class FactStore implements StagedStore {
     }
     for (const rowKey of rowKeys) {
       const buf = await this.#facts.getAsync(rowKey);
-      const fact = buf ? StoredFact.fromBuffer(buf) : undefined;
+      if (!buf) {
+        // A #factsByEntity entry must always reference a live #facts row; a missing one means the indexes are
+        // corrupt, so fail loudly rather than silently skip cleanup.
+        throw new Error(`Fact not found for rowKey ${rowKey}`);
+      }
+      const fact = StoredFact.fromBuffer(buf);
       await this.#facts.delete(rowKey);
       await this.#factsByEntity.deleteValue(eKey, rowKey);
-      if (fact?.anchor !== undefined) {
+      if (fact.anchor !== undefined) {
         await this.#factsByBlock.deleteValue(fact.anchor.blockNumber, rowKey);
       }
     }
