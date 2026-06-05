@@ -596,6 +596,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         config.blockDurationMs !== undefined
           ? 2 * Math.ceil(config.blockDurationMs / 1000)
           : 2 * DEFAULT_MIN_BLOCK_DURATION;
+      config.skipOrphanProposedBlockPruning ||= !!config.useAutomineSequencer;
 
       // Create world-state first so we can retrieve the initial header before constructing the archiver.
       const nativeWs = await createWorldState(config, options.genesis);
@@ -604,12 +605,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       const archiver = await createArchiver(
         config,
         { blobClient, epochCache, telemetry, dateProvider },
-        {
-          blockUntilSync: !config.skipArchiverInitialSync,
-          // The non-pipelined automine sequencer publishes each checkpoint in-slot, so it never
-          // leaves orphan proposed blocks; pruning would race its local push. See pruneOrphanProposedBlocks.
-          enableOrphanProposedBlockPruning: !config.useAutomineSequencer,
-        },
+        { blockUntilSync: !config.skipArchiverInitialSync },
         initialHeader,
         initialBlockHash,
       );

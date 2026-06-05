@@ -161,8 +161,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       ethereumAllowNoDebugHosts?: boolean;
       skipHistoricalLogsCheck?: boolean;
       checkpointProposalSyncGrace: number;
-      orphanProposedBlockPruneJitterSeconds: number;
-      enableOrphanProposedBlockPruning: boolean;
+      orphanPruneNoProposalTolerance: number;
+      skipOrphanProposedBlockPruning: boolean;
       blockDuration: number | undefined;
     },
     private readonly blobClient: BlobClientInterface,
@@ -422,19 +422,14 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * assembling and publishing the enclosing proposed checkpoint at the end of the build slot. A node
    * that received those blocks but never the proposed checkpoint is left with an orphan tip it must not build on.
    * If no checkpoint proposal was received for the orphan slot, we prune after the receive deadline plus local
-   * scheduling jitter. If a checkpoint proposal was received but has not materialized into proposed archiver state,
+   * tolerance. If a checkpoint proposal was received but has not materialized into proposed archiver state,
    * we prune after the consensus materialization deadline.
    *
    * The uncheckpointed suffix is scanned in order. Blocks covered by proposed checkpoints are left in
    * place; the first block not covered by a proposed checkpoint starts the orphan suffix to prune.
    */
   private async pruneOrphanProposedBlocks(): Promise<void> {
-    // Orphan pruning is a pipelining-only liveness mechanism: it cleans up block-only proposals
-    // whose enclosing checkpoint never arrived over gossip. The test-only automine sequencer is
-    // non-pipelined — it publishes each checkpoint synchronously in the slot it builds — so it
-    // never produces orphan proposed blocks. Running the prune there would race its two-step local
-    // push (addBlock then addProposedCheckpoint) and delete the block before its checkpoint attaches.
-    if (!this.config.enableOrphanProposedBlockPruning) {
+    if (this.config.skipOrphanProposedBlockPruning) {
       return;
     }
     const tips = await this.getL2Tips();
@@ -474,7 +469,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
           ? this.timetable.getCheckpointProposalSyncedDeadline(blockSlot)
           : Math.ceil(
               this.timetable.getCheckpointProposalReceiveDeadline(blockSlot) +
-                this.config.orphanProposedBlockPruneJitterSeconds,
+                this.config.orphanPruneNoProposalTolerance,
             ),
       );
 

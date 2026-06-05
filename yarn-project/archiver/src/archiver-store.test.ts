@@ -96,8 +96,8 @@ describe('Archiver Store', () => {
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
       checkpointProposalSyncGrace: 4,
-      orphanProposedBlockPruneJitterSeconds: 1,
-      enableOrphanProposedBlockPruning: true,
+      orphanPruneNoProposalTolerance: 1,
+      skipOrphanProposedBlockPruning: false,
       blockDuration: 2,
     };
 

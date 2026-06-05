@@ -209,17 +209,17 @@ operator-tuned archiver knob: nodes need to agree on when a received proposal ha
 Orphan proposed-block pruning has two branches:
 
 - If no checkpoint proposal was received for the orphan slot, the archiver prunes once strictly past
-  `checkpoint_proposal_receive_deadline + orphan_proposed_block_prune_jitter`.
+  `checkpoint_proposal_receive_deadline + orphan_prune_no_proposal_tolerance`.
 - If a checkpoint proposal was received but has not materialized into proposed archiver state, the archiver prunes
   once strictly past `checkpoint_proposal_synced_deadline`.
 
-`orphan_proposed_block_prune_jitter` is archiver-local scheduling jitter, defaulting to 1 second. It only covers
+`orphan_prune_no_proposal_tolerance` is archiver-local tolerance, defaulting to 1 second. It only covers
 polling and timer skew in the no-proposal branch; it does not define whether a checkpoint proposal is buildable.
 
 The no-proposal branch deliberately does not wait for `attestation_deadline`. A malicious proposer can broadcast
 block proposals while withholding transaction data and never send the checkpoint proposal. Other nodes may then
 spend the remaining validation window trying to collect missing transactions and re-execute a checkpoint that will
-not be buildable by the next proposer. Pruning after the receive deadline plus local jitter restores next-proposer
+not be buildable by the next proposer. Pruning after the receive deadline plus local tolerance restores next-proposer
 liveness.
 
 The received-proposal branch gives bounded time for validation and archiver insertion. Validators that do not

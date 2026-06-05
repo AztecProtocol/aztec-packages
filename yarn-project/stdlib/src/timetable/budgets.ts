@@ -7,8 +7,8 @@ export const DEFAULT_P2P_PROPAGATION_TIME = 2;
 /** Default local checkpoint proposal preparation time (`checkpoint_proposal_prepare_time`) in seconds. */
 export const DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME = 1;
 
-/** Default local scheduling jitter for archiver orphan-prune checks when no checkpoint proposal was received. */
-export const DEFAULT_ORPHAN_PROPOSED_BLOCK_PRUNE_JITTER = 1;
+/** Default local tolerance for archiver orphan-prune checks when no checkpoint proposal was received. */
+export const DEFAULT_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE = 1;
 
 /**
  * Default proposer initialization time (`checkpoint_proposal_init_time`) in seconds: the budget reserved at

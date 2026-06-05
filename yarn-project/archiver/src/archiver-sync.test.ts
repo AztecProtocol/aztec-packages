@@ -72,7 +72,7 @@ describe('Archiver Sync', () => {
   // beforeEach default instance and by tests that need a second archiver with a different config.
   const buildArchiver = async (
     storeName: string,
-    configOverrides: { enableOrphanProposedBlockPruning?: boolean } = {},
+    configOverrides: { skipOrphanProposedBlockPruning?: boolean } = {},
   ): Promise<{ archiver: Archiver; synchronizer: ArchiverL1Synchronizer; archiverStore: ArchiverDataStores }> => {
     const store = createArchiverDataStores(await openTmpStore(storeName), GENESIS_BLOCK_HEADER_HASH);
 
@@ -91,8 +91,8 @@ describe('Archiver Sync', () => {
       ethereumAllowNoDebugHosts: true,
       skipHistoricalLogsCheck: true,
       checkpointProposalSyncGrace: 4,
-      orphanProposedBlockPruneJitterSeconds: 1,
-      enableOrphanProposedBlockPruning: true,
+      orphanPruneNoProposalTolerance: 1,
+      skipOrphanProposedBlockPruning: false,
       blockDuration: 2,
       ...configOverrides,
     };
@@ -2155,9 +2155,9 @@ describe('Archiver Sync', () => {
 
     // Slot the orphan block targets. With slotDuration=24, slot S starts at l1GenesisTime + S*24.
     const orphanSlot = SlotNumber(1);
-    // Sync grace, local jitter, and block duration configured for these tests (see the `config` object above).
+    // Sync grace, local tolerance, and block duration configured for these tests (see the `config` object above).
     const checkpointProposalSyncGrace = 4;
-    const orphanPruneJitter = 1;
+    const orphanPruneNoProposalTolerance = 1;
     const blockDuration = 2;
 
     beforeEach(() => {
@@ -2172,7 +2172,7 @@ describe('Archiver Sync', () => {
     const makeTimetable = () => new ConsensusTimetable({ l1Constants, blockDuration, checkpointProposalSyncGrace });
 
     const noProposalPruneDeadlineForSlot = (slot: SlotNumber) =>
-      Math.ceil(makeTimetable().getCheckpointProposalReceiveDeadline(slot) + orphanPruneJitter);
+      Math.ceil(makeTimetable().getCheckpointProposalReceiveDeadline(slot) + orphanPruneNoProposalTolerance);
     const noProposalPruneDeadline = () => noProposalPruneDeadlineForSlot(orphanSlot);
 
     const syncedPruneDeadlineForSlot = (slot: SlotNumber) => makeTimetable().getCheckpointProposalSyncedDeadline(slot);
@@ -2223,7 +2223,7 @@ describe('Archiver Sync', () => {
       feeAssetPriceModifier: 0n,
     });
 
-    it('does not prune without a checkpoint proposal exactly at the receive deadline plus jitter', async () => {
+    it('does not prune without a checkpoint proposal exactly at the receive deadline plus tolerance', async () => {
       const { lastProvisional } = await setupOrphanTip();
 
       dateProvider.setTime(noProposalPruneDeadline() * 1000);
@@ -2233,7 +2233,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastProvisional);
     }, 15_000);
 
-    it('prunes without a checkpoint proposal once the receive deadline plus jitter elapses', async () => {
+    it('prunes without a checkpoint proposal once the receive deadline plus tolerance elapses', async () => {
       const { lastBlockInCp1, provisionalBlocks } = await setupOrphanTip();
 
       dateProvider.setTime((noProposalPruneDeadline() + 1) * 1000);
@@ -2290,13 +2290,9 @@ describe('Archiver Sync', () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
     }, 15_000);
 
-    it('does not prune the orphan tip when pruning is disabled (automine)', async () => {
-      // The non-pipelined automine sequencer disables orphan pruning: it publishes each checkpoint
-      // in-slot, so an uncheckpointed tip is only the transient gap between its addBlock and
-      // addProposedCheckpoint, which pruning must not touch. The same scenario that prunes in the
-      // test above must be a no-op when pruning is off, even well past the grace window.
+    it('does not prune the orphan tip when orphan pruning is skipped', async () => {
       const { archiver: noPruneArchiver } = await buildArchiver('archiver_orphan_no_prune', {
-        enableOrphanProposedBlockPruning: false,
+        skipOrphanProposedBlockPruning: true,
       });
       const noPruneSpy = jest.fn();
       noPruneArchiver.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, noPruneSpy);

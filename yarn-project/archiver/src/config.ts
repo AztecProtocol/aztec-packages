@@ -10,7 +10,7 @@ import {
 } from '@aztec/foundation/config';
 import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
-import { DEFAULT_ORPHAN_PROPOSED_BLOCK_PRUNE_JITTER } from '@aztec/stdlib/timetable';
+import { DEFAULT_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE } from '@aztec/stdlib/timetable';
 
 /**
  * The archiver configuration.
@@ -80,11 +80,15 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
       'Set to true to bypass the check when the connected RPC node is known to prune old logs.',
     ...booleanConfigHelper(false),
   },
-  orphanProposedBlockPruneJitterSeconds: {
-    env: 'ARCHIVER_ORPHAN_PROPOSED_BLOCK_PRUNE_JITTER_SECONDS',
-    description:
-      'Local scheduling jitter in seconds before pruning an orphan block when no checkpoint proposal was received.',
-    ...numberConfigHelper(DEFAULT_ORPHAN_PROPOSED_BLOCK_PRUNE_JITTER),
+  orphanPruneNoProposalTolerance: {
+    env: 'ARCHIVER_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE',
+    description: 'Local tolerance in seconds before pruning an orphan block when no checkpoint proposal was received.',
+    ...numberConfigHelper(DEFAULT_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE),
+  },
+  skipOrphanProposedBlockPruning: {
+    env: 'ARCHIVER_SKIP_ORPHAN_PROPOSED_BLOCK_PRUNING',
+    description: 'Skip pruning orphan proposed blocks that have no matching proposed checkpoint.',
+    ...booleanConfigHelper(false),
   },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,
@@ -115,6 +119,7 @@ export function mapArchiverConfig(config: Partial<ArchiverConfig>) {
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
     skipHistoricalLogsCheck: config.archiverSkipHistoricalLogsCheck,
-    orphanProposedBlockPruneJitterSeconds: config.orphanProposedBlockPruneJitterSeconds,
+    orphanPruneNoProposalTolerance: config.orphanPruneNoProposalTolerance,
+    skipOrphanProposedBlockPruning: config.skipOrphanProposedBlockPruning,
   };
 }
