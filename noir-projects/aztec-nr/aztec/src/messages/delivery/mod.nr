@@ -235,6 +235,10 @@ impl MessageDelivery {
 
     /// Delivers the message on-chain, guaranteeing the recipient will receive the correct content.
     ///
+    /// **Warning:** constrained tagging is not yet wired up. Until the constrained emit helper lands, constrained
+    /// delivery validates the handshake origin but still emits logs with wallet-driven unconstrained discovery tags,
+    /// and does not emit the chain nullifiers described below.
+    ///
     /// Constrained delivery derives the discovery tag from a handshake-registry secret, resolved via the standard
     /// handshake registry ([`STANDARD_HANDSHAKE_REGISTRY_ADDRESS`]) by default or a custom registry set with
     /// [`OnchainDelivery::via_handshake`]. The sending account is configured via [`OnchainDelivery::with_sender`].
