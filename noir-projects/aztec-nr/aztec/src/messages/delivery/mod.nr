@@ -27,11 +27,6 @@ use crate::protocol::{
 /// (the cheapest delivery option, but requiring that sender and recipient can communicate off-chain) or
 /// [`MessageDelivery::onchain_unconstrained`]. If the sender cannot be trusted to send the message to the recipient,
 /// use [`MessageDelivery::onchain_constrained`].
-///
-/// On-chain delivery additionally configures the [`SecretOrigin`] from which the discovery tag's shared secret is
-/// derived (via [`OnchainDelivery::via_address_pair`] / [`OnchainDelivery::via_handshake`]) and an optional sender
-/// override (via [`OnchainDelivery::with_sender`]). Constrained delivery defaults to a handshake origin resolved via
-/// the standard handshake registry.
 pub struct MessageDelivery {
     variant: u8,
     tag_secret_derivation: TagSecretDerivation,
@@ -252,9 +247,7 @@ impl MessageDelivery {
     /// constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565). The log's tag is unconstrained,
     /// meaning a malicious sender could manipulate it to prevent the recipient from finding the message.
     ///
-    /// Constrained delivery derives the discovery tag from a handshake-registry secret, resolved via the standard
-    /// handshake registry ([`STANDARD_HANDSHAKE_REGISTRY_ADDRESS`]) by default or a custom registry set with
-    /// [`OnchainDelivery::via_handshake`]. The sending account is configured via [`OnchainDelivery::with_sender`].
+    /// The sending account can be configured via [`OnchainDelivery::with_sender`].
     ///
     /// ## Use Cases
     ///
@@ -333,8 +326,8 @@ impl MessageDelivery {
 /// [`OnchainDelivery`] (constructed via [`MessageDelivery::offchain`], [`MessageDelivery::onchain_unconstrained`], or
 /// [`MessageDelivery::onchain_constrained`]).
 ///
-/// The built configuration's `variant` and secret origin must both be compile-time constants so the compiler can
-/// dead-code-eliminate the unused encryption and tag-derivation paths.
+/// The built configuration's `variant` and tag-secret derivation must both be compile-time constants so the compiler
+/// can dead-code-eliminate the unused encryption and tag-derivation paths.
 ///
 /// ## Privacy
 ///
@@ -390,10 +383,9 @@ where
     if deliver_as_offchain_message {
         deliver_offchain_message(ciphertext, recipient);
     } else {
-        // TODO(#14565): constrained tagging is not yet wired up. The handshake origin is validated, but the tag is
+        // TODO(#14565): constrained tagging is not yet wired up. The tag-secret derivation is validated, but the tag is
         // mocked with the wallet-driven unconstrained derivation so the builder API can land before the constrained
-        // helpers; the real handshake-derived tag, chain nullifier, and any explicit-sender requirement arrive with
-        // the emit helper.
+        // helpers.
         let discovery_tag = compute_discovery_tag(recipient, delivery.sender_override);
         let log_tag = compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG);
 
@@ -441,10 +433,8 @@ impl MessageDeliveryBuilder for OffchainDelivery {
 /// On-chain delivery. Returned by [`MessageDelivery::onchain_unconstrained`] and
 /// [`MessageDelivery::onchain_constrained`].
 ///
-/// Delivery can be further configured via:
-/// - [`via_address_pair`](OnchainDelivery::via_address_pair) / [`via_handshake`](OnchainDelivery::via_handshake),
-///   which select the [`SecretOrigin`] for discovery tag derivation.
-/// - [`with_sender`](OnchainDelivery::with_sender), which overrides the default sender address.
+/// Delivery can be further configured via [`with_sender`](OnchainDelivery::with_sender), which overrides the default
+/// sender address.
 pub struct OnchainDelivery {
     variant: u8,
     tag_secret_derivation: TagSecretDerivation,
@@ -452,31 +442,6 @@ pub struct OnchainDelivery {
 }
 
 impl OnchainDelivery {
-    /// Derives the discovery tag from the sender/recipient address-pair ECDH shared secret.
-    ///
-    /// This is the default origin for unconstrained on-chain delivery, so calling this is only necessary to be
-    /// explicit. It is not compatible with [`MessageDelivery::onchain_constrained`], which requires a handshake
-    /// origin.
-    pub fn via_address_pair(&mut self) -> Self {
-        self.tag_secret_derivation = TagSecretDerivation::address_pair();
-        *self
-    }
-
-    /// Overrides the handshake registry through which the handshake shared secret is resolved.
-    ///
-    /// [`MessageDelivery::onchain_constrained`] already defaults to the standard handshake registry
-    /// ([`STANDARD_HANDSHAKE_REGISTRY_ADDRESS`]), so calling this is only necessary to use a custom registry.
-    ///
-    /// ## Examples
-    ///
-    /// ```noir
-    /// MessageDelivery::onchain_constrained().via_handshake(custom_registry).with_sender(self.address)
-    /// ```
-    pub fn via_handshake(&mut self, _registry: AztecAddress) -> Self {
-        self.tag_secret_derivation = TagSecretDerivation::non_interactive_handshake();
-        *self
-    }
-
     /// Overrides the sender address used for discovery tag derivation.
     ///
     /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
@@ -485,9 +450,6 @@ impl OnchainDelivery {
     /// override it so that recipients can discover the notes correctly. This is the case for account contracts in their
     /// constructor: the deployer is the one that initiated the transaction, but any notes generated during deployment
     /// should be tagged by the account contract itself.
-    ///
-    /// Constrained delivery always requires an explicit sender, since the sender is bound into the handshake lookup
-    /// and the per-send nullifier chain.
     ///
     /// ## Examples
     ///
@@ -552,26 +514,16 @@ mod test {
     }
 
     #[test]
-    fn via_address_pair_sets_an_address_pair_derivation() {
-        let delivery = MessageDelivery::onchain_unconstrained().via_address_pair().build_message_delivery();
-        assert(delivery.tag_secret_derivation == TagSecretDerivation::address_pair());
-    }
-
-    #[test]
-    fn via_handshake_and_with_sender_populate_the_config() {
-        let registry = AztecAddress::from_field(42);
+    fn with_sender_populates_the_config() {
         let sender = AztecAddress::from_field(7);
 
-        let delivery =
-            MessageDelivery::onchain_constrained().via_handshake(registry).with_sender(sender).build_message_delivery();
+        let delivery = MessageDelivery::onchain_constrained().with_sender(sender).build_message_delivery();
 
         assert(delivery.variant == ONCHAIN_CONSTRAINED);
         assert(delivery.tag_secret_derivation == TagSecretDerivation::non_interactive_handshake());
         assert(delivery.sender_override.unwrap() == sender);
     }
 
-    // Verifies that out-of-module consumers can derive modes in global initializers via the delivery API, since the
-    // mode constructors are private to the parent module.
     global GLOBAL_DERIVED_MODE: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().mode();
 
     #[test]
