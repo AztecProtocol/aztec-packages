@@ -251,6 +251,26 @@ export interface MsmConfig {
   /** Phase-2 hook — Jacobian-crossover threshold. Accepted but inert in Phase 1. */
   jacobianCrossover?: number;
   /**
+   * Per-level affine/Jacobian cut (Thread-1 step-4). When set, each reduce level
+   * independently runs Jacobian if it can't saturate the batch-affine path
+   * (doublings always Jacobian; adds Jacobian iff numWindows·ppw <
+   * {@link reduceSatThreshold}), else batch-affine. Saturated late tree levels
+   * stay affine even with a Jacobian middle — the jac→affine flip is bridged by
+   * a batched convert. Supersedes the single contiguous `jacobianCrossover` suffix.
+   */
+  perLevelJac?: boolean;
+  /** Per-level cut saturation threshold (active threads); ppw·numWindows below this runs Jacobian. Default 8192. */
+  reduceSatThreshold?: number;
+  /** Slots per thread (one safegcd per chunk) in the batched jac→affine convert. Default 8. */
+  convChunk?: number;
+  /**
+   * Convert-affordability bound (slots = numWindows·stride). The per-level cut
+   * only pushes the doublings to Jacobian — forcing one jac→affine convert —
+   * when numWindows·stride ≤ this. Above it, only the free starved suffix runs
+   * Jacobian (no convert). On M2 the crossover is c=13 (82k, pays) vs c=15 (279k). Default 150000.
+   */
+  convertBound?: number;
+  /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
    * Default 5 (benchmark harness); the production bridge passes 0 so the first
@@ -1622,6 +1642,13 @@ export class MsmV2 {
   // useJac[] is the per-level mask. jacFromLevel = numLevels (default) = off.
   private jacFromLevel = Number.MAX_SAFE_INTEGER;
   private useJac: boolean[] = [];
+  // Step-4 per-level cut: useJac[lv] picks the kernel per level (vs the single
+  // contiguous jacFromLevel suffix). At a jac→affine flip the batched convert
+  // (jacToAffinePipe) normalises all live slots back to affine + restores is_present.
+  private perLevelJac = false;
+  private reduceSatThreshold = 8192;
+  private convChunk = 8;
+  private convertBound = 150000;
   private combineOnHost = true;
   private numBatchesForce = 0; // 0 = budget-driven; >0 forces ≥ this many window-batches (testing/packing)
   private memBudget = MEM_BUDGET; // GPU-buffer budget driving the sT cap + window-batch staging
@@ -1658,6 +1685,11 @@ export class MsmV2 {
   private zInitPipe!: GPUComputePipeline;
   private jacLevelPipe!: GPUComputePipeline;
   private jacFinalizePipe!: GPUComputePipeline;
+  // Step-4 batched jac->affine convert (bridges a mid-schedule jac->affine flip).
+  private jacToAffinePipe!: GPUComputePipeline;
+  private jacToAffineLayout!: GPUBindGroupLayout;
+  private reduceJacToAffineBind?: GPUBindGroup;
+  private jacToAffineNx = 0;
   // Streaming planner + accumulator pipelines
   private classifyPipe!: GPUComputePipeline;
   private metaFixupPipe!: GPUComputePipeline;
@@ -1948,6 +1980,11 @@ export class MsmV2 {
     m.montmul = config?.montmul ?? 'karat';
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
+    m.perLevelJac = config?.perLevelJac ?? false;
+    m.reduceSatThreshold =
+      config?.reduceSatThreshold && config.reduceSatThreshold > 0 ? config.reduceSatThreshold : 8192;
+    m.convChunk = config?.convChunk && config.convChunk > 0 ? config.convChunk : 8;
+    m.convertBound = config?.convertBound && config.convertBound > 0 ? config.convertBound : 150000;
     m.combineOnHost = config?.combineOnHost ?? true;
     m.splitC = config?.splitC ?? false;
     m.sparseReduce = config?.sparseReduce ?? false;
@@ -2056,7 +2093,28 @@ export class MsmV2 {
       }
       m.jacFromLevel = f;
     }
-    m.useJac = m.reducePasses.map((_, i) => i >= m.jacFromLevel);
+    // Step-4 per-level cut overrides the contiguous suffix when perLevelJac is set.
+    // Two Jacobian regions: (1) the starved SUFFIX (trailing low-ppw tree tail) —
+    // monotone, so a contiguous suffix reached by one z-init and closed by
+    // jac_finalize, NO convert: a free win over all-affine at every c. (2) the
+    // MIDDLE (doublings + earlier starved runs) — forces one jac→affine convert
+    // for the saturated final-tree head, so it's gated on convert affordability
+    // (numWindows·stride <= convertBound), since convert cost scales with slots.
+    if (m.perLevelJac) {
+      const nw = m.numWindows;
+      const T = m.reduceSatThreshold;
+      const n = m.reducePasses.length;
+      const suffix = new Array<boolean>(n).fill(false);
+      let allStarved = true;
+      for (let i = n - 1; i >= 0; i--) {
+        if (nw * m.reducePasses[i].ppw >= T) allStarved = false;
+        suffix[i] = allStarved;
+      }
+      const convertAffordable = nw * m.stride <= m.convertBound;
+      m.useJac = m.reducePasses.map((p, i) => suffix[i] || (convertAffordable && (p.isDouble || nw * p.ppw < T)));
+    } else {
+      m.useJac = m.reducePasses.map((_, i) => i >= m.jacFromLevel);
+    }
     // --- Layouts (pool-cached: same `types` shape → same GPUBindGroupLayout
     // across every MsmV2 instance bound to this pool) ---
     const lt = (types: GPUBufferBindingType[]): GPUBindGroupLayout => pool.cache.getLayout(types);
@@ -2188,6 +2246,9 @@ export class MsmV2 {
     m.zInitLayout = lt(['read-only-storage', 'storage', 'uniform']); // is_present, red_z, zparams
     m.jacLevelLayout = lt(['storage', 'storage', 'uniform', 'uniform', 'read-only-storage']); // red_buf, red_z, cparams, lparams, reduce_sched
     m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform', 'storage', 'read-only-storage']); // red_buf, red_z, cparams, is_present, reduce_sched
+    // Step-4 batched convert (flat-slot, no reduce_sched): red_buf(rw), red_z(ro),
+    // is_present(rw), conv_scratch(rw = reducePrefScratch), cparams.
+    m.jacToAffineLayout = lt(['storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     // Streaming planner + accumulator layouts
     m.classifyLayout = lt([
       'read-only-storage',
@@ -2443,6 +2504,11 @@ export class MsmV2 {
       sm.gen_ba_reduce_jac_finalize_shader(WGI, INV_VARIANT),
       `reduce-jac-finalize`,
       m.jacFinalizeLayout,
+    );
+    m.jacToAffinePipe = await compile(
+      sm.gen_ba_reduce_jac_to_affine_shader(WGI, INV_VARIANT),
+      `reduce-jac-to-affine`,
+      m.jacToAffineLayout,
     );
     if (m.sparseReduce) {
       // red_buf(rw), is_present(rw — shares an arena buffer with red_buf, so it
@@ -2845,6 +2911,15 @@ export class MsmV2 {
     let MAXC = 1;
     for (const p of this.reducePasses) {
       MAXC = Math.max(MAXC, Math.ceil(p.ppw / REDUCE_WG));
+    }
+    // Step-4: the batched jac→affine convert reuses reducePrefScratch as a
+    // per-slot prefix store, one field element per global slot — NUM_WINDOWS·stride
+    // entries = NUM_WINDOWS·REDUCE_WG·MAXC, so MAXC must reach ceil(stride/REDUCE_WG).
+    // Only bump when a jac→affine flip actually exists (per-level cut; never for
+    // the contiguous suffix, which has no mid convert).
+    const needsConvert = this.useJac.some((j, i) => i > 0 && !j && this.useJac[i - 1]);
+    if (needsConvert) {
+      MAXC = Math.max(MAXC, Math.ceil(this.stride / REDUCE_WG));
     }
     const reducePrefBytes = NUM_WINDOWS * REDUCE_WG * MAXC * 2 * 16;
     // Total GPU working-set footprint for window-batch count `nb`: the 6 arenas
@@ -3470,9 +3545,24 @@ export class MsmV2 {
         isPresentBuf,
         schedBuf,
       ]);
+      // Step-4 batched convert: cparams = (M, total_slots, chunk_C, nthreads).
+      // total_slots = RED_M (flat over all slots); reducePrefScratch (sized ≥ that
+      // via the MAXC bump when a flip exists) holds one prefix-product per slot.
+      const convTotal = RED_M;
+      const convNthreads = Math.ceil(convTotal / this.convChunk);
+      const jacToAffineParams = ubuf(new Uint32Array([RED_M, convTotal, this.convChunk, convNthreads]));
+      this.reduceJacToAffineBind = mkBind(this.jacToAffineLayout, [
+        redBuf,
+        redZBuf,
+        isPresentBuf,
+        reducePrefScratch,
+        jacToAffineParams,
+      ]);
+      this.jacToAffineNx = Math.ceil(convNthreads / WGI);
     } else {
       this.reduceZInitBind = undefined;
       this.reduceJacFinalizeBind = undefined;
+      this.reduceJacToAffineBind = undefined;
     }
     // Sparse reduce: per-window (base, B) meta + bind. base = tight reduce_off,
     // B = this window's bucket count (2^(c_w-1)). cparams.x = M (red_buf stride).
@@ -3793,9 +3883,21 @@ export class MsmV2 {
       // Reduce = one dispatch per level (table-driven), or a single dispatch for
       // the sparse path. +1 keeps the historical slack slot.
       passes += 1 + (this.sparseReduce ? 1 : this.reduceLevelBinds.length);
-      // Thread-1: the Jacobian reduce adds a z-init dispatch (once, at the
-      // affine->jac transition) and a per-window finalize dispatch (once).
-      if (this.useJac.some(Boolean)) passes += 2;
+      // Thread-1/step-4: each affine↔jac flip in useJac adds one transition
+      // dispatch (z-init for affine→jac, batched convert for jac→affine); a
+      // trailing Jacobian region adds the per-window finalize.
+      {
+        let trans = 0;
+        let cur = false;
+        for (const j of this.useJac) {
+          if (j !== cur) {
+            trans++;
+            cur = j;
+          }
+        }
+        if (cur) trans++;
+        passes += trans;
+      }
       // Region-split adds 3 preprocess dispatches (upper decompose/count/scatter).
       if (this.regionSplit) passes += 3;
       this.passCount = passes;
@@ -4123,29 +4225,42 @@ export class MsmV2 {
       // only the active buckets (gap-aware), skipping empties. Byte-identical to
       // the dense tree.
       dispatch(this.reduceSparsePipe, this.reduceSparseBind, this.numWindows, 1);
-    } else if (this.useJac.some(Boolean) && this.reduceZInitBind && this.reduceJacFinalizeBind) {
-      // Thread-1 Jacobian reduce: levels in the useJac suffix run inversion-free.
-      // z-init lifts the affine state to Jacobian once at the affine->jac
-      // transition (curJac); each jac level is a single add/double; jac_finalize
-      // converts every window root back to affine once at the end so the gather
-      // below reads affine (x, y). Math-identical to the affine reduce — only the
-      // intermediate coordinate representation differs.
+    } else if (
+      this.useJac.some(Boolean) &&
+      this.reduceZInitBind &&
+      this.reduceJacFinalizeBind &&
+      this.reduceJacToAffineBind
+    ) {
+      // Mask-driven Jacobian reduce. useJac[lv] picks the coordinate system per
+      // level. At each flip we bridge representations: affine→jac seeds the Z
+      // plane (z-init), jac→affine normalises every live slot back to affine
+      // (batched convert, which also restores is_present). A trailing Jacobian
+      // region is closed by the per-window finalize. The contiguous-suffix
+      // (Thread-1) path is the special case with one z-init and no mid convert.
+      // Math-identical to the affine reduce — only the representation differs.
       const reducePipe = this.reduceLevelPipes[0];
       let curJac = false;
       for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
-        if (this.useJac[lv] && !curJac) {
+        const wantJac = this.useJac[lv];
+        if (wantJac && !curJac) {
           setPhase('reduce_zinit');
           dispatch(this.zInitPipe, this.reduceZInitBind, Math.ceil(this.redM / WGI), 1);
           curJac = true;
+        } else if (!wantJac && curJac) {
+          setPhase('reduce_jac2aff');
+          dispatch(this.jacToAffinePipe, this.reduceJacToAffineBind, this.jacToAffineNx, 1);
+          curJac = false;
         }
-        if (this.useJac[lv]) {
+        if (wantJac) {
           dispatch(this.jacLevelPipe, this.reduceJacLevelBinds[lv], this.numWindows, 1);
         } else {
           dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
         }
       }
-      setPhase('reduce_jacfinal');
-      dispatch(this.jacFinalizePipe, this.reduceJacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
+      if (curJac) {
+        setPhase('reduce_jacfinal');
+        dispatch(this.jacFinalizePipe, this.reduceJacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
+      }
     } else {
       const reducePipe = this.reduceLevelPipes[0];
       // One dispatch per level over all windows; each window reads its own base +

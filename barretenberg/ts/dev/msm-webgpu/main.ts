@@ -127,6 +127,10 @@ const gpuKnobs: MsmConfig = (() => {
       const v = Number(raw);
       return Number.isInteger(v) ? v : undefined;
     })(),
+    perLevelJac: q.get('perlevel') === '1' || undefined,
+    reduceSatThreshold: optInt('redsat'),
+    convChunk: optInt('convc'),
+    convertBound: optInt('convbound'),
     maxPlannerWorkgroups: optInt('mpw'),
     numBatchesOverride: optInt('nb'),
     budgetMiB: optInt('budgetmib'),
