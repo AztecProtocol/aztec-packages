@@ -1639,7 +1639,9 @@ describe('aztec node', () => {
       p2p.getTxStatus.mockResolvedValue('pending');
       l2BlockSource.getTxEffect.mockResolvedValue(undefined);
       const pendingTx = await mockTx();
-      p2p.getTxByHashFromPool.mockResolvedValue(pendingTx);
+      p2p.getTxByHashFromPool.mockImplementation((_h, opts) =>
+        Promise.resolve(opts?.includeProof === false ? pendingTx.withoutProof() : pendingTx),
+      );
 
       const receipt = await node.getTxReceipt(txHash, { includePendingTx: true });
       expect(receipt).toBeInstanceOf(PendingTxReceipt);
@@ -1648,6 +1650,24 @@ describe('aztec node', () => {
       }
       expect(receipt.tx).toBeDefined();
       expect(receipt.tx!.chonkProof).toEqual(pendingTx.withoutProof().chonkProof);
+    });
+
+    it('attaches the pending tx with its proof when includePendingTx and includeProof are set', async () => {
+      const txHash = TxHash.random();
+      p2p.getTxStatus.mockResolvedValue('pending');
+      l2BlockSource.getTxEffect.mockResolvedValue(undefined);
+      const pendingTx = await mockTx();
+      p2p.getTxByHashFromPool.mockImplementation((_h, opts) =>
+        Promise.resolve(opts?.includeProof === false ? pendingTx.withoutProof() : pendingTx),
+      );
+
+      const receipt = await node.getTxReceipt(txHash, { includePendingTx: true, includeProof: true });
+      expect(receipt).toBeInstanceOf(PendingTxReceipt);
+      if (!receipt.isPending()) {
+        throw new Error('expected a pending receipt');
+      }
+      expect(receipt.tx).toBeDefined();
+      expect(receipt.tx!.chonkProof).toEqual(pendingTx.chonkProof);
     });
 
     it('returns a dropped receipt when the tx is unknown to the pool and not mined', async () => {
