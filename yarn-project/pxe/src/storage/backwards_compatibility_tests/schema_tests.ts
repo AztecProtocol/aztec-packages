@@ -36,7 +36,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { AddressStore } from '../address_store/address_store.js';
-import { AnchorBlockStore } from '../anchor_block_store/anchor_block_store.js';
+import { AnchorBlockStore } from '../anchor_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
 import { NoteStore } from '../note_store/note_store.js';
@@ -330,8 +330,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         137,
       );
 
-      // note3: different contract; will be nullified to populate `note_block_number_to_nullifier` and exercise the
-      // populated `_nullifiedAt` trailer of `StoredNote.toBuffer`.
+      // note3: different contract; will be nullified to populate `note_nullifications_by_nullifier` and exercise the
+      // append-only nullification record written by `applyNullifiers`.
       const note3 = new NoteDao(
         new Note([new Fr(139n), new Fr(149n), new Fr(151n)]),
         contractB,
@@ -355,9 +355,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       await noteStore.addNotes([note2], scopeX, jobId);
       await noteStore.addNotes([note3], scopeX, jobId);
 
-      // Nullify note3 within the same job. `applyNullifiers` reads the staged StoredNote, sets `_nullifiedAt`, and
-      // writes back to the staged map; `commit` then flushes it to disk with the populated trailer and adds the
-      // corresponding `note_block_number_to_nullifier` entry.
+      // Nullify note3 within the same job. `applyNullifiers` stages the emission block number for the note; `commit`
+      // then flushes it to disk into `note_nullifications_by_nullifier`.
       await noteStore.applyNullifiers(
         [{ data: note3.siloedNullifier, l2BlockNumber: BlockNumber(223), l2BlockHash: BlockHash.ZERO }],
         jobId,
@@ -370,8 +369,12 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       note_nullifiers_by_contract: await snapshotMap(
         kvStore.openMultiMap<string, string>('note_nullifiers_by_contract'),
       ),
-      note_block_number_to_nullifier: await snapshotMap(
-        kvStore.openMultiMap<number, string>('note_block_number_to_nullifier'),
+      note_nullifications_by_nullifier: await snapshotMap(
+        kvStore.openMap<string, number>('note_nullifications_by_nullifier'),
+      ),
+      note_nullifiers_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('note_nullifiers_by_block')),
+      note_nullifications_by_block: await snapshotMap(
+        kvStore.openMultiMap<number, string>('note_nullifications_by_block'),
       ),
     }),
   },
