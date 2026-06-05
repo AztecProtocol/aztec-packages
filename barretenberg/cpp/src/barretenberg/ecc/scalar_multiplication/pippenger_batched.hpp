@@ -156,7 +156,6 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
             AffineElement* const master_buf = master_doubled_owner.get();
             const BaseField beta = BaseField::cube_root_of_unity();
             bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-                BB_BENCH_NAME("MSM_fast::batch_glv_double/worker");
                 for (size_t i : chunk.range(max_extent_units)) {
                     master_buf[2 * i] = min_base[i];
                     master_buf[(2 * i) + 1].x = min_base[i].x * beta;
