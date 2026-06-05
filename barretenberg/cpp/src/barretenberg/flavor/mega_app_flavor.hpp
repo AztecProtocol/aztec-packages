@@ -24,7 +24,7 @@ namespace bb {
  *
  * @details Drops the four calldata bus-lookup relations (kernel + first/second/third app), keeping
  * only the `return_data` bus. See `scripts/flavor-codegen/src/flavors/mega_app.ts` for the relation
- * set and the empirical rationale behind the drops.
+ * set and the rationale behind the drops.
  */
 class MegaAppFlavor : public MegaAppFlavor_Generated {
   public:

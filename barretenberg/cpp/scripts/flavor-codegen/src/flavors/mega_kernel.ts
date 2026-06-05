@@ -2,10 +2,9 @@ import { flavor } from "../flavor.js";
 import * as R from "../relations/index.js";
 import type { SingleBusLookupSpec } from "../relations/index.js";
 
-// Kernel-circuit flavor for Chonk. Empirical scan (BB_PRINT_ZERO_POLYS over real client-IVC flows
-// transfer/deploy_schnorr/amm) shows: q_lookup empty and q_nnf empty in every kernel, so
+// Kernel-circuit flavor for Chonk. Kernels use no lookups or non-native-field gates, so
 // LogDerivLookupRelation and NonNativeFieldRelation are dropped. Elliptic/Memory/EccOpQueue and all
-// five buses are kept — kernels are the read side of the databus and host the recursive verifier
+// five buses are kept: kernels are the read side of the databus and host the recursive-verifier
 // stdlib (biggroup / bigfield / poseidon) that exercises those relations.
 const busSpecs: SingleBusLookupSpec[] = (
   [

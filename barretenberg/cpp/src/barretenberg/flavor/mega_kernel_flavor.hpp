@@ -24,8 +24,8 @@ namespace bb {
  * @brief Mega flavor specialized for Chonk kernel circuits.
  *
  * @details Drops `LogDerivLookupRelation` and `NonNativeFieldRelation` relative to MegaFlavor.
- * See `scripts/flavor-codegen/src/flavors/mega_kernel.ts` for the relation set and the empirical
- * rationale behind the drops.
+ * See `scripts/flavor-codegen/src/flavors/mega_kernel.ts` for the relation set and the rationale
+ * behind the drops.
  */
 class MegaKernelFlavor : public MegaKernelFlavor_Generated {
   public:
