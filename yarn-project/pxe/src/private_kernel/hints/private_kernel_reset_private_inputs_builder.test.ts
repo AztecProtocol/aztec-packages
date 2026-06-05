@@ -414,7 +414,8 @@ describe('PrivateKernelResetPrivateInputsBuilder', () => {
       );
     };
 
-    // For inner reset, only one dimension should be non-zero.
+    // For inner reset, only one dimension should be requested. The selected circuit variant may overprovision other
+    // non-siloing dimensions if that variant is cheaper.
     const expectDimensions = (
       builder: PrivateKernelResetPrivateInputsBuilder,
       actualDimensions: PrivateKernelResetDimensions,
@@ -433,6 +434,9 @@ describe('PrivateKernelResetPrivateInputsBuilder', () => {
           expect(requested[name]).toBe(0);
         }
       }
+      expect(actualDimensions.NOTE_HASH_SILOING).toBe(0);
+      expect(actualDimensions.NULLIFIER_SILOING).toBe(0);
+      expect(actualDimensions.PRIVATE_LOG_SILOING).toBe(0);
     };
 
     beforeEach(() => {

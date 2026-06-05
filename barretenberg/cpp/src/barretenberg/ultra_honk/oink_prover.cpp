@@ -6,7 +6,9 @@
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
@@ -322,5 +324,7 @@ template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;
 template class OinkProver<MegaAvmFlavor>;
+template class OinkProver<MegaAppFlavor>;
+template class OinkProver<MegaKernelFlavor>;
 
 } // namespace bb

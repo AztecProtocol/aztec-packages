@@ -1,4 +1,8 @@
-import { MEGA_VK_LENGTH_IN_FIELDS, UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN } from '@aztec/constants';
+import {
+  MEGA_APP_VK_LENGTH_IN_FIELDS,
+  MEGA_KERNEL_VK_LENGTH_IN_FIELDS,
+  UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import {
@@ -536,7 +540,7 @@ export function mapPrivateVerificationKeyHintsToNoir(
  */
 export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): PrivateCallDataWithoutPublicInputsNoir {
   return {
-    vk: mapVerificationKeyToNoir(privateCallData.vk, MEGA_VK_LENGTH_IN_FIELDS),
+    vk: mapVerificationKeyToNoir(privateCallData.vk, MEGA_APP_VK_LENGTH_IN_FIELDS),
     verification_key_hints: mapPrivateVerificationKeyHintsToNoir(privateCallData.verificationKeyHints),
   };
 }
@@ -584,7 +588,7 @@ export function mapPrivateKernelDataToNoir(
   privateKernelInnerData: PrivateKernelData,
 ): PrivateKernelDataWithoutPublicInputsNoir {
   return {
-    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, MEGA_VK_LENGTH_IN_FIELDS),
+    vk_data: mapVkDataToNoir(privateKernelInnerData.vkData, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
   };
 }
 

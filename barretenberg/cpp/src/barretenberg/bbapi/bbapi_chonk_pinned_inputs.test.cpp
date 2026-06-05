@@ -90,17 +90,19 @@ class ChonkPinnedIvcInputsTest : public ::testing::Test {
         bb::bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
 
         for (auto& step : raw_steps) {
-            bb::bbapi::ChonkLoad{
-                .circuit = { .name = std::move(step.function_name),
-                             .bytecode = std::move(step.bytecode),
-                             .verification_key = std::move(step.vk) }
-            }.execute(request);
+            const bb::CircuitKind kind = step.kind;
+            bb::bbapi::ChonkLoad{ .circuit = { .name = std::move(step.function_name),
+                                               .bytecode = std::move(step.bytecode),
+                                               .verification_key = std::move(step.vk) },
+                                  .kind = kind }
+                .execute(request);
             bb::bbapi::ChonkAccumulate{ .witness = std::move(step.witness) }.execute(request);
         }
 
         auto prove_response = bb::bbapi::ChonkProve{}.execute(request);
-        auto vk_response =
-            bb::bbapi::ChonkComputeVk{ .circuit = { .bytecode = hiding_bytecode }, .use_zk_flavor = true }.execute();
+        auto vk_response = bb::bbapi::ChonkComputeVk{ .circuit = { .bytecode = hiding_bytecode },
+                                                      .kind = bb::CircuitKind::HidingKernel }
+                               .execute();
 
         auto verify_response =
             bb::bbapi::ChonkVerify{ .proof = std::move(prove_response.proof), .vk = std::move(vk_response.bytes) }

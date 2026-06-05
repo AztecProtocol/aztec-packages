@@ -9,6 +9,8 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Mega } from "./flavors/mega.js";
+import { MegaApp } from "./flavors/mega_app.js";
+import { MegaKernel } from "./flavors/mega_kernel.js";
 import { MegaZK } from "./flavors/mega_zk.js";
 import { Ultra } from "./flavors/ultra.js";
 import { UltraZK } from "./flavors/ultra_zk.js";
@@ -39,6 +41,10 @@ interface ResolvedLayout {
     repeatedCommitments: { original: number; duplicate: number }[];
     hasDataBus: boolean;
     numBusColumns: number;
+    // Per-flavor-bus, the index into the builder's `circuit.get_bus_vector(idx)` slots
+    // (kernel_calldata=0, first/second/third_app_calldata=1/2/3, return_data=4). Length =
+    // NUM_BUS_COLUMNS, indexed by the flavor's own bus ordering.
+    builderBusIndices: number[];
     relationIds: Set<string>;
     // ORed across the flavor's relations: does any relation read `params.eta*` / `params.beta_sqr,cube`?
     // Used by oink to gate the FS sample and the extra multiplications.
@@ -270,6 +276,22 @@ function resolveLayout(flavor: Flavor): ResolvedLayout {
         repeatedCommitments,
         hasDataBus: numBusColumns > 0,
         numBusColumns,
+        builderBusIndices: (() => {
+            // Selector → builder bus_idx (kernel_calldata=0, first_app=1, second_app=2,
+            // third_app=3, return_data=4). Order of buses in this flavor comes from the
+            // `databus_selectors` subset.
+            const sel_to_idx = new Map<string, number>([
+                ["q_l", 0], ["q_r", 1], ["q_o", 2], ["q_4", 3], ["q_m", 4],
+            ]);
+            const sels = subsets.get("databus_selectors") ?? [];
+            return sels.map((sel) => {
+                const idx = sel_to_idx.get(sel);
+                if (idx === undefined) {
+                    throw new Error(`flavor-codegen: databus selector '${sel}' has no builder bus_idx mapping`);
+                }
+                return idx;
+            });
+        })(),
         relationIds: new Set(flavor.relations.map((r) => r.id)),
         usesEtaPowers: flavor.relations.some((r) => r.usesChallenges.etaPowers ?? false),
         usesBetaPowers: flavor.relations.some((r) => r.usesChallenges.betaPowers ?? false),
@@ -497,6 +519,11 @@ function emitGeneratedHeader(layout: ResolvedLayout): string {
     lines.push(`    static constexpr size_t NUM_SHIFTED_ENTITIES     = ${layout.numShifted};`);
     lines.push(`    static constexpr bool HasDataBus                 = ${layout.hasDataBus ? "true" : "false"};`);
     lines.push(`    static constexpr size_t NUM_BUS_COLUMNS          = ${layout.numBusColumns};`);
+    if (layout.numBusColumns > 0) {
+        lines.push(
+            `    static constexpr std::array<size_t, NUM_BUS_COLUMNS> BUILDER_BUS_INDICES = { ${layout.builderBusIndices.join(", ")} };`
+        );
+    }
     // Per-relation capability bools (see `RELATION_CAPABILITY_BOOLS` in flavor-codegen/main.ts).
     for (const { id, cppName } of RELATION_CAPABILITY_BOOLS) {
         const present = layout.relationIds.has(id);
@@ -745,7 +772,7 @@ function generate(flavor: Flavor, repoRoot: string): { path: string; layout: Res
 function main(): void {
     const repoRoot = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
-    for (const flavorValue of [Mega, MegaZK, Ultra, UltraZK]) {
+    for (const flavorValue of [Mega, MegaApp, MegaKernel, MegaZK, Ultra, UltraZK]) {
         const { path: outFile, layout } = generate(flavorValue, repoRoot);
         process.stdout.write(
             `flavor-codegen: emitted ${path.relative(repoRoot, outFile)} ` +

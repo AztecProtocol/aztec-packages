@@ -74,8 +74,10 @@ struct ChonkLoad {
 
     /** @brief Circuit to be loaded with its bytecode and verification key */
     CircuitInput circuit;
+    /** @brief CircuitKind tag selecting the per-kind slim flavor (App / Kernel / HidingKernel). */
+    CircuitKind kind = CircuitKind::None;
     Response execute(BBApiRequest& request) &&;
-    SERIALIZATION_FIELDS(circuit);
+    SERIALIZATION_FIELDS(circuit, kind);
     bool operator==(const ChonkLoad&) const = default;
 };
 
@@ -213,10 +215,10 @@ struct ChonkComputeVk {
     };
 
     CircuitInputNoVK circuit;
-    /** @brief Existing wire flag selecting the hiding-kernel VK role. */
-    bool use_zk_flavor = false;
+    // CircuitKind tag selecting the per-kind slim flavor (App / Kernel / HidingKernel).
+    CircuitKind kind = CircuitKind::None;
     Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
+    SERIALIZATION_FIELDS(circuit, kind);
     bool operator==(const ChonkComputeVk&) const = default;
 };
 
@@ -244,11 +246,11 @@ struct ChonkCheckPrecomputedVk {
 
     /** @brief Circuit with its precomputed verification key */
     CircuitInput circuit;
-    /** @brief Existing wire flag selecting the hiding-kernel VK role. */
-    bool use_zk_flavor = false;
+    /** @brief CircuitKind tag selecting the per-kind flavor (App / Kernel / HidingKernel). */
+    CircuitKind kind = CircuitKind::None;
 
     Response execute(const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
+    SERIALIZATION_FIELDS(circuit, kind);
     bool operator==(const ChonkCheckPrecomputedVk&) const = default;
 };
 

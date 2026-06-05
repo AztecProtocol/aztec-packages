@@ -153,37 +153,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
     }
 
     /**
-     * @brief Precompute the verification key for an accumulated app circuit (MegaFlavor shape).
-     *        For the hiding kernel, see `get_hiding_kernel_verification_key`.
-     */
-    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in)
-    {
-        // This is a workaround to ensure that the circuit is finalized before we create the verification key
-        // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
-        // but this is a workaround for the test setup.
-        MegaCircuitBuilder_<bb::fr> builder{ builder_in };
-
-        // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
-        builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-
-        auto prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
-        return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-    }
-
-    /**
-     * @brief Precompute the hiding-kernel verification key (MegaZKFlavor shape — reduced
-     *        precomputed entity set, distinct C++ type from `MegaFlavor::VerificationKey`).
-     */
-    static std::shared_ptr<Chonk::MegaZKVerificationKey> get_hiding_kernel_verification_key(ClientCircuit& builder_in)
-    {
-        MegaCircuitBuilder_<bb::fr> builder{ builder_in };
-        builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-
-        auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(builder);
-        return std::make_shared<Chonk::MegaZKVerificationKey>(prover_instance->get_precomputed());
-    }
-
-    /**
      * @brief Create either a circuit with certain number of gates or a more realistic circuit (withv various custom
      * gates and databus usage) in case number of gates is not specified, that is also filled up to 2^17 or 2^19 if
      * large.
@@ -229,8 +198,11 @@ class PrivateFunctionExecutionMockCircuitProducer {
         }
 
         if (check_circuit_sizes) {
-            auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit);
-            size_t log2_dyadic_size = prover_instance->log_dyadic_size();
+            // Size the circuit under its actual proving flavor — apps are MegaAppFlavor, kernels
+            // are MegaKernelFlavor (trailing kernels included: the hiding-kernel-sized
+            // MegaZKFlavor only differs in TRACE_OFFSET, not in dyadic size for these mocks).
+            const size_t log2_dyadic_size = is_kernel ? ProverInstance_<Chonk::KernelFlavor>(circuit).log_dyadic_size()
+                                                      : ProverInstance_<Chonk::AppFlavor>(circuit).log_dyadic_size();
             if (log2_num_gates != 0) {
                 if (is_kernel) {
                     // There are various possibilities here, so we provide a bound
@@ -282,12 +254,27 @@ class PrivateFunctionExecutionMockCircuitProducer {
         }
         auto circuit =
             create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs, check_circuit_sizes);
-        if (is_hiding_kernel) {
-            ivc.accumulate_hiding_kernel(circuit, get_hiding_kernel_verification_key(circuit));
-        } else {
-            ivc.accumulate(circuit, get_verification_key(circuit));
-        }
+        const Chonk::CircuitKind kind = ivc.next_circuit_kind();
+        ivc.accumulate(circuit, kind, make_circuit_verification_key(kind, circuit));
     }
+
+  private:
+    // Build the per-kind verification key for the current circuit. Uses `dispatch_kind` to map
+    // the runtime `CircuitKind` to the matching flavor and derive its precomputed VK.
+    static Chonk::CircuitVerificationKey make_circuit_verification_key(Chonk::CircuitKind kind,
+                                                                       ClientCircuit& builder_in)
+    {
+        return dispatch_kind(kind, [&]<Chonk::CircuitKind K>() -> Chonk::CircuitVerificationKey {
+            using FlavorT = flavor_for<K>;
+            using VK = typename FlavorT::VerificationKey;
+            MegaCircuitBuilder_<bb::fr> builder{ builder_in };
+            builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
+            auto prover_instance = std::make_shared<ProverInstance_<FlavorT>>(builder);
+            return Chonk::CircuitVerificationKey{ std::make_shared<VK>(prover_instance->get_precomputed()) };
+        });
+    }
+
+  public:
 };
 
 } // namespace

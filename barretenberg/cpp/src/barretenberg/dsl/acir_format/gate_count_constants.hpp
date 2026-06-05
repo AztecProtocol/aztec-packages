@@ -128,24 +128,24 @@ inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel gate counts (verifies OINK proof)
 
-inline constexpr size_t INIT_KERNEL_GATE_COUNT = 13877;
-inline constexpr size_t INIT_KERNEL_ECC_ROWS = 656 + MSM_ROWS_OFFSET;
-inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 75;
+inline constexpr size_t INIT_KERNEL_GATE_COUNT = 12407;
+inline constexpr size_t INIT_KERNEL_ECC_ROWS = 524 + MSM_ROWS_OFFSET;
+inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 59;
 
 // Inner kernel gate counts (verifies HN proof for previous kernel + HN for app)
-inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 31289;
-inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1378 + MSM_ROWS_OFFSET;
-inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 159;
+inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 29053;
+inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1180 + MSM_ROWS_OFFSET;
+inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 134;
 
 // Tail kernel gate counts (verifies HN_TAIL proof)
-inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 17421;
-inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 689 + MSM_ROWS_OFFSET;
-inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 77;
+inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 16628;
+inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 623 + MSM_ROWS_OFFSET;
+inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 68;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 38940;
-inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 4773 + MSM_ROWS_OFFSET;
-inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 331;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 41964;
+inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5367 + MSM_ROWS_OFFSET;
+inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 362;
 
 // ========================================
 // ECCVM Recursive Verifier Constants

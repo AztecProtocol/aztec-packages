@@ -3,6 +3,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 
 #include <gtest/gtest.h>
 

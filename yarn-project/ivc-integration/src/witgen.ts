@@ -1,7 +1,9 @@
+import { CircuitKind } from '@aztec/bb.js';
 import {
   AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH,
   AVM_V2_PROOF_LENGTH_IN_FIELDS,
-  MEGA_VK_LENGTH_IN_FIELDS,
+  MEGA_APP_VK_LENGTH_IN_FIELDS,
+  MEGA_KERNEL_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -95,14 +97,13 @@ export {
 
 const log = createLogger('aztec:ivc-test');
 
-export async function getVkAsFields({
-  keyAsFields,
-}: {
-  keyAsFields: string[];
-}): Promise<VerificationKey<typeof MEGA_VK_LENGTH_IN_FIELDS>> {
+export async function getVkAsFields<N extends number>(
+  { keyAsFields }: { keyAsFields: string[] },
+  length: N,
+): Promise<VerificationKey<N>> {
   const key = keyAsFields.map(f => Fr.fromString(f));
   const vk = await VerificationKeyAsFields.fromKey(key);
-  return mapVerificationKeyToNoir(vk, MEGA_VK_LENGTH_IN_FIELDS);
+  return mapVerificationKeyToNoir(vk, length);
 }
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
@@ -252,7 +253,7 @@ export async function generateTestingIVCStack(
   // A call to the reader app creates 1 read request. A reset kernel will be run if there are 2 read requests in the
   // public inputs. All read requests must be cleared before running the tail kernel.
   numReaderAppCalls: number,
-): Promise<[Uint8Array[], Uint8Array[], KernelPublicInputs, Uint8Array[]]> {
+): Promise<[Uint8Array[], Uint8Array[], KernelPublicInputs, Uint8Array[], CircuitKind[]]> {
   if (numCreatorAppCalls > 2) {
     throw new Error('The creator app can only be called at most twice.');
   }
@@ -264,6 +265,13 @@ export async function generateTestingIVCStack(
   const witnessStack: Uint8Array[] = [];
   const bytecodes: string[] = [];
   const vks: string[] = [];
+  const circuitKinds: CircuitKind[] = [];
+  const pushCircuit = (witness: Uint8Array, bytecode: string, vk: string, kind: CircuitKind) => {
+    witnessStack.push(witness);
+    bytecodes.push(bytecode);
+    vks.push(vk);
+    circuitKinds.push(kind);
+  };
   let previousKernel: {
     publicInputs: PrivateKernelPublicInputs;
     keyAsFields: string[];
@@ -273,11 +281,14 @@ export async function generateTestingIVCStack(
     const result = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: appResult.publicInputs,
       tx,
-      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }),
+      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }, MEGA_APP_VK_LENGTH_IN_FIELDS),
     });
-    witnessStack.push(result.witness);
-    bytecodes.push(MockPrivateKernelInitCircuit.bytecode);
-    vks.push(MockPrivateKernelInitVk.keyAsBytes);
+    pushCircuit(
+      result.witness,
+      MockPrivateKernelInitCircuit.bytecode,
+      MockPrivateKernelInitVk.keyAsBytes,
+      CircuitKind.Kernel,
+    );
     previousKernel = {
       publicInputs: result.publicInputs,
       keyAsFields: MockPrivateKernelInitVk.keyAsFields,
@@ -287,13 +298,16 @@ export async function generateTestingIVCStack(
   const createInner = async (appResult: WitnessGenResult<AppPublicInputs>, appVkAsFields: string[]) => {
     const result = await witnessGenMockPrivateKernelInnerCircuit({
       prev_kernel_public_inputs: previousKernel.publicInputs,
-      kernel_vk: await getVkAsFields(previousKernel),
+      kernel_vk: await getVkAsFields(previousKernel, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
       app_inputs: appResult.publicInputs,
-      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }),
+      app_vk: await getVkAsFields({ keyAsFields: appVkAsFields }, MEGA_APP_VK_LENGTH_IN_FIELDS),
     });
-    witnessStack.push(result.witness);
-    bytecodes.push(MockPrivateKernelInnerCircuit.bytecode);
-    vks.push(MockPrivateKernelInnerVk.keyAsBytes);
+    pushCircuit(
+      result.witness,
+      MockPrivateKernelInnerCircuit.bytecode,
+      MockPrivateKernelInnerVk.keyAsBytes,
+      CircuitKind.Kernel,
+    );
     previousKernel = {
       publicInputs: result.publicInputs,
       keyAsFields: MockPrivateKernelInnerVk.keyAsFields,
@@ -303,16 +317,19 @@ export async function generateTestingIVCStack(
   const createReset = async (commitmentToReset: string[]) => {
     const result = await witnessGenMockPrivateKernelResetCircuit({
       prev_kernel_public_inputs: previousKernel.publicInputs,
-      kernel_vk: await getVkAsFields(previousKernel),
+      kernel_vk: await getVkAsFields(previousKernel, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
       commitment_read_hints: padArrayEnd(
         commitmentToReset.map(r => commitments.findIndex(c => c === r)!.toString(16)),
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
         4,
       ),
     });
-    witnessStack.push(result.witness);
-    bytecodes.push(MockPrivateKernelResetCircuit.bytecode);
-    vks.push(MockPrivateKernelResetVk.keyAsBytes);
+    pushCircuit(
+      result.witness,
+      MockPrivateKernelResetCircuit.bytecode,
+      MockPrivateKernelResetVk.keyAsBytes,
+      CircuitKind.Kernel,
+    );
     previousKernel = {
       publicInputs: result.publicInputs,
       keyAsFields: MockPrivateKernelResetVk.keyAsFields,
@@ -322,9 +339,7 @@ export async function generateTestingIVCStack(
   const commitments = ['0x1', '0x2'];
   for (let i = 0; i < numCreatorAppCalls; i++) {
     const result = await witnessGenCreatorAppMockCircuit({ commitments_to_create: [commitments[i], '0x0'] });
-    witnessStack.push(result.witness);
-    bytecodes.push(MockAppCreatorCircuit.bytecode);
-    vks.push(MockAppCreatorVk.keyAsBytes);
+    pushCircuit(result.witness, MockAppCreatorCircuit.bytecode, MockAppCreatorVk.keyAsBytes, CircuitKind.App);
 
     if (i === 0) {
       await createInit(result, MockAppCreatorVk.keyAsFields);
@@ -337,9 +352,7 @@ export async function generateTestingIVCStack(
   for (let i = 0; i < numReaderAppCalls; i++) {
     const commitmentToRead = commitments[Math.min(i, numCreatorAppCalls) % 2];
     const result = await witnessGenReaderAppMockCircuit({ commitments_to_read: [commitmentToRead, '0x0'] });
-    witnessStack.push(result.witness);
-    bytecodes.push(MockAppReaderCircuit.bytecode);
-    vks.push(MockAppReaderVk.keyAsBytes);
+    pushCircuit(result.witness, MockAppReaderCircuit.bytecode, MockAppReaderVk.keyAsBytes, CircuitKind.App);
     commitmentToReset.push(commitmentToRead);
 
     if (i === 0 && !numCreatorAppCalls) {
@@ -355,19 +368,25 @@ export async function generateTestingIVCStack(
 
   const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     prev_kernel_public_inputs: previousKernel!.publicInputs,
-    kernel_vk: await getVkAsFields(previousKernel!),
+    kernel_vk: await getVkAsFields(previousKernel!, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
   });
-  witnessStack.push(tailWitnessGenResult.witness);
-  bytecodes.push(MockPrivateKernelTailCircuit.bytecode);
-  vks.push(MockPrivateKernelTailVk.keyAsBytes);
+  pushCircuit(
+    tailWitnessGenResult.witness,
+    MockPrivateKernelTailCircuit.bytecode,
+    MockPrivateKernelTailVk.keyAsBytes,
+    CircuitKind.Kernel,
+  );
 
   const hidingWitnessGenResult = await witnessGenMockHidingCircuit({
     prev_kernel_public_inputs: tailWitnessGenResult.publicInputs,
-    kernel_vk: await getVkAsFields(MockPrivateKernelTailVk),
+    kernel_vk: await getVkAsFields(MockPrivateKernelTailVk, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
   });
-  witnessStack.push(hidingWitnessGenResult.witness);
-  bytecodes.push(MockHidingCircuit.bytecode);
-  vks.push(MockHidingVk.keyAsBytes);
+  pushCircuit(
+    hidingWitnessGenResult.witness,
+    MockHidingCircuit.bytecode,
+    MockHidingVk.keyAsBytes,
+    CircuitKind.HidingKernel,
+  );
 
   function base64ToUint8Array(base64: string): Uint8Array {
     return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
@@ -384,7 +403,7 @@ export async function generateTestingIVCStack(
   const rawWitnessStack = witnessStack.map((arr: Uint8Array) => ungzip(arr));
   const rawVks = vks.map(hexToUint8Array);
 
-  return [rawBytecodes, rawWitnessStack, hidingWitnessGenResult.publicInputs, rawVks];
+  return [rawBytecodes, rawWitnessStack, hidingWitnessGenResult.publicInputs, rawVks, circuitKinds];
 }
 
 export function mapRecursiveProofToNoir<N extends number>(proof: RecursiveProof<N>): FixedLengthArray<string, N> {

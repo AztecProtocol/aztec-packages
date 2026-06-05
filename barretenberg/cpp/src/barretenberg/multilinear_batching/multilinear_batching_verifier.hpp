@@ -22,8 +22,12 @@ namespace bb {
 /**
  * @brief Multilinear batching verifier. Verifies claim reduction via sumcheck.
  * @details See: chonk/README.md#batching-claims-into-accumulator
+ *
+ * `InstanceFlavor_` is the flavor of the incoming sumcheck instance (e.g. MegaFlavor / MegaAppFlavor /
+ * MegaKernelFlavor and their recursive counterparts). It is independent of `Flavor_`, which selects
+ * the batching curve/codec (native or stdlib); callers must specify it explicitly.
  */
-template <typename Flavor_> class MultilinearBatchingVerifier {
+template <typename Flavor_, typename InstanceFlavor_> class MultilinearBatchingVerifier {
   public:
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
@@ -35,13 +39,11 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
     using VerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
     using Proof = std::vector<FF>;
 
-    using InstanceFlavor = std::conditional_t<std::is_same_v<Flavor, MultilinearBatchingFlavor>,
-                                              MegaFlavor,
-                                              MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+    using InstanceFlavor = InstanceFlavor_;
     using InstanceCommitments = typename VerifierCommitmentsConstructor<InstanceFlavor>::Commitments;
-    using InstanceFF = InstanceFlavor::FF;
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
+    using InstanceFF = typename InstanceFlavor::FF;
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = InstanceFlavor::NUM_UNSHIFTED_ENTITIES;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = InstanceFlavor::NUM_SHIFTED_ENTITIES;
 
     explicit MultilinearBatchingVerifier(const std::shared_ptr<Transcript>& transcript);
 

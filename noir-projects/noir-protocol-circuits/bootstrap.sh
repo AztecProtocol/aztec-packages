@@ -26,13 +26,20 @@ project_name=$(basename "$PWD")
 export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
 
 # Circuits matching these patterns we have chonk keys computed, rather than ultra-honk.
-readarray -t ivc_patterns < <(jq -r '.[]' "../chonk_circuits.json")
+# Each entry is `{ pattern, kind }` where kind ∈ {app, kernel, hiding}. The kind is forwarded to
+# `bb write_vk --scheme chonk --circuit_kind <kind>` because each kind selects a distinct
+# Mega flavor (MegaAppFlavor / MegaKernelFlavor / MegaZKFlavor) with a distinct VK shape.
+readarray -t ivc_kernel_patterns < <(jq -r '.[] | select(.kind == "kernel") | .pattern' "../chonk_circuits.json")
+readarray -t ivc_app_patterns < <(jq -r '.[] | select(.kind == "app") | .pattern' "../chonk_circuits.json")
 ivc_hiding_pattern=("hiding")
 readarray -t rollup_honk_patterns < <(jq -r '.[]' "../rollup_honk_circuits.json")
-# Convert to regex string here and export for use in exported functions.
-export ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
+# Convert to regex strings here and export for use in exported functions.
+export ivc_kernel_regex=$(IFS="|"; echo "${ivc_kernel_patterns[*]}")
+export ivc_app_regex=$(IFS="|"; echo "${ivc_app_patterns[*]}")
 export hiding_kernel_regex=$(IFS="|"; echo "${ivc_hiding_pattern[*]}")
 export rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
+# Combined ivc regex (kernel + app) kept for callers that just want "is this a chonk circuit?".
+export ivc_regex="${ivc_kernel_regex}|${ivc_app_regex}"
 
 function on_exit {
   rm -f joblog.txt
@@ -96,9 +103,11 @@ function compile {
     trap "rm -rf $outdir" EXIT
     function write_vk {
       if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
-        $BB write_vk --scheme chonk --use_zk_flavor -b - -o $outdir
-      elif echo "$name" | grep -qE "${ivc_regex}"; then
-        $BB write_vk --scheme chonk -b - -o $outdir
+        $BB write_vk --scheme chonk --circuit_kind hiding -b - -o $outdir
+      elif echo "$name" | grep -qE "${ivc_kernel_regex}"; then
+        $BB write_vk --scheme chonk --circuit_kind kernel -b - -o $outdir
+      elif echo "$name" | grep -qE "${ivc_app_regex}"; then
+        $BB write_vk --scheme chonk --circuit_kind app -b - -o $outdir
       elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
         $BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir
       elif echo "$name" | grep -qE "rollup_root"; then

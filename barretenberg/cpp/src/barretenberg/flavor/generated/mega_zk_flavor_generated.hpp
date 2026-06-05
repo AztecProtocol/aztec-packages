@@ -106,6 +106,7 @@ class MegaZKFlavor_Generated {
     static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
     static constexpr bool HasDataBus = true;
     static constexpr size_t NUM_BUS_COLUMNS = 1;
+    static constexpr std::array<size_t, NUM_BUS_COLUMNS> BUILDER_BUS_INDICES = { 0 };
     static constexpr bool HasLogDerivLookup = false;
     static constexpr bool HasElliptic = false;
     static constexpr bool HasMemory = false;

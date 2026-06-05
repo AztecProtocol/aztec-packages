@@ -5,6 +5,11 @@
 // =====================
 
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/hypernova/hypernova_batching_challenges.hpp"
 
@@ -151,6 +156,8 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
     return { sumcheck_output.verified, sumcheck_batching_result, new_accumulator };
 };
 
-template class HypernovaFoldingVerifier<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
-template class HypernovaFoldingVerifier<MegaFlavor>;
+template class HypernovaFoldingVerifier<MegaAppFlavor>;
+template class HypernovaFoldingVerifier<MegaKernelFlavor>;
+template class HypernovaFoldingVerifier<MegaAppRecursiveFlavor>;
+template class HypernovaFoldingVerifier<MegaKernelRecursiveFlavor>;
 } // namespace bb
