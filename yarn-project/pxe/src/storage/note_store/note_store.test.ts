@@ -868,6 +868,25 @@ describe('NoteStore.rollback', () => {
     expect(await store.nullifiersOfNotesAtBlock(10)).toHaveLength(0);
   });
 
+  it('throws when rollback is called while jobs are running', async () => {
+    // Stage a note under a job but never commit it, so the store still holds in-flight job data. Rolling back now
+    // could later let the job commit notes anchored to blocks the rollback just deleted.
+    const staged = await NoteDao.random({
+      contractAddress: contract,
+      l2BlockNumber: BlockNumber(10),
+      l2BlockHash: FIXED_BLOCK_HASH,
+    });
+    await store.addNotes([staged], scope, 'uncommitted-job');
+
+    await expect(kv.transactionAsync(() => store.rollback(0))).rejects.toThrow(
+      'PXE note store rollback is not allowed while jobs are running',
+    );
+
+    await store.discardStaged('uncommitted-job');
+
+    await expect(kv.transactionAsync(() => store.rollback(0))).resolves.not.toThrow();
+  });
+
   afterEach(async () => {
     await kv.close();
   });

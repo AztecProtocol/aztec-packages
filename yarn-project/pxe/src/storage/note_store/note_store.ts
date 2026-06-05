@@ -396,8 +396,14 @@ export class NoteStore implements StagedStore {
    *
    * Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, because the
    * reorg path wraps it together with other store operations, and IndexedDB has no nested transaction support).
+   *
+   * Throws if any job has uncommitted staged writes, since rolling back mid-job could later re-introduce notes or
+   * nullifier emissions anchored to deleted blocks.
    */
   public async rollback(toBlock: number): Promise<void> {
+    if (this.#notesForJob.size > 0 || this.#nullifierEmissionsForJob.size > 0) {
+      throw new Error('PXE note store rollback is not allowed while jobs are running');
+    }
     // Snapshot the orphaned (block, nullifier) pairs before mutating so we never delete from the cursor we are
     // iterating. Scanning from `toBlock + 1` upward covers everything above the rollback target without needing to know
     // the chain tip. Each nullifier's rows are independent (nullifiers are globally unique), so the deletes run
@@ -405,7 +411,7 @@ export class NoteStore implements StagedStore {
     const orphanedNotes: { block: number; siloedNullifier: string }[] = [];
 
     for await (const [block, siloedNullifier] of this.#notesByBlockNumber.entriesAsync({ start: toBlock + 1 })) {
-      orphanedNotes.push({ block, siloedNullifier: siloedNullifier });
+      orphanedNotes.push({ block, siloedNullifier });
     }
 
     let removedNotes = 0;
