@@ -33,7 +33,7 @@ export class UnavailableOracleError extends Error {
  *   - Standalone verbs (`delete`, `copy`, `decrypt`, `log`, etc) are used when no generic verb fits.
  */
 export class Oracle {
-  constructor(private handler: IMiscOracle | IUtilityExecutionOracle | IPrivateExecutionOracle) {}
+  constructor(private handler: IMiscOracle & (IUtilityExecutionOracle | IPrivateExecutionOracle)) {}
 
   private handlerAsMisc(): IMiscOracle {
     if (!('isMisc' in this.handler)) {
@@ -77,9 +77,9 @@ export class Oracle {
     // Validate oracle names - these must be prefixed with either "aztec_prv_" or "aztec_utl_" to indicate their scope
     // and must correspond to a function on the Oracle class.
     oracleNames.forEach(name => {
-      if (!name.startsWith('aztec_prv_') && !name.startsWith('aztec_utl_')) {
+      if (!name.startsWith('aztec_prv_') && !name.startsWith('aztec_utl_') && !name.startsWith('aztec_misc_')) {
         throw new Error(
-          `Oracle function "${name}" must be prefixed with either "aztec_prv_" or "aztec_utl_" to indicate its scope`,
+          `Oracle function "${name}" must be prefixed with "aztec_prv_", "aztec_utl_", or "aztec_misc_" to indicate its scope`,
         );
       }
 
@@ -150,9 +150,9 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+  aztec_misc_assertCompatibleOracleVersion(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
     return callHandler({
-      oracle: 'aztec_utl_assertCompatibleOracleVersion',
+      oracle: 'aztec_misc_assertCompatibleOracleVersion',
       inputs,
       handler: ([major, minor]) => {
         this.handlerAsMisc().assertCompatibleOracleVersion(major, minor);
@@ -161,9 +161,9 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getRandomField(): Promise<(ACVMField | ACVMField[])[]> {
+  aztec_misc_getRandomField(): Promise<(ACVMField | ACVMField[])[]> {
     return callHandler({
-      oracle: 'aztec_utl_getRandomField',
+      oracle: 'aztec_misc_getRandomField',
       inputs: [],
       handler: () => this.handlerAsMisc().getRandomField(),
     });
@@ -428,11 +428,11 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_log(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
+  aztec_misc_log(...inputs: ACVMField[][]): Promise<(ACVMField | ACVMField[])[]> {
     return callHandler({
-      oracle: 'aztec_utl_log',
+      oracle: 'aztec_misc_log',
       inputs,
-      handler: ([level, message, _, fields]) => this.handlerAsMisc().log(level, message, fields),
+      handler: ([level, message, fieldsSize, fields]) => this.handlerAsMisc().log(level, message, fieldsSize, fields),
     });
   }
 
