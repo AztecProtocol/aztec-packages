@@ -1,5 +1,24 @@
 # Handoff: porting `wt/structure`'s two reduce threads onto the arena branch
 
+> **STATUS (Thread 1 — DONE, validated).** The Jacobian bucket-reduce is ported,
+> wired to `jacobianCrossover`, and validated on M2: golden byte-identical at logN
+> 14/15/16/17 with Jacobian forced on (`?jaccross=999999`) and via JAC_AUTO
+> (`?jaccross=-1`); profiles D+E oracle-agree (giant buckets) with jac on; each new
+> kernel compiles once per pool (one-program holds); arena 93.71 MiB @ logN17
+> (≤160). Default stays **off** (`jacobianCrossover = 0`) — production auto-enable
+> is a device-specific tuning follow-up. The optional step-4 refinement (per-level
+> mid-cut + batched jac→affine convert) is NOT ported; the per-level `useJac[]`
+> mask IS (drive it with `?jaccross=<ppw-threshold>`).
+>
+> **Correction to the note below:** the **affine reduce is NOT identical on both
+> sides.** This branch moved `ba_reduce_level_bench` onto a per-window
+> `reduce_sched` schedule table (split-c aware; `base = reduce_sched[row].x`,
+> `(pa,pb,ppw,kind) = reduce_sched[row+1+lv]`), while `wt/structure` still uses the
+> old `base = w*stride` / `lparams=(pa,pb,ppw,kind)` convention. **Any reduce kernel
+> lifted from `wt/structure` (incl. Thread 2's) must be re-plumbed onto
+> `reduce_sched`** — that was the main adaptation for Thread 1's `ba_reduce_level_jacobian`
+> and `ba_reduce_jac_finalize`. `ba_reduce_z_init` needed no schedule (per-slot).
+
 **Goal.** Bring two algorithmic threads from branch `wt/structure` into this branch
 (`msm-arena-rewrite`, worktree `~/localclaudebox/wt-memory`) and adapt them to the
 **6-colour scratch arena** + the **one-program (size-independent)** invariant that

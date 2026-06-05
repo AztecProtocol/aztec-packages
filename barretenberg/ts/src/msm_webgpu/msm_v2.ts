@@ -54,7 +54,8 @@ type ScratchSlot = GPUBuffer | GPUBufferBinding;
 const slotBuf = (x: ScratchSlot): GPUBuffer => (x instanceof GPUBuffer ? x : x.buffer);
 const slotOff = (x: ScratchSlot): number => (x instanceof GPUBuffer ? 0 : (x.offset ?? 0));
 const slotSize = (x: ScratchSlot): number => (x instanceof GPUBuffer ? x.size : (x.size ?? 0));
-const clearSlot = (enc: GPUCommandEncoder, x: ScratchSlot): void => enc.clearBuffer(slotBuf(x), slotOff(x), slotSize(x));
+const clearSlot = (enc: GPUCommandEncoder, x: ScratchSlot): void =>
+  enc.clearBuffer(slotBuf(x), slotOff(x), slotSize(x));
 const writeSlot = (q: GPUQueue, x: ScratchSlot, off: number, data: BufferSource): void =>
   q.writeBuffer(slotBuf(x), slotOff(x) + off, data);
 export const MEM_BUDGET = 160 * (1 << 20); // phone GPU-buffer budget (ARENA_LAYOUT.md §3)
@@ -87,18 +88,39 @@ export function arenaColourSizes(p: {
   const soa = 2 * PG * redM * 4 * 4; // soaSize(redM)
   return [
     // A0: activeBuckets activeCount binOffsets partialWritePos reducePrefScratch sortedCountList scalarsRawBuf l0IdxBuf
-    a(sBTotal * 4) + a(4) + a(64 * 4) + a(sBTotal * 4) + a(reducePrefBytes) + a(sBTotal * 4) + a(scalarsBytes) + a(l0Slots * 4),
+    a(sBTotal * 4) +
+      a(4) +
+      a(64 * 4) +
+      a(sBTotal * 4) +
+      a(reducePrefBytes) +
+      a(sBTotal * 4) +
+      a(scalarsBytes) +
+      a(l0Slots * 4),
     // A1: bucketAndSign denseBucketList denseCountList binWritePos cumulativeAdds ptCount ptMeta ptTasks ptTotalTasks walkerPartialDest rowPtrBuf isPresentBuf redBuf
-    a(batchSlots * 4) + a(sBTotal * 4) + a(sBTotal * 4) + a(64 * 4) + a(sBTotal * 4) + a(sBTotal * 4) + a(16) +
-      a(2 * sT * sS * 16) + a(4) + a(2 * sT * sS * 4) + a(rowPtrLen * 4) + a(redM * 4) + a(soa),
+    a(batchSlots * 4) +
+      a(sBTotal * 4) +
+      a(sBTotal * 4) +
+      a(64 * 4) +
+      a(sBTotal * 4) +
+      a(sBTotal * 4) +
+      a(16) +
+      a(2 * sT * sS * 16) +
+      a(4) +
+      a(2 * sT * sS * 4) +
+      a(rowPtrLen * 4) +
+      a(redM * 4) +
+      a(soa),
     // A2: partialCount partialLayout size1BucketList taskCuts valIdxBuf
     a(sBTotal * 4) + a(2 * sT * sS * 4) + a(sBTotal * 2 * 4) + a(sT * (sS + 1) * 2 * 4) + a(batchSlots * 4),
     // A3: radixHist threadCuts walkerPartials countHistogram ptOff
     a(sRadixTiles * 256 * 4) + a(sT * 2 * 4) + a(10 * sT * sS * 16) + a(64 * 4) + a(sBTotal * 4),
     // A4: ptScratch sortedBucketList wgCuts
     a(512 * sT * sS) + a(sBTotal * 4) + a(MAX_STREAM_WORKGROUPS * 2 * 4),
-    // A5: partialOffset sortedActiveBuckets
-    a((sBTotal + 1) * 4) + a(sBTotal * 4),
+    // A5: partialOffset sortedActiveBuckets redZBuf
+    // redZBuf = Jacobian Z-plane (Thread-1 reduce), PG vec4/slot over redM slots
+    // = half of redBuf's SoA. Only written when the Jacobian reduce is active,
+    // but sized at high-water redM like redBuf (grows on the same redM trigger).
+    a((sBTotal + 1) * 4) + a(sBTotal * 4) + a(PG * redM * 4 * 4),
   ];
 }
 
@@ -153,6 +175,14 @@ function chooseBudgetMpw(g: {
 const DEFAULT_WGI = 128; // generic kernel workgroup size
 const DEFAULT_L0_LOG = 1; // reduction leaf-partition log2
 const DEFAULT_INV_VARIANT: 'loop' | 'pk' = 'pk';
+
+// Reduction-coordinate regime (Thread-1 port from wt/structure). Below this
+// total-thread count the densest reduce level can't saturate the GPU, so the
+// inversion-free Jacobian reduce (no amortised batch inversion) beats the
+// affine reduce; above it the affine path's amortised inversion wins. Measured
+// on M2 (T_sat scales with core count; the affine/Jacobian cost ratio does not).
+const T_SAT_REDUCE = 16384;
+const JAC_AUTO = -1; // jacobianCrossover sentinel: auto-select the regime from T_SAT_REDUCE
 
 type ReducePass = { isDouble: boolean; shaderPhase: number; p2x: number; p2y: number; ppw: number };
 
@@ -392,7 +422,6 @@ function boothDigit(scalar: bigint, w: number, c: number): { bucket: number; sig
   const bucket = (((encode - neg) >>> 0) ^ negMask) & valMask;
   return { bucket, sign: neg };
 }
-
 
 interface LevelPlan {
   // pair_blocks_per_window: the per-window count of "pair_blocks" the fused
@@ -719,10 +748,11 @@ interface SharedScratch {
   scalarsRawBuf: GPUBufferBinding;
   redBuf: GPUBufferBinding;
   isPresentBuf: GPUBufferBinding;
+  redZBuf: GPUBufferBinding; // arena A5 — Jacobian Z-plane for the Thread-1 reduce
   reducePrefScratch: GPUBufferBinding;
   // Streaming planner + accumulator buffers (Phase 1-4).
   streamPlannerMeta: GPUBuffer;
-  arenas: GPUBuffer[];              // one GPU buffer per arena colour (ARENA_LAYOUT.md §1); mkBind-only scratch carved at 256-B offsets
+  arenas: GPUBuffer[]; // one GPU buffer per arena colour (ARENA_LAYOUT.md §1); mkBind-only scratch carved at 256-B offsets
 
   size1BucketList: GPUBufferBinding;
   denseBucketList: GPUBufferBinding;
@@ -739,47 +769,47 @@ interface SharedScratch {
   accBuf: GPUBuffer;
   streamPrefScratch: GPUBuffer;
   // Stream-walker buffers (Plan §3.1 + C's KNOB 2 variant).
-  taskCuts: GPUBufferBinding;       // arena slot — (S+1) cut points/thread × 2 u32
+  taskCuts: GPUBufferBinding; // arena slot — (S+1) cut points/thread × 2 u32
   walkerPartials: GPUBufferBinding; // arena slot — 2*S partial slots/thread (split-start + task-end)
   walkerPartialDest: GPUBufferBinding; // arena slot — bucket_id per partial slot (NO_BUCKET if unused)
   // Optimal walker_combine pipeline buffers.
-  partialCount: GPUBufferBinding;   // arena slot — bTotal × atomic<u32> — partials per bucket
-  partialOffset: GPUBufferBinding;  // arena slot — (bTotal+1) × u32 — exclusive prefix sum
+  partialCount: GPUBufferBinding; // arena slot — bTotal × atomic<u32> — partials per bucket
+  partialOffset: GPUBufferBinding; // arena slot — (bTotal+1) × u32 — exclusive prefix sum
   partialWritePos: GPUBufferBinding; // arena slot — bTotal × atomic<u32> — scatter scratch
-  partialLayout: GPUBufferBinding;  // arena slot — max_partials × u32 — dense per-bucket slot indices
-  activeBuckets: GPUBufferBinding;  // arena slot — bTotal × u32 — filtered list of count>=2 bucket_ids
-  activeCount: GPUBufferBinding;    // arena slot — 1 × atomic<u32> — size of active_buckets
+  partialLayout: GPUBufferBinding; // arena slot — max_partials × u32 — dense per-bucket slot indices
+  activeBuckets: GPUBufferBinding; // arena slot — bTotal × u32 — filtered list of count>=2 bucket_ids
+  activeCount: GPUBufferBinding; // arena slot — 1 × atomic<u32> — size of active_buckets
   // Counting-sort prepass: groups active_buckets by partial_count so each
   // combine_batched thread's S=8 slots have matching N → zero tail divergence.
   // MAX_N = 64 bins (sized in ba_walker_combine_sort_*.template.wgsl).
   countHistogram: GPUBufferBinding; // arena slot — MAX_N × atomic<u32>
-  binOffsets: GPUBufferBinding;     // arena slot — MAX_N × u32 — exclusive prefix sum
-  binWritePos: GPUBufferBinding;    // arena slot — MAX_N × atomic<u32>
+  binOffsets: GPUBufferBinding; // arena slot — MAX_N × u32 — exclusive prefix sum
+  binWritePos: GPUBufferBinding; // arena slot — MAX_N × atomic<u32>
   sortedActiveBuckets: GPUBufferBinding; // arena slot — bTotal × u32 — active_buckets in N order
   // Pair-tree hot-bucket combine. pt_scratch holds intermediate level
   // partials per hot bucket; pt_alloc is a single atomic claim counter
   // reset each MSM. Sized for the worst case where every emitted partial
   // is in a hot bucket — sum(2N over hot) ≤ 2 × total_partials.
-  ptScratch: GPUBufferBinding;      // arena slot — pt_buf (512·sT·sS B ≈ 32 MB)
-  ptAlloc: GPUBuffer;               // 1 × atomic<u32> — legacy, kept to avoid bind churn
-  ptDispatchArgs: GPUBuffer;        // 3 × u32 — sort_scan writes (ceil(hot_count/TPB),1,1); used by pt_init_copy/build/finalize
+  ptScratch: GPUBufferBinding; // arena slot — pt_buf (512·sT·sS B ≈ 32 MB)
+  ptAlloc: GPUBuffer; // 1 × atomic<u32> — legacy, kept to avoid bind churn
+  ptDispatchArgs: GPUBuffer; // 3 × u32 — sort_scan writes (ceil(hot_count/TPB),1,1); used by pt_init_copy/build/finalize
   ptCombineDispatchArgs: GPUBuffer; // 3 × u32 — pt_dispatch_compute writes per-level (ceil(total_tasks/S/TPB),1,1)
-  ptBuildLoopArgs: GPUBuffer;       // 3 × u32 — dispatch_chain writes hot_wgs while any pair-tasks remain, else 0; build's level-by-level indirect dispatch reads this
-  cbDispatchArgs: GPUBuffer;        // 3 × u32 — sort_scan writes (ceil(cb_active / (CB_TPB*CB_S)), 1, 1); combine_batched indirect-dispatched off it
+  ptBuildLoopArgs: GPUBuffer; // 3 × u32 — dispatch_chain writes hot_wgs while any pair-tasks remain, else 0; build's level-by-level indirect dispatch reads this
+  cbDispatchArgs: GPUBuffer; // 3 × u32 — sort_scan writes (ceil(cb_active / (CB_TPB*CB_S)), 1, 1); combine_batched indirect-dispatched off it
   ptPersistentDispatchArgs: GPUBuffer; // 3 × u32 — packer writes (NUM_WGS, 1, 1)
-  ptBucketWg: GPUBuffer;               // sBTotal × u32 — per-bucket WG assignment (packer intermediate)
-  ptWgMeta: GPUBuffer;                 // MAX_WGS × 4 × u32 — (scratch_off, count, total_partials, _) per WG
-  ptWgBucketList: GPUBuffer;           // sBTotal × u32 — bids packed by WG
-  ptWgBucketStarts: GPUBuffer;         // (MAX_WGS + 1) × u32 — prefix sum into pt_wg_bucket_list
+  ptBucketWg: GPUBuffer; // sBTotal × u32 — per-bucket WG assignment (packer intermediate)
+  ptWgMeta: GPUBuffer; // MAX_WGS × 4 × u32 — (scratch_off, count, total_partials, _) per WG
+  ptWgBucketList: GPUBuffer; // sBTotal × u32 — bids packed by WG
+  ptWgBucketStarts: GPUBuffer; // (MAX_WGS + 1) × u32 — prefix sum into pt_wg_bucket_list
   // Chunk-pass (stream_walker-shaped reducer).
-  ptChunks: GPUBuffer;                 // vec4<u32> × max_chunks — (in_off, count, out_off, bid)
-  ptChunksTotal: GPUBuffer;            // 1 × atomic<u32> — chunks emitted in current pass
+  ptChunks: GPUBuffer; // vec4<u32> × max_chunks — (in_off, count, out_off, bid)
+  ptChunksTotal: GPUBuffer; // 1 × atomic<u32> — chunks emitted in current pass
   // Pair-tree v2 (multi-dispatch). Per-bucket level state, task list, counters.
-  ptOff: GPUBufferBinding;          // arena slot — sBTotal × u32 — bucket's current start in pt_buf
-  ptCount: GPUBufferBinding;        // arena slot — sBTotal × u32 — bucket's current level count
-  ptMeta: GPUBufferBinding;         // arena slot — 4 × u32 — NUM_HOT, total partials, _, _
-  ptTasks: GPUBufferBinding;        // arena slot — max tasks per level × vec4<u32>
-  ptTotalTasks: GPUBufferBinding;   // arena slot — 1 × atomic<u32>
+  ptOff: GPUBufferBinding; // arena slot — sBTotal × u32 — bucket's current start in pt_buf
+  ptCount: GPUBufferBinding; // arena slot — sBTotal × u32 — bucket's current level count
+  ptMeta: GPUBufferBinding; // arena slot — 4 × u32 — NUM_HOT, total partials, _, _
+  ptTasks: GPUBufferBinding; // arena slot — max tasks per level × vec4<u32>
+  ptTotalTasks: GPUBufferBinding; // arena slot — 1 × atomic<u32>
   // Pad-trio layout in bufA/bufB (depends on the M1 the buffers were
   // sized for). Re-derived whenever bufA grows.
   planeBytes: number;
@@ -970,6 +1000,7 @@ export class MsmV2Pool {
     let scalarsRawBuf = s?.scalarsRawBuf;
     let redBuf = s?.redBuf;
     let isPresentBuf = s?.isPresentBuf;
+    let redZBuf = s?.redZBuf;
     let reducePrefScratch = s?.reducePrefScratch;
 
     // bufA/bufB depend on M1. They also need a pad-trio re-write whenever
@@ -1168,6 +1199,7 @@ export class MsmV2Pool {
     wgCuts = carve(4, MAX_STREAM_WORKGROUPS * 2 * 4);
     partialOffset = carve(5, (sBTotal + 1) * 4);
     sortedActiveBuckets = carve(5, sBTotal * 4);
+    redZBuf = carve(5, PG * cur.redM * 4 * 4);
     partialCount = carve(2, sBTotal * 4);
     partialLayout = carve(2, 2 * sT * sS * 4);
     size1BucketList = carve(2, sBTotal * 2 * 4);
@@ -1306,6 +1338,7 @@ export class MsmV2Pool {
       scalarsRawBuf: scalarsRawBuf!,
       redBuf: redBuf!,
       isPresentBuf: isPresentBuf!,
+      redZBuf: redZBuf!,
       reducePrefScratch: reducePrefScratch!,
       streamPlannerMeta: streamPlannerMeta!,
       size1BucketList: size1BucketList!,
@@ -1584,6 +1617,11 @@ export class MsmV2 {
   private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
   private jacobianCrossover = 0;
+  // Thread-1 Jacobian reduce: levels with index >= jacFromLevel run the
+  // inversion-free Jacobian kernel (a contiguous suffix so Z stays consistent);
+  // useJac[] is the per-level mask. jacFromLevel = numLevels (default) = off.
+  private jacFromLevel = Number.MAX_SAFE_INTEGER;
+  private useJac: boolean[] = [];
   private combineOnHost = true;
   private numBatchesForce = 0; // 0 = budget-driven; >0 forces ≥ this many window-batches (testing/packing)
   private memBudget = MEM_BUDGET; // GPU-buffer budget driving the sT cap + window-batch staging
@@ -1615,6 +1653,11 @@ export class MsmV2 {
   private convActivePipe!: GPUComputePipeline;
   private convMetaPipe!: GPUComputePipeline;
   private reduceLevelPipes: GPUComputePipeline[] = [];
+  // Thread-1 Jacobian reduce-tail pipelines (z-seed + inversion-free level +
+  // per-window Jacobian->affine finalize).
+  private zInitPipe!: GPUComputePipeline;
+  private jacLevelPipe!: GPUComputePipeline;
+  private jacFinalizePipe!: GPUComputePipeline;
   // Streaming planner + accumulator pipelines
   private classifyPipe!: GPUComputePipeline;
   private metaFixupPipe!: GPUComputePipeline;
@@ -1661,6 +1704,9 @@ export class MsmV2 {
   private convActiveLayout!: GPUBindGroupLayout;
   private convMetaLayout!: GPUBindGroupLayout;
   private reduceLevelLayout!: GPUBindGroupLayout;
+  private zInitLayout!: GPUBindGroupLayout;
+  private jacLevelLayout!: GPUBindGroupLayout;
+  private jacFinalizeLayout!: GPUBindGroupLayout;
   // Streaming layouts
   private classifyLayout!: GPUBindGroupLayout;
   private metaFixupLayout!: GPUBindGroupLayout;
@@ -1857,6 +1903,9 @@ export class MsmV2 {
   // schedule table so a single dispatch per level reduces every window at its
   // own stride. Length = max_levels (the stride_max schedule length).
   private reduceLevelBinds: GPUBindGroup[] = [];
+  private reduceZInitBind?: GPUBindGroup;
+  private reduceJacLevelBinds: GPUBindGroup[] = [];
+  private reduceJacFinalizeBind?: GPUBindGroup;
   private levelBinds: LevelBind[] = [];
 
   private constructor() {}
@@ -1981,6 +2030,33 @@ export class MsmV2 {
     // Split-c builds a second, shorter schedule for the upper region at prepare()
     // time (stride_hi is data-dependent on n_large).
     m.reducePasses = buildReducePasses(m.stride, L0_LOG);
+    // Reduction-coordinate regime (Thread-1 port). Levels with index >=
+    // jacFromLevel run the inversion-free Jacobian kernel; the Jacobian region
+    // is a contiguous suffix so Z stays consistent across it. The mask is over
+    // the envelope (stride_max) schedule and applies uniformly across windows —
+    // narrow split-c windows no-op their past-schedule levels (ppw == 0) in
+    // either coordinate system, and the affine->jac->affine round-trip at Z = R
+    // is identity, so a window that completes in the affine prefix is preserved.
+    //   jacobianCrossover === 0 (default): all-affine.
+    //   === JAC_AUTO (-1): auto-select from the device saturation point.
+    //   > 0: manual ppw threshold — first level with ppw <= value is the cut
+    //        (e.g. 999999 => level 0 => all-Jacobian, for byte-identical validation).
+    if (m.jacobianCrossover === JAC_AUTO) {
+      const maxPpw = Math.max(...m.reducePasses.map(p => p.ppw));
+      m.jacFromLevel = m.numWindows * maxPpw < T_SAT_REDUCE ? 0 : m.reducePasses.length;
+    } else if (m.jacobianCrossover <= 0) {
+      m.jacFromLevel = m.reducePasses.length;
+    } else {
+      let f = m.reducePasses.length;
+      for (let i = 0; i < m.reducePasses.length; i++) {
+        if (m.reducePasses[i].ppw <= m.jacobianCrossover) {
+          f = i;
+          break;
+        }
+      }
+      m.jacFromLevel = f;
+    }
+    m.useJac = m.reducePasses.map((_, i) => i >= m.jacFromLevel);
     // --- Layouts (pool-cached: same `types` shape → same GPUBindGroupLayout
     // across every MsmV2 instance bound to this pool) ---
     const lt = (types: GPUBufferBindingType[]): GPUBindGroupLayout => pool.cache.getLayout(types);
@@ -2037,7 +2113,14 @@ export class MsmV2 {
     // 4 bindings: scalars (read), bucket_and_sign (write), params, batch.
     // (Previously 5 — separate signs buffer collapsed into the bucket_and_sign pack.)
     // scalars, bucket_and_sign(rw), params, batch, window_desc, point_offsets.
-    m.decomposeLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform', 'read-only-storage', 'read-only-storage']);
+    m.decomposeLayout = lt([
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'uniform',
+      'read-only-storage',
+      'read-only-storage',
+    ]);
     // msb_histogram: scalars(read), msb_hist(rw), msb_per_scalar(rw), params(uniform).
     m.msbHistLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     // decide_window_split: msb_hist(read), window_desc(rw), summary(rw), params(uniform).
@@ -2046,39 +2129,141 @@ export class MsmV2 {
     // idx_large_count(rw atomic), params(uniform).
     m.msbIdxLargeLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
     // decompose_upper: scalars(read), bucket_and_sign(write), params, batch, window_desc, idx_large(read).
-    m.decomposeUpperLayout = lt(['read-only-storage', 'storage', 'uniform', 'uniform', 'read-only-storage', 'read-only-storage']);
+    m.decomposeUpperLayout = lt([
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'uniform',
+      'read-only-storage',
+      'read-only-storage',
+    ]);
     // transpose_scatter_upper: scatter layout (7) + idx_large(read).
-    m.scatterUpperLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform', 'read-only-storage']);
+    m.scatterUpperLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'uniform',
+      'read-only-storage',
+    ]);
     // bucket_and_sign, partials(rw), params, window_desc, batch_window_base, point_offsets.
-    m.xposeCountLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform', 'read-only-storage']);
+    m.xposeCountLayout = lt([
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'uniform',
+      'read-only-storage',
+    ]);
     m.xposeReduceLayout = lt(['storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
     m.xposeScanLayout = lt(['storage', 'uniform', 'read-only-storage', 'uniform']);
     // bucket_and_sign, col_ptr, partials, val_idx(rw), params, window_desc, batch_window_base, point_offsets.
-    m.xposeScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform', 'read-only-storage']);
+    m.xposeScatterLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'uniform',
+      'read-only-storage',
+    ]);
     m.convActiveLayout = lt(['read-only-storage', 'storage', 'uniform', 'read-only-storage']);
     // row_ptr, active_counts(rw), active_offsets(rw), params, window_desc, batch_window_base, point_offsets.
-    m.convMetaLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'uniform', 'read-only-storage']);
+    m.convMetaLayout = lt([
+      'read-only-storage',
+      'storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'uniform',
+      'read-only-storage',
+    ]);
     m.reduceLevelLayout = lt(['storage', 'storage', 'storage', 'uniform', 'uniform', 'read-only-storage']);
+    // Thread-1 Jacobian reduce-tail layouts. jac_level/jac_finalize add the
+    // reduce_sched binding (the per-window base + split-c schedule) so they
+    // decode levels identically to the affine kernel.
+    m.zInitLayout = lt(['read-only-storage', 'storage', 'uniform']); // is_present, red_z, zparams
+    m.jacLevelLayout = lt(['storage', 'storage', 'uniform', 'uniform', 'read-only-storage']); // red_buf, red_z, cparams, lparams, reduce_sched
+    m.jacFinalizeLayout = lt(['storage', 'read-only-storage', 'uniform', 'storage', 'read-only-storage']); // red_buf, red_z, cparams, is_present, reduce_sched
     // Streaming planner + accumulator layouts
-    m.classifyLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
+    m.classifyLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'uniform',
+    ]);
     m.metaFixupLayout = lt(['storage']);
     m.radixCountLayout = lt(['read-only-storage', 'storage', 'read-only-storage', 'uniform']);
     m.radixScanLayout = lt(['storage', 'read-only-storage', 'uniform']);
-    m.radixScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'read-only-storage', 'uniform']);
+    m.radixScatterLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'read-only-storage',
+      'uniform',
+    ]);
     m.cumsumLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     m.partitionWgLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
-    m.partitionThreadLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+    m.partitionThreadLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+    ]);
     // binding 8 (window_desc) is read-only-storage now (size1 has slot headroom) → no window cap.
-    m.size1Layout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'read-only-storage', 'uniform', 'storage', 'read-only-storage']);
+    m.size1Layout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'read-only-storage',
+      'uniform',
+      'storage',
+      'read-only-storage',
+    ]);
     // Stream-walker layouts (C's KNOB 2 variant).
     //   partition_task: sorted_count_list, cumulative_adds, thread_cuts, planner_meta(rw), task_cuts(rw), params(uniform)
-    m.partitionTaskLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
+    m.partitionTaskLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'uniform',
+    ]);
     //   stream_walker: sorted_bucket_list, sorted_count_list, offsets, task_cuts, l0_index, point_x, point_y, bucket_sums(rw), partials(rw), partial_dest(rw), params(uniform)
     // sorted_bucket_list, arena_a0 (whole A0 monolith — covers sorted_count_list +
     // l0_index), offsets (standalone), task_cuts, point_x, point_y (ro); red_buf,
     // partials_buf, partial_dest (rw); window_desc (ro storage — no window cap);
     // params, batch_offset, arena_off (uniform). 10 storage = the buffer cap.
-    m.streamWalkerLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'read-only-storage', 'uniform', 'uniform', 'uniform']);
+    m.streamWalkerLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'storage',
+      'read-only-storage',
+      'uniform',
+      'uniform',
+      'uniform',
+    ]);
     // === Optimal walker_combine pipeline layouts ===
     //   count: partial_dest, partial_count(rw), params
     m.combineCountLayout = lt(['read-only-storage', 'storage', 'uniform']);
@@ -2091,23 +2276,80 @@ export class MsmV2 {
     // partial_offset, partials_buf (ro); red_buf, active_buckets, active_count (rw);
     // params; planner_meta (ro); is_present (rw); batch_offset; window_desc (ro
     // storage — no cap); arena_off. 10 storage = the cap.
-    m.combineFilterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform', 'read-only-storage', 'storage', 'uniform', 'read-only-storage', 'uniform']);
+    m.combineFilterLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'read-only-storage',
+      'uniform',
+    ]);
     //   batched: active_buckets, active_count, partial_count, partial_offset, partial_layout, l0_index, point_x, point_y, partials_buf(rw), bucket_sums(rw), params
     // active_buckets, active_count, arena_a2 (monolith — partial_count +
     // partial_layout), partial_offset, l0_index, point_x, point_y (ro); partials_buf,
     // red_buf (rw); window_desc (ro storage — no cap); params, batch_offset, arena_off.
-    m.combineBatchedLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'read-only-storage', 'uniform', 'uniform', 'uniform', 'uniform']);
+    m.combineBatchedLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'read-only-storage',
+      'uniform',
+      'uniform',
+      'uniform',
+      'uniform',
+    ]);
     //   sort-count:   active_buckets, active_count, partial_count, count_histogram(rw)
     m.sortCountLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     //   sort-scan:    count_histogram, bin_offsets(rw), bin_write_pos(rw), pt_dispatch_args(rw), pt_persistent_args(rw)
     m.sortScanLayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'storage']);
     //   sort-scatter: active_buckets, active_count, partial_count, bin_offsets, bin_write_pos(rw), sorted_active_buckets(rw)
-    m.sortScatterLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform']);
+    m.sortScatterLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'uniform',
+    ]);
     // === Pair-tree v2 (multi-dispatch). ===
     //   pt-init-scan: sorted_active, bin_offsets, active_count, partial_count, pt_off(rw), pt_count(rw), pt_meta(rw)
-    m.ptInitScanLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform']);
+    m.ptInitScanLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'storage',
+      'uniform',
+    ]);
     //   pt-init-copy: sorted_active, bin_offsets, active_count, partial_count, partial_offset, partial_layout, partials_buf, pt_off, pt_buf(rw), params
-    m.ptInitCopyLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform']);
+    m.ptInitCopyLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+    ]);
     //   pt-build: bin_offsets, active_count, pt_off(rw), pt_count(rw), pt_tasks(rw), pt_total_tasks(rw)
     m.ptBuildLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'storage']);
     //   pt-dispatch-chain: pt_total_tasks(ro), pt_combine_args(rw), pt_build_args(rw), pt_hot_args(ro)
@@ -2116,7 +2358,18 @@ export class MsmV2 {
     m.ptCombineLayout = lt(['read-only-storage', 'read-only-storage', 'storage', 'uniform']);
     //   pt-finalize: sorted_active, bin_offsets, active_count, pt_off, pt_buf, bucket_sums(rw), params
     // binding 9 (window_desc) is read-only-storage now (pt_finalize has slot headroom) → no window cap.
-    m.ptFinalizeLayout = lt(['read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'uniform', 'storage', 'uniform', 'read-only-storage']);
+    m.ptFinalizeLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'storage',
+      'uniform',
+      'read-only-storage',
+    ]);
     // --- Pipelines (data-independent: shape is fixed by c / S / WGI for
     // every shader except planner-b's PAIR_CAP, which we pin to the pool
     // via `pool.pairCap = ceil(srsN/2) + 16`. The shader's PAIR_CAP loop
@@ -2131,7 +2384,11 @@ export class MsmV2 {
     m.msbHistPipe = await compile(sm.gen_ba_msb_histogram_shader(), `msb_histogram`, m.msbHistLayout);
     m.msbDecidePipe = await compile(sm.gen_ba_decide_window_split_shader(), `decide_window_split`, m.msbDecideLayout);
     m.msbIdxLargePipe = await compile(sm.gen_ba_idx_large_compact_shader(), `idx_large_compact`, m.msbIdxLargeLayout);
-    m.decomposeUpperPipe = await compile(sm.gen_decompose_scalars_booth_upper_shader(WGI), `decompose_upper`, m.decomposeUpperLayout);
+    m.decomposeUpperPipe = await compile(
+      sm.gen_decompose_scalars_booth_upper_shader(WGI),
+      `decompose_upper`,
+      m.decomposeUpperLayout,
+    );
     // Fixed transpose histogram/cursor capacity (16KB workgroup array), the same
     // for every MSM so the 3 tiled-transpose shaders compile once, not per-(n,c).
     // Size-independent by construction: the kernels' sub-tile loop covers
@@ -2142,7 +2399,9 @@ export class MsmV2 {
     const XPOSE_TILE = 4096;
     m.xposeScatterUpperPipe = await compile(
       sm.gen_transpose_scatter_tiled_upper_shader(256, XPOSE_TILE),
-      `xpose-scatter-upper`, m.scatterUpperLayout);
+      `xpose-scatter-upper`,
+      m.scatterUpperLayout,
+    );
     // Tiled counting-sort transpose: count + scatter dispatch across point-
     // chunks (not just windows) so the GPU stays saturated; reduce folds the
     // per-chunk partials; scan is the unchanged per-window prefix sum. Only
@@ -2175,6 +2434,16 @@ export class MsmV2 {
       `reduce-level`,
       m.reduceLevelLayout,
     );
+    // Thread-1 Jacobian reduce-tail pipelines. Same REDUCE_WG / WGI knobs as the
+    // affine reduce, so they ride the one-program PipelineCache identically (the
+    // strings are size-independent — geometry rides in reduce_sched/cparams).
+    m.jacLevelPipe = await compile(sm.gen_ba_reduce_level_jacobian_shader(REDUCE_WG), `reduce-jac`, m.jacLevelLayout);
+    m.zInitPipe = await compile(sm.gen_ba_reduce_z_init_shader(WGI), `reduce-z-init`, m.zInitLayout);
+    m.jacFinalizePipe = await compile(
+      sm.gen_ba_reduce_jac_finalize_shader(WGI, INV_VARIANT),
+      `reduce-jac-finalize`,
+      m.jacFinalizeLayout,
+    );
     if (m.sparseReduce) {
       // red_buf(rw), is_present(rw — shares an arena buffer with red_buf, so it
       // can't be read-only in the same pass), cparams(uniform), reduce_meta(ro).
@@ -2199,25 +2468,35 @@ export class MsmV2 {
     m.streamS = STREAM_S;
     m.numRadixTiles = Math.ceil(m.bTotal / RADIX_TILE);
     const qHeaderLen = 2 * STREAM_T;
-    m.classifyPipe = await compile(
-      sm.gen_ba_planner_classify_shader(256), `classify`, m.classifyLayout);
-    m.metaFixupPipe = await compile(
-      sm.gen_ba_planner_meta_fixup_shader(), `meta-fixup`, m.metaFixupLayout);
+    m.classifyPipe = await compile(sm.gen_ba_planner_classify_shader(256), `classify`, m.classifyLayout);
+    m.metaFixupPipe = await compile(sm.gen_ba_planner_meta_fixup_shader(), `meta-fixup`, m.metaFixupLayout);
     m.radixCountPipe = await compile(
-      sm.gen_ba_planner_radix_count_shader(RADIX_TILE), `radix-count`, m.radixCountLayout);
-    m.radixScanPipe = await compile(
-      sm.gen_ba_planner_radix_scan_shader(), `radix-scan`, m.radixScanLayout);
+      sm.gen_ba_planner_radix_count_shader(RADIX_TILE),
+      `radix-count`,
+      m.radixCountLayout,
+    );
+    m.radixScanPipe = await compile(sm.gen_ba_planner_radix_scan_shader(), `radix-scan`, m.radixScanLayout);
     m.radixScatterPipe = await compile(
-      sm.gen_ba_planner_radix_scatter_shader(RADIX_TILE), `radix-scatter`, m.radixScatterLayout);
+      sm.gen_ba_planner_radix_scatter_shader(RADIX_TILE),
+      `radix-scatter`,
+      m.radixScatterLayout,
+    );
     m.cumsumPipe = await compile(
       sm.gen_ba_planner_cumsum_shader(STREAM_T, STREAM_S, 1, MPW, STREAM_PLANNER_TPB),
-      `cumsum`, m.cumsumLayout);
+      `cumsum`,
+      m.cumsumLayout,
+    );
     m.partitionWgPipe = await compile(
-      sm.gen_ba_planner_partition_wg_shader(MAX_STREAM_WORKGROUPS), `partition-wg`, m.partitionWgLayout);
+      sm.gen_ba_planner_partition_wg_shader(MAX_STREAM_WORKGROUPS),
+      `partition-wg`,
+      m.partitionWgLayout,
+    );
     m.partitionThreadPipe = await compile(
-      sm.gen_ba_planner_partition_thread_shader(STREAM_PLANNER_TPB), `partition-thread`, m.partitionThreadLayout);
-    m.size1Pipe = await compile(
-      sm.gen_ba_size1_shader(m.BW, m.stride, m.redM), `size1`, m.size1Layout);
+      sm.gen_ba_planner_partition_thread_shader(STREAM_PLANNER_TPB),
+      `partition-thread`,
+      m.partitionThreadLayout,
+    );
+    m.size1Pipe = await compile(sm.gen_ba_size1_shader(m.BW, m.stride, m.redM), `size1`, m.size1Layout);
     // Stream-walker (Plan §6 + C's KNOB 2 variant). STREAM_WALKER_TPB per
     // KNOB 1 (16 KB pref_scratch fits Mali Bifrost at TPB=64). NUM_THREADS =
     // nwg * STREAM_PLANNER_TPB (partition_thread's grain); the walker
@@ -2225,56 +2504,72 @@ export class MsmV2 {
     // planner_meta[15..17] written by partition_task.
     m.partitionTaskPipe = await compile(
       sm.gen_ba_planner_partition_task_shader(STREAM_WALKER_TPB, STREAM_S, STREAM_PLANNER_TPB),
-      `partition-task`, m.partitionTaskLayout);
+      `partition-task`,
+      m.partitionTaskLayout,
+    );
     m.streamWalkerPipe = await compile(
       sm.gen_ba_stream_walker_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
-      `stream-walker`, m.streamWalkerLayout);
+      `stream-walker`,
+      m.streamWalkerLayout,
+    );
     // === Optimal walker_combine pipeline. ===
     m.combineCountPipe = await compile(
       sm.gen_ba_walker_combine_count_shader(256, m.BW),
-      `combine-count`, m.combineCountLayout);
-    m.combineScanPipe = await compile(
-      sm.gen_ba_walker_combine_scan_shader(256),
-      `combine-scan`, m.combineScanLayout);
+      `combine-count`,
+      m.combineCountLayout,
+    );
+    m.combineScanPipe = await compile(sm.gen_ba_walker_combine_scan_shader(256), `combine-scan`, m.combineScanLayout);
     m.combineScatterPipe = await compile(
       sm.gen_ba_walker_combine_scatter_shader(256, m.BW),
-      `combine-scatter`, m.combineScatterLayout);
+      `combine-scatter`,
+      m.combineScatterLayout,
+    );
     m.combineFilterPipe = await compile(
       sm.gen_ba_walker_combine_filter_shader(256, m.BW, m.stride, m.redM),
-      `combine-filter`, m.combineFilterLayout);
+      `combine-filter`,
+      m.combineFilterLayout,
+    );
     m.combineBatchedPipe = await compile(
       sm.gen_ba_walker_combine_batched_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
-      `combine-batched`, m.combineBatchedLayout);
+      `combine-batched`,
+      m.combineBatchedLayout,
+    );
     m.sortCountPipe = await compile(
       sm.gen_ba_walker_combine_sort_count_shader(256, m.BW),
-      `sort-count`, m.sortCountLayout);
-    m.sortScanPipe = await compile(
-      sm.gen_ba_walker_combine_sort_scan_shader(),
-      `sort-scan`, m.sortScanLayout);
+      `sort-count`,
+      m.sortCountLayout,
+    );
+    m.sortScanPipe = await compile(sm.gen_ba_walker_combine_sort_scan_shader(), `sort-scan`, m.sortScanLayout);
     m.sortScatterPipe = await compile(
       sm.gen_ba_walker_combine_sort_scatter_shader(256, m.BW),
-      `sort-scatter`, m.sortScatterLayout);
-    m.ptInitScanPipe = await compile(
-      sm.gen_ba_walker_pt_init_scan_shader(m.BW),
-      `pt-init-scan`, m.ptInitScanLayout);
+      `sort-scatter`,
+      m.sortScatterLayout,
+    );
+    m.ptInitScanPipe = await compile(sm.gen_ba_walker_pt_init_scan_shader(m.BW), `pt-init-scan`, m.ptInitScanLayout);
     // TPB = 64. With indirect dispatch from sort-scan's NUM_HOT-based args,
     // pt_init_copy/build/finalize launch ceil(NUM_HOT/64) WGs — no idle
     // workgroups. pt_combine launches ceil(total_tasks/S/64) per level.
     m.ptInitCopyPipe = await compile(
       sm.gen_ba_walker_pt_init_copy_shader(64, m.BW),
-      `pt-init-copy`, m.ptInitCopyLayout);
-    m.ptBuildPipe = await compile(
-      sm.gen_ba_walker_pt_build_shader(64),
-      `pt-build`, m.ptBuildLayout);
+      `pt-init-copy`,
+      m.ptInitCopyLayout,
+    );
+    m.ptBuildPipe = await compile(sm.gen_ba_walker_pt_build_shader(64), `pt-build`, m.ptBuildLayout);
     m.ptDispatchChainPipe = await compile(
       sm.gen_ba_walker_pt_dispatch_chain_shader(),
-      `pt-dispatch-chain`, m.ptDispatchChainLayout);
+      `pt-dispatch-chain`,
+      m.ptDispatchChainLayout,
+    );
     m.ptCombinePipe = await compile(
       sm.gen_ba_unified_combine_shader(64, STREAM_S, INV_VARIANT),
-      `pt-combine`, m.ptCombineLayout);
+      `pt-combine`,
+      m.ptCombineLayout,
+    );
     m.ptFinalizePipe = await compile(
       sm.gen_ba_walker_pt_finalize_shader(64, m.BW, m.stride, m.redM),
-      `pt-finalize`, m.ptFinalizeLayout);
+      `pt-finalize`,
+      m.ptFinalizeLayout,
+    );
     // Warm-up: prepare + dispatch a few times so the first timed run pays no
     // shader JIT / command-buffer cold start and sees ramped GPU clocks. The
     // bridge passes warmupRuns: 0 — production wants the first MSM to be real
@@ -2361,7 +2656,9 @@ export class MsmV2 {
     // dispatch cap (both enforced in prepare()) are the limits that bite first.
     const WBID_WINDOW_MAX = 1 << 17;
     if (numWindows > WBID_WINDOW_MAX) {
-      throw new Error(`prepareBatch: ${numWindows} global windows exceeds the ${WBID_WINDOW_MAX}-window packed-bid field`);
+      throw new Error(
+        `prepareBatch: ${numWindows} global windows exceeds the ${WBID_WINDOW_MAX}-window packed-bid field`,
+      );
     }
     // Per-global-window scatter-base prefix (Σ n_w) + sentinel total. Member m's
     // NW windows each span n_m points, so each window's base advances by n_m. Used
@@ -2448,7 +2745,10 @@ export class MsmV2 {
       // pack of different-c members carries each window's own c (and the reduce
       // schedule + host combine read it per window). bTotal is the envelope
       // (numWindows · max-BW from the maxN instance); redM is the tight Σ stride_w.
-      this.windowCs = Array.from({ length: this.batchCtx.numWindows }, (_, w) => this.batchCtx!.windowDescTable[w * 8 + 0]);
+      this.windowCs = Array.from(
+        { length: this.batchCtx.numWindows },
+        (_, w) => this.batchCtx!.windowDescTable[w * 8 + 0],
+      );
       this.numWindows = this.batchCtx.numWindows;
       this.bTotal = this.batchCtx.bTotal;
       this.redM = this.batchCtx.redM;
@@ -2489,9 +2789,14 @@ export class MsmV2 {
             const base = i * 8;
             let msb = -1;
             for (let w = 7; w >= 0; w--) {
-              if (scalars[base + w] !== 0) { msb = w * 32 + (31 - Math.clz32(scalars[base + w])); break; }
+              if (scalars[base + w] !== 0) {
+                msb = w * 32 + (31 - Math.clz32(scalars[base + w]));
+                break;
+              }
             }
-            if (msb >= threshold) { idx[cnt++] = i; }
+            if (msb >= threshold) {
+              idx[cnt++] = i;
+            }
           }
           idxLargeHost = idx.subarray(0, cnt);
           this.wLo = wLo;
@@ -2585,7 +2890,8 @@ export class MsmV2 {
       // A batched pack is one dispatch over the whole union (numBatches stays 1);
       // the bin-packer sized the pack to fit the budget. Single-MSM raises the
       // window-batch count until each batch fits the wg cap + budget.
-      while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || estimateMem(numBatches) > this.memBudget)) numBatches++;
+      while (numBatches < NUM_WINDOWS && (!wgFits(numBatches) || estimateMem(numBatches) > this.memBudget))
+        numBatches++;
       if (this.numBatchesForce) numBatches = Math.min(NUM_WINDOWS, Math.max(numBatches, this.numBatchesForce));
     } else {
       // Union: one dispatch over the whole pack (no window-staging). The same
@@ -2600,7 +2906,9 @@ export class MsmV2 {
         );
       }
       if (!wgFits(1)) {
-        throw new Error(`prepareBatch: union exceeds the 65k-workgroup dispatch cap (${NUM_WINDOWS} windows × ${n} points). Pack fewer members.`);
+        throw new Error(
+          `prepareBatch: union exceeds the 65k-workgroup dispatch cap (${NUM_WINDOWS} windows × ${n} points). Pack fewer members.`,
+        );
       }
     }
     const batchWindows = Math.ceil(NUM_WINDOWS / numBatches);
@@ -2940,7 +3248,12 @@ export class MsmV2 {
       const decideParams = ubuf(new Uint32Array([n, c, WD_ROWS, 0]));
       this.decideWindowDescBuf = decideWindowDescBuf;
       this.decideSummaryBuf = decideSummaryBuf;
-      this.msbDecideBind = mkBind(this.msbDecideLayout, [msbHistBuf, decideWindowDescBuf, decideSummaryBuf, decideParams]);
+      this.msbDecideBind = mkBind(this.msbDecideLayout, [
+        msbHistBuf,
+        decideWindowDescBuf,
+        decideSummaryBuf,
+        decideParams,
+      ]);
       this.prepBuffers.push(decideWindowDescBuf, decideSummaryBuf);
 
       // idx_large compaction (Phase 2B): upper-region scalar indices. Sized to n
@@ -2956,7 +3269,13 @@ export class MsmV2 {
       const idxLargeParams = ubuf(new Uint32Array([n, 0, 0, 0]));
       this.idxLargeBuf = idxLargeBuf;
       this.idxLargeCountBuf = idxLargeCountBuf;
-      this.msbIdxLargeBind = mkBind(this.msbIdxLargeLayout, [msbPerScalarBuf, decideSummaryBuf, idxLargeBuf, idxLargeCountBuf, idxLargeParams]);
+      this.msbIdxLargeBind = mkBind(this.msbIdxLargeLayout, [
+        msbPerScalarBuf,
+        decideSummaryBuf,
+        idxLargeBuf,
+        idxLargeCountBuf,
+        idxLargeParams,
+      ]);
       this.prepBuffers.push(idxLargeBuf, idxLargeCountBuf);
     }
     // Layout: [num_point_tiles, input_size, row_stride, points_per_tile].
@@ -2988,7 +3307,14 @@ export class MsmV2 {
     }
 
     this.decomposeBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.decomposeLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeParams, bwb, windowDescBuf, pointOffsetsBuf]),
+      mkBind(this.decomposeLayout, [
+        scalarsRawBuf,
+        bucketAndSignBuf,
+        decomposeParams,
+        bwb,
+        windowDescBuf,
+        pointOffsetsBuf,
+      ]),
     );
     // The transpose borrows l0IdxBuf as the per-chunk partials matrix. Its
     // [0, batchSlots) region is dormant until convActive (which runs strictly
@@ -2996,11 +3322,14 @@ export class MsmV2 {
     // sits above batchSlots and is never touched by the partials region.
     const partialsBuf = l0IdxBuf;
     this.xposeCountBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParams, windowDescBuf, bwb, pointOffsetsBuf]));
+      mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParams, windowDescBuf, bwb, pointOffsetsBuf]),
+    );
     this.xposeReduceBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.xposeReduceLayout, [partialsBuf, rowPtrBuf, xposeParams, windowDescBuf, bwb]));
+      mkBind(this.xposeReduceLayout, [partialsBuf, rowPtrBuf, xposeParams, windowDescBuf, bwb]),
+    );
     this.xposeScanBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.xposeScanLayout, [rowPtrBuf, xposeParams, windowDescBuf, bwb]));
+      mkBind(this.xposeScanLayout, [rowPtrBuf, xposeParams, windowDescBuf, bwb]),
+    );
     this.xposeScatterBinds = batchWindowBaseBufs.map(bwb =>
       mkBind(this.xposeScatterLayout, [
         bucketAndSignBuf,
@@ -3011,7 +3340,8 @@ export class MsmV2 {
         windowDescBuf,
         bwb,
         pointOffsetsBuf,
-      ]));
+      ]),
+    );
     // Region-split (Phase 2C-ii): upper-region binds. The upper W_hi windows
     // iterate only n_large compacted points via decompose_upper + count/scatter
     // over input_size=n_large, batch_window_base = W_lo. idx_large is uploaded
@@ -3021,13 +3351,45 @@ export class MsmV2 {
       const upperBwb = ubuf(new Uint32Array([this.wLo, 0, 0, 0]));
       const decomposeUpperParams = ubuf(new Uint32Array([this.nLarge, this.wHi, n, 8]));
       const xposeParamsUpper = ubuf(new Uint32Array([transposeNumPointTiles, this.nLarge, n, pointsPerTile]));
-      this.decomposeUpperBind = mkBind(this.decomposeUpperLayout, [scalarsRawBuf, bucketAndSignBuf, decomposeUpperParams, upperBwb, windowDescBuf, this.idxLargeBuf]);
-      this.xposeCountUpperBind = mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParamsUpper, windowDescBuf, upperBwb, pointOffsetsBuf]);
-      this.xposeScatterUpperBind = mkBind(this.scatterUpperLayout, [bucketAndSignBuf, rowPtrBuf, partialsBuf, valIdxBuf, xposeParamsUpper, windowDescBuf, upperBwb, this.idxLargeBuf]);
+      this.decomposeUpperBind = mkBind(this.decomposeUpperLayout, [
+        scalarsRawBuf,
+        bucketAndSignBuf,
+        decomposeUpperParams,
+        upperBwb,
+        windowDescBuf,
+        this.idxLargeBuf,
+      ]);
+      this.xposeCountUpperBind = mkBind(this.xposeCountLayout, [
+        bucketAndSignBuf,
+        partialsBuf,
+        xposeParamsUpper,
+        windowDescBuf,
+        upperBwb,
+        pointOffsetsBuf,
+      ]);
+      this.xposeScatterUpperBind = mkBind(this.scatterUpperLayout, [
+        bucketAndSignBuf,
+        rowPtrBuf,
+        partialsBuf,
+        valIdxBuf,
+        xposeParamsUpper,
+        windowDescBuf,
+        upperBwb,
+        this.idxLargeBuf,
+      ]);
     }
     this.convActiveBind = mkBind(this.convActiveLayout, [valIdxBuf, l0IdxBuf, convActiveParams, bucketAndSignBuf]);
     this.convMetaBinds = batchWindowBaseBufs.map(bwb =>
-      mkBind(this.convMetaLayout, [rowPtrBuf, countsBufs[0], offsetsBufs[0], convMetaParams, windowDescBuf, bwb, pointOffsetsBuf]));
+      mkBind(this.convMetaLayout, [
+        rowPtrBuf,
+        countsBufs[0],
+        offsetsBufs[0],
+        convMetaParams,
+        windowDescBuf,
+        bwb,
+        pointOffsetsBuf,
+      ]),
+    );
     this.rowPtrBuf = rowPtrBuf;
     this.nXposePts = Math.ceil(n / WGI);
 
@@ -3042,6 +3404,7 @@ export class MsmV2 {
     // split — the reduce work drops with c_hi without adding dispatch latency.
     const redBuf = scratch.redBuf;
     const isPresentBuf = scratch.isPresentBuf;
+    const redZBuf = scratch.redZBuf;
     const reducePrefScratch = scratch.reducePrefScratch;
     const maxLevels = this.reducePasses.length;
     // Per-window schedule table: row w = [base, 0,0,0] then max_levels × (pa, pb,
@@ -3074,14 +3437,43 @@ export class MsmV2 {
         }
       }
     }
-    const schedBuf = device.createBuffer({ size: schedTable.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    const schedBuf = device.createBuffer({
+      size: schedTable.byteLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
     device.queue.writeBuffer(schedBuf, 0, schedTable as BufferSource);
     this.prepBuffers.push(schedBuf);
     const cparams = ubuf(new Uint32Array([RED_M, this.capMAXC, maxLevels, 0]));
+    // Thread-1: build the Jacobian binds alongside the affine ones when any
+    // level runs Jacobian for this instance. jac_level reuses cparams (reads M +
+    // max_levels, ignores capMAXC) and lparams (lv), swapping is_present +
+    // pref_scratch for red_z; it shares schedBuf for the per-window base/schedule.
+    const anyJac = this.useJac.some(Boolean);
+    this.reduceJacLevelBinds = [];
     this.reduceLevelBinds = Array.from({ length: maxLevels }, (_, lv) => {
       const lparams = ubuf(new Uint32Array([lv, 0, 0, 0]));
+      if (anyJac) {
+        this.reduceJacLevelBinds.push(mkBind(this.jacLevelLayout, [redBuf, redZBuf, cparams, lparams, schedBuf]));
+      }
       return mkBind(this.reduceLevelLayout, [redBuf, isPresentBuf, reducePrefScratch, cparams, lparams, schedBuf]);
     });
+    if (anyJac) {
+      const zInitParams = ubuf(new Uint32Array([RED_M, 0, 0, 0]));
+      this.reduceZInitBind = mkBind(this.zInitLayout, [isPresentBuf, redZBuf, zInitParams]);
+      // cparams = (M, _, max_levels, num_windows) — finalize reads the window
+      // root from reduce_sched[row].x, so it needs max_levels + num_windows.
+      const jacFinalizeParams = ubuf(new Uint32Array([RED_M, 0, maxLevels, this.numWindows]));
+      this.reduceJacFinalizeBind = mkBind(this.jacFinalizeLayout, [
+        redBuf,
+        redZBuf,
+        jacFinalizeParams,
+        isPresentBuf,
+        schedBuf,
+      ]);
+    } else {
+      this.reduceZInitBind = undefined;
+      this.reduceJacFinalizeBind = undefined;
+    }
     // Sparse reduce: per-window (base, B) meta + bind. base = tight reduce_off,
     // B = this window's bucket count (2^(c_w-1)). cparams.x = M (red_buf stride).
     if (this.sparseReduce && this.reduceSparseLayout) {
@@ -3121,7 +3513,18 @@ export class MsmV2 {
       const sps = scratch.streamPrefScratch;
       const classifyParams = ubuf(new Uint32Array([this.batchWindows, 0, 0, 0]));
       this.classifyBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.classifyLayout, [countsBufs[0], offsetsBufs[0], s1, db, dc, sp, classifyParams, windowDescBuf, bwb]));
+        mkBind(this.classifyLayout, [
+          countsBufs[0],
+          offsetsBufs[0],
+          s1,
+          db,
+          dc,
+          sp,
+          classifyParams,
+          windowDescBuf,
+          bwb,
+        ]),
+      );
       this.metaFixupBind = mkBind(this.metaFixupLayout, [sp]);
       const radixParams = [
         ubuf(new Uint32Array([0, 0, 0, 0])),
@@ -3149,7 +3552,17 @@ export class MsmV2 {
       // size1 is per-batch: binding 6 carries batch_offset (= bi·batchWindows) so
       // size-1 buckets land in their global red_buf slice, like the walker/combine.
       this.size1Binds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.size1Layout, [s1, l0IdxBuf, this.pointXBuf, this.pointYBuf, scratch.redBuf, sp, bwb, scratch.isPresentBuf, windowDescBuf]),
+        mkBind(this.size1Layout, [
+          s1,
+          l0IdxBuf,
+          this.pointXBuf,
+          this.pointYBuf,
+          scratch.redBuf,
+          sp,
+          bwb,
+          scratch.isPresentBuf,
+          windowDescBuf,
+        ]),
       );
       // Stream-walker bind groups (Plan §6 + C's KNOB 2 variant).
       const taskc = scratch.taskCuts;
@@ -3174,8 +3587,19 @@ export class MsmV2 {
       const walkerArenaOff = ubuf(new Uint32Array([slotOff(sc) / 4, slotOff(l0IdxBuf) / 4, 0, 0]));
       this.streamWalkerBinds = batchWindowBaseBufs.map(bwb =>
         mkBind(this.streamWalkerLayout, [
-          sb, a0Buf, offsetsBufs[0], taskc, this.pointXBuf, this.pointYBuf,
-          scratch.redBuf, wp, pdest, windowDescBuf, walkerParams, bwb, walkerArenaOff,
+          sb,
+          a0Buf,
+          offsetsBufs[0],
+          taskc,
+          this.pointXBuf,
+          this.pointYBuf,
+          scratch.redBuf,
+          wp,
+          pdest,
+          windowDescBuf,
+          walkerParams,
+          bwb,
+          walkerArenaOff,
         ]),
       );
       const numPartialSlots = M_partials_walker;
@@ -3205,7 +3629,21 @@ export class MsmV2 {
       // filter: params = (num_dense, M_buckets, M_partials, _)
       const filterParams = ubuf(new Uint32Array([B_TOTAL, batchSlots, M_partials_walker, this.BW]));
       this.combineFilterBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.combineFilterLayout, [sb, a2Buf, poffset, wp, scratch.redBuf, abkts, acnt, filterParams, scratch.streamPlannerMeta, scratch.isPresentBuf, bwb, windowDescBuf, combineArenaOff]),
+        mkBind(this.combineFilterLayout, [
+          sb,
+          a2Buf,
+          poffset,
+          wp,
+          scratch.redBuf,
+          abkts,
+          acnt,
+          filterParams,
+          scratch.streamPlannerMeta,
+          scratch.isPresentBuf,
+          bwb,
+          windowDescBuf,
+          combineArenaOff,
+        ]),
       );
       // batched: params = (NUM_ACTIVE — dynamic, set at runtime, IDLE_ANCHOR, M_buckets, M_partials)
       // For now, we'll use 0 for NUM_ACTIVE here and update before dispatch (or dispatch ceil(B_TOTAL/S) and gate internally).
@@ -3218,7 +3656,14 @@ export class MsmV2 {
       const bwpos = scratch.binWritePos;
       const sabkts = scratch.sortedActiveBuckets;
       this.sortCountBind = mkBind(this.sortCountLayout, [abkts, acnt, pcount, chist, bwBuf]);
-      this.sortScanBind = mkBind(this.sortScanLayout, [chist, boffs, bwpos, scratch.ptDispatchArgs, scratch.ptPersistentDispatchArgs, scratch.cbDispatchArgs]);
+      this.sortScanBind = mkBind(this.sortScanLayout, [
+        chist,
+        boffs,
+        bwpos,
+        scratch.ptDispatchArgs,
+        scratch.ptPersistentDispatchArgs,
+        scratch.cbDispatchArgs,
+      ]);
       this.sortScatterBind = mkBind(this.sortScatterLayout, [abkts, acnt, pcount, boffs, bwpos, sabkts, bwBuf]);
       // Pair-tree: handles hot buckets (N > HOT_THRESHOLD=8). Reads sorted
       // active list + bin_offsets to locate the hot tail; allocates scratch
@@ -3246,22 +3691,73 @@ export class MsmV2 {
       // pt_finalize params: (M_pt, M_buckets=B_TOTAL)
       const ptFinalizeParams = ubuf(new Uint32Array([M_pt, B_TOTAL, 0, 0]));
 
-      this.ptInitScanBind = mkBind(this.ptInitScanLayout, [sabkts, boffs, acnt, pcount, ptOffBuf, ptCountBuf, ptMetaBuf, bwBuf]);
-      this.ptInitCopyBind = mkBind(this.ptInitCopyLayout, [sabkts, boffs, acnt, pcount, poffset, playout, wp, ptOffBuf, ptBuf, ptInitCopyParams]);
+      this.ptInitScanBind = mkBind(this.ptInitScanLayout, [
+        sabkts,
+        boffs,
+        acnt,
+        pcount,
+        ptOffBuf,
+        ptCountBuf,
+        ptMetaBuf,
+        bwBuf,
+      ]);
+      this.ptInitCopyBind = mkBind(this.ptInitCopyLayout, [
+        sabkts,
+        boffs,
+        acnt,
+        pcount,
+        poffset,
+        playout,
+        wp,
+        ptOffBuf,
+        ptBuf,
+        ptInitCopyParams,
+      ]);
       this.ptBuildBind = mkBind(this.ptBuildLayout, [boffs, acnt, ptOffBuf, ptCountBuf, ptTasksBuf, ptTotalBuf]);
       // chain dispatch reads previous level's total and the hot_wgs source,
       // writes combine + build args. Build's level-loop indirect dispatch
       // turns into a no-op once total hits zero, so dead late levels cost
       // ~1 µs (dispatch_compute alone) instead of ~150 µs.
-      this.ptDispatchChainBind = mkBind(this.ptDispatchChainLayout, [ptTotalBuf, scratch.ptCombineDispatchArgs, scratch.ptBuildLoopArgs, scratch.ptDispatchArgs]);
+      this.ptDispatchChainBind = mkBind(this.ptDispatchChainLayout, [
+        ptTotalBuf,
+        scratch.ptCombineDispatchArgs,
+        scratch.ptBuildLoopArgs,
+        scratch.ptDispatchArgs,
+      ]);
       this.ptCombineBind = mkBind(this.ptCombineLayout, [ptTasksBuf, ptTotalBuf, ptBuf, ptCombineParams]);
       this.ptFinalizeBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.ptFinalizeLayout, [sabkts, boffs, acnt, ptOffBuf, ptBuf, scratch.redBuf, ptFinalizeParams, scratch.isPresentBuf, bwb, windowDescBuf]),
+        mkBind(this.ptFinalizeLayout, [
+          sabkts,
+          boffs,
+          acnt,
+          ptOffBuf,
+          ptBuf,
+          scratch.redBuf,
+          ptFinalizeParams,
+          scratch.isPresentBuf,
+          bwb,
+          windowDescBuf,
+        ]),
       );
       // combine_batched now reads sorted_active_buckets at binding 0 → zero
       // tail divergence per S=8 thread group.
       this.combineBatchedBinds = batchWindowBaseBufs.map(bwb =>
-        mkBind(this.combineBatchedLayout, [sabkts, acnt, a2Buf, poffset, l0IdxBuf, this.pointXBuf, this.pointYBuf, wp, scratch.redBuf, windowDescBuf, walkerParams, bwb, combineArenaOff, bwBuf]),
+        mkBind(this.combineBatchedLayout, [
+          sabkts,
+          acnt,
+          a2Buf,
+          poffset,
+          l0IdxBuf,
+          this.pointXBuf,
+          this.pointYBuf,
+          wp,
+          scratch.redBuf,
+          windowDescBuf,
+          walkerParams,
+          bwb,
+          combineArenaOff,
+          bwBuf,
+        ]),
       );
     }
 
@@ -3297,6 +3793,9 @@ export class MsmV2 {
       // Reduce = one dispatch per level (table-driven), or a single dispatch for
       // the sparse path. +1 keeps the historical slack slot.
       passes += 1 + (this.sparseReduce ? 1 : this.reduceLevelBinds.length);
+      // Thread-1: the Jacobian reduce adds a z-init dispatch (once, at the
+      // affine->jac transition) and a per-window finalize dispatch (once).
+      if (this.useJac.some(Boolean)) passes += 2;
       // Region-split adds 3 preprocess dispatches (upper decompose/count/scatter).
       if (this.regionSplit) passes += 3;
       this.passCount = passes;
@@ -3385,7 +3884,9 @@ export class MsmV2 {
     const profEnabled = this.profile && this.querySet;
     if (profEnabled) this.passPhases = [];
     let curPhase = 'misc';
-    const setPhase = (p: string) => { curPhase = p; };
+    const setPhase = (p: string) => {
+      curPhase = p;
+    };
     const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1): void => {
       const desc: GPUComputePassDescriptor = {};
       if (profEnabled) {
@@ -3622,6 +4123,29 @@ export class MsmV2 {
       // only the active buckets (gap-aware), skipping empties. Byte-identical to
       // the dense tree.
       dispatch(this.reduceSparsePipe, this.reduceSparseBind, this.numWindows, 1);
+    } else if (this.useJac.some(Boolean) && this.reduceZInitBind && this.reduceJacFinalizeBind) {
+      // Thread-1 Jacobian reduce: levels in the useJac suffix run inversion-free.
+      // z-init lifts the affine state to Jacobian once at the affine->jac
+      // transition (curJac); each jac level is a single add/double; jac_finalize
+      // converts every window root back to affine once at the end so the gather
+      // below reads affine (x, y). Math-identical to the affine reduce — only the
+      // intermediate coordinate representation differs.
+      const reducePipe = this.reduceLevelPipes[0];
+      let curJac = false;
+      for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
+        if (this.useJac[lv] && !curJac) {
+          setPhase('reduce_zinit');
+          dispatch(this.zInitPipe, this.reduceZInitBind, Math.ceil(this.redM / WGI), 1);
+          curJac = true;
+        }
+        if (this.useJac[lv]) {
+          dispatch(this.jacLevelPipe, this.reduceJacLevelBinds[lv], this.numWindows, 1);
+        } else {
+          dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
+        }
+      }
+      setPhase('reduce_jacfinal');
+      dispatch(this.jacFinalizePipe, this.reduceJacFinalizeBind, Math.ceil(this.numWindows / WGI), 1);
     } else {
       const reducePipe = this.reduceLevelPipes[0];
       // One dispatch per level over all windows; each window reads its own base +
@@ -3640,7 +4164,13 @@ export class MsmV2 {
     for (let w = 0; w < this.numWindows; w++) {
       const g = 32 * this.reduceOffsets[w];
       enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + g, dstStaging, dstByteOff + w * 64, 32);
-      enc.copyBufferToBuffer(slotBuf(this.redBuf), slotOff(this.redBuf) + yPlane + g, dstStaging, dstByteOff + w * 64 + 32, 32);
+      enc.copyBufferToBuffer(
+        slotBuf(this.redBuf),
+        slotOff(this.redBuf) + yPlane + g,
+        dstStaging,
+        dstByteOff + w * 64 + 32,
+        32,
+      );
     }
     if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
       enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
@@ -3719,7 +4249,13 @@ export class MsmV2 {
    */
   async debugDecideWindowSplit(): Promise<{ windowDesc: Uint32Array; summary: Uint32Array }> {
     if (this.preparedFor === null) throw new Error('MsmV2.debugDecideWindowSplit: call prepare() first');
-    if (!this.msbHistBind || !this.msbHistBuf || !this.msbDecideBind || !this.decideWindowDescBuf || !this.decideSummaryBuf) {
+    if (
+      !this.msbHistBind ||
+      !this.msbHistBuf ||
+      !this.msbDecideBind ||
+      !this.decideWindowDescBuf ||
+      !this.decideSummaryBuf
+    ) {
       throw new Error('MsmV2.debugDecideWindowSplit: requires splitC=true');
     }
     const enc = this.device.createCommandEncoder();
@@ -3747,7 +4283,15 @@ export class MsmV2 {
    */
   async debugIdxLarge(): Promise<{ count: number; idxLarge: Uint32Array; summary: Uint32Array }> {
     if (this.preparedFor === null) throw new Error('MsmV2.debugIdxLarge: call prepare() first');
-    if (!this.msbHistBind || !this.msbHistBuf || !this.msbDecideBind || !this.msbIdxLargeBind || !this.idxLargeBuf || !this.idxLargeCountBuf || !this.decideSummaryBuf) {
+    if (
+      !this.msbHistBind ||
+      !this.msbHistBuf ||
+      !this.msbDecideBind ||
+      !this.msbIdxLargeBind ||
+      !this.idxLargeBuf ||
+      !this.idxLargeCountBuf ||
+      !this.decideSummaryBuf
+    ) {
       throw new Error('MsmV2.debugIdxLarge: requires splitC=true');
     }
     const enc = this.device.createCommandEncoder();
@@ -3797,7 +4341,6 @@ export class MsmV2 {
     // The bridge ships these per-window sums to the C++ hook for a native
     // bb::g1 combine; the benchmark harness (combineOnHost) does it here.
     const result = this.combineOnHost ? hostWindowCombine(L, this.windowCs) : { x: 0n, y: 0n };
-
 
     // Per-pass GPU timestamps were tracked here pre-refactor; the new
     // encodeIntoBatch path doesn't capture category labels (the dev page's

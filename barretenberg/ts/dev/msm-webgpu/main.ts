@@ -119,7 +119,14 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
-    montmul: q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
+    montmul:
+      q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
+    jacobianCrossover: (() => {
+      const raw = q.get('jaccross');
+      if (raw === null) return undefined;
+      const v = Number(raw);
+      return Number.isInteger(v) ? v : undefined;
+    })(),
     maxPlannerWorkgroups: optInt('mpw'),
     numBatchesOverride: optInt('nb'),
     budgetMiB: optInt('budgetmib'),
@@ -514,7 +521,7 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
   const smallScalar = (maxExclusive: number): bigint => BigInt(Math.floor(Math.random() * maxExclusive));
   if (distMode === 'clustered') {
     const Kparam = new URLSearchParams(window.location.search).get('num_distinct');
-    const K = Math.max(1, Math.min(n, parseInt(Kparam ?? String(Math.max(1, n >> 8)), 10) || (n >> 8)));
+    const K = Math.max(1, Math.min(n, parseInt(Kparam ?? String(Math.max(1, n >> 8)), 10) || n >> 8));
     log('info', `[gen] clustered scalars: ${K} distinct values sampled across ${n} inputs`);
     const pool = new Array<bigint>(K);
     for (let j = 0; j < K; j++) pool[j] = randomFr();
@@ -807,8 +814,7 @@ async function measurePack(device: GPUDevice, logNs: number[], reps: number): Pr
     // actually have distinct scalars — otherwise member k reading member 0's
     // region would pass vacuously. Assert distinctness so the validation is real.
     const distinct =
-      plan.descs.length < 2 ||
-      soloWS.some(ws => ws[0].x !== soloWS[0][0].x || ws[0].y !== soloWS[0][0].y);
+      plan.descs.length < 2 || soloWS.some(ws => ws[0].x !== soloWS[0][0].x || ws[0].y !== soloWS[0][0].y);
     const ok = distinct && diffs.length === 0;
     const detail = !distinct
       ? `members had identical scalars — scalarBase NOT exercised (re-run without a fixed scalar_seed)`
@@ -1035,7 +1041,8 @@ async function runBridgeE2E(logNs: number[]): Promise<{ ok: boolean; detail: str
   // an oracle — legacy is the trusted, oracle-validated production path.
   const scalarsPer = descs.map(d => {
     const b = new Uint8Array(d.n * 32);
-    for (let off = 0; off < b.length; off += 65536) crypto.getRandomValues(b.subarray(off, Math.min(off + 65536, b.length)));
+    for (let off = 0; off < b.length; off += 65536)
+      crypto.getRandomValues(b.subarray(off, Math.min(off + 65536, b.length)));
     for (let i = 0; i < d.n; i++) b[i * 32 + 31] = 0;
     return b;
   });
@@ -1092,7 +1099,12 @@ async function runBridgeE2E(logNs: number[]): Promise<{ ok: boolean; detail: str
     const d = descs[k];
     const ptBytes = srsBuf.subarray(d.srsOffset * 64, (d.srsOffset + d.n) * 64);
     const soloPool = await MsmV2Pool.create(oracleDevice, ptBytes);
-    const soloInst = await MsmV2.create(oracleDevice, d.n, soloPool, { ...gpuKnobs, combineOnHost: false, profile: false, warmupRuns: 0 });
+    const soloInst = await MsmV2.create(oracleDevice, d.n, soloPool, {
+      ...gpuKnobs,
+      combineOnHost: false,
+      profile: false,
+      warmupRuns: 0,
+    });
     try {
       soloInst.prepare(scalarsPer[k]);
       const ws = (await soloInst.run()).windowSums;
@@ -1167,7 +1179,9 @@ async function runBridgeE2E(logNs: number[]): Promise<{ ok: boolean; detail: str
   // synthetic many-large-member batch independently of the union wiring.
   const ok = unionDiff === -1 && nonTrivial;
   const legacyNote =
-    legacyDiff === -1 ? 'legacy≡oracle too' : `legacy≠oracle@${legacyDiff} (legacy single-encoder path; advisory, union replaces it)`;
+    legacyDiff === -1
+      ? 'legacy≡oracle too'
+      : `legacy≠oracle@${legacyDiff} (legacy single-encoder path; advisory, union replaces it)`;
   const detail = !nonTrivial
     ? 'oracle result region all zero — test setup bug'
     : ok
@@ -2094,13 +2108,19 @@ function hideProgress(): void {
       }
       const walls = samples.map(s => s.wallMs);
       const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
-      const med = (arr: number[]) => { const s = [...arr].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
+      const med = (arr: number[]) => {
+        const s = [...arr].sort((a, b) => a - b);
+        return s[Math.floor(s.length / 2)];
+      };
       const avgWall = avg(walls);
       const medWall = med(walls);
       (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
-      log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
-        `wall median=${medWall.toFixed(1)}ms avg=${avgWall.toFixed(1)}ms ` +
-        `samples=[${walls.map(w => w.toFixed(1)).join(', ')}]`);
+      log(
+        'ok',
+        `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
+          `wall median=${medWall.toFixed(1)}ms avg=${avgWall.toFixed(1)}ms ` +
+          `samples=[${walls.map(w => w.toFixed(1)).join(', ')}]`,
+      );
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({
@@ -2118,7 +2138,15 @@ function hideProgress(): void {
       log('err', `[bench] FATAL: ${msg}`);
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
-      await client.postResults({ state: 'error', params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true }, results: null, error: msg, log: allLines.slice(-100), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true },
+        results: null,
+        error: msg,
+        log: allLines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
     }
   } else if (autorun === 'msm-bench') {
     const autorunLogN = parseInt(qp.get('logn') ?? '17', 10);
@@ -2169,7 +2197,9 @@ function hideProgress(): void {
         const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
         const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
         samples.push({ wallMs, gpuMs, phases });
-        const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
+        const phaseStr = Object.entries(phases)
+          .map(([k, v]) => `${k}=${v.toFixed(1)}`)
+          .join(' ');
         log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
       }
       const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -2178,10 +2208,15 @@ function hideProgress(): void {
       const allPhaseKeys = Array.from(new Set(samples.flatMap(s => Object.keys(s.phases))));
       const avgPhases: Record<string, number> = {};
       for (const key of allPhaseKeys) avgPhases[key] = avg(samples.map(s => s.phases[key] ?? 0));
-      const avgPhaseStr = Object.entries(avgPhases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
+      const avgPhaseStr = Object.entries(avgPhases)
+        .map(([k, v]) => `${k}=${v.toFixed(1)}`)
+        .join(' ');
       (window as unknown as { __benchSamples?: typeof samples }).__benchSamples = samples;
-      log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
-        `wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ${avgPhaseStr}`);
+      log(
+        'ok',
+        `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
+          `wall=${avgWall.toFixed(1)}ms gpu=${avgGpu.toFixed(1)}ms ${avgPhaseStr}`,
+      );
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({
@@ -2199,7 +2234,15 @@ function hideProgress(): void {
       log('err', `[bench] FATAL: ${msg}`);
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
-      await client.postResults({ state: 'error', params: { logN: autorunLogN, reps, page: 'msm-bench' }, results: null, error: msg, log: allLines.slice(-100), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+      await client.postResults({
+        state: 'error',
+        params: { logN: autorunLogN, reps, page: 'msm-bench' },
+        results: null,
+        error: msg,
+        log: allLines.slice(-100),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
     }
   } else if (autorun === 'msm-msbhist') {
     // split-c Phase 1: validate the GPU MSB histogram against the host oracle.
@@ -2235,7 +2278,10 @@ function hideProgress(): void {
         const base = i * 8;
         let msb = -1;
         for (let w = 7; w >= 0; w--) {
-          if (scalarsU32[base + w] !== 0) { msb = w * 32 + (31 - Math.clz32(scalarsU32[base + w])); break; }
+          if (scalarsU32[base + w] !== 0) {
+            msb = w * 32 + (31 - Math.clz32(scalarsU32[base + w]));
+            break;
+          }
         }
         const expect = msb < 0 ? 255 : msb;
         if (msbPerScalar[i] !== expect) mpsBad++;
@@ -2243,7 +2289,10 @@ function hideProgress(): void {
       if (mismatches === 0 && gpuSum === inputs.n && mpsBad === 0) {
         log('ok', `[msbhist] PASS — 256 bins match host, sum=${gpuSum}=n, msb_per_scalar OK (4096 spot-checked)`);
       } else {
-        log('error', `[msbhist] FAIL — ${mismatches} bin mismatches (first bin ${firstBad}), gpuSum=${gpuSum} n=${inputs.n}, mpsBad=${mpsBad}`);
+        log(
+          'error',
+          `[msbhist] FAIL — ${mismatches} bin mismatches (first bin ${firstBad}), gpuSum=${gpuSum} n=${inputs.n}, mpsBad=${mpsBad}`,
+        );
       }
       // Diagnostic: run the natural decision on the GPU histogram and log the
       // schedule it would choose (consumption is Phase 2; this validates the
@@ -2252,7 +2301,10 @@ function hideProgress(): void {
       const dec = chooseVarWindowSplit(hist, inputs.n, enb, pickC);
       if (dec.isSplit) {
         const widths = buildVarWindowSchedule(dec, enb);
-        log('info', `[msbhist] decision: SPLIT b*=${dec.bStar} cLo=${dec.cLo} cHi=${dec.cHi} → ${widths.length} windows (effNumBits=${enb})`);
+        log(
+          'info',
+          `[msbhist] decision: SPLIT b*=${dec.bStar} cLo=${dec.cLo} cHi=${dec.cHi} → ${widths.length} windows (effNumBits=${enb})`,
+        );
       } else {
         log('info', `[msbhist] decision: NO_SPLIT (effNumBits=${enb}, c=${pickC(inputs.n)})`);
       }
@@ -2261,15 +2313,32 @@ function hideProgress(): void {
       const { windowDesc: gpuWd, summary: gpuSummary } = await msm.debugDecideWindowSplit();
       const ref = buildWindowDescReference(hist, inputs.n, pickC(inputs.n), 128, pickC);
       const nW = ref.summary.numWindows;
-      const sumExp = [ref.summary.isSplit, ref.summary.bStar, ref.summary.cLo, ref.summary.cHi, ref.summary.nLarge, ref.summary.wLo, ref.summary.wHi, ref.summary.numWindows, ref.summary.effNumBits];
+      const sumExp = [
+        ref.summary.isSplit,
+        ref.summary.bStar,
+        ref.summary.cLo,
+        ref.summary.cHi,
+        ref.summary.nLarge,
+        ref.summary.wLo,
+        ref.summary.wHi,
+        ref.summary.numWindows,
+        ref.summary.effNumBits,
+      ];
       let sumBad = -1;
-      for (let i = 0; i < sumExp.length; i++) if (gpuSummary[i] !== sumExp[i]) { sumBad = i; break; }
+      for (let i = 0; i < sumExp.length; i++)
+        if (gpuSummary[i] !== sumExp[i]) {
+          sumBad = i;
+          break;
+        }
       let rowBad = -1;
       for (let i = 0; i < nW * 8 && rowBad < 0; i++) if (gpuWd[i] !== ref.windowDesc[i]) rowBad = i;
       if (sumBad < 0 && rowBad < 0) {
         log('ok', `[msbhist] decide PASS — WindowDesc(${nW}w) + summary match reference (isSplit=${gpuSummary[0]})`);
       } else {
-        log('error', `[msbhist] decide FAIL — summary field ${sumBad} (gpu=${gpuSummary.slice(0, 9)} ref=${sumExp}), row word ${rowBad}`);
+        log(
+          'error',
+          `[msbhist] decide FAIL — summary field ${sumBad} (gpu=${gpuSummary.slice(0, 9)} ref=${sumExp}), row word ${rowBad}`,
+        );
       }
       // Validate idx_large compaction: count == n_large, every entry has msb >= b_star-1.
       const { count: idxCount, idxLarge } = await msm.debugIdxLarge();
@@ -2281,7 +2350,10 @@ function hideProgress(): void {
           const base = i * 8;
           let msb = -1;
           for (let w = 7; w >= 0; w--) {
-            if (scalarsU32[base + w] !== 0) { msb = w * 32 + (31 - Math.clz32(scalarsU32[base + w])); break; }
+            if (scalarsU32[base + w] !== 0) {
+              msb = w * 32 + (31 - Math.clz32(scalarsU32[base + w]));
+              break;
+            }
           }
           if (msb < bStar - 1) idxBad = k;
         }
@@ -2372,9 +2444,14 @@ function hideProgress(): void {
         tree_dump: treeDump ?? null,
         ab_diag: abDiag,
       };
-      const state = (debugSmvp || debugTreeOut)
-        ? ((dump !== undefined || treeDump !== undefined) ? 'done' : 'error')
-        : (crossOk && errLines.length === 0 ? 'done' : 'error');
+      const state =
+        debugSmvp || debugTreeOut
+          ? dump !== undefined || treeDump !== undefined
+            ? 'done'
+            : 'error'
+          : crossOk && errLines.length === 0
+            ? 'done'
+            : 'error';
       await client.postResults({
         state,
         params,
