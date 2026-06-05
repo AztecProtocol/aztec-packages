@@ -3,6 +3,8 @@ import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
@@ -38,6 +40,7 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import { FactStore } from '../../storage/fact_store/fact_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -63,6 +66,8 @@ describe('Utility Execution test suite', () => {
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
+  let factStoreKv: AztecAsyncKVStore;
+  let factStore: FactStore;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
   let messageContextService: MessageContextService;
@@ -87,6 +92,8 @@ describe('Utility Execution test suite', () => {
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
+    factStoreKv = await openTmpStore('utility-execution-fact-store-test');
+    factStore = new FactStore(factStoreKv);
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
     messageContextService = new MessageContextService(aztecNode);
@@ -120,6 +127,7 @@ describe('Utility Execution test suite', () => {
       senderAddressBookStore,
       capsuleStore,
       privateEventStore,
+      factStore,
       simulator,
       contractSyncService,
       messageContextService,
@@ -150,6 +158,10 @@ describe('Utility Execution test suite', () => {
       }
       throw new Error(`Unknown address ${account}`);
     });
+  });
+
+  afterEach(async () => {
+    await factStoreKv.close();
   });
 
   it('should run the summed_values function on StatefulTestContractArtifact', async () => {
@@ -590,6 +602,67 @@ describe('Utility Execution test suite', () => {
       });
     });
 
+    describe('factStore', () => {
+      const ENTITY = new Fr(7n);
+      const CORR = new Fr(0xaan);
+      const RECEIVED = new Fr(1n);
+      const PROCESSED = new Fr(2n);
+      const JOB = 'test-job-id';
+
+      it('records facts via the handlers and reads them back packed via getEntityFacts', async () => {
+        await utilityExecutionOracle.recordNonRetractableFact(contractAddress, scope, ENTITY, CORR, RECEIVED, [
+          new Fr(9n),
+        ]);
+        await utilityExecutionOracle.recordRetractableFact(
+          contractAddress,
+          scope,
+          ENTITY,
+          CORR,
+          PROCESSED,
+          [],
+          5,
+          new Fr(1n),
+        );
+        await factStoreKv.transactionAsync(() => factStore.commit(JOB));
+
+        const packed = (await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR)).map(f =>
+          f.toBigInt(),
+        );
+
+        // count=2, then one (factTypeId, payloadLen, ...payload) tuple per fact. Order is not guaranteed across the
+        // two facts, so we assert on the count and on each fact's tuple being present.
+        expect(packed[0]).toEqual(2n);
+        expect(packed).toContain(RECEIVED.toBigInt());
+        expect(packed).toContain(PROCESSED.toBigInt());
+        expect(packed).toContain(9n);
+      });
+
+      it('enumerates active entities and terminates them through the handlers', async () => {
+        await utilityExecutionOracle.recordNonRetractableFact(contractAddress, scope, ENTITY, CORR, RECEIVED, [
+          new Fr(9n),
+        ]);
+        await factStoreKv.transactionAsync(() => factStore.commit(JOB));
+
+        expect(
+          (await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY)).map(c => c.toBigInt()),
+        ).toEqual([CORR.toBigInt()]);
+
+        await utilityExecutionOracle.terminateEntity(contractAddress, scope, ENTITY, CORR);
+        await factStoreKv.transactionAsync(() => factStore.commit(JOB));
+
+        expect(await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY)).toHaveLength(0);
+        expect(await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR)).toEqual([new Fr(0n)]);
+      });
+
+      it('rejects a scope outside the allowed scopes list', async () => {
+        const otherScope = await AztecAddress.random();
+        // The scope guard runs before any awaitable work, so it surfaces as a synchronous throw.
+        expect(() =>
+          utilityExecutionOracle.recordNonRetractableFact(contractAddress, otherScope, ENTITY, CORR, RECEIVED, []),
+        ).toThrow(/not in the allowed scopes list/);
+      });
+    });
+
     const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs>) => {
       const scopes = overrides?.scopes ?? [];
       return new UtilityExecutionOracle({
@@ -606,6 +679,7 @@ describe('Utility Execution test suite', () => {
         senderAddressBookStore,
         capsuleService: new CapsuleService(capsuleStore, scopes),
         privateEventStore,
+        factStore,
         messageContextService,
         contractSyncService,
         jobId: 'test-job-id',

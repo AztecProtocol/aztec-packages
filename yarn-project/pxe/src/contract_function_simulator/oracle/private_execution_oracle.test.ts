@@ -17,6 +17,7 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { FactStore } from '../../storage/fact_store/fact_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -86,6 +87,7 @@ describe('PrivateExecutionOracle', () => {
       senderAddressBookStore: mock<SenderAddressBookStore>(),
       capsuleService: new CapsuleService(mock<CapsuleStore>(), []),
       privateEventStore: mock<PrivateEventStore>(),
+      factStore: mock<FactStore>(),
       messageContextService: mock<MessageContextService>(),
       contractSyncService: mock<ContractSyncService>(),
       l2TipsStore: mock<L2TipsProvider>(),

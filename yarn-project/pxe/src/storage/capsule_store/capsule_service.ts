@@ -78,7 +78,11 @@ export class CapsuleService {
   }
 }
 
-function assertAllowedScope(scope: AztecAddress, allowedScopes: AztecAddress[]) {
+/**
+ * Asserts that `scope` is permitted given `allowedScopes`. The zero scope is always allowed (it denotes the
+ * unscoped/global namespace). Throws otherwise.
+ */
+export function assertAllowedScope(scope: AztecAddress, allowedScopes: AztecAddress[]) {
   if (scope.equals(AztecAddress.ZERO)) {
     return;
   }

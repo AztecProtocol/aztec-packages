@@ -52,8 +52,10 @@ import { MessageContextService } from '../../messages/message_context_service.js
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
-import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
+import { type CapsuleService, assertAllowedScope } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import { packFactSet } from '../../storage/fact_store/fact_packing.js';
+import type { FactStore } from '../../storage/fact_store/fact_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -90,6 +92,7 @@ export type UtilityExecutionOracleArgs = {
   senderAddressBookStore: SenderAddressBookStore;
   capsuleService: CapsuleService;
   privateEventStore: PrivateEventStore;
+  factStore: FactStore;
   messageContextService: MessageContextService;
   contractSyncService: ContractSyncService;
   l2TipsStore: L2TipsProvider;
@@ -130,6 +133,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly senderAddressBookStore: SenderAddressBookStore;
   protected readonly capsuleService: CapsuleService;
   protected readonly privateEventStore: PrivateEventStore;
+  protected readonly factStore: FactStore;
   protected readonly messageContextService: MessageContextService;
   protected readonly contractSyncService: ContractSyncService;
   protected readonly l2TipsStore: L2TipsProvider;
@@ -154,6 +158,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleService = args.capsuleService;
     this.privateEventStore = args.privateEventStore;
+    this.factStore = args.factStore;
     this.messageContextService = args.messageContextService;
     this.contractSyncService = args.contractSyncService;
     this.l2TipsStore = args.l2TipsStore;
@@ -801,6 +806,87 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return Promise.resolve();
   }
 
+  /**
+   * Records a retractable (block-anchored) fact about an entity. Retractable facts are re-derivable and are deleted
+   * when their anchor block is pruned by a reorg.
+   */
+  public recordRetractableFact(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    correlationKey: Fr,
+    factTypeId: Fr,
+    payload: Fr[],
+    blockNumber: number,
+    blockHash: Fr,
+  ): Promise<void> {
+    assertAllowedScope(scope, this.scopes);
+    return this.factStore.recordFact(
+      contractAddress,
+      scope,
+      entityTypeId,
+      correlationKey,
+      factTypeId,
+      payload,
+      { blockNumber, blockHash },
+      this.jobId,
+    );
+  }
+
+  /**
+   * Records a non-retractable fact about an entity. Non-retractable facts are external inputs that survive reorgs
+   * (they carry no block anchor).
+   */
+  public recordNonRetractableFact(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    correlationKey: Fr,
+    factTypeId: Fr,
+    payload: Fr[],
+  ): Promise<void> {
+    assertAllowedScope(scope, this.scopes);
+    return this.factStore.recordFact(
+      contractAddress,
+      scope,
+      entityTypeId,
+      correlationKey,
+      factTypeId,
+      payload,
+      undefined,
+      this.jobId,
+    );
+  }
+
+  /** Returns the correlation keys of all active entities under (contract, scope, entityTypeId). */
+  public activeEntities(contractAddress: AztecAddress, scope: AztecAddress, entityTypeId: Fr): Promise<Fr[]> {
+    assertAllowedScope(scope, this.scopes);
+    return this.factStore.activeEntities(contractAddress, scope, entityTypeId);
+  }
+
+  /** Returns an entity's committed facts packed into a flat self-describing `Field[]` (see {@link packFactSet}). */
+  public async getEntityFacts(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    correlationKey: Fr,
+  ): Promise<Fr[]> {
+    assertAllowedScope(scope, this.scopes);
+    const facts = await this.factStore.getEntityFacts(contractAddress, scope, entityTypeId, correlationKey);
+    return packFactSet(facts);
+  }
+
+  /** Permanently deletes an entity and all of its facts. */
+  public terminateEntity(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    correlationKey: Fr,
+  ): Promise<void> {
+    assertAllowedScope(scope, this.scopes);
+    return this.factStore.terminateEntity(contractAddress, scope, entityTypeId, correlationKey, this.jobId);
+  }
+
   /** Executes another utility function from within this one and returns its serialized return values. */
   public async callUtilityFunction(
     targetContractAddress: AztecAddress,
@@ -869,6 +955,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
+      factStore: this.factStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
       l2TipsStore: this.l2TipsStore,

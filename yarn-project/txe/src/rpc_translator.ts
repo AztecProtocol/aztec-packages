@@ -755,6 +755,72 @@ export class RPCTranslator {
     });
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_utl_recordRetractableFact(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_recordRetractableFact',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId, correlationKey, factTypeId, payload, blockNumber, blockHash]) =>
+        this.handlerAsUtility().recordRetractableFact(
+          contractAddress,
+          scope,
+          entityTypeId,
+          correlationKey,
+          factTypeId,
+          payload,
+          blockNumber,
+          blockHash,
+        ),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_recordNonRetractableFact(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_recordNonRetractableFact',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId, correlationKey, factTypeId, payload]) =>
+        this.handlerAsUtility().recordNonRetractableFact(
+          contractAddress,
+          scope,
+          entityTypeId,
+          correlationKey,
+          factTypeId,
+          payload,
+        ),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_activeEntities(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_activeEntities',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId]) =>
+        this.handlerAsUtility().activeEntities(contractAddress, scope, entityTypeId),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEntityFacts(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getEntityFacts',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId, correlationKey]) =>
+        this.handlerAsUtility().getEntityFacts(contractAddress, scope, entityTypeId, correlationKey),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_terminateEntity(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_terminateEntity',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId, correlationKey]) =>
+        this.handlerAsUtility().terminateEntity(contractAddress, scope, entityTypeId, correlationKey),
+    });
+  }
+
   // AVM opcodes
 
   // eslint-disable-next-line camelcase
