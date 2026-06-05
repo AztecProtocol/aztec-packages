@@ -564,7 +564,6 @@ mod test {
         assert(GLOBAL_DERIVED_MODE == OnchainDeliveryMode::onchain_unconstrained());
     }
 
-
     #[test]
     fn built_delivery_mode_matches_the_variant() {
         assert(MessageDelivery::offchain().build_message_delivery().mode().is_none());
