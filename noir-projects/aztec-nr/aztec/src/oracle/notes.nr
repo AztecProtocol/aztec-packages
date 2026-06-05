@@ -195,7 +195,7 @@ unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient
 /// contract, and only needs the simulator to hand out a fresh per-secret, per-mode index; the caller computes the tag
 /// itself. `mode` is the [`OnchainDeliveryMode`] selecting the per-mode index counter, derived through the delivery
 /// API (e.g. `MessageDelivery::onchain_unconstrained().mode()`). Offchain messages are not tagged, so only the
-/// onchain delivery variants should reach this oracle.
+/// onchain delivery variants can be used by this oracle.
 ///
 /// The simulator persists the index increment only if the tagged log is found in an actual block; a reverting
 /// transaction can otherwise cause the sender to skip indices and later produce notes that are not found by the
