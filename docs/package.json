@@ -12,6 +12,7 @@
     "generate:aztec-nr-api": "./scripts/aztec_nr_docs_generation/generate_aztec_nr_docs.sh",
     "generate:typescript-api": "./scripts/typescript_api_generation/generate_ts_api_docs.sh",
     "generate:node-api-reference": "./scripts/node_api_reference_generation/generate_node_api_reference.sh",
+    "generate:operator-cli-reference": "./scripts/cli_reference_generation/generate_operator_cli_ref.sh",
     "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js",
     "preprocess:move": "sh scripts/move_processed.sh",
     "serve": "yarn docusaurus serve",
