@@ -15,17 +15,15 @@ services:
     volumes:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
-      - local-network-logs:/logs
+      - ${COMPOSE_LOG_DIR:-/tmp/aztec-compose-logs/default}:/logs
     working_dir: /root/aztec-packages/yarn-project/aztec
     entrypoint: >
       bash -c '
-        export LOG_LEVEL="$${LOCAL_NETWORK_LOG_LEVEL:-$${LOG_LEVEL:-verbose}}"
         set -o pipefail
         node ./dest/bin start --local-network 2>&1 | tee /logs/local-network.log
       '
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
-      LOCAL_NETWORK_LOG_LEVEL: ${LOCAL_NETWORK_LOG_LEVEL:-}
       ETHEREUM_HOSTS: http://fork:8545
       L1_CHAIN_ID: 31337
       FORCE_COLOR: ${FORCE_COLOR:-1}
@@ -45,7 +43,7 @@ services:
     volumes:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
-      - local-network-logs:/logs
+      - ${COMPOSE_LOG_DIR:-/tmp/aztec-compose-logs/default}:/logs
     tmpfs:
       - /tmp:rw,size=1g
       - /tmp-jest:rw,size=512m
@@ -87,16 +85,12 @@ services:
         while kill -0 -$$pgid 2>/dev/null; do sleep 0.1; done
         wait $$pid
         rc=$$?
-        if [ $$rc -ne 0 ]; then
-          echo "===== local-network logs ====="
-          cat /logs/local-network.log || true
-          echo "===== end local-network logs ====="
-        fi
+        echo "===== local-network logs ====="
+        cat /logs/local-network.log || true
+        echo "===== end local-network logs ====="
+        rm -f /logs/local-network.log
         exit $$rc
       '
     depends_on:
       - local-network
       - fork
-
-volumes:
-  local-network-logs:
