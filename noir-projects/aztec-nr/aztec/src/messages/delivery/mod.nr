@@ -5,6 +5,7 @@ use crate::{
         logs::utils::compute_discovery_tag,
         offchain_messages::deliver_offchain_message,
     },
+    standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
     utils::remove_constraints::remove_constraints_if,
 };
 use crate::protocol::{
@@ -30,7 +31,8 @@ use crate::protocol::{
 ///
 /// On-chain delivery additionally configures the [`SecretOrigin`] from which the discovery tag's shared secret is
 /// derived (via [`OnchainDelivery::via_address_pair`] / [`OnchainDelivery::via_handshake`]) and an optional sender
-/// override (via [`OnchainDelivery::with_sender`]).
+/// override (via [`OnchainDelivery::with_sender`]). Constrained delivery defaults to a handshake origin resolved via
+/// the standard handshake registry.
 pub struct MessageDelivery {
     variant: u8,
     origin: Option<SecretOrigin>,
@@ -233,9 +235,9 @@ impl MessageDelivery {
 
     /// Delivers the message on-chain, guaranteeing the recipient will receive the correct content.
     ///
-    /// Constrained delivery derives the discovery tag from a handshake-registry secret, so it must be configured with
-    /// a handshake origin via [`OnchainDelivery::via_handshake`] and the sending account via
-    /// [`OnchainDelivery::with_sender`].
+    /// Constrained delivery derives the discovery tag from a handshake-registry secret, resolved via the standard
+    /// handshake registry ([`STANDARD_HANDSHAKE_REGISTRY_ADDRESS`]) by default or a custom registry set with
+    /// [`OnchainDelivery::via_handshake`]. The sending account is configured via [`OnchainDelivery::with_sender`].
     ///
     /// ## Use Cases
     ///
@@ -281,7 +283,11 @@ impl MessageDelivery {
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
     pub fn onchain_constrained() -> OnchainDelivery {
-        OnchainDelivery { variant: ONCHAIN_CONSTRAINED, origin: Option::none(), sender_override: Option::none() }
+        OnchainDelivery {
+            variant: ONCHAIN_CONSTRAINED,
+            origin: Option::some(SecretOrigin::handshake(STANDARD_HANDSHAKE_REGISTRY_ADDRESS)),
+            sender_override: Option::none(),
+        }
     }
 
     /// Returns the [`OnchainDeliveryMode`] of this built delivery, mirroring [`OnchainDelivery::mode`].
@@ -335,16 +341,17 @@ where
     let is_constrained = delivery.mode().is_constrained();
     let deliver_as_offchain_message = delivery.variant == OFFCHAIN;
 
-    // An unset origin defaults to the address pair for this delivery (handshake-origin selection without an explicit
-    // `via_handshake` is future work, see F-698). The origin discriminant is set at the call site, so `via_handshake`
-    // is a compile-time constant and the (mode, origin) validation below is resolved at compile/proving time.
+    // Constrained delivery defaults to a handshake origin at construction, so an unset origin only occurs for
+    // unconstrained delivery, where it defaults to the address pair (unconstrained handshake-origin delivery is
+    // future work, see F-698). The origin discriminant is set at the call site, so `via_handshake` is a compile-time
+    // constant and the (mode, origin) validation below is resolved at compile/proving time.
     let origin = delivery.origin.unwrap_or(SecretOrigin::address_pair());
     let via_handshake = origin.is_handshake();
 
     if is_constrained {
         // Constrained tagging derives the tag from a handshake-registry secret and emits a chain nullifier; there is
         // no address-pair constrained path.
-        std::static_assert(via_handshake, "constrained delivery requires a handshake origin (use .via_handshake(registry))");
+        std::static_assert(via_handshake, "constrained delivery requires a handshake origin (remove .via_address_pair())");
     } else {
         // Unconstrained handshake-origin delivery is not yet implemented; see F-698.
         std::static_assert(!via_handshake, "unconstrained handshake delivery not yet implemented (F-698)");
@@ -360,19 +367,12 @@ where
     if deliver_as_offchain_message {
         deliver_offchain_message(ciphertext, recipient);
     } else {
-        let log_tag = if is_constrained {
-            // TODO(#14565): constrained tagging is not yet wired up. The handshake origin and sender are validated,
-            // but the tag is mocked with the unconstrained derivation so the builder API can land before the
-            // constrained helpers; the real handshake-derived tag and chain nullifier arrive with the emit helper.
-            let _ = delivery.sender_override.expect(f"constrained delivery requires a sender (use .with_sender())");
-            let discovery_tag = compute_discovery_tag(recipient, delivery.sender_override);
-            compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG)
-        } else {
-            // Unconstrained + address-pair origin: the discovery tag comes from the wallet-driven directional
-            // tagging secret.
-            let discovery_tag = compute_discovery_tag(recipient, delivery.sender_override);
-            compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG)
-        };
+        // TODO(#14565): constrained tagging is not yet wired up. The handshake origin is validated, but the tag is
+        // mocked with the wallet-driven unconstrained derivation so the builder API can land before the constrained
+        // helpers; the real handshake-derived tag, chain nullifier, and any explicit-sender requirement arrive with
+        // the emit helper.
+        let discovery_tag = compute_discovery_tag(recipient, delivery.sender_override);
+        let log_tag = compute_log_tag(discovery_tag, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG);
 
         // We forbid this value not being constant to avoid predicating the context calls below, which might result in
         // the context's arrays having unknown compile time write indices and hence dramatically increasing constraints
@@ -427,22 +427,23 @@ pub struct OnchainDelivery {
 impl OnchainDelivery {
     /// Derives the discovery tag from the sender/recipient address-pair ECDH shared secret.
     ///
-    /// This is the default origin for on-chain delivery, so calling this is only necessary to be explicit. It is not
-    /// compatible with [`MessageDelivery::onchain_constrained`], which requires a handshake origin.
+    /// This is the default origin for unconstrained on-chain delivery, so calling this is only necessary to be
+    /// explicit. It is not compatible with [`MessageDelivery::onchain_constrained`], which requires a handshake
+    /// origin.
     pub fn via_address_pair(&mut self) -> Self {
         self.origin = Option::some(SecretOrigin::address_pair());
         *self
     }
 
-    /// Derives the discovery tag from a handshake-registry shared secret resolved through `registry`.
+    /// Overrides the handshake registry through which the handshake shared secret is resolved.
     ///
-    /// This is the origin required by [`MessageDelivery::onchain_constrained`], whose tag must be derivable inside the
-    /// circuit.
+    /// [`MessageDelivery::onchain_constrained`] already defaults to the standard handshake registry
+    /// ([`STANDARD_HANDSHAKE_REGISTRY_ADDRESS`]), so calling this is only necessary to use a custom registry.
     ///
     /// ## Examples
     ///
     /// ```noir
-    /// MessageDelivery::onchain_constrained().via_handshake(registry).with_sender(self.address)
+    /// MessageDelivery::onchain_constrained().via_handshake(custom_registry).with_sender(self.address)
     /// ```
     pub fn via_handshake(&mut self, registry: AztecAddress) -> Self {
         self.origin = Option::some(SecretOrigin::handshake(registry));
@@ -464,7 +465,7 @@ impl OnchainDelivery {
     /// ## Examples
     ///
     /// ```noir
-    /// MessageDelivery::onchain_constrained().via_handshake(registry).with_sender(self.address)
+    /// MessageDelivery::onchain_constrained().with_sender(self.address)
     /// ```
     pub fn with_sender(&mut self, sender: AztecAddress) -> Self {
         self.sender_override = Option::some(sender);
@@ -489,6 +490,7 @@ impl MessageDeliveryBuilder for OnchainDelivery {
 mod test {
     use crate::protocol::address::AztecAddress;
     use crate::protocol::traits::FromField;
+    use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
     use super::{
         MessageDelivery, MessageDeliveryBuilder, OFFCHAIN, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED,
         OnchainDeliveryMode,
@@ -506,9 +508,18 @@ mod test {
     }
 
     #[test]
-    fn onchain_delivery_defaults_to_unset_origin_and_sender() {
+    fn onchain_unconstrained_defaults_to_unset_origin_and_sender() {
         let delivery = MessageDelivery::onchain_unconstrained().build_message_delivery();
         assert(delivery.origin.is_none());
+        assert(delivery.sender_override.is_none());
+    }
+
+    #[test]
+    fn onchain_constrained_defaults_to_the_standard_handshake_registry() {
+        let delivery = MessageDelivery::onchain_constrained().build_message_delivery();
+        let origin = delivery.origin.unwrap();
+        assert(origin.is_handshake());
+        assert(origin.handshake_registry.unwrap() == STANDARD_HANDSHAKE_REGISTRY_ADDRESS);
         assert(delivery.sender_override.is_none());
     }
 
