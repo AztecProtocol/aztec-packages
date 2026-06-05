@@ -133,7 +133,7 @@ export function createAztecNodeAdminClient(
   apiKey?: string,
 ): AztecNodeAdmin {
   return createSafeJsonRpcClient<AztecNodeAdmin>(url, AztecNodeAdminApiSchema, {
-    namespaceMethods: 'nodeAdmin',
+    namespaceMethods: 'aztecAdmin',
     fetch,
     onResponse: getVersioningResponseHandler(versions),
     ...(apiKey ? { extraHeaders: { 'x-api-key': apiKey } } : {}),

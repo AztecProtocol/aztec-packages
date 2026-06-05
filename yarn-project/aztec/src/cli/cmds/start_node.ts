@@ -16,7 +16,7 @@ import {
 } from '@aztec/prover-client/broker';
 import { type CliPXEOptions, type PXEConfig, allPxeConfigMappings } from '@aztec/pxe/config';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
-import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import { ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import {
   type TelemetryClientConfig,
   initTelemetryClient,
@@ -156,10 +156,9 @@ export async function startNode(
   // Create and start Aztec Node
   const node = await createAztecNode(nodeConfig, { telemetry, proverBroker: broker }, { genesis });
 
-  // Add node and p2p to services list
-  services.node = [node, AztecNodeApiSchema];
-  services.p2p = [node.getP2P(), P2PApiSchema];
-  adminServices.nodeAdmin = [node, AztecNodeAdminApiSchema];
+  // Add node to services list
+  services.aztec = [node, AztecNodeApiSchema];
+  adminServices.aztecAdmin = [node, AztecNodeAdminApiSchema];
 
   // Register prover-node services if the prover node subsystem is running
   const proverNode = node.getProverNode();

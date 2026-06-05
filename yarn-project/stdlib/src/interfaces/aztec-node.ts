@@ -7,6 +7,7 @@ import {
   type CheckpointNumber,
   CheckpointNumberPositiveSchema,
   CheckpointNumberSchema,
+  type CheckpointProposalHash,
   type EpochNumber,
   EpochNumberSchema,
   type SlotNumber,
@@ -45,6 +46,7 @@ import {
   PublicLogsQuerySchema,
 } from '../logs/logs_query.js';
 import { type L2ToL1MembershipWitness, L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
+import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
 import { type ApiSchemaFor, type ZodFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
@@ -84,6 +86,7 @@ import {
   type CheckpointResponse,
   CheckpointResponseSchema,
 } from './checkpoint_response.js';
+import { type PeerInfo, PeerInfoSchema } from './p2p.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /** Options for retrieving txs via {@link AztecNode.getTxByHash} and {@link AztecNode.getTxsByHash}. */
@@ -526,6 +529,24 @@ export interface AztecNode {
    * @returns The list of allowed elements.
    */
   getAllowedPublicSetup(): Promise<AllowedElement[]>;
+
+  /**
+   * Returns info for all connected, dialing, and cached peers. Only available when P2P is enabled.
+   * @param includePending - If true, also include peers in the pending state.
+   */
+  getPeers(includePending?: boolean): Promise<PeerInfo[]>;
+
+  /**
+   * Queries the attestation pool for checkpoint attestations for the given slot.
+   * @param slot - The slot to query.
+   * @param proposalPayloadHash - Hex-encoded keccak256 of the target proposal's signed payload hash.
+   *        When provided, only attestations whose payload hash matches are returned.
+   *        When omitted, all attestations for the slot are returned.
+   */
+  getCheckpointAttestationsForSlot(
+    slot: SlotNumber,
+    proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]>;
 }
 
 const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
@@ -730,6 +751,16 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getEncodedEnr: z.function({ input: z.tuple([]), output: z.string().optional() }),
 
   getAllowedPublicSetup: z.function({ input: z.tuple([]), output: z.array(AllowedElementSchema) }),
+
+  getPeers: z.function({ input: z.tuple([optional(z.boolean())]), output: z.array(PeerInfoSchema) }),
+
+  getCheckpointAttestationsForSlot: z.function({
+    input: z.tuple([
+      schemas.SlotNumber,
+      optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
+    ]),
+    output: z.array(CheckpointAttestation.schema),
+  }),
 };
 
 export function createAztecNodeClient(
@@ -739,7 +770,7 @@ export function createAztecNodeClient(
   batchWindowMS = 0,
 ): AztecNode {
   return createSafeJsonRpcClient<AztecNode>(url, AztecNodeApiSchema, {
-    namespaceMethods: 'node',
+    namespaceMethods: 'aztec',
     fetch,
     batchWindowMS,
     onResponse: getVersioningResponseHandler(versions),

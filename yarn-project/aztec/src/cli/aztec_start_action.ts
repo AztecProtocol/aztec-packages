@@ -48,9 +48,9 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
     // Start Node and PXE JSON-RPC server
     signalHandlers.push(stop);
-    services.node = [node, AztecNodeApiSchema];
-    adminServices.node = [node, AztecNodeAdminApiSchema];
-    services.nodeDebug = [node, AztecNodeDebugApiSchema];
+    services.aztec = [node, AztecNodeApiSchema];
+    adminServices.aztecAdmin = [node, AztecNodeAdminApiSchema];
+    services.aztecDebug = [node, AztecNodeDebugApiSchema];
   } else {
     // Route --prover-node through startNode
     if (options.proverNode && !options.node) {
@@ -61,8 +61,8 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       const { startNode } = await import('./cmds/start_node.js');
       const networkName = getActiveNetworkName(options.network);
       ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog, networkName));
-      if (options.nodeDebug && services.node) {
-        services.nodeDebug = [services.node[0], AztecNodeDebugApiSchema];
+      if (options.nodeDebug && services.aztec) {
+        services.aztecDebug = [services.aztec[0], AztecNodeDebugApiSchema];
       }
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
@@ -94,7 +94,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {
-    if (services.node) {
+    if (services.aztec) {
       const { BarretenbergSync } = await import('@aztec/bb.js');
       // JSON-RPC schema parsing may decompress compressed Chonk proofs before the node handler runs.
       await BarretenbergSync.initSingleton();

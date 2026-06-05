@@ -1,9 +1,8 @@
 #!/usr/bin/env -S node --no-warnings
+import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
 import { createLogger } from '@aztec/foundation/log';
 import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
-import { createTracedJsonRpcServer } from '@aztec/telemetry-client';
-
-import http from 'http';
+import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '../index.js';
 
@@ -39,12 +38,11 @@ async function main() {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.once('SIGTERM', shutdown);
 
-  const rpcServer = createTracedJsonRpcServer(aztecNode, AztecNodeApiSchema);
-  const app = rpcServer.getApp(API_PREFIX);
-
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  const httpServer = http.createServer(app.callback());
-  httpServer.listen(+AZTEC_NODE_PORT);
+  const rpcServer = createNamespacedSafeJsonRpcServer(
+    { aztec: [aztecNode, AztecNodeApiSchema] },
+    { middlewares: [getOtelJsonRpcPropagationMiddleware()] },
+  );
+  await startHttpRpcServer(rpcServer, { port: +AZTEC_NODE_PORT, apiPrefix: API_PREFIX });
   logger.info(`Aztec Node JSON-RPC Server listening on port ${AZTEC_NODE_PORT}`);
 }
 

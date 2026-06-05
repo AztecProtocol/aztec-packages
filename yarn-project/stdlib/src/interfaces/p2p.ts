@@ -16,7 +16,7 @@ export type PeerInfo =
   | { status: 'dialing'; dialStatus: string; id: string; addresses: string[] }
   | { status: 'cached'; id: string; addresses: string[]; enr: string; dialAttempts: number };
 
-const PeerInfoSchema = z.discriminatedUnion('status', [
+export const PeerInfoSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('connected'), score: z.number(), id: z.string() }),
   z.object({ status: z.literal('dialing'), dialStatus: z.string(), id: z.string(), addresses: z.array(z.string()) }),
   z.object({

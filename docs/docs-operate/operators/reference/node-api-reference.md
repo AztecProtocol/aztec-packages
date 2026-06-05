@@ -19,11 +19,11 @@ This document provides a complete reference for the Aztec Node JSON RPC API. All
 
 Note that the above ports are only defaults, and can be modified by setting `--port` and `--admin-port` flags upon startup.
 
-All methods use standard JSON RPC 2.0 format with methods prefixed by `node_` or `nodeAdmin_`.
+All methods use standard JSON RPC 2.0 format with methods prefixed by `aztec_` or `aztecAdmin_`.
 
 ## Block queries
 
-### node_getBlockNumber
+### aztec_getBlockNumber
 
 Returns the block number at a given chain tip, or the latest proposed block number when
 `tip` is omitted.
@@ -39,10 +39,10 @@ Returns the block number at a given chain tip, or the latest proposed block numb
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getBlockNumber","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getBlockNumber","params":["0x1234..."],"id":1}'
 ```
 
-### node_getCheckpointNumber
+### aztec_getCheckpointNumber
 
 Returns the checkpoint number at a given chain tip, or the latest checkpoint number when
 `tip` is omitted.
@@ -62,10 +62,10 @@ checkpoints are not exposed over RPC. `'checkpointed'` on the checkpoint side is
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpointNumber","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getCheckpointNumber","params":["0x1234..."],"id":1}'
 ```
 
-### node_getChainTips
+### aztec_getChainTips
 
 Returns the tips of the L2 chain.
 
@@ -78,10 +78,10 @@ Returns the tips of the L2 chain.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getChainTips","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getChainTips","params":[],"id":1}'
 ```
 
-### node_getBlock
+### aztec_getBlock
 
 Unified block fetch. Returns the block identified by `param`, with optional fields controlled
 by `options`.
@@ -98,10 +98,10 @@ by `options`.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getBlock","params":["latest","0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getBlock","params":["latest","0x1234..."],"id":1}'
 ```
 
-### node_getBlockData
+### aztec_getBlockData
 
 Lightweight block-metadata fetch. Returns the block identified by `param` without transaction
 bodies or other optional context. Cheaper than `getBlock` for header-only access.
@@ -117,10 +117,10 @@ bodies or other optional context. Cheaper than `getBlock` for header-only access
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getBlockData","params":["latest"],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getBlockData","params":["latest"],"id":1}'
 ```
 
-### node_getBlocks
+### aztec_getBlocks
 
 Returns up to `limit` blocks starting from `from`, projected to the 
 shape determined by `options`.
@@ -138,10 +138,10 @@ shape determined by `options`.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getBlocks","params":[1,100,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getBlocks","params":[1,100,"0x1234..."],"id":1}'
 ```
 
-### node_getCheckpoint
+### aztec_getCheckpoint
 
 Unified checkpoint fetch. Returns the checkpoint identified by `param`, with optional fields
 controlled by `options`.
@@ -158,10 +158,10 @@ controlled by `options`.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpoint","params":["0x1234...","0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getCheckpoint","params":["0x1234...","0x1234..."],"id":1}'
 ```
 
-### node_getCheckpoints
+### aztec_getCheckpoints
 
 Returns up to `limit` checkpoints starting from `from`, projected to the
  shape determined by `options`.
@@ -179,10 +179,10 @@ Returns up to `limit` checkpoints starting from `from`, projected to the
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpoints","params":[1,100,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getCheckpoints","params":[1,100,"0x1234..."],"id":1}'
 ```
 
-### node_getCheckpointsData
+### aztec_getCheckpointsData
 
 Gets lightweight checkpoint metadata for a contiguous range or for an entire epoch.
 
@@ -197,12 +197,12 @@ Gets lightweight checkpoint metadata for a contiguous range or for an entire epo
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpointsData","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getCheckpointsData","params":["0x1234..."],"id":1}'
 ```
 
 ## Transaction operations
 
-### node_sendTx
+### aztec_sendTx
 
 Method to submit a transaction to the p2p pool.
 
@@ -217,18 +217,21 @@ Method to submit a transaction to the p2p pool.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_sendTx","params":[{"data":"0x..."}],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_sendTx","params":[{"data":"0x..."}],"id":1}'
 ```
 
-### node_getTxReceipt
+### aztec_getTxReceipt
 
-Fetches a transaction receipt for a given transaction hash. Returns a mined receipt if it was added
-to the chain, a pending receipt if it's still in the mempool of the connected Aztec node, or a dropped
-receipt if not found in the connected Aztec node.
+Fetches a transaction receipt for a given transaction hash. Always resolves to one of the lifecycle variants of
+the  union: a  if the tx was included in a block, a 
+if it's still in the mempool of the connected Aztec node, or a  if not found.
 
 **Parameters**:
 
 1. `txHash` - `TxHash` - The transaction hash.
+2. `options` - `GetTxReceiptOptions | undefined` - Optional flags controlling which extra data is attached: `includeTxEffect` attaches the full
+ to a mined receipt, `includePendingTx` attaches the pending  to a pending receipt, and
+`includeProof` keeps the proof on that attached pending tx (only meaningful with `includePendingTx`).
 
 **Returns**: `TxReceipt` - A receipt of the transaction.
 
@@ -237,12 +240,14 @@ receipt if not found in the connected Aztec node.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getTxReceipt","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getTxReceipt","params":["0x1234...","0x1234..."],"id":1}'
 ```
 
-### node_getTxEffect
+### aztec_getTxEffect
 
 Gets a tx effect.
+
+**Deprecated**: Use `getTxReceipt(txHash, { includeTxEffect: true })` and read the `.txEffect` field instead.
 
 **Parameters**:
 
@@ -255,10 +260,10 @@ Gets a tx effect.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getTxEffect","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getTxEffect","params":["0x1234..."],"id":1}'
 ```
 
-### node_getTxByHash
+### aztec_getTxByHash
 
 Method to retrieve a single pending tx.
 
@@ -273,10 +278,10 @@ Method to retrieve a single pending tx.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getTxByHash","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getTxByHash","params":["0x1234..."],"id":1}'
 ```
 
-### node_getTxsByHash
+### aztec_getTxsByHash
 
 Method to retrieve multiple pending txs.
 
@@ -291,10 +296,10 @@ Method to retrieve multiple pending txs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getTxsByHash","params":[["0x1234..."]],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getTxsByHash","params":[["0x1234..."]],"id":1}'
 ```
 
-### node_getPendingTxs
+### aztec_getPendingTxs
 
 Method to retrieve pending txs.
 
@@ -310,10 +315,10 @@ Method to retrieve pending txs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPendingTxs","params":[100,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getPendingTxs","params":[100,"0x1234..."],"id":1}'
 ```
 
-### node_getPendingTxCount
+### aztec_getPendingTxCount
 
 Retrieves the number of pending txs
 
@@ -326,10 +331,10 @@ Retrieves the number of pending txs
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPendingTxCount","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getPendingTxCount","params":[],"id":1}'
 ```
 
-### node_isValidTx
+### aztec_isValidTx
 
 Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
 made invalid by *other* transactions if e.g. they emit the same nullifiers, or come become invalid
@@ -347,10 +352,10 @@ due to e.g. the expiration_timestamp property.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_isValidTx","params":[{"data":"0x..."},{}],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_isValidTx","params":[{"data":"0x..."},{}],"id":1}'
 ```
 
-### node_simulatePublicCalls
+### aztec_simulatePublicCalls
 
 Simulates the public part of a transaction with the current state.
 This currently just checks that the transaction execution succeeds.
@@ -358,7 +363,9 @@ This currently just checks that the transaction execution succeeds.
 **Parameters**:
 
 1. `tx` - `Tx` - The transaction to simulate.
-2. `skipFeeEnforcement` - `boolean | undefined`
+2. `skipFeeEnforcement` - `boolean | undefined` - If true, fee enforcement is skipped.
+3. `overrides` - `SimulationOverrides | undefined` - Optional pre-simulation overrides applied to the ephemeral fork and contract DB
+(publicStorage writes, contract instance overrides).
 
 **Returns**: `PublicSimulationOutput`
 
@@ -367,12 +374,12 @@ This currently just checks that the transaction execution succeeds.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_simulatePublicCalls","params":[{"data":"0x..."},true],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_simulatePublicCalls","params":[{"data":"0x..."},true,"0x1234..."],"id":1}'
 ```
 
 ## State queries
 
-### node_getPublicStorageAt
+### aztec_getPublicStorageAt
 
 Gets the storage value at the given contract storage slot.
 
@@ -392,10 +399,10 @@ Aztec's version of `eth_getStorageAt`.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPublicStorageAt","params":["latest","0x1234...","0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getPublicStorageAt","params":["latest","0x1234...","0x1234..."],"id":1}'
 ```
 
-### node_getWorldStateSyncStatus
+### aztec_getWorldStateSyncStatus
 
 Returns the sync status of the node's world state
 
@@ -408,12 +415,12 @@ Returns the sync status of the node's world state
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getWorldStateSyncStatus","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getWorldStateSyncStatus","params":[],"id":1}'
 ```
 
 ## Membership witnesses
 
-### node_findLeavesIndexes
+### aztec_findLeavesIndexes
 
 Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which
 the leaves were inserted.
@@ -431,10 +438,10 @@ the leaves were inserted.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_findLeavesIndexes","params":["latest",1,["0x1234..."]],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_findLeavesIndexes","params":["latest",1,["0x1234..."]],"id":1}'
 ```
 
-### node_getNullifierMembershipWitness
+### aztec_getNullifierMembershipWitness
 
 Returns a nullifier membership witness for a given nullifier at a given block.
 
@@ -450,10 +457,10 @@ Returns a nullifier membership witness for a given nullifier at a given block.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getNullifierMembershipWitness","params":["latest","0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getNullifierMembershipWitness","params":["latest","0x1234..."],"id":1}'
 ```
 
-### node_getLowNullifierMembershipWitness
+### aztec_getLowNullifierMembershipWitness
 
 Returns a low nullifier membership witness for a given nullifier at a given block.
 
@@ -473,10 +480,10 @@ we are trying to prove non-inclusion for.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getLowNullifierMembershipWitness","params":["latest","0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getLowNullifierMembershipWitness","params":["latest","0x1234..."],"id":1}'
 ```
 
-### node_getPublicDataWitness
+### aztec_getPublicDataWitness
 
 Returns a public data tree witness for a given leaf slot at a given block.
 
@@ -496,10 +503,10 @@ is contained in the leaf preimage.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPublicDataWitness","params":["latest","0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getPublicDataWitness","params":["latest","0x1234..."],"id":1}'
 ```
 
-### node_getBlockHashMembershipWitness
+### aztec_getBlockHashMembershipWitness
 
 Returns a membership witness for a given block hash in the archive tree.
 
@@ -521,10 +528,10 @@ a specific block exists in the chain's history.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getBlockHashMembershipWitness","params":["latest","0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getBlockHashMembershipWitness","params":["latest","0x1234..."],"id":1}'
 ```
 
-### node_getNoteHashMembershipWitness
+### aztec_getNoteHashMembershipWitness
 
 Returns a membership witness for a given note hash at a given block.
 
@@ -540,12 +547,12 @@ Returns a membership witness for a given note hash at a given block.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getNoteHashMembershipWitness","params":["latest","0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getNoteHashMembershipWitness","params":["latest","0x1234..."],"id":1}'
 ```
 
 ## L1 to L2 messages
 
-### node_getL1ToL2MessageMembershipWitness
+### aztec_getL1ToL2MessageMembershipWitness
 
 Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
 
@@ -561,10 +568,10 @@ Returns the index and a sibling path for a leaf in the committed l1 to l2 data t
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getL1ToL2MessageMembershipWitness","params":["latest","0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getL1ToL2MessageMembershipWitness","params":["latest","0x1234..."],"id":1}'
 ```
 
-### node_getL1ToL2MessageCheckpoint
+### aztec_getL1ToL2MessageCheckpoint
 
 Returns the L2 checkpoint number in which this L1 to L2 message becomes available, or undefined if not found.
 
@@ -579,36 +586,44 @@ Returns the L2 checkpoint number in which this L1 to L2 message becomes availabl
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getL1ToL2MessageCheckpoint","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getL1ToL2MessageCheckpoint","params":["0x1234..."],"id":1}'
 ```
 
-### node_getL2ToL1MembershipWitness
+### aztec_getL2ToL1MembershipWitness
 
-Returns the L2-to-L1 membership witness for a message emitted by a transaction.
+Returns the L2-to-L1 membership witness for `message` emitted by tx `txHash`. The node selects
+the smallest partial-proof root on the Outbox that covers the tx's checkpoint and builds the
+witness against it.
+
+The node reads the Outbox roots lazily, pinned to its synced L1 block, so the witness reflects
+the node's synced view. Returns `undefined` if the tx isn't yet in a block/epoch or no covering
+root has landed on L1 as of the synced block.
+
+Caveat: cached roots that are sealed and L1-finalized are not re-validated. A reorg deeper than
+L1 finality could leave the node serving a witness against a no-longer-canonical root.
 
 **Parameters**:
 
-1. `txHash` - `TxHash` - The transaction that emitted the L2-to-L1 message.
+1. `txHash` - `TxHash` - The tx whose L2-to-L1 message we want a witness for.
 2. `message` - `Fr` - The message hash to prove inclusion of.
-3. `messageIndexInTx` - `number` - Optional index of the message within the transaction. Use this when the same message hash appears multiple times in the transaction.
+3. `messageIndexInTx` - `object | undefined` - Optional index of the message within the tx's L2-to-L1 messages; pass
+this when the same message hash appears multiple times in the tx.
 
-**Returns**: `L2ToL1MembershipWitness | undefined` - The membership witness, or undefined if the transaction is not settled or no covering Outbox root is available yet.
+**Returns**: `L2ToL1MembershipWitness | undefined`
 
 **Example**:
 
 ```bash
 curl -X POST http://localhost:8080 \
-  -H "Content-Type: application/json" \
-  -d "{\"jsonrpc\":\"2.0\",\"method\":\"node_getL2ToL1MembershipWitness\",\"params\":[\"0x1234...\",\"0xabcd...\"],\"id\":1}"
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getL2ToL1MembershipWitness","params":["0x1234...","0x1234...",{}],"id":1}'
 ```
 
-### node_getL2ToL1Messages
-
-:::warning Deprecated
-Use `node_getL2ToL1MembershipWitness` to get an L2-to-L1 message witness directly.
-:::
+### aztec_getL2ToL1Messages
 
 Returns all the L2 to L1 messages in an epoch.
+
+**Deprecated**: Use  to get an L2-to-L1 message witness directly.
 
 **Parameters**:
 
@@ -622,101 +637,61 @@ array if the epoch is not found).
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getL2ToL1Messages","params":[12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getL2ToL1Messages","params":[12345],"id":1}'
 ```
 
 ## Log queries
 
-### node_getPublicLogs
+### aztec_getPrivateLogsByTags
 
-Gets public logs based on the provided filter.
+Gets private logs matching the given tags. Returns one inner array per element of `query.tags`, in
+input order. An empty inner array means no logs matched that tag. Set `query.includeEffects` to also
+receive the tx's note hashes and nullifiers.
+
+The return type is the widest  shape — `noteHashes`/`nullifiers` are typed as
+optional even when `includeEffects: true` is set. JSON-RPC validation can't preserve a stricter
+narrowing across the wire. Callers that want a narrowed type at the call site should use the typed
+helpers in `pxe/src/tagging/get_all_logs_by_tags.ts`.
 
 **Parameters**:
 
-1. `filter` - `LogFilter` - The filter to apply to the logs.
+1. `query` - `PrivateLogsQuery`
 
-**Returns**: `GetPublicLogsResponse` - The requested logs.
+**Returns**: `LogResult[][]`
 
 **Example**:
 
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPublicLogs","params":[{"fromBlock":100,"toBlock":200}],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getPrivateLogsByTags","params":["0x1234..."],"id":1}'
 ```
 
-### node_getContractClassLogs
+### aztec_getPublicLogsByTags
 
-Gets contract class logs based on the provided filter.
+Gets public logs matching the given tags for the given contract. Returns one inner array per element
+of `query.tags`, in input order. An empty inner array means no logs matched that tag. Set
+`query.includeEffects` to also receive the tx's note hashes and nullifiers.
+
+The return type is the widest  shape — see .
 
 **Parameters**:
 
-1. `filter` - `LogFilter` - The filter to apply to the logs.
+1. `query` - `PublicLogsQuery`
 
-**Returns**: `GetContractClassLogsResponse` - The requested logs.
+**Returns**: `LogResult[][]`
 
 **Example**:
 
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getContractClassLogs","params":[{"fromBlock":100,"toBlock":200}],"id":1}'
-```
-
-### node_getPrivateLogsByTags
-
-Gets private logs that match any of the `tags`. For each tag, an array of matching logs is returned. An empty
-array implies no logs match that tag.
-
-**Parameters**:
-
-1. `tags` - `SiloedTag[]` - The tags to search for.
-2. `page` - `number | undefined` - The page number (0-indexed) for pagination.
-3. `referenceBlock` - `BlockHash | undefined` - Optional block hash used to ensure the block still exists before logs are retrieved.
-This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
-If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
-undefined behavior in the client's code.
-
-**Returns**: `TxScopedL2Log[][]` - An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
-for a tag, the caller should fetch the next page to check for more logs.
-
-**Example**:
-
-```bash
-curl -X POST http://localhost:8080 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPrivateLogsByTags","params":[["0x1234..."],0,"0x1234..."],"id":1}'
-```
-
-### node_getPublicLogsByTagsFromContract
-
-Gets public logs that match any of the `tags` from the specified contract. For each tag, an array of matching
-logs is returned. An empty array implies no logs match that tag.
-
-**Parameters**:
-
-1. `contractAddress` - `AztecAddress` - The contract address to search logs for.
-2. `tags` - `Tag[]` - The tags to search for.
-3. `page` - `number | undefined` - The page number (0-indexed) for pagination.
-4. `referenceBlock` - `BlockHash | undefined` - Optional block hash used to ensure the block still exists before logs are retrieved.
-This block is expected to represent the latest block to which the client has synced (called anchor block in PXE).
-If specified and the block is not found, an error is thrown. This helps detect reorgs, which could result in
-undefined behavior in the client's code.
-
-**Returns**: `TxScopedL2Log[][]` - An array of log arrays, one per tag. Returns at most 10 logs per tag per page. If 10 logs are returned
-for a tag, the caller should fetch the next page to check for more logs.
-
-**Example**:
-
-```bash
-curl -X POST http://localhost:8080 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPublicLogsByTagsFromContract","params":["0x1234...",["0x1234..."],0,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getPublicLogsByTags","params":["0x1234..."],"id":1}'
 ```
 
 ## Contract queries
 
-### node_getContractClass
+### aztec_getContractClass
 
 Returns a registered contract class given its id.
 
@@ -731,10 +706,10 @@ Returns a registered contract class given its id.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getContractClass","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getContractClass","params":["0x1234..."],"id":1}'
 ```
 
-### node_getContract
+### aztec_getContract
 
 Returns a publicly deployed contract instance given its address.
 
@@ -749,12 +724,12 @@ Returns a publicly deployed contract instance given its address.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getContract","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getContract","params":["0x1234..."],"id":1}'
 ```
 
 ## Fee queries
 
-### node_getCurrentMinFees
+### aztec_getCurrentMinFees
 
 Method to fetch the current min fees.
 
@@ -767,10 +742,10 @@ Method to fetch the current min fees.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCurrentMinFees","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getCurrentMinFees","params":[],"id":1}'
 ```
 
-### node_getPredictedMinFees
+### aztec_getPredictedMinFees
 
 Returns predicted min fees for the current slot and next N slots.
 Each entry accounts for the L1 gas oracle transition and congestion growth based on the
@@ -787,10 +762,10 @@ given mana usage estimate. Defaults to target usage (steady state).
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPredictedMinFees","params":["target"],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getPredictedMinFees","params":["target"],"id":1}'
 ```
 
-### node_getMaxPriorityFees
+### aztec_getMaxPriorityFees
 
 Method to fetch the current max priority fee of txs in the mempool.
 
@@ -803,12 +778,12 @@ Method to fetch the current max priority fee of txs in the mempool.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getMaxPriorityFees","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getMaxPriorityFees","params":[],"id":1}'
 ```
 
 ## Node information
 
-### node_isReady
+### aztec_isReady
 
 Method to determine if the node is ready to accept transactions.
 
@@ -821,10 +796,10 @@ Method to determine if the node is ready to accept transactions.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_isReady","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_isReady","params":[],"id":1}'
 ```
 
-### node_getNodeInfo
+### aztec_getNodeInfo
 
 Returns the information about the server's node. Includes current Node version, compatible Noir version,
 L1 chain identifier, protocol version, and L1 address of the rollup contract.
@@ -838,10 +813,10 @@ L1 chain identifier, protocol version, and L1 address of the rollup contract.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getNodeInfo","params":[],"id":1}'
 ```
 
-### node_getNodeVersion
+### aztec_getNodeVersion
 
 Method to fetch the version of the package.
 
@@ -854,10 +829,10 @@ Method to fetch the version of the package.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getNodeVersion","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getNodeVersion","params":[],"id":1}'
 ```
 
-### node_getVersion
+### aztec_getVersion
 
 Method to fetch the version of the rollup the node is connected to.
 
@@ -870,10 +845,10 @@ Method to fetch the version of the rollup the node is connected to.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getVersion","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getVersion","params":[],"id":1}'
 ```
 
-### node_getChainId
+### aztec_getChainId
 
 Method to fetch the chain id of the base-layer for the rollup.
 
@@ -886,10 +861,10 @@ Method to fetch the chain id of the base-layer for the rollup.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getChainId","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getChainId","params":[],"id":1}'
 ```
 
-### node_getL1ContractAddresses
+### aztec_getL1ContractAddresses
 
 Method to fetch the currently deployed l1 contract addresses.
 
@@ -902,10 +877,10 @@ Method to fetch the currently deployed l1 contract addresses.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getL1ContractAddresses","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getL1ContractAddresses","params":[],"id":1}'
 ```
 
-### node_getProtocolContractAddresses
+### aztec_getProtocolContractAddresses
 
 Method to fetch the protocol contract addresses.
 
@@ -918,10 +893,10 @@ Method to fetch the protocol contract addresses.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getProtocolContractAddresses","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getProtocolContractAddresses","params":[],"id":1}'
 ```
 
-### node_getEncodedEnr
+### aztec_getEncodedEnr
 
 Returns the ENR of this node for peer discovery, if available.
 
@@ -934,12 +909,12 @@ Returns the ENR of this node for peer discovery, if available.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getEncodedEnr","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getEncodedEnr","params":[],"id":1}'
 ```
 
 ## Validator queries
 
-### node_getValidatorsStats
+### aztec_getValidatorsStats
 
 Returns stats for validators if enabled.
 
@@ -952,10 +927,10 @@ Returns stats for validators if enabled.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getValidatorsStats","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getValidatorsStats","params":[],"id":1}'
 ```
 
-### node_getValidatorStats
+### aztec_getValidatorStats
 
 Returns stats for a single validator if enabled.
 
@@ -972,12 +947,53 @@ Returns stats for a single validator if enabled.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getValidatorStats","params":["0x1234...","100","100"],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getValidatorStats","params":["0x1234...","100","100"],"id":1}'
+```
+
+## P2P queries
+
+### aztec_getPeers
+
+Returns info for all connected, dialing, and cached peers. Only available when P2P is enabled.
+
+**Parameters**:
+
+1. `includePending` - `boolean | undefined` - If true, also include peers in the pending state.
+
+**Returns**: `PeerInfo[]`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getPeers","params":[true],"id":1}'
+```
+
+### aztec_getCheckpointAttestationsForSlot
+
+Queries the attestation pool for checkpoint attestations for the given slot.
+
+**Parameters**:
+
+1. `slot` - `SlotNumber` - The slot to query.
+2. `proposalPayloadHash` - `string | undefined` - Hex-encoded keccak256 of the target proposal's signed payload hash.
+When provided, only attestations whose payload hash matches are returned.
+When omitted, all attestations for the slot are returned.
+
+**Returns**: `CheckpointAttestation[]`
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztec_getCheckpointAttestationsForSlot","params":["100","0x1234..."],"id":1}'
 ```
 
 ## Debug operations
 
-### node_registerContractFunctionSignatures
+### aztec_registerContractFunctionSignatures
 
 Registers contract function signatures for debugging purposes.
 
@@ -992,10 +1008,10 @@ Registers contract function signatures for debugging purposes.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_registerContractFunctionSignatures","params":[["0x1234..."]],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_registerContractFunctionSignatures","params":[["0x1234..."]],"id":1}'
 ```
 
-### node_getAllowedPublicSetup
+### aztec_getAllowedPublicSetup
 
 Returns the list of allowed public setup elements configured for this node.
 
@@ -1008,12 +1024,12 @@ Returns the list of allowed public setup elements configured for this node.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getAllowedPublicSetup","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztec_getAllowedPublicSetup","params":[],"id":1}'
 ```
 
 ## Admin API
 
-Administrative operations are exposed on port 8880 under the `nodeAdmin_` namespace.
+Administrative operations are exposed on port 8880 under the `aztecAdmin_` namespace.
 
 :::warning Security: Admin API Access
 For security reasons, the admin port (8880) should **not be exposed** to the host machine in Docker deployments. The examples below show both CLI and Docker methods:
@@ -1033,7 +1049,7 @@ docker exec -it <container-name> curl -X POST http://localhost:8880 ...
 Replace `<container-name>` with your container name (e.g., `aztec-node`, `aztec-sequencer`, `prover-node`).
 :::
 
-### nodeAdmin_getConfig
+### aztecAdmin_getConfig
 
 Retrieves the configuration of this node.
 
@@ -1046,7 +1062,7 @@ Retrieves the configuration of this node.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_getConfig","params":[],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1054,10 +1070,10 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getConfig","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_getConfig","params":[],"id":1}'
 ```
 
-### nodeAdmin_setConfig
+### aztecAdmin_setConfig
 
 Updates the configuration of this node.
 
@@ -1072,7 +1088,7 @@ Updates the configuration of this node.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_setConfig","params":[{}],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_setConfig","params":[{}],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1080,10 +1096,10 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_setConfig","params":[{}],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_setConfig","params":[{}],"id":1}'
 ```
 
-### nodeAdmin_pauseSync
+### aztecAdmin_pauseSync
 
 Pauses archiver and world state syncing.
 
@@ -1096,7 +1112,7 @@ Pauses archiver and world state syncing.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_pauseSync","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_pauseSync","params":[],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1104,10 +1120,10 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_pauseSync","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_pauseSync","params":[],"id":1}'
 ```
 
-### nodeAdmin_resumeSync
+### aztecAdmin_resumeSync
 
 Resumes archiver and world state syncing.
 
@@ -1120,7 +1136,7 @@ Resumes archiver and world state syncing.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_resumeSync","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_resumeSync","params":[],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1128,10 +1144,59 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_resumeSync","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_resumeSync","params":[],"id":1}'
 ```
 
-### nodeAdmin_rollbackTo
+### aztecAdmin_pauseSequencer
+
+Pauses block production. Pending txs remain in the mempool; no new blocks will be
+produced until  is called. Throws if no sequencer is running.
+
+**Parameters**: None
+
+**Returns**: `void`
+
+**Example (CLI)**:
+
+```bash
+curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_pauseSequencer","params":[],"id":1}'
+```
+
+**Example (Docker)**:
+
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_pauseSequencer","params":[],"id":1}'
+```
+
+### aztecAdmin_resumeSequencer
+
+Resumes block production previously paused via .
+
+**Parameters**: None
+
+**Returns**: `void`
+
+**Example (CLI)**:
+
+```bash
+curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_resumeSequencer","params":[],"id":1}'
+```
+
+**Example (Docker)**:
+
+```bash
+docker exec -it aztec-node curl -X POST http://localhost:8880 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_resumeSequencer","params":[],"id":1}'
+```
+
+### aztecAdmin_rollbackTo
 
 Pauses syncing and rolls back the database to the target L2 block number.
 
@@ -1148,7 +1213,7 @@ Pauses syncing and rolls back the database to the target L2 block number.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345,true,true],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_rollbackTo","params":[12345,true,true],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1156,10 +1221,10 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345,true,true],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_rollbackTo","params":[12345,true,true],"id":1}'
 ```
 
-### nodeAdmin_startSnapshotUpload
+### aztecAdmin_startSnapshotUpload
 
 Pauses syncing, creates a backup of archiver and world-state databases, and uploads them. Returns immediately.
 
@@ -1174,7 +1239,7 @@ Pauses syncing, creates a backup of archiver and world-state databases, and uplo
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_startSnapshotUpload","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_startSnapshotUpload","params":["0x1234..."],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1182,10 +1247,10 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_startSnapshotUpload","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_startSnapshotUpload","params":["0x1234..."],"id":1}'
 ```
 
-### nodeAdmin_getSlashOffenses
+### aztecAdmin_getSlashOffenses
 
 Returns all offenses applicable for the given round.
 
@@ -1200,7 +1265,7 @@ Returns all offenses applicable for the given round.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["current"],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1208,10 +1273,10 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["current"],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```
 
-### nodeAdmin_reloadKeystore
+### aztecAdmin_reloadKeystore
 
 Reloads keystore configuration from disk.
 
@@ -1239,7 +1304,7 @@ Notes:
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_reloadKeystore","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_reloadKeystore","params":[],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1247,7 +1312,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_reloadKeystore","params":[],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"aztecAdmin_reloadKeystore","params":[],"id":1}'
 ```
 
 ## Next steps
