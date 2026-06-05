@@ -192,11 +192,11 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    */
   handleFinalizedBlock(block: BlockHeader): Promise<void>;
 
-  /** Gets a transaction by its hash */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  /** Gets a transaction by its hash. Set `includeProof: false` to skip loading the proof from the DB. */
+  getTxByHash(txHash: TxHash, opts?: { includeProof?: boolean }): Promise<Tx | undefined>;
 
-  /** Gets multiple transactions by their hashes */
-  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+  /** Gets multiple transactions by their hashes. Set `includeProof: false` to skip loading proofs from the DB. */
+  getTxsByHash(txHashes: TxHash[], opts?: { includeProof?: boolean }): Promise<(Tx | undefined)[]>;
 
   /** Checks if transactions exist in the pool */
   hasTxs(txHashes: TxHash[]): Promise<boolean[]>;

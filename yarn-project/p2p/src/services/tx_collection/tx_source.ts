@@ -30,7 +30,8 @@ export class NodeRpcTxSource implements TxSource {
   }
 
   public async getTxsByHash(txHashes: TxHash[]): Promise<TxSourceCollectionResult> {
-    return this.verifyTxs(await this.client.getTxsByHash(txHashes));
+    // Collected txs feed block validation and proving, so we need their proofs.
+    return this.verifyTxs(await this.client.getTxsByHash(txHashes, { includeProof: true }));
   }
 
   private async verifyTxs(txs: Tx[]): Promise<TxSourceCollectionResult> {

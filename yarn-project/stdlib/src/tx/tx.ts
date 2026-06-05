@@ -136,6 +136,23 @@ export class Tx extends Gossipable {
   }
 
   /**
+   * Deserializes a Tx from separately-stored tx and proof buffers. The tx buffer is expected to carry an empty
+   * proof placeholder (as produced by `withoutProof().toBuffer()`), which is skipped in favor of the given proof.
+   * @param txBuffer - Serialized tx with an empty proof placeholder.
+   * @param proofBuffer - Serialized proof to attach.
+   * @returns An instance of Tx carrying the given proof.
+   */
+  static fromBuffers(txBuffer: Buffer | BufferReader, proofBuffer: Buffer | BufferReader): Tx {
+    const reader = BufferReader.asReader(txBuffer);
+    const txHash = reader.readObject(TxHash);
+    const data = reader.readObject(PrivateKernelTailCircuitPublicInputs);
+    reader.readObject(ChonkProof);
+    const contractClassLogFields = reader.readVectorUint8Prefix(ContractClassLogFields);
+    const publicFunctionCalldata = reader.readVectorUint8Prefix(HashedValues);
+    return new Tx(txHash, data, ChonkProof.fromBuffer(proofBuffer), contractClassLogFields, publicFunctionCalldata);
+  }
+
+  /**
    * Serializes the Tx object into a Buffer.
    * @returns Buffer representation of the Tx object.
    */
