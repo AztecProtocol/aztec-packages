@@ -769,6 +769,38 @@ describe('sequencer', () => {
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
       expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
     });
+
+    it('votes when escape hatch is open even if the sync check would fail', async () => {
+      // The escape-hatch vote path now runs before the sync check, so a proposer with the hatch open
+      // votes even when the sync check would fail (it no longer has to pass checkSync first).
+      epochCache.getCommittee.mockResolvedValue({
+        committee,
+        seed: 1n,
+        epoch: EpochNumber(1),
+        isEscapeHatchOpen: true,
+      });
+      epochCache.isEscapeHatchOpen.mockResolvedValue(true);
+
+      // Make the sync check fail by diverging the world-state tip from the archiver's.
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: BlockNumber(lastBlockNumber + 1),
+          latestBlockHash: Fr.random().toString(),
+        } as WorldStateSyncStatus,
+      });
+
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+    });
   });
 
   describe('voting when sync fails', () => {
@@ -1029,6 +1061,77 @@ describe('sequencer', () => {
       // Should not create publisher or invalidate
       expect(publisherFactory.create).not.toHaveBeenCalled();
       expect(publisher.enqueueInvalidateCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('invalidates even when the sync check would fail', async () => {
+      // The non-proposer invalidation path reads only the archiver's pending-chain validation status,
+      // so a failing sync check (e.g. the world-state tip diverging from the archiver's) no longer
+      // suppresses invalidation the way it did when invalidation sat behind a fully-successful checkSync.
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: BlockNumber(lastBlockNumber + 1),
+          latestBlockHash: Fr.random().toString(),
+        } as WorldStateSyncStatus,
+      });
+
+      const timePastThreshold = 5; // seconds
+      dateProvider.setTime(Number(invalidValidationResult.checkpoint.timestamp) * 1000 + timePastThreshold * 1000);
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      await sequencer.work();
+
+      expect(publisher.enqueueInvalidateCheckpoint).toHaveBeenCalled();
+      expect(publisher.sendRequests).toHaveBeenCalled();
+    });
+
+    it('only attempts invalidation once per slot', async () => {
+      const timePastThreshold = 5; // seconds
+      dateProvider.setTime(Number(invalidValidationResult.checkpoint.timestamp) * 1000 + timePastThreshold * 1000);
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      await sequencer.work();
+      expect(publisher.simulateInvalidateCheckpoint).toHaveBeenCalledTimes(1);
+      expect(publisher.enqueueInvalidateCheckpoint).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+
+      publisher.simulateInvalidateCheckpoint.mockClear();
+      publisher.enqueueInvalidateCheckpoint.mockClear();
+      publisher.sendRequests.mockClear();
+
+      // A second tick in the same slot must not re-simulate or re-submit the invalidation.
+      await sequencer.work();
+      expect(publisher.simulateInvalidateCheckpoint).not.toHaveBeenCalled();
+      expect(publisher.enqueueInvalidateCheckpoint).not.toHaveBeenCalled();
+      expect(publisher.sendRequests).not.toHaveBeenCalled();
+    });
+
+    it('retries invalidation in the same slot after a transient simulation failure', async () => {
+      const timePastThreshold = 5; // seconds
+      dateProvider.setTime(Number(invalidValidationResult.checkpoint.timestamp) * 1000 + timePastThreshold * 1000);
+      sequencer.updateConfig({
+        secondsBeforeInvalidatingBlockAsCommitteeMember: 2,
+        secondsBeforeInvalidatingBlockAsNonCommitteeMember: 3,
+      });
+
+      // First tick: simulation transiently fails to build a request, so the dedup guard is not set.
+      publisher.simulateInvalidateCheckpoint.mockResolvedValueOnce(undefined);
+
+      await sequencer.work();
+      expect(publisher.simulateInvalidateCheckpoint).toHaveBeenCalledTimes(1);
+      expect(publisher.enqueueInvalidateCheckpoint).not.toHaveBeenCalled();
+
+      // Second tick in the same slot: simulation succeeds, so we must retry rather than be deduped.
+      await sequencer.work();
+      expect(publisher.simulateInvalidateCheckpoint).toHaveBeenCalledTimes(2);
+      expect(publisher.enqueueInvalidateCheckpoint).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequests).toHaveBeenCalled();
     });
   });
 
