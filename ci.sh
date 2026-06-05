@@ -38,6 +38,7 @@ function print_usage {
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
   echo_cmd "chonk-input-update"    "Spin up an EC2 instance to update pinned Chonk IVC inputs and push the diff."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
+  echo_cmd "ci-private-release"     "Locally dry-run the release of every project except release-image, then publish release-image to the internal GCP Artifact Registry."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
   echo_cmd "shell-host"            "Drop into a shell in the current running build host."
@@ -334,6 +335,16 @@ case "$cmd" in
     multi_job_run \
       'x-release amd64 ci-release' \
       'a-release arm64 ci-release'
+    ;;
+  ci-private-release)
+    # Run the private release flow LOCALLY (no EC2): dry-run every project except release-image, then
+    # publish release-image for real to the internal GCP Artifact Registry. Override
+    # INTERNAL_DOCKER_REGISTRY / GOOGLE_APPLICATION_CREDENTIALS as needed; SKIP_BUILD=1 reuses a build.
+    export INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-us-west1-docker.pkg.dev/testnet-440309/aztec}
+    # Default to the local SA key if no GCP creds are set (a no-op in CI, where GCP_SA_KEY is used).
+    [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+      export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
+    ./bootstrap.sh ci-private-release
     ;;
 
   ##################

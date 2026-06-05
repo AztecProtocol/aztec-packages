@@ -530,6 +530,17 @@ function release {
   echo_header "release all"
   set -x
 
+  # A private release publishes only to our internal GCP Artifact Registry (the docker image and our
+  # npm packages) — see private_release. ci3_labels_to_env.sh sets PRIVATE_RELEASE for every release in
+  # the private repo; we ALSO backstop on the repo name here so the public release flow (DockerHub,
+  # npmjs, crates.io, github) can never run in the private fork, even if that env var is missing or this
+  # is invoked outside ci3.yml.
+  if [ "${PRIVATE_RELEASE:-0}" = 1 ] ||
+     [ "$(printf '%s' "${GITHUB_REPOSITORY:-}" | tr 'A-Z' 'a-z')" = "aztecprotocol/aztec-packages-private" ]; then
+    private_release
+    return
+  fi
+
   # Ensure we have a github release in AztecProtocol/barretenberg for bb artifacts.
   # Users can create aztec-packages releases manually via the GitHub "Create a release" button.
   release_bb_github
@@ -560,6 +571,75 @@ function release {
 
 function release_dryrun {
   DRY_RUN=1 release
+}
+
+function private_release {
+  # Release flow for the private repo, run on a (nightly) ci-private-release PR. We publish only to our
+  # internal GCP Artifact Registry: the docker image (release-image -> INTERNAL_DOCKER_REGISTRY that
+  # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, yarn-project -> the
+  # INTERNAL_NPM_REGISTRY npm repo). We run the release step for real on exactly those components and do
+  # not invoke the others — the remaining release sources publish public artifacts (github releases,
+  # crates.io, the aztec-up/playground S3 installers) and are not interrelated with these.
+  echo_header "private release"
+
+  # Default to the private staging Artifact Registry; override via the INTERNAL_*_REGISTRY env vars.
+  # Exported so the child project bootstraps and gcp_artifact_login inherit them.
+  export INTERNAL_DOCKER_REGISTRY=${INTERNAL_DOCKER_REGISTRY:-us-west1-docker.pkg.dev/testnet-440309/aztec}
+  export INTERNAL_NPM_REGISTRY=${INTERNAL_NPM_REGISTRY:-https://us-west1-npm.pkg.dev/testnet-440309/aztec-npm}
+
+  # Activate the CI service account (gcp_artifact_login registers the docker credential helper and
+  # activates the SA globally) and mint a short-lived access token for npm auth against the AR npm repo.
+  ci3/gcp_artifact_login
+  set +x  # Never echo the access token.
+  export NPM_TOKEN=$(gcloud auth print-access-token)
+  # Route our scope to the internal npm registry; public deps still resolve from the default registry
+  # (npmjs), so publishes and yarn-project's install smoke-test both work. Everything we publish is
+  # @aztec-scoped — the noir packages are renamed @noir-lang/* -> @aztec/noir-* on release. Exported so
+  # deploy_npm and that smoke-test share one config.
+  local npmrc reg
+  reg="${INTERNAL_NPM_REGISTRY%/}/"
+  npmrc=$(mktemp)
+  (umask 077; {
+    echo "@aztec:registry=$reg"
+    echo "${reg#https:}:_authToken=\${NPM_TOKEN}"
+  } > "$npmrc")
+  export NPM_CONFIG_GLOBALCONFIG="$npmrc"
+  set -x
+
+  # Mirror external @aztec-scoped fork dependencies (e.g. the vendored "viem": "npm:@aztec/viem@x")
+  # from public npm into our internal registry. Because we scope ALL of @aztec to the internal registry,
+  # these forks — which we don't build/publish ourselves — must also live there, or installs of our
+  # published packages 404 (this is what yarn-project's release smoke-test exercises). amd64 only; the
+  # registry is shared across arches.
+  if [ "$(arch)" != arm64 ]; then
+    local spec name ver td
+    for spec in $(grep -rhoE 'npm:@aztec/[a-zA-Z0-9_.-]+@[0-9][^"]*' yarn-project --include=package.json \
+                  | sed 's/^npm://' | sort -u); do
+      name="${spec%@*}"; ver="${spec##*@}"
+      if npm view "${name}@${ver}" version >/dev/null 2>&1; then
+        echo "Mirror: ${spec} already present in internal registry; skipping."
+        continue
+      fi
+      echo "Mirror: copying ${spec} from public npm to internal registry."
+      td=$(mktemp -d)
+      # Override the @aztec scope registry for the fetch (our .npmrc points @aztec at the internal
+      # registry, which doesn't have the fork yet); publish then uses the inherited @aztec->internal config.
+      npm pack "${spec}" --@aztec:registry=https://registry.npmjs.org/ --pack-destination "$td" --quiet
+      npm publish "$td"/*.tgz
+      rm -rf "$td"
+    done
+  fi
+
+  # Publish for real, in dependency order: bb.js and the noir packages must be on the registry before
+  # yarn-project's release smoke-tests installing the @aztec packages that depend on them. npm packages
+  # are platform-independent, so only the docker image is published on arm64.
+  local publish=(barretenberg/ts noir yarn-project release-image)
+  if [ $(arch) == arm64 ]; then
+    publish=(release-image)
+  fi
+  for project in "${publish[@]}"; do
+    $project/bootstrap.sh release
+  done
 }
 
 function release_compat_e2e {
@@ -997,6 +1077,23 @@ case "$cmd" in
       unset COMMIT_HASH root
     fi
     ./bootstrap.sh build release
+    ./bootstrap.sh release
+    ;;
+
+  "ci-private-release")
+    # Local/dev entrypoint for the PRIVATE_RELEASE flow (see private_release): dry-run every project
+    # except release-image, then publish release-image for real to the internal GCP Artifact Registry.
+    # Same publishing path the private-release.yml workflow runs, minus EC2 and the compat-e2e gating.
+    # Build first so the release-image (and the artifacts the dry-runs pack) exist; set SKIP_BUILD=1 to
+    # reuse an existing build. Requires INTERNAL_DOCKER_REGISTRY + GCP creds (GCP_SA_KEY or
+    # GOOGLE_APPLICATION_CREDENTIALS) in the environment.
+    export CI=${CI:-1}
+    export PRIVATE_RELEASE=1
+    export REF_NAME=${REF_NAME:-v0.0.1-commit.$(git rev-parse --short HEAD)}
+    # Local convenience: default GCP creds to ~/sa.json (the CI service-account key) when present.
+    [ -z "${GCP_SA_KEY:-}" ] && [ -z "${GOOGLE_APPLICATION_CREDENTIALS:-}" ] && [ -f "$HOME/sa.json" ] && \
+      export GOOGLE_APPLICATION_CREDENTIALS="$HOME/sa.json"
+    [ "${SKIP_BUILD:-0}" = 1 ] || ./bootstrap.sh build release
     ./bootstrap.sh release
     ;;
 
