@@ -22,7 +22,7 @@ When you create a note using state variables like `PrivateMutable`, `PrivateSet`
 ```rust
 #[aztec]
 pub contract PrivateToken {
-    use aztec::messages::message_delivery::MessageDelivery;
+    use aztec::messages::delivery::MessageDelivery;
 
     #[external("private")]
     fn mint(amount: u128, recipient: AztecAddress) {

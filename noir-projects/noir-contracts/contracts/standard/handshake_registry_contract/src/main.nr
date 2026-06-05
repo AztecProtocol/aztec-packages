@@ -30,8 +30,8 @@ pub contract HandshakeRegistry {
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
         messages::{
+            delivery::{MessageDelivery, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
             encryption::{aes128::AES128, message_encryption::MessageEncryption},
-            message_delivery::{MessageDelivery, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
         },
         protocol::{
             address::AztecAddress,
