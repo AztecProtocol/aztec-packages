@@ -85,5 +85,7 @@ describe('FactStore', () => {
     expect(await store.getEntityFacts(contract, scope, ENTITY, corrA)).toHaveLength(0);
     const active = await store.activeEntities(contract, scope, ENTITY);
     expect(active.map(c => c.toBigInt())).toEqual([corrB.toBigInt()]);
+    // The neighbouring entity is untouched.
+    expect(await store.getEntityFacts(contract, scope, ENTITY, corrB)).toHaveLength(1);
   });
 });

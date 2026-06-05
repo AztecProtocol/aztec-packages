@@ -197,13 +197,11 @@ export class FactStore implements StagedStore {
     }
     for (const rowKey of rowKeys) {
       const buf = await this.#facts.getAsync(rowKey);
+      const fact = buf ? StoredFact.fromBuffer(buf) : undefined;
       await this.#facts.delete(rowKey);
       await this.#factsByEntity.deleteValue(eKey, rowKey);
-      if (buf) {
-        const fact = StoredFact.fromBuffer(buf);
-        if (fact.anchor !== undefined) {
-          await this.#factsByBlock.deleteValue(fact.anchor.blockNumber, rowKey);
-        }
+      if (fact?.anchor !== undefined) {
+        await this.#factsByBlock.deleteValue(fact.anchor.blockNumber, rowKey);
       }
     }
     await this.#entitiesByScope.deleteValue(scopeKey(contract, scope, entityTypeId), correlationKey.toString());
