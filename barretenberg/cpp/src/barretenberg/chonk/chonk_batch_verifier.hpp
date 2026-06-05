@@ -11,6 +11,7 @@
 #include <functional>
 #include <mutex>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 namespace bb {
@@ -27,6 +28,7 @@ namespace bb {
 class ChonkBatchVerifier {
   public:
     using ResultCallback = std::function<void(VerifyResult)>;
+    static constexpr size_t MAX_QUEUE_SIZE = 1024;
 
     /**
      * @brief Per-proof result from the reduce phase.
@@ -71,6 +73,7 @@ class ChonkBatchVerifier {
 
   private:
     void coordinator_loop();
+    void dispatch(VerifyResult result);
     std::vector<ReduceResult> parallel_reduce(const std::vector<VerifyRequest>& batch);
     bool batch_check(const std::vector<ReduceResult>& results, const std::vector<size_t>& indices);
     void bisect(std::vector<ReduceResult>& results,
@@ -99,8 +102,12 @@ class ChonkBatchVerifier {
 
     std::mutex mutex_;
     std::condition_variable cv_;
+    std::condition_variable stopped_cv_;
     std::deque<VerifyRequest> queue_;
+    std::unordered_set<uint64_t> in_flight_ids_;
+    bool running_ = false;
     bool shutdown_ = false;
+    bool stopping_ = false;
     std::thread coordinator_thread_;
 };
 
