@@ -1,13 +1,12 @@
-// === Packed-native register-lean CIOS multiply (montgomery_product_f8) ===
-// GENERATED from mont_pro_product_cios_unrolled.template.wgsl by
-// ~/localclaudebox/cios15n/gen_cios_f8_native.mjs. Edit the generator, not this.
-// Packed 8xu32 in/out; per-iter working_x limb extraction; reused t/qi/c.
-// Accumulators s0..s18 only (the 20th limb is the carry out of s18). Tail is
-// a fused relaxed->strict carry-normalise + pack: s_{j+1} += s_j >> 13;
-// s_j &= MASK in place (no carry register), each limb consumed straight into
-// its 8x u32 word, then conditional reduce. Uses P8_*, MASK, N0, WORD_SIZE,
-// unpack256_to_limbs from the assembled module.
-fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
+// === In-place packed-native Montgomery multiply: a *= b ===
+// Operand a is loaded ONCE from its global slot a_addr into 8 registers (same
+// register profile as the regular montmul, which fits 64/0); the CIOS runs on
+// those, and the product is packed into s0..s7, reduced via s11..s18 (no out/d
+// arrays), and stored straight back to a_addr. Needs inv_ld/inv_st in scope.
+fn montgomery_product_f8_inplace(a_addr: u32, y: array<u32, 8>) {
+    var x: array<u32, 8>;
+    x[0u] = inv_ld(a_addr + 0u * inv_nt); x[1u] = inv_ld(a_addr + 1u * inv_nt); x[2u] = inv_ld(a_addr + 2u * inv_nt); x[3u] = inv_ld(a_addr + 3u * inv_nt);
+    x[4u] = inv_ld(a_addr + 4u * inv_nt); x[5u] = inv_ld(a_addr + 5u * inv_nt); x[6u] = inv_ld(a_addr + 6u * inv_nt); x[7u] = inv_ld(a_addr + 7u * inv_nt);
     var yv: BigInt = unpack256_to_limbs(y);
     var t: u32; var qi: u32; var c: u32; var working_x: u32;
     var s0: u32 = 0u;
@@ -105,38 +104,6 @@ fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
         s17 = s18 + working_x * yv.limbs[18u] + qi * 6419u;
         s18 = working_x * yv.limbs[19u] + qi * 96u;
     }
-    // (X0 X1 X2 X3)
-    // (Y0 Y1 Y2 Y3)
-    // 16 invocations. each X0 = 5 converts, Y0 = 5 converts
-    // X0Y0 X0Y1 X0Y2 X0Y3 = 25
-    // X1Y0 X1Y1 X1Y2 X1Y3 = 25
-    // ... 25
-    // ... 25
-    // 100 converts
-    // vs current = yx20 + x = 420
-
-    // X0Y0 X0Y1 etc = 10 temp vars for the converts.
-
-    // 4 converts = 5 meta limbs = 24 * 5 = 120 converts
-    // 8 temps
-    // 3 converts = 7 meta limbs = 24 * 7 = 148 converts, 6 temps
-
-    // 2 converts = 10 meta limbs = 22 * 10 = 220 converts, 4 temps
-
-    // 20 limbs karasuba . AHI ALO, BHI BLO
-
-    // ALO * BLO
-    // (ALO + AHI) * (BLO + BHI) - ALO * BLO - AHI * BHI
-    // AHI * BHI
-
-    // e.g. say lo, hi = 2 limbs each
-
-    // a0b0, a0b1 + a1b0, a1b1 <-- aloblo
-    // a2b2, a2b3 + a3b2, a3b3 <-- ahibhi
-
-    // ALO * BLO = limbs[0,1,2,3]
-    // MID = limbs[2,3,4,5]
-    // HI = limbs[4,5,6,7]
     {   // ===== outer i=3 =====
         working_x = ((x[1u] >> 7u) & MASK);
         t = s0 + working_x * yv.limbs[0u];
@@ -584,33 +551,29 @@ fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
     s17 += s16 >> WORD_SIZE; s16 &= MASK;
     s18 += s17 >> WORD_SIZE; s17 &= MASK;
 
-    var out: array<u32, 8>;
-    out[0u] = s0 | (s1 << 13u) | (s2 << 26u);
-    out[1u] = (s2 >> 6u) | (s3 << 7u) | (s4 << 20u);
-    out[2u] = (s4 >> 12u) | (s5 << 1u) | (s6 << 14u) | (s7 << 27u);
-    out[3u] = (s7 >> 5u) | (s8 << 8u) | (s9 << 21u);
-    out[4u] = (s9 >> 11u) | (s10 << 2u) | (s11 << 15u) | (s12 << 28u);
-    out[5u] = (s12 >> 4u) | (s13 << 9u) | (s14 << 22u);
-    out[6u] = (s14 >> 10u) | (s15 << 3u) | (s16 << 16u) | (s17 << 29u);
-    out[7u] = (s17 >> 3u) | ((s18 & MASK) << 10u) | (((s18 >> WORD_SIZE) & MASK) << 23u);
-    // Conditional reduce in place: out in [0, 2p), subtract p if out >= p.
-    var d: array<u32, 8>;
-    d[0u] = out[0u] - P8_0; c = u32(out[0u] < P8_0);
-    t = out[1u] - P8_1; d[1u] = t - c; c = u32(out[1u] < P8_1) | u32(t < c);
-    t = out[2u] - P8_2; d[2u] = t - c; c = u32(out[2u] < P8_2) | u32(t < c);
-    t = out[3u] - P8_3; d[3u] = t - c; c = u32(out[3u] < P8_3) | u32(t < c);
-    t = out[4u] - P8_4; d[4u] = t - c; c = u32(out[4u] < P8_4) | u32(t < c);
-    t = out[5u] - P8_5; d[5u] = t - c; c = u32(out[5u] < P8_5) | u32(t < c);
-    t = out[6u] - P8_6; d[6u] = t - c; c = u32(out[6u] < P8_6) | u32(t < c);
-    t = out[7u] - P8_7; d[7u] = t - c; c = u32(out[7u] < P8_7) | u32(t < c);
+    s0 = s0 | (s1 << 13u) | (s2 << 26u);
+    s1 = (s2 >> 6u) | (s3 << 7u) | (s4 << 20u);
+    s2 = (s4 >> 12u) | (s5 << 1u) | (s6 << 14u) | (s7 << 27u);
+    s3 = (s7 >> 5u) | (s8 << 8u) | (s9 << 21u);
+    s4 = (s9 >> 11u) | (s10 << 2u) | (s11 << 15u) | (s12 << 28u);
+    s5 = (s12 >> 4u) | (s13 << 9u) | (s14 << 22u);
+    s6 = (s14 >> 10u) | (s15 << 3u) | (s16 << 16u) | (s17 << 29u);
+    s7 = (s17 >> 3u) | ((s18 & MASK) << 10u) | (((s18 >> WORD_SIZE) & MASK) << 23u);
+    s11 = s0 - P8_0; c = u32(s0 < P8_0);
+    t = s1 - P8_1; s12 = t - c; c = u32(s1 < P8_1) | u32(t < c);
+    t = s2 - P8_2; s13 = t - c; c = u32(s2 < P8_2) | u32(t < c);
+    t = s3 - P8_3; s14 = t - c; c = u32(s3 < P8_3) | u32(t < c);
+    t = s4 - P8_4; s15 = t - c; c = u32(s4 < P8_4) | u32(t < c);
+    t = s5 - P8_5; s16 = t - c; c = u32(s5 < P8_5) | u32(t < c);
+    t = s6 - P8_6; s17 = t - c; c = u32(s6 < P8_6) | u32(t < c);
+    t = s7 - P8_7; s18 = t - c; c = u32(s7 < P8_7) | u32(t < c);
     let reduce: bool = c == 0u;
-    out[0u] = select(out[0u], d[0u], reduce);
-    out[1u] = select(out[1u], d[1u], reduce);
-    out[2u] = select(out[2u], d[2u], reduce);
-    out[3u] = select(out[3u], d[3u], reduce);
-    out[4u] = select(out[4u], d[4u], reduce);
-    out[5u] = select(out[5u], d[5u], reduce);
-    out[6u] = select(out[6u], d[6u], reduce);
-    out[7u] = select(out[7u], d[7u], reduce);
-    return out;
+    inv_st(a_addr + 0u * inv_nt, select(s0, s11, reduce));
+    inv_st(a_addr + 1u * inv_nt, select(s1, s12, reduce));
+    inv_st(a_addr + 2u * inv_nt, select(s2, s13, reduce));
+    inv_st(a_addr + 3u * inv_nt, select(s3, s14, reduce));
+    inv_st(a_addr + 4u * inv_nt, select(s4, s15, reduce));
+    inv_st(a_addr + 5u * inv_nt, select(s5, s16, reduce));
+    inv_st(a_addr + 6u * inv_nt, select(s6, s17, reduce));
+    inv_st(a_addr + 7u * inv_nt, select(s7, s18, reduce));
 }

@@ -45,7 +45,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         r = montgomery_product(&r, &b);
 {{/is_mul}}
 {{#is_inv}}
+{{#inv_f8}}
+        r = unpack256_to_limbs({{ inv_fn }}(pack_limbs_to_256(&r)));
+{{/inv_f8}}
+{{^inv_f8}}
         r = {{ inv_fn }}(r);
+{{/inv_f8}}
 {{/is_inv}}
     }
     let ob: u32 = v * {{ num_words }}u;

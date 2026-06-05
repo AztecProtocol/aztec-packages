@@ -365,7 +365,7 @@ async function compileOne(
   key: string,
   layout: GPUBindGroupLayout,
 ): Promise<GPUComputePipeline> {
-  const module = device.createShaderModule({ code });
+  const module = device.createShaderModule({ label: key, code });
   const info = await module.getCompilationInfo();
   const errLines: string[] = [];
   for (const m of info.messages) {
@@ -379,6 +379,7 @@ async function compileOne(
   }
   if (errLines.length) throw new Error(`WGSL compile failed for ${key}: ${errLines.slice(0, 4).join(' | ')}`);
   return device.createComputePipelineAsync({
+    label: key,
     layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
     compute: { module, entryPoint: 'main' },
   });
@@ -1042,7 +1043,11 @@ export class MsmV2Pool {
       // that private array was being unrolled into S simultaneously-live 256-bit
       // values and spilling KB/thread. Total = 14*sT*sS vec4 × 16 B.
       //   partials [0,8) · pref [8,10) · acc_x [10,12) · acc_y [12,14)  (×sT*sS vec4)
-      walkerPartials = sbuf(14 * sT * sS * 16);
+      // + inv_state tail: f,g,d,e + d-scratch (50 u32/thread, padded to 52 =
+      //   13 vec4/thread for vec4-alignment) at [14*sT*sS, 14*sT*sS + 13*sT) vec4 —
+      //   the safegcd state in global memory. The d-scratch (+40) double-buffers the
+      //   two-pass apply_matrix_de so the e-pass still sees old-d.
+      walkerPartials = sbuf((14 * sT * sS + 13 * sT) * 16);
       // [0,2) partial-slot bucket ids + per-slot scalar state moved out of
       // private regs into global: cursor[2,3), bucket_end[3,4), task_end_sort
       // [4,5), task_end_cur[5,6), cur_sorted[6,7)  (each region sT*sS u32).
@@ -2630,9 +2635,11 @@ export class MsmV2 {
         passIdx++;
       }
       const pass = enc.beginComputePass(desc);
+      pass.pushDebugGroup(curPhase);
       pass.setPipeline(pipe);
       pass.setBindGroup(0, bind);
       pass.dispatchWorkgroups(Math.max(1, nx), Math.max(1, ny), 1);
+      pass.popDebugGroup();
       pass.end();
     };
 
@@ -2748,9 +2755,11 @@ export class MsmV2 {
           passIdx++;
         }
         const pass = enc.beginComputePass(desc);
+        pass.pushDebugGroup(curPhase);
         pass.setPipeline(pipe);
         pass.setBindGroup(0, bind);
         pass.dispatchWorkgroupsIndirect(buf, off);
+        pass.popDebugGroup();
         pass.end();
       };
       setPhase('size1');
@@ -2831,6 +2840,7 @@ export class MsmV2 {
     // off lparams.w). reduceLevelKinds is no longer consulted.
     const reducePipe = this.reduceLevelPipes[0];
     for (let lv = 0; lv < this.reduceLevelBinds.length; lv++) {
+      setPhase(`reduce_L${lv}`);
       dispatch(reducePipe, this.reduceLevelBinds[lv], this.numWindows, 1);
     }
     // Per-window weighted sum gather. Same SoA stride math as run(), just
@@ -2924,11 +2934,22 @@ export class MsmV2 {
         await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
         const tsArr = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
         this.tsStagingBuf.unmap();
+        const passTimes: Array<[string, string, string]> = [];
         for (let p = 0; p < this.passCount; p++) {
           const dur = tsArr[2 * p + 1] - tsArr[2 * p];
           totalNs += dur;
           const phase = this.passPhases[p] ?? 'misc';
           phaseNs[phase] = (phaseNs[phase] ?? 0n) + dur;
+          // Absolute GPU-timestamp pair (CLOCK_MONOTONIC_RAW ns) — the same clock
+          // the Mali gpu.counters use, so these align directly on the counter timeline.
+          passTimes.push([phase, tsArr[2 * p].toString(), tsArr[2 * p + 1].toString()]);
+        }
+        if (typeof window !== 'undefined') {
+          // Accumulate across the warm-up + measured run() calls within one rep
+          // (runWebGpuOnce resets this before the warm-up) so the aligned trace
+          // labels BOTH GPU MSMs and leaves no unlabeled compute in the gaps.
+          const w = window as unknown as { __lastPassTimes?: Array<[string, string, string]> };
+          (w.__lastPassTimes ??= []).push(...passTimes);
         }
       } catch {
         // mapAsync raced (already-mapped from a prior run); skip this sample.
@@ -2953,6 +2974,55 @@ export class MsmV2 {
       };
     }
     return { x: result.x, y: result.y, profile, windowSums: L, c: this.c };
+  }
+
+  /**
+   * Profiling-only kernel isolation. After a normal run() has populated every
+   * data-dependent buffer + indirect-arg buffer, re-dispatch ONE kernel in a
+   * tight loop for ~durationMs. It reads the same valid inputs each iteration,
+   * so the GPU does only that kernel's representative work — an external Mali
+   * counter capture then attributes SFU/util to exactly this kernel with zero
+   * timestamp reconstruction (WebGPU timestamp-query is quantized + coalesced
+   * and useless here; the counters are not). The output is meaningless; the
+   * counters measured over the window are the result. Returns dispatch count.
+   */
+  async profileKernel(name: string, durationMs = 5000, perSubmit = 16): Promise<number> {
+    if (this.preparedFor === null) throw new Error('profileKernel: call prepare()+run() first');
+    const device = this.device;
+    const sc = this.pool.scratch!;
+    const one = (enc: GPUCommandEncoder): void => {
+      const pass = enc.beginComputePass();
+      switch (name) {
+        case 'stream_walker':
+          pass.setPipeline(this.streamWalkerPipe); pass.setBindGroup(0, this.streamWalkerBinds[0]);
+          pass.dispatchWorkgroupsIndirect(sc.streamPlannerMeta, 15 * 4); break;
+        case 'combine_batched':
+          pass.setPipeline(this.combineBatchedPipe); pass.setBindGroup(0, this.combineBatchedBinds[0]);
+          pass.dispatchWorkgroupsIndirect(sc.cbDispatchArgs, 0); break;
+        case 'pt_combine':
+          pass.setPipeline(this.ptCombinePipe); pass.setBindGroup(0, this.ptCombineBind);
+          pass.dispatchWorkgroupsIndirect(sc.ptCombineDispatchArgs, 0); break;
+        case 'reduce':
+          pass.setPipeline(this.reduceLevelPipes[0]); pass.setBindGroup(0, this.reduceLevelBinds[0]);
+          pass.dispatchWorkgroups(this.numWindows, 1, 1); break;
+        case 'size1':
+          pass.setPipeline(this.size1Pipe); pass.setBindGroup(0, this.size1Bind);
+          pass.dispatchWorkgroupsIndirect(sc.streamPlannerMeta, 8 * 4); break;
+        default:
+          pass.end(); throw new Error('profileKernel: unknown kernel ' + name);
+      }
+      pass.end();
+    };
+    const t0 = performance.now();
+    let iters = 0;
+    while (performance.now() - t0 < durationMs) {
+      const enc = device.createCommandEncoder();
+      for (let i = 0; i < perSubmit; i++) one(enc);
+      device.queue.submit([enc.finish()]);
+      await device.queue.onSubmittedWorkDone();
+      iters += perSubmit;
+    }
+    return iters;
   }
 
   /** Per-window weighted sums L_w (normal form), set by the last run(). */

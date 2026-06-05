@@ -176,10 +176,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
         }
 
-        // === Inversion ===
+        // === Inversion === (f8 inverse: 8x u32 in/out; others: BigInt round-trip)
+{{#inv_f8}}
+        var inv = {{ inv_fn }}(prefix);
+{{/inv_f8}}
+{{^inv_f8}}
         var acc20 = unpack256_to_limbs(prefix);
         var inv20 = {{ inv_fn }}(acc20);
         var inv = pack_limbs_to_256(&inv20);
+{{/inv_f8}}
 
         // === FUSED inverse + backward peel: inv_dx stays in registers. ===
         for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {

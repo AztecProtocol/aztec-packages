@@ -49,9 +49,13 @@ struct BylMat {
 // leaves 38 bits of sign-propagation headroom. Transliteration of
 // `bya_divsteps` / the TS `divsteps`.
 // ============================================================================
-fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: vec2<u32>, g_lo_in: vec2<u32>) -> BylMat {
-    var f_lo: vec2<u32> = f_lo_in;
-    var g_lo: vec2<u32> = g_lo_in;
+fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: u32, g_lo_in: u32) -> BylMat {
+    // 32-bit window. A divstep is decided only by g's bottom bit and δ's sign,
+    // and the logical >>1 corrupts only the top bit, which takes ~31 steps to
+    // march down to bit 0 — so a 32-bit window drives the full BATCH=26 divsteps
+    // with the EXACT same matrix as a 64-bit window (cf. libsecp256k1 divsteps_30).
+    var f_lo: u32 = f_lo_in;
+    var g_lo: u32 = g_lo_in;
     var u: i32 = 1;
     var v: i32 = 0;
     var q: i32 = 0;
@@ -63,25 +67,15 @@ fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: vec2<u32>, g_lo_in: vec2<u32
     // whose lanes land in different cases. Every `new_*` is formed from the
     // pre-iteration f/g/u/v/q/r/d, then the seven are committed together.
     for (var i: u32 = 0u; i < BYL_BATCH; i = i + 1u) {
-        let g_odd: bool = bool(g_lo.x & 1u);
+        let g_odd: bool = bool(g_lo & 1u);
         let swap: bool = g_odd && (d > 0);
         let addc: bool = g_odd && (d <= 0);
 
-        // g-f and g+f on the low 64 bits (two's-complement wrap); the unused one
-        // is discarded by the select. The high word takes the borrow/carry out of
-        // the low word as u32(comparison): sub borrows iff g.x < f.x; add carries
-        // iff the wrapped sum is below an operand.
-        var g_minus_f: vec2<u32>;
-        g_minus_f.x = g_lo.x - f_lo.x;
-        g_minus_f.y = g_lo.y - f_lo.y - u32(g_lo.x < f_lo.x);
-        var g_plus_f: vec2<u32>;
-        g_plus_f.x = g_lo.x + f_lo.x;
-        g_plus_f.y = g_lo.y + f_lo.y + u32(g_plus_f.x < g_lo.x);
-        let g_pre: vec2<u32> = select(select(g_lo, g_plus_f, addc), g_minus_f, swap);
-
-        let new_f: vec2<u32> = select(f_lo, g_lo, swap);
-        // g_pre >> 1 (logical 64-bit): low word pulls in bit 0 of the high word.
-        let new_g = vec2<u32>((g_pre.x >> 1u) | ((g_pre.y & 1u) << 31u), g_pre.y >> 1u);
+        // g±f on the low 32 bits (two's-complement wrap; the low bits — the only
+        // ones the decisions read — are exact). The unused one is discarded.
+        let g_pre: u32 = select(select(g_lo, g_lo + f_lo, addc), g_lo - f_lo, swap);
+        let new_f: u32 = select(f_lo, g_lo, swap);
+        let new_g: u32 = g_pre >> 1u;
         let new_u: i32 = select(u << 1u, q << 1u, swap);
         let new_v: i32 = select(v << 1u, r << 1u, swap);
         let new_q: i32 = select(select(q, q + u, addc), q - u, swap);
@@ -152,18 +146,13 @@ fn pk_p_word(w: u32) -> u32 {
     }
 }
 
-// Low 64 bits from limbs 0..4 (words 0,1 and low limb of word 2).
-fn pk_low_u64(x: ptr<function, Pk>) -> vec2<u32> {
+// Low 32 bits: limb0 (bits 0-12), limb1 (13-25), low 6 bits of limb2 (26-31).
+fn pk_low_u32(x: ptr<function, Pk>) -> u32 {
     let w0 = (*x).w[0];
-    let w1 = (*x).w[1];
     let l0: u32 = w0 & MASK;
     let l1: u32 = (w0 >> 13u) & MASK;
-    let l2: u32 = w1 & MASK;
-    let l3: u32 = (w1 >> 13u) & MASK;
-    let l4: u32 = (*x).w[2] & MASK;
-    let lo32: u32 = l0 | (l1 << 13u) | (l2 << 26u);
-    let hi32: u32 = (l2 >> 6u) | (l3 << 7u) | (l4 << 20u);
-    return vec2<u32>(lo32, hi32);
+    let l2: u32 = (*x).w[1] & MASK;
+    return l0 | (l1 << 13u) | (l2 << 26u);
 }
 
 fn pk_is_zero(x: ptr<function, Pk>) -> bool {
@@ -438,25 +427,25 @@ fn fr_inv_by_loop_pk(a: BigInt) -> BigInt {
     // the group-end reduce is unconditional (idempotent on an already-final d/e).
     for (var grp: u32 = 0u; grp < 7u; grp = grp + 1u) {
         if (!done) {
-            let f_lo = pk_low_u64(&f); let g_lo = pk_low_u64(&g);
+            let f_lo = pk_low_u32(&f); let g_lo = pk_low_u32(&g);
             let m = byl_divsteps(&delta, f_lo, g_lo);
             pk_apply_matrix_fg(m, &f, &g); pk_apply_matrix_de(m, &d, &e);
             if (pk_is_zero(&g)) { done = true; }
         }
         if (!done) {
-            let f_lo = pk_low_u64(&f); let g_lo = pk_low_u64(&g);
+            let f_lo = pk_low_u32(&f); let g_lo = pk_low_u32(&g);
             let m = byl_divsteps(&delta, f_lo, g_lo);
             pk_apply_matrix_fg(m, &f, &g); pk_apply_matrix_de(m, &d, &e);
             if (pk_is_zero(&g)) { done = true; }
         }
         if (!done) {
-            let f_lo = pk_low_u64(&f); let g_lo = pk_low_u64(&g);
+            let f_lo = pk_low_u32(&f); let g_lo = pk_low_u32(&g);
             let m = byl_divsteps(&delta, f_lo, g_lo);
             pk_apply_matrix_fg(m, &f, &g); pk_apply_matrix_de(m, &d, &e);
             if (pk_is_zero(&g)) { done = true; }
         }
         if (!done) {
-            let f_lo = pk_low_u64(&f); let g_lo = pk_low_u64(&g);
+            let f_lo = pk_low_u32(&f); let g_lo = pk_low_u32(&g);
             let m = byl_divsteps(&delta, f_lo, g_lo);
             pk_apply_matrix_fg(m, &f, &g); pk_apply_matrix_de(m, &d, &e);
             if (pk_is_zero(&g)) { done = true; }
@@ -466,7 +455,7 @@ fn fr_inv_by_loop_pk(a: BigInt) -> BigInt {
     }
     // 29th batch: no group reduce after it (matches 29 % 4 == 1).
     if (!done) {
-        let f_lo = pk_low_u64(&f); let g_lo = pk_low_u64(&g);
+        let f_lo = pk_low_u32(&f); let g_lo = pk_low_u32(&g);
         let m = byl_divsteps(&delta, f_lo, g_lo);
         pk_apply_matrix_fg(m, &f, &g); pk_apply_matrix_de(m, &d, &e);
         if (pk_is_zero(&g)) { done = true; }

@@ -37,7 +37,15 @@ import {
   // Fully-expanded, mustache-free packed 13-bit safegcd inverse (the LIVE pk
   // path: fr_inv_by_loop_pk + pk_* + byl_divsteps + BylMat). Hand-editable.
   by_inverse_loop_pk_native as by_inverse_loop_pk_native_funcs,
+  // 14-bit variant (19 limbs, BATCH=28): fewer apply_matrix products per call.
+  by_inverse_loop_pk14_native as by_inverse_loop_pk14_native_funcs,
   by_inverse_loop_pk_wg as by_inverse_loop_pk_wg_funcs,
+  // 14-bit variant with f,g,d,e in GLOBAL memory (partials_buf tail): zero
+  // per-thread spill for the inverse state. fr_inv_by_loop_pk_global.
+  by_inverse_loop_pk14_global as by_inverse_loop_pk14_global_funcs,
+  // in-place packed montmul (a *= b on a global slot); assembled next to the
+  // global inverse so inv_ld/inv_st are in scope.
+  mont_pro_product_f8_inplace as mont_f8_inplace_funcs,
   // 15-bit sibling: BATCH=30, 18-limb BY state, 2-word (macc) apply_matrix.
   // Selected at word_size=15 (host-validated bit-exact in cios15n/by15_*.mjs).
   by_inverse_loop_15 as by_inverse_loop_15_funcs,
@@ -565,7 +573,7 @@ ${packLines.join('\n')}
     // (unused) 'loop' path keeps the templated by_inverse_loop source.
     return {
       invFn: variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop',
-      inverseFuncs: variant === 'pk' ? by_inverse_loop_pk_native_funcs : by_inverse_loop_funcs,
+      inverseFuncs: variant === 'pk' ? by_inverse_loop_pk14_native_funcs : by_inverse_loop_funcs,
       bigintByFuncs: bigint_by_funcs,
     };
   }
@@ -579,7 +587,7 @@ ${packLines.join('\n')}
     return mustache.render(
       microbench_shader,
       {
-        inv_fn, is_mul: op === 'mul', is_inv: op === 'inv',
+        inv_fn, inv_f8: this.word_size === 13, is_mul: op === 'mul', is_inv: op === 'inv',
         chain_k, nthreads, in_stride: 2 * this.num_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
@@ -608,7 +616,7 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_reduce_level_bench_shader,
       {
-        workgroup_size, inv_fn,
+        workgroup_size, inv_fn, inv_f8: this.word_size === 13 && variant === 'pk',
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
@@ -989,17 +997,26 @@ ${packLines.join('\n')}
     // gated so they can be re-enabled if a fissioned design makes them pay off.
     const regfile_lean = false;
     const regfile_lean_inv = regfile_lean && variant === 'pk';
-    const eff_inv_fn = regfile_lean_inv ? `${inv_fn}_wg` : inv_fn;
+    // Global-memory inverse (f,g,d,e in partials_buf instead of registers) trades
+    // register pressure for load/store traffic. It helps Adreno occupancy, but on
+    // Mali-G715 (Pixel 9a) it measured ~2.9x slower (1071ms vs 366ms @ logn17) and
+    // repeatedly faulted the GPU (VK_ERROR_DEVICE_LOST / SW_FAULT_1): the inverse is
+    // load/store-bound there and f/g/d/e see ~1000 touches/call, so routing them
+    // through global memory blows up LS traffic. Register-resident is faster on every
+    // device measured. Re-enable behind an Adreno-only vendor gate if that path needs it.
+    const regfile_lean_inv_global = false;
+    const eff_inv_fn = regfile_lean_inv ? `${inv_fn}_wg` : (regfile_lean_inv_global ? `${inv_fn}_global` : inv_fn);
     return mustache.render(
       ba_stream_walker_shader,
       {
-        workgroup_size, s, inv_fn: eff_inv_fn,
+        workgroup_size, s, inv_fn: eff_inv_fn, inv_f8: this.word_size === 13 && variant === 'pk',
         bw, stride, m_red,
         p8_consts, r8_csv, f8_words,
         // regfile_lean: route the f8 multiply through the workgroup-backed
         // montgomery_product_wg and declare its scratch. cios_unrolled only.
         regfile_lean,
         regfile_lean_inv,
+        regfile_lean_inv_global,
         // f8_native: use the packed-native register-lean montgomery_product_f8
         // (no x20/r/s BigInt temps). cios_unrolled 13-bit only.
         f8_native: this.montmul === 'cios_unrolled' && this.word_size === 13,
@@ -1016,6 +1033,7 @@ ${packLines.join('\n')}
         montgomery_product_wg_funcs: this.mont_product_wg_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
         inverse_wg_funcs: by_inverse_loop_pk_wg_funcs,
+        inverse_global_funcs: by_inverse_loop_pk14_global_funcs + '\n' + mont_f8_inplace_funcs,
         field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs: bigintByFuncs, inverse_funcs,
       },
     );
@@ -1103,7 +1121,7 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_unified_combine_shader,
       {
-        workgroup_size, s, inv_fn,
+        workgroup_size, s, inv_fn, inv_f8: this.word_size === 13 && variant === 'pk',
         p8_consts, r8_csv, f8_words,
         word_size: this.word_size, num_words: this.num_words, n0: this.n0,
         p_limbs: this.p_limbs, r_limbs: this.r_limbs, r_cubed_limbs: this.r_cubed_limbs,
@@ -1134,7 +1152,7 @@ ${packLines.join('\n')}
     return mustache.render(
       ba_walker_combine_batched_shader,
       {
-        workgroup_size, s, inv_fn,
+        workgroup_size, s, inv_fn, inv_f8: this.word_size === 13 && variant === 'pk',
         bw, stride, m_red,
         p8_consts, r8_csv, f8_words,
         // Use the packed-native register-lean montgomery_product_f8 (cios_unrolled 13-bit).

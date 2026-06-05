@@ -560,6 +560,37 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
   return msmV2;
 }
 
+// Measured GPU<->CPU clock calibration (NOT fitted to counters). Bracket each tiny GPU dispatch
+// between two CPU timestamps (REALTIME ns, convertible to the Mali counter clock MONOTONIC_RAW via
+// the trace's clock snapshot): the dispatch's own GPU begin/end timestamps must fall inside that
+// CPU bracket, so across many samples the brackets pin Dawn's GPU->CPU calibration offset directly.
+// Returns [cpu_before_ns, gpu_begin, gpu_end, cpu_after_ns] per sample.
+async function calibrateClock(device: GPUDevice, N = 96): Promise<Array<[string, string, string, string]>> {
+  const mod = device.createShaderModule({ code: '@compute @workgroup_size(1) fn main() {}' });
+  const pipe = await device.createComputePipelineAsync({ layout: 'auto', compute: { module: mod, entryPoint: 'main' } });
+  const qs = device.createQuerySet({ type: 'timestamp', count: 2 });
+  const resolve = device.createBuffer({ size: 16, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC });
+  const out: Array<[string, string, string, string]> = [];
+  for (let i = 0; i < N; i++) {
+    const stage = device.createBuffer({ size: 16, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const enc = device.createCommandEncoder();
+    const pass = enc.beginComputePass({ timestampWrites: { querySet: qs, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 } });
+    pass.setPipeline(pipe); pass.dispatchWorkgroups(1); pass.end();
+    enc.resolveQuerySet(qs, 0, 2, resolve, 0);
+    enc.copyBufferToBuffer(resolve, 0, stage, 0, 16);
+    const tBefore = (performance.timeOrigin + performance.now()) * 1e6;  // REALTIME ns
+    device.queue.submit([enc.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    const tAfter = (performance.timeOrigin + performance.now()) * 1e6;
+    await stage.mapAsync(GPUMapMode.READ);
+    const ts = new BigUint64Array(stage.getMappedRange().slice(0));
+    stage.unmap(); stage.destroy();
+    out.push([Math.round(tBefore).toString(), ts[0].toString(), ts[1].toString(), Math.round(tAfter).toString()]);
+  }
+  qs.destroy(); resolve.destroy();
+  return out;
+}
+
 async function runWebGpuOnce(
   inputs: TestInputs,
 ): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture }> {
@@ -575,6 +606,9 @@ async function runWebGpuOnce(
   // those fresh buffers pays a one-time first-use cost (driver lazy
   // zero-init / first-touch). Warm it out of the timed window so the
   // measurement is steady-state GPU, matching the bench's reused buffers.
+  // Reset the per-pass timestamp accumulator so this rep's aligned-trace
+  // slices cover BOTH the warm-up and measured run() (run() appends).
+  (window as unknown as { __lastPassTimes?: Array<[string, string, string]> }).__lastPassTimes = [];
   await msm.run();
   const t0 = performance.now();
   const gpu = await msm.run();
@@ -1513,12 +1547,58 @@ function hideProgress(): void {
       log('info', `[bench] warmup run`);
       await runWebGpuOnce(inputs);
       log('ok', `[mem] peak_live=${(__M.peak / 1048576).toFixed(2)}MB total_alloc=${(__M.total / 1048576).toFixed(2)}MB buffers=${__M.count}`);
-      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
+      // Kernel-isolation profiling: ?iso=<kernel> loops ONE kernel ~13 s so an external
+      // Mali counter capture attributes SFU/util to exactly that kernel (timestamp-free).
+      const isoK = qp.get('iso');
+      if (isoK) {
+        const msm = await ensureWebGpuWarmed(inputs);
+        log('info', `[iso] looping ${isoK} for 13s (hold the counter capture over this)...`);
+        const iters = await (msm as unknown as { profileKernel(n: string, ms: number): Promise<number> }).profileKernel(isoK, 13000);
+        log('ok', `[iso] DONE ${isoK}: ${iters} dispatches`);
+        await client.postResults({ state: 'done', params: { iso: isoK, logN: autorunLogN, page: 'iso' }, results: { iters }, log: allLines.slice(-60), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+        return;
+      }
+      // Clean per-dispatch trace: ?trace=1 runs ONE MSM per rep. prepare() + the buffer warm-up
+      // happen ONCE here, outside the capture window, so each recorded run is a single steady-state
+      // MSM (no warm-up/measured doublet — that pairing is what made the counter trace ambiguous).
+      // A 60ms idle between runs leaves a clear SFU=0 gap, so the Mali capture shows cleanly
+      // separated single plateaus, each unambiguously one labeled MSM at offset ~0 (Dawn GPU
+      // timestamps share CLOCK_MONOTONIC_RAW with the counters — verified via the trace's clock
+      // snapshots and a direct GPU/CPU rate check, rate=0.99957).
+      if (qp.get('trace') === '1') {
+        const msm = await ensureWebGpuWarmed(inputs);
+        msm.prepare(inputs.scalarsBuf);
+        log('info', '[trace] warming buffers (prepare + 3 runs, outside capture)');
+        await msm.run(); await msm.run(); await msm.run();
+        await new Promise(res => setTimeout(res, 250));  // clear gap so the warm-up cluster can't blur into rep 1
+        const W = window as unknown as { __lastPassTimes?: Array<[string, string, string]> };
+        const traceSamples: { wallMs: number; gpuMs: number; phases: Record<string, number>; passTimes?: Array<[string, string, string]> }[] = [];
+        log('info', `[trace] ${reps} single MSM runs, 60ms idle between — hold the counter capture over this`);
+        for (let r = 0; r < reps; r++) {
+          W.__lastPassTimes = [];
+          const t0 = performance.now();
+          await msm.run();
+          const wallMs = performance.now() - t0;
+          const pt = W.__lastPassTimes ?? [];
+          traceSamples.push({ wallMs, gpuMs: 0, phases: {}, passTimes: pt });
+          log('info', `[trace] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms passes=${pt.length}`);
+          await new Promise(res => setTimeout(res, 60));
+        }
+        let traceCalib: Array<[string, string, string, string]> = [];
+        try { traceCalib = gpuDevice ? await calibrateClock(gpuDevice) : []; } catch { /* ignore */ }
+        (window as unknown as { __benchSamples?: typeof traceSamples }).__benchSamples = traceSamples;
+        const traceLog: string[] = [];
+        for (let i = 0; i < $log.children.length; i++) traceLog.push($log.children[i].textContent ?? '');
+        await client.postResults({ state: 'done', params: { logN: autorunLogN, reps, page: 'msm-bench' }, results: { samples: traceSamples, calib: traceCalib }, log: traceLog.slice(-60), userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency });
+        log('ok', `[bench] DONE (trace) ${reps} single runs posted`);
+        return;
+      }
+      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number>; passTimes?: Array<[string, string, string]> }[] = [];
       for (let r = 0; r < reps; r++) {
         const gpu = await runWebGpuOnce(inputs);
         const wallMs = gpu.ms;
         const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
-        samples.push({ wallMs, gpuMs: 0, phases: { ...phases } });
+        samples.push({ wallMs, gpuMs: 0, phases: { ...phases }, passTimes: (window as unknown as { __lastPassTimes?: Array<[string, string, string]> }).__lastPassTimes ?? [] });
         const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
         log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms ${phaseStr}`);
       }
@@ -1537,12 +1617,19 @@ function hideProgress(): void {
       log('ok', `[bench] DONE logN=${autorunLogN} reps=${reps}: ` +
         `wall median=${medWall.toFixed(1)}ms avg=${avgWall.toFixed(1)}ms ` +
         `samples=[${walls.map(w => w.toFixed(1)).join(', ')}]`);
+      let calib: Array<[string, string, string, string]> = [];
+      try {
+        calib = gpuDevice ? await calibrateClock(gpuDevice) : [];
+        log('ok', `[calib] ${calib.length} GPU/CPU clock-bracket samples`);
+      } catch (e) {
+        log('warn', `[calib] failed: ${(e as Error).message}`);
+      }
       const allLines: string[] = [];
       for (let i = 0; i < $log.children.length; i++) allLines.push($log.children[i].textContent ?? '');
       await client.postResults({
         state: 'done',
         params: { logN: autorunLogN, reps, page: 'msm-bench', no_wasm: true },
-        results: { samples, averages: { wallMs: avgWall, gpuMs: 0 }, medianWallMs: medWall },
+        results: { samples, averages: { wallMs: avgWall, gpuMs: 0 }, medianWallMs: medWall, calib },
         error: null,
         log: allLines.slice(-100),
         userAgent: navigator.userAgent,
@@ -1581,7 +1668,7 @@ function hideProgress(): void {
       }
       // After warmup: msmV2 is built and ready. Run N timed iterations
       // by clicking Run for each rep and collecting __lastPhaseMs.
-      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
+      const samples: { wallMs: number; gpuMs: number; phases: Record<string, number>; passTimes?: Array<[string, string, string]> }[] = [];
       const initLogLen = $log.children.length;
       for (let r = 0; r < reps; r++) {
         // Snapshot log length
@@ -1604,7 +1691,7 @@ function hideProgress(): void {
         const wallMs = gpuLine ? parseFloat(gpuLine.match(/in\s+([\d.]+)\s+ms/)?.[1] ?? '0') : 0;
         const phases = (window as unknown as { __lastPhaseMs?: Record<string, number> }).__lastPhaseMs ?? {};
         const gpuMs = Object.values(phases).reduce((a, b) => a + (b ?? 0), 0);
-        samples.push({ wallMs, gpuMs, phases });
+        samples.push({ wallMs, gpuMs, phases, passTimes: (window as unknown as { __lastPassTimes?: Array<[string, string, string]> }).__lastPassTimes ?? [] });
         const phaseStr = Object.entries(phases).map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
         log('info', `[bench] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms gpu=${gpuMs.toFixed(1)}ms ${phaseStr}`);
       }

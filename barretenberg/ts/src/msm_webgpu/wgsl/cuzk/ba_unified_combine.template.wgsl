@@ -115,9 +115,15 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 
     // Phase 3: ONE safegcd amortised across the S tasks.
+    // f8 inverse: 8x u32 in/out; others: BigInt round-trip.
+{{#inv_f8}}
+    var inv = {{ inv_fn }}(prefix);
+{{/inv_f8}}
+{{^inv_f8}}
     var acc20 = unpack256_to_limbs(prefix);
     var inv20 = {{ inv_fn }}(acc20);
     var inv = pack_limbs_to_256(&inv20);
+{{/inv_f8}}
 
     // Phase 4: backward fused inverse + per-slot output dispatch.
     // Operands reloaded on demand per the register-lean policy.

@@ -28,6 +28,15 @@ const WG_TPB: u32 = MONT_TPB;
 var<workgroup> inv_state: array<u32, 40u * WG_TPB>;
 {{> inverse_wg_funcs }}
 {{/regfile_lean_inv}}
+{{#regfile_lean_inv_global}}
+// Global-memory inverse: f,g,d,e (4x10 words) live in the tail of partials_buf
+// (region [7*M_partials, +10*NUM_THREADS) vec4), transposed for coalescing,
+// instead of registers — eliminating the inverse's per-thread spill. inv_base
+// (= 28*M_partials + t) and inv_nt (= NUM_THREADS) are set in main.
+var<private> inv_base: u32;
+var<private> inv_nt: u32;
+{{> inverse_global_funcs }}
+{{/regfile_lean_inv_global}}
 
 {{{ dec_unpack }}}
 
@@ -184,6 +193,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
     let M_partials = params.w;
     ps_t = t;
     ps_nt = NUM_THREADS;
+{{#regfile_lean_inv_global}}
+    inv_base = 28u * M_partials + t * 52u; inv_nt = 1u;
+{{/regfile_lean_inv_global}}
 
     if (t >= NUM_THREADS) { return; }
 
@@ -355,12 +367,40 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             }
         }
 
-        var acc20 = unpack256_to_limbs(acc);
-        var inv20 = {{ inv_fn }}(acc20);
+        // Invert the forward product once. The f8 (14-bit) inverse takes/returns
+        // the 8x u32 packed form directly; the others round-trip through BigInt.
         // PERF PROBE (additive, correctness-preserving): each pair is inv(inv(x))==x,
         // chained so the compiler cannot CSE it. EXTRA_INV_PROBE=0 => no-op.
+{{#regfile_lean_inv_global}}
+        // In-place global inverse: stage the value-to-invert into the I/O slot
+        // (acc never needs to flow through the inverse as a register array), invert
+        // in place, read the result back into `inv` for the backward peel below.
+        let bio_w: u32 = inv_base + 40u * inv_nt;
+        inv_st(bio_w + 0u*inv_nt, acc[0]); inv_st(bio_w + 1u*inv_nt, acc[1]); inv_st(bio_w + 2u*inv_nt, acc[2]); inv_st(bio_w + 3u*inv_nt, acc[3]);
+        inv_st(bio_w + 4u*inv_nt, acc[4]); inv_st(bio_w + 5u*inv_nt, acc[5]); inv_st(bio_w + 6u*inv_nt, acc[6]); inv_st(bio_w + 7u*inv_nt, acc[7]);
+        fr_inv_by_loop_pk_global();
+        var inv = array<u32, 8>(inv_ld(bio_w + 0u*inv_nt), inv_ld(bio_w + 1u*inv_nt), inv_ld(bio_w + 2u*inv_nt), inv_ld(bio_w + 3u*inv_nt), inv_ld(bio_w + 4u*inv_nt), inv_ld(bio_w + 5u*inv_nt), inv_ld(bio_w + 6u*inv_nt), inv_ld(bio_w + 7u*inv_nt));
+        for (var ei: u32 = 0u; ei < EXTRA_INV_PROBE; ei = ei + 1u) {
+            inv_st(bio_w + 0u*inv_nt, inv[0]); inv_st(bio_w + 1u*inv_nt, inv[1]); inv_st(bio_w + 2u*inv_nt, inv[2]); inv_st(bio_w + 3u*inv_nt, inv[3]); inv_st(bio_w + 4u*inv_nt, inv[4]); inv_st(bio_w + 5u*inv_nt, inv[5]); inv_st(bio_w + 6u*inv_nt, inv[6]); inv_st(bio_w + 7u*inv_nt, inv[7]);
+            fr_inv_by_loop_pk_global();
+            inv = array<u32, 8>(inv_ld(bio_w + 0u*inv_nt), inv_ld(bio_w + 1u*inv_nt), inv_ld(bio_w + 2u*inv_nt), inv_ld(bio_w + 3u*inv_nt), inv_ld(bio_w + 4u*inv_nt), inv_ld(bio_w + 5u*inv_nt), inv_ld(bio_w + 6u*inv_nt), inv_ld(bio_w + 7u*inv_nt));
+            inv_st(bio_w + 0u*inv_nt, inv[0]); inv_st(bio_w + 1u*inv_nt, inv[1]); inv_st(bio_w + 2u*inv_nt, inv[2]); inv_st(bio_w + 3u*inv_nt, inv[3]); inv_st(bio_w + 4u*inv_nt, inv[4]); inv_st(bio_w + 5u*inv_nt, inv[5]); inv_st(bio_w + 6u*inv_nt, inv[6]); inv_st(bio_w + 7u*inv_nt, inv[7]);
+            fr_inv_by_loop_pk_global();
+            inv = array<u32, 8>(inv_ld(bio_w + 0u*inv_nt), inv_ld(bio_w + 1u*inv_nt), inv_ld(bio_w + 2u*inv_nt), inv_ld(bio_w + 3u*inv_nt), inv_ld(bio_w + 4u*inv_nt), inv_ld(bio_w + 5u*inv_nt), inv_ld(bio_w + 6u*inv_nt), inv_ld(bio_w + 7u*inv_nt));
+        }
+{{/regfile_lean_inv_global}}
+{{^regfile_lean_inv_global}}
+{{#inv_f8}}
+        var inv = {{ inv_fn }}(acc);
+        for (var ei: u32 = 0u; ei < EXTRA_INV_PROBE; ei = ei + 1u) { inv = {{ inv_fn }}(inv); inv = {{ inv_fn }}(inv); }
+{{/inv_f8}}
+{{^inv_f8}}
+        var acc20 = unpack256_to_limbs(acc);
+        var inv20 = {{ inv_fn }}(acc20);
         for (var ei: u32 = 0u; ei < EXTRA_INV_PROBE; ei = ei + 1u) { inv20 = {{ inv_fn }}(inv20); inv20 = {{ inv_fn }}(inv20); }
         var inv = pack_limbs_to_256(&inv20);
+{{/inv_f8}}
+{{/regfile_lean_inv_global}}
 
         // OPTIMIZATION (c): fused inverse pass + backward peel.
         // Original had two separate descending loops:
