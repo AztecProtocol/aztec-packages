@@ -39,7 +39,7 @@ struct PrivateExecutionStepRaw {
     std::vector<uint8_t> vk;
     // Represents the function name.
     std::string function_name;
-    CircuitKind kind = CircuitKind::App;
+    CircuitKind kind = CircuitKind::None;
 
     // Unrolled from SERIALIZATION_FIELDS for custom name for function_name.
     void msgpack(auto pack_fn) { pack_fn(NVP(bytecode, witness, vk), "functionName", function_name, NVP(kind)); };

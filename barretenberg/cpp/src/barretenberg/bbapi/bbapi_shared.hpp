@@ -183,7 +183,7 @@ struct BBApiRequest {
     std::optional<acir_format::AcirFormat> loaded_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> loaded_circuit_vk;
-    CircuitKind loaded_circuit_kind = CircuitKind::App;
+    CircuitKind loaded_circuit_kind = CircuitKind::None;
     // Policy for handling verification keys during accumulation
     VkPolicy vk_policy = VkPolicy::DEFAULT;
     // Error message - empty string means no error

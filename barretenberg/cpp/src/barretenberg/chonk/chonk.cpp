@@ -713,6 +713,8 @@ void Chonk::accumulate(ClientCircuit& circuit, CircuitKind kind, const CircuitVe
         }
         break;
     }
+    case CircuitKind::None:
+        throw_or_abort("Chonk::accumulate: CircuitKind is None (unset)");
     }
 }
 

@@ -29,6 +29,10 @@ enum class CircuitKind : uint8_t {
     App = 0,
     Kernel = 1,
     HidingKernel = 2,
+    // Sentinel for an unset kind. It is the default for every wire struct, so a `kind` that was
+    // never set (e.g. an old or external msgpack) is rejected by dispatch_kind / the IVC guard
+    // instead of silently decoding as a real kind. Kept distinct from the wire values 0/1/2.
+    None = 255,
 };
 
 inline std::ostream& operator<<(std::ostream& os, CircuitKind kind)
@@ -40,6 +44,8 @@ inline std::ostream& operator<<(std::ostream& os, CircuitKind kind)
         return os << "kernel";
     case CircuitKind::HidingKernel:
         return os << "hiding";
+    case CircuitKind::None:
+        return os << "none";
     }
     return os << "unknown(" << static_cast<int>(kind) << ")";
 }
@@ -84,11 +90,11 @@ template <typename F> constexpr decltype(auto) dispatch_kind(CircuitKind kind, F
         return std::forward<F>(f).template operator()<CircuitKind::Kernel>();
     case CircuitKind::HidingKernel:
         return std::forward<F>(f).template operator()<CircuitKind::HidingKernel>();
+    case CircuitKind::None:
+        break;
     }
-    // Not a BB_ASSERT/unreachable: MSGPACK_ADD_ENUM does an unchecked cast, so a kind byte >= 3 from
-    // an old/external/crafted msgpack yields an invalid enum. The VK paths (compute_chonk_vk /
-    // check_precomputed_chonk_vk) dispatch on the raw wire kind with no other guard, so this must
-    // throw in release/WASM rather than jump past the switch (UB).
+    // Throw (not unreachable): the VK paths dispatch on the raw wire kind, which may be None or an
+    // out-of-range msgpack byte. Must fail clearly in release/WASM rather than fall past the switch.
     throw_or_abort("dispatch_kind: invalid CircuitKind " + std::to_string(static_cast<int>(kind)));
 }
 
