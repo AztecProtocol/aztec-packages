@@ -46,6 +46,29 @@ const PG = 2;
 const PLANNER_TPB = 256; // ba_planner_v2 workgroup size (one workgroup per window)
 const FP = BN254_BASE_FIELD;
 const NUMBITS = 254; // scalar field bit length
+// High-mem ping-pong fused-block width (pairs sharing one batched inversion).
+// FIXED (not pickS(n)) so the fused/emit kernels stay one-program — a baked
+// constant keeps the inversion loops unrolled while the WGSL string is invariant
+// across every n the pool serves. walkChunkPlan + planner_emit + fused must all
+// use this same value.
+const HIGH_MEM_S = 2;
+// Default small-N auto-gate threshold for the high-mem ping-pong (0 = off).
+// DEFAULT OFF: rigorous profile=false measurement (msm-batch-bench) shows the
+// ping-pong is perf-NEUTRAL vs the walker in true GPU time across all N — the
+// 1.7-2× that the profiled msm-bench reported was an artifact of profile=true
+// penalising the walker's higher dispatch count via per-timestamp-query overhead.
+// The implementation stays available behind MsmConfig.pingpongBelow / ?ppbelow=N
+// (it issues ~half the walker's dispatches, so it may still win on devices where
+// CPU-side dispatch/submit overhead dominates — e.g. mobile — pending that
+// characterization). The bridge does not forward config, so this default is what
+// reaches production.
+const PINGPONG_BELOW_DEFAULT = 0;
+// High-mem ping-pong cooperative deep-tail collapse (Thread 2). One workgroup
+// per bucket reduces its <= CAP remaining points to a single sum in workgroup
+// memory, collapsing the starved deep-tail levels into one dispatch.
+const COOP_TAIL_WG = 256;
+const COOP_TAIL_CAP = 256;
+const COOP_TAIL_STARVE = 4096; // switch to coop-tail once active buckets drop below this
 
 // A scratch buffer is either a standalone GPUBuffer or a {buffer,offset,size}
 // slot carved from an arena (ARENA_LAYOUT.md §1). These helpers act on either,
@@ -271,6 +294,21 @@ export interface MsmConfig {
    */
   convertBound?: number;
   /**
+   * Thread 2 forced flag: run the high-memory A/B ping-pong pair-tree bucket-sum
+   * stage instead of the stream-walker + combine. Default false. The bucket→
+   * window reduce is unchanged (still the Jacobian/affine reduce). Intended for
+   * small/skewed MSMs where the multi-dispatch tree saturates the GPU the serial
+   * walker starves; gated on a small-N threshold in a later step.
+   */
+  highMemPingpong?: boolean;
+  /**
+   * Small-N auto-gate for the high-mem ping-pong: when `n ≤ pingpongBelow`, route
+   * the MSM through the ping-pong instead of the walker (0 = off, default). The
+   * ping-pong wins ~1.4-1.8× below the crossover (≈ logN 14-15 on M2) and loses
+   * above it. Independent of (and OR'd with) the forced `highMemPingpong` flag.
+   */
+  pingpongBelow?: number;
+  /**
    * Discarded warm-up `run()`s in `create()` — they ramp the GPU clock and pay
    * the shader-JIT / command-buffer cold start before the first timed run.
    * Default 5 (benchmark harness); the production bridge passes 0 so the first
@@ -461,6 +499,19 @@ interface LevelPlan {
   totalCarries: number;
 }
 
+// One level of the high-mem ping-pong pair-tree's pre-built bind groups
+// (Thread 2). The active_sums plane (bufA/bufB), plan rings and counts/offsets
+// ping-pong by level parity; level 0 reads the packed l0_index and gathers from
+// the SRS pool (the L0 layout variants).
+interface PingLevelBind {
+  plannerABind: GPUBindGroup;
+  plannerBBind: GPUBindGroup;
+  fusedTiles: { bind: GPUBindGroup; nx: number }[];
+  carryBind: GPUBindGroup;
+  finalizeAccumBinds: GPUBindGroup[]; // one per window-batch (bb_base)
+  nCarry: number;
+}
+
 // Plan one level: per-window pair/carry counts -> next-level counts + the
 // per-window pair-block / carry strides (max over all windows).
 function planLevel(counts: Uint32Array, s: number, numWindows: number, BW: number) {
@@ -482,6 +533,117 @@ function planLevel(counts: Uint32Array, s: number, numWindows: number, BW: numbe
   }
   const plan: LevelPlan = { pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0 };
   return { plan, newCounts };
+}
+
+// One contiguous MSM inside the host histogram: a scalar slice (byte base + n),
+// its window width c, and where its windows land in the concatenated global
+// window grid. The single-MSM path is one segment at base 0 / window 0; the
+// union path is one segment per BatchMember at its scalarBaseBytes / schedOff.
+interface HistSegment {
+  scalarByteBase: number;
+  n: number;
+  c: number;
+  schedOff: number;
+  numWindows: number;
+}
+
+// Host level-0 histogram for the high-mem ping-pong planner: signed-Booth recode
+// every (scalar, window) into its bucket, tallying per-bucket counts at the
+// global window base `schedOff·BW + w_local·BW`. Used only to size the per-level
+// dispatches at encode time without a GPU readback — the actual work is driven
+// by the GPU-built counts (csr_to_v2_meta). Byte-based (no BigInt) so it stays
+// cheap at n = 131k; the recode + lookback match `boothDigit` and the GPU
+// decompose exactly. Each segment is uniform-c (a member's own c); the union
+// concatenates members, each decoded MSM-local at its bit_base = w_local·c.
+function buildInitCounts(
+  scalarBytes: Uint8Array,
+  segments: HistSegment[],
+  totalWindows: number,
+  BW: number,
+): Uint32Array {
+  const initCounts = new Uint32Array(totalWindows * BW);
+  for (const seg of segments) {
+    const c = seg.c;
+    const cMask = (1 << c) - 1;
+    for (let i = 0; i < seg.n; i++) {
+      const off = seg.scalarByteBase + i * 32;
+      let lookback = 0;
+      for (let w = 0; w < seg.numWindows; w++) {
+        const lo = w * c;
+        const inOff = lo >>> 3;
+        const byteOff = off + inOff;
+        const bitShift = lo & 7;
+        // Up to 4 bytes covering bits [lo, lo+c) of THIS scalar (bytes past index
+        // 31 read as 0 so high windows don't pull in the next scalar's bytes).
+        const b0 = scalarBytes[byteOff];
+        const b1 = inOff + 1 < 32 ? scalarBytes[byteOff + 1] : 0;
+        const b2 = inOff + 2 < 32 ? scalarBytes[byteOff + 2] : 0;
+        const b3 = inOff + 3 < 32 ? scalarBytes[byteOff + 3] : 0;
+        const v = (b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)) >>> 0;
+        const winBits = (v >>> bitShift) & cMask;
+        const raw = (winBits << 1) | lookback;
+        const neg = (raw >>> c) & 1;
+        const negMask = neg ? 0xffffffff : 0;
+        const encode = (raw + 1) >>> 1;
+        const bucket = (((encode - neg) >>> 0) ^ negMask) & cMask;
+        initCounts[(seg.schedOff + w) * BW + bucket]++;
+        lookback = (v >>> (bitShift + c - 1)) & 1;
+      }
+    }
+  }
+  return initCounts;
+}
+
+// Walk the monotonic bucket-split pair-tree for one chunk's level-0 histogram,
+// yielding each level's (pairBlocksPerWindow, carriesPerWindow) and the peak
+// per-window stride (sum of next-level counts — sizes M1 / bufA-B). One level =
+// halve every bucket's points into pairs (pc) + an odd carry (cf), nc = pc+cf;
+// stop when no bucket has any points left.
+function walkChunkPlan(
+  chunkInit: Uint32Array,
+  s: number,
+  numWindows: number,
+  BW: number,
+): { levelPlans: LevelPlan[]; wstride1: number } {
+  const levelPlans: LevelPlan[] = [];
+  let wstride1 = 1;
+  const bt = numWindows * BW;
+  const countsA = new Uint32Array(bt);
+  const countsB = new Uint32Array(bt);
+  let countsCur: Uint32Array = chunkInit;
+  let countsNext: Uint32Array = countsA;
+  for (let lv = 0; lv < 64; lv++) {
+    let anyActive = false;
+    let pairBlocksPerWindow = 1;
+    let carriesPerWindow = 1;
+    for (let w = 0; w < numWindows; w++) {
+      let pairs = 0;
+      let carries = 0;
+      let strideCnt = 0;
+      const wbase = w * BW;
+      for (let bl = 0; bl < BW; bl++) {
+        const g = wbase + bl;
+        const cnt = countsCur[g];
+        if (cnt > 0) anyActive = true;
+        const pc = cnt >>> 1;
+        const cf = cnt === 1 ? 0 : cnt & 1;
+        const nc = pc + cf;
+        countsNext[g] = nc;
+        pairs += pc;
+        carries += cf;
+        strideCnt += nc;
+      }
+      const blocks = Math.ceil(pairs / s);
+      if (blocks > pairBlocksPerWindow) pairBlocksPerWindow = blocks;
+      if (carries > carriesPerWindow) carriesPerWindow = carries;
+      if (strideCnt > wstride1) wstride1 = strideCnt;
+    }
+    if (!anyActive) break;
+    levelPlans.push({ pairBlocksPerWindow, carriesPerWindow, totalPairBlocks: 0, totalCarries: 0 });
+    countsCur = countsNext;
+    countsNext = countsCur === countsA ? countsB : countsA;
+  }
+  return { levelPlans, wstride1 };
 }
 
 // Build the pad-trio SoA buffer for an active_sums buffer of element stride Mb:
@@ -754,6 +916,13 @@ class PipelineCache {
 interface SharedScratch {
   bufA: GPUBuffer;
   bufB: GPUBuffer;
+  // High-mem ping-pong harvest target: bucket sums (affine SoA, bTotal columns/
+  // window). ba_reduce_init repacks it into redBuf. 4 B stub unless high-mem.
+  bucketResultBuf: GPUBuffer;
+  // High-mem ping-pong per-global-bucket first-touch flag (bTotal × u32).
+  // Standalone (NOT arena) so it never colour-conflicts with l0IdxBuf in the L0
+  // finalize bind's ro/rw set. 4 B stub unless high-mem.
+  touchedBuf: GPUBuffer;
   l0IdxBuf: GPUBufferBinding;
   bucketAndSignBuf: GPUBufferBinding;
   valIdxBuf: GPUBufferBinding;
@@ -867,6 +1036,11 @@ interface ScratchDims {
   streamS: number;
   streamQueueEntries: number;
   streamRadixTiles: number;
+  // High-memory A/B ping-pong pair-tree mode (Thread 2). When false the pool
+  // keeps bufA/bufB, the plan rings and prefScratch at a 4 B stub (the walker
+  // path never touches them); when true they are sized to the real pair-tree
+  // working set. Once a pool has served one high-mem prepare it stays capable.
+  highMem: boolean;
 }
 
 export class MsmV2Pool {
@@ -907,7 +1081,12 @@ export class MsmV2Pool {
     streamS: 0,
     streamQueueEntries: 0,
     streamRadixTiles: 0,
+    highMem: false,
   };
+  // High-water byte size of bucketResultBuf. cur.bTotal is not grow-tracked
+  // (the stream block reallocs on every slow path), so the ping-pong harvest
+  // buffer keeps its own monotone high-water mark to stay fast-path-safe.
+  private _bucketResultBytes = 0;
   private _scratchEpoch = 0;
   private _device: GPUDevice;
 
@@ -959,7 +1138,7 @@ export class MsmV2Pool {
     if (this._scratch) {
       const s = this._scratch;
       total += s.arenas.reduce((acc, a) => acc + a.size, 0); // arena-resident buffers, counted once per arena
-      total += s.bufA.size + s.bufB.size;
+      total += s.bufA.size + s.bufB.size + s.bucketResultBuf.size + s.touchedBuf.size;
       total += s.planMeta.size;
       total += s.pairBlockPlanRing[0].size + s.pairBlockPlanRing[1].size;
       total += s.scatterPlanRing[0].size + s.scatterPlanRing[1].size;
@@ -1006,6 +1185,8 @@ export class MsmV2Pool {
     const s = this._scratch;
     let bufA = s?.bufA;
     let bufB = s?.bufB;
+    let bucketResultBuf = s?.bucketResultBuf;
+    let touchedBuf = s?.touchedBuf;
     let l0IdxBuf = s?.l0IdxBuf;
     let bucketAndSignBuf = s?.bucketAndSignBuf;
     let valIdxBuf = s?.valIdxBuf;
@@ -1023,18 +1204,26 @@ export class MsmV2Pool {
     let redZBuf = s?.redZBuf;
     let reducePrefScratch = s?.reducePrefScratch;
 
+    // High-mem ping-pong buffers (bufA/bufB, plan rings, prefScratch) are sized
+    // to the real pair-tree working set only once this pool has served a
+    // high-mem prepare. `himTransition` is the false→true edge that forces the
+    // first real allocation; thereafter `cur.highMem` stays set so later walker
+    // prepares keep the buffers real (a different MSM on the pool may still be
+    // high-mem). Walker-only pools never flip it and keep the 4 B stubs.
+    const himTransition = dims.highMem && !cur.highMem;
+    cur.highMem = cur.highMem || dims.highMem;
+
     // bufA/bufB depend on M1. They also need a pad-trio re-write whenever
     // they realloc, so we handle them together.
-    if (!bufA || dims.M1 > cur.M1) {
+    if (!bufA || dims.M1 > cur.M1 || himTransition) {
       bufA?.destroy();
       bufB?.destroy();
       grow(true, 'M1');
-      // Step 9 (Plan §14): pair-tree V2 buffers shrunk to 4 B — no longer
-      // dispatched. ba_fused_super / ba_carry / ba_finalize bind groups
-      // still reference them so the type/binding system stays happy, but
-      // none of those pipelines run on the walker path.
-      bufA = sbuf(4);
-      bufB = sbuf(4);
+      // Stubbed to 4 B unless the pool is high-mem capable — the ba_fused_super
+      // / ba_carry / ba_finalize bind groups always reference these so the
+      // binding system stays happy, but the walker path never dispatches them.
+      bufA = cur.highMem ? sbuf(soaSize(cur.M1)) : sbuf(4);
+      bufB = cur.highMem ? sbuf(soaSize(cur.M1)) : sbuf(4);
       grew = true;
     }
     // l0IdxBuf must hold both the L0 input (l0Slots × 4) AND the transpose
@@ -1058,23 +1247,29 @@ export class MsmV2Pool {
       planMeta = sbuf(cur.planMetaLen * 4);
       grew = true;
     }
-    if (!pairBlockPlanRing || !scatterPlanRing || dims.totalPairBlocks > cur.totalPairBlocks) {
+    if (!pairBlockPlanRing || !scatterPlanRing || dims.totalPairBlocks > cur.totalPairBlocks || himTransition) {
       pairBlockPlanRing?.forEach(b => b.destroy());
       scatterPlanRing?.forEach(b => b.destroy());
       grow(true, 'totalPairBlocks');
       const SmaxS = Math.max(cur.S, dims.S);
       cur.S = SmaxS;
-      // Step 9: pair-tree V2 ring buffers shrunk — only the dead fused_super
-      // pipeline reads them.
-      pairBlockPlanRing = [sbuf(4), sbuf(4)];
-      scatterPlanRing = [sbuf(4), sbuf(4)];
+      // pair_block_plan: 2·S u32/block; scatter_plan: S u32/block. Stubbed to
+      // 4 B until the pool is high-mem capable (only ba_fused_super reads them).
+      pairBlockPlanRing = cur.highMem
+        ? [sbuf(2 * cur.totalPairBlocks * SmaxS * 4), sbuf(2 * cur.totalPairBlocks * SmaxS * 4)]
+        : [sbuf(4), sbuf(4)];
+      scatterPlanRing = cur.highMem
+        ? [sbuf(cur.totalPairBlocks * SmaxS * 4), sbuf(cur.totalPairBlocks * SmaxS * 4)]
+        : [sbuf(4), sbuf(4)];
       grew = true;
     }
-    if (!carryPlanRing || dims.totalCarries > cur.totalCarries) {
+    if (!carryPlanRing || dims.totalCarries > cur.totalCarries || himTransition) {
       carryPlanRing?.forEach(b => b.destroy());
       grow(true, 'totalCarries');
-      // Step 9: shrunk — only the dead carry pipeline reads it.
-      carryPlanRing = [sbuf(4), sbuf(4)];
+      // carry_plan: 2 u32/carry. Stubbed until high-mem capable.
+      carryPlanRing = cur.highMem
+        ? [sbuf(2 * cur.totalCarries * 4), sbuf(2 * cur.totalCarries * 4)]
+        : [sbuf(4), sbuf(4)];
       grew = true;
     }
     if (!countsBufs || !offsetsBufs || dims.batchBuckets > cur.batchBuckets) {
@@ -1085,14 +1280,31 @@ export class MsmV2Pool {
       offsetsBufs = [sbuf(cur.batchBuckets * 4), sbuf(cur.batchBuckets * 4)];
       grew = true;
     }
-    if (!prefScratchBuf || dims.fusedTile > cur.fusedTile || dims.S > cur.S) {
+    if (!prefScratchBuf || dims.fusedTile > cur.fusedTile || dims.S > cur.S || himTransition) {
       prefScratchBuf?.destroy();
       grow(true, 'fusedTile');
       const SmaxS = Math.max(cur.S, dims.S);
       cur.S = SmaxS;
-      // Step 9: shrunk — only the dead fused_super pipeline reads it.
-      prefScratchBuf = sbuf(4);
+      // 2 vec4 (8 u32) of inversion scratch per slot, S slots/thread over one
+      // FUSED_TILE of threads. Stubbed until high-mem capable.
+      prefScratchBuf = cur.highMem ? sbuf(cur.fusedTile * SmaxS * 8 * 4) : sbuf(4);
       grew = true;
+    }
+    // bucketResultBuf — affine SoA, bTotal columns/window (soaSize). Keeps its
+    // own monotone high-water (`_bucketResultBytes`) since cur.bTotal is not
+    // grow-tracked; gated on high-mem so the walker keeps a 4 B stub.
+    {
+      const wantBR = cur.highMem ? soaSize(dims.bTotal) : 4;
+      if (!bucketResultBuf || wantBR > this._bucketResultBytes) {
+        bucketResultBuf?.destroy();
+        touchedBuf?.destroy();
+        bucketResultBuf = sbuf(wantBR);
+        touchedBuf = sbuf(cur.highMem ? dims.bTotal * 4 : 4);
+        this._bucketResultBytes = Math.max(this._bucketResultBytes, wantBR);
+        grew = true;
+      } else if (!touchedBuf) {
+        touchedBuf = sbuf(cur.highMem ? dims.bTotal * 4 : 4);
+      }
     }
     if (!scalarsRawBuf || dims.scalarsBytes > cur.scalarsBytes) {
       grow(true, 'scalarsBytes'); // sizes arena A0 (scalarsRawBuf carved centrally)
@@ -1344,6 +1556,8 @@ export class MsmV2Pool {
     const newScratch: SharedScratch = {
       bufA: bufA!,
       bufB: bufB!,
+      bucketResultBuf: bucketResultBuf!,
+      touchedBuf: touchedBuf!,
       l0IdxBuf: l0IdxBuf!,
       bucketAndSignBuf: bucketAndSignBuf!,
       valIdxBuf: valIdxBuf!,
@@ -1415,12 +1629,21 @@ export class MsmV2Pool {
     };
 
     if (grew) {
-      // Step 9: pad-trio writeBuffer to bufA/bufB removed. Those writes
-      // populated the V2 pair-tree's IDLE-anchor slots at [M1-3..M1-1] of
-      // each plane in bufA, read by the dead fused_super / carry / finalize
-      // pipelines. The walker reads its IDLE anchor through
-      // l0_index[batchSlots] → point_x/point_y[pt_idx] instead, and
-      // batchSlots is written by MsmV2.prepare on every run.
+      // High-mem ping-pong reads an IDLE anchor (the lever-E self-pad trio) at
+      // slots [M1-3..M1-1] of each plane in bufA/bufB; the planner points padded
+      // lanes there so the fused add is a no-op. Seed it on realloc. The walker
+      // reads its IDLE anchor through l0_index[batchSlots] → point_x/point_y
+      // instead, so when the pool is not high-mem capable there is nothing to do.
+      if (cur.highMem) {
+        const padBuf = buildPadBuf(cur.M1, padPts, R);
+        const padBytes = new Uint8Array(padBuf.buffer);
+        const xPadSlice = padBytes.subarray(padXOffset, padXOffset + padBytesPerPlane);
+        const yPadSlice = padBytes.subarray(padYOffset, padYOffset + padBytesPerPlane);
+        device.queue.writeBuffer(newScratch.bufA, padXOffset, xPadSlice as BufferSource);
+        device.queue.writeBuffer(newScratch.bufA, padYOffset, yPadSlice as BufferSource);
+        device.queue.writeBuffer(newScratch.bufB, padXOffset, xPadSlice as BufferSource);
+        device.queue.writeBuffer(newScratch.bufB, padYOffset, yPadSlice as BufferSource);
+      }
       this._scratch = newScratch;
       this._scratchEpoch++;
     } else {
@@ -1536,6 +1759,8 @@ export class MsmV2Pool {
       s.arenas.forEach(a => a.destroy()); // arena-resident scratch (valIdxBuf, ptScratch, …)
       s.bufA.destroy();
       s.bufB.destroy();
+      s.bucketResultBuf.destroy();
+      s.touchedBuf.destroy();
       s.planMeta.destroy();
       s.pairBlockPlanRing[0].destroy();
       s.pairBlockPlanRing[1].destroy();
@@ -1649,6 +1874,12 @@ export class MsmV2 {
   private reduceSatThreshold = 8192;
   private convChunk = 8;
   private convertBound = 150000;
+  /** Thread 2: run the high-memory A/B ping-pong pair-tree bucket-sum stage
+   * (multi-dispatch, saturates the GPU on small/skewed MSMs) instead of the
+   * stream-walker + combine. Forced flag, default off; the reduce is unchanged. */
+  private highMemPingpong = false;
+  /** Small-N auto-gate: route MSMs with n ≤ this through the ping-pong (0 = off). */
+  private pingpongBelow = 0;
   private combineOnHost = true;
   private numBatchesForce = 0; // 0 = budget-driven; >0 forces ≥ this many window-batches (testing/packing)
   private memBudget = MEM_BUDGET; // GPU-buffer budget driving the sT cap + window-batch staging
@@ -1667,6 +1898,14 @@ export class MsmV2 {
   private fusedPipeL0!: GPUComputePipeline;
   private carryPipeL0!: GPUComputePipeline;
   private finalizePipeL0!: GPUComputePipeline;
+  // High-mem ping-pong (Thread 2): the finalize-ACCUMULATE harvest (touched-
+  // gated copy/affine-add), the cooperative deep-tail collapse, and the
+  // bucket_result→red_buf reduce-init bridge. Only compiled/dispatched when
+  // highMemPingpong is on.
+  private finalizeAccumPipe!: GPUComputePipeline;
+  private finalizeAccumPipeL0!: GPUComputePipeline;
+  private coopTailPipe?: GPUComputePipeline;
+  private reduceInitPipe!: GPUComputePipeline;
   private decomposePipe!: GPUComputePipeline;
   private msbHistPipe!: GPUComputePipeline;
   private msbDecidePipe!: GPUComputePipeline;
@@ -1723,6 +1962,9 @@ export class MsmV2 {
   private carryLayoutL0!: GPUBindGroupLayout;
   private finalizeLayout!: GPUBindGroupLayout;
   private finalizeLayoutL0!: GPUBindGroupLayout;
+  private finalizeAccumLayout!: GPUBindGroupLayout;
+  private finalizeAccumLayoutL0!: GPUBindGroupLayout;
+  private reduceInitLayout!: GPUBindGroupLayout;
   private decomposeLayout!: GPUBindGroupLayout;
   private msbHistLayout!: GPUBindGroupLayout;
   private msbDecideLayout!: GPUBindGroupLayout;
@@ -1931,6 +2173,16 @@ export class MsmV2 {
   private padYOffset: number = 0; // Y plane pad start = 2*planeBytes - padBytesPerPlane
   private convMetaBinds!: GPUBindGroup[];
   private reduceInitBind!: GPUBindGroup;
+  // High-mem ping-pong per-level binds + the reduce-init bridge (Thread 2).
+  // Built in prepare() only when highMemPingpong runs; `pingLevels` is the data-
+  // dependent level count for THIS prepare. coopTailLevel collapses the starved
+  // deep tail into one coop dispatch (−1 = never).
+  private pingLevelBinds: PingLevelBind[] = [];
+  private pingReduceInitBind?: GPUBindGroup;
+  private pingLevels = 0;
+  private pingNumWgsFinalize = 0;
+  private pingNReduceInit = 0;
+  private coopTailLevel = -1;
   // One bind per reduce level (lparams = level index); all share the per-window
   // schedule table so a single dispatch per level reduces every window at its
   // own stride. Length = max_levels (the stride_max schedule length).
@@ -1980,6 +2232,16 @@ export class MsmV2 {
     m.montmul = config?.montmul ?? 'karat';
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
+    // High-mem ping-pong is enabled either by the forced flag OR the small-N
+    // auto-gate (`pingpongBelow`: use ping-pong when n ≤ threshold). The mode
+    // wins ~1.4-1.8× at small n where the walker's fixed planner/combine overhead
+    // starves the GPU; it loses at large n. Default gate 0 = off (forced flag and
+    // gate both off ⇒ walker), pending device characterization of the crossover.
+    // prepare()'s uniform-c check still falls back to the walker for split-c.
+    // undefined ⇒ production default; explicit 0 ⇒ off; N>0 ⇒ N.
+    const pbCfg = config?.pingpongBelow;
+    m.pingpongBelow = pbCfg === undefined ? PINGPONG_BELOW_DEFAULT : pbCfg > 0 ? pbCfg : 0;
+    m.highMemPingpong = (config?.highMemPingpong ?? false) || (m.pingpongBelow > 0 && n <= m.pingpongBelow);
     m.perLevelJac = config?.perLevelJac ?? false;
     m.reduceSatThreshold =
       config?.reduceSatThreshold && config.reduceSatThreshold > 0 ? config.reduceSatThreshold : 8192;
@@ -2118,7 +2380,10 @@ export class MsmV2 {
     // --- Layouts (pool-cached: same `types` shape → same GPUBindGroupLayout
     // across every MsmV2 instance bound to this pool) ---
     const lt = (types: GPUBufferBindingType[]): GPUBindGroupLayout => pool.cache.getLayout(types);
-    m.plannerALayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform']);
+    // planner A: counts(ro), carry_off(rw), new_counts(rw), new_offsets(rw),
+    // plan_meta(rw), params(uniform), geom(uniform = BW/num_windows).
+    m.plannerALayout = lt(['read-only-storage', 'storage', 'storage', 'storage', 'storage', 'uniform', 'uniform']);
+    // planner B: + geom(uniform) at binding 10.
     m.plannerBLayout = lt([
       'read-only-storage',
       'read-only-storage',
@@ -2128,6 +2393,7 @@ export class MsmV2 {
       'storage',
       'storage',
       'storage',
+      'uniform',
       'uniform',
       'uniform',
     ]);
@@ -2168,6 +2434,29 @@ export class MsmV2 {
       'read-only-storage',
       'read-only-storage',
     ]);
+    // Accumulate-finalize (Thread 2): finalize layout + a read_write `touched`
+    // first-touch flag at index 5; the L0 variant shifts point_x/point_y to 6/7.
+    // counts(ro), offsets(ro), active(ro), bucket_result(rw), params(uniform), touched(rw).
+    m.finalizeAccumLayout = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'storage',
+    ]);
+    m.finalizeAccumLayoutL0 = lt([
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'uniform',
+      'storage',
+      'read-only-storage',
+      'read-only-storage',
+    ]);
+    // reduce-init bridge: bucket_result(ro), red_buf(rw), is_present(rw), params(uniform).
+    m.reduceInitLayout = lt(['read-only-storage', 'storage', 'storage', 'uniform']);
     // 4 bindings: scalars (read), bucket_and_sign (write), params, batch.
     // (Previously 5 — separate signs buffer collapsed into the bucket_and_sign pack.)
     // scalars, bucket_and_sign(rw), params, batch, window_desc, point_offsets.
@@ -2486,6 +2775,47 @@ export class MsmV2 {
       m.convActiveLayout,
     );
     m.convMetaPipe = await compile(sm.gen_csr_to_v2_meta_shader(WGI), `csr2v2-meta`, m.convMetaLayout);
+    // High-mem A/B ping-pong pair-tree (Thread 2). Compiled only when the mode
+    // is on — the planner kernels bake c/BW geometry (per-(n,c) recompile until
+    // the size-independence pass), so the default walker path never pays for
+    // them. fused/finalize are tiled (params.w = tile_base). coopTail reuses the
+    // finalize-accumulate layout (counts/offsets/active/bucket_result/params/touched).
+    if (m.highMemPingpong) {
+      m.plannerAPipe = await compile(sm.gen_ba_planner_v2_offsets_shader(PLANNER_TPB), `planner-a`, m.plannerALayout);
+      m.plannerBPipe = await compile(
+        sm.gen_ba_planner_v2_emit_shader(PLANNER_TPB, HIGH_MEM_S, pool.pairCap),
+        `planner-b`,
+        m.plannerBLayout,
+      );
+      m.fusedPipe = await compile(
+        sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, INV_VARIANT, true, false, ADDSUB),
+        `fused`,
+        m.fusedLayout,
+      );
+      m.fusedPipeL0 = await compile(
+        sm.gen_ba_fused_super_bench_shader(WGI, HIGH_MEM_S, INV_VARIANT, true, true, ADDSUB),
+        `fused-l0`,
+        m.fusedLayoutL0,
+      );
+      m.carryPipe = await compile(sm.gen_ba_carry_copy_bench_shader(WGI), `carry`, m.carryLayout);
+      m.carryPipeL0 = await compile(sm.gen_ba_carry_copy_bench_shader(WGI, true), `carry-l0`, m.carryLayoutL0);
+      m.finalizeAccumPipe = await compile(
+        sm.gen_ba_finalize_accumulate_bench_shader(WGI, false),
+        `finalize-accum`,
+        m.finalizeAccumLayout,
+      );
+      m.finalizeAccumPipeL0 = await compile(
+        sm.gen_ba_finalize_accumulate_bench_shader(WGI, true),
+        `finalize-accum-l0`,
+        m.finalizeAccumLayoutL0,
+      );
+      m.coopTailPipe = await compile(
+        sm.gen_ba_fused_tail_coop_shader(COOP_TAIL_WG, COOP_TAIL_CAP, INV_VARIANT),
+        `fused-tail-coop`,
+        m.finalizeAccumLayout,
+      );
+      m.reduceInitPipe = await compile(sm.gen_ba_reduce_init_bench_shader(WGI), `reduce-init`, m.reduceInitLayout);
+    }
     // Phase 5: ONE reduction pipeline drives every schedule level. The
     // `kind` (0 suffix / 1 tree / 2 double) lives in lparams.w — uniform
     // across the workgroup, so the compiler specialises per-dispatch with
@@ -2901,8 +3231,36 @@ export class MsmV2 {
     // M1/totalPairBlocks/totalCarries still size the dead bufA/bufB + plan rings
     // (4 B each), so they stay as trivial constants.
     const levelPlans: LevelPlan[] = [];
-    const levels = 0;
+    let levels = 0;
     let wstride1 = 1;
+    // High-mem ping-pong: run the host bucket-split walk to size the per-level
+    // dispatches (the walker path leaves these as trivial constants). Single
+    // point-chunk (all n). Uniform-c only: split-c (single MSM) and mixed-c packs
+    // (which need per-window stride in reduce_init) fall back to the walker —
+    // `uniformC` is false for both. A union decodes per member (each at its own
+    // scalar slice / bit_base / global window base), mirroring the GPU decompose
+    // so the histogram matches csr_to_v2_meta. The union must also be uniform-n:
+    // different-n members make the GPU's level-0 offsets per-member-strided, which
+    // the planner's single host `wstride1` can't address yet (mixed-n falls back —
+    // a follow-up). levels === 0 ⇒ walker downstream.
+    const uniformC = this.windowCs ? this.windowCs.every(cw => cw === c) : true;
+    if (this.highMemPingpong && uniformC) {
+      const scalarBytes = new Uint8Array(scalars.buffer, scalars.byteOffset, scalars.byteLength);
+      const segments: HistSegment[] = this.batchCtx
+        ? this.batchCtx.members.map(mb => ({
+            scalarByteBase: mb.scalarBaseBytes,
+            n: mb.n,
+            c: this.batchCtx!.windowDescTable[mb.schedOff * 8 + 0],
+            schedOff: mb.schedOff,
+            numWindows: mb.numWindows,
+          }))
+        : [{ scalarByteBase: 0, n, c, schedOff: 0, numWindows: NUM_WINDOWS }];
+      const chunkInit = buildInitCounts(scalarBytes, segments, NUM_WINDOWS, BW);
+      const walk = walkChunkPlan(chunkInit, HIGH_MEM_S, NUM_WINDOWS, BW);
+      levelPlans.push(...walk.levelPlans);
+      levels = walk.levelPlans.length;
+      wstride1 = walk.wstride1;
+    }
 
     // --- Lever G: budget-driven window-batch count (ARENA_LAYOUT.md §7).
     const RED_M = this.redM;
@@ -3034,6 +3392,10 @@ export class MsmV2 {
       // is scalar-specific and the fast path doesn't refresh it. Never share it.
       !this.regionSplit &&
       !this.capRegionSplit &&
+      // High-mem ping-pong per-level binds are data-dependent (levels +
+      // per-level pair/carry counts vary with the scalar histogram); rebuild
+      // every prepare. (fastPathRewrite of the ping-pong uniforms is a follow-up.)
+      !this.highMemPingpong &&
       this.boundEpoch === this.pool.scratchEpoch;
     if (fits) {
       this.fastPathRewrite(scalars, srsOffset, levelPlans, levels);
@@ -3148,7 +3510,9 @@ export class MsmV2 {
         totalPairBlocks: maxTotalPairBlocks,
         totalCarries: maxTotalCarries,
         fusedTile: FUSED_TILE,
-        S,
+        // The plan rings + prefScratch hold S entries/block — the ping-pong uses
+        // the fixed HIGH_MEM_S (not the walker's pickS(n)), so size them for it.
+        S: this.highMemPingpong ? HIGH_MEM_S : S,
         scalarsBytes: scalars.byteLength,
         redM: RED_M,
         reducePrefBytes,
@@ -3157,6 +3521,7 @@ export class MsmV2 {
         streamS: this.streamS,
         streamQueueEntries: B_TOTAL + this.streamNumThreads * (2 * this.streamS - 1),
         streamRadixTiles: this.numRadixTiles,
+        highMem: this.highMemPingpong,
       },
       this.padPts,
       R,
@@ -3203,7 +3568,13 @@ export class MsmV2 {
     // poolM1-1]. This MSM's planner writes into [0, batchWindows*wstride1)
     // which is always < poolM1, so the pad slots don't get clobbered.
     const poolM1 = scratch.poolM1;
-    const padParams0Buf = ubuf(new Uint32Array([batchSlots, batchSlots + 1, poolM1 - 1, 0]));
+    // L0 self-pad anchor = the seed trio at [l0PadAnchor, +1, +2] (point indices
+    // 0,1,2 ⇒ distinct SRS points ⇒ pad pairs have dx≠0, so they don't poison the
+    // block's shared batched inversion). For a uniform pack l0PadAnchor==batchSlots;
+    // a different-n union makes the partials matrix the larger term, so the anchor
+    // sits above batchSlots — using batchSlots here would read stale partials
+    // (dx possibly 0 ⇒ corrupts the real slots). The walker reads the same anchor.
+    const padParams0Buf = ubuf(new Uint32Array([l0PadAnchor, l0PadAnchor + 1, poolM1 - 1, 0]));
     const padParams1Buf = ubuf(new Uint32Array([poolM1 - 3, poolM1 - 2, poolM1 - 1, 0]));
     const decomposeParams = ubuf(new Uint32Array([n, batchWindows, c, 8]));
     // WindowDesc table (SPLIT_C_PLAN.md): one row per GLOBAL window, stride 8 u32.
@@ -3584,6 +3955,119 @@ export class MsmV2 {
     }
     this.redBuf = redBuf;
 
+    // --- High-mem A/B ping-pong per-level binds (Thread 2) ---
+    // Built only when the mode runs (levels > 0 ⇒ highMemPingpong + uniform-c).
+    // The decompose/transpose/convActive/convMeta binds are shared with the
+    // walker path; here we add the planner_v2 / fused / carry / finalize-accum
+    // per-level binds + the bucket_result→red_buf reduce-init bridge. Single
+    // point-chunk (all n); coop-tail disabled for now (every level runs).
+    this.pingLevelBinds = [];
+    this.pingReduceInitBind = undefined;
+    this.pingLevels = 0;
+    this.coopTailLevel = -1;
+    if (this.highMemPingpong && levels > 0) {
+      const bucketResult = scratch.bucketResultBuf;
+      const touched = scratch.touchedBuf;
+      const pointX = this.pool.poolX;
+      const pointY = this.pool.poolY;
+      // The planner borrows valIdxBuf as the per-bucket carry-prefix array; it is
+      // dead once convActive consumes it (strictly before the planner). Requires
+      // B_TOTAL = numWindows·BW ≤ batchSlots (valIdxBuf's length).
+      const carryOffBuf = valIdxBuf;
+      if (batchSlots < B_TOTAL) {
+        throw new Error(`high-mem planner: valIdxBuf (${batchSlots}) too small for carry_off (${B_TOTAL})`);
+      }
+      const FUSED_TILE = this.fusedTileSize;
+      const reduceInitParams = ubuf(new Uint32Array([RED_M, this.stride, BW, B_TOTAL]));
+      this.pingReduceInitBind = mkBind(this.reduceInitLayout, [bucketResult, redBuf, isPresentBuf, reduceInitParams]);
+      this.pingNReduceInit = Math.ceil(RED_M / WGI);
+      this.pingNumWgsFinalize = Math.ceil(batchBuckets / WGI);
+      // finalize params per window-batch: [B(=thread count), M(active stride=poolM1),
+      // bb_base(=bi·batchBuckets global bucket offset), B_global(=bTotal plane stride)].
+      const finalizeParamsBufs: GPUBuffer[] = [];
+      for (let bi = 0; bi < numBatches; bi++) {
+        finalizeParamsBufs.push(ubuf(new Uint32Array([batchBuckets, poolM1, bi * batchBuckets, B_TOTAL])));
+      }
+      // One-program geometry uniform for the planner kernels (BW, num_windows;
+      // per_thread/num_groups = BW/TPB derived in-shader). Constant per prepare.
+      const geomBuf = ubuf(new Uint32Array([BW, NUM_WINDOWS, 0, 0]));
+      for (let lv = 0; lv < levels; lv++) {
+        const plan = levelPlans[lv];
+        const isL0 = lv === 0;
+        const inIdx = lv & 1;
+        const outIdx = inIdx ^ 1;
+        const ring = lv & 1;
+        const activeOut = inIdx === 0 ? bufB : bufA;
+        const activeIn: GPUBuffer | GPUBufferBinding = isL0 ? l0IdxBuf : inIdx === 0 ? bufA : bufB;
+        const plannerParams = ubuf(new Uint32Array([plan.pairBlocksPerWindow, plan.carriesPerWindow, WGI, wstride1]));
+        const carryParams = ubuf(new Uint32Array([plan.totalCarries, poolM1, poolM1, 0]));
+        const fusedTiles: { bind: GPUBindGroup; nx: number }[] = [];
+        for (let tileBase = 0; tileBase < plan.totalPairBlocks; tileBase += FUSED_TILE) {
+          const tileThreads = Math.min(FUSED_TILE, plan.totalPairBlocks - tileBase);
+          const tileParams = ubuf(new Uint32Array([plan.totalPairBlocks, poolM1, poolM1, tileBase]));
+          const fe: (GPUBuffer | GPUBufferBinding)[] = [
+            pairBlockPlanRing[ring],
+            scatterPlanRing[ring],
+            activeIn,
+            activeOut,
+            tileParams,
+            prefScratchBuf,
+          ];
+          if (isL0) fe.push(pointX, pointY);
+          fusedTiles.push({
+            bind: mkBind(isL0 ? this.fusedLayoutL0 : this.fusedLayout, fe),
+            nx: Math.ceil(tileThreads / WGI),
+          });
+        }
+        const carryEntries: (GPUBuffer | GPUBufferBinding)[] = [carryPlanRing[ring], activeIn, activeOut, carryParams];
+        if (isL0) carryEntries.push(pointX, pointY);
+        const plannerABind = mkBind(this.plannerALayout, [
+          countsBufs[inIdx],
+          carryOffBuf,
+          countsBufs[outIdx],
+          offsetsBufs[outIdx],
+          planMeta,
+          plannerParams,
+          geomBuf,
+        ]);
+        const plannerBBind = mkBind(this.plannerBLayout, [
+          countsBufs[inIdx],
+          offsetsBufs[inIdx],
+          carryOffBuf,
+          offsetsBufs[outIdx],
+          planMeta,
+          pairBlockPlanRing[ring],
+          scatterPlanRing[ring],
+          carryPlanRing[ring],
+          plannerParams,
+          isL0 ? padParams0Buf : padParams1Buf,
+          geomBuf,
+        ]);
+        const carryBind = mkBind(isL0 ? this.carryLayoutL0 : this.carryLayout, carryEntries);
+        const finalizeAccumBinds = finalizeParamsBufs.map(fp => {
+          const fe: (GPUBuffer | GPUBufferBinding)[] = [
+            countsBufs[inIdx],
+            offsetsBufs[inIdx],
+            activeIn,
+            bucketResult,
+            fp,
+            touched,
+          ];
+          if (isL0) fe.push(pointX, pointY);
+          return mkBind(isL0 ? this.finalizeAccumLayoutL0 : this.finalizeAccumLayout, fe);
+        });
+        this.pingLevelBinds.push({
+          plannerABind,
+          plannerBBind,
+          fusedTiles,
+          carryBind,
+          finalizeAccumBinds,
+          nCarry: Math.ceil(plan.totalCarries / WGI),
+        });
+      }
+      this.pingLevels = levels;
+    }
+
     // --- Streaming planner + accumulator bind groups ---
     {
       const sp = scratch.streamPlannerMeta;
@@ -3873,12 +4357,22 @@ export class MsmV2 {
     this.tsStagingBuf = null;
     if (this.profile) {
       let passes = 0;
-      for (let bi = 0; bi < numBatches; bi++) {
-        // 7 preprocess + 16 planner + 3 walker (size1+stream_walker+walker_index marker)
-        // + 5 combine kernels (count, scan, scatter, filter, batched)
-        // + 3 counting-sort prepass kernels (sort_count, sort_scan, sort_scatter)
-        // + pair-tree multi-dispatch: 2 (init) + 17 × 3 (build + dispatch + combine) + 1 (finalize) = 54
-        passes += 7 + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
+      if (this.highMemPingpong && this.pingLevels > 0) {
+        // High-mem ping-pong per batch: 7 preprocess (decompose + 4 transpose +
+        // convActive + convMeta) + Σ_levels (plannerA + plannerB + fusedTiles +
+        // carry + finalize). The bufA/bufB clears are clearBuffer (no timestamp).
+        let pingPerBatch = 7;
+        for (const lb of this.pingLevelBinds) pingPerBatch += 2 + lb.fusedTiles.length + 1 + 1;
+        for (let bi = 0; bi < numBatches; bi++) passes += pingPerBatch;
+        passes += 1; // reduce_init bridge (once)
+      } else {
+        for (let bi = 0; bi < numBatches; bi++) {
+          // 7 preprocess + 16 planner + 3 walker (size1+stream_walker+walker_index marker)
+          // + 5 combine kernels (count, scan, scatter, filter, batched)
+          // + 3 counting-sort prepass kernels (sort_count, sort_scan, sort_scatter)
+          // + pair-tree multi-dispatch: 2 (init) + 17 × 3 (build + dispatch + combine) + 1 (finalize) = 54
+          passes += 7 + 16 + 3 + 3 + 3 + (2 + 17 * 3 + 1);
+        }
       }
       // Reduce = one dispatch per level (table-driven), or a single dispatch for
       // the sparse path. +1 keeps the historical slack slot.
@@ -4042,6 +4536,14 @@ export class MsmV2 {
     // batches accumulate side-by-side without overwriting one another.
     clearSlot(enc, this.pool.scratch!.redBuf);
     clearSlot(enc, this.pool.scratch!.isPresentBuf);
+    // High-mem ping-pong: bucket_result + touched accumulate across window-
+    // batches (and, later, point-chunks) so they are cleared once per encode.
+    // An empty bucket never gets finalized, so its all-zero bucket_result is
+    // what reduce_init reads as "not present".
+    if (this.highMemPingpong && this.pingLevels > 0) {
+      enc.clearBuffer(this.pool.scratch!.bucketResultBuf);
+      enc.clearBuffer(this.pool.scratch!.touchedBuf);
+    }
     // NOTE: partialCount, partialWritePos, activeCount, countHistogram are
     // cleared INSIDE the batch loop (below) — they are all atomicAdd'd per
     // batch, so leaving them cumulative across batches makes sortScatter
@@ -4081,6 +4583,34 @@ export class MsmV2 {
       }
       dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1);
       dispatch(this.convMetaPipe, this.convMetaBinds[bi], Math.ceil(this.BW / this.wgi), this.batchWindows);
+      // === High-mem A/B ping-pong pair-tree (Thread 2) ===
+      // Replaces the walker planner + stream_walker + walker_combine + pair-tree
+      // -V2. convActive/convMeta (above) produced this batch's l0_index + level-0
+      // counts/offsets; the planner_v2 + fused/carry/finalize-accumulate loop
+      // collapses every bucket to a single sum in bucket_result[bb_base + b].
+      // reduce_init (after the batch loop) repacks bucket_result → red_buf.
+      if (this.highMemPingpong && this.pingLevels > 0) {
+        setPhase('pingpong');
+        const sc = this.pool.scratch!;
+        // Clear bufA/bufB non-pad regions for this batch (the lever-E pad-trio at
+        // each plane's tail [padXOffset, planeBytes) is seeded once and survives).
+        enc.clearBuffer(sc.bufA, 0, sc.padXOffset);
+        enc.clearBuffer(sc.bufA, sc.planeBytes, sc.padXOffset);
+        enc.clearBuffer(sc.bufB, 0, sc.padXOffset);
+        enc.clearBuffer(sc.bufB, sc.planeBytes, sc.padXOffset);
+        for (let lv = 0; lv < this.pingLevels; lv++) {
+          const lb = this.pingLevelBinds[lv];
+          const fpipe = lv === 0 ? this.fusedPipeL0 : this.fusedPipe;
+          const cpipe = lv === 0 ? this.carryPipeL0 : this.carryPipe;
+          const flpipe = lv === 0 ? this.finalizeAccumPipeL0 : this.finalizeAccumPipe;
+          dispatch(this.plannerAPipe, lb.plannerABind, this.batchWindows, 1);
+          dispatch(this.plannerBPipe, lb.plannerBBind, Math.ceil(this.BW / 256), this.batchWindows);
+          for (const tile of lb.fusedTiles) dispatch(fpipe, tile.bind, tile.nx, 1);
+          dispatch(cpipe, lb.carryBind, lb.nCarry, 1);
+          dispatch(flpipe, lb.finalizeAccumBinds[bi], this.pingNumWgsFinalize, 1);
+        }
+        continue;
+      }
       setPhase('planner');
       const spMeta = this.pool.scratch!.streamPlannerMeta;
       enc.clearBuffer(spMeta);
@@ -4214,6 +4744,13 @@ export class MsmV2 {
       }
       setPhase('pt_finalize');
       indirectDispatch(this.ptFinalizePipe, this.ptFinalizeBinds[bi], ptHotArgs, 0);
+    }
+    // High-mem ping-pong bridge: repack bucket_result (BW cols/window) into the
+    // reduce's STRIDE-col red_buf + seed is_present, the same red_buf the walker
+    // path writes directly via pt_finalize. The shared reduce then runs unchanged.
+    if (this.highMemPingpong && this.pingReduceInitBind) {
+      setPhase('reduce_init');
+      dispatch(this.reduceInitPipe, this.pingReduceInitBind, this.pingNReduceInit, 1);
     }
     setPhase('reduce');
     // Phase 2: reduce_init is gone — walker kernels write red_buf + is_present

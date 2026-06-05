@@ -128,6 +128,8 @@ const gpuKnobs: MsmConfig = (() => {
       return Number.isInteger(v) ? v : undefined;
     })(),
     perLevelJac: q.get('perlevel') === '1' || undefined,
+    highMemPingpong: q.get('himem') === '1' || undefined,
+    pingpongBelow: optInt('ppbelow'),
     reduceSatThreshold: optInt('redsat'),
     convChunk: optInt('convc'),
     convertBound: optInt('convbound'),

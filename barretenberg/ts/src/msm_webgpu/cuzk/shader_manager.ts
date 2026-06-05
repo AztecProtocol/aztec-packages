@@ -62,6 +62,14 @@ import {
   transpose_count_tiled as transpose_count_tiled_shader,
   transpose_reduce_tiled as transpose_reduce_tiled_shader,
   transpose_scatter_tiled as transpose_scatter_tiled_shader,
+  ba_fused_super_bench as ba_fused_super_bench_shader,
+  ba_fused_tail_coop as ba_fused_tail_coop_shader,
+  ba_carry_copy_bench as ba_carry_copy_bench_shader,
+  ba_finalize_copy_bench as ba_finalize_copy_bench_shader,
+  ba_finalize_accumulate_bench as ba_finalize_accumulate_bench_shader,
+  ba_planner_v2_offsets as ba_planner_v2_offsets_shader,
+  ba_planner_v2_emit as ba_planner_v2_emit_shader,
+  ba_reduce_init_bench as ba_reduce_init_bench_shader,
 } from '../wgsl/_generated/shaders.js';
 import {
   compute_by_p_inv_a,
@@ -607,6 +615,302 @@ ${packLines.join('\n')}
         inverse_funcs,
       },
     );
+  }
+
+  public gen_ba_fused_super_bench_shader(
+    workgroup_size: number,
+    s: number,
+    variant: 'loop' | 'pk' = 'pk',
+    tiled = false,
+    l0_index_mode = false,
+    addsub: 'native' | 'unpack' = 'native',
+  ): string {
+    if (workgroup_size <= 0 || s <= 0 || !Number.isInteger(workgroup_size) || !Number.isInteger(s)) {
+      throw new Error(
+        `gen_ba_fused_super_bench_shader: workgroup_size (${workgroup_size}) and s (${s}) must be positive integers`,
+      );
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_fused_super_bench_shader,
+      {
+        workgroup_size,
+        s,
+        inv_fn,
+        tiled,
+        l0_index_mode,
+        addsub_unpack: addsub === 'unpack',
+        p8_consts,
+        r8_csv,
+        f8_words,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        field8_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * Planner pass A: per-window scan + per-bucket offsets. One workgroup per
+   * window — O(BW), flat in n. Writes new_counts / new_offsets / carry_off
+   * and the plan_meta totals; the emit pass writes the O(pairs) plans.
+   */
+  // One-program: BW / num_windows ride the `geom` uniform (per_thread = BW/TPB
+  // derived in-shader), so only the workgroup_size is baked. Geometry no longer
+  // keys the WGSL string ⇒ one compile per pool across every (n, c).
+  public gen_ba_planner_v2_offsets_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_planner_v2_offsets_shader: workgroup_size must be a positive integer`);
+    }
+    return mustache.render(ba_planner_v2_offsets_shader, { workgroup_size, recompile: this.recompile });
+  }
+
+  /**
+   * Planner pass B: parallel plan emit. Dispatch (ceil(BW/wg), numWindows) —
+   * one workgroup per (bucket-group, window). Emits the chunk / scatter /
+   * carry plans from pass A's offsets, then cooperatively self-pads. BW /
+   * num_windows ride the `geom` uniform; PAIR_CAP (pool-invariant, break-bounded)
+   * and S (fixed HIGH_MEM_S) stay baked so the inner loops stay bounded/unrolled.
+   */
+  public gen_ba_planner_v2_emit_shader(workgroup_size: number, s: number, pair_cap: number): string {
+    if (
+      workgroup_size <= 0 ||
+      s <= 0 ||
+      pair_cap <= 0 ||
+      !Number.isInteger(workgroup_size) ||
+      !Number.isInteger(s) ||
+      !Number.isInteger(pair_cap)
+    ) {
+      throw new Error(`gen_ba_planner_v2_emit_shader: positive integer args required`);
+    }
+    return mustache.render(ba_planner_v2_emit_shader, {
+      workgroup_size,
+      pair_cap,
+      s,
+      recompile: this.recompile,
+    });
+  }
+
+  /**
+   * Bin-packed pair-tree: carry-copy kernel. Propagates the odd-count
+   * carry element forward to the next level without modification.
+   * Pure memory shuffle.
+   */
+  public gen_ba_carry_copy_bench_shader(workgroup_size: number, l0_index_mode = false): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_carry_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    // l0_index_mode pulls in the field stack to negate y while
+    // materializing a level-0 (point index | sign) carry from the pool.
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      ba_carry_copy_bench_shader,
+      {
+        workgroup_size,
+        l0_index_mode,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
+    );
+  }
+
+  /**
+   * Bin-packed pair-tree: finalize-copy kernel. Harvests a bucket's
+   * accumulated sum into bucket_result[b] at the level it reaches
+   * count 1 (the planner's finalize-and-drop). Pure memory shuffle.
+   */
+  public gen_ba_finalize_copy_bench_shader(workgroup_size: number, l0_index_mode = false): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(
+        `gen_ba_finalize_copy_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
+      );
+    }
+    // l0_index_mode pulls in the field stack to negate y while
+    // materializing a level-0 (point index | sign) element from the pool.
+    const dec = this.decoupledPackUnpackWgsl();
+    return mustache.render(
+      ba_finalize_copy_bench_shader,
+      {
+        workgroup_size,
+        l0_index_mode,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      { structs, bigint_funcs, montgomery_product_funcs: this.mont_product_src, field_funcs },
+    );
+  }
+
+  /**
+   * Finalize-ACCUMULATE for the point-chunked pair-tree: like
+   * gen_ba_finalize_copy_bench_shader but a bucket finalized by more than one
+   * chunk affine-adds its partials into the single running bucket_result
+   * (gated by a per-bucket `touched` flag). Pulls in the full field + safegcd
+   * stack for the one inversion the affine add needs.
+   */
+  public gen_ba_finalize_accumulate_bench_shader(
+    workgroup_size: number,
+    l0_index_mode = false,
+    variant: 'loop' | 'pk' = 'pk',
+  ): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(
+        `gen_ba_finalize_accumulate_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`,
+      );
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_finalize_accumulate_bench_shader,
+      {
+        workgroup_size,
+        l0_index_mode,
+        inv_fn,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        field8_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * Cooperative fused-TAIL reducer: one workgroup per bucket reduces its <= cap
+   * remaining points to a single sum in workgroup memory (all-Jacobian tree,
+   * barriers between levels), then finalizes into bucket_result. Collapses the
+   * starved deep-tail levels of the bin-packed pair-tree into one dispatch.
+   * `cap` is the max points a bucket may carry at the trigger level (= the
+   * shared array length); workgroup_size must be >= cap.
+   */
+  public gen_ba_fused_tail_coop_shader(workgroup_size: number, cap: number, variant: 'loop' | 'pk' = 'pk'): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size) || cap <= 0 || !Number.isInteger(cap)) {
+      throw new Error(
+        `gen_ba_fused_tail_coop_shader: workgroup_size (${workgroup_size}) and cap (${cap}) must be positive integers`,
+      );
+    }
+    if (cap > workgroup_size) {
+      throw new Error(`gen_ba_fused_tail_coop_shader: cap (${cap}) must be <= workgroup_size (${workgroup_size})`);
+    }
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = by_inverse_loop_funcs;
+    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    return mustache.render(
+      ba_fused_tail_coop_shader,
+      {
+        workgroup_size,
+        cap,
+        inv_fn,
+        p8_consts,
+        r8_csv,
+        f8_words,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        p_minus_2_limbs: this.p_minus_2_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        field8_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
+      },
+    );
+  }
+
+  /**
+   * Reduction-stage init for the high-mem ping-pong path: repack the bucket-
+   * accumulate output (bucket_result, BW columns/window) into the reduction's
+   * STRIDE-column red_buf and seed is_present. Pure vec4 copy — no field
+   * arithmetic. Bridges the ping-pong bucket sums onto the shared reduce, which
+   * otherwise gets red_buf directly from the walker's pt_finalize.
+   */
+  public gen_ba_reduce_init_bench_shader(workgroup_size: number): string {
+    if (workgroup_size <= 0 || !Number.isInteger(workgroup_size)) {
+      throw new Error(`gen_ba_reduce_init_bench_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
+    }
+    return mustache.render(ba_reduce_init_bench_shader, { workgroup_size, recompile: this.recompile }, {});
   }
 
   // Inversion-free Jacobian variant of one bucket-reduction level (Thread 1 of
