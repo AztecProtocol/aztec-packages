@@ -1,4 +1,5 @@
 #include "barretenberg/hypernova/hypernova_prover.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "gtest/gtest.h"
@@ -6,14 +7,14 @@
 using namespace bb;
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1553): improve testing
-class HypernovaFoldingProverTests : public ::testing::Test {
+// The Hypernova prover methods are templated on InstanceFlavor, so run the suite over both Chonk
+// instance flavors (MegaKernelFlavor and MegaAppFlavor).
+template <typename Flavor_> class HypernovaFoldingProverTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
   public:
-    // The Hypernova prover methods are templated on InstanceFlavor; pick MegaKernelFlavor as a
-    // representative — it's what Chonk uses for kernel circuits.
-    using Flavor = MegaKernelFlavor;
+    using Flavor = Flavor_;
     using Builder = Flavor::CircuitBuilder;
     using ProverInstance = ProverInstance_<Flavor>;
     using CommitmentKey = Flavor::CommitmentKey;
@@ -100,25 +101,28 @@ class HypernovaFoldingProverTests : public ::testing::Test {
     }
 };
 
-TEST_F(HypernovaFoldingProverTests, InstanceToAccumulator)
+using ProverTestFlavors = ::testing::Types<MegaKernelFlavor, MegaAppFlavor>;
+TYPED_TEST_SUITE(HypernovaFoldingProverTests, ProverTestFlavors);
+
+TYPED_TEST(HypernovaFoldingProverTests, InstanceToAccumulator)
 {
-    auto instance = generate_new_instance();
-    auto transcript = std::make_shared<Transcript>();
+    auto instance = TestFixture::generate_new_instance();
+    auto transcript = std::make_shared<HypernovaFoldingProver::Transcript>();
 
     HypernovaFoldingProver prover(transcript);
     auto accumulator = prover.instance_to_accumulator(instance);
 
-    EXPECT_TRUE(validate_accumulator(accumulator));
+    EXPECT_TRUE(TestFixture::validate_accumulator(accumulator));
 }
 
-TEST_F(HypernovaFoldingProverTests, Fold)
+TYPED_TEST(HypernovaFoldingProverTests, Fold)
 {
-    auto folded_accumulator = test_folding(TamperingMode::None);
-    EXPECT_TRUE(validate_accumulator(folded_accumulator));
+    auto folded_accumulator = TestFixture::test_folding(TestFixture::TamperingMode::None);
+    EXPECT_TRUE(TestFixture::validate_accumulator(folded_accumulator));
 }
 
-TEST_F(HypernovaFoldingProverTests, TamperAccumulator)
+TYPED_TEST(HypernovaFoldingProverTests, TamperAccumulator)
 {
-    auto folded_accumulator = test_folding(TamperingMode::Accumulator);
-    EXPECT_FALSE(validate_accumulator(folded_accumulator));
+    auto folded_accumulator = TestFixture::test_folding(TestFixture::TamperingMode::Accumulator);
+    EXPECT_FALSE(TestFixture::validate_accumulator(folded_accumulator));
 }
