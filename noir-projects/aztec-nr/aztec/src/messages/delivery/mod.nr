@@ -235,9 +235,9 @@ impl MessageDelivery {
 
     /// Delivers the message on-chain, guaranteeing the recipient will receive the correct content.
     ///
-    /// **Warning:** Currently [not fully constrained] - the log's tag is unconstrained.
-    ///
-    /// [not fully constrained]: https://github.com/AztecProtocol/aztec-packages/issues/14565
+    /// >**WARNING**: this delivery mode is [currently NOT fully
+    /// constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565). The log's tag is unconstrained,
+    /// meaning a malicious sender could manipulate it to prevent the recipient from finding the message.
     ///
     /// Constrained delivery derives the discovery tag from a handshake-registry secret, resolved via the standard
     /// handshake registry ([`STANDARD_HANDSHAKE_REGISTRY_ADDRESS`]) by default or a custom registry set with
