@@ -30,5 +30,9 @@ export default defineConfig({
       "@aztec/noir-noir_js",
     ],
   },
+  resolve: {
+    // Linked @aztec packages need to resolve injected Vite shims from this app.
+    preserveSymlinks: true,
+  },
 });
 // docs:end:vite-config

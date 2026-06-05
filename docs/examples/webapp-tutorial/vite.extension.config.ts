@@ -110,6 +110,8 @@ export default defineConfig({
     ],
   },
   resolve: {
+    // Linked @aztec packages need to resolve injected Vite shims from this app.
+    preserveSymlinks: true,
     alias: {
       // Ensure crypto polyfill for browser
       crypto: 'crypto-browserify',
