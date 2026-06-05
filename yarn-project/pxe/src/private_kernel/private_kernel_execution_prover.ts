@@ -409,10 +409,8 @@ export class PrivateKernelExecutionProver {
   ) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
-    // `createPrivateCallData` runs on app-circuit data — the call originates from a user-contract
-    // private function, which is pinned against MegaAppFlavor.
-    const vkAsFieldsArr = await vkAsFields(vkAsBuffer, CircuitKind.App);
-    const vk = await VerificationKeyAsFields.fromKey(vkAsFieldsArr);
+    const vkFields = await vkAsFields(vkAsBuffer, CircuitKind.App);
+    const vk = await VerificationKeyAsFields.fromKey(vkFields);
 
     const { currentContractClassId, publicKeys, saltedInitializationHash } =
       await this.oracle.getContractAddressPreimage(contractAddress);
