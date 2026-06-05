@@ -9,6 +9,7 @@ import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { MAX_RPC_TXS_LEN } from './api_limit.js';
+import { type GetTxByHashOptions, GetTxByHashOptionsSchema } from './aztec-node.js';
 
 export type PeerInfo =
   | { status: 'connected'; score: number; id: string }
@@ -30,12 +31,14 @@ const PeerInfoSchema = z.discriminatedUnion('status', [
 /** Exposed API to the P2P module. */
 export interface P2PApi {
   /**
-   * Returns all pending transactions in the transaction pool.
+   * Returns all pending transactions in the transaction pool. The txs' proofs are stripped unless
+   * `includeProof` is set.
    * @param limit - The number of items to returns
    * @param after - The last known pending tx. Used for pagination
+   * @param options - Options for the returned txs (eg whether to include their proofs).
    * @returns An array of Txs.
    */
-  getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]>;
+  getPendingTxs(limit?: number, after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]>;
 
   /** Returns the number of pending txs in the p2p tx pool. */
   getPendingTxCount(): Promise<number>;
@@ -89,6 +92,7 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
     input: z.tuple([
       optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)),
       optional(TxHash.schema),
+      optional(GetTxByHashOptionsSchema),
     ]),
     output: z.array(Tx.schema),
   }),
