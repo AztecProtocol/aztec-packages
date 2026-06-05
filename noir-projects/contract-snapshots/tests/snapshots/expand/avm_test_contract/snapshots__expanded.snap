@@ -5712,9 +5712,7 @@ pub contract AvmTest {
             aztec::oracle::logging::debug_log("just text");
             aztec::oracle::logging::debug_log_format("second: {1}", [1_Field, 2_Field, 3_Field, 4_Field]);
             aztec::oracle::logging::debug_log_format("whole array: {}", [1_Field, 2_Field, 3_Field, 4_Field]);
-            aztec::oracle::logging::debug_log("tabs and newlines
-	- first
-	- second");
+            aztec::oracle::logging::debug_log("tabs and newlines\n\t- first\n\t- second");
             aztec::oracle::logging::fatal_log("fatal error");
             aztec::oracle::logging::trace_log_format("trace format: {}", [1_Field, 3_Field, 3_Field, 7_Field]);
         }
