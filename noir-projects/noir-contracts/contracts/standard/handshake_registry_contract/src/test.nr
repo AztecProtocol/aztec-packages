@@ -468,8 +468,9 @@ unconstrained fn non_interactive_handshake_is_discovered_by_recipient() {
     assert_eq(discovered.total_count, 1);
 
     // The recipient derives the same app-siloed secret from the discovered eph_pk via ECDH.
-    let eph_pk = discovered.items.get(0);
-    let recipient_secret = env.utility_context_at(sender, |_| get_shared_secret(recipient, eph_pk, sender));
+    let handshake = discovered.items.get(0);
+    assert_eq(handshake.mode, ONCHAIN_UNCONSTRAINED);
+    let recipient_secret = env.utility_context_at(sender, |_| get_shared_secret(recipient, handshake.eph_pk, sender));
     assert_eq(recipient_secret, returned_secret);
 
     // The custom sync hook falls through to `do_sync_state`, so default note discovery still works.
@@ -537,16 +538,18 @@ unconstrained fn multiple_senders_discovered_for_same_recipient() {
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED));
     let _ = env.call_private(
         other_sender,
-        registry.non_interactive_handshake(other_sender, recipient, ONCHAIN_UNCONSTRAINED),
+        registry.non_interactive_handshake(other_sender, recipient, ONCHAIN_CONSTRAINED),
     );
 
     let discovered = env.execute_utility(registry.get_handshakes(recipient, 0));
 
     assert_eq(discovered.items.len(), 2);
     assert(
-        discovered.items.get(0).x != discovered.items.get(1).x,
+        discovered.items.get(0).eph_pk.x != discovered.items.get(1).eph_pk.x,
         "distinct senders should produce distinct ephemeral public keys",
     );
+    assert_eq(discovered.items.get(0).mode, ONCHAIN_CONSTRAINED);
+    assert_eq(discovered.items.get(1).mode, ONCHAIN_UNCONSTRAINED);
 }
 
 #[test]

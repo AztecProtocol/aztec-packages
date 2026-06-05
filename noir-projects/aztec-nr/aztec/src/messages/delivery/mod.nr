@@ -12,7 +12,7 @@ use crate::protocol::{
     address::AztecAddress,
     constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
     hash::compute_log_tag,
-    traits::{Deserialize, Serialize, ToField},
+    traits::{Deserialize, Packable, Serialize, ToField},
 };
 
 /// Specifies how to deliver a message to a recipient.
@@ -50,7 +50,7 @@ global ONCHAIN_CONSTRAINED: u8 = 3;
 /// This is the typed discriminant consumed by the handshake registry and the per-mode tagging index. It crosses the
 /// registry ABI serialized as `(u8)` (mirroring how [`AztecAddress`] crosses as `(Field)`). Off-chain delivery has no
 /// mode, so only the two on-chain variants are representable.
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Packable, Serialize)]
 pub struct OnchainDeliveryMode {
     inner: u8,
 }

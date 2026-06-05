@@ -1,8 +1,11 @@
+use crate::HandshakeRegistry::DiscoveredHandshake;
+
 use aztec::{
     capsules::CapsuleArray,
     context::UtilityContext,
     ephemeral::EphemeralArray,
     messages::{
+        delivery::OnchainDeliveryMode,
         discovery::{ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state},
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
         processing::{
@@ -16,13 +19,12 @@ use aztec::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         hash::{compute_log_tag, sha256_to_field},
-        point::EmbeddedCurvePoint,
-        traits::ToField,
+        traits::{Deserialize, ToField},
     },
     utils::point::point_from_x_coord_and_sign,
 };
 
-/// Capsule base slot for the per-recipient list of discovered handshake `eph_pk`s populated by
+/// Capsule base slot for the per-recipient list of discovered handshakes populated by
 /// [`handshake_registry_sync`] and read by [`get_all_handshakes`].
 global HANDSHAKES_CAPSULE_SLOT: Field = sha256_to_field("HANDSHAKE_REGISTRY::HANDSHAKES".as_bytes());
 
@@ -61,14 +63,22 @@ pub(crate) unconstrained fn handshake_registry_sync(
         let tag = compute_log_tag(scope.to_field(), DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG);
         let logs = get_handshake_logs_in_range(contract_address, tag, cursor, Option::some(next_block));
 
-        // Store all valid handshakes
-        let handshakes = CapsuleArray::at(contract_address, HANDSHAKES_CAPSULE_SLOT, scope);
+        // Store all valid handshakes with their delivery mode
+        let handshakes: CapsuleArray<DiscoveredHandshake> =
+            CapsuleArray::at(contract_address, HANDSHAKES_CAPSULE_SLOT, scope);
         logs.for_each(|_i, log| {
             let ciphertext = aztec::utils::array::subbvec(log.log_payload, 0);
 
             let _ = AES128::decrypt(ciphertext, scope, contract_address)
-                .and_then(|pt| point_from_x_coord_and_sign(pt.get(0), true))
-                .map(|pk| handshakes.push(pk));
+                .and_then(|pt| {
+                    point_from_x_coord_and_sign(pt.get(0), true).map(|pk| {
+                        DiscoveredHandshake {
+                            eph_pk: pk,
+                            mode: OnchainDeliveryMode::deserialize([pt.get(1)]),
+                        }
+                    })
+                })
+                .map(|h| handshakes.push(h));
         });
 
         // Update the cursor
@@ -91,11 +101,11 @@ pub(crate) unconstrained fn handshake_registry_sync(
     );
 }
 
-/// Returns the capsule array of discovered handshake ephemeral public keys for `recipient`.
+/// Returns the capsule array of discovered handshakes for `recipient`.
 pub(crate) unconstrained fn get_all_handshakes(
     contract_address: AztecAddress,
     recipient: AztecAddress,
-) -> CapsuleArray<EmbeddedCurvePoint> {
+) -> CapsuleArray<DiscoveredHandshake> {
     CapsuleArray::at(contract_address, HANDSHAKES_CAPSULE_SLOT, recipient)
 }
 
