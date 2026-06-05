@@ -18,7 +18,20 @@ export PXE_PROVER="none"
 
 function aztec-wallet {
   echo_header aztec-wallet "$@"
-  $command "$@"
+  # These flows run serially against the single-block local-network sandbox, where a proposed block can
+  # be orphaned and pruned before its checkpoint is published, dropping a tx we already moved on from
+  # and breaking a later step that depends on it (e.g. the fee-juice claim consuming a bridged L1->L2
+  # message). Wait for the tx-producing commands to be checkpointed so each is durably included before
+  # the next is sent. Scoped to these tests only; the cli-wallet default stays 'proposed'.
+  local wait_for_checkpointed=()
+  case "$1" in
+  send | deploy | deploy-account | create-account)
+    if [[ "$*" != *"--no-wait"* && "$*" != *"--wait-for-status"* ]]; then
+      wait_for_checkpointed=(--wait-for-status checkpointed)
+    fi
+    ;;
+  esac
+  $command "$@" ${wait_for_checkpointed[@]+"${wait_for_checkpointed[@]}"}
 }
 
 function assert_eq {
