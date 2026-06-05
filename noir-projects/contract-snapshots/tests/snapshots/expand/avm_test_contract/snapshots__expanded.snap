@@ -2,6 +2,7 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
+
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -1377,10 +1378,10 @@ pub contract AvmTest {
             aztec::context::calls::PublicCall::<41, 2, ()>::new(self.target_contract, selector, "create_different_nullifier_in_nested_call", serialized_params)
         }
 
-        pub fn call_fee_juice(self) -> aztec::context::calls::PublicCall<14, 0, ()> {
-            let serialized_params: [Field; 0] = [];
-            let selector: FunctionSelector = FunctionSelector::from_field(2734888597_Field);
-            aztec::context::calls::PublicCall::<14, 0, ()>::new(self.target_contract, selector, "call_fee_juice", serialized_params)
+        pub fn nested_call_large_calldata(self, arr: [Field; 300]) -> aztec::context::calls::PublicCall<26, 300, Field> {
+            let serialized_params: [Field; 300] = arr.serialize();
+            let selector: FunctionSelector = FunctionSelector::from_field(14812432_Field);
+            aztec::context::calls::PublicCall::<26, 300, Field>::new(self.target_contract, selector, "nested_call_large_calldata", serialized_params)
         }
 
         pub fn get_transaction_fee(self) -> aztec::context::calls::PublicCall<19, 0, Field> {
@@ -1407,6 +1408,12 @@ pub contract AvmTest {
             aztec::context::calls::PublicStaticCall::<18, 0, u8>::new(self.target_contract, selector, "set_opcode_u8_view", serialized_params)
         }
 
+        pub fn call_fee_juice(self) -> aztec::context::calls::PublicCall<14, 0, ()> {
+            let serialized_params: [Field; 0] = [];
+            let selector: FunctionSelector = FunctionSelector::from_field(2734888597_Field);
+            aztec::context::calls::PublicCall::<14, 0, ()>::new(self.target_contract, selector, "call_fee_juice", serialized_params)
+        }
+
         pub fn assert_nullifier_exists(self, nullifier: Field) -> aztec::context::calls::PublicCall<23, 1, ()> {
             let serialized_params: [Field; 1] = nullifier.serialize();
             let selector: FunctionSelector = FunctionSelector::from_field(2810255355_Field);
@@ -1423,12 +1430,6 @@ pub contract AvmTest {
             let serialized_params: [Field; 0] = [];
             let selector: FunctionSelector = FunctionSelector::from_field(3667472301_Field);
             aztec::context::calls::PublicCall::<13, 0, ()>::new(self.target_contract, selector, "debug_logging", serialized_params)
-        }
-
-        pub fn nested_call_large_calldata(self, arr: [Field; 300]) -> aztec::context::calls::PublicCall<26, 300, Field> {
-            let serialized_params: [Field; 300] = arr.serialize();
-            let selector: FunctionSelector = FunctionSelector::from_field(14812432_Field);
-            aztec::context::calls::PublicCall::<26, 300, Field>::new(self.target_contract, selector, "nested_call_large_calldata", serialized_params)
         }
 
         pub fn external_call_to_divide_by_zero_recovers(self) -> aztec::context::calls::PublicCall<40, 0, ()> {
@@ -2500,12 +2501,12 @@ pub contract AvmTest {
             }
         }
 
-        pub fn call_fee_juice(self) {
-            let serialized_params: [Field; 0] = [];
-            let selector: FunctionSelector = FunctionSelector::from_field(2734888597_Field);
+        pub fn nested_call_large_calldata(self, arr: [Field; 300]) -> Field {
+            let serialized_params: [Field; 300 * 1] = arr.serialize();
+            let selector: FunctionSelector = FunctionSelector::from_field(14812432_Field);
             // Safety: comment added by `nargo expand`
             unsafe {
-                aztec::context::calls::PublicCall::<14, 0, ()>::new(self.address, selector, "call_fee_juice", serialized_params).call(self.context)
+                aztec::context::calls::PublicCall::<26, 300 * 1, Field>::new(self.address, selector, "nested_call_large_calldata", serialized_params).call(self.context)
             }
         }
 
@@ -2536,6 +2537,15 @@ pub contract AvmTest {
             }
         }
 
+        pub fn call_fee_juice(self) {
+            let serialized_params: [Field; 0] = [];
+            let selector: FunctionSelector = FunctionSelector::from_field(2734888597_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<14, 0, ()>::new(self.address, selector, "call_fee_juice", serialized_params).call(self.context)
+            }
+        }
+
         pub fn assert_nullifier_exists(self, nullifier: Field) {
             let serialized_params: [Field; 1] = nullifier.serialize();
             let selector: FunctionSelector = FunctionSelector::from_field(2810255355_Field);
@@ -2560,15 +2570,6 @@ pub contract AvmTest {
             // Safety: comment added by `nargo expand`
             unsafe {
                 aztec::context::calls::PublicCall::<13, 0, ()>::new(self.address, selector, "debug_logging", serialized_params).call(self.context)
-            }
-        }
-
-        pub fn nested_call_large_calldata(self, arr: [Field; 300]) -> Field {
-            let serialized_params: [Field; 300 * 1] = arr.serialize();
-            let selector: FunctionSelector = FunctionSelector::from_field(14812432_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<26, 300 * 1, Field>::new(self.address, selector, "nested_call_large_calldata", serialized_params).call(self.context)
             }
         }
 
@@ -3465,15 +3466,6 @@ pub contract AvmTest {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
-        pub fn new_nullifier(self, nullifier: Field) {
-            let serialized_params: [Field; 1] = nullifier.serialize();
-            let selector: FunctionSelector = FunctionSelector::from_field(3648851082_Field);
-            let calldata: [Field; 1 + 1] = [selector.to_field()].concat(serialized_params);
-            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
-            aztec::oracle::execution_cache::store(calldata, calldata_hash);
-            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
-        }
-
         pub fn divide_by_zero(self, denominator: u8) {
             let serialized_params: [Field; 1] = denominator.serialize();
             let selector: FunctionSelector = FunctionSelector::from_field(815932481_Field);
@@ -3487,6 +3479,15 @@ pub contract AvmTest {
             let serialized_params: [Field; 0] = [];
             let selector: FunctionSelector = FunctionSelector::from_field(2033426724_Field);
             let calldata: [Field; 1 + 0] = [selector.to_field()].concat(serialized_params);
+            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
+            aztec::oracle::execution_cache::store(calldata, calldata_hash);
+            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
+        }
+
+        pub fn new_nullifier(self, nullifier: Field) {
+            let serialized_params: [Field; 1] = nullifier.serialize();
+            let selector: FunctionSelector = FunctionSelector::from_field(3648851082_Field);
+            let calldata: [Field; 1 + 1] = [selector.to_field()].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
@@ -3705,6 +3706,15 @@ pub contract AvmTest {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
+        pub fn nested_call_large_calldata(self, arr: [Field; 300]) {
+            let serialized_params: [Field; 300 * 1] = arr.serialize();
+            let selector: FunctionSelector = FunctionSelector::from_field(14812432_Field);
+            let calldata: [Field; 1 + (300 * 1)] = [selector.to_field()].concat(serialized_params);
+            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
+            aztec::oracle::execution_cache::store(calldata, calldata_hash);
+            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
+        }
+
         pub fn call_fee_juice(self) {
             let serialized_params: [Field; 0] = [];
             let selector: FunctionSelector = FunctionSelector::from_field(2734888597_Field);
@@ -3763,15 +3773,6 @@ pub contract AvmTest {
             let serialized_params: [Field; 0] = [];
             let selector: FunctionSelector = FunctionSelector::from_field(3667472301_Field);
             let calldata: [Field; 1 + 0] = [selector.to_field()].concat(serialized_params);
-            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
-            aztec::oracle::execution_cache::store(calldata, calldata_hash);
-            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
-        }
-
-        pub fn nested_call_large_calldata(self, arr: [Field; 300]) {
-            let serialized_params: [Field; 300 * 1] = arr.serialize();
-            let selector: FunctionSelector = FunctionSelector::from_field(14812432_Field);
-            let calldata: [Field; 1 + (300 * 1)] = [selector.to_field()].concat(serialized_params);
             let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
             aztec::oracle::execution_cache::store(calldata, calldata_hash);
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
@@ -5711,7 +5712,9 @@ pub contract AvmTest {
             aztec::oracle::logging::debug_log("just text");
             aztec::oracle::logging::debug_log_format("second: {1}", [1_Field, 2_Field, 3_Field, 4_Field]);
             aztec::oracle::logging::debug_log_format("whole array: {}", [1_Field, 2_Field, 3_Field, 4_Field]);
-            aztec::oracle::logging::debug_log("tabs and newlines\n\t- first\n\t- second");
+            aztec::oracle::logging::debug_log("tabs and newlines
+	- first
+	- second");
             aztec::oracle::logging::fatal_log("fatal error");
             aztec::oracle::logging::trace_log_format("trace format: {}", [1_Field, 3_Field, 3_Field, 7_Field]);
         }
