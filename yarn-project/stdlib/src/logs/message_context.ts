@@ -18,6 +18,8 @@ export class MessageContext {
     public txHash: TxHash,
     public uniqueNoteHashesInTx: Fr[],
     public firstNullifierInTx: Fr,
+    public txBlockNumber: number = 0,
+    public txBlockHash: Fr = Fr.ZERO,
   ) {}
 
   toFields(): Fr[] {
@@ -25,6 +27,8 @@ export class MessageContext {
       this.txHash.hash,
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
+      new Fr(this.txBlockNumber),
+      this.txBlockHash,
     ];
   }
 
@@ -34,6 +38,8 @@ export class MessageContext {
       tx_hash: this.txHash.hash,
       unique_note_hashes_in_tx: this.uniqueNoteHashesInTx,
       first_nullifier_in_tx: this.firstNullifierInTx,
+      tx_block_number: this.txBlockNumber,
+      tx_block_hash: this.txBlockHash,
     };
     /* eslint-enable camelcase */
   }
@@ -44,7 +50,12 @@ export class MessageContext {
 
   static toEmptyFields(): Fr[] {
     const serializationLen =
-      1 /* txHash */ + MAX_NOTE_HASHES_PER_TX + 1 /* uniqueNoteHashesInTx BVec */ + 1; /* firstNullifierInTx */
+      1 /* txHash */ +
+      MAX_NOTE_HASHES_PER_TX +
+      1 /* uniqueNoteHashesInTx BVec */ +
+      1 /* firstNullifierInTx */ +
+      1 /* txBlockNumber */ +
+      1; /* txBlockHash */
     return range(serializationLen).map(_ => Fr.zero());
   }
 

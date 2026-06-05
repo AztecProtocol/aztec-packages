@@ -103,25 +103,29 @@ describe('MessageContextService', () => {
     const txHash = TxHash.random();
     const noteHashes = [Fr.random(), Fr.random()];
     const firstNullifier = Fr.random();
+    const blockHash = BlockHash.random();
+    const blockNumber = anchorBlockNumber - 1;
 
     aztecNode.getTxReceipt.mockResolvedValueOnce(
       await minedReceipt({
         txHash,
         noteHashes,
         nullifiers: [firstNullifier, Fr.random()],
-        blockNumber: anchorBlockNumber - 1,
+        blockNumber,
+        blockHash,
       }),
     );
 
     const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
 
-    expect(results).toEqual([new MessageContext(txHash, noteHashes, firstNullifier)]);
+    expect(results).toEqual([new MessageContext(txHash, noteHashes, firstNullifier, blockNumber, blockHash.toFr())]);
   });
 
   it('resolves tx hashes in different situations', async () => {
     const validTxHash = TxHash.random();
     const validNoteHashes = [Fr.random()];
     const validNullifier = Fr.random();
+    const validBlockHash = BlockHash.random();
 
     const notFoundTxHash = TxHash.random();
     const futureTxHash = TxHash.random();
@@ -131,6 +135,7 @@ describe('MessageContextService', () => {
       noteHashes: validNoteHashes,
       nullifiers: [validNullifier],
       blockNumber: anchorBlockNumber,
+      blockHash: validBlockHash,
     });
     const futureReceipt = await minedReceipt({
       txHash: futureTxHash,
@@ -159,7 +164,12 @@ describe('MessageContextService', () => {
       anchorBlockNumber,
     );
 
-    expect(results).toEqual([null, new MessageContext(validTxHash, validNoteHashes, validNullifier), null, null]);
+    expect(results).toEqual([
+      null,
+      new MessageContext(validTxHash, validNoteHashes, validNullifier, anchorBlockNumber, validBlockHash.toFr()),
+      null,
+      null,
+    ]);
 
     // Zero hash should not trigger getTxReceipt
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(3);
@@ -169,6 +179,8 @@ describe('MessageContextService', () => {
     const txEffect = TxEffect.from({
       ...(await TxEffect.random({ numNoteHashes: 1, numNullifiers: 1 })),
     });
+    const blockHash = BlockHash.random();
+    const blockNumber = anchorBlockNumber - 1;
 
     aztecNode.getTxReceipt.mockResolvedValue(
       new MinedTxReceipt(
@@ -176,8 +188,8 @@ describe('MessageContextService', () => {
         TxStatus.PROPOSED,
         TxExecutionResult.SUCCESS,
         0n,
-        BlockHash.random(),
-        BlockNumber(anchorBlockNumber - 1),
+        blockHash,
+        BlockNumber(blockNumber),
         SlotNumber(anchorBlockNumber - 1),
         0,
         EpochNumber(1),
@@ -190,7 +202,13 @@ describe('MessageContextService', () => {
       anchorBlockNumber,
     );
 
-    const expected = new MessageContext(txEffect.txHash, txEffect.noteHashes, txEffect.nullifiers[0]);
+    const expected = new MessageContext(
+      txEffect.txHash,
+      txEffect.noteHashes,
+      txEffect.nullifiers[0],
+      blockNumber,
+      blockHash.toFr(),
+    );
     expect(results).toEqual([expected, expected, expected]);
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
   });

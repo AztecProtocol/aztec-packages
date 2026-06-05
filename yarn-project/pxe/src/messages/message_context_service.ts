@@ -56,7 +56,13 @@ export class MessageContextService {
         throw new Error(`Tx effect for ${txHash} has no nullifiers`);
       }
 
-      return new MessageContext(data.txHash, data.noteHashes, data.nullifiers[0]);
+      return new MessageContext(
+        data.txHash,
+        data.noteHashes,
+        data.nullifiers[0],
+        txEffect.l2BlockNumber,
+        txEffect.l2BlockHash.toFr(),
+      );
     });
   }
 }

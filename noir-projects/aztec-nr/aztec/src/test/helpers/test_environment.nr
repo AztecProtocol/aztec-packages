@@ -1470,6 +1470,8 @@ impl TestEnvironment {
             tx_hash: effects.tx_hash,
             unique_note_hashes_in_tx: effects.note_hashes,
             first_nullifier_in_tx: effects.nullifiers.get(0),
+            tx_block_number: 0,
+            tx_block_hash: 0,
         };
 
         // The scope controls which PXE account can see discovered notes/events. We use the zero address as the

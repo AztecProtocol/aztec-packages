@@ -462,6 +462,8 @@ describe('Utility Execution test suite', () => {
         const txHash = TxHash.random();
         const noteHash = Fr.random();
         const firstNullifier = Fr.random();
+        const blockHash = BlockHash.random();
+        const blockNumber = syncedBlockNumber - 1;
 
         aztecNode.getTxReceipt.mockResolvedValueOnce(
           new MinedTxReceipt(
@@ -469,8 +471,8 @@ describe('Utility Execution test suite', () => {
             TxStatus.PROPOSED,
             TxExecutionResult.SUCCESS,
             0n,
-            BlockHash.random(),
-            BlockNumber(syncedBlockNumber - 1),
+            blockHash,
+            BlockNumber(blockNumber),
             SlotNumber(0),
             0,
             EpochNumber(1),
@@ -488,7 +490,9 @@ describe('Utility Execution test suite', () => {
         const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
         const [responseValue] = response.readAll(service);
         expect(responseValue.isSome()).toBe(true);
-        expect(responseValue.value).toEqual(new MessageContext(txHash, [noteHash], firstNullifier));
+        expect(responseValue.value).toEqual(
+          new MessageContext(txHash, [noteHash], firstNullifier, blockNumber, blockHash.toFr()),
+        );
       });
 
       it('sets null in response for tx effects beyond anchor block', async () => {

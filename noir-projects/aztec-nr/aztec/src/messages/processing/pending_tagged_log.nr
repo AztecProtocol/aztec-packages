@@ -27,6 +27,8 @@ mod test {
                 tx_hash,
                 unique_note_hashes_in_tx: unique_note_hashes,
                 first_nullifier_in_tx: first_nullifier,
+                tx_block_number: 0,
+                tx_block_hash: 0,
             },
         };
 
@@ -117,6 +119,8 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000006,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
         ];
 
         let deserialized = PendingTaggedLog::deserialize(serialized_pending_tagged_log_from_typescript);
