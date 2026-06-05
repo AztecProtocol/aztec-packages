@@ -45,7 +45,12 @@ const chunkSizeValidator = (limits: ChunkSizeLimit[]): Plugin => {
     configResolved(resolvedConfig) {
       config = resolvedConfig;
     },
-    closeBundle() {
+    // `writeBundle` is documented to fire AFTER the output bundle has been
+    // written to disk, whereas `closeBundle` (which we used previously) is the
+    // last hook to run and can fire before any chunks have been flushed in
+    // current vite/rollup versions — manifesting as ENOENT on `scandir 'dist'`
+    // for a build that otherwise transformed all modules cleanly.
+    writeBundle() {
       const outDir = this.meta?.watchMode ? null : 'dist';
       if (!outDir) return; // Skip in watch mode
 

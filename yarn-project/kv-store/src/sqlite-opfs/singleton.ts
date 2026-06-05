@@ -1,6 +1,6 @@
-import { Encoder } from 'msgpackr';
+import { Encoder } from '#msgpackr';
+import { toBufferKey } from '#ordered-binary';
 import { hash } from 'ohash';
-import { toBufferKey } from 'ordered-binary';
 
 import type { Value } from '../interfaces/common.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
