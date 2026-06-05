@@ -97,6 +97,29 @@ ProverPolynomials build_valid_eccvm_msm_state()
 }
 
 /**
+ * @brief Build valid ProverPolynomials with a single MSM of `num_points` points.
+ *
+ * @details The skew round spans `ceil(num_points / 4)` rows, so `num_points >= 9` yields a skew
+ * round with interior rows (skew rows that are neither the first nor the last of the round). These
+ * interior skew rows are what MSM_PC_SKEW_CONTINUITY pins.
+ */
+ProverPolynomials build_valid_eccvm_large_msm_state(size_t num_points)
+{
+    auto generators = G1::derive_generators("test generators", num_points);
+
+    auto op_queue = std::make_shared<ECCOpQueue>();
+    for (size_t i = 0; i < num_points; i++) {
+        op_queue->mul_accumulate(generators[i], Fr::random_element(&engine));
+    }
+    op_queue->eq_and_reset();
+    op_queue->merge();
+    add_hiding_op_for_test(op_queue);
+
+    ECCVMCircuitBuilder builder{ op_queue };
+    return ProverPolynomials(builder);
+}
+
+/**
  * @brief Compute random Fiat-Shamir challenges and derived polynomials (logderivative inverse, grand product)
  * needed to check ECCVMSetRelation and ECCVMLookupRelation.
  */
@@ -655,4 +678,48 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsInteriorMsmPcTamper)
     EXPECT_FALSE(failures.empty()) << "MSM relation should reject msm_pc tamper on an interior row";
     EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::MSM_PC_CONTINUITY))
         << "MSM_PC_CONTINUITY should be among the failing subrelations";
+}
+
+/**
+ * @brief Reject an arbitrary msm_pc on an interior SKEW row.
+ *
+ * @details MSM_PC_CONTINUITY excludes q_skew from its active phase, and MSM_TRANSITION_PC only pins
+ * the last skew row of a segment. For an MSM with a skew round of >= 3 rows (msm_size >= 9), the
+ * interior skew rows are pinned by neither, so a prover could swap msm_pc on such a row between two
+ * segments; the point-table lookup multiset still balances but the skew corrections are applied to
+ * the wrong accumulators. MSM_PC_SKEW_CONTINUITY (q_skew * q_skew_shift) pins msm_pc across every
+ * pair of consecutive skew rows, detecting the tamper at the preceding skew row.
+ */
+TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsInteriorSkewMsmPcTamper)
+{
+    auto polynomials = build_valid_eccvm_large_msm_state(/*num_points=*/10);
+    RelationParameters<FF> params{};
+
+    auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
+
+    // Find an interior skew row: q_skew = 1 on the previous, current and next rows. Tampering
+    // msm_pc here is caught only by MSM_PC_SKEW_CONTINUITY (firing at the previous skew row), since
+    // neither MSM_PC_CONTINUITY (q_skew excluded) nor MSM_TRANSITION_PC (msm_transition_shift = 0)
+    // constrains it.
+    const size_t num_rows = polynomials.get_polynomial_size();
+    size_t tamper_row = 0;
+    for (size_t i = Flavor::TRACE_OFFSET + 1; i < num_rows - 1; i++) {
+        if (polynomials.msm_skew[i - 1] == FF(1) && polynomials.msm_skew[i] == FF(1) &&
+            polynomials.msm_skew[i + 1] == FF(1)) {
+            tamper_row = i;
+            break;
+        }
+    }
+    ASSERT_NE(tamper_row, 0) << "Should find an interior skew row (msm_size >= 9 gives >= 3 skew rows)";
+
+    polynomials.msm_pc.at(tamper_row) = polynomials.msm_pc[tamper_row] + FF(0xdead);
+    polynomials.set_shifted();
+
+    auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(failures.empty()) << "MSM relation should reject msm_pc tamper on an interior skew row";
+    EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::MSM_PC_SKEW_CONTINUITY))
+        << "MSM_PC_SKEW_CONTINUITY should be among the failing subrelations";
 }
