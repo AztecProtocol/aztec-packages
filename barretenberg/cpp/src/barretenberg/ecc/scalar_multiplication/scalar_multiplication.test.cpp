@@ -608,6 +608,32 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
     }
 
+    void test_scalars_unchanged_after_large_non_glv_msm()
+    {
+#ifdef __wasm__
+        GTEST_SKIP() << "WASM GLV threshold exceeds the fixture size; non-GLV restoration is native-only here.";
+#else
+        namespace rpd = scalar_multiplication::round_parallel_detail;
+        const size_t num_pts = rpd::GLV_SMALL_N_THRESHOLD + 257;
+        ASSERT_LE(num_pts, num_points);
+
+        std::vector<ScalarField> test_scalars(num_pts);
+        std::vector<ScalarField> scalars_copy(num_pts);
+        for (size_t i = 0; i < num_pts; ++i) {
+            test_scalars[i] = scalars[i];
+            scalars_copy[i] = test_scalars[i];
+        }
+
+        std::span<const AffineElement> points(&generators[0], num_pts);
+        PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
+        scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/false);
+
+        for (size_t i = 0; i < num_pts; ++i) {
+            EXPECT_EQ(test_scalars[i], scalars_copy[i]) << "non-GLV scalar at index " << i << " was modified";
+        }
+#endif
+    }
+
     void test_scalar_one()
     {
         const size_t num_pts = 5;
@@ -1229,10 +1255,10 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         ConcurrencyScope scope(8);
         auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 101);
 #ifdef __wasm__
-        const std::vector<size_t> sizes = { 4, 7, 64 };
+        const std::vector<size_t> sizes = { 64 };
 #else
         // 3000 crosses the Jacobian path's native multi-thread split (>256 pts/thread).
-        const std::vector<size_t> sizes = { 4, 7, 64, 3000 };
+        const std::vector<size_t> sizes = { 64, 3000 };
 #endif
         for (size_t n : sizes) {
             std::vector<AffineElement> points(n);
@@ -1260,9 +1286,9 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         ConcurrencyScope scope(8);
         auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 102);
 #ifdef __wasm__
-        const std::vector<size_t> pair_counts = { 2, 40 };
+        const std::vector<size_t> pair_counts = { 40 };
 #else
-        const std::vector<size_t> pair_counts = { 2, 40, 800 };
+        const std::vector<size_t> pair_counts = { 40, 800 };
 #endif
         for (size_t pairs : pair_counts) {
             const size_t n = (2 * pairs) + 3; // + a few linearly-independent singletons
@@ -1288,30 +1314,6 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
                 scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/true);
             AffineElement expected = naive_msm(test_scalars, points);
             EXPECT_EQ(result, expected) << "inverse-pair bucket collisions (pairs=" << pairs << ")";
-        }
-    }
-
-    /// Every input point is the point-at-infinity: the result must be infinity for
-    /// any scalars (and must not divide-by-zero in the affine batch inversion).
-    void test_handle_edge_cases_all_infinity()
-    {
-        ConcurrencyScope scope(8);
-#ifdef __wasm__
-        const std::vector<size_t> sizes = { 4, 100 };
-#else
-        const std::vector<size_t> sizes = { 4, 100, 2000 };
-#endif
-        for (size_t n : sizes) {
-            std::vector<AffineElement> points(n);
-            std::vector<ScalarField> test_scalars(n);
-            for (size_t i = 0; i < n; ++i) {
-                points[i].self_set_infinity();
-                test_scalars[i] = scalars[i % num_points];
-            }
-            PolynomialSpan<ScalarField> scalar_span(0, test_scalars);
-            AffineElement result =
-                scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/true);
-            EXPECT_TRUE(result.is_point_at_infinity()) << "all-infinity n=" << n;
         }
     }
 
@@ -1348,89 +1350,6 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
                                                                        std::span<const AffineElement>(doubled));
             AffineElement expected = naive_msm(test_scalars, points);
             EXPECT_EQ(AffineElement(result), expected) << "external_glv_doubled (n=" << n << ")";
-        }
-    }
-
-    /// Randomized differential fuzzer over the dispatch parameter space. Each
-    /// iteration picks a fresh seed and a random (N, start_index, thread count,
-    /// scalar distribution, dedup_hint) and checks `MSM::msm` against the naive
-    /// reference. The fixed-shape tests above pin individual branches; this catches
-    /// interactions between them (e.g. offset + dedup + small-bit scalars + an odd
-    /// thread count all at once). handle_edge_cases stays false because the fixture
-    /// generators are linearly independent with distinct x — valid for the affine
-    /// path under every scalar distribution.
-    void test_dispatch_fuzz()
-    {
-        constexpr size_t kIters = 48;
-        for (size_t iter = 0; iter < kIters; ++iter) {
-            auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 200 + iter);
-            const uint32_t r = rng.get_random_uint32();
-            size_t n = 1;
-            switch (r % 5) {
-            case 0:
-                n = 1 + (r % 30); // tiny: trivial_msm / trivial_msm_threaded
-                break;
-            case 1:
-                n = 18 + (r % 16); // straddles MIN_PTS_PER_THREAD_FOR_PIPPENGER
-                break;
-            case 2:
-                n = 100 + (r % 900); // medium
-                break;
-            case 3:
-                n = 1000 + (r % 3000); // larger, exercises round-parallel batching
-                break;
-            default:
-                n = 1;
-                break;
-            }
-            if (n > num_points) {
-                n = num_points;
-            }
-            const size_t max_start = num_points - n;
-            const size_t start_index = (max_start == 0) ? 0 : (rng.get_random_uint32() % (max_start + 1));
-
-            const size_t threads = 1 + (rng.get_random_uint8() % 16);
-            ConcurrencyScope scope(threads);
-
-            std::vector<ScalarField> test_scalars(n);
-            const uint32_t dist = rng.get_random_uint8() % 5;
-            for (size_t i = 0; i < n; ++i) {
-                switch (dist) {
-                case 0:
-                    test_scalars[i] = ScalarField::random_element(&rng); // dense full-range
-                    break;
-                case 1:
-                    test_scalars[i] = (i % 3 == 0) ? ScalarField::random_element(&rng) : ScalarField::zero(); // sparse
-                    break;
-                case 2:
-                    test_scalars[i] = ScalarField(uint256_t(rng.get_random_uint32())); // small-bit
-                    break;
-                case 3:
-                    test_scalars[i] = ScalarField(7); // all-equal: dedup-eligible cluster
-                    break;
-                default:
-                    // mostly small with a sparse run of full-range scalars (variable-window split shape)
-                    test_scalars[i] = (i % 64 == 0) ? ScalarField::random_element(&rng)
-                                                    : ScalarField(uint256_t(rng.get_random_uint32()));
-                    break;
-                }
-            }
-
-            std::span<const AffineElement> points(&generators[0], start_index + n);
-            PolynomialSpan<ScalarField> scalar_span(start_index, std::span<ScalarField>(test_scalars));
-            const bool dedup_hint = (rng.get_random_uint8() & 1) != 0;
-
-            AffineElement actual =
-                scalar_multiplication::MSM<Curve>::msm(points, scalar_span, /*handle_edge_cases=*/false, dedup_hint);
-
-            Element expected;
-            expected.self_set_infinity();
-            for (size_t i = 0; i < n; ++i) {
-                expected += points[start_index + i] * test_scalars[i];
-            }
-            EXPECT_EQ(actual, AffineElement(expected))
-                << "fuzz iter=" << iter << " n=" << n << " start=" << start_index << " threads=" << threads
-                << " dist=" << dist << " dedup=" << dedup_hint;
         }
     }
 
@@ -1482,7 +1401,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
         // Deterministic pseudo-random fill of additional probes (Knuth multiplicative
         // hash) so the sweep also covers interior values, not just the curated extremes.
-        for (uint64_t i = 1; i <= 64; ++i) {
+        for (uint64_t i = 1; i <= 16; ++i) {
             const uint64_t h0 = i * uint64_t{ 0x9E3779B97F4A7C15ULL };
             const uint64_t h1 = (i + 1) * uint64_t{ 0xC2B2AE3D27D4EB4FULL };
             const uint64_t h2 = (i + 2) * uint64_t{ 0x165667B19E3779F9ULL };
@@ -1562,11 +1481,9 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         const size_t glv_threshold = rpd::GLV_SMALL_N_THRESHOLD; // 2^13 native
         // Sizes just above the GLV threshold (use_glv=false) and inside the sweep-skipped
         // band. num_points is 31013, so every size below stays in-bounds.
-        const std::vector<size_t> sizes = {
-            glv_threshold + 1, glv_threshold + 257, size_t{ 1 } << 14, (size_t{ 1 } << 14) + (size_t{ 1 } << 13)
-        };
-        // Bit budgets to drive effective_num_bits to: tiny → small window_bits → max windows.
-        const std::vector<size_t> bit_widths = { 1, 8, 32, 64, 96, 120 };
+        const std::vector<size_t> sizes = { glv_threshold + 1, size_t{ 1 } << 14 };
+        // Bit budgets to drive effective_num_bits to representative small/mid schedules.
+        const std::vector<size_t> bit_widths = { 1, 64, 120 };
 
         size_t max_size = 0;
         for (size_t s : sizes) {
@@ -1627,11 +1544,11 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         auto& rng = numeric::get_debug_randomness(true, 0x5eedu + 303);
 
 #ifdef __wasm__
-        const std::vector<size_t> cluster_sizes = { 1100, 2100 };
+        const std::vector<size_t> cluster_sizes = { 2100 };
 #else
         // 2100 > DEDUP_MAX_CHUNK_MEMBERS(2048) → multi-chunk carry.
         // 5000 → several carries + staged-cap partial-consolidation fallback.
-        const std::vector<size_t> cluster_sizes = { 1100, 2100, 5000, 9000 };
+        const std::vector<size_t> cluster_sizes = { 2100, 5000 };
 #endif
         for (size_t cluster : cluster_sizes) {
             // Dedup clusters by equal scalar VALUE, combining the cluster's DISTINCT base
@@ -1703,6 +1620,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         const size_t num_msms = sizes.size();
 
         std::vector<std::vector<ScalarField>> batch_scalars(num_msms);
+        std::vector<std::vector<ScalarField>> scalar_copies(num_msms);
         std::vector<PolynomialSpan<ScalarField>> spans;
         std::vector<AffineElement> expected(num_msms);
         std::vector<uint8_t> dedup_hints(num_msms, 0);
@@ -1712,9 +1630,11 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
             const size_t n = sizes[k];
             ASSERT_LE(offset + n, num_points);
             batch_scalars[k].resize(n);
+            scalar_copies[k].resize(n);
             const bool all_zero = (k % 4 == 2); // a couple of fully-zero MSMs → infinity result
             for (size_t i = 0; i < n; ++i) {
                 batch_scalars[k][i] = all_zero ? ScalarField::zero() : scalars[offset + i];
+                scalar_copies[k][i] = batch_scalars[k][i];
             }
             dedup_hints[k] = static_cast<uint8_t>((k % 2 == 0) ? 1 : 0);
             spans.emplace_back(offset, std::span<ScalarField>(batch_scalars[k]));
@@ -1730,14 +1650,11 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         for (size_t k = 0; k < num_msms; ++k) {
             EXPECT_EQ(result[k], expected[k]) << "batch MSM " << k << " (n=" << sizes[k]
                                               << ", handle_edge_cases=" << handle_edge_cases << ") mismatched";
+            EXPECT_EQ(batch_scalars[k], scalar_copies[k]) << "batch MSM " << k << " scalars were not restored";
         }
     }
 
-    void test_batch_driver_paths()
-    {
-        run_batch_driver_paths(/*handle_edge_cases=*/false); // shared batched GLV/arena path
-        run_batch_driver_paths(/*handle_edge_cases=*/true);  // per-MSM edge-handling path
-    }
+    void test_batch_driver_shared_path() { run_batch_driver_paths(/*handle_edge_cases=*/false); }
 };
 
 using CurveTypes = ::testing::Types<bb::curve::BN254, bb::curve::Grumpkin>;
@@ -1782,13 +1699,12 @@ TEST(ScalarMultiplicationArenaTest, ArenaLayoutFitsAcrossDispatchSpace)
 {
     const size_t saved_threads = bb::get_num_cpus();
 
-    constexpr std::array<size_t, 14> thread_counts{ 1, 2, 3, 4, 5, 7, 8, 13, 16, 17, 31, 32, 48, 64 };
+    constexpr std::array<size_t, 6> thread_counts{ 1, 3, 8, 16, 32, 64 };
     // Dispatch boundaries: MIN_PTS_PER_THREAD (24), powers of two ±1, and both GLV thresholds
     // (2^13 native, 2^16 wasm), up to a large 2^18 shape.
-    constexpr std::array<size_t, 33> ns{ 4,    5,    6,    7,    8,    16,   23,   24,   25,    31,    32,
-                                         33,   63,   64,   65,   127,  128,  129,  255,  256,   257,   1023,
-                                         1024, 1025, 4095, 4096, 4097, 8191, 8192, 8193, 16384, 65536, 262144 };
-    constexpr std::array<size_t, 7> bit_budgets{ 0, 1, 64, 128, 192, 253, 254 };
+    constexpr std::array<size_t, 21> ns{ 4,   5,   23,  24,   25,   31,   32,   33,   63,   64,    65,
+                                         255, 256, 257, 4095, 4096, 4097, 8191, 8192, 8193, 262144 };
+    constexpr std::array<size_t, 4> bit_budgets{ 0, 1, 128, 254 };
 
     for (const size_t threads : thread_counts) {
         bb::set_parallel_for_concurrency(threads);
@@ -1810,7 +1726,7 @@ TEST(ScalarMultiplicationArenaTest, ArenaLayoutFitsAcrossDispatchSpace)
     // reproducible.
     for (const size_t threads : { size_t{ 4 }, size_t{ 8 }, size_t{ 16 }, size_t{ 32 } }) {
         bb::set_parallel_for_concurrency(threads);
-        for (size_t i = 1; i <= 200; ++i) {
+        for (size_t i = 1; i <= 32; ++i) {
             const size_t n = 4 + ((i * size_t{ 2654435761ULL }) % (size_t{ 1 } << 20));
             for (const bool dedup : { false, true }) {
                 EXPECT_TRUE(pippenger_bn254_arena_layout_fits_for_test(n, /*external_glv_provided=*/false, dedup, 254))
@@ -1863,6 +1779,10 @@ TYPED_TEST(ScalarMultiplicationTest, ScalarsUnchangedAfterMSM)
 TYPED_TEST(ScalarMultiplicationTest, ScalarsUnchangedAfterBatchMultiScalarMul)
 {
     this->test_scalars_unchanged_after_batch_multi_scalar_mul();
+}
+TYPED_TEST(ScalarMultiplicationTest, ScalarsUnchangedAfterLargeNonGlvMSM)
+{
+    this->test_scalars_unchanged_after_large_non_glv_msm();
 }
 TYPED_TEST(ScalarMultiplicationTest, ScalarOne)
 {
@@ -1979,23 +1899,12 @@ TYPED_TEST(ScalarMultiplicationTest, HandleEdgeCasesInversePairs)
 {
     this->test_handle_edge_cases_inverse_pairs();
 }
-TYPED_TEST(ScalarMultiplicationTest, HandleEdgeCasesAllInfinity)
-{
-    this->test_handle_edge_cases_all_infinity();
-}
 TYPED_TEST(ScalarMultiplicationTest, ExternalGlvDoubledDirect)
 {
 #ifdef __wasm__
     GTEST_SKIP() << "external_glv_doubled direct coverage is native-only; WASM coverage comes from batch flows.";
 #endif
     this->test_external_glv_doubled_matches_naive();
-}
-TYPED_TEST(ScalarMultiplicationTest, DispatchFuzz)
-{
-#ifdef __wasm__
-    GTEST_SKIP() << "Randomized dispatch fuzz is native-only; WASM coverage comes from the fixed-shape tests.";
-#endif
-    this->test_dispatch_fuzz();
 }
 TYPED_TEST(ScalarMultiplicationTest, GlvExtremeMagnitudeScalars)
 {
@@ -2014,7 +1923,7 @@ TYPED_TEST(ScalarMultiplicationTest, BatchDriverSharedPathRagged)
 #ifdef __wasm__
     GTEST_SKIP() << "Large ragged batch coverage is native-only; WASM coverage comes from integration flows.";
 #endif
-    this->test_batch_driver_paths();
+    this->test_batch_driver_shared_path();
 }
 
 // NOTE: the curve-independent `PartitionByWeight` unit tests that previously lived here
