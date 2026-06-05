@@ -643,15 +643,21 @@ describe('Utility Execution test suite', () => {
         ]);
         await factStoreKv.transactionAsync(() => factStore.commit(JOB));
 
-        expect(
-          (await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY)).map(c => c.toBigInt()),
-        ).toEqual([CORR.toBigInt()]);
+        // activeEntities returns a count-prefixed, zero-padded array: [count, ...correlationKeys, ...padding].
+        const active = (await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY)).map(c =>
+          c.toBigInt(),
+        );
+        expect(active[0]).toEqual(1n); // count
+        expect(active[1]).toEqual(CORR.toBigInt());
 
         await utilityExecutionOracle.terminateEntity(contractAddress, scope, ENTITY, CORR);
         await factStoreKv.transactionAsync(() => factStore.commit(JOB));
 
-        expect(await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY)).toHaveLength(0);
-        expect(await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR)).toEqual([new Fr(0n)]);
+        // After termination both the active set and the fact set report a leading count of 0.
+        expect((await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY))[0]).toEqual(new Fr(0n));
+        expect((await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR))[0]).toEqual(
+          new Fr(0n),
+        );
       });
 
       it('rejects a scope outside the allowed scopes list', async () => {

@@ -54,7 +54,7 @@ import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { type CapsuleService, assertAllowedScope } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import { packFactSet } from '../../storage/fact_store/fact_packing.js';
+import { packActiveEntities, packFactSet } from '../../storage/fact_store/fact_packing.js';
 import type { FactStore } from '../../storage/fact_store/fact_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
@@ -858,10 +858,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  /** Returns the correlation keys of all active entities under (contract, scope, entityTypeId). */
-  public activeEntities(contractAddress: AztecAddress, scope: AztecAddress, entityTypeId: Fr): Promise<Fr[]> {
+  /**
+   * Returns the correlation keys of all active entities under (contract, scope, entityTypeId), packed into a flat
+   * count-prefixed `Field[]` (see {@link packActiveEntities}).
+   */
+  public async activeEntities(contractAddress: AztecAddress, scope: AztecAddress, entityTypeId: Fr): Promise<Fr[]> {
     assertAllowedScope(scope, this.scopes);
-    return this.factStore.activeEntities(contractAddress, scope, entityTypeId);
+    const correlationKeys = await this.factStore.activeEntities(contractAddress, scope, entityTypeId);
+    return packActiveEntities(correlationKeys);
   }
 
   /** Returns an entity's committed facts packed into a flat self-describing `Field[]` (see {@link packFactSet}). */

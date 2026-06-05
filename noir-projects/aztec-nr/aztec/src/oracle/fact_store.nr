@@ -13,6 +13,10 @@ global FACT_MAX_ACTIVE_ENTITIES: u32 = 64;
 //   1 (count) + FACT_MAX_FACTS * (1 factTypeId + 1 payloadLen + FACT_MAX_PAYLOAD payload fields).
 global FACT_SET_MAX_FIELDS: u32 = 1 + FACT_MAX_FACTS * (2 + FACT_MAX_PAYLOAD);
 
+// Flat-array bound for the active-entities set returned by `aztec_utl_activeEntities`:
+//   1 (count) + the correlation keys.
+global ACTIVE_ENTITIES_MAX_FIELDS: u32 = 1 + FACT_MAX_ACTIVE_ENTITIES;
+
 /// A single deserialized fact, ready for consumption in a fold.
 pub struct PackedFact {
     pub fact_type_id: Field,
@@ -48,7 +52,7 @@ unconstrained fn active_entities_oracle(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-) -> [Field; FACT_MAX_ACTIVE_ENTITIES] {}
+) -> [Field; ACTIVE_ENTITIES_MAX_FIELDS] {}
 
 #[oracle(aztec_utl_getEntityFacts)]
 unconstrained fn get_entity_facts_oracle(
@@ -116,12 +120,15 @@ pub unconstrained fn record_non_retractable_fact<let N: u32>(
 }
 
 /// Returns the correlation keys of all currently active entities of the given type.
+///
+/// Fetches the flat count-prefixed array from the PXE oracle and unpacks it into a `BoundedVec`.
 pub unconstrained fn active_entities(
     contract_address: AztecAddress,
     scope: AztecAddress,
     entity_type_id: Field,
-) -> [Field; FACT_MAX_ACTIVE_ENTITIES] {
-    active_entities_oracle(contract_address, scope, entity_type_id)
+) -> BoundedVec<Field, FACT_MAX_ACTIVE_ENTITIES> {
+    let flat = active_entities_oracle(contract_address, scope, entity_type_id);
+    unpack_active_entities(flat)
 }
 
 /// Returns the deserialized fact set for the given entity.
@@ -187,10 +194,27 @@ pub unconstrained fn unpack(flat: [Field; FACT_SET_MAX_FIELDS]) -> BoundedVec<Pa
     facts
 }
 
+/// Unpacks a flat, count-prefixed field array into a `BoundedVec` of correlation keys.
+///
+/// Wire layout (must match `packActiveEntities` in `fact_packing.ts`): `[ count, ...correlationKeys ]`, zero-padded
+/// to `ACTIVE_ENTITIES_MAX_FIELDS`.
+pub unconstrained fn unpack_active_entities(
+    flat: [Field; ACTIVE_ENTITIES_MAX_FIELDS],
+) -> BoundedVec<Field, FACT_MAX_ACTIVE_ENTITIES> {
+    let count = flat[0] as u32;
+    let mut keys: BoundedVec<Field, FACT_MAX_ACTIVE_ENTITIES> = BoundedVec::new();
+    for i in 0..FACT_MAX_ACTIVE_ENTITIES {
+        if i < count {
+            keys.push(flat[1 + i]);
+        }
+    }
+    keys
+}
+
 // Tests
 
 mod test {
-    use super::{FACT_SET_MAX_FIELDS, unpack};
+    use super::{ACTIVE_ENTITIES_MAX_FIELDS, FACT_SET_MAX_FIELDS, unpack, unpack_active_entities};
 
     /// Builds a zero-padded flat array of the given maximum size from a small literal slice.
     unconstrained fn make_flat<let N: u32>(values: [Field; N]) -> [Field; FACT_SET_MAX_FIELDS] {
@@ -224,5 +248,20 @@ mod test {
         let facts = unpack(flat);
 
         assert_eq(facts.len(), 0);
+    }
+
+    #[test]
+    unconstrained fn unpacks_active_entities() {
+        // TS pin: packActiveEntities([0xaa, 0xbb]) -> [2, 0xaa, 0xbb, ...padding]
+        let mut flat: [Field; ACTIVE_ENTITIES_MAX_FIELDS] = [0; ACTIVE_ENTITIES_MAX_FIELDS];
+        flat[0] = 2;
+        flat[1] = 0xaa;
+        flat[2] = 0xbb;
+
+        let keys = unpack_active_entities(flat);
+
+        assert_eq(keys.len(), 2);
+        assert_eq(keys.get(0), 0xaa);
+        assert_eq(keys.get(1), 0xbb);
     }
 }
