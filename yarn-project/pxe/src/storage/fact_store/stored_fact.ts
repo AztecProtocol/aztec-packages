@@ -28,7 +28,7 @@ export class StoredFact {
 
   /** Stable digest of the payload, used in the dedup row key (keeps the LMDB key bounded for large payloads). */
   payloadHash(): Fr {
-    return sha256ToField([this.factTypeId, new Fr(this.payload.length), ...this.payload]);
+    return sha256ToField([this.payload.length, ...this.payload]);
   }
 
   toBuffer(): Buffer {
@@ -40,7 +40,7 @@ export class StoredFact {
       this.correlationKey,
       this.factTypeId,
       this.payload.length,
-      this.payload,
+      ...this.payload,
       anchorTag,
       this.anchor ? this.anchor.blockNumber : 0,
       this.anchor ? this.anchor.blockHash : Fr.ZERO,
