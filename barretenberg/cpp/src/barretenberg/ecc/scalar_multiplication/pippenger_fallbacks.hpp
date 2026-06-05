@@ -93,7 +93,6 @@ typename Curve::Element trivial_msm_threaded(PolynomialSpan<const typename Curve
     // Montgomery-form scalars on entry to this function.
     std::vector<Element> partials(num_threads, Curve::Group::point_at_infinity);
     bb::parallel_for(num_threads, [&](size_t tid) {
-        BB_BENCH_NAME("MSM_fast::trivial_msm_threaded/worker");
         const size_t lo = (tid * n_active) / num_threads;
         const size_t hi = ((tid + 1) * n_active) / num_threads;
         const size_t slice_n = hi - lo;
