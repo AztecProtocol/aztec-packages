@@ -62,4 +62,28 @@ describe('FactStore', () => {
     const active = await store.activeEntities(contract, scope, ENTITY);
     expect(active.map(c => c.toBigInt()).sort()).toEqual([corrA.toBigInt(), corrB.toBigInt()].sort());
   });
+
+  it("terminateEntity deletes all of the entity's facts and drops it from active enumeration", async () => {
+    await store.recordFact(contract, scope, ENTITY, corrA, RECEIVED, [new Fr(9n)], undefined, JOB);
+    await store.recordFact(
+      contract,
+      scope,
+      ENTITY,
+      corrA,
+      PROCESSED,
+      [],
+      { blockNumber: 5, blockHash: new Fr(1n) },
+      JOB,
+    );
+    await store.recordFact(contract, scope, ENTITY, corrB, RECEIVED, [new Fr(8n)], undefined, JOB);
+    await kv.transactionAsync(() => store.commit(JOB));
+
+    const TERM = 'terminate-job';
+    await store.terminateEntity(contract, scope, ENTITY, corrA, TERM);
+    await kv.transactionAsync(() => store.commit(TERM));
+
+    expect(await store.getEntityFacts(contract, scope, ENTITY, corrA)).toHaveLength(0);
+    const active = await store.activeEntities(contract, scope, ENTITY);
+    expect(active.map(c => c.toBigInt())).toEqual([corrB.toBigInt()]);
+  });
 });

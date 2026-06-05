@@ -79,6 +79,20 @@ export class FactStore implements StagedStore {
     });
   }
 
+  /** Permanently delete an entity (all its facts). Staged within the job; applied on commit. */
+  terminateEntity(
+    contract: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    correlationKey: Fr,
+    jobId: string,
+  ): Promise<void> {
+    return this.#withJobLock(jobId, () => {
+      this.#opsFor(jobId).push({ kind: 'terminate', contract, scope, entityTypeId, correlationKey });
+      return Promise.resolve();
+    });
+  }
+
   /**
    * Returns all committed facts for one entity, for use in Noir fold execution.
    * @param contract - The contract address owning the entity.
@@ -169,15 +183,30 @@ export class FactStore implements StagedStore {
 
   // ---- private helpers ----
 
-  // TEMPORARY stub — Task 1.3 replaces this with real entity deletion. Never reached by Task 1.2 tests
-  // (they stage no 'terminate' ops).
+  /** Deletes all facts for the given entity from every index. Called during commit for 'terminate' ops. */
   async #deleteEntity(
-    _contract: AztecAddress,
-    _scope: AztecAddress,
-    _entityTypeId: Fr,
-    _correlationKey: Fr,
+    contract: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    correlationKey: Fr,
   ): Promise<void> {
-    throw new Error('FactStore.#deleteEntity not implemented yet');
+    const eKey = entityKey(contract, scope, entityTypeId, correlationKey);
+    const rowKeys: string[] = [];
+    for await (const rowKey of this.#factsByEntity.getValuesAsync(eKey)) {
+      rowKeys.push(rowKey);
+    }
+    for (const rowKey of rowKeys) {
+      const buf = await this.#facts.getAsync(rowKey);
+      await this.#facts.delete(rowKey);
+      await this.#factsByEntity.deleteValue(eKey, rowKey);
+      if (buf) {
+        const fact = StoredFact.fromBuffer(buf);
+        if (fact.anchor !== undefined) {
+          await this.#factsByBlock.deleteValue(fact.anchor.blockNumber, rowKey);
+        }
+      }
+    }
+    await this.#entitiesByScope.deleteValue(scopeKey(contract, scope, entityTypeId), correlationKey.toString());
   }
 
   #opsFor(jobId: string): StagedOp[] {
