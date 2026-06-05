@@ -90,7 +90,7 @@ pub contract HandshakeRegistry {
     /// polluting registry state.
     #[external("private")]
     fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress, mode: OnchainDeliveryMode) -> Field {
-        assert(mode.is_recognized(), "unrecognized delivery mode");
+        assert(mode.is_valid(), "unrecognized delivery mode");
 
         let recipient_point = recipient.to_address_point().expect(f"recipient address is not on the curve");
 
@@ -139,7 +139,7 @@ pub contract HandshakeRegistry {
         mode: OnchainDeliveryMode,
         app_siloed_secret: Field,
     ) {
-        assert(mode.is_recognized(), "unrecognized delivery mode");
+        assert(mode.is_valid(), "unrecognized delivery mode");
 
         let caller = self.msg_sender();
         let replacement_note_message = self.storage.handshakes.at(recipient).at(mode).at(sender).get_note();
@@ -171,7 +171,7 @@ pub contract HandshakeRegistry {
         // can authorize (target, selector) can read another caller's siloed secret.
         caller: AztecAddress,
     ) -> Option<Field> {
-        assert(mode.is_recognized(), "unrecognized delivery mode");
+        assert(mode.is_valid(), "unrecognized delivery mode");
 
         let handshake = self.storage.handshakes.at(recipient).at(mode).at(sender);
 
