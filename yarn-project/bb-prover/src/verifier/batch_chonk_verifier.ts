@@ -181,6 +181,10 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
         pending.reject(new Error(`BatchChonkVerifier result timed out for request_id=${requestId}`));
         this.notifyPendingDrained();
       }, RESULT_TIMEOUT_MS);
+      // A pending result timer must never keep the host process alive on its own (e.g. an
+      // orphaned request at process exit); the FIFO reader keeps the loop alive while results
+      // are genuinely awaited.
+      timeout.unref();
       this.pendingRequests.set(requestId, { resolve, reject, totalTimer, timeout });
     });
 
@@ -212,33 +216,56 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     this.logger.info('Stopping BatchChonkVerifier');
     this.stopped = true;
 
-    // Stop accepting new proofs
-    await this.sendQueue.end();
-
-    // Stop the bb service (flushes remaining proofs)
     try {
-      await this.bb.chonkBatchVerifierStop({});
+      // Stop accepting new proofs and flush the send queue. Bound it so an unresponsive
+      // native process can't block teardown of our own event-loop handles indefinitely.
+      await this.withTimeout(this.sendQueue.end(), STOP_DRAIN_TIMEOUT_MS, 'send queue flush');
+
+      // Stop the bb service (flushes remaining proofs).
+      await this.withTimeout(this.bb.chonkBatchVerifierStop({}), STOP_DRAIN_TIMEOUT_MS, 'chonkBatchVerifierStop');
+
+      // Native stop flushes callbacks; keep the FIFO open until those frames are observed.
+      const drained = await this.waitForPendingRequestsToDrain(STOP_DRAIN_TIMEOUT_MS);
+      if (!drained) {
+        this.rejectPendingRequests(new Error('Timed out waiting for BatchChonkVerifier results during stop'));
+      }
     } catch (err) {
-      this.logger.warn(`Error stopping batch verifier service: ${err}`);
+      this.logger.warn(`Error during BatchChonkVerifier graceful stop: ${err}`);
+      this.rejectPendingRequests(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      // Always release our own event-loop handles — the FIFO read stream (a blocking
+      // threadpool read that can't be unref'd), the unix socket, the native process, and the
+      // exit handler — so the host process exits cleanly even if the native backend is wedged.
+      this.fifoReader.stop();
+      this.deregisterExitCleanup();
+      await this.cleanupFifo();
+      await this.bb.destroy().catch(err => this.logger.warn(`Error destroying bb backend during stop: ${err}`));
     }
-
-    // Native stop flushes callbacks; keep the FIFO open until those frames are observed.
-    const drained = await this.waitForPendingRequestsToDrain(STOP_DRAIN_TIMEOUT_MS);
-    if (!drained) {
-      this.rejectPendingRequests(new Error('Timed out waiting for BatchChonkVerifier results during stop'));
-    }
-
-    // Stop FIFO reader
-    this.fifoReader.stop();
-
-    // Clean up FIFO file and deregister exit handler
-    this.deregisterExitCleanup();
-    await this.cleanupFifo();
-
-    // Destroy bb process
-    await this.bb.destroy();
 
     this.logger.info('BatchChonkVerifier stopped');
+  }
+
+  /**
+   * Races a promise against a timeout so a wedged native backend can't block teardown. The
+   * timer is unref'd so it never keeps the process alive; the underlying promise stays handled
+   * by the race even if the timeout wins, so it cannot surface as an unhandled rejection.
+   */
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T | void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`BatchChonkVerifier ${label} timed out after ${timeoutMs}ms`)),
+        timeoutMs,
+      );
+      timer.unref();
+    });
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
   }
 
   private startFifoReader(): void {
@@ -342,6 +369,7 @@ export class BatchChonkVerifier implements ClientProtocolCircuitVerifier {
     });
     const timedOut = new Promise<boolean>(resolve => {
       timeout = setTimeout(() => resolve(false), timeoutMs);
+      timeout.unref();
     });
 
     return Promise.race([drained, timedOut]).finally(() => {
