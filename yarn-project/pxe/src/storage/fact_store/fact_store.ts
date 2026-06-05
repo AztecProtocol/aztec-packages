@@ -100,7 +100,7 @@ export class FactStore implements StagedStore {
    * @param entityTypeId - Discriminates entity kinds within a contract+scope.
    * @param correlationKey - Identifies the specific entity instance.
    */
-  async getEntityFacts(
+  getEntityFacts(
     contract: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
@@ -123,7 +123,7 @@ export class FactStore implements StagedStore {
    * Returns the correlation keys of all active entities under (contract, scope, entityTypeId) — i.e. entities that
    * still have at least one committed fact.
    */
-  async activeEntities(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr): Promise<Fr[]> {
+  activeEntities(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr): Promise<Fr[]> {
     return this.#store.transactionAsync(async () => {
       const key = scopeKey(contract, scope, entityTypeId);
       const seen = new Set<string>();
