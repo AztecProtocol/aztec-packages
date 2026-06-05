@@ -290,11 +290,13 @@ impl MessageDelivery {
         }
     }
 
-    /// Returns the [`OnchainDeliveryMode`] of this built delivery, mirroring [`OnchainDelivery::mode`].
-    ///
-    /// An offchain delivery has no mode, so the result then satisfies no mode predicate (all return false).
-    fn mode(self) -> OnchainDeliveryMode {
-        OnchainDeliveryMode { inner: self.variant }
+    /// The on-chain delivery mode, or `None` for an offchain delivery (which has no mode).
+    fn mode(self) -> Option<OnchainDeliveryMode> {
+        if self.variant == OFFCHAIN {
+            Option::none()
+        } else {
+            Option::some(OnchainDeliveryMode { inner: self.variant })
+        }
     }
 }
 
@@ -338,8 +340,9 @@ where
     // dead-code elimination.
     assert_constant(delivery.variant);
 
-    let is_constrained = delivery.mode().is_constrained();
-    let deliver_as_offchain_message = delivery.variant == OFFCHAIN;
+    let mode = delivery.mode();
+    let deliver_as_offchain_message = mode.is_none();
+    let is_constrained = mode.map(|m| m.is_constrained()).unwrap_or(false);
 
     // Constrained delivery defaults to a handshake origin at construction, so an unset origin only occurs for
     // unconstrained delivery, where it defaults to the address pair (unconstrained handshake-origin delivery is
@@ -557,10 +560,11 @@ mod test {
         assert(GLOBAL_DERIVED_MODE == OnchainDeliveryMode::onchain_unconstrained());
     }
 
+
     #[test]
-    fn is_constrained_distinguishes_the_modes() {
-        assert(MessageDelivery::onchain_constrained().mode().is_constrained());
-        assert(!MessageDelivery::onchain_unconstrained().mode().is_constrained());
-        assert(!MessageDelivery::offchain().build_message_delivery().mode().is_constrained());
+    fn built_delivery_mode_matches_the_variant() {
+        assert(MessageDelivery::offchain().build_message_delivery().mode().is_none());
+        assert(MessageDelivery::onchain_constrained().build_message_delivery().mode().unwrap().is_constrained());
+        assert(!MessageDelivery::onchain_unconstrained().build_message_delivery().mode().unwrap().is_constrained());
     }
 }
