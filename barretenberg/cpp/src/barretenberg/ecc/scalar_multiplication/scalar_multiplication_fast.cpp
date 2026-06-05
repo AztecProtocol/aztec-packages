@@ -1003,7 +1003,6 @@ template <typename Curve>
     std::vector<uint8_t> all_present(num_threads * num_buckets);
 
     auto thread_body = [&](size_t tid) {
-        BB_BENCH_NAME("MSM_fast::jacobian_fast/worker");
         const size_t lo = (tid * n) / num_threads;
         const size_t hi = ((tid + 1) * n) / num_threads;
 
@@ -1390,7 +1389,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // aliases the caller-supplied doubled buffer.
         const BaseField beta = inline_glv_double ? BaseField::cube_root_of_unity() : BaseField{};
         bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-            BB_BENCH_NAME("MSM_fast::glv_from_mont_split/worker");
             auto& th_hist = per_thread_msb_hist[chunk.thread_index];
             for (size_t i : chunk.range(n_input)) {
                 const ScalarField canonical = input_scalars[i].from_montgomery_form_reduced();
@@ -1422,7 +1420,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     } else {
         // Non-GLV path: in-place from-Mont (later restored in the Stage-7 epilogue).
         bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-            BB_BENCH_NAME("MSM_fast::from_montgomery/worker");
             auto& th_hist = per_thread_msb_hist[chunk.thread_index];
             for (size_t i : chunk.range(n_input)) {
                 input_scalars[i].self_from_montgomery_form_reduced();
@@ -1453,7 +1450,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         const size_t pts_per_thread = (n_active_early + threads_for_dispatch - 1) / threads_for_dispatch;
         if (pts_per_thread < MIN_PTS_PER_THREAD_FOR_PIPPENGER) {
             bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-                BB_BENCH_NAME("MSM_fast::trivial_msm_to_montgomery/worker");
                 for (size_t i : chunk.range(n)) {
                     scalars[i].self_to_montgomery_form();
                 }
@@ -1943,7 +1939,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         BB_BENCH_NAME("MSM_fast::dedup/redirect_invalid_fill");
         uint32_t* const rl = dedup_state.redirect_lookup.data();
         bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-            BB_BENCH_NAME("MSM_fast::dedup/redirect_invalid_fill/worker");
             for (size_t i : chunk.range(n)) {
                 rl[i] = round_parallel_detail::DEDUP_INVALID_EXTRA;
             }
@@ -2065,7 +2060,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // scalar-blocked across the windows in this batch so scalars/msb/dedup metadata are
         // read once per block and reused while still hot.
         auto stage1_digit_extract = [&]<bool DedupKnown>(size_t tid) noexcept {
-            BB_BENCH_NAME("MSM_fast::Stage1_digit_extract/worker");
             [[maybe_unused]] const uint32_t* const rl_data = dedup_state.redirect_lookup.data();
             for (size_t w = 0; w < windows_in_batch; ++w) {
                 uint32_t* my_counts = digit_cursors.data() + (((w * num_threads) + tid) * bucket_stride);
@@ -2173,7 +2167,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // prefix-sum in place without a separate `bucket_total_counts` buffer. The size_t
         // bucket_start cell widens the uint32_t total implicitly.
         bb::parallel_for(num_threads, [&](size_t tid) {
-            BB_BENCH_NAME("MSM_fast::Stage2_bucket_histogram/worker");
             const size_t d_start = tid * B_R / num_threads;
             const size_t d_end = (tid + 1) * B_R / num_threads;
             for (size_t w = 0; w < windows_in_batch; ++w) {
@@ -2214,7 +2207,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 }
             } else {
                 bb::parallel_for(offset_threads, [&](size_t tid) {
-                    BB_BENCH_NAME("MSM_fast::Stage2_3_bucket_offsets/worker");
                     for (size_t w = tid; w < windows_in_batch; w += offset_threads) {
                         build_bucket_offsets_for_window(w);
                     }
@@ -2349,15 +2341,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         };
 
         if (dedup_known_for_batch) {
-            bb::parallel_for(num_threads, [&](size_t tid) {
-                BB_BENCH_NAME("MSM_fast::Stage4_digit_scatter/worker");
-                stage4_emit.template operator()<true>(tid);
-            });
+            bb::parallel_for(num_threads, [&](size_t tid) { stage4_emit.template operator()<true>(tid); });
         } else {
-            bb::parallel_for(num_threads, [&](size_t tid) {
-                BB_BENCH_NAME("MSM_fast::Stage4_digit_scatter/worker");
-                stage4_emit.template operator()<false>(tid);
-            });
+            bb::parallel_for(num_threads, [&](size_t tid) { stage4_emit.template operator()<false>(tid); });
         }
 
         // Phase A: schedule-based dedup detection on window 0. Each thread owns a
@@ -2399,7 +2385,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 const size_t* const w0_bucket_start = bucket_start_all.data();
                 std::atomic<size_t> dedup_cluster_count{ 0 };
                 bb::parallel_for(num_threads, [&, w0_bucket_start](size_t tid) noexcept {
-                    BB_BENCH_NAME("MSM_fast::PhaseA_dedup_detect/worker");
                     const size_t b_lo = 1 + ((tid * (B_R - 1)) / num_threads);
                     const size_t b_hi = 1 + (((tid + 1) * (B_R - 1)) / num_threads);
                     const uint32_t cid_lo = static_cast<uint32_t>(tid) * cids_per_thread;
@@ -2472,7 +2457,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             const size_t br = B_R;
             const size_t cap_R = n;
             bb::parallel_for(num_threads, [&, rl_data, bs_stride, br, cap_R](size_t tid) noexcept {
-                BB_BENCH_NAME("MSM_fast::dedup_patch_schedule/worker");
                 for (size_t w = tid; w < windows_in_batch; w += num_threads) {
                     uint32_t* sched_w = schedule.data() + (w * cap_R);
                     size_t* bucket_start_w = bucket_start_all.data() + (w * bs_stride);
@@ -2627,7 +2611,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             // 6b then reads this buffer with O(1) slot lookup. `bucket_partials_present` is
             // pre-zeroed per batch.
             auto bucket_partials_per_thread_lambda = [&](size_t tid) {
-                BB_BENCH_NAME("MSM_fast::Stage6a_bucket_partials/worker");
                 auto& s = thread_scratch[tid];
                 for (size_t w = 0; w < windows_in_batch; ++w) {
                     const size_t* chunk_start_w = chunk_start_all.data() + (w * (num_threads + 1));
@@ -2686,7 +2669,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             // contributing originals), then run recursive_affine_bucket_reduce_strided +
             // chunk_contribution on a guaranteed-equal buckets_padded across all tasks.
             auto bucket_reduce_cross_thread_lambda = [&](size_t tprime) {
-                BB_BENCH_NAME("MSM_fast::Stage6b_reduce_cross_thread/worker");
                 auto& s = thread_scratch[tprime];
                 Element* my_partials = window_partial_sums.data() + (tprime * windows_per_batch);
                 for (size_t w = 0; w < windows_in_batch; ++w) {
@@ -2813,7 +2795,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         {
             const size_t reduce_threads = std::min(num_threads, windows_in_batch);
             bb::parallel_for(reduce_threads, [&](size_t rid) {
-                BB_BENCH_NAME("MSM_fast::Stage7_combine/worker");
                 const size_t lo = rid * windows_in_batch / reduce_threads;
                 const size_t hi = (rid + 1) * windows_in_batch / reduce_threads;
                 for (size_t w = lo; w < hi; ++w) {
@@ -2851,7 +2832,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // a temporary). Non-GLV path mutated in place above and must restore.
     if (!use_glv) {
         bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-            BB_BENCH_NAME("MSM_fast::to_montgomery/worker");
             for (size_t i : chunk.range(n_input)) {
                 input_scalars[i].self_to_montgomery_form();
             }
@@ -2910,7 +2890,6 @@ typename Curve::Element pippenger_fast(PolynomialSpan<const typename Curve::Scal
     auto* mutable_scalars =
         const_cast<ScalarField*>(scalar_slice.data()); // NOLINT(cppcoreguidelines-pro-type-const-cast)
     bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-        BB_BENCH_NAME("MSM_fast::pu_from_montgomery/worker");
         for (size_t i : chunk.range(n_used)) {
             mutable_scalars[i].self_from_montgomery_form_reduced();
         }
@@ -2918,7 +2897,6 @@ typename Curve::Element pippenger_fast(PolynomialSpan<const typename Curve::Scal
     const Element result =
         round_parallel_detail::pippenger_round_parallel_jacobian_fast<Curve>(scalar_slice, point_slice, 0);
     bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-        BB_BENCH_NAME("MSM_fast::pu_to_montgomery/worker");
         for (size_t i : chunk.range(n_used)) {
             mutable_scalars[i].self_to_montgomery_form();
         }
