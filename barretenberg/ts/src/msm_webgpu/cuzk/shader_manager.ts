@@ -40,12 +40,6 @@ import {
   // 14-bit variant (19 limbs, BATCH=28): fewer apply_matrix products per call.
   by_inverse_loop_pk14_native as by_inverse_loop_pk14_native_funcs,
   by_inverse_loop_pk_wg as by_inverse_loop_pk_wg_funcs,
-  // 14-bit variant with f,g,d,e in GLOBAL memory (partials_buf tail): zero
-  // per-thread spill for the inverse state. fr_inv_by_loop_pk_global.
-  by_inverse_loop_pk14_global as by_inverse_loop_pk14_global_funcs,
-  // in-place packed montmul (a *= b on a global slot); assembled next to the
-  // global inverse so inv_ld/inv_st are in scope.
-  mont_pro_product_f8_inplace as mont_f8_inplace_funcs,
   // 15-bit sibling: BATCH=30, 18-limb BY state, 2-word (macc) apply_matrix.
   // Selected at word_size=15 (host-validated bit-exact in cios15n/by15_*.mjs).
   by_inverse_loop_15 as by_inverse_loop_15_funcs,
@@ -106,14 +100,7 @@ function modinv(a: bigint, m: bigint): bigint {
 //  - 'karat'         : generic grouped-Karatsuba + Yuval reduction (default).
 //  - 'cios_unrolled' : register-resident fully-unrolled CIOS; device-validated
 //                      −26% on Mali-G715 at logn=17. BN254 @ 20×13-bit only.
-//  - 'cios15native'  : native 17×15-bit CIOS body (fewer live u32 accumulators
-//                      than 20×13) with the cheap single-pass 'div32' domain
-//                      correction (×2^-5 via k5=(s0*9)&31; (s+k5·p)>>5) that
-//                      reconciles the internal 2^255 reduction with the
-//                      pipeline's 2^260 Montgomery domain. Reuses the proven,
-//                      device-validated cios_limb_gen body (== 'cios15_div32').
-//                      BN254 @ 20×13-bit pipeline only.
-export type MontMulVariant = 'karat' | 'cios_unrolled' | 'cios15native';
+export type MontMulVariant = 'karat' | 'cios_unrolled';
 
 export class ShaderManager {
   public p: bigint;
@@ -259,7 +246,7 @@ export class ShaderManager {
     // u32 multiplier used by every MSM shader that includes the
     // `montgomery_product_funcs` mustache partial.
     // At non-13-bit limb widths neither the Karatsuba body (structurally
-    // 20-limb) nor the 20×13-baked cios_unrolled / cios15native drop-ins apply:
+    // 20-limb) nor the 20×13-baked cios_unrolled drop-in applies:
     // the native CIOS body (B = word_size, no unpack/repack/correction) is the
     // only valid multiply, so force it and never render Karatsuba.
     this.mont_product_src =
@@ -267,9 +254,7 @@ export class ShaderManager {
         ? this.renderCiosLimbMont(this.word_size)
         : montmul === 'cios_unrolled'
           ? this.renderCiosUnrolledMont()
-          : montmul === 'cios15native'
-            ? this.renderCiosLimbMont(15, 'div32')
-            : this.renderKaratYuvalMont();
+          : this.renderKaratYuvalMont();
 
     // Workgroup-backed twin of the cios_unrolled body. Only the cios_unrolled
     // 13-bit path has a hand-written workgroup variant; every other path keeps
@@ -997,15 +982,7 @@ ${packLines.join('\n')}
     // gated so they can be re-enabled if a fissioned design makes them pay off.
     const regfile_lean = false;
     const regfile_lean_inv = regfile_lean && variant === 'pk';
-    // Global-memory inverse (f,g,d,e in partials_buf instead of registers) trades
-    // register pressure for load/store traffic. It helps Adreno occupancy, but on
-    // Mali-G715 (Pixel 9a) it measured ~2.9x slower (1071ms vs 366ms @ logn17) and
-    // repeatedly faulted the GPU (VK_ERROR_DEVICE_LOST / SW_FAULT_1): the inverse is
-    // load/store-bound there and f/g/d/e see ~1000 touches/call, so routing them
-    // through global memory blows up LS traffic. Register-resident is faster on every
-    // device measured. Re-enable behind an Adreno-only vendor gate if that path needs it.
-    const regfile_lean_inv_global = false;
-    const eff_inv_fn = regfile_lean_inv ? `${inv_fn}_wg` : (regfile_lean_inv_global ? `${inv_fn}_global` : inv_fn);
+    const eff_inv_fn = regfile_lean_inv ? `${inv_fn}_wg` : inv_fn;
     return mustache.render(
       ba_stream_walker_shader,
       {
@@ -1016,7 +993,6 @@ ${packLines.join('\n')}
         // montgomery_product_wg and declare its scratch. cios_unrolled only.
         regfile_lean,
         regfile_lean_inv,
-        regfile_lean_inv_global,
         // f8_native: use the packed-native register-lean montgomery_product_f8
         // (no x20/r/s BigInt temps). cios_unrolled 13-bit only.
         f8_native: this.montmul === 'cios_unrolled' && this.word_size === 13,
@@ -1033,7 +1009,6 @@ ${packLines.join('\n')}
         montgomery_product_wg_funcs: this.mont_product_wg_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
         inverse_wg_funcs: by_inverse_loop_pk_wg_funcs,
-        inverse_global_funcs: by_inverse_loop_pk14_global_funcs + '\n' + mont_f8_inplace_funcs,
         field_funcs, field8_funcs, fr_pow_funcs, bigint_by_funcs: bigintByFuncs, inverse_funcs,
       },
     );
