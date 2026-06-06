@@ -15,10 +15,17 @@ services:
     volumes:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
+      - local-network-logs:/logs
     working_dir: /root/aztec-packages/yarn-project/aztec
-    command: 'node ./dest/bin start --local-network'
+    entrypoint: >
+      bash -c '
+        export LOG_LEVEL="$${LOCAL_NETWORK_LOG_LEVEL:-$${LOG_LEVEL:-verbose}}"
+        set -o pipefail
+        node ./dest/bin start --local-network 2>&1 | tee /logs/local-network.log
+      '
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-verbose}
+      LOCAL_NETWORK_LOG_LEVEL: ${LOCAL_NETWORK_LOG_LEVEL:-}
       ETHEREUM_HOSTS: http://fork:8545
       L1_CHAIN_ID: 31337
       FORCE_COLOR: ${FORCE_COLOR:-1}
@@ -38,6 +45,7 @@ services:
     volumes:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
+      - local-network-logs:/logs
     tmpfs:
       - /tmp:rw,size=1g
       - /tmp-jest:rw,size=512m
@@ -78,7 +86,17 @@ services:
         trap "kill -SIGTERM -$$pgid" SIGTERM
         while kill -0 -$$pgid 2>/dev/null; do sleep 0.1; done
         wait $$pid
+        rc=$$?
+        if [ $$rc -ne 0 ]; then
+          echo "===== local-network logs ====="
+          cat /logs/local-network.log || true
+          echo "===== end local-network logs ====="
+        fi
+        exit $$rc
       '
     depends_on:
       - local-network
       - fork
+
+volumes:
+  local-network-logs:

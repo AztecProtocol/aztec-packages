@@ -8,8 +8,9 @@ import {
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
-import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import type { ArchiverSpecificConfig } from '@aztec/stdlib/interfaces/server';
+import { DEFAULT_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE } from '@aztec/stdlib/timetable';
 
 /**
  * The archiver configuration.
@@ -22,7 +23,8 @@ export type ArchiverConfig = ArchiverSpecificConfig &
   L1ReaderConfig &
   L1ContractsConfig &
   BlobClientConfig &
-  ChainConfig;
+  ChainConfig &
+  Pick<SequencerConfig, 'blockDurationMs' | 'checkpointProposalSyncGraceSeconds'>;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   ...blobClientConfigMapping,
@@ -40,6 +42,18 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'ARCHIVER_STORE_MAP_SIZE_KB',
     ...optionalNumberConfigHelper(),
     description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.',
+  },
+  blockDurationMs: {
+    env: 'SEQ_BLOCK_DURATION_MS',
+    description:
+      'Duration per block in milliseconds when building multiple blocks per slot. Used to derive orphan proposed block pruning timing.',
+    ...optionalNumberConfigHelper(),
+  },
+  checkpointProposalSyncGraceSeconds: {
+    env: 'CHECKPOINT_PROPOSAL_SYNC_GRACE_SECONDS',
+    description:
+      'Consensus grace in seconds for a received checkpoint proposal to materialize into local proposed state.',
+    ...optionalNumberConfigHelper(),
   },
   skipValidateCheckpointAttestations: {
     description: 'Skip validating checkpoint attestations (for testing purposes only)',
@@ -66,13 +80,15 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
       'Set to true to bypass the check when the connected RPC node is known to prune old logs.',
     ...booleanConfigHelper(false),
   },
-  orphanProposedBlockPruneGraceSeconds: {
-    env: 'ARCHIVER_ORPHAN_PROPOSED_BLOCK_PRUNE_GRACE_SECONDS',
-    description:
-      'Grace period in seconds, measured from the end of a proposed block build slot, after which a ' +
-      'proposed block with no matching proposed checkpoint is pruned as an orphan. Defaults from the ' +
-      'sequencer block duration at the node wiring layer when unset.',
-    ...optionalNumberConfigHelper(),
+  orphanPruneNoProposalTolerance: {
+    env: 'ARCHIVER_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE',
+    description: 'Local tolerance in seconds before pruning an orphan block when no checkpoint proposal was received.',
+    ...numberConfigHelper(DEFAULT_ORPHAN_PRUNE_NO_PROPOSAL_TOLERANCE),
+  },
+  skipOrphanProposedBlockPruning: {
+    env: 'ARCHIVER_SKIP_ORPHAN_PROPOSED_BLOCK_PRUNING',
+    description: 'Skip pruning orphan proposed blocks that have no matching proposed checkpoint.',
+    ...booleanConfigHelper(false),
   },
   ...chainConfigMappings,
   ...l1ReaderConfigMappings,
@@ -103,6 +119,7 @@ export function mapArchiverConfig(config: Partial<ArchiverConfig>) {
     maxAllowedEthClientDriftSeconds: config.maxAllowedEthClientDriftSeconds,
     ethereumAllowNoDebugHosts: config.ethereumAllowNoDebugHosts,
     skipHistoricalLogsCheck: config.archiverSkipHistoricalLogsCheck,
-    orphanProposedBlockPruneGraceSeconds: config.orphanProposedBlockPruneGraceSeconds,
+    orphanPruneNoProposalTolerance: config.orphanPruneNoProposalTolerance,
+    skipOrphanProposedBlockPruning: config.skipOrphanProposedBlockPruning,
   };
 }
