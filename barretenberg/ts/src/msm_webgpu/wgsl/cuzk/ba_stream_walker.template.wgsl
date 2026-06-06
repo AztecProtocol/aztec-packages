@@ -337,9 +337,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             }
         }
 
+{{#inv_f8}}
+        // pk14 packed-native inverse: takes/returns the 8x u32 form directly
+        // (Montgomery form via the e0=R^2 seed) -- no unpack/pack round-trip.
+        var inv = {{ inv_fn }}(acc);
+{{/inv_f8}}
+{{^inv_f8}}
         var acc20 = unpack256_to_limbs(acc);
         var inv20 = {{ inv_fn }}(acc20);
         var inv = pack_limbs_to_256(&inv20);
+{{/inv_f8}}
 
         // OPTIMIZATION (c): fused inverse pass + backward peel.
         // Original had two separate descending loops:

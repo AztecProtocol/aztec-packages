@@ -34,6 +34,15 @@ fn is_zero_f8(v: array<u32, 8>) -> bool {
     return (v[0] | v[1] | v[2] | v[3] | v[4] | v[5] | v[6] | v[7]) == 0u;
 }
 
+{{#f8_native}}
+// Packed-native register-lean CIOS multiply (montmul=cios_native, 13-bit):
+// packed 8x u32 in/out, per-iter working_x limb extraction, accumulators packed +
+// conditional-reduced in place. No BigInt temps -- eliminates the x20/r/s spill
+// that throttled occupancy on Adreno (3.8x there; Apple-neutral). Byte-identical
+// to the unpack wrapper below.
+{{> montgomery_product_f8_native }}
+{{/f8_native}}
+{{^f8_native}}
 // montgomery_product on the 8x u32 form: expand both operands to the
 // 20x13-limb arithmetic form, run the grouped Karatsuba multiply,
 // contract the result back to 8x u32.
@@ -43,6 +52,7 @@ fn montgomery_product_f8(x: array<u32, 8>, y: array<u32, 8>) -> array<u32, 8> {
     var r: BigInt = montgomery_product(&x20, &y20);
     return pack_limbs_to_256(&r);
 }
+{{/f8_native}}
 
 {{#addsub_unpack}}
 // fr_add / fr_sub via expand -> 20x13 op -> contract. The A/B alternative

@@ -44,6 +44,7 @@ import {
   // apply_matrix). Hosts BylMat, byl_divsteps, byl_apply_matrix, the
   // byl_reduce_to_canonical chain, and the fr_inv_by_loop driver.
   by_inverse_loop as by_inverse_loop_funcs,
+  by_inverse_loop_pk14_native as by_inverse_loop_pk14_native_funcs,
   convert_points_only as convert_points_only_shader,
   csr_to_v2_active_sums as csr_to_v2_active_sums_shader,
   csr_to_v2_meta as csr_to_v2_meta_shader,
@@ -54,6 +55,7 @@ import {
   field8 as field8_funcs,
   fr_pow as fr_pow_funcs,
   mont_pro_product_cios_unrolled as montgomery_product_cios_unrolled_funcs,
+  mont_pro_product_f8_native as montgomery_product_f8_native_funcs,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
   mulhilo_22 as mulhilo_22_funcs,
@@ -105,7 +107,11 @@ function modinv(a: bigint, m: bigint): bigint {
 //  - 'karat'         : generic grouped-Karatsuba + Yuval reduction (default).
 //  - 'cios_unrolled' : register-resident fully-unrolled CIOS; device-validated
 //                      −26% on Mali-G715 at logn=17. BN254 @ 20×13-bit only.
-export type MontMulVariant = 'karat' | 'cios_unrolled';
+//  - 'cios_native'   : cios_unrolled's BigInt body PLUS a packed-native f8
+//                      montgomery_product_f8 (no x20/r/s BigInt temps). Adreno
+//                      830 stream_walker 3.8× via spill elimination; Apple-
+//                      neutral. Byte-identical output. BN254 @ 20×13-bit only.
+export type MontMulVariant = 'karat' | 'cios_unrolled' | 'cios_native';
 
 export class ShaderManager {
   public p: bigint;
@@ -165,6 +171,14 @@ export class ShaderManager {
   // `get_p` / `conditional_reduce` helpers, so swapping the partial is
   // a drop-in change at every callsite.
   public mont_product_src: string;
+  // Packed-native montgomery_product_f8 body, injected as the
+  // `montgomery_product_f8_native` partial. Empty unless montmul='cios_native';
+  // the `f8_native` flag (set in the walker/combine gen) then selects it in
+  // field8 instead of the unpack->BigInt->pack wrapper.
+  public mont_f8_native_src: string;
+  // The selected montmul variant; read by the walker/combine gen functions to set
+  // the `f8_native` flag (cios_native ⇒ packed-native montgomery_product_f8).
+  private montmul: MontMulVariant;
   public curveConfig: CurveConfig;
   public recompile = '';
 
@@ -232,7 +246,14 @@ export class ShaderManager {
     // Render the Karatsuba+Yuval Mont body once. This is the default
     // u32 multiplier used by every MSM shader that includes the
     // `montgomery_product_funcs` mustache partial.
-    this.mont_product_src = montmul === 'cios_unrolled' ? this.renderCiosUnrolledMont() : this.renderKaratYuvalMont();
+    // cios_native shares cios_unrolled's BigInt body (for the montgomery_product
+    // partial that non-f8 callsites still use); the native f8 swap is separate.
+    this.mont_product_src =
+      montmul === 'cios_unrolled' || montmul === 'cios_native'
+        ? this.renderCiosUnrolledMont()
+        : this.renderKaratYuvalMont();
+    this.mont_f8_native_src = montmul === 'cios_native' ? montgomery_product_f8_native_funcs.trim() : '';
+    this.montmul = montmul;
 
     if (force_recompile) {
       const rand = Math.round(Math.random() * 100000000000000000) % 2 ** 32;
@@ -561,6 +582,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
@@ -608,6 +630,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
@@ -665,6 +688,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
@@ -832,6 +856,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
@@ -890,6 +915,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
@@ -952,6 +978,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
@@ -1009,6 +1036,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
@@ -1058,6 +1086,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
@@ -1409,10 +1438,15 @@ ${packLines.join('\n')}
     stride: number,
     m_red: number,
     variant: 'loop' | 'pk' = 'pk',
+    pk14 = false,
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    // pk14: the packed-native 14-bit safegcd inverse (Montgomery-form output via
+    // an e0=R^2 seed), consuming/producing the f8 packed form directly (inv_f8) —
+    // no BigInt round-trip. Adreno register-pressure win; byte-identical output.
+    // Otherwise the existing BigInt-roundtrip inverse (loop/pk).
+    const inverse_funcs = pk14 ? by_inverse_loop_pk14_native_funcs : by_inverse_loop_funcs;
+    const inv_fn = pk14 || variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_walker_shader,
@@ -1420,6 +1454,8 @@ ${packLines.join('\n')}
         workgroup_size,
         s,
         inv_fn,
+        inv_f8: pk14,
+        f8_native: this.montmul === 'cios_native',
         bw,
         stride,
         m_red,
@@ -1445,6 +1481,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
@@ -1532,6 +1569,7 @@ ${packLines.join('\n')}
         workgroup_size,
         s,
         inv_fn,
+        f8_native: this.montmul === 'cios_native',
         p8_consts,
         r8_csv,
         f8_words,
@@ -1554,6 +1592,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,
@@ -1581,6 +1620,7 @@ ${packLines.join('\n')}
         workgroup_size,
         s,
         inv_fn,
+        f8_native: this.montmul === 'cios_native',
         bw,
         stride,
         m_red,
@@ -1606,6 +1646,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
         fr_pow_funcs,

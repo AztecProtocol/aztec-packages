@@ -264,6 +264,13 @@ export interface MsmConfig {
   l0Log?: number;
   /** GPU field-inversion variant. Default 'pk' (2×13-packed safegcd). */
   invVariant?: 'loop' | 'pk';
+  /**
+   * Use the packed-native 14-bit safegcd inverse (e0=R² Montgomery-form output)
+   * in the stream_walker only — consumes/produces f8 directly, no BigInt round-
+   * trip. Adreno register-pressure win; byte-identical. Default false; other
+   * kernels keep `invVariant`. The win is the walker (the hot batched inversion).
+   */
+  pk14Inverse?: boolean;
   /** Base-field Montgomery-multiply body. Default 'karat'; 'cios_unrolled' is the
    *  device-validated register-resident CIOS variant (−26% on Mali-G715, BN254 only). */
   montmul?: MontMulVariant;
@@ -1858,6 +1865,7 @@ export class MsmV2 {
   private l0Log!: number;
   private reduceWg!: number;
   private invVariant!: 'loop' | 'pk';
+  private pk14Inverse = false;
   private montmul!: MontMulVariant;
   private addsub: 'native' | 'unpack' = 'native';
   private profile = false;
@@ -2229,6 +2237,7 @@ export class MsmV2 {
     m.l0Log = config?.l0Log ?? DEFAULT_L0_LOG;
     m.reduceWg = config?.reduceWg ?? pickReduceWg(m.c);
     m.invVariant = config?.invVariant ?? DEFAULT_INV_VARIANT;
+    m.pk14Inverse = config?.pk14Inverse ?? false;
     m.montmul = config?.montmul ?? 'karat';
     m.addsub = config?.addsub ?? 'native';
     m.jacobianCrossover = config?.jacobianCrossover ?? 0;
@@ -2904,7 +2913,7 @@ export class MsmV2 {
       m.partitionTaskLayout,
     );
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT),
+      sm.gen_ba_stream_walker_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT, m.pk14Inverse),
       `stream-walker`,
       m.streamWalkerLayout,
     );

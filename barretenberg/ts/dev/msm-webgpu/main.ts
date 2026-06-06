@@ -119,8 +119,15 @@ const gpuKnobs: MsmConfig = (() => {
     reduceWg: optInt('reducewg'),
     l0Log: optInt('l0log'),
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
+    pk14Inverse: q.get('pk14') === '1' || undefined,
     montmul:
-      q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
+      q.get('montmul') === 'cios_unrolled'
+        ? 'cios_unrolled'
+        : q.get('montmul') === 'cios_native'
+          ? 'cios_native'
+          : q.get('montmul') === 'karat'
+            ? 'karat'
+            : undefined,
     jacobianCrossover: (() => {
       const raw = q.get('jaccross');
       if (raw === null) return undefined;
