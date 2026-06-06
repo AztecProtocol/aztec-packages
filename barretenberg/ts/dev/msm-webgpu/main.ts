@@ -24,6 +24,7 @@
 import { bn254 } from '@noble/curves/bn254';
 
 import { get_device } from '../../src/msm_webgpu/cuzk/gpu.js';
+import { runMicrobench } from './microbench.js';
 import { MsmV2, MsmV2Pool, type MsmConfig, pickC, MEM_BUDGET } from '../../src/msm_webgpu/msm_v2.js';
 import { planBatch, computeGeom } from '../../src/msm_webgpu/batch_scheduler.js';
 import { runUnionPacks, type BridgeDescriptor } from '../../src/msm_webgpu/bridge/union_runner.js';
@@ -629,6 +630,46 @@ async function ensureWebGpuWarmed(inputs: TestInputs): Promise<MsmV2> {
   return msmV2;
 }
 
+// Measured GPU<->CPU clock calibration (NOT fitted to counters). Bracket each tiny GPU dispatch
+// between two CPU timestamps (REALTIME ns, convertible to the AGI counter clock MONOTONIC_RAW via
+// the trace's clock snapshot): the dispatch's own GPU begin/end timestamps must fall inside that
+// CPU bracket, so across many samples the brackets pin Dawn's GPU->CPU calibration offset directly.
+// Returns [cpu_before_ns, gpu_begin, gpu_end, cpu_after_ns] per sample.
+async function calibrateClock(device: GPUDevice, N = 96): Promise<Array<[string, string, string, string]>> {
+  const mod = device.createShaderModule({ code: '@compute @workgroup_size(1) fn main() {}' });
+  const pipe = await device.createComputePipelineAsync({
+    layout: 'auto',
+    compute: { module: mod, entryPoint: 'main' },
+  });
+  const qs = device.createQuerySet({ type: 'timestamp', count: 2 });
+  const resolve = device.createBuffer({ size: 16, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC });
+  const out: Array<[string, string, string, string]> = [];
+  for (let i = 0; i < N; i++) {
+    const stage = device.createBuffer({ size: 16, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const enc = device.createCommandEncoder();
+    const pass = enc.beginComputePass({
+      timestampWrites: { querySet: qs, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 },
+    });
+    pass.setPipeline(pipe);
+    pass.dispatchWorkgroups(1);
+    pass.end();
+    enc.resolveQuerySet(qs, 0, 2, resolve, 0);
+    enc.copyBufferToBuffer(resolve, 0, stage, 0, 16);
+    const tBefore = (performance.timeOrigin + performance.now()) * 1e6; // REALTIME ns
+    device.queue.submit([enc.finish()]);
+    await device.queue.onSubmittedWorkDone();
+    const tAfter = (performance.timeOrigin + performance.now()) * 1e6;
+    await stage.mapAsync(GPUMapMode.READ);
+    const ts = new BigUint64Array(stage.getMappedRange().slice(0));
+    stage.unmap();
+    stage.destroy();
+    out.push([Math.round(tBefore).toString(), ts[0].toString(), ts[1].toString(), Math.round(tAfter).toString()]);
+  }
+  qs.destroy();
+  resolve.destroy();
+  return out;
+}
+
 async function runWebGpuOnce(
   inputs: TestInputs,
 ): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture }> {
@@ -644,6 +685,9 @@ async function runWebGpuOnce(
   // those fresh buffers pays a one-time first-use cost (driver lazy
   // zero-init / first-touch). Warm it out of the timed window so the
   // measurement is steady-state GPU, matching the bench's reused buffers.
+  // Reset the per-pass timestamp accumulator so this rep's aligned-trace
+  // slices cover BOTH the warm-up and measured run() (run() appends).
+  (window as unknown as { __lastPassTimes?: Array<[string, string, string]> }).__lastPassTimes = [];
   await msm.run();
   const t0 = performance.now();
   const gpu = await msm.run();
@@ -2112,6 +2156,85 @@ function hideProgress(): void {
       // One warm-up run (builds + warms MsmV2 — outside the timed loop).
       log('info', `[bench] warmup run`);
       await runWebGpuOnce(inputs);
+
+      // Kernel-isolation profiling: ?iso=<kernel> loops ONE kernel ~13 s so an
+      // external GPU-counter capture attributes ALU/SFU/occupancy to exactly that
+      // kernel (timestamp-free — the WebGPU timestamp-query is quantized/coalesced
+      // and useless on-device). Kernels: size1 | stream_walker | combine_batched |
+      // pt_combine | reduce. See PROFILING_RUNBOOK.md.
+      const isoK = qp.get('iso');
+      if (isoK) {
+        const msm = await ensureWebGpuWarmed(inputs);
+        log('info', `[iso] looping ${isoK} for 13s (hold the counter capture over this)...`);
+        const iters = await msm.profileKernel(isoK, 13000);
+        log('ok', `[iso] DONE ${isoK}: ${iters} dispatches`);
+        log('ok', `[iso] state=done`);
+        const isoLines: string[] = [];
+        for (let i = 0; i < $log.children.length; i++) isoLines.push($log.children[i].textContent ?? '');
+        await client.postResults({
+          state: 'done',
+          params: { iso: isoK, logN: autorunLogN, page: 'iso' },
+          results: { iters },
+          log: isoLines.slice(-60),
+          userAgent: navigator.userAgent,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+        });
+        return;
+      }
+
+      // Clean per-dispatch trace: ?trace=1 runs ONE MSM per rep, with a 60ms idle
+      // gap so each rep's compute burst is a distinct plateau in the Perfetto
+      // capture. prepare()+warm-up happen ONCE here (outside the capture), so each
+      // recorded run is a single steady-state MSM. The app's own passTimes (Dawn
+      // timestamp queries, CLOCK_MONOTONIC_RAW — same clock as the counters) ARE
+      // the labeled timeline; calibrateClock pins the GPU<->CPU offset for the
+      // join. See PROFILING_RUNBOOK.md + join_passtimes.py.
+      if (qp.get('trace') === '1') {
+        const msm = await ensureWebGpuWarmed(inputs);
+        msm.prepare(inputs.scalarsBuf);
+        log('info', '[trace] warming buffers (prepare + 3 runs, outside capture)');
+        await msm.run();
+        await msm.run();
+        await msm.run();
+        await new Promise(res => setTimeout(res, 250)); // clear gap so warm-up can't blur into rep 1
+        const W = window as unknown as { __lastPassTimes?: Array<[string, string, string]> };
+        const traceSamples: {
+          wallMs: number;
+          gpuMs: number;
+          phases: Record<string, number>;
+          passTimes?: Array<[string, string, string]>;
+        }[] = [];
+        log('info', `[trace] ${reps} single MSM runs, 60ms idle between — hold the counter capture over this`);
+        for (let r = 0; r < reps; r++) {
+          W.__lastPassTimes = [];
+          const t0 = performance.now();
+          await msm.run();
+          const wallMs = performance.now() - t0;
+          const pt = W.__lastPassTimes ?? [];
+          traceSamples.push({ wallMs, gpuMs: 0, phases: {}, passTimes: pt });
+          log('info', `[trace] rep ${r + 1}/${reps}: wall=${wallMs.toFixed(1)}ms passes=${pt.length}`);
+          await new Promise(res => setTimeout(res, 60));
+        }
+        let traceCalib: Array<[string, string, string, string]> = [];
+        try {
+          traceCalib = gpuDevice ? await calibrateClock(gpuDevice) : [];
+        } catch {
+          /* ignore */
+        }
+        (window as unknown as { __benchSamples?: typeof traceSamples }).__benchSamples = traceSamples;
+        const traceLog: string[] = [];
+        for (let i = 0; i < $log.children.length; i++) traceLog.push($log.children[i].textContent ?? '');
+        await client.postResults({
+          state: 'done',
+          params: { logN: autorunLogN, reps, page: 'msm-bench' },
+          results: { samples: traceSamples, calib: traceCalib },
+          log: traceLog.slice(-60),
+          userAgent: navigator.userAgent,
+          hardwareConcurrency: navigator.hardwareConcurrency,
+        });
+        log('ok', `[bench] DONE (trace) ${reps} single runs posted`);
+        return;
+      }
       const samples: { wallMs: number; gpuMs: number; phases: Record<string, number> }[] = [];
       for (let r = 0; r < reps; r++) {
         const gpu = await runWebGpuOnce(inputs);
@@ -2632,6 +2755,57 @@ function hideProgress(): void {
     } catch (e) {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[batch-bench] state=error FATAL: ${msg}`);
+    }
+  } else if (autorun === 'micro') {
+    // Isolated montmul/inverse microbench (profiling harness):
+    //   ?autorun=micro&op=mul|inv&montmul=&pk14=1&chain_k=&threads=&reps=
+    // GPU-only, no WASM/SRS — hold a GPU-counter capture over the run to
+    // attribute one field op's cost independent of MSM geometry.
+    const op: 'mul' | 'inv' = qp.get('op') === 'inv' ? 'inv' : 'mul';
+    const montmul = (gpuKnobs.montmul ?? 'karat') as MsmConfig['montmul'];
+    const pk14 = gpuKnobs.pk14Inverse === true;
+    const chainK = parseInt(qp.get('chain_k') ?? (op === 'inv' ? '6' : '64'), 10);
+    const nthreads = parseInt(qp.get('threads') ?? '65536', 10);
+    const reps = parseInt(qp.get('reps') ?? '20', 10);
+    const client = makeResultsClient({ page: 'micro' });
+    const lines: string[] = [];
+    const mlog = (k: 'info' | 'ok' | 'err', m: string): void => {
+      lines.push(m);
+      log(k, m);
+    };
+    try {
+      mlog('info', `[micro] op=${op} montmul=${montmul} pk14=${pk14} K=${chainK} threads=${nthreads} reps=${reps}`);
+      const res = await runMicrobench({ op, montmul: montmul ?? 'karat', pk14, nthreads, chainK, reps });
+      mlog('ok', `[micro] median=${res.medianMs.toFixed(3)}ms min=${res.minMs.toFixed(3)}ms groups=${res.numGroups}`);
+      mlog('ok', `[micro] state=done`);
+      await client.postResults({
+        state: 'done',
+        params: { op, montmul, pk14, chainK, nthreads, reps, page: 'micro' },
+        results: {
+          medianMs: res.medianMs,
+          minMs: res.minMs,
+          walls: res.walls,
+          samples: res.walls.map(w => ({ wallMs: w })),
+          medianWallMs: res.medianMs,
+        },
+        error: null,
+        log: lines.slice(-50),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      mlog('err', `[micro] FATAL: ${msg}`);
+      mlog('err', `[micro] state=error`);
+      await client.postResults({
+        state: 'error',
+        params: { op, montmul, pk14, chainK, nthreads, reps, page: 'micro' },
+        results: null,
+        error: msg,
+        log: lines.slice(-50),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
     }
   }
 })();

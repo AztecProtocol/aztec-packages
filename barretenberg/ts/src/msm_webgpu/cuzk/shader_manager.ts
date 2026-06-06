@@ -54,6 +54,7 @@ import {
   field as field_funcs,
   field8 as field8_funcs,
   fr_pow as fr_pow_funcs,
+  microbench as microbench_shader,
   mont_pro_product_cios_unrolled as montgomery_product_cios_unrolled_funcs,
   mont_pro_product_f8_native as montgomery_product_f8_native_funcs,
   mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
@@ -532,6 +533,55 @@ ${packLines.join('\n')}
       throw new Error(`gen_csr_to_v2_meta_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     return mustache.render(csr_to_v2_meta_shader, { workgroup_size, recompile: this.recompile }, {});
+  }
+
+  /**
+   * Isolated montmul / inverse microbench (profiling harness). op='mul' chains
+   * the BigInt `montgomery_product` (the montmul body selected by `montmul`);
+   * op='inv' chains a field inverse. `pk14` selects the packed-14-bit safegcd
+   * inverse (f8 in/out, the walker's hot path) over the default BigInt loop
+   * inverse — the same two paths the stream-walker offers, so the microbench can
+   * attribute the inverse cost in isolation under a GPU-counter capture. Drives a
+   * dependent + stored chain so the work can't be DCE'd. See `runMicrobench`.
+   */
+  public gen_microbench_shader(op: 'mul' | 'inv', chain_k: number, nthreads: number, pk14 = false): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const inverse_funcs = pk14 ? by_inverse_loop_pk14_native_funcs : by_inverse_loop_funcs;
+    const inv_fn = pk14 ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    return mustache.render(
+      microbench_shader,
+      {
+        is_mul: op === 'mul',
+        is_inv: op === 'inv',
+        inv_f8: pk14,
+        inv_fn,
+        chain_k,
+        nthreads,
+        in_stride: 2 * this.num_words,
+        word_size: this.word_size,
+        num_words: this.num_words,
+        n0: this.n0,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        r_cubed_limbs: this.r_cubed_limbs,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_inv_by_a_lo: this.p_inv_by_a_lo,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        montgomery_product_funcs: this.mont_product_src,
+        field_funcs,
+        fr_pow_funcs,
+        bigint_by_funcs,
+        inverse_funcs,
+      },
+    );
   }
 
   /**

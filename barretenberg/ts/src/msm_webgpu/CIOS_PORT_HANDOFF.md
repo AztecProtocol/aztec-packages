@@ -17,11 +17,14 @@ wiring; the field/montgomery code is geometry-agnostic so the 6-colour arena,
 |---|---|
 | **1. Montmul — `f8_native`** | **DONE + validated**, committed |
 | **2. Inverse — `pk14_native`** | **DONE + validated**, committed |
-| **3. Profiling harness + Adreno/Mali runbook** | **NOT STARTED** — this is the remaining work |
+| **3a. Profiling harness (micro / iso / trace + SRS proxy)** | **DONE + M2-validated** (drives end-to-end; counters need the phone) |
+| **3b. `PROFILING_RUNBOOK.md`** | **DONE** — `src/msm_webgpu/PROFILING_RUNBOOK.md` |
+| **3c. On-phone measurement (default vs cios_native vs pk14)** | **PENDING — needs an Adreno/Mali device** (the runbook is the turnkey recipe) |
 
 All M2 validation is **correctness only** (byte-identical cross_ok vs the WASM
-oracle). The montmul/inverse speedups are **Adreno/Mali-only and UNMEASURED** —
-measuring them is the whole point of deliverable 3.
+oracle) plus harness-drives-end-to-end. The montmul/inverse speedups are
+**Adreno/Mali-only and still UNMEASURED** — running the runbook's measurement plan
+on a device is the only remaining step.
 
 ### "13 vs 15" reconciliation (don't re-confuse this)
 The branch explored native 17×15 (`cios15native`), measured it a wash, and DELETED
@@ -72,13 +75,31 @@ already in f8 Montgomery form** (no closing montmul). Only dep is
 
 ---
 
-## REMAINING WORK — deliverable 3: profiling harness + runbook
+## deliverable 3 — DONE (harness + runbook); on-phone measurement pending
 
-Goal: be able to attribute, on a real Adreno (Pixel/S25) and Mali (G715) phone,
-*where* the MSM spends time and *what bounds it*, so the cios_native / pk14 wins can
-be measured and the next optimization targeted.
+**The harness below is now ported + M2-validated, and the runbook is written
+(`src/msm_webgpu/PROFILING_RUNBOOK.md`).** The only remaining step is running the
+runbook's measurement plan on an Adreno/Mali device. What landed this pass:
 
-### Harness pieces to port from `wt-cios15n` (dev-side, geometry-agnostic)
+- `serveSrsProxy()` in `dev/msm-webgpu/vite.config.ts` + `srs.ts` same-origin-first
+  fetch (offline phone gets byte-identical SRS through the adb tunnel).
+- `dev/msm-webgpu/microbench.ts` + `wgsl/cuzk/microbench.template.wgsl` +
+  `ShaderManager.gen_microbench_shader(op, chain_k, nthreads, pk14)` →
+  `?autorun=micro&op=mul|inv&montmul=&pk14=1&chain_k=&threads=&reps=`.
+- `MsmV2.profileKernel()` re-pointed at the arena pipelines (`size1`,
+  `stream_walker`, `combine_batched`, `pt_combine`, `reduce`) → `?iso=<kernel>`.
+- `?trace=1` + `calibrateClock()` + `window.__lastPassTimes` (run() readback) +
+  `pushDebugGroup`/`popDebugGroup` on every compute pass (native GPU-timeline
+  labels under the `use_user_defined_labels_in_backend` Dawn flag).
+- **M2 drive-through (all green):** default cross_ok unregressed; cios_native+pk14
+  cross_ok (profile E); micro mul (karat/cios_native) + inv (loop/pk14) all compile
+  + run; all 5 `?iso=` kernels loop; `?trace=1` captures 107 passes/rep + calib;
+  shaders.ts regen is purely additive. Counters still need the phone.
+
+The original porting notes are kept below for reference; the runbook supersedes the
+methodology section.
+
+### Harness pieces ported from `wt-cios15n` (dev-side, geometry-agnostic)
 - `dev/msm-webgpu/microbench.ts` (+93) + `wgsl/cuzk/microbench.template.wgsl` (+58):
   isolated montmul/inverse microbench. `?autorun=micro&op=mul|inv&montmul=&chain_k=
   &threads=&reps=`. Dependent stored chain of K ops in the raw rep; minimal module

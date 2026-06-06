@@ -4504,9 +4504,15 @@ export class MsmV2 {
         passIdx++;
       }
       const pass = enc.beginComputePass(desc);
+      // Native GPU-timeline label: with content_shell launched under
+      // --enable-dawn-features=use_user_defined_labels_in_backend, Dawn emits
+      // this as vkCmdBeginDebugUtilsLabelEXT, so AGI/Perfetto render-stage slices
+      // carry the kernel name. No-op (negligible CPU, zero GPU) otherwise.
+      pass.pushDebugGroup(curPhase);
       pass.setPipeline(pipe);
       pass.setBindGroup(0, bind);
       pass.dispatchWorkgroups(Math.max(1, nx), Math.max(1, ny), 1);
+      pass.popDebugGroup();
       pass.end();
     };
 
@@ -4678,9 +4684,11 @@ export class MsmV2 {
           passIdx++;
         }
         const pass = enc.beginComputePass(desc);
+        pass.pushDebugGroup(curPhase); // native kernel label (see dispatch())
         pass.setPipeline(pipe);
         pass.setBindGroup(0, bind);
         pass.dispatchWorkgroupsIndirect(buf, off);
+        pass.popDebugGroup();
         pass.end();
       };
       setPhase('size1');
@@ -5015,11 +5023,23 @@ export class MsmV2 {
         await this.tsStagingBuf.mapAsync(GPUMapMode.READ);
         const tsArr = new BigUint64Array(this.tsStagingBuf.getMappedRange().slice(0));
         this.tsStagingBuf.unmap();
+        const passTimes: Array<[string, string, string]> = [];
         for (let p = 0; p < this.passCount; p++) {
           const dur = tsArr[2 * p + 1] - tsArr[2 * p];
           totalNs += dur;
           const phase = this.passPhases[p] ?? 'misc';
           phaseNs[phase] = (phaseNs[phase] ?? 0n) + dur;
+          // Absolute GPU-timestamp pair (CLOCK_MONOTONIC_RAW ns) — the same clock
+          // the AGI/Perfetto gpu.counters use, so these align directly on the
+          // counter timeline (join_passtimes.py). The pass label IS the kernel.
+          passTimes.push([phase, tsArr[2 * p].toString(), tsArr[2 * p + 1].toString()]);
+        }
+        if (typeof window !== 'undefined') {
+          // Accumulate across the warm-up + measured run() calls within one rep
+          // (runWebGpuOnce resets this before the warm-up) so the aligned trace
+          // labels BOTH GPU MSMs and leaves no unlabeled compute in the gaps.
+          const w = window as unknown as { __lastPassTimes?: Array<[string, string, string]> };
+          (w.__lastPassTimes ??= []).push(...passTimes);
         }
       } catch {
         // mapAsync raced (already-mapped from a prior run); skip this sample.
@@ -5060,6 +5080,73 @@ export class MsmV2 {
     let total = 0;
     for (const b of this.prepBuffers) total += b.size;
     return total;
+  }
+
+  /**
+   * Profiling-only kernel isolation. After a normal run() has populated every
+   * data-dependent buffer + indirect-arg buffer, re-dispatch ONE kernel in a
+   * tight loop for ~durationMs. It reads the same valid inputs each iteration,
+   * so the GPU does only that kernel's representative work — an external GPU
+   * counter capture (AGI/Perfetto over the window) then attributes ALU/SFU/
+   * occupancy to exactly this kernel with zero timestamp reconstruction (the
+   * WebGPU timestamp-query is quantized + coalesced and useless here; the
+   * counters are not). The output is meaningless; the counters measured over the
+   * window are the result. Returns dispatch count.
+   *
+   * Arena pipeline names (the V2 source's switch was keyed on the old V2 names):
+   *   size1 | stream_walker | combine_batched | pt_combine | reduce.
+   * The walker (bucket-accumulate) is the multiply peak; see the
+   * `msm-webgpu-*-gpu-profiling` memory notes + PROFILING_RUNBOOK.md.
+   */
+  async profileKernel(name: string, durationMs = 5000, perSubmit = 16): Promise<number> {
+    if (this.preparedFor === null) throw new Error('profileKernel: call prepare()+run() first');
+    const device = this.device;
+    const sc = this.pool.scratch!;
+    const spMeta = sc.streamPlannerMeta;
+    const one = (enc: GPUCommandEncoder): void => {
+      const pass = enc.beginComputePass();
+      switch (name) {
+        case 'size1':
+          pass.setPipeline(this.size1Pipe);
+          pass.setBindGroup(0, this.size1Binds[0]);
+          pass.dispatchWorkgroupsIndirect(spMeta, 8 * 4);
+          break;
+        case 'stream_walker':
+          pass.setPipeline(this.streamWalkerPipe);
+          pass.setBindGroup(0, this.streamWalkerBinds[0]);
+          pass.dispatchWorkgroupsIndirect(spMeta, 15 * 4);
+          break;
+        case 'combine_batched':
+          pass.setPipeline(this.combineBatchedPipe);
+          pass.setBindGroup(0, this.combineBatchedBinds[0]);
+          pass.dispatchWorkgroupsIndirect(sc.cbDispatchArgs, 0);
+          break;
+        case 'pt_combine':
+          pass.setPipeline(this.ptCombinePipe);
+          pass.setBindGroup(0, this.ptCombineBind);
+          pass.dispatchWorkgroupsIndirect(sc.ptCombineDispatchArgs, 0);
+          break;
+        case 'reduce':
+          pass.setPipeline(this.reduceLevelPipes[0]);
+          pass.setBindGroup(0, this.reduceLevelBinds[0]);
+          pass.dispatchWorkgroups(this.numWindows, 1, 1);
+          break;
+        default:
+          pass.end();
+          throw new Error('profileKernel: unknown kernel ' + name);
+      }
+      pass.end();
+    };
+    const t0 = performance.now();
+    let iters = 0;
+    while (performance.now() - t0 < durationMs) {
+      const enc = device.createCommandEncoder();
+      for (let i = 0; i < perSubmit; i++) one(enc);
+      device.queue.submit([enc.finish()]);
+      await device.queue.onSubmittedWorkDone();
+      iters += perSubmit;
+    }
+    return iters;
   }
 
   /**
