@@ -66,7 +66,6 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       ethereumSlotDuration: 8,
       aztecSlotDuration: 32,
       blockDurationMs: 6000,
-      l1PublishingTime: 8,
       enforceTimeTable: true,
       numberOfAccounts: 0,
       initialValidators: validators,
