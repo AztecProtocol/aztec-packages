@@ -1,0 +1,6 @@
+# runtime artifacts (binaries / venv / traces / results) — not source
+trace_processor
+venv/
+*.perfetto
+*.jsonl
+*_passtimes.json

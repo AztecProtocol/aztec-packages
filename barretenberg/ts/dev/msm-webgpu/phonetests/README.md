@@ -3,6 +3,29 @@
 Serial, lock-guarded phone benchmark drivers for the WebGPU MSM. The measurement
 methodology + counter interpretation live in `../../../src/msm_webgpu/PROFILING_RUNBOOK.md`.
 
+## Two kinds of measurement
+- **Wall timing** (how fast) → `phone-bench.sh` / `?autorun=msm-matrix`. See below.
+- **GPU hardware counters + a labeled perfetto trace** (WHY — per-kernel SFU/occupancy/
+  starvation, the register-pressure view) → **`gpu-profile.sh`**. This wraps the
+  `webgpu-gpu-trace` skill's gapit/perfetto machinery (capture.sh, label_trace.py,
+  kernel_counters.py — vendored here) with the MSM URLs.
+
+## `gpu-profile.sh` — per-kernel GPU counters + perfetto trace
+```
+gpu-profile.sh <port> "<msm-config-query>" <out-name> [logn] [reps] [profile] [for_s]
+# e.g. compare the walker's counters across montmuls:
+gpu-profile.sh 5210 ""                    baseline 17 12 A 78
+gpu-profile.sh 5210 "montmul=cios_native" native   17 12 A 78
+```
+It drives `?trace=1` under an AGI/gapit System Profiler capture (production driver, no
+Vulkan spy), then: `label_trace.py` promotes the native Mali debug-utils labels onto the
+render-stage slices (per-kernel GPU time), and `kernel_counters.py` averages each HW
+counter within those labeled slices (per-kernel SFU pipe util / occupancy / starvation /
+exec cycles). Output: a printed per-kernel counter table + `<out>_labeled.perfetto` for
+https://ui.perfetto.dev. Bootstraps its own venv + `trace_processor` on first run.
+**Mali uses `kernel_counters.py`, NOT `join_passtimes.py`** (that's the Adreno fallback;
+Mali coalesces pass-begins so the passTimes join is garbage — see the skill).
+
 ## Scripts
 - **`phone-bench.sh`** — THE canonical phone bench. Runs the whole phone session
   (cross-check + GPU-only timing for one config) under ONE exclusive `flock`, so a
