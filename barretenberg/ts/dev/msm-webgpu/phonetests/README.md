@@ -32,10 +32,24 @@ methodology + counter interpretation live in `../../../src/msm_webgpu/PROFILING_
 - Phone visible to `adb devices`, Chrome set up for WebGPU. Results JSONL + profiles
   are scratch artifacts under `~/localclaudebox/phonetests/` (outside the repo).
 
-## Example: montmul × inverse register-pressure matrix (logn=17, profile A)
+## FAST: the whole montmul × inverse matrix in ONE page load (`mode=matrix`)
+The slow way is one page reload per config (each reload re-inits WebGPU, reloads
+SRS, and recompiles all ~53 MSM pipelines). `mode=matrix` instead drives the
+`?autorun=msm-matrix` page, which loops every config IN-PAGE sharing one point pool
++ the WGSL-keyed pipeline cache — so montmul-independent kernels compile once and
+flipping pk14 only recompiles the walker. No WASM, no cross-check, no reloads.
 ```
-for MM in karat cios_unrolled cios_native; do
-  bash phone-bench.sh 5210 $MM 17 5
-  PK14=1 bash phone-bench.sh 5210 $MM 17 5
-done
+# args: <port> <montmul-ignored> <logn> <reps>; CONFIGS/PROFILE via env. mode=matrix is arg 5.
+CONFIGS='karat:loop,karat:pk14,cios_unrolled:loop,cios_unrolled:pk14,cios_native:loop,cios_native:pk14' \
+  bash phone-bench.sh 5210 x 17 8 matrix
+# -> PHONE_BENCH matrix montmul=... inv=... median_ms=... min_ms=... build_ms=... pct=...
+```
+Order the configs by montmul so pk14 toggles hit the cache. ~105 s for 6 configs at
+logn=17 (vs minutes of reloads). Correctness is covered by the M2 byte-identical
+oracle — this is pure GPU wall timing.
+
+## Slow path: one config per session (also does the WASM cross-check)
+```
+bash phone-bench.sh 5210 cios_native 17 5      # cross-check + timing, loop inverse
+PK14=1 bash phone-bench.sh 5210 cios_native 17 5   # ... pk14 inverse
 ```

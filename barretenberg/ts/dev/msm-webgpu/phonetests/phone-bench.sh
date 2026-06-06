@@ -113,6 +113,23 @@ if [ "$MODE" = micro ]; then
   exit 0
 fi
 
+# --- FAST matrix mode (MODE=matrix): ONE page load runs the whole montmul×inverse
+#     sweep IN-PAGE (shared point pool + WGSL-keyed pipeline cache, no WASM, no
+#     reloads). CONFIGS env = comma list of montmul:inv (inv=loop|pk14); order by
+#     montmul so pk14 toggles reuse the cache (walker-only recompile). ---
+if [ "$MODE" = matrix ]; then
+  CONFIGS="${CONFIGS:-karat:loop,karat:pk14,cios_unrolled:loop,cios_unrolled:pk14,cios_native:loop,cios_native:pk14}"
+  echo "[phone-bench] matrix logn=$LOGN reps=$REPS profile=$PROFILE configs=$CONFIGS ..."
+  MXROW=$(launch_and_wait "autorun=msm-matrix&logn=$LOGN&reps=$REPS&scalar_dist=profile&profile=$PROFILE&configs=$CONFIGS" matrix 360)
+  if [ -z "${MXROW:-}" ]; then
+    echo "PHONE_BENCH matrix=timeout"
+  else
+    printf '%s' "$MXROW" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const r=JSON.parse(d);const rows=r.results?.rows||[];const base=rows.find(x=>x.montmul==="karat"&&!x.pk14)?.median;rows.forEach(x=>console.log("PHONE_BENCH matrix montmul="+x.montmul+" inv="+(x.pk14?"pk14":"loop")+" median_ms="+x.median+" min_ms="+x.min+" build_ms="+x.buildMs+(base?" pct="+(x.median/base*100).toFixed(0):"")));}catch(e){console.log("PHONE_BENCH matrix=parsefail")}})'
+  fi
+  echo "[phone-bench] LOCK RELEASING $(date +%H:%M:%S) mode=matrix"
+  exit 0
+fi
+
 # --- 1) cross-check (correctness) ---
 echo "[phone-bench] cross-check ${MM}..."
 CCROW=$(launch_and_wait "autorun=msm-cross-check&logn=$LOGN&montmul=$MM&wordsize=${MSM_WS:-13}$PK14_Q" cc 240)

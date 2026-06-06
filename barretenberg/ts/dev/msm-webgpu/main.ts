@@ -2807,5 +2807,113 @@ function hideProgress(): void {
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
     }
+  } else if (autorun === 'msm-matrix') {
+    // FAST benchmark matrix — the iteration-speed path. ONE page load: acquire the
+    // device, decompress the SRS into ONE point pool, generate inputs, then loop
+    // over montmul×inverse configs IN-PAGE, building a fresh MsmV2 per config that
+    // shares the pool's WGSL-keyed pipeline cache. So montmul-independent kernels
+    // (planner/transpose/decompose/reduce-schedule) compile ONCE and are reused;
+    // flipping pk14 only recompiles the walker. NO WASM, NO cross-check, NO page
+    // reloads. Correctness is covered by the M2 byte-identical oracle; this is
+    // pure GPU wall timing (profile=false, wall-around-submit).
+    //   ?autorun=msm-matrix&logn=17&reps=8&scalar_dist=profile&profile=A
+    //     &configs=karat:loop,cios_unrolled:loop,cios_native:loop,karat:pk14,cios_unrolled:pk14,cios_native:pk14
+    const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
+    const reps = Math.max(1, parseInt(qp.get('reps') ?? '8', 10));
+    const warmups = Math.max(1, parseInt(qp.get('warmups') ?? '2', 10));
+    const configsStr =
+      qp.get('configs') ??
+      'karat:loop,cios_unrolled:loop,cios_native:loop,karat:pk14,cios_unrolled:pk14,cios_native:pk14';
+    const configs = configsStr.split(',').map(s => {
+      const [mm, inv] = s.split(':');
+      return { montmul: (mm || 'karat') as MsmConfig['montmul'], pk14: inv === 'pk14' };
+    });
+    const client = makeResultsClient({ page: 'msm-matrix' });
+    const lines: string[] = [];
+    const mlog = (k: 'info' | 'ok' | 'err', m: string): void => {
+      lines.push(m);
+      log(k, m);
+    };
+    try {
+      for (let i = 0; i < 1200 && srsBuf === null; i++) await new Promise(r => setTimeout(r, 500));
+      if (srsBuf === null) throw new Error('SRS never became ready');
+      $logn.value = String(autorunLogN);
+      $logn.dispatchEvent(new Event('input'));
+      const inputs = await generateInputs(autorunLogN, false);
+      if (gpuDevice === null) gpuDevice = await get_device();
+      const dist = `${qp.get('scalar_dist') ?? 'uniform'}${qp.get('profile') ? '/' + qp.get('profile') : ''}`;
+      mlog(
+        'info',
+        `[matrix] logN=${autorunLogN} reps=${reps} dist=${dist} configs=${configs.length} (one page load, shared pool+pipeline cache)`,
+      );
+      const tPool = performance.now();
+      const pool = await MsmV2Pool.create(gpuDevice, inputs.pointsBuf);
+      mlog(
+        'info',
+        `[matrix] pool (SRS decompress) ready in ${(performance.now() - tPool).toFixed(0)}ms — reused across all configs`,
+      );
+      const rows: Array<Record<string, unknown>> = [];
+      for (const cfg of configs) {
+        const knobs: MsmConfig = {
+          ...gpuKnobs,
+          montmul: cfg.montmul,
+          pk14Inverse: cfg.pk14,
+          profile: false,
+          combineOnHost: false,
+          warmupRuns: 0,
+        };
+        const tBuild = performance.now();
+        const msm = await MsmV2.create(gpuDevice, inputs.n, pool, knobs);
+        msm.prepare(inputs.scalarsBuf);
+        const buildMs = performance.now() - tBuild;
+        for (let w = 0; w < warmups; w++) await msm.run(); // first-use + steady-state warm
+        const walls: number[] = [];
+        for (let r = 0; r < reps; r++) {
+          const t0 = performance.now();
+          await msm.run();
+          walls.push(performance.now() - t0);
+        }
+        walls.sort((a, b) => a - b);
+        const median = walls[walls.length >> 1];
+        const min = walls[0];
+        rows.push({
+          montmul: cfg.montmul,
+          pk14: cfg.pk14,
+          median: +median.toFixed(1),
+          min: +min.toFixed(1),
+          buildMs: +buildMs.toFixed(0),
+          walls: walls.map(x => +x.toFixed(1)),
+        });
+        mlog(
+          'ok',
+          `[matrix] ${String(cfg.montmul).padEnd(13)} inv=${cfg.pk14 ? 'pk14' : 'loop'}: median=${median.toFixed(1)}ms min=${min.toFixed(1)}ms (build+compile ${buildMs.toFixed(0)}ms)`,
+        );
+        msm.destroy();
+      }
+      mlog('ok', `[matrix] state=done`);
+      (window as unknown as { __benchSamples?: unknown }).__benchSamples = { kind: 'matrix', dist, reps, rows };
+      await client.postResults({
+        state: 'done',
+        params: { logN: autorunLogN, reps, configs: configsStr, page: 'msm-matrix' },
+        results: { rows },
+        error: null,
+        log: lines.slice(-80),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      mlog('err', `[matrix] FATAL: ${msg}`);
+      mlog('err', `[matrix] state=error`);
+      await client.postResults({
+        state: 'error',
+        params: { configs: configsStr, page: 'msm-matrix' },
+        results: null,
+        error: msg,
+        log: lines.slice(-80),
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
   }
 })();
