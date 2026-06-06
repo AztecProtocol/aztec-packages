@@ -1,5 +1,6 @@
 import { median } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -80,8 +81,11 @@ export class PeerScoring {
   private readonly kvStore?: AztecAsyncKVStore;
   /** Backing store for bans, so they survive restarts. Undefined in tests/benchmarks (in-memory only). */
   private readonly bannedPeersStore?: AztecAsyncMap<string, BanRecord>;
-  /** Serializes the fire-and-forget ban writes so callers can await durability via flushBanPersistence. */
-  private banPersistenceQueue: Promise<void> = Promise.resolve();
+  /**
+   * Serializes the fire-and-forget ban writes so they never race each other, and so callers can
+   * await durability via flushBanPersistence. Only created when a store is configured.
+   */
+  private readonly banPersistenceQueue?: SerialQueue;
   /**
    * How long a peer remains banned once its score crosses MIN_SCORE_BEFORE_BAN. While banned, the
    * peer's persisted ban score is returned by getScore regardless of decay, so it cannot recover its
@@ -97,6 +101,10 @@ export class PeerScoring {
   ) {
     this.kvStore = store;
     this.bannedPeersStore = store?.openMap(BANNED_PEERS_MAP_NAME);
+    if (store) {
+      this.banPersistenceQueue = new SerialQueue();
+      this.banPersistenceQueue.start();
+    }
     this.banDurationMs = config.peerBanDurationSeconds * 1000;
     const orderedValues = config.peerPenaltyValues?.sort((a, b) => a - b);
     this.peerPenalties = {
@@ -181,26 +189,24 @@ export class PeerScoring {
   }
 
   /**
-   * Chains a ban-store mutation onto the persistence queue so writes are serialized and never lost
-   * to an unhandled rejection. No-op when no store is configured. The score map mutation that
-   * triggers this has already happened in memory, so getScore reflects the change immediately.
+   * Enqueues a ban-store mutation onto the serial persistence queue so writes run one at a time and
+   * never reject unhandled. No-op when no store is configured. The in-memory ban map has already
+   * been updated by the caller, so getScore reflects the change immediately regardless of the write.
    */
   private enqueueBanPersistence(
     op: (store: AztecAsyncMap<string, BanRecord>) => Promise<void>,
     errorMsg: string,
   ): void {
     const store = this.bannedPeersStore;
-    if (!store) {
+    if (!store || !this.banPersistenceQueue) {
       return;
     }
-    this.banPersistenceQueue = this.banPersistenceQueue
-      .then(() => op(store))
-      .catch(err => this.logger.error(errorMsg, err));
+    void this.banPersistenceQueue.put(() => op(store)).catch(err => this.logger.error(errorMsg, err));
   }
 
   /** Resolves once all pending ban writes have been flushed to the store (for graceful shutdown/tests). */
-  public flushBanPersistence(): Promise<void> {
-    return this.banPersistenceQueue;
+  public async flushBanPersistence(): Promise<void> {
+    await this.banPersistenceQueue?.syncPoint();
   }
 
   decayAllScores(): void {
