@@ -43,6 +43,7 @@ export type AttestationPoolApi = Pick<
   | 'getProposalsForSlot'
   | 'tryAddCheckpointProposal'
   | 'getCheckpointProposal'
+  | 'hasCheckpointProposalForSlot'
   | 'addOwnCheckpointAttestations'
   | 'tryAddCheckpointAttestation'
   | 'deleteOlderThan'
@@ -401,6 +402,11 @@ export class AttestationPool {
     }
 
     return undefined;
+  }
+
+  /** Returns whether any checkpoint proposal is retained for the given slot. */
+  public async hasCheckpointProposalForSlot(slot: SlotNumber): Promise<boolean> {
+    return (await this.getCheckpointProposal(slot)) !== undefined;
   }
 
   /**
