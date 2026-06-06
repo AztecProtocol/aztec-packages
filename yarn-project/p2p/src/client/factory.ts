@@ -47,6 +47,7 @@ export const P2P_STORE_NAME = 'p2p';
 export const P2P_ARCHIVE_STORE_NAME = 'p2p-archive';
 export const P2P_PEER_STORE_NAME = 'p2p-peers';
 export const P2P_ATTESTATION_STORE_NAME = 'p2p-attestation';
+export const P2P_PEER_SCORE_STORE_NAME = 'p2p-peer-score';
 
 export async function createP2PClient(
   inputConfig: P2PConfig & DataStoreConfig & ChainConfig,
@@ -80,6 +81,7 @@ export async function createP2PClient(
   const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, bindings);
   const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, bindings);
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 2, config, bindings);
+  const peerScoreStore = await createStore(P2P_PEER_SCORE_STORE_NAME, 1, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
   const rollupAddress = inputConfig.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
@@ -151,6 +153,7 @@ export async function createP2PClient(
     blockMinFeesProvider,
     store,
     peerStore,
+    peerScoreStore,
     mempools,
     deps.p2pServiceFactory,
     packageVersion,
@@ -236,6 +239,7 @@ async function createP2PService(
   blockMinFeesProvider: BlockMinFeesProvider,
   store: AztecAsyncKVStore,
   peerStore: AztecLMDBStoreV2,
+  peerScoreStore: AztecLMDBStoreV2,
   mempools: MemPools,
   p2pServiceFactory: P2PClientDeps['p2pServiceFactory'],
   packageVersion: string,
@@ -262,6 +266,7 @@ async function createP2PService(
     proofVerifier,
     worldStateSynchronizer,
     peerStore,
+    peerScoreStore,
     blockMinFeesProvider,
     telemetry,
     logger: logger.createChild(`libp2p_service`),
