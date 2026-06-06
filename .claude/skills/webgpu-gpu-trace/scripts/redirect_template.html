@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<!--
+  Param-less redirect page. `am start -d` mangles URLs containing `&`, so instead of
+  passing your real (multi-param) page URL to the capture, drop this file in your web
+  root as e.g. `agi_go.html`, edit the target below, and capture URL=.../agi_go.html.
+  The page auto-redirects with the full query string intact.
+
+  Your target page should AUTO-RUN the WebGPU algorithm on load (and ideally loop it a
+  few times) so the work lands inside the capture window with nothing to click.
+-->
+<meta charset="utf-8">
+<script>
+  location.replace('/path/to/your/page.html?autorun=1&size=large&reps=20');
+</script>
