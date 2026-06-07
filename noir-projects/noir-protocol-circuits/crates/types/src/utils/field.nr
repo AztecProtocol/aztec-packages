@@ -323,6 +323,18 @@ unconstrained fn sqrt_negative_one_test() {
 }
 
 #[test]
+unconstrained fn sqrt_negative_one_squares_back_test() {
+    let x = 0 - 1;
+    let root = sqrt(x).unwrap();
+    // Whichever root `sqrt` returns is a genuine square root of -1...
+    assert_eq(root * root, x);
+    // ...and so is its negation (the other root), which must be distinct.
+    let other_root = 0 - root;
+    assert_eq(other_root * other_root, x);
+    assert(root != other_root);
+}
+
+#[test]
 unconstrained fn validate_sqrt_hint_valid_test() {
     // 4 is a valid sqrt of 16
     validate_sqrt_hint(16, 4);
