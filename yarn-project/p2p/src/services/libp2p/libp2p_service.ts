@@ -426,7 +426,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       },
       connectionGater: {
         denyInboundConnection: (maConn: MultiaddrConnection) => {
-          const allowed = peerManager.isNodeAllowedToConnect(maConn.remoteAddr.nodeAddress().address);
+          const allowed = peerManager.isAddressAllowedToConnect(maConn.remoteAddr.nodeAddress().address);
           if (allowed) {
             return false;
           }
@@ -437,7 +437,7 @@ export class LibP2PService extends WithTracer implements P2PService {
         denyInboundEncryptedConnection: (peerId: PeerId, _maConn: MultiaddrConnection) => {
           //NOTE: it is not necessary to check address here because this was already done by
           // denyInboundConnection
-          const allowed = peerManager.isNodeAllowedToConnect(peerId);
+          const allowed = peerManager.isPeerAllowedToConnect(peerId);
           if (allowed) {
             return false;
           }
