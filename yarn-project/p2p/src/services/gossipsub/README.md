@@ -475,9 +475,7 @@ crosses into the **Banned** state, decay no longer applies until the ban expires
 
 ### Ban Persistence
 
-Score decay alone made bans toothless: a banned peer's score decayed back above the ban threshold within minutes,
-so a misbehaving peer could reconnect almost immediately. To fix this, once a peer's score drops below the ban
-threshold (`MIN_SCORE_BEFORE_BAN = -100`) the ban is **persisted** for a configurable duration:
+Once a peer's score drops below the ban threshold (`MIN_SCORE_BEFORE_BAN = -100`) the ban is **persisted** for a configurable duration:
 
 - The score the peer held when banned is recorded alongside an expiry timestamp, in memory and in a dedicated
   kv-store map (so bans survive restarts).

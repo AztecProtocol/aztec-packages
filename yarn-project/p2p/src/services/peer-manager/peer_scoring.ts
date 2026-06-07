@@ -77,9 +77,9 @@ export class PeerScoring {
 
   /** Active bans held in memory so getScore/getScoreState stay synchronous. Mirrors bannedPeersStore. */
   private bannedPeers: Map<string, BanRecord> = new Map();
-  /** The kv-store backing bans, kept so ban pruning can run in a single transaction. Undefined in tests/benchmarks. */
+  /** The kv-store backing bans, kept so ban pruning can run in a single transaction. */
   private readonly kvStore?: AztecAsyncKVStore;
-  /** Backing store for bans, so they survive restarts. Undefined in tests/benchmarks (in-memory only). */
+  /** Backing store for bans, so they survive restarts. */
   private readonly bannedPeersStore?: AztecAsyncMap<string, BanRecord>;
   /**
    * Serializes the fire-and-forget ban writes so they never race each other, and so callers can
@@ -247,8 +247,6 @@ export class PeerScoring {
     }
     const now = this.dateProvider.now();
     const expired: string[] = [];
-    // Only read inside the cursor iteration; collect expired entries to delete afterwards rather
-    // than mutating the map while its cursor is open.
     for await (const [peerId, record] of map.entriesAsync()) {
       if (record.expiry > now) {
         this.bannedPeers.set(peerId, record);
@@ -287,7 +285,7 @@ export class PeerScoring {
   }
 
   public getScoreState(peerId: string): PeerScoreState {
-    // Banned peers are persisted with a 24h expiry (see getScore / maybeBanPeer), so a banned peer
+    // Banned peers are persisted with a configured expiry (see getScore / maybeBanPeer), so a banned peer
     // stays banned for the full duration even across restarts and regardless of score decay.
     const score = this.getScore(peerId);
     if (score < MIN_SCORE_BEFORE_BAN) {

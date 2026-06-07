@@ -261,6 +261,8 @@ describe('PeerScoring ban persistence', () => {
     const scoring = await PeerScoring.new(config, store, undefined, dateProvider);
     scoring.updateScore(bannedPeerId, -150);
     await scoring.flushBanPersistence();
+    expect(scoring.getScore(bannedPeerId)).toBe(-150);
+    expect(scoring.getScoreState(bannedPeerId)).toBe(PeerScoreState.Banned);
 
     // The ban expires before the node comes back up.
     dateProvider.advanceTimeMs(DAY_MS + 1);
