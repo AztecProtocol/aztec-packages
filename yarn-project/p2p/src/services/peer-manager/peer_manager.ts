@@ -495,6 +495,13 @@ export class PeerManager implements PeerManagerInterface {
    * @returns: True if node is allowed to connect, otherwise false
    * */
   public isNodeAllowedToConnect(id: string | PeerId): boolean {
+    // Reject peers serving an active ban so they cannot reconnect for the ban duration. The
+    // encrypted-inbound gater passes a PeerId; the raw-inbound gater passes an IP, which won't match
+    // a peer-keyed ban but is caught by the encrypted hook once the PeerId is known.
+    if (this.peerScoring.getScoreState(id.toString()) === PeerScoreState.Banned) {
+      return false;
+    }
+
     const entry = this.failedAuthHandshakes.get(id.toString());
     if (!entry) {
       return true;

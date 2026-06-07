@@ -1778,6 +1778,23 @@ describe('PeerManager', () => {
       expect(peerManager.isNodeAllowedToConnect(ipAddress)).toBe(false);
     });
 
+    it('should deny connection from a banned peer', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+
+      // A peer with no penalties is allowed to connect.
+      expect(peerManager.isNodeAllowedToConnect(peerIdStr)).toBe(true);
+
+      // Drive the peer's score below the ban threshold (2 × LowTolerance + 1 × HighTolerance = -102).
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+
+      // The connection gater (via isNodeAllowedToConnect) now refuses the banned peer, so it cannot
+      // reconnect for the ban duration.
+      expect(peerManager.isNodeAllowedToConnect(peerIdStr)).toBe(false);
+    });
+
     it('should increment failure counters on subsequent failures', async () => {
       const peerId = await createSecp256k1PeerId();
       const peerIdStr = peerId.toString();
