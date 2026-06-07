@@ -178,6 +178,27 @@ describe('PeerScoring', () => {
     const stats = peerScoring.getStats();
     expect(stats.healthyCount).toBe(1);
   });
+
+  test('re-bans a peer whose previous ban has expired', () => {
+    const reBanPeerId = 'reBanPeer';
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    // Initial ban.
+    peerScoring.updateScore(reBanPeerId, -150);
+    expect(peerScoring.getScoreState(reBanPeerId)).toBe(PeerScoreState.Banned);
+
+    // Let the ban expire without anyone reading the peer's score, so the stale record lingers in the
+    // ban map (expired bans are only pruned lazily on read).
+    dateProvider.advanceTimeMs(DAY_MS + 1);
+
+    // A fresh offence after expiry must start a new ban window despite the stale record.
+    peerScoring.updateScore(reBanPeerId, -150);
+    // Recover the live score above the ban threshold so only a fresh ban floor can keep it banned.
+    peerScoring.updateScore(reBanPeerId, 200);
+
+    expect(peerScoring.getScore(reBanPeerId)).toBe(-150);
+    expect(peerScoring.getScoreState(reBanPeerId)).toBe(PeerScoreState.Banned);
+  });
 });
 
 describe('PeerScoring ban persistence', () => {

@@ -172,10 +172,11 @@ export class PeerScoring {
   /**
    * Records a ban for a peer whose score has crossed the ban threshold, persisting it with an
    * expiry banDurationMs in the future. No-op if the score is above the threshold or the peer is
-   * already banned (an existing ban is not extended; the original window stands).
+   * already serving an active ban (an existing ban is not extended; the original window stands). A
+   * previously expired ban does not block a fresh one — getActiveBanScore prunes it first.
    */
   private maybeBanPeer(peerId: string, score: number): void {
-    if (score >= MIN_SCORE_BEFORE_BAN || this.bannedPeers.has(peerId)) {
+    if (score >= MIN_SCORE_BEFORE_BAN || this.getActiveBanScore(peerId) !== undefined) {
       return;
     }
     const record: BanRecord = { score, expiry: this.dateProvider.now() + this.banDurationMs };
@@ -269,19 +270,30 @@ export class PeerScoring {
     this.lastUpdateTime.delete(peerId);
   }
 
-  getScore(peerId: string): number {
+  /**
+   * The single source of truth for whether a peer is banned. Returns the persisted ban score while
+   * the ban is active, or undefined if the peer is not banned. A ban that has expired is lazily
+   * lifted (removed in memory and in the store) before returning undefined, so callers never see a
+   * stale ban.
+   */
+  private getActiveBanScore(peerId: string): number | undefined {
     const ban = this.bannedPeers.get(peerId);
-    if (ban !== undefined) {
-      if (ban.expiry > this.dateProvider.now()) {
-        // Still banned: return the persisted ban score so the peer stays banned for the full
-        // duration regardless of how its live score has decayed.
-        return ban.score;
-      }
-      // Ban expired: lift it and fall through to the live score so the peer can recover.
-      this.bannedPeers.delete(peerId);
-      this.enqueueBanPersistence(store => store.delete(peerId), `Failed to remove expired ban for peer ${peerId}`);
+    if (ban === undefined) {
+      return undefined;
     }
-    return this.scores.get(peerId) || 0;
+    if (ban.expiry > this.dateProvider.now()) {
+      return ban.score;
+    }
+    // Ban expired: lift it so the peer can recover.
+    this.bannedPeers.delete(peerId);
+    this.enqueueBanPersistence(store => store.delete(peerId), `Failed to remove expired ban for peer ${peerId}`);
+    return undefined;
+  }
+
+  getScore(peerId: string): number {
+    // While a ban is active its persisted score is returned regardless of how the live score has
+    // decayed, so the peer stays banned for the full duration.
+    return this.getActiveBanScore(peerId) ?? this.scores.get(peerId) ?? 0;
   }
 
   public getScoreState(peerId: string): PeerScoreState {
