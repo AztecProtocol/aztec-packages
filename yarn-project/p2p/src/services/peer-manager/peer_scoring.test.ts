@@ -3,7 +3,7 @@ import { type AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 import { getP2PDefaultConfig } from '../../config.js';
-import { PeerScoreState, PeerScoring } from './peer_scoring.js';
+import { BANNED_PEERS_MAP_NAME, PeerScoreState, PeerScoring } from './peer_scoring.js';
 
 describe('PeerScoring', () => {
   let peerScoring: PeerScoring;
@@ -292,5 +292,21 @@ describe('PeerScoring ban persistence', () => {
     const restarted = await PeerScoring.new(config, store, undefined, dateProvider);
     expect(restarted.getScore(bannedPeerId)).toBe(0);
     expect(restarted.getScoreState(bannedPeerId)).toBe(PeerScoreState.Healthy);
+  });
+
+  it('drops bans whose score no longer constitutes a ban on restart', async () => {
+    // Simulate a ban persisted under a previous, more lenient ban threshold: a score that no longer
+    // crosses MIN_SCORE_BEFORE_BAN. Seed the store directly since such a ban cannot be created via
+    // the normal API under the current threshold.
+    const map = store.openMap<string, { score: number; expiry: number }>(BANNED_PEERS_MAP_NAME);
+    await map.set(bannedPeerId, { score: -60, expiry: dateProvider.now() + DAY_MS });
+
+    const restarted = await PeerScoring.new(config, store, undefined, dateProvider);
+
+    // The stale ban is not restored, so the peer is not pinned at the old floor.
+    expect(restarted.getScore(bannedPeerId)).toBe(0);
+    expect(restarted.getScoreState(bannedPeerId)).toBe(PeerScoreState.Healthy);
+    // And it was pruned from the store.
+    expect(await map.getAsync(bannedPeerId)).toBeUndefined();
   });
 });

@@ -62,8 +62,8 @@ const SCORE_CLEANUP_THRESHOLD = 0.1;
 /** A persisted ban: the score the peer held when banned, and the timestamp at which the ban lifts. */
 type BanRecord = { score: number; expiry: number };
 
-/** Name of the kv-store map used to persist bans across restarts. */
-const BANNED_PEERS_MAP_NAME = 'banned_peers';
+/** Name of the kv-store map used to persist bans across restarts. Exported for tests. */
+export const BANNED_PEERS_MAP_NAME = 'banned_peers';
 
 export class PeerScoring {
   private logger = createLogger('p2p:peer-scoring');
@@ -237,8 +237,11 @@ export class PeerScoring {
   }
 
   /**
-   * Loads persisted bans into memory, dropping any that have already expired. Must be called on
-   * startup before the peer manager begins querying scores, so bans survive restarts.
+   * Loads persisted bans into memory, dropping any that are no longer valid. Must be called on
+   * startup before the peer manager begins querying scores, so bans survive restarts. A ban is
+   * dropped if it has expired, or if its persisted score no longer crosses MIN_SCORE_BEFORE_BAN —
+   * the threshold may have changed across a software upgrade, and we should not pin a peer at a
+   * stale floor that would no longer constitute a ban.
    */
   public async restoreBannedPeers(): Promise<void> {
     const map = this.bannedPeersStore;
@@ -247,17 +250,17 @@ export class PeerScoring {
       return;
     }
     const now = this.dateProvider.now();
-    const expired: string[] = [];
+    const stale: string[] = [];
     for await (const [peerId, record] of map.entriesAsync()) {
-      if (record.expiry > now) {
+      if (record.expiry > now && record.score < MIN_SCORE_BEFORE_BAN) {
         this.bannedPeers.set(peerId, record);
       } else {
-        expired.push(peerId);
+        stale.push(peerId);
       }
     }
-    if (expired.length > 0) {
+    if (stale.length > 0) {
       await kvStore.transactionAsync(async () => {
-        for (const peerId of expired) {
+        for (const peerId of stale) {
           await map.delete(peerId);
         }
       });
