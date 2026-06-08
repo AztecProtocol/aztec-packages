@@ -1,4 +1,4 @@
-use crate::protocol::traits::Serialize;
+use crate::protocol::traits::{Deserialize, Serialize};
 
 /// A tagging secret the app supplies explicitly to `get_pending_tagged_logs`.
 ///
@@ -6,7 +6,7 @@ use crate::protocol::traits::Serialize;
 /// enumerate on its own (e.g. handshake-derived ones). `mode` is a delivery mode constant:
 /// [`ONCHAIN_UNCONSTRAINED`](crate::messages::delivery::ONCHAIN_UNCONSTRAINED) or
 /// [`ONCHAIN_CONSTRAINED`](crate::messages::delivery::ONCHAIN_CONSTRAINED).
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[allow(dead_code)]
 pub(crate) struct ProvidedSecret {
     pub secret: Field,

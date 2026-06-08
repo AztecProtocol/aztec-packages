@@ -15,6 +15,7 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
+import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
 import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -828,17 +829,24 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         callerContext: this.callerContext,
       };
 
-      const response = this.hooks
-        ? await this.hooks.authorizeUtilityCall(request)
-        : { authorized: false, reason: 'No execution hooks configured' };
+      // The HandshakeRegistry is called during every contract's sync to discover handshake secrets.
+      // It is a standard contract that only reads its own state, so it is always authorized.
+      const isHandshakeRegistryRead =
+        targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS) &&
+        functionSelector.equals(await FunctionSelector.fromSignature('get_handshakes(Field,u32)'));
+      if (!isHandshakeRegistryRead) {
+        const response = this.hooks
+          ? await this.hooks.authorizeUtilityCall(request)
+          : { authorized: false, reason: 'No execution hooks configured' };
 
-      if (!response.authorized) {
-        const reason = response.reason ? `: ${response.reason}` : '';
-        throw new Error(
-          `Cross-contract utility call denied${reason}. ${this.contractAddress} attempted to call ` +
-            `${targetContractAddress}:${functionSelector} (${targetArtifact.name}). ` +
-            `See https://docs.aztec.network/errors/11`,
-        );
+        if (!response.authorized) {
+          const reason = response.reason ? `: ${response.reason}` : '';
+          throw new Error(
+            `Cross-contract utility call denied${reason}. ${this.contractAddress} attempted to call ` +
+              `${targetContractAddress}:${functionSelector} (${targetArtifact.name}). ` +
+              `See https://docs.aztec.network/errors/11`,
+          );
+        }
       }
 
       await this.contractSyncService.ensureContractSynced(

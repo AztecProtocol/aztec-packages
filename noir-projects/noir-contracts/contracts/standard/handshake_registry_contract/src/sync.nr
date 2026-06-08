@@ -1,10 +1,9 @@
-use crate::HandshakeRegistry::DiscoveredHandshake;
-
 use aztec::{
     capsules::CapsuleArray,
     context::UtilityContext,
     ephemeral::EphemeralArray,
     messages::{
+        delivery::handshake::DiscoveredHandshake,
         discovery::{ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state},
         encryption::{aes128::AES128, message_encryption::MessageEncryption},
         processing::{
