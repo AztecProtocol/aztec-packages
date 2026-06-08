@@ -673,6 +673,10 @@ export async function setup(
     }
     // If skipAccountDeployment is true, we don't deploy or wait - tests will handle account deployment later
 
+    if (accounts.length > 0) {
+      await ensureHandshakeRegistryPublished(wallet, accounts[0]);
+    }
+
     // Now we restore the original minTxsPerBlock setting if we changed it.
     if (sequencerClient && config.minTxsPerBlock !== originalMinTxsPerBlock) {
       sequencerClient.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
