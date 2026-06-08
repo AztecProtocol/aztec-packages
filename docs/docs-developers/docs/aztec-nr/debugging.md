@@ -41,9 +41,8 @@ LOG_LEVEL=verbose aztec start --local-network
 
 Utility functions execute on the user's device and have access to private state. A cross-contract utility call made by
 a malicious or compromised contract could leak private information to an untrusted contract. PXE therefore denies cross-
-contract utility calls by default and requires explicit authorization via an execution hook. Calls to
-[standard contracts](../standard-contracts/index.md) (such as the HandshakeRegistry, which is queried during every
-contract's sync) are always automatically authorized.
+contract utility calls by default and requires explicit authorization via an execution hook. Calls to standard contracts
+(such as the HandshakeRegistry, which is queried during every contract's sync) are always automatically authorized.
 
 When a contract executes a utility function that calls into a different contract, PXE asks an **execution hook** whether the call should be allowed. If no hook is configured, or the hook denies the request, you will see:
 
