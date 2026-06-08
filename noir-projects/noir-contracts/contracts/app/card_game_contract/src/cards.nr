@@ -11,9 +11,7 @@ use aztec::{
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
         traits::{Deserialize, FromField, Packable, Serialize, ToField},
     },
-    state_vars::{
-        Owned, PrivateSet, RuntimeOwned, RuntimePrivateSet, RuntimeStateVariable, StateVariable,
-    },
+    state_vars::{RuntimeOwned, RuntimePrivateSet, RuntimeStateVariable, StateVariable},
 };
 use field_note::FieldNote;
 use std::meta::derive;

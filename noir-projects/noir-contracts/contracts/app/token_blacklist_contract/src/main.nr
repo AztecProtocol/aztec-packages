@@ -26,9 +26,7 @@ pub contract TokenBlacklist {
         },
         note::{note_getter_options::NoteGetterOptions, note_interface::{NoteHash, NoteProperties}},
         protocol::traits::ToField,
-        state_vars::{
-            DelayedPublicMutable, Map, Owned, PrivateSet, PublicMutable, RuntimeStateVariable,
-        },
+        state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicMutable, RuntimeStateVariable},
         utils::comparison::Comparator,
     };
 

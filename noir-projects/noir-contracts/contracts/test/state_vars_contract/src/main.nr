@@ -8,8 +8,8 @@ pub contract StateVars {
         messages::delivery::MessageDelivery,
         protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
         state_vars::{
-            RuntimeOwned, RuntimePrivateImmutable, RuntimePrivateMutable, RuntimePublicImmutable,
-            RuntimePublicMutable, RuntimeStateVariable,
+            RuntimeOwned, RuntimePrivateImmutable, RuntimePrivateMutable, RuntimePublicImmutable, RuntimePublicMutable,
+            RuntimeStateVariable,
         },
     };
 
