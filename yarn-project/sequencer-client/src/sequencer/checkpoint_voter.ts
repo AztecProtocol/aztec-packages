@@ -53,7 +53,7 @@ export class CheckpointVoter {
 
       return [enqueueGovernancePromise, enqueueSlashingPromise];
     } catch (err) {
-      this.log.error(`Error enqueueing governance and slashing votes`, err);
+      this.log.error('Error enqueueing governance and slashing votes', err);
       return [Promise.resolve(false), Promise.resolve(false)];
     }
   }
@@ -64,7 +64,7 @@ export class CheckpointVoter {
       return undefined;
     }
 
-    this.log.info(`Enqueuing vote for ${governanceProposerPayload} governance for slot ${this.slot}`, {
+    this.log.info('Enqueuing governance vote', {
       slot: this.slot,
       governanceProposerPayload: governanceProposerPayload.toString(),
     });
@@ -78,12 +78,12 @@ export class CheckpointVoter {
       );
     } catch (err) {
       if (err instanceof DutyAlreadySignedError) {
-        this.log.info(`Governance vote already signed by another node`, {
+        this.log.info('Governance vote already signed by another node', {
           slot: this.slot,
           signedByNode: err.signedByNode,
         });
       } else {
-        this.log.error(`Error enqueueing governance vote`, err);
+        this.log.error('Error enqueueing governance vote', err);
       }
       return false;
     }
@@ -96,7 +96,7 @@ export class CheckpointVoter {
         return undefined;
       }
 
-      this.log.info(`Enqueuing vote for ${actions.length} slashing actions for slot ${this.slot}`, {
+      this.log.info('Enqueuing slashing vote', {
         slot: this.slot,
         actionCount: actions.length,
       });
@@ -106,12 +106,12 @@ export class CheckpointVoter {
       return await this.publisher.enqueueSlashingActions(actions, this.slot, this.attestorAddress, this.slashingSigner);
     } catch (err) {
       if (err instanceof DutyAlreadySignedError) {
-        this.log.info(`Slashing vote already signed by another node`, {
+        this.log.info('Slashing vote already signed by another node', {
           slot: this.slot,
           signedByNode: err.signedByNode,
         });
       } else {
-        this.log.error(`Error enqueueing slashing vote`, err);
+        this.log.error('Error enqueueing slashing vote', err);
       }
       return false;
     }

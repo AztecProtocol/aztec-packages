@@ -293,7 +293,7 @@ export class SequencerPublisher {
     void this.failedTxStore
       .then(store => store?.saveFailedTx(tx))
       .catch(err => {
-        this.log.warn(`Failed to backup failed L1 tx to store`, err);
+        this.log.warn('Failed to backup failed L1 tx to store', err);
       });
   }
 
@@ -339,7 +339,7 @@ export class SequencerPublisher {
     const count = this.requests.length;
     this.requests = [];
     if (count > 0) {
-      this.log.debug(`Cleared ${count} pending request(s)`);
+      this.log.debug('Cleared pending requests', { count });
     }
   }
 
@@ -419,14 +419,14 @@ export class SequencerPublisher {
       return undefined;
     }
     const currentL2Slot = targetSlot ?? this.getCurrentL2Slot();
-    this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
+    this.log.debug('Sending requests on L2 slot', { currentL2Slot });
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
     const expiredActions = requestsToProcess
       .filter(request => request.lastValidL2Slot < currentL2Slot)
       .map(x => x.action);
 
     if (validRequests.length !== requestsToProcess.length) {
-      this.log.warn(`Some requests were expired for slot ${currentL2Slot}`, {
+      this.log.warn('Some requests were expired', { currentL2Slot,
         validRequests: validRequests.map(request => ({
           action: request.action,
           lastValidL2Slot: request.lastValidL2Slot,
@@ -439,7 +439,7 @@ export class SequencerPublisher {
     }
 
     if (validRequests.length === 0) {
-      this.log.debug(`No valid requests to send`);
+      this.log.debug('No valid requests to send');
       return undefined;
     }
 
@@ -497,7 +497,7 @@ export class SequencerPublisher {
       };
     } catch (err) {
       const viemError = formatViemError(err);
-      this.log.error(`Failed to publish bundled transactions`, viemError);
+      this.log.error('Failed to publish bundled transactions', viemError);
       return undefined;
     } finally {
       try {
@@ -506,7 +506,7 @@ export class SequencerPublisher {
           this.l1TxUtils.getSenderAddress().toString(),
         );
       } catch (err) {
-        this.log.warn(`Failed to record balance after sending tx: ${err}`);
+        this.log.warn('Failed to record balance after sending tx', { err: String(err) });
       }
     }
   }
@@ -565,7 +565,8 @@ export class SequencerPublisher {
 
     while (true) {
       if (txConfig.txTimeoutAt && new Date() > txConfig.txTimeoutAt) {
-        this.log.warn(`Tx timeout (${txConfig.txTimeoutAt.toISOString()}) elapsed; stopping publisher rotation`, {
+        this.log.warn('Tx timeout elapsed; stopping publisher rotation', {
+          txTimeoutAt: txConfig.txTimeoutAt.toISOString(),
           triedAddresses: triedAddresses.map(a => a.toString()),
         });
         return undefined;
@@ -597,17 +598,16 @@ export class SequencerPublisher {
           this.log.error('Failed to publish bundled transactions', viemError);
           return undefined;
         }
-        this.log.warn(
-          `Publisher ${currentPublisher.getSenderAddress()} failed to send, rotating to next publisher`,
-          viemError,
-        );
+        this.log.warn('Publisher failed to send, rotating to next publisher', {
+          publisher: currentPublisher.getSenderAddress().toString(),
+          error: viemError,
+        });
         const nextPublisher = await this.getNextPublisher([...triedAddresses]);
         if (!nextPublisher) {
-          this.log.error(
-            `All available publishers exhausted (tried ${triedAddresses.length}), failed to publish bundled transactions`,
-            viemError,
-            { triedAddresses: triedAddresses.map(a => a.toString()) },
-          );
+          this.log.error('All available publishers exhausted, failed to publish bundled transactions', viemError, {
+            triedAddressCount: triedAddresses.length,
+            triedAddresses: triedAddresses.map(a => a.toString()),
+          });
           return undefined;
         }
         currentPublisher = nextPublisher;
@@ -632,10 +632,7 @@ export class SequencerPublisher {
     const submitAfterMs = startOfTargetSlotMs - Number(this.ethereumSlotDuration) * 1000;
     const sleepMs = submitAfterMs - this.dateProvider.now();
     if (sleepMs > 0) {
-      this.log.debug(`Sleeping ${sleepMs}ms before sending requests`, {
-        targetSlot,
-        submitAfterMs,
-      });
+      this.log.debug('Sleeping before sending requests', { sleepMs, targetSlot, submitAfterMs });
       await this.interruptibleSleep.sleep(sleepMs);
     }
     if (this.interrupted) {
@@ -649,7 +646,7 @@ export class SequencerPublisher {
     result: { receipt: TransactionReceipt; multicallData: Hex },
   ) {
     const actionsListStr = requests.map(r => r.action).join(', ');
-    this.log.verbose(`Published bundled transactions (${actionsListStr})`, {
+    this.log.verbose('Published bundled transactions', { actions: actionsListStr,
       result,
       requests: requests.map(r => ({
         ...r,
@@ -696,7 +693,8 @@ export class SequencerPublisher {
       )
       .catch(err => {
         if (err instanceof FormattedViemError && expectedErrors.find(e => err.message.includes(e))) {
-          this.log.warn(`Failed canProposeAtTime check with ${expectedErrors.find(e => err.message.includes(e))}`, {
+          this.log.warn('Failed canProposeAtTime check', {
+            reason: expectedErrors.find(e => err.message.includes(e)),
             error: err.message,
           });
         } else {
@@ -754,7 +752,7 @@ export class SequencerPublisher {
       { time: ts },
       stateOverrides,
     );
-    this.log.debug(`Simulated validateHeader`);
+    this.log.debug('Simulated validateHeader');
   }
 
   /**
@@ -775,14 +773,14 @@ export class SequencerPublisher {
     const currentCheckpointNumber = await this.rollupContract.getCheckpointNumber();
     if (currentCheckpointNumber < checkpointNumber) {
       this.log.verbose(
-        `Skipping checkpoint ${checkpointNumber} invalidation since it has already been removed from the pending chain`,
-        { currentCheckpointNumber, ...logData },
+        'Skipping checkpoint invalidation since it has already been removed from the pending chain',
+        { checkpointNumber, currentCheckpointNumber, ...logData },
       );
       return undefined;
     }
 
     const request = this.buildInvalidateCheckpointRequest(validationResult);
-    this.log.debug(`Simulating invalidate checkpoint ${checkpointNumber}`, { ...logData, request });
+    this.log.debug('Simulating invalidate checkpoint', { checkpointNumber, ...logData, request });
 
     const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
 
@@ -793,7 +791,8 @@ export class SequencerPublisher {
         undefined,
         mergeAbis([request.abi ?? [], ErrorsAbi]),
       );
-      this.log.verbose(`Simulation for invalidate checkpoint ${checkpointNumber} succeeded`, {
+      this.log.verbose('Simulation for invalidate checkpoint succeeded', {
+        checkpointNumber,
         ...logData,
         request,
         gasUsed,
@@ -814,18 +813,18 @@ export class SequencerPublisher {
       // we can safely ignore it and return undefined so we go ahead with checkpoint building.
       if (viemError.message?.includes('Rollup__CheckpointNotInPendingChain')) {
         this.log.verbose(
-          `Simulation for invalidate checkpoint ${checkpointNumber} failed due to checkpoint not being in pending chain`,
-          { ...logData, request, error: viemError.message },
+          'Simulation for invalidate checkpoint failed due to checkpoint not being in pending chain',
+          { checkpointNumber, ...logData, request, error: viemError.message },
         );
         const latestProposedCheckpointNumber = await this.rollupContract.getCheckpointNumber();
         if (latestProposedCheckpointNumber < checkpointNumber) {
-          this.log.verbose(`Checkpoint ${checkpointNumber} has already been invalidated`, { ...logData });
+          this.log.verbose('Checkpoint has already been invalidated', { checkpointNumber, ...logData });
           return undefined;
         } else {
           this.log.error(
-            `Simulation for invalidate checkpoint ${checkpointNumber} failed and it is still in pending chain`,
+            'Simulation for invalidate checkpoint failed and it is still in pending chain',
             viemError,
-            logData,
+            { checkpointNumber, ...logData },
           );
           throw new Error(
             `Failed to simulate invalidate checkpoint ${checkpointNumber} while it is still in pending chain`,
@@ -837,7 +836,7 @@ export class SequencerPublisher {
       }
 
       // Otherwise, throw. We cannot build the next checkpoint if we cannot invalidate the previous one.
-      this.log.error(`Simulation for invalidate checkpoint ${checkpointNumber} failed`, viemError, logData);
+      this.log.error('Simulation for invalidate checkpoint failed', viemError, { checkpointNumber, ...logData });
       this.backupFailedTx({
         id: keccak256(request.data!),
         failureType: 'simulation',
@@ -861,7 +860,7 @@ export class SequencerPublisher {
 
     const { checkpoint, committee, reason } = validationResult;
     const logData = { ...checkpoint, reason };
-    this.log.debug(`Building invalidate checkpoint ${checkpoint.checkpointNumber} request`, logData);
+    this.log.debug('Building invalidate checkpoint request', logData);
 
     const attestationsAndSigners = CommitteeAttestationsAndSigners.packAttestations(validationResult.attestations);
 
@@ -893,14 +892,14 @@ export class SequencerPublisher {
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     if (this.lastActions[signalType] && this.lastActions[signalType] === slotNumber) {
-      this.log.debug(`Skipping duplicate vote cast signal ${signalType} for slot ${slotNumber}`);
+      this.log.debug('Skipping duplicate vote cast signal', { signalType, slotNumber });
       return false;
     }
     if (payload.equals(EthAddress.ZERO)) {
       return false;
     }
     if (signerAddress.equals(EthAddress.ZERO)) {
-      this.log.warn(`Cannot enqueue vote cast signal ${signalType} for address zero at slot ${slotNumber}`);
+      this.log.warn('Cannot enqueue vote cast signal for address zero', { signalType, slotNumber });
       return false;
     }
     const round = await base.computeRound(slotNumber);
@@ -915,7 +914,7 @@ export class SequencerPublisher {
     }
 
     if (await base.isPayloadEmpty(payload)) {
-      this.log.warn(`Skipping vote cast for payload with empty code`);
+      this.log.warn('Skipping vote cast for payload with empty code');
       return false;
     }
 
@@ -931,11 +930,13 @@ export class SequencerPublisher {
       // signal) on transient RPC errors would let a flaky L1 endpoint silence governance
       // participation entirely; failing open at worst produces a duplicate signal that the
       // contract will simply count alongside others in the round.
-      this.log.error(`Failed to check if payload ${payload} was already proposed (signalling anyway)`, err);
+      this.log.error('Failed to check if payload was already proposed (signalling anyway)', err, {
+        payload: payload.toString(),
+      });
     }
 
     if (proposed) {
-      this.log.info(`Payload ${payload} has a live governance proposal, stopping signals`);
+      this.log.info('Payload has a live governance proposal, stopping signals', { payload: payload.toString() });
       return false;
     }
 
@@ -950,7 +951,7 @@ export class SequencerPublisher {
       signerAddress.toString(),
       signer,
     );
-    this.log.debug(`Created ${action} request with signature`, {
+    this.log.debug('Created request with signature', { action,
       request,
       round,
       signer: this.l1TxUtils.client.account?.address,
@@ -971,19 +972,13 @@ export class SequencerPublisher {
             eventName: 'SignalCast',
           });
 
-        const logData = { ...result, slotNumber, round, payload: payload.toString() };
+        const logData = { ...result, action, slotNumber, round, payload: payload.toString() };
         if (!success) {
-          this.log.error(
-            `Signaling in ${action} for ${payload} at slot ${slotNumber} in round ${round} failed`,
-            logData,
-          );
+          this.log.error('Signaling failed', undefined, logData);
           this.lastActions[signalType] = cachedLastVote;
           return false;
         } else {
-          this.log.info(
-            `Signaling in ${action} for ${payload} at slot ${slotNumber} in round ${round} succeeded`,
-            logData,
-          );
+          this.log.info('Signaling succeeded', logData);
           return true;
         }
       },
@@ -1020,14 +1015,14 @@ export class SequencerPublisher {
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
     if (actions.length === 0) {
-      this.log.debug(`No slashing actions to enqueue for slot ${slotNumber}`);
+      this.log.debug('No slashing actions to enqueue for slot', { slotNumber });
       return false;
     }
 
     for (const action of actions) {
       switch (action.type) {
         case 'vote-offenses': {
-          this.log.debug(`Enqueuing slashing vote for ${action.votes.length} votes at slot ${slotNumber}`, {
+          this.log.debug('Enqueuing slashing vote', {
             slotNumber,
             round: action.round,
             votesCount: action.votes.length,
@@ -1053,7 +1048,7 @@ export class SequencerPublisher {
         }
 
         case 'execute-slash': {
-          this.log.debug(`Enqueuing slash execution for round ${action.round} at slot ${slotNumber}`, {
+          this.log.debug('Enqueuing slash execution', {
             slotNumber,
             round: action.round,
             signerAddress,
@@ -1110,7 +1105,7 @@ export class SequencerPublisher {
       feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     };
 
-    this.log.verbose(`Enqueuing checkpoint propose transaction`, {
+    this.log.verbose('Enqueuing checkpoint propose transaction', {
       ...checkpoint.toCheckpointInfo(),
       txTimeoutAt: opts.txTimeoutAt,
     });
@@ -1127,7 +1122,7 @@ export class SequencerPublisher {
 
     const { gasUsed, checkpointNumber } = request;
     const logData = { gasUsed, checkpointNumber, opts };
-    this.log.verbose(`Enqueuing invalidate checkpoint request`, logData);
+    this.log.verbose('Enqueuing invalidate checkpoint request', logData);
     this.addRequest({
       action: `invalidate-by-${request.reason}`,
       request: request.request,
@@ -1142,9 +1137,9 @@ export class SequencerPublisher {
             eventName: 'CheckpointInvalidated',
           });
         if (!success) {
-          this.log.warn(`Invalidate checkpoint ${request.checkpointNumber} failed`, { ...result, ...logData });
+          this.log.warn('Invalidate checkpoint failed', { ...result, ...logData });
         } else {
-          this.log.info(`Invalidate checkpoint ${request.checkpointNumber} succeeded`, { ...result, ...logData });
+          this.log.info('Invalidate checkpoint succeeded', { ...result, ...logData });
         }
         return !!success;
       },
@@ -1163,13 +1158,13 @@ export class SequencerPublisher {
     slotNumber: SlotNumber,
   ): boolean {
     if (this.lastActions[action] && this.lastActions[action] === slotNumber) {
-      this.log.debug(`Skipping duplicate action ${action} for slot ${slotNumber}`);
+      this.log.debug('Skipping duplicate action', { action, slotNumber });
       return false;
     }
     const cachedLastActionSlot = this.lastActions[action];
     this.lastActions[action] = slotNumber;
 
-    this.log.debug(`Enqueuing ${action}`, { slotNumber });
+    this.log.debug('Enqueuing action', { action, slotNumber });
     this.addRequest({
       action,
       request,
@@ -1177,10 +1172,10 @@ export class SequencerPublisher {
       checkSuccess: (_request, result) => {
         const success = result && extractEventSuccess(result.receipt, eventOpts);
         if (!success) {
-          this.log.warn(`Action ${action} at ${slotNumber} failed`, { ...result, slotNumber });
+          this.log.warn('Action failed', { ...result, action, slotNumber });
           this.lastActions[action] = cachedLastActionSlot;
         } else {
-          this.log.info(`Action ${action} at ${slotNumber} succeeded`, { ...result, slotNumber });
+          this.log.info('Action succeeded', { ...result, action, slotNumber });
         }
         return !!success;
       },
@@ -1217,7 +1212,7 @@ export class SequencerPublisher {
       // In fisherman mode, we can't estimate blob gas because estimateGas doesn't support state overrides
       // Use a fixed estimate.
       blobEvaluationGas = BigInt(encodedData.blobs.length) * 21_000n;
-      this.log.debug(`Using fixed blob evaluation gas estimate in fisherman mode: ${blobEvaluationGas}`);
+      this.log.debug('Using fixed blob evaluation gas estimate in fisherman mode', { blobEvaluationGas });
     } else {
       // We call validateBlobs via estimateGas with real blob+kzg sidecars as a consistency check
       // that our locally-built blob commitments match the blob data. The bundle simulate at send
@@ -1243,7 +1238,7 @@ export class SequencerPublisher {
         )
         .catch(async err => {
           const viemError = formatViemError(err);
-          this.log.error(`Failed to validate blobs`, viemError.message, { metaMessages: viemError.metaMessages });
+          this.log.error('Failed to validate blobs', viemError.message, { metaMessages: viemError.metaMessages });
           const validateBlobsData = encodeFunctionData({
             abi: RollupAbi,
             functionName: 'validateBlobs',
@@ -1347,21 +1342,24 @@ export class SequencerPublisher {
             blobCount: encodedData.blobs.length,
             inclusionBlocks,
           };
-          this.log.info(`Published checkpoint ${checkpoint.number} at slot ${slot} to rollup contract`, {
+          this.log.info('Published checkpoint to rollup contract', {
             ...stats,
             ...checkpoint.getStats(),
             ...pick(receipt, 'transactionHash', 'blockHash'),
+            checkpointNumber: checkpoint.number,
+            slot,
           });
           this.metrics.recordProcessBlockTx(timer.ms(), publishStats);
 
           return true;
         } else {
           this.metrics.recordFailedTx('process');
-          this.log.error(
-            `Publishing checkpoint at slot ${slot} failed with ${errorMsg ?? 'no error message'}`,
-            undefined,
-            { ...checkpoint.getStats(), ...receipt },
-          );
+          this.log.error('Publishing checkpoint failed', undefined, {
+            ...checkpoint.getStats(),
+            ...receipt,
+            slot,
+            errorMsg,
+          });
           return false;
         }
       },
