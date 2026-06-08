@@ -12,6 +12,7 @@
 #include "gate_patterns.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/relations/bilinear_or_batched_eq_check_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
@@ -66,7 +67,7 @@ template <typename EntitiesT> FF& get_wire(EntitiesT& entities, Wire wire)
 
 template <typename EntitiesT> Selectors make_selectors(const EntitiesT& entities, int64_t gate_selector_value)
 {
-    return Selectors{
+    Selectors selectors{
         .gate_selector = gate_selector_value,
         .q_m_nz = !entities.q_m().is_zero(),
         .q_1_nz = !entities.q_l().is_zero(),
@@ -75,6 +76,11 @@ template <typename EntitiesT> Selectors make_selectors(const EntitiesT& entities
         .q_4_nz = !entities.q_4().is_zero(),
         .q_c_nz = !entities.q_c().is_zero(),
     };
+    // q_5 is committed only in the Mega flavors (used by the bilinear gate's second product).
+    if constexpr (requires { entities.q_5(); }) {
+        selectors.q_5_nz = !entities.q_5().is_zero();
+    }
+    return selectors;
 }
 
 /**
@@ -335,6 +341,75 @@ TEST(PatternTest, DatabusRead)
                                                              MegaFlavor::EntityId::kernel_calldata_indicator,
                                                              MegaFlavor::EntityId::q_l>;
     verify_pattern<KernelCalldataLookup>(DATABUS, [](Entities& e) { return e.q_busread() = FF(1); });
+}
+
+TEST(PatternTest, BilinearFull)
+{
+    // BILINEAR mode (q_bilinear_batched_eq = 1): all selectors non-zero, so both products and all linear
+    // terms are present and the four wires are constrained.
+    verify_pattern<BilinearOrBatchedEqCheckRelation<FF>>(BILINEAR,
+                                                         [](Entities& e) { return e.q_bilinear_batched_eq() = FF(1); });
+}
+
+TEST(PatternTest, BilinearSecondProductAndItsLinearsAbsent)
+{
+    // BILINEAR mode with the second product (q_5) and the w_o/w_4 linear terms (q_o/q_4) zeroed: only
+    // w_l and w_r remain constrained.
+    verify_pattern<BilinearOrBatchedEqCheckRelation<FF>>(BILINEAR, [](Entities& e) {
+        e.q_5() = FF(0);
+        e.q_o() = FF(0);
+        e.q_4() = FF(0);
+        return e.q_bilinear_batched_eq() = FF(1);
+    });
+}
+
+TEST(PatternTest, BatchedEq)
+{
+    // BATCHED_EQ mode (q_bilinear_batched_eq = 2): two independent equalities. Each half-pattern claims its own
+    // pair of wires; their union must equal the wires the relation actually constrains.
+    Entities entities = get_random_entities();
+    entities.q_bilinear_batched_eq() = FF(2);
+
+    Selectors selectors = make_selectors(entities, 2);
+    auto half_1 = get_pattern_wires(BATCHED_EQ_HALF_1, selectors);
+    auto half_2 = get_pattern_wires(BATCHED_EQ_HALF_2, selectors);
+
+    EXPECT_EQ(half_1, (std::set<Wire>{ Wire::W_L, Wire::W_R }));
+    EXPECT_EQ(half_2, (std::set<Wire>{ Wire::W_O, Wire::W_4 }));
+
+    std::set<Wire> combined = half_1;
+    combined.insert(half_2.begin(), half_2.end());
+
+    auto parameters = RelationParameters<FF>::get_random();
+    auto actually_constrained =
+        get_actually_constrained_wires<BilinearOrBatchedEqCheckRelation<FF>>(entities, parameters);
+    EXPECT_EQ(actually_constrained, combined);
+}
+
+TEST(PatternTest, BatchedEqSingleHalf)
+{
+    // A single-half BATCHED_EQ row leaves batched-eq-half-2 zero (its q_o, q_4 selectors and the q_m constant), so
+    // only w_l and w_r are constrained and BATCHED_EQ_HALF_2 claims nothing.
+    Entities entities = get_random_entities();
+    entities.q_o() = FF(0);
+    entities.q_4() = FF(0);
+    entities.q_m() = FF(0);
+    entities.q_bilinear_batched_eq() = FF(2);
+
+    Selectors selectors = make_selectors(entities, 2);
+    auto half_1 = get_pattern_wires(BATCHED_EQ_HALF_1, selectors);
+    auto half_2 = get_pattern_wires(BATCHED_EQ_HALF_2, selectors);
+
+    EXPECT_EQ(half_1, (std::set<Wire>{ Wire::W_L, Wire::W_R }));
+    EXPECT_TRUE(half_2.empty());
+
+    std::set<Wire> combined = half_1;
+    combined.insert(half_2.begin(), half_2.end());
+
+    auto parameters = RelationParameters<FF>::get_random();
+    auto actually_constrained =
+        get_actually_constrained_wires<BilinearOrBatchedEqCheckRelation<FF>>(entities, parameters);
+    EXPECT_EQ(actually_constrained, combined);
 }
 
 // =============================================================================

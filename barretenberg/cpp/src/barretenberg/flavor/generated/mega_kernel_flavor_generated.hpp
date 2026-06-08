@@ -16,6 +16,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
+#include "barretenberg/relations/bilinear_or_batched_eq_check_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
@@ -42,68 +43,70 @@ class MegaKernelFlavor_Generated {
         q_4 = 4,
         q_c = 5,
         q_arith = 6,
-        sigma_1 = 7,
-        sigma_2 = 8,
-        sigma_3 = 9,
-        sigma_4 = 10,
-        id_1 = 11,
-        id_2 = 12,
-        id_3 = 13,
-        id_4 = 14,
-        lagrange_first = 15,
-        lagrange_last = 16,
-        q_delta_range = 17,
-        q_elliptic = 18,
-        q_memory = 19,
-        lagrange_ecc_op = 20,
-        q_busread = 21,
-        kernel_calldata_indicator = 22,
-        databus_id = 23,
-        first_app_calldata_indicator = 24,
-        second_app_calldata_indicator = 25,
-        third_app_calldata_indicator = 26,
-        return_data_indicator = 27,
-        q_poseidon2_external = 28,
-        q_poseidon2_external_initial = 29,
-        q_poseidon2_quad_internal = 30,
-        q_5 = 31,
-        q_poseidon2_quad_internal_terminal = 32,
-        q_poseidon2_transition_entry = 33,
-        w_l = 34,
-        w_r = 35,
-        w_o = 36,
-        w_4 = 37,
-        z_perm = 38,
-        ecc_op_wire_1 = 39,
-        ecc_op_wire_2 = 40,
-        ecc_op_wire_3 = 41,
-        ecc_op_wire_4 = 42,
-        kernel_calldata = 43,
-        kernel_calldata_read_counts = 44,
-        kernel_calldata_inverses = 45,
-        first_app_calldata = 46,
-        first_app_calldata_read_counts = 47,
-        first_app_calldata_inverses = 48,
-        second_app_calldata = 49,
-        second_app_calldata_read_counts = 50,
-        second_app_calldata_inverses = 51,
-        third_app_calldata = 52,
-        third_app_calldata_read_counts = 53,
-        third_app_calldata_inverses = 54,
-        return_data = 55,
-        return_data_read_counts = 56,
-        return_data_inverses = 57,
-        w_l_shift = 58,
-        w_r_shift = 59,
-        w_o_shift = 60,
-        w_4_shift = 61,
-        z_perm_shift = 62,
+        q_bilinear_batched_eq = 7,
+        sigma_1 = 8,
+        sigma_2 = 9,
+        sigma_3 = 10,
+        sigma_4 = 11,
+        id_1 = 12,
+        id_2 = 13,
+        id_3 = 14,
+        id_4 = 15,
+        lagrange_first = 16,
+        lagrange_last = 17,
+        q_delta_range = 18,
+        q_elliptic = 19,
+        q_memory = 20,
+        lagrange_ecc_op = 21,
+        q_busread = 22,
+        kernel_calldata_indicator = 23,
+        databus_id = 24,
+        first_app_calldata_indicator = 25,
+        second_app_calldata_indicator = 26,
+        third_app_calldata_indicator = 27,
+        return_data_indicator = 28,
+        q_poseidon2_external = 29,
+        q_poseidon2_external_initial = 30,
+        q_poseidon2_quad_internal = 31,
+        q_5 = 32,
+        q_poseidon2_quad_internal_terminal = 33,
+        q_poseidon2_transition_entry = 34,
+        w_l = 35,
+        w_r = 36,
+        w_o = 37,
+        w_4 = 38,
+        z_perm = 39,
+        ecc_op_wire_1 = 40,
+        ecc_op_wire_2 = 41,
+        ecc_op_wire_3 = 42,
+        ecc_op_wire_4 = 43,
+        kernel_calldata = 44,
+        kernel_calldata_read_counts = 45,
+        kernel_calldata_inverses = 46,
+        first_app_calldata = 47,
+        first_app_calldata_read_counts = 48,
+        first_app_calldata_inverses = 49,
+        second_app_calldata = 50,
+        second_app_calldata_read_counts = 51,
+        second_app_calldata_inverses = 52,
+        third_app_calldata = 53,
+        third_app_calldata_read_counts = 54,
+        third_app_calldata_inverses = 55,
+        return_data = 56,
+        return_data_read_counts = 57,
+        return_data_inverses = 58,
+        w_l_shift = 59,
+        w_r_shift = 60,
+        w_o_shift = 61,
+        w_4_shift = 62,
+        z_perm_shift = 63,
     };
 
     // Sumcheck relation tuple. Source of truth is
     // flavor-codegen/src/flavors/mega_kernel.ts; structural relations are omitted.
     template <typename FF>
     using Relations_ = std::tuple<bb::ArithmeticRelation<FF>,
+                                  bb::BilinearOrBatchedEqCheckRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
@@ -145,7 +148,7 @@ class MegaKernelFlavor_Generated {
                                   bb::Poseidon2QuadInternalTerminalRelation<FF>,
                                   bb::Poseidon2TransitionEntryRelation<FF>>;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 34;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 35;
     static constexpr size_t NUM_WITNESS_ENTITIES = 24;
     static constexpr size_t NUM_MASKING_ENTITIES = 0;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
@@ -166,8 +169,8 @@ class MegaKernelFlavor_Generated {
     // Per-shifted-entity (original, duplicate) index pairs in AllEntities, one per shifted
     // entity. Collapsed into `RepeatedCommitmentsData` below for Shplemini compatibility.
     static constexpr std::array<DuplicatePair, NUM_SHIFTED_ENTITIES> REPEATED_COMMITMENT_PAIRS = {
-        DuplicatePair{ 34, 58 }, DuplicatePair{ 35, 59 }, DuplicatePair{ 36, 60 },
-        DuplicatePair{ 37, 61 }, DuplicatePair{ 38, 62 },
+        DuplicatePair{ 35, 59 }, DuplicatePair{ 36, 60 }, DuplicatePair{ 37, 61 },
+        DuplicatePair{ 38, 62 }, DuplicatePair{ 39, 63 },
     };
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         repeated_commitments_from_pairs(REPEATED_COMMITMENT_PAIRS);
@@ -176,7 +179,8 @@ class MegaKernelFlavor_Generated {
     template <typename TraceBlocks> static auto get_gate_blocks(TraceBlocks& blocks)
     {
         using BlockBase = typename TraceBlocks::BlockBase;
-        return RefArray<BlockBase, 10>(std::array<BlockBase*, 10>{
+        return RefArray<BlockBase, 11>(std::array<BlockBase*, 11>{
+            &blocks.arithmetic,
             &blocks.arithmetic,
             &blocks.delta_range,
             &blocks.elliptic,
@@ -193,7 +197,8 @@ class MegaKernelFlavor_Generated {
     template <typename TraceBlocks> static auto get_gate_blocks(TraceBlocks const& blocks)
     {
         using BlockBase = typename TraceBlocks::BlockBase;
-        return RefArray<const BlockBase, 10>(std::array<const BlockBase*, 10>{
+        return RefArray<const BlockBase, 11>(std::array<const BlockBase*, 11>{
+            &blocks.arithmetic,
             &blocks.arithmetic,
             &blocks.delta_range,
             &blocks.elliptic,
@@ -208,8 +213,9 @@ class MegaKernelFlavor_Generated {
     }
 
     // GateKind for each gate selector, parallel to `get_gate_blocks()`.
-    static constexpr std::array<GateKind, 10> GATE_KINDS{
+    static constexpr std::array<GateKind, 11> GATE_KINDS{
         GateKind::Arith,
+        GateKind::BilinearBatchedEq,
         GateKind::DeltaRange,
         GateKind::Elliptic,
         GateKind::Memory,
@@ -257,6 +263,11 @@ class MegaKernelFlavor_Generated {
         const DataType& q_c() const { return data[static_cast<size_t>(EntityId::q_c)]; }
         DataType& q_arith() { return data[static_cast<size_t>(EntityId::q_arith)]; }
         const DataType& q_arith() const { return data[static_cast<size_t>(EntityId::q_arith)]; }
+        DataType& q_bilinear_batched_eq() { return data[static_cast<size_t>(EntityId::q_bilinear_batched_eq)]; }
+        const DataType& q_bilinear_batched_eq() const
+        {
+            return data[static_cast<size_t>(EntityId::q_bilinear_batched_eq)];
+        }
         DataType& sigma_1() { return data[static_cast<size_t>(EntityId::sigma_1)]; }
         const DataType& sigma_1() const { return data[static_cast<size_t>(EntityId::sigma_1)]; }
         DataType& sigma_2() { return data[static_cast<size_t>(EntityId::sigma_2)]; }
@@ -502,11 +513,11 @@ class MegaKernelFlavor_Generated {
         }
         std::span<DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted()
         {
-            return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (34), NUM_SHIFTED_ENTITIES };
+            return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (35), NUM_SHIFTED_ENTITIES };
         }
         std::span<const DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted() const
         {
-            return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (34), NUM_SHIFTED_ENTITIES };
+            return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (35), NUM_SHIFTED_ENTITIES };
         }
         std::span<DataType, NUM_SHIFTED_ENTITIES> get_shifted()
         {
@@ -538,9 +549,10 @@ class MegaKernelFlavor_Generated {
             return { (*this)[EntityId::q_m], (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o],
                      (*this)[EntityId::q_4], (*this)[EntityId::q_c], (*this)[EntityId::q_5] };
         }
-        RefArray<DataType, 10> get_gate_selectors()
+        RefArray<DataType, 11> get_gate_selectors()
         {
             return { (*this)[EntityId::q_arith],
+                     (*this)[EntityId::q_bilinear_batched_eq],
                      (*this)[EntityId::q_delta_range],
                      (*this)[EntityId::q_elliptic],
                      (*this)[EntityId::q_memory],
@@ -551,9 +563,10 @@ class MegaKernelFlavor_Generated {
                      (*this)[EntityId::q_poseidon2_quad_internal_terminal],
                      (*this)[EntityId::q_poseidon2_transition_entry] };
         }
-        RefArray<const DataType, 10> get_gate_selectors() const
+        RefArray<const DataType, 11> get_gate_selectors() const
         {
             return { (*this)[EntityId::q_arith],
+                     (*this)[EntityId::q_bilinear_batched_eq],
                      (*this)[EntityId::q_delta_range],
                      (*this)[EntityId::q_elliptic],
                      (*this)[EntityId::q_memory],
@@ -684,6 +697,7 @@ class MegaKernelFlavor_Generated {
                 "Q_4",
                 "Q_C",
                 "Q_ARITH",
+                "Q_BILINEAR_BATCHED_EQ",
                 "SIGMA_1",
                 "SIGMA_2",
                 "SIGMA_3",
@@ -773,60 +787,62 @@ class MegaKernelFlavor_Generated {
         const DataType& q_c() const { return data[5]; }
         DataType& q_arith() { return data[6]; }
         const DataType& q_arith() const { return data[6]; }
-        DataType& sigma_1() { return data[7]; }
-        const DataType& sigma_1() const { return data[7]; }
-        DataType& sigma_2() { return data[8]; }
-        const DataType& sigma_2() const { return data[8]; }
-        DataType& sigma_3() { return data[9]; }
-        const DataType& sigma_3() const { return data[9]; }
-        DataType& sigma_4() { return data[10]; }
-        const DataType& sigma_4() const { return data[10]; }
-        DataType& id_1() { return data[11]; }
-        const DataType& id_1() const { return data[11]; }
-        DataType& id_2() { return data[12]; }
-        const DataType& id_2() const { return data[12]; }
-        DataType& id_3() { return data[13]; }
-        const DataType& id_3() const { return data[13]; }
-        DataType& id_4() { return data[14]; }
-        const DataType& id_4() const { return data[14]; }
-        DataType& lagrange_first() { return data[15]; }
-        const DataType& lagrange_first() const { return data[15]; }
-        DataType& lagrange_last() { return data[16]; }
-        const DataType& lagrange_last() const { return data[16]; }
-        DataType& q_delta_range() { return data[17]; }
-        const DataType& q_delta_range() const { return data[17]; }
-        DataType& q_elliptic() { return data[18]; }
-        const DataType& q_elliptic() const { return data[18]; }
-        DataType& q_memory() { return data[19]; }
-        const DataType& q_memory() const { return data[19]; }
-        DataType& lagrange_ecc_op() { return data[20]; }
-        const DataType& lagrange_ecc_op() const { return data[20]; }
-        DataType& q_busread() { return data[21]; }
-        const DataType& q_busread() const { return data[21]; }
-        DataType& kernel_calldata_indicator() { return data[22]; }
-        const DataType& kernel_calldata_indicator() const { return data[22]; }
-        DataType& databus_id() { return data[23]; }
-        const DataType& databus_id() const { return data[23]; }
-        DataType& first_app_calldata_indicator() { return data[24]; }
-        const DataType& first_app_calldata_indicator() const { return data[24]; }
-        DataType& second_app_calldata_indicator() { return data[25]; }
-        const DataType& second_app_calldata_indicator() const { return data[25]; }
-        DataType& third_app_calldata_indicator() { return data[26]; }
-        const DataType& third_app_calldata_indicator() const { return data[26]; }
-        DataType& return_data_indicator() { return data[27]; }
-        const DataType& return_data_indicator() const { return data[27]; }
-        DataType& q_poseidon2_external() { return data[28]; }
-        const DataType& q_poseidon2_external() const { return data[28]; }
-        DataType& q_poseidon2_external_initial() { return data[29]; }
-        const DataType& q_poseidon2_external_initial() const { return data[29]; }
-        DataType& q_poseidon2_quad_internal() { return data[30]; }
-        const DataType& q_poseidon2_quad_internal() const { return data[30]; }
-        DataType& q_5() { return data[31]; }
-        const DataType& q_5() const { return data[31]; }
-        DataType& q_poseidon2_quad_internal_terminal() { return data[32]; }
-        const DataType& q_poseidon2_quad_internal_terminal() const { return data[32]; }
-        DataType& q_poseidon2_transition_entry() { return data[33]; }
-        const DataType& q_poseidon2_transition_entry() const { return data[33]; }
+        DataType& q_bilinear_batched_eq() { return data[7]; }
+        const DataType& q_bilinear_batched_eq() const { return data[7]; }
+        DataType& sigma_1() { return data[8]; }
+        const DataType& sigma_1() const { return data[8]; }
+        DataType& sigma_2() { return data[9]; }
+        const DataType& sigma_2() const { return data[9]; }
+        DataType& sigma_3() { return data[10]; }
+        const DataType& sigma_3() const { return data[10]; }
+        DataType& sigma_4() { return data[11]; }
+        const DataType& sigma_4() const { return data[11]; }
+        DataType& id_1() { return data[12]; }
+        const DataType& id_1() const { return data[12]; }
+        DataType& id_2() { return data[13]; }
+        const DataType& id_2() const { return data[13]; }
+        DataType& id_3() { return data[14]; }
+        const DataType& id_3() const { return data[14]; }
+        DataType& id_4() { return data[15]; }
+        const DataType& id_4() const { return data[15]; }
+        DataType& lagrange_first() { return data[16]; }
+        const DataType& lagrange_first() const { return data[16]; }
+        DataType& lagrange_last() { return data[17]; }
+        const DataType& lagrange_last() const { return data[17]; }
+        DataType& q_delta_range() { return data[18]; }
+        const DataType& q_delta_range() const { return data[18]; }
+        DataType& q_elliptic() { return data[19]; }
+        const DataType& q_elliptic() const { return data[19]; }
+        DataType& q_memory() { return data[20]; }
+        const DataType& q_memory() const { return data[20]; }
+        DataType& lagrange_ecc_op() { return data[21]; }
+        const DataType& lagrange_ecc_op() const { return data[21]; }
+        DataType& q_busread() { return data[22]; }
+        const DataType& q_busread() const { return data[22]; }
+        DataType& kernel_calldata_indicator() { return data[23]; }
+        const DataType& kernel_calldata_indicator() const { return data[23]; }
+        DataType& databus_id() { return data[24]; }
+        const DataType& databus_id() const { return data[24]; }
+        DataType& first_app_calldata_indicator() { return data[25]; }
+        const DataType& first_app_calldata_indicator() const { return data[25]; }
+        DataType& second_app_calldata_indicator() { return data[26]; }
+        const DataType& second_app_calldata_indicator() const { return data[26]; }
+        DataType& third_app_calldata_indicator() { return data[27]; }
+        const DataType& third_app_calldata_indicator() const { return data[27]; }
+        DataType& return_data_indicator() { return data[28]; }
+        const DataType& return_data_indicator() const { return data[28]; }
+        DataType& q_poseidon2_external() { return data[29]; }
+        const DataType& q_poseidon2_external() const { return data[29]; }
+        DataType& q_poseidon2_external_initial() { return data[30]; }
+        const DataType& q_poseidon2_external_initial() const { return data[30]; }
+        DataType& q_poseidon2_quad_internal() { return data[31]; }
+        const DataType& q_poseidon2_quad_internal() const { return data[31]; }
+        DataType& q_5() { return data[32]; }
+        const DataType& q_5() const { return data[32]; }
+        DataType& q_poseidon2_quad_internal_terminal() { return data[33]; }
+        const DataType& q_poseidon2_quad_internal_terminal() const { return data[33]; }
+        DataType& q_poseidon2_transition_entry() { return data[34]; }
+        const DataType& q_poseidon2_transition_entry() const { return data[34]; }
 
         // Subset views.
         RefArray<DataType, 7> get_non_gate_selectors()
@@ -837,9 +853,10 @@ class MegaKernelFlavor_Generated {
         {
             return { this->q_m(), this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_c(), this->q_5() };
         }
-        RefArray<DataType, 10> get_gate_selectors()
+        RefArray<DataType, 11> get_gate_selectors()
         {
             return { this->q_arith(),
+                     this->q_bilinear_batched_eq(),
                      this->q_delta_range(),
                      this->q_elliptic(),
                      this->q_memory(),
@@ -850,9 +867,10 @@ class MegaKernelFlavor_Generated {
                      this->q_poseidon2_quad_internal_terminal(),
                      this->q_poseidon2_transition_entry() };
         }
-        RefArray<const DataType, 10> get_gate_selectors() const
+        RefArray<const DataType, 11> get_gate_selectors() const
         {
             return { this->q_arith(),
+                     this->q_bilinear_batched_eq(),
                      this->q_delta_range(),
                      this->q_elliptic(),
                      this->q_memory(),
@@ -915,6 +933,7 @@ class MegaKernelFlavor_Generated {
                 "Q_4",
                 "Q_C",
                 "Q_ARITH",
+                "Q_BILINEAR_BATCHED_EQ",
                 "SIGMA_1",
                 "SIGMA_2",
                 "SIGMA_3",

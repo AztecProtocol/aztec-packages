@@ -570,6 +570,25 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
                     connect_all_variables_in_vector(databus_cc);
                 }
 
+                // Bilinear / batched-eq gate (shares the arithmetic block; q_arith and
+                // q_bilinear_batched_eq are mutually exclusive). BILINEAR mode is one equation over the four
+                // wires, so they form a single connected group; BATCHED_EQ mode holds two independent
+                // equalities, so each half is connected separately.
+                auto bilinear_cc = extract_gate_variables(gate_idx, blk, BILINEAR, GateKind::BilinearBatchedEq);
+                if (!bilinear_cc.empty() && connect_variables) {
+                    connect_all_variables_in_vector(bilinear_cc);
+                }
+                auto batched_eq_half_1_cc =
+                    extract_gate_variables(gate_idx, blk, BATCHED_EQ_HALF_1, GateKind::BilinearBatchedEq);
+                if (!batched_eq_half_1_cc.empty() && connect_variables) {
+                    connect_all_variables_in_vector(batched_eq_half_1_cc);
+                }
+                auto batched_eq_half_2_cc =
+                    extract_gate_variables(gate_idx, blk, BATCHED_EQ_HALF_2, GateKind::BilinearBatchedEq);
+                if (!batched_eq_half_2_cc.empty() && connect_variables) {
+                    connect_all_variables_in_vector(batched_eq_half_2_cc);
+                }
+
                 auto eccop_cc = get_eccop_part_connected_component(gate_idx, blk);
                 if (!eccop_cc.empty() && connect_variables) {
                     eccop_variables.insert(eccop_variables.end(), eccop_cc.begin(), eccop_cc.end());

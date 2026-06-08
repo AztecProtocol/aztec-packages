@@ -20,6 +20,9 @@
  */
 class AcirToSmtLoader {
   public:
+    using Builder = bb::UltraCircuitBuilder;
+    static constexpr bool IS_MEGA_BUILDER = IsMegaBuilder<Builder>;
+
     // Deleted constructors/operators to prevent copying/moving
     AcirToSmtLoader() = delete;
     AcirToSmtLoader(const AcirToSmtLoader& other) = delete;
@@ -53,7 +56,7 @@ class AcirToSmtLoader {
      * - Variable 1 named "b"
      * - Variable 2 named "c"
      */
-    bb::UltraCircuitBuilder get_circuit_builder();
+    Builder get_circuit_builder();
 
     /**
      * @brief Gets an SMT solver instance

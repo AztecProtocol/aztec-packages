@@ -28,6 +28,7 @@ export const MegaKernel = flavor({
   family: "mega_kernel",
   relations: [
     R.ArithmeticRelation,
+    R.BilinearOrBatchedEqCheckRelation,
     R.UltraPermutationRelation,
     R.DeltaRangeConstraintRelation,
     R.EllipticRelation,

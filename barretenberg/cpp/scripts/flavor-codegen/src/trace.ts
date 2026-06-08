@@ -13,6 +13,7 @@ export const GATE_SELECTOR_TO_GATE_KIND: ReadonlyMap<string, string> = new Map([
     ["q_busread", "BusRead"],
     ["q_lookup", "Lookup"],
     ["q_arith", "Arith"],
+    ["q_bilinear_batched_eq", "BilinearBatchedEq"],
     ["q_delta_range", "DeltaRange"],
     ["q_elliptic", "Elliptic"],
     ["q_memory", "Memory"],

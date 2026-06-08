@@ -295,6 +295,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_add_gate(const add_triple_<FF>& in);
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
     void create_big_add_gate(const add_quad_<FF>& in, const bool use_next_gate_w_4 = false);
+    void create_bilinear_batched_eq_gate(const bilinear_batched_eq_gate_<FF>& in);
 
     void create_bool_gate(const uint32_t a);
     void create_arithmetic_gate(const arithmetic_triple_<FF>& in);

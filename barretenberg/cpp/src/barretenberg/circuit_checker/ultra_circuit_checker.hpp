@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/relations/bilinear_or_batched_eq_check_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
@@ -23,6 +24,7 @@ class UltraCircuitChecker {
   public:
     using FF = bb::fr;
     using Arithmetic = ArithmeticRelation<FF>;
+    using BilinearBatchedEq = BilinearOrBatchedEqCheckRelation<FF>;
     using Elliptic = EllipticRelation<FF>;
     using Memory = MemoryRelation<FF>;
     using NonNativeField = NonNativeFieldRelation<FF>;

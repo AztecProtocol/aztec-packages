@@ -143,7 +143,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
     blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(include_next_gate_w_4 ? 2 : 1);
+    blocks.arithmetic.set_gate_selector(GateKind::Arith, include_next_gate_w_4 ? 2 : 1);
     check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -169,7 +169,42 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<F
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
     blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(include_next_gate_w_4 ? 2 : 1);
+    blocks.arithmetic.set_gate_selector(GateKind::Arith, include_next_gate_w_4 ? 2 : 1);
+    check_selector_length_consistency();
+    this->increment_num_gates();
+}
+
+/**
+ * @brief Create a bilinear / batched-eq gate.
+ * @details Two row-modes (selected by `in.mode`), both sharing the arithmetic block via the
+ * `q_bilinear_batched_eq` selector (1 = BILINEAR, 2 = BATCHED_EQ). See
+ * relations/bilinear_or_batched_eq_check_relation.hpp for the full identity. The relation absorbs the BATCHED_EQ-mode
+ * factor of 2 (q_cp · (q_cp − 1) = 2), and the BILINEAR-mode gate q_cp · (2 − q_cp) is 1 at q_cp = 1, so the caller
+ * passes all selectors raw — no halving here.
+ *
+ * @param in Witness indices, row-mode tag, and the selector coefficients for the chosen mode.
+ */
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_bilinear_batched_eq_gate(const bilinear_batched_eq_gate_<FF>& in)
+{
+    this->assert_valid_variables({ in.a, in.b, in.c, in.d });
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
+
+    // BILINEAR: q_m·a·b + q_5·a·c + q_l·a + q_r·b + q_o·c + q_4·d + q_c = 0 (two products sharing wire a,
+    //           on the pairs (a, b) and (a, c) via q_m and q_5; q_l..q_4 the per-wire linear coefficients,
+    //           q_c the constant; wire d appears only in its linear term).
+    // BATCHED_EQ:     q_l·a + q_r·b + q_c = 0 and q_o·c + q_4·d + q_m = 0 (q_m repurposed as the 2nd
+    //           constant; q_5 unused). Selectors are written raw; only the q_bilinear_batched_eq gate
+    //           selector value distinguishes the two modes.
+    blocks.arithmetic.q_m().emplace_back(in.q_m);
+    blocks.arithmetic.q_1().emplace_back(in.q_l);
+    blocks.arithmetic.q_2().emplace_back(in.q_r);
+    blocks.arithmetic.q_3().emplace_back(in.q_o);
+    blocks.arithmetic.q_4().emplace_back(in.q_4);
+    blocks.arithmetic.q_c().emplace_back(in.q_c);
+    blocks.arithmetic.q_5().emplace_back(in.mode == BilinearBatchedEqMode::Bilinear ? in.q_5 : FF(0));
+    blocks.arithmetic.set_gate_selector(GateKind::BilinearBatchedEq,
+                                        in.mode == BilinearBatchedEqMode::Bilinear ? 1 : 2);
     check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -192,7 +227,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
     blocks.arithmetic.q_c().emplace_back(0);
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(1);
+    blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
     check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -216,7 +251,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_arithmetic_gate(const arithmet
     blocks.arithmetic.q_c().emplace_back(in.q_c);
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(1);
+    blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
     check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -347,7 +382,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
     blocks.arithmetic.q_c().emplace_back(-witness_value);
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(1);
+    blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
     check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -1592,7 +1627,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
-    block.set_gate_selector(3);
+    block.set_gate_selector(GateKind::Arith, 3);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(0);
@@ -1601,7 +1636,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst1);
-    block.set_gate_selector(2);
+    block.set_gate_selector(GateKind::Arith, 2);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst2);
@@ -1610,7 +1645,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst2);
-    block.set_gate_selector(1);
+    block.set_gate_selector(GateKind::Arith, 1);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst3);
@@ -1619,7 +1654,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst3);
-    block.set_gate_selector(1);
+    block.set_gate_selector(GateKind::Arith, 1);
 
     check_selector_length_consistency();
 
@@ -1721,7 +1756,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
-    block.set_gate_selector(3);
+    block.set_gate_selector(GateKind::Arith, 3);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(0);
@@ -1730,7 +1765,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst1);
-    block.set_gate_selector(2);
+    block.set_gate_selector(GateKind::Arith, 2);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst2);
@@ -1739,7 +1774,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst2);
-    block.set_gate_selector(1);
+    block.set_gate_selector(GateKind::Arith, 1);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst3);
@@ -1748,7 +1783,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst3);
-    block.set_gate_selector(1);
+    block.set_gate_selector(GateKind::Arith, 1);
 
     check_selector_length_consistency();
 

@@ -8,6 +8,7 @@
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_optimized_contract.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -22,7 +23,9 @@ template <typename Flavor, typename IO, typename Circuit = typename Flavor::Circ
 Circuit _compute_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&& witness)
 {
     const acir_format::ProgramMetadata metadata = _create_program_metadata<IO>();
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(bytecode)), {} };
+    acir_format::AcirProgram program{
+        acir_format::circuit_buf_to_acir_format(std::move(bytecode), IsMegaBuilder<Circuit>), {}
+    };
 
     if (!witness.empty()) {
         program.witness = acir_format::witness_buf_to_witness_vector(std::move(witness));
@@ -167,7 +170,7 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
 {
     using Circuit = typename Flavor::CircuitBuilder;
     // Parse the circuit to get gate count information
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode));
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode), IsMegaBuilder<Circuit>);
 
     acir_format::ProgramMetadata metadata = _create_program_metadata<IO>();
     metadata.collect_gates_per_opcode = include_gates_per_opcode;

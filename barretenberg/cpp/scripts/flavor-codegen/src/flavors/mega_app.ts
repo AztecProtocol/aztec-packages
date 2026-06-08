@@ -15,6 +15,7 @@ export const MegaApp = flavor({
     R.UltraPermutationRelation,
     R.LogDerivLookupRelation,
     R.ArithmeticRelation,
+    R.BilinearOrBatchedEqCheckRelation,
     R.DeltaRangeConstraintRelation,
     R.EllipticRelation,
     R.MemoryRelation,

@@ -66,7 +66,7 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
     }
 
     request.loaded_circuit_name = circuit.name;
-    request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    request.loaded_circuit_constraints = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
     request.loaded_circuit_vk = circuit.verification_key;
     request.loaded_circuit_kind = kind;
 
@@ -241,7 +241,7 @@ ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiReq
          static_cast<int>(kind),
          ")");
 
-    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    auto constraint_system = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
     auto verification_key = compute_chonk_vk(program, kind);
@@ -252,7 +252,7 @@ ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiReq
 ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
+    acir_format::AcirProgram program{ acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
     if (circuit.verification_key.empty()) {
@@ -272,7 +272,7 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     Response response;
 
-    const auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    const auto constraint_system = acir_format::circuit_buf_to_mega_acir_format(std::move(circuit.bytecode));
     acir_format::AcirProgram program{ constraint_system, {} };
 
     // Get IVC constraints if any

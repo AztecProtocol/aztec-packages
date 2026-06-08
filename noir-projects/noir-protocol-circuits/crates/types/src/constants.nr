@@ -654,7 +654,7 @@ pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HON
 pub global CHONK_HIDING_OINK_LENGTH: u32 = 48;
 pub global CHONK_MERGE_PROOF_SIZE: u32 = 42;
 pub global CHONK_ECCVM_PROOF_LENGTH: u32 = 612;
-pub global CHONK_JOINT_PROOF_LENGTH: u32 = 477;
+pub global CHONK_JOINT_PROOF_LENGTH: u32 = 478;
 pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
     + HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE
     + CHONK_MERGE_PROOF_SIZE
@@ -663,9 +663,9 @@ pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
     + CHONK_JOINT_PROOF_LENGTH;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
-pub global MEGA_APP_VK_LENGTH_IN_FIELDS: u32 = 147; // size of a MegaApp verification key
-pub global MEGA_KERNEL_VK_LENGTH_IN_FIELDS: u32 = 139; // size of a MegaKernel verification key
-pub global MEGA_ZK_VK_LENGTH_IN_FIELDS: u32 = 115; // size of a MegaZK verification key
+pub global MEGA_APP_VK_LENGTH_IN_FIELDS: u32 = 151; // size of a MegaApp verification key
+pub global MEGA_KERNEL_VK_LENGTH_IN_FIELDS: u32 = 143; // size of a MegaKernel verification key
+pub global MEGA_ZK_VK_LENGTH_IN_FIELDS: u32 = 119; // size of a MegaZK verification key
 // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_ZK_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
 // VK is composed of

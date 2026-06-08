@@ -164,6 +164,7 @@ enum class GateKind : uint8_t {
     BusRead,
     Lookup,
     Arith,
+    BilinearBatchedEq,
     DeltaRange,
     Elliptic,
     Memory,
@@ -275,9 +276,15 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
      */
     void set_gate_selector(GateKind kind, const FF& value)
     {
+        bool kind_found = false;
         for (auto& [k, s] : gate_selectors) {
-            s.emplace_back(k == kind ? value : FF{ 0 });
+            bool is_kind = (k == kind);
+            BB_ASSERT_DEBUG(!(kind_found && is_kind), "ExecutionTraceBlock: multiple matches in single block.");
+            kind_found |= is_kind;
+
+            s.emplace_back(is_kind ? value : FF{ 0 });
         }
+        BB_ASSERT(kind_found, "ExecutionTraceBlock: block does not own this gate kind.");
     }
 
     /**

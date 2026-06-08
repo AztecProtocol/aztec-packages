@@ -1,4 +1,5 @@
 export { ArithmeticRelation } from "./arithmetic_relation.js";
+export { BilinearOrBatchedEqCheckRelation } from "./bilinear_or_batched_eq_check_relation.js";
 export { UltraPermutationRelation } from "./ultra_permutation_relation.js";
 export { LogDerivLookupRelation } from "./log_deriv_lookup_relation.js";
 export { DeltaRangeConstraintRelation } from "./delta_range_constraint_relation.js";

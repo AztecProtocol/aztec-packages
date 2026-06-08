@@ -8,6 +8,7 @@ export const MegaZK = flavor({
   family: "mega_zk",
   relations: [
     R.ArithmeticRelation,
+    R.BilinearOrBatchedEqCheckRelation,
     R.UltraPermutationRelation,
     R.DeltaRangeConstraintRelation,
     R.EccOpQueueRelation,

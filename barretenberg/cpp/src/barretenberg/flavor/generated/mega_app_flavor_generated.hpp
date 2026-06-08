@@ -16,6 +16,7 @@
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
+#include "barretenberg/relations/bilinear_or_batched_eq_check_relation.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/ecc_op_queue_relation.hpp"
@@ -59,40 +60,41 @@ class MegaAppFlavor_Generated {
         q_l = 19,
         q_4 = 20,
         q_arith = 21,
-        q_delta_range = 22,
-        q_elliptic = 23,
-        q_memory = 24,
-        q_nnf = 25,
-        lagrange_ecc_op = 26,
-        q_busread = 27,
-        return_data_indicator = 28,
-        databus_id = 29,
-        q_poseidon2_external = 30,
-        q_poseidon2_external_initial = 31,
-        q_poseidon2_quad_internal = 32,
-        q_5 = 33,
-        q_poseidon2_quad_internal_terminal = 34,
-        q_poseidon2_transition_entry = 35,
-        w_l = 36,
-        w_r = 37,
-        w_o = 38,
-        w_4 = 39,
-        z_perm = 40,
-        lookup_inverses = 41,
-        lookup_read_counts = 42,
-        lookup_read_tags = 43,
-        ecc_op_wire_1 = 44,
-        ecc_op_wire_2 = 45,
-        ecc_op_wire_3 = 46,
-        ecc_op_wire_4 = 47,
-        return_data = 48,
-        return_data_read_counts = 49,
-        return_data_inverses = 50,
-        w_l_shift = 51,
-        w_r_shift = 52,
-        w_o_shift = 53,
-        w_4_shift = 54,
-        z_perm_shift = 55,
+        q_bilinear_batched_eq = 22,
+        q_delta_range = 23,
+        q_elliptic = 24,
+        q_memory = 25,
+        q_nnf = 26,
+        lagrange_ecc_op = 27,
+        q_busread = 28,
+        return_data_indicator = 29,
+        databus_id = 30,
+        q_poseidon2_external = 31,
+        q_poseidon2_external_initial = 32,
+        q_poseidon2_quad_internal = 33,
+        q_5 = 34,
+        q_poseidon2_quad_internal_terminal = 35,
+        q_poseidon2_transition_entry = 36,
+        w_l = 37,
+        w_r = 38,
+        w_o = 39,
+        w_4 = 40,
+        z_perm = 41,
+        lookup_inverses = 42,
+        lookup_read_counts = 43,
+        lookup_read_tags = 44,
+        ecc_op_wire_1 = 45,
+        ecc_op_wire_2 = 46,
+        ecc_op_wire_3 = 47,
+        ecc_op_wire_4 = 48,
+        return_data = 49,
+        return_data_read_counts = 50,
+        return_data_inverses = 51,
+        w_l_shift = 52,
+        w_r_shift = 53,
+        w_o_shift = 54,
+        w_4_shift = 55,
+        z_perm_shift = 56,
     };
 
     // Sumcheck relation tuple. Source of truth is
@@ -101,6 +103,7 @@ class MegaAppFlavor_Generated {
     using Relations_ = std::tuple<bb::UltraPermutationRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::ArithmeticRelation<FF>,
+                                  bb::BilinearOrBatchedEqCheckRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::MemoryRelation<FF>,
@@ -118,7 +121,7 @@ class MegaAppFlavor_Generated {
                                   bb::Poseidon2QuadInternalTerminalRelation<FF>,
                                   bb::Poseidon2TransitionEntryRelation<FF>>;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 36;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 37;
     static constexpr size_t NUM_WITNESS_ENTITIES = 15;
     static constexpr size_t NUM_MASKING_ENTITIES = 0;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
@@ -139,8 +142,8 @@ class MegaAppFlavor_Generated {
     // Per-shifted-entity (original, duplicate) index pairs in AllEntities, one per shifted
     // entity. Collapsed into `RepeatedCommitmentsData` below for Shplemini compatibility.
     static constexpr std::array<DuplicatePair, NUM_SHIFTED_ENTITIES> REPEATED_COMMITMENT_PAIRS = {
-        DuplicatePair{ 36, 51 }, DuplicatePair{ 37, 52 }, DuplicatePair{ 38, 53 },
-        DuplicatePair{ 39, 54 }, DuplicatePair{ 40, 55 },
+        DuplicatePair{ 37, 52 }, DuplicatePair{ 38, 53 }, DuplicatePair{ 39, 54 },
+        DuplicatePair{ 40, 55 }, DuplicatePair{ 41, 56 },
     };
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         repeated_commitments_from_pairs(REPEATED_COMMITMENT_PAIRS);
@@ -149,8 +152,9 @@ class MegaAppFlavor_Generated {
     template <typename TraceBlocks> static auto get_gate_blocks(TraceBlocks& blocks)
     {
         using BlockBase = typename TraceBlocks::BlockBase;
-        return RefArray<BlockBase, 12>(std::array<BlockBase*, 12>{
+        return RefArray<BlockBase, 13>(std::array<BlockBase*, 13>{
             &blocks.lookup,
+            &blocks.arithmetic,
             &blocks.arithmetic,
             &blocks.delta_range,
             &blocks.elliptic,
@@ -168,8 +172,9 @@ class MegaAppFlavor_Generated {
     template <typename TraceBlocks> static auto get_gate_blocks(TraceBlocks const& blocks)
     {
         using BlockBase = typename TraceBlocks::BlockBase;
-        return RefArray<const BlockBase, 12>(std::array<const BlockBase*, 12>{
+        return RefArray<const BlockBase, 13>(std::array<const BlockBase*, 13>{
             &blocks.lookup,
+            &blocks.arithmetic,
             &blocks.arithmetic,
             &blocks.delta_range,
             &blocks.elliptic,
@@ -185,9 +190,10 @@ class MegaAppFlavor_Generated {
     }
 
     // GateKind for each gate selector, parallel to `get_gate_blocks()`.
-    static constexpr std::array<GateKind, 12> GATE_KINDS{
+    static constexpr std::array<GateKind, 13> GATE_KINDS{
         GateKind::Lookup,
         GateKind::Arith,
+        GateKind::BilinearBatchedEq,
         GateKind::DeltaRange,
         GateKind::Elliptic,
         GateKind::Memory,
@@ -266,6 +272,11 @@ class MegaAppFlavor_Generated {
         const DataType& q_4() const { return data[static_cast<size_t>(EntityId::q_4)]; }
         DataType& q_arith() { return data[static_cast<size_t>(EntityId::q_arith)]; }
         const DataType& q_arith() const { return data[static_cast<size_t>(EntityId::q_arith)]; }
+        DataType& q_bilinear_batched_eq() { return data[static_cast<size_t>(EntityId::q_bilinear_batched_eq)]; }
+        const DataType& q_bilinear_batched_eq() const
+        {
+            return data[static_cast<size_t>(EntityId::q_bilinear_batched_eq)];
+        }
         DataType& q_delta_range() { return data[static_cast<size_t>(EntityId::q_delta_range)]; }
         const DataType& q_delta_range() const { return data[static_cast<size_t>(EntityId::q_delta_range)]; }
         DataType& q_elliptic() { return data[static_cast<size_t>(EntityId::q_elliptic)]; }
@@ -401,11 +412,11 @@ class MegaAppFlavor_Generated {
         }
         std::span<DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted()
         {
-            return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (36), NUM_SHIFTED_ENTITIES };
+            return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (37), NUM_SHIFTED_ENTITIES };
         }
         std::span<const DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted() const
         {
-            return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (36), NUM_SHIFTED_ENTITIES };
+            return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (37), NUM_SHIFTED_ENTITIES };
         }
         std::span<DataType, NUM_SHIFTED_ENTITIES> get_shifted()
         {
@@ -445,10 +456,11 @@ class MegaAppFlavor_Generated {
                 (*this)[EntityId::id_1], (*this)[EntityId::id_2], (*this)[EntityId::id_3], (*this)[EntityId::id_4]
             };
         }
-        RefArray<DataType, 12> get_gate_selectors()
+        RefArray<DataType, 13> get_gate_selectors()
         {
             return { (*this)[EntityId::q_lookup],
                      (*this)[EntityId::q_arith],
+                     (*this)[EntityId::q_bilinear_batched_eq],
                      (*this)[EntityId::q_delta_range],
                      (*this)[EntityId::q_elliptic],
                      (*this)[EntityId::q_memory],
@@ -460,10 +472,11 @@ class MegaAppFlavor_Generated {
                      (*this)[EntityId::q_poseidon2_quad_internal_terminal],
                      (*this)[EntityId::q_poseidon2_transition_entry] };
         }
-        RefArray<const DataType, 12> get_gate_selectors() const
+        RefArray<const DataType, 13> get_gate_selectors() const
         {
             return { (*this)[EntityId::q_lookup],
                      (*this)[EntityId::q_arith],
+                     (*this)[EntityId::q_bilinear_batched_eq],
                      (*this)[EntityId::q_delta_range],
                      (*this)[EntityId::q_elliptic],
                      (*this)[EntityId::q_memory],
@@ -569,6 +582,7 @@ class MegaAppFlavor_Generated {
                 "Q_L",
                 "Q_4",
                 "Q_ARITH",
+                "Q_BILINEAR_BATCHED_EQ",
                 "Q_DELTA_RANGE",
                 "Q_ELLIPTIC",
                 "Q_MEMORY",
@@ -666,34 +680,36 @@ class MegaAppFlavor_Generated {
         const DataType& q_4() const { return data[20]; }
         DataType& q_arith() { return data[21]; }
         const DataType& q_arith() const { return data[21]; }
-        DataType& q_delta_range() { return data[22]; }
-        const DataType& q_delta_range() const { return data[22]; }
-        DataType& q_elliptic() { return data[23]; }
-        const DataType& q_elliptic() const { return data[23]; }
-        DataType& q_memory() { return data[24]; }
-        const DataType& q_memory() const { return data[24]; }
-        DataType& q_nnf() { return data[25]; }
-        const DataType& q_nnf() const { return data[25]; }
-        DataType& lagrange_ecc_op() { return data[26]; }
-        const DataType& lagrange_ecc_op() const { return data[26]; }
-        DataType& q_busread() { return data[27]; }
-        const DataType& q_busread() const { return data[27]; }
-        DataType& return_data_indicator() { return data[28]; }
-        const DataType& return_data_indicator() const { return data[28]; }
-        DataType& databus_id() { return data[29]; }
-        const DataType& databus_id() const { return data[29]; }
-        DataType& q_poseidon2_external() { return data[30]; }
-        const DataType& q_poseidon2_external() const { return data[30]; }
-        DataType& q_poseidon2_external_initial() { return data[31]; }
-        const DataType& q_poseidon2_external_initial() const { return data[31]; }
-        DataType& q_poseidon2_quad_internal() { return data[32]; }
-        const DataType& q_poseidon2_quad_internal() const { return data[32]; }
-        DataType& q_5() { return data[33]; }
-        const DataType& q_5() const { return data[33]; }
-        DataType& q_poseidon2_quad_internal_terminal() { return data[34]; }
-        const DataType& q_poseidon2_quad_internal_terminal() const { return data[34]; }
-        DataType& q_poseidon2_transition_entry() { return data[35]; }
-        const DataType& q_poseidon2_transition_entry() const { return data[35]; }
+        DataType& q_bilinear_batched_eq() { return data[22]; }
+        const DataType& q_bilinear_batched_eq() const { return data[22]; }
+        DataType& q_delta_range() { return data[23]; }
+        const DataType& q_delta_range() const { return data[23]; }
+        DataType& q_elliptic() { return data[24]; }
+        const DataType& q_elliptic() const { return data[24]; }
+        DataType& q_memory() { return data[25]; }
+        const DataType& q_memory() const { return data[25]; }
+        DataType& q_nnf() { return data[26]; }
+        const DataType& q_nnf() const { return data[26]; }
+        DataType& lagrange_ecc_op() { return data[27]; }
+        const DataType& lagrange_ecc_op() const { return data[27]; }
+        DataType& q_busread() { return data[28]; }
+        const DataType& q_busread() const { return data[28]; }
+        DataType& return_data_indicator() { return data[29]; }
+        const DataType& return_data_indicator() const { return data[29]; }
+        DataType& databus_id() { return data[30]; }
+        const DataType& databus_id() const { return data[30]; }
+        DataType& q_poseidon2_external() { return data[31]; }
+        const DataType& q_poseidon2_external() const { return data[31]; }
+        DataType& q_poseidon2_external_initial() { return data[32]; }
+        const DataType& q_poseidon2_external_initial() const { return data[32]; }
+        DataType& q_poseidon2_quad_internal() { return data[33]; }
+        const DataType& q_poseidon2_quad_internal() const { return data[33]; }
+        DataType& q_5() { return data[34]; }
+        const DataType& q_5() const { return data[34]; }
+        DataType& q_poseidon2_quad_internal_terminal() { return data[35]; }
+        const DataType& q_poseidon2_quad_internal_terminal() const { return data[35]; }
+        DataType& q_poseidon2_transition_entry() { return data[36]; }
+        const DataType& q_poseidon2_transition_entry() const { return data[36]; }
 
         // Subset views.
         RefArray<DataType, 4> get_sigmas()
@@ -709,10 +725,11 @@ class MegaAppFlavor_Generated {
         {
             return { this->id_1(), this->id_2(), this->id_3(), this->id_4() };
         }
-        RefArray<DataType, 12> get_gate_selectors()
+        RefArray<DataType, 13> get_gate_selectors()
         {
             return { this->q_lookup(),
                      this->q_arith(),
+                     this->q_bilinear_batched_eq(),
                      this->q_delta_range(),
                      this->q_elliptic(),
                      this->q_memory(),
@@ -724,10 +741,11 @@ class MegaAppFlavor_Generated {
                      this->q_poseidon2_quad_internal_terminal(),
                      this->q_poseidon2_transition_entry() };
         }
-        RefArray<const DataType, 12> get_gate_selectors() const
+        RefArray<const DataType, 13> get_gate_selectors() const
         {
             return { this->q_lookup(),
                      this->q_arith(),
+                     this->q_bilinear_batched_eq(),
                      this->q_delta_range(),
                      this->q_elliptic(),
                      this->q_memory(),
@@ -789,6 +807,7 @@ class MegaAppFlavor_Generated {
                 "Q_L",
                 "Q_4",
                 "Q_ARITH",
+                "Q_BILINEAR_BATCHED_EQ",
                 "Q_DELTA_RANGE",
                 "Q_ELLIPTIC",
                 "Q_MEMORY",

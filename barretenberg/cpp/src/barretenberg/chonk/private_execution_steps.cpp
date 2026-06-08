@@ -151,7 +151,7 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
     parallel_for(steps.size(), [&](size_t i) {
         PrivateExecutionStepRaw step = std::move(steps[i]);
 
-        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(std::move(step.bytecode));
+        acir_format::AcirFormat constraints = acir_format::circuit_buf_to_mega_acir_format(std::move(step.bytecode));
         acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_vector(std::move(step.witness));
 
         folding_stack[i] = { std::move(constraints), std::move(witness) };
