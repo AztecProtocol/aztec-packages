@@ -17,6 +17,8 @@ import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
+import { HandshakeRegistryArtifact } from '@aztec/standard-contracts/handshake-registry';
+import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
 import { WASMSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
@@ -298,6 +300,16 @@ describe('Private Execution test suite', () => {
       },
     );
     contracts = {};
+    const handshakeRegistryClass = await getContractClassFromArtifact(HandshakeRegistryArtifact);
+    contracts[STANDARD_HANDSHAKE_REGISTRY_ADDRESS.toString()] = HandshakeRegistryArtifact;
+    contractStore.getContractInstance
+      .calledWith(aztecAddressMatcher(STANDARD_HANDSHAKE_REGISTRY_ADDRESS))
+      .mockResolvedValue(
+        await randomContractInstanceWithAddress(
+          { contractClassId: handshakeRegistryClass.id },
+          STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+        ),
+      );
     anchorBlockHeader = makeBlockHeader();
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
 
