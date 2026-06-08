@@ -65,9 +65,9 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
         }
 
         // `N` (the number of storage slots the state variable occupies) is an associated constant of `StateVariable`.
-        // We read it by projecting it into an array length and reading back the resulting constant type. The spec
-        // impls are generic over `Context` and `N` does not depend on it, so we project with an arbitrary concrete
-        // context.
+        // Noir's comptime API does not expose a direct associated-constant lookup, so we project `N` into an array
+        // length and read back the resulting constant type. The spec impls are generic over `Context`, and `N` does not
+        // depend on it, so we project with an arbitrary concrete context.
         let storage_size_typ = quote {
             [Field; <$typ as crate::state_vars::StateVariable<crate::context::PublicContext>>::N]
         }
