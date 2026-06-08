@@ -298,7 +298,7 @@ The internal prefix wasn't stripped. Ensure `bb-avm aztec_process` ran successfu
 ### Wallet "inquirer not found" error
 Run step 3.
 
-### "Method not found: node_getCurrentBaseFees"
+### "Method not found: aztec_getCurrentBaseFees"
 Using the host `aztec-wallet` (`~/.aztec/bin/`) which is the `latest` version. The bridge
 uses the container's wallet SDK directly, so this shouldn't happen with the bridge.
 

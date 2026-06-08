@@ -171,7 +171,7 @@ Fee Juice is non-transferable on L2, but you can bridge it from L1, claim it on 
 
 #include_code bridge_fee_juice_setup /docs/examples/ts/aztecjs_connection/index.ts typescript
 
-Under the hood, `L1FeeJuicePortalManager` gets the L1 addresses from the node `node_getNodeInfo` endpoint. It then exposes an easy method `bridgeTokensPublic` which mints fee juice on L1 and sends it to an L2 address via the L1 portal:
+Under the hood, `L1FeeJuicePortalManager` gets the L1 addresses from the node `aztec_getNodeInfo` endpoint. It then exposes an easy method `bridgeTokensPublic` which mints fee juice on L1 and sends it to an L2 address via the L1 portal:
 
 #include_code bridge_fee_juice_execute /docs/examples/ts/aztecjs_connection/index.ts typescript
 
