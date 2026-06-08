@@ -607,13 +607,14 @@ describe('Utility Execution test suite', () => {
     });
 
     describe('factStore', () => {
+      const service = new EphemeralArrayService();
       const ENTITY = new Fr(7n);
       const CORR = new Fr(0xaan);
       const RECEIVED = new Fr(1n);
       const PROCESSED = new Fr(2n);
       const JOB = 'test-job-id';
 
-      it('records facts via the handlers and reads them back packed via getEntityFacts', async () => {
+      it('records facts via the handlers and reads them back via getEntityFacts', async () => {
         await utilityExecutionOracle.recordNonRetractableFact(contractAddress, scope, ENTITY, CORR, RECEIVED, [
           new Fr(9n),
         ]);
@@ -629,16 +630,18 @@ describe('Utility Execution test suite', () => {
         );
         await factStoreKv.transactionAsync(() => factStore.commit(JOB));
 
-        const packed = (await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR)).map(f =>
-          f.toBigInt(),
-        );
+        const factsArray = await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR);
+        const facts = factsArray.readAll(service);
 
-        // count=2, then one (factTypeId, payloadLen, ...payload) tuple per fact. Order is not guaranteed across the
-        // two facts, so we assert on the count and on each fact's tuple being present.
-        expect(packed[0]).toEqual(2n);
-        expect(packed).toContain(RECEIVED.toBigInt());
-        expect(packed).toContain(PROCESSED.toBigInt());
-        expect(packed).toContain(9n);
+        // Order is not guaranteed across the two facts, so we assert on the count and on each fact's type being present.
+        expect(facts).toHaveLength(2);
+        const factTypeIds = facts.map(f => f.factTypeId.toBigInt());
+        expect(factTypeIds).toContain(RECEIVED.toBigInt());
+        expect(factTypeIds).toContain(PROCESSED.toBigInt());
+        const receivedFact = facts.find(f => f.factTypeId.equals(RECEIVED))!;
+        expect(receivedFact.payload.readAll(service)).toEqual([new Fr(9n)]);
+        const processedFact = facts.find(f => f.factTypeId.equals(PROCESSED))!;
+        expect(processedFact.payload.readAll(service)).toEqual([]);
       });
 
       it('enumerates active entities and terminates them through the handlers', async () => {
@@ -647,21 +650,22 @@ describe('Utility Execution test suite', () => {
         ]);
         await factStoreKv.transactionAsync(() => factStore.commit(JOB));
 
-        // activeEntities returns a count-prefixed, zero-padded array: [count, ...correlationKeys, ...padding].
-        const active = (await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY)).map(c =>
-          c.toBigInt(),
-        );
-        expect(active[0]).toEqual(1n); // count
-        expect(active[1]).toEqual(CORR.toBigInt());
+        const activeArray = await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY);
+        const activeKeys = activeArray.readAll(service);
+        expect(activeKeys).toEqual([CORR]);
 
         await utilityExecutionOracle.terminateEntity(contractAddress, scope, ENTITY, CORR);
         await factStoreKv.transactionAsync(() => factStore.commit(JOB));
 
-        // After termination both the active set and the fact set report a leading count of 0.
-        expect((await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY))[0]).toEqual(new Fr(0n));
-        expect((await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR))[0]).toEqual(
-          new Fr(0n),
+        // After termination both the active set and the fact set are empty.
+        const afterKeys = (await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY)).readAll(
+          service,
         );
+        expect(afterKeys).toHaveLength(0);
+        const afterFacts = (await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR)).readAll(
+          service,
+        );
+        expect(afterFacts).toHaveLength(0);
       });
 
       it('rejects a scope outside the allowed scopes list', async () => {

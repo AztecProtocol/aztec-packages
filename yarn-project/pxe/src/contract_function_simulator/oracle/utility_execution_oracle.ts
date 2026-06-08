@@ -54,7 +54,6 @@ import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { type CapsuleService, assertAllowedScope } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import { packActiveEntities, packFactSet } from '../../storage/fact_store/fact_packing.js';
 import type { FactStore } from '../../storage/fact_store/fact_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
@@ -75,6 +74,7 @@ import { pickNotes } from '../pick_notes.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { Oracle } from './oracle.js';
+import type { FactOutput } from './oracle_type_mappings.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -858,26 +858,34 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
-  /**
-   * Returns the correlation keys of all active entities under (contract, scope, entityTypeId), packed into a flat
-   * count-prefixed `Field[]` (see {@link packActiveEntities}).
-   */
-  public async activeEntities(contractAddress: AztecAddress, scope: AztecAddress, entityTypeId: Fr): Promise<Fr[]> {
+  /** Returns the correlation keys of all active entities under (contract, scope, entityTypeId). */
+  public async activeEntities(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+  ): Promise<EphemeralArray<Fr>> {
     assertAllowedScope(scope, this.scopes);
     const correlationKeys = await this.factStore.activeEntities(contractAddress, scope, entityTypeId, this.jobId);
-    return packActiveEntities(correlationKeys);
+    return EphemeralArray.fromValues(this.ephemeralArrayService, correlationKeys);
   }
 
-  /** Returns an entity's facts (read-your-writes for the active job) packed into a flat `Field[]` (see {@link packFactSet}). */
+  /**
+   * Returns an entity's facts (read-your-writes for the active job). Each fact carries its payload in its own
+   * nested ephemeral array, so no fixed payload size is required.
+   */
   public async getEntityFacts(
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
     correlationKey: Fr,
-  ): Promise<Fr[]> {
+  ): Promise<EphemeralArray<FactOutput>> {
     assertAllowedScope(scope, this.scopes);
     const facts = await this.factStore.getEntityFacts(contractAddress, scope, entityTypeId, correlationKey, this.jobId);
-    return packFactSet(facts);
+    const factElements: FactOutput[] = facts.map(fact => ({
+      factTypeId: fact.factTypeId,
+      payload: EphemeralArray.fromValues(this.ephemeralArrayService, fact.payload),
+    }));
+    return EphemeralArray.fromValues(this.ephemeralArrayService, factElements);
   }
 
   /** Permanently deletes an entity and all of its facts. */

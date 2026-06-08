@@ -20,6 +20,7 @@ import {
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
+  FACT,
   FIELD,
   FUNCTION_SELECTOR,
   type InputSlot,
@@ -341,7 +342,7 @@ export const ORACLE_REGISTRY = {
       { name: 'scope', type: AZTEC_ADDRESS },
       { name: 'entityTypeId', type: FIELD },
     ],
-    returnType: ARRAY(FIELD),
+    returnType: EPHEMERAL_ARRAY(FIELD),
   }),
 
   aztec_utl_getEntityFacts: makeEntry({
@@ -351,7 +352,7 @@ export const ORACLE_REGISTRY = {
       { name: 'entityTypeId', type: FIELD },
       { name: 'correlationKey', type: FIELD },
     ],
-    returnType: ARRAY(FIELD),
+    returnType: EPHEMERAL_ARRAY(FACT),
   }),
 
   aztec_utl_terminateEntity: makeEntry({
