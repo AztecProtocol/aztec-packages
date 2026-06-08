@@ -9,7 +9,7 @@ use aztec::macros::aztec;
 pub contract Benchmarking {
     use aztec::{
         macros::{functions::external, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         oracle::random::random,
         protocol::{

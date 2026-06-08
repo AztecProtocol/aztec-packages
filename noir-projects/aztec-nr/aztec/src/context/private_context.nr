@@ -908,7 +908,7 @@ impl PrivateContext {
     /// The `tag` should be domain-separated (e.g. via [`crate::protocol::hash::compute_log_tag`]) to prevent
     /// collisions between logs from different sources. Without domain separation, two unrelated log types that
     /// happen to share a raw tag value become indistinguishable. Prefer the higher-level APIs
-    /// ([`crate::messages::message_delivery::MessageDelivery`] for messages, `self.emit(event)` for events) which
+    /// ([`crate::messages::delivery::MessageDelivery`] for messages, `self.emit(event)` for events) which
     /// handle tagging automatically.
     pub fn emit_private_log_unsafe(&mut self, tag: Field, log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>) {
         self.emit_raw_note_log_unsafe(tag, log, 0);

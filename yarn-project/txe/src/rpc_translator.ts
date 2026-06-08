@@ -213,18 +213,18 @@ export class RPCTranslator {
   // PXE oracles
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion(...inputs: ForeignCallArgs) {
+  aztec_misc_assertCompatibleOracleVersion(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_assertCompatibleOracleVersion',
+      oracle: 'aztec_misc_assertCompatibleOracleVersion',
       inputs,
       handler: ([major, minor]) => this.handlerAsMisc().assertCompatibleOracleVersion(major, minor),
     });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getRandomField() {
+  aztec_misc_getRandomField() {
     return callTxeHandler({
-      oracle: 'aztec_utl_getRandomField',
+      oracle: 'aztec_misc_getRandomField',
       inputs: [],
       handler: () => this.handlerAsMisc().getRandomField(),
     });
@@ -271,20 +271,8 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_txe_getPrivateEvents',
       inputs,
-      handler: async ([selector, contractAddress, scope]) => {
-        // TODO(F-335): Avoid doing the following 2 calls here.
-        {
-          await this.handlerAsTxe().syncContractNonOracleMethod(
-            contractAddress,
-            scope,
-            this.stateHandler.getCurrentJob(),
-          );
-          // We cycle job to commit the stores after the contract sync.
-          await this.stateHandler.cycleJob();
-        }
-
-        return this.handlerAsTxe().getPrivateEvents(selector, contractAddress, scope);
-      },
+      handler: ([selector, contractAddress, scope]) =>
+        this.stateHandler.getPrivateEvents(selector, contractAddress, scope),
     });
   }
 
@@ -307,11 +295,11 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_log(...inputs: ForeignCallArgs) {
+  aztec_misc_log(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_log',
+      oracle: 'aztec_misc_log',
       inputs,
-      handler: ([level, message, _, fields]) => this.handlerAsMisc().log(level, message, fields),
+      handler: ([level, message, fieldsSize, fields]) => this.handlerAsMisc().log(level, message, fieldsSize, fields),
     });
   }
 
@@ -707,6 +695,69 @@ export class RPCTranslator {
     });
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_utl_pushTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_pushTransient',
+      inputs,
+      handler: ([slot, elements]) => this.handlerAsUtility().pushTransient(slot, elements),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_popTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_popTransient',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().popTransient(slot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getTransient',
+      inputs,
+      handler: ([slot, index]) => this.handlerAsUtility().getTransient(slot, index),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_setTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_setTransient',
+      inputs,
+      handler: ([slot, index, elements]) => this.handlerAsUtility().setTransient(slot, index, elements),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getTransientLen(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getTransientLen',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().getTransientLen(slot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_removeTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_removeTransient',
+      inputs,
+      handler: ([slot, index]) => this.handlerAsUtility().removeTransient(slot, index),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_clearTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_clearTransient',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().clearTransient(slot),
+    });
+  }
+
   // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts.
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
@@ -958,13 +1009,12 @@ export class RPCTranslator {
     });
   }
 
-  // TODO(F-674): Move orchestration logic into the handler so the transport layer is pure serialize->delegate->deserialize.
   // eslint-disable-next-line camelcase
   aztec_txe_privateCallNewFlow(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_txe_privateCallNewFlow',
       inputs,
-      handler: async ([
+      handler: ([
         from,
         targetContractAddress,
         functionSelector,
@@ -974,103 +1024,43 @@ export class RPCTranslator {
         additionalScopes,
         authorizedUtilityCallTargets,
         gasSettings,
-      ]) => {
-        const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
-          const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
-            from?.value,
-            targetContractAddress,
-            functionSelector,
-            args,
-            argsHash,
-            isStaticCall,
-            additionalScopes,
-            this.stateHandler.getCurrentJob(),
-            authorizedUtilityCallTargets,
-            gasSettings,
-          );
-
-          // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than
-          // round-tripping them through `aztec_utl_emitOffchainEffect`, so the session buffer is empty
-          // at this point. Drain the effects from the execution tree into the session buffer so the
-          // next `env.offchain_messages()` call in the test sees them.
-          for (const data of offchainEffects) {
-            this.stateHandler.recordOffchainEffect(data);
-          }
-
-          // TODO(F-335): Avoid doing the following call here.
-          await this.stateHandler.cycleJob();
-
-          if (isStaticCall) {
-            // Static calls revert their checkpoint and mine no block, so there is no tx hash to tag
-            // offchain effects with. Querying `getLastTxEffects()` here would return an unrelated
-            // predecessor tx.
-            return { result: returnValues };
-          }
-          const { txHash } = await this.handlerAsTxe().getLastTxEffects();
-          return { result: returnValues, txHash: txHash.hash };
-        });
-
-        return returnValues;
-      },
+      ]) =>
+        this.stateHandler.executePrivateCall(
+          from,
+          targetContractAddress,
+          functionSelector,
+          args,
+          argsHash,
+          isStaticCall,
+          additionalScopes,
+          authorizedUtilityCallTargets,
+          gasSettings,
+        ),
     });
   }
 
-  // TODO(F-674): Move orchestration logic into the handler so the transport layer is pure serialize->delegate->deserialize.
   // eslint-disable-next-line camelcase
   aztec_txe_executeUtilityFunction(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_txe_executeUtilityFunction',
       inputs,
-      handler: async ([targetContractAddress, functionSelector, args, authorizedUtilityCallTargets]) => {
-        const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
-          const returnValues = await this.handlerAsTxe().executeUtilityFunction(
-            targetContractAddress,
-            functionSelector,
-            args,
-            this.stateHandler.getCurrentJob(),
-            authorizedUtilityCallTargets,
-          );
-
-          // TODO(F-335): Avoid doing the following call here.
-          await this.stateHandler.cycleJob();
-
-          return { result: returnValues };
-        });
-
-        return returnValues;
-      },
+      handler: ([targetContractAddress, functionSelector, args, authorizedUtilityCallTargets]) =>
+        this.stateHandler.executeUtilityFunction(
+          targetContractAddress,
+          functionSelector,
+          args,
+          authorizedUtilityCallTargets,
+        ),
     });
   }
 
-  // TODO(F-674): Move orchestration logic into the handler so the transport layer is pure serialize->delegate->deserialize.
   // eslint-disable-next-line camelcase
   aztec_txe_publicCallNewFlow(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_txe_publicCallNewFlow',
       inputs,
-      handler: async ([from, address, calldata, isStaticCall, gasSettings]) => {
-        const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
-          const returnValues = await this.handlerAsTxe().publicCallNewFlow(
-            from?.value,
-            address,
-            calldata,
-            isStaticCall,
-            gasSettings,
-          );
-
-          // TODO(F-335): Avoid doing the following call here.
-          await this.stateHandler.cycleJob();
-
-          if (isStaticCall) {
-            // See equivalent branch in `aztec_txe_privateCallNewFlow`.
-            return { result: returnValues };
-          }
-          const { txHash } = await this.handlerAsTxe().getLastTxEffects();
-          return { result: returnValues, txHash: txHash.hash };
-        });
-
-        return returnValues;
-      },
+      handler: ([from, address, calldata, isStaticCall, gasSettings]) =>
+        this.stateHandler.executePublicCall(from, address, calldata, isStaticCall, gasSettings),
     });
   }
 

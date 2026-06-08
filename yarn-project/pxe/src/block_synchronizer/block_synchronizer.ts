@@ -9,8 +9,8 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
-import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
-import type { NoteStore } from '../storage/note_store/note_store.js';
+import type { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
+import type { NoteStore } from '../storage/note_store/index.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
 
@@ -113,7 +113,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           return;
         }
 
-        this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
+        this.log.warn(`Pruning data after block ${event.block.number} due to reorg`, { pruneBlock: event.block });
 
         // Note that the following is not necessarily the anchor block that will be used in the transaction - if
         // the chain has already moved past the reorg, we'll also see blocks-added events that will push the anchor
@@ -129,8 +129,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
         // Operations are wrapped in a single transaction to ensure atomicity.
         await this.store.transactionAsync(async () => {
-          await this.noteStore.rollback(event.block.number, currentAnchorBlockNumber);
-          await this.privateEventStore.rollback(event.block.number, currentAnchorBlockNumber);
+          await this.noteStore.rollback(event.block.number);
+          await this.privateEventStore.rollback(event.block.number);
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;

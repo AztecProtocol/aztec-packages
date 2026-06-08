@@ -82,16 +82,16 @@ export {
 } from './oracle_type_mappings.js';
 
 export const ORACLE_REGISTRY = {
-  aztec_utl_assertCompatibleOracleVersion: makeEntry({
+  aztec_misc_assertCompatibleOracleVersion: makeEntry({
     params: [
       { name: 'major', type: U32 },
       { name: 'minor', type: U32 },
     ],
   }),
 
-  aztec_utl_getRandomField: makeEntry({ returnType: FIELD }),
+  aztec_misc_getRandomField: makeEntry({ returnType: FIELD }),
 
-  aztec_utl_log: makeEntry({
+  aztec_misc_log: makeEntry({
     params: [
       { name: 'level', type: U32 },
       { name: 'message', type: STR },
@@ -365,6 +365,51 @@ export const ORACLE_REGISTRY = {
     params: [{ name: 'slot', type: FIELD }],
   }),
 
+  aztec_utl_pushTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'elements', type: ARRAY(FIELD) },
+    ],
+    returnType: U32,
+  }),
+
+  aztec_utl_popTransient: makeEntry({
+    params: [{ name: 'slot', type: FIELD }],
+    returnType: ARRAY(FIELD),
+  }),
+
+  aztec_utl_getTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'index', type: U32 },
+    ],
+    returnType: ARRAY(FIELD),
+  }),
+
+  aztec_utl_setTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'index', type: U32 },
+      { name: 'elements', type: ARRAY(FIELD) },
+    ],
+  }),
+
+  aztec_utl_getTransientLen: makeEntry({
+    params: [{ name: 'slot', type: FIELD }],
+    returnType: U32,
+  }),
+
+  aztec_utl_removeTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'index', type: U32 },
+    ],
+  }),
+
+  aztec_utl_clearTransient: makeEntry({
+    params: [{ name: 'slot', type: FIELD }],
+  }),
+
   aztec_prv_setHashPreimage: makeEntry({
     params: [
       { name: 'values', type: ARRAY(FIELD) },
@@ -459,27 +504,6 @@ export const ORACLE_REGISTRY = {
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
 } satisfies Record<string, OracleRegistryEntry>;
 
-/**
- * Deserializes oracle inputs, calls the handler with typed params, and serializes the result.
- */
-export async function callHandler<K extends keyof typeof ORACLE_REGISTRY>({
-  oracle,
-  inputs,
-  handler,
-}: {
-  oracle: K;
-  inputs: InputSlot[];
-  handler: (
-    params: ParamTypes<ReturnType<(typeof ORACLE_REGISTRY)[K]['deserializeParams']>>,
-  ) => MaybePromise<Parameters<(typeof ORACLE_REGISTRY)[K]['serializeReturn']>[0]>;
-}): Promise<OutputSlot[]> {
-  const entry = ORACLE_REGISTRY[oracle] as OracleRegistryEntry;
-  const named = entry.deserializeParams(inputs);
-  const positional = named.map(p => p.value);
-  const result = await handler(positional as any);
-  return entry.serializeReturn(result);
-}
-
 // ─── Registry Infrastructure ─────────────────────────────────────────────────
 
 /**
@@ -567,4 +591,19 @@ export type ParamTypes<T extends readonly NamedValue[]> = {
  */
 type InferDeserializedParams<T extends RegistryParam[]> = {
   [K in keyof T]: T[K] extends RegistryParam<infer N, infer V> ? NamedValue<N, V> : never;
+};
+
+// ─── Derived Handler Interfaces ─────────────────────────────────────────────
+
+/** Strips the `aztec_{scope}_` prefix from an oracle key to get the handler method name. */
+export type StripOraclePrefix<K extends string> = K extends `aztec_${string}_${infer M}` ? M : never;
+
+/** Derives the handler function signature from a registry entry's deserialization/serialization types. */
+type HandlerFn<E extends OracleRegistryEntry> = (
+  ...args: ParamTypes<ReturnType<E['deserializeParams']>>
+) => MaybePromise<Parameters<E['serializeReturn']>[0]>;
+
+/** Collects all oracle handler methods for a given name prefix into a single object type. */
+export type HandlersForPrefix<R extends Record<string, OracleRegistryEntry>, P extends string> = {
+  [K in keyof R as K extends `aztec_${P}_${string}` ? StripOraclePrefix<K & string> : never]: HandlerFn<R[K]>;
 };

@@ -102,11 +102,11 @@ pub comptime fn generate_public_dispatch(m: Module, generate_emit_public_init_nu
 
         ifs = ifs.push_back(
             quote {
-            if selector == $init_nullifier_selector {
-                $name();
-                aztec::oracle::avm::avm_return([]);
-            }
-        },
+                if selector == $init_nullifier_selector {
+                    $name();
+                    aztec::oracle::avm::avm_return([]);
+                }
+            },
         );
     }
 

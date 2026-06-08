@@ -8,7 +8,7 @@ pub contract ScopeTest {
     use aztec::{
         keys::getters::{get_nhk_app, get_public_keys},
         macros::{functions::{external, initializer, view}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateImmutable},
     };

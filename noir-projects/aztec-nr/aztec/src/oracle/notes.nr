@@ -192,8 +192,8 @@ unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient
 ///
 /// The caller already holds the tagging `secret`, whether obtained from [`get_app_tagging_secret`] or computed by the
 /// contract, and only needs the simulator to hand out a fresh per-secret, per-mode index; the caller computes the tag
-/// itself. `mode` is one of [`ONCHAIN_UNCONSTRAINED`](crate::messages::message_delivery::ONCHAIN_UNCONSTRAINED) /
-/// [`ONCHAIN_CONSTRAINED`](crate::messages::message_delivery::ONCHAIN_CONSTRAINED) and determines the per-mode index
+/// itself. `mode` is one of [`ONCHAIN_UNCONSTRAINED`](crate::messages::delivery::ONCHAIN_UNCONSTRAINED) /
+/// [`ONCHAIN_CONSTRAINED`](crate::messages::delivery::ONCHAIN_CONSTRAINED) and determines the per-mode index
 /// counter. Offchain messages are not tagged, so only the onchain delivery variants should reach this oracle.
 ///
 /// The simulator persists the index increment only if the tagged log is found in an actual block; a reverting
