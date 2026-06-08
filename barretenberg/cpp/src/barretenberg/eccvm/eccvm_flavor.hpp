@@ -1057,6 +1057,18 @@ class ECCVMFlavor {
             Base::lagrange_third = "__LAGRANGE_THIRD";
             Base::lagrange_last = "__LAGRANGE_LAST";
         };
+
+        // Used in pippenger_unsafe to activate duplicate stripping.
+        // Dups need to be > ~14 bits to be worth stripping.
+        // Empirical tests showed these polys had high duplicate counts under these conditions
+        static bool wire_has_high_duplicate_density(const std::string& label) noexcept
+        {
+            return label == "MSM_X1" || label == "MSM_X2" || label == "MSM_X3" || label == "MSM_X4" ||
+                   label == "MSM_Y1" || label == "MSM_Y2" || label == "MSM_Y3" || label == "MSM_Y4" ||
+                   label == "MSM_ROUND_MINUS_31_INV" || label == "PRECOMPUTE_DX" || label == "PRECOMPUTE_DY" ||
+                   label == "PRECOMPUTE_TX" || label == "PRECOMPUTE_TY" || label == "TRANSCRIPT_ACCUMULATOR_X" ||
+                   label == "TRANSCRIPT_ACCUMULATOR_Y" || label == "TRANSCRIPT_PX" || label == "TRANSCRIPT_PY";
+        }
     };
 
     template <typename Commitment, typename VerificationKey>

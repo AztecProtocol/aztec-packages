@@ -56,9 +56,11 @@ void TranslatorProver::execute_preamble_round()
  * @param polynomial
  * @param label
  */
-void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
+void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial,
+                                                    const std::string& label,
+                                                    bool has_duplicates_hint)
 {
-    transcript->send_to_verifier(label, key->proving_key->commitment_key.commit(polynomial));
+    transcript->send_to_verifier(label, key->proving_key->commitment_key.commit(polynomial, has_duplicates_hint));
 }
 
 /**
@@ -129,7 +131,8 @@ void TranslatorProver::execute_grand_product_computation_round()
     // Compute constraint permutation grand product
     compute_grand_products<Flavor>(key->proving_key->polynomials, relation_parameters);
 
-    commit_to_witness_polynomial(key->proving_key->polynomials.z_perm, commitment_labels.z_perm);
+    // set has_duplicates_hint for Z_PERM (empty row = duplicate Z value)
+    commit_to_witness_polynomial(key->proving_key->polynomials.z_perm, commitment_labels.z_perm, true);
 }
 
 /**
