@@ -2,6 +2,8 @@ import { ManualDateProvider } from '@aztec/foundation/timer';
 import { type AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
+import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
+
 import { getP2PDefaultConfig } from '../../config.js';
 import { BANNED_PEERS_MAP_NAME, PeerScoreState, PeerScoring } from './peer_scoring.js';
 
@@ -198,6 +200,28 @@ describe('PeerScoring', () => {
 
     expect(peerScoring.getScore(reBanPeerId)).toBe(-150);
     expect(peerScoring.getScoreState(reBanPeerId)).toBe(PeerScoreState.Banned);
+  });
+
+  // Regression test for the original advisory (GHSA-h4vv-85x5-6hmh): decayAllScores used to delete a
+  // banned peer's decayed score entry, after which getScore returned 0 and the peer was silently
+  // restored to Healthy — an effective ~66-minute ban. The persisted ban must keep it Banned.
+  test('does not silently restore a banned peer to Healthy after decay (GHSA-h4vv-85x5-6hmh)', async () => {
+    const peer = await createSecp256k1PeerId();
+
+    // Ban the peer: 3 x LowToleranceError (50 each) = -150, below MIN_SCORE_BEFORE_BAN (-100).
+    peerScoring.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
+    peerScoring.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
+    peerScoring.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
+    expect(peerScoring.getScoreState(peer.toString())).toBe(PeerScoreState.Banned);
+
+    // Stay idle long enough that decay drives the live score below SCORE_CLEANUP_THRESHOLD, so
+    // decayAllScores removes the entry (the exact mechanism the advisory exploited) — but still
+    // within the ban window.
+    dateProvider.advanceTimeMs(2 * 60 * 60 * 1000); // 2 hours
+    peerScoring.decayAllScores();
+
+    // Previously the peer would have read back as Healthy; the persisted ban keeps it Banned.
+    expect(peerScoring.getScoreState(peer.toString())).toBe(PeerScoreState.Banned);
   });
 });
 
