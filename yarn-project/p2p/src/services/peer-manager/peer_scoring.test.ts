@@ -227,6 +227,30 @@ describe('PeerScoring', () => {
     expect(peerScoring.getScoreState(reBanPeerId)).toBe(PeerScoreState.Banned);
   });
 
+  test('pruneExpiredBans removes expired bans but keeps active ones', () => {
+    const expiredPeer = 'expiredBanPeer';
+    const activePeer = 'activeBanPeer';
+
+    // Ban the first peer at t0 (expires at t0 + 24h).
+    peerScoring.updateScore(expiredPeer, -150);
+
+    // 23h later, ban the second peer (expires at t0 + 47h).
+    dateProvider.advanceTimeMs(23 * 60 * 60 * 1000);
+    peerScoring.updateScore(activePeer, -150);
+
+    // Advance to t0 + 25h: the first ban has expired, the second is still active. Neither has been
+    // read, so both records still linger in the map.
+    dateProvider.advanceTimeMs(2 * 60 * 60 * 1000);
+
+    peerScoring.pruneExpiredBans();
+
+    // The sweep dropped the expired ban from the map proactively, without a getScore read, and kept
+    // the active one.
+    const bannedPeers = (peerScoring as any).bannedPeers as Map<string, unknown>;
+    expect(bannedPeers.has(expiredPeer)).toBe(false);
+    expect(bannedPeers.has(activePeer)).toBe(true);
+  });
+
   // Regression test for the original advisory (GHSA-h4vv-85x5-6hmh): decayAllScores used to delete a
   // banned peer's decayed score entry, after which getScore returned 0 and the peer was silently
   // restored to Healthy — an effective ~66-minute ban. The ban must keep it Banned.

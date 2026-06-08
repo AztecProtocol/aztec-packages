@@ -170,6 +170,20 @@ export class PeerScoring {
     }
   }
 
+  /**
+   * Removes bans whose window has elapsed. Expired bans are otherwise only pruned lazily when their
+   * peer's score is next queried, so a banned peer that disconnects and is never queried again would
+   * linger in the map. Called periodically (per heartbeat) to bound the ban map's size.
+   */
+  pruneExpiredBans(): void {
+    const now = this.dateProvider.now();
+    for (const [peerId, ban] of this.bannedPeers) {
+      if (ban.expiry <= now) {
+        this.bannedPeers.delete(peerId);
+      }
+    }
+  }
+
   /** Resets all peer scores. Useful for benchmarks to prevent cross-case contamination. */
   resetAllScores(): void {
     this.scores.clear();

@@ -164,6 +164,7 @@ export class PeerManager implements PeerManagerInterface {
   public async heartbeat() {
     this.heartbeatCounter++;
     this.peerScoring.decayAllScores();
+    this.peerScoring.pruneExpiredBans();
     this.cleanupExpiredTimeouts();
 
     await this.setupDirectPeersIfValidator();
