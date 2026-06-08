@@ -633,7 +633,8 @@ describe('Utility Execution test suite', () => {
         const factsArray = await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR);
         const facts = factsArray.readAll(service);
 
-        // Order is not guaranteed across the two facts, so we assert on the count and on each fact's type being present.
+        // Order is not guaranteed across the two facts, so we assert on the count and on each fact's type being
+        // present.
         expect(facts).toHaveLength(2);
         const factTypeIds = facts.map(f => f.factTypeId.toBigInt());
         expect(factTypeIds).toContain(RECEIVED.toBigInt());
