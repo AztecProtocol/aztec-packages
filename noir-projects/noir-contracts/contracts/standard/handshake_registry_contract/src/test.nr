@@ -7,7 +7,7 @@ use aztec::{
         address::AztecAddress,
         constants::{DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, PRIVATE_LOG_SIZE_IN_FIELDS},
         hash::{compute_log_tag, compute_siloed_private_log_first_field},
-        traits::{Deserialize, FromField, ToField},
+        traits::{FromField, ToField},
     },
     test::helpers::{test_environment::{CallPrivateOptions, TestEnvironment}, txe_oracles},
 };
@@ -440,17 +440,6 @@ unconstrained fn validate_handshake_rejects_constrained_secret_for_unconstrained
         env.call_private(sender, registry.non_interactive_handshake(sender, recipient, ONCHAIN_CONSTRAINED));
 
     env.call_private(sender, registry.validate_handshake(sender, recipient, ONCHAIN_UNCONSTRAINED, constrained_secret));
-}
-
-#[test(should_fail_with = "unrecognized delivery mode")]
-unconstrained fn non_interactive_handshake_rejects_unknown_mode() {
-    let (env, registry_address, sender, _, recipient) = setup();
-    let registry = HandshakeRegistry::at(registry_address);
-
-    // Built via `deserialize` since the delivery API cannot construct this; the raw u8 crosses the ABI
-    // unvalidated and is only rejected by the contract's explicit `is_valid` check.
-    let invalid_mode = OnchainDeliveryMode::deserialize([99]);
-    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient, invalid_mode));
 }
 
 #[test]

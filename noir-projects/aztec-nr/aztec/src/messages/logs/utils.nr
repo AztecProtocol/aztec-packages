@@ -26,7 +26,7 @@ pub(crate) fn compute_discovery_tag(recipient: AztecAddress, sender_override: Op
                 random()
             },
             |secret| {
-                let index = get_next_tagging_index(secret, MessageDelivery::onchain_unconstrained().mode());
+                let index = get_next_tagging_index(secret, MessageDelivery::onchain_unconstrained());
                 poseidon2_hash([secret, index as Field])
             },
         )

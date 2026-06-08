@@ -12,6 +12,7 @@ use crate::protocol::{
     constants::DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG,
     hash::compute_log_tag,
     traits::{Deserialize, Packable, Serialize, ToField},
+    utils::reader::Reader,
 };
 
 /// Specifies how to deliver a message to a recipient.
@@ -48,7 +49,7 @@ global TAG_SECRET_DERIVATION_NON_INTERACTIVE_HANDSHAKE: u8 = 2;
 /// This is the typed discriminant consumed by the handshake registry and the per-mode tagging index. It crosses the
 /// registry ABI serialized as `(u8)` (mirroring how [`AztecAddress`] crosses as `(Field)`). Off-chain delivery has no
 /// mode, so only the two on-chain variants are representable.
-#[derive(Deserialize, Packable, Serialize)]
+#[derive(Serialize)]
 pub struct OnchainDeliveryMode {
     inner: u8,
 }
@@ -67,10 +68,13 @@ impl OnchainDeliveryMode {
         Self { inner: ONCHAIN_CONSTRAINED }
     }
 
+    fn from_u8(inner: u8) -> Self {
+        let mode = Self { inner };
+        assert(mode.is_valid(), "unrecognized delivery mode");
+        mode
+    }
+
     /// Whether `self` is one of the valid on-chain delivery modes.
-    ///
-    /// Callers that receive a mode across the ABI (e.g. the handshake registry) use this to reject an arbitrary `u8`
-    /// deserialized into an [`OnchainDeliveryMode`].
     pub fn is_valid(self) -> bool {
         (self == Self::onchain_unconstrained()) | (self == Self::onchain_constrained())
     }
@@ -86,9 +90,33 @@ impl OnchainDeliveryMode {
     }
 }
 
+impl Deserialize for OnchainDeliveryMode {
+    let N: u32 = <u8 as Deserialize>::N;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        Self::from_u8(<u8 as Deserialize>::deserialize(fields))
+    }
+
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        Self::from_u8(reader.read() as u8)
+    }
+}
+
 impl Eq for OnchainDeliveryMode {
     fn eq(self, other: Self) -> bool {
         self.inner == other.inner
+    }
+}
+
+impl Packable for OnchainDeliveryMode {
+    let N: u32 = <u8 as Packable>::N;
+
+    fn pack(self) -> [Field; Self::N] {
+        [self.inner as Field]
+    }
+
+    fn unpack(packed: [Field; Self::N]) -> Self {
+        Self::from_u8(<u8 as Packable>::unpack(packed))
     }
 }
 
@@ -305,7 +333,7 @@ impl MessageDelivery {
         if self.variant == OFFCHAIN {
             Option::none()
         } else {
-            Option::some(OnchainDeliveryMode { inner: self.variant })
+            Option::some(OnchainDeliveryMode::from_u8(self.variant))
         }
     }
 }
@@ -466,7 +494,7 @@ impl OnchainDelivery {
     /// Lets out-of-crate consumers (e.g. the handshake registry) obtain the mode through the typed delivery API
     /// rather than depending on a bare discriminant.
     pub fn mode(self) -> OnchainDeliveryMode {
-        OnchainDeliveryMode { inner: self.variant }
+        OnchainDeliveryMode::from_u8(self.variant)
     }
 }
 
@@ -482,7 +510,7 @@ impl MessageDeliveryBuilder for OnchainDelivery {
 
 mod test {
     use crate::protocol::address::AztecAddress;
-    use crate::protocol::traits::FromField;
+    use crate::protocol::traits::{Deserialize, FromField, Packable, Serialize};
     use super::{
         MessageDelivery, MessageDeliveryBuilder, OFFCHAIN, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED,
         OnchainDeliveryMode, TagSecretDerivation,
@@ -533,6 +561,34 @@ mod test {
         assert(OnchainDeliveryMode::onchain_unconstrained().is_valid());
         assert(OnchainDeliveryMode::onchain_constrained().is_valid());
         assert(GLOBAL_DERIVED_MODE == OnchainDeliveryMode::onchain_unconstrained());
+    }
+
+    #[test]
+    fn mode_roundtrips_through_serialization() {
+        let unc_mode = OnchainDeliveryMode::onchain_unconstrained();
+        let con_mode = OnchainDeliveryMode::onchain_constrained();
+
+        assert(OnchainDeliveryMode::deserialize(unc_mode.serialize()) == unc_mode);
+        assert(OnchainDeliveryMode::deserialize(con_mode.serialize()) == con_mode);
+    }
+
+    #[test(should_fail_with = "unrecognized delivery mode")]
+    fn deserializing_invalid_mode_fails() {
+        let _ = OnchainDeliveryMode::deserialize([99]);
+    }
+
+    #[test]
+    fn mode_roundtrips_through_packing() {
+        let unc_mode = OnchainDeliveryMode::onchain_unconstrained();
+        let con_mode = OnchainDeliveryMode::onchain_constrained();
+
+        assert(OnchainDeliveryMode::unpack(unc_mode.pack()) == unc_mode);
+        assert(OnchainDeliveryMode::unpack(con_mode.pack()) == con_mode);
+    }
+
+    #[test(should_fail_with = "unrecognized delivery mode")]
+    fn unpacking_invalid_mode_fails() {
+        let _ = OnchainDeliveryMode::unpack([99]);
     }
 
     #[test]
