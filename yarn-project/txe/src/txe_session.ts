@@ -39,7 +39,7 @@ import {
   toACVMWitness,
 } from '@aztec/simulator/client';
 import { STANDARD_AUTH_REGISTRY_ADDRESS } from '@aztec/standard-contracts/auth-registry/constants';
-import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
@@ -56,7 +56,7 @@ import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
 import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './oracle/txe_oracle_version.js';
 import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
-import { RPCTranslator } from './rpc_translator.js';
+import { RPCTranslator, UnavailableOracleError } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
@@ -128,14 +128,44 @@ export interface TXESessionStateHandler {
   ): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress: Option<AztecAddress>): Promise<void>;
 
-  // TODO(F-335): Exposing the job info is abstraction breakage - drop the following 2 functions.
-  cycleJob(): Promise<string>;
-  getCurrentJob(): string;
+  /**
+   * Executes a top-level private call: runs the private function, drains its offchain effects into the session buffer,
+   * commits the job, and (for non-static calls) tags the result with the mined tx hash.
+   */
+  executePrivateCall(
+    from: Option<AztecAddress>,
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    argsHash: Fr,
+    isStaticCall: boolean,
+    additionalScopes: AztecAddress[],
+    authorizedUtilityCallTargets: AztecAddress[],
+    gasSettings: GasSettings,
+  ): Promise<Fr[]>;
+
+  /** Executes a top-level utility function and commits the job. */
+  executeUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    authorizedUtilityCallTargets: AztecAddress[],
+  ): Promise<Fr[]>;
 
   /**
-   * Runs an executor-style top-level call (private/public call, utility execution) with last-call tracking.
+   * Executes a top-level public call, commits the job, and (for non-static calls) tags the result with the mined tx
+   * hash.
    */
-  withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T>;
+  executePublicCall(
+    from: Option<AztecAddress>,
+    targetContractAddress: AztecAddress,
+    calldata: Fr[],
+    isStaticCall: boolean,
+    gasSettings: GasSettings,
+  ): Promise<Fr[]>;
+
+  /** Syncs the target contract and returns the private events it emitted matching the given selector and scope. */
+  getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
 
   /**
    * Captures a raw offchain effect payload for consumption from test environment. Called by the `emit_offchain_effect`
@@ -399,12 +429,8 @@ export class TXESession implements TXESessionStateHandler {
     }
   }
 
-  getCurrentJob(): string {
-    return this.currentJobId;
-  }
-
   /** Commits the current job and begins a new one. Returns the new job ID. */
-  async cycleJob(): Promise<string> {
+  private async cycleJob(): Promise<string> {
     await this.jobCoordinator.commitJob(this.currentJobId);
     this.currentJobId = this.jobCoordinator.beginJob();
     return this.currentJobId;
@@ -434,7 +460,7 @@ export class TXESession implements TXESessionStateHandler {
     this.lastCallInfo.anchorBlockTimestamp = anchorBlockTimestamp;
   }
 
-  async withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T> {
+  private async withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T> {
     this.resetLastCall();
     // Capture the anchor *before* `work` runs: private/public executor calls mine a new block as a
     // side effect, and that block's timestamp should not be attributed to this call's anchor.
@@ -462,6 +488,117 @@ export class TXESession implements TXESessionStateHandler {
   getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
     const { txHash, anchorBlockTimestamp } = this.lastCallInfo;
     return { txHash, anchorBlockTimestamp };
+  }
+
+  async executePrivateCall(
+    from: Option<AztecAddress>,
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    argsHash: Fr,
+    isStaticCall: boolean,
+    additionalScopes: AztecAddress[],
+    authorizedUtilityCallTargets: AztecAddress[],
+    gasSettings: GasSettings,
+  ): Promise<Fr[]> {
+    const handler = this.handlerAsTxe();
+    return await this.withTopLevelCallTracking(async () => {
+      const { returnValues, offchainEffects } = await handler.privateCallNewFlow(
+        from?.value,
+        targetContractAddress,
+        functionSelector,
+        args,
+        argsHash,
+        isStaticCall,
+        additionalScopes,
+        this.currentJobId,
+        authorizedUtilityCallTargets,
+        gasSettings,
+      );
+
+      // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than round-tripping
+      // them through `aztec_utl_emitOffchainEffect`, so the session buffer is empty at this point. Drain the effects
+      // from the execution tree into the session buffer so the next `env.offchain_messages()` call in the test sees
+      // them.
+      for (const data of offchainEffects) {
+        this.recordOffchainEffect(data);
+      }
+
+      await this.cycleJob();
+
+      if (isStaticCall) {
+        // Static calls revert their checkpoint and mine no block, so there is no tx hash to tag offchain effects
+        // with. Querying `getLastTxEffects()` here would return an unrelated predecessor tx.
+        return { result: returnValues };
+      }
+      const { txHash } = await handler.getLastTxEffects();
+      return { result: returnValues, txHash: txHash.hash };
+    });
+  }
+
+  async executeUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+    authorizedUtilityCallTargets: AztecAddress[],
+  ): Promise<Fr[]> {
+    const handler = this.handlerAsTxe();
+    return await this.withTopLevelCallTracking(async () => {
+      const returnValues = await handler.executeUtilityFunction(
+        targetContractAddress,
+        functionSelector,
+        args,
+        this.currentJobId,
+        authorizedUtilityCallTargets,
+      );
+
+      await this.cycleJob();
+
+      return { result: returnValues };
+    });
+  }
+
+  async executePublicCall(
+    from: Option<AztecAddress>,
+    targetContractAddress: AztecAddress,
+    calldata: Fr[],
+    isStaticCall: boolean,
+    gasSettings: GasSettings,
+  ): Promise<Fr[]> {
+    const handler = this.handlerAsTxe();
+    return await this.withTopLevelCallTracking(async () => {
+      const returnValues = await handler.publicCallNewFlow(
+        from?.value,
+        targetContractAddress,
+        calldata,
+        isStaticCall,
+        gasSettings,
+      );
+
+      await this.cycleJob();
+
+      if (isStaticCall) {
+        // See the equivalent branch in `executePrivateCall`.
+        return { result: returnValues };
+      }
+      const { txHash } = await handler.getLastTxEffects();
+      return { result: returnValues, txHash: txHash.hash };
+    });
+  }
+
+  async getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]> {
+    const handler = this.handlerAsTxe();
+    await handler.syncContractNonOracleMethod(contractAddress, scope, this.currentJobId);
+    // Cycle the job to commit the stores after the contract sync.
+    await this.cycleJob();
+    return handler.getPrivateEvents(selector, contractAddress, scope);
+  }
+
+  private handlerAsTxe(): ITxeExecutionOracle {
+    if (!('isTxe' in this.oracleHandler)) {
+      throw new UnavailableOracleError('Txe');
+    }
+    return this.oracleHandler;
   }
 
   setTxeOracleVersion(major: number, minor: number): void {

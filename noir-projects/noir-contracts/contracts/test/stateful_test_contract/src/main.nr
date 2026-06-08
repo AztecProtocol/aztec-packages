@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 pub contract StatefulTest {
     use aztec::macros::{functions::{external, initializer, noinitcheck, view}, storage::storage};
     use aztec::{
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
         protocol::{abis::function_selector::FunctionSelector, address::AztecAddress},
         state_vars::{Map, Owned, PrivateSet, PublicMutable},

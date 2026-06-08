@@ -15,7 +15,7 @@ pub contract SchnorrAccount {
         context::PrivateContext,
         hash::compute_siloed_nullifier,
         macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         oracle::{
             auth_witness::get_auth_witness, get_nullifier_membership_witness::get_low_nullifier_membership_witness,
         },

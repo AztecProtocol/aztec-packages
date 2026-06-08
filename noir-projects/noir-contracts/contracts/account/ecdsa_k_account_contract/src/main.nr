@@ -8,7 +8,7 @@ pub contract EcdsaKAccount {
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
         macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         oracle::auth_witness::get_auth_witness_as_bytes,
         state_vars::SinglePrivateImmutable,
     };
