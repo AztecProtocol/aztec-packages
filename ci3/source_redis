@@ -81,6 +81,13 @@ function redis_cli {
 }
 
 function redis_setexz {
+  # redis_cli is a no-op when redis is unavailable and never reads stdin, so the
+  # upstream writer in `... | redis_setexz` would take SIGPIPE and abort the caller
+  # under `set -o pipefail`. Drain stdin and succeed instead (matches redis_cli).
+  if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
+    cat >/dev/null
+    return 0
+  fi
   gzip | redis_cli -x SETEX $1 $2 &>/dev/null
 }
 

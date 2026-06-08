@@ -65,8 +65,12 @@ function cache_persistent {
 
   cat | gzip > "$tmpfile"
 
-  # Write to Redis (synchronous)
-  cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
+  # Write to Redis (synchronous). Skip when redis is unavailable: redis_cli won't
+  # read stdin, so the `cat "$tmpfile" |` writer would take SIGPIPE and abort under
+  # `set -o pipefail`. The data still reaches S3 below.
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
+  fi
 
   # Write to S3 in background
   {
