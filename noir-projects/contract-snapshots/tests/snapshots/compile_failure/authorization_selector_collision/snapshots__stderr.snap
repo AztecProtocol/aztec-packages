@@ -41,8 +41,8 @@ error: check_trait_impl_where_clause_matches_trait_where_clause: missing trait I
 error: check_trait_impl_method_matches_declaration: missing trait impl
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:<line>:<col>
    │
-   │             fn get_authorization_selector(self) -> $authorization_selector_type {
-   │                --------------------------
+   │                 fn get_authorization_selector(self) -> $authorization_selector_type {
+   │                    --------------------------
    │
    ┌─ src/main.nr:24:5
    │
