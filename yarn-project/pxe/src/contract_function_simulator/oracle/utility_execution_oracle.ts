@@ -71,9 +71,9 @@ import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import type { TransientArrayService } from '../transient_array_service.js';
+import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
-import { Oracle } from './oracle.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -915,9 +915,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     });
 
     const initialWitness = toACVMWitness(0, args);
-    const acvmCallback = new Oracle(nestedOracle);
     const acirExecutionResult = await this.simulator
-      .executeUserCircuit(initialWitness, targetArtifact, acvmCallback.toACIRCallback())
+      .executeUserCircuit(initialWitness, targetArtifact, buildACIRCallback(nestedOracle))
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, targetArtifact);
         throw new ExecutionError(

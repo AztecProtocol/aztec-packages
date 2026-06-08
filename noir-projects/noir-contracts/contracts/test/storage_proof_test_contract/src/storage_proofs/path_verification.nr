@@ -10,10 +10,10 @@ pub fn verify_path_section<let MAX_PATH_LENGTH: u32>(
     let mut current_nibble_idx: u32 = start_trie_key_index;
 
     runtime_loop!(
-        quote {i},
-        quote {0},
-        quote {node_length},
-        quote {MAX_PATH_LENGTH},
+        quote { i },
+        quote { 0 },
+        quote { node_length },
+        quote { MAX_PATH_LENGTH },
         quote {
             let node = nodes[i];
             if node.is_branch_node() {

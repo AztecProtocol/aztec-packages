@@ -26,9 +26,9 @@ import {
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
   Option,
-  Oracle,
   TransientArrayService,
   UtilityExecutionOracle,
+  buildACIRCallback,
 } from '@aztec/pxe/simulator';
 import {
   ExecutionError,
@@ -922,7 +922,7 @@ export class TXESession implements TXESessionStateHandler {
           transientArrayService: new TransientArrayService(),
         });
         await simulator
-          .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+          .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, buildACIRCallback(oracle))
           .catch((err: Error) => {
             err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
             throw new ExecutionError(

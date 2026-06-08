@@ -106,7 +106,7 @@ import type { BenchmarkedNode } from './benchmarked_node.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
-import { Oracle } from './oracle/oracle.js';
+import { buildACIRCallback } from './oracle/acir_callback.js';
 import { executePrivateFunction } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
@@ -382,7 +382,7 @@ export class ContractFunctionSimulator {
 
       const initialWitness = toACVMWitness(0, call.args);
       const acirExecutionResult = await this.simulator
-        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle).toACIRCallback())
+        .executeUserCircuit(initialWitness, entryPointArtifact, buildACIRCallback(oracle))
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
           throw new ExecutionError(

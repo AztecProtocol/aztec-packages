@@ -83,7 +83,7 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
     let module_name = module.name();
     let storage_layout_name = f"STORAGE_LAYOUT_{module_name}".quoted_contents();
     let module_name_str = f"{module_name}".as_quoted_str();
-    let module_name_len: u32 = unquote!(quote { $module_name_str.as_bytes().len()});
+    let module_name_len: u32 = unquote!(quote { $module_name_str.as_bytes().len() });
     STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {
