@@ -17,9 +17,9 @@ import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
+import { WASMSimulator } from '@aztec/simulator/client';
 import { HandshakeRegistryArtifact } from '@aztec/standard-contracts/handshake-registry';
 import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
-import { WASMSimulator } from '@aztec/simulator/client';
 import {
   type ContractArtifact,
   FunctionCall,
