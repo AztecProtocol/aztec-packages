@@ -23,10 +23,11 @@ jobs:
         run: |
             branch="${{ github.ref_name }}"
 
-            # Determine base branch. Most trains target next; the spartan-v5
-            # train targets the v5 release line (v5-next) instead.
+            # Determine base branch. Most trains target next; trains suffixed
+            # with -v5 (e.g. spartan-v5, fairies-v5) target the v5 release line
+            # (v5-next) instead.
             base_branch="next"
-            if [[ "$branch" == "merge-train/spartan-v5" ]]; then
+            if [[ "$branch" == *-v5 ]]; then
               base_branch="v5-next"
             fi
 
@@ -53,6 +54,10 @@ jobs:
               labels="ci-no-squash"
               if [[ "$branch" == "merge-train/spartan" || "$branch" == "merge-train/spartan-v5" || "$branch" == "merge-train/ci" ]]; then
                 labels="$labels,ci-full-no-test-cache"
+              fi
+              # Trains targeting the v5 release line are ports into v5-next.
+              if [[ "$base_branch" == "v5-next" ]]; then
+                labels="$labels,private-port-next"
               fi
               gh pr create --base "$base_branch" --head "$branch" \
                 --title "feat: $branch" \

@@ -7,10 +7,12 @@ import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import { DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS } from './config.js';
 import { ValidatorMetrics } from './metrics.js';
 import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
@@ -31,7 +33,11 @@ export function createProposalHandler(
   },
 ) {
   const metrics = new ValidatorMetrics(deps.telemetry);
-  const blockProposalValidator = new BlockProposalValidator(deps.epochCache, {
+  const consensusTimetable = new ConsensusTimetable({
+    l1Constants: deps.epochCache.getL1Constants(),
+    blockDuration: config.blockDurationMs !== undefined ? config.blockDurationMs / 1000 : undefined,
+  });
+  const blockProposalValidator = new BlockProposalValidator(deps.epochCache, consensusTimetable, {
     txsPermitted: !config.disableTransactions,
     maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
     maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
@@ -39,6 +45,7 @@ export function createProposalHandler(
       chainId: config.l1ChainId,
       rollupAddress: config.rollupAddress,
     },
+    clockDisparityMs: config.maxGossipClockDisparityMs ?? DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS,
   });
   return new ProposalHandler(
     deps.checkpointsBuilder,
@@ -48,6 +55,7 @@ export function createProposalHandler(
     deps.p2pClient.getTxProvider(),
     blockProposalValidator,
     deps.epochCache,
+    consensusTimetable,
     config,
     deps.blobClient,
     deps.reexecutionTracker,

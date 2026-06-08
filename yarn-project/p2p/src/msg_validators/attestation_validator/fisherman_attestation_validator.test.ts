@@ -11,12 +11,21 @@ import {
   makeCheckpointHeader,
   makeCheckpointProposal,
 } from '@aztec/stdlib/testing';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
 import { FishermanAttestationValidator } from './fisherman_attestation_validator.js';
+
+/** Builds a multi-block timetable (S=72, E=12, D=6) matching the test's mocked l1 constants. */
+function makeTimetable() {
+  return new ConsensusTimetable({
+    l1Constants: { l1GenesisTime: 0n, slotDuration: 72, ethereumSlotDuration: 12 },
+    blockDuration: 6,
+  });
+}
 
 describe('FishermanAttestationValidator', () => {
   let epochCache: MockProxy<EpochCacheInterface>;
@@ -28,20 +37,29 @@ describe('FishermanAttestationValidator', () => {
   beforeEach(() => {
     epochCache = mock<EpochCacheInterface>();
     epochCache.getL1Constants.mockReturnValue({
+      l1GenesisTime: 0n,
       slotDuration: 72,
       ethereumSlotDuration: 12,
     } as any);
     attestationPool = mock<AttestationPool>();
-    validator = new FishermanAttestationValidator(epochCache, attestationPool, getTelemetryClient(), {
-      l1PublishingTime: 12,
+    validator = new FishermanAttestationValidator(epochCache, makeTimetable(), attestationPool, getTelemetryClient(), {
       signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+      clockDisparityMs: 500,
+    });
+    // Default now sits inside slot 100's attestation window [7116, 7248]s, so slot-100 attestations pass
+    // the receive-window gate and reach committee/payload checks. The slot-97 test overrides this.
+    epochCache.getEpochAndSlotNow.mockReturnValue({
+      epoch: EpochNumber(1),
+      slot: SlotNumber(100),
+      ts: 7150n,
+      nowMs: 7150_000n,
     });
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
   });
 
   describe('base validation', () => {
-    it('returns high tolerance error if slot number is not current or next slot (outside clock tolerance)', async () => {
+    it('returns high tolerance error if slot number is outside its receive window', async () => {
       const header = CheckpointHeader.random({ slotNumber: SlotNumber(97) });
       const mockAttestation = makeCheckpointAttestation({
         header,
@@ -57,8 +75,8 @@ describe('FishermanAttestationValidator', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: SlotNumber(98),
-        ts: 1000n,
-        nowMs: 1001000n, // 1000ms elapsed, outside 500ms tolerance
+        ts: 7033n,
+        nowMs: 7033_000n, // past slot 97's attestation deadline (7032s) + disparity
       });
       epochCache.isInCommittee.mockResolvedValue(true);
 
