@@ -6,18 +6,16 @@
 // capture, independent of MSM geometry.
 //
 // MINIMAL + self-contained, sized per path so it builds on Mali:
-//   op=mul       : structs + bigint + field + montmul (the BigInt body — karat or
-//                  cios_unrolled montgomery_product).
+//   op=mul       : structs + bigint + field + montmul (the BigInt body — karat
+//                  or the f8 wrapper montgomery_product).
 //   op=inv pk14  : structs + bigint + pack/unpack glue + the self-contained
 //                  packed-14-bit safegcd inverse (fr_inv_by_loop_pk, f8 in/out).
-//   op=inv loop  : structs + bigint + field + montmul + the BigInt safegcd loop
-//                  inverse (needs get_r_cubed / get_p / montgomery_product).
 // The chain is dependent + stored, so it can't be optimized away.
 
 // structs (BigInt) is self-contained. bigint_funcs / field_funcs / the montmul
 // scaffold reference WGSL consts (NUM_WORDS, WORD_SIZE, MASK, …) that ONLY the
 // montmul scaffold defines, so they travel together — included only by the mul
-// and loop-inverse paths. The pk14 path needs none of them.
+// path. The pk14 inverse path needs none of them.
 {{> structs }}
 
 {{#is_mul}}
@@ -34,19 +32,6 @@
 // they need no NUM_WORDS const) — keeps the pk14 module minimal for Mali.
 {{{ dec_unpack }}}
 {{{ dec_pack }}}
-{{> inverse_funcs }}
-{{/inv_f8}}
-{{^inv_f8}}
-{{> bigint_funcs }}
-{{> field_funcs }}
-{{> montgomery_product_funcs }}
-// Montgomery one (R mod p) — the BigInt loop inverse reads it (and get_r_cubed
-// from fr_pow). Defined here from r_limbs since this microbench omits field8.
-fn get_r() -> BigInt { var r: BigInt;
-{{{ r_limbs }}}
-    return r; }
-{{> fr_pow_funcs }}
-{{> bigint_by_funcs }}
 {{> inverse_funcs }}
 {{/inv_f8}}
 {{/is_inv}}

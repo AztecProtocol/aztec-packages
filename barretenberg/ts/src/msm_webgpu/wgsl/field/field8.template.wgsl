@@ -21,9 +21,8 @@ fn get_r_f8() -> array<u32, 8> {
     return array<u32, 8>({{ r8_csv }});
 }
 
-// get_r in the 20x13-limb form. Only `fr_pow` references it — a dead-code
-// path in these kernels (fr_pow_funcs is pulled in for get_r_cubed, which
-// the pk inverse needs). Derived from the get_r_f8 constant, so it is
+// get_r in the 20x13-limb form — the Montgomery identity, used by
+// convert_points_only. Derived from the get_r_f8 constant, so it is
 // itself compile-time constant — no per-thread `var` materialisation.
 fn get_r() -> BigInt {
     return unpack256_to_limbs(get_r_f8());

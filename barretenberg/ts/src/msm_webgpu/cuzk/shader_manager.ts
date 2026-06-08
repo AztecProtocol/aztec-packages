@@ -51,7 +51,6 @@ import {
   extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
   field as field_funcs,
   field8 as field8_funcs,
-  fr_pow as fr_pow_funcs,
   microbench as microbench_shader,
   mont_pro_product_cios_unrolled as montgomery_product_cios_unrolled_funcs,
   mont_pro_product_f8_native as montgomery_product_f8_native_funcs,
@@ -82,7 +81,6 @@ import {
   gen_p_limbs_f32,
   gen_r_limbs,
   gen_mu_limbs,
-  gen_wgsl_limbs_code,
 } from './utils.js';
 import { BN254_CURVE_CONFIG, CurveConfig } from './curve_config.js';
 
@@ -96,6 +94,27 @@ function modinv(a: bigint, m: bigint): bigint {
     [old_s, s] = [s, old_s - q * s];
   }
   return ((old_s % m) + m) % m;
+}
+
+// Split a < 2^256 bigint into 8 little-endian u32 words — the packed
+// field8 representation. Used both for the field8 constants and the
+// decompress shader's packed curve constants.
+function words8(v: bigint): number[] {
+  const out: number[] = [];
+  let x = v;
+  for (let i = 0; i < 8; i++) {
+    out.push(Number(x & 0xffffffffn));
+    x >>= 32n;
+  }
+  return out;
+}
+
+// CSV of 8 little-endian u32 words with the `u` suffix, for inlining a
+// 256-bit constant into a WGSL `array<u32, 8>(...)` initialiser.
+function words8Csv(v: bigint): string {
+  return words8(v)
+    .map(w => `${w >>> 0}u`)
+    .join(', ');
 }
 
 // Generates parameterised WGSL shader sources for the BN254 MSM
@@ -126,13 +145,6 @@ export class ShaderManager {
   public w_mask: number;
   public p_limbs: string;
   public r_limbs: string;
-  public r_cubed_limbs: string;
-  public b3_mont_limbs: string;
-  public sqrt_exp_limbs: string;
-  // (p - 2) as a BigInt literal — exponent for the Fermat-based fr_pow_inv
-  // bench variant. Plain (non-Montgomery) since fr_pow's `exp` is consumed
-  // bit-by-bit as a raw integer.
-  public p_minus_2_limbs: string;
   public p_inv_mod_2w: number;
   public mu_limbs: string;
   // 22-bit-limb f32 Montgomery params. Used by
@@ -202,16 +214,6 @@ export class ShaderManager {
     this.two_pow_chunk_size = 2 ** chunk_size;
     this.p_limbs = gen_p_limbs(this.p, this.num_words, this.word_size);
     this.r_limbs = gen_r_limbs(this.r, this.num_words, this.word_size);
-    const r_cubed = (this.r * this.r * this.r) % this.p;
-    this.r_cubed_limbs = gen_wgsl_limbs_code(r_cubed, 'r3', this.num_words, this.word_size);
-    // Montgomery form of 3 = 3·R mod p (b parameter for BN254 y² = x³ + 3).
-    const b3_mont = (3n * this.r) % this.p;
-    this.b3_mont_limbs = gen_wgsl_limbs_code(b3_mont, 'b3', this.num_words, this.word_size);
-    // (q + 1) / 4: closed-form sqrt exponent for q ≡ 3 (mod 4).
-    const sqrt_exp = (this.p + 1n) / 4n;
-    this.sqrt_exp_limbs = gen_wgsl_limbs_code(sqrt_exp, 'e', this.num_words, this.word_size);
-    // (p - 2): exponent for Fermat-based inversion in fr_pow_inv.
-    this.p_minus_2_limbs = gen_wgsl_limbs_code(this.p - 2n, 'e', this.num_words, this.word_size);
     this.p_inv_mod_2w = compute_mod_inverse_pow2(this.p, this.word_size);
     this.mu_limbs = gen_mu_limbs(this.p, this.num_words, this.word_size);
     this.p_bitlength = this.p.toString(2).length;
@@ -357,6 +359,13 @@ ${packLines.join('\n')}
   }
 
   public gen_decompress_g1_bn254_shader(workgroup_size: number): string {
+    const dec = this.decoupledPackUnpackWgsl();
+    const { p8_consts, r8_csv, f8_words } = this.f8Context();
+    // Packed curve constants for the f8 path: R^2 (native -> Montgomery),
+    // 3·R (Montgomery b), and the raw closed-form sqrt exponent (q+1)/4.
+    const r_squared = (this.r * this.r) % this.p;
+    const b3_mont = (3n * this.r) % this.p;
+    const sqrt_exp = (this.p + 1n) / 4n;
     return mustache.render(
       decompress_g1_bn254_shader,
       {
@@ -370,12 +379,18 @@ ${packLines.join('\n')}
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
         mu_limbs: this.mu_limbs,
-        b3_mont_limbs: this.b3_mont_limbs,
-        sqrt_exp_limbs: this.sqrt_exp_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         w_mask: this.w_mask,
         slack: this.slack,
         num_words_mul_two: this.num_words * 2,
+        f8_native: this.montmul === 'cios_unrolled',
+        p8_consts,
+        r8_csv,
+        f8_words,
+        dec_unpack: dec.unpack,
+        dec_pack: dec.pack,
+        r_squared_csv: words8Csv(r_squared),
+        b3_mont_csv: words8Csv(b3_mont),
+        sqrt_exp_csv: words8Csv(sqrt_exp),
         recompile: this.recompile,
       },
       {
@@ -384,7 +399,8 @@ ${packLines.join('\n')}
         field_funcs,
         barrett_funcs,
         montgomery_product_funcs: this.mont_product_src,
-        fr_pow_funcs,
+        montgomery_product_f8_native: this.mont_f8_native_src,
+        field8_funcs,
       },
     );
   }
@@ -476,20 +492,9 @@ ${packLines.join('\n')}
    * fr_sub_f8 and the get_r_f8 seed, plus the 0..7 unroll index list.
    */
   private f8Context() {
-    const words8 = (v: bigint): number[] => {
-      const out: number[] = [];
-      let x = v;
-      for (let i = 0; i < 8; i++) {
-        out.push(Number(x & 0xffffffffn));
-        x >>= 32n;
-      }
-      return out;
-    };
     return {
       p8_consts: words8(this.p).map((val, idx) => ({ idx, val })),
-      r8_csv: words8(this.r)
-        .map(v => `${v >>> 0}u`)
-        .join(', '),
+      r8_csv: words8Csv(this.r),
       f8_words: [0, 1, 2, 3, 4, 5, 6, 7].map(i => ({ i })),
     };
   }
@@ -553,7 +558,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -568,7 +572,6 @@ ${packLines.join('\n')}
         montgomery_product_funcs: this.mont_product_src,
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -609,8 +612,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -626,7 +627,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -657,8 +657,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -674,7 +672,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -715,8 +712,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -732,7 +727,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -883,8 +877,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -900,7 +892,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -942,8 +933,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -959,7 +948,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -1005,8 +993,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -1022,7 +1008,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -1063,8 +1048,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -1080,7 +1063,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -1113,8 +1095,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -1130,7 +1110,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -1520,8 +1499,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -1537,7 +1514,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -1631,8 +1607,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -1648,7 +1622,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },
@@ -1685,8 +1658,6 @@ ${packLines.join('\n')}
         n0: this.n0,
         p_limbs: this.p_limbs,
         r_limbs: this.r_limbs,
-        r_cubed_limbs: this.r_cubed_limbs,
-        p_minus_2_limbs: this.p_minus_2_limbs,
         mask: this.mask,
         two_pow_word_size: this.two_pow_word_size,
         p_inv_mod_2w: this.p_inv_mod_2w,
@@ -1702,7 +1673,6 @@ ${packLines.join('\n')}
         montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         field8_funcs,
-        fr_pow_funcs,
         bigint_by_funcs,
         inverse_funcs,
       },

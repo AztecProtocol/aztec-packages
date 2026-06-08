@@ -9,16 +9,23 @@
 // and flip its sign to match the encoded parity bit, then write affine
 // (x, y) as interleaved 32 LE bytes each.
 //
-// All field work is in Montgomery form; the heavy lifting is one
-// `fr_pow` per point (~260 squarings + ~126 mults for a 252-bit
-// exponent). One thread per point.
+// All field work is the packed 8x u32 Montgomery form and the same
+// `montgomery_product_f8` the MSM kernels use, so the karat / f8_native
+// montmul toggle applies here too. The heavy lifting is one closed-form
+// sqrt per point — 256 squarings + ~126 mults of `montgomery_product_f8`
+// over a 254-bit exponent. One thread per point.
 
 {{> structs }}
 {{> bigint_funcs }}
 {{> field_funcs }}
 {{> barrett_funcs }}
 {{> montgomery_product_funcs }}
-{{> fr_pow_funcs }}
+
+{{{ dec_unpack }}}
+
+{{{ dec_pack }}}
+
+{{> field8_funcs }}
 
 // 32 bytes per point, with the BE input reversed by the host so that
 // compressed_in[id*8 + i] is the i'th LE u32 of the value (low chunk
@@ -36,69 +43,42 @@ var<storage, read_write> affine_out: array<u32>;
 @group(0) @binding(2)
 var<uniform> input_size: u32;
 
-fn get_r() -> BigInt {
-    var r: BigInt;
-{{{ r_limbs }}}
-    return r;
+// R^2 mod q, packed. Converts a native value to Montgomery form via
+// montgomery_product_f8(x, R^2) = x · R^2 · R^-1 = x · R.
+fn get_r_squared_f8() -> array<u32, 8> {
+    return array<u32, 8>({{ r_squared_csv }});
 }
 
-// Montgomery form of 3 (the curve b parameter). Used in y² = x³ + 3.
-fn get_b3_mont() -> BigInt {
-    var b3: BigInt;
-{{{ b3_mont_limbs }}}
-    return b3;
+// 3 · R mod q — the Montgomery form of the curve b = 3, packed. Added
+// to x^3 (also Montgomery) to form y^2.
+fn get_b3_mont_f8() -> array<u32, 8> {
+    return array<u32, 8>({{ b3_mont_csv }});
 }
 
-// (q + 1) / 4. The exponent for the closed-form sqrt over a field of
-// characteristic q ≡ 3 (mod 4).
-fn get_sqrt_exp() -> BigInt {
-    var e: BigInt;
-{{{ sqrt_exp_limbs }}}
-    return e;
+// (q + 1) / 4 as the raw 256-bit exponent, 8 LE u32 words. The
+// closed-form sqrt exponent for a field of characteristic q ≡ 3 (mod 4).
+fn get_sqrt_exp_f8() -> array<u32, 8> {
+    return array<u32, 8>({{ sqrt_exp_csv }});
 }
 
-// Extract the limb_idx'th WORD_SIZE-bit limb from 9 LE u32s holding the
-// 256-bit native value (le_words[0] is the LSB u32). Up to two adjacent
-// u32s are read; the 9th entry is a zero pad so the highest limb never
-// needs a bounds check on the read.
-fn extract_limb_le(le_words: ptr<function, array<u32, 9>>, limb_idx: u32) -> u32 {
-    let bit_start = limb_idx * WORD_SIZE;
-    let word_idx = bit_start / 32u;
-    let bit_off = bit_start - word_idx * 32u;
-    let lo = (*le_words)[word_idx] >> bit_off;
-    var hi: u32 = 0u;
-    // bit_off + WORD_SIZE crosses the 32-bit boundary when bit_off > 32 - WORD_SIZE
-    // (= 19 for WORD_SIZE=13). The shift `32 - bit_off` is in [1, 12] there,
-    // so it's well-defined; the alternative branch would attempt `<< 32u`.
-    if (bit_off + WORD_SIZE > 32u) {
-        hi = (*le_words)[word_idx + 1u] << (32u - bit_off);
+// Square-and-multiply exponentiation on the packed Montgomery form.
+// `result` is seeded at Montgomery one (get_r_f8); `exp` is the raw
+// 256-bit exponent, scanned low-bit first across its 8 u32 words. Uses
+// the same montgomery_product_f8 as the rest of the pipeline.
+fn fr_pow_f8(base: array<u32, 8>, exp: array<u32, 8>) -> array<u32, 8> {
+    var result: array<u32, 8> = get_r_f8();
+    var b: array<u32, 8> = base;
+    for (var w: u32 = 0u; w < 8u; w = w + 1u) {
+        var bits: u32 = exp[w];
+        for (var i: u32 = 0u; i < 32u; i = i + 1u) {
+            if ((bits & 1u) == 1u) {
+                result = montgomery_product_f8(result, b);
+            }
+            b = montgomery_product_f8(b, b);
+            bits = bits >> 1u;
+        }
     }
-    return (lo | hi) & MASK;
-}
-
-// Inverse of `extract_limb_le`: gather bits [word_idx*32, word_idx*32 + 32)
-// from the 13-bit limbs of `x` and pack them as an LE u32. A 32-bit
-// window spans 3 or 4 13-bit limbs depending on bit_off; we always
-// fold in 3 limbs and conditionally add a 4th when those don't cover
-// the full 32 bits. The 4th limb is only needed for word_idx ∈ {2,4,6}
-// (bit_off > 7); in those cases limb_idx_lo + 3 ≤ 17 < NUM_WORDS so
-// the access is safe. For word_idx ∈ {1,3,5,7} the conditional is
-// false and we skip the (would-be out-of-bounds for word_idx=7) read.
-fn limbs_to_le_u32(x: ptr<function, BigInt>, word_idx: u32) -> u32 {
-    let bit_start = word_idx * 32u;
-    let limb_idx_lo = bit_start / WORD_SIZE;
-    let bit_off = bit_start - limb_idx_lo * WORD_SIZE;
-    // First limb: shift down by bit_off so its bits land at the bottom of acc.
-    var acc: u32 = (*x).limbs[limb_idx_lo] >> bit_off;
-    var bits: u32 = WORD_SIZE - bit_off;          // valid bits in acc; in [1, 13]
-    acc = acc | ((*x).limbs[limb_idx_lo + 1u] << bits);
-    bits = bits + WORD_SIZE;                       // in [14, 26]
-    acc = acc | ((*x).limbs[limb_idx_lo + 2u] << bits);
-    bits = bits + WORD_SIZE;                       // in [27, 39]
-    if (bits < 32u) {
-        acc = acc | ((*x).limbs[limb_idx_lo + 3u] << bits);
-    }
-    return acc;
+    return result;
 }
 
 @compute
@@ -107,78 +87,52 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let id = global_id.x;
     if (id >= input_size) { return; }
 
-    // Load the 8 LE u32s for this point. The host already byte-reversed
-    // the original BE encoding so these are in natural LE order
-    // (le_words[0] = low 32 bits, le_words[7] = high 32 bits). The 9th
-    // slot is a zero pad so `extract_limb_le` never needs a bounds
-    // branch when limb 19 spans the top of the value.
-    var le_words: array<u32, 9>;
-    for (var i = 0u; i < 8u; i = i + 1u) {
-        le_words[i] = compressed_in[id * 8u + i];
-    }
-    le_words[8] = 0u;
-
-    // The parity bit is the MSB of the top BE byte = bit 31 of the
-    // top LE u32 (le_words[7]). Clear it from the value.
-    let y_bit: u32 = (le_words[7] >> 31u) & 1u;
-    le_words[7] = le_words[7] & 0x7fffffffu;
-
-    // x's LE-u32 representation is just le_words[0..8] (with the sign
-    // bit already cleared from le_words[7]). Snapshot it directly here
-    // — no round trip through 13-bit limbs needed for the output, and
-    // skipping that round trip empirically also avoids a WGSL/Tint
-    // pattern where calling `limbs_to_le_u32(&x_native, …)` before
-    // `field_mul` corrupts x_native (and therefore everything
-    // downstream, including y).
-    var x_out: array<u32, 8>;
-    for (var i = 0u; i < 8u; i = i + 1u) {
-        x_out[i] = le_words[i];
+    // Load the 8 LE u32 words for this point. The host already
+    // byte-reversed the original BE encoding so these are in natural LE
+    // order (x[0] = low 32 bits, x[7] = high 32 bits). This packed form
+    // IS the field8 representation, so x needs no limb round-trip.
+    var x: array<u32, 8>;
+    for (var i: u32 = 0u; i < 8u; i = i + 1u) {
+        x[i] = compressed_in[id * 8u + i];
     }
 
-    // Assemble x in native form: 20 WORD_SIZE-bit limbs (for the math).
-    var x_native: BigInt;
-    for (var i = 0u; i < NUM_WORDS; i = i + 1u) {
-        x_native.limbs[i] = extract_limb_le(&le_words, i);
-    }
+    // The parity bit is the MSB of the top BE byte = bit 31 of the top
+    // LE u32. Clear it from the value so x is canonical in [0, q).
+    let y_bit: u32 = (x[7] >> 31u) & 1u;
+    x[7] = x[7] & 0x7fffffffu;
 
-    // Convert x to Montgomery form: x_mont = x · R mod p (Barrett mul).
-    var r = get_r();
-    var x_mont: BigInt = field_mul(&x_native, &r);
+    // To Montgomery form: x_mont = x · R = mp(x, R^2).
+    let x_mont: array<u32, 8> = montgomery_product_f8(x, get_r_squared_f8());
 
-    // y²_mont = x_mont³ + 3·R mod p.
-    var x_sq_mont: BigInt = montgomery_product(&x_mont, &x_mont);
-    var x_cu_mont: BigInt = montgomery_product(&x_sq_mont, &x_mont);
-    var b3_mont: BigInt = get_b3_mont();
-    var y_sq_mont: BigInt = fr_add(&x_cu_mont, &b3_mont);
+    // y^2_mont = x_mont^3 + 3·R mod q.
+    let x_sq_mont: array<u32, 8> = montgomery_product_f8(x_mont, x_mont);
+    let x_cu_mont: array<u32, 8> = montgomery_product_f8(x_sq_mont, x_mont);
+    let y_sq_mont: array<u32, 8> = fr_add_f8(x_cu_mont, get_b3_mont_f8());
 
-    // y_mont = (y²_mont)^((q+1)/4) — closed-form sqrt for q ≡ 3 (mod 4).
-    var sqrt_exp: BigInt = get_sqrt_exp();
-    var y_mont: BigInt = fr_pow(y_sq_mont, sqrt_exp);
+    // y_mont = (y^2_mont)^((q+1)/4) — closed-form sqrt for q ≡ 3 (mod 4).
+    let y_mont: array<u32, 8> = fr_pow_f8(y_sq_mont, get_sqrt_exp_f8());
 
-    // Convert y back to native: mp(y_mont, 1) = y_mont · 1 · R^(-1) = y.
-    var one_native: BigInt;
-    one_native.limbs[0] = 1u;
-    var y_native: BigInt = montgomery_product(&y_mont, &one_native);
+    // Convert y back to native: mp(y_mont, 1) = y_mont · 1 · R^-1 = y.
+    var one: array<u32, 8>;
+    one[0] = 1u;
+    var y: array<u32, 8> = montgomery_product_f8(y_mont, one);
 
-    // Parity flip: if recovered parity disagrees with encoded, negate
-    // mod p. SRS points are non-zero affine, so y_native != 0 and the
-    // bare subtraction is always canonical.
-    let parity: u32 = y_native.limbs[0] & 1u;
+    // Parity flip: if the recovered parity disagrees with the encoded
+    // bit, negate mod q. SRS points are non-zero affine, so y != 0 and
+    // q - y (= 0 - y under the borrow path) is canonical.
+    let parity: u32 = y[0] & 1u;
     if (parity != y_bit) {
-        var p_const: BigInt = get_p();
-        var neg: BigInt;
-        let _b = bigint_sub(&p_const, &y_native, &neg);
-        y_native = neg;
+        var zero: array<u32, 8>;
+        y = fr_sub_f8(zero, y);
     }
 
-    // Write 8 LE u32s for x (pre-packed at the top), then 8 for y.
-    // 16 u32s per point.
-    let out_base = id * 16u;
-    for (var i = 0u; i < 8u; i = i + 1u) {
-        affine_out[out_base + i] = x_out[i];
+    // Write 8 LE u32s for x, then 8 for y — 16 u32s per point.
+    let out_base: u32 = id * 16u;
+    for (var i: u32 = 0u; i < 8u; i = i + 1u) {
+        affine_out[out_base + i] = x[i];
     }
-    for (var i = 0u; i < 8u; i = i + 1u) {
-        affine_out[out_base + 8u + i] = limbs_to_le_u32(&y_native, i);
+    for (var i: u32 = 0u; i < 8u; i = i + 1u) {
+        affine_out[out_base + 8u + i] = y[i];
     }
 
     {{{ recompile }}}

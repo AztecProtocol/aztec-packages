@@ -2085,7 +2085,7 @@ function hideProgress(): void {
 // Page-load boot: load the SRS only. The barretenberg WASM (which forks
 // `mt-threads` workers) stays cold until the user clicks Run / Run × 5 /
 // Sweep — ensureWasmBooted() takes care of the first-click boot. The SRS
-// fetch is just a download + JS-side decompression (no native workers),
+// fetch is a download + mandatory GPU decompression (no native workers),
 // so it's safe to run unconditionally at page load.
 (async () => {
   setBusy(true, 'loading SRS…');
