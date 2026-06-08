@@ -125,14 +125,22 @@ export function entityKey(contract: AztecAddress, scope: AztecAddress, entityTyp
   return `${scopeKey(contract, scope, entityTypeId)}:${correlationKey}`;
 }
 
+/** The contract+scope+entityType+correlationKey coordinates shared by facts and entity records. */
+type EntityCoords = {
+  contractAddress: AztecAddress;
+  scope: AztecAddress;
+  entityTypeId: Fr;
+  correlationKey: Fr;
+};
+
 /** Key that groups all entities of the same type within a contract+scope. */
-export function scopeKeyOf(fact: StoredFact): string {
-  return scopeKey(fact.contractAddress, fact.scope, fact.entityTypeId);
+export function scopeKeyOf(coords: EntityCoords): string {
+  return scopeKey(coords.contractAddress, coords.scope, coords.entityTypeId);
 }
 
 /** Key that uniquely identifies a single entity (all its facts share this key prefix). */
-export function entityKeyOf(fact: StoredFact): string {
-  return entityKey(fact.contractAddress, fact.scope, fact.entityTypeId, fact.correlationKey);
+export function entityKeyOf(coords: EntityCoords): string {
+  return entityKey(coords.contractAddress, coords.scope, coords.entityTypeId, coords.correlationKey);
 }
 
 /** Dedup row key for a specific fact; incorporates a payload hash to bound key size for large payloads. */
