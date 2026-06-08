@@ -864,11 +864,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async activeEntities(contractAddress: AztecAddress, scope: AztecAddress, entityTypeId: Fr): Promise<Fr[]> {
     assertAllowedScope(scope, this.scopes);
-    const correlationKeys = await this.factStore.activeEntities(contractAddress, scope, entityTypeId);
+    const correlationKeys = await this.factStore.activeEntities(contractAddress, scope, entityTypeId, this.jobId);
     return packActiveEntities(correlationKeys);
   }
 
-  /** Returns an entity's committed facts packed into a flat self-describing `Field[]` (see {@link packFactSet}). */
+  /** Returns an entity's facts (read-your-writes for the active job) packed into a flat `Field[]` (see {@link packFactSet}). */
   public async getEntityFacts(
     contractAddress: AztecAddress,
     scope: AztecAddress,
@@ -876,7 +876,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     correlationKey: Fr,
   ): Promise<Fr[]> {
     assertAllowedScope(scope, this.scopes);
-    const facts = await this.factStore.getEntityFacts(contractAddress, scope, entityTypeId, correlationKey);
+    const facts = await this.factStore.getEntityFacts(contractAddress, scope, entityTypeId, correlationKey, this.jobId);
     return packFactSet(facts);
   }
 

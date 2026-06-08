@@ -316,7 +316,7 @@ describe('BlockSynchronizer', () => {
       await store.transactionAsync(() => factStore.commit(jobId));
 
       // Both facts must be present before the prune.
-      expect(await factStore.getEntityFacts(contract, scope, entityTypeId, correlationKey)).toHaveLength(2);
+      expect(await factStore.getEntityFacts(contract, scope, entityTypeId, correlationKey, jobId)).toHaveLength(2);
 
       // Set the anchor to block 10 so the prune guard passes (anchor is above the fork point).
       const anchorBlock10 = await L2Block.random(BlockNumber(10));
@@ -336,7 +336,7 @@ describe('BlockSynchronizer', () => {
       });
 
       // The anchored PROCESSED fact must be gone; the unanchored RECEIVED fact must survive.
-      const remaining = await factStore.getEntityFacts(contract, scope, entityTypeId, correlationKey);
+      const remaining = await factStore.getEntityFacts(contract, scope, entityTypeId, correlationKey, jobId);
       expect(remaining).toHaveLength(1);
       expect(remaining[0].factTypeId.equals(RECEIVED)).toBe(true);
     });

@@ -94,41 +94,58 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Returns all committed facts for one entity, for use in Noir fold execution.
+   * Returns the facts for one entity, for use in Noir fold execution. Layers this job's staged writes over committed
+   * state (read-your-writes): facts recorded under `jobId` are visible before commit, and a staged terminate hides the
+   * entity's facts. Mirrors the staged-over-committed read model of the sibling note and event stores.
    * @param contract - The contract address owning the entity.
    * @param scope - The scope (recipient address) under which facts were recorded.
    * @param entityTypeId - Discriminates entity kinds within a contract+scope.
    * @param correlationKey - Identifies the specific entity instance.
+   * @param jobId - The job whose staged writes are layered over committed state.
    */
-  getEntityFacts(
+  async getEntityFacts(
     contract: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
     correlationKey: Fr,
+    jobId: string,
   ): Promise<StoredFact[]> {
-    return this.#store.transactionAsync(async () => {
-      const key = entityKey(contract, scope, entityTypeId, correlationKey);
-      const facts: StoredFact[] = [];
-      for await (const rowKey of this.#factsByEntity.getValuesAsync(key)) {
+    const eKey = entityKey(contract, scope, entityTypeId, correlationKey);
+    const byRow = await this.#store.transactionAsync(async () => {
+      const rows = new Map<string, StoredFact>();
+      for await (const rowKey of this.#factsByEntity.getValuesAsync(eKey)) {
         const buf = await this.#facts.getAsync(rowKey);
         if (buf) {
-          facts.push(StoredFact.fromBuffer(buf));
+          rows.set(rowKey, StoredFact.fromBuffer(buf));
         }
       }
-      return facts;
+      return rows;
     });
+    // Replay this job's staged ops in order over committed state: a record sets (dedups) a fact row, a terminate
+    // clears the entity. Order matters so a terminate-then-record sequence resolves to the re-recorded fact.
+    for (const op of this.#stagedOps(jobId)) {
+      if (op.kind === 'record') {
+        if (entityKeyOf(op.fact) === eKey) {
+          byRow.set(factRowKeyOf(op.fact), op.fact);
+        }
+      } else if (entityKey(op.contract, op.scope, op.entityTypeId, op.correlationKey) === eKey) {
+        byRow.clear();
+      }
+    }
+    return Array.from(byRow.values());
   }
 
   /**
-   * Returns the correlation keys of all active entities under (contract, scope, entityTypeId) — i.e. entities that
-   * still have at least one committed fact.
+   * Returns the correlation keys of all active entities under (contract, scope, entityTypeId) — entities with at least
+   * one fact. Layers this job's staged writes over committed state (read-your-writes): a staged record activates an
+   * entity and a staged terminate deactivates it before commit.
    */
-  activeEntities(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr): Promise<Fr[]> {
-    return this.#store.transactionAsync(async () => {
-      const key = scopeKey(contract, scope, entityTypeId);
+  async activeEntities(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, jobId: string): Promise<Fr[]> {
+    const sKey = scopeKey(contract, scope, entityTypeId);
+    const active = await this.#store.transactionAsync(async () => {
       const seen = new Set<string>();
-      const result: Fr[] = [];
-      for await (const correlation of this.#entitiesByScope.getValuesAsync(key)) {
+      const result = new Set<string>();
+      for await (const correlation of this.#entitiesByScope.getValuesAsync(sKey)) {
         if (seen.has(correlation)) {
           continue;
         }
@@ -136,18 +153,25 @@ export class FactStore implements StagedStore {
         // Guard against stale index entries: once terminate/rollback delete an entity's last fact, its
         // correlation key should be gone from #entitiesByScope, but we re-check fact presence so a missed
         // index update can never surface a ghost entity as active.
-        const entityRowKey = `${key}:${correlation}`;
-        let hasFact = false;
+        const entityRowKey = `${sKey}:${correlation}`;
         for await (const _ of this.#factsByEntity.getValuesAsync(entityRowKey)) {
-          hasFact = true;
+          result.add(correlation);
           break;
-        }
-        if (hasFact) {
-          result.push(Fr.fromString(correlation));
         }
       }
       return result;
     });
+    // Replay this job's staged ops in order: a record activates the entity, a terminate deactivates it.
+    for (const op of this.#stagedOps(jobId)) {
+      if (op.kind === 'record') {
+        if (scopeKeyOf(op.fact) === sKey) {
+          active.add(op.fact.correlationKey.toString());
+        }
+      } else if (scopeKey(op.contract, op.scope, op.entityTypeId) === sKey) {
+        active.delete(op.correlationKey.toString());
+      }
+    }
+    return Array.from(active, Fr.fromString);
   }
 
   /**
@@ -261,6 +285,14 @@ export class FactStore implements StagedStore {
       this.#opsForJob.set(jobId, ops);
     }
     return ops;
+  }
+
+  /**
+   * Read-only view of a job's staged ops for read-your-writes. Unlike {@link #opsFor}, it never creates an entry, so a
+   * read for a job with no writes does not register a phantom in-flight job (which would trip the `rollback` guard).
+   */
+  #stagedOps(jobId: string): StagedOp[] {
+    return this.#opsForJob.get(jobId) ?? [];
   }
 
   #clearJobData(jobId: string) {

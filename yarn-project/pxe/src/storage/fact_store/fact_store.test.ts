@@ -40,7 +40,7 @@ describe('FactStore', () => {
     );
     await kv.transactionAsync(() => store.commit(JOB));
 
-    const facts = await store.getEntityFacts(contract, scope, ENTITY, corrA);
+    const facts = await store.getEntityFacts(contract, scope, ENTITY, corrA, JOB);
     const factTypes = facts.map(f => f.factTypeId.toBigInt()).sort();
     expect(factTypes).toEqual([RECEIVED.toBigInt(), PROCESSED.toBigInt()].sort());
   });
@@ -50,7 +50,7 @@ describe('FactStore', () => {
     await store.recordFact(contract, scope, ENTITY, corrA, RECEIVED, [new Fr(9n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    const facts = await store.getEntityFacts(contract, scope, ENTITY, corrA);
+    const facts = await store.getEntityFacts(contract, scope, ENTITY, corrA, JOB);
     expect(facts).toHaveLength(1);
   });
 
@@ -59,8 +59,37 @@ describe('FactStore', () => {
     await store.recordFact(contract, scope, ENTITY, corrB, RECEIVED, [new Fr(8n)], undefined, JOB);
     await kv.transactionAsync(() => store.commit(JOB));
 
-    const active = await store.activeEntities(contract, scope, ENTITY);
+    const active = await store.activeEntities(contract, scope, ENTITY, JOB);
     expect(active.map(c => c.toBigInt()).sort()).toEqual([corrA.toBigInt(), corrB.toBigInt()].sort());
+  });
+
+  it("reflects a job's own staged record before commit (read-your-writes)", async () => {
+    await store.recordFact(contract, scope, ENTITY, corrA, RECEIVED, [new Fr(9n)], undefined, JOB);
+
+    // Same job, before commit: the staged Received fact is visible and the entity is active.
+    const facts = await store.getEntityFacts(contract, scope, ENTITY, corrA, JOB);
+    expect(facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt()]);
+    expect((await store.activeEntities(contract, scope, ENTITY, JOB)).map(c => c.toBigInt())).toEqual([
+      corrA.toBigInt(),
+    ]);
+
+    // A different job does not see the uncommitted write.
+    expect(await store.getEntityFacts(contract, scope, ENTITY, corrA, 'other-job')).toHaveLength(0);
+    expect(await store.activeEntities(contract, scope, ENTITY, 'other-job')).toHaveLength(0);
+  });
+
+  it('hides an entity from its own job after a staged terminate, even over committed facts', async () => {
+    await store.recordFact(contract, scope, ENTITY, corrA, RECEIVED, [new Fr(9n)], undefined, JOB);
+    await kv.transactionAsync(() => store.commit(JOB));
+
+    // A later job stages a terminate; within that job the entity reads as gone, while other jobs still see it
+    // committed until the terminate commits.
+    const TERM = 'terminate-job';
+    await store.terminateEntity(contract, scope, ENTITY, corrA, TERM);
+
+    expect(await store.getEntityFacts(contract, scope, ENTITY, corrA, TERM)).toHaveLength(0);
+    expect(await store.activeEntities(contract, scope, ENTITY, TERM)).toHaveLength(0);
+    expect(await store.getEntityFacts(contract, scope, ENTITY, corrA, 'reader')).toHaveLength(1);
   });
 
   it("terminateEntity deletes all of the entity's facts and drops it from active enumeration", async () => {
@@ -82,11 +111,11 @@ describe('FactStore', () => {
     await store.terminateEntity(contract, scope, ENTITY, corrA, TERM);
     await kv.transactionAsync(() => store.commit(TERM));
 
-    expect(await store.getEntityFacts(contract, scope, ENTITY, corrA)).toHaveLength(0);
-    const active = await store.activeEntities(contract, scope, ENTITY);
+    expect(await store.getEntityFacts(contract, scope, ENTITY, corrA, JOB)).toHaveLength(0);
+    const active = await store.activeEntities(contract, scope, ENTITY, JOB);
     expect(active.map(c => c.toBigInt())).toEqual([corrB.toBigInt()]);
     // The neighbouring entity is untouched.
-    expect(await store.getEntityFacts(contract, scope, ENTITY, corrB)).toHaveLength(1);
+    expect(await store.getEntityFacts(contract, scope, ENTITY, corrB, JOB)).toHaveLength(1);
   });
 
   it('rollback deletes only retractable facts above the target block, keeping unanchored facts', async () => {
@@ -106,10 +135,12 @@ describe('FactStore', () => {
 
     await kv.transactionAsync(() => store.rollback(5));
 
-    const facts = await store.getEntityFacts(contract, scope, ENTITY, corrA);
+    const facts = await store.getEntityFacts(contract, scope, ENTITY, corrA, JOB);
     expect(facts.map(f => f.factTypeId.toBigInt())).toEqual([RECEIVED.toBigInt()]); // Processed pruned, Received kept
     // Entity is still active because its unanchored Received survives.
-    expect((await store.activeEntities(contract, scope, ENTITY)).map(c => c.toBigInt())).toEqual([corrA.toBigInt()]);
+    expect((await store.activeEntities(contract, scope, ENTITY, JOB)).map(c => c.toBigInt())).toEqual([
+      corrA.toBigInt(),
+    ]);
   });
 
   it('rollback removes an entity from active enumeration when its last (anchored) fact is pruned', async () => {
@@ -128,8 +159,8 @@ describe('FactStore', () => {
 
     await kv.transactionAsync(() => store.rollback(5));
 
-    expect(await store.getEntityFacts(contract, scope, ENTITY, corrA)).toHaveLength(0);
-    expect(await store.activeEntities(contract, scope, ENTITY)).toHaveLength(0);
+    expect(await store.getEntityFacts(contract, scope, ENTITY, corrA, JOB)).toHaveLength(0);
+    expect(await store.activeEntities(contract, scope, ENTITY, JOB)).toHaveLength(0);
   });
 
   it('rollback throws while a job has staged writes', async () => {
