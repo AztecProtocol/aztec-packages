@@ -564,6 +564,62 @@ fn transfer(from: AztecAddress, to: AztecAddress, amount: u128) {
 
 The `Owned` wrapper is essential for private state variables because it binds the owner's address to the state variable instance, enabling proper note encryption, nullifier computation, and access control.
 
+## Custom State Variables
+
+Most contracts use the built-in state variables directly. For reusable or domain-specific storage, you can define a
+custom state variable that wraps one or more Aztec.nr state variables behind methods tailored to your contract. For
+example, `BalanceSet` wraps private notes for token balances, and a card game might expose a `Deck` state variable
+with methods such as `add_cards`, `remove_cards`, and `view_cards`.
+
+Even though the `Storage` struct no longer has a `Context` generic, custom state variables still use a two-type split:
+
+- A spec marker with no fields, such as `Deck` or `BalanceSet`, is the type placed in `Storage`. It implements
+  [`StateVariable`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/trait.StateVariable) for regular
+  state variables, or
+  [`OwnedStateVariable`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/state_vars/trait.OwnedStateVariable) for
+  state variables that must be wrapped in `Owned`.
+- The associated `Runtime` type carries the execution `Context`, stores the runtime state variable fields, and
+  implements `RuntimeStateVariable` or `RuntimeOwnedStateVariable`. User-facing methods live on this runtime type,
+  often with separate implementations for private, public, or utility execution.
+
+The result is that users still write the context-free type in `Storage`:
+
+```rust
+#[storage]
+struct Storage {
+    collection: Deck,
+    balances: Owned<BalanceSet>,
+}
+```
+
+But the custom state variable author still writes the runtime layer:
+
+```rust
+pub struct Deck {}
+
+impl<Context> StateVariable<Context> for Deck {
+    let N: u32 = 1;
+    type Runtime = RuntimeDeck<Context>;
+}
+
+pub struct RuntimeDeck<Context> {
+    cards: RuntimeOwned<RuntimePrivateSet<FieldNote, Context>, Context>,
+}
+
+impl<Context> RuntimeStateVariable<Context> for RuntimeDeck<Context> {
+    fn new(context: Context, storage_slot: Field) -> Self {
+        RuntimeDeck { cards: RuntimeOwned::new(context, storage_slot) }
+    }
+
+    fn get_storage_slot(self) -> Field {
+        self.cards.get_storage_slot()
+    }
+}
+```
+
+This split lets `#[storage]` thread the right execution context through the contract automatically while preserving
+context-specific methods on custom state variables.
+
 ## Custom Structs in Public Storage
 
 Both `PublicMutable` and `PublicImmutable` are generic over any serializable type, which means you can store custom structs in public storage.
