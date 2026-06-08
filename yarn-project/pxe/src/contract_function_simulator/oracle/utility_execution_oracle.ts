@@ -75,7 +75,7 @@ import type { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
-import type { FactOutput } from './oracle_type_mappings.js';
+import type { EntityOutput } from './oracle_type_mappings.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -890,6 +890,53 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
   }
 
+  /**
+   * Creates an entity with a retractable (block-anchored) payload. The entity is deleted when its anchor block is
+   * pruned by a reorg.
+   */
+  public createRetractableEntity(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    correlationKey: Fr,
+    payload: Fr[],
+    blockNumber: number,
+    blockHash: Fr,
+  ): Promise<void> {
+    assertAllowedScope(scope, this.scopes);
+    return this.factStore.createEntity(
+      contractAddress,
+      scope,
+      entityTypeId,
+      correlationKey,
+      payload,
+      { blockNumber, blockHash },
+      this.jobId,
+    );
+  }
+
+  /**
+   * Creates an entity with a non-retractable payload. The entity carries no block anchor and survives reorgs.
+   */
+  public createNonRetractableEntity(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    entityTypeId: Fr,
+    correlationKey: Fr,
+    payload: Fr[],
+  ): Promise<void> {
+    assertAllowedScope(scope, this.scopes);
+    return this.factStore.createEntity(
+      contractAddress,
+      scope,
+      entityTypeId,
+      correlationKey,
+      payload,
+      undefined,
+      this.jobId,
+    );
+  }
+
   /** Returns the correlation keys of all active entities under (contract, scope, entityTypeId). */
   public async activeEntities(
     contractAddress: AztecAddress,
@@ -902,22 +949,33 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Returns an entity's facts (read-your-writes for the active job). Each fact carries its payload in its own
-   * nested ephemeral array, so no fixed payload size is required.
+   * Returns an entity's payload and facts (read-your-writes for the active job). The payload and each fact's payload
+   * are carried in their own nested ephemeral arrays, so no fixed payload size is required.
    */
-  public async getEntityFacts(
+  public async getEntity(
     contractAddress: AztecAddress,
     scope: AztecAddress,
     entityTypeId: Fr,
     correlationKey: Fr,
-  ): Promise<EphemeralArray<FactOutput>> {
+  ): Promise<EntityOutput> {
     assertAllowedScope(scope, this.scopes);
-    const facts = await this.factStore.getEntityFacts(contractAddress, scope, entityTypeId, correlationKey, this.jobId);
-    const factElements: FactOutput[] = facts.map(fact => ({
-      factTypeId: fact.factTypeId,
-      payload: EphemeralArray.fromValues(this.ephemeralArrayService, fact.payload),
-    }));
-    return EphemeralArray.fromValues(this.ephemeralArrayService, factElements);
+    const { payload, facts } = await this.factStore.getEntity(
+      contractAddress,
+      scope,
+      entityTypeId,
+      correlationKey,
+      this.jobId,
+    );
+    return {
+      payload: EphemeralArray.fromValues(this.ephemeralArrayService, payload),
+      facts: EphemeralArray.fromValues(
+        this.ephemeralArrayService,
+        facts.map(fact => ({
+          factTypeId: fact.factTypeId,
+          payload: EphemeralArray.fromValues(this.ephemeralArrayService, fact.payload),
+        })),
+      ),
+    };
   }
 
   /** Permanently deletes an entity and all of its facts. */

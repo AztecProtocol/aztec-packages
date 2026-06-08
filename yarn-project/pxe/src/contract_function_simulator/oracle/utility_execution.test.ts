@@ -615,7 +615,8 @@ describe('Utility Execution test suite', () => {
       const PROCESSED = new Fr(2n);
       const JOB = 'test-job-id';
 
-      it('records facts via the handlers and reads them back via getEntityFacts', async () => {
+      it('creates an entity and reads its payload and facts back via getEntity', async () => {
+        await utilityExecutionOracle.createNonRetractableEntity(contractAddress, scope, ENTITY, CORR, [new Fr(42n)]);
         await utilityExecutionOracle.recordNonRetractableFact(contractAddress, scope, ENTITY, CORR, RECEIVED, [
           new Fr(9n),
         ]);
@@ -631,9 +632,10 @@ describe('Utility Execution test suite', () => {
         );
         await factStoreKv.transactionAsync(() => factStore.commit(JOB));
 
-        const factsArray = await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR);
-        const facts = factsArray.readAll(service);
+        const entity = await utilityExecutionOracle.getEntity(contractAddress, scope, ENTITY, CORR);
+        expect(entity.payload.readAll(service)).toEqual([new Fr(42n)]);
 
+        const facts = entity.facts.readAll(service);
         // Order is not guaranteed across the two facts, so we assert on the count and on each fact's type being
         // present.
         expect(facts).toHaveLength(2);
@@ -647,9 +649,7 @@ describe('Utility Execution test suite', () => {
       });
 
       it('enumerates active entities and terminates them through the handlers', async () => {
-        await utilityExecutionOracle.recordNonRetractableFact(contractAddress, scope, ENTITY, CORR, RECEIVED, [
-          new Fr(9n),
-        ]);
+        await utilityExecutionOracle.createNonRetractableEntity(contractAddress, scope, ENTITY, CORR, [new Fr(9n)]);
         await factStoreKv.transactionAsync(() => factStore.commit(JOB));
 
         const activeArray = await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY);
@@ -659,15 +659,14 @@ describe('Utility Execution test suite', () => {
         await utilityExecutionOracle.terminateEntity(contractAddress, scope, ENTITY, CORR);
         await factStoreKv.transactionAsync(() => factStore.commit(JOB));
 
-        // After termination both the active set and the fact set are empty.
+        // After termination both the active set and the entity's payload and fact set are empty.
         const afterKeys = (await utilityExecutionOracle.activeEntities(contractAddress, scope, ENTITY)).readAll(
           service,
         );
         expect(afterKeys).toHaveLength(0);
-        const afterFacts = (await utilityExecutionOracle.getEntityFacts(contractAddress, scope, ENTITY, CORR)).readAll(
-          service,
-        );
-        expect(afterFacts).toHaveLength(0);
+        const afterEntity = await utilityExecutionOracle.getEntity(contractAddress, scope, ENTITY, CORR);
+        expect(afterEntity.payload.readAll(service)).toHaveLength(0);
+        expect(afterEntity.facts.readAll(service)).toHaveLength(0);
       });
 
       it('rejects a scope outside the allowed scopes list', async () => {

@@ -18,9 +18,9 @@ import {
   CONTRACT_CLASS_LOG_INPUT,
   CONTRACT_INSTANCE,
   DELIVERY_MODE,
+  ENTITY,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
-  FACT,
   FIELD,
   FUNCTION_SELECTOR,
   type InputSlot,
@@ -336,6 +336,28 @@ export const ORACLE_REGISTRY = {
     ],
   }),
 
+  aztec_utl_createRetractableEntity: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'entityTypeId', type: FIELD },
+      { name: 'correlationKey', type: FIELD },
+      { name: 'payload', type: ARRAY(FIELD) },
+      { name: 'blockNumber', type: U32 },
+      { name: 'blockHash', type: FIELD },
+    ],
+  }),
+
+  aztec_utl_createNonRetractableEntity: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'entityTypeId', type: FIELD },
+      { name: 'correlationKey', type: FIELD },
+      { name: 'payload', type: ARRAY(FIELD) },
+    ],
+  }),
+
   aztec_utl_activeEntities: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
@@ -345,14 +367,14 @@ export const ORACLE_REGISTRY = {
     returnType: EPHEMERAL_ARRAY(FIELD),
   }),
 
-  aztec_utl_getEntityFacts: makeEntry({
+  aztec_utl_getEntity: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
       { name: 'scope', type: AZTEC_ADDRESS },
       { name: 'entityTypeId', type: FIELD },
       { name: 'correlationKey', type: FIELD },
     ],
-    returnType: EPHEMERAL_ARRAY(FACT),
+    returnType: ENTITY,
   }),
 
   aztec_utl_terminateEntity: makeEntry({

@@ -843,6 +843,40 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_createRetractableEntity(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_createRetractableEntity',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId, correlationKey, payload, blockNumber, blockHash]) =>
+        this.handlerAsUtility().createRetractableEntity(
+          contractAddress,
+          scope,
+          entityTypeId,
+          correlationKey,
+          payload,
+          blockNumber,
+          blockHash,
+        ),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_createNonRetractableEntity(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_createNonRetractableEntity',
+      inputs,
+      handler: ([contractAddress, scope, entityTypeId, correlationKey, payload]) =>
+        this.handlerAsUtility().createNonRetractableEntity(
+          contractAddress,
+          scope,
+          entityTypeId,
+          correlationKey,
+          payload,
+        ),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_activeEntities(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_utl_activeEntities',
@@ -853,12 +887,12 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getEntityFacts(...inputs: ForeignCallArgs) {
+  aztec_utl_getEntity(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_getEntityFacts',
+      oracle: 'aztec_utl_getEntity',
       inputs,
       handler: ([contractAddress, scope, entityTypeId, correlationKey]) =>
-        this.handlerAsUtility().getEntityFacts(contractAddress, scope, entityTypeId, correlationKey),
+        this.handlerAsUtility().getEntity(contractAddress, scope, entityTypeId, correlationKey),
     });
   }
 

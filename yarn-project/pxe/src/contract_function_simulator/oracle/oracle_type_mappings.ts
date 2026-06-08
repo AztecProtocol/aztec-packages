@@ -381,7 +381,10 @@ export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {
   },
 };
 
-/** A single fact returned by `getEntityFacts`: its type id, plus a payload carried in its own ephemeral array. */
+/**
+ * A single fact returned within an entity by `getEntity`: its type id, plus a payload carried in its own ephemeral
+ * array.
+ */
 export type FactOutput = { factTypeId: Fr; payload: EphemeralArray<Fr> };
 
 /**
@@ -391,6 +394,22 @@ export type FactOutput = { factTypeId: Fr; payload: EphemeralArray<Fr> };
 export const FACT: TypeMapping<FactOutput> = {
   serialization: {
     fn: f => [f.factTypeId, f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[])],
+  },
+};
+
+/** Returned by `getEntity`: the entity payload plus its facts, each carried in its own ephemeral array. */
+export type EntityOutput = { payload: EphemeralArray<Fr>; facts: EphemeralArray<FactOutput> };
+
+/**
+ * Output mapping for an entity. Serializes to `[payloadSlot, factsSlot]`: the payload as a slot of fields, and the
+ * facts as a slot of `[factTypeId, payloadSlot]` rows. Output-only: entities are returned to Noir, never received.
+ */
+export const ENTITY: TypeMapping<EntityOutput> = {
+  serialization: {
+    fn: e => [
+      e.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[]),
+      e.facts.materializeSlot(v => FACT.serialization!.fn(v).flat() as Fr[]),
+    ],
   },
 };
 
