@@ -12,6 +12,6 @@ error: The #[internal] attribute cannot be applied to external functions - foo i
     1: ?
             at src/main.nr:9:5
     2: internal
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:375:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 Aborting due to 1 previous error

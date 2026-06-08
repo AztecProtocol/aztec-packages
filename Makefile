@@ -55,7 +55,7 @@ endef
 
 # Fast bootstrap.
 fast: release-image barretenberg boxes playground docs aztec-up \
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests spartan claude-tests
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests contract-snapshots-tests release-image-tests spartan claude-tests
 
 # Full bootstrap.
 full: fast bb-full-tests bb-cpp-full yarn-project-benches
@@ -312,6 +312,9 @@ aztec-nr: noir bb-cpp-native
 noir-projects-txe-tests:
 	$(call test,$@,noir-projects/aztec-nr)
 	$(call test,$@,noir-projects/noir-contracts)
+
+contract-snapshots-tests: noir
+	$(call test,$@,noir-projects/contract-snapshots)
 
 # Noir Projects - Aggregate target (builds all sub-projects)
 noir-projects: noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr

@@ -225,10 +225,9 @@ describe('PXE', () => {
     expect(node.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
   });
 
-  // These tests are meant to quickly exercise PXE as a
-  // frontier API so we don't need to rely on slower E2E
-  // tests (which in turn are more meaningful for acceptance).
-  // For finer grained tests check out storage/private_event_store.test.ts
+  // These tests are meant to quickly exercise PXE as a frontier API so we don't need to rely on slower E2E tests
+  // (which in turn are more meaningful for acceptance). For finer grained tests check out
+  // storage/private_event_store.test.ts
   describe('getPrivateEvents', () => {
     let contractAddress: AztecAddress;
     let eventSelector: EventSelector;

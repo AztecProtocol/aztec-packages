@@ -12,7 +12,7 @@ pub contract PendingNoteHashes {
     use crate::filter::filter_notes_min_sum;
     use aztec::{
         macros::{functions::{external, internal}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol::{
             abis::function_selector::FunctionSelector,

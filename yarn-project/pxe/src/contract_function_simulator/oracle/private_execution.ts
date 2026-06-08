@@ -21,7 +21,7 @@ import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 
-import { Oracle } from './oracle.js';
+import { buildACIRCallback } from './acir_callback.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
 /**
@@ -43,10 +43,9 @@ export async function executePrivateFunction(
   const functionName = await privateExecutionOracle.getDebugFunctionName();
   log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
   const initialWitness = privateExecutionOracle.getInitialWitness(artifact);
-  const acvmCallback = new Oracle(privateExecutionOracle);
   const timer = new Timer();
   const acirExecutionResult = await simulator
-    .executeUserCircuit(initialWitness, artifact, acvmCallback.toACIRCallback())
+    .executeUserCircuit(initialWitness, artifact, buildACIRCallback(privateExecutionOracle))
     .catch((err: Error) => {
       err.message = resolveAssertionMessageFromError(err, artifact);
       throw new ExecutionError(
