@@ -5,7 +5,7 @@ use crate::{
     oracle::{
         contract_sync::set_contract_sync_cache_invalid,
         fact_store::{
-            active_entities, Fact, get_entity_facts, record_non_retractable_fact, record_retractable_fact,
+            active_entities, create_non_retractable_entity, Entity, Fact, get_entity, record_retractable_fact,
             terminate_entity,
         },
     },
@@ -69,9 +69,6 @@ pub struct OffchainMessage {
 /// Entity type id for the offchain reception state machine.
 pub global OFFCHAIN_RECEPTION_ENTITY: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_ENTITY_TYPE".as_bytes());
 
-/// Fact type id for a received offchain message (non-retractable; birth fact).
-pub global MESSAGE_RECEIVED: Field = sha256_to_field("AZTEC_NR::MESSAGE_RECEIVED".as_bytes());
-
 /// Fact type id for a processed offchain message (retractable; anchored at processing block).
 pub global MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::MESSAGE_PROCESSED".as_bytes());
 
@@ -87,12 +84,12 @@ global SERIALIZED_CIPHERTEXT_LEN: u32 = MESSAGE_CIPHERTEXT_LEN + 1;
 /// anchor_block_timestamp (1).
 pub global SERIALIZED_OFFCHAIN_MESSAGE_LEN: u32 = SERIALIZED_CIPHERTEXT_LEN + 1 + 2 + 1;
 
-/// Serializes an [`OffchainMessage`] into a fixed-length field array suitable for a fact payload.
+/// Serializes an [`OffchainMessage`] into a fixed-length field array suitable for the reception entity's payload.
 pub unconstrained fn pack_offchain_message(msg: OffchainMessage) -> [Field; SERIALIZED_OFFCHAIN_MESSAGE_LEN] {
     msg.serialize()
 }
 
-/// Deserializes an [`OffchainMessage`] from a fixed-length field array read from a fact payload.
+/// Deserializes an [`OffchainMessage`] from a fixed-length field array read from the reception entity's payload.
 pub unconstrained fn unpack_offchain_message(payload: [Field; SERIALIZED_OFFCHAIN_MESSAGE_LEN]) -> OffchainMessage {
     Deserialize::deserialize(payload)
 }
@@ -114,27 +111,13 @@ pub unconstrained fn correlation_key(
     poseidon2_hash(inputs)
 }
 
-/// Extracts and decodes the [`OffchainMessage`] stored under an entity's `Received` fact.
-///
-/// Panics if no `MESSAGE_RECEIVED` fact is present in the loaded set.
-pub unconstrained fn received_message_of(facts: EphemeralArray<Fact>) -> OffchainMessage {
-    let mut found = false;
+/// Decodes the [`OffchainMessage`] stored as the reception entity's payload.
+pub unconstrained fn message_of(entity: Entity) -> OffchainMessage {
     let mut payload: [Field; SERIALIZED_OFFCHAIN_MESSAGE_LEN] = [0; SERIALIZED_OFFCHAIN_MESSAGE_LEN];
-    let facts_len = facts.len();
-    for i in 0..facts_len {
-        let fact = facts.get(i);
-        if !found & (fact.fact_type_id == MESSAGE_RECEIVED) {
-            for j in 0..SERIALIZED_OFFCHAIN_MESSAGE_LEN {
-                payload[j] = fact.payload.get(j);
-            }
-            found = true;
-        }
+    for i in 0..SERIALIZED_OFFCHAIN_MESSAGE_LEN {
+        payload[i] = entity.payload.get(i);
     }
-    if found {
-        unpack_offchain_message(payload)
-    } else {
-        panic("received_message_of: no Received fact in loaded set")
-    }
+    unpack_offchain_message(payload)
 }
 
 /// The computed state of an offchain reception entity, derived by folding its facts.
@@ -157,27 +140,19 @@ impl OffchainReceptionState {
 
 /// Folds an entity's fact set into an [`OffchainReceptionState`].
 ///
-/// A `MESSAGE_PROCESSED` fact advances the entity to `processed`; otherwise it is `received`.
-/// Panics if neither fact type is present (the entity has no birth `Received` fact).
+/// A `MESSAGE_PROCESSED` fact advances the entity to `processed`; with no such fact the entity is `received`.
 pub unconstrained fn fold(facts: EphemeralArray<Fact>) -> OffchainReceptionState {
-    let mut has_received = false;
     let mut has_processed = false;
     let facts_len = facts.len();
     for i in 0..facts_len {
-        let ft = facts.get(i).fact_type_id;
-        if ft == MESSAGE_RECEIVED {
-            has_received = true;
-        }
-        if ft == MESSAGE_PROCESSED {
+        if facts.get(i).fact_type_id == MESSAGE_PROCESSED {
             has_processed = true;
         }
     }
     if has_processed {
         OffchainReceptionState::processed()
-    } else if has_received {
-        OffchainReceptionState::received()
     } else {
-        panic("fold: entity has no Received fact")
+        OffchainReceptionState::received()
     }
 }
 
@@ -221,12 +196,11 @@ pub unconstrained fn receive(
         };
         let key = correlation_key(normalized.ciphertext, normalized.tx_hash);
         let payload = pack_offchain_message(normalized);
-        record_non_retractable_fact(
+        create_non_retractable_entity(
             contract_address,
             msg.recipient,
             OFFCHAIN_RECEPTION_ENTITY,
             key,
-            MESSAGE_RECEIVED,
             payload,
         );
         scopes.push(msg.recipient);
@@ -259,8 +233,8 @@ pub unconstrained fn sync_inbox(
     // oracle can be matched back to each entity positionally.
     for i in 0..entities_len {
         let key = entities.get(i);
-        let facts = get_entity_facts(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
-        let msg = received_message_of(facts);
+        let entity = get_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+        let msg = message_of(entity);
         context_resolution_requests.push(msg.tx_hash.unwrap_or(0));
     }
 
@@ -294,9 +268,9 @@ pub unconstrained fn sync_inbox(
         // - Already processed (and not expired): we skip the message to avoid re-pushing it, but keep it active
         //   until expiration.
         let key = entities.get(i);
-        let facts = get_entity_facts(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
-        let msg = received_message_of(facts);
-        let state = fold(facts);
+        let entity = get_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
+        let msg = message_of(entity);
+        let state = fold(entity.facts);
         let maybe_ctx = resolved_contexts.get(i);
 
         let expired = now > msg.anchor_block_timestamp + MAX_MSG_TTL;
@@ -328,14 +302,14 @@ mod test {
     use crate::{
         ephemeral::EphemeralArray,
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,
-        oracle::{fact_store::{active_entities, Fact, get_entity_facts}, random::random},
+        oracle::{fact_store::{active_entities, Entity, Fact, get_entity}, random::random},
         protocol::{address::AztecAddress, traits::FromField},
         test::helpers::test_environment::TestEnvironment,
     };
     use super::{
-        correlation_key, fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, MESSAGE_PROCESSED, MESSAGE_RECEIVED,
+        correlation_key, fold, MAX_MSG_TTL, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, message_of, MESSAGE_PROCESSED,
         OFFCHAIN_RECEPTION_ENTITY, OffchainMessage, OffchainReceptionState, pack_offchain_message, receive,
-        received_message_of, SERIALIZED_OFFCHAIN_MESSAGE_LEN, sync_inbox, unpack_offchain_message,
+        SERIALIZED_OFFCHAIN_MESSAGE_LEN, sync_inbox, unpack_offchain_message,
     };
 
     global TEST_FACTS_SLOT: Field = 0xfac75;
@@ -379,7 +353,7 @@ mod test {
 
     /// Folds the fact set of the reception entity with the given correlation key into its state.
     unconstrained fn state_of(c: AztecAddress, s: AztecAddress, key: Field) -> OffchainReceptionState {
-        let facts = get_entity_facts(c, s, OFFCHAIN_RECEPTION_ENTITY, key);
+        let facts = get_entity(c, s, OFFCHAIN_RECEPTION_ENTITY, key).facts;
         fold(facts)
     }
 
@@ -654,12 +628,10 @@ mod test {
     // ---- Pure FactStore fold/pack tests (no TXE) ----
 
     #[test]
-    unconstrained fn fold_received_only_is_received() {
+    unconstrained fn fold_empty_is_received() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
-            let payload = EphemeralArray::<Field>::empty_at(TEST_PAYLOAD_SLOT);
             let facts = EphemeralArray::<Fact>::empty_at(TEST_FACTS_SLOT);
-            facts.push(Fact { fact_type_id: MESSAGE_RECEIVED, payload });
             assert(fold(facts) == OffchainReceptionState::received());
         });
     }
@@ -670,7 +642,6 @@ mod test {
         env.utility_context(|_| {
             let payload = EphemeralArray::<Field>::empty_at(TEST_PAYLOAD_SLOT);
             let facts = EphemeralArray::<Fact>::empty_at(TEST_FACTS_SLOT);
-            facts.push(Fact { fact_type_id: MESSAGE_RECEIVED, payload });
             facts.push(Fact { fact_type_id: MESSAGE_PROCESSED, payload });
             assert(fold(facts) == OffchainReceptionState::processed());
         });
@@ -694,7 +665,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn received_message_of_returns_packed_message() {
+    unconstrained fn message_of_returns_packed_message() {
         let env = TestEnvironment::new();
         env.utility_context(|_| {
             let ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN> = BoundedVec::new();
@@ -711,9 +682,8 @@ mod test {
                 payload.push(packed_fields[i]);
             }
             let facts = EphemeralArray::<Fact>::empty_at(TEST_FACTS_SLOT);
-            facts.push(Fact { fact_type_id: MESSAGE_RECEIVED, payload });
 
-            let retrieved = received_message_of(facts);
+            let retrieved = message_of(Entity { payload, facts });
             assert_eq(retrieved.recipient, expected.recipient);
             assert_eq(retrieved.tx_hash, expected.tx_hash);
             assert_eq(retrieved.anchor_block_timestamp, expected.anchor_block_timestamp);
