@@ -32,7 +32,6 @@ pub contract SideEffect {
         },
         messages::delivery::MessageDelivery,
         note::{
-            ConfirmedNote,
             constants::MAX_NOTES_PER_PAGE,
             lifecycle::{create_note, destroy_note},
             note_getter::{get_notes, view_notes},
@@ -45,7 +44,7 @@ pub contract SideEffect {
     use uint_note::{PartialUintNote, UintNote};
 
     #[storage]
-    struct Storage<Context> {}
+    struct Storage {}
 
     #[initializer]
     #[external("private")]
