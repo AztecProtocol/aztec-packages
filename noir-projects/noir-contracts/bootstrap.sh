@@ -195,18 +195,23 @@ function test_cmds {
   fi
 }
 
-function test {
-  # Starting txe servers with incrementing port numbers.
-  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
-  local txe_base_port=14730
-  export NUM_TXES=1
+function start_txes {
+  local txe_base_port=$1
+  local num_txes=$2
   trap 'kill $(jobs -p) &>/dev/null || true' EXIT
-  for i in $(seq 0 $((NUM_TXES-1))); do
+
+  for i in $(seq 0 $((num_txes-1))); do
     check_port $((txe_base_port + i)) || echo "WARNING: port $((txe_base_port + i)) is in use, TXE $i may fail to start"
     (cd $root/yarn-project/txe && UV_THREADPOOL_SIZE=8 LOG_LEVEL=silent TXE_PORT=$((txe_base_port + i)) yarn start) >/dev/null &
   done
+}
+
+function wait_for_txes {
+  local txe_base_port=$1
+  local num_txes=$2
+
   echo "Waiting for TXE's to start..."
-  for i in $(seq 0 $((NUM_TXES-1))); do
+  for i in $(seq 0 $((num_txes-1))); do
       local j=0
       local port=$((txe_base_port + i))
       while ! nc -z 127.0.0.1 $port &>/dev/null; do
@@ -219,9 +224,57 @@ function test {
         j=$((j+1))
       done
   done
+}
+
+function start_focused_txe {
+  local txe_base_port=$1
+  export NUM_TXES=1
+  start_txes "$txe_base_port" "$NUM_TXES"
+  wait_for_txes "$txe_base_port" "$NUM_TXES"
+  export NARGO_FOREIGN_CALL_TIMEOUT=300000
+}
+
+function test {
+  # Starting txe servers with incrementing port numbers.
+  # Base port is below the Linux ephemeral range (32768-60999) to avoid conflicts.
+  local txe_base_port=14730
+  export NUM_TXES=1
+  start_txes "$txe_base_port" "$NUM_TXES"
+  wait_for_txes "$txe_base_port" "$NUM_TXES"
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
   test_cmds | filter_test_cmds | parallelize
+}
+
+function test-package {
+  if [ "$#" -ne 1 ]; then
+    echo_stderr "Usage: ./bootstrap.sh test-package <package>"
+    return 1
+  fi
+
+  local package=$1
+  local txe_base_port=14730
+  start_focused_txe "$txe_base_port"
+
+  $NARGO test \
+    --silence-warnings \
+    --skip-brillig-constraints-check \
+    --oracle-resolver "http://127.0.0.1:$txe_base_port" \
+    --package "$package"
+}
+
+function test-one {
+  if [ "$#" -ne 2 ]; then
+    echo_stderr "Usage: ./bootstrap.sh test-one <package> <exact_test_name>"
+    return 1
+  fi
+
+  local package=$1
+  local test_name=$2
+  local txe_base_port=14730
+  start_focused_txe "$txe_base_port"
+
+  $root/noir-projects/scripts/run_test.sh noir-contracts "$package" "$test_name" "$txe_base_port"
 }
 
 function format {
