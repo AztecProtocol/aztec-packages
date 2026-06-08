@@ -320,7 +320,7 @@ export class ProposalHandler {
         if (!result.isValid) {
           await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
         } else if (this.archiver) {
-          const set = await this.setProposedCheckpointFromValidation(proposal);
+          const set = await this.setProposedCheckpoint(proposal);
           if (set) {
             this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
           }
@@ -1135,7 +1135,7 @@ export class ProposalHandler {
    * pipeline building on top of the checkpoint. Does not retry, since validation already waited for the
    * last block to sync.
    */
-  private async setProposedCheckpointFromValidation(proposal: CheckpointProposalCore): Promise<boolean> {
+  private async setProposedCheckpoint(proposal: CheckpointProposalCore): Promise<boolean> {
     if (!this.archiver) {
       return false;
     }
