@@ -471,22 +471,21 @@ Application scores decay by 10% per minute (`decayFactor = 0.9`):
 - Score -100 → -12 after 20 minutes
 
 This allows honest peers to recover from temporary issues — but only up to the ban threshold. Once a peer
-crosses into the **Banned** state, decay no longer applies until the ban expires (see Ban Persistence below).
+crosses into the **Banned** state, decay no longer applies until the ban expires (see Ban Duration below).
 
-### Ban Persistence
+### Ban Duration
 
-Once a peer's score drops below the ban threshold (`MIN_SCORE_BEFORE_BAN = -100`) the ban is **persisted** for a configurable duration:
+Once a peer's score drops below the ban threshold (`MIN_SCORE_BEFORE_BAN = -100`) the ban is held for a configurable
+duration:
 
-- The score the peer held when banned is recorded alongside an expiry timestamp, in memory and in a dedicated
-  kv-store map (so bans survive restarts).
-- While the ban is active, `getScore` returns the **persisted ban score** regardless of decay, so the peer stays
-  in the `Banned` state for the full window and cannot decay its way out early.
+- The score the peer held when banned is recorded in memory alongside an expiry timestamp.
+- While the ban is active, `getScore` returns the **ban score** regardless of decay, so the peer stays in the
+  `Banned` state for the full window and cannot decay its way out early.
 - When the ban expires it is removed and the live (decayed) score takes over again, letting the peer recover.
-- On startup, active bans are restored from the store and expired ones are pruned.
 
 The ban duration is controlled by `P2P_PEER_BAN_DURATION_SECONDS` (config field `peerBanDurationSeconds`), defaulting
-to 24 hours. Note this is independent of the gossipsub topic-score decay (P4, P3b), which continues to decay as
-described above; only the application-level ban score is pinned.
+to 24 hours. Bans are held in memory only (cleared on restart). This is independent of the gossipsub topic-score
+decay (P4, P3b), which continues to decay as described above; only the application-level ban score is pinned.
 
 ## Score Calculation Examples
 
@@ -574,7 +573,7 @@ After the ban expires:
 ```
 
 Unlike topic scores, the application ban score does **not** decay-recover during the ban window — that is the
-point of Ban Persistence (see above). A banned peer is held for the full `P2P_PEER_BAN_DURATION_SECONDS`.
+point of the ban duration (see above). A banned peer is held for the full `P2P_PEER_BAN_DURATION_SECONDS`.
 
 ## Network Outage Analysis
 

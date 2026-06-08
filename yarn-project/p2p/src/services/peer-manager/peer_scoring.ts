@@ -1,8 +1,6 @@
 import { median } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
-import { SerialQueue } from '@aztec/foundation/queue';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
   Attributes,
@@ -59,11 +57,8 @@ const MIN_SCORE_BEFORE_BAN = -100;
 const MIN_SCORE_BEFORE_DISCONNECT = -50;
 const SCORE_CLEANUP_THRESHOLD = 0.1;
 
-/** A persisted ban: the score the peer held when banned, and the timestamp at which the ban lifts. */
+/** An active ban: the score the peer held when banned, and the timestamp at which the ban lifts. */
 type BanRecord = { score: number; expiry: number };
-
-/** Name of the kv-store map used to persist bans across restarts. Exported for tests. */
-export const BANNED_PEERS_MAP_NAME = 'banned_peers';
 
 export class PeerScoring {
   private logger = createLogger('p2p:peer-scoring');
@@ -75,36 +70,20 @@ export class PeerScoring {
 
   private peerStateCounter: UpDownCounter;
 
-  /** Active bans held in memory so getScore/getScoreState stay synchronous. Mirrors bannedPeersStore. */
+  /** Active bans, keyed by peer id. Held in memory only, so they are cleared on restart. */
   private bannedPeers: Map<string, BanRecord> = new Map();
-  /** The kv-store backing bans, kept so ban pruning can run in a single transaction. */
-  private readonly kvStore?: AztecAsyncKVStore;
-  /** Backing store for bans, so they survive restarts. */
-  private readonly bannedPeersStore?: AztecAsyncMap<string, BanRecord>;
-  /**
-   * Serializes the fire-and-forget ban writes so they never race each other, and so callers can
-   * await durability via flushBanPersistence. Only created when a store is configured.
-   */
-  private readonly banPersistenceQueue?: SerialQueue;
   /**
    * How long a peer remains banned once its score crosses MIN_SCORE_BEFORE_BAN. While banned, the
-   * peer's persisted ban score is returned by getScore regardless of decay, so it cannot recover its
-   * way out of the ban early. After the ban expires the live (decayed) score takes over again.
+   * peer's ban score is returned by getScore regardless of decay, so it cannot recover its way out
+   * of the ban early. After the ban expires the live (decayed) score takes over again.
    */
   private readonly banDurationMs: number;
 
   constructor(
     config: P2PConfig,
-    store?: AztecAsyncKVStore,
     telemetry: TelemetryClient = getTelemetryClient(),
     private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
-    this.kvStore = store;
-    this.bannedPeersStore = store?.openMap(BANNED_PEERS_MAP_NAME);
-    if (store) {
-      this.banPersistenceQueue = new SerialQueue();
-      this.banPersistenceQueue.start();
-    }
     this.banDurationMs = config.peerBanDurationSeconds * 1000;
     const orderedValues = config.peerPenaltyValues?.sort((a, b) => a - b);
     this.peerPenalties = {
@@ -121,22 +100,6 @@ export class PeerScoring {
     this.peerStateCounter = createUpDownCounterWithDefault(meter, Metrics.P2P_PEER_STATE_COUNT, {
       [Attributes.P2P_PEER_SCORE_STATE]: ['Healthy', 'Disconnect', 'Banned'],
     });
-  }
-
-  /**
-   * Builds a PeerScoring and restores any active bans from the store, so persisted bans survive
-   * restarts. Prefer this over the constructor when a store is provided; the constructor alone does
-   * not load persisted bans.
-   */
-  static async new(
-    config: P2PConfig,
-    store?: AztecAsyncKVStore,
-    telemetry: TelemetryClient = getTelemetryClient(),
-    dateProvider: DateProvider = new DateProvider(),
-  ): Promise<PeerScoring> {
-    const peerScoring = new PeerScoring(config, store, telemetry, dateProvider);
-    await peerScoring.restoreBannedPeers();
-    return peerScoring;
   }
 
   public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
@@ -170,10 +133,10 @@ export class PeerScoring {
   }
 
   /**
-   * Records a ban for a peer whose score has crossed the ban threshold, persisting it with an
-   * expiry banDurationMs in the future. No-op if the score is above the threshold or the peer is
-   * already serving an active ban (an existing ban is not extended; the original window stands). A
-   * previously expired ban does not block a fresh one — getActiveBanScore prunes it first.
+   * Records a ban for a peer whose score has crossed the ban threshold, with an expiry banDurationMs
+   * in the future. No-op if the score is above the threshold or the peer is already serving an active
+   * ban (an existing ban is not extended; the original window stands). A previously expired ban does
+   * not block a fresh one — getActiveBanScore prunes it first.
    */
   private maybeBanPeer(peerId: string, score: number): void {
     if (score >= MIN_SCORE_BEFORE_BAN || this.getActiveBanScore(peerId) !== undefined) {
@@ -186,28 +149,6 @@ export class PeerScoring {
       score,
       expiry: record.expiry,
     });
-    this.enqueueBanPersistence(store => store.set(peerId, record), `Failed to persist ban for peer ${peerId}`);
-  }
-
-  /**
-   * Enqueues a ban-store mutation onto the serial persistence queue so writes run one at a time and
-   * never reject unhandled. No-op when no store is configured. The in-memory ban map has already
-   * been updated by the caller, so getScore reflects the change immediately regardless of the write.
-   */
-  private enqueueBanPersistence(
-    op: (store: AztecAsyncMap<string, BanRecord>) => Promise<void>,
-    errorMsg: string,
-  ): void {
-    const store = this.bannedPeersStore;
-    if (!store || !this.banPersistenceQueue) {
-      return;
-    }
-    void this.banPersistenceQueue.put(() => op(store)).catch(err => this.logger.error(errorMsg, err));
-  }
-
-  /** Resolves once all pending ban writes have been flushed to the store (for graceful shutdown/tests). */
-  public async flushBanPersistence(): Promise<void> {
-    await this.banPersistenceQueue?.syncPoint();
   }
 
   decayAllScores(): void {
@@ -236,48 +177,15 @@ export class PeerScoring {
     this.bannedPeers.clear();
   }
 
-  /**
-   * Loads persisted bans into memory, dropping any that are no longer valid. Must be called on
-   * startup before the peer manager begins querying scores, so bans survive restarts. A ban is
-   * dropped if it has expired, or if its persisted score no longer crosses MIN_SCORE_BEFORE_BAN —
-   * the threshold may have changed across a software upgrade, and we should not pin a peer at a
-   * stale floor that would no longer constitute a ban.
-   */
-  public async restoreBannedPeers(): Promise<void> {
-    const map = this.bannedPeersStore;
-    const kvStore = this.kvStore;
-    if (!map || !kvStore) {
-      return;
-    }
-    const now = this.dateProvider.now();
-    const stale: string[] = [];
-    for await (const [peerId, record] of map.entriesAsync()) {
-      if (record.expiry > now && record.score < MIN_SCORE_BEFORE_BAN) {
-        this.bannedPeers.set(peerId, record);
-      } else {
-        stale.push(peerId);
-      }
-    }
-    if (stale.length > 0) {
-      await kvStore.transactionAsync(async () => {
-        for (const peerId of stale) {
-          await map.delete(peerId);
-        }
-      });
-    }
-    this.logger.verbose(`Restored ${this.bannedPeers.size} active peer ban(s) from store`);
-  }
-
   removePeer(peerId: string): void {
     this.scores.delete(peerId);
     this.lastUpdateTime.delete(peerId);
   }
 
   /**
-   * The single source of truth for whether a peer is banned. Returns the persisted ban score while
-   * the ban is active, or undefined if the peer is not banned. A ban that has expired is lazily
-   * lifted (removed in memory and in the store) before returning undefined, so callers never see a
-   * stale ban.
+   * The single source of truth for whether a peer is banned. Returns the ban score while the ban is
+   * active, or undefined if the peer is not banned. A ban that has expired is lazily lifted before
+   * returning undefined, so callers never see a stale ban.
    */
   private getActiveBanScore(peerId: string): number | undefined {
     const ban = this.bannedPeers.get(peerId);
@@ -289,19 +197,18 @@ export class PeerScoring {
     }
     // Ban expired: lift it so the peer can recover.
     this.bannedPeers.delete(peerId);
-    this.enqueueBanPersistence(store => store.delete(peerId), `Failed to remove expired ban for peer ${peerId}`);
     return undefined;
   }
 
   getScore(peerId: string): number {
-    // While a ban is active its persisted score is returned regardless of how the live score has
-    // decayed, so the peer stays banned for the full duration.
+    // While a ban is active its ban score is returned regardless of how the live score has decayed,
+    // so the peer stays banned for the full duration.
     return this.getActiveBanScore(peerId) ?? this.scores.get(peerId) ?? 0;
   }
 
   public getScoreState(peerId: string): PeerScoreState {
-    // Banned peers are persisted with a configured expiry (see getScore / maybeBanPeer), so a banned peer
-    // stays banned for the full duration even across restarts and regardless of score decay.
+    // A banned peer stays banned for the full ban duration regardless of score decay (see getScore /
+    // maybeBanPeer), rather than silently recovering once its decayed score is cleaned up.
     const score = this.getScore(peerId);
     if (score < MIN_SCORE_BEFORE_BAN) {
       return PeerScoreState.Banned;

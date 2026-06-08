@@ -1795,6 +1795,21 @@ describe('PeerManager', () => {
       expect(peerManager.isPeerAllowedToConnect(peerIdStr)).toBe(false);
     });
 
+    it('allows the address but denies the banned peer id', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const ipAddress = '192.168.1.123';
+
+      // Ban the peer (2 × LowTolerance + 1 × HighTolerance = -102).
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+
+      // The raw-inbound gate has only the address (no peer id to match a ban), so it allows the
+      // connection; the encrypted-inbound gate then denies the banned peer once its id is known.
+      expect(peerManager.isAddressAllowedToConnect(ipAddress)).toBe(true);
+      expect(peerManager.isPeerAllowedToConnect(peerId.toString())).toBe(false);
+    });
+
     it('should increment failure counters on subsequent failures', async () => {
       const peerId = await createSecp256k1PeerId();
       const peerIdStr = peerId.toString();

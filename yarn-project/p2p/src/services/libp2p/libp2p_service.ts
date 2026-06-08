@@ -5,7 +5,6 @@ import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/f
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import type { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -301,7 +300,6 @@ export class LibP2PService extends WithTracer implements P2PService {
       proofVerifier: ClientProtocolCircuitVerifier;
       worldStateSynchronizer: WorldStateSynchronizer;
       peerStore: AztecAsyncKVStore;
-      peerScoreStore: AztecLMDBStoreV2;
       blockMinFeesProvider: BlockMinFeesProvider;
       telemetry: TelemetryClient;
       logger: Logger;
@@ -316,7 +314,6 @@ export class LibP2PService extends WithTracer implements P2PService {
       mempools,
       proofVerifier,
       peerStore,
-      peerScoreStore,
       blockMinFeesProvider,
       telemetry,
       logger,
@@ -487,7 +484,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       logger: createLibp2pComponentLogger(logger.module, logger.getBindings()),
     });
 
-    const peerScoring = await PeerScoring.new(config, peerScoreStore, telemetry);
+    const peerScoring = new PeerScoring(config, telemetry);
     const reqresp = new ReqResp(config, node, peerScoring, createLogger(`${logger.module}:reqresp`));
 
     const peerManager = new PeerManager(

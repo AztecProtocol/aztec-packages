@@ -1070,9 +1070,6 @@ export class PeerManager implements PeerManagerInterface {
 
     this.libP2PNode.removeEventListener(PeerEvent.CONNECTED, this.handlers.handleConnectedPeerEvent);
     this.libP2PNode.removeEventListener(PeerEvent.DISCONNECTED, this.handlers.handleDisconnectedPeerEvent);
-
-    // Ensure any in-flight peer ban writes are durably committed before we shut down.
-    await this.peerScoring.flushBanPersistence();
   }
 
   private shouldTrustWithIdentity(peerId: PeerId): boolean {
