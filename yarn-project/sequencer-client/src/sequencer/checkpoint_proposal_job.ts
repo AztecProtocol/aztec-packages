@@ -169,15 +169,8 @@ export class CheckpointProposalJob implements Traceable {
 
   /** Awaits the pending L1 submission if one is in progress. Call during shutdown. */
   public async awaitPendingSubmission(): Promise<void> {
-    const pendingL1Submission = this.pendingL1Submission;
-    if (!pendingL1Submission) {
-      return;
-    }
     this.log.info('Awaiting pending L1 payload submission');
-    await pendingL1Submission;
-    if (this.pendingL1Submission === pendingL1Submission) {
-      this.pendingL1Submission = undefined;
-    }
+    await this.pendingL1Submission;
   }
 
   /** Interrupts job-owned waits so shutdown can finish. */
@@ -186,7 +179,13 @@ export class CheckpointProposalJob implements Traceable {
     this.interruptibleSleep.interrupt();
   }
 
-  private throwIfInterrupted(): void {
+  private async sleepInterruptibly(ms: number): Promise<void> {
+    if (this.interrupted) {
+      throw new SequencerInterruptedError();
+    }
+    if (ms > 0) {
+      await this.interruptibleSleep.sleep(ms);
+    }
     if (this.interrupted) {
       throw new SequencerInterruptedError();
     }
@@ -389,7 +388,6 @@ export class CheckpointProposalJob implements Traceable {
     try {
       const timer = new Timer();
       while (true) {
-        this.throwIfInterrupted();
         const syncedSlot = await this.l2BlockSource.getSyncedL2SlotNumber();
         if (syncedSlot !== undefined && syncedSlot >= waitForSlot) {
           return true;
@@ -397,7 +395,7 @@ export class CheckpointProposalJob implements Traceable {
         if (timeoutSeconds && timer.s() > timeoutSeconds) {
           throw new TimeoutError(`Timeout awaiting archiver sync past slot ${waitForSlot}`);
         }
-        await this.interruptibleSleep.sleep(ARCHIVER_SYNC_POLLING_MS);
+        await this.sleepInterruptibly(ARCHIVER_SYNC_POLLING_MS);
       }
     } catch (err) {
       if (err instanceof SequencerInterruptedError) {
@@ -1605,21 +1603,13 @@ export class CheckpointProposalJob implements Traceable {
   protected async waitUntilTimeInSlot(targetSecondsIntoSlot: number): Promise<void> {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp();
     const targetTimestamp = slotStartTimestamp + targetSecondsIntoSlot;
-    this.throwIfInterrupted();
     const delayMs = targetTimestamp * 1000 - this.dateProvider.nowAsDate().getTime();
-    if (delayMs > 0) {
-      await this.interruptibleSleep.sleep(delayMs);
-    }
-    this.throwIfInterrupted();
+    await this.sleepInterruptibly(delayMs);
   }
 
   /** Pause between mempool polls in waitForMinTxs. Extracted for test overriding. */
   protected async waitForTxsPollingInterval(): Promise<void> {
-    // using throwIfInterrupted twice: Sequencer.stop() sets interrupted and wakes InterruptibleSleep, but sleep
-    // returns normally. Before sleep: bail if stop already happened. After sleep: bail if stop happened during sleep.
-    this.throwIfInterrupted();
-    await this.interruptibleSleep.sleep(TXS_POLLING_MS);
-    this.throwIfInterrupted();
+    await this.sleepInterruptibly(TXS_POLLING_MS);
   }
 
   private getSlotStartBuildTimestamp(): number {
