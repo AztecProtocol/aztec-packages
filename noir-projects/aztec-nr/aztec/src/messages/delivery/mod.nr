@@ -40,10 +40,6 @@ global ONCHAIN_UNCONSTRAINED: u8 = 2;
 /// Delivery variant identifier for on-chain message delivery with constrained encryption/tagging.
 global ONCHAIN_CONSTRAINED: u8 = 3;
 
-global TAG_SECRET_DERIVATION_NONE: u8 = 0;
-global TAG_SECRET_DERIVATION_ADDRESS_PAIR: u8 = 1;
-global TAG_SECRET_DERIVATION_NON_INTERACTIVE_HANDSHAKE: u8 = 2;
-
 /// The mode of an on-chain message delivery: unconstrained or constrained tagging.
 ///
 /// This is the typed discriminant consumed by the handshake registry and the per-mode tagging index. It crosses the
@@ -127,6 +123,12 @@ impl ToField for OnchainDeliveryMode {
     }
 }
 
+// Internal tag-secret derivation identifiers. These are compile-time builder config, not ABI values.
+global TAG_SECRET_DERIVATION_NONE: u8 = 0;
+global TAG_SECRET_DERIVATION_ADDRESS_PAIR: u8 = 1;
+global TAG_SECRET_DERIVATION_NON_INTERACTIVE_HANDSHAKE: u8 = 2;
+
+/// Private builder for tag-secret derivation 
 struct TagSecretDerivation {
     inner: u8,
 }
