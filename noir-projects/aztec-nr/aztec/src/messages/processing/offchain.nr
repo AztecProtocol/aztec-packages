@@ -241,8 +241,9 @@ pub unconstrained fn receive(
 /// Each active reception entity is advanced based on its folded state, its message's expiration, and whether its
 /// originating transaction has been resolved by PXE. Resolved-and-unprocessed messages are returned for processing and
 /// recorded as `Processed` (anchored at the resolving block, so a reorg of that block retracts the guard and the
-/// message is re-processed). Messages stay active across syncs until they expire, at which point the entity is
-/// terminated to free its storage.
+/// message is re-processed). Resolution takes precedence over expiration: a message whose context resolves on the same
+/// sync it would otherwise be evicted is still handed off for processing, and terminated on a later sync. Messages stay
+/// active across syncs until they expire, at which point the entity is terminated to free its storage.
 pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
@@ -273,19 +274,22 @@ pub unconstrained fn sync_inbox(
     let now = UtilityContext::new().timestamp();
 
     for i in 0..entities_len {
-        // This loop decides what to do with each active message reception workflow. We handle the following
-        // scenarios:
-        //
-        // - Expired: the message's effective expiration (`anchor_block_timestamp + MAX_MSG_TTL`) has passed. We
-        //   terminate the entity to stop tracking it.
+        // This loop decides what to do with each active message reception workflow. We check readiness to process
+        // before expiration, so a message whose context resolves on the same sync it would otherwise be evicted
+        // still gets handed off. We handle the following scenarios:
         //
         // - Received and resolved: the originating TX has been found by PXE, giving us the context needed to
         //   process the message. We add it to `ready_to_process` and record a `Processed` fact anchored at the
         //   resolving block. If the block gets reorg'd, the `Processed` fact is retracted, effectively rewinding
-        //   the message's lifecycle.
+        //   the message's lifecycle. The entity stays active; a later sync evicts it.
+        //
+        // - Expired (and not processable this sync): the message's effective expiration
+        //   (`anchor_block_timestamp + MAX_MSG_TTL`) has passed and it is not being handed off now, so we
+        //   terminate the entity to stop tracking it. An expired-but-resolved message is processed this sync and
+        //   terminated on the next one, once it has folded to processed.
         //
         // - Received and unresolved: the originating TX is not yet known to PXE (or the message is tx-less, which
-        //   never resolves). We leave the entity active so future syncs can pick it up once the TX appears.
+        //   never resolves) and it has not expired. We leave the entity active so future syncs can pick it up.
         //
         // - Already processed (and not expired): we skip the message to avoid re-pushing it, but keep it active
         //   until expiration.
@@ -297,9 +301,7 @@ pub unconstrained fn sync_inbox(
 
         let expired = now > msg.anchor_block_timestamp + MAX_MSG_TTL;
 
-        if expired {
-            terminate_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
-        } else if (state == OffchainReceptionState::received()) & maybe_ctx.is_some() {
+        if (state == OffchainReceptionState::received()) & maybe_ctx.is_some() {
             let ctx = maybe_ctx.unwrap();
             ready_to_process.push(
                 OffchainMessageWithContext { message_ciphertext: msg.ciphertext, message_context: ctx },
@@ -314,6 +316,8 @@ pub unconstrained fn sync_inbox(
                 ctx.tx_block_number,
                 ctx.tx_block_hash,
             );
+        } else if expired {
+            terminate_entity(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
         }
     }
 
@@ -606,6 +610,44 @@ mod test {
             assert_eq(second.len(), 0); // already processed, not re-pushed
             assert(is_active(address, scope, key), "processed entity should still be active");
             assert(state_of(address, scope, key) == OffchainReceptionState::processed(), "should remain processed");
+        });
+    }
+
+    #[test]
+    unconstrained fn expired_resolved_msg_is_processed_before_termination() {
+        let (env, scope) = setup();
+        let known_tx_hash: Field = 1;
+        let anchor_ts = advance_by(env, 10);
+
+        env.utility_context(|context| {
+            let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
+            msgs.push(make_msg(scope, Option::some(known_tx_hash), anchor_ts));
+            receive(context.this_address(), msgs);
+        });
+
+        let key = correlation_key(BoundedVec::new(), Option::some(known_tx_hash));
+
+        // Advance past anchor_ts + MAX_MSG_TTL so the message is expired on the next sync.
+        let _now = advance_by(env, MAX_MSG_TTL + 1);
+
+        // First sync: even though the message is expired, its context resolves, so it is handed off for processing
+        // rather than silently evicted. The entity stays active this sync (now folded to processed).
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let result = sync_inbox(address, scope);
+
+            assert_eq(result.len(), 1);
+            assert(is_active(address, scope, key), "expired-but-resolved entity is processed, not terminated yet");
+            assert(state_of(address, scope, key) == OffchainReceptionState::processed(), "should fold to processed");
+        });
+
+        // Second sync: still expired and now processed, so the entity is terminated.
+        env.utility_context(|context| {
+            let address = context.this_address();
+            let second = sync_inbox(address, scope);
+
+            assert_eq(second.len(), 0); // already processed, not re-pushed
+            assert(!is_active(address, scope, key), "expired processed entity is terminated on the next sync");
         });
     }
 
