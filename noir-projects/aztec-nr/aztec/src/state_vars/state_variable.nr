@@ -5,9 +5,9 @@
 ///
 /// `StateVariable` is a _spec_ trait: types that implement it (e.g. [`PublicMutable`](crate::state_vars::PublicMutable))
 /// are lightweight markers written by users in the [`#[storage]`](crate::macros::storage::storage) struct. They carry
-/// no execution context and have no runtime behavior of their own. The `#[storage]` macro reads [`N`](Self::N) for
-/// storage slot allocation and projects [`Runtime`](Self::Runtime) to obtain the context-aware type that actually
-/// reads and writes state (see [`RuntimeStateVariable`](crate::state_vars::RuntimeStateVariable)).
+/// no execution context and have no runtime behavior of their own. The `#[storage]` macro reads `N` for storage slot
+/// allocation and projects `Runtime` to obtain the context-aware type that actually reads and writes state (see
+/// [`RuntimeStateVariable`](crate::state_vars::RuntimeStateVariable)).
 pub trait StateVariable<Context> {
     /// The number of storage slots this state variable occupies.
     ///

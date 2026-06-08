@@ -27,8 +27,8 @@ use crate::protocol::address::AztecAddress;
 /// ## Spec vs Runtime
 ///
 /// Like [`StateVariable`](crate::state_vars::StateVariable), this is a _spec_ trait written by users in storage
-/// declarations. It carries no execution context: the [`Runtime`](Self::Runtime) associated type is the context-aware
-/// type (implementing [`RuntimeOwnedStateVariable`](crate::state_vars::RuntimeOwnedStateVariable)) that the
+/// declarations. It carries no execution context: the `Runtime` associated type is the context-aware type
+/// (implementing [`RuntimeOwnedStateVariable`](crate::state_vars::RuntimeOwnedStateVariable)) that the
 /// [`Owned`](crate::state_vars::Owned) wrapper instantiates for a particular owner.
 pub trait OwnedStateVariable<Context> {
     /// The runtime representation of this owned state variable, with the execution `Context` threaded in. The

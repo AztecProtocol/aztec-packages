@@ -43,7 +43,7 @@ where
 /// [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
 ///
 /// The `V` generic is the _runtime_ value type, i.e. the projection of the declared owned value type's
-/// [`Runtime`](crate::state_vars::OwnedStateVariable::Runtime).
+/// `Runtime`.
 pub struct RuntimeOwned<V, Context> {
     pub context: Context,
     storage_slot: Field,

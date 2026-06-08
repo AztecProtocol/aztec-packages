@@ -103,7 +103,7 @@ mod test;
 /// ```
 ///
 /// Note that this initial delay can be altered during the contract's lifetime via
-/// [`DelayedPublicMutable::schedule_delay_change`].
+/// [`schedule_delay_change`](RuntimeDelayedPublicMutable::schedule_delay_change).
 ///
 /// ## Requirements
 ///
@@ -161,7 +161,8 @@ where
     /// Schedules a write to the current value.
     ///
     /// The current value does not immediately change. Once the current delay passes,
-    /// [`get_current_value`](DelayedPublicMutable::get_current_value) automatically begins to return `new_value`.
+    /// [`get_current_value`](RuntimeDelayedPublicMutable::get_current_value) automatically begins to return
+    /// `new_value`.
     ///
     /// ## Multiple Scheduled Changes
     ///
@@ -219,13 +220,13 @@ where
 
     /// Schedules a write to the current delay.
     ///
-    /// This works just like [`schedule_value_change`](DelayedPublicMutable::schedule_value_change), except instead of
-    /// changing the value in the state variable, it changes the delay that will govern future invocations of that
-    /// function.
+    /// This works just like [`schedule_value_change`](RuntimeDelayedPublicMutable::schedule_value_change), except
+    /// instead of changing the value in the state variable, it changes the delay that will govern future invocations of
+    /// that function.
     ///
     /// The current delay does not immediately change. Once the current delay passes,
-    /// [`get_current_delay`](DelayedPublicMutable::get_current_delay) automatically begins to return `new_delay`, and
-    /// [`schedule_value_change`](DelayedPublicMutable::schedule_value_change) begins using it.
+    /// [`get_current_delay`](RuntimeDelayedPublicMutable::get_current_delay) automatically begins to return
+    /// `new_delay`, and [`schedule_value_change`](RuntimeDelayedPublicMutable::schedule_value_change) begins using it.
     ///
     /// ## Multiple Scheduled Changes
     ///
@@ -288,15 +289,15 @@ where
 
     /// Returns the current value.
     ///
-    /// If [`schedule_value_change`](DelayedPublicMutable::schedule_value_change) has never been called, then this
-    /// returns the default empty public storage value, which is all zeroes - equivalent to `let t =
+    /// If [`schedule_value_change`](RuntimeDelayedPublicMutable::schedule_value_change) has never been called, then
+    /// this returns the default empty public storage value, which is all zeroes - equivalent to `let t =
     /// T::unpack(std::mem::zeroed());`.
     ///
     /// It is not possible to detect if a `DelayedPublicMutable` has ever been initialized or not other than by testing
     /// for the zero sentinel value. For a more robust solution, store an `Option<T>` in the `DelayedPublicMutable`.
     ///
-    /// Use [`get_scheduled_value`](DelayedPublicMutable::get_scheduled_value) to instead get the last value that was
-    /// scheduled to become the current one (which will equal the current value if the delay has already passed).
+    /// Use [`get_scheduled_value`](RuntimeDelayedPublicMutable::get_scheduled_value) to instead get the last value that
+    /// was scheduled to become the current one (which will equal the current value if the delay has already passed).
     ///
     /// ## Examples
     ///
@@ -323,14 +324,15 @@ where
 
     /// Returns the current delay.
     ///
-    /// This is the delay that would be used by [`schedule_value_change`](DelayedPublicMutable::schedule_value_change)
-    /// if it were called in the current transaction.
+    /// This is the delay that would be used by
+    /// [`schedule_value_change`](RuntimeDelayedPublicMutable::schedule_value_change) if it were called in the current
+    /// transaction.
     ///
-    /// If [`schedule_delay_change`](DelayedPublicMutable::schedule_delay_change) has never been called, then this
-    /// returns the `InitialDelay` used in the [`storage`](crate::macros::storage::storage) struct.
+    /// If [`schedule_delay_change`](RuntimeDelayedPublicMutable::schedule_delay_change) has never been called, then
+    /// this returns the `InitialDelay` used in the [`storage`](crate::macros::storage::storage) struct.
     ///
-    /// Use [`get_scheduled_delay`](DelayedPublicMutable::get_scheduled_delay) to instead get the last delay that was
-    /// scheduled to become the current one (which will equal the current delay if the delay has already passed).
+    /// Use [`get_scheduled_delay`](RuntimeDelayedPublicMutable::get_scheduled_delay) to instead get the last delay that
+    /// was scheduled to become the current one (which will equal the current delay if the delay has already passed).
     ///
     /// ## Examples
     ///
@@ -419,8 +421,8 @@ where
     /// [`PrivateContext::set_expiration_timestamp`](crate::context::PrivateContext::set_expiration_timestamp)),
     /// invalidating the transaction if not included before that time. See the 'Privacy' section below to learn more.
     ///
-    /// If [`schedule_value_change`](DelayedPublicMutable::schedule_value_change) has never been called, then this
-    /// returns the default empty public storage value, which is all zeroes - equivalent to `let t =
+    /// If [`schedule_value_change`](RuntimeDelayedPublicMutable::schedule_value_change) has never been called, then
+    /// this returns the default empty public storage value, which is all zeroes - equivalent to `let t =
     /// T::unpack(std::mem::zeroed());`.
     ///
     /// It is not possible to detect if a `DelayedPublicMutable` has ever been initialized or not other than by testing
@@ -449,9 +451,9 @@ where
     ///
     /// If the state variable **does** have a value change scheduled, then the timestamp will be set to equal the time
     /// at which the current value will change, i.e. the one
-    /// [`get_scheduled_value`](DelayedPublicMutable::get_scheduled_value) returns - which is public information. This
-    /// results in an unavoidable privacy leak of any transactions in which a contract privately reads a
-    /// `DelayedPublicMutable` that will change soon.
+    /// [`get_scheduled_value`](RuntimeDelayedPublicMutable::get_scheduled_value) returns - which is public
+    /// information. This results in an unavoidable privacy leak of any transactions in which a contract privately reads
+    /// a `DelayedPublicMutable` that will change soon.
     ///
     /// Transactions that do not read from a `DelayedPublicMutable` are part of a privacy set in which the
     /// `expiration_timestamp` is set to their anchor block plus [`crate::protocol::constants::MAX_TX_LIFETIME`],
@@ -487,9 +489,10 @@ where
     /// ## Cost
     ///
     /// This function performs a historical public storage read (which is ~4k gates), **regardless of
-    /// `T`'s packed length**. This is because [`DelayedPublicMutable::schedule_value_change`] stores not just the
-    /// value but also its hash: this function obtains the preimage from an oracle and proves that it matches the hash
-    /// from public storage.
+    /// `T`'s packed length**. This is because
+    /// [`schedule_value_change`](RuntimeDelayedPublicMutable::schedule_value_change) stores not just the value but also
+    /// its hash: this function obtains the preimage from an oracle and proves that it matches the hash from public
+    /// storage.
     ///
     /// Because of this reason, if two mutable values are often privately read together it can be convenient to group
     /// them in a single type `T`. Note however that this will result in them sharing the mutation delay:

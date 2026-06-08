@@ -197,8 +197,8 @@ impl<T> RuntimePublicImmutable<T, PublicContext> {
 
     /// Reads the permanent value, skipping the initialization check.
     ///
-    /// This is cheaper than [`PublicImmutable::read`], but it should only be used if the `PublicImmutable` is known to
-    /// be initialized.
+    /// This is cheaper than [`read`](RuntimePublicImmutable::read), but it should only be used if the
+    /// `PublicImmutable` is known to be initialized.
     ///
     /// If the `PublicImmutable` is not initialized, this returns the default empty public storage value, which is all
     /// zeroes - equivalent to `let t = T::unpack(std::mem::zeroed());`.
@@ -299,8 +299,8 @@ impl<T> RuntimePublicImmutable<T, &mut PrivateContext> {
     /// A nullifier existence request is pushed to the context, which will be verified by the kernel circuit.
     /// Additionally, a historical public storage read at the anchor block (which is on the order of 4k gates) is
     /// performed for a single storage slot, **regardless of `T`'s packed length**. This is because
-    /// [`PublicImmutable::initialize`] stores not just the value but also its hash: this function obtains the preimage
-    /// from an oracle and proves that it matches the hash from public storage.
+    /// [`initialize`](RuntimePublicImmutable::initialize) stores not just the value but also its hash: this function
+    /// obtains the preimage from an oracle and proves that it matches the hash from public storage.
     ///
     /// Because of this reason it is convenient to group together all of a contract's public immutable values that are
     /// read privately in a single type `T`:

@@ -102,7 +102,7 @@ where
 /// do not name this type directly except when using [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
 ///
 /// The `V` generic is the _runtime_ value type, i.e. the projection of the declared value type's
-/// [`Runtime`](crate::state_vars::StateVariable::Runtime).
+/// `Runtime`.
 pub struct RuntimeMap<K, V, Context> {
     pub context: Context,
     storage_slot: Field,

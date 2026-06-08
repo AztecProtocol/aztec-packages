@@ -53,12 +53,12 @@ mod test;
 ///
 /// ## Cost
 ///
-/// Exercising a claim (via the [`SingleUseClaim::claim`] function) emits one nullifier.
+/// Exercising a claim (via the [`claim`](RuntimeSingleUseClaim::claim) function) emits one nullifier.
 ///
 /// ## Privacy considerations
 ///
-/// The [`SingleUseClaim::claim`] function emits a public nullifier per owner: it's fully private, hidden behind the
-/// owner's app-siloed nullifier hiding key (aka `nhk`).
+/// The [`claim`](RuntimeSingleUseClaim::claim) function emits a public nullifier per owner: it's fully private, hidden
+/// behind the owner's app-siloed nullifier hiding key (aka `nhk`).
 ///
 /// Public effects you emit alongside a claim (e.g. a  public function call to update a tally) may still let observers
 /// infer who likely exercised the claim, so consider that when designing flows.
@@ -115,13 +115,14 @@ impl RuntimeSingleUseClaim<&mut PrivateContext> {
         self.context.push_nullifier_unsafe(self.compute_nullifier(owner_nhk_app));
     }
 
-    /// Asserts that the owner has already claimed this single use claim (i.e. that [`SingleUseClaim::claim`] has been
-    /// called).
+    /// Asserts that the owner has already claimed this single use claim (i.e. that
+    /// [`claim`](RuntimeSingleUseClaim::claim) has been called).
     ///
     /// ## Advanced
     ///
     /// This function generates a kernel nullifier read request, so it can even assert the existence of pending claims,
-    /// i.e. when [`SingleUseClaim::claim`] was called in the same transaction as [`SingleUseClaim::assert_claimed`].
+    /// i.e. when [`claim`](RuntimeSingleUseClaim::claim) was called in the same transaction as
+    /// [`assert_claimed`](RuntimeSingleUseClaim::assert_claimed).
     pub fn assert_claimed(self) {
         let owner_nhk_app = self.context.request_nhk_app(get_public_keys(self.owner).npk_m_hash);
         let nullifier = self.compute_nullifier(owner_nhk_app);

@@ -81,9 +81,9 @@
 //!
 //! Different methods are available depending on the context, reflecting that certain actions can only be performed in
 //! some or other context. For example, [`PublicMutable`](crate::state_vars::PublicMutable)'s
-//! [`read`](crate::state_vars::PublicMutable::read) function is available under both `PublicContext` and
+//! [`read`](crate::state_vars::RuntimePublicMutable::read) function is available under both `PublicContext` and
 //! `UtilityContext`, but not `PrivateContext` since `PublicMutable` cannot be read from private functions. Similarly,
-//! [`write`](crate::state_vars::PublicMutable::write) is only available in `PublicContext`.
+//! [`write`](crate::state_vars::RuntimePublicMutable::write) is only available in `PublicContext`.
 //!
 //! ## Packing for Efficient Access
 //!
