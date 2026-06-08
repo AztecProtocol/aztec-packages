@@ -10,7 +10,7 @@ import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { MAX_RPC_TXS_LEN } from './api_limit.js';
-import { type GetTxByHashOptions, GetTxByHashOptionsSchema } from './aztec-node.js';
+import { type GetTxByHashOptions, GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
 
 export type PeerInfo =
   | { status: 'connected'; score: number; id: string }

@@ -50,7 +50,7 @@ import {
 } from '../logs/logs_query.js';
 import { type L2ToL1MembershipWitness, L2ToL1MembershipWitnessSchema } from '../messaging/l2_to_l1_membership.js';
 import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
-import { type ApiSchemaFor, type ZodFor, optional, schemas } from '../schemas/schemas.js';
+import { type ApiSchemaFor, optional, schemas } from '../schemas/schemas.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
@@ -89,19 +89,12 @@ import {
   type CheckpointResponse,
   CheckpointResponseSchema,
 } from './checkpoint_response.js';
+import { type GetTxByHashOptions, GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
 import { type PeerInfo, PeerInfoSchema, type ProposalsForSlot, ProposalsForSlotSchema } from './p2p.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
-/** Options for retrieving txs via {@link AztecNode.getTxByHash} and {@link AztecNode.getTxsByHash}. */
-export type GetTxByHashOptions = {
-  /** Keep the proof on the returned tx; stripped by default. */
-  includeProof?: boolean;
-};
-
-/** Zod schema for {@link GetTxByHashOptions}. */
-export const GetTxByHashOptionsSchema: ZodFor<GetTxByHashOptions> = z.object({
-  includeProof: z.boolean().optional(),
-});
+export type { GetTxByHashOptions } from './get_tx_by_hash_options.js';
+export { GetTxByHashOptionsSchema } from './get_tx_by_hash_options.js';
 
 /**
  * The aztec node.
