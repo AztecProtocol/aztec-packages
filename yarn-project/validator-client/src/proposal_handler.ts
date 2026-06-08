@@ -165,7 +165,7 @@ export class ProposalHandler {
   };
 
   /** Archiver reference for setting proposed checkpoints (pipelining). Set via register(). */
-  private archiver?: Pick<Archiver, 'addProposedCheckpoint'>;
+  private archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>;
 
   /** Returns current validator addresses for own-proposal detection. Set via register(). */
   private getOwnValidatorAddresses?: () => string[];
@@ -232,7 +232,7 @@ export class ProposalHandler {
   register(
     p2pClient: P2P,
     shouldReexecute: boolean,
-    archiver?: Pick<Archiver, 'addProposedCheckpoint'>,
+    archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>,
     getOwnValidatorAddresses?: () => string[],
   ): ProposalHandler {
     this.p2pClient = p2pClient;
@@ -298,17 +298,53 @@ export class ProposalHandler {
           return undefined;
         }
 
-        // For own proposals, skip validation and return: the proposer already built and validated the
-        // checkpoint, and the sequencer's checkpoint proposal job pushed the proposed checkpoint to the
-        // archiver from local data before broadcasting. Gossipsub doesn't echo our own messages back, so
-        // this branch is normally unreachable — it remains as defense if an own proposal arrives by some
-        // other path.
+        // A proposal is "own" when it was signed by a validator key this node also owns. For the true
+        // local proposer this is the fast path: it already built and validated the checkpoint, and its
+        // sequencer job pushed the proposed checkpoint to the archiver before broadcasting, so we skip
+        // re-validation. In an HA setup, however, a peer that shares the proposer's keys also classifies
+        // the gossiped proposal as "own" even though it never built it — that peer must still hydrate its
+        // own proposed-checkpoint metadata so it can build the next slot on top of this checkpoint.
         const proposer = proposal.getSender();
         const ownAddresses = this.getOwnValidatorAddresses?.();
         const isOwnProposal = proposer && ownAddresses?.some(addr => addr === proposer.toString());
 
         if (isOwnProposal) {
-          this.log.debug(`Skipping validation for own checkpoint proposal at slot ${proposal.slotNumber}`);
+          if (!this.archiver) {
+            this.log.debug(`Skipping validation for own checkpoint proposal at slot ${proposal.slotNumber}`);
+            return undefined;
+          }
+
+          const existing = await this.archiver.getProposedCheckpointData({ slot: proposal.slotNumber });
+          if (existing) {
+            if (existing.archive.root.equals(proposal.archive)) {
+              // True local proposer (or already-hydrated HA peer): metadata is present and matches.
+              // Idempotent fast path — nothing to validate or write.
+              this.log.debug(`Skipping validation for own checkpoint proposal at slot ${proposal.slotNumber}`);
+            } else {
+              // A different proposed checkpoint already exists for this slot. Do not overwrite it.
+              this.log.warn(`Own checkpoint proposal conflicts with existing proposed checkpoint at slot`, {
+                slot: proposal.slotNumber,
+                existingArchive: existing.archive.root.toString(),
+                proposalArchive: proposal.archive.toString(),
+              });
+            }
+            return undefined;
+          }
+
+          // HA peer that shares the proposer's keys but did not build this checkpoint: hydrate the
+          // proposed-checkpoint metadata from local block data so it can pipeline the next slot. Unlike the
+          // true local proposer (which built the checkpoint before broadcasting), this peer learns of the
+          // checkpoint only via gossip, so the last block may not be synced yet — wait for it just like the
+          // foreign path does. If it never appears, skip hydration rather than throwing out of the handler.
+          const blockData = await this.waitForLastBlockData(proposal, proposalInfo);
+          if (!blockData) {
+            this.log.warn(`Skipping own checkpoint proposal hydration: last block not synced in time`, {
+              slot: proposal.slotNumber,
+              archive: proposal.archive.toString(),
+            });
+            return undefined;
+          }
+          await this.setProposedCheckpointFromValidation(proposal, blockData);
           return undefined;
         }
 
@@ -316,7 +352,9 @@ export class ProposalHandler {
         if (!result.isValid) {
           await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
         } else if (this.archiver) {
-          const set = await this.setProposedCheckpointFromValidation(proposal);
+          // Validation already waited for and synced the last block, so a single no-wait fetch is enough.
+          const blockData = await this.blockSource.getBlockData({ archive: proposal.archive });
+          const set = blockData && (await this.setProposedCheckpointFromValidation(proposal, blockData));
           if (set) {
             this.metrics?.recordCheckpointProposalToPipelinedStateDuration(pipeliningTimer.ms());
           }
@@ -899,37 +937,17 @@ export class ProposalHandler {
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;
 
-    // Block-sync/validation deadline = the single consensus attestation_deadline (target_slot_start + S
-    // - 2E): the latest moment the proposer can submit this checkpoint and still have it land on L1 in
-    // the target slot. Keeping validation/attestation alive until then lets validators keep attesting
-    // right up to the proposer's real publish cutoff.
-    const deadline = this.getReexecutionDeadline(slot);
-
-    // Wait for last block to sync by archive. The deadline is passed to retryUntil as an absolute date so
-    // the remaining budget is derived from the date provider; a deadline already in the past times out
-    // after a single attempt instead of looping (the immediate-timeout semantics of the deadline overload).
-    let lastBlockData;
+    // Wait for the last block of the checkpoint to sync, up to the consensus publish deadline. A timeout
+    // or a still-missing block surfaces as undefined; a genuinely unexpected fetch error throws out.
+    let lastBlockData: BlockData | undefined;
     try {
-      lastBlockData = await retryUntil(
-        async () => {
-          await this.blockSource.syncImmediate();
-          return await this.blockSource.getBlockData({ archive: proposal.archive });
-        },
-        `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
-        { deadline, dateProvider: this.dateProvider },
-        0.5,
-      );
+      lastBlockData = await this.waitForLastBlockData(proposal, proposalInfo);
     } catch (err) {
-      if (err instanceof TimeoutError) {
-        this.log.warn(`Timed out waiting for block with archive matching checkpoint proposal`, proposalInfo);
-        return { isValid: false, reason: 'last_block_not_found' };
-      }
       this.log.error(`Error fetching last block for checkpoint proposal`, err, proposalInfo);
       return { isValid: false, reason: 'block_fetch_error' };
     }
 
     if (!lastBlockData) {
-      this.log.warn(`Last block not found for checkpoint proposal`, proposalInfo);
       return { isValid: false, reason: 'last_block_not_found' };
     }
 
@@ -1127,19 +1145,62 @@ export class ProposalHandler {
   }
 
   /**
-   * Derives proposed checkpoint data from validated blocks and sets it on the archiver.
-   * Used after successful validation of a foreign proposal.
-   * Does not retry since we already waited for the block during validation.
+   * Waits for the last block of a checkpoint proposal to be synced and queryable by its archive root,
+   * up to the consensus publish deadline for the slot.
+   *
+   * The deadline is the single consensus attestation_deadline (target_slot_start + S - 2E): the latest
+   * moment the proposer can submit this checkpoint and still have it land on L1 in the target slot. It is
+   * passed to retryUntil as an absolute date, so the remaining budget is derived from the date provider; a
+   * deadline already in the past times out after a single attempt instead of looping.
+   *
+   * @returns The synced block data, or `undefined` if the wait timed out or the block is still missing.
+   *   Rethrows only genuinely unexpected (non-timeout) errors from the block source.
    */
-  private async setProposedCheckpointFromValidation(proposal: CheckpointProposalCore): Promise<boolean> {
-    if (!this.archiver) {
-      return false;
+  private async waitForLastBlockData(
+    proposal: CheckpointProposalCore,
+    proposalInfo: LogData,
+  ): Promise<BlockData | undefined> {
+    const slot = proposal.slotNumber;
+    const deadline = this.getReexecutionDeadline(slot);
+
+    let lastBlockData: BlockData | undefined;
+    try {
+      lastBlockData = await retryUntil(
+        async () => {
+          await this.blockSource.syncImmediate();
+          return await this.blockSource.getBlockData({ archive: proposal.archive });
+        },
+        `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
+        { deadline, dateProvider: this.dateProvider },
+        0.5,
+      );
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        this.log.warn(`Timed out waiting for block with archive matching checkpoint proposal`, proposalInfo);
+        return undefined;
+      }
+      throw err;
     }
-    const blockData = await this.blockSource.getBlockData({ archive: proposal.archive });
-    if (!blockData) {
-      this.log.debug(`Block data not found for checkpoint proposal archive, cannot set proposed checkpoint`, {
-        archive: proposal.archive.toString(),
-      });
+
+    if (!lastBlockData) {
+      this.log.warn(`Last block not found for checkpoint proposal`, proposalInfo);
+      return undefined;
+    }
+
+    return lastBlockData;
+  }
+
+  /**
+   * Derives proposed checkpoint data from the last block of a checkpoint proposal and sets it on the
+   * archiver, so this node can pipeline building on top of the checkpoint.
+   * @param proposal - The checkpoint proposal to record.
+   * @param blockData - The already-synced last block of the checkpoint (its archive matches the proposal).
+   */
+  private async setProposedCheckpointFromValidation(
+    proposal: CheckpointProposalCore,
+    blockData: BlockData,
+  ): Promise<boolean> {
+    if (!this.archiver) {
       return false;
     }
 
