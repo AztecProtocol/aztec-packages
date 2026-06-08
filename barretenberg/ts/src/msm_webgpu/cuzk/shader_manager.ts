@@ -40,7 +40,6 @@ import {
   ba_walker_pt_finalize as ba_walker_pt_finalize_shader,
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
-  bigint_f32 as bigint_f32_funcs,
   // The ONLY inverse: packed-14-bit native safegcd (f8 in/out), fr_inv_by_loop_pk.
   by_inverse_loop_pk14_native as by_inverse_loop_pk14_native_funcs,
   convert_points_only as convert_points_only_shader,
@@ -52,11 +51,8 @@ import {
   field as field_funcs,
   field8 as field8_funcs,
   microbench as microbench_shader,
-  mont_pro_product_cios_unrolled as montgomery_product_cios_unrolled_funcs,
   mont_pro_product_f8_native as montgomery_product_f8_native_funcs,
-  mont_pro_product_f32_22_sos3uv3 as montgomery_product_f32_22_sos3uv3_funcs,
   mont_pro_product_karat_yuval as montgomery_product_karat_yuval_funcs,
-  mulhilo_22 as mulhilo_22_funcs,
   structs,
   transpose_parallel_scan as transpose_parallel_scan_shader,
   transpose_count_tiled as transpose_count_tiled_shader,
@@ -78,7 +74,6 @@ import {
   compute_mod_inverse_pow2,
   gen_p_limbs,
   gen_p_limbs_by_initializer,
-  gen_p_limbs_f32,
   gen_r_limbs,
   gen_mu_limbs,
 } from './utils.js';
@@ -147,14 +142,6 @@ export class ShaderManager {
   public r_limbs: string;
   public p_inv_mod_2w: number;
   public mu_limbs: string;
-  // 22-bit-limb f32 Montgomery params. Used by
-  // `gen_montgomery_product_f32_22_sos3uv3_shader` for the sos3uv3
-  // micro-benchmark. The 22-bit width buys a 4-way exact sum
-  // (4·2^22 = 2^24 fits in f32 mantissa), enabling the per-slot
-  // (tlo, thi) chain-break in sos3uv3.
-  public num_limbs_f32_22: number;
-  public n0_f32_22: bigint;
-  public p_limbs_f32_22_str: string;
   // 9 × 29-bit BY limb representation of `p` for the BY safegcd inverse
   // path. The initializer string is comma-separated limbs suitable for
   // `BigIntBY(array<i32, 9>({{{ p_limbs_by }}}))`.
@@ -192,10 +179,11 @@ export class ShaderManager {
     input_size: number,
     curveConfig: CurveConfig = BN254_CURVE_CONFIG,
     force_recompile = false,
-    // Base-field multiply body shared by every MSM shader. 'karat' (default)
-    // is the generic Karatsuba+Yuval body; 'cios_unrolled' is the
-    // device-validated register-resident CIOS variant (BN254 @ 20×13 only,
-    // −26% on Mali-G715). See `renderCiosUnrolledMont`.
+    // Base-field multiply selector. 'karat' (default) is the generic
+    // 20×13-limb Karatsuba+Yuval body — the high-register path (e.g. Apple).
+    // 'cios_unrolled' selects the packed-native 8×u32 CIOS multiply
+    // (f8_native) on every kernel — the register-lean Adreno/Mali path
+    // (−26% on Mali-G715, BN254 @ 20×13 only).
     montmul: MontMulVariant = 'karat',
   ) {
     this.curveConfig = curveConfig;
@@ -220,13 +208,6 @@ export class ShaderManager {
     this.slack = this.num_words * this.word_size - this.p_bitlength;
     this.w_mask = (1 << this.word_size) - 1;
 
-    // 22-bit-limb f32 path (bench only). compute_misc_params(p, 22)
-    // gives num_words = 12 for BN254 (12·22 = 264 ≥ 254).
-    const params_f32_22 = compute_misc_params(this.p, 22);
-    this.num_limbs_f32_22 = params_f32_22.num_words;
-    this.n0_f32_22 = params_f32_22.n0;
-    this.p_limbs_f32_22_str = gen_p_limbs_f32(this.p, this.num_limbs_f32_22, 22);
-
     // BY safegcd 9 × 29-bit representation of p and 58-bit p_inv split.
     // The split is the WASM `p_inv` u64 broken into low-32 + high-26
     // chunks; the Mustache substitution is a flat u32 constant on each
@@ -238,13 +219,14 @@ export class ShaderManager {
     // Option A 26-bit p_inv (single u32) for the BATCH=26 BY driver.
     this.p_inv_by_a_lo = compute_by_p_inv_a(this.p);
 
-    // Render the Karatsuba+Yuval Mont body once. This is the default
-    // u32 multiplier used by every MSM shader that includes the
-    // `montgomery_product_funcs` mustache partial.
-    this.mont_product_src = montmul === 'cios_unrolled' ? this.renderCiosUnrolledMont() : this.renderKaratYuvalMont();
-    // cios_unrolled carries the packed-native f8 multiply (the Adreno fast
-    // path, 3.8× via x20/r/s spill elimination); karat uses the unpack
-    // wrapper. Selected per-kernel by the `f8_native` flag in field8.
+    // The generic 20×13-limb Karatsuba+Yuval Mont body: the `montmul=karat`
+    // multiply, and the BigInt body the field8 wrapper expands to in the karat
+    // path. In the `montmul=cios_unrolled` (f8_native) path every kernel uses
+    // the packed multiply below, so this body is dead-code-eliminated there.
+    this.mont_product_src = this.renderKaratYuvalMont();
+    // The packed-native 8×u32 CIOS multiply (`montmul=cios_unrolled` / f8_native):
+    // the Adreno fast path (no x20/r/s BigInt spill). field8's `f8_native` branch
+    // injects it on every kernel; empty in the karat path.
     this.mont_f8_native_src = montmul === 'cios_unrolled' ? montgomery_product_f8_native_funcs.trim() : '';
     this.montmul = montmul;
 
@@ -382,10 +364,10 @@ ${packLines.join('\n')}
         w_mask: this.w_mask,
         slack: this.slack,
         num_words_mul_two: this.num_words * 2,
-        f8_native: this.montmul === 'cios_unrolled',
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         dec_unpack: dec.unpack,
         dec_pack: dec.pack,
         r_squared_csv: words8Csv(r_squared),
@@ -607,6 +589,7 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -652,6 +635,7 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -707,6 +691,7 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -872,6 +857,7 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -928,6 +914,7 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -988,6 +975,7 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1043,6 +1031,7 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1090,6 +1079,7 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1277,91 +1267,6 @@ ${packLines.join('\n')}
     });
   }
 
-  // Device-validated CIOS variant of the base-field multiply. Reuses the
-  // Karatsuba scaffold (get_p / conditional_reduce / NUM_WORDS / WORD_SIZE /
-  // MASK / N0) and brace-match-replaces ONLY the `fn montgomery_product` body
-  // with the fully-unrolled, register-resident CIOS form. This is the exact
-  // splice that benched −26% on Pixel 9a / Mali-G715 (488.4 → 360.6 ms, logn=17
-  // profile A, cross-check agree, bit-exact over 120000+16 cases). The CIOS
-  // body bakes BN254 p-limb immediates, so it is only valid at 20×13-bit limbs.
-  private renderCiosUnrolledMont(): string {
-    if (this.num_words !== 20 || this.word_size !== 13) {
-      throw new Error(
-        `montmul='cios_unrolled' is only valid for BN254 (20×13-bit limbs); ` +
-          `got num_words=${this.num_words}, word_size=${this.word_size}`,
-      );
-    }
-    const scaffold = this.renderKaratYuvalMont();
-    // Brace-match the Karatsuba `fn montgomery_product(...) { ... }` and swap
-    // its body for the CIOS one (identical signature + helper dependencies).
-    const start = scaffold.indexOf('fn montgomery_product(');
-    if (start < 0) throw new Error('renderCiosUnrolledMont: fn montgomery_product not found in scaffold');
-    let depth = 0;
-    let end = -1;
-    for (let i = scaffold.indexOf('{', start); i < scaffold.length; i++) {
-      const ch = scaffold[i];
-      if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) {
-          end = i + 1;
-          break;
-        }
-      }
-    }
-    if (end < 0) throw new Error('renderCiosUnrolledMont: brace-match failed');
-    return scaffold.slice(0, start) + montgomery_product_cios_unrolled_funcs.trim() + '\n' + scaffold.slice(end);
-  }
-
-  // Renders mont_pro_product_f32_22_sos3uv3.template.wgsl. The .wgsl owns
-  // the algorithm — separate per-slot tlo/thi f32 accumulators, no
-  // inter-j carry chain, drain at end of each outer iter via
-  // bias_split_f32_le4w. This TS supplies index arrays for the mustache
-  // slot-init / inner-pairs / drain-cols sections.
-  public gen_montgomery_product_f32_22_sos3uv3_shader(): string {
-    const N = this.num_limbs_f32_22;
-    const W_INV_VAL = 2.384185791015625e-7;
-    const n0Num = Number(this.n0_f32_22);
-    const n0Scaled = n0Num * W_INV_VAL;
-
-    // Slot init for iter 0: tlo[0] = init_slot0, everything else 0.
-    // Slot init for i>=1: tlo[0] = init_slot0 + s1, tlo[k] = s[k+1] for
-    // k=1..N-2, tlo[N-1] = 0; thi[*] = 0.
-    const slotInitsI0: Array<{ name: string; init_expr: string }> = [];
-    const slotInitsGeneral: Array<{ name: string; init_expr: string }> = [];
-    for (let k = 0; k < N; k++) {
-      slotInitsI0.push({ name: `tlo${k}`, init_expr: k === 0 ? 'init_slot0' : '0.0' });
-      slotInitsI0.push({ name: `thi${k}`, init_expr: '0.0' });
-      let genTlo: string;
-      if (k === 0) genTlo = 'init_slot0 + s1';
-      else if (k === N - 1) genTlo = '0.0';
-      else genTlo = `s${k + 1}`;
-      slotInitsGeneral.push({ name: `tlo${k}`, init_expr: genTlo });
-      slotInitsGeneral.push({ name: `thi${k}`, init_expr: '0.0' });
-    }
-
-    // Inner-j pairs: for j=1..N-1, write tlo[j-1] += lo_sum, thi[j] += hi_sum.
-    const innerPairs = [];
-    for (let j = 1; j < N; j++) innerPairs.push({ j, km1: j - 1, k: j });
-
-    // Drain cols: k=0..N-1.
-    const drainCols = Array.from({ length: N }, (_, k) => ({ k }));
-
-    const ctx = {
-      num_limbs: N,
-      n0: `${this.n0_f32_22.toString()}.0`,
-      n0_scaled: n0Scaled.toString(),
-      p_limbs_f32: this.p_limbs_f32_22_str,
-      slot_inits_i0: slotInitsI0,
-      slot_inits_general: slotInitsGeneral,
-      inner_pairs: innerPairs,
-      drain_cols: drainCols,
-    };
-    const bigint_f32_src = mustache.render(bigint_f32_funcs, ctx);
-    const mont_src = mustache.render(montgomery_product_f32_22_sos3uv3_funcs, ctx);
-    return `${mulhilo_22_funcs}\n${bigint_f32_src}\n${mont_src}`;
-  }
-
   // --- Streaming planner + accumulator generators ---
 
   public gen_ba_planner_classify_shader(workgroup_size: number): string {
@@ -1421,6 +1326,7 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1486,7 +1392,6 @@ ${packLines.join('\n')}
         s,
         inv_fn,
         inv_f8: true,
-        f8_native: this.montmul === 'cios_unrolled',
         l0prec: l0Precompute,
         bw,
         stride,
@@ -1494,6 +1399,7 @@ ${packLines.join('\n')}
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1598,10 +1504,10 @@ ${packLines.join('\n')}
         workgroup_size,
         s,
         inv_fn,
-        f8_native: this.montmul === 'cios_unrolled',
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
@@ -1646,13 +1552,13 @@ ${packLines.join('\n')}
         workgroup_size,
         s,
         inv_fn,
-        f8_native: this.montmul === 'cios_unrolled',
         bw,
         stride,
         m_red,
         p8_consts,
         r8_csv,
         f8_words,
+        f8_native: this.montmul === 'cios_unrolled',
         word_size: this.word_size,
         num_words: this.num_words,
         n0: this.n0,
