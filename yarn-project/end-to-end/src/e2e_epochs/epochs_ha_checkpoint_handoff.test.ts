@@ -10,7 +10,8 @@ import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
-import type { ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import type { BlockData } from '@aztec/stdlib/block';
+import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { createSharedSlashingProtectionDb } from '@aztec/validator-ha-signer/factory';
 
@@ -40,23 +41,19 @@ const VALIDATOR_COUNT = 4;
  * archiver therefore never records the proposed-checkpoint metadata for S1, even though the peer does
  * receive and reexecute the S1 block proposal (block-proposal handling works for HA).
  *
- * This test routes S1 to the builder (nodes[0]) and S2 to its HA peer (nodes[1]) via the test-only
- * `pauseProposingForSlots` hook. The precise failure it asserts (PRIMARY discriminator) is timing
- * independent: after the builder broadcasts S1's checkpoint proposal and the peer reexecutes the S1
- * block, the peer never records S1's proposed-checkpoint metadata. This does not depend on whether or
- * when S1 lands on L1.
+ * The finder scans for two consecutive proposal slots S1 and S2=S1+1 both owned by the SAME HA pair
+ * (either pair). It nominates one node of that pair as the builder (proposes S1) and the other as the
+ * peer (proposes S2) — the choice is arbitrary since they share keys. The test then routes S1 to the
+ * builder and S2 to the peer via the test-only `pauseProposingForSlots` hook. The precise failure it
+ * asserts (PRIMARY discriminator) is timing independent: after the builder broadcasts S1's checkpoint
+ * proposal and the peer reexecutes the S1 block, the peer never records S1's proposed-checkpoint
+ * metadata. This does not depend on whether or when S1 lands on L1.
  *
  * The downstream consequence (SECONDARY confirmation, the real-world symptom) is that without that
  * metadata the peer cannot build S2 on top of the proposed S1: when its block fails to match a proposed
  * checkpoint it prunes the S1 block as an orphan, rebuilds checkpoint 1 itself, and never produces S2's
- * checkpoint. The on-chain checkpoint chain still advances past 1 (later proposers keep building), but
- * S2's slot is skipped — block 2 with slot S2 never appears on the peer.
- *
- * We deliberately do NOT delay the builder's S1 L1 submission. The publisher speeds up a stuck tx by
- * sending a replacement (same nonce, higher gas) via a fresh `sendRawTransaction`, which the single-shot
- * tx delayer does not intercept, so a delay would not reliably hold S1 off L1 anyway (see
- * `l1_tx_utils.ts` `monitorTransaction` speed-up path). The bug does not require the delay: the peer
- * fails to record the proposed checkpoint regardless of when S1 is checkpointed on L1.
+ * checkpoint. With the fix, checkpoint 1 (covering S1, built by the builder) and checkpoint 2 (covering
+ * S2, built by the peer) both land on L1, and S2's covered block carries the peer's distinct coinbase.
  */
 describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
   let context: EndToEndContext;
@@ -67,8 +64,19 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
 
-  // The attester addresses owned by the HA pair {nodes[0], nodes[1]} (keys pk1, pk2).
-  let pairAddresses: string[];
+  /**
+   * Describes one HA pair: its two member nodes, their two attester addresses (lowercased, for
+   * proposer-membership testing) and their two distinct coinbases. The finder matches a pair, then
+   * nominates one member as the builder and the other as the peer.
+   */
+  type HaPair = {
+    nodes: [AztecNodeService, AztecNodeService];
+    addresses: string[];
+    coinbases: [EthAddress, EthAddress];
+  };
+
+  // The two HA pairs, populated by setupTest.
+  let haPairs: HaPair[];
 
   async function setupTest() {
     validators = times(VALIDATOR_COUNT, i => {
@@ -106,53 +114,85 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
     const pk3 = validators[2].privateKey;
     const pk4 = validators[3].privateKey;
 
-    pairAddresses = [pk1, pk2].map(pk => privateKeyToAccount(pk).address.toLowerCase());
+    const addressesA = [pk1, pk2].map(pk => privateKeyToAccount(pk).address.toLowerCase());
+    const addressesB = [pk3, pk4].map(pk => privateKeyToAccount(pk).address.toLowerCase());
 
-    // Use different coinbase addresses per node so HA peers would build different blocks if propagation
-    // were broken. Each HA pair shares a slashing protection DB so only one peer signs per duty.
-    // buildCheckpointIfEmpty + minTxsPerBlock: 0 lets proposers build empty checkpoints without txs.
+    // Use different coinbase addresses per node so HA peers build distinguishable blocks (the secondary
+    // assertion relies on this to prove which node produced S2's checkpoint). Each HA pair shares a
+    // slashing protection DB so only one peer signs per duty. buildCheckpointIfEmpty + minTxsPerBlock: 0
+    // lets proposers build empty checkpoints without txs.
     const baseOpts = { dontStartSequencer: true, buildCheckpointIfEmpty: true, minTxsPerBlock: 0 } as const;
     const sharedDb1 = await createSharedSlashingProtectionDb(context.dateProvider);
     const sharedDb2 = await createSharedSlashingProtectionDb(context.dateProvider);
 
+    const coinbaseA1 = EthAddress.fromNumber(1);
+    const coinbaseA2 = EthAddress.fromNumber(2);
+    const coinbaseB1 = EthAddress.fromNumber(3);
+    const coinbaseB2 = EthAddress.fromNumber(4);
+
     logger.warn(`Creating 4 validator nodes in 2 HA pairs.`);
     nodes = [
-      // Pair A: {nodes[0]=builder, nodes[1]=peer} share {pk1, pk2}
+      // Pair A: {nodes[0], nodes[1]} share {pk1, pk2}
       await test.createValidatorNode([pk1, pk2], {
         ...baseOpts,
-        coinbase: EthAddress.fromNumber(1),
+        coinbase: coinbaseA1,
         slashingProtectionDb: sharedDb1,
       }),
       await test.createValidatorNode([pk1, pk2], {
         ...baseOpts,
-        coinbase: EthAddress.fromNumber(2),
+        coinbase: coinbaseA2,
         slashingProtectionDb: sharedDb1,
       }),
       // Pair B: {nodes[2], nodes[3]} share {pk3, pk4}
       await test.createValidatorNode([pk3, pk4], {
         ...baseOpts,
-        coinbase: EthAddress.fromNumber(3),
+        coinbase: coinbaseB1,
         slashingProtectionDb: sharedDb2,
       }),
       await test.createValidatorNode([pk3, pk4], {
         ...baseOpts,
-        coinbase: EthAddress.fromNumber(4),
+        coinbase: coinbaseB2,
         slashingProtectionDb: sharedDb2,
       }),
     ];
+
+    haPairs = [
+      { nodes: [nodes[0], nodes[1]], addresses: addressesA, coinbases: [coinbaseA1, coinbaseA2] },
+      { nodes: [nodes[2], nodes[3]], addresses: addressesB, coinbases: [coinbaseB1, coinbaseB2] },
+    ];
+
     logger.warn(`Created 4 validator nodes.`);
     logger.warn(`Test setup completed.`);
   }
 
   /**
-   * Scans forward from the current slot for two consecutive proposal slots S1 and S2=S1+1 that are
-   * both proposed by the HA pair {nodes[0], nodes[1]}. The L1 rollup only exposes proposers for epochs
-   * whose randao seed is stable; looking too far ahead reverts with `ValidatorSelection__EpochNotStable`,
-   * which we recover from by warping L1 forward one epoch and retrying.
+   * Result of {@link findConsecutiveSamePairSlots}: the matched slots plus the builder/peer nodes (and
+   * the peer's coinbase) for the pair that owns both slots. The builder proposes S1 and the peer
+   * proposes S2; which member of the pair plays which role is arbitrary since they share keys.
    */
-  async function findConsecutiveSamePairSlots(): Promise<SlotNumber> {
-    const ownedByPair = (proposer: EthAddress | undefined) =>
-      proposer !== undefined && pairAddresses.includes(proposer.toString().toLowerCase());
+  type MatchedPairSlots = {
+    slotS1: SlotNumber;
+    slotS2: SlotNumber;
+    builder: AztecNodeService;
+    peer: AztecNodeService;
+    peerCoinbase: EthAddress;
+    builderArchiver: Archiver;
+    peerArchiver: Archiver;
+  };
+
+  /**
+   * Scans forward from the current slot for two consecutive proposal slots S1 and S2=S1+1 that are both
+   * proposed by the SAME HA pair (either pair). Returns which pair owns the slots, nominating its first
+   * member as the builder (proposes S1) and its second as the peer (proposes S2). The L1 rollup only
+   * exposes proposers for epochs whose randao seed is stable; looking too far ahead reverts with
+   * `ValidatorSelection__EpochNotStable`, which we recover from by warping L1 forward one epoch and
+   * retrying.
+   */
+  async function findConsecutiveSamePairSlots(): Promise<MatchedPairSlots> {
+    const matchingPair = (proposer: EthAddress | undefined): HaPair | undefined =>
+      proposer === undefined
+        ? undefined
+        : haPairs.find(pair => pair.addresses.includes(proposer.toString().toLowerCase()));
 
     let candidate = Number(test.epochCache.getEpochAndSlotNow().slot) + 4;
     const maxAttempts = 200;
@@ -162,15 +202,26 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
           test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate)),
           test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 1)),
         ]);
-        if (ownedByPair(p1) && ownedByPair(p2)) {
+        const pairS1 = matchingPair(p1);
+        const pairS2 = matchingPair(p2);
+        if (pairS1 !== undefined && pairS1 === pairS2) {
+          const [builder, peer] = pairS1.nodes;
           logger.warn(`Found consecutive same-pair proposal slots ${candidate} and ${candidate + 1}.`, {
             slotS1: candidate,
             slotS2: candidate + 1,
             proposerS1: p1?.toString(),
             proposerS2: p2?.toString(),
-            pairAddresses,
+            pairAddresses: pairS1.addresses,
           });
-          return SlotNumber(candidate);
+          return {
+            slotS1: SlotNumber(candidate),
+            slotS2: SlotNumber(candidate + 1),
+            builder,
+            peer,
+            peerCoinbase: pairS1.coinbases[1],
+            builderArchiver: builder.getBlockSource() as Archiver,
+            peerArchiver: peer.getBlockSource() as Archiver,
+          };
         }
         candidate++;
       } catch (err) {
@@ -189,7 +240,7 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
         }
       }
     }
-    throw new Error(`Could not find two consecutive slots both proposed by the HA pair`);
+    throw new Error(`Could not find two consecutive slots both proposed by the same HA pair`);
   }
 
   afterEach(async () => {
@@ -200,16 +251,16 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
   it('HA peer records and takes over the pipelined checkpoint when its builder peer proposes the previous slot', async () => {
     await setupTest();
 
-    // Find two consecutive proposal slots both owned by the HA pair {nodes[0], nodes[1]}.
-    const slotS1 = await findConsecutiveSamePairSlots();
-    const slotS2 = SlotNumber(slotS1 + 1);
+    // Find two consecutive proposal slots both owned by the same HA pair, and the builder/peer roles.
+    const { slotS1, slotS2, builder, peer, peerCoinbase, builderArchiver, peerArchiver } =
+      await findConsecutiveSamePairSlots();
 
-    // Route S1 to the builder (nodes[0]) and S2 to its HA peer (nodes[1]):
-    //  - pause nodes[1] for S1, so only nodes[0] builds and broadcasts S1's checkpoint proposal.
-    //  - pause nodes[0] for S2, so nodes[1] must take over S2 — building on top of the proposed S1.
-    nodes[0].getSequencer()!.updateConfig({ pauseProposingForSlots: [slotS2] });
-    nodes[1].getSequencer()!.updateConfig({ pauseProposingForSlots: [slotS1] });
-    logger.warn(`Paused builder (node 0) for slot ${slotS2}; paused peer (node 1) for slot ${slotS1}.`);
+    // Route S1 to the builder and S2 to its HA peer:
+    //  - pause the peer for S1, so only the builder builds and broadcasts S1's checkpoint proposal.
+    //  - pause the builder for S2, so the peer must take over S2 — building on top of the proposed S1.
+    builder.getSequencer()!.updateConfig({ pauseProposingForSlots: [slotS2] });
+    peer.getSequencer()!.updateConfig({ pauseProposingForSlots: [slotS1] });
+    logger.warn(`Paused builder for slot ${slotS2}; paused peer for slot ${slotS1}.`);
 
     // Under proposer pipelining the proposer for proposal slot S1 builds during wall-clock slot S1-1.
     // Warp to 1 L1 slot before the build slot (S1-1) so the builder starts cleanly.
@@ -220,14 +271,11 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
     });
     logger.warn(`Warped to 1 L1 slot before L2 build slot ${buildSlotForS1} (proposal slot ${slotS1}).`);
 
-    expect(await nodes[0].getBlockNumber()).toEqual(0);
+    expect(await builder.getBlockNumber()).toEqual(0);
 
     // Start the sequencers on all nodes.
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
     logger.warn(`Started all sequencers.`);
-
-    const builderArchiver = nodes[0].getBlockSource() as Archiver;
-    const peerArchiver = nodes[1].getBlockSource() as Archiver;
 
     // The builder always records its own proposed S1 checkpoint locally (its sequencer pushes it to the
     // archiver before broadcasting), independent of the handoff bug. Use it as the source of truth for
@@ -254,7 +302,7 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
     // metadata — this retry then times out. The timeout is a few L2 slots: long enough to be reliable on
     // the fixed path (the peer must receive the proposal, reexecute the block, and record), short enough
     // not to waste minutes when the metadata is never recorded (bug path).
-    logger.warn(`Waiting for HA peer (node 1) to record proposed checkpoint for S1 (slot ${slotS1}).`);
+    logger.warn(`Waiting for HA peer to record proposed checkpoint for S1 (slot ${slotS1}).`);
     await retryUntil(
       async () => {
         const peerProposedS1 = await peerArchiver.getProposedCheckpointData({ slot: slotS1 });
@@ -268,10 +316,10 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
 
     // SECONDARY confirmation of the real-world symptom the user reported ("the next node produces a
     // checkpoint successfully"): with S1's proposed checkpoint recorded, the peer can build S2 on top of
-    // it. Checkpoint 1 covers S1 (built by node 0) and checkpoint 2 covers S2 (built by node 1). Assert
-    // the peer's archiver holds L2 block 2 at slot S2. (With the bug this never happens because the peer
-    // prunes S1 and rebuilds checkpoint 1 itself, skipping S2's slot.)
-    logger.warn(`Waiting for HA peer (node 1) to produce S2 (slot ${slotS2}) as L2 block 2.`);
+    // it. Checkpoint 1 covers S1 (built by the builder) and checkpoint 2 covers S2 (built by the peer).
+    // Assert the peer's archiver holds L2 block 2 at slot S2. (With the bug this never happens because the
+    // peer prunes S1 and rebuilds checkpoint 1 itself, skipping S2's slot.)
+    logger.warn(`Waiting for HA peer to produce S2 (slot ${slotS2}) as L2 block 2.`);
     await retryUntil(
       async () => {
         const block = await peerArchiver.getBlockData({ number: BlockNumber(2) });
@@ -282,11 +330,53 @@ describe('e2e_epochs/epochs_ha_checkpoint_handoff', () => {
       0.5,
     );
 
-    // Independently confirm S2's checkpoint actually lands on L1. Checkpoints publish in order, so
-    // checkpoint 2 cannot land before checkpoint 1; budget generously for ordered publication.
+    // Confirm the on-chain checkpoint chain advances to 2. Checkpoints publish in order, so checkpoint 2
+    // cannot land before checkpoint 1; budget generously for ordered publication.
     await test.waitUntilCheckpointNumber(CheckpointNumber(2), test.L2_SLOT_DURATION_IN_S * 4);
     const finalCheckpointNumber = await rollup.getCheckpointNumber();
     logger.warn(`Final on-chain checkpoint number: ${finalCheckpointNumber}.`);
     expect(finalCheckpointNumber).toBeGreaterThanOrEqual(2);
+
+    // Assert BOTH per-slot checkpoints landed on L1, mapping each to its covered slot via startBlock.
+    // getCheckpointData returns L1-confirmed checkpoints only; a defined result with its `l1` field set
+    // means the checkpoint was posted to L1. The on-chain checkpoint number above advances as soon as the
+    // tx mines, but the peer's archiver indexes the L1-confirmed checkpoint a poll later, so retry until
+    // it has the data before asserting.
+    const waitForPostedCheckpointForSlot = async (checkpointNumber: number, expectedSlot: SlotNumber) => {
+      let result: { checkpoint: CheckpointData; coveredBlock: BlockData } | undefined;
+      await retryUntil(
+        async () => {
+          const checkpoint = await peerArchiver.getCheckpointData({ number: CheckpointNumber(checkpointNumber) });
+          if (!checkpoint?.l1) {
+            return false;
+          }
+          const coveredBlock = await peerArchiver.getBlockData({ number: checkpoint.startBlock });
+          if (!coveredBlock) {
+            return false;
+          }
+          result = { checkpoint, coveredBlock };
+          return true;
+        },
+        `HA peer indexes L1-posted checkpoint ${checkpointNumber} covering slot ${expectedSlot}`,
+        test.L2_SLOT_DURATION_IN_S * 4,
+        0.5,
+      );
+      expect(Number(result!.coveredBlock.header.getSlot())).toEqual(Number(expectedSlot));
+      return result!;
+    };
+
+    // Checkpoint 1 covers S1 (built and posted by the builder).
+    await waitForPostedCheckpointForSlot(1, slotS1);
+    logger.warn(`Checkpoint 1 posted to L1 covering S1 (slot ${slotS1}).`);
+
+    // Checkpoint 2 covers S2 (the HA peer took over). Beyond confirming it was posted, prove the PEER
+    // produced it: its covered block must carry the peer's distinct coinbase (each node uses its own).
+    const { coveredBlock: s2Block } = await waitForPostedCheckpointForSlot(2, slotS2);
+    const s2Coinbase = s2Block.header.globalVariables.coinbase;
+    expect(s2Coinbase.equals(peerCoinbase)).toBe(true);
+    logger.warn(`Checkpoint 2 posted to L1 covering S2 (slot ${slotS2}) with the peer's coinbase.`, {
+      coinbase: s2Coinbase.toString(),
+      expectedPeerCoinbase: peerCoinbase.toString(),
+    });
   });
 });

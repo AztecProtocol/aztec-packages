@@ -353,9 +353,9 @@ describe('ProposalHandler checkpoint validation', () => {
   });
 
   describe('own checkpoint proposal handling', () => {
-    /** Registers the handler with an own-validator address matching the proposal signer and returns the captured callback. */
-    function registerForOwnProposal(
-      signer: Secp256k1Signer,
+    /** Registers the handler with the given own-validator addresses and returns the captured callback. */
+    function registerWithOwnAddresses(
+      addresses: string[],
       archiver: MockProxy<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>>,
     ) {
       const p2p = mock<P2P>();
@@ -363,13 +363,13 @@ describe('ProposalHandler checkpoint validation', () => {
       p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(h => {
         checkpointHandler = h;
       });
-      handler.register(p2p, true, archiver, () => [signer.address.toString()]);
+      handler.register(p2p, true, archiver, () => addresses);
       return checkpointHandler!;
     }
 
-    it('skips validation and does not re-add when a matching proposed checkpoint already exists', async () => {
-      // True local proposer: its sequencer job already pushed the proposed checkpoint. The all-nodes
-      // handler must not re-validate or overwrite it.
+    it('takes the idempotent fast path when a matching proposed checkpoint already exists', async () => {
+      // True local proposer: its sequencer job already pushed a proposed checkpoint with this exact
+      // archive. The all-nodes handler must not re-validate or re-add it.
       const signer = Secp256k1Signer.random();
       const proposal = await makeProposal({ signer });
 
@@ -379,18 +379,17 @@ describe('ProposalHandler checkpoint validation', () => {
       } as ProposedCheckpointData);
       const handleSpy = jest.spyOn(handler, 'handleCheckpointProposal');
 
-      const checkpointHandler = registerForOwnProposal(signer, archiver);
+      const checkpointHandler = registerWithOwnAddresses([signer.address.toString()], archiver);
       await checkpointHandler(proposal, {} as any);
 
       expect(handleSpy).not.toHaveBeenCalled();
       expect(archiver.addProposedCheckpoint).not.toHaveBeenCalled();
-      expect(blockSource.getBlockData).not.toHaveBeenCalled();
     });
 
-    it('hydrates the proposed checkpoint from local block data when none exists (HA peer)', async () => {
-      // HA peer that shares the proposer's keys but did not build the checkpoint: it must derive the
-      // proposed-checkpoint metadata from its locally-reexecuted block and persist it, without running
-      // full checkpoint validation.
+    it('validates and hydrates when no proposed checkpoint exists yet (HA peer)', async () => {
+      // HA peer that shares the proposer's keys but never built the checkpoint: it has nothing stored, so
+      // it falls through to the normal validate-then-persist path to hydrate the proposed-checkpoint
+      // metadata it needs to build the next slot.
       const signer = Secp256k1Signer.random();
       const checkpointHeader = makeCheckpointHeader(0, { slotNumber: SlotNumber(1), totalManaUsed: new Fr(4242) });
       const proposal = await makeProposal({ signer, checkpointHeader, feeAssetPriceModifier: 7n });
@@ -406,15 +405,17 @@ describe('ProposalHandler checkpoint validation', () => {
       } as BlockData;
       blockSource.getBlockData.mockResolvedValue(blockData);
 
-      const handleSpy = jest.spyOn(handler, 'handleCheckpointProposal');
+      const handleSpy = jest
+        .spyOn(handler, 'handleCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(3) });
 
-      const checkpointHandler = registerForOwnProposal(signer, archiver);
+      const checkpointHandler = registerWithOwnAddresses([signer.address.toString()], archiver);
       await checkpointHandler(proposal, {} as any);
 
-      // Full checkpoint validation is skipped for own proposals.
-      expect(handleSpy).not.toHaveBeenCalled();
-      // Derived metadata is persisted: checkpoint number, start block (blockNumber - index), block count
-      // (index + 1), total mana from the proposal header, and fee modifier from the proposal.
+      // Own-but-missing falls through to full checkpoint validation, then persists the derived metadata:
+      // checkpoint number, start block (blockNumber - index), block count (index + 1), total mana from the
+      // proposal header, and fee modifier from the proposal.
+      expect(handleSpy).toHaveBeenCalled();
       expect(archiver.addProposedCheckpoint).toHaveBeenCalledWith({
         header: proposal.checkpointHeader,
         checkpointNumber: CheckpointNumber(3),
@@ -425,74 +426,9 @@ describe('ProposalHandler checkpoint validation', () => {
       });
     });
 
-    it('waits for the last block to sync before hydrating when it is not yet available (HA peer)', async () => {
-      // HA peer whose embedded block has not been persisted yet when the checkpoint callback runs (e.g.
-      // world-state/archiver sync lag): the handler must wait for the block (mirroring the foreign path)
-      // rather than failing fast and never recording the proposed checkpoint.
-      const signer = Secp256k1Signer.random();
-      const checkpointHeader = makeCheckpointHeader(0, { slotNumber: SlotNumber(1), totalManaUsed: new Fr(4242) });
-      const proposal = await makeProposal({ signer, checkpointHeader, feeAssetPriceModifier: 7n });
-
-      // 30s into the epoch: before the slot-1 publish deadline (40s), so the retry loop has budget to wait.
-      dateProvider.setTime(30_000);
-
-      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>>();
-      archiver.getProposedCheckpointData.mockResolvedValue(undefined);
-      archiver.addProposedCheckpoint.mockResolvedValue(undefined);
-
-      const blockData = {
-        checkpointNumber: CheckpointNumber(3),
-        header: { getBlockNumber: () => 9 },
-        indexWithinCheckpoint: 2,
-      } as BlockData;
-      // Block is missing for the first couple of polls, then syncs in.
-      blockSource.getBlockData
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce(undefined)
-        .mockResolvedValue(blockData);
-
-      const handleSpy = jest.spyOn(handler, 'handleCheckpointProposal');
-
-      const checkpointHandler = registerForOwnProposal(signer, archiver);
-      await checkpointHandler(proposal, {} as any);
-
-      // Full checkpoint validation is skipped for own proposals, but the block-sync wait did loop.
-      expect(handleSpy).not.toHaveBeenCalled();
-      expect(blockSource.getBlockData.mock.calls.length).toBeGreaterThan(1);
-      expect(archiver.addProposedCheckpoint).toHaveBeenCalledWith({
-        header: proposal.checkpointHeader,
-        checkpointNumber: CheckpointNumber(3),
-        startBlock: BlockNumber(7),
-        blockCount: 3,
-        totalManaUsed: 4242n,
-        feeAssetPriceModifier: 7n,
-      });
-    });
-
-    it('does not record (and does not throw) when the last block never syncs (HA peer)', async () => {
-      // The embedded block never becomes available before the deadline: the handler must skip hydration
-      // without throwing out of the all-nodes checkpoint callback.
-      const signer = Secp256k1Signer.random();
-      const proposal = await makeProposal({ signer });
-
-      // Deadline (40s for slot 1) already in the past, so the wait fails fast after a single attempt.
-      dateProvider.setTime(41_000);
-
-      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getProposedCheckpointData'>>();
-      archiver.getProposedCheckpointData.mockResolvedValue(undefined);
-      archiver.addProposedCheckpoint.mockResolvedValue(undefined);
-      blockSource.getBlockData.mockResolvedValue(undefined);
-
-      const handleSpy = jest.spyOn(handler, 'handleCheckpointProposal');
-
-      const checkpointHandler = registerForOwnProposal(signer, archiver);
-      await expect(checkpointHandler(proposal, {} as any)).resolves.toBeUndefined();
-
-      expect(handleSpy).not.toHaveBeenCalled();
-      expect(archiver.addProposedCheckpoint).not.toHaveBeenCalled();
-    });
-
-    it('does not overwrite an existing same-slot proposed checkpoint with a different archive', async () => {
+    it('validates (no special-casing) when an existing proposed checkpoint has a different archive', async () => {
+      // Own proposal whose stored proposed checkpoint has a different archive root: there is no conflict
+      // special-case, so it falls through to the normal validate path like any other proposal.
       const signer = Secp256k1Signer.random();
       const proposal = await makeProposal({ signer });
 
@@ -500,13 +436,23 @@ describe('ProposalHandler checkpoint validation', () => {
       archiver.getProposedCheckpointData.mockResolvedValue({
         archive: new AppendOnlyTreeSnapshot(Fr.random(), 1),
       } as ProposedCheckpointData);
-      const handleSpy = jest.spyOn(handler, 'handleCheckpointProposal');
+      archiver.addProposedCheckpoint.mockResolvedValue(undefined);
 
-      const checkpointHandler = registerForOwnProposal(signer, archiver);
+      const blockData = {
+        checkpointNumber: CheckpointNumber(3),
+        header: { getBlockNumber: () => 9 },
+        indexWithinCheckpoint: 2,
+      } as BlockData;
+      blockSource.getBlockData.mockResolvedValue(blockData);
+
+      const handleSpy = jest
+        .spyOn(handler, 'handleCheckpointProposal')
+        .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(3) });
+
+      const checkpointHandler = registerWithOwnAddresses([signer.address.toString()], archiver);
       await checkpointHandler(proposal, {} as any);
 
-      expect(handleSpy).not.toHaveBeenCalled();
-      expect(archiver.addProposedCheckpoint).not.toHaveBeenCalled();
+      expect(handleSpy).toHaveBeenCalled();
     });
 
     it('still validates and sets the proposed checkpoint for foreign proposals', async () => {
@@ -527,14 +473,9 @@ describe('ProposalHandler checkpoint validation', () => {
         .spyOn(handler, 'handleCheckpointProposal')
         .mockResolvedValue({ isValid: true, checkpointNumber: CheckpointNumber(3) });
 
-      const p2p = mock<P2P>();
-      let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
-      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(h => {
-        checkpointHandler = h;
-      });
       // Own-validator addresses that do NOT match the proposal signer, so the proposal is foreign.
-      handler.register(p2p, true, archiver, () => [Secp256k1Signer.random().address.toString()]);
-      await checkpointHandler!(proposal, {} as any);
+      const checkpointHandler = registerWithOwnAddresses([Secp256k1Signer.random().address.toString()], archiver);
+      await checkpointHandler(proposal, {} as any);
 
       expect(handleSpy).toHaveBeenCalled();
       expect(archiver.getProposedCheckpointData).not.toHaveBeenCalled();
