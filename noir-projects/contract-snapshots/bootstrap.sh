@@ -20,7 +20,12 @@ function test {
         echo "INSTA_UPDATE is not permitted in CI. Run 'cargo insta accept' locally and commit." >&2
         exit 1
     fi
-    INSTA_UPDATE=no cargo test --quiet
+    # TODO(#23895): `expand::test_avm_test_contract` is skipped because `nargo expand`
+    # emits the generated contract-interface functions in hashmap-iteration order, which
+    # is not stable across nargo builds/runs. The snapshot is correct but the test fails
+    # intermittently in the merge queue on order-only diffs. Re-enable once noir makes the
+    # expand output order deterministic (e.g. sort interface fns by name/selector).
+    INSTA_UPDATE=no cargo test --quiet -- --skip expand::test_avm_test_contract
 }
 
 function test_cmds {
