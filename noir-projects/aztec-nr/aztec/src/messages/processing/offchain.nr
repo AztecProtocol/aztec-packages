@@ -375,8 +375,12 @@ mod test {
         let keys = active_keys(c, s);
         let mut found = false;
         for i in 0..FACT_MAX_ACTIVE_ENTITIES {
-            if (i < keys.len()) & (keys.get(i) == key) {
-                found = true;
+            // Noir's `&` is non-short-circuiting, so guard `.get(i)` with a nested `if` to avoid
+            // reading past the end of the BoundedVec.
+            if i < keys.len() {
+                if keys.get(i) == key {
+                    found = true;
+                }
             }
         }
         found
