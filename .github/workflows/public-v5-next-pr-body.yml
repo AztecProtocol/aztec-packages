@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - v5-next
-      - public-v5-next
   workflow_dispatch:
 
 concurrency:
@@ -20,10 +19,10 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - name: Checkout public-v5-next workflow scripts
+      - name: Checkout automation from v5-next
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: public-v5-next
+          ref: v5-next
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
