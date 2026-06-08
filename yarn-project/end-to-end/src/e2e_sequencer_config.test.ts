@@ -3,7 +3,7 @@ import { NO_FROM } from '@aztec/aztec.js/account';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
 import { Bot, type BotConfig, BotStore, getBotDefaultConfig } from '@aztec/bot';
-import { DA_GAS_PER_FIELD, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
+import { MAX_TX_DA_GAS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -88,7 +88,7 @@ describe('e2e_sequencer_config', () => {
       expect(totalManaUsed).toBeGreaterThan(0n);
       bot.updateConfig({
         l2GasLimit: Number(totalManaUsed),
-        daGasLimit: MAX_TX_BLOB_DATA_SIZE_IN_FIELDS * DA_GAS_PER_FIELD,
+        daGasLimit: MAX_TX_DA_GAS,
       });
 
       // Set the maxL2BlockGas to the total mana used
