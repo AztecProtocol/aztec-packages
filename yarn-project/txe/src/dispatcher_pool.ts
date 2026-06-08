@@ -5,6 +5,7 @@ import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { ContractStore } from '@aztec/pxe/client/lazy';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
+import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 
 import { existsSync } from 'node:fs';
@@ -21,7 +22,7 @@ void BarretenbergSync.initSingleton({ backend: BackendType.Wasm });
 
 /**
  * Opens a fresh LMDB in a tmp dir and writes the protocol contracts in
- * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS} plus the standard AuthRegistry and the SchnorrAccount artifact,
+ * {@link TXE_REQUIRED_PROTOCOL_CONTRACTS} plus the standard AuthRegistry, HandshakeRegistry, and the SchnorrAccount artifact,
  * returning the directory path and the SchnorrAccount class id (hex). The store handle is intentionally kept
  * alive: closing it would trigger the ephemeral-store cleanup hook and remove the tmp
  * directory, so any worker that has not yet cloned would find it missing.
@@ -33,7 +34,7 @@ export async function buildSharedContractStore(): Promise<{ dataDir: string; sch
   const provider = new LazyProtocolContractsProvider();
   const [protocolContracts, standardContracts, schnorrArtifact] = await Promise.all([
     Promise.all(TXE_REQUIRED_PROTOCOL_CONTRACTS.map(name => provider.getProtocolContractArtifact(name))),
-    Promise.all([getStandardAuthRegistry()]),
+    Promise.all([getStandardAuthRegistry(), getStandardHandshakeRegistry()]),
     getSchnorrAccountContractArtifact(),
   ]);
   const schnorrClass = await getContractClassFromArtifact(schnorrArtifact);
