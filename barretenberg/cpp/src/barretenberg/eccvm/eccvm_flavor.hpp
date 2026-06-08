@@ -372,6 +372,99 @@ class ECCVMFlavor {
             return concatenate(WireNonShiftedEntities<DataType>::get_all(),
                                WireToBeShiftedWithoutAccumulatorsEntities<DataType>::get_all());
         }
+<<<<<<< HEAD
+=======
+        // The following getters group the wires by execution subtable (transcript / precompute / msm) plus the
+        // lookup read counts. ProverPolynomials uses these groups to physically allocate each subtable's columns to
+        // that subtable's actual row count, rather than zero-padding every column to the full (virtual) dyadic
+        // circuit size. The subtables have different lengths, so per-table sizing saves substantial prover memory.
+        auto get_transcript_wires()
+        {
+            return RefArray{ this->transcript_add,
+                             this->transcript_eq,
+                             this->transcript_msm_transition,
+                             this->transcript_Px,
+                             this->transcript_Py,
+                             this->transcript_z1,
+                             this->transcript_z2,
+                             this->transcript_z1zero,
+                             this->transcript_z2zero,
+                             this->transcript_op,
+                             this->transcript_msm_x,
+                             this->transcript_msm_y,
+                             this->transcript_reset_accumulator,
+                             this->transcript_base_infinity,
+                             this->transcript_base_x_inverse,
+                             this->transcript_base_y_inverse,
+                             this->transcript_add_x_equal,
+                             this->transcript_add_y_equal,
+                             this->transcript_add_lambda,
+                             this->transcript_msm_intermediate_x,
+                             this->transcript_msm_intermediate_y,
+                             this->transcript_msm_infinity,
+                             this->transcript_msm_x_inverse,
+                             this->transcript_msm_count_zero_at_transition,
+                             this->transcript_msm_count_at_transition_inverse };
+        }
+        auto get_shifted_transcript_wires()
+        {
+            return RefArray{ this->transcript_mul, this->transcript_msm_count, this->transcript_pc };
+        }
+        auto get_precompute_wires()
+        {
+            return RefArray{ this->precompute_point_transition,
+                             this->precompute_s1lo,
+                             this->precompute_s2hi,
+                             this->precompute_s2lo,
+                             this->precompute_s3hi,
+                             this->precompute_s3lo,
+                             this->precompute_s4hi,
+                             this->precompute_s4lo,
+                             this->precompute_skew };
+        }
+        auto get_shifted_precompute_wires()
+        {
+            return RefArray{ this->precompute_scalar_sum, this->precompute_s1hi,  this->precompute_dx,
+                             this->precompute_dy,         this->precompute_tx,    this->precompute_ty,
+                             this->precompute_pc,         this->precompute_round, this->precompute_select };
+        }
+        auto get_msm_wires()
+        {
+            return RefArray{ this->msm_size_of_msm,
+                             this->msm_add2,
+                             this->msm_add3,
+                             this->msm_add4,
+                             this->msm_x1,
+                             this->msm_y1,
+                             this->msm_x2,
+                             this->msm_y2,
+                             this->msm_x3,
+                             this->msm_y3,
+                             this->msm_x4,
+                             this->msm_y4,
+                             this->msm_collision_x1,
+                             this->msm_collision_x2,
+                             this->msm_collision_x3,
+                             this->msm_collision_x4,
+                             this->msm_lambda1,
+                             this->msm_lambda2,
+                             this->msm_lambda3,
+                             this->msm_lambda4,
+                             this->msm_slice1,
+                             this->msm_slice2,
+                             this->msm_slice3,
+                             this->msm_slice4,
+                             this->msm_round_minus_31_inv };
+        }
+        auto get_shifted_msm_wires()
+        {
+            return RefArray{ this->msm_transition, this->msm_add,           this->msm_double,
+                             this->msm_skew,       this->msm_accumulator_x, this->msm_accumulator_y,
+                             this->msm_count,      this->msm_round,         this->msm_add1,
+                             this->msm_pc };
+        }
+        auto get_lookup_read_counts() { return RefArray{ this->lookup_read_counts_0, this->lookup_read_counts_1 }; }
+>>>>>>> 72c0b332cf (fix: mask ECCVM round inverse witness)
     };
 
     /**
