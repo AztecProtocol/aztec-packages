@@ -38,7 +38,7 @@ If you call a state variable method such as `get_storage_slot()` outside the `St
 + use aztec::state_vars::RuntimeStateVariable;
 ```
 
-Custom state variable types follow the same split: a fieldless spec marker (implementing `StateVariable`/`OwnedStateVariable` with an associated `Runtime` type) plus a `Runtime*` type that carries the `Context` and the methods.
+Custom state variable types follow the same split: a field-less spec marker (implementing `StateVariable`/`OwnedStateVariable` with an associated `Runtime` type) plus a `Runtime*` type that carries the `Context` and the methods.
 
 `#[storage_no_init]` now operates on the runtime layer directly: the struct must be named `StorageRuntime`, keep its `Context` generic, and hold the runtime types (e.g. `RuntimePublicMutable<T, Context>`) with a hand-written `init`.
 
