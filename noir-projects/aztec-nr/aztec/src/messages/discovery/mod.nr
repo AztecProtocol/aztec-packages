@@ -1,5 +1,9 @@
+use crate::ephemeral::EphemeralArray;
 use crate::logging::{aztecnr_debug_log, aztecnr_debug_log_format, aztecnr_warn_log_format};
-use crate::messages::delivery::handshake::get_handshake_secrets;
+use crate::messages::{
+    delivery::handshake::{get_handshake_secrets, PROVIDED_SECRETS_ARRAY_BASE_SLOT},
+    processing::provided_secret::ProvidedSecret,
+};
 use crate::protocol::address::AztecAddress;
 
 pub(crate) mod nonce_discovery;
@@ -136,11 +140,51 @@ pub unconstrained fn do_sync_state(
     offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
+    let provided_secrets = get_handshake_secrets(contract_address, scope);
+    sync_state_with_secrets(
+        contract_address,
+        compute_note_hash,
+        compute_note_nullifier,
+        process_custom_message,
+        offchain_inbox_sync,
+        scope,
+        provided_secrets,
+    );
+}
+
+/// Variant of [`do_sync_state`] that skips handshake secret discovery. Used by the HandshakeRegistry to avoid
+/// infinite recursion (the registry discovers handshakes for other contracts, not for itself).
+pub unconstrained fn do_sync_state_without_handshake_discovery(
+    contract_address: AztecAddress,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    process_custom_message: Option<CustomMessageHandler>,
+    offchain_inbox_sync: Option<OffchainInboxSync>,
+    scope: AztecAddress,
+) {
+    let provided_secrets = EphemeralArray::<ProvidedSecret>::empty_at(PROVIDED_SECRETS_ARRAY_BASE_SLOT);
+    sync_state_with_secrets(
+        contract_address,
+        compute_note_hash,
+        compute_note_nullifier,
+        process_custom_message,
+        offchain_inbox_sync,
+        scope,
+        provided_secrets,
+    );
+}
+
+unconstrained fn sync_state_with_secrets(
+    contract_address: AztecAddress,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    process_custom_message: Option<CustomMessageHandler>,
+    offchain_inbox_sync: Option<OffchainInboxSync>,
+    scope: AztecAddress,
+    provided_secrets: EphemeralArray<ProvidedSecret>,
+) {
     aztecnr_debug_log!("Performing state synchronization");
 
-    // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
-    // notes, private events, etc.
-    let provided_secrets = get_handshake_secrets(contract_address, scope);
     let logs = message_processing::get_pending_tagged_logs(scope, provided_secrets);
     logs.for_each(|_i, pending_tagged_log: PendingTaggedLog| {
         if pending_tagged_log.log.len() == 0 {

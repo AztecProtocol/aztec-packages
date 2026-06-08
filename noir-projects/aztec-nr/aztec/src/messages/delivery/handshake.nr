@@ -28,7 +28,7 @@ pub struct HandshakePage {
     pub total_count: u32,
 }
 
-global PROVIDED_SECRETS_ARRAY_BASE_SLOT: Field =
+pub(crate) global PROVIDED_SECRETS_ARRAY_BASE_SLOT: Field =
     sha256_to_field("AZTEC_NR::PROVIDED_SECRETS_ARRAY_BASE_SLOT".as_bytes());
 
 global HANDSHAKE_EPH_PKS_SLOT: Field = sha256_to_field("AZTEC_NR::HANDSHAKE_EPH_PKS_SLOT".as_bytes());
@@ -38,39 +38,34 @@ global HANDSHAKE_MODES_SLOT: Field = sha256_to_field("AZTEC_NR::HANDSHAKE_MODES_
 /// Fetches discovered handshakes from the HandshakeRegistry and derives app-siloed tagging secrets for each,
 /// returning them so that [`get_pending_tagged_logs`](crate::oracle::message_processing::get_pending_tagged_logs)
 /// searches for logs tagged with these secrets.
-///
-/// Returns an empty array when `contract_address` is the registry itself, to prevent infinite recursion during the
-/// registry's own sync.
 pub(crate) unconstrained fn get_handshake_secrets(
     contract_address: AztecAddress,
     scope: AztecAddress,
 ) -> EphemeralArray<ProvidedSecret> {
     let provided_secrets = EphemeralArray::<ProvidedSecret>::empty_at(PROVIDED_SECRETS_ARRAY_BASE_SLOT);
 
-    if contract_address != STANDARD_HANDSHAKE_REGISTRY_ADDRESS {
-        let eph_pks: EphemeralArray<EmbeddedCurvePoint> = EphemeralArray::empty_at(HANDSHAKE_EPH_PKS_SLOT);
-        let modes: EphemeralArray<Field> = EphemeralArray::empty_at(HANDSHAKE_MODES_SLOT);
+    let eph_pks: EphemeralArray<EmbeddedCurvePoint> = EphemeralArray::empty_at(HANDSHAKE_EPH_PKS_SLOT);
+    let modes: EphemeralArray<Field> = EphemeralArray::empty_at(HANDSHAKE_MODES_SLOT);
 
-        let mut page_offset: u32 = 0;
-        let mut has_more = true;
-        while has_more {
-            let page = fetch_handshake_page(scope, page_offset);
+    let mut page_offset: u32 = 0;
+    let mut has_more = true;
+    while has_more {
+        let page = fetch_handshake_page(scope, page_offset);
 
-            for j in 0..page.items.len() {
-                let handshake = page.items.get(j);
-                eph_pks.push(handshake.eph_pk);
-                modes.push(handshake.mode as Field);
-            }
-
-            page_offset += page.items.len();
-            has_more = page_offset < page.total_count;
+        for j in 0..page.items.len() {
+            let handshake = page.items.get(j);
+            eph_pks.push(handshake.eph_pk);
+            modes.push(handshake.mode as Field);
         }
 
-        if eph_pks.len() > 0 {
-            let secrets = get_shared_secrets(scope, eph_pks, contract_address);
-            for j in 0..secrets.len() {
-                provided_secrets.push(ProvidedSecret { secret: secrets.get(j), mode: modes.get(j) });
-            }
+        page_offset += page.items.len();
+        has_more = page_offset < page.total_count;
+    }
+
+    if eph_pks.len() > 0 {
+        let secrets = get_shared_secrets(scope, eph_pks, contract_address);
+        for j in 0..secrets.len() {
+            provided_secrets.push(ProvidedSecret { secret: secrets.get(j), mode: modes.get(j) });
         }
     }
 
@@ -91,24 +86,9 @@ mod test {
         DiscoveredHandshake, get_handshake_secrets, HandshakePage, MAX_HANDSHAKES_PER_PAGE,
     };
     use crate::protocol::{address::AztecAddress, traits::Serialize};
-    use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
     use crate::test::helpers::test_environment::TestEnvironment;
     use crate::utils::point::point_from_x_coord;
     use std::test::OracleMock;
-
-    #[test]
-    unconstrained fn get_handshake_secrets_skips_registry_itself() {
-        let mut env = TestEnvironment::new();
-        let scope = env.create_light_account();
-
-        env.utility_context_at(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, |_| {
-            let call_mock = OracleMock::mock("aztec_utl_callUtilityFunction");
-
-            let _ = get_handshake_secrets(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, scope);
-
-            assert_eq(call_mock.times_called(), 0);
-        });
-    }
 
     #[test]
     unconstrained fn get_handshake_secrets_returns_secrets_from_single_page() {
