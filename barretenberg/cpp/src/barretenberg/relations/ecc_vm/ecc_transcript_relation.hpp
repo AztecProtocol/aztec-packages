@@ -88,26 +88,20 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
         // Infinity flag consistency: acc_x = 0 when accumulator empty
         INFINITY_ACC_X = 24,
         // Infinity flag consistency: acc_y = 0 when accumulator empty
-<<<<<<< HEAD
-        INFINITY_ACC_Y = 30,
-=======
         INFINITY_ACC_Y = 25,
-        // Boundary: accumulator_not_empty must be 0 at lagrange_first row
-        ACCUMULATOR_NOT_EMPTY_INIT = 26,
         // The following subrelations are gated entirely by `msm_transition` and are grouped contiguously at the end so
         // the short-monomial flavor can split them into a separately-skippable relation (skip when msm_transition ==
         // 0).
         // MSM offset generator subtraction: x-coordinate
-        OFFSET_GENERATOR_X = 27,
+        OFFSET_GENERATOR_X = 26,
         // MSM offset generator subtraction: y-coordinate
-        OFFSET_GENERATOR_Y = 28,
+        OFFSET_GENERATOR_Y = 27,
         // MSM infinity x-diff check
-        MSM_INFINITY_X_DIFF = 29,
+        MSM_INFINITY_X_DIFF = 28,
         // MSM infinity y-sum check
-        MSM_INFINITY_Y_SUM = 30,
+        MSM_INFINITY_Y_SUM = 29,
         // MSM infinity inverse check
-        MSM_INFINITY_INVERSE = 31,
->>>>>>> origin/public-next
+        MSM_INFINITY_INVERSE = 30,
         NUM_SUBRELATIONS,
     };
 

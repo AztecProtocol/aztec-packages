@@ -166,19 +166,14 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
-<<<<<<< HEAD
-    // Deserialize the hiding kernel verification key directly from buffer
-    auto hiding_kernel_vk = deserialize_chonk_vk(vk);
-=======
     try {
-        using VerificationKey = Chonk::MegaVerificationKey;
+        using VerificationKey = Chonk::MegaZKVerificationKey;
         if (!has_expected_vk_size<VerificationKey>(vk, "ChonkVerify")) {
             return { .valid = false };
         }
 
         // Deserialize the hiding kernel verification key directly from buffer
-        auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk));
->>>>>>> origin/public-next
+        auto hiding_kernel_vk = deserialize_chonk_vk(vk);
 
         // Validate total proof size: must match num_public_inputs + fixed overhead
         const size_t expected_proof_size =
@@ -207,18 +202,14 @@ ChonkVerifyFromFields::Response ChonkVerifyFromFields::execute(const BBApiReques
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
-<<<<<<< HEAD
-    // The hiding kernel uses MegaZKFlavor's VK shape (distinct C++ type from MegaFlavor's VK).
-    auto hiding_kernel_vk = deserialize_chonk_vk(vk);
-=======
     try {
-        using VerificationKey = Chonk::MegaVerificationKey;
+        using VerificationKey = Chonk::MegaZKVerificationKey;
         if (!has_expected_vk_size<VerificationKey>(vk, "ChonkVerifyFromFields")) {
             return { .valid = false };
         }
 
-        auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk));
->>>>>>> origin/public-next
+        // The hiding kernel uses MegaZKFlavor's VK shape (distinct C++ type from MegaFlavor's VK).
+        auto hiding_kernel_vk = deserialize_chonk_vk(vk);
 
         // Validate total field count: must match num_public_inputs + fixed overhead.
         const size_t expected_field_count =
@@ -252,40 +243,9 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
-<<<<<<< HEAD
-    if (proofs.size() != vks.size()) {
-        throw_or_abort("ChonkBatchVerify: proofs.size() (" + std::to_string(proofs.size()) + ") != vks.size() (" +
-                       std::to_string(vks.size()) + ")");
-    }
-    if (proofs.empty()) {
-        throw_or_abort("ChonkBatchVerify: no proofs provided");
-    }
-
-    // Phase 1: Run all non-IPA verification for each proof, collecting IPA claims
-    std::vector<OpeningClaim<curve::Grumpkin>> ipa_claims;
-    std::vector<std::shared_ptr<NativeTranscript>> ipa_transcripts;
-    ipa_claims.reserve(proofs.size());
-    ipa_transcripts.reserve(proofs.size());
-
-    for (size_t i = 0; i < proofs.size(); ++i) {
-        auto hiding_kernel_vk = deserialize_chonk_vk(vks[i]);
-
-        const size_t expected_proof_size =
-            static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;
-        if (proofs[i].size() != expected_proof_size) {
-            throw_or_abort("ChonkBatchVerify: proof[" + std::to_string(i) + "] has wrong size: expected " +
-                           std::to_string(expected_proof_size) + ", got " + std::to_string(proofs[i].size()));
-        }
-
-        auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
-        ChonkNativeVerifier verifier(vk_and_hash);
-        auto result = verifier.reduce_to_ipa_claim(std::move(proofs[i]));
-        if (!result.all_checks_passed) {
-=======
     try {
         if (proofs.size() != vks.size()) {
             info("ChonkBatchVerify: proofs.size() (", proofs.size(), ") != vks.size() (", vks.size(), ")");
->>>>>>> origin/public-next
             return { .valid = false };
         }
         if (proofs.empty()) {
@@ -293,7 +253,7 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
             return { .valid = false };
         }
 
-        using VerificationKey = Chonk::MegaVerificationKey;
+        using VerificationKey = Chonk::MegaZKVerificationKey;
 
         // Phase 1: Run all non-IPA verification for each proof, collecting IPA claims
         std::vector<OpeningClaim<curve::Grumpkin>> ipa_claims;
@@ -305,7 +265,7 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
             if (!has_expected_vk_size<VerificationKey>(vks[i], "ChonkBatchVerify")) {
                 return { .valid = false };
             }
-            auto hiding_kernel_vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vks[i]));
+            auto hiding_kernel_vk = deserialize_chonk_vk(vks[i]);
 
             const size_t expected_proof_size =
                 static_cast<size_t>(hiding_kernel_vk->num_public_inputs) + ChonkProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS;

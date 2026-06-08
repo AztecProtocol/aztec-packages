@@ -163,16 +163,6 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
     auto do_round = [&](auto& hpolys, auto& tpolys, size_t round_idx) -> FF {
         U_joint = SumcheckRoundUnivariate::zero();
 
-<<<<<<< HEAD
-        auto U_H = mega_zk_round.compute_univariate(hpolys, mega_zk_params, gate_sep, mega_zk_alphas);
-        U_H += mega_zk_round.compute_offset_area_contribution(hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
-        U_joint += U_H;
-
-        auto U_T =
-            translator_round.compute_univariate(tpolys, translator_relation_parameters, gate_sep, translator_alphas);
-        for (auto& eval : U_T.evaluations) {
-            eval *= alpha_power_KH;
-=======
         {
             BB_BENCH_NAME("joint_sumcheck/hiding_kernel");
             SumcheckRoundUnivariate U_H;
@@ -183,7 +173,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
             {
                 BB_BENCH_NAME("joint_sumcheck/hiding_kernel/disabled_contribution");
                 U_H +=
-                    mega_zk_round.compute_disabled_contribution(hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
+                    mega_zk_round.compute_offset_area_contribution(hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
             }
             U_joint += U_H;
         }
@@ -200,7 +190,6 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
                 eval *= alpha_power_KH;
             }
             U_joint += U_T;
->>>>>>> origin/public-next
         }
 
         return send_round(round_idx);
