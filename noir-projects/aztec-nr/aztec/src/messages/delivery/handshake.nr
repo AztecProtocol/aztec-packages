@@ -35,9 +35,9 @@ global HANDSHAKE_EPH_PKS_SLOT: Field = sha256_to_field("AZTEC_NR::HANDSHAKE_EPH_
 
 global HANDSHAKE_MODES_SLOT: Field = sha256_to_field("AZTEC_NR::HANDSHAKE_MODES_SLOT".as_bytes());
 
-/// Fetches discovered handshakes from the [`HandshakeRegistry`] and derives app-siloed tagging secrets for each,
-/// returning them so that [`crate::oracle::message_processing::get_pending_tagged_logs`] searches for logs tagged
-/// with these secrets.
+/// Fetches discovered handshakes from the HandshakeRegistry and derives app-siloed tagging secrets for each,
+/// returning them so that [`get_pending_tagged_logs`](crate::oracle::message_processing::get_pending_tagged_logs)
+/// searches for logs tagged with these secrets.
 ///
 /// Returns an empty array when `contract_address` is the registry itself, to prevent infinite recursion during the
 /// registry's own sync.
