@@ -355,14 +355,6 @@ impl MessageDelivery {
 /// to note squashing, because recipient discovery scans those tags sequentially and a removed log would break the
 /// per-secret index chain.
 ///
-/// `delivery_mode` must be a value that implements [`MessageDeliveryBuilder`], such as [`OffchainDelivery`],
-/// [`OnchainUnconstrainedDelivery`], or [`OnchainConstrainedDelivery`] (constructed via
-/// [`MessageDelivery::offchain`], [`MessageDelivery::onchain_unconstrained`], or
-/// [`MessageDelivery::onchain_constrained`]).
-///
-/// The built configuration's `variant` and tag-secret derivation must both be compile-time constants so the compiler
-/// can dead-code-eliminate the unused encryption and tag-derivation paths.
-///
 /// ## Privacy
 ///
 /// The emitted log always has the same length regardless of `MESSAGE_PLAINTEXT_LEN`, because all message ciphertexts
