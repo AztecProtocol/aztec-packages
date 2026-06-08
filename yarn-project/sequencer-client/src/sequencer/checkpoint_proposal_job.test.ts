@@ -1696,6 +1696,34 @@ describe('CheckpointProposalJob', () => {
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
     });
 
+    it('interrupts a pending L1 submission waiting for archiver sync', async () => {
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+      l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(undefined);
+
+      const checkpoint = await job.execute();
+      expect(checkpoint).toBeDefined();
+
+      const pendingSubmission = job.awaitPendingSubmission().then(() => 'stopped' as const);
+      job.interrupt();
+
+      let timeout: NodeJS.Timeout | undefined;
+      try {
+        const result = await Promise.race([
+          pendingSubmission,
+          new Promise<'timed-out'>(resolve => {
+            timeout = setTimeout(() => resolve('timed-out'), 1000);
+          }),
+        ]);
+        expect(result).toBe('stopped');
+      } finally {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+      }
+    });
+
     it('aborts checkpoint when syncing proposed block to archiver fails', async () => {
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
       checkpointBuilder.seedBlocks([block], [txs]);
