@@ -1,4 +1,4 @@
-import { MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
+import { DA_GAS_PER_FIELD, MAX_PROCESSABLE_L2_GAS, MAX_TX_BLOB_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { Gas } from '@aztec/stdlib/gas';
 import { mockSimulatedTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
@@ -44,6 +44,22 @@ describe('getGasLimits', () => {
     expect(getGasLimits(txSimulationResult, 1)).toEqual({
       gasLimits: Gas.from({ daGas: 280, l2Gas: 560 }),
       teardownGasLimits: Gas.from({ daGas: 20, l2Gas: 40 }),
+    });
+  });
+
+  it('caps padded DA gas at the per-tx blob limit', () => {
+    const maxTxDaGas = MAX_TX_BLOB_DATA_SIZE_IN_FIELDS * DA_GAS_PER_FIELD;
+    txSimulationResult.publicOutput!.gasUsed = {
+      totalGas: Gas.from({ daGas: maxTxDaGas, l2Gas: 280 }),
+      billedGas: Gas.from({ daGas: maxTxDaGas, l2Gas: 290 }),
+      teardownGas: Gas.from({ daGas: 10, l2Gas: 20 }),
+      publicGas: Gas.from({ daGas: 50, l2Gas: 200 }),
+    };
+    // Padding the DA gas (maxTxDaGas * 1.1) would exceed the per-tx max, so it is clamped; l2 and the
+    // under-cap teardown DA are padded normally.
+    expect(getGasLimits(txSimulationResult, 0.1)).toEqual({
+      gasLimits: Gas.from({ daGas: maxTxDaGas, l2Gas: 308 }),
+      teardownGasLimits: Gas.from({ daGas: 11, l2Gas: 22 }),
     });
   });
 
