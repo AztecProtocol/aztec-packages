@@ -578,6 +578,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       simulator: this.simulator,
       hooks: this.hooks,
       l2TipsStore: this.l2TipsStore,
+      transientArrayService: this.transientArrayService,
     });
 
     const setupTime = simulatorSetupTimer.ms();

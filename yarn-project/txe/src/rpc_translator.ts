@@ -695,6 +695,69 @@ export class RPCTranslator {
     });
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_utl_pushTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_pushTransient',
+      inputs,
+      handler: ([slot, elements]) => this.handlerAsUtility().pushTransient(slot, elements),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_popTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_popTransient',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().popTransient(slot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getTransient',
+      inputs,
+      handler: ([slot, index]) => this.handlerAsUtility().getTransient(slot, index),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_setTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_setTransient',
+      inputs,
+      handler: ([slot, index, elements]) => this.handlerAsUtility().setTransient(slot, index, elements),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getTransientLen(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getTransientLen',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().getTransientLen(slot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_removeTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_removeTransient',
+      inputs,
+      handler: ([slot, index]) => this.handlerAsUtility().removeTransient(slot, index),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_clearTransient(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_clearTransient',
+      inputs,
+      handler: ([slot]) => this.handlerAsUtility().clearTransient(slot),
+    });
+  }
+
   // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts.
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the

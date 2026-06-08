@@ -51,6 +51,7 @@ import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import { TransientArrayService } from '../transient_array_service.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 describe('Utility Execution test suite', () => {
@@ -702,6 +703,7 @@ describe('Utility Execution test suite', () => {
         l2TipsStore,
         simulator,
         utilityExecutor: () => Promise.resolve(),
+        transientArrayService: new TransientArrayService(),
         ...overrides,
       });
     };

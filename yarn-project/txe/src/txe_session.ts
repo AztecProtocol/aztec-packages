@@ -27,8 +27,9 @@ import {
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
   Option,
-  Oracle,
+  TransientArrayService,
   UtilityExecutionOracle,
+  buildACIRCallback,
 } from '@aztec/pxe/simulator';
 import {
   ExecutionError,
@@ -706,6 +707,7 @@ export class TXESession implements TXESessionStateHandler {
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
+    const transientArrayService = new TransientArrayService();
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
@@ -734,6 +736,7 @@ export class TXESession implements TXESessionStateHandler {
       scopes: await this.keyStore.getAccounts(),
       messageContextService: this.stateMachine.messageContextService,
       simulator: new WASMSimulator(),
+      transientArrayService,
     });
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -822,6 +825,8 @@ export class TXESession implements TXESessionStateHandler {
       scopes: await this.keyStore.getAccounts(),
       simulator: new WASMSimulator(),
       utilityExecutor: this.utilityExecutorForContractSync(anchorBlockHeader),
+      // Execution-tree root (top-level utility run): own store; nested frames inherit it.
+      transientArrayService: new TransientArrayService(),
     });
 
     this.state = { name: 'UTILITY' };
@@ -923,9 +928,11 @@ export class TXESession implements TXESessionStateHandler {
           scopes,
           simulator,
           utilityExecutor: this.utilityExecutorForContractSync(anchorBlock),
+          // Top-level utility entrypoint: gets a fresh store. Nested frames inherit it via UtilityExecutionOracle.
+          transientArrayService: new TransientArrayService(),
         });
         await simulator
-          .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
+          .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, buildACIRCallback(oracle))
           .catch((err: Error) => {
             err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
             throw new ExecutionError(

@@ -8,6 +8,7 @@ pub mod call_private_function;
 pub mod call_utility_function;
 pub mod capsules;
 pub mod ephemeral;
+pub mod transient;
 pub mod contract_sync;
 pub mod fact_store;
 pub mod public_call;

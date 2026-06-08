@@ -27,7 +27,8 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
-import { Oracle } from './oracle.js';
+import { TransientArrayService } from '../transient_array_service.js';
+import { buildACIRCallback } from './acir_callback.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 describe('Oracle Version Check test suite', () => {
@@ -220,6 +221,7 @@ describe('Oracle Version Check test suite', () => {
         l2TipsStore,
         simulator,
         utilityExecutor: () => Promise.resolve(),
+        transientArrayService: new TransientArrayService(),
       });
     });
 
@@ -258,7 +260,7 @@ describe('Oracle Version Check test suite', () => {
       oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR + 1);
 
       // Build the ACIR callback and try to call a non-existent oracle
-      const callback = new Oracle(oracle).toACIRCallback();
+      const callback = buildACIRCallback(oracle);
       const contractVersion = `${ORACLE_VERSION_MAJOR}\\.${ORACLE_VERSION_MINOR + 1}`;
       const pxeVersion = `${ORACLE_VERSION_MAJOR}\\.${ORACLE_VERSION_MINOR}`;
       expect(() => callback['aztec_utl_someNewOracle']()).toThrow(
@@ -272,7 +274,7 @@ describe('Oracle Version Check test suite', () => {
       const contractMinor = 0;
       oracle.assertCompatibleOracleVersion(ORACLE_VERSION_MAJOR, contractMinor);
 
-      const callback = new Oracle(oracle).toACIRCallback();
+      const callback = buildACIRCallback(oracle);
       expect(() => callback['aztec_utl_someNewOracle']()).toThrow(
         new RegExp(
           `Oracle 'aztec_utl_someNewOracle' not found\\. The contract's oracle version \\(${ORACLE_VERSION_MAJOR}\\.${contractMinor}\\) is compatible with this private execution environment \\(${ORACLE_VERSION_MAJOR}\\.${ORACLE_VERSION_MINOR}\\), so all standard oracles should be available\\. This could mean the contract was compiled against a modified version of Aztec\\.nr, or that it references an oracle that does not exist\\.`,
