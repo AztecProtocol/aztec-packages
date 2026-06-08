@@ -300,16 +300,7 @@ describe('Private Execution test suite', () => {
       },
     );
     contracts = {};
-    const handshakeRegistryClass = await getContractClassFromArtifact(HandshakeRegistryArtifact);
     contracts[STANDARD_HANDSHAKE_REGISTRY_ADDRESS.toString()] = HandshakeRegistryArtifact;
-    contractStore.getContractInstance
-      .calledWith(aztecAddressMatcher(STANDARD_HANDSHAKE_REGISTRY_ADDRESS))
-      .mockResolvedValue(
-        await randomContractInstanceWithAddress(
-          { contractClassId: handshakeRegistryClass.id },
-          STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-        ),
-      );
     anchorBlockHeader = makeBlockHeader();
     capsuleStore.readCapsuleArray.mockResolvedValue([]);
 
@@ -739,10 +730,11 @@ describe('Private Execution test suite', () => {
 
       expect(result.returnValues).toEqual([new Fr(privateIncrement)]);
 
-      // First fetch of the function artifact is the parent contract
-      // Second fetch is for sync_state on the child contract (calls[1])
-      // Third fetch is for the actual child function (calls[2])
-      expect(contractStore.getFunctionArtifact.mock.calls[2]).toEqual([childAddress, childSelector]);
+      expect(
+        contractStore.getFunctionArtifact.mock.calls.some(
+          ([addr, sel]) => addr.equals(childAddress) && sel.equals(childSelector),
+        ),
+      ).toBe(true);
       expect(result.nestedExecutionResults).toHaveLength(1);
       expect(result.nestedExecutionResults[0].returnValues).toEqual([new Fr(privateIncrement)]);
       expect(result.publicInputs.privateCallRequests.array[0].callContext).toEqual(

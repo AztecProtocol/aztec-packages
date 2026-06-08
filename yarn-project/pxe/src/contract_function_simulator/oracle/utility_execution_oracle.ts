@@ -846,27 +846,27 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     if (!targetContractAddress.equals(this.contractAddress)) {
-      const [callerInstance, targetInstance] = await Promise.all([
-        this.getContractInstance(this.contractAddress),
-        this.getContractInstance(targetContractAddress),
-      ]);
-      const request: UtilityCallAuthorizationRequest = {
-        caller: this.contractAddress,
-        callerClassId: callerInstance.currentContractClassId,
-        target: targetContractAddress,
-        targetClassId: targetInstance.currentContractClassId,
-        functionSelector,
-        functionName: targetArtifact.name,
-        args,
-        callerContext: this.callerContext,
-      };
-
       // The HandshakeRegistry is called during every contract's sync to discover handshake secrets.
       // It is a standard contract that only reads its own state, so it is always authorized.
       const isHandshakeRegistryRead =
         targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS) &&
         functionSelector.equals(await FunctionSelector.fromSignature('get_handshakes((Field),u32)'));
       if (!isHandshakeRegistryRead) {
+        const [callerInstance, targetInstance] = await Promise.all([
+          this.getContractInstance(this.contractAddress),
+          this.getContractInstance(targetContractAddress),
+        ]);
+        const request: UtilityCallAuthorizationRequest = {
+          caller: this.contractAddress,
+          callerClassId: callerInstance.currentContractClassId,
+          target: targetContractAddress,
+          targetClassId: targetInstance.currentContractClassId,
+          functionSelector,
+          functionName: targetArtifact.name,
+          args,
+          callerContext: this.callerContext,
+        };
+
         const response = this.hooks
           ? await this.hooks.authorizeUtilityCall(request)
           : { authorized: false, reason: 'No execution hooks configured' };
