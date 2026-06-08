@@ -241,6 +241,16 @@ export class FactStore implements StagedStore {
       if (op.kind === 'createEntity') {
         const entity = op.entity;
         const eKey = entityKeyOf(entity);
+        // Re-creating an entity may change or drop its anchor; clear any stale by-block index entry from the prior
+        // record first, so a later prune can neither double-visit this entity (and throw) nor wrongly delete one that
+        // has since become non-retractable.
+        const priorBuf = await this.#entities.getAsync(eKey);
+        if (priorBuf) {
+          const prior = StoredEntity.fromBuffer(priorBuf);
+          if (prior.anchor !== undefined) {
+            await this.#entitiesByBlock.deleteValue(prior.anchor.blockNumber, eKey);
+          }
+        }
         await this.#entities.set(eKey, entity.toBuffer());
         await this.#entitiesByScope.set(scopeKeyOf(entity), entity.correlationKey.toString());
         if (entity.anchor !== undefined) {

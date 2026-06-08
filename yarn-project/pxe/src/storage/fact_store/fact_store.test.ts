@@ -274,6 +274,65 @@ describe('FactStore', () => {
     ]);
   });
 
+  it('re-creating an entity with a changed anchor clears the stale by-block index', async () => {
+    await store.createEntity(
+      contract,
+      scope,
+      ENTITY,
+      corrA,
+      [new Fr(5n)],
+      { blockNumber: 6, blockHash: new Fr(1n) },
+      JOB,
+    );
+    await kv.transactionAsync(() => store.commit(JOB));
+
+    // Re-create the same entity anchored at a different block.
+    const JOB2 = 'recreate-job';
+    await store.createEntity(
+      contract,
+      scope,
+      ENTITY,
+      corrA,
+      [new Fr(5n)],
+      { blockNumber: 8, blockHash: new Fr(2n) },
+      JOB2,
+    );
+    await kv.transactionAsync(() => store.commit(JOB2));
+
+    // Prune above block 5: the entity (anchored at 8) is deleted exactly once. A stale block-6 index entry would make
+    // pass 1 visit it a second time and throw "Entity not found".
+    await expect(kv.transactionAsync(() => store.rollback(5))).resolves.not.toThrow();
+    expect((await store.getEntity(contract, scope, ENTITY, corrA, JOB)).payload).toEqual([]);
+    expect(await store.activeEntities(contract, scope, ENTITY, JOB)).toHaveLength(0);
+  });
+
+  it('re-creating a retractable entity as non-retractable lets it survive a prune', async () => {
+    await store.createEntity(
+      contract,
+      scope,
+      ENTITY,
+      corrA,
+      [new Fr(5n)],
+      { blockNumber: 6, blockHash: new Fr(1n) },
+      JOB,
+    );
+    await kv.transactionAsync(() => store.commit(JOB));
+
+    // Re-create the same entity without an anchor: it is now non-retractable and must survive reorgs.
+    const JOB2 = 'recreate-job';
+    await store.createEntity(contract, scope, ENTITY, corrA, [new Fr(5n)], undefined, JOB2);
+    await kv.transactionAsync(() => store.commit(JOB2));
+
+    await kv.transactionAsync(() => store.rollback(5));
+
+    // Survived: the stale block-6 index entry was cleared when the entity was re-created.
+    const { payload } = await store.getEntity(contract, scope, ENTITY, corrA, JOB);
+    expect(payload.map(f => f.toBigInt())).toEqual([5n]);
+    expect((await store.activeEntities(contract, scope, ENTITY, JOB)).map(c => c.toBigInt())).toEqual([
+      corrA.toBigInt(),
+    ]);
+  });
+
   it('rollback throws while a job has staged writes', async () => {
     await store.createEntity(contract, scope, ENTITY, corrA, [], undefined, 'uncommitted-job');
     await expect(kv.transactionAsync(() => store.rollback(0))).rejects.toThrow(
