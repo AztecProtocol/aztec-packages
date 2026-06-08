@@ -381,6 +381,19 @@ export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {
   },
 };
 
+/** A single fact returned by `getEntityFacts`: its type id, plus a payload carried in its own ephemeral array. */
+export type FactOutput = { factTypeId: Fr; payload: EphemeralArray<Fr> };
+
+/**
+ * Output mapping for a fact. Serializes to `[factTypeId, payloadSlot]`, where `payloadSlot` is the slot of the
+ * fact's payload (its own ephemeral array of fields). Output-only: facts are returned to Noir, never received.
+ */
+export const FACT: TypeMapping<FactOutput> = {
+  serialization: {
+    fn: f => [f.factTypeId, f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[])],
+  },
+};
+
 // ─── Combinator Type Mappings ────────────────────────────────────────────────
 
 /** `_height` is unused at runtime but lets TypeScript infer the exact `N` for `MembershipWitness<N>`. */
