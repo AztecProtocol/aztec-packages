@@ -172,8 +172,8 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
             }
             {
                 BB_BENCH_NAME("joint_sumcheck/hiding_kernel/disabled_contribution");
-                U_H +=
-                    mega_zk_round.compute_offset_area_contribution(hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
+                U_H += mega_zk_round.compute_offset_area_contribution(
+                    hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
             }
             U_joint += U_H;
         }

@@ -8,11 +8,11 @@
 
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_bools_short_relation_impl.hpp"
-#include "barretenberg/relations/ecc_vm/ecc_shiftable_init_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_lookup_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_msm_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_point_table_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_set_short_relation_impl.hpp"
+#include "barretenberg/relations/ecc_vm/ecc_shiftable_init_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_transcript_msm_transition_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_transcript_short_relation_impl.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_short_relation_impl.hpp"
