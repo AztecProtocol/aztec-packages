@@ -7,7 +7,6 @@ use crate::protocol::traits::{Deserialize, Serialize};
 /// [`ONCHAIN_UNCONSTRAINED`](crate::messages::delivery::ONCHAIN_UNCONSTRAINED) or
 /// [`ONCHAIN_CONSTRAINED`](crate::messages::delivery::ONCHAIN_CONSTRAINED).
 #[derive(Deserialize, Serialize)]
-#[allow(dead_code)]
 pub(crate) struct ProvidedSecret {
     pub secret: Field,
     pub mode: Field,
