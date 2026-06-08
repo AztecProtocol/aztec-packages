@@ -64,6 +64,57 @@ export class StoredFact {
   }
 }
 
+/**
+ * The record for a single entity, with its own payload and optional block anchor. `anchor === undefined` marks the
+ * entity non-retractable (it survives reorgs; only its own retractable facts are pruned); an anchor marks the whole
+ * entity retractable — on a prune above its block, the entity payload and every fact it owns are deleted wholesale.
+ */
+export class StoredEntity {
+  constructor(
+    public readonly contractAddress: AztecAddress,
+    public readonly scope: AztecAddress,
+    public readonly entityTypeId: Fr,
+    public readonly correlationKey: Fr,
+    public readonly payload: Fr[],
+    public readonly anchor: FactAnchor | undefined,
+  ) {}
+
+  /** Whether the whole entity is deleted on block pruning (true) or survives reorgs (false). */
+  get isRetractable(): boolean {
+    return this.anchor !== undefined;
+  }
+
+  toBuffer(): Buffer {
+    const anchorTag = this.anchor ? 1 : 0;
+    return serializeToBuffer(
+      this.contractAddress,
+      this.scope,
+      this.entityTypeId,
+      this.correlationKey,
+      this.payload.length,
+      ...this.payload,
+      anchorTag,
+      this.anchor ? this.anchor.blockNumber : 0,
+      this.anchor ? this.anchor.blockHash : Fr.ZERO,
+    );
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): StoredEntity {
+    const reader = BufferReader.asReader(buffer);
+    const contractAddress = reader.readObject(AztecAddress);
+    const scope = reader.readObject(AztecAddress);
+    const entityTypeId = reader.readObject(Fr);
+    const correlationKey = reader.readObject(Fr);
+    const payloadLen = reader.readNumber();
+    const payload = reader.readArray(payloadLen, Fr);
+    const anchorTag = reader.readNumber();
+    const blockNumber = reader.readNumber();
+    const blockHash = reader.readObject(Fr);
+    const anchor = anchorTag === 1 ? { blockNumber, blockHash } : undefined;
+    return new StoredEntity(contractAddress, scope, entityTypeId, correlationKey, [...payload], anchor);
+  }
+}
+
 /** Key that groups all entities of the same type within a contract+scope. */
 export function scopeKey(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr): string {
   return `${contract}:${scope}:${entityTypeId}`;
