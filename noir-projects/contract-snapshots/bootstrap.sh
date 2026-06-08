@@ -20,7 +20,7 @@ function test {
         echo "INSTA_UPDATE is not permitted in CI. Run 'cargo insta accept' locally and commit." >&2
         exit 1
     fi
-    # TODO(#23895): `expand::test_avm_test_contract` is skipped because `nargo expand`
+    # TODO(#12933 on noir-lang/noir): `expand::test_avm_test_contract` is skipped because `nargo expand`
     # emits the generated contract-interface functions in hashmap-iteration order, which
     # is not stable across nargo builds/runs. The snapshot is correct but the test fails
     # intermittently in the merge queue on order-only diffs. Re-enable once noir makes the
