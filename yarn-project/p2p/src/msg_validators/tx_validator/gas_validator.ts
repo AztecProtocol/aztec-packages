@@ -1,6 +1,8 @@
 import {
+  DA_GAS_PER_FIELD,
   MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
   MAX_PROCESSABLE_L2_GAS,
+  MAX_TX_BLOB_DATA_SIZE_IN_FIELDS,
   PRIVATE_TX_L2_GAS_OVERHEAD,
   PUBLIC_TX_L2_GAS_OVERHEAD,
   TX_DA_GAS_OVERHEAD,
@@ -21,6 +23,12 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { getFeePayerClaimAmount, getTxFeeLimit } from './fee_payer_balance.js';
+
+// A single tx's effects cannot encode more than MAX_TX_BLOB_DATA_SIZE_IN_FIELDS fields in a blob, and
+// each field costs DA_GAS_PER_FIELD, so this is the most DA gas any tx can actually consume. Declaring
+// a higher DA gas limit is meaningless and would let a tx reserve more of the checkpoint/block DA budget
+// during proposal building than it could ever use.
+const MAX_TX_DA_GAS = MAX_TX_BLOB_DATA_SIZE_IN_FIELDS * DA_GAS_PER_FIELD;
 
 /** Structural interface for types that carry gas limit data, used by {@link GasLimitsValidator}. */
 export interface HasGasLimitData {
@@ -79,7 +87,7 @@ export class GasLimitsValidator<T extends HasGasLimitData> implements TxValidato
     this.#maxBlockL2Gas = opts?.maxBlockL2Gas ?? Infinity;
     this.#maxBlockDAGas = opts?.maxBlockDAGas ?? Infinity;
     this.#effectiveMaxL2Gas = Math.min(MAX_PROCESSABLE_L2_GAS, this.#rollupManaLimit, this.#maxBlockL2Gas);
-    this.#effectiveMaxDAGas = Math.min(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, this.#maxBlockDAGas);
+    this.#effectiveMaxDAGas = Math.min(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, this.#maxBlockDAGas, MAX_TX_DA_GAS);
   }
 
   validateTx(tx: T): Promise<TxValidationResult> {
