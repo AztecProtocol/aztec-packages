@@ -32,6 +32,8 @@ describe('NodeRpcTxSource', () => {
 
     expect(result.validTxs).toHaveLength(2);
     expect(result.invalidTxHashes).toHaveLength(0);
+    // Collected txs feed block validation and proving, so the source must explicitly request proofs.
+    expect(mockClient.getTxsByHash).toHaveBeenCalledWith([tx1.getTxHash(), tx2.getTxHash()], { includeProof: true });
   });
 
   it('returns invalid tx hashes when validator rejects', async () => {

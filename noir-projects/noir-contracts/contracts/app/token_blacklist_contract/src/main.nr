@@ -21,9 +21,8 @@ pub contract TokenBlacklist {
         hash::compute_secret_hash,
         macros::{functions::{authorize_once, external, initializer, only_self, view}, storage::storage},
         messages::{
-            discovery::private_notes::process_private_note_msg, encoding::decode_message,
-            logs::note::encode_private_note_message, message_delivery::MessageDelivery,
-            processing::validate_and_store_enqueued_notes_and_events,
+            delivery::MessageDelivery, discovery::private_notes::process_private_note_msg, encoding::decode_message,
+            logs::note::encode_private_note_message, processing::validate_and_store_enqueued_notes_and_events,
         },
         note::{note_getter_options::NoteGetterOptions, note_interface::{NoteHash, NoteProperties}},
         protocol::traits::ToField,

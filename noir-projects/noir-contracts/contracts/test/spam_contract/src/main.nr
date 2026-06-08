@@ -5,7 +5,7 @@ pub contract Spam {
 
     use aztec::{
         macros::{functions::{external, only_self}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::utils::compute_note_nullifier,
         protocol::constants::{
             MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,

@@ -5,7 +5,7 @@ mod invalid_event;
 #[aztec]
 contract InvalidEventContract {
     use crate::invalid_event::InvalidEvent;
-    use aztec::{macros::functions::external, messages::message_delivery::MessageDelivery};
+    use aztec::{macros::functions::external, messages::delivery::MessageDelivery};
 
     // Emitting an oversized event privately should fail at compile time because its serialized length exceeds
     // MAX_EVENT_SERIALIZED_LEN.
