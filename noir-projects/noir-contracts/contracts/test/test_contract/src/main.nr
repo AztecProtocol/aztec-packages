@@ -32,7 +32,7 @@ pub contract Test {
             traits::{Hash, Packable, Serialize},
         },
         // Event related
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         // History and inclusion proofs
         history::note::assert_note_existed_by,
         // Key management

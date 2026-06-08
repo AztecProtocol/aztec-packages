@@ -1,10 +1,11 @@
 export {
   ORACLE_REGISTRY,
-  callHandler,
   makeEntry,
+  type HandlersForPrefix,
   type NamedValue,
   type OracleRegistryEntry,
   type ParamTypes,
+  type StripOraclePrefix,
 } from './oracle/oracle_registry.js';
 export {
   ARRAY,
@@ -40,12 +41,13 @@ export { ExecutionNoteCache } from './execution_note_cache.js';
 export { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 export { HashedValuesCache } from './hashed_values_cache.js';
 export { pickNotes } from './pick_notes.js';
-export type { NoteData, IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } from './oracle/interfaces.js';
+export type { IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } from './oracle/interfaces.js';
+export type { NoteData } from './noir-structs/note_data.js';
 export { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 export { MessageContextService } from '../messages/message_context_service.js';
 export { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 export { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
-export { Oracle } from './oracle/oracle.js';
+export { buildACIRCallback, UnavailableOracleError } from './oracle/acir_callback.js';
 export { executePrivateFunction, extractPrivateCircuitPublicInputs } from './oracle/private_execution.js';
 export { generateSimulatedProvingResult } from './contract_function_simulator.js';
 export { packAsHintedNote } from './oracle/note_packing_utils.js';
@@ -58,3 +60,4 @@ export { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
 export { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
 export { NoteValidationRequest } from './noir-structs/note_validation_request.js';
 export { ProvidedSecret } from './noir-structs/provided_secret.js';
+export { TransientArrayService } from './transient_array_service.js';

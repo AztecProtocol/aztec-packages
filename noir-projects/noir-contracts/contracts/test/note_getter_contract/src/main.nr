@@ -6,7 +6,7 @@ mod packed_note;
 pub contract NoteGetter {
     use aztec::{
         // Core functionality
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::note_interface::NoteProperties,
         // Macros
         macros::{functions::external, storage::storage},

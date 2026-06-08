@@ -46,7 +46,7 @@ pub(crate) comptime fn create_stub_base_from_parts(
     let serialized_args_array_len: u32 = unquote!(quote { ($serialized_args_array_len_quote) as u32 });
 
     let fn_name_str = f"\"{fn_name}\"".quoted_contents();
-    let fn_name_len: u32 = unquote!(quote { $fn_name_str.as_bytes().len()});
+    let fn_name_len: u32 = unquote!(quote { $fn_name_str.as_bytes().len() });
     let fn_selector: Field = compute_fn_selector(fn_name, fn_parameters);
 
     (

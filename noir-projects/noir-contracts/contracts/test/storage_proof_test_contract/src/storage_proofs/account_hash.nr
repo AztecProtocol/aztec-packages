@@ -43,10 +43,10 @@ fn rlp_encode_to_sink<S: BytesSink>(account: Account, start_nibble_idx: u32, tri
         let end_byte_idx = start_byte_idx + ((key_length - 1) as u32);
 
         runtime_loop!(
-            quote {i},
-            quote {start_byte_idx},
-            quote {end_byte_idx},
-            quote {trie_key.len()},
+            quote { i },
+            quote { start_byte_idx },
+            quote { end_byte_idx },
+            quote { trie_key.len() },
             quote {
                 sink.add_byte(trie_key[i]);
             },
@@ -67,10 +67,10 @@ fn rlp_encode_to_sink<S: BytesSink>(account: Account, start_nibble_idx: u32, tri
     } else {
         sink.add_byte(0x80 + account.nonce_length);
         runtime_loop!(
-            quote {i},
-            quote {0},
-            quote {(account.nonce_length as u32)},
-            quote {32},
+            quote { i },
+            quote { 0 },
+            quote { (account.nonce_length as u32) },
+            quote { 32 },
             quote {
                 sink.add_byte(account.nonce[i]);
             },
@@ -85,10 +85,10 @@ fn rlp_encode_to_sink<S: BytesSink>(account: Account, start_nibble_idx: u32, tri
     } else {
         sink.add_byte(0x80 + account.balance_length);
         runtime_loop!(
-            quote {i},
-            quote {0},
-            quote {(account.balance_length as u32)},
-            quote {32},
+            quote { i },
+            quote { 0 },
+            quote { (account.balance_length as u32) },
+            quote { 32 },
             quote {
                 sink.add_byte(account.balance[i]);
             },
@@ -102,8 +102,8 @@ fn rlp_encode_to_sink<S: BytesSink>(account: Account, start_nibble_idx: u32, tri
         4_u32,
         |i| {
             quote {
-                    sink.add_u64(account.storage_hash[$i]);
-                }
+                sink.add_u64(account.storage_hash[$i]);
+            }
         },
     );
 
@@ -114,8 +114,8 @@ fn rlp_encode_to_sink<S: BytesSink>(account: Account, start_nibble_idx: u32, tri
         4_u32,
         |i| {
             quote {
-                    sink.add_u64(account.code_hash[$i]);
-                }
+                sink.add_u64(account.code_hash[$i]);
+            }
         },
     );
 }

@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 
-import type { NoteData } from './oracle/interfaces.js';
+import type { NoteData } from './noir-structs/note_data.js';
 
 interface PendingNote {
   note: NoteData;

@@ -82,7 +82,6 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
       aztecSlotDuration: 36,
       blockDurationMs: 8000,
       attestationPropagationTime: 0.5,
-      l1PublishingTime: 2,
       aztecTargetCommitteeSize: NODE_COUNT,
       skipInitialSequencer: true,
     });

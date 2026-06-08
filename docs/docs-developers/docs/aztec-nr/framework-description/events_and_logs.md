@@ -30,7 +30,7 @@ struct Transfer {
 In private functions, emit events using `self.emit()` and deliver them to recipients:
 
 ```rust
-use aztec::messages::message_delivery::MessageDelivery;
+use aztec::messages::delivery::MessageDelivery;
 
 #[external("private")]
 fn transfer(to: AztecAddress, amount: u128) {

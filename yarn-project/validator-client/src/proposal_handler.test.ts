@@ -22,6 +22,7 @@ import {
   makeCheckpointHeader,
   makeCheckpointProposal,
 } from '@aztec/stdlib/testing';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -51,6 +52,7 @@ describe('ProposalHandler checkpoint validation', () => {
   let dateProvider: TestDateProvider;
   let metrics: MockProxy<ValidatorMetrics>;
   let config: ValidatorClientFullConfig;
+  let consensusTimetable: ConsensusTimetable;
 
   const proposalInfo = {};
 
@@ -88,6 +90,8 @@ describe('ProposalHandler checkpoint validation', () => {
       rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
     } as ValidatorClientFullConfig;
 
+    consensusTimetable = new ConsensusTimetable({ l1Constants: epochCache.getL1Constants(), blockDuration: undefined });
+
     handler = new ProposalHandler(
       checkpointsBuilder,
       mock<WorldStateSynchronizer>(),
@@ -96,6 +100,7 @@ describe('ProposalHandler checkpoint validation', () => {
       mock<ITxProvider>(),
       mock<BlockProposalValidator>(),
       epochCache,
+      consensusTimetable,
       config,
       mock<BlobClientInterface>(),
       new CheckpointReexecutionTracker(),
@@ -166,6 +171,7 @@ describe('ProposalHandler checkpoint validation', () => {
         mock<ITxProvider>(),
         mock<BlockProposalValidator>(),
         epochCache,
+        consensusTimetable,
         config,
         mock<BlobClientInterface>(),
         new CheckpointReexecutionTracker(),
@@ -242,6 +248,46 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'block_fetch_error' });
+    });
+
+    // Regression: a timeout of 0 means "never time out" in retryUntil. When the validation deadline is
+    // already in the past, computing the timeout with Math.floor((deadline - now)/1000) yields 0 (or a
+    // negative number), so the block-sync wait would loop forever past the consensus deadline. The
+    // handler must instead fail fast without entering the retry loop after a single attempt.
+    it('fails fast (does not hang) when the validation deadline is already in the past', async () => {
+      blockSource.getBlockData.mockResolvedValue(undefined);
+
+      // attestation_deadline(slot=1) = 1*24 + 24 - 8 = 40s. Hold wall-clock past it.
+      dateProvider.setTime(41_000);
+
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
+      // One immediate fetch attempt, then no retry loop (which would poll repeatedly past the deadline).
+      expect(blockSource.syncImmediate).toHaveBeenCalledTimes(1);
+    });
+
+    // Even past the deadline, an already-synced block must still be accepted (the immediate fetch
+    // succeeds before the fail-fast applies), rather than being abandoned for being late.
+    it('returns an already-synced block even when the deadline is in the past', async () => {
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
+      blockSource.getBlocksForSlot.mockResolvedValue([]);
+      dateProvider.setTime(41_000);
+
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+      // Got past the block-sync wait (would be last_block_not_found if it failed fast unconditionally).
+      expect(result).toEqual({ isValid: false, reason: 'no_blocks_for_slot' });
+    });
+
+    // With <1s remaining the old Math.floor(...) timeout collapsed to 0 ("never time out"). The fix uses
+    // a strictly-positive fractional timeout, so the wait still terminates instead of hanging.
+    it('terminates with a fractional sub-second timeout when <1s remains before the deadline', async () => {
+      blockSource.getBlockData.mockResolvedValue(undefined);
+
+      // 39.7s: ~0.3s before the 40s deadline. Old code: floor(0.3) = 0 → never times out.
+      dateProvider.setTime(39_700);
+
+      const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
     });
   });
 
