@@ -311,7 +311,7 @@ export class ProposalHandler {
         if (isOwnProposal) {
           const existing = await this.archiver?.getProposedCheckpointData({ slot: proposal.slotNumber });
           if (existing?.archive.root.equals(proposal.archive)) {
-            this.log.debug(`Skipping validation for own checkpoint proposal at slot ${proposal.slotNumber}`);
+            this.log.debug(`Skipping sync for existing own checkpoint proposal at slot ${proposal.slotNumber}`);
             return undefined;
           }
         }
