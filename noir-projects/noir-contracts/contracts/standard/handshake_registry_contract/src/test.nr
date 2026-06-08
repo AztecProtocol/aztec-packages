@@ -14,8 +14,8 @@ use aztec::{
 
 use std::test::OracleMock;
 
-global ONCHAIN_UNCONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().mode();
-global ONCHAIN_CONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_constrained().mode();
+global ONCHAIN_UNCONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into();
+global ONCHAIN_CONSTRAINED: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();

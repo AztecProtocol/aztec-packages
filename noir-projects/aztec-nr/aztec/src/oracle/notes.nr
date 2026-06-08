@@ -1,4 +1,4 @@
-use crate::messages::delivery::OnchainDelivery;
+use crate::messages::delivery::OnchainDeliveryMode;
 use crate::note::{HintedNote, note_interface::NoteType};
 
 use crate::protocol::{address::AztecAddress, traits::Packable};
@@ -193,15 +193,18 @@ unconstrained fn get_app_tagging_secret_oracle(_sender: AztecAddress, _recipient
 ///
 /// The caller already holds the tagging `secret`, whether obtained from [`get_app_tagging_secret`] or computed by the
 /// contract, and only needs the simulator to hand out a fresh per-secret, per-mode index; the caller computes the tag
-/// itself. `mode` is the [`OnchainDelivery`] selecting the per-mode index counter, derived through the delivery API
-/// (e.g. `MessageDelivery::onchain_unconstrained()`). Offchain messages are not tagged, so only the onchain delivery
-/// variants can be used by this oracle.
+/// itself. `mode` is converted into the [`OnchainDeliveryMode`] selecting the per-mode index counter, so callers can
+/// pass either a concrete on-chain delivery builder or an explicit mode. Offchain messages are not tagged, so only the
+/// onchain delivery variants can be used by this oracle.
 ///
 /// The simulator persists the index increment only if the tagged log is found in an actual block; a reverting
 /// transaction can otherwise cause the sender to skip indices and later produce notes that are not found by the
 /// recipient.
-pub unconstrained fn get_next_tagging_index(secret: Field, mode: OnchainDelivery) -> u32 {
-    get_next_tagging_index_oracle(secret, mode.mode().to_u8())
+pub unconstrained fn get_next_tagging_index<M>(secret: Field, mode: M) -> u32
+where
+    M: Into<OnchainDeliveryMode>,
+{
+    get_next_tagging_index_oracle(secret, mode.into().to_u8())
 }
 
 #[oracle(aztec_prv_getNextTaggingIndex)]

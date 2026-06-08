@@ -56,7 +56,8 @@ pub struct OnchainDeliveryMode {
 
 impl OnchainDeliveryMode {
     // The constructors are private: consumers derive modes through the delivery API instead, e.g.
-    // `MessageDelivery::onchain_unconstrained().mode()`. Named to mirror the [`MessageDelivery`] constructors;
+    // `let mode: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into()`. Named to mirror the
+    // [`MessageDelivery`] constructors;
     // `unconstrained` alone is a reserved Noir keyword.
     /// On-chain delivery without constrained encryption/tagging.
     fn onchain_unconstrained() -> Self {
@@ -261,11 +262,12 @@ impl MessageDelivery {
     ///
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
-    pub fn onchain_unconstrained() -> OnchainDelivery {
-        OnchainDelivery {
-            variant: ONCHAIN_UNCONSTRAINED,
-            tag_secret_derivation: TagSecretDerivation::address_pair(),
-            sender_override: Option::none(),
+    pub fn onchain_unconstrained() -> OnchainUnconstrainedDelivery {
+        OnchainUnconstrainedDelivery {
+            config: OnchainDeliveryConfig {
+                tag_secret_derivation: TagSecretDerivation::address_pair(),
+                sender_override: Option::none(),
+            },
         }
     }
 
@@ -275,7 +277,7 @@ impl MessageDelivery {
     /// constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565). The log's tag is unconstrained,
     /// meaning a malicious sender could manipulate it to prevent the recipient from finding the message.
     ///
-    /// The sending account can be configured via [`OnchainDelivery::with_sender`].
+    /// The sending account can be configured via [`OnchainConstrainedDelivery::with_sender`].
     ///
     /// ## Use Cases
     ///
@@ -320,11 +322,12 @@ impl MessageDelivery {
     ///
     /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
     /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
-    pub fn onchain_constrained() -> OnchainDelivery {
-        OnchainDelivery {
-            variant: ONCHAIN_CONSTRAINED,
-            tag_secret_derivation: TagSecretDerivation::non_interactive_handshake(),
-            sender_override: Option::none(),
+    pub fn onchain_constrained() -> OnchainConstrainedDelivery {
+        OnchainConstrainedDelivery {
+            config: OnchainDeliveryConfig {
+                tag_secret_derivation: TagSecretDerivation::non_interactive_handshake(),
+                sender_override: Option::none(),
+            },
         }
     }
 
@@ -350,8 +353,9 @@ impl MessageDelivery {
 /// to note squashing, because recipient discovery scans those tags sequentially and a removed log would break the
 /// per-secret index chain.
 ///
-/// `delivery_mode` must be a value that implements [`MessageDeliveryBuilder`], such as [`OffchainDelivery`] or
-/// [`OnchainDelivery`] (constructed via [`MessageDelivery::offchain`], [`MessageDelivery::onchain_unconstrained`], or
+/// `delivery_mode` must be a value that implements [`MessageDeliveryBuilder`], such as [`OffchainDelivery`],
+/// [`OnchainUnconstrainedDelivery`], or [`OnchainConstrainedDelivery`] (constructed via
+/// [`MessageDelivery::offchain`], [`MessageDelivery::onchain_unconstrained`], or
 /// [`MessageDelivery::onchain_constrained`]).
 ///
 /// The built configuration's `variant` and tag-secret derivation must both be compile-time constants so the compiler
@@ -439,8 +443,7 @@ where
 }
 
 /// Builds the [`MessageDelivery`] configuration consumed by the message delivery APIs (e.g. `NoteMessage::deliver` and
-/// `EventMessage::deliver`). Implemented by the builder types returned from the [`MessageDelivery`] constructors,
-/// namely [`OffchainDelivery`] and [`OnchainDelivery`].
+/// `EventMessage::deliver`). Implemented by the builder types returned from the [`MessageDelivery`] constructors.
 pub trait MessageDeliveryBuilder {
     fn build_message_delivery(self) -> MessageDelivery;
 }
@@ -458,18 +461,89 @@ impl MessageDeliveryBuilder for OffchainDelivery {
     }
 }
 
-/// On-chain delivery. Returned by [`MessageDelivery::onchain_unconstrained`] and
-/// [`MessageDelivery::onchain_constrained`].
-///
-/// Delivery can be further configured via [`with_sender`](OnchainDelivery::with_sender), which overrides the default
-/// sender address.
-pub struct OnchainDelivery {
-    variant: u8,
+struct OnchainDeliveryConfig {
     tag_secret_derivation: TagSecretDerivation,
     sender_override: Option<AztecAddress>,
 }
 
-impl OnchainDelivery {
+impl OnchainDeliveryConfig {
+    fn set_sender(&mut self, sender: AztecAddress) {
+        self.sender_override = Option::some(sender);
+    }
+
+    fn use_address_pair(&mut self) {
+        self.tag_secret_derivation = TagSecretDerivation::address_pair();
+    }
+
+    fn use_non_interactive_handshake(&mut self) {
+        self.tag_secret_derivation = TagSecretDerivation::non_interactive_handshake();
+    }
+
+    fn build_message_delivery(self, variant: u8) -> MessageDelivery {
+        MessageDelivery {
+            variant,
+            tag_secret_derivation: self.tag_secret_derivation,
+            sender_override: self.sender_override,
+        }
+    }
+}
+
+/// On-chain delivery without constrained encryption/tagging. Returned by [`MessageDelivery::onchain_unconstrained`].
+pub struct OnchainUnconstrainedDelivery {
+    config: OnchainDeliveryConfig,
+}
+
+impl OnchainUnconstrainedDelivery {
+    /// Overrides the sender address used for discovery tag derivation.
+    ///
+    /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
+    /// is derived from a shared secret between a "sender" and the recipient. By default, the sender is the
+    /// wallet-supplied address (typically the account that initiated the transaction), but some contracts need to
+    /// override it so that recipients can discover the notes correctly. This is the case for account contracts in their
+    /// constructor: the deployer is the one that initiated the transaction, but any notes generated during deployment
+    /// should be tagged by the account contract itself.
+    ///
+    /// ## Examples
+    ///
+    /// ```noir
+    /// MessageDelivery::onchain_unconstrained().with_sender(self.address)
+    /// ```
+    pub fn with_sender(&mut self, sender: AztecAddress) -> Self {
+        self.config.set_sender(sender);
+        *self
+    }
+
+    /// Uses the PXE-derived address-pair Diffie-Hellman secret for discovery tags.
+    pub fn via_address_pair(&mut self) -> Self {
+        self.config.use_address_pair();
+        *self
+    }
+
+    /// Uses the standard handshake registry's non-interactive handshake secret for discovery tags.
+    pub fn via_non_interactive_handshake(&mut self) -> Self {
+        self.config.use_non_interactive_handshake();
+        *self
+    }
+}
+
+impl MessageDeliveryBuilder for OnchainUnconstrainedDelivery {
+    fn build_message_delivery(self) -> MessageDelivery {
+        self.config.build_message_delivery(ONCHAIN_UNCONSTRAINED)
+    }
+}
+
+impl From<OnchainUnconstrainedDelivery> for OnchainDeliveryMode {
+    fn from(_delivery: OnchainUnconstrainedDelivery) -> OnchainDeliveryMode {
+        OnchainDeliveryMode::onchain_unconstrained()
+    }
+}
+
+/// On-chain delivery with constrained encryption/tagging. Returned by [`MessageDelivery::onchain_constrained`].
+pub struct OnchainConstrainedDelivery {
+    config: OnchainDeliveryConfig,
+}
+
+impl OnchainConstrainedDelivery {
     /// Overrides the sender address used for discovery tag derivation.
     ///
     /// On-chain messages are tagged so that the recipient can find them efficiently without scanning all logs. The tag
@@ -485,26 +559,26 @@ impl OnchainDelivery {
     /// MessageDelivery::onchain_constrained().with_sender(self.address)
     /// ```
     pub fn with_sender(&mut self, sender: AztecAddress) -> Self {
-        self.sender_override = Option::some(sender);
+        self.config.set_sender(sender);
         *self
     }
 
-    /// Returns the [`OnchainDeliveryMode`] for this on-chain delivery.
-    ///
-    /// Lets out-of-crate consumers (e.g. the handshake registry) obtain the mode through the typed delivery API
-    /// rather than depending on a bare discriminant.
-    pub fn mode(self) -> OnchainDeliveryMode {
-        OnchainDeliveryMode::from_u8(self.variant)
+    /// Uses the standard handshake registry's non-interactive handshake secret for discovery tags.
+    pub fn via_non_interactive_handshake(&mut self) -> Self {
+        self.config.use_non_interactive_handshake();
+        *self
     }
 }
 
-impl MessageDeliveryBuilder for OnchainDelivery {
+impl MessageDeliveryBuilder for OnchainConstrainedDelivery {
     fn build_message_delivery(self) -> MessageDelivery {
-        MessageDelivery {
-            variant: self.variant,
-            tag_secret_derivation: self.tag_secret_derivation,
-            sender_override: self.sender_override,
-        }
+        self.config.build_message_delivery(ONCHAIN_CONSTRAINED)
+    }
+}
+
+impl From<OnchainConstrainedDelivery> for OnchainDeliveryMode {
+    fn from(_delivery: OnchainConstrainedDelivery) -> OnchainDeliveryMode {
+        OnchainDeliveryMode::onchain_constrained()
     }
 }
 
@@ -542,34 +616,77 @@ mod test {
     }
 
     #[test]
+    fn onchain_unconstrained_can_select_address_pair_derivation() {
+        let delivery = MessageDelivery::onchain_unconstrained().via_address_pair().build_message_delivery();
+
+        assert(delivery.variant == ONCHAIN_UNCONSTRAINED);
+        assert(delivery.tag_secret_derivation == TagSecretDerivation::address_pair());
+    }
+
+    #[test]
+    fn onchain_deliveries_can_select_non_interactive_handshake_derivation() {
+        let unconstrained_delivery = MessageDelivery::onchain_unconstrained()
+            .via_non_interactive_handshake()
+            .build_message_delivery();
+        let constrained_delivery = MessageDelivery::onchain_constrained()
+            .via_non_interactive_handshake()
+            .build_message_delivery();
+
+        assert(unconstrained_delivery.variant == ONCHAIN_UNCONSTRAINED);
+        assert(unconstrained_delivery.tag_secret_derivation == TagSecretDerivation::non_interactive_handshake());
+        assert(constrained_delivery.variant == ONCHAIN_CONSTRAINED);
+        assert(constrained_delivery.tag_secret_derivation == TagSecretDerivation::non_interactive_handshake());
+    }
+
+    #[test]
     fn with_sender_populates_the_config() {
         let sender = AztecAddress::from_field(7);
 
-        let delivery = MessageDelivery::onchain_constrained().with_sender(sender).build_message_delivery();
+        let unconstrained_delivery = MessageDelivery::onchain_unconstrained()
+            .with_sender(sender)
+            .build_message_delivery();
+        let constrained_delivery = MessageDelivery::onchain_constrained().with_sender(sender).build_message_delivery();
 
-        assert(delivery.variant == ONCHAIN_CONSTRAINED);
-        assert(delivery.tag_secret_derivation == TagSecretDerivation::non_interactive_handshake());
-        assert(delivery.sender_override.unwrap() == sender);
+        assert(unconstrained_delivery.variant == ONCHAIN_UNCONSTRAINED);
+        assert(unconstrained_delivery.tag_secret_derivation == TagSecretDerivation::address_pair());
+        assert(unconstrained_delivery.sender_override.unwrap() == sender);
+        assert(constrained_delivery.variant == ONCHAIN_CONSTRAINED);
+        assert(constrained_delivery.tag_secret_derivation == TagSecretDerivation::non_interactive_handshake());
+        assert(constrained_delivery.sender_override.unwrap() == sender);
     }
 
-    global GLOBAL_DERIVED_MODE: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().mode();
+    global GLOBAL_DERIVED_MODE: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into();
 
     #[test]
     fn mode_matches_the_variant() {
-        assert(MessageDelivery::onchain_unconstrained().mode() == OnchainDeliveryMode::onchain_unconstrained());
-        assert(MessageDelivery::onchain_constrained().mode() == OnchainDeliveryMode::onchain_constrained());
+        let unconstrained_mode: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into();
+        let constrained_mode: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
+
+        assert(unconstrained_mode == OnchainDeliveryMode::onchain_unconstrained());
+        assert(constrained_mode == OnchainDeliveryMode::onchain_constrained());
         assert(OnchainDeliveryMode::onchain_unconstrained().is_valid());
         assert(OnchainDeliveryMode::onchain_constrained().is_valid());
         assert(GLOBAL_DERIVED_MODE == OnchainDeliveryMode::onchain_unconstrained());
     }
 
     #[test]
-    fn mode_roundtrips_through_serialization() {
-        let unc_mode = OnchainDeliveryMode::onchain_unconstrained();
-        let con_mode = OnchainDeliveryMode::onchain_constrained();
+    fn builders_convert_into_modes() {
+        let unconstrained_mode: OnchainDeliveryMode = MessageDelivery::onchain_unconstrained().into();
+        let constrained_mode: OnchainDeliveryMode = MessageDelivery::onchain_constrained().into();
+        let explicit_mode: OnchainDeliveryMode = OnchainDeliveryMode::onchain_unconstrained().into();
 
-        assert(OnchainDeliveryMode::deserialize(unc_mode.serialize()) == unc_mode);
-        assert(OnchainDeliveryMode::deserialize(con_mode.serialize()) == con_mode);
+        assert(unconstrained_mode == OnchainDeliveryMode::onchain_unconstrained());
+        assert(constrained_mode == OnchainDeliveryMode::onchain_constrained());
+        assert(explicit_mode == OnchainDeliveryMode::onchain_unconstrained());
+    }
+
+    #[test]
+    fn mode_roundtrips_through_serialization() {
+        let unconstrained_mode = OnchainDeliveryMode::onchain_unconstrained();
+        let constrained_mode = OnchainDeliveryMode::onchain_constrained();
+
+        assert(OnchainDeliveryMode::deserialize(unconstrained_mode.serialize()) == unconstrained_mode);
+        assert(OnchainDeliveryMode::deserialize(constrained_mode.serialize()) == constrained_mode);
     }
 
     #[test(should_fail_with = "unrecognized delivery mode")]
@@ -579,11 +696,11 @@ mod test {
 
     #[test]
     fn mode_roundtrips_through_packing() {
-        let unc_mode = OnchainDeliveryMode::onchain_unconstrained();
-        let con_mode = OnchainDeliveryMode::onchain_constrained();
+        let unconstrained_mode = OnchainDeliveryMode::onchain_unconstrained();
+        let constrained_mode = OnchainDeliveryMode::onchain_constrained();
 
-        assert(OnchainDeliveryMode::unpack(unc_mode.pack()) == unc_mode);
-        assert(OnchainDeliveryMode::unpack(con_mode.pack()) == con_mode);
+        assert(OnchainDeliveryMode::unpack(unconstrained_mode.pack()) == unconstrained_mode);
+        assert(OnchainDeliveryMode::unpack(constrained_mode.pack()) == constrained_mode);
     }
 
     #[test(should_fail_with = "unrecognized delivery mode")]
