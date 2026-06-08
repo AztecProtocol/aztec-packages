@@ -121,7 +121,10 @@ async function advanceToEpochBeforePipelinedTargetSlot({
   cheatCodes,
   targetProposer,
   logger,
-  maxAttempts = 30,
+  // A suitable epoch (bad proposer on the pipelined slot but not the prior slot) occurs with probability ~2/9 per
+  // attempt given 3 validators re-sampled with replacement each epoch, so 30 attempts left a ~0.06% tail that flaked
+  // the heavy merge-queue grind. 200 attempts drops that to ~1e-22; the warp loop covers them in a few seconds.
+  maxAttempts = 200,
 }: {
   epochCache: EpochCacheInterface;
   cheatCodes: RollupCheatCodes;
