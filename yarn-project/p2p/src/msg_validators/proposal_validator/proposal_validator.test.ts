@@ -18,6 +18,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { CheckpointProposalValidator } from './checkpoint_proposal_validator.js';
 import { ProposalValidator } from './proposal_validator.js';
 
 /** Clock-disparity tolerance (ms) the validators are configured with in these tests. */
@@ -642,6 +643,50 @@ describe('ProposalValidator', () => {
         signer,
       });
       const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
+    });
+  });
+
+  describe('checkpoint proposal embedded last-block ceiling', () => {
+    const signer = Secp256k1Signer.random();
+    let checkpointValidator: CheckpointProposalValidator;
+
+    beforeEach(() => {
+      // No maxBlocksPerCheckpoint configured: the hard ceiling must still apply to the terminal block
+      // carried inside the checkpoint proposal (it is not gossiped as a standalone block proposal).
+      checkpointValidator = new CheckpointProposalValidator(epochCache, makeTimetable(), {
+        txsPermitted: true,
+        signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+        clockDisparityMs: TEST_CLOCK_DISPARITY_MS,
+      });
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+    });
+
+    it('rejects when the embedded last block is past the attestable limit', async () => {
+      const proposal = await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
+        signer,
+        lastBlock: {
+          blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT),
+          txHashes: [],
+        },
+      });
+      const result = await checkpointValidator.validate(proposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+    });
+
+    it('accepts when the embedded last block is within the attestable limit', async () => {
+      const proposal = await makeCheckpointProposal({
+        checkpointHeader: makeCheckpointHeader(0, { slotNumber: currentSlot }),
+        signer,
+        lastBlock: {
+          blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+          indexWithinCheckpoint: IndexWithinCheckpoint(MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT - 1),
+          txHashes: [],
+        },
+      });
+      const result = await checkpointValidator.validate(proposal);
       expect(result).toEqual({ result: 'accept' });
     });
   });
