@@ -1490,6 +1490,7 @@ ${packLines.join('\n')}
     m_red: number,
     variant: 'loop' | 'pk' = 'pk',
     pk14 = false,
+    l0Precompute = true,
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
     // pk14: the packed-native 14-bit safegcd inverse (Montgomery-form output via
@@ -1507,6 +1508,7 @@ ${packLines.join('\n')}
         inv_fn,
         inv_f8: true,
         f8_native: this.montmul === 'cios_unrolled',
+        l0prec: l0Precompute,
         bw,
         stride,
         m_red,

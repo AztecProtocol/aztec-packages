@@ -4122,6 +4122,16 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 const WD_STRIDE: u32 = 8u;
 fn wd_work_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 3u]; }
 fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
+{{^l0prec}}
+// l0_base v2 OFF (?l0_precompute=0): binding 2 is the raw \`offsets\` CSR, and the
+// walker re-derives each bucket's l0 base inline via the dependent gather
+// sorted_bucket_list[i] -> flat_bid -> offsets[.] (the pre-precompute v1 path).
+fn off_at(i: u32) -> u32 { return l0_base[i]; }
+fn flat_bid(bid: u32) -> u32 {
+    let gwin = (bid >> WBID_SHIFT) + batch_offset.x;
+    return wd_work_off(gwin) - wd_work_off(batch_offset.x) + (bid & WBID_MAG_MASK);
+}
+{{/l0prec}}
 fn sc_at(i: u32) -> u32 { return arena_a0[arena_off.x + i]; }   // sorted_count_list[i]
 fn l0_at(i: u32) -> u32 { return arena_a0[arena_off.y + i]; }   // l0_index[i]
 // is_present marking is hoisted into combine_filter; stream_walker stays
@@ -4241,7 +4251,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         let eo = task_cuts[cut_base + (k + 1u) * 2u + 1u];
 
         let sb_id = sorted_bucket_list[sb];
-        let sb_base = l0_base[sb];
+        let sb_base = {{#l0prec}}l0_base[sb]{{/l0prec}}{{^l0prec}}off_at(flat_bid(sb_id)){{/l0prec}};
         let sb_count = sc_at(sb);
 
         // Start cursor. so==0 → fresh at the bucket's first point. so in
@@ -4262,7 +4272,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         } else {
             eff_sorted = sb + 1u;
             eff_id = sorted_bucket_list[eff_sorted];
-            eff_base = l0_base[eff_sorted];
+            eff_base = {{#l0prec}}l0_base[eff_sorted]{{/l0prec}}{{^l0prec}}off_at(flat_bid(eff_id)){{/l0prec}};
             eff_count = sc_at(eff_sorted);
             start_cursor = eff_base;
             split_start_m = split_start_m & ~(1u << k);
@@ -4274,10 +4284,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         var te_cur: u32;
         if (eo > 0u) {
             te_sort = eb;
-            te_cur = l0_base[eb] + eo + 1u;
+            te_cur = {{#l0prec}}l0_base[eb]{{/l0prec}}{{^l0prec}}off_at(flat_bid(sorted_bucket_list[eb])){{/l0prec}} + eo + 1u;
         } else if (eb > 0u) {
             te_sort = eb - 1u;
-            te_cur = l0_base[te_sort] + sc_at(te_sort);
+            te_cur = {{#l0prec}}l0_base[te_sort]{{/l0prec}}{{^l0prec}}off_at(flat_bid(sorted_bucket_list[te_sort])){{/l0prec}} + sc_at(te_sort);
         } else {
             te_sort = 0u;
             te_cur = 0u;
@@ -4313,7 +4323,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
                 let nxt = eff_sorted + 1u;
-                let nxt_base = l0_base[nxt];
+                let nxt_base = {{#l0prec}}l0_base[nxt]{{/l0prec}}{{^l0prec}}off_at(flat_bid(sorted_bucket_list[nxt])){{/l0prec}};
                 cur_sorted[k] = nxt;
 
                 bucket_end[k] = nxt_base + sc_at(nxt);
@@ -4460,7 +4470,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 // Advance to the next bucket within the task. Subsequent
                 // buckets always begin fresh (never split-start).
                 let nxt = cur_sorted[k] + 1u;
-                let nxt_base = l0_base[nxt];
+                let nxt_base = {{#l0prec}}l0_base[nxt]{{/l0prec}}{{^l0prec}}off_at(flat_bid(sorted_bucket_list[nxt])){{/l0prec}};
                 cur_sorted[k] = nxt;
 
                 bucket_end[k] = nxt_base + sc_at(nxt);

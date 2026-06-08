@@ -2133,6 +2133,13 @@ export class MsmV2 {
   private get splitSubmitDiag(): boolean {
     return typeof location !== 'undefined' && new URLSearchParams(location.search).get('split_submit') === '1';
   }
+  // l0_base v2 (resolve_l0base precompute) on by default; ?l0_precompute=0 reverts
+  // the walker to the inline off_at(flat_bid(.)) dependent gather and skips the
+  // resolve dispatch (binding 2 becomes the raw offsets CSR). For A/B isolating
+  // whether the precompute path is implicated in a device-loss.
+  private get l0Precompute(): boolean {
+    return typeof location === 'undefined' || new URLSearchParams(location.search).get('l0_precompute') !== '0';
+  }
   private decomposeBinds!: GPUBindGroup[];
   // split-c MSB histogram (Phase 1). msbHistBuf: 256 u32 bins; msbPerScalarBuf:
   // n u32 (per-scalar msb, 255 sentinel for zero — reused by Phase 2 idx_large).
@@ -2946,7 +2953,16 @@ export class MsmV2 {
       m.resolveL0BaseLayout,
     );
     m.streamWalkerPipe = await compile(
-      sm.gen_ba_stream_walker_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT, m.pk14Inverse),
+      sm.gen_ba_stream_walker_shader(
+        STREAM_WALKER_TPB,
+        STREAM_S,
+        m.BW,
+        m.stride,
+        m.redM,
+        INV_VARIANT,
+        m.pk14Inverse,
+        m.l0Precompute,
+      ),
       `stream-walker`,
       m.streamWalkerLayout,
     );
@@ -4206,7 +4222,7 @@ export class MsmV2 {
         mkBind(this.streamWalkerLayout, [
           sb,
           a0Buf,
-          l0BaseBuf,
+          this.l0Precompute ? l0BaseBuf : offsetsBufs[0],
           taskc,
           this.pointXBuf,
           this.pointYBuf,
@@ -4725,7 +4741,9 @@ export class MsmV2 {
       dispatch(this.partitionTaskPipe, this.partitionTaskBind, this.maxPlannerWorkgroups, 1);
       // Resolve per-sorted-bucket l0_base so the walker reads a coalesced base
       // (kills the cold dependent-gather: init ramp + small-bucket transition drain).
-      dispatch(this.resolveL0BasePipe, this.resolveL0BaseBinds[bi], Math.ceil(this.bTotal / 256), 1);
+      if (this.l0Precompute) {
+        dispatch(this.resolveL0BasePipe, this.resolveL0BaseBinds[bi], Math.ceil(this.bTotal / 256), 1);
+      }
       setPhase('accumulate');
       // NOTE: redBuf and isPresentBuf are cleared ONCE per encode (above
       // the batch loop), not per batch. Each batch writes its own global
