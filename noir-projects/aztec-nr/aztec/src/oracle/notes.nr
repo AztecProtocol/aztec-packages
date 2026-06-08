@@ -212,6 +212,10 @@ unconstrained fn get_next_tagging_index_oracle(_secret: Field, _mode: u8) -> u32
 
 /// Gets the sender for tags.
 ///
+/// This unconstrained value is used as the sender when computing an unconstrained shared secret for a tag in order to
+/// emit a log. Constrained tagging should not use this as there is no guarantee that the recipient knows about the
+/// sender, and hence about the shared secret.
+/// 
 /// Returns the wallet-supplied default sender for tags, or `None` if no default was provided.
 pub(crate) unconstrained fn get_sender_for_tags() -> Option<AztecAddress> {
     get_sender_for_tags_oracle()
