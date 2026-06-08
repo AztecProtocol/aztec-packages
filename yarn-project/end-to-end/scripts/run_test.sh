@@ -18,9 +18,8 @@ case "$type" in
   ;;
   "compose")
     # TODO: Replace this file with test_simple.sh, and just emit the below as part of test_cmds.
-    compose_log_name="$(echo "${test}${NAME_POSTFIX:-}" | sed 's/^[^a-zA-Z0-9]*//; s/[\/\.]/_/g')"
-    export COMPOSE_LOG_DIR=${COMPOSE_LOG_DIR:-/tmp/aztec-compose-logs/$compose_log_name}
-    TEST=$test exec run_compose_test $test end-to-end $PWD
+    # Remove volumes on cleanup so the local-network logs volume doesn't persist across runs.
+    TEST=$test REMOVE_COMPOSE_VOLUMES=1 exec run_compose_test $test end-to-end $PWD
   ;;
   "web3signer")
     TEST=$test exec run_compose_test $test end-to-end $PWD/web3signer

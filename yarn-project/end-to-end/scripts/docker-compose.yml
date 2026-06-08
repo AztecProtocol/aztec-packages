@@ -15,7 +15,7 @@ services:
     volumes:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
-      - ${COMPOSE_LOG_DIR:-/tmp/aztec-compose-logs/default}:/logs
+      - local-network-logs:/logs
     working_dir: /root/aztec-packages/yarn-project/aztec
     entrypoint: >
       bash -c '
@@ -43,7 +43,7 @@ services:
     volumes:
       - ../../../:/root/aztec-packages
       - ${HOME}/.bb-crs:/root/.bb-crs
-      - ${COMPOSE_LOG_DIR:-/tmp/aztec-compose-logs/default}:/logs
+      - local-network-logs:/logs
     tmpfs:
       - /tmp:rw,size=1g
       - /tmp-jest:rw,size=512m
@@ -88,9 +88,11 @@ services:
         echo "===== local-network logs ====="
         cat /logs/local-network.log || true
         echo "===== end local-network logs ====="
-        rm -f /logs/local-network.log
         exit $$rc
       '
     depends_on:
       - local-network
       - fork
+
+volumes:
+  local-network-logs:

@@ -106,8 +106,8 @@ function test_cmds {
   # compose-based tests with custom scripts
   for flow in ../cli-wallet/test/flows/*.sh; do
     # Note these scripts are ran directly by docker-compose.yml because it ends in '.sh'.
-    # Set LOG_LEVEL=info for a better output experience. Deeper debugging should happen with other e2e tests.
-    echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=info $run_test_script compose $flow"
+    # Run at LOG_LEVEL=verbose so the captured local-network logs are detailed enough for diagnostics.
+    echo "$hash:ONLY_TERM_PARENT=1 LOG_LEVEL=verbose $run_test_script compose $flow"
   done
 }
 
