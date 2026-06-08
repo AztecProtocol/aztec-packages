@@ -3,7 +3,7 @@ import {
   type FunctionAbi,
   FunctionType,
   getAllFunctionAbis,
-  loadContractArtifact,
+  loadContractArtifactWithValidation,
 } from '@aztec/aztec.js/abi';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
@@ -132,7 +132,7 @@ export async function getContractArtifact(fileDir: string, log: LogFn) {
   }
 
   try {
-    return loadContractArtifact(JSON.parse(contents));
+    return loadContractArtifactWithValidation(JSON.parse(contents));
   } catch (err) {
     log('Invalid file used. Please try again.');
     throw err;

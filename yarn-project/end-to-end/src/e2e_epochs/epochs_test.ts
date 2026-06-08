@@ -113,9 +113,7 @@ export class EpochsTestContext {
     const aztecSlotDuration = opts.aztecSlotDuration ?? (opts.aztecSlotDurationInL1Slots ?? 2) * ethereumSlotDuration;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 6;
     const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
-    const l1PublishingTime = opts.l1PublishingTime ?? 1;
     return {
-      l1PublishingTime,
       ethereumSlotDuration,
       aztecSlotDuration,
       aztecEpochDuration,
@@ -124,13 +122,8 @@ export class EpochsTestContext {
   }
 
   public async setup(opts: EpochsTestOpts = {}) {
-    const {
-      ethereumSlotDuration,
-      aztecSlotDuration,
-      aztecEpochDuration,
-      aztecProofSubmissionEpochs,
-      l1PublishingTime,
-    } = EpochsTestContext.getSlotDurations(opts);
+    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs } =
+      EpochsTestContext.getSlotDurations(opts);
 
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
@@ -167,7 +160,6 @@ export class EpochsTestContext {
         worldStateCheckpointHistory: WORLD_STATE_CHECKPOINT_HISTORY,
         exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
         slasherEnabled: false,
-        l1PublishingTime,
         ...opts,
         ...(hardcodedAccountData ? { initialFundedAccounts: [hardcodedAccountData], numberOfAccounts: 0 } : {}),
       },

@@ -103,7 +103,6 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       ethereumSlotDuration: 4,
       aztecSlotDuration: 36,
       blockDurationMs: 8000,
-      l1PublishingTime: 2,
       attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: 3,
       // Allow empty blocks so that early sub-slots without txs still produce blocks.
