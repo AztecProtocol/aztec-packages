@@ -140,7 +140,34 @@ export async function loadSrsPoints(numPoints: number, onProgress: SrsProgress =
     kind: 'info',
     msg: `[srs] decompressing ${numPoints.toLocaleString()} points on GPU…`,
   });
-  const out = await gpuDecompressG1(compressed, numPoints, msg => onProgress({ kind: 'info', msg }));
+  // Bounded device-lost retry. With no JS fallback, a transient GPU reset
+  // (e.g. an Adreno TDR under thermal/memory pressure) during the page-load
+  // decompress would otherwise brick the page. gpuDecompressG1 requests and
+  // destroys its own device, so each retry transparently gets a fresh one —
+  // still GPU-only, just resilient to a one-off reset.
+  const MAX_DECOMPRESS_ATTEMPTS = 3;
+  let out: Uint8Array | null = null;
+  for (let attempt = 1; attempt <= MAX_DECOMPRESS_ATTEMPTS; attempt++) {
+    try {
+      out = await gpuDecompressG1(compressed, numPoints, msg => onProgress({ kind: 'info', msg }));
+      break;
+    } catch (err) {
+      const emsg = err instanceof Error ? err.message : String(err);
+      const deviceLost = /device.{0,3}is lost|mapAsync|device.*destroyed/i.test(emsg);
+      if (attempt < MAX_DECOMPRESS_ATTEMPTS && deviceLost) {
+        onProgress({
+          kind: 'info',
+          msg: `[srs] GPU decompress lost the device (attempt ${attempt}/${MAX_DECOMPRESS_ATTEMPTS}: ${emsg}); re-acquiring a fresh device and retrying…`,
+        });
+        await new Promise(r => setTimeout(r, 400 * attempt));
+        continue;
+      }
+      throw err;
+    }
+  }
+  if (out === null) {
+    throw new Error('[srs] GPU decompression failed after retries');
+  }
   onProgress({
     kind: 'phase',
     phase: 'decompress',
