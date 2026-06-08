@@ -94,9 +94,8 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Returns the facts for one entity, for use in Noir fold execution. Layers this job's staged writes over committed
-   * state (read-your-writes): facts recorded under `jobId` are visible before commit, and a staged terminate hides the
-   * entity's facts. Mirrors the staged-over-committed read model of the sibling note and event stores.
+   * Returns the facts for one entity.
+   *
    * @param contract - The contract address owning the entity.
    * @param scope - The scope (recipient address) under which facts were recorded.
    * @param entityTypeId - Discriminates entity kinds within a contract+scope.
@@ -137,8 +136,7 @@ export class FactStore implements StagedStore {
 
   /**
    * Returns the correlation keys of all active entities under (contract, scope, entityTypeId) — entities with at least
-   * one fact. Layers this job's staged writes over committed state (read-your-writes): a staged record activates an
-   * entity and a staged terminate deactivates it before commit.
+   * one fact.
    */
   async activeEntities(contract: AztecAddress, scope: AztecAddress, entityTypeId: Fr, jobId: string): Promise<Fr[]> {
     const sKey = scopeKey(contract, scope, entityTypeId);

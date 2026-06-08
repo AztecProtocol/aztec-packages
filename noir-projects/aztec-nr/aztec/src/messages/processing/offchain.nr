@@ -280,22 +280,22 @@ pub unconstrained fn sync_inbox(
 
     for i in 0..FACT_MAX_ACTIVE_ENTITIES {
         if i < entities_len {
-            // This loop decides what to do with each active reception entity. We handle the following scenarios:
+            // This loop decides what to do with each active message reception workflow. We handle the following
+            // scenarios:
             //
             // - Expired: the message's effective expiration (`anchor_block_timestamp + MAX_MSG_TTL`) has passed. We
-            //   terminate the entity to free its storage. This applies regardless of the folded state and replaces the
-            //   old `inbox.remove`.
+            //   terminate the entity to stop tracking it.
             //
             // - Received and resolved: the originating TX has been found by PXE, giving us the context needed to
             //   process the message. We add it to `ready_to_process` and record a `Processed` fact anchored at the
-            //   resolving block. Anchoring is the idempotency + reorg mechanism: a subsequent sync sees the `Processed`
-            //   fact and skips the message, but if the anchoring block is reorg'd away the retractable fact is pruned
-            //   and the message is re-processed.
+            //   resolving block. If the block gets reorg'd, the `Processed` fact is retracted, effectively rewinding
+            //   the message's lifecycle.
             //
             // - Received and unresolved: the originating TX is not yet known to PXE (or the message is tx-less, which
             //   never resolves). We leave the entity active so future syncs can pick it up once the TX appears.
             //
-            // - Already processed (and not expired): the idempotency guard. We skip the message to avoid re-pushing it.
+            // - Already processed (and not expired): we skip the message to avoid re-pushing it, but keep it active
+            //   until expiration.
             let key = entities.get(i);
             let facts = get_entity_facts(contract_address, scope, OFFCHAIN_RECEPTION_ENTITY, key);
             let msg = received_message_of(facts);
