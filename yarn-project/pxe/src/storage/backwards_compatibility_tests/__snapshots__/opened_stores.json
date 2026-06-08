@@ -30,6 +30,14 @@
       "kind": "map"
     },
     {
+      "name": "entities",
+      "kind": "map"
+    },
+    {
+      "name": "entities_by_block",
+      "kind": "multimap"
+    },
+    {
       "name": "entities_by_scope",
       "kind": "multimap"
     },
