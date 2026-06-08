@@ -937,6 +937,34 @@ mod tests {
         assert_array_appended_and_scoped(dest, source, 0, contract_address);
     }
 
+    // kernels-audit #529 (https://github.com/AztecProtocol/aztec-claude/issues/529) reachability: the
+    // inner-kernel append constraint does NOT clear slots beyond
+    // `dest.length`. A malicious prover can leave a non-empty item there and it is accepted here; the
+    // only safety net is the tail circuit's dense-trim (see this file's `assert_array_appended` doc),
+    // which runs AFTER the reset. So a planted note-log slot beyond `logs.length` reaches the reset's
+    // `validate_log_squashing` (see its `poc_529_*` test), where it can drop a kept log before the
+    // tail check ever runs. This pins that the planted item is accepted at the inner kernel.
+    #[test]
+    fn assert_array_appended_and_scoped_nonempty_item_beyond_length_is_accepted() {
+        let source: ClaimedLengthArray<Field, 3> =
+            ClaimedLengthArray { array: [10, 20, 0], length: 2 };
+        let contract_address = AztecAddress::from_field(999);
+
+        let dest: ClaimedLengthArray<Scoped<Field>, 5> = ClaimedLengthArray {
+            array: [
+                Scoped { inner: 10, contract_address },
+                Scoped { inner: 20, contract_address },
+                // Planted non-empty item beyond dest.length (= 2); not caught by this constraint.
+                Scoped { inner: 999, contract_address },
+                Scoped::empty(),
+                Scoped::empty(),
+            ],
+            length: 2,
+        };
+
+        assert_array_appended_and_scoped(dest, source, 0, contract_address);
+    }
+
     #[test]
     fn assert_array_appended_and_scoped_empty_source_succeeds() {
         let source: ClaimedLengthArray<Field, 3> = ClaimedLengthArray::empty();
