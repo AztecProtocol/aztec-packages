@@ -57,10 +57,13 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 // sub-ranges of it, addressed via the u32 element offsets in `arena_off` (.x, .y).
 // Binding the monolith once (instead of two sub-ranges) frees the storage-binding
 // slot that lets `window_desc` be a storage buffer (no fixed-size uniform ⇒ no
-// window cap). Memory is unchanged — same arena. (offsets is a standalone buffer,
-// not A0, so it keeps its own binding.)
+// window cap). Memory is unchanged — same arena.
 @group(0) @binding(1) var<storage, read>       arena_a0:           array<u32>;
-@group(0) @binding(2) var<storage, read>       offsets:            array<u32>;
+// l0_base[i] = off_at(flat_bid(sorted_bucket_list[i])), precomputed by
+// ba_planner_resolve_l0base. A DEDICATED buffer (reusing the slot the now-removed
+// `offsets`/`flat_bid` gather freed) — NOT a sub-range of arena_a0, so the walker's
+// hot loop reads it directly without adding a third widely-separated A0 region.
+@group(0) @binding(2) var<storage, read>       l0_base:            array<u32>;
 @group(0) @binding(3) var<storage, read>       task_cuts:          array<u32>;
 @group(0) @binding(4) var<storage, read>       point_x:            array<vec4<u32>>;
 @group(0) @binding(5) var<storage, read>       point_y:            array<vec4<u32>>;
@@ -84,7 +87,6 @@ const WD_STRIDE: u32 = 8u;
 fn wd_work_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 3u]; }
 fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
 fn sc_at(i: u32) -> u32 { return arena_a0[arena_off.x + i]; }   // sorted_count_list[i]
-fn off_at(i: u32) -> u32 { return offsets[i]; }                 // standalone offsets[i]
 fn l0_at(i: u32) -> u32 { return arena_a0[arena_off.y + i]; }   // l0_index[i]
 // is_present marking is hoisted into combine_filter; stream_walker stays
 // within the 10-storage-buffer cap. combine_filter sees every bucket with
@@ -98,13 +100,6 @@ fn l0_at(i: u32) -> u32 { return arena_a0[arena_off.y + i]; }   // l0_index[i]
 // touches just 2-4 cache lines (vs 32 lines in the naive per-thread-stride
 // layout), letting the GPU coalesce the writes into a single transaction.
 
-// Flat CSR index (offsets/counts space) for a packed-window bid. The CSR is
-// batch-local, so subtract the batch's base work_off from the global prefix.
-// Uniform fill ⇒ wd_work_off(gwin) - wd_work_off(bwb) == window*BW.
-fn flat_bid(bid: u32) -> u32 {
-    let gwin = (bid >> WBID_SHIFT) + batch_offset.x;
-    return wd_work_off(gwin) - wd_work_off(batch_offset.x) + (bid & WBID_MAG_MASK);
-}
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_at(cursor);
@@ -210,7 +205,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         let eo = task_cuts[cut_base + (k + 1u) * 2u + 1u];
 
         let sb_id = sorted_bucket_list[sb];
-        let sb_base = off_at(flat_bid(sb_id));
+        let sb_base = l0_base[sb];
         let sb_count = sc_at(sb);
 
         // Start cursor. so==0 → fresh at the bucket's first point. so in
@@ -231,7 +226,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         } else {
             eff_sorted = sb + 1u;
             eff_id = sorted_bucket_list[eff_sorted];
-            eff_base = off_at(flat_bid(eff_id));
+            eff_base = l0_base[eff_sorted];
             eff_count = sc_at(eff_sorted);
             start_cursor = eff_base;
             split_start_m = split_start_m & ~(1u << k);
@@ -243,11 +238,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         var te_cur: u32;
         if (eo > 0u) {
             te_sort = eb;
-            te_cur = off_at(flat_bid(sorted_bucket_list[eb])) + eo + 1u;
+            te_cur = l0_base[eb] + eo + 1u;
         } else if (eb > 0u) {
             te_sort = eb - 1u;
-            let pid = sorted_bucket_list[te_sort];
-            te_cur = off_at(flat_bid(pid)) + sc_at(te_sort);
+            te_cur = l0_base[te_sort] + sc_at(te_sort);
         } else {
             te_sort = 0u;
             te_cur = 0u;
@@ -283,8 +277,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
                 let nxt = eff_sorted + 1u;
-                let nxt_id = sorted_bucket_list[nxt];
-                let nxt_base = off_at(flat_bid(nxt_id));
+                let nxt_base = l0_base[nxt];
                 cur_sorted[k] = nxt;
 
                 bucket_end[k] = nxt_base + sc_at(nxt);
@@ -337,16 +330,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             }
         }
 
-{{#inv_f8}}
         // pk14 packed-native inverse: takes/returns the 8x u32 form directly
         // (Montgomery form via the e0=R^2 seed) -- no unpack/pack round-trip.
         var inv = {{ inv_fn }}(acc);
-{{/inv_f8}}
-{{^inv_f8}}
-        var acc20 = unpack256_to_limbs(acc);
-        var inv20 = {{ inv_fn }}(acc20);
-        var inv = pack_limbs_to_256(&inv20);
-{{/inv_f8}}
 
         // OPTIMIZATION (c): fused inverse pass + backward peel.
         // Original had two separate descending loops:
@@ -438,8 +424,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 // Advance to the next bucket within the task. Subsequent
                 // buckets always begin fresh (never split-start).
                 let nxt = cur_sorted[k] + 1u;
-                let nxt_id = sorted_bucket_list[nxt];
-                let nxt_base = off_at(flat_bid(nxt_id));
+                let nxt_base = l0_base[nxt];
                 cur_sorted[k] = nxt;
 
                 bucket_end[k] = nxt_base + sc_at(nxt);

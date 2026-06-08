@@ -111,9 +111,7 @@ fn jac_add(dst: Jac, src: Jac) -> Jac {
 fn affine_add(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> array<array<u32, 8>, 2> {
     let dx = fr_sub_f8(x2, x1);
     let dy = fr_sub_f8(y2, y1);
-    var dx20: BigInt = unpack256_to_limbs(dx);
-    var dxinv20: BigInt = {{ inv_fn }}(dx20);
-    let dx_inv = pack_limbs_to_256(&dxinv20);
+    let dx_inv = {{ inv_fn }}(dx);
     let lambda = montgomery_product_f8(dy, dx_inv);
     let l2 = montgomery_product_f8(lambda, lambda);
     let x3 = fr_sub_f8(fr_sub_f8(l2, x1), x2);
@@ -204,9 +202,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
     if (t == 0u) {
         // sh[0] = Jacobian bucket sum. Convert to affine (one inversion).
         let Z = sh[0].z;
-        var z20: BigInt = unpack256_to_limbs(Z);
-        var zinv20: BigInt = {{ inv_fn }}(z20);
-        let Zinv = pack_limbs_to_256(&zinv20);
+        let Zinv = {{ inv_fn }}(Z);
         let Z2inv = montgomery_product_f8(Zinv, Zinv);
         let Z3inv = montgomery_product_f8(Z2inv, Zinv);
         let nx = montgomery_product_f8(sh[0].x, Z2inv);

@@ -169,9 +169,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Single inversion per pair_block. The safegcd inverse is 20x13-limb; the
     // accumulate is 8x u32, so expand on the way in and contract the
     // result — one conversion pair per pair_block.
-    var acc20: BigInt = unpack256_to_limbs(acc);
-    var inv20: BigInt = {{ inv_fn }}(acc20);
-    var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
+    var inv: array<u32, 8> = {{ inv_fn }}(acc);
 
     // Inverse pass: walk k descending, derive inv_dx[k] = 1/dx_k from the
     // running inverse + the stored forward prefix products, and write it

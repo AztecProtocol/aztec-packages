@@ -931,6 +931,7 @@ interface SharedScratch {
   // finalize bind's ro/rw set. 4 B stub unless high-mem.
   touchedBuf: GPUBuffer;
   l0IdxBuf: GPUBufferBinding;
+  l0BaseBuf: GPUBuffer;
   bucketAndSignBuf: GPUBufferBinding;
   valIdxBuf: GPUBufferBinding;
   rowPtrBuf: GPUBufferBinding;
@@ -1195,6 +1196,7 @@ export class MsmV2Pool {
     let bucketResultBuf = s?.bucketResultBuf;
     let touchedBuf = s?.touchedBuf;
     let l0IdxBuf = s?.l0IdxBuf;
+    let l0BaseBuf = s?.l0BaseBuf;
     let bucketAndSignBuf = s?.bucketAndSignBuf;
     let valIdxBuf = s?.valIdxBuf;
     let rowPtrBuf = s?.rowPtrBuf;
@@ -1279,12 +1281,17 @@ export class MsmV2Pool {
         : [sbuf(4), sbuf(4)];
       grew = true;
     }
-    if (!countsBufs || !offsetsBufs || dims.batchBuckets > cur.batchBuckets) {
+    if (!countsBufs || !offsetsBufs || !l0BaseBuf || dims.batchBuckets > cur.batchBuckets) {
       countsBufs?.forEach(b => b.destroy());
       offsetsBufs?.forEach(b => b.destroy());
+      l0BaseBuf?.destroy();
       grow(true, 'batchBuckets');
       countsBufs = [sbuf(cur.batchBuckets * 4), sbuf(cur.batchBuckets * 4)];
       offsetsBufs = [sbuf(cur.batchBuckets * 4), sbuf(cur.batchBuckets * 4)];
+      // Dedicated l0_base buffer (per-sorted-bucket l0 base cursor), NOT an A0
+      // sub-range: the walker reads it as its own binding so its hot loop doesn't
+      // add a third widely-separated arena_a0 region (that cost ~36 ms at logn17).
+      l0BaseBuf = sbuf(cur.batchBuckets * 4);
       grew = true;
     }
     if (!prefScratchBuf || dims.fusedTile > cur.fusedTile || dims.S > cur.S || himTransition) {
@@ -1566,6 +1573,7 @@ export class MsmV2Pool {
       bucketResultBuf: bucketResultBuf!,
       touchedBuf: touchedBuf!,
       l0IdxBuf: l0IdxBuf!,
+      l0BaseBuf: l0BaseBuf!,
       bucketAndSignBuf: bucketAndSignBuf!,
       valIdxBuf: valIdxBuf!,
       rowPtrBuf: rowPtrBuf!,
@@ -2003,6 +2011,9 @@ export class MsmV2 {
   private partitionTaskPipe!: GPUComputePipeline;
   private partitionTaskLayout!: GPUBindGroupLayout;
   private partitionTaskBind!: GPUBindGroup;
+  private resolveL0BasePipe!: GPUComputePipeline;
+  private resolveL0BaseLayout!: GPUBindGroupLayout;
+  private resolveL0BaseBinds: GPUBindGroup[] = [];
   private streamWalkerPipe!: GPUComputePipeline;
   private streamWalkerLayout!: GPUBindGroupLayout;
   private streamWalkerBinds: GPUBindGroup[] = [];
@@ -2115,6 +2126,13 @@ export class MsmV2 {
   private tsStagingBuf: GPUBuffer | null = null;
   private passCount = 0;
   private passPhases: string[] = [];
+  // ?split_submit=1 diagnostic: per-phase submit promises captured during
+  // encodeIntoBatch; run() awaits them in order so a GPU device-loss names the
+  // exact phase in flight (Adreno watchdog localisation). Off by default.
+  private splitCmdBuffers: Array<[string, GPUCommandBuffer]> = [];
+  private get splitSubmitDiag(): boolean {
+    return typeof location !== 'undefined' && new URLSearchParams(location.search).get('split_submit') === '1';
+  }
   private decomposeBinds!: GPUBindGroup[];
   // split-c MSB histogram (Phase 1). msbHistBuf: 256 u32 bins; msbPerScalarBuf:
   // n u32 (per-scalar msb, 255 sentinel for zero — reused by Phase 2 idx_large).
@@ -2603,6 +2621,16 @@ export class MsmV2 {
       'storage',
       'uniform',
     ]);
+    //   resolve_l0base: sorted_bucket_list, arena_a0 (rw), offsets, window_desc, planner_meta (ro), params, batch_offset (uniform)
+    m.resolveL0BaseLayout = lt([
+      'read-only-storage',
+      'storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'uniform',
+      'uniform',
+    ]);
     //   stream_walker: sorted_bucket_list, sorted_count_list, offsets, task_cuts, l0_index, point_x, point_y, bucket_sums(rw), partials(rw), partial_dest(rw), params(uniform)
     // sorted_bucket_list, arena_a0 (whole A0 monolith — covers sorted_count_list +
     // l0_index), offsets (standalone), task_cuts, point_x, point_y (ro); red_buf,
@@ -2911,6 +2939,11 @@ export class MsmV2 {
       sm.gen_ba_planner_partition_task_shader(STREAM_WALKER_TPB, STREAM_S, STREAM_PLANNER_TPB),
       `partition-task`,
       m.partitionTaskLayout,
+    );
+    m.resolveL0BasePipe = await compile(
+      sm.gen_ba_planner_resolve_l0base_shader(),
+      `resolve-l0base`,
+      m.resolveL0BaseLayout,
     );
     m.streamWalkerPipe = await compile(
       sm.gen_ba_stream_walker_shader(STREAM_WALKER_TPB, STREAM_S, m.BW, m.stride, m.redM, INV_VARIANT, m.pk14Inverse),
@@ -3553,6 +3586,7 @@ export class MsmV2 {
     this.bufA = bufA;
     this.bufB = bufB;
     const l0IdxBuf = scratch.l0IdxBuf;
+    const l0BaseBuf = scratch.l0BaseBuf;
     // L0 seed pad-trio — three index slots at [l0PadAnchor, +1, +2] that l0-mode
     // shaders use as a "self-pad anchor" (the walker's IDLE_ANCHOR). It sits ABOVE
     // the transpose partials matrix so the transpose can't clobber it; for a uniform
@@ -4172,7 +4206,7 @@ export class MsmV2 {
         mkBind(this.streamWalkerLayout, [
           sb,
           a0Buf,
-          offsetsBufs[0],
+          l0BaseBuf,
           taskc,
           this.pointXBuf,
           this.pointYBuf,
@@ -4184,6 +4218,13 @@ export class MsmV2 {
           bwb,
           walkerArenaOff,
         ]),
+      );
+      // Resolve-l0base bind groups: precompute l0_base into its dedicated buffer.
+      // One per batch (batch_offset feeds flat_bid). Writes l0BaseBuf (rw), reads
+      // sorted_bucket_list + the final CSR offsets + window_desc.
+      const l0bParams = ubuf(new Uint32Array([0, 0, 0, 0]));
+      this.resolveL0BaseBinds = batchWindowBaseBufs.map(bwb =>
+        mkBind(this.resolveL0BaseLayout, [sb, l0BaseBuf, offsetsBufs[0], windowDescBuf, sp, l0bParams, bwb]),
       );
       const numPartialSlots = M_partials_walker;
       // === Optimal walker_combine bind groups. ===
@@ -4486,10 +4527,26 @@ export class MsmV2 {
     if (this.preparedFor === null) throw new Error('MsmV2.encodeIntoBatch: call prepare() first');
     const { wgi: WGI } = this;
     let passIdx = 0;
-    const profEnabled = this.profile && this.querySet;
+    const splitDiag = this.splitSubmitDiag;
+    const device = this.device;
+    if (splitDiag) this.splitCmdBuffers = [];
+    let pendingPhase = 'init';
+    // ?split_submit=1: finish the current encoder at each phase boundary and
+    // COLLECT its command buffer (do not submit yet). run() submits them
+    // SEQUENTIALLY (submit → await GPU completion → next), idling the GPU
+    // between phases to reset the Adreno ~2s watchdog, and letting device.lost
+    // name the phase in flight.
+    const flushIfSplit = (): void => {
+      if (!splitDiag) return;
+      this.splitCmdBuffers.push([pendingPhase, enc.finish()]);
+      enc = device.createCommandEncoder();
+    };
+    const profEnabled = this.profile && this.querySet && !splitDiag;
     if (profEnabled) this.passPhases = [];
     let curPhase = 'misc';
     const setPhase = (p: string) => {
+      flushIfSplit();
+      pendingPhase = p;
       curPhase = p;
     };
     const dispatch = (pipe: GPUComputePipeline, bind: GPUBindGroup, nx: number, ny = 1): void => {
@@ -4666,6 +4723,9 @@ export class MsmV2 {
       // Stream-walker KNOB 2 planner: precompute per-thread task cuts +
       // emit walker's indirect dispatch args at planner_meta[15..17].
       dispatch(this.partitionTaskPipe, this.partitionTaskBind, this.maxPlannerWorkgroups, 1);
+      // Resolve per-sorted-bucket l0_base so the walker reads a coalesced base
+      // (kills the cold dependent-gather: init ramp + small-bucket transition drain).
+      dispatch(this.resolveL0BasePipe, this.resolveL0BaseBinds[bi], Math.ceil(this.bTotal / 256), 1);
       setPhase('accumulate');
       // NOTE: redBuf and isPresentBuf are cleared ONCE per encode (above
       // the batch loop), not per batch. Each batch writes its own global
@@ -4841,10 +4901,12 @@ export class MsmV2 {
         32,
       );
     }
-    if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
+    if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf && !splitDiag) {
       enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
       enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
     }
+    // Final per-phase flush: submit the last phase (reduce + result gather).
+    flushIfSplit();
   }
 
   /**
@@ -4995,11 +5057,30 @@ export class MsmV2 {
     const wallT0 = performance.now();
     const enc = device.createCommandEncoder();
     this.encodeIntoBatch(enc, this.redStaging, 0);
-    if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
-      enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
-      enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
+    if (!this.splitSubmitDiag) {
+      if (this.profile && this.querySet && this.tsResolveBuf && this.tsStagingBuf) {
+        enc.resolveQuerySet(this.querySet, 0, this.passCount * 2, this.tsResolveBuf, 0);
+        enc.copyBufferToBuffer(this.tsResolveBuf, 0, this.tsStagingBuf, 0, this.passCount * 16);
+      }
+      device.queue.submit([enc.finish()]);
+    } else {
+      // Sequential per-phase submit + GPU sync. Awaiting onSubmittedWorkDone
+      // idles the GPU between phases (watchdog reset). device.lost resolves once
+      // the driver resets; we surface the in-flight phase in the thrown error so
+      // it lands in the posted page log (Adreno device-loss localisation).
+      let lostInfo: { message: string } | null = null;
+      void this.device.lost.then(i => {
+        lostInfo = i as unknown as { message: string };
+      });
+      for (const [ph, cmd] of this.splitCmdBuffers) {
+        device.queue.submit([cmd]);
+        await device.queue.onSubmittedWorkDone();
+        await Promise.resolve();
+        if (lostInfo) throw new Error(`[split] DEVICE_LOST at phase=${ph}: ${lostInfo.message}`);
+        // eslint-disable-next-line no-console
+        if (typeof console !== 'undefined') console.log(`[split] phase=${ph} ok`);
+      }
     }
-    device.queue.submit([enc.finish()]);
     // walker_combine runs the split-bucket reduce on the GPU within the
     // same encoder, so there's no host fixup to interleave any more.
     await this.redStaging.mapAsync(GPUMapMode.READ);

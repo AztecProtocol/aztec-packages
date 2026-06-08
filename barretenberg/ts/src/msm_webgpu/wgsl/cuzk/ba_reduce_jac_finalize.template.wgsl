@@ -90,9 +90,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // Zinv = (1/Z)~ : same expand -> safegcd -> contract path the affine
     // kernel uses; Montgomery-in / Montgomery-out.
-    var z20: BigInt = unpack256_to_limbs(Z);
-    var zinv20: BigInt = {{ inv_fn }}(z20);
-    var Zinv: array<u32, 8> = pack_limbs_to_256(&zinv20);
+    var Zinv: array<u32, 8> = {{ inv_fn }}(Z);
 
     let Z2inv = montgomery_product_f8(Zinv, Zinv);
     let Z3inv = montgomery_product_f8(Z2inv, Zinv);

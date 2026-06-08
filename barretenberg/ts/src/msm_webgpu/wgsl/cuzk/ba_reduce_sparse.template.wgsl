@@ -60,9 +60,7 @@ fn store_pt(idx: u32, M: u32, p: Pt) {
 }
 
 fn finv(a: array<u32, 8>) -> array<u32, 8> {
-    var x: BigInt = unpack256_to_limbs(a);
-    var i: BigInt = {{ inv_fn }}(x);
-    return pack_limbs_to_256(&i);
+    return {{ inv_fn }}(a);
 }
 
 // Affine add: a + b, distinct x assumed (no point collisions). Both present.

@@ -22,6 +22,7 @@ import {
   ba_planner_partition_thread as ba_planner_partition_thread_shader,
   ba_size1 as ba_size1_shader,
   ba_planner_partition_task as ba_planner_partition_task_shader,
+  ba_planner_resolve_l0base as ba_planner_resolve_l0base_shader,
   ba_stream_walker as ba_stream_walker_shader,
   ba_walker_combine_count as ba_walker_combine_count_shader,
   ba_walker_combine_scan as ba_walker_combine_scan_shader,
@@ -40,10 +41,7 @@ import {
   bigint as bigint_funcs,
   bigint_by as bigint_by_funcs,
   bigint_f32 as bigint_f32_funcs,
-  // Register-minimal BY safegcd inverse (BATCH=12 / NUM_OUTER=62, rolling
-  // apply_matrix). Hosts BylMat, byl_divsteps, byl_apply_matrix, the
-  // byl_reduce_to_canonical chain, and the fr_inv_by_loop driver.
-  by_inverse_loop as by_inverse_loop_funcs,
+  // The ONLY inverse: packed-14-bit native safegcd (f8 in/out), fr_inv_by_loop_pk.
   by_inverse_loop_pk14_native as by_inverse_loop_pk14_native_funcs,
   convert_points_only as convert_points_only_shader,
   csr_to_v2_active_sums as csr_to_v2_active_sums_shader,
@@ -108,11 +106,7 @@ function modinv(a: bigint, m: bigint): bigint {
 //  - 'karat'         : generic grouped-Karatsuba + Yuval reduction (default).
 //  - 'cios_unrolled' : register-resident fully-unrolled CIOS; device-validated
 //                      −26% on Mali-G715 at logn=17. BN254 @ 20×13-bit only.
-//  - 'cios_native'   : cios_unrolled's BigInt body PLUS a packed-native f8
-//                      montgomery_product_f8 (no x20/r/s BigInt temps). Adreno
-//                      830 stream_walker 3.8× via spill elimination; Apple-
-//                      neutral. Byte-identical output. BN254 @ 20×13-bit only.
-export type MontMulVariant = 'karat' | 'cios_unrolled' | 'cios_native';
+export type MontMulVariant = 'karat' | 'cios_unrolled';
 
 export class ShaderManager {
   public p: bigint;
@@ -172,13 +166,11 @@ export class ShaderManager {
   // `get_p` / `conditional_reduce` helpers, so swapping the partial is
   // a drop-in change at every callsite.
   public mont_product_src: string;
-  // Packed-native montgomery_product_f8 body, injected as the
-  // `montgomery_product_f8_native` partial. Empty unless montmul='cios_native';
-  // the `f8_native` flag (set in the walker/combine gen) then selects it in
-  // field8 instead of the unpack->BigInt->pack wrapper.
+  // Packed-native f8 montgomery_product_f8 source. Empty unless
+  // montmul='cios_unrolled'; field8's `f8_native` flag then selects this
+  // packed CIOS multiply (no x20/r/s BigInt temps) over the unpack wrapper.
   public mont_f8_native_src: string;
-  // The selected montmul variant; read by the walker/combine gen functions to set
-  // the `f8_native` flag (cios_native ⇒ packed-native montgomery_product_f8).
+  // The selected montmul variant (karat | cios_unrolled).
   private montmul: MontMulVariant;
   public curveConfig: CurveConfig;
   public recompile = '';
@@ -247,13 +239,11 @@ export class ShaderManager {
     // Render the Karatsuba+Yuval Mont body once. This is the default
     // u32 multiplier used by every MSM shader that includes the
     // `montgomery_product_funcs` mustache partial.
-    // cios_native shares cios_unrolled's BigInt body (for the montgomery_product
-    // partial that non-f8 callsites still use); the native f8 swap is separate.
-    this.mont_product_src =
-      montmul === 'cios_unrolled' || montmul === 'cios_native'
-        ? this.renderCiosUnrolledMont()
-        : this.renderKaratYuvalMont();
-    this.mont_f8_native_src = montmul === 'cios_native' ? montgomery_product_f8_native_funcs.trim() : '';
+    this.mont_product_src = montmul === 'cios_unrolled' ? this.renderCiosUnrolledMont() : this.renderKaratYuvalMont();
+    // cios_unrolled carries the packed-native f8 multiply (the Adreno fast
+    // path, 3.8× via x20/r/s spill elimination); karat uses the unpack
+    // wrapper. Selected per-kernel by the `f8_native` flag in field8.
+    this.mont_f8_native_src = montmul === 'cios_unrolled' ? montgomery_product_f8_native_funcs.trim() : '';
     this.montmul = montmul;
 
     if (force_recompile) {
@@ -546,14 +536,14 @@ ${packLines.join('\n')}
    */
   public gen_microbench_shader(op: 'mul' | 'inv', chain_k: number, nthreads: number, pk14 = false): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = pk14 ? by_inverse_loop_pk14_native_funcs : by_inverse_loop_funcs;
-    const inv_fn = pk14 ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     return mustache.render(
       microbench_shader,
       {
         is_mul: op === 'mul',
         is_inv: op === 'inv',
-        inv_f8: pk14,
+        inv_f8: true,
         inv_fn,
         chain_k,
         nthreads,
@@ -576,6 +566,7 @@ ${packLines.join('\n')}
         structs,
         bigint_funcs,
         montgomery_product_funcs: this.mont_product_src,
+        montgomery_product_f8_native: this.mont_f8_native_src,
         field_funcs,
         fr_pow_funcs,
         bigint_by_funcs,
@@ -601,8 +592,8 @@ ${packLines.join('\n')}
       );
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_level_bench_shader,
@@ -650,8 +641,8 @@ ${packLines.join('\n')}
       throw new Error(`gen_ba_reduce_sparse_shader: workgroup_size (${workgroup_size}) must be a positive integer`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_sparse_shader,
@@ -704,8 +695,8 @@ ${packLines.join('\n')}
       );
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_fused_super_bench_shader,
@@ -875,8 +866,8 @@ ${packLines.join('\n')}
       );
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_finalize_accumulate_bench_shader,
@@ -934,8 +925,8 @@ ${packLines.join('\n')}
       throw new Error(`gen_ba_fused_tail_coop_shader: cap (${cap}) must be <= workgroup_size (${workgroup_size})`);
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_fused_tail_coop_shader,
@@ -1000,7 +991,7 @@ ${packLines.join('\n')}
       );
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_level_jacobian_shader,
@@ -1056,8 +1047,8 @@ ${packLines.join('\n')}
       );
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_jac_finalize_shader,
@@ -1106,8 +1097,8 @@ ${packLines.join('\n')}
       );
     }
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_reduce_jac_to_affine_shader,
@@ -1479,6 +1470,16 @@ ${packLines.join('\n')}
     });
   }
 
+  // Per-sorted-bucket l0-base precompute: resolves the walker's unprefetchable
+  // sorted_bucket_list -> flat_bid -> offsets chain once, so the walker reads a
+  // coalesced l0_base[i] at init and at every bucket transition (kills the
+  // cold-gather ALU ramp + small-bucket drain). No template knobs.
+  public gen_ba_planner_resolve_l0base_shader(): string {
+    return mustache.render(ba_planner_resolve_l0base_shader, {
+      recompile: this.recompile,
+    });
+  }
+
   // Stream-walker accumulator (Plan §6, design-knob variant C). TPB=64 with
   // workgroup pref_scratch (KNOB 1) and precomputed task_cuts (KNOB 2).
   public gen_ba_stream_walker_shader(
@@ -1495,8 +1496,8 @@ ${packLines.join('\n')}
     // an e0=R^2 seed), consuming/producing the f8 packed form directly (inv_f8) —
     // no BigInt round-trip. Adreno register-pressure win; byte-identical output.
     // Otherwise the existing BigInt-roundtrip inverse (loop/pk).
-    const inverse_funcs = pk14 ? by_inverse_loop_pk14_native_funcs : by_inverse_loop_funcs;
-    const inv_fn = pk14 || variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = pk14 ? by_inverse_loop_pk14_native_funcs : by_inverse_loop_pk14_native_funcs;
+    const inv_fn = pk14 || 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_stream_walker_shader,
@@ -1504,8 +1505,8 @@ ${packLines.join('\n')}
         workgroup_size,
         s,
         inv_fn,
-        inv_f8: pk14,
-        f8_native: this.montmul === 'cios_native',
+        inv_f8: true,
+        f8_native: this.montmul === 'cios_unrolled',
         bw,
         stride,
         m_red,
@@ -1610,8 +1611,8 @@ ${packLines.join('\n')}
 
   public gen_ba_unified_combine_shader(workgroup_size: number, s: number, variant: 'loop' | 'pk' = 'pk'): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_unified_combine_shader,
@@ -1619,7 +1620,7 @@ ${packLines.join('\n')}
         workgroup_size,
         s,
         inv_fn,
-        f8_native: this.montmul === 'cios_native',
+        f8_native: this.montmul === 'cios_unrolled',
         p8_consts,
         r8_csv,
         f8_words,
@@ -1661,8 +1662,8 @@ ${packLines.join('\n')}
     variant: 'loop' | 'pk' = 'pk',
   ): string {
     const dec = this.decoupledPackUnpackWgsl();
-    const inverse_funcs = by_inverse_loop_funcs;
-    const inv_fn = variant === 'pk' ? 'fr_inv_by_loop_pk' : 'fr_inv_by_loop';
+    const inverse_funcs = by_inverse_loop_pk14_native_funcs;
+    const inv_fn = 'fr_inv_by_loop_pk';
     const { p8_consts, r8_csv, f8_words } = this.f8Context();
     return mustache.render(
       ba_walker_combine_batched_shader,
@@ -1670,7 +1671,7 @@ ${packLines.join('\n')}
         workgroup_size,
         s,
         inv_fn,
-        f8_native: this.montmul === 'cios_native',
+        f8_native: this.montmul === 'cios_unrolled',
         bw,
         stride,
         m_red,

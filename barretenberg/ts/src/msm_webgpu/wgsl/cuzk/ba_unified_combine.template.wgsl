@@ -114,10 +114,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (k + 1u < S) { pref[k] = prefix; }
     }
 
-    // Phase 3: ONE safegcd amortised across the S tasks.
-    var acc20 = unpack256_to_limbs(prefix);
-    var inv20 = {{ inv_fn }}(acc20);
-    var inv = pack_limbs_to_256(&inv20);
+    // Phase 3: ONE safegcd amortised across the S tasks (native f8 pk14, direct).
+    var inv = {{ inv_fn }}(prefix);
 
     // Phase 4: backward fused inverse + per-slot output dispatch.
     // Operands reloaded on demand per the register-lean policy.

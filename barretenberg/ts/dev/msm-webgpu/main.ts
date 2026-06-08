@@ -122,13 +122,7 @@ const gpuKnobs: MsmConfig = (() => {
     invVariant: q.get('inv') === 'loop' ? 'loop' : q.get('inv') === 'pk' ? 'pk' : undefined,
     pk14Inverse: q.get('pk14') === '1' || undefined,
     montmul:
-      q.get('montmul') === 'cios_unrolled'
-        ? 'cios_unrolled'
-        : q.get('montmul') === 'cios_native'
-          ? 'cios_native'
-          : q.get('montmul') === 'karat'
-            ? 'karat'
-            : undefined,
+      q.get('montmul') === 'cios_unrolled' ? 'cios_unrolled' : q.get('montmul') === 'karat' ? 'karat' : undefined,
     jacobianCrossover: (() => {
       const raw = q.get('jaccross');
       if (raw === null) return undefined;
@@ -2611,6 +2605,68 @@ function hideProgress(): void {
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
     }
+  } else if (autorun === 'validate-srs') {
+    // Field-validity audit of the ACTUAL decompressed SRS points the MSM
+    // consumes. The GPU decompresses + caches these per-device, but only the
+    // first 16 are checked at decompress time (srs.ts). Here we verify EVERY
+    // coordinate is a canonical field element (x,y < p) and the point is
+    // on-curve (y^2 == x^3 + 3 mod p). Run per-device to confirm its cache is
+    // clean — a non-canonical coord (>= p) is an out-of-field montmul input.
+    const client = makeResultsClient({ page: 'validate-srs' });
+    const P = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
+    if (srsBuf === null) {
+      log('err', '[validate-srs] SRS not loaded');
+      await client.postResults({
+        state: 'error',
+        params: { page: 'validate-srs' },
+        results: null,
+        error: 'srs not loaded',
+        log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      return;
+    }
+    const loaded = srsBuf.length / 64;
+    const n = Math.min(parseInt(qp.get('n') ?? String(loaded), 10), loaded);
+    log('info', `[validate-srs] auditing ${n.toLocaleString()} points: x<p, y<p, on-curve`);
+    let badGE = 0;
+    let badCurve = 0;
+    let firstBad = -1;
+    for (let i = 0; i < n; i++) {
+      const { x, y } = readSrsPointAt(srsBuf, i);
+      let ok = true;
+      if (x >= P || y >= P) {
+        badGE++;
+        ok = false;
+      } else {
+        const lhs = (y * y) % P;
+        const rhs = (((((x * x) % P) * x) % P) + 3n) % P;
+        if (lhs !== rhs) {
+          badCurve++;
+          ok = false;
+        }
+      }
+      if (!ok && firstBad < 0) firstBad = i;
+    }
+    const bad = badGE + badCurve;
+    if (firstBad >= 0) {
+      const { x, y } = readSrsPointAt(srsBuf, firstBad);
+      log('err', `[validate-srs] firstBad idx=${firstBad} x=0x${x.toString(16)} y=0x${y.toString(16)}`);
+    }
+    log(
+      bad === 0 ? 'ok' : 'err',
+      `[validate-srs] DONE n=${n} bad=${bad} (ge_p=${badGE} off_curve=${badCurve}) firstBad=${firstBad}`,
+    );
+    await client.postResults({
+      state: bad === 0 ? 'done' : 'error',
+      params: { page: 'validate-srs', n },
+      results: { n, bad, badGE, badCurve, firstBad },
+      error: bad === 0 ? null : `${bad} invalid points`,
+      log: [],
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    });
   } else if (autorun === 'msm-batch-check') {
     // Multi-MSM batch-of-K ≡ K-separate byte-identical check (MULTI_MSM_PLAN.md
     // step 1 runtime side). GPU-only — gates on SRS readiness, not WASM.
@@ -2817,13 +2873,11 @@ function hideProgress(): void {
     // reloads. Correctness is covered by the M2 byte-identical oracle; this is
     // pure GPU wall timing (profile=false, wall-around-submit).
     //   ?autorun=msm-matrix&logn=17&reps=8&scalar_dist=profile&profile=A
-    //     &configs=karat:loop,cios_unrolled:loop,cios_native:loop,karat:pk14,cios_unrolled:pk14,cios_native:pk14
+    //     &configs=karat:loop,cios_unrolled:loop,karat:pk14,cios_unrolled:pk14
     const autorunLogN = Math.min(17, parseInt(qp.get('logn') ?? '17', 10) || 17);
     const reps = Math.max(1, parseInt(qp.get('reps') ?? '8', 10));
     const warmups = Math.max(1, parseInt(qp.get('warmups') ?? '2', 10));
-    const configsStr =
-      qp.get('configs') ??
-      'karat:loop,cios_unrolled:loop,cios_native:loop,karat:pk14,cios_unrolled:pk14,cios_native:pk14';
+    const configsStr = qp.get('configs') ?? 'karat:loop,cios_unrolled:loop,karat:pk14,cios_unrolled:pk14';
     const configs = configsStr.split(',').map(s => {
       const [mm, inv] = s.split(':');
       return { montmul: (mm || 'karat') as MsmConfig['montmul'], pk14: inv === 'pk14' };

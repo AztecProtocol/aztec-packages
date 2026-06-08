@@ -1,7 +1,7 @@
 // Isolated montmul / inverse microbench. Mirrors the proven dev/montmul_bench.ts
 // device path (bare requestAdapter/requestDevice, layout:'auto', 2 storage
 // bindings) but renders the SAME montmul / inverse the MSM pipeline uses,
-// selected by `montmul` (karat | cios_unrolled | cios_native) and `pk14`. Each of
+// selected by `montmul` (karat | cios_unrolled) and `pk14`. Each of
 // `nthreads` threads chains `chainK` ops on operands held in the BN254 20×13
 // BigInt rep; timing-only (correctness is already covered by the MSM cross-check
 // + host models). Dependent + stored chain => not optimized away. The point is to

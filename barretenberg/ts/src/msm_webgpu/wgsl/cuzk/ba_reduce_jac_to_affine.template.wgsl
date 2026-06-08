@@ -110,10 +110,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (slot < total) { store_pref(slot, acc); }
     }
 
-    // ---- single inversion of the whole chunk's product ----
-    var acc20: BigInt = unpack256_to_limbs(acc);
-    var inv20: BigInt = {{ inv_fn }}(acc20);
-    var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
+    // ---- single inversion of the whole chunk's product (native f8 pk14, direct) ----
+    var inv: array<u32, 8> = {{ inv_fn }}(acc);
 
     // ---- backward peel: recover each 1/Z, convert in place ----
     for (var kk: u32 = 0u; kk < C; kk = kk + 1u) {

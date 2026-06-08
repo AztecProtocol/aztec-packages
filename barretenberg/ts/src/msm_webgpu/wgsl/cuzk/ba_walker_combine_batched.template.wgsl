@@ -199,10 +199,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
         }
 
-        // === Inversion ===
-        var acc20 = unpack256_to_limbs(prefix);
-        var inv20 = {{ inv_fn }}(acc20);
-        var inv = pack_limbs_to_256(&inv20);
+        // === Inversion (native f8 pk14, direct) ===
+        var inv = {{ inv_fn }}(prefix);
 
         // === FUSED inverse + backward peel: inv_dx stays in registers. ===
         for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {

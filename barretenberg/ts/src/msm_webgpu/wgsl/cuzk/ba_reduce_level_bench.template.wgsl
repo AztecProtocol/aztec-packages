@@ -163,10 +163,8 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
         store_pref(scratch_base + k, acc);
     }
 
-    // Single inversion per chunk.
-    var acc20: BigInt = unpack256_to_limbs(acc);
-    var inv20: BigInt = {{ inv_fn }}(acc20);
-    var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
+    // Single inversion per chunk (native f8 pk14, direct).
+    var inv: array<u32, 8> = {{ inv_fn }}(acc);
 
     // ---- backward peel ----
     for (var kk: u32 = 0u; kk < C; kk = kk + 1u) {

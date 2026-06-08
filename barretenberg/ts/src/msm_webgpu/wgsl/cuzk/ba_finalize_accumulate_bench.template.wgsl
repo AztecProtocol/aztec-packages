@@ -63,9 +63,7 @@ fn ld8(q0: vec4<u32>, q1: vec4<u32>) -> array<u32, 8> {
 fn affine_add(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> array<array<u32, 8>, 2> {
     let dx = fr_sub_f8(x2, x1);
     let dy = fr_sub_f8(y2, y1);
-    var dx20: BigInt = unpack256_to_limbs(dx);
-    var dxinv20: BigInt = {{ inv_fn }}(dx20);
-    let dx_inv = pack_limbs_to_256(&dxinv20);
+    let dx_inv = {{ inv_fn }}(dx);
     let lambda = montgomery_product_f8(dy, dx_inv);
     let l2 = montgomery_product_f8(lambda, lambda);
     let x3 = fr_sub_f8(fr_sub_f8(l2, x1), x2);

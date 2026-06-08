@@ -7,7 +7,7 @@
 //
 // MINIMAL + self-contained, sized per path so it builds on Mali:
 //   op=mul       : structs + bigint + field + montmul (the BigInt body — karat or
-//                  cios_unrolled/cios_native share the same montgomery_product).
+//                  cios_unrolled montgomery_product).
 //   op=inv pk14  : structs + bigint + pack/unpack glue + the self-contained
 //                  packed-14-bit safegcd inverse (fr_inv_by_loop_pk, f8 in/out).
 //   op=inv loop  : structs + bigint + field + montmul + the BigInt safegcd loop

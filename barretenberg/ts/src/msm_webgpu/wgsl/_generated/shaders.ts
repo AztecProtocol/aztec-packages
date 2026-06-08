@@ -1313,9 +1313,7 @@ fn ld8(q0: vec4<u32>, q1: vec4<u32>) -> array<u32, 8> {
 fn affine_add(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> array<array<u32, 8>, 2> {
     let dx = fr_sub_f8(x2, x1);
     let dy = fr_sub_f8(y2, y1);
-    var dx20: BigInt = unpack256_to_limbs(dx);
-    var dxinv20: BigInt = {{ inv_fn }}(dx20);
-    let dx_inv = pack_limbs_to_256(&dxinv20);
+    let dx_inv = {{ inv_fn }}(dx);
     let lambda = montgomery_product_f8(dy, dx_inv);
     let l2 = montgomery_product_f8(lambda, lambda);
     let x3 = fr_sub_f8(fr_sub_f8(l2, x1), x2);
@@ -1658,9 +1656,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // Single inversion per pair_block. The safegcd inverse is 20x13-limb; the
     // accumulate is 8x u32, so expand on the way in and contract the
     // result — one conversion pair per pair_block.
-    var acc20: BigInt = unpack256_to_limbs(acc);
-    var inv20: BigInt = {{ inv_fn }}(acc20);
-    var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
+    var inv: array<u32, 8> = {{ inv_fn }}(acc);
 
     // Inverse pass: walk k descending, derive inv_dx[k] = 1/dx_k from the
     // running inverse + the stored forward prefix products, and write it
@@ -1839,9 +1835,7 @@ fn jac_add(dst: Jac, src: Jac) -> Jac {
 fn affine_add(x1: array<u32, 8>, y1: array<u32, 8>, x2: array<u32, 8>, y2: array<u32, 8>) -> array<array<u32, 8>, 2> {
     let dx = fr_sub_f8(x2, x1);
     let dy = fr_sub_f8(y2, y1);
-    var dx20: BigInt = unpack256_to_limbs(dx);
-    var dxinv20: BigInt = {{ inv_fn }}(dx20);
-    let dx_inv = pack_limbs_to_256(&dxinv20);
+    let dx_inv = {{ inv_fn }}(dx);
     let lambda = montgomery_product_f8(dy, dx_inv);
     let l2 = montgomery_product_f8(lambda, lambda);
     let x3 = fr_sub_f8(fr_sub_f8(l2, x1), x2);
@@ -1932,9 +1926,7 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
     if (t == 0u) {
         // sh[0] = Jacobian bucket sum. Convert to affine (one inversion).
         let Z = sh[0].z;
-        var z20: BigInt = unpack256_to_limbs(Z);
-        var zinv20: BigInt = {{ inv_fn }}(z20);
-        let Zinv = pack_limbs_to_256(&zinv20);
+        let Zinv = {{ inv_fn }}(Z);
         let Z2inv = montgomery_product_f8(Zinv, Zinv);
         let Z3inv = montgomery_product_f8(Z2inv, Zinv);
         let nx = montgomery_product_f8(sh[0].x, Z2inv);
@@ -2657,6 +2649,59 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
 }
 `;
 
+export const ba_planner_resolve_l0base = `// Stream-walker planner stage: precompute per-sorted-bucket l0 base cursor.
+//
+// The walker resolves a bucket's l0_index base via the dependent chain
+//   sorted_bucket_list[i] -> flat_bid(.) -> offsets[.]
+// at init (once per slot) AND at every bucket transition (bucket_done path).
+// Each load's value is the next load's address, so the chain is unprefetchable;
+// on a cold L2 it stalls, which is the walker's start-of-kernel ALU ramp, and —
+// because the count-sorted stream puts the small buckets last, so the high-index
+// threads transition constantly — the small-bucket end-of-kernel drain too.
+//
+// This kernel resolves the chain ONCE per sorted bucket into l0_base (a DEDICATED
+// buffer, not an arena_a0 sub-range), which the walker then reads as a single
+// coalesced, sequential, prefetchable load at both init and every transition.
+//
+// One thread per sorted bucket i (i < num_dense). Reads sorted_bucket_list,
+// offsets (the final post-radix CSR offsets the walker reads) and window_desc;
+// writes l0_base[i] = offsets[flat_bid(sorted_bucket_list[i])].
+//
+// batch_offset.x = bi * batchWindows (window base for flat_bid; 0 for a single MSM)
+
+const WBID_SHIFT:    u32 = 15u;
+const WBID_MAG_MASK: u32 = 0x7fffu;
+const WD_STRIDE:     u32 = 8u;
+
+@group(0) @binding(0) var<storage, read>       sorted_bucket_list: array<u32>;
+@group(0) @binding(1) var<storage, read_write> l0_base:            array<u32>;
+@group(0) @binding(2) var<storage, read>       offsets:            array<u32>;
+@group(0) @binding(3) var<storage, read>       window_desc:        array<u32>;
+@group(0) @binding(4) var<storage, read>       planner_meta:       array<u32>;
+@group(0) @binding(5) var<uniform>             params:             vec4<u32>;
+@group(0) @binding(6) var<uniform>             batch_offset:       vec4<u32>;
+
+fn wd_work_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 3u]; }
+
+// Flat CSR index for a packed-window bid (batch-local CSR ⇒ subtract the batch
+// base work_off). Byte-identical to the walker's own flat_bid.
+fn flat_bid(bid: u32) -> u32 {
+    let gwin = (bid >> WBID_SHIFT) + batch_offset.x;
+    return wd_work_off(gwin) - wd_work_off(batch_offset.x) + (bid & WBID_MAG_MASK);
+}
+
+@compute @workgroup_size(256)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+    let i = gid.x;
+    let num_dense = planner_meta[1];
+    if (i >= num_dense) { return; }
+    let bid = sorted_bucket_list[i];
+    l0_base[i] = offsets[flat_bid(bid)];
+
+    {{{ recompile }}}
+}
+`;
+
 export const ba_planner_v2_emit = `// MSM bucket-accumulate planner — pass B of 2: parallel plan emit.
 //
 // Dispatch (ceil(BW/TPB), NUM_WINDOWS): one workgroup per (bucket-group,
@@ -3055,9 +3100,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // Zinv = (1/Z)~ : same expand -> safegcd -> contract path the affine
     // kernel uses; Montgomery-in / Montgomery-out.
-    var z20: BigInt = unpack256_to_limbs(Z);
-    var zinv20: BigInt = {{ inv_fn }}(z20);
-    var Zinv: array<u32, 8> = pack_limbs_to_256(&zinv20);
+    var Zinv: array<u32, 8> = {{ inv_fn }}(Z);
 
     let Z2inv = montgomery_product_f8(Zinv, Zinv);
     let Z3inv = montgomery_product_f8(Z2inv, Zinv);
@@ -3181,10 +3224,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (slot < total) { store_pref(slot, acc); }
     }
 
-    // ---- single inversion of the whole chunk's product ----
-    var acc20: BigInt = unpack256_to_limbs(acc);
-    var inv20: BigInt = {{ inv_fn }}(acc20);
-    var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
+    // ---- single inversion of the whole chunk's product (native f8 pk14, direct) ----
+    var inv: array<u32, 8> = {{ inv_fn }}(acc);
 
     // ---- backward peel: recover each 1/Z, convert in place ----
     for (var kk: u32 = 0u; kk < C; kk = kk + 1u) {
@@ -3377,10 +3418,8 @@ fn main(@builtin(workgroup_id) wgid: vec3<u32>, @builtin(local_invocation_id) li
         store_pref(scratch_base + k, acc);
     }
 
-    // Single inversion per chunk.
-    var acc20: BigInt = unpack256_to_limbs(acc);
-    var inv20: BigInt = {{ inv_fn }}(acc20);
-    var inv: array<u32, 8> = pack_limbs_to_256(&inv20);
+    // Single inversion per chunk (native f8 pk14, direct).
+    var inv: array<u32, 8> = {{ inv_fn }}(acc);
 
     // ---- backward peel ----
     for (var kk: u32 = 0u; kk < C; kk = kk + 1u) {
@@ -3729,9 +3768,7 @@ fn store_pt(idx: u32, M: u32, p: Pt) {
 }
 
 fn finv(a: array<u32, 8>) -> array<u32, 8> {
-    var x: BigInt = unpack256_to_limbs(a);
-    var i: BigInt = {{ inv_fn }}(x);
-    return pack_limbs_to_256(&i);
+    return {{ inv_fn }}(a);
 }
 
 // Affine add: a + b, distinct x assumed (no point collisions). Both present.
@@ -4056,10 +4093,13 @@ const WBID_MAG_MASK: u32 = 0x7fffu;
 // sub-ranges of it, addressed via the u32 element offsets in \`arena_off\` (.x, .y).
 // Binding the monolith once (instead of two sub-ranges) frees the storage-binding
 // slot that lets \`window_desc\` be a storage buffer (no fixed-size uniform ⇒ no
-// window cap). Memory is unchanged — same arena. (offsets is a standalone buffer,
-// not A0, so it keeps its own binding.)
+// window cap). Memory is unchanged — same arena.
 @group(0) @binding(1) var<storage, read>       arena_a0:           array<u32>;
-@group(0) @binding(2) var<storage, read>       offsets:            array<u32>;
+// l0_base[i] = off_at(flat_bid(sorted_bucket_list[i])), precomputed by
+// ba_planner_resolve_l0base. A DEDICATED buffer (reusing the slot the now-removed
+// \`offsets\`/\`flat_bid\` gather freed) — NOT a sub-range of arena_a0, so the walker's
+// hot loop reads it directly without adding a third widely-separated A0 region.
+@group(0) @binding(2) var<storage, read>       l0_base:            array<u32>;
 @group(0) @binding(3) var<storage, read>       task_cuts:          array<u32>;
 @group(0) @binding(4) var<storage, read>       point_x:            array<vec4<u32>>;
 @group(0) @binding(5) var<storage, read>       point_y:            array<vec4<u32>>;
@@ -4083,7 +4123,6 @@ const WD_STRIDE: u32 = 8u;
 fn wd_work_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 3u]; }
 fn wd_reduce_off(g: u32) -> u32 { return window_desc[g * WD_STRIDE + 4u]; }
 fn sc_at(i: u32) -> u32 { return arena_a0[arena_off.x + i]; }   // sorted_count_list[i]
-fn off_at(i: u32) -> u32 { return offsets[i]; }                 // standalone offsets[i]
 fn l0_at(i: u32) -> u32 { return arena_a0[arena_off.y + i]; }   // l0_index[i]
 // is_present marking is hoisted into combine_filter; stream_walker stays
 // within the 10-storage-buffer cap. combine_filter sees every bucket with
@@ -4097,13 +4136,6 @@ fn l0_at(i: u32) -> u32 { return arena_a0[arena_off.y + i]; }   // l0_index[i]
 // touches just 2-4 cache lines (vs 32 lines in the naive per-thread-stride
 // layout), letting the GPU coalesce the writes into a single transaction.
 
-// Flat CSR index (offsets/counts space) for a packed-window bid. The CSR is
-// batch-local, so subtract the batch's base work_off from the global prefix.
-// Uniform fill ⇒ wd_work_off(gwin) - wd_work_off(bwb) == window*BW.
-fn flat_bid(bid: u32) -> u32 {
-    let gwin = (bid >> WBID_SHIFT) + batch_offset.x;
-    return wd_work_off(gwin) - wd_work_off(batch_offset.x) + (bid & WBID_MAG_MASK);
-}
 
 fn load_pt_x(cursor: u32) -> array<u32, 8> {
     let packed = l0_at(cursor);
@@ -4209,7 +4241,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         let eo = task_cuts[cut_base + (k + 1u) * 2u + 1u];
 
         let sb_id = sorted_bucket_list[sb];
-        let sb_base = off_at(flat_bid(sb_id));
+        let sb_base = l0_base[sb];
         let sb_count = sc_at(sb);
 
         // Start cursor. so==0 → fresh at the bucket's first point. so in
@@ -4230,7 +4262,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         } else {
             eff_sorted = sb + 1u;
             eff_id = sorted_bucket_list[eff_sorted];
-            eff_base = off_at(flat_bid(eff_id));
+            eff_base = l0_base[eff_sorted];
             eff_count = sc_at(eff_sorted);
             start_cursor = eff_base;
             split_start_m = split_start_m & ~(1u << k);
@@ -4242,11 +4274,10 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
         var te_cur: u32;
         if (eo > 0u) {
             te_sort = eb;
-            te_cur = off_at(flat_bid(sorted_bucket_list[eb])) + eo + 1u;
+            te_cur = l0_base[eb] + eo + 1u;
         } else if (eb > 0u) {
             te_sort = eb - 1u;
-            let pid = sorted_bucket_list[te_sort];
-            te_cur = off_at(flat_bid(pid)) + sc_at(te_sort);
+            te_cur = l0_base[te_sort] + sc_at(te_sort);
         } else {
             te_sort = 0u;
             te_cur = 0u;
@@ -4282,8 +4313,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             } else {
                 store_partial(2u * (t * S + k) + 0u, eff_id, M_partials, px, py);
                 let nxt = eff_sorted + 1u;
-                let nxt_id = sorted_bucket_list[nxt];
-                let nxt_base = off_at(flat_bid(nxt_id));
+                let nxt_base = l0_base[nxt];
                 cur_sorted[k] = nxt;
 
                 bucket_end[k] = nxt_base + sc_at(nxt);
@@ -4336,16 +4366,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
             }
         }
 
-{{#inv_f8}}
         // pk14 packed-native inverse: takes/returns the 8x u32 form directly
         // (Montgomery form via the e0=R^2 seed) -- no unpack/pack round-trip.
         var inv = {{ inv_fn }}(acc);
-{{/inv_f8}}
-{{^inv_f8}}
-        var acc20 = unpack256_to_limbs(acc);
-        var inv20 = {{ inv_fn }}(acc20);
-        var inv = pack_limbs_to_256(&inv20);
-{{/inv_f8}}
 
         // OPTIMIZATION (c): fused inverse pass + backward peel.
         // Original had two separate descending loops:
@@ -4437,8 +4460,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>,
                 // Advance to the next bucket within the task. Subsequent
                 // buckets always begin fresh (never split-start).
                 let nxt = cur_sorted[k] + 1u;
-                let nxt_id = sorted_bucket_list[nxt];
-                let nxt_base = off_at(flat_bid(nxt_id));
+                let nxt_base = l0_base[nxt];
                 cur_sorted[k] = nxt;
 
                 bucket_end[k] = nxt_base + sc_at(nxt);
@@ -4573,10 +4595,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (k + 1u < S) { pref[k] = prefix; }
     }
 
-    // Phase 3: ONE safegcd amortised across the S tasks.
-    var acc20 = unpack256_to_limbs(prefix);
-    var inv20 = {{ inv_fn }}(acc20);
-    var inv = pack_limbs_to_256(&inv20);
+    // Phase 3: ONE safegcd amortised across the S tasks (native f8 pk14, direct).
+    var inv = {{ inv_fn }}(prefix);
 
     // Phase 4: backward fused inverse + per-slot output dispatch.
     // Operands reloaded on demand per the register-lean policy.
@@ -4836,10 +4856,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             }
         }
 
-        // === Inversion ===
-        var acc20 = unpack256_to_limbs(prefix);
-        var inv20 = {{ inv_fn }}(acc20);
-        var inv = pack_limbs_to_256(&inv20);
+        // === Inversion (native f8 pk14, direct) ===
+        var inv = {{ inv_fn }}(prefix);
 
         // === FUSED inverse + backward peel: inv_dx stays in registers. ===
         for (var jj: u32 = 0u; jj < S; jj = jj + 1u) {
@@ -6604,7 +6622,7 @@ export const microbench = `// Isolated montmul / inverse microbench kernel. Each
 //
 // MINIMAL + self-contained, sized per path so it builds on Mali:
 //   op=mul       : structs + bigint + field + montmul (the BigInt body — karat or
-//                  cios_unrolled/cios_native share the same montgomery_product).
+//                  cios_unrolled montgomery_product).
 //   op=inv pk14  : structs + bigint + pack/unpack glue + the self-contained
 //                  packed-14-bit safegcd inverse (fr_inv_by_loop_pk, f8 in/out).
 //   op=inv loop  : structs + bigint + field + montmul + the BigInt safegcd loop
@@ -7198,671 +7216,6 @@ fn main(@builtin(local_invocation_id) lid: vec3<u32>,
     }
 
     {{{ recompile }}}
-}
-`;
-
-export const by_inverse_loop = `// ============================================================================
-// Option "loop": register-minimal Bernstein-Yang safegcd field inverse.
-//
-// Drop-in alternative to \`fr_inv_by_a\`. Same signature / contract:
-//   fr_inv_by_loop(a: BigInt) -> BigInt  — Montgomery-form inverse of \`a\`.
-//
-// This is \`by_inverse_a\`'s algorithm — BATCH=26, NUM_OUTER=29, the identical
-// divstep sequence and k*p trick — with apply_matrix rewritten from a fully
-// unrolled flat expression (~150-230 live i32 locals, the inverse's register
-// peak) into a ROLLING LOOP (~20-25 live values). Same arithmetic, an order
-// of magnitude fewer registers.
-//
-// The rolling apply_matrix is a faithful transliteration of \`applyMatrix\` in
-// the tested TS reference \`src/msm_webgpu/cuzk/bernstein_yang_a.ts\`:
-//   - BATCH=26 = 2*WORD_SIZE, so >>26 is a clean two-limb drop:
-//     out[j] = product-limb[j+2]. No bit-recombination.
-//   - Each matrix entry splits m = m_lo + m_hi*2^13; base-2^13 product limb i
-//     reads input limbs i and i-1, so the loop carries a one-limb input
-//     window (fp/gp) plus the running carry.
-//   - In place: the loop writes out[i-2] only after reading in[i], so the
-//     write trails the read by two limbs — no input snapshot needed.
-//
-// All identifiers are namespaced byl_/BYL_ so this coexists with by_inverse_a.
-// Relies on the same external helpers: montgomery_product, get_p,
-// get_r_cubed, bigint_is_neg_2c, bigint_gte, the u64_* helpers (bigint_by),
-// the constants MASK / WORD_SIZE, and context vars num_words / p_inv_by_a_lo.
-//
-// NOTE: never write Mustache tags inside these comments — Mustache renders
-// them regardless of WGSL comment syntax and a partial tag would inline a
-// whole partial mid-comment.
-// ============================================================================
-
-// Bernstein-Yang divstep bound for a 256-bit modulus is 735 divsteps.
-// BATCH=26 -> NUM_OUTER = ceil(735/26) = 29.
-const BYL_BATCH: u32 = 26u;
-const BYL_NUM_OUTER: u32 = 29u;
-const BYL_REDUCE_INTERVAL: u32 = 4u;
-const BYL_RTC_MAX_ITERS: u32 = 4u;
-
-// Low BATCH=26 bits — used by the k*p modular-cancellation trick.
-const BYL_MASK_BATCH: u32 = (1u << 26u) - 1u;
-// p^(-1) mod 2^26 (Hensel-lifted), the same value by_inverse_a consumes.
-const BYL_P_INV_LO: u32 = {{ p_inv_by_a_lo }}u;
-
-// 2x2 transition matrix from BYL_BATCH divsteps. After 26 divsteps every
-// entry satisfies |u,v,q,r| <= 2^26, so a plain i32 holds it.
-struct BylMat {
-    u: i32,
-    v: i32,
-    q: i32,
-    r: i32,
-}
-
-// ============================================================================
-// byl_divsteps: BYL_BATCH branchy divsteps on the low 64 bits of (f, g),
-// carried as a vec2<u32>. We need >= BATCH bits to drive the decisions; 64
-// leaves 38 bits of sign-propagation headroom. Transliteration of
-// \`bya_divsteps\` / the TS \`divsteps\`.
-// ============================================================================
-fn byl_divsteps(delta: ptr<function, i32>, f_lo_in: vec2<u32>, g_lo_in: vec2<u32>) -> BylMat {
-    var f_lo: vec2<u32> = f_lo_in;
-    var g_lo: vec2<u32> = g_lo_in;
-    var u: i32 = 1;
-    var v: i32 = 0;
-    var q: i32 = 0;
-    var r: i32 = 1;
-    var d: i32 = *delta;
-    // Branchless divsteps: the three cases (swap / add / shift) are folded
-    // into per-variable \`select\`s so every lane runs identical control flow.
-    // A wide-wave GPU otherwise serialises all three case-bodies on any wave
-    // whose lanes land in different cases. Every \`new_*\` is formed from the
-    // pre-iteration f/g/u/v/q/r/d, then the seven are committed together.
-    for (var i: u32 = 0u; i < BYL_BATCH; i = i + 1u) {
-        let g_odd: bool = u64_low_bit(g_lo) != 0u;
-        let swap: bool = g_odd && (d > 0);
-        let addc: bool = g_odd && (d <= 0);
-
-        // u64_sub / u64_add wrap on the low 64 bits; computing both
-        // unconditionally is harmless — the unused one is just discarded.
-        let g_minus_f: vec2<u32> = u64_sub(g_lo, f_lo);
-        let g_plus_f: vec2<u32> = u64_add(g_lo, f_lo);
-        let g_pre: vec2<u32> = select(select(g_lo, g_plus_f, addc), g_minus_f, swap);
-
-        let new_f: vec2<u32> = select(f_lo, g_lo, swap);
-        let new_g: vec2<u32> = u64_shr1(g_pre);
-        let new_u: i32 = select(u << 1u, q << 1u, swap);
-        let new_v: i32 = select(v << 1u, r << 1u, swap);
-        let new_q: i32 = select(select(q, q + u, addc), q - u, swap);
-        let new_r: i32 = select(select(r, r + v, addc), r - v, swap);
-        let new_d: i32 = select(d + 1, 1 - d, swap);
-
-        f_lo = new_f;
-        g_lo = new_g;
-        u = new_u;
-        v = new_v;
-        q = new_q;
-        r = new_r;
-        d = new_d;
-    }
-    *delta = d;
-    return BylMat(u, v, q, r);
-}
-
-// ============================================================================
-// byl_low_u64: low 64 bits of a 20 x 13-bit BigInt with canonical 13-bit
-// limbs (the apply_matrix output guarantees limbs 0..18 are canonical).
-// ============================================================================
-fn byl_low_u64(x: ptr<function, BigInt>) -> vec2<u32> {
-    let l0: u32 = (*x).limbs[0] & MASK;
-    let l1: u32 = (*x).limbs[1] & MASK;
-    let l2: u32 = (*x).limbs[2] & MASK;
-    let l3: u32 = (*x).limbs[3] & MASK;
-    let l4: u32 = (*x).limbs[4] & MASK;
-    let lo32: u32 = l0 | (l1 << 13u) | (l2 << 26u);
-    let hi32: u32 = (l2 >> 6u) | (l3 << 7u) | (l4 << 20u);
-    return vec2<u32>(lo32, hi32);
-}
-
-// ============================================================================
-// byl_normalise: carry-propagate so every limb in [0, NUM_WORDS-1) is a
-// canonical 13-bit value and the top limb absorbs the signed extension.
-// ============================================================================
-fn byl_normalise(x: ptr<function, BigInt>) {
-    var c: i32 = 0;
-    for (var i: u32 = 0u; i < {{ num_words }}u - 1u; i = i + 1u) {
-        let v: i32 = i32((*x).limbs[i]) + c;
-        (*x).limbs[i] = u32(v) & MASK;
-        c = v >> WORD_SIZE;
-    }
-    (*x).limbs[{{ num_words }}u - 1u] =
-        u32(i32((*x).limbs[{{ num_words }}u - 1u]) + c) & MASK;
-}
-
-// ============================================================================
-// byl_apply_matrix_fg: (f, g) <- ((u*f + v*g) >> 26, (q*f + r*g) >> 26).
-//
-// Rolling lookahead loop, in place. Iteration i forms the base-2^13 product
-// limb i of each row from input limbs i and i-1 (fp/gp hold the i-1 window),
-// propagates the carry, and stores out[i-2] = product-limb[i] (the >>26 drop).
-// The two top product limbs are emitted after the loop.
-// ============================================================================
-fn byl_apply_matrix_fg(m: BylMat, f: ptr<function, BigInt>, g: ptr<function, BigInt>) {
-    let top: u32 = {{ num_words }}u - 1u;
-    let sign_shift: u32 = 32u - WORD_SIZE;
-
-    let u_lo: i32 = i32(u32(m.u) & MASK);
-    let u_hi: i32 = m.u >> WORD_SIZE;
-    let v_lo: i32 = i32(u32(m.v) & MASK);
-    let v_hi: i32 = m.v >> WORD_SIZE;
-    let q_lo: i32 = i32(u32(m.q) & MASK);
-    let q_hi: i32 = m.q >> WORD_SIZE;
-    let r_lo: i32 = i32(u32(m.r) & MASK);
-    let r_hi: i32 = m.r >> WORD_SIZE;
-
-    var cf: i32 = 0;
-    var cg: i32 = 0;
-    var fp: i32 = 0;
-    var gp: i32 = 0;
-    for (var i: u32 = 0u; i < {{ num_words }}u; i = i + 1u) {
-        // Top limb carries the signed extension of the whole integer;
-        // lower limbs are canonical [0, 2^13).
-        var fi: i32;
-        var gi: i32;
-        if (i == top) {
-            fi = (i32((*f).limbs[i]) << sign_shift) >> sign_shift;
-            gi = (i32((*g).limbs[i]) << sign_shift) >> sign_shift;
-        } else {
-            fi = i32((*f).limbs[i]);
-            gi = i32((*g).limbs[i]);
-        }
-        let nf: i32 = u_lo * fi + v_lo * gi + u_hi * fp + v_hi * gp + cf;
-        let ng: i32 = q_lo * fi + r_lo * gi + q_hi * fp + r_hi * gp + cg;
-        cf = nf >> WORD_SIZE;
-        cg = ng >> WORD_SIZE;
-        if (i >= 2u) {
-            (*f).limbs[i - 2u] = u32(nf) & MASK;
-            (*g).limbs[i - 2u] = u32(ng) & MASK;
-        }
-        fp = fi;
-        gp = gi;
-    }
-    // Two top product limbs: position 20 (= u_hi*f[19] + v_hi*g[19] + carry)
-    // splits into output limbs top-1 and top.
-    let nf_top: i32 = u_hi * fp + v_hi * gp + cf;
-    let ng_top: i32 = q_hi * fp + r_hi * gp + cg;
-    (*f).limbs[top - 1u] = u32(nf_top) & MASK;
-    (*g).limbs[top - 1u] = u32(ng_top) & MASK;
-    (*f).limbs[top] = u32(nf_top >> WORD_SIZE);
-    (*g).limbs[top] = u32(ng_top >> WORD_SIZE);
-}
-
-// ============================================================================
-// byl_apply_matrix_de: (d, e) <- ((u*d + v*e + k_d*p) >> 26,
-//                                 (q*d + r*e + k_e*p) >> 26).
-//
-// k_d, k_e are chosen so the low 26 bits of each numerator cancel mod p
-// (standard safegcd k*p trick). Product limbs 0 and 1 are then zero; the
-// rolling loop starts at i=2 with cd/ce seeded to their carry-out.
-// ============================================================================
-fn byl_apply_matrix_de(
-    m: BylMat,
-    d: ptr<function, BigInt>,
-    e: ptr<function, BigInt>,
-    p: ptr<function, BigInt>,
-) {
-    let top: u32 = {{ num_words }}u - 1u;
-    let sign_shift: u32 = 32u - WORD_SIZE;
-
-    let u_lo: i32 = i32(u32(m.u) & MASK);
-    let u_hi: i32 = m.u >> WORD_SIZE;
-    let v_lo: i32 = i32(u32(m.v) & MASK);
-    let v_hi: i32 = m.v >> WORD_SIZE;
-    let q_lo: i32 = i32(u32(m.q) & MASK);
-    let q_hi: i32 = m.q >> WORD_SIZE;
-    let r_lo: i32 = i32(u32(m.r) & MASK);
-    let r_hi: i32 = m.r >> WORD_SIZE;
-
-    let d0: i32 = i32((*d).limbs[0]);
-    let e0: i32 = i32((*e).limbs[0]);
-    let d1: i32 = i32((*d).limbs[1]);
-    let e1: i32 = i32((*e).limbs[1]);
-    let p0: i32 = i32((*p).limbs[0]);
-    let p1: i32 = i32((*p).limbs[1]);
-
-    // Pre-k*p product limbs 0 and 1 of (u*d+v*e) and (q*d+r*e).
-    let nd0: i32 = u_lo * d0 + v_lo * e0;
-    let ne0: i32 = q_lo * d0 + r_lo * e0;
-    let nd1: i32 = u_lo * d1 + v_lo * e1 + u_hi * d0 + v_hi * e0;
-    let ne1: i32 = q_lo * d1 + r_lo * e1 + q_hi * d0 + r_hi * e0;
-
-    // k = (-t) * p^-1 mod 2^26, where t = low 26 bits of the numerator.
-    let nd0_low: u32 = u32(nd0) & MASK;
-    let nd1_carry: u32 = u32(nd1 + (nd0 >> WORD_SIZE)) & MASK;
-    let t_d: u32 = (nd0_low | (nd1_carry << WORD_SIZE)) & BYL_MASK_BATCH;
-    let ne0_low: u32 = u32(ne0) & MASK;
-    let ne1_carry: u32 = u32(ne1 + (ne0 >> WORD_SIZE)) & MASK;
-    let t_e: u32 = (ne0_low | (ne1_carry << WORD_SIZE)) & BYL_MASK_BATCH;
-
-    let neg_td: u32 = (~t_d + 1u) & BYL_MASK_BATCH;
-    let neg_te: u32 = (~t_e + 1u) & BYL_MASK_BATCH;
-    let k_d: u32 = (neg_td * BYL_P_INV_LO) & BYL_MASK_BATCH;
-    let k_e: u32 = (neg_te * BYL_P_INV_LO) & BYL_MASK_BATCH;
-    let kd_lo: i32 = i32(k_d & MASK);
-    let kd_hi: i32 = i32(k_d >> WORD_SIZE);
-    let ke_lo: i32 = i32(k_e & MASK);
-    let ke_hi: i32 = i32(k_e >> WORD_SIZE);
-
-    // Carry into product limb 2: product limbs 0 and 1 (with k*p folded in)
-    // have zero low-13 bits; cd/ce are their carry-out.
-    var cd: i32 = (nd1 + kd_lo * p1 + kd_hi * p0 + ((nd0 + kd_lo * p0) >> WORD_SIZE)) >> WORD_SIZE;
-    var ce: i32 = (ne1 + ke_lo * p1 + ke_hi * p0 + ((ne0 + ke_lo * p0) >> WORD_SIZE)) >> WORD_SIZE;
-
-    var dp: i32 = d1;
-    var ep: i32 = e1;
-    for (var i: u32 = 2u; i < {{ num_words }}u; i = i + 1u) {
-        var di: i32;
-        var ei: i32;
-        if (i == top) {
-            di = (i32((*d).limbs[i]) << sign_shift) >> sign_shift;
-            ei = (i32((*e).limbs[i]) << sign_shift) >> sign_shift;
-        } else {
-            di = i32((*d).limbs[i]);
-            ei = i32((*e).limbs[i]);
-        }
-        let pi: i32 = i32((*p).limbs[i]);
-        let pim1: i32 = i32((*p).limbs[i - 1u]);
-        let nd: i32 = u_lo * di + v_lo * ei + u_hi * dp + v_hi * ep + kd_lo * pi + kd_hi * pim1 + cd;
-        let ne: i32 = q_lo * di + r_lo * ei + q_hi * dp + r_hi * ep + ke_lo * pi + ke_hi * pim1 + ce;
-        cd = nd >> WORD_SIZE;
-        ce = ne >> WORD_SIZE;
-        (*d).limbs[i - 2u] = u32(nd) & MASK;
-        (*e).limbs[i - 2u] = u32(ne) & MASK;
-        dp = di;
-        ep = ei;
-    }
-    let p_top: i32 = i32((*p).limbs[top]);
-    let nd_top: i32 = u_hi * dp + v_hi * ep + kd_hi * p_top + cd;
-    let ne_top: i32 = q_hi * dp + r_hi * ep + ke_hi * p_top + ce;
-    (*d).limbs[top - 1u] = u32(nd_top) & MASK;
-    (*e).limbs[top - 1u] = u32(ne_top) & MASK;
-    (*d).limbs[top] = u32(nd_top >> WORD_SIZE);
-    (*e).limbs[top] = u32(ne_top >> WORD_SIZE);
-}
-
-// ============================================================================
-// Driver helpers — rolling loops.
-// ============================================================================
-
-fn byl_is_zero(x: ptr<function, BigInt>) -> bool {
-    var a: u32 = 0u;
-    for (var i: u32 = 0u; i < {{ num_words }}u; i = i + 1u) {
-        a = a | (*x).limbs[i];
-    }
-    return a == 0u;
-}
-
-fn byl_neg_inplace(x: ptr<function, BigInt>) {
-    for (var i: u32 = 0u; i < {{ num_words }}u; i = i + 1u) {
-        (*x).limbs[i] = u32(-i32((*x).limbs[i]));
-    }
-    byl_normalise(x);
-}
-
-fn byl_add_p_inplace(x: ptr<function, BigInt>, p: ptr<function, BigInt>) {
-    for (var i: u32 = 0u; i < {{ num_words }}u; i = i + 1u) {
-        (*x).limbs[i] = u32(i32((*x).limbs[i]) + i32((*p).limbs[i]));
-    }
-    byl_normalise(x);
-}
-
-fn byl_sub_p_inplace(x: ptr<function, BigInt>, p: ptr<function, BigInt>) {
-    for (var i: u32 = 0u; i < {{ num_words }}u; i = i + 1u) {
-        (*x).limbs[i] = u32(i32((*x).limbs[i]) - i32((*p).limbs[i]));
-    }
-    byl_normalise(x);
-}
-
-fn byl_reduce_to_canonical(x: ptr<function, BigInt>, p: ptr<function, BigInt>) {
-    byl_normalise(x);
-    var done: bool = false;
-    for (var it: u32 = 0u; it < BYL_RTC_MAX_ITERS; it = it + 1u) {
-        if (done) { continue; }
-        if (bigint_is_neg_2c(x)) {
-            byl_add_p_inplace(x, p);
-        } else if (bigint_gte(x, p)) {
-            byl_sub_p_inplace(x, p);
-        } else {
-            done = true;
-        }
-    }
-}
-
-// ============================================================================
-// fr_inv_by_loop: Bernstein-Yang safegcd inverse driver. BATCH=26,
-// NUM_OUTER=29 — identical structure to fr_inv_by_a, register-minimal
-// rolling apply_matrix. Returns the Montgomery-form inverse of \`a\`; assumes
-// \`a\` nonzero (the caller / batch-inverse prefix product guarantees this).
-// ============================================================================
-fn fr_inv_by_loop(a: BigInt) -> BigInt {
-    var p_loc: BigInt = get_p();
-    var f: BigInt = get_p();
-    var g: BigInt = a;
-
-    var d: BigInt;
-    var e: BigInt;
-    for (var k: u32 = 0u; k < {{ num_words }}u; k = k + 1u) {
-        d.limbs[k] = 0u;
-        e.limbs[k] = 0u;
-    }
-    e.limbs[0] = 1u;
-
-    var delta: i32 = 1;
-    var done: bool = false;
-    for (var iter: u32 = 0u; iter < BYL_NUM_OUTER; iter = iter + 1u) {
-        if (done) { continue; }
-        let f_lo: vec2<u32> = byl_low_u64(&f);
-        let g_lo: vec2<u32> = byl_low_u64(&g);
-        let m: BylMat = byl_divsteps(&delta, f_lo, g_lo);
-        byl_apply_matrix_fg(m, &f, &g);
-        byl_apply_matrix_de(m, &d, &e, &p_loc);
-        if (((iter + 1u) % BYL_REDUCE_INTERVAL) == 0u) {
-            byl_reduce_to_canonical(&d, &p_loc);
-            byl_reduce_to_canonical(&e, &p_loc);
-        }
-        if (byl_is_zero(&g)) {
-            done = true;
-        }
-    }
-
-    byl_reduce_to_canonical(&d, &p_loc);
-    if (bigint_is_neg_2c(&f)) {
-        byl_neg_inplace(&d);
-        byl_reduce_to_canonical(&d, &p_loc);
-    }
-
-    var inv_native: BigInt = d;
-    var r_cubed: BigInt = get_r_cubed();
-    return montgomery_product(&inv_native, &r_cubed);
-}
-
-// ===========================================================================
-// PACKED safegcd inverse (fr_inv_by_loop_pk). Same Bernstein-Yang algorithm
-// and arithmetic as fr_inv_by_loop, but f,g,d,e,p are stored 2x13-bit limbs
-// per u32 word (10 words instead of 20) -> HALF the per-thread private-memory
-// footprint and half the apply_matrix memory traffic. Smaller footprint =>
-// the GPU can keep more inverse threads resident => higher occupancy on the
-// Adreno. All arithmetic stays i32/13-bit (no 64-bit emulation). Hand-derived
-// from the validated rolling recurrence; word w holds limb 2w (bits 0..12)
-// and limb 2w+1 (bits 13..25).
-// ===========================================================================
-struct Pk { w: array<u32, 10> }
-
-fn pk_from_bigint(x: BigInt) -> Pk {
-    var o: Pk;
-    for (var k: u32 = 0u; k < 10u; k = k + 1u) {
-        o.w[k] = (x.limbs[2u * k] & MASK) | ((x.limbs[2u * k + 1u] & MASK) << 13u);
-    }
-    return o;
-}
-
-fn pk_to_bigint(x: ptr<function, Pk>) -> BigInt {
-    var o: BigInt;
-    for (var k: u32 = 0u; k < 10u; k = k + 1u) {
-        let word = (*x).w[k];
-        o.limbs[2u * k] = word & MASK;
-        o.limbs[2u * k + 1u] = (word >> 13u) & MASK;
-    }
-    return o;
-}
-
-fn pk_get_p() -> Pk { return pk_from_bigint(get_p()); }
-
-// Packed modulus word w (limb 2w | limb(2w+1)<<13) as a compile-time
-// immediate, from the module-scope P_i consts (montmul partial, always
-// co-included). No per-thread modulus copy in scratch.
-fn pk_p_word(w: u32) -> u32 {
-    switch w {
-        case 0u: { return P_LIMB_0 | (P_LIMB_1 << 13u); }
-        case 1u: { return P_LIMB_2 | (P_LIMB_3 << 13u); }
-        case 2u: { return P_LIMB_4 | (P_LIMB_5 << 13u); }
-        case 3u: { return P_LIMB_6 | (P_LIMB_7 << 13u); }
-        case 4u: { return P_LIMB_8 | (P_LIMB_9 << 13u); }
-        case 5u: { return P_LIMB_10 | (P_LIMB_11 << 13u); }
-        case 6u: { return P_LIMB_12 | (P_LIMB_13 << 13u); }
-        case 7u: { return P_LIMB_14 | (P_LIMB_15 << 13u); }
-        case 8u: { return P_LIMB_16 | (P_LIMB_17 << 13u); }
-        default: { return P_LIMB_18 | (P_LIMB_19 << 13u); }
-    }
-}
-
-// Low 64 bits from limbs 0..4 (words 0,1 and low limb of word 2).
-fn pk_low_u64(x: ptr<function, Pk>) -> vec2<u32> {
-    let w0 = (*x).w[0];
-    let w1 = (*x).w[1];
-    let l0: u32 = w0 & MASK;
-    let l1: u32 = (w0 >> 13u) & MASK;
-    let l2: u32 = w1 & MASK;
-    let l3: u32 = (w1 >> 13u) & MASK;
-    let l4: u32 = (*x).w[2] & MASK;
-    let lo32: u32 = l0 | (l1 << 13u) | (l2 << 26u);
-    let hi32: u32 = (l2 >> 6u) | (l3 << 7u) | (l4 << 20u);
-    return vec2<u32>(lo32, hi32);
-}
-
-fn pk_is_zero(x: ptr<function, Pk>) -> bool {
-    var a: u32 = 0u;
-    for (var k: u32 = 0u; k < 10u; k = k + 1u) { a = a | (*x).w[k]; }
-    return a == 0u;
-}
-
-// Sign bit of the 260-bit value = bit 12 of limb 19 = bit 25 of word 9.
-fn pk_is_neg_2c(x: ptr<function, Pk>) -> bool { return (((*x).w[9] >> 25u) & 1u) == 1u; }
-
-// Signed carry-propagate normalisation, 2 limbs/word; limb 19 (top) absorbs.
-fn pk_normalise(x: ptr<function, Pk>) {
-    var c: i32 = 0;
-    for (var w: u32 = 0u; w < 10u; w = w + 1u) {
-        let word = (*x).w[w];
-        let lo: i32 = i32(word & MASK) + c;
-        let olo: u32 = u32(lo) & MASK;
-        c = lo >> 13u;
-        let hi: i32 = i32((word >> 13u) & MASK) + c;
-        let ohi: u32 = u32(hi) & MASK;
-        if (w != 9u) { c = hi >> 13u; }
-        (*x).w[w] = olo | (ohi << 13u);
-    }
-}
-
-// out = x + p, carry-propagated (combines add + normalise). Top limb absorbs.
-fn pk_add_p(x: ptr<function, Pk>) {
-    var c: i32 = 0;
-    for (var w: u32 = 0u; w < 10u; w = w + 1u) {
-        let xw = (*x).w[w];
-        let pw = pk_p_word(w);
-        let lo: i32 = i32(xw & MASK) + i32(pw & MASK) + c;
-        let olo: u32 = u32(lo) & MASK;
-        c = lo >> 13u;
-        let hi: i32 = i32((xw >> 13u) & MASK) + i32((pw >> 13u) & MASK) + c;
-        let ohi: u32 = u32(hi) & MASK;
-        if (w != 9u) { c = hi >> 13u; }
-        (*x).w[w] = olo | (ohi << 13u);
-    }
-}
-
-fn pk_sub_p(x: ptr<function, Pk>) {
-    var c: i32 = 0;
-    for (var w: u32 = 0u; w < 10u; w = w + 1u) {
-        let xw = (*x).w[w];
-        let pw = pk_p_word(w);
-        let lo: i32 = i32(xw & MASK) - i32(pw & MASK) + c;
-        let olo: u32 = u32(lo) & MASK;
-        c = lo >> 13u;
-        let hi: i32 = i32((xw >> 13u) & MASK) - i32((pw >> 13u) & MASK) + c;
-        let ohi: u32 = u32(hi) & MASK;
-        if (w != 9u) { c = hi >> 13u; }
-        (*x).w[w] = olo | (ohi << 13u);
-    }
-}
-
-fn pk_neg(x: ptr<function, Pk>) {
-    var c: i32 = 0;
-    for (var w: u32 = 0u; w < 10u; w = w + 1u) {
-        let word = (*x).w[w];
-        let lo: i32 = -i32(word & MASK) + c;
-        let olo: u32 = u32(lo) & MASK;
-        c = lo >> 13u;
-        let hi: i32 = -i32((word >> 13u) & MASK) + c;
-        let ohi: u32 = u32(hi) & MASK;
-        if (w != 9u) { c = hi >> 13u; }
-        (*x).w[w] = olo | (ohi << 13u);
-    }
-}
-
-// x >= p ? (compare from limb 19 down).
-fn pk_gte(x: ptr<function, Pk>) -> bool {
-    for (var idx: u32 = 0u; idx < 10u; idx = idx + 1u) {
-        let w = 9u - idx;
-        let pw = pk_p_word(w);
-        let xhi = ((*x).w[w] >> 13u) & MASK;
-        let phi = (pw >> 13u) & MASK;
-        if (xhi > phi) { return true; }
-        if (xhi < phi) { return false; }
-        let xlo = (*x).w[w] & MASK;
-        let plo = pw & MASK;
-        if (xlo > plo) { return true; }
-        if (xlo < plo) { return false; }
-    }
-    return true;
-}
-
-fn pk_reduce_to_canonical(x: ptr<function, Pk>) {
-    pk_normalise(x);
-    var done: bool = false;
-    for (var it: u32 = 0u; it < BYL_RTC_MAX_ITERS; it = it + 1u) {
-        if (done) { continue; }
-        if (pk_is_neg_2c(x)) { pk_add_p(x); }
-        else if (pk_gte(x)) { pk_sub_p(x); }
-        else { done = true; }
-    }
-}
-
-// (f,g) <- ((u*f + v*g) >> 26, (q*f + r*g) >> 26). Rolling, 2 limbs/word.
-fn pk_apply_matrix_fg(m: BylMat, f: ptr<function, Pk>, g: ptr<function, Pk>) {
-    let u_lo: i32 = i32(u32(m.u) & MASK); let u_hi: i32 = m.u >> 13u;
-    let v_lo: i32 = i32(u32(m.v) & MASK); let v_hi: i32 = m.v >> 13u;
-    let q_lo: i32 = i32(u32(m.q) & MASK); let q_hi: i32 = m.q >> 13u;
-    let r_lo: i32 = i32(u32(m.r) & MASK); let r_hi: i32 = m.r >> 13u;
-    var cf: i32 = 0; var cg: i32 = 0; var fp: i32 = 0; var gp: i32 = 0;
-    for (var w: u32 = 0u; w < 10u; w = w + 1u) {
-        let fw = (*f).w[w]; let gw = (*g).w[w];
-        let fe: i32 = i32(fw & MASK); let ge: i32 = i32(gw & MASK);
-        let nfe: i32 = u_lo * fe + v_lo * ge + u_hi * fp + v_hi * gp + cf;
-        let nge: i32 = q_lo * fe + r_lo * ge + q_hi * fp + r_hi * gp + cg;
-        cf = nfe >> 13u; cg = nge >> 13u;
-        var fo: i32; var go: i32;
-        if (w == 9u) {
-            fo = (i32((fw >> 13u) & MASK) << 19u) >> 19u;
-            go = (i32((gw >> 13u) & MASK) << 19u) >> 19u;
-        } else {
-            fo = i32((fw >> 13u) & MASK); go = i32((gw >> 13u) & MASK);
-        }
-        let nfo: i32 = u_lo * fo + v_lo * go + u_hi * fe + v_hi * ge + cf;
-        let ngo: i32 = q_lo * fo + r_lo * go + q_hi * fe + r_hi * ge + cg;
-        cf = nfo >> 13u; cg = ngo >> 13u;
-        if (w >= 1u) {
-            (*f).w[w - 1u] = (u32(nfe) & MASK) | ((u32(nfo) & MASK) << 13u);
-            (*g).w[w - 1u] = (u32(nge) & MASK) | ((u32(ngo) & MASK) << 13u);
-        }
-        fp = fo; gp = go;
-    }
-    let nft: i32 = u_hi * fp + v_hi * gp + cf;
-    let ngt: i32 = q_hi * fp + r_hi * gp + cg;
-    (*f).w[9] = (u32(nft) & MASK) | (u32(nft >> 13u) << 13u);
-    (*g).w[9] = (u32(ngt) & MASK) | (u32(ngt >> 13u) << 13u);
-}
-
-// (d,e) <- ((u*d+v*e+k_d*p)>>26, (q*d+r*e+k_e*p)>>26). k*p cancels low 26 bits.
-fn pk_apply_matrix_de(m: BylMat, d: ptr<function, Pk>, e: ptr<function, Pk>) {
-    let u_lo: i32 = i32(u32(m.u) & MASK); let u_hi: i32 = m.u >> 13u;
-    let v_lo: i32 = i32(u32(m.v) & MASK); let v_hi: i32 = m.v >> 13u;
-    let q_lo: i32 = i32(u32(m.q) & MASK); let q_hi: i32 = m.q >> 13u;
-    let r_lo: i32 = i32(u32(m.r) & MASK); let r_hi: i32 = m.r >> 13u;
-
-    let dw0 = (*d).w[0]; let ew0 = (*e).w[0]; let pw0 = pk_p_word(0u);
-    let d0: i32 = i32(dw0 & MASK); let d1: i32 = i32((dw0 >> 13u) & MASK);
-    let e0: i32 = i32(ew0 & MASK); let e1: i32 = i32((ew0 >> 13u) & MASK);
-    let p0: i32 = i32(pw0 & MASK); let p1: i32 = i32((pw0 >> 13u) & MASK);
-
-    let nd0: i32 = u_lo * d0 + v_lo * e0; let ne0: i32 = q_lo * d0 + r_lo * e0;
-    let nd1: i32 = u_lo * d1 + v_lo * e1 + u_hi * d0 + v_hi * e0;
-    let ne1: i32 = q_lo * d1 + r_lo * e1 + q_hi * d0 + r_hi * e0;
-    let nd0_low: u32 = u32(nd0) & MASK; let nd1_carry: u32 = u32(nd1 + (nd0 >> 13u)) & MASK;
-    let t_d: u32 = (nd0_low | (nd1_carry << 13u)) & BYL_MASK_BATCH;
-    let ne0_low: u32 = u32(ne0) & MASK; let ne1_carry: u32 = u32(ne1 + (ne0 >> 13u)) & MASK;
-    let t_e: u32 = (ne0_low | (ne1_carry << 13u)) & BYL_MASK_BATCH;
-    let k_d: u32 = (((~t_d + 1u) & BYL_MASK_BATCH) * BYL_P_INV_LO) & BYL_MASK_BATCH;
-    let k_e: u32 = (((~t_e + 1u) & BYL_MASK_BATCH) * BYL_P_INV_LO) & BYL_MASK_BATCH;
-    let kd_lo: i32 = i32(k_d & MASK); let kd_hi: i32 = i32(k_d >> 13u);
-    let ke_lo: i32 = i32(k_e & MASK); let ke_hi: i32 = i32(k_e >> 13u);
-
-    var cd: i32 = (nd1 + kd_lo * p1 + kd_hi * p0 + ((nd0 + kd_lo * p0) >> 13u)) >> 13u;
-    var ce: i32 = (ne1 + ke_lo * p1 + ke_hi * p0 + ((ne0 + ke_lo * p0) >> 13u)) >> 13u;
-    var dp: i32 = d1; var ep: i32 = e1;
-
-    for (var w: u32 = 1u; w < 10u; w = w + 1u) {
-        let dw = (*d).w[w]; let ew = (*e).w[w]; let pw = pk_p_word(w);
-        // even limb i = 2w
-        let di_e: i32 = i32(dw & MASK); let ei_e: i32 = i32(ew & MASK);
-        let pi_e: i32 = i32(pw & MASK);
-        let pim1_e: i32 = i32((pk_p_word(w - 1u) >> 13u) & MASK);
-        let nd_e: i32 = u_lo * di_e + v_lo * ei_e + u_hi * dp + v_hi * ep + kd_lo * pi_e + kd_hi * pim1_e + cd;
-        let ne_e: i32 = q_lo * di_e + r_lo * ei_e + q_hi * dp + r_hi * ep + ke_lo * pi_e + ke_hi * pim1_e + ce;
-        cd = nd_e >> 13u; ce = ne_e >> 13u;
-        // odd limb i = 2w+1
-        var di_o: i32; var ei_o: i32;
-        if (w == 9u) {
-            di_o = (i32((dw >> 13u) & MASK) << 19u) >> 19u;
-            ei_o = (i32((ew >> 13u) & MASK) << 19u) >> 19u;
-        } else {
-            di_o = i32((dw >> 13u) & MASK); ei_o = i32((ew >> 13u) & MASK);
-        }
-        let pi_o: i32 = i32((pw >> 13u) & MASK);
-        let pim1_o: i32 = i32(pw & MASK);
-        let nd_o: i32 = u_lo * di_o + v_lo * ei_o + u_hi * di_e + v_hi * ei_e + kd_lo * pi_o + kd_hi * pim1_o + cd;
-        let ne_o: i32 = q_lo * di_o + r_lo * ei_o + q_hi * di_e + r_hi * ei_e + ke_lo * pi_o + ke_hi * pim1_o + ce;
-        cd = nd_o >> 13u; ce = ne_o >> 13u;
-        (*d).w[w - 1u] = (u32(nd_e) & MASK) | ((u32(nd_o) & MASK) << 13u);
-        (*e).w[w - 1u] = (u32(ne_e) & MASK) | ((u32(ne_o) & MASK) << 13u);
-        dp = di_o; ep = ei_o;
-    }
-    let p_top: i32 = i32((pk_p_word(9u) >> 13u) & MASK);
-    let nd_top: i32 = u_hi * dp + v_hi * ep + kd_hi * p_top + cd;
-    let ne_top: i32 = q_hi * dp + r_hi * ep + ke_hi * p_top + ce;
-    (*d).w[9] = (u32(nd_top) & MASK) | (u32(nd_top >> 13u) << 13u);
-    (*e).w[9] = (u32(ne_top) & MASK) | (u32(ne_top >> 13u) << 13u);
-}
-
-fn fr_inv_by_loop_pk(a: BigInt) -> BigInt {
-    var f: Pk = pk_get_p();
-    var g: Pk = pk_from_bigint(a);
-    var d: Pk;
-    var e: Pk; e.w[0] = 1u;
-    var delta: i32 = 1;
-    var done: bool = false;
-    for (var iter: u32 = 0u; iter < BYL_NUM_OUTER; iter = iter + 1u) {
-        if (done) { continue; }
-        let f_lo: vec2<u32> = pk_low_u64(&f);
-        let g_lo: vec2<u32> = pk_low_u64(&g);
-        let m: BylMat = byl_divsteps(&delta, f_lo, g_lo);
-        pk_apply_matrix_fg(m, &f, &g);
-        pk_apply_matrix_de(m, &d, &e);
-        if (((iter + 1u) % BYL_REDUCE_INTERVAL) == 0u) {
-            pk_reduce_to_canonical(&d);
-            pk_reduce_to_canonical(&e);
-        }
-        if (pk_is_zero(&g)) { done = true; }
-    }
-    pk_reduce_to_canonical(&d);
-    if (pk_is_neg_2c(&f)) { pk_neg(&d); pk_reduce_to_canonical(&d); }
-    var dd: BigInt = pk_to_bigint(&d);
-    var r_cubed: BigInt = get_r_cubed();
-    return montgomery_product(&dd, &r_cubed);
 }
 `;
 
