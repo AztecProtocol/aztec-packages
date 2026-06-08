@@ -252,7 +252,7 @@ std::pair<ECCVMProver::Proof, ECCVMProver::OpeningClaim> ECCVMProver::construct_
 void ECCVMProver::compute_translation_opening_claims()
 {
     // Used to capture the batched evaluation of unmasked `translation_polynomials` while preserving ZK
-    using SmallIPA = SmallSubgroupIPAProver<Flavor>;
+    using SmallIPA = SmallSubgroupIPAProver<ECCVMFlavor>;
     using Curve = Flavor::Curve;
 
     RefArray translation_polynomials{ key->polynomials.transcript_op,
