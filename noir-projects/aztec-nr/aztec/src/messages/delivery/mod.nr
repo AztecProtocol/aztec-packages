@@ -279,8 +279,6 @@ impl MessageDelivery {
     /// constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565). The log's tag is unconstrained,
     /// meaning a malicious sender could manipulate it to prevent the recipient from finding the message.
     ///
-    /// The sending account can be configured via [`OnchainConstrainedDelivery::with_sender`].
-    ///
     /// ## Use Cases
     ///
     /// This delivery method is suitable for all use cases, since it always works as expected. It is however the most
