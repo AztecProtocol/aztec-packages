@@ -61,3 +61,4 @@ export { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
 export { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
 export { NoteValidationRequest } from './noir-structs/note_validation_request.js';
 export { ProvidedSecret } from './noir-structs/provided_secret.js';
+export { TransientArrayService } from './transient_array_service.js';
