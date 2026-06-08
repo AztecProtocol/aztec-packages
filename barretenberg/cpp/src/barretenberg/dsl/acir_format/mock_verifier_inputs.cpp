@@ -1,4 +1,6 @@
 #include "mock_verifier_inputs.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
@@ -70,17 +72,30 @@ template <typename Flavor> HonkProof create_mock_sumcheck_proof()
     return proof;
 }
 
-HonkProof create_mock_multilinear_batch_proof()
+template <size_t NumClaims> static HonkProof create_mock_multilinear_batch_proof_impl()
 {
-    using Flavor = MultilinearBatchingFlavor;
-    HonkProof proof;
+    using Flavor = MultilinearBatchingFlavor_<NumClaims>;
+    // The claims are held in memory by the verifier and not sent in the proof, so the batching proof contains only the
+    // batching sumcheck.
+    return create_mock_sumcheck_proof<Flavor>();
+}
 
-    // Sumcheck proof
-    HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
-
-    proof.insert(proof.end(), sumcheck_proof.begin(), sumcheck_proof.end());
-
-    return proof;
+HonkProof create_mock_multilinear_batch_proof(size_t num_claims)
+{
+    switch (num_claims) {
+    case 2:
+        return create_mock_multilinear_batch_proof_impl<2>();
+    case 3:
+        return create_mock_multilinear_batch_proof_impl<3>();
+    case 4:
+        return create_mock_multilinear_batch_proof_impl<4>();
+    case 5:
+        return create_mock_multilinear_batch_proof_impl<5>();
+    default:
+        throw_or_abort("create_mock_multilinear_batch_proof: unsupported batch width");
+    }
+    static_assert(CHONK_MAX_CLAIMS_PER_KERNEL == 5,
+                  "Mock batching proof must cover every width up to CHONK_MAX_CLAIMS_PER_KERNEL");
 }
 
 template <typename Flavor, class PublicInputs> HonkProof create_mock_hyper_nova_proof(bool include_fold)
@@ -89,7 +104,8 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_hyper_nova_
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
     HonkProof multilinear_batch_proof;
     if (include_fold) {
-        multilinear_batch_proof = create_mock_multilinear_batch_proof();
+        // HyperNova folding batches two claims: the carried accumulator and the incoming instance.
+        multilinear_batch_proof = create_mock_multilinear_batch_proof(/*num_claims=*/2);
     }
     HonkProof proof;
     proof.reserve(oink_proof.size() + sumcheck_proof.size() + multilinear_batch_proof.size());

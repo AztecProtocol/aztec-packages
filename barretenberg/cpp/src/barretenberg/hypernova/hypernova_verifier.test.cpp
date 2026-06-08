@@ -95,6 +95,9 @@ template <typename F> static TranscriptManifest build_expected_folding_manifest(
     for (size_t i = 0; i < F::NUM_SHIFTED_ENTITIES - 1; ++i) {
         manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
     }
+    // The multilinear batching challenge is drawn before the batching sumcheck (it scales the slot polynomials),
+    // followed by the sumcheck alpha. Both are consecutive with the batching challenges above.
+    manifest.add_challenge(round, "claim_batching_challenge");
     manifest.add_challenge(round, "Sumcheck:alpha");
     manifest.add_entry(round, "Sumcheck:evaluations", F::NUM_ALL_ENTITIES);
     round++;
@@ -106,8 +109,7 @@ template <typename F> static TranscriptManifest build_expected_folding_manifest(
         round++;
     }
 
-    // Final evaluations + claim_batching_challenge
-    manifest.add_challenge(round, "claim_batching_challenge");
+    // Final batched evaluations (no trailing challenge: the batching challenge was drawn before the sumcheck).
     manifest.add_entry(round, "Sumcheck:evaluations", 6);
 
     return manifest;

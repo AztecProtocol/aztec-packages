@@ -120,14 +120,18 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
                          verification_type == Chonk::QUEUE_TYPE::HN_FINAL,
                      true);
 
-        constexpr bool include_fold = true;
+        // Per-kernel batching removes the per-circuit multilinear batching proof from every proof; each proof now
+        // carries only its sumcheck.
+        constexpr bool include_fold = false;
         entry.proof = create_mock_hyper_nova_proof<KernelFlavor, KernelIO>(include_fold);
         entry.kernel_honk_vk = create_mock_honk_vk<KernelFlavor, KernelIO>(1 << KernelFlavor::VIRTUAL_LOG_N);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
         BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
 
-        bool include_fold = (verification_type != Chonk::QUEUE_TYPE::OINK);
+        // Per-kernel batching: each app proof carries only its sumcheck (no per-circuit multilinear batching), and
+        // OINK proofs never include folding data.
+        constexpr bool include_fold = false;
         entry.proof = create_mock_hyper_nova_proof<AppFlavor, AppIO>(include_fold);
         entry.app_honk_vk = create_mock_honk_vk<AppFlavor, AppIO>(1 << AppFlavor::VIRTUAL_LOG_N);
     }
@@ -164,6 +168,16 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
 
     Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
+
+    // The kernel batches the accumulator carried in from the previous kernel (absent for the init kernel, whose queue
+    // begins with an OINK app) plus one claim per queued proof. Each call refreshes the mock batching proof so the last
+    // one (with the full group) carries the correct width; a single-claim init kernel needs no batching proof.
+    const bool is_init =
+        !ivc->verification_queue.empty() && ivc->verification_queue.front().type == Chonk::QUEUE_TYPE::OINK;
+    const size_t num_claims = (is_init ? 0 : 1) + ivc->verification_queue.size();
+    if (num_claims >= 2) {
+        ivc->multilinear_batch_proof = acir_format::create_mock_multilinear_batch_proof(num_claims);
+    }
     if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
         ivc->goblin.batch_merge_proof = acir_format::create_mock_batch_merge_proof();
         // The PCS proof only depends on the VIRTUAL_LOG_N specified by the Flavor. KernelFlavor and

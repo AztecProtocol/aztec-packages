@@ -62,6 +62,10 @@ static constexpr size_t NUM_ZERO_ROWS = 1;
 // The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
 static constexpr uint8_t MAX_APPS_PER_KERNEL = 3;
 
+// The maximum number of claims combined in a single per-kernel multilinear batching sumcheck: the accumulator carried
+// in from the previous kernel, the previous kernel's proof, and up to MAX_APPS_PER_KERNEL app proofs.
+static constexpr size_t CHONK_MAX_CLAIMS_PER_KERNEL = MAX_APPS_PER_KERNEL + 2;
+
 static constexpr size_t CHONK_MAX_NUM_APPS = 41;
 static constexpr size_t compute_chonk_max_num_circuits()
 {

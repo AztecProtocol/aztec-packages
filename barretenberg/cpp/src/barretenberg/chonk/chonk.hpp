@@ -16,6 +16,8 @@
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
+#include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
+#include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -80,16 +82,14 @@ class Chonk {
     // Folding: the Hypernova accumulator is flavor-agnostic, so all kinds share one accumulator type.
     using FoldingProver = HypernovaFoldingProver;
     using DeciderProver = HypernovaDeciderProver;
+    // The decider proves/verifies the flavor-agnostic batched accumulator; the kernel recursive flavor matches the
+    // native MegaFlavor decider's entity layout.
+    using RecursiveDeciderVerifier = HypernovaDeciderVerifier<KernelRecursiveFlavor>;
     using ProverAccumulator = FoldingProver::Accumulator;
     using VerifierAccumulator = MultilinearBatchingVerifierClaim<curve::BN254>;
     using RecursiveVerifierAccumulator = MultilinearBatchingVerifierClaim<stdlib::bn254<ClientCircuit>>;
 
     // Result types for decomposed verification steps
-    struct FoldingResult {
-        std::optional<RecursiveVerifierAccumulator> output_accumulator;
-        std::vector<PairingPoints> pairing_points;
-    };
-
     struct PublicInputsResult {
         PairingPoints pairing_points;
         std::optional<StdlibFF> ecc_op_hash; // set only for kernels
@@ -190,16 +190,17 @@ class Chonk {
   public:
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
-    ProverAccumulator prover_accumulator; // current HN prover accumulator instance
+    ProverAccumulator prover_accumulator; // accumulator carried between kernels (output of the previous kernel's batch)
+    std::vector<ProverAccumulator>
+        multilinear_batch_prover_accumulators; // sumcheck claims of the current group, awaiting the per-kernel batching
+    HonkProof
+        multilinear_batch_proof; // current kernel's multilinear batching proof (consumed in its recursive verifier)
 
     HonkProof decider_proof; // decider proof to be verified in the Hiding kernel
 
-    VerifierAccumulator recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
+    VerifierAccumulator recursive_verifier_native_accum; // native value of the accumulator carried between kernels
 #ifndef NDEBUG
-    VerifierAccumulator native_verifier_accum; //  native verifier accumulator used in prover folding
-    FF native_verifier_accum_hash; // hash of the native verifier accumulator when entering recursive verification
-    bool is_previous_circuit_a_kernel = true;
-    bool has_last_app_been_accumulated = false;
+    VerifierAccumulator native_verifier_accum; // native sumcheck claim of the most recently accumulated circuit
 #endif
 
     // PARALLEL QUEUES: These two queues must stay synchronized.
@@ -228,13 +229,13 @@ class Chonk {
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<StdlibCircuitVKAndHash>& input_keys = {});
 
-    [[nodiscard("Pairing points should be accumulated")]] std::
-        tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, StdlibFF>
+    [[nodiscard("Claim and pairing points should be collected")]] std::
+        tuple<RecursiveVerifierAccumulator, std::vector<PairingPoints>, StdlibFF>
         recursive_verification_and_consistency_checks(
             ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,
-            const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-            const std::optional<StdlibFF>& running_hash,
+            const std::optional<RecursiveVerifierAccumulator>& carried_accumulator,
+            const std::optional<StdlibFF>& running_ecc_op_hash,
             const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
             bool explain_batch_merge_hash_repetition = false);
 

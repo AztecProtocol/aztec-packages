@@ -34,8 +34,6 @@
 #include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
 #include "barretenberg/hypernova/hypernova_prover.hpp"
 #include "barretenberg/hypernova/hypernova_verifier.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
-#include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/transcript/transcript_manifest.hpp"
@@ -60,25 +58,26 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  *
  * The 4-app IVC flow creates 6 circuits: app0 -> app1 -> app2 -> kernel1 -> app3 -> kernel2 -> reset -> tail -> hiding
  *
- * Per-circuit transcript breakdown (from complete_kernel_circuit_logic):
+ * Per-circuit transcript breakdown (from complete_kernel_circuit_logic). The per-kernel multilinear batching (and the
+ * hiding kernel's decider) continue on the shared accumulation transcript, so they create no additional transcripts:
  * - App circuits (0, 1, 2): 0 transcripts - use native HN folding prover
  * - Init kernel (3): 3 transcripts:
- *     1. accumulation_recursive_transcript
+ *     1. accumulation_recursive_transcript (also carries the batching sumcheck for multi-app init kernels)
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Intermediate kernel (4): 3 transcripts:
- *     1. accumulation_recursive_transcript - shared across recursive verification
+ * - Intermediate kernel (5): 3 transcripts:
+ *     1. accumulation_recursive_transcript - shared across recursive verification and the batching sumcheck
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Reset and tail kernels (5, 6): 2 transcripts each:
- *     1. accumulation_recursive_transcript
+ * - Reset and tail kernels (6, 7): 2 transcripts each:
+ *     1. accumulation_recursive_transcript (also carries the batching sumcheck)
  *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Hiding kernel (7): 3 transcripts:
- *     1. accumulation_recursive_transcript
+ * - Hiding kernel (8): 3 transcripts:
+ *     1. accumulation_recursive_transcript (also carries the batching sumcheck and the decider)
  *     2. batch_merge_transcript - for final batch merge verification
  *     3. PairingPoints::aggregate_multiple
  *
- * Total: 0 + 0 + 0 + 3 + 3 + 2 + 2 + 3 = 13 transcripts
+ * Total: 0 + 0 + 0 + 3 + 0 + 3 + 2 + 2 + 3 = 13 transcripts
  */
 TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 {

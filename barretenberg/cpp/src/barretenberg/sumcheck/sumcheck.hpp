@@ -7,7 +7,6 @@
 #pragma once
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
-#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/eq_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -298,7 +297,7 @@ template <typename Flavor> class SumcheckProver {
     using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
     using CommitmentKey = typename Flavor::CommitmentKey;
 
-    static constexpr bool isMultilinearBatchingFlavor = IsAnyOf<Flavor, MultilinearBatchingFlavor>;
+    static constexpr bool isMultilinearBatchingFlavor = requires { Flavor::IS_MULTILINEAR_BATCHING; };
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
      * \f$P_1,\ldots, P_N\f$.
@@ -340,7 +339,7 @@ template <typename Flavor> class SumcheckProver {
 
     RowDisablingPolynomial<FF> row_disabling_polynomial;
 
-    // SumcheckProver constructor for MultilinearBatchingFlavor.
+    // SumcheckProver constructor for multilinear batching flavors.
     SumcheckProver(size_t multivariate_n,
                    ProverPolynomials& prover_polynomials,
                    std::shared_ptr<Transcript> transcript,
@@ -432,7 +431,13 @@ template <typename Flavor> class SumcheckProver {
         // If required, extend prover's multilinear polynomials in `multivariate_d` variables by zero to get multilinear
         // polynomials in `virtual_log_n` variables.
         for (size_t k = multivariate_d; k < virtual_log_n; ++k) {
-            if constexpr (isMultilinearBatchingFlavor) {
+            if constexpr (requires {
+                              Flavor::extend_eq_polynomials_for_virtual_round(
+                                  partially_evaluated_polynomials, multivariate_challenge, k);
+                          }) {
+                Flavor::extend_eq_polynomials_for_virtual_round(
+                    partially_evaluated_polynomials, multivariate_challenge, k);
+            } else if constexpr (isMultilinearBatchingFlavor) {
                 // We need to specify the evaluation at index 1 for eq polynomials
                 std::vector<FF> index_1_challenge(virtual_log_n);
                 for (size_t i = 0; i < k; i++) {

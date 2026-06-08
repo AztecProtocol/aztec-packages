@@ -1,27 +1,37 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: }
+// internal:    { status: not started, auditors: [], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
-
 #pragma once
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/common/ref_vector.hpp"
+#include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
-#include "barretenberg/flavor/relation_definitions.hpp"
+#include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
+#include "barretenberg/polynomials/eq_polynomial.hpp"
 #include "barretenberg/relations/multilinear_batching/multilinear_batching_relation.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+
+#include <array>
 
 namespace bb {
 
-// Forward declaration for debug comparison method
-template <typename Curve> struct MultilinearBatchingVerifierClaim;
+template <typename FF, typename Polynomial, size_t MaxNumClaims> struct MultilinearBatchingProverPolynomials;
 
-class MultilinearBatchingFlavor {
+/**
+ * @brief Native flavor for one fixed-width multilinear batching sumcheck.
+ * @details One such batching is run per kernel, combining the accumulator carried in from the previous kernel with the
+ * sumcheck claims of the proofs the kernel recursively verifies. The width therefore defaults to
+ * CHONK_MAX_CLAIMS_PER_KERNEL rather than the total number of circuits in the IVC.
+ */
+template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBatchingFlavor_ {
   public:
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
@@ -34,207 +44,219 @@ class MultilinearBatchingFlavor {
     using Transcript = NativeTranscript;
     using Codec = FrCodec;
 
-    // An upper bound on the size of the MultilinearBatching-circuits. `CONST_FOLDING_LOG_N` bounds the log circuit
-    // sizes in the Chonk context.
+    static constexpr size_t MAX_NUM_CLAIMS = MaxNumClaims;
     static constexpr size_t VIRTUAL_LOG_N = CONST_FOLDING_LOG_N;
     static constexpr bool USE_SHORT_MONOMIALS = false;
-    // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
     static constexpr size_t TRACE_OFFSET = 0;
-    // Indicates that this flavor runs with Multilinear Batching.
     static constexpr bool IS_MULTILINEAR_BATCHING = true;
-    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
-    // and Shplemini
     static constexpr bool USE_PADDING = true;
 
-    // ============ PROOF STRUCTURE CONSTANTS ============
-    // Number of accumulator commitments sent in proof (non_shifted + shifted).
-    // Note: instance commitments are computed by verifier from Oink witness commitments.
-    // Note: eq polynomials are computed from challenges, not committed.
-    static constexpr size_t NUM_ACCUMULATOR_COMMITMENTS = 2;
-    // Number of accumulator evaluations sent in proof (non_shifted + shifted).
-    static constexpr size_t NUM_ACCUMULATOR_EVALUATIONS = 2;
+    static constexpr size_t NUM_CLAIM_COMMITMENTS = 2;
+    static constexpr size_t NUM_CLAIM_EVALUATIONS = 2;
+    static constexpr size_t NUM_CLAIM_CHALLENGES = VIRTUAL_LOG_N;
 
-    // ============ SUMCHECK CONSTANTS ============
-    // Total polynomials in sumcheck: 4 unshifted + 2 shifted views.
-    static constexpr size_t NUM_ALL_ENTITIES = 6;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 2;
+    static constexpr size_t NUM_ALL_ENTITIES = 3 * MAX_NUM_CLAIMS;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = MAX_NUM_CLAIMS;
 
-    // define the tuple of Relations that comprise the Sumcheck relation
-    // Note: made generic for use in MegaRecursive.
-    template <typename FF>
-    using Relations_ =
-        std::tuple<bb::MultilinearBatchingAccumulatorRelation<FF>, bb::MultilinearBatchingInstanceRelation<FF>>;
+    template <typename FF_> using Relations_ = std::tuple<bb::MultilinearBatchingRelation<FF_, MAX_NUM_CLAIMS>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
-    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
-    // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
-
-    // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparator = FF;
 
-    /**
-     * @brief All polynomials used in multilinear batching sumcheck.
-     * @details Used to build containers for: the prover's polynomials during sumcheck; the sumcheck's folded
-     * polynomials; the univariates constructed during sumcheck; the evaluations produced by sumcheck.
-     *
-     * Layout:
-     *   - batched_unshifted_accumulator: commitment SENT in proof
-     *   - batched_unshifted_instance:    commitment computed by verifier from Oink witness commitments
-     *   - eq_accumulator/eq_instance:    computed from challenges by both prover and verifier (not committed)
-     *   - batched_shifted_*:             shifted views of the batched polynomials
-     */
     template <typename DataType> class AllEntities {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType,
-                              batched_unshifted_accumulator, // Accumulator's batched unshifted poly (committed)
-                              batched_unshifted_instance,    // Instance's batched unshifted poly (verifier computes)
-                              eq_accumulator,                // eq(u, r_acc) selector (derived from challenges)
-                              eq_instance,                   // eq(u, r_inst) selector (derived from challenges)
-                              batched_shifted_accumulator,   // Accumulator's batched shifted poly
-                              batched_shifted_instance);     // Instance's batched shifted poly
+        std::array<DataType, NUM_ALL_ENTITIES> values;
 
-        auto get_unshifted()
+        DataType& non_shifted(size_t idx) { return values[idx]; }
+        const DataType& non_shifted(size_t idx) const { return values[idx]; }
+        DataType& shifted(size_t idx) { return values[MAX_NUM_CLAIMS + idx]; }
+        const DataType& shifted(size_t idx) const { return values[MAX_NUM_CLAIMS + idx]; }
+        DataType& eq(size_t idx) { return values[2 * MAX_NUM_CLAIMS + idx]; }
+        const DataType& eq(size_t idx) const { return values[2 * MAX_NUM_CLAIMS + idx]; }
+
+        auto get_all() { return RefArray<DataType, NUM_ALL_ENTITIES>(values); }
+        auto get_all() const
         {
-            return RefArray{ batched_unshifted_accumulator, batched_unshifted_instance, eq_accumulator, eq_instance };
-        };
-        auto get_shifted() { return RefArray{ batched_shifted_accumulator, batched_shifted_instance }; };
+            std::array<const DataType*, NUM_ALL_ENTITIES> refs;
+            for (size_t idx = 0; idx < NUM_ALL_ENTITIES; ++idx) {
+                refs[idx] = &values[idx];
+            }
+            return RefArray<const DataType, NUM_ALL_ENTITIES>(refs);
+        }
+        auto get_witness() { return get_all(); }
+        auto get_witness() const { return get_all(); }
+
+        static const std::vector<std::string>& get_labels()
+        {
+            static const std::vector<std::string> labels = [] {
+                std::vector<std::string> result;
+                result.reserve(NUM_ALL_ENTITIES);
+                for (size_t idx = 0; idx < MAX_NUM_CLAIMS; ++idx) {
+                    result.emplace_back("non_shifted_" + std::to_string(idx));
+                }
+                for (size_t idx = 0; idx < MAX_NUM_CLAIMS; ++idx) {
+                    result.emplace_back("shifted_" + std::to_string(idx));
+                }
+                for (size_t idx = 0; idx < MAX_NUM_CLAIMS; ++idx) {
+                    result.emplace_back("eq_" + std::to_string(idx));
+                }
+                return result;
+            }();
+            return labels;
+        }
+
+        static constexpr std::size_t size() { return NUM_ALL_ENTITIES; }
     };
 
-    /**
-     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
-     * at one point.
-     */
     class AllValues : public AllEntities<FF> {
       public:
         using Base = AllEntities<FF>;
         using Base::Base;
     };
 
-    /**
-     * @brief A container for the prover polynomials handles.
-     */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        [[nodiscard]] size_t get_polynomial_size() const { return batched_unshifted_accumulator.size(); }
+        std::array<std::vector<FF>, MAX_NUM_CLAIMS> claim_challenges;
+        std::array<bool, MAX_NUM_CLAIMS> active_slots{};
+
+        [[nodiscard]] size_t get_polynomial_size() const
+        {
+            size_t result = 0;
+            for (const auto& polynomial : this->get_all()) {
+                result = std::max(result, polynomial.virtual_size());
+            }
+            return result;
+        }
+
         void increase_polynomials_virtual_size(const size_t size_in)
         {
             for (auto& polynomial : this->get_all()) {
-                polynomial.increase_virtual_size(size_in);
+                if (!polynomial.is_empty()) {
+                    polynomial.increase_virtual_size(size_in);
+                }
             }
         }
     };
 
-    /**
-     * @brief Prover's claim for multilinear batching - contains polynomials and their evaluation claims.
-     * @details Used as input to ProvingKey and as output from HyperNova folding.
-     * Each claim represents: "polynomial P evaluated at challenge r equals evaluation v".
-     */
-    struct ProverClaim {
-        std::vector<FF> challenge;         // Evaluation point r
-        FF non_shifted_evaluation;         // Claimed value P(r)
-        FF shifted_evaluation;             // Claimed value P_shifted(r)
-        Polynomial non_shifted_polynomial; // The polynomial P
-        Polynomial shifted_polynomial;     // The shiftable polynomial (pre-shift form)
-        Commitment non_shifted_commitment; // Commitment [P]
-        Commitment shifted_commitment;     // Commitment [P_shifted]
-        size_t dyadic_size;                // Size of the polynomial domain
+    using ProverClaim = MultilinearBatchingProverClaim;
 
-        MultilinearBatchingVerifierClaim<curve::BN254> to_verifier_claim_for_testing() const;
-
-#ifndef NDEBUG
-        /**
-         * @brief Debug helper to compare prover claim against verifier claim.
-         * @details Recomputes commitments and evaluations to verify consistency.
-         */
-        bool compare_with_verifier_claim(const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim);
-#endif
-    };
-
-    /**
-     * @brief The proving key for multilinear batching sumcheck.
-     *
-     * @details In HyperNova folding, we reduce two polynomial evaluation claims to one via sumcheck.
-     *
-     * Each claim asserts: "polynomial P evaluated at point r equals v", i.e., P(r) = v.
-     * - Accumulator claim: P_acc(r_acc) = v_acc  (from previous folding rounds)
-     * - Instance claim:    P_inst(r_inst) = v_inst (from the incoming circuit)
-     *
-     * The multilinear batching sumcheck proves both claims simultaneously by checking:
-     *   sum_x [ P_acc(x) * eq(x, r_acc) ] = v_acc
-     *   sum_x [ P_inst(x) * eq(x, r_inst) ] = v_inst
-     *
-     * where eq(x, r) is the equality polynomial that is 1 when x = r and 0 elsewhere on the hypercube.
-     *
-     * After sumcheck, both claims are reduced to evaluations at a new random point u, producing a
-     * single combined claim that can be verified with one polynomial opening.
-     *
-     * Field mapping from ProverClaim to ProvingKey:
-     * - non_shifted_polynomial → polynomials.batched_unshifted_{accumulator,instance}
-     * - shifted_polynomial     → polynomials.batched_shifted_{accumulator,instance} (via .shifted())
-     * - challenge              → {accumulator,instance}_challenge + polynomials.eq_{accumulator,instance}
-     * - {non_shifted,shifted}_evaluation → {accumulator,instance}_evaluations
-     * - {non_shifted,shifted}_commitment → {non_shifted,shifted}_{accumulator,instance}_commitment
-     * - shifted_polynomial     → preshifted_{accumulator,instance} (for new claim computation)
-     */
     class ProvingKey {
       public:
-        // Polynomials for sumcheck: batched witnesses + eq selectors
         ProverPolynomials polynomials;
-
-        // Evaluation points r_acc and r_inst (sent to verifier for eq polynomial construction)
-        std::vector<FF> accumulator_challenge;
-        std::vector<FF> instance_challenge;
-
-        // Claimed evaluations v_acc = P_acc(r_acc) and v_inst = P_inst(r_inst)
-        std::vector<FF> accumulator_evaluations;
-        std::vector<FF> instance_evaluations;
-
-        size_t circuit_size;
-
-        // Commitments [P_acc] and [P_inst] - combined into output claim's commitment
-        Commitment non_shifted_accumulator_commitment;
-        Commitment shifted_accumulator_commitment;
-        Commitment non_shifted_instance_commitment;
-        Commitment shifted_instance_commitment;
-
-        // Pre-shifted polynomials for computing new claim's shifted polynomial
-        Polynomial preshifted_accumulator;
-        Polynomial preshifted_instance;
+        std::array<Polynomial, MAX_NUM_CLAIMS> preshifted_polynomials;
+        std::array<Commitment, MAX_NUM_CLAIMS> non_shifted_commitments;
+        std::array<Commitment, MAX_NUM_CLAIMS> shifted_commitments;
+        std::array<FF, MAX_NUM_CLAIMS> non_shifted_evaluations;
+        std::array<FF, MAX_NUM_CLAIMS> shifted_evaluations;
+        std::array<bool, MAX_NUM_CLAIMS> active_slots{};
+        size_t num_claims = 0;
+        size_t circuit_size = 0;
 
         ProvingKey() = default;
+        explicit ProvingKey(std::vector<ProverClaim>&& claims);
 
-        /**
-         * @brief Construct from accumulator and instance claims.
-         * @details Takes ownership via move semantics. After construction, the claims are consumed.
-         */
-        ProvingKey(ProverClaim&& accumulator_claim, ProverClaim&& instance_claim);
+        void apply_slot_batching_challenge(const FF& challenge);
     };
 
-    /**
-     * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
-     */
-    using PartiallyEvaluatedMultivariates =
-        PartiallyEvaluatedMultivariatesBase<AllEntities<Polynomial>, ProverPolynomials, Polynomial>;
+    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
+      public:
+        std::array<std::vector<FF>, MAX_NUM_CLAIMS> claim_challenges;
+        std::array<bool, MAX_NUM_CLAIMS> active_slots{};
 
-    /**
-     * @brief A container for univariates used in sumcheck.
-     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
-     */
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
+        {
+            claim_challenges = full_polynomials.claim_challenges;
+            active_slots = full_polynomials.active_slots;
+            for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
+                size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
+                poly = Polynomial(desired_size, circuit_size / 2, 0, Polynomial::DontZeroMemory::FLAG);
+            }
+        }
+    };
+
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
-
-    /**
-     * @brief A container for univariates produced during the hot loop in sumcheck.
-     */
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+
+    template <typename PartiallyEvaluatedPolynomials>
+    static void extend_eq_polynomials_for_virtual_round(PartiallyEvaluatedPolynomials& partially_evaluated_polynomials,
+                                                        const std::vector<FF>& multivariate_challenge,
+                                                        const size_t round_idx)
+    {
+        std::vector<FF> index_1_challenge(VIRTUAL_LOG_N);
+        for (size_t i = 0; i < round_idx; i++) {
+            index_1_challenge[i] = multivariate_challenge[i];
+        }
+        index_1_challenge[round_idx] = FF(1);
+
+        for (size_t slot = 0; slot < MAX_NUM_CLAIMS; ++slot) {
+            if (!partially_evaluated_polynomials.active_slots[slot]) {
+                continue;
+            }
+            auto force_virtual_extension_shape = [](Polynomial& polynomial) {
+                if (polynomial.size() <= 1) {
+                    return;
+                }
+                auto new_polynomial = Polynomial(2, polynomial.virtual_size());
+                new_polynomial.at(0) = polynomial.at(0);
+                new_polynomial.at(1) = FF(0);
+                polynomial = new_polynomial;
+            };
+            force_virtual_extension_shape(partially_evaluated_polynomials.non_shifted(slot));
+            force_virtual_extension_shape(partially_evaluated_polynomials.shifted(slot));
+
+            auto& eq_polynomial = partially_evaluated_polynomials.eq(slot);
+            auto new_eq_polynomial = Polynomial(2, eq_polynomial.virtual_size());
+            new_eq_polynomial.at(0) = eq_polynomial.at(0);
+            index_1_challenge[round_idx] = FF(1);
+            new_eq_polynomial.at(1) = VerifierEqPolynomial<FF>::eval(
+                partially_evaluated_polynomials.claim_challenges[slot], index_1_challenge);
+            eq_polynomial = new_eq_polynomial;
+        }
+    }
 };
 
-// Type alias for external usage
-using MultilinearBatchingProverClaim = MultilinearBatchingFlavor::ProverClaim;
+using MultilinearBatchingFlavor = MultilinearBatchingFlavor_<CHONK_MAX_CLAIMS_PER_KERNEL>;
+
+template <size_t MaxNumClaims = CHONK_MAX_CLAIMS_PER_KERNEL> class MultilinearBatchingRecursiveFlavor_ {
+  public:
+    using NativeFlavor = MultilinearBatchingFlavor_<MaxNumClaims>;
+    using Builder = MegaCircuitBuilder;
+    using Curve = stdlib::bn254<Builder>;
+    using PCS = KZG<Curve>;
+    using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::Element;
+    using Transcript = StdlibTranscript<Builder>;
+    using Codec = stdlib::StdlibCodec<FF>;
+
+    static constexpr size_t MAX_NUM_CLAIMS = NativeFlavor::MAX_NUM_CLAIMS;
+    static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
+    static constexpr bool HasZK = NativeFlavor::HasZK;
+    static constexpr bool IS_MULTILINEAR_BATCHING = NativeFlavor::IS_MULTILINEAR_BATCHING;
+    static constexpr bool USE_PADDING = NativeFlavor::USE_PADDING;
+    static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
+    static constexpr size_t NUM_CLAIM_COMMITMENTS = NativeFlavor::NUM_CLAIM_COMMITMENTS;
+    static constexpr size_t NUM_CLAIM_EVALUATIONS = NativeFlavor::NUM_CLAIM_EVALUATIONS;
+    static constexpr size_t NUM_CLAIM_CHALLENGES = NativeFlavor::NUM_CLAIM_CHALLENGES;
+
+    using Relations = typename NativeFlavor::template Relations_<FF>;
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = NativeFlavor::MAX_PARTIAL_RELATION_LENGTH;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
+    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
+    static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
+    using SubrelationSeparator = FF;
+
+    class AllValues : public NativeFlavor::template AllEntities<FF> {
+      public:
+        using Base = typename NativeFlavor::template AllEntities<FF>;
+        using Base::Base;
+    };
+};
+
+using MultilinearBatchingRecursiveFlavor = MultilinearBatchingRecursiveFlavor_<CHONK_MAX_CLAIMS_PER_KERNEL>;
 
 } // namespace bb

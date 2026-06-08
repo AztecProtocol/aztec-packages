@@ -1,78 +1,72 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: }
+// internal:    { status: not started, auditors: [], commit: }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #pragma once
+
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 
+#include <optional>
+
 namespace bb {
 
 /**
- * @brief Prover for multilinear batching - reduces two polynomial evaluation claims to one via sumcheck.
- *
- * @details Given two claims:
- *   - Accumulator: P_acc(r_acc) = v_acc with commitment [P_acc]
- *   - Instance: P_inst(r_inst) = v_inst with commitment [P_inst]
- *
- * The prover runs sumcheck on the relation:
- *   sum_x [ P_acc(x) * eq(x, r_acc) + P_inst(x) * eq(x, r_inst) ] = v_acc + v_inst
- *
- * This reduces both claims to evaluations at a new random point u. The output claim is:
- *   P_new(u) = v_new with [P_new] = [P_inst] + γ * [P_acc]
- *
- * where P_new = P_inst + γ * P_acc and γ is derived from the transcript.
- *
- * Usage:
- *   1. Construct with two claims (takes ownership via move)
- *   2. Call construct_proof() to run the protocol
- *   3. Call compute_new_claim() to get the batched output claim
- *
- * See also: chonk/README.md#batching-claims-into-accumulator
+ * @brief Internal prover for one per-kernel multilinear batching proof of fixed width.
+ * @details Templated on the flavor, whose MAX_NUM_CLAIMS fixes the batching width at compile time. A family of widths
+ * (2 .. CHONK_MAX_CLAIMS_PER_KERNEL) is instantiated so each kernel uses the circuit that exactly fits its group. Not
+ * called directly: the public MultilinearBatchingProver routes to the correctly-instantiated internal prover
+ * based on the runtime claim count.
  */
-class MultilinearBatchingProver {
+template <typename Flavor_> class MultilinearBatchingProverInternal {
   public:
-    using Flavor = MultilinearBatchingFlavor;
+    using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using ProvingKey = typename Flavor::ProvingKey;
     using Transcript = typename Flavor::Transcript;
 
-    /**
-     * @brief Construct prover from two claims to be batched.
-     * @param accumulator_claim The accumulated claim from previous folding rounds
-     * @param instance_claim The new instance claim to batch with the accumulator
-     * @param transcript Shared transcript for Fiat-Shamir
-     */
-    MultilinearBatchingProver(MultilinearBatchingProverClaim&& accumulator_claim,
-                              MultilinearBatchingProverClaim&& instance_claim,
-                              std::shared_ptr<Transcript> transcript);
+    MultilinearBatchingProverInternal(std::vector<MultilinearBatchingProverClaim>&& claims,
+                                      std::shared_ptr<Transcript> transcript);
 
-    /**
-     * @brief Execute sumcheck to reduce two evaluation claims to one at a random point u.
-     */
+    BB_PROFILE void execute_claims_round();
     BB_PROFILE void execute_relation_check_rounds();
-
-    /**
-     * @brief Compute the batched output claim after sumcheck.
-     * @details Combines claims: P_new = P_inst + γ * P_acc at the sumcheck challenge point u.
-     * Polynomials are updated in place and moved to avoid allocation.
-     */
     BB_PROFILE MultilinearBatchingProverClaim compute_new_claim();
 
     HonkProof export_proof();
-
-    /**
-     * @brief Construct a multilinear batching proof.
-     * @details Call compute_new_claim() after to get the batched output claim.
-     */
     HonkProof construct_proof();
 
     std::shared_ptr<Transcript> transcript;
     ProvingKey key;
     SumcheckOutput<Flavor> sumcheck_output;
+
+  private:
+    FF claim_batching_challenge = FF(0);
+};
+
+/**
+ * @brief Public entrypoint for per-kernel multilinear batching.
+ * @details Holds the claims to batch and, on construct_proof(), routes to the internal prover of the width matching the
+ * runtime claim count. The new accumulator claim is cached and returned by compute_new_claim().
+ */
+class MultilinearBatchingProver {
+  public:
+    using ProverClaim = MultilinearBatchingProverClaim;
+    using Transcript = NativeTranscript;
+
+    MultilinearBatchingProver(std::vector<ProverClaim>&& claims, std::shared_ptr<Transcript> transcript);
+
+    HonkProof construct_proof();
+    ProverClaim compute_new_claim();
+
+  private:
+    template <size_t NumClaims> HonkProof prove_with_width();
+
+    std::vector<ProverClaim> claims;
+    std::shared_ptr<Transcript> transcript;
+    std::optional<ProverClaim> new_claim;
 };
 
 } // namespace bb

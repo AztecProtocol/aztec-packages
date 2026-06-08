@@ -471,9 +471,11 @@ TEST_F(ChonkTests, AccumulatorBinding)
     const size_t num_circuits = producer_one.total_num_circuits;
     Chonk chonk_one{ num_circuits };
 
-    // Accumulate only the first circuit (app_0) to capture the valid accumulator
+    // Accumulate only the first circuit (app_0) to capture the valid accumulator. With per-kernel batching the
+    // running prover_accumulator is only produced at the kernel boundary; the app's sumcheck claim is collected in
+    // multilinear_batch_prover_accumulators until then.
     producer_one.construct_and_accumulate_next_circuit(chonk_one, settings_one);
-    auto valid_accumulator_after_app0 = chonk_one.prover_accumulator;
+    auto valid_accumulator_after_app0 = chonk_one.multilinear_batch_prover_accumulators.at(0);
 
     // ── Step 2: Run the IVC with an INVALID first app + accumulator substitution ─
 
@@ -486,12 +488,14 @@ TEST_F(ChonkTests, AccumulatorBinding)
         producer_two.construct_and_accumulate_next_circuit(invalid_chonk, settings_two);
 
         // *** ACCUMULATOR SUBSTITUTION ***
-        // After the first app is accumulated, replace prover_accumulator with another one.
+        // After the first app is accumulated, replace its collected sumcheck claim with the one from the parallel
+        // (valid but distinct) IVC. The substituted claim is fed into the init kernel's batching proof, but the
+        // recursive verifier recomputes app_0's claim from its real proof, so the batching hash check must reject it.
         if (circuit_idx == 0) {
             BB_ASSERT_NEQ(valid_accumulator_after_app0.non_shifted_commitment,
-                          invalid_chonk.prover_accumulator.non_shifted_commitment,
+                          invalid_chonk.multilinear_batch_prover_accumulators.at(0).non_shifted_commitment,
                           "Accumulators should be different.");
-            invalid_chonk.prover_accumulator = valid_accumulator_after_app0;
+            invalid_chonk.multilinear_batch_prover_accumulators.at(0) = valid_accumulator_after_app0;
         }
     }
 

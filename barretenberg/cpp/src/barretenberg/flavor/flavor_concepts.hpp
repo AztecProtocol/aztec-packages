@@ -45,14 +45,14 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaKernelRecursiveFlavor,
                                        TranslatorRecursiveFlavor,
                                        ECCVMRecursiveFlavor,
-                                       MultilinearBatchingRecursiveFlavor,
-                                       avm2::AvmRecursiveFlavor>;
+                                       avm2::AvmRecursiveFlavor> ||
+                            (requires { T::Curve::is_stdlib_type; } && T::Curve::is_stdlib_type);
 
 template <typename T>
 concept IsKeccakFlavor = IsAnyOf<T, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 
 template <typename T>
-concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
+concept isMultilinearBatchingFlavor = requires { T::IS_MULTILINEAR_BATCHING; } && T::IS_MULTILINEAR_BATCHING;
 
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;

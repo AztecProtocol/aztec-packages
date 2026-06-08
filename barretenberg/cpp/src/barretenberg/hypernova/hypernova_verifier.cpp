@@ -127,21 +127,19 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
 
     // Derive num_public_inputs from proof size (folding proof structure includes batching)
     const size_t num_public_inputs =
-        ProofLength::HypernovaFolding<Flavor, MultilinearBatchingFlavor>::derive_num_public_inputs(
+        ProofLength::HypernovaFolding<Flavor, MultilinearBatchingFlavor_<2>>::derive_num_public_inputs(
             proof.size(), Flavor::VIRTUAL_LOG_N);
 
+    // Turn the incoming instance into an accumulator claim. This loads the folding proof onto the shared transcript and
+    // reads its instance sumcheck (sumcheck_output_to_accumulator draws the per-entity batching challenges). The
+    // batching sumcheck that follows is read by the batching verifier below from the same transcript.
     auto sumcheck_output = sumcheck_on_incoming_instance(instance, proof, num_public_inputs);
+    Accumulator incoming_accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance);
 
-    // Generate challenges to batch shifted and unshifted polynomials/commitments/evaluation
-    const auto [unshifted_challenges, shifted_challenges] =
-        get_hypernova_batching_challenges<FF>(transcript, NUM_UNSHIFTED_ENTITIES, NUM_SHIFTED_ENTITIES);
-
-    VerifierCommitments verifier_commitments =
-        VerifierCommitmentsConstructor<Flavor>::construct(instance->get_vk(), instance->witness_commitments);
-
-    MultilinearBatchingVerifier batching_verifier(transcript);
-    auto [sumcheck_batching_result, new_accumulator] = batching_verifier.verify_proof(
-        sumcheck_output, verifier_commitments, unshifted_challenges, shifted_challenges, accumulator);
+    // Batch the carried accumulator with the incoming one via the shared multilinear batching sumcheck.
+    std::vector<Accumulator> claims{ accumulator, incoming_accumulator };
+    BatchingVerifier batching_verifier(transcript);
+    auto [sumcheck_batching_result, new_accumulator] = batching_verifier.verify_proof(claims);
 
     if (sumcheck_output.verified && sumcheck_batching_result) {
         vinfo("HypernovaFoldingVerifier: successfully verified folding proof.");

@@ -235,7 +235,7 @@ template <typename FF> struct GateSeparatorPolynomial {
  * - #partially_evaluate() becomes a no-op (no updates to #partial_evaluation_result)
  * - #partial_evaluation_result remains \f$ 1 \f$ throughout
  *
- * This optimization avoids unnecessary multiplications by 1 in MultilinearBatchingFlavor, where
+ * This optimization avoids unnecessary multiplications by 1 in multilinear batching flavors, where
  * gate separation is not needed.
  *
  * ## Pow-contributions to Round Univariates in Sumcheck {#PowContributions}

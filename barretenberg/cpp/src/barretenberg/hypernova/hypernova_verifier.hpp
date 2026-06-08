@@ -6,6 +6,7 @@
 #pragma once
 
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/verifier_commitments.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
@@ -32,9 +33,7 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
     using OinkVerifier = bb::OinkVerifier<Flavor>;
     using SumcheckVerifier = bb::SumcheckVerifier<Flavor>;
     using MegaSumcheckOutput = SumcheckOutput<Flavor>;
-    using BatchingFlavor =
-        std::conditional_t<IsRecursiveFlavor<Flavor>, MultilinearBatchingRecursiveFlavor, MultilinearBatchingFlavor>;
-    using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<BatchingFlavor, Flavor>;
+    using BatchingVerifier = bb::MultilinearBatchingVerifier<IsRecursiveFlavor<Flavor>>;
     using VerifierInstance = VerifierInstance_<Flavor>;
 
     using Proof = std::conditional_t<IsRecursiveFlavor<Flavor>, stdlib::Proof<MegaCircuitBuilder>, HonkProof>;

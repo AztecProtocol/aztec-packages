@@ -4,6 +4,7 @@
 #include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 
 #include <gtest/gtest.h>
@@ -53,7 +54,7 @@ static_assert(MegaKernelFlavor::VerificationKey::calc_num_data_types() == 143,
               "MEGA_KERNEL_VK_LENGTH_IN_FIELDS changed - update constants.nr");
 static_assert(MegaZKFlavor::VerificationKey::calc_num_data_types() == 119,
               "MEGA_ZK_VK_LENGTH_IN_FIELDS changed - update constants.nr");
-static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 102,
+static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor_<2>>::LENGTH == 102,
               "MultilinearBatching proof size changed - update constants.nr");
 
 /**
@@ -215,7 +216,7 @@ TEST_F(MockVerifierInputsTest, MockChonkProofSize)
  */
 TEST_F(MockVerifierInputsTest, MockMultilinearBatchingProofSize)
 {
-    using Flavor = MultilinearBatchingFlavor;
-    HonkProof batching_proof = create_mock_multilinear_batch_proof();
+    using Flavor = MultilinearBatchingFlavor_<2>;
+    HonkProof batching_proof = create_mock_multilinear_batch_proof(/*num_claims=*/2);
     EXPECT_EQ(batching_proof.size(), ProofLength::MultilinearBatching<Flavor>::LENGTH);
 }
