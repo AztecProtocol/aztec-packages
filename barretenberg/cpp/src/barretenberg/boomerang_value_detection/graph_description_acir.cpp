@@ -3,6 +3,9 @@
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/noir_programs_boomerang_values/boomerang_chonk_eccvm_translator_verification.hpp"
+#include "barretenberg/noir_programs_boomerang_values/boomerang_chonk_kernel_io_verification.hpp"
+#include "barretenberg/noir_programs_boomerang_values/chonk_merge_verification.hpp"
 #include "barretenberg/noir_programs_boomerang_values/poseidon2s_helpers.hpp"
 #include "barretenberg/noir_programs_boomerang_values/recursion_constraints_helper.hpp"
 #include "barretenberg/noir_programs_boomerang_values/sha256_circuit_helpers.hpp"
@@ -584,7 +587,8 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_recursion_constraints(
     }
 
     if (constraint->proof_type != PROOF_TYPE::CHONK) {
-        log_error("CHONK recursion validation failed: unsupported proof_type ", static_cast<int>(constraint->proof_type));
+        log_error("CHONK recursion validation failed: unsupported proof_type ",
+                  static_cast<int>(constraint->proof_type));
         return false;
     }
 
@@ -608,52 +612,89 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_chonk_recursion_constraint
         return false;
     }
 
-    std::vector<uint32_t> proof_body_witnesses(constraint->proof.begin() + acir_format::HIDING_KERNEL_PUBLIC_INPUTS_SIZE,
-                                               constraint->proof.end());
+    std::vector<uint32_t> proof_body_witnesses(
+        constraint->proof.begin() + acir_format::HIDING_KERNEL_PUBLIC_INPUTS_SIZE, constraint->proof.end());
 
-    auto validate_MegaZKpart = [&]() -> bool {
+    auto validate_MegaZKpart = [&]() -> KZGVerification::KZGValidationResult {
+        KZGVerification::KZGValidationResult kzg_validation;
         if (!OinkVerifierValidation::validate_oink_verifier<FF>(builder, analyzer, *constraint, proof_body_witnesses)) {
             log_error("CHONK recursion validation failed: MegaZKpart step 1/5 validate_oink_verifier");
-            return false;
+            return kzg_validation;
         }
 
         auto padding_step = recursion_helpers::validate_compute_padding_array_step<FF>(builder, analyzer, *constraint);
         if (!padding_step.valid) {
             log_error("CHONK recursion validation failed: MegaZKpart step 2/5 validate_compute_padding_array_step");
-            return false;
+            return kzg_validation;
         }
 
         if (!SumcheckValidation::validate_sumcheck<FF>(builder, analyzer)) {
             log_error("CHONK recursion validation failed: MegaZKpart step 3/5 validate_sumcheck");
-            return false;
+            return kzg_validation;
         }
 
         if (!ShpleminiVerification::validate_shplemini<FF>(builder, analyzer)) {
             log_error("CHONK recursion validation failed: MegaZKpart step 4/5 validate_shplemini");
-            return false;
+            return kzg_validation;
         }
 
         auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
         const size_t consumed_count = recursion_helpers::NUM_OINK_SQUEEZES + recursion_helpers::NUM_STEP2_SQUEEZES +
-                                      recursion_helpers::NUM_SUMCHECK_SQUEEZES + recursion_helpers::NUM_SHPLEMINI_SQUEEZES;
+                                      recursion_helpers::NUM_SUMCHECK_SQUEEZES +
+                                      recursion_helpers::NUM_SHPLEMINI_SQUEEZES;
         if (all_squeezes.size() < consumed_count + recursion_helpers::NUM_KZG_SQUEEZES) {
             log_error("CHONK recursion validation failed: not enough squeeze gates for KZG, found ",
                       all_squeezes.size(),
                       " expected at least ",
                       consumed_count + recursion_helpers::NUM_KZG_SQUEEZES);
-            return false;
+            return kzg_validation;
         }
         const std::set<size_t> consumed(all_squeezes.begin(), all_squeezes.begin() + consumed_count);
 
-        if (!KZGVerification::validate_kzg(builder, all_squeezes, consumed)) {
+        kzg_validation = KZGVerification::validate_kzg(builder, all_squeezes, consumed);
+        if (!kzg_validation.is_valid) {
             log_error("CHONK recursion validation failed: MegaZKpart step 5/5 validate_kzg");
+            return kzg_validation;
+        }
+
+        return kzg_validation;
+    };
+
+    auto validate_GoblinPart = [&](const KZGVerification::KZGValidationResult& megazk_kzg) -> bool {
+        auto kernel_io = KernelIOVerification::validate_kernel_io_part(builder, megazk_kzg.batch_mul);
+        if (!kernel_io.is_valid) {
+            log_error("CHONK recursion validation failed: GoblinPart step 1/4 validate_kernel_io_part");
+            return false;
+        }
+
+        auto merge_kzg_reduce = MergeVerifierVerification::validate_merge_verifier(
+            builder, kernel_io, megazk_kzg.masking_challenge_generation, megazk_kzg.batch_mul);
+        if (!merge_kzg_reduce.is_valid) {
+            log_error("CHONK recursion validation failed: GoblinPart step 2/4 validate_merge_verifier");
+            return false;
+        }
+
+        auto eccvm = ECCVMTranslatorVerification::validate_eccvm_part(builder, merge_kzg_reduce, analyzer);
+        if (!eccvm.is_valid) {
+            log_error("CHONK recursion validation failed: GoblinPart step 3/4 validate_eccvm_part");
+            return false;
+        }
+
+        auto translator = ECCVMTranslatorVerification::validate_translator_part(builder, eccvm);
+        if (!translator.is_valid) {
+            log_error("CHONK recursion validation failed: GoblinPart step 4/4 validate_translator_part");
             return false;
         }
 
         return true;
     };
 
-    return validate_MegaZKpart();
+    auto megazk_kzg = validate_MegaZKpart();
+    if (!megazk_kzg.is_valid) {
+        return false;
+    }
+
+    return validate_GoblinPart(megazk_kzg);
 }
 
 template <typename FF, typename CircuitBuilder>
@@ -876,8 +917,7 @@ bool StaticAnalyzerAcir_<FF, CircuitBuilder>::process_poseidon2s_constraints(con
         if (block_idx != arith_block_idx) {
             continue;
         }
-        matrix_state =
-            poseidon2_helpers::validate_matrix_mul_layer<FF>(builder, arith_block, state_indices, gate_idx);
+        matrix_state = poseidon2_helpers::validate_matrix_mul_layer<FF>(builder, arith_block, state_indices, gate_idx);
         if (matrix_state.has_value()) {
             break;
         }

@@ -123,51 +123,30 @@ struct VerifierComponents {
     const Builder& builder() const { return *builder_ptr; }
 };
 
-// Allocate mock VK and proof witnesses in a fresh Builder, wire up VKAndHash,
-// VerifierInstance, and Transcript (proof loaded).  Does NOT call any verifier
-// step — the caller drives step-by-step execution.
+// Reconstruct verifier components from an ACIR recursion constraint.
+// Does NOT call any verifier step — the caller drives step-by-step execution.
 static VerifierComponents setup_verifier_components(size_t num_acir_pub_inputs = 0)
 {
-    const size_t dyadic_size = 1 << MegaZKFlavor::VIRTUAL_LOG_N;
-    const size_t log_n = static_cast<size_t>(MegaZKFlavor::VIRTUAL_LOG_N);
+    AcirProgram program = make_mock_acir_program(num_acir_pub_inputs);
+    const auto& constraint = program.constraints.chonk_recursion_constraints[0];
 
-    // Native mock objects
-    auto native_vk = create_mock_honk_vk<MegaZKFlavor, IO>(dyadic_size, num_acir_pub_inputs);
-    auto native_proof = create_mock_honk_proof<MegaZKFlavor, IO>(num_acir_pub_inputs);
-
-    // Heap-allocate so field_t context pointers (&builder) remain valid after return
-    auto builder_ptr = std::make_unique<Builder>();
+    auto builder_ptr = std::make_unique<Builder>(program.witness, program.constraints.public_inputs, false);
     Builder& builder = *builder_ptr;
 
-    // ── VK witnesses ─────────────────────────────────────────────────────────
-    auto native_vk_fields = native_vk->to_field_elements();
-    std::vector<uint32_t> key_indices;
-    key_indices.reserve(native_vk_fields.size());
-    for (const auto& f : native_vk_fields) {
-        key_indices.push_back(builder.add_variable(f));
-    }
-    auto key_fields = fields_from_witnesses(builder, key_indices);
+    auto key_fields = fields_from_witnesses(builder, constraint.key);
     auto recursive_vk = std::make_shared<RecursiveVK>(key_fields);
 
-    // ── VK hash ───────────────────────────────────────────────────────────────
-    auto native_hash = native_vk->hash();
-    uint32_t hash_idx = builder.add_variable(native_hash);
-    auto vk_hash_ct = field_ct::from_witness_index(&builder, hash_idx);
+    auto vk_hash_ct = field_ct::from_witness_index(&builder, constraint.key_hash);
     auto vk_and_hash = std::make_shared<VKAndHash>(recursive_vk, vk_hash_ct);
 
-    // ── Proof witnesses ───────────────────────────────────────────────────────
-    StdlibProof stdlib_proof(builder, native_proof);
+    std::vector<uint32_t> proof_indices = add_public_inputs_to_proof(constraint.proof, constraint.public_inputs);
+    auto proof_fields = fields_from_witnesses(builder, proof_indices);
+    StdlibProof stdlib_proof(proof_fields);
 
-    // ── Transcript ────────────────────────────────────────────────────────────
     auto transcript = std::make_shared<Transcript>();
     transcript->load_proof(stdlib_proof);
 
-    // ── VerifierInstance ─────────────────────────────────────────────────────
     auto verifier_instance = std::make_shared<VerifierInst>(vk_and_hash);
-
-    // Derive num_public_inputs from proof size
-    const size_t num_public_inputs =
-        ProofLength::Honk<RecursiveFlavor>::derive_num_public_inputs(native_proof.size(), log_n);
 
     VerifierComponents vc;
     vc.builder_ptr = std::move(builder_ptr);
@@ -175,16 +154,23 @@ static VerifierComponents setup_verifier_components(size_t num_acir_pub_inputs =
     vc.transcript = transcript;
     vc.verifier_instance = verifier_instance;
     vc.mega_stdlib_proof = std::move(stdlib_proof);
-    vc.num_public_inputs = num_public_inputs;
-    vc.log_n = log_n;
-    vc.key_indices = key_indices;
-    vc.key_hash_idx = hash_idx;
+    vc.num_public_inputs = acir_format::HIDING_KERNEL_PUBLIC_INPUTS_SIZE + num_acir_pub_inputs;
+    vc.log_n = static_cast<size_t>(MegaZKFlavor::VIRTUAL_LOG_N);
+    vc.key_indices = constraint.key;
+    vc.key_hash_idx = constraint.key_hash;
     return vc;
 }
 
 struct OinkValidationInputs {
     RecursionConstraint constraint;
     std::vector<uint32_t> proof_body_witnesses;
+};
+
+static std::vector<uint32_t> extract_proof_body_witnesses(const RecursionConstraint& constraint);
+
+struct AcirOinkValidationContext {
+    VerifierComponents vc;
+    OinkValidationInputs inputs;
 };
 
 static OinkValidationInputs make_oink_validation_inputs(const VerifierComponents& vc, size_t num_acir_pub_inputs = 0)
@@ -209,6 +195,18 @@ static OinkValidationInputs make_oink_validation_inputs(const VerifierComponents
     }
     out.constraint.proof = out.proof_body_witnesses;
     return out;
+}
+
+static AcirOinkValidationContext setup_acir_oink_validation_context(size_t num_acir_pub_inputs = 0)
+{
+    AcirProgram program = make_mock_acir_program(num_acir_pub_inputs);
+    const auto constraint = program.constraints.chonk_recursion_constraints[0];
+
+    AcirOinkValidationContext ctx;
+    ctx.vc = setup_verifier_components(num_acir_pub_inputs);
+    ctx.inputs.constraint = constraint;
+    ctx.inputs.proof_body_witnesses = extract_proof_body_witnesses(constraint);
+    return ctx;
 }
 
 struct SumcheckStepOutput {
@@ -926,7 +924,7 @@ static AcirKZGDiagnostics collect_acir_kzg_diagnostics(Builder& builder)
     diagnostics.locations =
         locate_kzg_arithmetic_locations(builder, diagnostics.all_squeezes, diagnostics.consumed_prefix);
     diagnostics.top_level_kzg_valid =
-        KZGVerification::validate_kzg(builder, diagnostics.all_squeezes, diagnostics.consumed_prefix);
+        KZGVerification::validate_kzg(builder, diagnostics.all_squeezes, diagnostics.consumed_prefix).is_valid;
 
     if (!diagnostics.masking_challenge.valid) {
         return diagnostics;
@@ -1878,7 +1876,7 @@ TEST_F(BoomerangKZGStepTests, ValidateKZG)
     expect_megazk_challenge_witness_indices_eq(
         extract_megazk_challenge_witness_indices_from_squeeze_gates(builder, all_squeezes),
         setup.challenge_witness_indices);
-    EXPECT_TRUE(KZGVerification::validate_kzg(builder, all_squeezes, setup.consumed_squeezes_before_kzg));
+    EXPECT_TRUE(KZGVerification::validate_kzg(builder, all_squeezes, setup.consumed_squeezes_before_kzg).is_valid);
 }
 
 TEST_F(BoomerangKZGStepTests, ValidateTranscriptReceive)
@@ -2256,7 +2254,7 @@ TEST_F(BoomerangKZGStepTests, ValidateKZGDetectsCorruptedGate)
     EXPECT_NE(hash_before_corruption, hash_after_corruption);
     EXPECT_NE(kzg_hash_before_corruption, kzg_hash_after_corruption);
 
-    EXPECT_FALSE(KZGVerification::validate_kzg(builder, all_squeezes, setup.consumed_squeezes_before_kzg));
+    EXPECT_FALSE(KZGVerification::validate_kzg(builder, all_squeezes, setup.consumed_squeezes_before_kzg).is_valid);
 }
 
 TEST_F(BoomerangKZGStepTests, ValidateKZGDetectsSeveralRandomlyCorruptedGates)
@@ -2315,7 +2313,7 @@ TEST_F(BoomerangKZGStepTests, ValidateKZGDetectsSeveralRandomlyCorruptedGates)
     const size_t kzg_hash_after_corruption =
         recursion_helpers::calculate_hash_arithmetic_block(builder, kzg_arithmetic_start, kzg_arithmetic_end);
     EXPECT_NE(kzg_hash_before_corruption, kzg_hash_after_corruption);
-    EXPECT_FALSE(KZGVerification::validate_kzg(builder, all_squeezes, setup.consumed_squeezes_before_kzg));
+    EXPECT_FALSE(KZGVerification::validate_kzg(builder, all_squeezes, setup.consumed_squeezes_before_kzg).is_valid);
 }
 
 TEST_F(BoomerangKZGStepTests, DumpMaskingChallengeStaticAnalyzerGates)
@@ -2704,21 +2702,30 @@ TEST_F(BoomerangKZGStepTests, DiagnoseKZGValidationFailureInAcirCircuit)
 {
     AcirProgram program = make_mock_acir_program(0);
     Builder builder = create_circuit<Builder>(program, { .has_ipa_claim = true });
-    const auto constraint = program.constraints.chonk_recursion_constraints[0];
+    auto diagnostics = collect_acir_kzg_diagnostics(builder);
 
-    AcirFormat constraint_system_copy = program.constraints;
-    StaticAnalyzerAcir analyzer_acir(std::move(constraint_system_copy), std::move(builder));
-
-    EXPECT_TRUE(analyzer_acir.process_chonk_recursion_constraint(&constraint));
+    EXPECT_TRUE(diagnostics.masking_challenge.valid);
+    EXPECT_TRUE(diagnostics.locations.valid);
+    EXPECT_TRUE(diagnostics.top_level_kzg_valid);
+    EXPECT_TRUE(diagnostics.transcript_receive.is_valid);
+    EXPECT_TRUE(diagnostics.masking_generation.is_valid);
+    EXPECT_TRUE(diagnostics.batch_mul.is_valid);
+    EXPECT_NE(diagnostics.expected_batch_mul_arithmetic_start, SIZE_MAX);
+    EXPECT_NE(diagnostics.expected_batch_mul_nnf_start, SIZE_MAX);
+    EXPECT_TRUE(diagnostics.expected_batch_mul_arithmetic_fingerprint_matches);
+    EXPECT_TRUE(diagnostics.expected_batch_mul_nnf_fingerprint_matches);
+    EXPECT_TRUE(diagnostics.w_receive_links_to_nnf);
+    EXPECT_TRUE(diagnostics.batch_mul_links_to_nnf);
+    EXPECT_TRUE(diagnostics.batch_mul_links_to_memory);
 }
 
-TEST_F(BoomerangKZGStepTests, CompareAcirAndStandaloneBatchMulArithmeticGates)
+TEST_F(BoomerangKZGStepTests, CompareStepwiseAcirAndFullAcirBatchMulArithmeticGates)
 {
-    auto standalone = build_kzg_validation_circuit();
-    Builder& standalone_builder = standalone.vc.builder();
-    auto standalone_locations = locate_kzg_arithmetic_locations(
-        standalone_builder, standalone.all_squeeze_gates, standalone.consumed_squeezes_before_kzg);
-    ASSERT_TRUE(standalone_locations.valid);
+    auto stepwise_acir = build_kzg_validation_circuit();
+    Builder& stepwise_builder = stepwise_acir.vc.builder();
+    auto stepwise_locations = locate_kzg_arithmetic_locations(
+        stepwise_builder, stepwise_acir.all_squeeze_gates, stepwise_acir.consumed_squeezes_before_kzg);
+    ASSERT_TRUE(stepwise_locations.valid);
 
     AcirProgram program = make_mock_acir_program(0);
     Builder acir_builder = create_circuit<Builder>(program, { .has_ipa_claim = true });
@@ -2740,26 +2747,26 @@ TEST_F(BoomerangKZGStepTests, CompareAcirAndStandaloneBatchMulArithmeticGates)
     ASSERT_TRUE(diagnostics.masking_generation.is_valid);
     ASSERT_NE(diagnostics.expected_batch_mul_arithmetic_start, SIZE_MAX);
 
-    const size_t standalone_batch_mul_end =
-        standalone_locations.batch_mul_start + KZGVerification::BATCH_MUL_ARITHMETIC.gate_count;
+    const size_t stepwise_batch_mul_end =
+        stepwise_locations.batch_mul_start + KZGVerification::BATCH_MUL_ARITHMETIC.gate_count;
     const size_t acir_batch_mul_end =
         diagnostics.expected_batch_mul_arithmetic_start + KZGVerification::BATCH_MUL_ARITHMETIC.gate_count;
 
-    auto comparison = compare_hashable_arithmetic_ranges(standalone_builder,
-                                                         standalone_locations.batch_mul_start,
-                                                         standalone_batch_mul_end,
+    auto comparison = compare_hashable_arithmetic_ranges(stepwise_builder,
+                                                         stepwise_locations.batch_mul_start,
+                                                         stepwise_batch_mul_end,
                                                          acir_builder,
                                                          diagnostics.expected_batch_mul_arithmetic_start,
                                                          acir_batch_mul_end);
 
-    info("=== Compare ACIR vs standalone batch_mul arithmetic ===");
-    info("standalone batch_mul start = ", standalone_locations.batch_mul_start);
-    info("acir expected batch_mul start = ", diagnostics.expected_batch_mul_arithmetic_start);
-    info("standalone hashable gate count = ", comparison.lhs.size());
-    info("acir hashable gate count = ", comparison.rhs.size());
+    info("=== Compare stepwise ACIR vs full ACIR batch_mul arithmetic ===");
+    info("stepwise ACIR batch_mul start = ", stepwise_locations.batch_mul_start);
+    info("full ACIR batch_mul start = ", diagnostics.expected_batch_mul_arithmetic_start);
+    info("stepwise ACIR hashable gate count = ", comparison.lhs.size());
+    info("full ACIR hashable gate count = ", comparison.rhs.size());
     info("first_diff_idx = ", comparison.first_diff_idx);
-    info("standalone_has_extra_gate = ", comparison.lhs_has_extra_gate);
-    info("acir_has_extra_gate = ", comparison.rhs_has_extra_gate);
+    info("stepwise_acir_has_extra_gate = ", comparison.lhs_has_extra_gate);
+    info("full_acir_has_extra_gate = ", comparison.rhs_has_extra_gate);
 
     EXPECT_EQ(comparison.first_diff_idx, SIZE_MAX);
     EXPECT_FALSE(comparison.lhs_has_extra_gate);
@@ -2767,17 +2774,17 @@ TEST_F(BoomerangKZGStepTests, CompareAcirAndStandaloneBatchMulArithmeticGates)
     EXPECT_TRUE(diagnostics.expected_batch_mul_arithmetic_fingerprint_matches);
 }
 
-TEST_F(BoomerangKZGStepTests, DumpAndDiffBatchMulArithmeticGatesAcirVsBb)
+TEST_F(BoomerangKZGStepTests, DumpAndDiffBatchMulArithmeticGatesStepwiseAcirVsFullAcir)
 {
-    // ── BB (standalone) circuit ──────────────────────────────────────────────
-    auto standalone = build_kzg_validation_circuit();
-    Builder& bb_builder = standalone.vc.builder();
-    auto bb_locs = locate_kzg_arithmetic_locations(
-        bb_builder, standalone.all_squeeze_gates, standalone.consumed_squeezes_before_kzg);
-    ASSERT_TRUE(bb_locs.valid) << "BB KZG arithmetic locations not found";
+    // ── Stepwise ACIR reconstruction ─────────────────────────────────────────
+    auto stepwise_acir = build_kzg_validation_circuit();
+    Builder& stepwise_builder = stepwise_acir.vc.builder();
+    auto stepwise_locs = locate_kzg_arithmetic_locations(
+        stepwise_builder, stepwise_acir.all_squeeze_gates, stepwise_acir.consumed_squeezes_before_kzg);
+    ASSERT_TRUE(stepwise_locs.valid) << "Stepwise ACIR KZG arithmetic locations not found";
 
-    const size_t bb_start = bb_locs.batch_mul_start;
-    const size_t bb_end = bb_locs.batch_mul_start + KZGVerification::BATCH_MUL_ARITHMETIC.gate_count;
+    const size_t stepwise_start = stepwise_locs.batch_mul_start;
+    const size_t stepwise_end = stepwise_locs.batch_mul_start + KZGVerification::BATCH_MUL_ARITHMETIC.gate_count;
 
     // ── ACIR circuit ─────────────────────────────────────────────────────────
     AcirProgram program = make_mock_acir_program(0);
@@ -2830,9 +2837,9 @@ TEST_F(BoomerangKZGStepTests, DumpAndDiffBatchMulArithmeticGatesAcirVsBb)
     };
 
     // All-gates files (with hashed= mark for every gate)
-    const std::string bb_path = "bb_kzg_arithmetic_gates.txt";
+    const std::string stepwise_path = "stepwise_acir_kzg_arithmetic_gates.txt";
     const std::string acir_path = "acir_kzg_arithmetic_gates.txt";
-    write_batch_mul_gates(bb_builder, bb_start, bb_end, bb_path);
+    write_batch_mul_gates(stepwise_builder, stepwise_start, stepwise_end, stepwise_path);
     write_batch_mul_gates(acir_builder, acir_start, acir_end, acir_path);
 
     // Hashed-only files (only gates included in the hash, local index = position within hashed sequence)
@@ -2855,13 +2862,21 @@ TEST_F(BoomerangKZGStepTests, DumpAndDiffBatchMulArithmeticGatesAcirVsBb)
         return hashed_pos;
     };
 
-    const std::string bb_hashed_path = "bb_kzg_hashed_gates.txt";
+    const std::string stepwise_hashed_path = "stepwise_acir_kzg_hashed_gates.txt";
     const std::string acir_hashed_path = "acir_kzg_hashed_gates.txt";
-    const size_t bb_hashed = write_hashed_only(bb_builder, bb_start, bb_end, bb_hashed_path);
+    const size_t stepwise_hashed = write_hashed_only(stepwise_builder, stepwise_start, stepwise_end, stepwise_hashed_path);
     const size_t acir_hashed = write_hashed_only(acir_builder, acir_start, acir_end, acir_hashed_path);
 
     info(
-        "BB  batch_mul: hashed=", bb_hashed, " / total=", (bb_end - bb_start), " [arith ", bb_start, "..", bb_end, "]");
+        "Stepwise ACIR batch_mul: hashed=",
+        stepwise_hashed,
+        " / total=",
+        (stepwise_end - stepwise_start),
+        " [arith ",
+        stepwise_start,
+        "..",
+        stepwise_end,
+        "]");
     info("ACIR batch_mul: hashed=",
          acir_hashed,
          " / total=",
@@ -2871,52 +2886,53 @@ TEST_F(BoomerangKZGStepTests, DumpAndDiffBatchMulArithmeticGatesAcirVsBb)
          "..",
          acir_end,
          "]");
-    info("All-gates files:    ", bb_path, "  ", acir_path);
-    info("Hashed-only files:  ", bb_hashed_path, "  ", acir_hashed_path);
+    info("All-gates files:    ", stepwise_path, "  ", acir_path);
+    info("Hashed-only files:  ", stepwise_hashed_path, "  ", acir_hashed_path);
 
     // ── Positional diff: gates hashed in one circuit but not the other ────────
-    const size_t gate_count = bb_end - bb_start;
+    const size_t gate_count = stepwise_end - stepwise_start;
     ASSERT_EQ(gate_count, acir_end - acir_start) << "Gate count mismatch";
 
-    std::vector<size_t> acir_only_hashed; // local indices hashed in ACIR but skipped in BB
-    std::vector<size_t> bb_only_hashed;   // local indices hashed in BB but skipped in ACIR
+    std::vector<size_t> full_acir_only_hashed; // local indices hashed in full ACIR but skipped in stepwise ACIR
+    std::vector<size_t> stepwise_only_hashed;  // local indices hashed in stepwise ACIR but skipped in full ACIR
 
     for (size_t i = 0; i < gate_count; ++i) {
-        const bool bb_skip = is_hash_skipped(bb_builder, bb_start + i);
+        const bool stepwise_skip = is_hash_skipped(stepwise_builder, stepwise_start + i);
         const bool acir_skip = is_hash_skipped(acir_builder, acir_start + i);
-        if (!acir_skip && bb_skip) {
-            acir_only_hashed.push_back(i);
-        } else if (acir_skip && !bb_skip) {
-            bb_only_hashed.push_back(i);
+        if (!acir_skip && stepwise_skip) {
+            full_acir_only_hashed.push_back(i);
+        } else if (acir_skip && !stepwise_skip) {
+            stepwise_only_hashed.push_back(i);
         }
     }
 
-    info("Gates hashed in ACIR but skipped in BB: ", acir_only_hashed.size());
-    for (size_t local : acir_only_hashed) {
+    info("Gates hashed in full ACIR but skipped in stepwise ACIR: ", full_acir_only_hashed.size());
+    for (size_t local : full_acir_only_hashed) {
         info("  local=", local, " abs=", acir_start + local);
         log_arithmetic_gate_details(acir_builder, "  ACIR", acir_start + local);
-        log_arithmetic_gate_details(bb_builder, "  BB  ", bb_start + local);
+        log_arithmetic_gate_details(stepwise_builder, "  stepwise", stepwise_start + local);
     }
 
-    info("Gates hashed in BB but skipped in ACIR: ", bb_only_hashed.size());
-    for (size_t local : bb_only_hashed) {
-        info("  local=", local, " abs=", bb_start + local);
-        log_arithmetic_gate_details(bb_builder, "  BB  ", bb_start + local);
+    info("Gates hashed in stepwise ACIR but skipped in full ACIR: ", stepwise_only_hashed.size());
+    for (size_t local : stepwise_only_hashed) {
+        info("  local=", local, " abs=", stepwise_start + local);
+        log_arithmetic_gate_details(stepwise_builder, "  stepwise", stepwise_start + local);
         log_arithmetic_gate_details(acir_builder, "  ACIR", acir_start + local);
     }
 
     // ── Full hash comparison against pinned BATCH_MUL_ARITHMETIC constant ────
-    const size_t bb_full_hash = recursion_helpers::calculate_hash_arithmetic_block(bb_builder, bb_start, bb_end);
+    const size_t stepwise_full_hash =
+        recursion_helpers::calculate_hash_arithmetic_block(stepwise_builder, stepwise_start, stepwise_end);
     const size_t acir_full_hash =
         recursion_helpers::calculate_hash_arithmetic_block(acir_builder, acir_start, acir_end);
     constexpr size_t PINNED_HASH = 0xed39caefb5f53b02ULL;
 
-    info("BB   batch_mul full_hash = 0x", std::hex, bb_full_hash);
+    info("Stepwise ACIR batch_mul full_hash = 0x", std::hex, stepwise_full_hash);
     info("ACIR batch_mul full_hash = 0x", std::hex, acir_full_hash);
     info("Pinned BATCH_MUL_ARITHMETIC full_hash = 0x", std::hex, PINNED_HASH);
-    info("BB   == pinned: ", std::boolalpha, (bb_full_hash == PINNED_HASH));
+    info("Stepwise ACIR == pinned: ", std::boolalpha, (stepwise_full_hash == PINNED_HASH));
     info("ACIR == pinned: ", std::boolalpha, (acir_full_hash == PINNED_HASH));
-    info("BB   == ACIR:   ", std::boolalpha, (bb_full_hash == acir_full_hash));
+    info("Stepwise ACIR == full ACIR: ", std::boolalpha, (stepwise_full_hash == acir_full_hash));
     info(std::dec);
 }
 
@@ -3204,7 +3220,8 @@ TEST_F(BoomerangOinkVerifierTest, OinkVerifierFunctionsAnalysis)
     info("");
     info("=== OinkVerifierFunctionsFingerprintRegression ===");
 
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     Builder& builder = vc.builder();
     auto snap = [&]() { return recursion_helpers::BlockSnapshot::capture(builder); };
 
@@ -3227,6 +3244,12 @@ TEST_F(BoomerangOinkVerifierTest, OinkVerifierFunctionsAnalysis)
         vk->num_public_inputs.assert_equal(FF(vc.num_public_inputs),
                                            "OinkVerifier: num_public_inputs mismatch with VK");
     }
+    info("Oink:vk_hash actual starts: arithmetic=",
+         block_snapshot_size(builder, before_vk_hash, builder.blocks.arithmetic),
+         " poseidon2_external=",
+         block_snapshot_size(builder, before_vk_hash, builder.blocks.poseidon2_external),
+         " poseidon2_internal=",
+         block_snapshot_size(builder, before_vk_hash, builder.blocks.poseidon2_internal));
     EXPECT_TRUE(recursion_helpers::matches_fingerprint_at(builder,
                                                           builder.blocks.poseidon2_external,
                                                           block_snapshot_size(builder,
@@ -3429,9 +3452,10 @@ TEST_F(BoomerangOinkVerifierTest, OinkVerifierFunctionsAnalysis)
 
 TEST_F(BoomerangOinkVerifierTest, FingerprintConstantsMatchDump)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
-    auto inputs = make_oink_validation_inputs(vc);
+    const auto& inputs = acir.inputs;
     Builder& builder = vc.builder();
     cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
 
@@ -3518,22 +3542,36 @@ TEST_F(BoomerangOinkVerifierTest, FingerprintConstantsMatchDump)
 
 TEST_F(BoomerangOinkVerifierTest, ValidateVkHashStage)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
-    auto inputs = make_oink_validation_inputs(vc);
+    const auto& inputs = acir.inputs;
     Builder& builder = vc.builder();
     cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
 
     auto result = OinkVerifierValidation::validate_vk_hash_stage<bb::fr>(builder, analyzer, inputs.constraint);
-    EXPECT_TRUE(result.is_valid);
-    EXPECT_NE(result.arith_start, SIZE_MAX);
-    EXPECT_NE(result.poseidon2_ext_start, SIZE_MAX);
-    EXPECT_NE(result.poseidon2_int_start, SIZE_MAX);
+    ASSERT_TRUE(result.is_valid);
+    ASSERT_NE(result.arith_start, SIZE_MAX);
+    ASSERT_NE(result.poseidon2_ext_start, SIZE_MAX);
+    ASSERT_NE(result.poseidon2_int_start, SIZE_MAX);
+
+    EXPECT_TRUE(recursion_helpers::matches_fingerprint_at(
+        builder, builder.blocks.arithmetic, result.arith_start, OinkVerifierValidation::VK_HASH_ARITHMETIC));
+    EXPECT_EQ(result.arith_end, result.arith_start + OinkVerifierValidation::VK_HASH_ARITHMETIC.gate_count);
+    EXPECT_TRUE(recursion_helpers::matches_fingerprint_at(builder,
+                                                          builder.blocks.poseidon2_external,
+                                                          result.poseidon2_ext_start,
+                                                          OinkVerifierValidation::VK_HASH_POSEIDON2_EXT));
+    EXPECT_TRUE(recursion_helpers::matches_fingerprint_at(builder,
+                                                          builder.blocks.poseidon2_internal,
+                                                          result.poseidon2_int_start,
+                                                          OinkVerifierValidation::VK_HASH_POSEIDON2_INT));
 }
 
 TEST_F(BoomerangOinkVerifierTest, ValidateEtaStage)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
     Builder& builder = vc.builder();
     auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
@@ -3550,7 +3588,8 @@ TEST_F(BoomerangOinkVerifierTest, ValidateEtaStage)
 
 TEST_F(BoomerangOinkVerifierTest, ValidateBetaGammaStage)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
     Builder& builder = vc.builder();
     auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
@@ -3568,7 +3607,8 @@ TEST_F(BoomerangOinkVerifierTest, ValidateBetaGammaStage)
 
 TEST_F(BoomerangOinkVerifierTest, ValidateAlphaStage)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
     Builder& builder = vc.builder();
     auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
@@ -3584,9 +3624,10 @@ TEST_F(BoomerangOinkVerifierTest, ValidateAlphaStage)
 
 TEST_F(BoomerangOinkVerifierTest, ValidateCommitmentReceiveFingerprint)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
-    auto inputs = make_oink_validation_inputs(vc);
+    const auto& inputs = acir.inputs;
     Builder& builder = vc.builder();
     cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
 
@@ -3603,9 +3644,10 @@ TEST_F(BoomerangOinkVerifierTest, ValidateCommitmentReceiveFingerprint)
 
 TEST_F(BoomerangOinkVerifierTest, ValidatePublicInputDeltaStage)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
-    auto inputs = make_oink_validation_inputs(vc);
+    const auto& inputs = acir.inputs;
     Builder& builder = vc.builder();
     auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
     auto oink = recursion_helpers::oink_challenges(builder, all_squeezes);
@@ -3623,9 +3665,10 @@ TEST_F(BoomerangOinkVerifierTest, ValidatePublicInputDeltaStage)
 
 TEST_F(BoomerangOinkVerifierTest, ValidateOinkVerifier)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
-    auto inputs = make_oink_validation_inputs(vc);
+    const auto& inputs = acir.inputs;
     Builder& builder = vc.builder();
     cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
 
@@ -3635,9 +3678,10 @@ TEST_F(BoomerangOinkVerifierTest, ValidateOinkVerifier)
 
 TEST_F(BoomerangOinkVerifierTest, ValidateOinkVerifierDetectsCorruptedVkHash)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
-    auto inputs = make_oink_validation_inputs(vc);
+    const auto& inputs = acir.inputs;
     Builder& builder = vc.builder();
     cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
 
@@ -3653,9 +3697,10 @@ TEST_F(BoomerangOinkVerifierTest, ValidateOinkVerifierDetectsCorruptedVkHash)
 
 TEST_F(BoomerangOinkVerifierTest, ValidateOinkVerifierDetectsCorruptedEtaChallenge)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
-    auto inputs = make_oink_validation_inputs(vc);
+    const auto& inputs = acir.inputs;
     Builder& builder = vc.builder();
     auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
     auto oink = recursion_helpers::oink_challenges(builder, all_squeezes);
@@ -3675,9 +3720,10 @@ TEST_F(BoomerangOinkVerifierTest, ValidateOinkVerifierDetectsCorruptedEtaChallen
 
 TEST_F(BoomerangOinkVerifierTest, ValidateOinkVerifierDetectsCorruptedAlphaStage)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
-    auto inputs = make_oink_validation_inputs(vc);
+    const auto& inputs = acir.inputs;
     Builder& builder = vc.builder();
     auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
     auto oink = recursion_helpers::oink_challenges(builder, all_squeezes);
@@ -3697,9 +3743,10 @@ TEST_F(BoomerangOinkVerifierTest, ValidateOinkVerifierDetectsCorruptedAlphaStage
 
 TEST_F(BoomerangOinkVerifierTest, ValidateOinkVerifierDetectsCorruptedPublicInputDelta)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
-    auto inputs = make_oink_validation_inputs(vc);
+    const auto& inputs = acir.inputs;
     Builder& builder = vc.builder();
     auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
     auto oink = recursion_helpers::oink_challenges(builder, all_squeezes);
@@ -3722,9 +3769,10 @@ TEST_F(BoomerangOinkVerifierTest, ValidateOinkVerifierDetectsCorruptedPublicInpu
 
 TEST_F(BoomerangOinkVerifierTest, LegacyAndNewValidatorParity)
 {
-    auto vc = setup_verifier_components(0);
+    auto acir = setup_acir_oink_validation_context(0);
+    auto& vc = acir.vc;
     run_oink_verifier_step(vc);
-    auto inputs = make_oink_validation_inputs(vc);
+    const auto& inputs = acir.inputs;
     Builder& builder = vc.builder();
     cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
 
