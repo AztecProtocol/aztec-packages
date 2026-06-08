@@ -14,7 +14,7 @@ import {
   generateUnrecoverableSignature,
 } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { TimeoutError } from '@aztec/foundation/error';
+import { InterruptError, TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { filter } from '@aztec/foundation/iterator';
@@ -176,18 +176,23 @@ export class CheckpointProposalJob implements Traceable {
   /** Interrupts job-owned waits so shutdown can finish. */
   public interrupt(): void {
     this.interrupted = true;
-    this.interruptibleSleep.interrupt();
+    this.interruptibleSleep.interrupt(true);
   }
 
-  private async sleepInterruptibly(ms: number): Promise<void> {
+  private async awaitInterruptibleSleep(ms: number): Promise<void> {
     if (this.interrupted) {
       throw new SequencerInterruptedError();
     }
-    if (ms > 0) {
+    if (ms <= 0) {
+      return;
+    }
+    try {
       await this.interruptibleSleep.sleep(ms);
-    }
-    if (this.interrupted) {
-      throw new SequencerInterruptedError();
+    } catch (err) {
+      if (err instanceof InterruptError) {
+        throw new SequencerInterruptedError();
+      }
+      throw err;
     }
   }
 
@@ -395,7 +400,7 @@ export class CheckpointProposalJob implements Traceable {
         if (timeoutSeconds && timer.s() > timeoutSeconds) {
           throw new TimeoutError(`Timeout awaiting archiver sync past slot ${waitForSlot}`);
         }
-        await this.sleepInterruptibly(ARCHIVER_SYNC_POLLING_MS);
+        await this.awaitInterruptibleSleep(ARCHIVER_SYNC_POLLING_MS);
       }
     } catch (err) {
       if (err instanceof SequencerInterruptedError) {
@@ -1604,12 +1609,12 @@ export class CheckpointProposalJob implements Traceable {
     const slotStartTimestamp = this.getSlotStartBuildTimestamp();
     const targetTimestamp = slotStartTimestamp + targetSecondsIntoSlot;
     const delayMs = targetTimestamp * 1000 - this.dateProvider.nowAsDate().getTime();
-    await this.sleepInterruptibly(delayMs);
+    await this.awaitInterruptibleSleep(delayMs);
   }
 
   /** Pause between mempool polls in waitForMinTxs. Extracted for test overriding. */
   protected async waitForTxsPollingInterval(): Promise<void> {
-    await this.sleepInterruptibly(TXS_POLLING_MS);
+    await this.awaitInterruptibleSleep(TXS_POLLING_MS);
   }
 
   private getSlotStartBuildTimestamp(): number {
