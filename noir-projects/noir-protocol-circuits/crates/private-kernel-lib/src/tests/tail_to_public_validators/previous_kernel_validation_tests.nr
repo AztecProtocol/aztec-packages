@@ -68,16 +68,7 @@ fn is_private_only() {
     let _ = builder.execute();
 }
 
-// --- claimed_first_nullifier ---
-
-#[test(should_fail_with = "First nullifier claim was not satisfied")]
-fn first_nullifier_validation() {
-    let mut builder = TestBuilder::new();
-    let mut first_nullifier = builder.previous_kernel.nullifiers.get(0);
-    first_nullifier.inner.inner.value += 1;
-    builder.previous_kernel.nullifiers.set(0, first_nullifier);
-    let _ = builder.execute();
-}
+// --- first nullifier ---
 
 #[test(should_fail_with = "First nullifier must be non revertible")]
 fn first_nullifier_is_revertible() {
@@ -87,9 +78,6 @@ fn first_nullifier_is_revertible() {
     builder.previous_kernel.end_setup();
     // Add a revertible nullifier.
     builder.previous_kernel.append_nullifiers(1);
-    // Update the claimed first nullifier.
-    builder.previous_kernel.claimed_first_nullifier =
-        builder.previous_kernel.nullifiers.get(0).innermost().value;
     let _ = builder.execute();
 }
 

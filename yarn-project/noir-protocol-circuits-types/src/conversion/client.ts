@@ -553,7 +553,6 @@ export function mapPrivateKernelCircuitPublicInputsFromNoir(
     mapAztecAddressFromNoir(inputs.fee_payer),
     mapU64FromNoir(inputs.expiration_timestamp),
     inputs.is_private_only,
-    mapFieldFromNoir(inputs.claimed_first_nullifier),
     mapNumberFromNoir(inputs.claimed_revertible_counter),
   );
 }
@@ -570,7 +569,6 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
     expiration_timestamp: mapU64ToNoir(inputs.expirationTimestamp),
     is_private_only: inputs.isPrivateOnly,
-    claimed_first_nullifier: mapFieldToNoir(inputs.claimedFirstNullifier),
     claimed_revertible_counter: mapNumberToNoir(inputs.claimedRevertibleCounter),
   };
 }

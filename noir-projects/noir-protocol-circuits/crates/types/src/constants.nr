@@ -517,7 +517,6 @@ pub global PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_L
     + AZTEC_ADDRESS_LENGTH
     + 1 /* expiration_timestamp */
     + 1 /* is private only */
-    + 1 /* claimed_first_nullifier */
     + 1 /* claimed_revertible_counter */;
 
 pub global PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX

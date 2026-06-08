@@ -64,9 +64,6 @@ function generateArtifactNames() {
 //   private_kernel_reset_tail_to_public_4_4_..._4    ->  private_kernel_reset_tail_to_public_simulated_4_4_..._4
 // Order matters: the longest prefix must be checked first so `_tail_to_public` doesn't get
 // truncated to `_tail` (or to plain `_reset`) by an earlier match.
-// TODO(https://github.com/AztecProtocol/aztec-packages-private/issues/147): rename the simulated
-// variants to use a `_simulated` suffix at the source (in `generate_variants.js`) so this prefix
-// table and `generateSimulatedArtifactName` collapse to plain `${name}_simulated`.
 const RESET_SIMULATED_PREFIXES: Array<[string, string]> = [
   ['private_kernel_reset_tail_to_public', 'private_kernel_reset_tail_to_public_simulated'],
   ['private_kernel_reset_tail', 'private_kernel_reset_tail_simulated'],
