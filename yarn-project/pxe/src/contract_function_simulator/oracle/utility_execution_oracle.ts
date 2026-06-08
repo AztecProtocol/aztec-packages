@@ -833,7 +833,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // It is a standard contract that only reads its own state, so it is always authorized.
       const isHandshakeRegistryRead =
         targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS) &&
-        functionSelector.equals(await FunctionSelector.fromSignature('get_handshakes(Field,u32)'));
+        functionSelector.equals(await FunctionSelector.fromSignature('get_handshakes((Field),u32)'));
       if (!isHandshakeRegistryRead) {
         const response = this.hooks
           ? await this.hooks.authorizeUtilityCall(request)

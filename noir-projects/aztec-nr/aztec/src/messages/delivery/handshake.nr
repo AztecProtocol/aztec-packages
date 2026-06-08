@@ -74,7 +74,7 @@ pub(crate) unconstrained fn get_handshake_secrets(
 
 /// Calls the HandshakeRegistry's `get_handshakes` utility function and deserializes the response.
 unconstrained fn fetch_handshake_page(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
-    let selector = comptime { FunctionSelector::from_signature("get_handshakes(Field,u32)") };
+    let selector = comptime { FunctionSelector::from_signature("get_handshakes((Field),u32)") };
     let args: [Field; 2] = [recipient.to_field(), page_offset as Field];
     let response = call_utility_function(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, args);
     HandshakePage::deserialize(response)
