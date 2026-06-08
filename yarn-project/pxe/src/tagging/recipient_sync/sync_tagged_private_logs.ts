@@ -139,16 +139,13 @@ function getIndexRangesForSecrets(
 ): Promise<PendingSecret[]> {
   return Promise.all(
     secrets.map(async secret => {
-      const isConstrained = secret.kind === AppTaggingSecretKind.CONSTRAINED;
       const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, jobId);
 
-      let start: number;
-      if (isConstrained) {
-        start = currentHighestFinalizedIndex === undefined ? 0 : currentHighestFinalizedIndex + 1;
-      } else {
-        const currentHighestAgedIndex = await taggingStore.getHighestAgedIndex(secret, jobId);
-        start = currentHighestAgedIndex === undefined ? 0 : currentHighestAgedIndex + 1;
-      }
+      const highestIndexBeforeStart =
+        secret.kind === AppTaggingSecretKind.CONSTRAINED
+          ? currentHighestFinalizedIndex
+          : await taggingStore.getHighestAgedIndex(secret, jobId);
+      const start = highestIndexBeforeStart === undefined ? 0 : highestIndexBeforeStart + 1;
 
       const end = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
 
@@ -221,32 +218,29 @@ async function processConstrainedResults(
   // Find where the contiguous run of indexes ends. Constrained delivery guarantees there are no logs after the
   // first gap, so all logs in the batch are within this prefix.
   const indexesWithLogs = new Set(logsWithIndexes.map(l => l.taggingIndex));
-  let contiguousEnd = pending.start;
-  while (contiguousEnd < pending.end && indexesWithLogs.has(contiguousEnd)) {
-    contiguousEnd++;
+  let firstMissingIndex = pending.start;
+  while (firstMissingIndex < pending.end && indexesWithLogs.has(firstMissingIndex)) {
+    firstMissingIndex++;
   }
 
+  // Finalize any logs before the gap. The nullifier for a constrained-delivery log is emitted in the same
+  // transaction, guaranteeing the log cannot disappear once included, so we persist the highest finalized
+  // index even when a gap stops the scan. This lets the next sync round skip already-finalized indexes.
   const { highestFinalizedIndex } = findHighestIndexes(logsWithIndexes, currentTimestamp, finalizedBlockNumber);
 
   if (highestFinalizedIndex !== undefined) {
     await taggingStore.updateHighestFinalizedIndex(pending.secret, highestFinalizedIndex, jobId);
+
+    if (firstMissingIndex >= pending.end) {
+      return {
+        secret: pending.secret,
+        start: pending.end,
+        end: highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1,
+      };
+    }
   }
 
-  // Gap found — the contiguous sequence has ended, no further logs to scan.
-  if (contiguousEnd < pending.end) {
-    return undefined;
-  }
-
-  // All queried indexes had logs. Advance the window only if the finalized index moved.
-  if (highestFinalizedIndex === undefined) {
-    return undefined;
-  }
-
-  return {
-    secret: pending.secret,
-    start: pending.end,
-    end: highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1,
-  };
+  return undefined;
 }
 
 /**
