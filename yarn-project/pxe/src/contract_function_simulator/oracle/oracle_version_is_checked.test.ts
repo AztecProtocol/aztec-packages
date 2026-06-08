@@ -26,6 +26,7 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
+import { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
 import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
@@ -215,6 +216,7 @@ describe('Oracle Version Check test suite', () => {
         l2TipsStore,
         simulator,
         utilityExecutor: () => Promise.resolve(),
+        transientArrayService: new TransientArrayService(),
       });
     });
 

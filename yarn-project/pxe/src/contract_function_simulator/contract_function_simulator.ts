@@ -110,6 +110,7 @@ import { buildACIRCallback } from './oracle/acir_callback.js';
 import { executePrivateFunction } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
+import { TransientArrayService } from './transient_array_service.js';
 
 /** Options for ContractFunctionSimulator.run. */
 export type ContractSimulatorRunOpts = {
@@ -232,6 +233,11 @@ export class ContractFunctionSimulator {
     const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
+    // One shared transient store for the whole execution tree rooted at this transaction. Threaded into every child
+    // private oracle and inherited by nested utility frames, so that frames of the same contract see each other's
+    // transient arrays, then discarded when run() returns.
+    const transientArrayService = new TransientArrayService();
+
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash: request.firstCallArgsHash,
       txContext: request.txContext,
@@ -265,6 +271,7 @@ export class ContractFunctionSimulator {
       simulator: this.simulator,
       l2TipsStore: this.l2TipsStore,
       hooks: this.hooks,
+      transientArrayService,
     });
 
     const setupTime = simulatorSetupTimer.ms();
@@ -363,6 +370,8 @@ export class ContractFunctionSimulator {
       simulator: this.simulator,
       hooks: this.hooks,
       utilityExecutor,
+      // Execution-tree root (top-level utility run or contract sync): own store; nested frames inherit it.
+      transientArrayService: new TransientArrayService(),
     });
 
     try {
