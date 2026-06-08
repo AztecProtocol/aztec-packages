@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 pub contract StaticChild {
     use aztec::{
         macros::{functions::{external, view}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateSet, PublicMutable},

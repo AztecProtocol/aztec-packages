@@ -19,6 +19,10 @@ use crate::protocol::utils::{reader::Reader, writer::Writer};
 ///
 /// For data that needs to persist across simulations, contract calls, etc, use
 /// [`CapsuleArray`](crate::capsules::CapsuleArray) instead.
+///
+/// For data that must be shared across all frames of the same contract (private and utility) within one top-level PXE
+/// call (transaction simulation or utility call) but not persisted, use
+/// [`TransientArray`](crate::transient::TransientArray).
 pub struct EphemeralArray<T> {
     pub slot: Field,
 }

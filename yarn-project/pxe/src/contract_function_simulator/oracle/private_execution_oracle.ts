@@ -35,9 +35,10 @@ import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { NoteData } from '../noir-structs/note_data.js';
 import { Option } from '../noir-structs/option.js';
 import { pickNotes } from '../pick_notes.js';
-import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
+import type { IPrivateExecutionOracle } from './interfaces.js';
 import { executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
@@ -576,6 +577,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       simulator: this.simulator,
       hooks: this.hooks,
       l2TipsStore: this.l2TipsStore,
+      transientArrayService: this.transientArrayService,
     });
 
     const setupTime = simulatorSetupTimer.ms();

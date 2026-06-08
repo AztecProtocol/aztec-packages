@@ -30,6 +30,9 @@ function build {
     aztec-nr
 }
 
+# Local-dev entry only (via ./bootstrap.sh test). CI does not run this aggregate:
+# the root Makefile wires each subproject's test_cmds individually, so a new
+# suite must also get a Makefile target to run in CI.
 function test_cmds {
   parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts aztec-nr contract-snapshots
 }
