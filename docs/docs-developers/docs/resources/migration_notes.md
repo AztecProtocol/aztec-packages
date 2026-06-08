@@ -9,6 +9,39 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `Storage` struct no longer takes a `Context` generic
+
+State variable types are now declared without an explicit `Context` generic. The `#[storage]` macro threads the execution context through internally, so the `Storage` struct and its field types drop the `Context` parameter:
+
+```diff
+  #[storage]
+- struct Storage<Context> {
+-     admin: PublicMutable<AztecAddress, Context>,
+-     minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+-     balances: Owned<BalanceSet<Context>, Context>,
+-     total_supply: PublicMutable<u128, Context>,
+- }
++ struct Storage {
++     admin: PublicMutable<AztecAddress>,
++     minters: Map<AztecAddress, PublicMutable<bool>>,
++     balances: Owned<BalanceSet>,
++     total_supply: PublicMutable<u128>,
++ }
+```
+
+Usage inside functions is unchanged (`self.storage.admin.read()`, `self.storage.minters.at(addr).write(true)`, etc.).
+
+If you call a state variable method such as `get_storage_slot()` outside the `Storage` struct, import `RuntimeStateVariable` (the method moved there from `StateVariable`):
+
+```diff
+- use aztec::state_vars::StateVariable;
++ use aztec::state_vars::RuntimeStateVariable;
+```
+
+Custom state variable types follow the same split: a fieldless spec marker (implementing `StateVariable`/`OwnedStateVariable` with an associated `Runtime` type) plus a `Runtime*` type that carries the `Context` and the methods.
+
+`#[storage_no_init]` now operates on the runtime layer directly: the struct must be named `StorageRuntime`, keep its `Context` generic, and hold the runtime types (e.g. `RuntimePublicMutable<T, Context>`) with a hand-written `init`.
+
 ### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
 
 The `message_delivery` module has been renamed to `delivery`. Update imports accordingly:

@@ -17,8 +17,8 @@ pub contract NestedUtility {
     };
 
     #[storage]
-    struct Storage<Context> {
-        pow_args: Owned<PrivateMutable<PowNote, Context>, Context>,
+    struct Storage {
+        pow_args: Owned<PrivateMutable<PowNote>>,
     }
 
     #[external("utility")]

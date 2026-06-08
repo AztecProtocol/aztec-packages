@@ -22,8 +22,8 @@ pub contract AaveBridge {
     use aztec::macros::{functions::{external, initializer, view}, storage::storage};
 
     #[storage]
-    struct Storage<Context> {
-        config: PublicImmutable<Config, Context>,
+    struct Storage {
+        config: PublicImmutable<Config>,
     }
 
     #[external("public")]

@@ -26,8 +26,8 @@ pub contract PendingNoteHashes {
 
     // docs:start:private_set
     #[storage]
-    struct Storage<Context> {
-        balances: Owned<PrivateSet<FieldNote, Context>, Context>,
+    struct Storage {
+        balances: Owned<PrivateSet<FieldNote>>,
     }
     // docs:end:private_set
 

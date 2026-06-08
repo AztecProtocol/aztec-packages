@@ -77,20 +77,20 @@ pub contract Test {
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.
     #[storage]
-    struct Storage<Context> {
+    struct Storage {
         // docs:start:private_immutable
-        note_in_private_immutable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+        note_in_private_immutable: Owned<PrivateImmutable<TestNote>>,
         // docs:end:private_immutable
-        struct_in_private_immutable: Owned<PrivateImmutable<ExampleStruct, Context>, Context>,
-        note_in_private_mutable: Owned<PrivateMutable<TestNote, Context>, Context>,
-        struct_in_private_mutable: Owned<PrivateMutable<ExampleStruct, Context>, Context>,
-        note_in_private_set: Owned<PrivateSet<AddressNote, Context>, Context>,
-        struct_in_private_set: Owned<PrivateSet<ExampleStruct, Context>, Context>,
-        note_in_public_immutable: PublicImmutable<TestNote, Context>,
-        struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
-        struct_in_map: Map<AztecAddress, PublicImmutable<ExampleStruct, Context>, Context>,
-        struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY, Context>,
-        dummy_variable: Owned<PrivateImmutable<TestNote, Context>, Context>,
+        struct_in_private_immutable: Owned<PrivateImmutable<ExampleStruct>>,
+        note_in_private_mutable: Owned<PrivateMutable<TestNote>>,
+        struct_in_private_mutable: Owned<PrivateMutable<ExampleStruct>>,
+        note_in_private_set: Owned<PrivateSet<AddressNote>>,
+        struct_in_private_set: Owned<PrivateSet<ExampleStruct>>,
+        note_in_public_immutable: PublicImmutable<TestNote>,
+        struct_in_public_immutable: PublicImmutable<ExampleStruct>,
+        struct_in_map: Map<AztecAddress, PublicImmutable<ExampleStruct>>,
+        struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY>,
+        dummy_variable: Owned<PrivateImmutable<TestNote>>,
     }
 
     #[initializer]

@@ -17,7 +17,7 @@ pub contract NFT {
             note_viewer_options::NoteViewerOptions,
         },
         protocol::{address::AztecAddress, traits::ToField},
-        state_vars::{Map, Owned, PrivateSet, PublicImmutable, PublicMutable, StateVariable},
+        state_vars::{Map, Owned, PrivateSet, PublicImmutable, PublicMutable, RuntimeStateVariable},
         utils::comparison::Comparator,
     };
     use compressed_string::FieldCompressedString;
@@ -32,21 +32,21 @@ pub contract NFT {
     // }
 
     #[storage]
-    struct Storage<Context> {
+    struct Storage {
         // The symbol of the NFT
-        symbol: PublicImmutable<FieldCompressedString, Context>,
+        symbol: PublicImmutable<FieldCompressedString>,
         // The name of the NFT
-        name: PublicImmutable<FieldCompressedString, Context>,
+        name: PublicImmutable<FieldCompressedString>,
         // The admin of the contract
-        admin: PublicMutable<AztecAddress, Context>,
+        admin: PublicMutable<AztecAddress>,
         // Addresses that can mint
-        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+        minters: Map<AztecAddress, PublicMutable<bool>>,
         // Contains the NFTs owned by each address in private.
-        private_nfts: Owned<PrivateSet<NFTNote, Context>, Context>,
+        private_nfts: Owned<PrivateSet<NFTNote>>,
         // A map from token ID to a boolean indicating if the NFT exists.
-        nft_exists: Map<Field, PublicMutable<bool, Context>, Context>,
+        nft_exists: Map<Field, PublicMutable<bool>>,
         // A map from token ID to the public owner of the NFT.
-        public_owners: Map<Field, PublicMutable<AztecAddress, Context>, Context>,
+        public_owners: Map<Field, PublicMutable<AztecAddress>>,
     }
 
     #[external("public")]

@@ -16,8 +16,8 @@ pub contract EcdsaRAccount {
     use ecdsa_public_key_note::EcdsaPublicKeyNote;
 
     #[storage]
-    struct Storage<Context> {
-        signing_public_key: SinglePrivateImmutable<EcdsaPublicKeyNote, Context>,
+    struct Storage {
+        signing_public_key: SinglePrivateImmutable<EcdsaPublicKeyNote>,
     }
 
     // Creates a new account out of an ECDSA public key to use for signature verification
@@ -55,7 +55,7 @@ pub contract EcdsaRAccount {
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // Load public key from storage
-        let storage = Storage::init(context);
+        let storage = StorageRuntime::init(context);
         let public_key = storage.signing_public_key.get_note();
 
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.

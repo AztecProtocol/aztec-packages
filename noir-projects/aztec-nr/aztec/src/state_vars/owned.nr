@@ -1,5 +1,7 @@
 use crate::protocol::address::AztecAddress;
-use crate::state_vars::{OwnedStateVariable, StateVariable};
+use crate::state_vars::{
+    OwnedStateVariable, RuntimeOwnedStateVariable, RuntimeStateVariable, StateVariable,
+};
 
 /// Per-account state variable.
 ///
@@ -10,7 +12,7 @@ use crate::state_vars::{OwnedStateVariable, StateVariable};
 /// ```noir
 /// #[storage]
 /// struct Storage {
-///     balance: Owned<PrivateSet<UintNote, Context>, Context>,
+///     balance: Owned<PrivateSet<UintNote>>,
 /// }
 /// ```
 ///
@@ -25,18 +27,32 @@ use crate::state_vars::{OwnedStateVariable, StateVariable};
 /// # Type Parameters
 ///
 /// * `V` - The underlying type that implements `OwnedStateVariable<Context>` (e.g., `PrivateSet`, `PrivateMutable`).
-/// * `Context` - The execution context type (e.g., `PublicContext`, `PrivateContext`, `UtilityContext`). The context
-/// determines which methods of the state variable are available.
 ///
-pub struct Owned<V, Context> {
+pub struct Owned<V> {}
+
+impl<V, Context> StateVariable<Context> for Owned<V>
+where
+    V: OwnedStateVariable<Context>,
+{
+    let N: u32 = 1;
+    type Runtime = RuntimeOwned<<V as OwnedStateVariable<Context>>::Runtime, Context>;
+}
+
+/// Runtime representation of [`Owned`]. Instantiated by the [`#[storage]`](crate::macros::storage::storage) macro;
+/// users do not name this type directly except when using
+/// [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+///
+/// The `V` generic is the _runtime_ value type, i.e. the projection of the declared owned value type's
+/// [`Runtime`](crate::state_vars::OwnedStateVariable::Runtime).
+pub struct RuntimeOwned<V, Context> {
     pub context: Context,
     storage_slot: Field,
 }
 
-impl<V, Context> StateVariable<1, Context> for Owned<V, Context> {
+impl<V, Context> RuntimeStateVariable<Context> for RuntimeOwned<V, Context> {
     fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        Owned { context, storage_slot }
+        RuntimeOwned { context, storage_slot }
     }
 
     fn get_storage_slot(self) -> Field {
@@ -44,11 +60,11 @@ impl<V, Context> StateVariable<1, Context> for Owned<V, Context> {
     }
 }
 
-impl<V, Context> Owned<V, Context> {
+impl<V, Context> RuntimeOwned<V, Context> {
     /// Returns an instance of the underlying owned state variable for a given owner.
     pub fn at(self, owner: AztecAddress) -> V
     where
-        V: OwnedStateVariable<Context>,
+        V: RuntimeOwnedStateVariable<Context>,
     {
         V::new(self.context, self.storage_slot, owner)
     }

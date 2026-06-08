@@ -61,7 +61,7 @@ Derived `Packable` would give `CardNote` an `N = 2`; the custom impl halves that
 
 ### Case 2: a struct used as a state variable's data type
 
-Primitive types (`bool`, `u8` through `u128`, `Field`, `AztecAddress`) already implement `Packable`, so `PublicMutable<u64>` or `PublicImmutable<AztecAddress>` works out of the box. This section applies when the data type is a user-defined struct, for example `PublicMutable<MyStruct, Context>`.
+Primitive types (`bool`, `u8` through `u128`, `Field`, `AztecAddress`) already implement `Packable`, so `PublicMutable<u64>` or `PublicImmutable<AztecAddress>` works out of the box. This section applies when the data type is a user-defined struct, for example `PublicMutable<MyStruct>`.
 
 `#[storage]` requires every state variable's data type to implement `Packable`, but it does not add it for you. Put `#[derive(Packable)]` on the struct yourself.
 

@@ -14,8 +14,8 @@ pub contract Escrow {
     use token::Token;
 
     #[storage]
-    struct Storage<Context> {
-        owner: SinglePrivateImmutable<AddressNote, Context>,
+    struct Storage {
+        owner: SinglePrivateImmutable<AddressNote>,
     }
 
     // Creates a new instance

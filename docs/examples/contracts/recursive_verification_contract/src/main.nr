@@ -12,9 +12,9 @@ pub contract ValueNotEqual {
     use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkZKProof, verify_honk_proof};
 
     #[storage]
-    struct Storage<Context> {
-        counters: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
-        vk_hash: PublicImmutable<Field, Context>,
+    struct Storage {
+        counters: Map<AztecAddress, PublicMutable<Field>>,
+        vk_hash: PublicImmutable<Field>,
     }
 
     #[initializer]

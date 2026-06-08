@@ -1,7 +1,7 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
     note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
-    state_vars::{OwnedStateVariable, private_set::PrivateSet},
+    state_vars::{private_set::RuntimePrivateSet, RuntimeOwnedStateVariable},
 };
 use crate::protocol::address::AztecAddress;
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
@@ -18,12 +18,15 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
 unconstrained fn in_private(
     context: &mut PrivateContext,
     owner: AztecAddress,
-) -> PrivateSet<MockNote, &mut PrivateContext> {
-    PrivateSet::new(context, STORAGE_SLOT, owner)
+) -> RuntimePrivateSet<MockNote, &mut PrivateContext> {
+    RuntimePrivateSet::new(context, STORAGE_SLOT, owner)
 }
 
-unconstrained fn in_utility(context: UtilityContext, owner: AztecAddress) -> PrivateSet<MockNote, UtilityContext> {
-    PrivateSet::new(context, STORAGE_SLOT, owner)
+unconstrained fn in_utility(
+    context: UtilityContext,
+    owner: AztecAddress,
+) -> RuntimePrivateSet<MockNote, UtilityContext> {
+    RuntimePrivateSet::new(context, STORAGE_SLOT, owner)
 }
 
 #[test]

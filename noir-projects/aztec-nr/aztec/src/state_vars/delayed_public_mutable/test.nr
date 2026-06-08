@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
-    state_vars::{delayed_public_mutable::DelayedPublicMutable, StateVariable},
+    state_vars::{delayed_public_mutable::RuntimeDelayedPublicMutable, RuntimeStateVariable},
     test::{helpers::test_environment::TestEnvironment, mocks::MockStruct},
 };
 use crate::protocol::traits::Empty;
@@ -17,20 +17,20 @@ global TEST_INITIAL_DELAY: u64 = 60 * 60 * 24;
 
 unconstrained fn in_public(
     context: PublicContext,
-) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, PublicContext> {
-    DelayedPublicMutable::new(context, storage_slot)
+) -> RuntimeDelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, PublicContext> {
+    RuntimeDelayedPublicMutable::new(context, storage_slot)
 }
 
 unconstrained fn in_private(
     context: &mut PrivateContext,
-) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, &mut PrivateContext> {
-    DelayedPublicMutable::new(context, storage_slot)
+) -> RuntimeDelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, &mut PrivateContext> {
+    RuntimeDelayedPublicMutable::new(context, storage_slot)
 }
 
 unconstrained fn in_utility(
     context: UtilityContext,
-) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, UtilityContext> {
-    DelayedPublicMutable::new(context, storage_slot)
+) -> RuntimeDelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, UtilityContext> {
+    RuntimeDelayedPublicMutable::new(context, storage_slot)
 }
 
 #[test]

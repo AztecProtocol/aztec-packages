@@ -16,10 +16,10 @@
 //!
 //! ```noir
 //! #[storage]
-//! struct Storage<C> {
-//!     a: PublicMutable<bool, C>,
-//!     b: Map<AztecAddress, DelayedPublicMutable<u128, C>, C>,
-//!     c: Owned<PrivateSet<UintNote, C>, C>,
+//! struct Storage {
+//!     a: PublicMutable<bool>,
+//!     b: Map<AztecAddress, DelayedPublicMutable<u128>>,
+//!     c: Owned<PrivateSet<UintNote>>,
 //! }
 //! ```
 //!
@@ -57,12 +57,12 @@
 //! that reads and writes to one do not interfere with others.
 //!
 //! Storage slot allocation is automatic and cannot be overridden. A state variable's storage slot can be queried via
-//! [`crate::state_vars::StateVariable::get_storage_slot`].
+//! [`crate::state_vars::RuntimeStateVariable::get_storage_slot`].
 //!
 //! ```noir
 //! #[storage]
-//! struct Storage<C> {
-//!     a: PublicMutable<bool, C>,
+//! struct Storage {
+//!     a: PublicMutable<bool>,
 //! }
 //!
 //! #[external("utility")]
@@ -71,12 +71,13 @@
 //! }
 //! ```
 //!
-//! ## The Context Parameter
+//! ## The Execution Context
 //!
-//! All state variables take a generic `Context` parameter, which will be set to one of
-//! [`PrivateContext`](crate::context::PrivateContext), [`PublicContext`](crate::context::PublicContext) or
-//! [`UtilityContext`](crate::context::UtilityContext) depending on the contract function type. This leads to some
-//! unfortunate boilerplate when declaring contract storage.
+//! State variables behave differently depending on the contract function type they are accessed from: the execution
+//! context is one of [`PrivateContext`](crate::context::PrivateContext),
+//! [`PublicContext`](crate::context::PublicContext) or [`UtilityContext`](crate::context::UtilityContext). The
+//! [`#[storage]`](crate::macros::storage::storage) macro threads this context through automatically, so storage
+//! declarations name only the value types (e.g. `PublicMutable<bool>`) without an explicit context generic.
 //!
 //! Different methods are available depending on the context, reflecting that certain actions can only be performed in
 //! some or other context. For example, [`PublicMutable`](crate::state_vars::PublicMutable)'s
@@ -98,9 +99,9 @@
 //! // Inefficient reads and writes - each bool is assigned a distinct storage slot, so reading or writing both requires
 //! // executing `SLOAD` or `SSTORE` twice.
 //! #[storage]
-//! struct Storage<C> {
-//!     a: PublicMutable<bool, C>,
-//!     b: PublicMutable<bool, C>,
+//! struct Storage {
+//!     a: PublicMutable<bool>,
+//!     b: PublicMutable<bool>,
 //! }
 //!
 //! // By storing the booleans in a single struct and implementing the Packable trait with tight packing, we can instead
@@ -126,8 +127,8 @@
 //! }
 //!
 //! #[storage]
-//! struct Storage<C> {
-//!     a_and_b: PublicMutable<TwoBooleans, C>,
+//! struct Storage {
+//!     a_and_b: PublicMutable<TwoBooleans>,
 //! }
 //! ```
 //!
@@ -140,35 +141,35 @@
 //! a single read.
 
 mod state_variable;
-pub use state_variable::StateVariable;
+pub use state_variable::{RuntimeStateVariable, StateVariable};
 
 mod owned;
-pub use owned::Owned;
+pub use owned::{Owned, RuntimeOwned};
 mod owned_state_variable;
-pub use owned_state_variable::OwnedStateVariable;
+pub use owned_state_variable::{OwnedStateVariable, RuntimeOwnedStateVariable};
 
 mod map;
-pub use map::Map;
+pub use map::{Map, RuntimeMap};
 
 mod private_immutable;
-pub use private_immutable::PrivateImmutable;
+pub use private_immutable::{PrivateImmutable, RuntimePrivateImmutable};
 mod single_private_immutable;
-pub use single_private_immutable::SinglePrivateImmutable;
+pub use single_private_immutable::{RuntimeSinglePrivateImmutable, SinglePrivateImmutable};
 mod private_mutable;
-pub use private_mutable::PrivateMutable;
+pub use private_mutable::{PrivateMutable, RuntimePrivateMutable};
 mod single_private_mutable;
-pub use single_private_mutable::SinglePrivateMutable;
+pub use single_private_mutable::{RuntimeSinglePrivateMutable, SinglePrivateMutable};
 mod private_set;
-pub use private_set::PrivateSet;
+pub use private_set::{PrivateSet, RuntimePrivateSet};
 mod single_use_claim;
-pub use single_use_claim::SingleUseClaim;
+pub use single_use_claim::{RuntimeSingleUseClaim, SingleUseClaim};
 
 mod public_immutable;
-pub use public_immutable::PublicImmutable;
+pub use public_immutable::{PublicImmutable, RuntimePublicImmutable};
 mod public_mutable;
-pub use public_mutable::PublicMutable;
+pub use public_mutable::{PublicMutable, RuntimePublicMutable};
 mod delayed_public_mutable;
-pub use delayed_public_mutable::DelayedPublicMutable;
+pub use delayed_public_mutable::{DelayedPublicMutable, RuntimeDelayedPublicMutable};
 
 mod storable;
 pub use storable::Storable;

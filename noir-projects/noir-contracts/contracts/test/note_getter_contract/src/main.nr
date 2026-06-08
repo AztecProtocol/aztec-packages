@@ -20,9 +20,9 @@ pub contract NoteGetter {
     use crate::packed_note::PackedNote;
 
     #[storage]
-    struct Storage<Context> {
-        set: Owned<PrivateSet<FieldNote, Context>, Context>,
-        packed_set: Owned<PrivateSet<PackedNote, Context>, Context>,
+    struct Storage {
+        set: Owned<PrivateSet<FieldNote>>,
+        packed_set: Owned<PrivateSet<PackedNote>>,
     }
 
     #[external("private")]

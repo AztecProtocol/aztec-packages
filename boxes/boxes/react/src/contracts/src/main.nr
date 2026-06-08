@@ -11,8 +11,8 @@ contract BoxReact {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        numbers: Owned<PrivateMutable<FieldNote, Context>, Context>,
+    struct Storage {
+        numbers: Owned<PrivateMutable<FieldNote>>,
     }
 
     #[external("private")]

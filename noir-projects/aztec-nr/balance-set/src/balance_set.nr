@@ -8,23 +8,31 @@ use aztec::{
         note_viewer_options::NoteViewerOptions,
     },
     protocol::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable},
-    state_vars::{OwnedStateVariable, PrivateSet},
+    state_vars::{OwnedStateVariable, RuntimeOwnedStateVariable, RuntimePrivateSet},
 };
 use std::ops::Add;
 use uint_note::UintNote;
 
-pub struct BalanceSet<Context> {
-    set: PrivateSet<UintNote, Context>,
-}
+pub struct BalanceSet {}
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Context> OwnedStateVariable<Context> for BalanceSet<Context> {
+impl<Context> OwnedStateVariable<Context> for BalanceSet {
+    type Runtime = RuntimeBalanceSet<Context>;
+}
+
+/// Runtime representation of [`BalanceSet`]. Instantiated by the `Owned` wrapper; users do not name this type
+/// directly except when using the `#[storage_no_init]` macro.
+pub struct RuntimeBalanceSet<Context> {
+    set: RuntimePrivateSet<UintNote, Context>,
+}
+
+impl<Context> RuntimeOwnedStateVariable<Context> for RuntimeBalanceSet<Context> {
     fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
-        Self { set: PrivateSet::new(context, storage_slot, owner) }
+        Self { set: RuntimePrivateSet::new(context, storage_slot, owner) }
     }
 }
 
-impl BalanceSet<UtilityContext> {
+impl RuntimeBalanceSet<UtilityContext> {
     pub unconstrained fn balance_of(self: Self) -> u128 {
         self.balance_of_with_offset(0)
     }
@@ -46,7 +54,7 @@ impl BalanceSet<UtilityContext> {
     }
 }
 
-impl BalanceSet<&mut PrivateContext> {
+impl RuntimeBalanceSet<&mut PrivateContext> {
     pub fn add(self: Self, addend: u128) -> MaybeNoteMessage<UintNote> {
         let maybe_new_note = if addend == 0 as u128 {
             Option::none()

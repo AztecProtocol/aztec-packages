@@ -14,8 +14,8 @@ pub contract NoConstructor {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        private_mutable: Owned<PrivateMutable<FieldNote, Context>, Context>,
+    struct Storage {
+        private_mutable: Owned<PrivateMutable<FieldNote>>,
     }
 
     /// Arbitrary public method used to test that publishing for public execution works for a contract with no

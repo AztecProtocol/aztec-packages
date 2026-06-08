@@ -33,7 +33,7 @@ pub contract AvmTest {
     use aztec::standard_addresses::STANDARD_AUTH_REGISTRY_ADDRESS;
     use aztec::state_vars::Map;
     use aztec::state_vars::PublicMutable;
-    use aztec::state_vars::StateVariable;
+    use aztec::state_vars::RuntimeStateVariable;
     use compressed_string::CompressedString;
     use std::embedded_curve_ops::multi_scalar_mul;
 
@@ -44,10 +44,10 @@ pub contract AvmTest {
     use std::ops::Add;
 
     #[storage]
-    struct Storage<Context> {
-        single: PublicMutable<Field, Context>,
-        list: PublicMutable<Note, Context>,
-        map: Map<AztecAddress, PublicMutable<u32, Context>, Context>,
+    struct Storage {
+        single: PublicMutable<Field>,
+        list: PublicMutable<Note>,
+        map: Map<AztecAddress, PublicMutable<u32>>,
     }
 
     #[external("public")]
@@ -56,7 +56,7 @@ pub contract AvmTest {
     }
 
     #[contract_library_method]
-    fn _set_storage_single(storage: Storage<PublicContext>, a: Field) {
+    fn _set_storage_single(storage: StorageRuntime<PublicContext>, a: Field) {
         storage.single.write(a);
     }
 
@@ -66,7 +66,7 @@ pub contract AvmTest {
     }
 
     #[contract_library_method]
-    fn _read_storage_single(storage: Storage<PublicContext>) -> Field {
+    fn _read_storage_single(storage: StorageRuntime<PublicContext>) -> Field {
         storage.single.read()
     }
 
@@ -88,7 +88,7 @@ pub contract AvmTest {
     }
 
     #[contract_library_method]
-    fn _set_storage_list(storage: Storage<PublicContext>, a: Field, b: Field) {
+    fn _set_storage_list(storage: StorageRuntime<PublicContext>, a: Field, b: Field) {
         storage.list.write(Note { a, b });
     }
 
@@ -98,7 +98,7 @@ pub contract AvmTest {
     }
 
     #[contract_library_method]
-    fn _read_storage_list(storage: Storage<PublicContext>) -> [Field; 2] {
+    fn _read_storage_list(storage: StorageRuntime<PublicContext>) -> [Field; 2] {
         let note: Note = storage.list.read();
         note.serialize()
     }
@@ -109,7 +109,7 @@ pub contract AvmTest {
     }
 
     #[contract_library_method]
-    fn _set_storage_map(storage: Storage<PublicContext>, to: AztecAddress, amount: u32) -> Field {
+    fn _set_storage_map(storage: StorageRuntime<PublicContext>, to: AztecAddress, amount: u32) -> Field {
         storage.map.at(to).write(amount);
         // returns storage slot for key
         derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
@@ -121,7 +121,7 @@ pub contract AvmTest {
     }
 
     #[contract_library_method]
-    fn _add_storage_map(storage: Storage<PublicContext>, to: AztecAddress, amount: u32) -> Field {
+    fn _add_storage_map(storage: StorageRuntime<PublicContext>, to: AztecAddress, amount: u32) -> Field {
         let new_balance = storage.map.at(to).read().add(amount);
         storage.map.at(to).write(new_balance);
         // returns storage slot for key
@@ -134,7 +134,7 @@ pub contract AvmTest {
     }
 
     #[contract_library_method]
-    fn _read_storage_map(storage: Storage<PublicContext>, address: AztecAddress) -> u32 {
+    fn _read_storage_map(storage: StorageRuntime<PublicContext>, address: AztecAddress) -> u32 {
         storage.map.at(address).read()
     }
 

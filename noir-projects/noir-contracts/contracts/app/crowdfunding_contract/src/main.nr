@@ -9,7 +9,7 @@ pub contract Crowdfunding {
         macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
         messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
-        state_vars::{Owned, PrivateSet, PublicImmutable, StateVariable},
+        state_vars::{Owned, PrivateSet, PublicImmutable, RuntimeStateVariable},
         utils::{array, comparison::Comparator},
     };
     use aztec::note::{constants::MAX_NOTES_PER_PAGE, HintedNote, note_getter_options::NoteStatus};
@@ -23,10 +23,10 @@ pub contract Crowdfunding {
         amount: u128,
     }
     #[storage]
-    struct Storage<Context> {
-        config: PublicImmutable<Config, Context>,
+    struct Storage {
+        config: PublicImmutable<Config>,
         // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
-        donation_receipts: Owned<PrivateSet<UintNote, Context>, Context>,
+        donation_receipts: Owned<PrivateSet<UintNote>>,
     }
 
     // TODO(#8367): Ensure deadline is quantized to improve privacy set.

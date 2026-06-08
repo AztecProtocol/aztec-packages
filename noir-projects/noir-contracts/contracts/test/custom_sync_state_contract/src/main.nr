@@ -23,8 +23,8 @@ contract CustomSyncState {
     use field_note::FieldNote;
 
     #[storage]
-    struct Storage<Context> {
-        value: Owned<PrivateImmutable<FieldNote, Context>, Context>,
+    struct Storage {
+        value: Owned<PrivateImmutable<FieldNote>>,
     }
 
     #[external("private")]

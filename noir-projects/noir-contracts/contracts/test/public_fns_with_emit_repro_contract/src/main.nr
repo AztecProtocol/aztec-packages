@@ -21,8 +21,8 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     #[storage]
-    struct Storage<Context> {
-        value: PublicMutable<u64, Context>,
+    struct Storage {
+        value: PublicMutable<u64>,
     }
 
     #[external("public")]

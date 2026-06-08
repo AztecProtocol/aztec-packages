@@ -40,8 +40,8 @@ pub contract TestLog {
     }
 
     #[storage]
-    struct Storage<Context> {
-        example_set: Owned<PrivateSet<FieldNote, Context>, Context>,
+    struct Storage {
+        example_set: Owned<PrivateSet<FieldNote>>,
     }
 
     /// Emits a single private log with the given raw tag and a one-field payload.

@@ -190,7 +190,7 @@ pub contract OptimisationExample {
     use aztec::macros::{functions::{external, initializer}, storage::storage};
 
     #[storage]
-    struct Storage<Context> {}
+    struct Storage {}
 
     #[external("public")]
     #[initializer]

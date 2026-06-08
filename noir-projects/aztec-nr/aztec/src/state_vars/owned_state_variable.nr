@@ -6,7 +6,7 @@ use crate::protocol::address::AztecAddress;
 /// ```noir
 /// #[storage]
 /// struct Storage {
-///     balance: Owned<PrivateSet<UintNote, Context>, Context>,
+///     balance: Owned<PrivateSet<UintNote>>,
 /// }
 /// ```
 ///
@@ -24,13 +24,24 @@ use crate::protocol::address::AztecAddress;
 /// (Note that point 1 does not necessarily have to be true; for example, the note message could be encrypted for a
 /// decrypting service address, which could then deliver the note to the actual owner via offchain communication.)
 ///
-/// # Type Parameters
+/// ## Spec vs Runtime
 ///
-/// * `Context` - The execution context type (e.g., `PublicContext`, `PrivateContext`, `UtilityContext`). The context
-/// determines which methods of the state variable are available and controls whether the variable can be accessed in
-/// public, private or utility functions.
-///
+/// Like [`StateVariable`](crate::state_vars::StateVariable), this is a _spec_ trait written by users in storage
+/// declarations. It carries no execution context: the [`Runtime`](Self::Runtime) associated type is the context-aware
+/// type (implementing [`RuntimeOwnedStateVariable`](crate::state_vars::RuntimeOwnedStateVariable)) that the
+/// [`Owned`](crate::state_vars::Owned) wrapper instantiates for a particular owner.
 pub trait OwnedStateVariable<Context> {
+    /// The runtime representation of this owned state variable, with the execution `Context` threaded in. The
+    /// [`Owned`](crate::state_vars::Owned) wrapper projects this type when its `at` method is invoked.
+    type Runtime;
+}
+
+/// The runtime behavior of an [`OwnedStateVariable`](crate::state_vars::OwnedStateVariable).
+///
+/// Implemented by the runtime types that the [`Owned`](crate::state_vars::Owned) wrapper instantiates per owner. Users
+/// do not name these types directly except when using the
+/// [`#[storage_no_init]`](crate::macros::storage::storage_no_init) macro.
+pub trait RuntimeOwnedStateVariable<Context> {
     /// Initializes a new owned state variable with a given storage slot and owner. The storage slot is inherited from
     /// the `Owned` state variable unchanged. The `Owned` state variable calls this function when its `at` method is
     /// invoked.

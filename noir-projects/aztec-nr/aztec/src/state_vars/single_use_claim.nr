@@ -7,7 +7,7 @@ use crate::{
     keys::getters::{get_nhk_app, get_public_keys},
     nullifier::utils::compute_nullifier_existence_request,
     oracle::nullifiers::check_nullifier_exists,
-    state_vars::OwnedStateVariable,
+    state_vars::{OwnedStateVariable, RuntimeOwnedStateVariable},
 };
 
 mod test;
@@ -29,11 +29,11 @@ mod test;
 /// struct ElectionId { id: Field }
 ///
 /// #[storage]
-/// struct Storage<Context> {
+/// struct Storage {
 ///     // election => candidate => number of votes
-///     tally: Map<ElectionId, Map<Field, PublicMutable<Field, Context>, Context>, Context>,
+///     tally: Map<ElectionId, Map<Field, PublicMutable<Field>>>,
 ///     // track right to vote at most once per election
-///     vote_claims: Map<ElectionId, Owned<SingleUseClaim<Context>, Context>, Context>,
+///     vote_claims: Map<ElectionId, Owned<SingleUseClaim>>,
 /// }
 ///
 /// #[external("private")]
@@ -62,24 +62,32 @@ mod test;
 ///
 /// Public effects you emit alongside a claim (e.g. a  public function call to update a tally) may still let observers
 /// infer who likely exercised the claim, so consider that when designing flows.
-pub struct SingleUseClaim<Context> {
+pub struct SingleUseClaim {}
+
+impl<Context> OwnedStateVariable<Context> for SingleUseClaim {
+    type Runtime = RuntimeSingleUseClaim<Context>;
+}
+
+/// Runtime representation of [`SingleUseClaim`]. Instantiated by the [`Owned`](crate::state_vars::Owned) wrapper; users
+/// do not name this type directly except when using [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+pub struct RuntimeSingleUseClaim<Context> {
     context: Context,
     storage_slot: Field,
     owner: AztecAddress,
 }
 
-impl<Context> OwnedStateVariable<Context> for SingleUseClaim<Context> {
+impl<Context> RuntimeOwnedStateVariable<Context> for RuntimeSingleUseClaim<Context> {
     fn new(context: Context, storage_slot: Field, owner: AztecAddress) -> Self {
         Self { context, storage_slot, owner }
     }
 }
 
-impl<Context> SingleUseClaim<Context> {
+impl<Context> RuntimeSingleUseClaim<Context> {
     /// Computes the nullifier that will be created when the single use claim is claimed by the owner (denoted by the
     /// app-siloed nullifier hiding key `owner_nhk_app`).
     ///
-    /// This function is primarily used internally by functions [`SingleUseClaim::claim`],
-    /// [`SingleUseClaim::assert_claimed`] and [`SingleUseClaim::has_claimed`] to coherently write and read state.
+    /// This function is primarily used internally by functions [`RuntimeSingleUseClaim::claim`],
+    /// [`RuntimeSingleUseClaim::assert_claimed`] and [`RuntimeSingleUseClaim::has_claimed`] to coherently write and read state.
     fn compute_nullifier(self, owner_nhk_app: Field) -> Field {
         poseidon2_hash_with_separator(
             [owner_nhk_app, self.storage_slot],
@@ -88,7 +96,7 @@ impl<Context> SingleUseClaim<Context> {
     }
 }
 
-impl SingleUseClaim<&mut PrivateContext> {
+impl RuntimeSingleUseClaim<&mut PrivateContext> {
     /// Records the fact that the owner in scope has claimed this single use claim.
     ///
     /// This function succeeds at most once for a given `owner`. Any subsequent calls with same owner are guaranteed to
@@ -132,7 +140,7 @@ impl SingleUseClaim<&mut PrivateContext> {
     }
 }
 
-impl SingleUseClaim<UtilityContext> {
+impl RuntimeSingleUseClaim<UtilityContext> {
     /// Returns `true` if an owner has claimed this single use claim.
     pub unconstrained fn has_claimed(self) -> bool {
         let owner_nhk_app = get_nhk_app(get_public_keys(self.owner).npk_m_hash);

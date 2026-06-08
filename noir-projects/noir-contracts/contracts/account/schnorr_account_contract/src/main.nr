@@ -26,8 +26,8 @@ pub contract SchnorrAccount {
     use crate::public_key_note::PublicKeyNote;
 
     #[storage]
-    struct Storage<Context> {
-        signing_public_key: SinglePrivateImmutable<PublicKeyNote, Context>,
+    struct Storage {
+        signing_public_key: SinglePrivateImmutable<PublicKeyNote>,
     }
 
     // Constructs the contract
@@ -66,7 +66,7 @@ pub contract SchnorrAccount {
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         // docs:start:is_valid_impl
         // Load public key from storage
-        let storage = Storage::init(context);
+        let storage = StorageRuntime::init(context);
         let public_key = storage.signing_public_key.get_note();
 
         // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.

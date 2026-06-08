@@ -18,7 +18,7 @@ pub(crate) comptime fn generate_private_internal(f: FunctionDefinition) -> Quote
 
     let storage_init = if module_has_storage(f.module()) {
         quote {
-            let storage = Storage::init(context);
+            let storage = StorageRuntime::init(context);
         }
     } else {
         quote {

@@ -25,8 +25,8 @@ pub contract FPC {
     use uint_note::PartialUintNote;
 
     #[storage]
-    struct Storage<Context> {
-        config: PublicImmutable<Config, Context>,
+    struct Storage {
+        config: PublicImmutable<Config>,
     }
 
     /// Initializes the contract with an accepted asset (AA) and an admin (address that can pull accumulated AA funds

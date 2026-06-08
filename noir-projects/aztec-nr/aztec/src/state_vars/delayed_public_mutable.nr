@@ -8,7 +8,11 @@ use crate::protocol::{
     traits::Packable,
 };
 
-use crate::{context::{PrivateContext, PublicContext, UtilityContext}, state_vars::StateVariable, utils::WithHash};
+use crate::{
+    context::{PrivateContext, PublicContext, UtilityContext},
+    state_vars::{RuntimeStateVariable, StateVariable},
+    utils::WithHash,
+};
 
 mod test;
 
@@ -92,9 +96,9 @@ mod test;
 /// global CHANGE_AUTHORIZATION_INITIAL_DELAY_S: u64 = 24 * 60 * 60; // 24 hours
 ///
 /// #[storage]
-/// struct Storage<C> {
-///     paused: DelayedPublicMutable<bool, PAUSE_CONTRACT_INITIAL_DELAY_S, C>,
-///     user_authorization: Map<AztecAddress, DelayedPublicMutable<bool, CHANGE_AUTHORIZATION_INITIAL_DELAY_S, C>, C>,
+/// struct Storage {
+///     paused: DelayedPublicMutable<bool, PAUSE_CONTRACT_INITIAL_DELAY_S>,
+///     user_authorization: Map<AztecAddress, DelayedPublicMutable<bool, CHANGE_AUTHORIZATION_INITIAL_DELAY_S>>,
 /// }
 /// ```
 ///
@@ -119,17 +123,27 @@ mod test;
 /// This results in a total of `N * 2 + 2` storage slots used, where `N` is the packing length of the stored type `T`.
 /// This makes it quite important to ensure `T`'s implementation of [`Packable`](crate::protocol::traits::Packable) is
 /// space-efficient.
-pub struct DelayedPublicMutable<T, let InitialDelay: u64, Context> {
+pub struct DelayedPublicMutable<T, let InitialDelay: u64> {}
+
+// We allocate `M + 1` slots because we're going to store a `WithHash<DelayedPublicMutableValues<T, InitialDelay>>`,
+// and `WithHash` increases the packing length by one.
+impl<T, let InitialDelay: u64, Context> StateVariable<Context> for DelayedPublicMutable<T, InitialDelay>
+where
+    DelayedPublicMutableValues<T, InitialDelay>: Packable,
+{
+    let N: u32 = <DelayedPublicMutableValues<T, InitialDelay> as Packable>::N + 1;
+    type Runtime = RuntimeDelayedPublicMutable<T, InitialDelay, Context>;
+}
+
+/// Runtime representation of [`DelayedPublicMutable`]. Instantiated by the
+/// [`#[storage]`](crate::macros::storage::storage) macro; users do not name this type directly except when using
+/// [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+pub struct RuntimeDelayedPublicMutable<T, let InitialDelay: u64, Context> {
     context: Context,
     storage_slot: Field,
 }
 
-// We allocate `M + 1` slots because we're going to store a `WithHash<DelayedPublicMutableValues<T, InitialDelay>>`,
-// and `WithHash` increases the packing length by one.
-impl<T, let InitialDelay: u64, Context, let M: u32> StateVariable<M + 1, Context> for DelayedPublicMutable<T, InitialDelay, Context>
-where
-    DelayedPublicMutableValues<T, InitialDelay>: Packable<N = M>,
-{
+impl<T, let InitialDelay: u64, Context> RuntimeStateVariable<Context> for RuntimeDelayedPublicMutable<T, InitialDelay, Context> {
     fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
@@ -140,7 +154,7 @@ where
     }
 }
 
-impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, PublicContext>
+impl<T, let InitialDelay: u64> RuntimeDelayedPublicMutable<T, InitialDelay, PublicContext>
 where
     T: Eq,
 {
@@ -395,7 +409,7 @@ where
     }
 }
 
-impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, &mut PrivateContext>
+impl<T, let InitialDelay: u64> RuntimeDelayedPublicMutable<T, InitialDelay, &mut PrivateContext>
 where
     T: Eq,
 {
@@ -483,9 +497,9 @@ where
     /// ```noir
     /// // Bad: reading both `paused` and `fee` will require two historical public storage reads
     /// #[storage]
-    /// struct Storage<C> {
-    ///     paused: DelayedPublicMutable<bool, INITIAL_DELAY_S, C>,
-    ///     fee: DelayedPublicMutable<Field, INITIAL_DELAY_S, C>,
+    /// struct Storage {
+    ///     paused: DelayedPublicMutable<bool, INITIAL_DELAY_S>,
+    ///     fee: DelayedPublicMutable<Field, INITIAL_DELAY_S>,
     /// }
     ///
     /// // Good: both `paused` and `fee` are retrieved in a single historical public storage read
@@ -496,8 +510,8 @@ where
     /// }
     ///
     /// #[storage]
-    /// struct Storage<Context> {
-    ///     config: DelayedPublicMutable<Config, INITIAL_DELAY_S, Context>,
+    /// struct Storage {
+    ///     config: DelayedPublicMutable<Config, INITIAL_DELAY_S>,
     /// }
     /// ```
     pub fn get_current_value(self) -> T
@@ -543,7 +557,7 @@ where
     }
 }
 
-impl<T, let InitialDelay: u64> DelayedPublicMutable<T, InitialDelay, UtilityContext>
+impl<T, let InitialDelay: u64> RuntimeDelayedPublicMutable<T, InitialDelay, UtilityContext>
 where
     T: Eq,
 {

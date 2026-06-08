@@ -8,7 +8,7 @@ use crate::{
         NoteMessage,
     },
     oracle::nullifiers::check_nullifier_exists,
-    state_vars::StateVariable,
+    state_vars::{RuntimeStateVariable, StateVariable},
 };
 
 use crate::protocol::{
@@ -33,8 +33,8 @@ mod test;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     your_variable: SinglePrivateImmutable<YourNote, Context>,
+/// struct Storage {
+///     your_variable: SinglePrivateImmutable<YourNote>,
 /// }
 /// ```
 ///
@@ -52,12 +52,22 @@ mod test;
 /// nullifier includes the contract's nullifier hiding key (nhk) in its preimage and because the contract is set as
 /// the owner of the underlying note. This is expected to not ever be a problem because the contracts that use
 /// SinglePrivateImmutable generally have keys associated with them (account contracts or escrow contracts).
-pub struct SinglePrivateImmutable<Note, Context> {
+pub struct SinglePrivateImmutable<Note> {}
+
+impl<Note, Context> StateVariable<Context> for SinglePrivateImmutable<Note> {
+    let N: u32 = 1;
+    type Runtime = RuntimeSinglePrivateImmutable<Note, Context>;
+}
+
+/// Runtime representation of [`SinglePrivateImmutable`]. Instantiated by the
+/// [`#[storage]`](crate::macros::storage::storage) macro; users do not name this type directly except when using
+/// [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+pub struct RuntimeSinglePrivateImmutable<Note, Context> {
     context: Context,
     storage_slot: Field,
 }
 
-impl<Note, Context> StateVariable<1, Context> for SinglePrivateImmutable<Note, Context> {
+impl<Note, Context> RuntimeStateVariable<Context> for RuntimeSinglePrivateImmutable<Note, Context> {
     fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
@@ -68,7 +78,7 @@ impl<Note, Context> StateVariable<1, Context> for SinglePrivateImmutable<Note, C
     }
 }
 
-impl<Note, Context> SinglePrivateImmutable<Note, Context> {
+impl<Note, Context> RuntimeSinglePrivateImmutable<Note, Context> {
     /// Computes the initialization nullifier using the provided secret.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
@@ -78,7 +88,7 @@ impl<Note, Context> SinglePrivateImmutable<Note, Context> {
     }
 }
 
-impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
+impl<Note> RuntimeSinglePrivateImmutable<Note, &mut PrivateContext> {
     /// Computes the nullifier that will be created when this SinglePrivateImmutable is first initialized.
     ///
     /// This function is primarily used internally by the `initialize` method, but may also be useful for contracts
@@ -142,7 +152,7 @@ impl<Note> SinglePrivateImmutable<Note, &mut PrivateContext> {
     }
 }
 
-impl<Note> SinglePrivateImmutable<Note, UtilityContext>
+impl<Note> RuntimeSinglePrivateImmutable<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {

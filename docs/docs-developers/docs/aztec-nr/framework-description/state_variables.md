@@ -52,14 +52,14 @@ contract MyContract {
     use aztec::macros::storage;
 
     #[storage]
-    struct Storage<Context> {
+    struct Storage {
         // state variables go here e.g, the admin of the contract
-        admin: PublicMutable<AztecAddress, Context>,
+        admin: PublicMutable<AztecAddress>,
     }
 }
 ```
 
-This struct must also have a generic type called `C` or `Context` - an unfortunate boilerplate parameter that provides execution mode information.
+The `#[storage]` macro automatically threads the execution context through your state variables, so the `Storage` struct itself takes no generic parameters.
 
 The `#[storage]` macro can only be used once, so all contract state must be in a **single** struct.
 
@@ -71,8 +71,8 @@ Consider, for example, a `PublicMutable` state variable, which is a value that i
 
 ```rust
 #[storage]
-struct Storage<Context> {
-    my_public_variable: PublicMutable<Field, Context>,
+struct Storage {
+    my_public_variable: PublicMutable<Field>,
 }
 
 #[external("public")]
@@ -206,9 +206,9 @@ Private state variables have _private_ content meaning that only some people kno
 
 Aztec.nr provides three private state variable types:
 
-- `Owned<PrivateMutable<NoteType, Context>, Context>`: Single mutable private value
-- `Owned<PrivateImmutable<NoteType, Context>, Context>`: Single immutable private value
-- `Owned<PrivateSet<NoteType, Context>, Context>`: Collection of private notes
+- `Owned<PrivateMutable<NoteType>>`: Single mutable private value
+- `Owned<PrivateImmutable<NoteType>>`: Single immutable private value
+- `Owned<PrivateSet<NoteType>>`: Collection of private notes
 
 These private state variables are "owned" and must be wrapped in the `Owned<>` container, which enables owner-specific access via the `.at(owner)` method. Each also requires a `NoteType`. To understand this, let's go through notes and nullifiers and how they can be used so we can understand how private state works.
 
@@ -308,8 +308,8 @@ struct UintNote {
 
 #[storage]
 struct Storage {
-    admin: Owned<PrivateImmutable<AddressNote, Context>, Context>,
-    admin_call_count: Owned<PrivateMutable<UintNote, Context>, Context>,
+    admin: Owned<PrivateImmutable<AddressNote>>,
+    admin_call_count: Owned<PrivateMutable<UintNote>>,
 }
 
 #[external("private")]
@@ -470,9 +470,9 @@ Since there's only one value at the storage slot, there's no need to specify an 
 
 ```rust
 #[storage]
-struct Storage<Context> {
-    admin: SinglePrivateMutable<AddressNote, Context>,
-    config: SinglePrivateImmutable<ConfigNote, Context>,
+struct Storage {
+    admin: SinglePrivateMutable<AddressNote>,
+    config: SinglePrivateImmutable<ConfigNote>,
 }
 
 // Access directly without .at(owner)
@@ -503,12 +503,12 @@ For example, a `Map<AztecAddress, PublicMutable<u128>>` can be accessed with an 
 
 ```rust
 #[storage]
-struct Storage<Context> {
+struct Storage {
     // Map of addresses to public balances
-    public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
+    public_balances: Map<AztecAddress, PublicMutable<u128>>,
 
     // Map of addresses to authorized users
-    authorized_users: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+    authorized_users: Map<AztecAddress, PublicMutable<bool>>,
 }
 ```
 
@@ -536,12 +536,12 @@ The `Owned` wrapper is used with private state variables (`PrivateMutable`, `Pri
 
 ```rust
 #[storage]
-struct Storage<Context> {
+struct Storage {
     // Single owner's private balance
-    balances: Owned<PrivateSet<UintNote, Context>, Context>,
+    balances: Owned<PrivateSet<UintNote>>,
 
     // Single owner's private settings
-    user_settings: Owned<PrivateMutable<SettingsNote, Context>, Context>,
+    user_settings: Owned<PrivateMutable<SettingsNote>>,
 }
 ```
 
@@ -591,8 +591,8 @@ pub struct Asset {
 
 ```rust
 #[storage]
-struct Storage<Context> {
-    assets: Map<Field, PublicMutable<Asset, Context>, Context>,
+struct Storage {
+    assets: Map<Field, PublicMutable<Asset>>,
 }
 
 #[external("public")]

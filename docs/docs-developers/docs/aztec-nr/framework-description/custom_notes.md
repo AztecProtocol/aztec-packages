@@ -91,9 +91,9 @@ use aztec::{
 };
 
 #[storage]
-struct Storage<Context> {
+struct Storage {
     // Collection of notes, indexed by owner
-    nfts: Owned<PrivateSet<NFTNote, Context>, Context>,
+    nfts: Owned<PrivateSet<NFTNote>>,
 }
 ```
 

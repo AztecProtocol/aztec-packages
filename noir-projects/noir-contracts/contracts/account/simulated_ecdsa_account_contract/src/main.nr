@@ -19,8 +19,8 @@ pub contract SimulatedEcdsaAccount {
     use ecdsa_public_key_note::EcdsaPublicKeyNote;
 
     #[storage]
-    struct Storage<Context> {
-        signing_public_key: SinglePrivateImmutable<EcdsaPublicKeyNote, Context>,
+    struct Storage {
+        signing_public_key: SinglePrivateImmutable<EcdsaPublicKeyNote>,
     }
 
     // Stub constructor matching the EcdsaKAccount / EcdsaRAccount constructor signature.

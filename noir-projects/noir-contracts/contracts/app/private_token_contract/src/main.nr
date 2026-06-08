@@ -16,14 +16,14 @@ pub contract PrivateToken {
 
     // docs:start_single_private_mutable
     #[storage]
-    struct Storage<Context> {
-        balances: Owned<BalanceSet<Context>, Context>,
+    struct Storage {
+        balances: Owned<BalanceSet>,
         // This contract has only a single admin whose identity we don't want to leak to the public so we store it in
         // a single private mutable.
-        admin: SinglePrivateMutable<AddressNote, Context>,
+        admin: SinglePrivateMutable<AddressNote>,
         // We don't want this contract to leak information about its total supply so we store it in a single private
         // mutable.
-        total_supply: SinglePrivateMutable<UintNote, Context>,
+        total_supply: SinglePrivateMutable<UintNote>,
     }
     // docs:end_single_private_mutable
 

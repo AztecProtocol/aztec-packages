@@ -22,19 +22,18 @@ unconstrained fn storage_slot_allocation() {
     // This is the storage declaration:
     //
     // #[storage]
-    // struct Storage<Context> {
-    //   note_in_private_immutable: PrivateImmutable<TestNote, Context>,
-    //   struct_in_private_immutable: PrivateImmutable<ExampleStruct, Context>,
-    //   note_in_private_mutable: PrivateMutable<TestNote, Context>,
-    //   struct_in_private_mutable: PrivateMutable<ExampleStruct, Context>,
-    //   note_in_private_set: PrivateSet<AddressNote, Context>,
-    //   struct_in_private_set: PrivateSet<ExampleStruct, Context>,
-    //   note_in_public_immutable: PublicImmutable<TestNote, Context>,
-    //   struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
-    //   struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
-    //   struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY,
-    // Context>,
-    //   dummy_variable: PrivateImmutable<TestNote, Context>,
+    // struct Storage {
+    //   note_in_private_immutable: PrivateImmutable<TestNote>,
+    //   struct_in_private_immutable: PrivateImmutable<ExampleStruct>,
+    //   note_in_private_mutable: PrivateMutable<TestNote>,
+    //   struct_in_private_mutable: PrivateMutable<ExampleStruct>,
+    //   note_in_private_set: PrivateSet<AddressNote>,
+    //   struct_in_private_set: PrivateSet<ExampleStruct>,
+    //   note_in_public_immutable: PublicImmutable<TestNote>,
+    //   struct_in_public_immutable: PublicImmutable<ExampleStruct>,
+    //   struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct>>,
+    //   struct_in_delayed_public_mutable: DelayedPublicMutable<ExampleStruct, DELAYED_PUBLIC_MUTABLE_INITIAL_DELAY>,
+    //   dummy_variable: PrivateImmutable<TestNote>,
     // }
 
     // We can't directly see how many slots are allocated to each variable, but we can look at the slot increments for

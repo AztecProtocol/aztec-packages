@@ -1,0 +1,48 @@
+---
+source: tests/snapshots.rs
+expression: stderr
+---
+error: The #[storage] macro requires a non-generic Storage struct. Change `struct Storage<Context> { .. }` to `struct Storage { .. }` and drop the `, Context` argument from each field type (e.g. `PublicMutable<u128, Context>` becomes `PublicMutable<u128>`). The macro now threads `Context` through internally.
+  ┌─ std/panic.nr:8:12
+  │
+8 │     assert(false, message);
+  │            ----- Assertion failed
+  │
+  = Call stack:
+    1: PanicOnGenericStorageStruct::#[storage]
+            at src/main.nr:9:5
+    2: storage
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/storage.nr:<line>:<col>
+
+error: Could not resolve 'StorageRuntime' in path
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
+   │
+   │             let storage = StorageRuntime::init(&mut context);
+   │                           --------------
+   │
+   ┌─ src/main.nr:5:1
+   │
+ 5 │ #[aztec]
+   │ -------- While running this function attribute
+   │
+
+error: Type annotation needed
+   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/private.nr:<line>:<col>
+   │
+   │             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
+   │                                                        --- Could not determine the type of the generic argument `Storage` declared on the struct `ContractSelfPrivate`
+   │
+   ┌─ src/main.nr:5:1
+   │
+ 5 │ #[aztec]
+   │ -------- While running this function attribute
+   │
+
+error: PublicMutable expects 1 generic but 2 were given
+   ┌─ src/main.nr:11:16
+   │
+11 │         value: PublicMutable<Field, Context>,
+   │                -------------
+   │
+
+Aborting due to 4 previous errors

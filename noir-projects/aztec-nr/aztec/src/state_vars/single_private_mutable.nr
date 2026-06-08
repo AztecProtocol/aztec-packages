@@ -8,7 +8,7 @@ use crate::{
         NoteMessage,
     },
     oracle::nullifiers::check_nullifier_exists,
-    state_vars::StateVariable,
+    state_vars::{RuntimeStateVariable, StateVariable},
 };
 
 use crate::protocol::{
@@ -35,8 +35,8 @@ mod test;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     your_variable: SinglePrivateMutable<YourNote, Context>,
+/// struct Storage {
+///     your_variable: SinglePrivateMutable<YourNote>,
 /// }
 /// ```
 ///
@@ -58,10 +58,10 @@ mod test;
 /// A private token's admin and total supply can be stored in two single private mutable state variables:
 /// ```noir
 /// #[storage]
-/// struct Storage<Context> {
-///     admin: SinglePrivateMutable<AddressNote, Context>,
-///     total_supply: SinglePrivateMutable<UintNote, Context>,
-///     balances: Owned<BalanceSet<Context>, Context>,
+/// struct Storage {
+///     admin: SinglePrivateMutable<AddressNote>,
+///     total_supply: SinglePrivateMutable<UintNote>,
+///     balances: Owned<BalanceSet>,
 /// }
 /// ```
 ///
@@ -84,12 +84,22 @@ mod test;
 /// decide what method of note message delivery to use. Keep in mind that unless the caller of the relevant function is
 /// incentivized to deliver the note you should use constrained delivery or you are at a risk of a malicious actor
 /// bricking the contract.
-pub struct SinglePrivateMutable<Note, Context> {
+pub struct SinglePrivateMutable<Note> {}
+
+impl<Note, Context> StateVariable<Context> for SinglePrivateMutable<Note> {
+    let N: u32 = 1;
+    type Runtime = RuntimeSinglePrivateMutable<Note, Context>;
+}
+
+/// Runtime representation of [`SinglePrivateMutable`]. Instantiated by the
+/// [`#[storage]`](crate::macros::storage::storage) macro; users do not name this type directly except when using
+/// [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+pub struct RuntimeSinglePrivateMutable<Note, Context> {
     context: Context,
     storage_slot: Field,
 }
 
-impl<Note, Context> StateVariable<1, Context> for SinglePrivateMutable<Note, Context> {
+impl<Note, Context> RuntimeStateVariable<Context> for RuntimeSinglePrivateMutable<Note, Context> {
     fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
@@ -100,7 +110,7 @@ impl<Note, Context> StateVariable<1, Context> for SinglePrivateMutable<Note, Con
     }
 }
 
-impl<Note, Context> SinglePrivateMutable<Note, Context> {
+impl<Note, Context> RuntimeSinglePrivateMutable<Note, Context> {
     /// Computes the initialization nullifier using the provided secret.
     fn compute_initialization_nullifier(self, secret: Field) -> Field {
         poseidon2_hash_with_separator(
@@ -110,7 +120,7 @@ impl<Note, Context> SinglePrivateMutable<Note, Context> {
     }
 }
 
-impl<Note> SinglePrivateMutable<Note, &mut PrivateContext>
+impl<Note> RuntimeSinglePrivateMutable<Note, &mut PrivateContext>
 where
     Note: NoteType + NoteHash,
 {
@@ -233,7 +243,7 @@ where
     }
 }
 
-impl<Note> SinglePrivateMutable<Note, UtilityContext>
+impl<Note> RuntimeSinglePrivateMutable<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {

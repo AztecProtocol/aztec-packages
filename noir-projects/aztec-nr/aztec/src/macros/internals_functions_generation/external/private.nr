@@ -32,7 +32,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
     let storage_init = if module_has_storage {
         // Contract has Storage defined so we initialize it.
         quote {
-            let storage = Storage::init(&mut context);
+            let storage = StorageRuntime::init(&mut context);
         }
     } else {
         // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelfPrivate

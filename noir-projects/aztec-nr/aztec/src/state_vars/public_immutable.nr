@@ -2,7 +2,7 @@ use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
     nullifier::utils::compute_nullifier_existence_request,
     oracle::nullifiers::check_nullifier_exists,
-    state_vars::StateVariable,
+    state_vars::{RuntimeStateVariable, StateVariable},
     utils::WithHash,
 };
 use crate::protocol::{
@@ -63,10 +63,10 @@ mod test;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<C> {
-///     decimals: PublicImmutable<u8, C>,
+/// struct Storage {
+///     decimals: PublicImmutable<u8>,
 ///
-///     account_types: Map<AztecAddress, PublicImmutable<AccountType, C>, C>,
+///     account_types: Map<AztecAddress, PublicImmutable<AccountType>>,
 /// }
 /// ```
 ///
@@ -89,20 +89,30 @@ mod test;
 /// do not have access to the current network state, only the _past_ state at the anchor block. They _can_ perform
 /// historical non-inclusion proofs of the initialization nullifier at past times, but they have no way to guarantee
 /// that it has not been emitted since then.
-pub struct PublicImmutable<T, Context> {
+pub struct PublicImmutable<T> {}
+
+// `PublicImmutable` stores both the packed value (using M fields) and its hash (1 field), requiring M + 1 total
+// fields.
+impl<T, Context> StateVariable<Context> for PublicImmutable<T>
+where
+    T: Packable,
+{
+    let N: u32 = <T as Packable>::N + 1;
+    type Runtime = RuntimePublicImmutable<T, Context>;
+}
+
+/// Runtime representation of [`PublicImmutable`]. Instantiated by the [`#[storage]`](crate::macros::storage::storage)
+/// macro; users do not name this type directly except when using
+/// [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+pub struct RuntimePublicImmutable<T, Context> {
     context: Context,
     storage_slot: Field,
 }
 
-// `PublicImmutable` stores both the packed value (using M fields) and its hash (1 field), requiring M + 1 total
-// fields.
-impl<T, Context, let M: u32> StateVariable<M + 1, Context> for PublicImmutable<T, Context>
-where
-    T: Packable<N = M>,
-{
+impl<T, Context> RuntimeStateVariable<Context> for RuntimePublicImmutable<T, Context> {
     fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        PublicImmutable { context, storage_slot }
+        RuntimePublicImmutable { context, storage_slot }
     }
 
     fn get_storage_slot(self) -> Field {
@@ -110,14 +120,14 @@ where
     }
 }
 
-impl<T, Context> PublicImmutable<T, Context> {
+impl<T, Context> RuntimePublicImmutable<T, Context> {
     /// Returns the inner nullifier emitted during initialization.
     pub fn compute_initialization_inner_nullifier(self) -> Field {
         poseidon2_hash_with_separator([self.storage_slot], DOM_SEP__INITIALIZATION_NULLIFIER)
     }
 }
 
-impl<T> PublicImmutable<T, PublicContext> {
+impl<T> RuntimePublicImmutable<T, PublicContext> {
     /// Stores a permanent value.
     ///
     /// This function can only be called once on a given `PublicImmutable`: subsequent calls will fail with a duplicate
@@ -242,7 +252,7 @@ impl<T> PublicImmutable<T, PublicContext> {
     }
 }
 
-impl<T> PublicImmutable<T, UtilityContext> {
+impl<T> RuntimePublicImmutable<T, UtilityContext> {
     /// Reads the permanent value.
     ///
     /// This function throws if the `PublicImmutable` is not initialized.
@@ -270,7 +280,7 @@ impl<T> PublicImmutable<T, UtilityContext> {
     }
 }
 
-impl<T> PublicImmutable<T, &mut PrivateContext> {
+impl<T> RuntimePublicImmutable<T, &mut PrivateContext> {
     /// Reads the permanent value.
     ///
     /// This function throws if the `PublicImmutable` is not initialized.
@@ -298,9 +308,9 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// ```noir
     /// // Bad: reading both `decimals` and `symbol` will require two historical public storage reads
     /// #[storage]
-    /// struct Storage<Context> {
-    ///     decimals: PublicImmutable<u8, Context>,
-    ///     symbol: PublicImmutable<FieldCompressedString, Context>,
+    /// struct Storage {
+    ///     decimals: PublicImmutable<u8>,
+    ///     symbol: PublicImmutable<FieldCompressedString>,
     /// }
     ///
     /// // Good: both `decimals` and `symbol` are retrieved in a single historical public storage read
@@ -311,8 +321,8 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// }
     ///
     /// #[storage]
-    /// struct Storage<Context> {
-    ///     config: PublicImmutable<Config, Context>,
+    /// struct Storage {
+    ///     config: PublicImmutable<Config>,
     /// }
     /// ```
     pub fn read(self) -> T

@@ -20,7 +20,7 @@ pub contract SimpleToken {
         },
         messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
-        state_vars::{Map, Owned, PublicImmutable, PublicMutable, StateVariable},
+        state_vars::{Map, Owned, PublicImmutable, PublicMutable, RuntimeStateVariable},
     };
 
     use uint_note::{PartialUintNote, UintNote};
@@ -38,14 +38,14 @@ pub contract SimpleToken {
     }
 
     #[storage]
-    struct Storage<Context> {
-        balances: Owned<BalanceSet<Context>, Context>,
-        total_supply: PublicMutable<u128, Context>,
-        public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
+    struct Storage {
+        balances: Owned<BalanceSet>,
+        total_supply: PublicMutable<u128>,
+        public_balances: Map<AztecAddress, PublicMutable<u128>>,
         // docs:start:public_immutable
-        symbol: PublicImmutable<FieldCompressedString, Context>,
-        name: PublicImmutable<FieldCompressedString, Context>,
-        decimals: PublicImmutable<u8, Context>,
+        symbol: PublicImmutable<FieldCompressedString>,
+        name: PublicImmutable<FieldCompressedString>,
+        decimals: PublicImmutable<u8>,
         // docs:end:public_immutable
     }
 

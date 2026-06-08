@@ -1,6 +1,6 @@
 use crate::context::{PublicContext, UtilityContext};
 use crate::protocol::traits::Packable;
-use crate::state_vars::StateVariable;
+use crate::state_vars::{RuntimeStateVariable, StateVariable};
 
 mod test;
 
@@ -57,11 +57,11 @@ mod test;
 ///
 /// ```noir
 /// #[storage]
-/// struct Storage<C> {
-///     total_supply: PublicMutable<u128, C>,
-///     public_balances: Map<AztecAddress, PublicMutable<u128, C>, C>,
+/// struct Storage {
+///     total_supply: PublicMutable<u128>,
+///     public_balances: Map<AztecAddress, PublicMutable<u128>>,
 ///
-///     vote_tallies: Map<ElectionId, PublicMutable<u128, C>, C>,
+///     vote_tallies: Map<ElectionId, PublicMutable<u128>>,
 /// }
 /// ```
 ///
@@ -81,18 +81,28 @@ mod test;
 /// [`PublicImmutable`](crate::state_vars::PublicImmutable) and
 /// [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable) are examples of public state variables that _can_
 /// be read privately by restricting mutation.
-pub struct PublicMutable<T, Context> {
+pub struct PublicMutable<T> {}
+
+impl<T, Context> StateVariable<Context> for PublicMutable<T>
+where
+    T: Packable,
+{
+    let N: u32 = <T as Packable>::N;
+    type Runtime = RuntimePublicMutable<T, Context>;
+}
+
+/// Runtime representation of [`PublicMutable`]. Instantiated by the [`#[storage]`](crate::macros::storage::storage)
+/// macro; users do not name this type directly except when using
+/// [`#[storage_no_init]`](crate::macros::storage::storage_no_init).
+pub struct RuntimePublicMutable<T, Context> {
     context: Context,
     storage_slot: Field,
 }
 
-impl<T, Context, let M: u32> StateVariable<M, Context> for PublicMutable<T, Context>
-where
-    T: Packable<N = M>,
-{
+impl<T, Context> RuntimeStateVariable<Context> for RuntimePublicMutable<T, Context> {
     fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-        PublicMutable { context, storage_slot }
+        RuntimePublicMutable { context, storage_slot }
     }
 
     fn get_storage_slot(self) -> Field {
@@ -100,10 +110,10 @@ where
     }
 }
 
-impl<T> PublicMutable<T, PublicContext> {
+impl<T> RuntimePublicMutable<T, PublicContext> {
     /// Returns the current value.
     ///
-    /// If [`write`](PublicMutable::write) has never been called, then this returns the default empty public storage
+    /// If [`write`](Self::write) has never been called, then this returns the default empty public storage
     /// value, which is all zeroes - equivalent to `let t = T::unpack(std::mem::zeroed());`.
     ///
     /// It is not possible to detect if a `PublicMutable` has ever been initialized or not other than by testing for
@@ -149,7 +159,7 @@ impl<T> PublicMutable<T, PublicContext> {
     /// Stores a new value.
     ///
     /// The old value is overridden and cannot be recovered. The new value can be immediately retrieved by
-    /// [`read`](PublicMutable::read).
+    /// [`read`](Self::read).
     ///
     /// ## Examples
     ///
@@ -194,10 +204,10 @@ impl<T> PublicMutable<T, PublicContext> {
     }
 }
 
-impl<T> PublicMutable<T, UtilityContext> {
+impl<T> RuntimePublicMutable<T, UtilityContext> {
     /// Returns the value at the anchor block.
     ///
-    /// If [`write`](PublicMutable::write) has never been called, then this returns the default empty public storage
+    /// If [`write`](RuntimePublicMutable::write) has never been called, then this returns the default empty public storage
     /// value, which is all zeroes - equivalent to `let t = T::unpack(std::mem::zeroed());`.
     ///
     /// It is not possible to detect if a `PublicMutable` has ever been initialized or not other than by testing for

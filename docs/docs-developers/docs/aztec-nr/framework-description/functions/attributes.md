@@ -257,24 +257,26 @@ Key things to keep in mind:
 
 The `#[storage_no_init]` attribute is an alternative to `#[storage]` that gives you manual control over storage slot allocation. Use this when you need custom slot assignments or want to maintain compatibility with existing storage layouts.
 
-With `#[storage_no_init]`, you must provide your own `init` function:
+With `#[storage_no_init]`, you operate on the runtime layer directly: the struct must be named `StorageRuntime`, take a `Context` generic, hold the runtime state variable types (e.g. `RuntimePublicMutable<T, Context>`), and you must provide your own `init` function:
 
 ```rust
 #[storage_no_init]
-struct Storage<Context> {
-    balance: PublicMutable<Field, Context>,
-    owner: PublicMutable<AztecAddress, Context>,
+struct StorageRuntime<Context> {
+    balance: RuntimePublicMutable<Field, Context>,
+    owner: RuntimePublicMutable<AztecAddress, Context>,
 }
 
-impl<Context> Storage<Context> {
+impl<Context> StorageRuntime<Context> {
     fn init(context: Context) -> Self {
-        Storage {
-            balance: PublicMutable::new(context, 1),  // Explicit slot assignment
-            owner: PublicMutable::new(context, 5),    // Non-sequential slot
+        StorageRuntime {
+            balance: RuntimePublicMutable::new(context, 1),  // Explicit slot assignment
+            owner: RuntimePublicMutable::new(context, 5),    // Non-sequential slot
         }
     }
 }
 ```
+
+This is an advanced escape hatch: it is the only place you write the runtime types (`Runtime*`) by hand. Prefer `#[storage]` (which lets you write the spec types `PublicMutable<Field>` without a `Context` generic) unless you specifically need manual storage slot allocation.
 
 Unlike `#[storage]`, this macro does not generate:
 - The `init` function (you must implement it)

@@ -13,9 +13,9 @@ pub contract PackingExample {
     use crate::types::{Card, GameConfig};
 
     #[storage]
-    struct Storage<Context> {
-        card: PublicMutable<Card, Context>,
-        config: PublicMutable<GameConfig, Context>,
+    struct Storage {
+        card: PublicMutable<Card>,
+        config: PublicMutable<GameConfig>,
     }
 
     #[initializer]

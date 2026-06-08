@@ -29,14 +29,14 @@ pub contract Lending {
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
-    struct Storage<Context> {
+    struct Storage {
         // docs:start:public_mutable
-        collateral_asset: PublicMutable<AztecAddress, Context>,
+        collateral_asset: PublicMutable<AztecAddress>,
         // docs:end:public_mutable
-        stable_coin: PublicMutable<AztecAddress, Context>,
-        assets: Map<Field, PublicMutable<Asset, Context>, Context>,
-        collateral: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-        static_debt: Map<AztecAddress, PublicMutable<u128, Context>, Context>, // abusing keys very heavily
+        stable_coin: PublicMutable<AztecAddress>,
+        assets: Map<Field, PublicMutable<Asset>>,
+        collateral: Map<AztecAddress, PublicMutable<u128>>,
+        static_debt: Map<AztecAddress, PublicMutable<u128>>, // abusing keys very heavily
     }
 
     // Constructs the contract.

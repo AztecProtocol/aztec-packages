@@ -1,21 +1,23 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
-    state_vars::{public_immutable::PublicImmutable, StateVariable},
+    state_vars::{public_immutable::RuntimePublicImmutable, RuntimeStateVariable},
 };
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::MockStruct};
 
 global storage_slot: Field = 7;
 
-fn in_public(context: PublicContext) -> PublicImmutable<MockStruct, PublicContext> {
-    PublicImmutable::new(context, storage_slot)
+fn in_public(context: PublicContext) -> RuntimePublicImmutable<MockStruct, PublicContext> {
+    RuntimePublicImmutable::new(context, storage_slot)
 }
 
-fn in_private(context: &mut PrivateContext) -> PublicImmutable<MockStruct, &mut PrivateContext> {
-    PublicImmutable::new(context, storage_slot)
+fn in_private(
+    context: &mut PrivateContext,
+) -> RuntimePublicImmutable<MockStruct, &mut PrivateContext> {
+    RuntimePublicImmutable::new(context, storage_slot)
 }
 
-fn in_utility(context: UtilityContext) -> PublicImmutable<MockStruct, UtilityContext> {
-    PublicImmutable::new(context, storage_slot)
+fn in_utility(context: UtilityContext) -> RuntimePublicImmutable<MockStruct, UtilityContext> {
+    RuntimePublicImmutable::new(context, storage_slot)
 }
 
 #[test]

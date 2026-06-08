@@ -18,11 +18,11 @@ pub contract NFTPunk {
     use aztec::utils::comparison::Comparator;
 
     #[storage]
-    struct Storage<Context> {
-        admin: PublicImmutable<AztecAddress, Context>,
-        minter: PublicImmutable<AztecAddress, Context>,
-        nfts: Map<Field, DelayedPublicMutable<bool, 2u64, Context>, Context>,
-        owners: Owned<PrivateSet<NFTNote, Context>, Context>,
+    struct Storage {
+        admin: PublicImmutable<AztecAddress>,
+        minter: PublicImmutable<AztecAddress>,
+        nfts: Map<Field, DelayedPublicMutable<bool, 2u64>>,
+        owners: Owned<PrivateSet<NFTNote>>,
     }
     #[external("public")]
     #[initializer]

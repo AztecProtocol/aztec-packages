@@ -12,8 +12,8 @@ contract OffchainPayment {
     use balance_set::BalanceSet;
 
     #[storage]
-    struct Storage<Context> {
-        balances: Owned<BalanceSet<Context>, Context>,
+    struct Storage {
+        balances: Owned<BalanceSet>,
     }
 
     #[external("private")]

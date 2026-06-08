@@ -23,10 +23,10 @@ pub contract Claim {
     }
 
     #[storage]
-    struct Storage<Context> {
-        config: PublicImmutable<ClaimConfig, Context>,
+    struct Storage {
+        config: PublicImmutable<ClaimConfig>,
         // Maps a note hash to owner-specific single-use claims, preventing double-claiming of rewards.
-        note_hash_claims: Map<Field, Owned<SingleUseClaim<Context>, Context>, Context>,
+        note_hash_claims: Map<Field, Owned<SingleUseClaim>>,
     }
 
     #[external("public")]
