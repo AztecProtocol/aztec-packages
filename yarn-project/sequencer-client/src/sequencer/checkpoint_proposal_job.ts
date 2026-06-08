@@ -1613,8 +1613,10 @@ export class CheckpointProposalJob implements Traceable {
     this.throwIfInterrupted();
   }
 
-  /** Waits the polling interval for transactions. Extracted for test overriding. */
+  /** Pause between mempool polls in waitForMinTxs. Extracted for test overriding. */
   protected async waitForTxsPollingInterval(): Promise<void> {
+    // using throwIfInterrupted twice: Sequencer.stop() sets interrupted and wakes InterruptibleSleep, but sleep
+    // returns normally. Before sleep: bail if stop already happened. After sleep: bail if stop happened during sleep.
     this.throwIfInterrupted();
     await this.interruptibleSleep.sleep(TXS_POLLING_MS);
     this.throwIfInterrupted();
