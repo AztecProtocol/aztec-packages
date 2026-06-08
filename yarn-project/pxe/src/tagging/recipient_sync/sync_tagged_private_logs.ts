@@ -3,7 +3,7 @@ import { isDefined } from '@aztec/foundation/types';
 import type { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { AppTaggingSecret, LogResult } from '@aztec/stdlib/logs';
-import { SiloedTag } from '@aztec/stdlib/logs';
+import { AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -13,11 +13,12 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
 
 /**
  * Fetches and syncs tagged private logs for multiple sender-recipient pairs, batching tag queries across all secrets
- * into shared RPC calls.
+ * into shared RPC calls. Handles both constrained and unconstrained secrets, which differ in their scan strategy
+ * but share the same batching infrastructure.
  *
- * # Explanation of how the algorithm works
+ * # Unconstrained secrets
  *
- * For each secret we sync logs that correspond to the tagging index range
+ * For each unconstrained secret we sync logs that correspond to the tagging index range
  * (highestAgedIndex, highestFinalizedIndex + WINDOW_LEN]
  *
  * highestAgedIndex is the highest index that was used in a tx that is included in a block at least
@@ -54,11 +55,23 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
  * the highest finalized index. If that index was already used, they will throw an error. For this reason we
  * don't have to look further than `highestFinalizedIndex + WINDOW_LEN`.
  *
- * ## Batching across secrets
+ * # Constrained secrets
  *
- * Instead of running one RPC call per secret, we merge tags from all pending secrets into a single flat array,
- * make one batched `getAllPrivateLogsByTags` call (which internally chunks at MAX_RPC_LEN), then split results
- * back per secret using tracked offsets. Only secrets whose window advanced are kept for the next iteration.
+ * Constrained delivery enforces a contiguous index sequence (each send proves the predecessor's nullifier,
+ * chaining back to the handshake), so there is only one sender and indexes are sequential. This means:
+ * - The lower bound is `highestFinalizedIndex + 1`. The `highestAgedIndex` mechanism is unnecessary because
+ *   the nullifier chain prevents out-of-order index usage: no device can fill in a lower index after a higher
+ *   one is already on-chain.
+ * - The scan stops at the first gap in the index sequence. If all indexes in the batch have logs, the window
+ *   advances. If a gap is found, the sequence has ended and no further logs exist.
+ * - The upper bound is the same as unconstrained: `highestFinalizedIndex + WINDOW_LEN`.
+ *
+ * # Batching across secrets
+ *
+ * Instead of running one RPC call per secret, we merge tags from all pending secrets (both constrained and
+ * unconstrained) into a single flat array, make one batched `getAllPrivateLogsByTags` call (which internally
+ * chunks at MAX_RPC_LEN), then split results back per secret using tracked offsets. Only secrets whose window
+ * advanced are kept for the next iteration.
  */
 export async function syncTaggedPrivateLogs(
   secrets: AppTaggingSecret[],
@@ -96,7 +109,12 @@ export async function syncTaggedPrivateLogs(
 
         // Persist new indexes. If the finalized index moved forward, the window advances
         // and we need another round for this secret.
-        return await updateIndexesAndAdvanceWindow(
+        const processForKind =
+          pendingSecret.secret.kind === AppTaggingSecretKind.CONSTRAINED
+            ? processConstrainedResults
+            : processUnconstrainedResults;
+
+        return await processForKind(
           pendingSecret,
           logsFoundWithSecret,
           taggingStore,
@@ -121,12 +139,17 @@ function getIndexRangesForSecrets(
 ): Promise<PendingSecret[]> {
   return Promise.all(
     secrets.map(async secret => {
-      const [currentHighestAgedIndex, currentHighestFinalizedIndex] = await Promise.all([
-        taggingStore.getHighestAgedIndex(secret, jobId),
-        taggingStore.getHighestFinalizedIndex(secret, jobId),
-      ]);
+      const isConstrained = secret.kind === AppTaggingSecretKind.CONSTRAINED;
+      const currentHighestFinalizedIndex = await taggingStore.getHighestFinalizedIndex(secret, jobId);
 
-      const start = currentHighestAgedIndex === undefined ? 0 : currentHighestAgedIndex + 1;
+      let start: number;
+      if (isConstrained) {
+        start = currentHighestFinalizedIndex === undefined ? 0 : currentHighestFinalizedIndex + 1;
+      } else {
+        const currentHighestAgedIndex = await taggingStore.getHighestAgedIndex(secret, jobId);
+        start = currentHighestAgedIndex === undefined ? 0 : currentHighestAgedIndex + 1;
+      }
+
       const end = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
 
       return { secret, start, end };
@@ -183,10 +206,54 @@ async function fetchLogsForSecrets(
 }
 
 /**
- * Processes a single secret's fetched logs: updates stored indexes and returns a new PendingSecret
+ * Processes fetched logs for a constrained secret. Constrained delivery guarantees contiguous index sequences,
+ * so we scan from the start of the queried range and stop at the first missing index. Only `highestFinalizedIndex`
+ * is tracked (no aged index).
+ */
+async function processConstrainedResults(
+  pending: PendingSecret,
+  logsWithIndexes: LogWithIndex[],
+  taggingStore: RecipientTaggingStore,
+  currentTimestamp: bigint,
+  finalizedBlockNumber: BlockNumber,
+  jobId: string,
+): Promise<PendingSecret | undefined> {
+  // Find where the contiguous run of indexes ends. Constrained delivery guarantees there are no logs after the
+  // first gap, so all logs in the batch are within this prefix.
+  const indexesWithLogs = new Set(logsWithIndexes.map(l => l.taggingIndex));
+  let contiguousEnd = pending.start;
+  while (contiguousEnd < pending.end && indexesWithLogs.has(contiguousEnd)) {
+    contiguousEnd++;
+  }
+
+  const { highestFinalizedIndex } = findHighestIndexes(logsWithIndexes, currentTimestamp, finalizedBlockNumber);
+
+  if (highestFinalizedIndex !== undefined) {
+    await taggingStore.updateHighestFinalizedIndex(pending.secret, highestFinalizedIndex, jobId);
+  }
+
+  // Gap found — the contiguous sequence has ended, no further logs to scan.
+  if (contiguousEnd < pending.end) {
+    return undefined;
+  }
+
+  // All queried indexes had logs. Advance the window only if the finalized index moved.
+  if (highestFinalizedIndex === undefined) {
+    return undefined;
+  }
+
+  return {
+    secret: pending.secret,
+    start: pending.end,
+    end: highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1,
+  };
+}
+
+/**
+ * Processes a single unconstrained secret's fetched logs: updates stored indexes and returns a new PendingSecret
  * if the window needs to advance, or undefined if this secret is done.
  */
-async function updateIndexesAndAdvanceWindow(
+async function processUnconstrainedResults(
   pending: PendingSecret,
   logsWithIndexes: LogWithIndex[],
   taggingStore: RecipientTaggingStore,
