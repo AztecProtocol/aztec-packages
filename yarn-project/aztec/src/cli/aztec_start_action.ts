@@ -94,6 +94,12 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {
+    if (services.node) {
+      const { BarretenbergSync } = await import('@aztec/bb.js');
+      // JSON-RPC schema parsing may decompress compressed Chonk proofs before the node handler runs.
+      await BarretenbergSync.initSingleton();
+    }
+
     const rpcServer = createNamespacedSafeJsonRpcServer(services, {
       diagnostic: getOtelJsonRpcDiagnosticsMiddleware(),
       http200OnError: false,

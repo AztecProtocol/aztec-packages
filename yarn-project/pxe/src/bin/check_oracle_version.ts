@@ -4,36 +4,27 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 import { ORACLE_INTERFACE_HASH, ORACLE_VERSION_MAJOR } from '../oracle_version.js';
-import { getOracleInterfaceSignature, readNumericGlobal } from './oracle_version_helpers.js';
+import { getOracleRegistrySignature, readNumericGlobal } from './oracle_version_helpers.js';
 
 /**
  * Verifies that the Oracle interface matches the expected interface hash.
  *
  * The Oracle interface needs to be versioned to ensure compatibility between Aztec.nr and PXE. This function computes
- * a hash of the Oracle interface and compares it against a known hash. If they don't match, it means the interface has
- * changed and the oracle version needs to be bumped:
- *   - If the change is backward-breaking (e.g. removing/renaming an oracle), bump ORACLE_VERSION_MAJOR.
+ * a hash of the `ORACLE_REGISTRY` declaration (where each oracle's parameter names, parameter types, and return type
+ * live) and compares it against a known hash. If they don't match, it means the interface has changed and the oracle
+ * version needs to be bumped:
+ *   - If the change is backward-breaking (e.g. removing/renaming an oracle, or changing its params/return), bump
+ *     ORACLE_VERSION_MAJOR.
  *   - If the change is an oracle addition (non-breaking), bump ORACLE_VERSION_MINOR.
  */
 function assertOracleInterfaceMatches(): void {
-  const excludedProps = [
-    'handler',
-    'constructor',
-    'toACIRCallback',
-    'handlerAsMisc',
-    'handlerAsUtility',
-    'handlerAsPrivate',
-  ];
-
-  // Get the path to Oracle.ts source file
-  // The script runs from dest/bin/ after compilation, so we need to go up to the package root
-  // then into src/ to find the source file
+  // The script runs from dest/bin/ after compilation, so we go up to the package root then into src/ to find
+  // the source file.
   const currentDir = dirname(fileURLToPath(import.meta.url));
-  // Go up from dest/bin/ or src/bin/ to the package root (pxe/), then into src/
   const packageRoot = dirname(dirname(currentDir)); // Go up from bin/ to pxe/
-  const oracleSourcePath = join(packageRoot, 'src/contract_function_simulator/oracle/oracle.ts');
+  const registrySourcePath = join(packageRoot, 'src/contract_function_simulator/oracle/oracle_registry.ts');
 
-  const oracleInterfaceSignature = getOracleInterfaceSignature(oracleSourcePath, ['Oracle'], excludedProps);
+  const oracleInterfaceSignature = getOracleRegistrySignature(registrySourcePath, 'ORACLE_REGISTRY');
 
   // We use keccak256 here just because we already have it in the dependencies.
   const oracleInterfaceHash = keccak256String(oracleInterfaceSignature);

@@ -57,6 +57,8 @@ export const PIPELINING_SETUP_OPTS = {
  *   serial queue (see `sequencer-client/src/sequencer/automine/automine_sequencer.ts`).
  * - Disables the validator client and AnvilTestWatcher (the AutomineSequencer needs
  *   neither).
+ * - Disables orphan proposed-block pruning in the archiver because automine owns test
+ *   time and can advance past prune deadlines before local tx receipt polling observes the mined block.
  * - Uses `inboxLag: 1` (synchronous) since the AutomineSequencer publishes one block per tx.
  * - Switches anvil into automine mode at setup time (no interval mining); each L1 tx
  *   mines an L1 block immediately.
@@ -66,6 +68,7 @@ export const PIPELINING_SETUP_OPTS = {
 export const AUTOMINE_E2E_OPTS = {
   useAutomineSequencer: true,
   disableAnvilTestWatcher: true,
+  skipOrphanProposedBlockPruning: true,
   inboxLag: 1,
   minTxsPerBlock: 0,
   aztecSlotDuration: 12,
