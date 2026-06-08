@@ -3,4 +3,5 @@ barretenberg_module(boomerang_value_detection stdlib_circuit_builders circuit_ch
                     stdlib_blake3s stdlib_poseidon2
                     goblin
                     goblin_avm
+                    chonk
                     commitment_schemes)

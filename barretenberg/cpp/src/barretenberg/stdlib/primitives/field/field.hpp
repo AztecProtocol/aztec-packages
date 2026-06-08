@@ -519,6 +519,18 @@ template <typename Builder_> class field_t {
     uint32_t get_witness_index() const { return normalize().witness_index; }
 
     /**
+     * @brief Return the raw underlying witness index without normalizing (no gates added).
+     * @details BOOMERANG_DUPLICATE_PROVENANCE: See
+     * barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
+     *
+     * @details For witness-identity use only — e.g. the boomerang static analyzer's duplicate-provenance tagging,
+     * which keys on which witness a value is derived from, not on the value itself. Returns IS_CONSTANT for constants.
+     * Unlike get_witness_index(), the returned witness does NOT necessarily contain this element's value (the affine
+     * multiplicative/additive constants are ignored), so it must never be used to build constraints.
+     */
+    uint32_t get_raw_witness_index() const { return witness_index; }
+
+    /**
      * @brief Check if two field elements have the same witness index (for identity checks).
      *
      * @details Checks if two field elements share the exact same witness_index representation.

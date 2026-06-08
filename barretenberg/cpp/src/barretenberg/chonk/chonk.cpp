@@ -318,7 +318,8 @@ Chonk::recursive_verification_and_consistency_checks(
     const StdlibVerifierInputs& verifier_inputs,
     const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
     const std::optional<StdlibFF>& running_hash,
-    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
+    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
+    bool explain_batch_merge_hash_repetition)
 {
     BB_BENCH_NAME("Chonk::recursive_verification_and_consistency_checks");
 
@@ -384,7 +385,22 @@ Chonk::recursive_verification_and_consistency_checks(
         updated_hash = public_inputs_result.ecc_op_hash.value();
     }
 
-    updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
+    // Step 3: Update the running ECC op hash with this circuit's ECC op column commitments.
+    const auto update_ecc_op_hash = [&]() {
+        return Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
+    };
+    if (explain_batch_merge_hash_repetition) {
+        // BOOMERANG_DUPLICATE_PROVENANCE: See
+        // barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md. The hiding
+        // kernel's running ECC-op hash is intentionally recomputed by the batch-merge transcript hash. Scope this
+        // Poseidon2 call as the running-hash side of that cryptographic binding.
+        auto duplicate_binding_scope =
+            circuit.scoped_duplicate_cryptographic_binding(
+                batch_merge_ecc_op_hash_binding_local_id(DuplicateCryptographicBindingRole::RUNNING_HASH));
+        updated_hash = update_ecc_op_hash();
+    } else {
+        updated_hash = update_ecc_op_hash();
+    }
 
     std::vector<PairingPoints> all_points;
     all_points.insert(all_points.end(), folding_points.begin(), folding_points.end());
@@ -451,7 +467,8 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
                                                           verifier_input,
                                                           current_stdlib_verifier_accumulator,
                                                           running_hash,
-                                                          accumulation_recursive_transcript);
+                                                          accumulation_recursive_transcript,
+                                                          is_hiding_kernel);
         points_accumulator.insert(points_accumulator.end(), pairing_points.begin(), pairing_points.end());
         running_hash = updated_hash;
 

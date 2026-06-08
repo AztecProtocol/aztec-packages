@@ -235,7 +235,8 @@ class Chonk {
             const StdlibVerifierInputs& verifier_inputs,
             const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
             const std::optional<StdlibFF>& running_hash,
-            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
+            bool explain_batch_merge_hash_repetition = false);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
