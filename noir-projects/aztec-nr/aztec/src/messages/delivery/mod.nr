@@ -34,20 +34,14 @@ pub struct MessageDelivery {
     sender_override: Option<AztecAddress>,
 }
 
-global OFFCHAIN: u8 = 1;
-/// Delivery variant identifier for on-chain message delivery without constrained encryption/tagging.
-global ONCHAIN_UNCONSTRAINED: u8 = 2;
-/// Delivery variant identifier for on-chain message delivery with constrained encryption/tagging.
-global ONCHAIN_CONSTRAINED: u8 = 3;
-
-/// Private delivery-mode discriminator.
+/// Noir does not support enums, so this wrapper models delivery variants while keeping raw discriminants private.
 struct DeliveryMode {
     inner: u8,
 }
 
 impl DeliveryMode {
     fn offchain() -> Self {
-        Self { inner: OFFCHAIN }
+        Self { inner: 1 }
     }
 
     fn onchain_unconstrained() -> Self {
@@ -58,16 +52,8 @@ impl DeliveryMode {
         OnchainDeliveryMode::onchain_constrained().into()
     }
 
-    fn is_offchain(self) -> bool {
-        self == Self::offchain()
-    }
-
-    fn is_constrained(self) -> bool {
-        self == Self::onchain_constrained()
-    }
-
     fn onchain_mode(self) -> Option<OnchainDeliveryMode> {
-        if self.is_offchain() {
+        if self == Self::offchain() {
             Option::none()
         } else {
             Option::some(OnchainDeliveryMode::from_u8(self.inner))
@@ -95,12 +81,12 @@ impl OnchainDeliveryMode {
     ///
     /// `unconstrained` alone is a reserved Noir keyword.
     fn onchain_unconstrained() -> Self {
-        Self { inner: ONCHAIN_UNCONSTRAINED }
+        Self { inner: 2 }
     }
 
     /// On-chain delivery with constrained encryption/tagging.
     fn onchain_constrained() -> Self {
-        Self { inner: ONCHAIN_CONSTRAINED }
+        Self { inner: 3 }
     }
 
     fn from_u8(inner: u8) -> Self {
@@ -114,10 +100,6 @@ impl OnchainDeliveryMode {
         (self == Self::onchain_unconstrained()) | (self == Self::onchain_constrained())
     }
 
-    /// Whether `self` is the constrained on-chain delivery mode.
-    pub fn is_constrained(self) -> bool {
-        self == Self::onchain_constrained()
-    }
 }
 
 impl Deserialize for OnchainDeliveryMode {
@@ -150,45 +132,28 @@ impl From<OnchainDeliveryMode> for DeliveryMode {
     }
 }
 
-// Internal tag-secret derivation identifiers. These are compile-time builder config, not ABI values.
-global TAG_SECRET_DERIVATION_WALLET_DEFAULT: u8 = 0;
-global TAG_SECRET_DERIVATION_ADDRESS_SECRET: u8 = 1;
-global TAG_SECRET_DERIVATION_NON_INTERACTIVE_HANDSHAKE: u8 = 2;
-
-/// Private builder for tag-secret derivation.
+/// Noir does not support enums, so this wrapper models tag-secret derivation variants.
 struct TagSecretDerivation {
     inner: u8,
 }
 
 impl TagSecretDerivation {
     fn wallet_default() -> Self {
-        Self { inner: TAG_SECRET_DERIVATION_WALLET_DEFAULT }
+        Self { inner: 0 }
     }
 
     fn address_secret() -> Self {
-        Self { inner: TAG_SECRET_DERIVATION_ADDRESS_SECRET }
+        Self { inner: 1 }
     }
 
     fn non_interactive_handshake() -> Self {
-        Self { inner: TAG_SECRET_DERIVATION_NON_INTERACTIVE_HANDSHAKE }
-    }
-
-    fn is_wallet_default(self) -> bool {
-        self == Self::wallet_default()
-    }
-
-    fn is_address_secret(self) -> bool {
-        self == Self::address_secret()
-    }
-
-    fn is_non_interactive_handshake(self) -> bool {
-        self == Self::non_interactive_handshake()
+        Self { inner: 2 }
     }
 
     fn resolve_for_mode(self, mode: OnchainDeliveryMode) -> Self {
-        if self.is_wallet_default() {
+        if self == Self::wallet_default() {
             // TODO(F-699): resolve the wallet default through PXE's delivery privacy preference.
-            if mode.is_constrained() {
+            if mode == OnchainDeliveryMode::onchain_constrained() {
                 Self::non_interactive_handshake()
             } else {
                 Self::address_secret()
@@ -407,15 +372,15 @@ where
     assert_constant(delivery.mode.inner);
 
     let onchain_mode = delivery.onchain_mode();
-    let deliver_as_offchain_message = delivery.mode.is_offchain();
-    let is_constrained = delivery.mode.is_constrained();
+    let deliver_as_offchain_message = delivery.mode == DeliveryMode::offchain();
+    let is_constrained = delivery.mode == DeliveryMode::onchain_constrained();
 
     let tag_secret_derivation = delivery.tag_secret_derivation;
     assert_constant(tag_secret_derivation.inner);
 
     if deliver_as_offchain_message {
         std::static_assert(
-            tag_secret_derivation.is_wallet_default(),
+            tag_secret_derivation == TagSecretDerivation::wallet_default(),
             "offchain delivery does not use tag secret derivation",
         );
     } else {
@@ -425,13 +390,13 @@ where
         if is_constrained {
             // Constrained tagging derives the tag from a handshake-registry secret and emits a chain nullifier.
             std::static_assert(
-                resolved_tag_secret_derivation.is_non_interactive_handshake(),
+                resolved_tag_secret_derivation == TagSecretDerivation::non_interactive_handshake(),
                 "constrained delivery requires non-interactive handshake tag derivation",
             );
         } else {
             // Unconstrained handshake-origin delivery is not yet implemented; see F-698.
             std::static_assert(
-                resolved_tag_secret_derivation.is_address_secret(),
+                resolved_tag_secret_derivation == TagSecretDerivation::address_secret(),
                 "unconstrained handshake delivery not yet implemented (F-698)",
             );
         }
@@ -689,10 +654,12 @@ mod test {
                 == DeliveryMode::onchain_unconstrained(),
         );
         assert(
-            MessageDelivery::onchain_constrained().build_message_delivery().onchain_mode().unwrap().is_constrained(),
+            MessageDelivery::onchain_constrained().build_message_delivery().onchain_mode().unwrap()
+                == OnchainDeliveryMode::onchain_constrained(),
         );
         assert(
-            !MessageDelivery::onchain_unconstrained().build_message_delivery().onchain_mode().unwrap().is_constrained(),
+            MessageDelivery::onchain_unconstrained().build_message_delivery().onchain_mode().unwrap()
+                == OnchainDeliveryMode::onchain_unconstrained(),
         );
     }
 }
