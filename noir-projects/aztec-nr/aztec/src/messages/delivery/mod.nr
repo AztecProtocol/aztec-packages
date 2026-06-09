@@ -51,11 +51,11 @@ impl DeliveryMode {
     }
 
     fn onchain_unconstrained() -> Self {
-        Self { inner: ONCHAIN_UNCONSTRAINED }
+        OnchainDeliveryMode::onchain_unconstrained().into()
     }
 
     fn onchain_constrained() -> Self {
-        Self { inner: ONCHAIN_CONSTRAINED }
+        OnchainDeliveryMode::onchain_constrained().into()
     }
 
     fn is_offchain(self) -> bool {
@@ -141,6 +141,12 @@ impl Eq for OnchainDeliveryMode {
 impl ToField for OnchainDeliveryMode {
     fn to_field(self) -> Field {
         self.inner as Field
+    }
+}
+
+impl From<OnchainDeliveryMode> for DeliveryMode {
+    fn from(mode: OnchainDeliveryMode) -> DeliveryMode {
+        DeliveryMode { inner: mode.inner }
     }
 }
 
