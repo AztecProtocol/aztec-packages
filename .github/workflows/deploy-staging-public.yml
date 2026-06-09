@@ -1,4 +1,4 @@
-name: Deploy to staging
+name: Deploy to staging public
 
 on:
   schedule:
@@ -16,7 +16,7 @@ on:
         default: false
 
 concurrency:
-  group: deploy-staging
+  group: deploy-staging-public
   cancel-in-progress: true
 
 env:
@@ -52,11 +52,6 @@ jobs:
             echo "Using today's nightly tag: $TAG"
           fi
 
-          if [[ ! "$TAG" =~ ^v5\.0\.0($|-.*) ]]; then
-            echo "Error: Staging deploys require a v5.0.0 tag or prerelease, got '$TAG'"
-            exit 1
-          fi
-
           SEMVER="${TAG#v}"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "semver=$SEMVER" >> $GITHUB_OUTPUT
@@ -84,9 +79,8 @@ jobs:
     if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     uses: ./.github/workflows/deploy-network.yml
     with:
-      network: staging
+      network: staging-public
       semver: ${{ needs.determine-tag.outputs.semver }}
-      use_internal_docker_registry: true
       source_tag: ${{ needs.determine-tag.outputs.tag }}
       deploy_contracts: ${{ inputs.deploy_contracts == true }}
     secrets: inherit

@@ -255,6 +255,7 @@ jobs:
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          INTERNAL_DOCKER_REGISTRY: ${{ secrets.INTERNAL_DOCKER_REGISTRY }}
           CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
           CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
           RUN_ID: ${{ github.run_id }}
@@ -270,7 +271,16 @@ jobs:
             tag="${tag#v}"
             major_version=$(./ci3/semver major "$tag")
             namespace="v${major_version}-scenario"
-            docker_image="aztecprotocol/aztec:${tag}"
+            case "$GITHUB_REPOSITORY" in
+              AztecProtocol/aztec-packages-private)
+                image_registry="${INTERNAL_DOCKER_REGISTRY%/}"
+                echo "::add-mask::${image_registry}"
+                ;;
+              *)
+                image_registry="aztecprotocol"
+                ;;
+            esac
+            docker_image="${image_registry}/aztec:${tag}"
           else
             # branch name
             namespace=pr-$(echo "$HEAD_REF" | sed 's/[^a-z0-9-]/-/g' | cut -c1-20 | sed 's/-*$//')
