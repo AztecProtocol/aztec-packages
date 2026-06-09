@@ -2,7 +2,7 @@ import { BLOBS_PER_CHECKPOINT, FIELDS_PER_BLOB, MAX_PROCESSABLE_DA_GAS_PER_CHECK
 import type { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { sum } from '@aztec/foundation/collection';
 
-import { MAX_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
+import { MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT } from '../deserialization/index.js';
 import type { Checkpoint } from './checkpoint.js';
 
 export class CheckpointValidationError extends Error {
@@ -32,9 +32,15 @@ export function validateCheckpoint(
     maxDABlockGas?: number;
     maxTxsPerCheckpoint?: number;
     maxTxsPerBlock?: number;
+    /**
+     * Max blocks per checkpoint. Defaults to {@link MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT}; the L1-sync
+     * ingest path passes `MAX_CAPACITY_BLOCKS_PER_CHECKPOINT` to tolerate larger checkpoints already
+     * accepted by L1.
+     */
+    maxBlocksPerCheckpoint?: number;
   },
 ): void {
-  validateCheckpointStructure(checkpoint);
+  validateCheckpointStructure(checkpoint, { maxBlocksPerCheckpoint: opts.maxBlocksPerCheckpoint });
   validateCheckpointLimits(checkpoint, opts);
   validateCheckpointBlocksLimits(checkpoint, opts);
 }
@@ -42,7 +48,7 @@ export function validateCheckpoint(
 /**
  * Validates structural integrity of a checkpoint.
  * - Non-empty block list
- * - Block count within MAX_BLOCKS_PER_CHECKPOINT
+ * - Block count within `maxBlocksPerCheckpoint` (default {@link MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT})
  * - Checkpoint slot matches the first block's slot
  * - Checkpoint lastArchiveRoot matches the first block's lastArchive root
  * - Sequential block numbers without gaps
@@ -51,16 +57,20 @@ export function validateCheckpoint(
  * - Consistent slot number across all blocks
  * - Global variables (slot, timestamp, coinbase, feeRecipient, gasFees) match checkpoint header for each block
  */
-export function validateCheckpointStructure(checkpoint: Checkpoint): void {
+export function validateCheckpointStructure(
+  checkpoint: Checkpoint,
+  opts: { maxBlocksPerCheckpoint?: number } = {},
+): void {
+  const { maxBlocksPerCheckpoint = MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT } = opts;
   const { blocks, number, slot } = checkpoint;
 
   if (blocks.length === 0) {
     throw new CheckpointValidationError('Checkpoint has no blocks', number, slot);
   }
 
-  if (blocks.length > MAX_BLOCKS_PER_CHECKPOINT) {
+  if (blocks.length > maxBlocksPerCheckpoint) {
     throw new CheckpointValidationError(
-      `Checkpoint has ${blocks.length} blocks, exceeding limit of ${MAX_BLOCKS_PER_CHECKPOINT}`,
+      `Checkpoint has ${blocks.length} blocks, exceeding limit of ${maxBlocksPerCheckpoint}`,
       number,
       slot,
     );

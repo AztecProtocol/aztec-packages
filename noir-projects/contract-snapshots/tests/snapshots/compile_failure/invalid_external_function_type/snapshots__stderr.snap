@@ -12,6 +12,6 @@ error: Function 'invalid_external_function_type' is marked as #[external("invali
     1: ?
             at src/main.nr:7:5
     2: external
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:359:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 Aborting due to 1 previous error

@@ -59,10 +59,10 @@ fn rlp_encode_to_sink<S: BytesSink>(slot: StorageSlot, start_nibble_idx: u32, tr
         let end_byte_idx = start_byte_idx + ((key_length - 1) as u32);
 
         runtime_loop!(
-            quote {i},
-            quote {start_byte_idx},
-            quote {end_byte_idx},
-            quote {trie_key.len()},
+            quote { i },
+            quote { start_byte_idx },
+            quote { end_byte_idx },
+            quote { trie_key.len() },
             quote {
                 sink.add_byte(trie_key[i]);
             },
@@ -86,10 +86,10 @@ fn rlp_encode_to_sink<S: BytesSink>(slot: StorageSlot, start_nibble_idx: u32, tr
         sink.add_byte(0x80 + slot.value_length);
 
         runtime_loop!(
-            quote {i},
-            quote {0},
-            quote {(slot.value_length as u32)},
-            quote {32},
+            quote { i },
+            quote { 0 },
+            quote { (slot.value_length as u32) },
+            quote { 32 },
             quote {
                 sink.add_byte(slot.value[i]);
             },

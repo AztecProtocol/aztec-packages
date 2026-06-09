@@ -12,6 +12,6 @@ error: The #[authorize_once] attribute can only be applied to #[external("privat
     1: ?
             at src/main.nr:14:5
     2: authorize_once
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:320:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/functions/mod.nr:<line>:<col>
 
 Aborting due to 1 previous error

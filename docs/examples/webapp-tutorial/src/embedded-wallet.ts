@@ -1,17 +1,18 @@
 // docs:start:embedded-wallet-imports
-import { type NoFrom, NO_FROM } from '@aztec/aztec.js/account';
-import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
-import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
-import { Fr } from '@aztec/aztec.js/fields';
-import { SPONSORED_FPC_SALT } from '@aztec/constants';
-import { AccountFeePaymentMethodOptions } from '@aztec/entrypoints/account';
-import type { FieldsOf } from '@aztec/foundation/types';
-import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
-import type { ContractArtifact } from '@aztec/stdlib/abi';
-import { GasSettings } from '@aztec/stdlib/gas';
-import { type FeeOptions } from '@aztec/wallet-sdk/base-wallet';
-import { EmbeddedWallet as BaseEmbeddedWallet } from '@aztec/wallets/embedded';
+import { NO_FROM } from "@aztec/aztec.js/account";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
+import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
+import { Fr } from "@aztec/aztec.js/fields";
+import { SPONSORED_FPC_SALT } from "@aztec/constants";
+import { AccountFeePaymentMethodOptions } from "@aztec/entrypoints/account";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing/lazy";
+import type { ContractArtifact } from "@aztec/stdlib/abi";
+import {
+  type CompleteFeeOptionsConfig,
+  type FeeOptions,
+} from "@aztec/wallet-sdk/base-wallet";
+import { EmbeddedWallet as BaseEmbeddedWallet } from "@aztec/wallets/embedded";
 // docs:end:embedded-wallet-imports
 
 // docs:start:embedded-wallet-class
@@ -35,35 +36,24 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
    * don't need to hold fee tokens.
    */
   override async completeFeeOptions(
-    from: AztecAddress | NoFrom,
-    feePayer?: AztecAddress,
-    gasSettings?: Partial<FieldsOf<GasSettings>>,
+    config: CompleteFeeOptionsConfig,
   ): Promise<FeeOptions> {
-    const maxFeesPerGas =
-      gasSettings?.maxFeesPerGas ??
-      (await this.aztecNode.getCurrentMinFees()).mul(1 + this.minFeePadding);
+    const feeOptions = await super.completeFeeOptions(config);
 
-    let walletFeePaymentMethod;
-    let accountFeePaymentMethodOptions;
-
-    if (!feePayer) {
-      const fpc = await EmbeddedWallet.#getSponsoredFPCContract();
-      walletFeePaymentMethod = new SponsoredFeePaymentMethod(
-        fpc.instance.address,
-      );
-      if (from !== NO_FROM) {
-        accountFeePaymentMethodOptions = AccountFeePaymentMethodOptions.EXTERNAL;
-      }
-    } else if (from !== NO_FROM) {
-      accountFeePaymentMethodOptions = from.equals(feePayer)
-        ? AccountFeePaymentMethodOptions.FEE_JUICE_WITH_CLAIM
-        : AccountFeePaymentMethodOptions.EXTERNAL;
+    if (config.feePayer) {
+      return feeOptions;
     }
 
+    const fpc = await EmbeddedWallet.#getSponsoredFPCContract();
     return {
-      gasSettings: GasSettings.default({ ...gasSettings, maxFeesPerGas }),
-      walletFeePaymentMethod,
-      accountFeePaymentMethodOptions,
+      ...feeOptions,
+      walletFeePaymentMethod: new SponsoredFeePaymentMethod(
+        fpc.instance.address,
+      ),
+      accountFeePaymentMethodOptions:
+        config.from !== NO_FROM
+          ? AccountFeePaymentMethodOptions.EXTERNAL
+          : feeOptions.accountFeePaymentMethodOptions,
     };
   }
   // docs:end:fee-options
@@ -75,7 +65,7 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
    */
   static async initialize(nodeUrl: string) {
     const isLocal =
-      nodeUrl.includes('localhost') || nodeUrl.includes('127.0.0.1');
+      nodeUrl.includes("localhost") || nodeUrl.includes("127.0.0.1");
     const wallet = await EmbeddedWallet.create(nodeUrl, {
       ephemeral: true,
       pxeConfig: { proverEnabled: !isLocal },
@@ -90,9 +80,8 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
   // docs:end:initialize
 
   static async #getSponsoredFPCContract() {
-    const { SponsoredFPCContractArtifact } = await import(
-      '@aztec/noir-contracts.js/SponsoredFPC'
-    );
+    const { SponsoredFPCContractArtifact } =
+      await import("@aztec/noir-contracts.js/SponsoredFPC");
     const instance = await getContractInstanceFromInstantiationParams(
       SponsoredFPCContractArtifact,
       { salt: new Fr(SPONSORED_FPC_SALT) },

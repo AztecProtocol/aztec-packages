@@ -30,24 +30,29 @@ pub contract HandshakeRegistry {
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
         messages::{
+            delivery::{MessageDelivery, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
             encryption::{aes128::AES128, message_encryption::MessageEncryption},
-            message_delivery::{MessageDelivery, ONCHAIN_CONSTRAINED, ONCHAIN_UNCONSTRAINED},
         },
         protocol::{
             address::AztecAddress,
             constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
             hash::compute_log_tag,
             point::EmbeddedCurvePoint,
-            traits::{Deserialize, Serialize, ToField},
+            traits::{Deserialize, Packable, Serialize, ToField},
         },
         state_vars::{Map, Owned, PrivateMutable},
     };
 
+    /// A handshake discovered during sync: the sender's ephemeral public key and the delivery mode.
+    #[derive(Deserialize, Eq, Packable, Serialize)]
+    pub struct DiscoveredHandshake {
+        pub eph_pk: EmbeddedCurvePoint,
+        pub mode: u8,
+    }
+
     #[derive(Deserialize, Serialize)]
     pub struct HandshakePage {
-        /// Sender ephemeral public keys. The recipient derives each shared
-        /// secret via `recipient_isk * eph_pk`.
-        pub items: BoundedVec<EmbeddedCurvePoint, MAX_HANDSHAKES_PER_PAGE>,
+        pub items: BoundedVec<DiscoveredHandshake, MAX_HANDSHAKES_PER_PAGE>,
         pub total_count: u32,
     }
 
@@ -68,10 +73,11 @@ pub contract HandshakeRegistry {
     /// `S = eph_sk * recipient_address_point`, and produces three effects:
     ///
     /// 1. Inserts or replaces a [`HandshakeNote`] owned by `sender` for `mode`, holding the raw point `S`.
-    /// 2. Emits an encrypted private log under a recipient-keyed tag with payload `[eph_pk.x]`. The recipient
-    ///    discovers handshakes addressed to them by scanning their tag and recovers `S` from `eph_pk` via their own
-    ///    ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
-    ///    [`generate_positive_ephemeral_key_pair`] convention, so only `eph_pk.x` is transmitted.
+    /// 2. Emits an encrypted private log under a recipient-keyed tag with payload `[eph_pk.x, mode]`. The
+    ///    recipient discovers handshakes addressed to them by scanning their tag and recovers `S` from `eph_pk`
+    ///    via their own ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
+    ///    [`generate_positive_ephemeral_key_pair`] convention, so only `eph_pk.x` is transmitted. The mode is
+    ///    included so the recipient knows which delivery domain to search for tagged logs.
     /// 3. Returns the app-siloed shared secret for `msg_sender()`, allowing the caller to fold "handshake + first
     ///    tag" into one call without a second hop into the registry.
     ///
@@ -105,7 +111,11 @@ pub contract HandshakeRegistry {
             DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         );
 
-        let ciphertext = AES128::encrypt([eph_pk.x], recipient, self.context.this_address());
+        let ciphertext = AES128::encrypt(
+            [eph_pk.x, mode as Field],
+            recipient,
+            self.context.this_address(),
+        );
         self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array(ciphertext));
 
         note.siloed_for(self.msg_sender())
